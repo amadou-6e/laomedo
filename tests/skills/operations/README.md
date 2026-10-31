@@ -5,6 +5,11 @@ edits, conflicts, authorization, immutable history, comparisons and HTTP admissi
 `test_graph.py` protects scheduling and error propagation with internal stubs;
 it does not establish real-agent or browser acceptance.
 
+`test_models.py` protects the existing operation payload's round trip, strict
+file validation and editor provenance codes. `SkillProposalModelTests` names
+that concern; its `test_*` methods assert these contracts directly against the
+canonical production models without repeating their implementation.
+
 `SkillOperationCase` in `models.py` names one isolated test scenario. Its fields
 retain the source root, initial revision, store, service, policy and operation.
 `prepare(revision=None, commit="")` delegates reservation to that case's service,
