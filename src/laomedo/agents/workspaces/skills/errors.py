@@ -1,4 +1,4 @@
-"""Error types for skills / workspace."""
+"""Agent working-state preparation and skill-integrity refusals."""
 
 from __future__ import annotations
 

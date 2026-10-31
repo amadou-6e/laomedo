@@ -45,11 +45,11 @@ from laomedo.agents.workspaces.workspace import AgentWorkspace
 from laomedo.agents.workspaces.models import WorkspacePaths
 from laomedo.host.mediation.errors import MediationError
 from laomedo.skills.registry.store import SkillStore
-from laomedo.skills.workspace.errors import WorkspaceSkillError
-from laomedo.skills.workspace.utils import initialize
-from laomedo.skills.workspace.utils import install
-from laomedo.skills.workspace.utils import remove_owned_tree
-from laomedo.skills.workspace.utils import verify
+from laomedo.agents.workspaces.skills.errors import WorkspaceSkillError
+from laomedo.agents.workspaces.baseline import initialize
+from laomedo.agents.workspaces.skills.utils import install
+from laomedo.agents.workspaces.cleanup import remove_owned_tree
+from laomedo.agents.workspaces.skills.utils import verify
 
 
 class BaseAgent(ABC):

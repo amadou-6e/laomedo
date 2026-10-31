@@ -10,6 +10,11 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def producer_paths(filename):
+    if "/" in filename:
+        path = ROOT / "src/laomedo" / filename
+        if not path.is_file():
+            raise AssertionError("Missing defining error producer: " + filename)
+        return [path]
     module = "laomedo." + Path(filename).stem
     mapping = json.loads((ROOT / "tools/migrations/module-paths.json").read_text())
     symbols = json.loads((ROOT / "tools/migrations/symbol-paths.json").read_text())
@@ -106,7 +111,9 @@ class NodeErrorCatalogueTests(unittest.TestCase):
         paths = (
             "agents/workspaces/workspace.py",
             "agents/workspaces/utils.py",
-            "skills/workspace/utils.py",
+            "agents/workspaces/baseline.py",
+            "agents/workspaces/cleanup.py",
+            "agents/workspaces/skills/utils.py",
             "git/worktree.py",
             "host/mediation/agent_cli.py",
         )
@@ -395,7 +402,9 @@ class NodeErrorCatalogueTests(unittest.TestCase):
         producers = {
             "local_runner.py": {"_prepare", "_materialize"},
             "opencode_runner.py": {"_verify_pinned_skills"},
-            "workspace_skills.py": {"verify", "install", "_exclude"},
+            "agents/workspaces/baseline.py": {"initialize"},
+            "agents/workspaces/cleanup.py": {"remove_owned_tree"},
+            "agents/workspaces/skills/utils.py": {"verify", "install", "_exclude"},
         }
         missing = []
         for filename, names in producers.items():

@@ -10,7 +10,7 @@ from unittest.mock import patch
 from laomedo.agents.agents.codex.agent import CodexAgent as LocalRunner
 from laomedo.agents.errors import RunnerError
 from laomedo.skills.registry.store import SkillStore
-from laomedo.skills.workspace.utils import remove_owned_tree
+from laomedo.agents.workspaces.cleanup import remove_owned_tree
 from test_local_runner import FakeServer
 
 
@@ -194,10 +194,10 @@ class WorkspaceSkillGitTests(unittest.TestCase):
         record = runner._prepare(self.request())
         with (
             patch(
-                "laomedo.skills.workspace.utils.is_link",
+                "laomedo.agents.workspaces.skills.utils.is_link",
                 side_effect=lambda path: path.name == ".agents",
             ),
-            patch("laomedo.skills.workspace.utils.inventory") as read,
+            patch("laomedo.agents.workspaces.skills.utils.inventory") as read,
             patch.object(runner, "_open_server") as server,
             patch("laomedo.agents.agents.base.agent.inventory") as baseline_read,
         ):
@@ -224,7 +224,7 @@ class WorkspaceSkillGitTests(unittest.TestCase):
         runner = self.runner()
         with (
             patch(
-                "laomedo.skills.workspace.utils.GitCommandRunner.run",
+                "laomedo.agents.workspaces.baseline.GitCommandRunner.run",
                 side_effect=FileNotFoundError,
             ),
             patch.object(runner, "_open_server") as server,
@@ -241,7 +241,7 @@ class WorkspaceSkillGitTests(unittest.TestCase):
         record = runner._prepare(self.request())
         with (
             patch(
-                "laomedo.skills.workspace.utils.is_link",
+                "laomedo.agents.workspaces.skills.utils.is_link",
                 side_effect=lambda path: path.name == ".git",
             ),
             patch.object(runner, "_open_server") as server,

@@ -285,12 +285,11 @@
   "laomedo.skills.sources.handler": "laomedo.skills.interface.sources.handler",
   "laomedo.skills.sources.server": "laomedo.skills.interface.sources.server",
   "laomedo.skills.sources.transport": "laomedo.http.redirect",
-  "laomedo.skills.workspace_skills": "laomedo.skills.workspace.utils",
+  "laomedo.skills.workspace.errors": "laomedo.agents.workspaces.skills.errors",
   "laomedo.startup_control": "laomedo.host.runner.startup",
   "laomedo.verified_git_stage": "laomedo.host.publication.verified.git",
   "laomedo.verified_stage": "laomedo.host.publication.verified.utils",
   "laomedo.work_graph.constants": "laomedo.work_graph.settings",
   "laomedo.work_graph.model": "laomedo.work_graph.models",
-  "laomedo.workflow_run_store": "laomedo.work_graph.runs.store",
-  "laomedo.workspace_skills": "laomedo.skills.workspace.utils"
+  "laomedo.workflow_run_store": "laomedo.work_graph.runs.store"
 }

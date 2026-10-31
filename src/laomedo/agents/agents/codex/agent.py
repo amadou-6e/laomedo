@@ -46,7 +46,7 @@ from laomedo.host.leases.client import LeaseClient
 from laomedo.host.leases.models import ContainerIdentity
 from laomedo.host.leases.utils import cleanup_exact
 from laomedo.host.mediation.authority import RunGrantAuthority
-from laomedo.skills.workspace.utils import verify
+from laomedo.agents.workspaces.skills.utils import verify
 import re
 import shutil
 import threading

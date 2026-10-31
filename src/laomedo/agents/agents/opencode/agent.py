@@ -18,7 +18,7 @@ from laomedo.agents.workspaces.utils import _hash_tree
 from laomedo.agents.agents.base.utils import _id
 from laomedo.agents.agents.base.utils import _json
 from laomedo.skills.registry.errors import SkillStoreError
-from laomedo.skills.workspace.utils import verify
+from laomedo.agents.workspaces.skills.utils import verify
 import re
 import shutil
 import threading
