@@ -46,7 +46,8 @@ def node(path, identifier, values, x, y):
         for item in ast.parse(code).body
         if isinstance(item, ast.ClassDef)
         and any(
-            isinstance(base, ast.Name) and base.id == "Component" for base in item.bases
+            isinstance(base, ast.Name) and base.id in {"Component", "AgentComponent"}
+            for base in item.bases
         )
     )
     for name, value in values.items():
