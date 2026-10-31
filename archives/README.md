@@ -10,3 +10,8 @@ describe their original checkout. They are not supported setup commands here.
 Use the maintained Skill walkthrough on the production branch for current setup.
 
 Archive publication does not rerun or accept the recorded model campaign.
+
+`experiments/exp08/` retains the original exact-byte Skill delivery campaign.
+Its byte-preserved source/evidence and provenance remain historical. Current
+production assertions live under `tests/skills/workspace`; they do not import
+this archive or run an Agent. Other experiment families are deferred.

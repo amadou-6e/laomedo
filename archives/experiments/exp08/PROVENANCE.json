@@ -1,0 +1,28 @@
+{
+  "source_revision": "74928a2b868bc3efa5438687227ed6fa94b340d8",
+  "scope": "Skill byte delivery and workspace cleanliness; Agent/GitHub experiment migrations deferred",
+  "historical_execution_not_rerun": true,
+  "production_replacement": "tests/skills/workspace/test_materialization.py",
+  "files": [
+    {
+      "source_path": "experiments/exp08/README.md",
+      "archive_path": "archives/experiments/exp08/README.md",
+      "sha256": "3387548aac875d7fbea5c2836edf66b4b7128d6e68db2986d875aa2d953c482c"
+    },
+    {
+      "source_path": "experiments/exp08/observation.json",
+      "archive_path": "archives/experiments/exp08/observation.json",
+      "sha256": "8aca9dffc785a1e9b5145e1210e3a2d3c0dabeffdf091fc80f316ff25b17bc00"
+    },
+    {
+      "source_path": "experiments/exp08/probe.py",
+      "archive_path": "archives/experiments/exp08/probe.py",
+      "sha256": "8088ec7a0e6ab2ff0505b341ede557a3676268524e07f1811642384f0dcc7dab"
+    },
+    {
+      "source_path": "experiments/exp08/test_probe.py",
+      "archive_path": "archives/experiments/exp08/test_probe.py",
+      "sha256": "dff0a4fab8a16e8ec1ae4b14601a66eab767d2b7146ff6c89e428fc7b957a510"
+    }
+  ]
+}
