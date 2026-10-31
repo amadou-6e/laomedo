@@ -1,4 +1,5 @@
 from pathlib import Path
+from contextlib import ExitStack
 from unittest.mock import patch
 import json
 import os
@@ -32,6 +33,35 @@ class SkillSourceTests(unittest.TestCase):
         self.resolver = SkillSources(
             self.root / "registry", self.root / "cache", [self.source]
         )
+
+    def test_cache_size_tolerates_a_lock_removed_during_scan(self):
+        retained = self.resolver.state / "retained.bin"
+        transient = self.resolver.state / "config.lock"
+        retained.write_bytes(b"abc")
+        transient.write_bytes(b"temporary")
+        original_stat = Path.stat
+
+        def remove_before_stat(path, *args, **kwargs):
+            if path == transient:
+                transient.unlink()
+            return original_stat(path, *args, **kwargs)
+
+        with (
+            patch.object(Path, "rglob", return_value=iter([transient, retained])),
+            patch.object(Path, "stat", remove_before_stat),
+        ):
+            self.assertEqual(self.resolver._cache_bytes(), 3)
+        self.assertFalse(transient.exists())
+
+    def test_cache_size_does_not_hide_unreadable_files(self):
+        retained = self.resolver.state / "retained.bin"
+        retained.write_bytes(b"abc")
+        with (
+            patch.object(Path, "rglob", return_value=iter([retained])),
+            patch.object(Path, "stat", side_effect=PermissionError("unreadable")),
+            self.assertRaises(PermissionError),
+        ):
+            self.resolver._cache_bytes()
 
     def test_local_discovery_import_and_immutable_history(self):
         result = self.resolver.discover(self.source.as_uri())
@@ -158,10 +188,11 @@ class SkillSourceTests(unittest.TestCase):
 
     def test_authenticated_client_and_fixed_error_boundary(self):
         token = "fixture-token-" + "x" * 32
-        service = server(self.resolver, token, port=0)
-        running = RunningHTTPServer(service)
-        running.__enter__()
-        self.addCleanup(running.__exit__)
+        resources = ExitStack()
+        self.addCleanup(resources.close)
+        service = resources.enter_context(
+            RunningHTTPServer(server(self.resolver, token, port=0))
+        )
         base = f"http://127.0.0.1:{service.server_address[1]}"
         request = urllib.request.Request(
             base + "/v1/skill-sources/discover",

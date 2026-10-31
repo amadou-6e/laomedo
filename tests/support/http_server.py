@@ -21,9 +21,11 @@ class RunningHTTPServer:
     def __exit__(self, *_):
         """Close the socket and join the owned thread, or report incomplete cleanup."""
         try:
-            self.server.shutdown()
+            if self.thread.ident is not None:
+                self.server.shutdown()
         finally:
             self.server.server_close()
-            self.thread.join(timeout=3)
+            if self.thread.ident is not None:
+                self.thread.join(timeout=3)
         if self.thread.is_alive():
             raise RuntimeError("Owned HTTP server thread did not stop")

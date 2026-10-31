@@ -1,4 +1,5 @@
 import copy
+from contextlib import ExitStack
 import json
 from pathlib import Path
 import tempfile
@@ -178,10 +179,11 @@ class SkillOperationTests(unittest.TestCase):
             self.case.service.history("internal-test", result["skill"]["revision_id"])
 
     def test_http_auth_and_exact_shape(self):
-        service = server(self.case.service, "x" * 32, port=0)
-        running = RunningHTTPServer(service)
-        running.__enter__()
-        self.addCleanup(running.__exit__)
+        resources = ExitStack()
+        self.addCleanup(resources.close)
+        service = resources.enter_context(
+            RunningHTTPServer(server(self.case.service, "x" * 32, port=0))
+        )
         url = (
             "http://127.0.0.1:"
             + str(service.server_port)

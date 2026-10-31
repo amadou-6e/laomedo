@@ -13,3 +13,6 @@ through. `make_operation_case(root)` creates fresh source/registry/history files
 under the caller-owned temporary root and returns the grouped case. Cleanup is
 owned by each test's temporary directory. Policies and proposal dictionaries stay
 raw so invalid payload controls exercise the production boundary unchanged.
+Pydantic copies their outer dictionaries during construction; changing a case's
+policy does not implicitly replace the service's policy. Tests explicitly assign
+the service policy when exercising a policy change.

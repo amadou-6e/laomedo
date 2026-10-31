@@ -4,7 +4,6 @@ from support.paths import repository_root
 from shared.migration.utils import load_migration
 
 import ast
-import importlib.util
 import json
 from pathlib import Path
 import subprocess

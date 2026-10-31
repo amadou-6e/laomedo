@@ -21,6 +21,7 @@ import laomedo.skills.sources.utils as _sources_utils
 import os
 import re
 import signal
+from stat import S_ISREG
 import subprocess
 import tempfile
 import threading
@@ -167,14 +168,7 @@ class SkillSources:
                 while process.poll() is None:
                     if output.tell() > limit or time.monotonic() > deadline:
                         raise _sources_errors.SourceError("repository_limit_exceeded")
-                    if (
-                        sum(
-                            p.stat().st_size
-                            for p in self.state.rglob("*")
-                            if p.is_file()
-                        )
-                        > 128 * 1024 * 1024
-                    ):
+                    if self._cache_bytes() > 128 * 1024 * 1024:
                         raise _sources_errors.SourceError("repository_limit_exceeded")
                     time.sleep(0.05)
                 output.seek(0)
@@ -195,6 +189,22 @@ class SkillSources:
                     if process.poll() is None:
                         process.kill()
                 process.wait()
+
+    def _cache_bytes(self):
+        """Count observed regular-file bytes while Git may remove temporary locks.
+
+        A vanished entry contributes no bytes. Other inspection failures propagate
+        so an unreadable cache cannot silently bypass the existing size bound.
+        """
+        total = 0
+        for path in self.state.rglob("*"):
+            try:
+                observed = path.stat()
+            except FileNotFoundError:
+                continue
+            if S_ISREG(observed.st_mode):
+                total += observed.st_size
+        return total
 
     def _repository(self, source, refresh=False):
         folder = self.state / hashlib.sha256(source.encode()).hexdigest()
