@@ -1,6 +1,7 @@
 # Shared and Skills merge-readiness audit
 
-Audit date: 2026-10-31. Implementation source: `0a26c60fdcb703cf81ab77a7fad21d2f74749f18`.
+Audit date: 2026-10-31. Initial cleanup source: `0a26c60fdcb703cf81ab77a7fad21d2f74749f18`.
+Final substantive reviewed source: `6331fc3fa7ec151e2958c967e4635954f15b2ded`.
 Develop baseline: `5ffab075bbab50e195a3c8a375a83dff55a70fea`.
 Tracking: [issue #237](https://github.com/amadou-6e/laomedo/issues/237).
 
@@ -50,23 +51,27 @@ by cache cleanup.
 
 | Check | Result and scope |
 | --- | --- |
-| Project-wide Black | Pass: 781 files unchanged at the source above |
+| Project-wide Black | Pass: 781 files unchanged at the initial cleanup source |
 | Full Windows internal suite | 1,322 tests in 629.391s; one removed-package assertion failed because of a cache-only retired directory; 18 skipped |
 | Affected checks after cache cleanup | Pass: 84 tests in 53.303s, including the exact failed assertion, migration, HTTP, catalogue, architecture and native Windows process controls |
 | Separate Langflow controls | All 22 test modules pass in isolated processes; aggregate discovery's root/graph module-name collision is a harness constraint |
-| GitHub CI at the source above | [Work Graph](https://github.com/amadou-6e/laomedo/actions/runs/41197088273) and [Black](https://github.com/amadou-6e/laomedo/actions/runs/41197088246) pass; package tests cover Python 3.10/3.13 |
+| GitHub CI at the initial cleanup source | [Work Graph](https://github.com/amadou-6e/laomedo/actions/runs/41197088273) and [Black](https://github.com/amadou-6e/laomedo/actions/runs/41197088246) pass; package tests cover Python 3.10/3.13 |
 | Initial local wheel | Build/import smoke succeeds, but subsequent file audit rejects artifact `761a076f408a0848af6de82145625d6e773ecadf25d8068026db481c609484df`: 470 Python files instead of 340, including 130 retired modules from stale `build/lib`. This artifact is invalid |
-| Installed-artifact regression | Guard checks every installed file against current source, all Python modules and Python content; source-checkout runs explicitly skip this artifact-only test. Clean rebuild verification is required |
+| Installed-artifact regression | Guard checks presence of every installed file in current source, plus the complete Python module set and Python content; source-checkout runs explicitly skip this artifact-only test. It does not generally check all resource contents or detect all missing resources |
 | Clean local wheel | 340 Python modules match the 340 current source modules, with no retired/missing modules or cache members. All seven installed-package tests pass outside the source checkout in 21.791s. Artifact SHA-256 `519844aa0be43ce5f1133b4379e3d3b4cbf8315a6314003c9860fa2ab3eef51d` |
+| Clean wheel resources | Separate actual-wheel audit derives the nine expected resources from `tool.setuptools.package-data`. All nine are present, with no extra resources and exact current source bytes; this check does not extend the permanent regression guard |
 | Real local source | Actual refactoring skill discovered, pinned and inspected; owned scratch removed and original bytes unchanged |
 | Real HTTPS sources | Public `anthropics/skills` clones; full discovery reaches the 60-second operation budget and returns `repository_limit_exceeded`. Credential-free `amadou-6e/my-skills` returns `repository_access_unavailable`; its cause is not established |
 | Real viewer | Five fresh read-only stories pass: genuine edited revision/history, both edited files, and each file's parent-to-current comparison. Zero graph runs, model requests or Skill/graph writes; all eleven observed Node/Edge processes exited |
 
 The viewer uses the retained `ca3f1e9` build, not a newly installed cleanup build.
-All sixty Shared/Skills Python and packaged authoring files match current Git
-source after universal-newline source decoding; Python ASTs match. Wheel and
-installed bytes match exactly. One working source file differs in LF/CRLF
-representation. This is source equivalence, never registry-byte normalization.
+At the initial `0a26c60` cleanup, all sixty Shared/Skills Python and packaged
+authoring files match Git source after universal-newline source decoding; Python
+ASTs match. Wheel and installed bytes match exactly. One working source file
+differs in LF/CRLF representation. Later changes through `6331fc3` alter source
+docstrings and remove eight unused imports; an explicit 25-file comparison
+confirms executable AST equality after those named exclusions. This does not
+claim later source-byte identity. Source decoding never normalizes registry bytes.
 Viewer/frontend/Skill component Git sources are unchanged. The earlier real
 Agent edit is historical; this audit freshly viewed its real retained result.
 
@@ -79,6 +84,33 @@ This recovered harness failure is not product acceptance.
 The existing real preview was also inventoried separately: all 349 installed
 package files match the 349 members of its pinned `ca3f1e9` wheel, with no extra
 or missing files. The contaminated local build was not installed into that app.
+
+## Final review and checks
+
+The same read-only Claude reviewer conversation approved the full cleanup
+`3ed8a69..04e3b1d`, then approved the new installed-artifact/security-policy delta
+`04e3b1d..6331fc3`. Its combined code and specification/documentation verdict is
+APPROVE for `3ed8a69..6331fc3`. The earlier visual verdict covers the five actual
+viewer images from the retained `ca3f1e9` app. Neither verdict accepts an
+independent module slice, deployment, new graph execution or owner approval.
+
+At `6331fc3`, all eight hosted push/PR check runs pass, including
+[Work Graph](https://github.com/amadou-6e/laomedo/actions/runs/41202078758)
+and [Black](https://github.com/amadou-6e/laomedo/actions/runs/41202078747).
+The final local Black check reports 781 files unchanged. After the source cleanup,
+101 focused tests pass with three skips; the final package/security-policy source
+checks pass fifteen tests with one explicit installed-artifact source skip.
+The clean wheel was built at `1eabb3b`; its entire `src/laomedo` Git tree matches
+`6331fc3`. The actual installed-wheel check runs without skips in its seven-test
+outside-checkout run. This does not turn the earlier full Windows run green.
+
+Reviewer coverage limits are retained: it did not inspect CI job logs, all
+earlier evidence files or byte-check that source-tree equality. Its resource
+coverage findings are nonblocking limitations of the regression guard; the
+separate nine-resource audit establishes this artifact's contents only. Future
+editable-install jobs could skip that guard, and untracked Python files in a
+local source tree can cause a conservative mismatch. Existing CI uses a fresh
+checkout and installed wheel outside the checkout.
 
 ## Independent merge boundary
 
@@ -98,6 +130,9 @@ against their actual develop bases; integrated-candidate CI does not prove them.
 
 - A caller-complete, independently tested develop-based Shared preparation slice.
 - A caller-complete Skills slice with its relevant specification/review coverage.
+- Correct shared feedback-error wording for Skills. [Issue #239](https://github.com/amadou-6e/laomedo/issues/239)
+  records the source-confirmed PR-only explanation shown by `pr_agent_loop_invalid`;
+  this audit does not fix it or claim a fresh live UI reproduction.
 - Merged specification coverage for Claude Skill feedback. The committed Skill
   operations contract still names Codex; [specs PR #391](https://github.com/amadou-6e/specs/pull/391)
   remains open and unmerged. This audit does not treat it as merged coverage.
