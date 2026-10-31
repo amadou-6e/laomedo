@@ -1,7 +1,7 @@
 """Explicit import-only adaptation of byte-pinned probes for internal controls.
 
 This helper installs no import hook and never invokes a probe's main function.
-The six named legacy modules remain original files; live use requires an explicit
+The named archived probe modules remain original files; live use requires an explicit
 migrated copy. These internal imports are not live integration evidence.
 """
 
@@ -18,14 +18,14 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def load_retained_github(name, *, manifest="retained-github-callers.json"):
-    if manifest not in {"retained-github-callers.json", "retained-http-callers.json"}:
-        raise ValueError("Retained probe inventory not admitted")
     """Load one manifest-allowlisted probe after a hash-checked import-only rewrite.
 
     Only the named retained dependency edges are loaded recursively. Exact
     module names are registered so existing fixture monkeypatches stay attached
     to that selected copy. No finder, facade or broad migration is installed.
     """
+    if manifest not in {"retained-github-callers.json", "retained-http-callers.json"}:
+        raise ValueError("Retained probe inventory not admitted")
     manifest = json.loads(Path(ROOT, "tools/migrations", manifest).read_text())
     records = {
         item["path"].removesuffix(".py").replace("/", "."): item

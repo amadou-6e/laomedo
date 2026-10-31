@@ -11,7 +11,7 @@ does not promote canonical latest or publish Git commits.
 | Concern | Defining owner | Vocabulary |
 | --- | --- | --- |
 | Authorization, replay, staging and journal effects | `service.py` | `SkillOperations`; one atomic owner, not separate Store/Ledger facades |
-| Candidate edits | `models.py` | `FileEdit`, `SkillProposal`; admit paths/content and project the existing proposal payload |
+| Candidate edits | `models.py` | `FileEdit`, `SkillProposal`; admit paths/content and project the proposal payload |
 | Execution provenance | `models.py` | `EditorProvenance`, `ImportedSkillEditor`; evidence supplied by the trusted boundary, not model-granted authority |
 | History and receipts | `models.py` | `SkillCommit`, `SkillCommitReceipt`, `SkillOperationResult`; preserve record and response shapes |
 | Historical comparison | `models.py` | `SkillFileChange`, `SkillComparison`; changed file metadata and exact patch presentation data |
@@ -21,7 +21,7 @@ does not promote canonical latest or publish Git commits.
 
 | Method | Responsibility and effects |
 | --- | --- |
-| `connect()` | Open the local journal with the existing SQLite connection policy. |
+| `connect()` | Open the local journal with its SQLite connection policy. |
 | `prepare(skill_id, revision_id, commit_id='')` | Check editing policy and selected base, seed initial imported history when needed, and reserve a short-lived request ticket. |
 | `apply(ticket, operation, editor=None)` | Validate authority/base/policy, stage the entire file batch and atomically record the resulting immutable revision/history or reject the batch. Preserve replay and conflict behavior. |
 | `history(skill_id, revision_id, before='')` | Verify the selected bytes and return a bounded parent-chain page without patch bodies. |
@@ -31,7 +31,7 @@ does not promote canonical latest or publish Git commits.
 ## Canonical record interfaces
 
 SkillProposal.from_payload/to_payload and EditorProvenance.from_payload/to_payload
-own existing dictionary boundaries and validation. FileEdit validates path/content;
+own dictionary boundaries and validation. FileEdit validates path/content;
 SkillProposal validates unique paths; EditorProvenance validates provenance.
 SkillCommit.to_record, SkillCommitReceipt.to_payload, SkillOperationResult.to_payload
 and SkillComparison.to_payload retain outward shapes. SkillOperationResult's

@@ -4,7 +4,7 @@ The four loopback APIs define their request handlers in
 `handler.py` modules beside their servers. Server instances own the domain service
 and private bearer token; handlers use `self.server` rather than captured closure
 state. Routes, CLI paths, exact body fields, body limits, response encodings,
-status codes and effect-outcome classification remain unchanged.
+status codes and effect-outcome classification are protocol contracts.
 
 | Owner | Handler | Request cap | HTTP-boundary failure policy |
 | --- | --- | --- | --- |

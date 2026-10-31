@@ -10,14 +10,14 @@ workspace installation remain with their callers.
 | Concern | Defining module | Vocabulary |
 | --- | --- | --- |
 | Filesystem lifecycle | `store.py` | `SkillStore` owns registry roots, immutable revisions, drafts and promotion |
-| New record construction | `models.py` | Existing Pydantic references, revision, draft and frozen review records |
+| New record construction | `models.py` | Pydantic references, revision, draft and frozen review records |
 | Name and relative-path admission | `paths.py` | `validate_name`, `validate_relative_path` |
 | Filesystem reads and record replacement | `files.py` | `is_link`, `inventory`, `read_json`, `write_json` |
 | Byte identities | `hashing.py` | `hash_bytes`, `canonical_json`, `tree_hash`, `file_hashes` |
 | Editing policy | `policy.py` | `validate_policy`, `validate_draft` |
 | Exact review patch | `diff.py` | `patch_for` |
 | Failure domain | `errors.py` | `SkillStoreError`, `ConflictError`; stable code, arguments and inheritance |
-| Fixed identity syntax | `settings.py` | Existing `NAME` and `HASH` patterns |
+| Fixed identity syntax | `settings.py` | `NAME` and `HASH` patterns |
 
 Use Store for the object that owns persistence, Reference for an identity binding,
 Revision for immutable content metadata, Draft for an open edit and Result for
@@ -36,18 +36,21 @@ None of these helpers depends on source services, Agents or an app framework.
 | `SkillStore` | `revision`, `read_file` | Verify and read immutable metadata or one admitted file |
 | `SkillStore` | `create_draft`, `draft_workspace` | Reserve an independent editable copy and locate it |
 | `SkillStore` | `freeze_draft` | Observe bytes, policy results, provenance and patch; no promotion |
-| `SkillStore` | `promote_draft` | Explicit compare-and-swap promotion under existing locks |
+| `SkillStore` | `promote_draft` | Explicit compare-and-swap promotion under exclusive locks |
 | `SkillReference` | `to_reference_payload` | Project the public skill/revision/tree identity only |
-| `SkillRevision`, `SkillDraft` | `to_record` | Preserve existing on-disk keys, order, nulls and empty values |
-| `FrozenSkillDraft` | `from_review`, `to_record` | Derive one coherent review result and its existing record projection |
+| `SkillRevision`, `SkillDraft` | `to_record` | Serialize on-disk keys, order, nulls and empty values |
+| `FrozenSkillDraft` | `from_review`, `to_record` | Derive one coherent review result and its record projection |
 | `SkillPolicyReference`, `SkillRevisionReference`, `SkillTreeReference`, `SkillValidationResult` | No public behavior beyond canonical Pydantic construction | Group admitted identity or observed validation values without introducing a second domain model |
 
-Private store methods retain their existing responsibilities: `_skill`, `_draft`,
+Private store methods own path and transaction mechanics: `_skill`, `_draft`,
 `_workspace`, `_revision_dir` locate admitted paths; `_store_revision` copies and
-verifies bytes; `_finish_promotion` completes the existing promotion transaction.
-Strict models construct new writes. Historical readers keep their existing
-integrity checks and tolerate historical shapes; they do not validate old files
-against new-write models. A policy reference identifies policy, not authority.
+verifies bytes; `_finish_promotion` completes the promotion transaction.
+Strict models construct new writes. Record readers check integrity and tolerate historical extension fields;
+they do not impose new-write models on persisted records. A policy reference identifies policy, not authority.
+
+`SkillOperations` uses the store's package-internal directory and staging methods
+within its authorized transaction. These helpers support collaboration inside
+Skills; application adapters use the public registry and operations interfaces.
 
 ## Exact byte behavior and saved consumers
 
@@ -60,7 +63,7 @@ bytes. Canonical policy JSON retains sorted keys, compact separators, default
 ASCII escaping and every admitted extra field. Policy validation stays manual:
 no coercion of booleans, integer limits or historical dictionaries is introduced.
 Hashing and patch generation preserve LF/CRLF and missing-final-newline differences;
-only the existing frontmatter validation view normalizes CRLF. JSON record writes
+only the frontmatter validation view normalizes CRLF. JSON record writes
 retain unique pending names, indent/sort behavior, final LF and `os.replace`;
 this is atomic replacement without an fsync durability guarantee. Inventory
 rejects links/reparse points, hard links, special files and empty directories;
