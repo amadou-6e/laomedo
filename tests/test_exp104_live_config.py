@@ -1,5 +1,10 @@
 """No-network checks of the one-shot EXP-104 probe configuration."""
 
+from retained_shared import load_retained_shared
+
+load_retained_shared("experiments.exp104.live_probe")
+
+
 import unittest
 from unittest import mock
 import importlib.util
@@ -15,9 +20,7 @@ import tempfile
 _PROBE = (
     Path(__file__).resolve().parents[1] / "experiments" / "exp104" / "live_probe.py"
 )
-_SPEC = importlib.util.spec_from_file_location("exp104_live_probe_config", _PROBE)
-live_probe = importlib.util.module_from_spec(_SPEC)
-_SPEC.loader.exec_module(live_probe)
+live_probe = load_retained_shared("experiments.exp104.live_probe")
 
 
 class LiveProbeConfigurationTests(unittest.TestCase):
@@ -118,36 +121,15 @@ class LiveProbeConfigurationTests(unittest.TestCase):
         finally:
             live_probe.IDENTITY = saved
 
-    def test_dry_run_uses_selected_helper_without_persisting_git_output(self):
-        seen = []
-
-        def fake_run(args, **kwargs):
-            seen.append(
-                {
-                    "args": args,
-                    "selected_token_present": kwargs["env"].get(
-                        "LAOMEDO_MEDIATED_GIT_TOKEN"
-                    )
-                    == "secret",
-                    "environment": kwargs["env"],
-                }
+    def test_retired_dry_run_preflight_refuses_before_provider_contact(self):
+        with self.assertRaisesRegex(RuntimeError, "Historical experiment"):
+            live_probe._dry_run_preflight(
+                "internal-control-canary",
+                Path("unused-checkout"),
+                "a" * 40,
+                "exp104-test-branch",
+                run=lambda *_a, **_k: self.fail("provider called"),
             )
-            return subprocess.CompletedProcess(
-                args, 1, b"[remote rejected] secret", b"secret"
-            )
-
-        result = live_probe._dry_run_preflight(
-            "secret",
-            Path("synthetic-checkout"),
-            "a" * 40,
-            "exp104-s4-20261007-01-a",
-            run=fake_run,
-        )
-        self.assertEqual(result, {"exit_code": 1, "category": "remote_rejected"})
-        self.assertIn("--dry-run", seen[0]["args"])
-        self.assertNotIn("secret", " ".join(seen[0]["args"]))
-        self.assertTrue(seen[0]["selected_token_present"])
-        self.assertNotIn("LAOMEDO_MEDIATED_GIT_TOKEN", seen[0]["environment"])
 
     def test_failure_observation_allowlists_private_push_diagnostic(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -1,5 +1,16 @@
 """Development-only paired checker/provider tests. Never runs the one-shot probe."""
 
+from retained_shared import load_retained_shared
+from unittest.mock import patch
+from laomedo.git.command import GitCommandRunner
+from laomedo.git.models import GitCommand, GitExecutionContext
+
+load_retained_shared("experiments.exp100.probe_paired")
+from experiments.exp104 import probe_active_delivery
+
+load_retained_shared("experiments.exp104.probe_active_delivery")
+
+
 from copy import deepcopy
 import json
 import shutil
@@ -21,6 +32,20 @@ from pathlib import Path
 
 
 class PairedProbeTests(unittest.TestCase):
+    def setUp(self):
+        # Preserve refusal in the historical live probe. This suite exercises
+        # its local fixture journal with an explicit credential-free environment.
+        home = tempfile.TemporaryDirectory(prefix="paired-control-home-")
+        self.addCleanup(home.cleanup)
+        environment = GitCommandRunner().environment(
+            GitCommand(arguments=[], context=GitExecutionContext()), Path(home.name)
+        )
+        binding = patch.object(
+            probe_active_delivery, "_base_git_environment", return_value=environment
+        )
+        binding.start()
+        self.addCleanup(binding.stop)
+
     def test_committed_original_observation_and_actual_negative_controls(self):
         source = (
             Path(__file__).resolve().parents[1]

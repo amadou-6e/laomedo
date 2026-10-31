@@ -1,5 +1,11 @@
 """Credential-free prospective S13 controls; no model or live capture."""
 
+from retained_shared import load_retained_shared
+
+load_retained_shared("experiments.exp104.native_localrunner_probe")
+load_retained_shared("experiments.exp104.native_localrunner_worker")
+
+
 from copy import deepcopy
 from hashlib import sha256
 import json

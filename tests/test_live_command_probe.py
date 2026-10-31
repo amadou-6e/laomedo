@@ -1,5 +1,10 @@
 """Synthetic development checks only; never invoke the live capture."""
 
+from retained_shared import load_retained_shared
+
+load_retained_shared("experiments.exp100.probe_live")
+
+
 from copy import deepcopy
 import json
 from pathlib import Path

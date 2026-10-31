@@ -1,5 +1,23 @@
 # Package layout and migration
 
+## Shared host mechanics
+
+[Git](../../src/laomedo/git/README.md) owns host process execution, isolated
+environments, repository and working-tree mechanics. Feature owners retain
+admission, credential selection, authorization, refs and error translation.
+[HTTP](../../src/laomedo/http/README.md) owns neutral redirect refusal. Credential
+handlers keep their distinct errors; self-contained components retain their
+standard-library copies. Source discovery's separate read-budget process path is
+owned by Skills and is outside the shared workspace/transport Git profiles.
+
+GitHubGitTransport, VerifiedGitStage and stage_verified_git accept a
+GitCommandRunner through `runner=`. Their previous subprocess-shaped `run=`
+callbacks and removed procedural Git helpers require explicit manual migration;
+there is no compatibility adapter. The [offline migration tools](../../tools/migrations/README.md)
+document supported rewrites and refusals. Install a fresh wheel and run package
+checks outside the checkout; discard generated `build/` before rebuilding after
+module removals, because stale build output can retain deleted Python files.
+
 Install with `python -m pip install -e .`, or install the wheel. Python 3.10
 remains the minimum. Import and launch canonical domain modules directly.
 Normal Codex host runners additionally require `python -m pip install -e '.[runner]'`

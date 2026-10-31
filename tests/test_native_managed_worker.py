@@ -1,5 +1,10 @@
 """No-process/no-container fixture worker checks, not campaign evidence."""
 
+from retained_shared import load_retained_shared
+
+load_retained_shared("experiments.exp104.native_managed_worker")
+
+
 import json
 from pathlib import Path
 from types import SimpleNamespace
@@ -45,6 +50,7 @@ class NativeManagedWorkerTests(unittest.TestCase):
         child.poll.return_value = 0
         with (
             patch.object(worker, "LeaseClient", return_value=lease) as registered,
+            patch.object(worker, "_base_git_environment", return_value={}),
             patch.object(worker, "command", return_value=["not-executed"]),
             patch.object(worker.subprocess, "Popen", return_value=child),
             patch.object(worker, "inspect_exact", return_value=("owned", "d" * 64)),

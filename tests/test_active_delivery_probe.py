@@ -1,3 +1,7 @@
+from retained_shared import load_retained_shared
+
+load_retained_shared("experiments.exp104.probe_active_delivery")
+
 import importlib.util
 import json
 from pathlib import Path
@@ -9,9 +13,7 @@ from urllib.request import Request
 path = (
     Path(__file__).resolve().parents[1] / "experiments/exp104/probe_active_delivery.py"
 )
-spec = importlib.util.spec_from_file_location("active_delivery_probe", path)
-probe = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(probe)
+probe = load_retained_shared("experiments.exp104.probe_active_delivery")
 
 
 class FakeConnectorTests(unittest.TestCase):

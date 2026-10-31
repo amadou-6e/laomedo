@@ -1,5 +1,12 @@
 """Unexecuted live-controller preflight controls; no HTTP request or process."""
 
+from retained_shared import load_retained_shared
+from laomedo.git.command import GitCommandRunner
+from laomedo.git.models import GitCommand, GitExecutionContext
+
+load_retained_shared("experiments.exp104.native_managed_probe")
+
+
 from unittest.mock import patch
 from pathlib import Path
 from types import SimpleNamespace
@@ -10,6 +17,18 @@ from experiments.exp104 import native_managed_probe as probe
 
 
 class NativeManagedProbeTests(unittest.TestCase):
+    def setUp(self):
+        # Historical live entrypoints remain refused. Explicitly bind only this
+        # credential-free control's environment to the reviewed public API.
+        home = tempfile.TemporaryDirectory(prefix="managed-probe-control-home-")
+        self.addCleanup(home.cleanup)
+        environment = GitCommandRunner().environment(
+            GitCommand(arguments=[], context=GitExecutionContext()), Path(home.name)
+        )
+        binding = patch.object(probe, "_base_git_environment", return_value=environment)
+        binding.start()
+        self.addCleanup(binding.stop)
+
     def test_owned_local_clone_origin_is_replaced_but_other_origin_refused(self):
         with tempfile.TemporaryDirectory(
             prefix="laomedo-managed-clone-test-"

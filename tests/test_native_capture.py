@@ -1,5 +1,10 @@
 """Mutation controls of capture assessment, not campaign execution/evidence."""
 
+from retained_shared import load_retained_shared
+
+load_retained_shared("experiments.exp100.probe_native_capture")
+
+
 import copy
 import hashlib
 import importlib.util
@@ -8,11 +13,7 @@ from pathlib import Path
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-spec = importlib.util.spec_from_file_location(
-    "native_capture", ROOT / "experiments/exp100/probe_native_capture.py"
-)
-capture = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(capture)
+capture = load_retained_shared("experiments.exp100.probe_native_capture")
 
 
 class NativeCaptureChecks(unittest.TestCase):

@@ -1,0 +1,83 @@
+{
+  "source_revision": "bde33231c3eb97cc23c891451892b0ca7671951a",
+  "policy": "Original post-format source bytes remain unchanged. Explicit internal control copies rewrite only removed imports, replacing retired process helpers with a refusal. Native/main entrypoints are unsupported until manually migrated and revalidated. This is not current live evidence or a runtime facade.",
+  "files": [
+    {
+      "module": "experiments.exp100.probe_live",
+      "path": "experiments/exp100/probe_live.py",
+      "sha256": "20175fe7c50d18f033bad8ad535981f51d54453f3367ae1b4e434848fdf59fa0",
+      "dependencies": []
+    },
+    {
+      "module": "experiments.exp100.probe_native_capture",
+      "path": "experiments/exp100/probe_native_capture.py",
+      "sha256": "e947482147ecfaf0ec2375818d752b844635e718ce0becefc5bbc369116223fb",
+      "dependencies": [
+        "experiments.exp104.probe_active_delivery"
+      ]
+    },
+    {
+      "module": "experiments.exp100.probe_paired",
+      "path": "experiments/exp100/probe_paired.py",
+      "sha256": "b4b0120edc7e2d6cd1a80e472864c05f82dbaa21acf42c5225838006a2ac57c3",
+      "dependencies": [
+        "experiments.exp104.probe_active_delivery"
+      ]
+    },
+    {
+      "module": "experiments.exp104.live_probe",
+      "path": "experiments/exp104/live_probe.py",
+      "sha256": "36e9a23a9636c539a5a2e9ba70bf871f1f38cfde486472a30881ec5c22c653fa",
+      "dependencies": []
+    },
+    {
+      "module": "experiments.exp104.native_localrunner_probe",
+      "path": "experiments/exp104/native_localrunner_probe.py",
+      "sha256": "6f8694af395fb63c574e0602cc9fa6a5cc44730fc86eae0cb3ca6802385d8f90",
+      "dependencies": [
+        "experiments.exp104.native_localrunner_worker"
+      ]
+    },
+    {
+      "module": "experiments.exp104.native_localrunner_worker",
+      "path": "experiments/exp104/native_localrunner_worker.py",
+      "sha256": "822c1a0e538361068530bfcb6ac5b688bb9fadcea0241810766310c5eabea753",
+      "dependencies": []
+    },
+    {
+      "module": "experiments.exp104.native_managed_probe",
+      "path": "experiments/exp104/native_managed_probe.py",
+      "sha256": "646f221d9fd6be9588f52b91593cfa2abef1875da4664c47020e3b64db7e7217",
+      "dependencies": [
+        "experiments.exp104.native_managed_worker"
+      ]
+    },
+    {
+      "module": "experiments.exp104.native_managed_worker",
+      "path": "experiments/exp104/native_managed_worker.py",
+      "sha256": "418aff208b78aa1681356abad39c6525d815ed939dfc17f8d024b08cc3f63b85",
+      "dependencies": []
+    },
+    {
+      "module": "experiments.exp104.probe_active_delivery",
+      "path": "experiments/exp104/probe_active_delivery.py",
+      "sha256": "fc5d43466cd43e701adde9f7b8b079f8b70ae7b1a5b774830d98cae5db6574fc",
+      "dependencies": []
+    },
+    {
+      "module": "experiments.exp104.probe_verifier_crash",
+      "path": "experiments/exp104/probe_verifier_crash.py",
+      "sha256": "4cba22b0c9a8901aa0fcd218430e041dd3d57dfd2cf85de005b0add433c02bee",
+      "dependencies": []
+    },
+    {
+      "module": "experiments.exp93.real_stage_probe",
+      "path": "experiments/exp93/real_stage_probe.py",
+      "sha256": "0043a9ef767d4b0c480aef01e7f736388ee551f3754212bcdf4be3f4aaae3e85",
+      "dependencies": [
+        "experiments.exp104.native_localrunner_probe",
+        "experiments.exp104.probe_active_delivery"
+      ]
+    }
+  ]
+}
