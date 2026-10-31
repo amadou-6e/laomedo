@@ -11,7 +11,9 @@ from pathlib import Path
 import secrets
 import tempfile
 
-from laomedo.agents.providers.codex.servers import AppServer; from laomedo.agents.providers.codex.settings import VOLUME; from laomedo.agents.providers.codex.utils import _docker_prefix
+from laomedo.agents.providers.codex.servers import AppServer
+from laomedo.agents.providers.codex.settings import VOLUME
+from laomedo.agents.providers.codex.utils import _docker_prefix
 
 
 def probe():
@@ -27,43 +29,61 @@ def probe():
         index = prefix.index(mount)
         if index == 0 or prefix[index - 1] != "--mount":
             raise RuntimeError("unexpected_login_volume_mount_shape")
-        del prefix[index - 1:index + 1]
+        del prefix[index - 1 : index + 1]
         image_index = prefix.index("--workdir")
         prefix[image_index:image_index] = [
-            "--tmpfs", "/home/runner/.codex:rw,uid=10001,gid=10001,mode=0700",
-            "--env", "ACCESS_TOKEN=" + canary,
+            "--tmpfs",
+            "/home/runner/.codex:rw,uid=10001,gid=10001,mode=0700",
+            "--env",
+            "ACCESS_TOKEN=" + canary,
         ]
         server = AppServer(["docker", *prefix], root)
         try:
-            response = server.request("initialize", {"clientInfo": {
-                "name": "laomedo_107_probe", "title": "Laomedo 107 Probe",
-                "version": "0.1.0"}}, timeout=30)
+            response = server.request(
+                "initialize",
+                {
+                    "clientInfo": {
+                        "name": "laomedo_107_probe",
+                        "title": "Laomedo 107 Probe",
+                        "version": "0.1.0",
+                    }
+                },
+                timeout=30,
+            )
             if "result" not in response:
                 raise RuntimeError("initialize_rejected")
             server.notify("initialized", {})
             checks = {
                 "tool_environment": 'test -n "${ACCESS_TOKEN+x}"',
-                "controller_proc":
-                    "tr '\\000' '\\n' </proc/1/environ | grep -q '^ACCESS_TOKEN='",
-                "tool_proc":
-                    "tr '\\000' '\\n' </proc/self/environ | grep -q '^ACCESS_TOKEN='",
+                "controller_proc": "tr '\\000' '\\n' </proc/1/environ | grep -q '^ACCESS_TOKEN='",
+                "tool_proc": "tr '\\000' '\\n' </proc/self/environ | grep -q '^ACCESS_TOKEN='",
             }
             observations = {}
             for name, command in checks.items():
-                reply = server.request("command/exec", {
-                    "command": ["sh", "-c", command], "cwd": "/draft",
-                    "timeoutMs": 15000}, timeout=25)
+                reply = server.request(
+                    "command/exec",
+                    {
+                        "command": ["sh", "-c", command],
+                        "cwd": "/draft",
+                        "timeoutMs": 15000,
+                    },
+                    timeout=25,
+                )
                 exit_code = (reply.get("result") or {}).get("exitCode")
                 observations[name] = {
                     "readable": exit_code == 0,
                     "exit_code": exit_code,
                 }
-            return {"schema_version": 1, "model_turns": 0,
-                    "used_real_login_volume": False,
-                    "controller_env_credential_route_safe": all(
-                        not item["readable"] and item["exit_code"] is not None
-                        for item in observations.values()),
-                    "observations": observations}
+            return {
+                "schema_version": 1,
+                "model_turns": 0,
+                "used_real_login_volume": False,
+                "controller_env_credential_route_safe": all(
+                    not item["readable"] and item["exit_code"] is not None
+                    for item in observations.values()
+                ),
+                "observations": observations,
+            }
         finally:
             server.close()
 

@@ -8,8 +8,11 @@ from pathlib import Path
 def inspect_turn_policy(home: Path, turn_id: str) -> dict:
     home = home.resolve(strict=True)
     for path in home.rglob("*.jsonl"):
-        if (path.is_symlink() or getattr(path, "is_junction", lambda: False)()
-                or not path.resolve().is_relative_to(home)):
+        if (
+            path.is_symlink()
+            or getattr(path, "is_junction", lambda: False)()
+            or not path.resolve().is_relative_to(home)
+        ):
             continue
         with path.open(encoding="utf-8", errors="replace") as handle:
             for line in handle:
@@ -18,19 +21,26 @@ def inspect_turn_policy(home: Path, turn_id: str) -> dict:
                 except json.JSONDecodeError:
                     continue
                 payload = record.get("payload") or {}
-                if (record.get("type") != "turn_context" or
-                        payload.get("turn_id") != turn_id):
+                if (
+                    record.get("type") != "turn_context"
+                    or payload.get("turn_id") != turn_id
+                ):
                     continue
                 policy = payload.get("sandbox_policy")
                 return {
                     "found": True,
-                    "sandbox_policy_type": (policy.get("type") if isinstance(policy, dict)
-                                            else type(policy).__name__),
+                    "sandbox_policy_type": (
+                        policy.get("type")
+                        if isinstance(policy, dict)
+                        else type(policy).__name__
+                    ),
                     "approval_policy": payload.get("approval_policy"),
-                    "context_field_names": sorted(key for key in payload
-                                                  if key in ("sandbox_policy",
-                                                             "approval_policy",
-                                                             "model", "effort")),
+                    "context_field_names": sorted(
+                        key
+                        for key in payload
+                        if key
+                        in ("sandbox_policy", "approval_policy", "model", "effort")
+                    ),
                 }
     return {"found": False}
 

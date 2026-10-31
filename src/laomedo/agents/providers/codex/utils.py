@@ -13,7 +13,6 @@ import laomedo.host.leases.settings as _leases_settings
 import subprocess
 
 
-
 def _native_error_summary(events: list[dict], turn_id: str) -> dict:
     """Project app-server error events to a closed, nontextual diagnostic schema."""
     counts = {}
@@ -497,5 +496,3 @@ def _advertised_models(server):
             raise _runtime_errors.RunnerError("model_list_invalid_cursor")
         seen.add(cursor)
     raise _runtime_errors.RunnerError("model_list_page_limit")
-
-

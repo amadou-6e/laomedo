@@ -1,4 +1,5 @@
 """Two-turn live graph acceptance. Explicit approval flag, no retries or auth copy."""
+
 import argparse
 import asyncio
 import json
@@ -30,9 +31,15 @@ async def main():
             fields["runner_url"]["value"] = args.runner_url
             fields["timeout_seconds"]["value"] = 240
     # Private full graph results stay in the caller-selected private scratch path.
-    result = await Graph.from_payload(flow).arun(inputs=[{"input_value":
-        "Your only task is to provide instructions for another agent. Return exactly this sentence "
-        "and nothing else: Reply with exactly LAOMEDO_CHAIN_28_COMPLETE."}], types=["chat"])
+    result = await Graph.from_payload(flow).arun(
+        inputs=[
+            {
+                "input_value": "Your only task is to provide instructions for another agent. Return exactly this sentence "
+                "and nothing else: Reply with exactly LAOMEDO_CHAIN_28_COMPLETE."
+            }
+        ],
+        types=["chat"],
+    )
     output.write_text(str(result), encoding="utf-8")
     if "LAOMEDO_CHAIN_28_COMPLETE" not in str(result):
         raise RuntimeError("chain_marker_missing")

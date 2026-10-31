@@ -7,7 +7,6 @@ import json
 from pathlib import Path
 import re
 
-
 ITEM_ID = re.compile(r"^(?:ctc_|ctco_)[A-Za-z0-9_-]{12,100}$")
 CALL_ID = re.compile(r"^call_[A-Za-z0-9_-]{12,100}$")
 SESSION_ID = re.compile(r"^[0-9a-f-]{36}$")
@@ -24,7 +23,11 @@ def sample(text: str, max_pairs: int = 2) -> dict:
         payload = record.get("payload", {})
         if not isinstance(payload, dict):
             continue
-        if record.get("type") == "session_meta" and isinstance(payload.get("id"), str) and SESSION_ID.fullmatch(payload["id"]):
+        if (
+            record.get("type") == "session_meta"
+            and isinstance(payload.get("id"), str)
+            and SESSION_ID.fullmatch(payload["id"])
+        ):
             session_id = payload["id"]
         if record.get("type") != "response_item":
             continue
@@ -39,7 +42,9 @@ def sample(text: str, max_pairs: int = 2) -> dict:
             continue
         entry = {"item_type": item_type, "item_id": item_id, "call_id": call_id}
         (calls if item_type == "custom_tool_call" else results)[call_id] = entry
-    pairs = [{"call": calls[key], "result": results[key]} for key in calls if key in results][:max_pairs]
+    pairs = [
+        {"call": calls[key], "result": results[key]} for key in calls if key in results
+    ][:max_pairs]
     return {
         "source": "codex_rollout_response_item",
         "redaction": "whitelist_only_ids_and_types_no_content",

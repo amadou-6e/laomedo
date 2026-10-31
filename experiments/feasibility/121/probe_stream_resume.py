@@ -37,11 +37,16 @@ LISTED_MARKER = "LISTED-121-RAN"
 UNLISTED_MARKER = "UNLISTED-121-RAN"
 
 
-async def collect_query(prompt, options, summary, label, marker=None,
-                        timeout_s=180, ledger=None):
+async def collect_query(
+    prompt, options, summary, label, marker=None, timeout_s=180, ledger=None
+):
     """One-shot query() with a wall-clock deadline. Returns collected events."""
-    from claude_agent_sdk._errors import CLIConnectionError; from claude_agent_sdk._errors import CLINotFoundError; from claude_agent_sdk._errors import ProcessError; from claude_agent_sdk._errors import ResultError
-    from _shared import collect_events; from _shared import count_attempted_turn
+    from claude_agent_sdk._errors import CLIConnectionError
+    from claude_agent_sdk._errors import CLINotFoundError
+    from claude_agent_sdk._errors import ProcessError
+    from claude_agent_sdk._errors import ResultError
+    from _shared import collect_events
+    from _shared import count_attempted_turn
 
     messages = []
     outcome = {}
@@ -80,22 +85,30 @@ async def collect_query(prompt, options, summary, label, marker=None,
     summary[label] = {**outcome, **collected}
     result = collected.get("result") or {}
     summary[label]["budget"] = ledger.settle(
-        reservation, result.get("total_cost_usd"),
-        outcome.get("outcome") or result.get("subtype") or "unknown")
+        reservation,
+        result.get("total_cost_usd"),
+        outcome.get("outcome") or result.get("subtype") or "unknown",
+    )
     return summary[label]
 
 
 async def _query(prompt, options):
     from claude_agent_sdk import query
+
     async for message in query(prompt=prompt, options=options):
         yield message
 
 
 async def run_interrupt(project, private_home, config_dir, state, summary, ledger):
     """Start a long turn, interrupt it, and drain to its ResultMessage."""
-    from claude_agent_sdk import ClaudeAgentOptions; from claude_agent_sdk import ClaudeSDKClient; from claude_agent_sdk import ResultMessage
-    from claude_agent_sdk._errors import CLIConnectionError; from claude_agent_sdk._errors import CLINotFoundError
-    from _shared import collect_events; from _shared import count_attempted_turn; from _shared import options_env
+    from claude_agent_sdk import ClaudeAgentOptions
+    from claude_agent_sdk import ClaudeSDKClient
+    from claude_agent_sdk import ResultMessage
+    from claude_agent_sdk._errors import CLIConnectionError
+    from claude_agent_sdk._errors import CLINotFoundError
+    from _shared import collect_events
+    from _shared import count_attempted_turn
+    from _shared import options_env
 
     options = ClaudeAgentOptions(
         cwd=str(project),
@@ -109,8 +122,10 @@ async def run_interrupt(project, private_home, config_dir, state, summary, ledge
     try:
         reservation = ledger.reserve(options.max_budget_usd)
     except (OSError, ValueError) as exc:
-        summary["cancellation"] = {"outcome": "budget_blocked",
-                                   "reason": type(exc).__name__}
+        summary["cancellation"] = {
+            "outcome": "budget_blocked",
+            "reason": type(exc).__name__,
+        }
         return
     count_attempted_turn(summary)
     outcome = {}
@@ -118,7 +133,8 @@ async def run_interrupt(project, private_home, config_dir, state, summary, ledge
     try:
         async with ClaudeSDKClient(options=options) as client:
             await asyncio.wait_for(
-                client.query("Run the command: sleep 60. Then reply done."), 30)
+                client.query("Run the command: sleep 60. Then reply done."), 30
+            )
             await asyncio.sleep(5)
             await asyncio.wait_for(client.interrupt(), 30)
 
@@ -130,8 +146,10 @@ async def run_interrupt(project, private_home, config_dir, state, summary, ledge
 
             await asyncio.wait_for(drain(), 90)
     except (CLINotFoundError, CLIConnectionError) as exc:
-        summary["cancellation"] = {"outcome": "cli_unavailable",
-                                   "error": type(exc).__name__}
+        summary["cancellation"] = {
+            "outcome": "cli_unavailable",
+            "error": type(exc).__name__,
+        }
     except asyncio.TimeoutError:
         summary["cancellation"] = {"outcome": "timeout"}
     except Exception as exc:
@@ -141,28 +159,50 @@ async def run_interrupt(project, private_home, config_dir, state, summary, ledge
     else:
         collected = collect_events(messages)
         result = collected.get("result") or {}
-        outcome.update({
-            "interrupt_observed": result.get("terminal_reason") in
-                                  ("aborted_streaming", "aborted_tools"),
-            "terminal_reason": result.get("terminal_reason"),
-            "subtype": result.get("subtype"),
-        })
+        outcome.update(
+            {
+                "interrupt_observed": result.get("terminal_reason")
+                in ("aborted_streaming", "aborted_tools"),
+                "terminal_reason": result.get("terminal_reason"),
+                "subtype": result.get("subtype"),
+            }
+        )
         summary["cancellation"] = {**outcome, **collected}
     result = (summary.get("cancellation") or {}).get("result") or {}
     summary["cancellation"]["budget"] = ledger.settle(
-        reservation, result.get("total_cost_usd"),
-        summary["cancellation"].get("outcome") or result.get("subtype") or "unknown")
+        reservation,
+        result.get("total_cost_usd"),
+        summary["cancellation"].get("outcome") or result.get("subtype") or "unknown",
+    )
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--state-dir", type=Path, required=True,
-                        help="new or empty private state dir outside any git tree")
-    parser.add_argument("--budget-dir", type=Path, required=True,
-                        help="existing private parent shared with the settings probe")
+    parser.add_argument(
+        "--state-dir",
+        type=Path,
+        required=True,
+        help="new or empty private state dir outside any git tree",
+    )
+    parser.add_argument(
+        "--budget-dir",
+        type=Path,
+        required=True,
+        help="existing private parent shared with the settings probe",
+    )
     args = parser.parse_args()
     sys.path.insert(0, str(Path(__file__).resolve().parent))
-    from _shared import BudgetLedger; from _shared import compare_personal_roots; from _shared import credential_gate; from _shared import fingerprint; from _shared import hash_personal_roots; from _shared import prepare_state_dir; from _shared import restore_workspace_snapshot; from _shared import runner_versions; from _shared import skill_attempt; from _shared import snapshot_workspace; from _shared import write_skill
+    from _shared import BudgetLedger
+    from _shared import compare_personal_roots
+    from _shared import credential_gate
+    from _shared import fingerprint
+    from _shared import hash_personal_roots
+    from _shared import prepare_state_dir
+    from _shared import restore_workspace_snapshot
+    from _shared import runner_versions
+    from _shared import skill_attempt
+    from _shared import snapshot_workspace
+    from _shared import write_skill
 
     state = args.state_dir.resolve()
     summary = dict(runner_versions())
@@ -175,8 +215,7 @@ def main():
     prepared = prepare_state_dir(state)
     summary["state_dir"] = prepared
     if prepared.get("refused"):
-        summary["credential_gate"] = {"permitted": False,
-                                      "reason": prepared["refused"]}
+        summary["credential_gate"] = {"permitted": False, "reason": prepared["refused"]}
         print(json.dumps(summary, indent=2))
         return
 
@@ -186,15 +225,22 @@ def main():
     for directory in (private_home, config_dir, project):
         directory.mkdir(parents=True, exist_ok=True)
     (project / "notes.txt").write_text(
-        f"The launch code is {MARKER}.\n", encoding="utf-8")
-    write_skill(project / ".claude" / "skills", PROJECT_SKILL,
-                "Synthetic streaming fixture for issue 121.",
-                f"When invoked, reply with exactly {LISTED_MARKER}.\n")
+        f"The launch code is {MARKER}.\n", encoding="utf-8"
+    )
+    write_skill(
+        project / ".claude" / "skills",
+        PROJECT_SKILL,
+        "Synthetic streaming fixture for issue 121.",
+        f"When invoked, reply with exactly {LISTED_MARKER}.\n",
+    )
     # An unlisted decoy for the refusal and dispatch tests. Its marker appears
     # only in the skill body, so the marker coming back means the body ran.
-    write_skill(project / ".claude" / "skills", UNLISTED_SKILL,
-                "Synthetic unlisted fixture for issue 121.",
-                f"When invoked, reply with exactly {UNLISTED_MARKER}.\n")
+    write_skill(
+        project / ".claude" / "skills",
+        UNLISTED_SKILL,
+        "Synthetic unlisted fixture for issue 121.",
+        f"When invoked, reply with exactly {UNLISTED_MARKER}.\n",
+    )
 
     gate = credential_gate(state, config_dir)
     summary["credential_gate"] = gate
@@ -222,14 +268,21 @@ def main():
             )
 
         # Run 1: streamed tool call and matching result, returning the marker.
-        run1 = asyncio.run(collect_query(
-            "Read the file notes.txt in the project directory, then reply with "
-            "exactly the launch code it contains.",
-            make_options(), summary, "run1_stream", marker=MARKER,
-            ledger=ledger))
+        run1 = asyncio.run(
+            collect_query(
+                "Read the file notes.txt in the project directory, then reply with "
+                "exactly the launch code it contains.",
+                make_options(),
+                summary,
+                "run1_stream",
+                marker=MARKER,
+                ledger=ledger,
+            )
+        )
         summary["workspace_hash_run1"] = fingerprint(project)
-        session_id = ((run1.get("result") or {}).get("session_id")
-                      or (run1.get("init") or {}).get("session_id"))
+        session_id = (run1.get("result") or {}).get("session_id") or (
+            run1.get("init") or {}
+        ).get("session_id")
         summary["run1_session_id"] = session_id
 
         if session_id and (run1.get("result") or {}).get("subtype") == "success":
@@ -241,12 +294,16 @@ def main():
             snapshot_hash = snapshot_workspace(state, project, snapshot)
             summary["post_run_snapshot_hash"] = snapshot_hash
             (project / "_probe_workspace_drift.txt").write_text(
-                "drift", encoding="utf-8")
+                "drift", encoding="utf-8"
+            )
             summary["workspace_drift_detected"] = fingerprint(project) != snapshot_hash
             try:
                 restore_workspace_snapshot(
-                    state, project, state / "workspace-snapshots" / "missing",
-                    snapshot_hash)
+                    state,
+                    project,
+                    state / "workspace-snapshots" / "missing",
+                    snapshot_hash,
+                )
             except FileNotFoundError:
                 summary["missing_snapshot_rejected"] = True
             else:
@@ -254,76 +311,116 @@ def main():
                 summary["resume_skipped"] = "missing_snapshot_was_accepted"
             if summary.get("missing_snapshot_rejected"):
                 summary["restored_workspace_hash"] = restore_workspace_snapshot(
-                    state, project, snapshot, snapshot_hash)
+                    state, project, snapshot, snapshot_hash
+                )
                 summary["restored_workspace_matches_snapshot"] = (
-                    fingerprint(project) == snapshot_hash)
+                    fingerprint(project) == snapshot_hash
+                )
             if not summary.get("restored_workspace_matches_snapshot"):
                 summary["resume_skipped"] = "workspace_restore_mismatch"
 
         if session_id and summary.get("restored_workspace_matches_snapshot"):
             # Run 2: resume in a fresh CLI process (a new query() process is
             # the runner restart) against the exact post-run workspace.
-            run2 = asyncio.run(collect_query(
-                "Without reading any file, reply with exactly the launch code "
-                "you read earlier.",
-                make_options(resume=session_id), summary, "run2_resume",
-                marker=MARKER, ledger=ledger))
-            summary["run2_session_id"] = ((run2.get("result") or {}).get("session_id")
-                                          or (run2.get("init") or {}).get("session_id"))
-            summary["resume_same_session"] = (summary["run2_session_id"] == session_id)
+            run2 = asyncio.run(
+                collect_query(
+                    "Without reading any file, reply with exactly the launch code "
+                    "you read earlier.",
+                    make_options(resume=session_id),
+                    summary,
+                    "run2_resume",
+                    marker=MARKER,
+                    ledger=ledger,
+                )
+            )
+            summary["run2_session_id"] = (run2.get("result") or {}).get(
+                "session_id"
+            ) or (run2.get("init") or {}).get("session_id")
+            summary["resume_same_session"] = summary["run2_session_id"] == session_id
             # Continuity counts only if the marker came back without a new
             # Read; a re-read would prove file access, not conversation memory.
             reread = "Read" in (run2.get("tool_call_names") or [])
             summary["run2_reread_file"] = reread
             summary["resume_continuity_marker"] = (
-                bool(run2.get("marker_returned")) and not reread)
+                bool(run2.get("marker_returned")) and not reread
+            )
         elif not session_id:
             summary["resume_skipped"] = "first_session_unavailable"
         elif not summary.get("resume_skipped"):
             summary["resume_skipped"] = "first_turn_not_successful"
 
         # Skill invocation: listed skill is invoked; unlisted is refused.
-        listed = asyncio.run(collect_query(
-            f"Use the {PROJECT_SKILL} skill and follow it.",
-            make_options(), summary, "skill_listed_invoked",
-            marker=LISTED_MARKER, ledger=ledger))
-        summary["skill_listed_invoked"]["attempt"] = skill_attempt(listed, PROJECT_SKILL)
+        listed = asyncio.run(
+            collect_query(
+                f"Use the {PROJECT_SKILL} skill and follow it.",
+                make_options(),
+                summary,
+                "skill_listed_invoked",
+                marker=LISTED_MARKER,
+                ledger=ledger,
+            )
+        )
+        summary["skill_listed_invoked"]["attempt"] = skill_attempt(
+            listed, PROJECT_SKILL
+        )
         asyncio.run(_skill_pair(make_options, summary, ledger))
 
         # Unavailable session: resume a fabricated id must fail explicitly.
-        asyncio.run(collect_query(
-            "Reply with ok.",
-            make_options(resume="00000000-0000-4000-8000-000000000000"),
-            summary, "resume_unknown_session", ledger=ledger))
+        asyncio.run(
+            collect_query(
+                "Reply with ok.",
+                make_options(resume="00000000-0000-4000-8000-000000000000"),
+                summary,
+                "resume_unknown_session",
+                ledger=ledger,
+            )
+        )
 
         # Failure: an invalid model must fail explicitly.
         options_bad = make_options()
         options_bad.model = "nonexistent-model-121"
-        asyncio.run(collect_query(
-            "Reply with ok.", options_bad, summary, "failure_invalid_model",
-            ledger=ledger))
+        asyncio.run(
+            collect_query(
+                "Reply with ok.",
+                options_bad,
+                summary,
+                "failure_invalid_model",
+                ledger=ledger,
+            )
+        )
 
         # Cancellation.
-        asyncio.run(run_interrupt(
-            project, private_home, config_dir, state, summary, ledger))
+        asyncio.run(
+            run_interrupt(project, private_home, config_dir, state, summary, ledger)
+        )
 
         summary["workspace_hash_final"] = fingerprint(project)
-        summary["workspace_changed"] = summary["workspace_hash_run1"] != summary["workspace_hash_final"]
-        summary["note"] = ("The SDK persists conversation history only; restoring "
-                           "the last post-run workspace snapshot is the Laomedo "
-                           "runner registry's responsibility (see 121.md).")
+        summary["workspace_changed"] = (
+            summary["workspace_hash_run1"] != summary["workspace_hash_final"]
+        )
+        summary["note"] = (
+            "The SDK persists conversation history only; restoring "
+            "the last post-run workspace snapshot is the Laomedo "
+            "runner registry's responsibility (see 121.md)."
+        )
     finally:
-        costs = [entry["result"]["total_cost_usd"]
-                 for entry in summary.values()
-                 if isinstance(entry, dict) and isinstance(entry.get("result"), dict)
-                 and entry["result"].get("total_cost_usd") is not None]
+        costs = [
+            entry["result"]["total_cost_usd"]
+            for entry in summary.values()
+            if isinstance(entry, dict)
+            and isinstance(entry.get("result"), dict)
+            and entry["result"].get("total_cost_usd") is not None
+        ]
         summary["observed_cost_usd"] = round(sum(costs), 6) if costs else None
-        summary["model_calls_note"] = ("upper bound on billable model calls: a "
-                                       "turn is counted when submitted, before "
-                                       "any response; max_budget_usd is checked "
-                                       "between turns, so one turn can exceed it")
+        summary["model_calls_note"] = (
+            "upper bound on billable model calls: a "
+            "turn is counted when submitted, before "
+            "any response; max_budget_usd is checked "
+            "between turns, so one turn can exceed it"
+        )
         summary["personal_roots_unchanged"] = compare_personal_roots(
-            before, hash_personal_roots())
+            before, hash_personal_roots()
+        )
         print(json.dumps(summary, indent=2))
 
 
@@ -333,35 +430,54 @@ async def _skill_pair(make_options, summary, ledger):
     model, so not_attempted is the expected state) and whether its body ran.
     Then check Read access to its files and /name dispatch, which the
     reference says bypasses the allowlist."""
-    from _shared import skill_attempt; from _shared import tool_succeeded
+    from _shared import skill_attempt
+    from _shared import tool_succeeded
 
     unlisted = await collect_query(
         f"Use the {UNLISTED_SKILL} skill and follow it.",
-        make_options(skills=(PROJECT_SKILL,)), summary,
-        "skill_unlisted_refused", marker=UNLISTED_MARKER, ledger=ledger)
-    summary["skill_unlisted_refused"]["attempt"] = skill_attempt(unlisted, UNLISTED_SKILL)
+        make_options(skills=(PROJECT_SKILL,)),
+        summary,
+        "skill_unlisted_refused",
+        marker=UNLISTED_MARKER,
+        ledger=ledger,
+    )
+    summary["skill_unlisted_refused"]["attempt"] = skill_attempt(
+        unlisted, UNLISTED_SKILL
+    )
     summary["skill_unlisted_refused"]["unlisted_body_ran"] = bool(
-        unlisted.get("marker_returned"))
+        unlisted.get("marker_returned")
+    )
 
     read_run = await collect_query(
         f"Read the file .claude/skills/{UNLISTED_SKILL}/SKILL.md with the "
         "Read tool, then reply done.",
-        make_options(skills=[]), summary, "unlisted_readable_via_read",
-        ledger=ledger)
-    summary["unlisted_readable_via_read"]["read_attempted"] = (
-        "Read" in (read_run.get("tool_call_names") or []))
+        make_options(skills=[]),
+        summary,
+        "unlisted_readable_via_read",
+        ledger=ledger,
+    )
+    summary["unlisted_readable_via_read"]["read_attempted"] = "Read" in (
+        read_run.get("tool_call_names") or []
+    )
     summary["unlisted_readable_via_read"]["read_succeeded"] = tool_succeeded(
-        read_run, "Read")
+        read_run, "Read"
+    )
 
     dispatch = await collect_query(
         f"/{UNLISTED_SKILL}",
-        make_options(skills=(PROJECT_SKILL,)), summary,
-        "unlisted_slash_dispatch", marker=UNLISTED_MARKER, ledger=ledger)
+        make_options(skills=(PROJECT_SKILL,)),
+        summary,
+        "unlisted_slash_dispatch",
+        marker=UNLISTED_MARKER,
+        ledger=ledger,
+    )
     summary["unlisted_slash_dispatch"]["unlisted_body_ran"] = bool(
-        dispatch.get("marker_returned"))
+        dispatch.get("marker_returned")
+    )
     summary["unlisted_slash_dispatch"]["note"] = (
         "True means /name dispatch ran an unlisted skill, so the skills "
-        "allowlist is not an isolation boundary.")
+        "allowlist is not an isolation boundary."
+    )
 
 
 if __name__ == "__main__":

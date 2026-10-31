@@ -1,6 +1,8 @@
 """Credential-free, opt-in whole-repository workspace preparation."""
 
-from laomedo.agents.workspace.git import _bounded_git as _owned_git_workspace__bounded_git
+from laomedo.agents.workspace.git import (
+    _bounded_git as _owned_git_workspace__bounded_git,
+)
 
 from pathlib import Path
 import os
@@ -10,7 +12,8 @@ import unittest
 from unittest.mock import patch
 
 import laomedo.agents.workspace.git as git_workspace
-from laomedo.agents.workspace.errors import GitWorkspaceError; from laomedo.agents.workspace.git import prepare_git_workspace
+from laomedo.agents.workspace.errors import GitWorkspaceError
+from laomedo.agents.workspace.git import prepare_git_workspace
 
 
 class GitWorkspaceTests(unittest.TestCase):
@@ -26,11 +29,17 @@ class GitWorkspaceTests(unittest.TestCase):
         (self.source / "task.txt").write_bytes(b"task\n")
         self._git(self.source, "add", "task.txt")
         self._git(self.source, "commit", "-qm", "baseline")
-        self.baseline = self._git(self.source, "rev-parse", "HEAD").stdout.decode().strip()
+        self.baseline = (
+            self._git(self.source, "rev-parse", "HEAD").stdout.decode().strip()
+        )
 
     def _git(self, source, *args):
-        result = subprocess.run(["git", "-C", str(source), *args],
-                                capture_output=True, check=False, timeout=10)
+        result = subprocess.run(
+            ["git", "-C", str(source), *args],
+            capture_output=True,
+            check=False,
+            timeout=10,
+        )
         self.assertEqual(result.returncode, 0, result.stderr)
         return result
 
@@ -39,17 +48,24 @@ class GitWorkspaceTests(unittest.TestCase):
         hostile_home.mkdir()
         marker = self.root / "host-trace.log"
         (hostile_home / ".gitconfig").write_text(
-            "[trace2]\n\tnormalTarget = " + marker.as_posix() + "\n",
-            encoding="utf-8")
+            "[trace2]\n\tnormalTarget = " + marker.as_posix() + "\n", encoding="utf-8"
+        )
         destination = self.root / "run" / "workspace"
         destination.parent.mkdir()
-        with patch.dict(os.environ, {"HOME": str(hostile_home),
-                                     "USERPROFILE": str(hostile_home),
-                                     "XDG_CONFIG_HOME": str(hostile_home)}):
+        with patch.dict(
+            os.environ,
+            {
+                "HOME": str(hostile_home),
+                "USERPROFILE": str(hostile_home),
+                "XDG_CONFIG_HOME": str(hostile_home),
+            },
+        ):
             pinned = prepare_git_workspace(self.source, destination)
         self.assertEqual(pinned, self.baseline)
-        self.assertEqual(self._git(destination, "rev-parse", "HEAD").stdout.decode().strip(),
-                         self.baseline)
+        self.assertEqual(
+            self._git(destination, "rev-parse", "HEAD").stdout.decode().strip(),
+            self.baseline,
+        )
         self.assertEqual(self._git(destination, "remote").stdout.strip(), b"")
         self.assertEqual((destination / "task.txt").read_bytes(), b"task\n")
         self.assertFalse(marker.exists())
@@ -66,15 +82,25 @@ class GitWorkspaceTests(unittest.TestCase):
             prepare_git_workspace(self.source, destination)
 
     def test_submodule_gitlink_is_refused(self):
-        self._git(self.source, "update-index", "--add", "--cacheinfo",
-                  "160000," + self.baseline + ",nested")
+        self._git(
+            self.source,
+            "update-index",
+            "--add",
+            "--cacheinfo",
+            "160000," + self.baseline + ",nested",
+        )
         self._git(self.source, "commit", "-qm", "gitlink")
         with self.assertRaisesRegex(GitWorkspaceError, "submodule_source_unsupported"):
             prepare_git_workspace(self.source, self.root / "workspace")
 
     def test_indexed_symlink_is_refused(self):
-        self._git(self.source, "update-index", "--add", "--cacheinfo",
-                  "120000," + self.baseline + ",link")
+        self._git(
+            self.source,
+            "update-index",
+            "--add",
+            "--cacheinfo",
+            "120000," + self.baseline + ",link",
+        )
         self._git(self.source, "commit", "-qm", "symlink")
         with self.assertRaisesRegex(GitWorkspaceError, "symlink_source_unsupported"):
             prepare_git_workspace(self.source, self.root / "workspace")
@@ -105,9 +131,12 @@ class GitWorkspaceTests(unittest.TestCase):
                 (destination / "foreign").write_text("keep", encoding="utf-8")
             return result
 
-        with patch.object(git_workspace, "_bounded_git",
-                          side_effect=claim_destination_after_status):
-            with self.assertRaisesRegex(GitWorkspaceError, "git_workspace_path_invalid"):
+        with patch.object(
+            git_workspace, "_bounded_git", side_effect=claim_destination_after_status
+        ):
+            with self.assertRaisesRegex(
+                GitWorkspaceError, "git_workspace_path_invalid"
+            ):
                 prepare_git_workspace(self.source, destination)
         self.assertEqual((destination / "foreign").read_text(encoding="utf-8"), "keep")
 
@@ -124,7 +153,9 @@ class GitWorkspaceTests(unittest.TestCase):
         (skills / "SKILL.md").write_text("tracked", encoding="utf-8")
         self._git(self.source, "add", ".agents/skills/example/SKILL.md")
         self._git(self.source, "commit", "-qm", "tracked skill")
-        with self.assertRaisesRegex(GitWorkspaceError, "tracked_skill_path_unsupported"):
+        with self.assertRaisesRegex(
+            GitWorkspaceError, "tracked_skill_path_unsupported"
+        ):
             prepare_git_workspace(self.source, self.root / "workspace")
 
 

@@ -87,8 +87,7 @@ def _hash_tree(path: Path, *, exclude_root_git: bool = False) -> str:
                 if exclude_root_git:
                     total_bytes += item.stat().st_size
                     if (
-                        total_bytes
-                        > _runtime_settings.MAX_GIT_WORKSPACE_SNAPSHOT_BYTES
+                        total_bytes > _runtime_settings.MAX_GIT_WORKSPACE_SNAPSHOT_BYTES
                         or len(files) + len(directories)
                         >= _runtime_settings.MAX_GIT_WORKSPACE_SNAPSHOT_ENTRIES
                     ):
@@ -143,9 +142,11 @@ def _id(value: str) -> str:
     return value
 
 
-
-
 def terminal_record(record):
     """Stable terminal states shared by graph clients and asynchronous runner polling."""
-    return (record.get("status") in {"completed", "cancelled", "failed", "timeout", "interrupted"}
-            or record.get("status") == "unknown" and record.get("attempt_finished") is True)
+    return (
+        record.get("status")
+        in {"completed", "cancelled", "failed", "timeout", "interrupted"}
+        or record.get("status") == "unknown"
+        and record.get("attempt_finished") is True
+    )

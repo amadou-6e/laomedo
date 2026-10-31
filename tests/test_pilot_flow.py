@@ -12,13 +12,17 @@ class PilotFlowTests(unittest.TestCase):
         root = Path(__file__).resolve().parents[1] / "examples/skill-agent-pilot"
         flow = json.loads((root / "pilot-flow.json").read_text())
         self.assertEqual(len(flow["data"]["nodes"]), 3)
-        node = next(n for n in flow["data"]["nodes"]
-                    if n["data"]["type"] == "LaomedoRunner")
+        node = next(
+            n for n in flow["data"]["nodes"] if n["data"]["type"] == "LaomedoRunner"
+        )
         revision = tree_hash({"SKILL.md": (root / "skill/SKILL.md").read_bytes()})
-        self.assertEqual(node["data"]["node"]["template"]["revision_id"]["value"],
-                         revision)
-        self.assertEqual(node["data"]["node"]["template"]["code"]["value"],
-                         (root / "langflow_component.py").read_text())
+        self.assertEqual(
+            node["data"]["node"]["template"]["revision_id"]["value"], revision
+        )
+        self.assertEqual(
+            node["data"]["node"]["template"]["code"]["value"],
+            (root / "langflow_component.py").read_text(),
+        )
         serialized = json.dumps(flow)
         self.assertNotIn("auth.json", serialized)
         self.assertNotIn("C:\\Users\\", serialized)

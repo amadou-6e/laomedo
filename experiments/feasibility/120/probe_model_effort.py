@@ -12,7 +12,16 @@ from pathlib import Path
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _shared import AppServer; from _shared import RequestTimeout; from _shared import codex_version; from _shared import construct_env; from _shared import hash_personal_roots; from _shared import compare_personal_roots; from _shared import resettable_dir; from _shared import summarize_methods; from _shared import validate_pair; from _shared import write_skill
+from _shared import AppServer
+from _shared import RequestTimeout
+from _shared import codex_version
+from _shared import construct_env
+from _shared import hash_personal_roots
+from _shared import compare_personal_roots
+from _shared import resettable_dir
+from _shared import summarize_methods
+from _shared import validate_pair
+from _shared import write_skill
 
 
 def thread_start_effective(server, model):
@@ -24,10 +33,16 @@ def thread_start_effective(server, model):
     thread object itself may not carry them. Both sets of keys are recorded so
     a different runner version cannot be misread.
     """
-    response = server.send("thread/start", {
-        "model": model, "cwd": str(server.state), "approvalPolicy": "never",
-        "sandbox": "read-only",
-    }, timeout=30)
+    response = server.send(
+        "thread/start",
+        {
+            "model": model,
+            "cwd": str(server.state),
+            "approvalPolicy": "never",
+            "sandbox": "read-only",
+        },
+        timeout=30,
+    )
     if "result" not in response:
         return {"error": response.get("error")}, None
     result = response["result"]
@@ -36,7 +51,8 @@ def thread_start_effective(server, model):
         "result_keys": sorted(result.keys()),
         "thread_keys": sorted(thread.keys()),
         "reported_model": result.get("model") or thread.get("model"),
-        "reported_effort": result.get("reasoningEffort") or thread.get("reasoningEffort"),
+        "reported_effort": result.get("reasoningEffort")
+        or thread.get("reasoningEffort"),
         "reported_sandbox": result.get("sandbox") or thread.get("sandbox"),
         "reported_approval_policy": result.get("approvalPolicy"),
         "cli_version": thread.get("cliVersion"),
@@ -50,7 +66,8 @@ def main():
     args = parser.parse_args()
     codex = args.codex.resolve(strict=True)
     state, leftovers = resettable_dir(
-        Path(__file__).resolve().parent / "_scratch_120_model")
+        Path(__file__).resolve().parent / "_scratch_120_model"
+    )
     private_home = state / "home"
     codex_home = state / "codex-home"
     project = state / "project"
@@ -65,7 +82,9 @@ def main():
     try:
         ok, info = server.initialize()
         summary["initialized"] = ok
-        summary["server_platform"] = {k: info.get(k) for k in ("userAgent", "platformFamily", "platformOs")}
+        summary["server_platform"] = {
+            k: info.get(k) for k in ("userAgent", "platformFamily", "platformOs")
+        }
         if not ok:
             summary["initialize_error"] = info
             return
@@ -78,8 +97,10 @@ def main():
         union = set()
         for model in models:
             mid = model.get("id") or model.get("model")
-            levels = [e.get("reasoningEffort") if isinstance(e, dict) else e
-                      for e in model.get("supportedReasoningEfforts", [])]
+            levels = [
+                e.get("reasoningEffort") if isinstance(e, dict) else e
+                for e in model.get("supportedReasoningEfforts", [])
+            ]
             supported_by_model[mid] = {
                 "is_default": model.get("isDefault", False),
                 "efforts": levels,
@@ -89,7 +110,9 @@ def main():
         summary["models"] = supported_by_model
         summary["effort_union"] = sorted(x for x in union if x)
 
-        selected = next((m for m in models if m.get("isDefault")), None) or (models[0] if models else None)
+        selected = next((m for m in models if m.get("isDefault")), None) or (
+            models[0] if models else None
+        )
         if not selected:
             summary["no_models"] = True
             return
@@ -108,23 +131,31 @@ def main():
             summary["thread_start_effective"] = effective
             summary["thread_created"] = bool(thread_id)
 
-        narrow = next((mid for mid, data in supported_by_model.items()
-                       if union - set(data["efforts"])), None)
+        narrow = next(
+            (
+                mid
+                for mid, data in supported_by_model.items()
+                if union - set(data["efforts"])
+            ),
+            None,
+        )
         summary["predispatch_checks"] = {
-            "unknown_model": validate_pair(supported_by_model,
-                                           "nonexistent-model-120", "low"),
-            "invalid_effort": validate_pair(supported_by_model, model,
-                                            "superultra"),
+            "unknown_model": validate_pair(
+                supported_by_model, "nonexistent-model-120", "low"
+            ),
+            "invalid_effort": validate_pair(supported_by_model, model, "superultra"),
         }
         if narrow:
             unsupported = sorted(union - set(supported_by_model[narrow]["efforts"]))[0]
             summary["predispatch_checks"]["valid_but_unsupported"] = {
-                "model": narrow, "effort": unsupported,
+                "model": narrow,
+                "effort": unsupported,
                 **validate_pair(supported_by_model, narrow, unsupported),
             }
         else:
             summary["predispatch_checks"]["valid_but_unsupported"] = {
-                "not_applicable": "no model has a narrower effort set"}
+                "not_applicable": "no model has a narrower effort set"
+            }
 
         summary["event_methods"] = summarize_methods(server)
     except RequestTimeout as exc:
@@ -133,7 +164,8 @@ def main():
         stderr = server.close()
         summary["stderr_signals"] = stderr
         summary["personal_roots_unchanged"] = compare_personal_roots(
-            before, hash_personal_roots())
+            before, hash_personal_roots()
+        )
         summary["scratch_leftovers"] = leftovers
         print(json.dumps(summary, indent=2))
 

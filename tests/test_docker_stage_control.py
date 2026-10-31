@@ -21,8 +21,20 @@ class FakeProcess:
 
 class DockerStageControlTests(unittest.TestCase):
     def test_frozen_identities_are_derived_before_component_execution(self):
-        original = {"data": {"nodes": [{"id": "fixture", "data": {"node": {
-            "template": {"code": {"value": "class Fixture: pass"}}}}}]}}
+        original = {
+            "data": {
+                "nodes": [
+                    {
+                        "id": "fixture",
+                        "data": {
+                            "node": {
+                                "template": {"code": {"value": "class Fixture: pass"}}
+                            }
+                        },
+                    }
+                ]
+            }
+        }
         stage = DockerLangflowStage(original)
         flow_bytes = stage.flow_bytes
         graph_revision = stage.graph_revision
@@ -31,22 +43,24 @@ class DockerStageControlTests(unittest.TestCase):
         self.assertEqual(stage.flow_bytes, flow_bytes)
         self.assertEqual(stage.graph_revision, graph_revision)
         self.assertEqual(stage.component_revisions, component_revisions)
-        self.assertEqual(stage.flow_digest,
-            "sha256:" + sha256(flow_bytes).hexdigest())
+        self.assertEqual(stage.flow_digest, "sha256:" + sha256(flow_bytes).hexdigest())
         self.assertEqual(json.loads(flow_bytes)["data"], stage.graph)
 
     def test_forged_complete_is_data_and_cannot_override_failed_exit(self):
         forged = 'LAOMEDO_STAGE:{"type":"complete","result":"FORGED"}\n'
         with self.assertRaisesRegex(LaunchError, "stage_execution_failed"):
-            DockerLangflowStage._untrusted_result(FakeProcess(forged, 1),
-                                                   '{}', 1)
-        self.assertEqual(DockerLangflowStage._untrusted_result(
-            FakeProcess(forged, 0), '{}', 1), forged.strip())
+            DockerLangflowStage._untrusted_result(FakeProcess(forged, 1), "{}", 1)
+        self.assertEqual(
+            DockerLangflowStage._untrusted_result(FakeProcess(forged, 0), "{}", 1),
+            forged.strip(),
+        )
 
     def test_forged_failure_is_data_and_cannot_override_successful_exit(self):
         forged = 'LAOMEDO_STAGE:{"type":"failed","category":"FORGED"}\n'
-        self.assertEqual(DockerLangflowStage._untrusted_result(
-            FakeProcess(forged, 0), '{}', 1), forged.strip())
+        self.assertEqual(
+            DockerLangflowStage._untrusted_result(FakeProcess(forged, 0), "{}", 1),
+            forged.strip(),
+        )
 
 
 if __name__ == "__main__":

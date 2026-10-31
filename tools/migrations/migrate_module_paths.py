@@ -116,10 +116,13 @@ def migrate_source(source: str) -> str:
     )
     legacy_agent = None
     if tree is not None:
-        concrete = {node.name: node for node in tree.body if isinstance(node, ast.ClassDef)}
+        concrete = {
+            node.name: node for node in tree.body if isinstance(node, ast.ClassDef)
+        }
         for name in ("LaomedoClaudeAgent", "LaomedoOpenCodeAgent"):
             if name in concrete and any(
-                isinstance(node, ast.ImportFrom) and node.module == "laomedo.codex_agent"
+                isinstance(node, ast.ImportFrom)
+                and node.module == "laomedo.codex_agent"
                 and any(item.name == "LaomedoCodexAgent" for item in node.names)
                 for node in tree.body
             ):
@@ -147,9 +150,15 @@ def migrate_source(source: str) -> str:
                 statements, changed = [], False
                 for item in node.names:
                     full = node.module + "." + item.name
-                    if legacy_agent is not None and full == "laomedo.codex_agent.LaomedoCodexAgent":
+                    if (
+                        legacy_agent is not None
+                        and full == "laomedo.codex_agent.LaomedoCodexAgent"
+                    ):
                         alias = item.asname or item.name
-                        statements.append("from laomedo.integrations.langflow.agent.component import AgentComponent as " + alias)
+                        statements.append(
+                            "from laomedo.integrations.langflow.agent.component import AgentComponent as "
+                            + alias
+                        )
                         changed = True
                         continue
                     if full == "laomedo.activity.agent_activity.store.ActivityStore":
@@ -252,24 +261,43 @@ def migrate_source(source: str) -> str:
                 "supports_join_bridge": is_claude,
             }
             if is_claude:
-                capabilities.update(present_native_models=True, catalog_timeout_seconds=75,
-                                    catalog_provider="claude", bridge_url_env="LAOMEDO_CLAUDE_BRIDGE_URL",
-                                    bridge_token_env="LAOMEDO_CLAUDE_BRIDGE_TOKEN_FILE")
-            declared = {target.id for node in legacy_agent.body if isinstance(node, ast.Assign)
-                        for target in node.targets if isinstance(target, ast.Name)}
+                capabilities.update(
+                    present_native_models=True,
+                    catalog_timeout_seconds=75,
+                    catalog_provider="claude",
+                    bridge_url_env="LAOMEDO_CLAUDE_BRIDGE_URL",
+                    bridge_token_env="LAOMEDO_CLAUDE_BRIDGE_TOKEN_FILE",
+                )
+            declared = {
+                target.id
+                for node in legacy_agent.body
+                if isinstance(node, ast.Assign)
+                for target in node.targets
+                if isinstance(target, ast.Name)
+            }
             indent = " " * (legacy_agent.col_offset + 4)
             newline = re.search(r"\r\n|\r|\n", source)
             newline = newline.group() if newline else "\n"
-            block = "".join(indent + key + " = " + repr(value) + newline
-                            for key, value in capabilities.items() if key not in declared)
+            block = "".join(
+                indent + key + " = " + repr(value) + newline
+                for key, value in capabilities.items()
+                if key not in declared
+            )
             first = legacy_agent.body[0]
-            if (isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant)
-                    and isinstance(first.value.value, str)):
+            if (
+                isinstance(first, ast.Expr)
+                and isinstance(first.value, ast.Constant)
+                and isinstance(first.value.value, str)
+            ):
                 if len(legacy_agent.body) < 2:
-                    raise ManualMigrationRequired("A docstring-only legacy Agent requires manual migration")
+                    raise ManualMigrationRequired(
+                        "A docstring-only legacy Agent requires manual migration"
+                    )
                 first = legacy_agent.body[1]
             if first.lineno == legacy_agent.lineno:
-                raise ManualMigrationRequired("An inline legacy Agent class requires manual migration")
+                raise ManualMigrationRequired(
+                    "An inline legacy Agent class requires manual migration"
+                )
             insertion = position(first.lineno, 0)
             replacements.append((insertion, insertion, block))
         for node in ast.walk(tree):

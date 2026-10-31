@@ -34,9 +34,7 @@ def source_request(action, **body):
     if action not in {"discover", "revisions", "resolve"}:
         raise ValueError("invalid_source_operation")
     try:
-        path = Path(
-            settings.token_file
-        )
+        path = Path(settings.token_file)
         token = path.read_text(encoding="utf-8").strip()
         if not 32 <= len(token) <= 512:
             raise ValueError()

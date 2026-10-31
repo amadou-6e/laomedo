@@ -1,4 +1,5 @@
 """Pinned runtime graph acceptance, all HTTP responses synthetic."""
+
 import importlib.util
 import io
 import json
@@ -10,7 +11,9 @@ from unittest.mock import patch
 from lfx.graph.graph.base import Graph
 
 ROOT = Path(__file__).resolve().parents[2]
-spec = importlib.util.spec_from_file_location("chain_builder", ROOT / "examples/agent-handoffs/build_flow.py")
+spec = importlib.util.spec_from_file_location(
+    "chain_builder", ROOT / "examples/agent-handoffs/build_flow.py"
+)
 builder = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(builder)
 
@@ -18,6 +21,7 @@ spec.loader.exec_module(builder)
 class Response(io.BytesIO):
     def __enter__(self):
         return self
+
     def __exit__(self, *_):
         self.close()
 
@@ -35,16 +39,26 @@ class GraphTests(unittest.IsolatedAsyncioTestCase):
     async def test_chain_passes_selected_answer_once(self):
         payloads = []
         flow = builder.build()
-        self.assertEqual(len({edge["id"] for edge in flow["data"]["edges"]}), len(flow["data"]["edges"]))
+        self.assertEqual(
+            len({edge["id"] for edge in flow["data"]["edges"]}),
+            len(flow["data"]["edges"]),
+        )
+
         def respond(req, **kwargs):
             payloads.append(json.loads(req.data))
-            result = {"run_id": str(len(payloads)), "status": "completed",
-                "answer": "SELECTED" if len(payloads) == 1 else "DONE"}
+            result = {
+                "run_id": str(len(payloads)),
+                "status": "completed",
+                "answer": "SELECTED" if len(payloads) == 1 else "DONE",
+            }
             if "request_id" in payloads[-1]:
                 result["client_request_id"] = payloads[-1]["request_id"]
             return Response(json.dumps(result).encode())
+
         with patch("urllib.request.urlopen", side_effect=respond):
-            await Graph.from_payload(flow).arun(inputs=[{"input_value": "FIRST"}], types=["chat"])
+            await Graph.from_payload(flow).arun(
+                inputs=[{"input_value": "FIRST"}], types=["chat"]
+            )
         self.assertEqual(len(payloads), 2)
         self.assertEqual(payloads[1]["task"], "SELECTED")
         self.assertNotIn("thread_id", payloads[1])
@@ -58,9 +72,12 @@ class GraphTests(unittest.IsolatedAsyncioTestCase):
             if "request_id" in payload:
                 result["client_request_id"] = payload["request_id"]
             return Response(json.dumps(result).encode())
+
         with patch("urllib.request.urlopen", side_effect=respond) as http:
             with self.assertRaises(Exception):
-                await Graph.from_payload(builder.build()).arun(inputs=[{"input_value": "FIRST"}], types=["chat"])
+                await Graph.from_payload(builder.build()).arun(
+                    inputs=[{"input_value": "FIRST"}], types=["chat"]
+                )
         self.assertEqual(http.call_count, 1)
 
 

@@ -25,7 +25,12 @@ import time
 
 class AppServer:
     def __init__(
-        self, command: list[str], evidence: Path, *, env=None, secret_redactions=(),
+        self,
+        command: list[str],
+        evidence: Path,
+        *,
+        env=None,
+        secret_redactions=(),
         docker_environment=None,
     ):
         self.docker_environment = docker_environment
@@ -423,7 +428,9 @@ class SplitAppServer(AppServer):
                     ACCESS_TOKEN=access_token,
                 )
             super().__init__(
-                ["docker", *command], evidence, env=environment,
+                ["docker", *command],
+                evidence,
+                env=environment,
                 docker_environment=docker_environment,
             )
             self._controller_started = True
@@ -635,9 +642,7 @@ class SplitAppServer(AppServer):
         finally:
             try:
                 if self._executor_started:
-                    self._docker_checked(
-                        "rm", "-f", self.executor_name, timeout=15
-                    )
+                    self._docker_checked("rm", "-f", self.executor_name, timeout=15)
                     check = subprocess.run(
                         ["docker", "inspect", self.executor_name],
                         env=self.docker_environment,

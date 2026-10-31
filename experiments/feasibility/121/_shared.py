@@ -19,14 +19,14 @@ No credential value is ever printed. Personal roots are compared by hash.
 import hashlib
 import json
 import os
-from decimal import Decimal; from decimal import InvalidOperation
+from decimal import Decimal
+from decimal import InvalidOperation
 from pathlib import Path
 import platform
 import shutil
 import socket
 import subprocess
 import sys
-
 
 PERSONAL_ROOT_NAMES = [
     "user_skills",
@@ -37,10 +37,16 @@ PERSONAL_ROOT_NAMES = [
     "user_plugins",
 ]
 
-FIXTURE_SKILL_NAMES = frozenset({
-    "fixture-121-project", "fixture-121-user-home", "fixture-121-user-config",
-    "fixture-121-parent", "fixture-121-stream", "fixture-121-unlisted",
-})
+FIXTURE_SKILL_NAMES = frozenset(
+    {
+        "fixture-121-project",
+        "fixture-121-user-home",
+        "fixture-121-user-config",
+        "fixture-121-parent",
+        "fixture-121-stream",
+        "fixture-121-unlisted",
+    }
+)
 
 
 # Environment variables that could redirect credentials or the endpoint away
@@ -112,7 +118,9 @@ def hash_personal_roots():
 
 def compare_personal_roots(before, after):
     result = {}
-    for name, equal in zip(PERSONAL_ROOT_NAMES, (a == b for a, b in zip(before, after))):
+    for name, equal in zip(
+        PERSONAL_ROOT_NAMES, (a == b for a, b in zip(before, after))
+    ):
         result[name] = equal if name not in INCONCLUSIVE_ROOTS else "inconclusive"
     return result
 
@@ -170,6 +178,7 @@ def write_skill(root: Path, name: str, description: str, content: str = None):
 def sdk_version() -> str:
     try:
         import importlib.metadata as metadata
+
         return metadata.version("claude-agent-sdk")
     except Exception:
         return "not-installed"
@@ -183,8 +192,13 @@ def runner_versions() -> dict:
         "node": None,
     }
     try:
-        result = subprocess.run(["node", "--version"], capture_output=True,
-                                text=True, timeout=20, encoding="utf-8")
+        result = subprocess.run(
+            ["node", "--version"],
+            capture_output=True,
+            text=True,
+            timeout=20,
+            encoding="utf-8",
+        )
         versions["node"] = result.stdout.strip() or result.stderr.strip()
     except (OSError, subprocess.SubprocessError):
         pass
@@ -194,8 +208,11 @@ def runner_versions() -> dict:
 def resolve_cli():
     """Resolve the Claude Code CLI the way the SDK does. Returns
     (path_or_None, error_class_or_None). Never spawns a model call."""
-    from claude_agent_sdk._internal.transport.subprocess_cli import SubprocessCLITransport
+    from claude_agent_sdk._internal.transport.subprocess_cli import (
+        SubprocessCLITransport,
+    )
     from claude_agent_sdk import ClaudeAgentOptions
+
     transport = SubprocessCLITransport(prompt="x", options=ClaudeAgentOptions())
     try:
         return transport._find_cli(), None
@@ -205,9 +222,14 @@ def resolve_cli():
 
 def cli_version(cli_path: str) -> str:
     try:
-        result = subprocess.run([cli_path, "--version"], capture_output=True,
-                                text=True, timeout=30, encoding="utf-8",
-                                errors="replace")
+        result = subprocess.run(
+            [cli_path, "--version"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            encoding="utf-8",
+            errors="replace",
+        )
         return (result.stdout + result.stderr).strip()
     except (OSError, subprocess.SubprocessError) as exc:
         return f"unavailable: {type(exc).__name__}"
@@ -253,8 +275,9 @@ def _private_workspace_paths(state: Path, project: Path, snapshot: Path) -> None
         resolved = path.resolve()
         if resolved == root or not resolved.is_relative_to(root) or path.is_symlink():
             raise ValueError("workspace path escapes private state")
-    if (snapshot.resolve().is_relative_to(project.resolve())
-            or project.resolve().is_relative_to(snapshot.resolve())):
+    if snapshot.resolve().is_relative_to(
+        project.resolve()
+    ) or project.resolve().is_relative_to(snapshot.resolve()):
         raise ValueError("project and snapshot cannot contain each other")
 
 
@@ -273,8 +296,9 @@ def snapshot_workspace(state: Path, project: Path, snapshot: Path) -> str:
     return fingerprint(snapshot)
 
 
-def restore_workspace_snapshot(state: Path, project: Path, snapshot: Path,
-                               expected_hash: str) -> str:
+def restore_workspace_snapshot(
+    state: Path, project: Path, snapshot: Path, expected_hash: str
+) -> str:
     """Refuse a missing or changed snapshot before touching the workspace."""
     _private_workspace_paths(state, project, snapshot)
     if not snapshot.is_dir():
@@ -298,9 +322,15 @@ class BudgetLedger:
 
     def __init__(self, root: Path, state: Path, cap: str = "20", max_calls: int = 16):
         self.root = root.resolve(strict=True)
-        if (not self.root.is_dir() or root.is_symlink() or inside_git_tree(self.root)
-                or state.resolve().parent != self.root):
-            raise ValueError("budget root must be the private parent of state outside git")
+        if (
+            not self.root.is_dir()
+            or root.is_symlink()
+            or inside_git_tree(self.root)
+            or state.resolve().parent != self.root
+        ):
+            raise ValueError(
+                "budget root must be the private parent of state outside git"
+            )
         self.path = self.root / "issue-121-budget.json"
         self.lock = self.root / "issue-121-budget.lock"
         self.cap = Decimal(cap)
@@ -345,15 +375,31 @@ class BudgetLedger:
             attempts = record["attempts"]
             if len(attempts) >= self.max_calls:
                 raise ValueError("issue model-call cap reached")
-            exposure = sum((max(self._amount(item["reserved_usd"]),
-                                self._amount(item["observed_usd"])
-                                if item.get("observed_usd") is not None else Decimal(0))
-                            for item in attempts), Decimal(0))
+            exposure = sum(
+                (
+                    max(
+                        self._amount(item["reserved_usd"]),
+                        (
+                            self._amount(item["observed_usd"])
+                            if item.get("observed_usd") is not None
+                            else Decimal(0)
+                        ),
+                    )
+                    for item in attempts
+                ),
+                Decimal(0),
+            )
             if exposure + ceiling > self.cap:
                 raise ValueError("issue spend cap reached")
             reservation_id = len(attempts) + 1
-            attempts.append({"id": reservation_id, "reserved_usd": str(ceiling),
-                             "observed_usd": None, "outcome": "submitted"})
+            attempts.append(
+                {
+                    "id": reservation_id,
+                    "reserved_usd": str(ceiling),
+                    "observed_usd": None,
+                    "outcome": "submitted",
+                }
+            )
             self._write(record)
             return reservation_id
 
@@ -362,19 +408,23 @@ class BudgetLedger:
     def settle(self, reservation_id: int, observed_cost, outcome: str) -> dict:
         def update():
             record = self._read()
-            matches = [item for item in record["attempts"]
-                       if item.get("id") == reservation_id]
+            matches = [
+                item for item in record["attempts"] if item.get("id") == reservation_id
+            ]
             if len(matches) != 1:
                 raise ValueError("budget reservation missing")
             item = matches[0]
             if item.get("outcome") != "submitted":
                 raise ValueError("budget reservation already settled")
-            item["observed_usd"] = (str(self._amount(observed_cost))
-                                    if observed_cost is not None else None)
+            item["observed_usd"] = (
+                str(self._amount(observed_cost)) if observed_cost is not None else None
+            )
             item["outcome"] = outcome
             self._write(record)
-            return {"attempted_calls": len(record["attempts"]),
-                    "observed_cost_usd": item["observed_usd"]}
+            return {
+                "attempted_calls": len(record["attempts"]),
+                "observed_cost_usd": item["observed_usd"],
+            }
 
         return self._locked(update)
 
@@ -400,8 +450,7 @@ def credential_gate(state: Path, config_dir: Path) -> dict:
     if not api_key.startswith("sk-ant-api"):
         verdict["reason"] = "not_an_api_key_format"
         return verdict
-    active = [name for name in PROVIDER_ENV_VARS
-              if os.environ.get(name, "").strip()]
+    active = [name for name in PROVIDER_ENV_VARS if os.environ.get(name, "").strip()]
     if active:
         verdict["reason"] = "provider_env_vars_set"
         verdict["provider_env_vars"] = active
@@ -426,8 +475,9 @@ def credential_gate(state: Path, config_dir: Path) -> dict:
     return verdict
 
 
-def options_env(private_home: Path, config_dir: Path, state: Path,
-                api_key: str = None) -> dict:
+def options_env(
+    private_home: Path, config_dir: Path, state: Path, api_key: str = None
+) -> dict:
     """Environment passed to the CLI subprocess via options.env. The SDK merges
     this on top of the inherited process environment, so every personal-profile
     and provider-redirecting variable is overridden explicitly (see #118: the
@@ -467,16 +517,20 @@ def redact_message(message) -> dict:
         view["subtype"] = message.subtype
         if message.subtype == "init":
             skills = data.get("skills") or []
-            names = [str(skill.get("name")) if isinstance(skill, dict)
-                     else str(skill) for skill in skills]
+            names = [
+                str(skill.get("name")) if isinstance(skill, dict) else str(skill)
+                for skill in skills
+            ]
             view["data_keys"] = sorted(data.keys())
             view["session_id"] = data.get("session_id")
             view["model"] = data.get("model")
             view["skill_count"] = len(names)
-            view["skill_names"] = sorted(name for name in names
-                                         if name in FIXTURE_SKILL_NAMES)
+            view["skill_names"] = sorted(
+                name for name in names if name in FIXTURE_SKILL_NAMES
+            )
             view["unrecognized_skill_count"] = sum(
-                name not in FIXTURE_SKILL_NAMES for name in names)
+                name not in FIXTURE_SKILL_NAMES for name in names
+            )
             view["slash_command_count"] = len(data.get("slash_commands") or [])
             view["version"] = data.get("version")
     elif kind == "AssistantMessage":
@@ -484,7 +538,7 @@ def redact_message(message) -> dict:
         view["session_id"] = message.session_id
         view["stop_reason"] = message.stop_reason
         blocks = []
-        for block in (message.content or []):
+        for block in message.content or []:
             bkind = type(block).__name__
             entry = {"kind": bkind}
             if bkind == "ToolUseBlock":
@@ -495,12 +549,14 @@ def redact_message(message) -> dict:
                     # Attribute only known synthetic fixtures. Never print
                     # arbitrary skill names or other argument values.
                     entry["skill_args"] = {
-                        key: value for key, value in (block.input or {}).items()
-                        if isinstance(value, str)
-                        and value in FIXTURE_SKILL_NAMES}
+                        key: value
+                        for key, value in (block.input or {}).items()
+                        if isinstance(value, str) and value in FIXTURE_SKILL_NAMES
+                    }
                     entry["unrecognized_skill_arg_count"] = sum(
                         isinstance(value, str) and value not in FIXTURE_SKILL_NAMES
-                        for value in (block.input or {}).values())
+                        for value in (block.input or {}).values()
+                    )
             elif bkind == "TextBlock":
                 entry["text_length"] = len(block.text or "")
             elif bkind == "ToolResultBlock":
@@ -524,19 +580,24 @@ def redact_message(message) -> dict:
                 blocks.append(entry)
         view["blocks"] = blocks
     elif kind == "ResultMessage":
-        view.update({
-            "subtype": message.subtype,
-            "is_error": message.is_error,
-            "num_turns": message.num_turns,
-            "session_id": message.session_id,
-            "total_cost_usd": message.total_cost_usd,
-            "api_error_status": message.api_error_status,
-            "terminal_reason": message.terminal_reason,
-            "error_present": bool(message.errors),
-            "usage": message.usage,
-            "model_usage_models": sorted((message.model_usage or {}).keys())
-                                  if message.model_usage else [],
-        })
+        view.update(
+            {
+                "subtype": message.subtype,
+                "is_error": message.is_error,
+                "num_turns": message.num_turns,
+                "session_id": message.session_id,
+                "total_cost_usd": message.total_cost_usd,
+                "api_error_status": message.api_error_status,
+                "terminal_reason": message.terminal_reason,
+                "error_present": bool(message.errors),
+                "usage": message.usage,
+                "model_usage_models": (
+                    sorted((message.model_usage or {}).keys())
+                    if message.model_usage
+                    else []
+                ),
+            }
+        )
     elif kind == "StreamEvent":
         event = message.event or {}
         view["event_type"] = event.get("type")
@@ -562,14 +623,19 @@ def collect_events(messages, marker: str = None) -> dict:
         view = redact_message(message)
         redacted.append(view)
         if view["kind"] == "AssistantMessage":
-            for block in (message.content or []):
-                if isinstance(block, TextBlock) and marker and marker in (block.text or ""):
+            for block in message.content or []:
+                if (
+                    isinstance(block, TextBlock)
+                    and marker
+                    and marker in (block.text or "")
+                ):
                     marker_returned = True
             for block in view["blocks"]:
                 if block["kind"] == "ToolUseBlock":
                     tool_calls[block["id"]] = block["name"]
                     call_details[block["id"]] = {
-                        "id": block["id"], "name": block["name"],
+                        "id": block["id"],
+                        "name": block["name"],
                         "skill_args": block.get("skill_args"),
                     }
         elif view["kind"] == "UserMessage":
@@ -585,9 +651,13 @@ def collect_events(messages, marker: str = None) -> dict:
                 marker_returned = True
     calls = []
     for call_id, detail in call_details.items():
-        calls.append({**detail,
-                      "result_seen": call_id in tool_result_errors,
-                      "is_error": tool_result_errors.get(call_id)})
+        calls.append(
+            {
+                **detail,
+                "result_seen": call_id in tool_result_errors,
+                "is_error": tool_result_errors.get(call_id),
+            }
+        )
     return {
         "message_count": len(redacted),
         "tool_calls": calls,
@@ -599,7 +669,8 @@ def collect_events(messages, marker: str = None) -> dict:
         "tool_result_ids": sorted(tool_results),
         "tool_results_matched": sorted(set(tool_calls) & set(tool_results)),
         "tool_result_errors": tool_result_errors,
-        "tool_call_and_result_observed": bool(tool_calls) and bool(set(tool_calls) & set(tool_results)),
+        "tool_call_and_result_observed": bool(tool_calls)
+        and bool(set(tool_calls) & set(tool_results)),
         "marker_returned": marker_returned if marker else None,
     }
 
@@ -610,11 +681,15 @@ def skill_attempt(collected: dict, skill_name: str) -> dict:
     Skill call's own result counts; errors from other tools are ignored. When
     no Skill call names the skill, any Skill call is used and flagged."""
     skill_calls = [c for c in collected.get("tool_calls") or [] if c["name"] == "Skill"]
-    named = [c for c in skill_calls
-             if skill_name in (c.get("skill_args") or {}).values()]
+    named = [
+        c for c in skill_calls if skill_name in (c.get("skill_args") or {}).values()
+    ]
     considered = named or skill_calls
-    report = {"skill": skill_name, "skill_call_count": len(skill_calls),
-              "attributed_by_name": bool(named)}
+    report = {
+        "skill": skill_name,
+        "skill_call_count": len(skill_calls),
+        "attributed_by_name": bool(named),
+    }
     if not considered:
         report["state"] = "not_attempted"
     elif any(c["result_seen"] and c["is_error"] for c in considered):
@@ -628,5 +703,7 @@ def skill_attempt(collected: dict, skill_name: str) -> dict:
 
 def tool_succeeded(collected: dict, tool_name: str) -> bool:
     """True when a call to tool_name produced a non-error result."""
-    return any(c["name"] == tool_name and c["result_seen"] and not c["is_error"]
-               for c in collected.get("tool_calls") or [])
+    return any(
+        c["name"] == tool_name and c["result_seen"] and not c["is_error"]
+        for c in collected.get("tool_calls") or []
+    )

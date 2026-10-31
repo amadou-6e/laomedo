@@ -23,7 +23,10 @@ def require_outside_git_worktree(state: Path) -> None:
             raise RuntimeError("cannot verify private state is outside Git") from error
         if result.returncode == 0 and result.stdout.strip() == "true":
             raise ValueError("private state must be outside every Git working tree")
-        if result.returncode != 0 and "not a git repository" not in result.stderr.lower():
+        if (
+            result.returncode != 0
+            and "not a git repository" not in result.stderr.lower()
+        ):
             raise RuntimeError("cannot verify private state is outside Git")
 
 
@@ -56,7 +59,9 @@ def main() -> None:
         "TMP": str(state),
         "SystemRoot": system_root,
         "WINDIR": system_root,
-        "PATH": os.pathsep.join([str(codex.parent), str(Path(system_root) / "System32")]),
+        "PATH": os.pathsep.join(
+            [str(codex.parent), str(Path(system_root) / "System32")]
+        ),
     }
     process = subprocess.run(
         [str(codex), "login", "status"],
@@ -73,8 +78,10 @@ def main() -> None:
         json.dumps(
             {
                 "status_exit_code": process.returncode,
-                "chatgpt_login_reported": process.returncode == 0 and "chatgpt" in output,
-                "api_key_login_reported": process.returncode == 0 and "api key" in output,
+                "chatgpt_login_reported": process.returncode == 0
+                and "chatgpt" in output,
+                "api_key_login_reported": process.returncode == 0
+                and "api key" in output,
             },
             indent=2,
         )

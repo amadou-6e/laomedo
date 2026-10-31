@@ -24,9 +24,7 @@ def skill_request(action, **body):
     ):
         raise ValueError("skill_operation_service_not_configured")
     try:
-        token = (
-            Path(settings.token_file).read_text().strip()
-        )
+        token = Path(settings.token_file).read_text().strip()
         if not 32 <= len(token) <= 512:
             raise ValueError()
         call = request.Request(

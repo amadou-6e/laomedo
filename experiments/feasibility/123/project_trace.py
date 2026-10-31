@@ -11,10 +11,17 @@ import hashlib
 import json
 from typing import Any
 
-
 KINDS = {
-    "start", "message", "tool_call", "tool_result", "file_change",
-    "skill_access", "approval", "usage", "error", "end",
+    "start",
+    "message",
+    "tool_call",
+    "tool_result",
+    "file_change",
+    "skill_access",
+    "approval",
+    "usage",
+    "error",
+    "end",
 }
 STATUSES = {"completed", "failed", "cancelled", "timed_out", "interrupted"}
 
@@ -38,12 +45,18 @@ class Envelope:
             raise ValueError("unsupported event kind")
         if self.terminal_status is not None and self.terminal_status not in STATUSES:
             raise ValueError("unsupported terminal status")
-        if len(self.payload_sha256) != 64 or any(c not in "0123456789abcdef" for c in self.payload_sha256):
+        if len(self.payload_sha256) != 64 or any(
+            c not in "0123456789abcdef" for c in self.payload_sha256
+        ):
             raise ValueError("payload digest must be lowercase SHA-256")
         if self.usage is not None:
             for value in self.usage.values():
-                if value is not None and (isinstance(value, bool) or not isinstance(value, int) or value < 0):
-                    raise ValueError("usage counters must be nonnegative integers or null")
+                if value is not None and (
+                    isinstance(value, bool) or not isinstance(value, int) or value < 0
+                ):
+                    raise ValueError(
+                        "usage counters must be nonnegative integers or null"
+                    )
 
 
 def digest(value: Any) -> str:
@@ -68,27 +81,41 @@ def project(run_id: str, envelopes: list[Envelope]) -> dict[str, Any]:
                 duplicates += 1
                 continue
             seen[key] = envelope.payload_sha256
-        events.append({
-            "event_id": f"{run_id}:{len(events)}",
-            "run_id": run_id,
-            "sequence": len(events),
-            "received_ordinal": received_ordinal,
-            "source": envelope.source,
-            "source_event_id": envelope.source_event_id,
-            "source_time": envelope.source_time,
-            "observed_at": envelope.observed_at,
-            "kind": envelope.kind,
-            "payload_ref": envelope.payload_ref,
-            "payload_sha256": envelope.payload_sha256,
-            "native_session_id": envelope.native_session_id,
-            "tool_call_id": envelope.tool_call_id,
-            "terminal_status": envelope.terminal_status,
-            "usage": dict(envelope.usage) if envelope.usage is not None else None,
-            "provenance": "observed",
-        })
-    calls = {event["tool_call_id"] for event in events if event["kind"] == "tool_call" and event["tool_call_id"]}
-    results = {event["tool_call_id"] for event in events if event["kind"] == "tool_result" and event["tool_call_id"]}
-    terminal = [event["terminal_status"] for event in events if event["kind"] == "end" and event["terminal_status"]]
+        events.append(
+            {
+                "event_id": f"{run_id}:{len(events)}",
+                "run_id": run_id,
+                "sequence": len(events),
+                "received_ordinal": received_ordinal,
+                "source": envelope.source,
+                "source_event_id": envelope.source_event_id,
+                "source_time": envelope.source_time,
+                "observed_at": envelope.observed_at,
+                "kind": envelope.kind,
+                "payload_ref": envelope.payload_ref,
+                "payload_sha256": envelope.payload_sha256,
+                "native_session_id": envelope.native_session_id,
+                "tool_call_id": envelope.tool_call_id,
+                "terminal_status": envelope.terminal_status,
+                "usage": dict(envelope.usage) if envelope.usage is not None else None,
+                "provenance": "observed",
+            }
+        )
+    calls = {
+        event["tool_call_id"]
+        for event in events
+        if event["kind"] == "tool_call" and event["tool_call_id"]
+    }
+    results = {
+        event["tool_call_id"]
+        for event in events
+        if event["kind"] == "tool_result" and event["tool_call_id"]
+    }
+    terminal = [
+        event["terminal_status"]
+        for event in events
+        if event["kind"] == "end" and event["terminal_status"]
+    ]
     return {
         "schema_version": 1,
         "run_id": run_id,

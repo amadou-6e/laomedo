@@ -21,9 +21,13 @@ def main() -> int:
         key, _, value = line.rstrip("\r\n").partition("=")
         fields[key] = value
     token = os.environ.get("LAOMEDO_MEDIATED_GIT_TOKEN", "")
-    if (fields.get("protocol") != "https" or
-            fields.get("host") != "github.com" or
-            not token or "\n" in token or "\r" in token):
+    if (
+        fields.get("protocol") != "https"
+        or fields.get("host") != "github.com"
+        or not token
+        or "\n" in token
+        or "\r" in token
+    ):
         return 1
     sys.stdout.write("username=x-access-token\n")
     sys.stdout.write("password=" + token + "\n\n")

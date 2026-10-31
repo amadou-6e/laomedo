@@ -9,7 +9,8 @@ class ObservationTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.observation = json.loads(
-            Path(__file__).with_name("observation.json").read_text(encoding="utf-8"))
+            Path(__file__).with_name("observation.json").read_text(encoding="utf-8")
+        )
 
     def test_orphan_survives_sweep_but_not_exact_cleanup(self):
         value = self.observation

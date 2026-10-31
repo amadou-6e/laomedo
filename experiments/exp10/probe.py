@@ -1,15 +1,17 @@
 """Probe outer-client, component HTTP and Langflow server timeout boundaries."""
 
 from copy import deepcopy
-from datetime import datetime; from datetime import timedelta; from datetime import timezone
+from datetime import datetime
+from datetime import timedelta
+from datetime import timezone
 from pathlib import Path
 import json
 import socket
 import subprocess
 import sys
 import time
-from urllib import error; from urllib import request
-
+from urllib import error
+from urllib import request
 
 ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
@@ -20,8 +22,9 @@ TOKEN = None
 
 
 def docker(*args: str, check: bool = True) -> str:
-    result = subprocess.run(["docker", *args], capture_output=True, text=True,
-                            timeout=45, check=False)
+    result = subprocess.run(
+        ["docker", *args], capture_output=True, text=True, timeout=45, check=False
+    )
     if check and result.returncode:
         raise RuntimeError(f"docker {args[0]} failed: {result.stderr[-400:]}")
     return result.stdout.strip()
@@ -31,7 +34,9 @@ def utc() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def api(method: str, path: str, payload: dict | None = None, timeout: float = 20) -> dict:
+def api(
+    method: str, path: str, payload: dict | None = None, timeout: float = 20
+) -> dict:
     data = None if payload is None else json.dumps(payload).encode("utf-8")
     headers = {"Content-Type": "application/json"}
     if TOKEN:
@@ -44,7 +49,9 @@ def api(method: str, path: str, payload: dict | None = None, timeout: float = 20
         if path != "/api/v1/flows/":
             raise
         detail = exc.read().decode("utf-8", errors="replace")[-600:]
-        raise RuntimeError(f"EXP-10 setup API {path} returned {exc.code}: {detail}") from None
+        raise RuntimeError(
+            f"EXP-10 setup API {path} returned {exc.code}: {detail}"
+        ) from None
 
 
 def wait_health() -> None:
@@ -76,12 +83,21 @@ def wait_for_effect(case: str, seconds: float) -> list[dict]:
 
 
 def make_flow(case: str, component_timeout: int) -> str:
-    flow = deepcopy(json.loads((ROOT / "examples/native-codex-node/flow.json").read_text(encoding="utf-8")))
-    flow.pop("id", None)  # Exported example ID is already present in existing databases.
+    flow = deepcopy(
+        json.loads(
+            (ROOT / "examples/native-codex-node/flow.json").read_text(encoding="utf-8")
+        )
+    )
+    flow.pop(
+        "id", None
+    )  # Exported example ID is already present in existing databases.
     flow["name"] = f"EXP-10 synthetic {case} timeout"
     flow["description"] = "No model calls; loopback synthetic runner only."
-    node = next(node for node in flow["data"]["nodes"]
-                if node["data"]["type"] == "LaomedoCodexAgent")
+    node = next(
+        node
+        for node in flow["data"]["nodes"]
+        if node["data"]["type"] == "LaomedoCodexAgent"
+    )
     fields = node["data"]["node"]["template"]
     fields["runner_url"]["value"] = "http://127.0.0.1:18740"
     fields["timeout_seconds"]["value"] = component_timeout
@@ -130,11 +146,18 @@ def invoke(case: str, flow_id: str, *, route: str, caller_timeout: float) -> dic
                 detail = json.loads(detail)
             except ValueError:
                 detail = {"message": detail[-300:]}
-        outcome["response"] = {key: detail.get(key) for key in
-                               ("message", "code", "job_id", "timeout_seconds")
-                               if detail.get(key) is not None}
-    return {"case": case, "route": route, "started_utc": started_utc,
-            "duration_seconds": duration, **outcome}
+        outcome["response"] = {
+            key: detail.get(key)
+            for key in ("message", "code", "job_id", "timeout_seconds")
+            if detail.get(key) is not None
+        }
+    return {
+        "case": case,
+        "route": route,
+        "started_utc": started_utc,
+        "duration_seconds": duration,
+        **outcome,
+    }
 
 
 def main() -> dict:
@@ -147,51 +170,119 @@ def main() -> dict:
     try:
         # The pinned image runs as UID 1000. Initialize the fresh named volume
         # once, without running the long-lived server as root.
-        docker("run", "--rm", "--user", "0", "-v", f"{NAME}:/state",
-               "--entrypoint", "chown", IMAGE, "1000:0", "/state")
-        docker("run", "-d", "--name", NAME, "--network", "bridge", "-p",
-               "127.0.0.1:17870:7860", "-e", "LANGFLOW_AUTO_LOGIN=true",
-               "-e", "LANGFLOW_DATABASE_URL=sqlite:////state/langflow.db",
-               "-e", "LANGFLOW_WORKFLOW_EXECUTION_TIMEOUT=3",
-               "-e", "LANGFLOW_DEVELOPER_API_ENABLED=true",
-               "-e", "LAOMEDO_RUNNER_TOKEN_FILE=/state/token",
-               "-v", f"{NAME}:/state", "-v", f"{ROOT / 'experiments'}:/experiments:ro",
-               "--entrypoint", "python", IMAGE, "/experiments/exp10/start.py")
+        docker(
+            "run",
+            "--rm",
+            "--user",
+            "0",
+            "-v",
+            f"{NAME}:/state",
+            "--entrypoint",
+            "chown",
+            IMAGE,
+            "1000:0",
+            "/state",
+        )
+        docker(
+            "run",
+            "-d",
+            "--name",
+            NAME,
+            "--network",
+            "bridge",
+            "-p",
+            "127.0.0.1:17870:7860",
+            "-e",
+            "LANGFLOW_AUTO_LOGIN=true",
+            "-e",
+            "LANGFLOW_DATABASE_URL=sqlite:////state/langflow.db",
+            "-e",
+            "LANGFLOW_WORKFLOW_EXECUTION_TIMEOUT=3",
+            "-e",
+            "LANGFLOW_DEVELOPER_API_ENABLED=true",
+            "-e",
+            "LAOMEDO_RUNNER_TOKEN_FILE=/state/token",
+            "-v",
+            f"{NAME}:/state",
+            "-v",
+            f"{ROOT / 'experiments'}:/experiments:ro",
+            "--entrypoint",
+            "python",
+            IMAGE,
+            "/experiments/exp10/start.py",
+        )
         wait_health()
         TOKEN = api("GET", "/api/v1/auto_login")["access_token"]
-        config = {"image": IMAGE, "langflow_version": "1.12.3",
-                  "server_timeout_seconds": int(docker("exec", NAME, "python", "-c",
-                      "from langflow.services.deps import get_settings_service; "
-                      "print(get_settings_service().settings.workflow_execution_timeout)")),
-                  "container_status_at_start": docker("inspect", "--format", "{{.State.Status}}", NAME)}
+        config = {
+            "image": IMAGE,
+            "langflow_version": "1.12.3",
+            "server_timeout_seconds": int(
+                docker(
+                    "exec",
+                    NAME,
+                    "python",
+                    "-c",
+                    "from langflow.services.deps import get_settings_service; "
+                    "print(get_settings_service().settings.workflow_execution_timeout)",
+                )
+            ),
+            "container_status_at_start": docker(
+                "inspect", "--format", "{{.State.Status}}", NAME
+            ),
+        }
         results = []
         for case, timeout, route, caller_timeout, effect_wait in [
-                ("control", 8, "v1", 15, 3),
-                ("client", 8, "v1", 1, 6),
-                ("component", 2, "v1", 15, 7),
-                ("server", 8, "v2", 15, 8)]:
+            ("control", 8, "v1", 15, 3),
+            ("client", 8, "v1", 1, 6),
+            ("component", 2, "v1", 15, 7),
+            ("server", 8, "v2", 15, 8),
+        ]:
             flow_id = make_flow(case, timeout)
             response = invoke(case, flow_id, route=route, caller_timeout=caller_timeout)
             events = wait_for_effect(case, effect_wait)
             observed = [{"event": row["event"], "utc": row["utc"]} for row in events]
             effect_times = [row["utc"] for row in observed if row["event"] == "effect"]
-            caller_end = (datetime.fromisoformat(response["started_utc"]) +
-                          timedelta(seconds=response["duration_seconds"]))
-            results.append({**response, "configured_component_timeout_seconds": timeout,
-                            "configured_caller_timeout_seconds": caller_timeout,
-                            "runner_events": observed,
-                            "effect_observed": bool(effect_times),
-                            "effect_after_caller": bool(effect_times and
-                                datetime.fromisoformat(effect_times[0]) > caller_end)})
-        report = {"config": config, "cases": results,
-                  "container_status_at_end": docker("inspect", "--format", "{{.State.Status}}", NAME)}
-        with (HERE / "observation.json").open("w", encoding="utf-8", newline="\n") as stream:
+            caller_end = datetime.fromisoformat(response["started_utc"]) + timedelta(
+                seconds=response["duration_seconds"]
+            )
+            results.append(
+                {
+                    **response,
+                    "configured_component_timeout_seconds": timeout,
+                    "configured_caller_timeout_seconds": caller_timeout,
+                    "runner_events": observed,
+                    "effect_observed": bool(effect_times),
+                    "effect_after_caller": bool(
+                        effect_times
+                        and datetime.fromisoformat(effect_times[0]) > caller_end
+                    ),
+                }
+            )
+        report = {
+            "config": config,
+            "cases": results,
+            "container_status_at_end": docker(
+                "inspect", "--format", "{{.State.Status}}", NAME
+            ),
+        }
+        with (HERE / "observation.json").open(
+            "w", encoding="utf-8", newline="\n"
+        ) as stream:
             json.dump(report, stream, indent=2)
             stream.write("\n")
-        print(json.dumps({row["case"]: {"kind": row["kind"],
-                          "status": row.get("status"),
-                          "effect_after_caller": row["effect_after_caller"]}
-                          for row in results}, sort_keys=True))
+        print(
+            json.dumps(
+                {
+                    row["case"]: {
+                        "kind": row["kind"],
+                        "status": row.get("status"),
+                        "effect_after_caller": row["effect_after_caller"],
+                    }
+                    for row in results
+                },
+                sort_keys=True,
+            )
+        )
         return report
     finally:
         docker("rm", "-f", NAME, check=False)

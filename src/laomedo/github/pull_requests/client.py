@@ -27,13 +27,7 @@ def pr_request(action, **payload):
     ):
         raise ValueError("pr_service_not_configured")
     try:
-        token = (
-            Path(
-                settings.token_file
-            )
-            .read_text(encoding="utf-8")
-            .strip()
-        )
+        token = Path(settings.token_file).read_text(encoding="utf-8").strip()
         if not 32 <= len(token) <= 512:
             raise ValueError()
         call = request.Request(

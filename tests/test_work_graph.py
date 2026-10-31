@@ -7,9 +7,10 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from laomedo.work_graph.github import fetch; from laomedo.work_graph.github import import_pages
-from laomedo.work_graph.models import Dependency; from laomedo.work_graph.models import GraphSnapshot
-
+from laomedo.work_graph.github import fetch
+from laomedo.work_graph.github import import_pages
+from laomedo.work_graph.models import Dependency
+from laomedo.work_graph.models import GraphSnapshot
 
 FIXTURE = Path(__file__).parents[1] / "examples/work-graph/github-pages.json"
 NOW = "2026-10-01T08:00:00+00:00"
@@ -83,8 +84,12 @@ class WorkGraphTests(unittest.TestCase):
         reference["repository"]["nameWithOwner"] = "other/work"
         graph = import_pages("example/work", fixture, NOW)
         self.assertEqual(graph.readiness()["github:I_2"], "unknown")
-        self.assertTrue(any(edge.prerequisite_repository == "other/work"
-                            for edge in graph.dependencies))
+        self.assertTrue(
+            any(
+                edge.prerequisite_repository == "other/work"
+                for edge in graph.dependencies
+            )
+        )
 
     def test_truncated_blockers_never_appear_ready(self):
         fixture = pages()
@@ -96,14 +101,34 @@ class WorkGraphTests(unittest.TestCase):
 
     def test_cycles_and_downstream_nodes_are_distinguished(self):
         graph = import_pages("example/work", pages(), NOW)
-        items = tuple(type(item).model_validate({**item.model_dump(), 'state': 'OPEN'}) for item in graph.items)
+        items = tuple(
+            type(item).model_validate({**item.model_dump(), "state": "OPEN"})
+            for item in graph.items
+        )
+
         def edge(start, end):
-            return Dependency(prerequisite=f'github:I_{start}', dependent=f'github:I_{end}', prerequisite_url=f'https://github.com/example/work/issues/{start}', dependent_url=f'https://github.com/example/work/issues/{end}', prerequisite_repository='example/work', dependent_repository='example/work')
-        graph = type(graph).model_validate({**graph.model_dump(), 'items': items, 'dependencies': tuple(sorted((edge(1, 2), edge(2, 1), edge(2, 3))))})
+            return Dependency(
+                prerequisite=f"github:I_{start}",
+                dependent=f"github:I_{end}",
+                prerequisite_url=f"https://github.com/example/work/issues/{start}",
+                dependent_url=f"https://github.com/example/work/issues/{end}",
+                prerequisite_repository="example/work",
+                dependent_repository="example/work",
+            )
+
+        graph = type(graph).model_validate(
+            {
+                **graph.model_dump(),
+                "items": items,
+                "dependencies": tuple(sorted((edge(1, 2), edge(2, 1), edge(2, 3)))),
+            }
+        )
         self.assertEqual(graph.cycle_keys(), frozenset(("github:I_1", "github:I_2")))
         self.assertEqual(graph.readiness()["github:I_3"], "blocked")
         self.assertEqual(graph.readiness()["github:I_1"], "cyclic")
-        self_loop = type(graph).model_validate({**graph.model_dump(), 'dependencies': (edge(3, 3),)})
+        self_loop = type(graph).model_validate(
+            {**graph.model_dump(), "dependencies": (edge(3, 3),)}
+        )
         self.assertEqual(self_loop.cycle_keys(), frozenset(("github:I_3",)))
 
     def test_connector_fetches_all_pages(self):
@@ -113,21 +138,27 @@ class WorkGraphTests(unittest.TestCase):
         connection(first)["pageInfo"] = {"hasNextPage": True, "endCursor": "next"}
         connection(last)["nodes"] = connection(last)["nodes"][1:]
         calls = []
+
         def request(owner, name, cursor):
             calls.append((owner, name, cursor))
             return first if cursor is None else last
+
         graph = fetch("example/work", request)
         self.assertTrue(graph.source_complete)
-        self.assertEqual(calls, [("example", "work", None), ("example", "work", "next")])
+        self.assertEqual(
+            calls, [("example", "work", None), ("example", "work", "next")]
+        )
 
     def test_interrupted_fetch_retains_partial_items_with_unknown_readiness(self):
         fixture = pages()[0]
         connection(fixture)["nodes"] = connection(fixture)["nodes"][:1]
         connection(fixture)["pageInfo"] = {"hasNextPage": True, "endCursor": "next"}
+
         def request(owner, name, cursor):
             if cursor:
                 raise RuntimeError("transport failure")
             return fixture
+
         graph = fetch("example/work", request)
         self.assertFalse(graph.source_complete)
         self.assertEqual(len(graph.items), 1)

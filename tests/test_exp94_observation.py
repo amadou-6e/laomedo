@@ -6,7 +6,6 @@ import json
 from pathlib import Path
 import unittest
 
-
 EVIDENCE = Path(__file__).resolve().parents[1] / "experiments" / "exp94" / "evidence"
 HASHES = {
     "case-a.json": "7a12bd36b7a64da5530f8ba88e8ed64588d91b2643d54b5e1acf58b950622533",
@@ -28,11 +27,21 @@ class Exp94ObservationTests(unittest.TestCase):
             raw = (EVIDENCE / name).read_bytes()
             if hashlib.sha256(raw).hexdigest() != digest:
                 raise AssertionError("evidence_hash_mismatch:" + name)
-        cls.cases = {name: json.loads((EVIDENCE / ("case-" + name.lower() + ".json"))
-                                      .read_text(encoding="utf-8"))
-                     for name in ("A", "B", "CONTROL", "CONTROL_LATE")}
-        cls.journal = [json.loads(line) for line in (EVIDENCE / "journal.jsonl")
-                       .read_text(encoding="utf-8").splitlines() if line]
+        cls.cases = {
+            name: json.loads(
+                (EVIDENCE / ("case-" + name.lower() + ".json")).read_text(
+                    encoding="utf-8"
+                )
+            )
+            for name in ("A", "B", "CONTROL", "CONTROL_LATE")
+        }
+        cls.journal = [
+            json.loads(line)
+            for line in (EVIDENCE / "journal.jsonl")
+            .read_text(encoding="utf-8")
+            .splitlines()
+            if line
+        ]
 
     def events(self, case):
         run_id = self.cases[case]["target_event"]["run_id"]
@@ -47,18 +56,38 @@ class Exp94ObservationTests(unittest.TestCase):
                 events = self.events(name)
                 kinds = [event["kind"] for event in events]
                 self.assertEqual(kinds.count("post_received"), 1)
-                self.assertFalse(next(e for e in events if e["kind"] == "post_received")["duplicate"])
+                self.assertFalse(
+                    next(e for e in events if e["kind"] == "post_received")["duplicate"]
+                )
                 self.assertEqual(kinds.count("request_lookup"), 1)
                 self.assertEqual(kinds.count("cancel_received"), 1)
-                self.assertTrue(next(e for e in events if e["kind"] == "cancel_received")["known"])
+                self.assertTrue(
+                    next(e for e in events if e["kind"] == "cancel_received")["known"]
+                )
                 self.assertNotIn("synthetic_effect", kinds)
-                self.assertLess(instant(case["target_event"]["at_utc"]),
-                                instant(case["stop_clicked_utc"]))
-                self.assertLess(instant(case["stop_clicked_utc"]),
-                                instant(next(e for e in events if e["kind"] == "cancel_received")["at_utc"]))
+                self.assertLess(
+                    instant(case["target_event"]["at_utc"]),
+                    instant(case["stop_clicked_utc"]),
+                )
+                self.assertLess(
+                    instant(case["stop_clicked_utc"]),
+                    instant(
+                        next(e for e in events if e["kind"] == "cancel_received")[
+                            "at_utc"
+                        ]
+                    ),
+                )
                 if name == "A":
-                    self.assertLess(instant(next(e for e in events if e["kind"] == "cancel_received")["at_utc"]),
-                                    instant(next(e for e in events if e["kind"] == "ack_sent")["at_utc"]))
+                    self.assertLess(
+                        instant(
+                            next(e for e in events if e["kind"] == "cancel_received")[
+                                "at_utc"
+                            ]
+                        ),
+                        instant(
+                            next(e for e in events if e["kind"] == "ack_sent")["at_utc"]
+                        ),
+                    )
 
     def test_completed_controls_have_no_cancel_or_duplicate_start(self):
         for name in ("CONTROL", "CONTROL_LATE"):
@@ -72,8 +101,14 @@ class Exp94ObservationTests(unittest.TestCase):
                 self.assertEqual(kinds.count("cancel_received"), 0)
                 if name == "CONTROL_LATE":
                     self.assertEqual(case["stop_control"]["testId"], "button-stop")
-                    self.assertLess(instant(next(e for e in events if e["kind"] == "synthetic_effect")["at_utc"]),
-                                    instant(case["stop_clicked_utc"]))
+                    self.assertLess(
+                        instant(
+                            next(e for e in events if e["kind"] == "synthetic_effect")[
+                                "at_utc"
+                            ]
+                        ),
+                        instant(case["stop_clicked_utc"]),
+                    )
                 else:
                     self.assertNotIn("stop_clicked_utc", case)
 

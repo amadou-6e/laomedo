@@ -51,15 +51,24 @@ class ClaudeRunner(_runtime_runner.Runner):
             if type(value) is not int or not 1 <= value <= 86400:
                 raise _runtime_errors.RunnerError("claude_turn_timeout_invalid")
             extra["run_timeout_seconds"] = value
-        required = extra.get("run_timeout_seconds") if extra else self.status(run_id).get("turn_timeout", self.turn_timeout)
+        required = (
+            extra.get("run_timeout_seconds")
+            if extra
+            else self.status(run_id).get("turn_timeout", self.turn_timeout)
+        )
         self._mirror_host_login(minimum_validity_seconds=required)
         return extra
 
     def runtime_binding(self):
         return _runtime_models.RuntimeBinding(
-            provider=self.provider, profile=self.profile, image=self.image, image_id=self.image_id,
-            execution_mode="claude_container", cli_version="Claude Code " + _claude_settings.CLI_VERSION,
-            config_sha256=None)
+            provider=self.provider,
+            profile=self.profile,
+            image=self.image,
+            image_id=self.image_id,
+            execution_mode="claude_container",
+            cli_version="Claude Code " + _claude_settings.CLI_VERSION,
+            config_sha256=None,
+        )
 
     def recover_interrupted(self, record):
         # The independent lease supervisor owns controller/worker lifetimes.
@@ -67,8 +76,12 @@ class ClaudeRunner(_runtime_runner.Runner):
         owner = record.get("container_ownership") or {}
         if owner.get("supervised"):
             verified, detail = _leases_utils.cleanup_exact(
-                _leases_models.ContainerIdentity(name=owner["name"], run_id=record["run_id"],
-                                                token=owner["launch_token"]))
+                _leases_models.ContainerIdentity(
+                    name=owner["name"],
+                    run_id=record["run_id"],
+                    token=owner["launch_token"],
+                )
+            )
             owner.update(cleanup_verified=verified, cleanup_detail=detail)
             if not verified:
                 record["error_category"] = "container_cleanup_unverified"

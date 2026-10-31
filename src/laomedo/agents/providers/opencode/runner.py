@@ -76,23 +76,46 @@ class OpenCodeRunner(_runtime_runner.Runner):
 
     provider = "opencode"
 
-    def __init__(self, state, skill_store, source_workspace, *, transport_factory=None,
-                 lease_service=None, github_authority=None, mediator_state=None,
-                 git_workspace=False, publication_controller=None, artifact_sources=None):
+    def __init__(
+        self,
+        state,
+        skill_store,
+        source_workspace,
+        *,
+        transport_factory=None,
+        lease_service=None,
+        github_authority=None,
+        mediator_state=None,
+        git_workspace=False,
+        publication_controller=None,
+        artifact_sources=None,
+    ):
         self.transport_factory = transport_factory
         self.active_backends = {}
         self._opencode_catalog_lock = threading.Lock()
         self._opencode_catalog_cached = None
-        super().__init__(state, skill_store, source_workspace, lease_service=lease_service,
-                         github_authority=github_authority, mediator_state=mediator_state,
-                         git_workspace=git_workspace, publication_controller=publication_controller,
-                         artifact_sources=artifact_sources)
+        super().__init__(
+            state,
+            skill_store,
+            source_workspace,
+            lease_service=lease_service,
+            github_authority=github_authority,
+            mediator_state=mediator_state,
+            git_workspace=git_workspace,
+            publication_controller=publication_controller,
+            artifact_sources=artifact_sources,
+        )
 
     def runtime_binding(self):
         return _runtime_models.RuntimeBinding(
-            provider=self.provider, profile=None, image=None, image_id=None,
-            execution_mode="opencode_http", cli_version="opencode " + _opencode_settings.CLI_VERSION,
-            config_sha256=None)
+            provider=self.provider,
+            profile=None,
+            image=None,
+            image_id=None,
+            execution_mode="opencode_http",
+            cli_version="opencode " + _opencode_settings.CLI_VERSION,
+            config_sha256=None,
+        )
 
     def recover_interrupted(self, record):
         """No persisted controller is owned by this HTTP adapter; its supervisor owns workers."""

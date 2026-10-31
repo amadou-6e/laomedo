@@ -4,7 +4,9 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from laomedo.skills.inspection.utils import inspect_skill; from laomedo.skills.inspection.errors import InspectionError; from laomedo.skills.inspection.settings import MAX_FILE_BYTES
+from laomedo.skills.inspection.utils import inspect_skill
+from laomedo.skills.inspection.errors import InspectionError
+from laomedo.skills.inspection.settings import MAX_FILE_BYTES
 from laomedo.skills.registry.store import SkillStore
 
 
@@ -15,11 +17,15 @@ class SkillInspectionTests(unittest.TestCase):
         self.root = Path(self.temp.name)
         source = self.root / "source"
         source.mkdir()
-        (source / "SKILL.md").write_text("---\nname: sample\n---\n# Sample\ncafé\n", encoding="utf-8")
+        (source / "SKILL.md").write_text(
+            "---\nname: sample\n---\n# Sample\ncafé\n", encoding="utf-8"
+        )
         (source / "references").mkdir()
         (source / "references/example.md").write_text("Example", encoding="utf-8")
         (source / "scripts").mkdir()
-        (source / "scripts/example.py").write_text("raise RuntimeError('never execute')", encoding="utf-8")
+        (source / "scripts/example.py").write_text(
+            "raise RuntimeError('never execute')", encoding="utf-8"
+        )
         (source / "asset.bin").write_bytes(b"\0\xff")
         self.store = SkillStore(self.root / "registry")
         self.record = self.store.import_skill("sample", source)
@@ -30,37 +36,68 @@ class SkillInspectionTests(unittest.TestCase):
         return inspect_skill(self.store.root, "sample", self.revision)
 
     def test_exact_files_binary_and_unicode_without_writes(self):
-        before = {p.relative_to(self.root): p.stat().st_mtime_ns for p in self.root.rglob("*")}
+        before = {
+            p.relative_to(self.root): p.stat().st_mtime_ns for p in self.root.rglob("*")
+        }
         result = self.read()
         self.assertEqual(result["tree_hash"], self.revision)
         files = {f["path"]: f for f in result["files"]}
         self.assertIn("café", files["SKILL.md"]["text"])
         self.assertEqual(files["asset.bin"]["kind"], "binary")
         self.assertIsNone(files["asset.bin"]["text"])
-        self.assertEqual(files["references/example.md"]["file_hash"], self.record["file_hashes"]["references/example.md"])
-        self.assertEqual(before, {p.relative_to(self.root): p.stat().st_mtime_ns for p in self.root.rglob("*")})
+        self.assertEqual(
+            files["references/example.md"]["file_hash"],
+            self.record["file_hashes"]["references/example.md"],
+        )
+        self.assertEqual(
+            before,
+            {
+                p.relative_to(self.root): p.stat().st_mtime_ns
+                for p in self.root.rglob("*")
+            },
+        )
 
     def test_verified_raster_images_are_inlined_but_other_binary_files_are_not(self):
         import base64
+
         source = self.root / "source"
-        image = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aT1kAAAAASUVORK5CYII=")
+        image = base64.b64decode(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aT1kAAAAASUVORK5CYII="
+        )
         (source / "pixel.png").write_bytes(image)
-        (source / "diagram.svg").write_text('<svg xmlns="http://www.w3.org/2000/svg"><text>Flow</text></svg>')
+        (source / "diagram.svg").write_text(
+            '<svg xmlns="http://www.w3.org/2000/svg"><text>Flow</text></svg>'
+        )
         record = self.store.import_skill("media", source)
         default = inspect_skill(self.store.root, "media", record["revision_id"])
         self.assertTrue(all("image_data_url" not in file for file in default["files"]))
-        result = inspect_skill(self.store.root, "media", record["revision_id"], include_images=True)
+        result = inspect_skill(
+            self.store.root, "media", record["revision_id"], include_images=True
+        )
         files = {file["path"]: file for file in result["files"]}
-        self.assertEqual(files["pixel.png"]["image_data_url"], "data:image/png;base64," + base64.b64encode(image).decode())
+        self.assertEqual(
+            files["pixel.png"]["image_data_url"],
+            "data:image/png;base64," + base64.b64encode(image).decode(),
+        )
         self.assertNotIn("image_data_url", files["asset.bin"])
         self.assertNotIn("image_data_url", files["diagram.svg"])
-        (self.store._revision_dir("media", record["revision_id"]) / "bundle/pixel.png").write_bytes(b"tampered")
+        (
+            self.store._revision_dir("media", record["revision_id"])
+            / "bundle/pixel.png"
+        ).write_bytes(b"tampered")
         with self.assertRaisesRegex(InspectionError, "skill_revision_unavailable"):
             inspect_skill(self.store.root, "media", record["revision_id"])
 
     def test_no_latest_or_path_selection(self):
-        for skill, revision in (("../secret", self.revision), ("sample", "latest"), ("sample", "../../secret")):
-            with self.subTest(skill=skill, revision=revision), self.assertRaises(InspectionError):
+        for skill, revision in (
+            ("../secret", self.revision),
+            ("sample", "latest"),
+            ("sample", "../../secret"),
+        ):
+            with (
+                self.subTest(skill=skill, revision=revision),
+                self.assertRaises(InspectionError),
+            ):
                 inspect_skill(self.store.root, skill, revision)
 
     def test_missing_and_tampered_revision_fail_closed(self):
@@ -133,15 +170,20 @@ class SkillInspectionTests(unittest.TestCase):
 
     def test_no_write_api_and_authentication(self):
         try:
-            from fastapi import FastAPI; from fastapi import Header; from fastapi import HTTPException
+            from fastapi import FastAPI
+            from fastapi import Header
+            from fastapi import HTTPException
             from fastapi.testclient import TestClient
         except ImportError:
             self.skipTest("Optional FastAPI dependency checked in pinned Langflow")
         from laomedo.integrations.langflow.viewer import install_routes
+
         app = FastAPI()
+
         def authenticate(authorization: str = Header(default="")):
             if authorization != "Bearer fixture":
                 raise HTTPException(status_code=401)
+
         install_routes(app, self.store.root, authenticate)
         route = f"/api/v1/laomedo/skills/sample/{self.revision}"
         with TestClient(app) as client:
@@ -152,7 +194,12 @@ class SkillInspectionTests(unittest.TestCase):
             self.assertEqual(response.headers["cache-control"], "no-store")
             self.assertEqual(response.json(), self.read())
             self.assertEqual(client.post(route, headers=auth, json={}).status_code, 405)
-            self.assertEqual(client.get("/api/v1/laomedo/skills/sample/latest", headers=auth).json()["detail"]["code"], "immutable_skill_revision_required")
+            self.assertEqual(
+                client.get("/api/v1/laomedo/skills/sample/latest", headers=auth).json()[
+                    "detail"
+                ]["code"],
+                "immutable_skill_revision_required",
+            )
             (self.bundle / "SKILL.md").write_text("corrupt")
             refused = client.get(route, headers=auth)
             self.assertEqual(refused.status_code, 404)

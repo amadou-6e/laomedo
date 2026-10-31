@@ -26,7 +26,9 @@ def provision(source: Path, state: Path) -> dict:
     codex_home.mkdir(exist_ok=True)
     destination = codex_home / "auth.json"
     if destination.exists() or destination.is_symlink():
-        raise FileExistsError("private auth already exists; reuse it, do not copy again")
+        raise FileExistsError(
+            "private auth already exists; reuse it, do not copy again"
+        )
     descriptor = os.open(destination, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     try:
         with os.fdopen(descriptor, "wb") as private:
@@ -36,8 +38,11 @@ def provision(source: Path, state: Path) -> dict:
     except Exception:
         destination.unlink(missing_ok=True)
         raise
-    return {"provisioned": True, "mode": "chatgpt_handoff",
-            "private_copy_reused_across_tests": True}
+    return {
+        "provisioned": True,
+        "mode": "chatgpt_handoff",
+        "private_copy_reused_across_tests": True,
+    }
 
 
 def main():
@@ -45,11 +50,15 @@ def main():
     parser.add_argument("--state-dir", type=Path, required=True)
     args = parser.parse_args()
     try:
-        result = provision(Path.home() / ".codex" / "auth.json",
-                           args.state_dir.resolve(strict=True))
+        result = provision(
+            Path.home() / ".codex" / "auth.json", args.state_dir.resolve(strict=True)
+        )
     except (OSError, ValueError) as exc:
-        result = {"provisioned": False, "reason": type(exc).__name__,
-                  "detail": str(exc)}
+        result = {
+            "provisioned": False,
+            "reason": type(exc).__name__,
+            "detail": str(exc),
+        }
     print(json.dumps(result, indent=2))
 
 

@@ -40,9 +40,7 @@ def _read_regular(path: Path, limit: int) -> bytes:
 def inspect_skill(
     root: Path, skill_id: str, revision_id: str, *, include_images: bool = False
 ) -> dict:
-    if not isinstance(skill_id, str) or not _registry_settings.NAME.fullmatch(
-        skill_id
-    ):
+    if not isinstance(skill_id, str) or not _registry_settings.NAME.fullmatch(skill_id):
         raise _inspection_errors.InspectionError("invalid_skill_id")
     if not isinstance(revision_id, str) or not _registry_settings.HASH.fullmatch(
         revision_id

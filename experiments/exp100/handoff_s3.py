@@ -13,8 +13,9 @@ from pathlib import Path
 import re
 import stat
 
-from experiments.exp100.bundle_transfer import MAX_BUNDLE_BYTES; from experiments.exp100.bundle_transfer import git; from experiments.exp100.bundle_transfer import verify_bundle
-
+from experiments.exp100.bundle_transfer import MAX_BUNDLE_BYTES
+from experiments.exp100.bundle_transfer import git
+from experiments.exp100.bundle_transfer import verify_bundle
 
 _IDENTITY = re.compile(r"[A-Za-z0-9_-]{1,80}\Z")
 _SHA = re.compile(r"[0-9a-f]{40}\Z")
@@ -30,9 +31,14 @@ def _plain_file(path: Path) -> bool:
         mode = path.lstat()
     except OSError:
         return False
-    return (stat.S_ISREG(mode.st_mode) and mode.st_nlink == 1 and
-            not bool(getattr(mode, "st_file_attributes", 0) &
-                     getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0)))
+    return (
+        stat.S_ISREG(mode.st_mode)
+        and mode.st_nlink == 1
+        and not bool(
+            getattr(mode, "st_file_attributes", 0)
+            & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0)
+        )
+    )
 
 
 def _bytes_from_agent(path: Path) -> bytes:
@@ -43,21 +49,33 @@ def _bytes_from_agent(path: Path) -> bytes:
         descriptor = os.open(path, flags)
         with os.fdopen(descriptor, "rb") as stream:
             opened = os.fstat(stream.fileno())
-            if (not stat.S_ISREG(opened.st_mode) or opened.st_nlink != 1 or
-                    opened.st_size > MAX_BUNDLE_BYTES):
+            if (
+                not stat.S_ISREG(opened.st_mode)
+                or opened.st_nlink != 1
+                or opened.st_size > MAX_BUNDLE_BYTES
+            ):
                 raise HandoffError("handoff_size_or_type")
             payload = stream.read(MAX_BUNDLE_BYTES + 1)
             if len(payload) > MAX_BUNDLE_BYTES or len(payload) != opened.st_size:
                 raise HandoffError("handoff_changed_or_oversized")
-            if not _plain_file(path) or os.stat(path, follow_symlinks=False).st_ino != opened.st_ino:
+            if (
+                not _plain_file(path)
+                or os.stat(path, follow_symlinks=False).st_ino != opened.st_ino
+            ):
                 raise HandoffError("handoff_replaced")
             return payload
     except OSError as error:
         raise HandoffError("handoff_unreadable") from error
 
 
-def _stage_git(stage: Path, source: Path, baseline: str,
-               confirmed_commit: str | None, frozen: Path, commit: str) -> None:
+def _stage_git(
+    stage: Path,
+    source: Path,
+    baseline: str,
+    confirmed_commit: str | None,
+    frozen: Path,
+    commit: str,
+) -> None:
     if git(["init", "--bare", "--quiet", str(stage)]).returncode:
         raise HandoffError("stage_init_failed")
     for seed in (baseline, confirmed_commit):
@@ -69,8 +87,12 @@ def _stage_git(stage: Path, source: Path, baseline: str,
         raise HandoffError("stage_import_failed")
     if git(["fsck", "--strict", "--no-reflogs", commit], directory=stage).returncode:
         raise HandoffError("stage_integrity_failed")
-    if confirmed_commit and git(["merge-base", "--is-ancestor",
-                                 confirmed_commit, commit], directory=stage).returncode:
+    if (
+        confirmed_commit
+        and git(
+            ["merge-base", "--is-ancestor", confirmed_commit, commit], directory=stage
+        ).returncode
+    ):
         raise HandoffError("confirmed_ancestry_invalid")
 
 
@@ -99,8 +121,11 @@ def _accepted_head(private_root: Path, run_id: str, branch: str) -> dict | None:
             raise HandoffError("attempt_unreconciled") from error
         if value.get("run_id") != run_id or value.get("reason") == "unknown":
             raise HandoffError("attempt_unreconciled")
-        if (value.get("run_id") == run_id and value.get("branch") == branch and
-                value.get("reason") == "accepted"):
+        if (
+            value.get("run_id") == run_id
+            and value.get("branch") == branch
+            and value.get("reason") == "accepted"
+        ):
             accepted[value["attempt_id"]] = value
     if not accepted:
         return None
@@ -111,9 +136,15 @@ def _accepted_head(private_root: Path, run_id: str, branch: str) -> dict | None:
     return heads[0]
 
 
-def transfer(record: dict, runner_state: Path, private_root: Path,
-             trusted_source: Path, *, attempt_id: str,
-             confirmed_attempt_id: str | None = None) -> dict:
+def transfer(
+    record: dict,
+    runner_state: Path,
+    private_root: Path,
+    trusted_source: Path,
+    *,
+    attempt_id: str,
+    confirmed_attempt_id: str | None = None,
+) -> dict:
     """Freeze exact bytes and stage only a verified, run-bound commit.
 
     ``confirmed_attempt_id`` selects a host-private prior-stage record, never
@@ -124,14 +155,18 @@ def transfer(record: dict, runner_state: Path, private_root: Path,
     run_id = record.get("run_id")
     scope = record.get("github_scope") or {}
     branch = scope.get("branch")
-    if (not isinstance(run_id, str) or not _IDENTITY.fullmatch(run_id) or
-            not isinstance(attempt_id, str) or not _IDENTITY.fullmatch(attempt_id) or
-            record.get("workspace_mode") != "git" or
-            record.get("status") != "completed" or
-            not isinstance(branch, str) or
-            not re.fullmatch(r"[A-Za-z0-9._/-]+", branch) or
-            not isinstance(record.get("git_baseline"), str) or
-            not _SHA.fullmatch(record["git_baseline"])):
+    if (
+        not isinstance(run_id, str)
+        or not _IDENTITY.fullmatch(run_id)
+        or not isinstance(attempt_id, str)
+        or not _IDENTITY.fullmatch(attempt_id)
+        or record.get("workspace_mode") != "git"
+        or record.get("status") != "completed"
+        or not isinstance(branch, str)
+        or not re.fullmatch(r"[A-Za-z0-9._/-]+", branch)
+        or not isinstance(record.get("git_baseline"), str)
+        or not _SHA.fullmatch(record["git_baseline"])
+    ):
         raise HandoffError("run_binding_invalid")
     try:
         runner_state = runner_state.resolve(strict=True)
@@ -142,9 +177,12 @@ def transfer(record: dict, runner_state: Path, private_root: Path,
         raise HandoffError("run_binding_invalid")
     private_root = private_root.resolve(strict=True)
     trusted_source = trusted_source.resolve(strict=True)
-    if (private_root == runner_state or private_root.is_relative_to(runner_state) or
-            runner_state.is_relative_to(private_root) or
-            trusted_source.is_relative_to(run_dir)):
+    if (
+        private_root == runner_state
+        or private_root.is_relative_to(runner_state)
+        or runner_state.is_relative_to(private_root)
+        or trusted_source.is_relative_to(run_dir)
+    ):
         raise HandoffError("private_stage_boundary_invalid")
     lock = private_root / f"{run_id}.lock"
     try:
@@ -163,14 +201,17 @@ def transfer(record: dict, runner_state: Path, private_root: Path,
         if attempt.exists():
             raise HandoffError("attempt_already_reserved")
         head = _accepted_head(private_root, run_id, branch)
-        if (head is None and confirmed_attempt_id is not None) or \
-                (head is not None and confirmed_attempt_id != head["attempt_id"]):
+        if (head is None and confirmed_attempt_id is not None) or (
+            head is not None and confirmed_attempt_id != head["attempt_id"]
+        ):
             raise HandoffError("confirmed_stage_required")
         source = trusted_source
         confirmed_commit = None
         if head is not None:
             confirmed_commit = head.get("commit")
-            if not isinstance(confirmed_commit, str) or not _SHA.fullmatch(confirmed_commit):
+            if not isinstance(confirmed_commit, str) or not _SHA.fullmatch(
+                confirmed_commit
+            ):
                 raise HandoffError("confirmed_stage_invalid")
             source = run_home / confirmed_attempt_id / "stage.git"
             if not source.is_dir() or source.is_symlink():
@@ -179,10 +220,17 @@ def transfer(record: dict, runner_state: Path, private_root: Path,
             attempt.mkdir(mode=0o700)  # repeat identity cannot overwrite evidence
         except FileExistsError as error:
             raise HandoffError("attempt_already_reserved") from error
-        result = {"run_id": run_id, "attempt_id": attempt_id, "branch": branch,
-                  "baseline": record["git_baseline"], "reason": "unknown",
-                  "previous_attempt_id": confirmed_attempt_id,
-                  "commit": None, "tree": None, "stage": None}
+        result = {
+            "run_id": run_id,
+            "attempt_id": attempt_id,
+            "branch": branch,
+            "baseline": record["git_baseline"],
+            "reason": "unknown",
+            "previous_attempt_id": confirmed_attempt_id,
+            "commit": None,
+            "tree": None,
+            "stage": None,
+        }
         _durable_json(attempt / "result.json", result)
         try:
             payload = _bytes_from_agent(run_dir / "workspace" / HANDOFF_NAME)
@@ -192,16 +240,26 @@ def transfer(record: dict, runner_state: Path, private_root: Path,
                 stream.flush()
                 os.fsync(stream.fileno())
             result["bundle_sha256"] = hashlib.sha256(payload).hexdigest()
-            checked = verify_bundle(payload, trusted_source=source,
-                                    baseline=record["git_baseline"],
-                                    expected_ref="refs/heads/" + branch,
-                                    confirmed_commit=confirmed_commit)
-            result.update(reason=checked["reason"], commit=checked["commit"],
-                          tree=checked["tree"])
+            checked = verify_bundle(
+                payload,
+                trusted_source=source,
+                baseline=record["git_baseline"],
+                expected_ref="refs/heads/" + branch,
+                confirmed_commit=confirmed_commit,
+            )
+            result.update(
+                reason=checked["reason"], commit=checked["commit"], tree=checked["tree"]
+            )
             if checked["reason"] == "accepted":
                 stage = attempt / "stage.git"
-                _stage_git(stage, source, record["git_baseline"],
-                           confirmed_commit, frozen, checked["commit"])
+                _stage_git(
+                    stage,
+                    source,
+                    record["git_baseline"],
+                    confirmed_commit,
+                    frozen,
+                    checked["commit"],
+                )
                 result["stage"] = str(stage)
         except HandoffError as error:
             result["reason"] = str(error)

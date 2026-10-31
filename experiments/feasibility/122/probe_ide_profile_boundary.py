@@ -13,7 +13,8 @@ import sys
 import tempfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "120"))
-from _shared import construct_env; from _shared import inside_git_tree
+from _shared import construct_env
+from _shared import inside_git_tree
 
 
 def quote_ps(path: Path) -> str:
@@ -39,20 +40,31 @@ def main() -> None:
         raise ValueError("scratch_root_invalid")
     scratch_parent.mkdir(exist_ok=True)
 
-    report = {"model_calls": 0, "credential_copied": False,
-              "persistent_config_changed": False, "codex_sha256": binary_hash,
-              "profile": "laomedo_ide_122", "windows_mode": "elevated"}
-    scratch = tempfile.TemporaryDirectory(prefix="laomedo-ide-boundary-",
-                                          dir=scratch_parent,
-                                          ignore_cleanup_errors=True)
+    report = {
+        "model_calls": 0,
+        "credential_copied": False,
+        "persistent_config_changed": False,
+        "codex_sha256": binary_hash,
+        "profile": "laomedo_ide_122",
+        "windows_mode": "elevated",
+    }
+    scratch = tempfile.TemporaryDirectory(
+        prefix="laomedo-ide-boundary-", dir=scratch_parent, ignore_cleanup_errors=True
+    )
     root = Path(scratch.name).resolve()
     if root == scratch_parent or not root.is_relative_to(scratch_parent):
         raise ValueError("scratch_path_invalid")
     try:
         draft, store = root / "draft", root / "store"
         home, temp = draft / "home", draft / "tmp"
-        for path in (draft, store, home, temp, draft / "appdata",
-                     draft / "localappdata"):
+        for path in (
+            draft,
+            store,
+            home,
+            temp,
+            draft / "appdata",
+            draft / "localappdata",
+        ):
             path.mkdir()
         inside, outside = draft / "allowed.txt", store / "protected.txt"
         inside.write_text("ORIGINAL", encoding="utf-8")
@@ -69,48 +81,85 @@ def main() -> None:
             f"  Set-Content -LiteralPath {quote_ps(outside)} -Value 'CHANGED' -NoNewline -ErrorAction Stop\n"
             "  Write-Output 'outside_write=ok'\n"
             "} catch { Write-Output ('outside_write=' + $_.Exception.GetType().Name) }\n",
-            encoding="utf-8")
+            encoding="utf-8",
+        )
         env = construct_env(home, codex_home, draft, codex.parent)
         env["TEMP"] = env["TMP"] = str(temp)
-        powershell = Path(env["SystemRoot"]) / "System32" / "WindowsPowerShell" / "v1.0" / "powershell.exe"
+        powershell = (
+            Path(env["SystemRoot"])
+            / "System32"
+            / "WindowsPowerShell"
+            / "v1.0"
+            / "powershell.exe"
+        )
         command = [
-            str(codex), "sandbox", "-C", str(draft),
-            "--permission-profile", "laomedo_ide_122",
+            str(codex),
+            "sandbox",
+            "-C",
+            str(draft),
+            "--permission-profile",
+            "laomedo_ide_122",
             "--include-managed-config",
-            "-c", "permissions.laomedo_ide_122={ filesystem = { ':root' = 'read', ':workspace_roots' = 'write' }, network = { enabled = false } }",
-            "-c", 'windows.sandbox="elevated"',
-            str(powershell), "-NoProfile", "-NonInteractive",
-            "-ExecutionPolicy", "RemoteSigned", "-File", str(script),
+            "-c",
+            "permissions.laomedo_ide_122={ filesystem = { ':root' = 'read', ':workspace_roots' = 'write' }, network = { enabled = false } }",
+            "-c",
+            'windows.sandbox="elevated"',
+            str(powershell),
+            "-NoProfile",
+            "-NonInteractive",
+            "-ExecutionPolicy",
+            "RemoteSigned",
+            "-File",
+            str(script),
         ]
         try:
-            completed = subprocess.run(command, cwd=draft, env=env, text=True,
-                                       capture_output=True, timeout=90,
-                                       encoding="utf-8", errors="replace")
+            completed = subprocess.run(
+                command,
+                cwd=draft,
+                env=env,
+                text=True,
+                capture_output=True,
+                timeout=90,
+                encoding="utf-8",
+                errors="replace",
+            )
             report["cli_exit_code"] = completed.returncode
             report["inside_command_ok"] = (
-                "inside_write=ok" in completed.stdout and
-                "inside_readback=ok" in completed.stdout)
-            report["outside_command_denied"] = "outside_write=UnauthorizedAccessException" in completed.stdout
-            report["stdout_excerpt"] = completed.stdout[:500].replace(str(root), "<scratch>")
-            report["stderr_excerpt"] = (completed.stderr[:700]
-                                        .replace(str(codex_home), "<private_codex_home>")
-                                        .replace(str(Path.home()), "<user_home>")
-                                        .replace(str(root), "<scratch>"))
+                "inside_write=ok" in completed.stdout
+                and "inside_readback=ok" in completed.stdout
+            )
+            report["outside_command_denied"] = (
+                "outside_write=UnauthorizedAccessException" in completed.stdout
+            )
+            report["stdout_excerpt"] = completed.stdout[:500].replace(
+                str(root), "<scratch>"
+            )
+            report["stderr_excerpt"] = (
+                completed.stderr[:700]
+                .replace(str(codex_home), "<private_codex_home>")
+                .replace(str(Path.home()), "<user_home>")
+                .replace(str(root), "<scratch>")
+            )
             report["stderr_error_class"] = (
-                "sandbox_setup_or_execution_error" if completed.returncode else None)
+                "sandbox_setup_or_execution_error" if completed.returncode else None
+            )
         except subprocess.TimeoutExpired:
             report["error_class"] = "TimeoutExpired"
         try:
-            report["inside_verified"] = (inside.is_file() and
-                                         inside.read_text(encoding="utf-8") == "ALLOWED")
+            report["inside_verified"] = (
+                inside.is_file() and inside.read_text(encoding="utf-8") == "ALLOWED"
+            )
         except PermissionError:
             report["inside_verified"] = False
             report["inside_host_read_denied"] = True
         report["outside_unchanged"] = outside.read_text(encoding="utf-8") == "ORIGINAL"
         report["boundary_passed"] = (
-            report.get("cli_exit_code") == 0 and report.get("inside_command_ok")
-            and report.get("outside_command_denied") and report["inside_verified"]
-            and report["outside_unchanged"])
+            report.get("cli_exit_code") == 0
+            and report.get("inside_command_ok")
+            and report.get("outside_command_denied")
+            and report["inside_verified"]
+            and report["outside_unchanged"]
+        )
     finally:
         # The resolved target was checked above before recursive cleanup.
         scratch.cleanup()

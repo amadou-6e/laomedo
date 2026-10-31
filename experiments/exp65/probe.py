@@ -1,6 +1,7 @@
 """One-call, zero-model post-408 Langflow job-status probe."""
 
-from datetime import datetime; from datetime import timezone
+from datetime import datetime
+from datetime import timezone
 from pathlib import Path
 import json
 import sys
@@ -10,7 +11,6 @@ from urllib.parse import urlencode
 
 from experiments.exp10 import probe as base
 
-
 HERE = Path(__file__).resolve().parent
 NAME = "laomedo-exp65-20261005"
 BASE = "http://127.0.0.1:17871"
@@ -19,27 +19,44 @@ OFFSETS = (0, 1, 4, 7)
 
 def clock_calibration() -> dict:
     before = datetime.now(timezone.utc).timestamp()
-    container_utc = float(base.docker("exec", NAME, "python", "-c",
-                        "import time; print(time.time())"))
+    container_utc = float(
+        base.docker("exec", NAME, "python", "-c", "import time; print(time.time())")
+    )
     after = datetime.now(timezone.utc).timestamp()
-    return {"host_before_utc": before, "container_utc": container_utc,
-            "host_after_utc": after, "estimated_offset_seconds":
-            round(container_utc - (before + after) / 2, 6),
-            "uncertainty_seconds": round((after - before) / 2, 6)}
+    return {
+        "host_before_utc": before,
+        "container_utc": container_utc,
+        "host_after_utc": after,
+        "estimated_offset_seconds": round(container_utc - (before + after) / 2, 6),
+        "uncertainty_seconds": round((after - before) / 2, 6),
+    }
 
 
 def status_snapshot(job_id: str, target_offset: int, actual_offset: float) -> dict:
-    result = {"target_offset_seconds": target_offset,
-              "actual_offset_seconds": round(actual_offset, 3),
-              "observed_utc": base.utc()}
+    result = {
+        "target_offset_seconds": target_offset,
+        "actual_offset_seconds": round(actual_offset, 3),
+        "observed_utc": base.utc(),
+    }
     try:
-        data = base.api("GET", "/api/v2/workflows?" + urlencode({"job_id": job_id}),
-                        timeout=5)
+        data = base.api(
+            "GET", "/api/v2/workflows?" + urlencode({"job_id": job_id}), timeout=5
+        )
         result["http_status"] = 200
         result["response_keys"] = sorted(data.keys()) if isinstance(data, dict) else []
         if isinstance(data, dict):
-            for key in ("object", "status", "job_id", "id", "flow_id", "run_id",
-                        "session_id", "created_at", "updated_at", "completed_at"):
+            for key in (
+                "object",
+                "status",
+                "job_id",
+                "id",
+                "flow_id",
+                "run_id",
+                "session_id",
+                "created_at",
+                "updated_at",
+                "completed_at",
+            ):
                 value = data.get(key)
                 if isinstance(value, (str, int, float, bool)) or value is None:
                     result[key] = value
@@ -54,7 +71,9 @@ def status_snapshot(job_id: str, target_offset: int, actual_offset: float) -> di
         raw = exc.read().decode("utf-8", errors="replace")
         try:
             detail = json.loads(raw)
-            result["response_keys"] = sorted(detail.keys()) if isinstance(detail, dict) else []
+            result["response_keys"] = (
+                sorted(detail.keys()) if isinstance(detail, dict) else []
+            )
             if isinstance(detail, dict):
                 body = detail.get("detail")
                 result["detail_type"] = type(body).__name__
@@ -64,8 +83,12 @@ def status_snapshot(job_id: str, target_offset: int, actual_offset: float) -> di
                         if isinstance(value, str):
                             result["detail_" + key] = value[:300]
                     if "error_detail" in body:
-                        result["error_detail_present"] = body["error_detail"] is not None
-                        result["error_detail_type"] = type(body["error_detail"]).__name__
+                        result["error_detail_present"] = (
+                            body["error_detail"] is not None
+                        )
+                        result["error_detail_type"] = type(
+                            body["error_detail"]
+                        ).__name__
         except ValueError:
             result["response_keys"] = []
         return result
@@ -78,25 +101,65 @@ def main() -> dict:
     base.NAME, base.BASE, base.TOKEN = NAME, BASE, None
     if base.docker("ps", "-a", "--filter", f"name=^{NAME}$", "--format", "{{.Names}}"):
         raise RuntimeError("EXP-65 disposable container name already in use")
-    if base.docker("volume", "ls", "--filter", f"name=^{NAME}$", "--format", "{{.Name}}"):
+    if base.docker(
+        "volume", "ls", "--filter", f"name=^{NAME}$", "--format", "{{.Name}}"
+    ):
         raise RuntimeError("EXP-65 disposable volume name already in use")
     base.docker("volume", "create", NAME)
     try:
-        base.docker("run", "--rm", "--user", "0", "-v", f"{NAME}:/state",
-                    "--entrypoint", "chown", base.IMAGE, "1000:0", "/state")
-        base.docker("run", "-d", "--name", NAME, "--network", "bridge", "-p",
-                    "127.0.0.1:17871:7860", "-e", "LANGFLOW_AUTO_LOGIN=true",
-                    "-e", "LANGFLOW_DATABASE_URL=sqlite:////state/langflow.db",
-                    "-e", "LANGFLOW_WORKFLOW_EXECUTION_TIMEOUT=3",
-                    "-e", "LANGFLOW_DEVELOPER_API_ENABLED=true",
-                    "-e", "LAOMEDO_RUNNER_TOKEN_FILE=/state/token",
-                    "-v", f"{NAME}:/state", "-v", f"{base.ROOT / 'experiments'}:/experiments:ro",
-                    "--entrypoint", "python", base.IMAGE, "/experiments/exp10/start.py")
+        base.docker(
+            "run",
+            "--rm",
+            "--user",
+            "0",
+            "-v",
+            f"{NAME}:/state",
+            "--entrypoint",
+            "chown",
+            base.IMAGE,
+            "1000:0",
+            "/state",
+        )
+        base.docker(
+            "run",
+            "-d",
+            "--name",
+            NAME,
+            "--network",
+            "bridge",
+            "-p",
+            "127.0.0.1:17871:7860",
+            "-e",
+            "LANGFLOW_AUTO_LOGIN=true",
+            "-e",
+            "LANGFLOW_DATABASE_URL=sqlite:////state/langflow.db",
+            "-e",
+            "LANGFLOW_WORKFLOW_EXECUTION_TIMEOUT=3",
+            "-e",
+            "LANGFLOW_DEVELOPER_API_ENABLED=true",
+            "-e",
+            "LAOMEDO_RUNNER_TOKEN_FILE=/state/token",
+            "-v",
+            f"{NAME}:/state",
+            "-v",
+            f"{base.ROOT / 'experiments'}:/experiments:ro",
+            "--entrypoint",
+            "python",
+            base.IMAGE,
+            "/experiments/exp10/start.py",
+        )
         base.wait_health()
         base.TOKEN = base.api("GET", "/api/v1/auto_login")["access_token"]
-        server_limit = int(base.docker("exec", NAME, "python", "-c",
-            "from langflow.services.deps import get_settings_service; "
-            "print(get_settings_service().settings.workflow_execution_timeout)"))
+        server_limit = int(
+            base.docker(
+                "exec",
+                NAME,
+                "python",
+                "-c",
+                "from langflow.services.deps import get_settings_service; "
+                "print(get_settings_service().settings.workflow_execution_timeout)",
+            )
+        )
         if server_limit != 3:
             raise RuntimeError("effective server timeout differs from frozen protocol")
         clock_before = clock_calibration()
@@ -113,30 +176,58 @@ def main() -> dict:
                 due = response_mono + offset
                 if due > time.monotonic():
                     time.sleep(due - time.monotonic())
-                snapshots.append(status_snapshot(response["job_id"], offset,
-                                                  time.monotonic() - response_mono))
-        events = [{"case": row["case"], "event": row["event"], "utc": row["utc"],
-                   "container_monotonic_seconds": row["monotonic"]}
-                  for row in base.runner_events()]
-        report = {"config": {"image": base.IMAGE, "langflow_version": "1.12.3",
-                              "server_timeout_seconds": server_limit,
-                              "case": "server", "runner_delay_seconds": 6,
-                              "component_timeout_seconds": 8,
-                              "caller_timeout_seconds": 15,
-                              "poll_offsets_seconds": list(OFFSETS)},
-                  "clock_before": clock_before, "clock_after": clock_calibration(),
-                  "caller": outcome, "host_invocation_monotonic_elapsed_seconds":
-                  round(response_mono - started_mono, 3),
-                  "status_snapshots": snapshots, "runner_events": events,
-                  "container_status": base.docker("inspect", "--format",
-                                                  "{{.State.Status}}", NAME)}
-        with (HERE / "observation.json").open("w", encoding="utf-8", newline="\n") as stream:
+                snapshots.append(
+                    status_snapshot(
+                        response["job_id"], offset, time.monotonic() - response_mono
+                    )
+                )
+        events = [
+            {
+                "case": row["case"],
+                "event": row["event"],
+                "utc": row["utc"],
+                "container_monotonic_seconds": row["monotonic"],
+            }
+            for row in base.runner_events()
+        ]
+        report = {
+            "config": {
+                "image": base.IMAGE,
+                "langflow_version": "1.12.3",
+                "server_timeout_seconds": server_limit,
+                "case": "server",
+                "runner_delay_seconds": 6,
+                "component_timeout_seconds": 8,
+                "caller_timeout_seconds": 15,
+                "poll_offsets_seconds": list(OFFSETS),
+            },
+            "clock_before": clock_before,
+            "clock_after": clock_calibration(),
+            "caller": outcome,
+            "host_invocation_monotonic_elapsed_seconds": round(
+                response_mono - started_mono, 3
+            ),
+            "status_snapshots": snapshots,
+            "runner_events": events,
+            "container_status": base.docker(
+                "inspect", "--format", "{{.State.Status}}", NAME
+            ),
+        }
+        with (HERE / "observation.json").open(
+            "w", encoding="utf-8", newline="\n"
+        ) as stream:
             json.dump(report, stream, indent=2, sort_keys=True)
             stream.write("\n")
-        print(json.dumps({"caller_status": outcome.get("status"),
-                          "job_id_present": bool(response.get("job_id")),
-                          "poll_http_statuses": [row.get("http_status") for row in snapshots],
-                          "effects": sum(row["event"] == "effect" for row in events)}))
+        print(
+            json.dumps(
+                {
+                    "caller_status": outcome.get("status"),
+                    "job_id_present": bool(response.get("job_id")),
+                    "poll_http_statuses": [row.get("http_status") for row in snapshots],
+                    "effects": sum(row["event"] == "effect" for row in events),
+                }
+            )
+        )
         return report
     finally:
         base.docker("rm", "-f", NAME, check=False)

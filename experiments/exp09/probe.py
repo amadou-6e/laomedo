@@ -23,14 +23,18 @@ def validate_delivery_projection(expected: list[dict], candidate: dict) -> None:
     if candidate["delivery_count"] != len(expected) or len(events) != len(expected):
         raise AssertionError("delivery count differs from committed receipts")
     identity = lambda event: (
-        event["receipt_sequence"], event["source_event_id"],
-        event["kind"], event["payload_sha256"],
+        event["receipt_sequence"],
+        event["source_event_id"],
+        event["kind"],
+        event["payload_sha256"],
     )
     if [identity(event) for event in events] != [identity(event) for event in expected]:
         raise AssertionError("receipt order or content differs from committed receipts")
-    if (candidate["action_uniqueness"] != "uncertain" or
-            candidate["unique_action_count"] is not None or
-            any(event["action_uniqueness"] != "uncertain" for event in events)):
+    if (
+        candidate["action_uniqueness"] != "uncertain"
+        or candidate["unique_action_count"] is not None
+        or any(event["action_uniqueness"] != "uncertain" for event in events)
+    ):
         raise AssertionError("unverified source presented as unique actions")
 
 
@@ -45,16 +49,23 @@ def _negative_controls(reconnect: dict, conflict: dict) -> dict:
     spec.loader.exec_module(module)
 
     def envelopes(case: dict) -> list:
-        return [module.Envelope(
-            source="synthetic", source_event_id=event["source_event_id"],
-            source_time=None, kind=event["kind"],
-            payload_sha256=event["payload_sha256"].removeprefix("sha256:"),
-            tool_call_id=event["tool_call_id"],
-        ) for event in case["events"]]
+        return [
+            module.Envelope(
+                source="synthetic",
+                source_event_id=event["source_event_id"],
+                source_time=None,
+                kind=event["kind"],
+                payload_sha256=event["payload_sha256"].removeprefix("sha256:"),
+                tool_call_id=event["tool_call_id"],
+            )
+            for event in case["events"]
+        ]
 
     replay_result = module.project("reconnect", envelopes(reconnect))
-    retained = [reconnect["events"][event["received_ordinal"]]
-                for event in replay_result["events"]]
+    retained = [
+        reconnect["events"][event["received_ordinal"]]
+        for event in replay_result["events"]
+    ]
     lossy = {**reconnect, "delivery_count": len(retained), "events": retained}
     try:
         validate_delivery_projection(reconnect["events"], lossy)
@@ -71,7 +82,9 @@ def _negative_controls(reconnect: dict, conflict: dict) -> dict:
         raise AssertionError("historical projector unexpectedly kept conflict")
 
     asserted_unique = {
-        **reconnect, "action_uniqueness": "verified", "unique_action_count": 1,
+        **reconnect,
+        "action_uniqueness": "verified",
+        "unique_action_count": 1,
     }
     try:
         validate_delivery_projection(reconnect["events"], asserted_unique)
@@ -99,20 +112,31 @@ def _new_case(path: Path) -> tuple[EvidenceStore, str, str]:
     )
     invocation = "invocation-1"
     store.reserve(
-        run_id=run["run_id"], trace_id=run["trace_id"],
-        stage_id="stage", invocation_id=invocation,
+        run_id=run["run_id"],
+        trace_id=run["trace_id"],
+        stage_id="stage",
+        invocation_id=invocation,
     )
     store.record_native_session(invocation, "synthetic-session")
     return store, run["run_id"], run["trace_id"]
 
 
-def _append(store: EvidenceStore, invocation: str, source_id: str | None,
-            kind: str, summary: str, call_id: str | None = None) -> None:
+def _append(
+    store: EvidenceStore,
+    invocation: str,
+    source_id: str | None,
+    kind: str,
+    summary: str,
+    call_id: str | None = None,
+) -> None:
     payload = {"summary": summary}
     if call_id is not None:
         payload["call_id"] = call_id
     store.append_raw_event(
-        invocation, source_event_id=source_id, kind=kind, payload=payload,
+        invocation,
+        source_event_id=source_id,
+        kind=kind,
+        payload=payload,
     )
 
 
@@ -120,28 +144,35 @@ def _project(store: EvidenceStore, invocation: str) -> dict:
     """Build a receipt-backed read model, never a unique-native-action model."""
     store.project_unprojected()
     snapshot = store.inspect()
-    raw = [row for row in snapshot["raw_events"]
-           if row["invocation_id"] == invocation]
-    projected = {row["receipt_sequence"]: row
-                 for row in snapshot["projections"]
-                 if row["invocation_id"] == invocation}
+    raw = [row for row in snapshot["raw_events"] if row["invocation_id"] == invocation]
+    projected = {
+        row["receipt_sequence"]: row
+        for row in snapshot["projections"]
+        if row["invocation_id"] == invocation
+    }
     if len(raw) != len(projected) or any(
-            row["receipt_sequence"] not in projected for row in raw):
+        row["receipt_sequence"] not in projected for row in raw
+    ):
         raise AssertionError("raw receipt/projection mismatch")
-    status = next(row["stream_state"] for row in snapshot["invocations"]
-                  if row["invocation_id"] == invocation)
+    status = next(
+        row["stream_state"]
+        for row in snapshot["invocations"]
+        if row["invocation_id"] == invocation
+    )
     events = []
     for row in raw:
         payload = json.loads(row["payload_json"])
-        events.append({
-            "receipt_sequence": row["receipt_sequence"],
-            "source_event_id": row["source_event_id"],
-            "kind": row["kind"],
-            "tool_call_id": payload.get("call_id"),
-            "payload_sha256": _digest(row["payload_json"]),
-            "summary": projected[row["receipt_sequence"]]["summary"],
-            "action_uniqueness": "uncertain",
-        })
+        events.append(
+            {
+                "receipt_sequence": row["receipt_sequence"],
+                "source_event_id": row["source_event_id"],
+                "kind": row["kind"],
+                "tool_call_id": payload.get("call_id"),
+                "payload_sha256": _digest(row["payload_json"]),
+                "summary": projected[row["receipt_sequence"]]["summary"],
+                "action_uniqueness": "uncertain",
+            }
+        )
     result = {
         "delivery_count": len(events),
         "action_uniqueness": "uncertain",
@@ -158,9 +189,11 @@ def _read_twice(store: EvidenceStore, invocation: str) -> dict:
     first = _project(store, invocation)
     projected_before = store.inspect()["projections"]
     again = _project(store, invocation)
-    if (first != again or
-            store.inspect()["projections"] != projected_before or
-            store.inspect()["raw_events"] != before):
+    if (
+        first != again
+        or store.inspect()["projections"] != projected_before
+        or store.inspect()["raw_events"] != before
+    ):
         raise AssertionError("reprojection changed evidence")
     return first
 
@@ -191,7 +224,9 @@ def run_cases(root: Path) -> dict:
 
     store, run_id, trace_id = _new_case(root / "invocations.sqlite3")
     store.reserve(
-        run_id=run_id, trace_id=trace_id, stage_id="stage",
+        run_id=run_id,
+        trace_id=trace_id,
+        stage_id="stage",
         invocation_id="invocation-2",
     )
     store.record_native_session("invocation-2", "synthetic-session")

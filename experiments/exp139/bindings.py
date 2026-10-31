@@ -3,6 +3,7 @@
 Not a production authorization service. Grants still only scope runs; a process
 under the same OS user can change host state. No graph supplies an authorization.
 """
+
 from copy import deepcopy
 from contextlib import closing
 import hashlib
@@ -11,19 +12,34 @@ from pathlib import Path
 import sqlite3
 import threading
 
-from laomedo.agents.providers.codex.servers import AppServer; from laomedo.agents.providers.codex.runner import CodexRunner as LocalRunner; from laomedo.agents.runtime.errors import RunnerError
+from laomedo.agents.providers.codex.servers import AppServer
+from laomedo.agents.providers.codex.runner import CodexRunner as LocalRunner
+from laomedo.agents.runtime.errors import RunnerError
 
 
 def request_digest(request):
     body = {key: value for key, value in request.items() if key != "request_id"}
-    return "sha256:" + hashlib.sha256(json.dumps(body, sort_keys=True,
-        separators=(",", ":"), ensure_ascii=False).encode()).hexdigest()
+    return (
+        "sha256:"
+        + hashlib.sha256(
+            json.dumps(
+                body, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+            ).encode()
+        ).hexdigest()
+    )
 
 
 class BoundRunner(LocalRunner):
-    def __init__(self, *args, approved_requests, authorization_factory,
-                 nonpublishing_lease_service=None, binding_state=None,
-                 seed_consumed=(), **kwargs):
+    def __init__(
+        self,
+        *args,
+        approved_requests,
+        authorization_factory,
+        nonpublishing_lease_service=None,
+        binding_state=None,
+        seed_consumed=(),
+        **kwargs,
+    ):
         self.approved_requests = dict(approved_requests)
         self.authorization_factory = authorization_factory
         self.binding_lock = threading.Lock()
@@ -34,8 +50,13 @@ class BoundRunner(LocalRunner):
         self.nonpublishing_lease_service = nonpublishing_lease_service
         if binding_state is not None:
             with closing(sqlite3.connect(binding_state)) as db, db:
-                db.execute("CREATE TABLE IF NOT EXISTS consumed (digest TEXT PRIMARY KEY)")
-                db.executemany("INSERT OR IGNORE INTO consumed VALUES (?)", ((item,) for item in seed_consumed))
+                db.execute(
+                    "CREATE TABLE IF NOT EXISTS consumed (digest TEXT PRIMARY KEY)"
+                )
+                db.executemany(
+                    "INSERT OR IGNORE INTO consumed VALUES (?)",
+                    ((item,) for item in seed_consumed),
+                )
         super().__init__(*args, **kwargs)
 
     def resume(self, *args, **kwargs):
@@ -91,52 +112,84 @@ class BoundRunner(LocalRunner):
 # The CLI's dotted-key override parser splits the literal `.git` path, and a
 # partial permissions table loses the default profile. Supply the complete
 # original policy plus the sole approved Git-metadata rule as an inline table.
-GIT_OVERRIDE = ('permissions={container-edit={filesystem={":root"="read",'
+GIT_OVERRIDE = (
+    'permissions={container-edit={filesystem={":root"="read",'
     '":workspace_roots"="write","/home/runner/.codex/auth.json"="deny",'
-    '"/draft/.git"="write"},network={enabled=false}}}')
-PROFILE_OVERRIDES = ["-c", 'default_permissions="container-edit"',
-                     "-c", 'approval_policy="never"', "-c", GIT_OVERRIDE]
+    '"/draft/.git"="write"},network={enabled=false}}}'
+)
+PROFILE_OVERRIDES = [
+    "-c",
+    'default_permissions="container-edit"',
+    "-c",
+    'approval_policy="never"',
+    "-c",
+    GIT_OVERRIDE,
+]
 
 
 class GitMetadataAppServer(AppServer):
     """Invocation-only approved rule; original config and auth denial remain."""
+
     def __init__(self, command, evidence, **kwargs):
         if command[-2:] != ["app-server", "--stdio"]:
             raise RunnerError("experiment_app_server_invocation_changed")
         redactions = list(kwargs.pop("secret_redactions", ()))
         for position, value in enumerate(command[:-1]):
             if value == "--mount":
-                mount = dict(item.split("=", 1) for item in command[position + 1].split(",") if "=" in item)
+                mount = dict(
+                    item.split("=", 1)
+                    for item in command[position + 1].split(",")
+                    if "=" in item
+                )
                 if mount.get("target") == "/run/laomedo/capability":
                     redactions.append(Path(mount["source"]).read_text().strip())
-        super().__init__([*command[:-2], *PROFILE_OVERRIDES, *command[-2:]], evidence,
-                         secret_redactions=tuple(redactions), **kwargs)
+        super().__init__(
+            [*command[:-2], *PROFILE_OVERRIDES, *command[-2:]],
+            evidence,
+            secret_redactions=tuple(redactions),
+            **kwargs,
+        )
 
 
 class MailboxAppServer(GitMetadataAppServer):
     """Prospective invocation-only relay; not activated by importing this module."""
+
     def __init__(self, command, evidence, **kwargs):
         command = list(command)
         client = Path(__file__).with_name("mailbox_client.mjs")
         relay = client.with_name("mailbox_relay.mjs")
-        client_index = next((index for index, item in enumerate(command)
-            if item == "--mount" and "target=/run/laomedo/mediate.mjs," in command[index + 1]), None)
+        client_index = next(
+            (
+                index
+                for index, item in enumerate(command)
+                if item == "--mount"
+                and "target=/run/laomedo/mediate.mjs," in command[index + 1]
+            ),
+            None,
+        )
         if client_index is not None:
             # Replace only the trusted client mount; the graph never chooses it.
-            command[client_index + 1] = f"type=bind,source={client},target=/run/laomedo/mediate.mjs,readonly"
+            command[client_index + 1] = (
+                f"type=bind,source={client},target=/run/laomedo/mediate.mjs,readonly"
+            )
             bootstrap = command.index("bootstrap")
             image_index = command.index("--workdir") + 2
-            command[image_index:image_index] = ["--mount",
+            command[image_index:image_index] = [
+                "--mount",
                 f"type=bind,source={relay},target=/run/laomedo/relay.mjs,readonly",
-                "--env", "GIT_EXEC_PATH=/run/laomedo/bin",
-                "--env", "LAOMEDO_MEDIATION_FILE_STDIO=1"]
+                "--env",
+                "GIT_EXEC_PATH=/run/laomedo/bin",
+                "--env",
+                "LAOMEDO_MEDIATION_FILE_STDIO=1",
+            ]
             bootstrap = command.index("bootstrap")
             command[bootstrap - 1] = (
-                'cp /config.toml /home/runner/.codex/config.toml && '
-                'node /run/laomedo/relay.mjs & relay=$!; '
-                'for n in $(seq 1 100); do '
-                'test -f /draft/.git/laomedo-mediation/ready && break; '
+                "cp /config.toml /home/runner/.codex/config.toml && "
+                "node /run/laomedo/relay.mjs & relay=$!; "
+                "for n in $(seq 1 100); do "
+                "test -f /draft/.git/laomedo-mediation/ready && break; "
                 'kill -0 "$relay" 2>/dev/null || exit 2; sleep 0.05; done; '
-                'test -f /draft/.git/laomedo-mediation/ready || exit 2; '
-                'exec codex "$@"')
+                "test -f /draft/.git/laomedo-mediation/ready || exit 2; "
+                'exec codex "$@"'
+            )
         super().__init__(command, evidence, **kwargs)

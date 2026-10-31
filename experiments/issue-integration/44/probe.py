@@ -6,7 +6,8 @@ endpoint or retries a possible external write after a crash.
 """
 
 import argparse
-from datetime import datetime; from datetime import timezone
+from datetime import datetime
+from datetime import timezone
 from hashlib import sha256
 import json
 import os
@@ -14,7 +15,8 @@ from pathlib import Path
 import re
 import tempfile
 from urllib.parse import urlsplit
-from urllib.request import Request; from urllib.request import urlopen
+from urllib.request import Request
+from urllib.request import urlopen
 
 
 class ProbeError(ValueError):
@@ -39,9 +41,16 @@ def _write(path: Path, record: dict) -> None:
         pending.unlink(missing_ok=True)
 
 
-def prepare(path: Path, *, proposal_id: str, title: str, body: str,
-            reviewed_by: str, decision: str,
-            target_repository: str = "fixture/work") -> dict:
+def prepare(
+    path: Path,
+    *,
+    proposal_id: str,
+    title: str,
+    body: str,
+    reviewed_by: str,
+    decision: str,
+    target_repository: str = "fixture/work",
+) -> dict:
     """Persist a synthetic reviewed proposal before any possible POST."""
     if path.exists():
         raise ProbeError("intent_exists")
@@ -49,8 +58,10 @@ def prepare(path: Path, *, proposal_id: str, title: str, body: str,
         raise ProbeError("not_reviewed_for_publication")
     if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", target_repository):
         raise ProbeError("invalid_target_repository")
-    review_bytes = json.dumps({"title": title, "body": body,
-                               "target_repository": target_repository}, sort_keys=True).encode()
+    review_bytes = json.dumps(
+        {"title": title, "body": body, "target_repository": target_repository},
+        sort_keys=True,
+    ).encode()
     record = {
         "proposal_id": proposal_id,
         "reviewed_title": title,
@@ -84,18 +95,27 @@ def inspect(path: Path) -> dict:
 def send_once(path: Path, fake_url: str, *, crash_at: str | None = None) -> None:
     """POST once to a localhost fake; os._exit marks deterministic crash points."""
     endpoint = urlsplit(fake_url)
-    if (endpoint.scheme != "http" or endpoint.hostname != "127.0.0.1"
-            or endpoint.port is None or endpoint.username or endpoint.password):
+    if (
+        endpoint.scheme != "http"
+        or endpoint.hostname != "127.0.0.1"
+        or endpoint.port is None
+        or endpoint.username
+        or endpoint.password
+    ):
         raise ProbeError("fake_local_endpoint_required")
     record = _read(path)
     if record["status"] != "prepared":
         raise ProbeError("existing_attempt_requires_reconciliation")
     if record["publication_decision"] != "publish" or not record["reviewed_by"]:
         raise ProbeError("not_reviewed_for_publication")
-    review_bytes = json.dumps({"title": record["reviewed_title"],
-                               "body": record["reviewed_body"],
-                               "target_repository": record["target_repository"]},
-                              sort_keys=True).encode()
+    review_bytes = json.dumps(
+        {
+            "title": record["reviewed_title"],
+            "body": record["reviewed_body"],
+            "target_repository": record["target_repository"],
+        },
+        sort_keys=True,
+    ).encode()
     if sha256(review_bytes).hexdigest() != record["reviewed_hash"]:
         raise ProbeError("reviewed_bytes_changed")
     record["status"] = "sending"
@@ -103,10 +123,14 @@ def send_once(path: Path, fake_url: str, *, crash_at: str | None = None) -> None
     if crash_at == "before_send":
         os._exit(17)
     request = Request(
-        fake_url, data=review_bytes, method="POST",
-        headers={"Content-Type": "application/json",
-                 "X-Proposal-Id": record["proposal_id"],
-                 "X-Attempt-Id": record["attempt_id"]},
+        fake_url,
+        data=review_bytes,
+        method="POST",
+        headers={
+            "Content-Type": "application/json",
+            "X-Proposal-Id": record["proposal_id"],
+            "X-Attempt-Id": record["attempt_id"],
+        },
     )
     with urlopen(request, timeout=10) as response:
         if response.status != 201:
@@ -125,8 +149,9 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("intent", type=Path)
     parser.add_argument("fake_url")
-    parser.add_argument("--crash-at", choices=("before_send", "after_accept",
-                                               "after_response_recorded"))
+    parser.add_argument(
+        "--crash-at", choices=("before_send", "after_accept", "after_response_recorded")
+    )
     args = parser.parse_args()
     send_once(args.intent, args.fake_url, crash_at=args.crash_at)
     return 0
