@@ -1,5 +1,7 @@
 """Protect canonical ownership, packaged resources and executable entrypoints."""
 
+from support.paths import repository_root
+
 import importlib
 import json
 import os
@@ -11,7 +13,7 @@ import unittest
 from laomedo._paths import import_root
 from laomedo._paths import package_root
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = repository_root()
 
 
 class PackageLayoutTests(unittest.TestCase):

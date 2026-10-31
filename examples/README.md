@@ -9,8 +9,8 @@ The maintained Skill entrypoint contains one builder and its real editor skill.
 Historical executed exports and campaign variants are preserved on `exp`, with
 original revisions and byte provenance; they are not current setup instructions.
 
-Agent and GitHub examples retain their current folders pending their separate
-organization pass. In particular, `skill-agent-pilot` is a historical Agent runner
-prototype with active Agent-test consumers, so it stays here. `skill-files-viewer`
-and `skill-summary` were not touched by this PR and remain outside this scoped
-consolidation. This index does not claim all examples have been reorganized.
+Other folders own provider-specific and GitHub graph workflows.
+`skill-agent-pilot` retains the historical Agent runner prototype and its Agent
+test assets. `skill-files-viewer` and `skill-summary` retain the files and evidence
+of their named campaigns; the Skill walkthrough documents current setup and
+behavior. The maintained Skill builder does not import these campaign scripts.

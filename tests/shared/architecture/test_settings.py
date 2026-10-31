@@ -1,5 +1,7 @@
 """Configuration and exception boundary regression checks; no live acceptance."""
 
+from support.paths import repository_root
+
 import ast
 import importlib
 import os
@@ -12,7 +14,7 @@ from unittest.mock import patch
 
 from pydantic_settings import BaseSettings
 
-SOURCE = Path(__file__).resolve().parents[1] / "src" / "laomedo"
+SOURCE = repository_root() / "src" / "laomedo"
 
 
 class SettingsContractTests(unittest.TestCase):

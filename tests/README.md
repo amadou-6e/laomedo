@@ -1,10 +1,10 @@
 # Tests
 
-Tests follow the concern they protect. `shared/` owns Git, HTTP, migration,
-formatting and component-template controls. `skills/` owns the registry, sources,
-operations, inspection, authoring and workspace delivery. Graph cases live with
-their respective Skill concern. Other domains retain their existing layout;
-this is not a completed repository-wide test reorganization.
+Tests follow the concern they protect. `shared/` owns architecture, Git, HTTP,
+migration, formatting and component-template controls. `skills/` owns the registry,
+sources, operations, inspection, authoring and workspace delivery. Graph cases
+live with their respective Skill concern. Agent/GitHub suites retain their
+current layout and separate optional-runtime harness.
 
 Run core discovery against an installed package, including outside this checkout:
 

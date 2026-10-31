@@ -1,12 +1,14 @@
 """Structural policy and published migration reachability, not live acceptance."""
 
+from support.paths import repository_root
+
 import ast
 import hashlib
 import json
 from pathlib import Path
 import unittest
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = repository_root()
 SOURCE = ROOT / "src" / "laomedo"
 
 

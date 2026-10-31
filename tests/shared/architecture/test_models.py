@@ -1,5 +1,7 @@
 """Internal regression checks for model invariants and unchanged wire/storage bytes."""
 
+from support.paths import repository_root
+
 import json
 from pathlib import Path
 import tempfile
@@ -32,7 +34,7 @@ class CohesionModelTests(unittest.TestCase):
         )
 
     def test_saved_snapshot_keeps_its_identity_and_exact_saved_bytes(self):
-        golden = Path(__file__).parent / "fixtures/work-graph-pre-pydantic.json"
+        golden = repository_root() / "tests/fixtures/work-graph-pre-pydantic.json"
         snapshot = GraphSnapshot.from_dict(json.loads(golden.read_bytes()))
         self.assertIsInstance(snapshot, BaseModel)
         self.assertEqual(
@@ -48,7 +50,7 @@ class CohesionModelTests(unittest.TestCase):
         snapshot = GraphSnapshot.from_dict(
             json.loads(
                 (
-                    Path(__file__).parent / "fixtures/work-graph-pre-pydantic.json"
+                    repository_root() / "tests/fixtures/work-graph-pre-pydantic.json"
                 ).read_bytes()
             )
         )
