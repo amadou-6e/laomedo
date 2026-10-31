@@ -1,4 +1,4 @@
-"""Module-level private loopback request handling; protocol behavior is unchanged."""
+"""Authenticated loopback requests with strict admission and safe JSON replies."""
 
 from http.server import BaseHTTPRequestHandler
 import json

@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     """Read at point of use; no cached environment, dotenv or credential contents.
 
     Strings preserve missing/empty values and exact ``== "1"`` flag behavior.
-    Existing consumers own URL/path validation and stable public errors.
+    Consumers own URL/path admission and stable public errors.
     """
 
     model_config = SettingsConfigDict(

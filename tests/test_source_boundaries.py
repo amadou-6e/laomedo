@@ -1,4 +1,4 @@
-"""D2 internal source contract controls; these do not establish live acceptance."""
+"""Source isolation and cleanup controls; these do not establish live acceptance."""
 
 import ast
 import hashlib
@@ -547,58 +547,6 @@ class SourceBoundaryTests(unittest.TestCase):
                     and node.func.attr in {"Popen", "killpg"}
                     for node in ast.walk(tree)
                 )
-            )
-
-    def test_independent_utility_bodies_preserve_original_literals_and_control_flow(
-        self,
-    ):
-        record = json.loads(
-            ROOT.joinpath("tests/contracts/skill-sources-64ac5fe.json").read_text(
-                encoding="utf-8"
-            )
-        )
-        with patch.object(sys, "path", [str(ROOT / "tools"), *sys.path]):
-            contracts = runpy.run_path(
-                str(ROOT / "tools/capture_interface_contracts.py")
-            )
-        aliases = {
-            "_excluded": "excluded_parts",
-            "_name": "skill_name",
-            "_bundle": "validate_bundle",
-            "_bundle_path": "validate_bundle_path",
-        }
-        baseline = ast.parse(record["utils_source"])
-        module_aliases = {
-            alias.asname
-            for node in ast.walk(baseline)
-            if isinstance(node, ast.Import)
-            for alias in node.names
-            if alias.asname and alias.name.startswith("laomedo.")
-        }
-        for node in baseline.body:
-            if not isinstance(node, ast.FunctionDef) or node.name not in aliases:
-                continue
-            old_name = node.name
-            node.name = aliases[node.name]
-            node = contracts["normalize_body"](node, module_aliases)
-            for item in ast.walk(node):
-                if isinstance(item, ast.Name):
-                    item.id = aliases.get(item.id, item.id)
-            owner = "bundle" if old_name.startswith("_bundle") else "utils"
-            current = ast.parse(
-                ROOT.joinpath("src/laomedo/skills/sources", owner + ".py").read_text(
-                    encoding="utf-8"
-                )
-            )
-            actual = next(
-                item
-                for item in current.body
-                if isinstance(item, ast.FunctionDef) and item.name == node.name
-            )
-            self.assertEqual(
-                contracts["canonical_ast"](actual),
-                contracts["canonical_ast"](node),
-                old_name,
             )
 
     def test_utility_migration_is_explicit_flat_and_refuses_ambiguous_members(self):

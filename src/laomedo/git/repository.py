@@ -44,7 +44,7 @@ class GitRepository:
         )
 
     def init_bare(self, *, empty_template: bool = False) -> bool:
-        """Initialize the caller's object store with its existing template policy."""
+        """Initialize the caller's object store with its template policy."""
         args = ["init", "--bare", "--quiet"]
         if empty_template:
             args.append("--template=")
@@ -103,7 +103,7 @@ class GitRepository:
         return self.run(["check-ref-format", reference]).returncode == 0
 
     def fsck(self, *, no_reflogs: bool = False) -> bool:
-        """Inspect object connectivity under the caller's existing reflog policy."""
+        """Inspect object connectivity under the caller's reflog policy."""
         return (
             self.run(
                 [

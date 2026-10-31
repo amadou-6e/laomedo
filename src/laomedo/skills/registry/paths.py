@@ -1,4 +1,4 @@
-"""Registry paths; existing admission and byte behavior are preserved."""
+"""Validate registry names and portable relative paths."""
 
 from __future__ import annotations
 

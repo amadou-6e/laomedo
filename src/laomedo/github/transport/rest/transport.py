@@ -27,10 +27,6 @@ import time
 _REPOSITORY = re.compile(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+\Z")
 ISSUE_GRAPHQL_QUERY = "query($owner:String!,$name:String!){repository(owner:$owner,name:$name){issues(first:30,states:OPEN){nodes{number title body}}}}"
 
-# Retained probe sources still import this private spelling. Keep their bytes
-# unchanged; this is the canonical class, not a second redirect implementation.
-_NoRedirect = NoRedirect
-
 
 class GitHubRestTransport:
     """Narrow first-slice adapter; never reads the ambient gh login."""

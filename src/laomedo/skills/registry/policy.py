@@ -1,4 +1,4 @@
-"""Registry policy; existing admission and byte behavior are preserved."""
+"""Admit editing policies and validate candidate draft inventories."""
 
 from __future__ import annotations
 

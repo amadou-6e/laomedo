@@ -1,38 +1,33 @@
 # Skills application interface
 
-This is the discoverable boundary used by components, the viewer and local
-service startup. C3 places the existing HTTP clients, handlers,
-servers and startup CLIs here; it introduces no forwarding facade or parallel
-protocol. Domain values and service behavior stay in their canonical packages.
+Components, the viewer and trusted service startup enter Skills through these
+defining adapters. Registry, sources and operations own domain behavior and values.
 
-| Responsibility | Defining module | Naming and dependency rule |
+| Responsibility | Defining module | Vocabulary and dependency rule |
 | --- | --- | --- |
-| Stateless request transport | `<feature>/client.py` | `*_request` reads its settings at call time, performs the existing local request and preserves safe error projection |
-| HTTP request lifecycle | `<feature>/handler.py` | `*Handler` / `*RequestHandler` authenticates, parses, routes and replies through its server's bindings |
-| Listener lifetime and private bindings | `<feature>/server.py` | `*Server` validates loopback/token and owns its domain service and private bearer token |
-| Explicit trusted composition | `<feature>/cli.py` | `main` parses the current flags and composes canonical services; it is not an application-import shortcut |
-| External service configuration | `<feature>/settings.py` | feature-local Pydantic `Settings`, constructed at use; credentials remain files, never serialized settings values |
+| Stateless HTTP transport | `<feature>/client.py` | `*_request` reads call-time settings, performs a local request and projects safe failures |
+| Request lifecycle | `<feature>/handler.py` | RequestHandler authenticates, parses, dispatches through its server and replies |
+| Listener lifetime/private bindings | `<feature>/server.py` | Server validates loopback/token and owns its domain service and private bearer token |
+| Trusted composition | `<feature>/cli.py` | main parses supported flags and explicitly starts feature services |
+| External service configuration | `<feature>/settings.py` | Pydantic Settings loads explicit/environment values at use; credentials stay in files |
 
-Use Base only for an actual abstract contract. There is no common abstract HTTP
-handler: each protocol's field sets, caps and uncertainty classifications differ.
-No Async/Sync/Bounded variant is introduced. Compose the existing service rather
-than inheriting its domain behavior into the transport. This placement lets callers
-find the supported API without learning registry, gateway or provider internals.
+Client is stateless request transport, Server owns endpoint lifetime, and
+RequestHandler owns protocol handling. Each protocol has its own field sets,
+caps and uncertainty classification. Transport composes the domain service.
+This boundary is discoverable without learning registry or Git internals.
 
-Clients and protocol handlers retain their existing narrow dependencies and do
-not import graph frameworks or execute provider commands. Trusted CLI composition
-is the explicit exception that may load host credential/mediation and native
-transport owners. Existing exception identities required by the handler boundary
-stay direct imports; they do not authorize broader host access. The neutral shared
-redirect policy remains `laomedo.http.redirect.NoRedirect`.
+Clients and handlers have narrow feature dependencies. They do not import graph
+frameworks or execute provider commands. CLI modules compose SkillStore,
+SkillSources or SkillOperations explicitly. Credentials, listener binding and
+editing policy come from trusted startup configuration, never graph content.
+Redirect refusal uses `laomedo.http.redirect.NoRedirect`.
 
-CLI commands and maintained component imports migrate through explicit flat
-module/symbol/CLI maps. No old-package runtime facade or import hook is installed.
-Historical graphs and retained probe sources remain byte-preserved; external
-saved services/graphs require an explicitly selected migration before using this
-installed version. Node identities, ports, routes, fields, environment names,
-missing/empty semantics, error codes and remote-effect uncertainty are unchanged.
+Selected external saved consumers use the explicit offline module/symbol/CLI maps.
+Dynamic or ambiguous access requires manual migration; no runtime import hook or
+forwarding facade is installed. Historical graphs and probe sources remain
+byte-preserved. Public routes, fields, environment aliases, missing/empty semantics,
+safe codes and effect-uncertainty classifications are adapter contracts.
 
-This README was committed before implementation. Registry/source Git/workspace
-changes remain separate checkpoints. Internal controls and this source move do
-not establish real graph acceptance or permission to merge.
+Core domain services depend on registry/source owners rather than HTTP adapters.
+Protocol controls and real graph workflows provide distinct evidence; requesting
+user validation is a separate acceptance requirement.

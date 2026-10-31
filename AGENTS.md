@@ -92,13 +92,27 @@
   the implementation but must document their contract; do not leave pass-only
   placeholders. User-facing explanations/recovery belong to the shared catalogue.
 
+## GitHub issue and branch workflow
+
+- Follow the [canonical GitHub workflow](https://github.com/amadou-6e/specs/blob/main/AGENTS.md#change-workflow).
+  Task branches use exactly `<type>/<issue-number>`, with only `feat`, `fix`,
+  `docs`, `chore`, and `refactor`. The number is an actual issue in this repository;
+  do not append descriptive slugs or invent review/validation/checkpoint prefixes.
+- Identify the issue owning the user-selected work, or create it before branching.
+  Link each PR to its issue and keep checkpoints and validation on that issue branch.
+  A pushed branch alone does not complete the GitHub workflow.
+- Existing issue edits and closure require explicit approval; do not use PR keywords
+  that close issues without it. Preserve the review and CI gates above, plus final
+  graph validation required by the workspace-root AGENTS.md. These instructions do
+  not enable GitHub enforcement or rename history.
+
 ## Commit and push checkpoints
 
 - After each coherent, reviewable block of work, commit and push the task branch
   promptly. Do not accumulate several completed blocks locally or wait until the
   whole task, final review or live verification is finished before pushing.
-- Push in-progress work to a draft branch/PR with its pending checks and blockers
-  stated clearly. A pushed checkpoint is not a verification or completion claim,
-  and it does not authorize merging.
+- Push in-progress work to its issue branch and open or update its draft PR, with
+  pending checks and blockers stated clearly. A pushed checkpoint is not a
+  verification or completion claim, and it does not authorize merging.
 - Stage only changes owned by the task. Preserve unrelated edits; never commit
   credentials, private runtime state, generated caches or verification tooling.

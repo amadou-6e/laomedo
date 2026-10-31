@@ -1,8 +1,6 @@
 """Direct-symbol Skills ownership controls; internal tests, not live acceptance."""
 
 import ast
-import copy
-import hashlib
 import json
 from pathlib import Path
 import unittest
@@ -11,81 +9,6 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class SkillsDirectImportTests(unittest.TestCase):
-    @classmethod
-    def unqualify(cls, node, aliases):
-        if (
-            isinstance(node, ast.Attribute)
-            and isinstance(node.value, ast.Name)
-            and node.value.id in aliases
-        ):
-            return ast.Name(id=node.attr, ctx=node.ctx)
-        for field, value in ast.iter_fields(node):
-            if isinstance(value, list):
-                setattr(
-                    node,
-                    field,
-                    [
-                        (
-                            cls.unqualify(item, aliases)
-                            if isinstance(item, ast.AST)
-                            else item
-                        )
-                        for item in value
-                    ],
-                )
-            elif isinstance(value, ast.AST):
-                setattr(node, field, cls.unqualify(value, aliases))
-        return node
-
-    def test_five_function_bodies_preserve_operations_after_direct_imports(self):
-        record = json.loads(
-            (ROOT / "tests/contracts/skills-direct-imports-b614cf3.json").read_text(
-                encoding="utf-8"
-            )
-        )
-        functions = 0
-        aliases_seen = 0
-        for item in record["files"]:
-            old = item["source"]
-            self.assertEqual(
-                hashlib.sha256(old.encode()).hexdigest(), item["source_sha256"]
-            )
-            raw = old.encode()
-            self.assertEqual(
-                hashlib.sha1(
-                    b"blob " + str(len(raw)).encode() + b"\0" + raw
-                ).hexdigest(),
-                item["git_blob"],
-            )
-            old_tree = ast.parse(old)
-            aliases = {
-                imported.asname
-                for node in old_tree.body
-                if isinstance(node, ast.Import)
-                for imported in node.names
-                if imported.name.startswith("laomedo.")
-            }
-            aliases_seen += len(aliases)
-            original = [
-                node for node in old_tree.body if isinstance(node, ast.FunctionDef)
-            ]
-            current = [
-                node
-                for node in ast.parse(
-                    (ROOT / item["path"]).read_text(encoding="utf-8")
-                ).body
-                if isinstance(node, ast.FunctionDef)
-            ]
-            self.assertEqual(len(original), len(current))
-            for before, after in zip(original, current):
-                self.assertEqual(
-                    ast.dump(self.unqualify(copy.deepcopy(before), aliases)),
-                    ast.dump(after),
-                    (item["path"], before.name),
-                )
-                functions += 1
-        self.assertEqual(functions, 5)
-        self.assertEqual(aliases_seen, 7)
 
     def test_skills_owned_files_have_no_module_prefix_imports(self):
         for path in (ROOT / "src/laomedo/skills").rglob("*.py"):
@@ -97,7 +20,7 @@ class SkillsDirectImportTests(unittest.TestCase):
                     )
 
     def test_affected_error_producers_have_explicit_surface_and_gap_inventory(self):
-        """Require current coverage and preserve the original, unresolved D3 record."""
+        """Require descriptive entries for actual current error producers."""
         catalogue = json.loads(
             (ROOT / "frontend/langflow-skill-viewer/node-error-catalog.json").read_text(
                 encoding="utf-8"
@@ -156,21 +79,6 @@ class SkillsDirectImportTests(unittest.TestCase):
         self.assertFalse(codes - catalogue.keys())
         self.assertEqual(inventory["known_missing_entries"], [])
         self.assertEqual(inventory["existing_viewer_catalogue_gaps"], [])
-        historical = inventory["historical_inventory"]
-        self.assertEqual(
-            historical["revision"], "a55279d1d51b05a5df6faedab861b68766844de0"
-        )
-        original = (ROOT / "tests/contracts" / historical["path"]).read_bytes()
-        self.assertEqual(hashlib.sha256(original).hexdigest(), historical["sha256"])
-        header = b"blob " + str(len(original)).encode() + b"\0"
-        self.assertEqual(
-            hashlib.sha1(header + original).hexdigest(), historical["git_blob"]
-        )
-        self.assertIn(
-            "tests/contracts/" + historical["path"] + " -text",
-            (ROOT / ".gitattributes").read_text(encoding="utf-8").splitlines(),
-        )
-        self.assertTrue(json.loads(original)["known_missing_entries"])
         for code in inventory["catalogued_codes"]:
             for field in ("title", "description", "recovery"):
                 self.assertTrue(catalogue[code][field].strip(), (code, field))

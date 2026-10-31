@@ -1,7 +1,7 @@
 """Validated internal skill edits and host-supplied provenance.
 
-Only explicit projections cross HTTP/journal boundaries; their dictionaries retain
-the existing public contract and stable error categories.
+Only explicit projections cross HTTP/journal boundaries; their dictionaries implement
+the public contract and stable error categories.
 """
 
 from __future__ import annotations
@@ -258,7 +258,7 @@ class SkillCommitReceipt(BaseModel):
     )
 
     def to_payload(self) -> dict:
-        """Flatten only at the existing public journal boundary."""
+        """Flatten records at the public journal boundary."""
         return {"commit_id": self.commit_id, **self.record.to_record()}
 
 
@@ -288,11 +288,11 @@ class SkillOperationResult(BaseModel):
 
     @field_serializer("skill")
     def serialize_skill(self, value: SkillReference) -> dict:
-        """Preserve the existing skill binding projection."""
+        """Project the skill identity binding."""
         return value.to_reference_payload()
 
     def to_payload(self) -> dict:
-        """Serialize the existing receipt without adding or omitting fields."""
+        """Serialize the receipt's public fields."""
         return self.model_dump()
 
 
@@ -337,5 +337,5 @@ class SkillComparison(BaseModel):
     )
 
     def to_payload(self) -> dict:
-        """Return the existing public comparison; the service enforces response size."""
+        """Project the public comparison; the service enforces response size."""
         return self.model_dump()

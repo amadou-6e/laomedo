@@ -1,4 +1,4 @@
-"""Canonical admitted source values; historical index readers remain unchanged."""
+"""Admitted source identities, choices, repository state and pending imports."""
 
 from pathlib import Path
 from typing import Literal
@@ -6,7 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class AdmittedSkillSource(BaseModel):
-    """The existing source kind and normalized location after feature admission."""
+    """A source kind and normalized location after feature admission."""
 
     model_config = ConfigDict(
         strict=True, frozen=True, extra="forbid", hide_input_in_errors=True
@@ -18,7 +18,7 @@ class AdmittedSkillSource(BaseModel):
 
 
 class SkillSourceChoice(BaseModel):
-    """Fresh discovery choice; historical cached choices keep their existing readers."""
+    """A discovered skill choice with an explicit wire projection."""
 
     model_config = ConfigDict(
         strict=True, frozen=True, extra="forbid", hide_input_in_errors=True
@@ -72,7 +72,7 @@ class SkillRepositoryState(BaseModel):
 
 
 class PendingSkillImport(BaseModel):
-    """Exact collected bytes and origin awaiting the existing option-limit checks."""
+    """Collected bytes and origin awaiting option-limit checks."""
 
     model_config = ConfigDict(
         strict=True, frozen=True, extra="forbid", hide_input_in_errors=True

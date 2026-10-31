@@ -1,12 +1,8 @@
 """Command-line entry point for laomedo.skills.interface.sources.server."""
 
-from http.server import BaseHTTPRequestHandler
-from http.server import ThreadingHTTPServer
 from pathlib import Path
 import argparse
-import json
 from laomedo.skills.sources.service import SkillSources
-import secrets
 
 from laomedo.skills.interface.sources.server import SkillSourceServer
 

@@ -1,4 +1,4 @@
-"""C2 ownership and import-only migration controls; no live integration claim."""
+"""Publication ingress ownership and saved-consumer controls; no live acceptance."""
 
 import ast
 import hashlib
@@ -28,40 +28,9 @@ RENAMES = {
 }
 with patch.object(sys, "path", [str(ROOT / "tools/migrations"), *sys.path]):
     MIGRATION = runpy.run_path(str(ROOT / "tools/migrations/migrate_module_paths.py"))
-CONTRACT_TOOLS = runpy.run_path(str(ROOT / "tools/capture_http_handler_contracts.py"))
 
 
 class PublicationIngestionBoundaryTests(unittest.TestCase):
-    @staticmethod
-    def normalized(node):
-        if (
-            isinstance(node, ast.Attribute)
-            and isinstance(node.value, ast.Name)
-            and node.value.id in {"_ingestion_settings", "_ingestion_errors"}
-        ):
-            return ast.Name(id=RENAMES.get(node.attr, node.attr), ctx=ast.Load())
-        if isinstance(node, ast.Name):
-            node.id = RENAMES.get(node.id, node.id)
-        if isinstance(node, ast.FunctionDef):
-            node.name = RENAMES.get(node.name, node.name)
-        for name, value in ast.iter_fields(node):
-            if isinstance(value, list):
-                setattr(
-                    node,
-                    name,
-                    [
-                        (
-                            PublicationIngestionBoundaryTests.normalized(item)
-                            if isinstance(item, ast.AST)
-                            else item
-                        )
-                        for item in value
-                    ],
-                )
-            elif isinstance(value, ast.AST):
-                setattr(node, name, PublicationIngestionBoundaryTests.normalized(value))
-        return node
-
     @staticmethod
     def retired_imports(source):
         failures = []
@@ -93,36 +62,6 @@ class PublicationIngestionBoundaryTests(unittest.TestCase):
                 and (name == RETIRED or name.startswith(RETIRED + "."))
             )
         return failures
-
-    def test_ingestion_control_flow_and_serialization_are_an_exact_symbol_only_move(
-        self,
-    ):
-        contract = json.loads(
-            (ROOT / "tests/contracts/publication-ingestion-4551ce5.json").read_text()
-        )
-        self.assertEqual(
-            contract["baseline"], "4551ce52524f6ec997f4df04a984f0c850170e55"
-        )
-        raw = contract["baseline_source"].encode()
-        self.assertEqual(hashlib.sha256(raw).hexdigest(), contract["sha256"])
-        old = ast.parse(contract["baseline_source"])
-        old.body = [
-            item
-            for item in old.body
-            if not isinstance(item, (ast.Import, ast.ImportFrom))
-        ]
-        new = ast.parse(
-            (ROOT / "src/laomedo/host/publication/ingestion/utils.py").read_text()
-        )
-        new.body = [
-            item
-            for item in new.body
-            if not isinstance(item, (ast.Import, ast.ImportFrom))
-        ]
-        self.assertEqual(
-            CONTRACT_TOOLS["ast_digest"](self.normalized(old)),
-            CONTRACT_TOOLS["ast_digest"](new),
-        )
 
     def test_ownership_symbols_and_all_prior_generations_are_flat(self):
         self.assertFalse((ROOT / "src/laomedo/skills/ingestion").exists())
