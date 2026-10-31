@@ -259,8 +259,14 @@ for prefix in ('laomedo.host', 'laomedo.agents', 'langflow', 'lfx'):
         self.assertIn('SOURCE / "skills/interface/sources/handler.py"', source)
         source_policy = importlib.import_module("laomedo.skills.sources.settings")
         self.assertEqual(source_policy.MAX_ENTRIES, 4096)
-        self.assertIn(".git", source_policy.SKIP)
-        self.assertIn(".env", source_policy.SECRET)
+        # These fixed exclusions are a security policy, not a source-body snapshot.
+        self.assertEqual(
+            source_policy.SKIP, {".git", "node_modules", "__pycache__", ".venv", "venv"}
+        )
+        self.assertEqual(
+            source_policy.SECRET,
+            {"auth.json", "credentials.json", "credentials", ".env", ".netrc"},
+        )
 
 
 if __name__ == "__main__":

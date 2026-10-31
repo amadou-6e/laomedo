@@ -57,6 +57,7 @@ by cache cleanup.
 | GitHub CI at the source above | [Work Graph](https://github.com/amadou-6e/laomedo/actions/runs/41197088273) and [Black](https://github.com/amadou-6e/laomedo/actions/runs/41197088246) pass; package tests cover Python 3.10/3.13 |
 | Initial local wheel | Build/import smoke succeeds, but subsequent file audit rejects artifact `761a076f408a0848af6de82145625d6e773ecadf25d8068026db481c609484df`: 470 Python files instead of 340, including 130 retired modules from stale `build/lib`. This artifact is invalid |
 | Installed-artifact regression | Guard checks every installed file against current source, all Python modules and Python content; source-checkout runs explicitly skip this artifact-only test. Clean rebuild verification is required |
+| Clean local wheel | 340 Python modules match the 340 current source modules, with no retired/missing modules or cache members. All seven installed-package tests pass outside the source checkout in 21.791s. Artifact SHA-256 `519844aa0be43ce5f1133b4379e3d3b4cbf8315a6314003c9860fa2ab3eef51d` |
 | Real local source | Actual refactoring skill discovered, pinned and inspected; owned scratch removed and original bytes unchanged |
 | Real HTTPS sources | Public `anthropics/skills` clones; full discovery reaches the 60-second operation budget and returns `repository_limit_exceeded`. Credential-free `amadou-6e/my-skills` returns `repository_access_unavailable`; its cause is not established |
 | Real viewer | Five fresh read-only stories pass: genuine edited revision/history, both edited files, and each file's parent-to-current comparison. Zero graph runs, model requests or Skill/graph writes; all eleven observed Node/Edge processes exited |
@@ -74,6 +75,10 @@ not settle. Only its exact owned Node/Edge lineage was stopped. A corrected
 private harness used bounded HTTP asset reads; that second attempt passed and
 confirmed registry/history/native records and existing graphs remained unchanged.
 This recovered harness failure is not product acceptance.
+
+The existing real preview was also inventoried separately: all 349 installed
+package files match the 349 members of its pinned `ca3f1e9` wheel, with no extra
+or missing files. The contaminated local build was not installed into that app.
 
 ## Independent merge boundary
 
@@ -93,6 +98,9 @@ against their actual develop bases; integrated-candidate CI does not prove them.
 
 - A caller-complete, independently tested develop-based Shared preparation slice.
 - A caller-complete Skills slice with its relevant specification/review coverage.
+- Merged specification coverage for Claude Skill feedback. The committed Skill
+  operations contract still names Codex; [specs PR #391](https://github.com/amadou-6e/specs/pull/391)
+  remains open and unmerged. This audit does not treat it as merged coverage.
 - Real user-story validation of the refreshed example graphs appropriate to each
   owning module; their canonical source/hash alignment alone is insufficient.
 - A verified real cleanup-uncertainty discovery UI path. Internal process controls,
