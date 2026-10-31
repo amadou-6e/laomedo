@@ -24,6 +24,12 @@ refuses recognized direct or aliased uses rather than guessing arguments.
 `VerifiedGitStage.git(*args)` is unsupported; its admitted object store is
 available through `stage.repository` operations.
 
+Codex `servers` modules define transport classes; they are not CLI launchers.
+Their import migration belongs to the module map, not `cli-paths.json`.
+The separate legacy contract-flow migrator accepts formatting differences only
+when the complete Python AST (including docstrings) and comment tokens still
+match its known source. Changed code, added comments and invalid Python are refused.
+
 Historical observations retain their original identity and bytes. Inventoried
 probe sources retain their post-format source bytes. Selected internal controls
 load hash-checked copies with top-level from-import changes. The S11 copy also

@@ -76,13 +76,17 @@ class MigrationTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(migration.migrate(after), after)
 
     async def test_unknown_embedded_source_refuses(self):
-        flow = original()
-        node = next(n for n in flow["data"]["nodes"] if n["id"] == "contract")
-        node["data"]["node"]["template"]["code"][
-            "value"
-        ] += "\n# unknown modification\n"
-        with self.assertRaisesRegex(ValueError, "unsupported_legacy_contract_source"):
-            migration.migrate(flow)
+        for addition, reason in (
+            ("\n# unknown modification\n", "unsupported_legacy_contract_source"),
+            ("\nlegacy_extra = True\n", "unsupported_legacy_contract_source"),
+            ("\nif\n", "manual migration"),
+        ):
+            with self.subTest(addition=addition):
+                flow = original()
+                node = next(n for n in flow["data"]["nodes"] if n["id"] == "contract")
+                node["data"]["node"]["template"]["code"]["value"] += addition
+                with self.assertRaisesRegex(ValueError, reason):
+                    migration.migrate(flow)
 
     async def test_editor_generated_ids_and_encoded_handles_survive(self):
         for encoded in (False, True):

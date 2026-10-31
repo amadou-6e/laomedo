@@ -2,10 +2,13 @@
 
 from copy import deepcopy
 import argparse
+import ast
+import io
 import json
 import importlib.util
 import sys
 from pathlib import Path
+import tokenize
 from lfx.custom.custom_component.component import Component
 from lfx.custom.utils import build_custom_component_template
 
@@ -19,6 +22,24 @@ try:
     _spec.loader.exec_module(_module_paths)
 finally:
     sys.path.pop(0)
+
+
+def same_known_source(source, expected):
+    """Allow formatting differences while retaining code, docstrings and comments."""
+    try:
+        if ast.dump(ast.parse(source)) != ast.dump(ast.parse(expected)):
+            return False
+        comments = [
+            [
+                token.string
+                for token in tokenize.generate_tokens(io.StringIO(text).readline)
+                if token.type == tokenize.COMMENT
+            ]
+            for text in (source, expected)
+        ]
+        return comments[0] == comments[1]
+    except (SyntaxError, tokenize.TokenError, IndentationError):
+        return False
 
 
 def migrate(flow):
@@ -37,10 +58,8 @@ def migrate(flow):
         ports = [port["name"] for port in old["outputs"]]
         if ports == ["success", "failure", "rejection", "recovery"]:
             continue
-        if (
-            ports != ["requirements", "validation"]
-            or _module_paths.migrate_source(old["template"]["code"]["value"]).strip()
-            != original.strip()
+        if ports != ["requirements", "validation"] or not same_known_source(
+            _module_paths.migrate_source(old["template"]["code"]["value"]), original
         ):
             raise ValueError("unsupported_legacy_contract_source")
         template, _ = build_custom_component_template(Component(_code=code))

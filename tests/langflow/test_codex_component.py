@@ -817,22 +817,17 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
 
         root = Path(__file__).resolve().parents[2]
         flow = json.loads((root / "examples/native-codex-node/flow.json").read_text())
-        agent = next(
-            node
-            for node in flow["data"]["nodes"]
-            if node["data"]["type"] == "LaomedoCodexAgent"
-        )
-        code = agent["data"]["node"]["template"]["code"]["value"]
-        source = '            return endpoint, payload, "POST"'
-        probe = (
-            '            payload["langflow_probe"] = {"run_id": self.graph.run_id, '
-            '"flow_id": self.graph.flow_id, "stage_id": self._vertex.id}\n' + source
-        )
-        self.assertEqual(code.count(source), 1)
-        prefix, separator, suffix = code.rpartition(source)
-        self.assertTrue(separator)
-        agent["data"]["node"]["template"]["code"]["value"] = prefix + probe + suffix
         observed = []
+        fresh_route = shared_module.AgentComponent._fresh_route
+
+        def capture_graph_identity(node, endpoint, payload, request_id):
+            endpoint, payload, method = fresh_route(node, endpoint, payload, request_id)
+            payload["langflow_probe"] = {
+                "run_id": node.graph.run_id,
+                "flow_id": node.graph.flow_id,
+                "stage_id": node._vertex.id,
+            }
+            return endpoint, payload, method
 
         def respond(req, **_kwargs):
             payload = json.loads(req.data)
@@ -842,7 +837,12 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
                 json.dumps(result(client_request_id=payload["request_id"])).encode()
             )
 
-        with patch.object(shared_module.request, "urlopen", side_effect=respond):
+        with (
+            patch.object(
+                shared_module.AgentComponent, "_fresh_route", capture_graph_identity
+            ),
+            patch.object(shared_module.request, "urlopen", side_effect=respond),
+        ):
             for _ in range(2):
                 await Graph.from_payload(flow).arun(
                     inputs=[{"input_value": "Read fixture"}], types=["chat"]
