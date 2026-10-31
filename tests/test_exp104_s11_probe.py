@@ -1,7 +1,11 @@
 """Fail-closed controls for the unexecuted EXP-104 S11 live probe."""
 
+from retained_shared import load_retained_shared
+from laomedo.git.command import GitCommandRunner
+from laomedo.git.models import GitCommand, GitExecutionContext
+
+
 import json
-import importlib.util
 import os
 from pathlib import Path
 import subprocess
@@ -22,14 +26,26 @@ from laomedo.host.mediation.service import MediationHTTPService
 _probe_path = (
     Path(__file__).resolve().parents[1] / "experiments" / "exp104" / "s11_probe.py"
 )
-_probe_spec = importlib.util.spec_from_file_location("exp104_s11_probe", _probe_path)
-if _probe_spec is None or _probe_spec.loader is None:
-    raise RuntimeError("s11_probe_unavailable")
-probe = importlib.util.module_from_spec(_probe_spec)
-_probe_spec.loader.exec_module(probe)
+probe = load_retained_shared("experiments.exp104.s11_probe")
 
 
 class S11ProbeTests(unittest.TestCase):
+    def setUp(self):
+        # Only this local internal control can bind the historical environment.
+        home = tempfile.TemporaryDirectory(prefix="s11-control-home-")
+        self.addCleanup(home.cleanup)
+        for module in (probe, probe._helpers):
+            binding = patch.object(
+                module,
+                "_base_git_environment",
+                side_effect=lambda: GitCommandRunner().environment(
+                    GitCommand(arguments=[], context=GitExecutionContext()),
+                    Path(home.name),
+                ),
+            )
+            binding.start()
+            self.addCleanup(binding.stop)
+
     def test_service_gate_waits_for_fresh_monotonic_heartbeat(self):
         with tempfile.TemporaryDirectory() as directory:
             state = Path(directory)

@@ -1,5 +1,10 @@
 """Credential-free checks of standing per-run allowance, never live writes."""
 
+from retained_shared import load_retained_shared
+
+load_retained_shared("experiments.exp139.persistent_demo")
+
+
 from contextlib import closing
 from pathlib import Path
 from types import SimpleNamespace

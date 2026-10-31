@@ -5,6 +5,7 @@ import importlib
 import os
 from pathlib import Path
 import pickle
+from subprocess import TimeoutExpired
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -140,8 +141,7 @@ class SettingsContractTests(unittest.TestCase):
     def test_raw_environment_boundaries_stay_explicit(self):
         protected = {
             "host/runner/utils.py": "os.environ.items()",
-            "agents/workspace/git.py": "os.environ.items()",
-            "github/transport/git/utils.py": "os.environ.items()",
+            "git/command.py": "os.environ.items()",
             "agents/providers/claude/utils.py": "os.environ.items()",
             "host/credentials/claude/utils.py": "os.environ if environment is None",
             "skills/sources/service.py": "os.environ.items()",
@@ -181,6 +181,24 @@ class ErrorContractTests(unittest.TestCase):
                         self.assertEqual(error.code, "runner_transport_failed")
                         self.assertEqual(error.run_reference["run_id"], "retained-run")
                         continue  # Graph invocation errors retain a record, unlike scalar domain errors.
+                    if cls.__name__ == "GitCommandTimeout":
+                        for cleanup in (False, True):
+                            error = cls(["git"], 1, cleanup)
+                            self.assertIsInstance(error, TimeoutExpired)
+                            self.assertEqual(error.cleanup_verified, cleanup)
+                            self.assertEqual(
+                                error.code,
+                                (
+                                    "git_timeout"
+                                    if cleanup
+                                    else "git_timeout_cleanup_unverified"
+                                ),
+                            )
+                            restored = pickle.loads(pickle.dumps(error))
+                            self.assertEqual(type(restored), cls)
+                            self.assertEqual(restored.__dict__, error.__dict__)
+                            self.assertEqual(str(restored), str(error))
+                        continue  # Native timeout protocol differs from scalar domain errors.
                     if cls.__name__ == "PushOutcomeUnknown":
                         error = cls("timeout", None)
                         code = "push_outcome_unknown"

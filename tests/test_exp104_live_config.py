@@ -2,12 +2,9 @@
 
 from retained_shared import load_retained_shared
 
-load_retained_shared("experiments.exp104.live_probe")
-
 
 import unittest
 from unittest import mock
-import importlib.util
 from contextlib import closing
 import json
 import os

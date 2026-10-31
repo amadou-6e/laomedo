@@ -1,6 +1,6 @@
 {
   "source_revision": "bde33231c3eb97cc23c891451892b0ca7671951a",
-  "policy": "Original post-format source bytes remain unchanged. Explicit internal control copies rewrite only removed imports, replacing retired process helpers with a refusal. Native/main entrypoints are unsupported until manually migrated and revalidated. This is not current live evidence or a runtime facade.",
+  "policy": "Exact post-format sources remain unchanged. Internal copies rewrite only inventoried top-level from-imports and the declared s11 _helpers dependency-loading statements; all remaining AST is identical. Retired process helpers refuse. No native/main entrypoint is supported or executed; no runtime facade or historical acceptance claim.",
   "files": [
     {
       "module": "experiments.exp100.probe_live",
@@ -69,6 +69,82 @@
       "path": "experiments/exp104/probe_verifier_crash.py",
       "sha256": "4cba22b0c9a8901aa0fcd218430e041dd3d57dfd2cf85de005b0add433c02bee",
       "dependencies": []
+    },
+    {
+      "module": "experiments.exp104.s11_probe",
+      "path": "experiments/exp104/s11_probe.py",
+      "sha256": "07b3070325444361612872c5cb9849c208ffd652d945efda4226339ab42ff669",
+      "dependencies": [
+        "experiments.exp104.live_probe"
+      ],
+      "dependency_bindings": {
+        "_helpers": "experiments.exp104.live_probe"
+      }
+    },
+    {
+      "module": "experiments.exp139.freeze",
+      "path": "experiments/exp139/freeze.py",
+      "sha256": "b5ccda1f3ecc16cf2d251b16572529d93c429ce141822294126caccf2aa60b4a",
+      "dependencies": [
+        "experiments.exp139.prepare",
+        "experiments.exp139.runtime"
+      ]
+    },
+    {
+      "module": "experiments.exp139.persistent_demo",
+      "path": "experiments/exp139/persistent_demo.py",
+      "sha256": "b5d698525bde668f5150f155703f02dc67b7f6599997e5c334823bc6898298bc",
+      "dependencies": [
+        "experiments.exp139.prepare",
+        "experiments.exp139.runtime"
+      ]
+    },
+    {
+      "module": "experiments.exp139.prepare",
+      "path": "experiments/exp139/prepare.py",
+      "sha256": "ab3840f23f364de67daaa98c57ef7ad921c259553edf5620fd8255f9530a9593",
+      "dependencies": []
+    },
+    {
+      "module": "experiments.exp139.prepare_amend08",
+      "path": "experiments/exp139/prepare_amend08.py",
+      "sha256": "f8404b4979a1a8d46c0dbfa952baf3c16ddd35762e928ac206371a395ef8a6dc",
+      "dependencies": [
+        "experiments.exp139.prepare"
+      ]
+    },
+    {
+      "module": "experiments.exp139.readback",
+      "path": "experiments/exp139/readback.py",
+      "sha256": "a46546c221fd440a939802be4f93d02ee5c9693054f3d97708d06642e2741ece",
+      "dependencies": [
+        "experiments.exp139.prepare"
+      ]
+    },
+    {
+      "module": "experiments.exp139.recover_demo",
+      "path": "experiments/exp139/recover_demo.py",
+      "sha256": "01611bb678604d3474babbb4bee76cd5712b4a5a165f4b13067fcb29f9bdf516",
+      "dependencies": [
+        "experiments.exp139.prepare",
+        "experiments.exp139.runtime"
+      ]
+    },
+    {
+      "module": "experiments.exp139.runtime",
+      "path": "experiments/exp139/runtime.py",
+      "sha256": "7905f3b117b46dbd00bbb8d63ed771be2ddaa296a7ef24c4f1d9d0d7418baea8",
+      "dependencies": [
+        "experiments.exp139.prepare"
+      ]
+    },
+    {
+      "module": "experiments.exp139.verifier_control",
+      "path": "experiments/exp139/verifier_control.py",
+      "sha256": "aa2c397b4524d5d0139d6819f1ff55e2b88bfcd8e1e53223154efa3010066bb2",
+      "dependencies": [
+        "experiments.exp139.runtime"
+      ]
     },
     {
       "module": "experiments.exp93.real_stage_probe",

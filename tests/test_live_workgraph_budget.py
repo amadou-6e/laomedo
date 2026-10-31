@@ -1,5 +1,10 @@
 """Durable live-experiment limits, without provider access or credentials."""
 
+from retained_shared import load_retained_shared
+
+load_retained_shared("experiments.exp139.prepare")
+
+
 from pathlib import Path
 from contextlib import closing
 import sqlite3

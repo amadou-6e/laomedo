@@ -18,6 +18,7 @@
   "laomedo.github_git_transport._run_bounded_tree": "Use GitCommandRunner with GitCommand/GitExecutionContext; preserve caller policy and error translation. No argv/environment adapter exists.",
   "laomedo.host.mediation.agent_cli._bounded_git": "Use GitCommandRunner with GitCommand/GitExecutionContext; preserve caller policy and error translation. No argv/environment adapter exists.",
   "laomedo.host.mediation.agent_cli._git_environment": "Use GitCommandRunner with GitCommand/GitExecutionContext; preserve caller policy and error translation. No argv/environment adapter exists.",
+  "laomedo.host.publication.verified.git.VerifiedGitStage.git": "Use stage.repository operations explicitly; the subprocess-shaped Git stage method was removed.",
   "laomedo.host.publication.verified_git_stage._base_git_environment": "Use GitCommandRunner with GitCommand/GitExecutionContext; preserve caller policy and error translation. No argv/environment adapter exists.",
   "laomedo.host.publication.verified_git_stage._run_bounded_tree": "Use GitCommandRunner with GitCommand/GitExecutionContext; preserve caller policy and error translation. No argv/environment adapter exists.",
   "laomedo.skills.workspace_skills._bounded_git": "Use GitCommandRunner with GitCommand/GitExecutionContext; preserve caller policy and error translation. No argv/environment adapter exists.",

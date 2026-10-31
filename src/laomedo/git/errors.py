@@ -11,7 +11,7 @@ class GitOperationError(ValueError):
     """
 
     def __init__(self, code: str):
-        """Retain the existing machine category and ValueError argument shape."""
+        "Expose the stable machine category and ValueError argument shape."
         self.code = code
         super().__init__(code)
 
@@ -24,7 +24,7 @@ class GitCommandTimeout(TimeoutExpired):
     """
 
     def __init__(self, arguments: list[str], timeout: float, cleanup_verified: bool):
-        """Preserve TimeoutExpired compatibility without retaining an environment."""
+        """Initialize TimeoutExpired metadata without retaining an environment."""
         super().__init__(arguments, timeout)
         self.cleanup_verified = cleanup_verified
         self.code = (

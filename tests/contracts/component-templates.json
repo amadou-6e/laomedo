@@ -1,0 +1,75 @@
+{
+  "scope": "Current maintained graph sources and recognized LFX source hashes follow the formatted develop components; digest protects every other graph value. No old component bodies, revision chain, fixture/live acceptance or historical export mutation.",
+  "files": [
+    {
+      "path": "examples/claude-agent/current-template-flow.json",
+      "nodes": [
+        {
+          "node_id": "agent",
+          "component": "components/laomedo/claude_agent.py",
+          "has_code_hash": true
+        }
+      ],
+      "graph_values_sha256": "27c2ed4bb2adb83e1a5f8ac6b37a6955c9235311f6f6c5d07e2c8953f6123df2"
+    },
+    {
+      "path": "examples/claude-agent/flow.json",
+      "nodes": [
+        {
+          "node_id": "skill",
+          "component": "components/laomedo/skill.py",
+          "has_code_hash": true
+        },
+        {
+          "node_id": "agent",
+          "component": "components/laomedo/claude_agent.py",
+          "has_code_hash": true
+        }
+      ],
+      "graph_values_sha256": "7ed2fbdb3aa5ca5737fda8dab57dbccb381b0c49b72a7c40f6d8b38778cfb166"
+    },
+    {
+      "path": "examples/native-codex-node/flow.json",
+      "nodes": [
+        {
+          "node_id": "LaomedoSkill-native",
+          "component": "components/laomedo/skill.py",
+          "has_code_hash": true
+        },
+        {
+          "node_id": "LaomedoCodexAgent-native",
+          "component": "components/laomedo/codex_agent.py",
+          "has_code_hash": true
+        }
+      ],
+      "graph_values_sha256": "666d1b06948909b9cda7a02f8f806be188f27bde65af3cd2fda8c287b83eec37"
+    },
+    {
+      "path": "examples/opencode-node/flow.json",
+      "nodes": [
+        {
+          "node_id": "OpenCode-pinned-skill",
+          "component": "components/laomedo/skill.py",
+          "has_code_hash": true
+        },
+        {
+          "node_id": "OpenCode-read-project",
+          "component": "components/laomedo/opencode_agent.py",
+          "has_code_hash": true
+        }
+      ],
+      "graph_values_sha256": "6ba26922193b1bd5ea730ff56d883a17b444c9ef2964d33200d0ded844fbecbe"
+    },
+    {
+      "path": "examples/skill-agent-pilot/pilot-flow.json",
+      "nodes": [
+        {
+          "node_id": "LaomedoRunner-laomedo",
+          "component": "examples/skill-agent-pilot/langflow_component.py",
+          "has_code_hash": true
+        }
+      ],
+      "graph_values_sha256": "b6b01e6f3963ad0808f625117e9d0d18ebc8b9bd3bc22e2ae8fa871685bc881a"
+    }
+  ]
+}

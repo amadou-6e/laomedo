@@ -7,7 +7,7 @@ from laomedo.git.errors import GitCommandTimeout
 from laomedo.git.models import GitEnvironmentProfile, GitExecutionContext
 from laomedo.git.repository import GitRepository
 from laomedo.skills.workspace.errors import WorkspaceSkillError
-from laomedo.skills.registry.utils import _is_link as is_link
+from laomedo.skills.registry.utils import _is_link
 
 from pathlib import Path
 import hashlib
@@ -17,7 +17,6 @@ import laomedo.skills.workspace.errors as _skills_workspace_errors
 import os
 import shutil
 import stat
-import tempfile
 
 
 def _exclude(workspace: Path):
@@ -86,7 +85,7 @@ def initialize(workspace: Path) -> None:
         # Git marks newly created loose objects read-only on Windows. These are
         # private baseline files, so allow ordinary disposable-fixture cleanup.
         for item in (workspace / ".git" / "objects").rglob("*"):
-            if item.is_file() and not is_link(item):
+            if item.is_file() and not _is_link(item):
                 item.chmod(item.stat().st_mode | stat.S_IWRITE)
 
 

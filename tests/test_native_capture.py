@@ -2,12 +2,9 @@
 
 from retained_shared import load_retained_shared
 
-load_retained_shared("experiments.exp100.probe_native_capture")
-
 
 import copy
 import hashlib
-import importlib.util
 import json
 from pathlib import Path
 import unittest

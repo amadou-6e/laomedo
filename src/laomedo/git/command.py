@@ -1,4 +1,4 @@
-"""The single bounded host Git process implementation."""
+"""Bounded host Git processes for workspace and transport profiles."""
 
 from contextlib import contextmanager
 import os
@@ -25,7 +25,7 @@ class GitCommandRunner:
         prefix="laomedo-git-home-",
         ignore_cleanup_errors=None,
     ):
-        """Own a sequence home, preserving each existing profile's cleanup behavior."""
+        "Own a private configuration home for an explicit command sequence."
         ignore = (
             profile == GitEnvironmentProfile.HOST_TRANSPORT
             if ignore_cleanup_errors is None
@@ -35,11 +35,7 @@ class GitCommandRunner:
             yield Path(home)
 
     def run(self, command: GitCommand) -> subprocess.CompletedProcess:
-        """Execute once under its exact profile; return bytes or a cleanup-aware timeout.
-
-        OSError from startup propagates to the caller's existing error mapping.
-        The private credential environment is cleared on every exit path.
-        """
+        "Execute once under its exact profile; return bytes or a cleanup-aware timeout.\n\n        OSError from startup propagates to the caller's error mapping.\n        The private credential environment is cleared on every exit path.\n"
         if command.context.home is not None:
             return self._execute(command, command.context.home)
         with self.isolated_home(
@@ -49,7 +45,7 @@ class GitCommandRunner:
             return self._execute(command, home)
 
     def environment(self, command: GitCommand, home: Path) -> dict[str, str]:
-        """Build the existing private profile at point of use, without global mutation."""
+        "Build the private execution profile at point of use, without global mutation."
         environment = {
             key: value
             for key, value in os.environ.items()
@@ -136,7 +132,7 @@ class GitCommandRunner:
             environment.pop(MEDIATED_TOKEN_ENV, None)
 
     def _stop_tree(self, process) -> bool:
-        """Preserve the fuller existing bounded cleanup, including inherited pipes."""
+        "Use profile-specific substep bounds or one shared read-cleanup deadline."
         cleanup_verified = False
         if os.name == "nt":
             try:

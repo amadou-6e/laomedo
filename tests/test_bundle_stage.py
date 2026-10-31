@@ -1,5 +1,10 @@
 """No-provider checks for bounded frozen-bundle verification and export."""
 
+from retained_shared import load_retained_shared
+
+load_retained_shared("experiments.exp139.runtime")
+
+
 import hashlib
 import json
 from pathlib import Path

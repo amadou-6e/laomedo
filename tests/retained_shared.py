@@ -1,4 +1,4 @@
-"""Explicit import-only copies for internal controls, never live probe acceptance."""
+"""Explicit dependency-loading copies for internal controls, never live acceptance."""
 
 import ast
 from hashlib import sha256
@@ -20,7 +20,11 @@ def refuse_private_git_api(*_args, **_kwargs):
 
 
 def load_retained_shared(name):
-    """Load only an inventoried copy; preserve hashes and all non-import AST nodes."""
+    """Preserve hashes and code outside exact inventoried import/loader statements.
+
+    Only pinned top-level from-imports and declared dependency loader bindings
+    are supported; arbitrary aliases, dynamic APIs and live entrypoints are not.
+    """
     inventory = json.loads(
         (ROOT / "tools/migrations/retained-shared-callers.json").read_text(
             encoding="utf-8"
@@ -47,6 +51,42 @@ def load_retained_shared(name):
         source = raw.decode("utf-8-sig")
         lines = source.splitlines(keepends=True)
         tree = ast.parse(source)
+        dependency_bindings = record.get("dependency_bindings", {})
+        for node in reversed(tree.body):
+            if (
+                isinstance(node, ast.Assign)
+                and len(node.targets) == 1
+                and isinstance(node.targets[0], ast.Name)
+                and node.targets[0].id in dependency_bindings
+            ):
+                binding = node.targets[0].id
+                if not (
+                    isinstance(node.value, ast.Call)
+                    and isinstance(node.value.func, ast.Attribute)
+                    and node.value.func.attr == "module_from_spec"
+                ):
+                    raise ValueError("Inventoried dependency assignment shape changed")
+                replacement = (
+                    binding
+                    + " = load_retained_shared("
+                    + repr(dependency_bindings[binding])
+                    + ")\n"
+                )
+                lines[node.lineno - 1 : node.end_lineno] = [replacement] + ["\n"] * (
+                    node.end_lineno - node.lineno
+                )
+            elif (
+                isinstance(node, ast.Expr)
+                and isinstance(node.value, ast.Call)
+                and isinstance(node.value.func, ast.Attribute)
+                and node.value.func.attr == "exec_module"
+                and len(node.value.args) == 1
+                and isinstance(node.value.args[0], ast.Name)
+                and node.value.args[0].id in dependency_bindings
+            ):
+                lines[node.lineno - 1 : node.end_lineno] = ["\n"] * (
+                    node.end_lineno - node.lineno + 1
+                )
         for node in reversed(tree.body):
             if not isinstance(node, ast.ImportFrom):
                 continue
@@ -62,6 +102,9 @@ def load_retained_shared(name):
                         "_credential_environment",
                         "_run_bounded_tree",
                     }
+                ) or (
+                    node.module == "laomedo.agents.workspace.git"
+                    and item.name in {"_git_environment", "_bounded_git"}
                 ):
                     replacements.append(
                         "from retained_shared import refuse_private_git_api as " + alias
@@ -94,6 +137,21 @@ def load_retained_shared(name):
                 node
                 for node in parsed.body
                 if not isinstance(node, (ast.Import, ast.ImportFrom))
+                and not (
+                    isinstance(node, ast.Assign)
+                    and len(node.targets) == 1
+                    and isinstance(node.targets[0], ast.Name)
+                    and node.targets[0].id in dependency_bindings
+                )
+                and not (
+                    isinstance(node, ast.Expr)
+                    and isinstance(node.value, ast.Call)
+                    and isinstance(node.value.func, ast.Attribute)
+                    and node.value.func.attr == "exec_module"
+                    and len(node.value.args) == 1
+                    and isinstance(node.value.args[0], ast.Name)
+                    and node.value.args[0].id in dependency_bindings
+                )
             ]
         if ast.dump(before) != ast.dump(after):
             raise ValueError("Historical Shared copy changes non-import code")
@@ -103,6 +161,8 @@ def load_retained_shared(name):
         module.__file__ = str(source_path)
         module.__package__ = parent_name
         module._retained_shared_sha256 = record["sha256"]
+        if dependency_bindings:
+            module.load_retained_shared = load_retained_shared
         sys.modules[name] = module
         try:
             exec(compile(migrated, str(source_path), "exec"), module.__dict__)

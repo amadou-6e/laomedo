@@ -1,6 +1,7 @@
 """One-pass Shared migration and explicit refusal controls, not live acceptance."""
 
 import importlib.util
+import importlib
 import json
 from pathlib import Path
 import sys
@@ -18,6 +19,18 @@ SPEC.loader.exec_module(migration)
 
 
 class SharedMigrationTests(unittest.TestCase):
+    def test_every_shared_symbol_target_resolves_to_its_defining_module(self):
+        targets = {
+            target
+            for target in migration.SYMBOL_PATHS.values()
+            if target.startswith(("laomedo.git.", "laomedo.http."))
+        }
+        self.assertTrue(targets)
+        for target in targets:
+            with self.subTest(target=target):
+                owner, name = target.rsplit(".", 1)
+                self.assertTrue(hasattr(importlib.import_module(owner), name), target)
+
     def test_retired_helpers_refuse_direct_and_aliased_source(self):
         for source in (
             "from laomedo.agents.workspace.git import _bounded_git as execute\n",
