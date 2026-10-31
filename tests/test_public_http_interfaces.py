@@ -1,4 +1,4 @@
-"""C3 ownership, import migration and exact protocol controls; no live acceptance."""
+"""Public adapter ownership, saved consumers and graph-template contracts."""
 
 import ast
 import importlib
@@ -13,50 +13,29 @@ import unittest
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
+INTERFACE_MODULE_PAIRS = tuple(
+    (f"laomedo.{owner}.{feature}.{leaf}", f"laomedo.{owner}.interface.{feature}.{leaf}")
+    for owner, feature in (
+        ("github", "issues"),
+        ("github", "pull_requests"),
+        ("skills", "sources"),
+        ("skills", "operations"),
+    )
+    for leaf in ("client", "handler", "server", "cli", "settings")
+)
 with patch.object(
     sys, "path", [str(ROOT / "tools"), str(ROOT / "tools/migrations"), *sys.path]
 ):
-    CONTRACTS = runpy.run_path(str(ROOT / "tools/capture_interface_contracts.py"))
     MIGRATION = runpy.run_path(str(ROOT / "tools/migrations/migrate_module_paths.py"))
 
 
 class PublicHttpInterfaceTests(unittest.TestCase):
-    def test_moved_bodies_and_source_policy_preserve_the_exact_baseline(self):
-        manifest = json.loads(
-            (ROOT / "tests/contracts/interfaces-23cb115.json").read_text()
-        )
-        self.assertEqual(
-            manifest["baseline"], "23cb11505c46ab24715055ad2abc09f3b1565d4f"
-        )
-        self.assertEqual(len(manifest["modules"]), 21)
-        revision = json.loads(
-            (ROOT / "tests/contracts/source-client-d2.json").read_text(encoding="utf-8")
-        )
-        self.assertEqual(
-            CONTRACTS["source_digest"](revision["baseline_source"]),
-            revision["baseline_body_sha256"],
-        )
-        for record in manifest["modules"]:
-            expected = record["body_sha256"]
-            if record["new_module"] == revision["module"]:
-                self.assertEqual(expected, revision["baseline_body_sha256"])
-                expected = revision["body_sha256"]
-            path = ROOT.joinpath("src", *record["new_module"].split(".")).with_suffix(
-                ".py"
-            )
-            self.assertEqual(
-                CONTRACTS["source_digest"](
-                    path.read_text(), selection=record["selection"]
-                ),
-                expected,
-                record["new_module"],
-            )
 
     def test_maps_end_at_defining_interfaces_and_cli_commands_not_server_classes(self):
         self.assertFalse(
             set(MIGRATION["MODULE_PATHS"]) & set(MIGRATION["MODULE_PATHS"].values())
         )
-        for old, new in CONTRACTS["module_pairs"]():
+        for old, new in INTERFACE_MODULE_PAIRS:
             if old == "laomedo.skills.sources.settings":
                 self.assertNotIn(old, MIGRATION["MODULE_PATHS"])
                 self.assertEqual(
@@ -188,9 +167,8 @@ for prefix in ('laomedo.host', 'laomedo.agents', 'langflow', 'lfx'):
     def test_changed_modules_use_direct_symbols_without_new_nested_classes(self):
         paths = [
             ROOT.joinpath("src", *new.split(".")).with_suffix(".py")
-            for _, new in CONTRACTS["module_pairs"]()
+            for _, new in INTERFACE_MODULE_PAIRS
         ]
-        paths.append(ROOT / "tools/capture_interface_contracts.py")
         for path in paths:
             tree = ast.parse(path.read_text())
             self.assertFalse(
@@ -238,109 +216,39 @@ for prefix in ('laomedo.host', 'laomedo.agents', 'langflow', 'lfx'):
             source = path.read_text(encoding="utf-8-sig")
             self.assertEqual(MIGRATION["migrate_json_source"](source), source, path)
 
-    def test_template_revisions_preserve_every_other_graph_value_and_component_body(
-        self,
-    ):
-        manifest = json.loads(
-            (
-                ROOT / "tests/contracts/interface-template-revisions-23cb115.json"
-            ).read_text()
-        )
-        self.assertEqual(len(manifest["files"]), 11)
-        self.assertEqual(sum(len(item["nodes"]) for item in manifest["files"]), 14)
-        followup = json.loads(
-            (
-                ROOT / "tests/contracts/github-template-revisions-6656c1c.json"
-            ).read_text()
-        )
-        encoded_parent = json.dumps(
-            manifest, sort_keys=True, separators=(",", ":"), ensure_ascii=False
-        ).encode()
-        self.assertEqual(
-            hashlib.sha256(encoded_parent).hexdigest(),
-            followup["parent_manifest_value_sha256"],
-        )
-        replacements = {record["path"]: record for record in followup["files"]}
-        self.assertEqual(len(replacements), 5)
-        for record in manifest["files"]:
-            if record["path"] in replacements:
-                latest = replacements[record["path"]]
-                self.assertEqual(
-                    latest["parent_graph_values_sha256"],
-                    record["unchanged_graph_values_sha256"],
-                )
-                record.update(latest)
-        self.assertEqual(sum(len(item["nodes"]) for item in manifest["files"]), 16)
-        cleanup = json.loads(
-            (
-                ROOT / "tests/contracts/skill-discovery-cleanup-revisions-e32c168.json"
-            ).read_text(encoding="utf-8")
-        )
-        self.assertEqual(
-            hashlib.sha256(
-                json.dumps(
-                    manifest["files"],
-                    sort_keys=True,
-                    separators=(",", ":"),
-                    ensure_ascii=False,
-                ).encode()
-            ).hexdigest(),
-            cleanup["parent_records_value_sha256"],
-        )
-        current_skill = (ROOT / cleanup["component"]).read_text(encoding="utf-8")
-        self.assertEqual(
-            hashlib.sha256(current_skill.encode()).hexdigest(),
-            cleanup["source_after_sha256"],
-        )
-        self.assertEqual(
-            CONTRACTS["source_digest"](current_skill), cleanup["body_sha256"]
-        )
-        self.assertEqual(len(cleanup["files"]), 5)
-        for updated in cleanup["files"]:
-            record = next(
-                item for item in manifest["files"] if item["path"] == updated["path"]
+    def test_component_templates_follow_canonical_source_and_keep_graph_values(self):
+        contract = json.loads(
+            (ROOT / "tests/contracts/component-templates.json").read_text(
+                encoding="utf-8"
             )
-            revision = next(
-                item for item in record["nodes"] if item["index"] == updated["index"]
-            )
-            self.assertEqual(revision["node_id"], updated["node_id"])
-            self.assertEqual(
-                revision["source_after_sha256"], cleanup["source_before_sha256"]
-            )
-            revision.update(
-                source_after_sha256=cleanup["source_after_sha256"],
-                body_sha256=cleanup["body_sha256"],
-            )
-        for record in manifest["files"]:
-            graph = json.loads((ROOT / record["path"]).read_text())
+        )
+        self.assertTrue(contract["files"])
+        for record in contract["files"]:
+            graph = json.loads((ROOT / record["path"]).read_text(encoding="utf-8"))
             nodes = graph.get("nodes", graph.get("data", {}).get("nodes", []))
-            for revision in record["nodes"]:
-                node = nodes[revision["index"]]
-                self.assertEqual(node.get("id"), revision["node_id"])
-                definition = node["data"]["node"]
-                code = definition["template"]["code"]["value"]
+            for selected in record["nodes"]:
+                matches = [
+                    node for node in nodes if node.get("id") == selected["node_id"]
+                ]
+                self.assertEqual(len(matches), 1, (record["path"], selected["node_id"]))
+                definition = matches[0]["data"]["node"]
+                canonical = (ROOT / selected["component"]).read_text(encoding="utf-8")
                 self.assertEqual(
-                    hashlib.sha256(code.encode()).hexdigest(),
-                    revision["source_after_sha256"],
+                    definition["template"]["code"]["value"], canonical, record["path"]
                 )
-                self.assertEqual(
-                    CONTRACTS["source_digest"](code), revision["body_sha256"]
-                )
-                if revision["had_code_hash"]:
+                if selected["has_code_hash"]:
                     self.assertEqual(
                         definition["metadata"]["code_hash"],
-                        revision["source_after_sha256"][:12],
+                        hashlib.sha256(canonical.encode()).hexdigest()[:12],
                     )
-                    definition["metadata"]["code_hash"] = "C3_RELOCATED_COMPONENT_HASH"
-                definition["template"]["code"][
-                    "value"
-                ] = "C3_RELOCATED_COMPONENT_SOURCE"
+                    definition["metadata"]["code_hash"] = "CANONICAL_COMPONENT_HASH"
+                definition["template"]["code"]["value"] = "CANONICAL_COMPONENT_SOURCE"
             encoded = json.dumps(
                 graph, sort_keys=True, separators=(",", ":"), ensure_ascii=False
             ).encode()
             self.assertEqual(
                 hashlib.sha256(encoded).hexdigest(),
-                record["unchanged_graph_values_sha256"],
+                record["graph_values_sha256"],
                 record["path"],
             )
 

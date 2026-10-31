@@ -1,8 +1,6 @@
 {
   "baseline": "422887273038523ca6343234739775b1d218b673",
-  "compatibility_symbol": "laomedo.github.transport.rest.transport._NoRedirect",
   "canonical_symbol": "laomedo.http.redirect.NoRedirect",
-  "retirement": "Retire only when these consumers can be replaced without rewriting provenance-sensitive retained sources. New application callers import the canonical definition.",
   "evidence": {
     "exp100": "LIVE-MANIFEST.json pins a669e9f26fcac1ed90872304c869d3891cc710435f22f3dd3c9d9a7644af869d; current baseline differs, so current-file seal validity is not claimed.",
     "exp104_managed": "NATIVE-MANAGED-PRE-RUN.md labels the controller an UNEXECUTED candidate; not a completed sealed execution.",
@@ -29,5 +27,6 @@
       "sha256": "8fca0d76fa8d7046b1a1cf02a50fd8602a57642f3060dede057d1a75bd32e93c",
       "classification": "retained legacy caller snapshot; current-file historical seal match not established"
     }
-  ]
+  ],
+  "policy": "Archived sources remain byte-preserved. Current code uses the canonical symbol. Selected internal controls adapt imports explicitly; live probe execution requires an explicitly migrated copy. No runtime private alias is installed."
 }

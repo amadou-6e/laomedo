@@ -1,4 +1,4 @@
-"""Fixed bounds and private protocol names for existing host Git operations."""
+"""Fixed bounds and private protocol names for host Git operations."""
 
 GIT_COMMAND_TIMEOUT_SECONDS = 30
 GIT_TREE_CLEANUP_SECONDS = 5

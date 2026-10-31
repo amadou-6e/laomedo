@@ -8,17 +8,24 @@ import tempfile
 import unittest
 from urllib import request
 
-from experiments.exp100.probe_live import BoundedOpener
-from experiments.exp100.probe_live import DISPOSABLE
-from experiments.exp100.probe_live import PUBLIC
-from experiments.exp100.probe_live import ISSUE
-from experiments.exp100.probe_live import JOB
-from experiments.exp100.probe_live import revoke_and_verify
-from experiments.exp100.probe_live import run_overlap
-from experiments.exp100.probe_live import list_fields
-from experiments.exp100.probe_live import check
 from laomedo.host.mediation.store import MediationStore
 from laomedo.github.transport.rest.transport import ISSUE_GRAPHQL_QUERY
+
+
+from retained_github import load_retained_github
+
+probe = load_retained_github(
+    "experiments.exp100.probe_live", manifest="retained-http-callers.json"
+)
+BoundedOpener = probe.BoundedOpener
+DISPOSABLE = probe.DISPOSABLE
+PUBLIC = probe.PUBLIC
+ISSUE = probe.ISSUE
+JOB = probe.JOB
+revoke_and_verify = probe.revoke_and_verify
+run_overlap = probe.run_overlap
+list_fields = probe.list_fields
+check = probe.check
 
 
 class FakeProvider:

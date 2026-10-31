@@ -26,7 +26,7 @@ class GitCommandRunner:
         prefix="laomedo-git-home-",
         ignore_cleanup_errors=None,
     ):
-        """Own a sequence home, preserving each existing profile's cleanup behavior."""
+        """Own a private configuration home for an explicit command sequence."""
         ignore = (
             profile == GitEnvironmentProfile.HOST_TRANSPORT
             if ignore_cleanup_errors is None
@@ -38,7 +38,7 @@ class GitCommandRunner:
     def run(self, command: GitCommand) -> subprocess.CompletedProcess:
         """Execute once under its exact profile; return bytes or a cleanup-aware timeout.
 
-        OSError from startup propagates to the caller's existing error mapping.
+        OSError from startup propagates to the caller's error mapping.
         The private credential environment is cleared on every exit path.
         """
         command.validate_execution_profile()
@@ -56,7 +56,7 @@ class GitCommandRunner:
             return self._execute(command, home)
 
     def environment(self, command: GitCommand, home: Path) -> dict[str, str]:
-        """Build the existing private profile at point of use, without global mutation."""
+        """Build the private execution profile at point of use, without global mutation."""
         if command.context.profile in {
             GitEnvironmentProfile.ISOLATED_HTTPS_READ_ONLY,
             GitEnvironmentProfile.ISOLATED_FILE_READ_ONLY,
@@ -182,7 +182,7 @@ class GitCommandRunner:
     def _start_process(
         self, command, arguments, environment, stdout, stderr, *, tree=None
     ):
-        """One native launch owner; retain each profile's existing cwd/stdin behavior."""
+        """Launch one native process with its profile's cwd and stdin policy."""
         options = {"stdout": stdout, "stderr": stderr, "env": environment}
         if (
             command.context.profile == GitEnvironmentProfile.WORKSPACE
@@ -228,7 +228,7 @@ class GitCommandRunner:
 
     @contextmanager
     def _read_process_tree(self):
-        """Own a Windows read job only; POSIX and legacy profiles stay unchanged."""
+        """Own a Windows job for budgeted reads; other profiles use their own containment."""
         tree = None
         if os.name == "nt":
             from .windows.tree import WindowsProcessTree
@@ -298,7 +298,7 @@ class GitCommandRunner:
                 raise
 
     def _stop_tree(self, process, *, deadline=None, tree=None) -> bool:
-        """Keep legacy substep bounds; budgeted reads share one cleanup deadline."""
+        """Use profile-specific substep bounds or one shared read-cleanup deadline."""
         cleanup_verified = False
         if tree is not None:
             cleanup_verified = tree.terminate(deadline)
@@ -339,7 +339,7 @@ class GitCommandRunner:
 
     @staticmethod
     def _cleanup_timeout(deadline):
-        """Retain each legacy wait, or consume the remaining shared read budget."""
+        """Select a per-substep wait or the remaining shared read-cleanup budget."""
         return (
             GIT_TREE_CLEANUP_SECONDS
             if deadline is None

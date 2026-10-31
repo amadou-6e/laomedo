@@ -11,6 +11,21 @@ The package root contains only `__init__.py` and `_paths.py`; there are no
 flat legacy forwarding modules, import hooks or checkout bridge. Established
 public component entrypoints remain explicit delegates, described below.
 
+## Wheel build hygiene
+
+Build from a fresh source checkout/export, or discard the generated `build/`
+directory before rebuilding a checkout after structural changes. Setuptools can
+retain deleted modules and resources in `build/lib`; dependency isolation alone
+does not clean that source build tree. Generated build files are disposable and
+are never a second implementation owner.
+
+Install the resulting wheel in an isolated environment and run
+`tests/test_package_layout.py` outside the source checkout, without a source
+`PYTHONPATH` override. Its installed-artifact guard rejects files without current
+source, missing Python modules and stale Python content. Running against `src/`
+explicitly skips that artifact-only check. Critical resource bytes have separate
+checks; Python source newline decoding never normalizes immutable registry data.
+
 ## Current ownership
 
 The following is the implemented package layout, not the longer-term Agent

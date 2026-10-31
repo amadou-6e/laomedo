@@ -1,4 +1,4 @@
-"""Registry diff; existing admission and byte behavior are preserved."""
+"""Generate exact review patches for admitted registry file inventories."""
 
 from __future__ import annotations
 

@@ -1,131 +1,87 @@
 # Shared Git mechanics
 
-One owner for reusable host Git mechanics: `GitCommandRunner`, `GitRepository`
-and `GitWorkingTree`. The standard-library-only credential helper remains under
-`credentials/helper.py`. Agent admission, selected GitHub connections and
-publication decisions stay with their feature owners.
+This package owns host Git execution, repository operations and working-tree
+mechanics. Agent admission, GitHub connection selection, source admission and
+publication authorization belong to callers. The standard-library-only credential
+helper lives in `credentials/helper.py` so Git can invoke it without loading the app.
 
-## Reviewed replacement contract
+## Concerns and object nomenclature
 
-The implementation uses one `GitCommandRunner.run(GitCommand)` implementation,
-with canonical Pydantic `GitCommand`, `GitExecutionContext` and `GitCredential`
-values in `models.py`. Context groups profile, timeout, temporary home and source
-hardening. Credentials and environment overrides are excluded from ordinary dumps
-and representations. The runner alone builds the existing private helper binding.
+| Owner | Object | Responsibility |
+| --- | --- | --- |
+| `command.py` | `GitCommandRunner` | One native launcher, isolated environments, deadlines, output budgets and process-tree cleanup |
+| `repository.py` | `GitRepository` | Object database, refs, remote configuration and fetch mechanics |
+| `worktree.py` | `GitWorkingTree` | Clone, checkout and working-state inspection |
+| `models.py` | `GitCommand`, `GitExecutionContext`, `GitCredential`, `GitExecutionBudget`, `GitTreeEntry` | Canonical Pydantic execution values, excluded secrets/accounting callbacks and native tree metadata |
+| `errors.py` | `GitCommandTimeout`, `GitCommandLimitExceeded`, `GitCommandCleanupError` | Deadline, active-budget refusal and unconfirmed termination |
+| [windows/](windows/README.md) | `WindowsProcessTree` | Owned Windows Job Object containment for budgeted reads |
+| `settings.py` | Fixed execution values | Credential environment name and cleanup bound; no authorization settings |
 
-`GitEnvironmentProfile.WORKSPACE` and `HOST_TRANSPORT` preserve the existing
-environment builders exactly: both strip inherited `GIT_*`/`GCM_*` overrides and
-host GitHub login variables. WORKSPACE sets `GIT_OPTIONAL_LOCKS=0` and
-`GIT_LFS_SKIP_SMUDGE=1`; HOST_TRANSPORT sets `GIT_ASKPASS=""`. Both isolate HOME,
-USERPROFILE and XDG_CONFIG_HOME and remove HOMEDRIVE/HOMEPATH. A sequence can
-share `GitCommandRunner.isolated_home()` so its hooks path stays stable; ordinary
-transport commands retain per-command homes, including the Git 2.31 workaround.
-Verified publication retains its original stricter home-cleanup behavior through
-the context's explicit cleanup policy; the GitHub transport still ignores those
-cleanup errors as before. These two earlier profiles retain their existing behavior; the separately described D2 profiles do not broaden them.
+Runner means controlled execution, Repository means Git metadata, and WorkingTree
+means checked-out state. These objects compose; none authorizes an effect.
+Configuration and execution models are distinct from credentials. Credentials and
+environment overrides are excluded from ordinary serialization and representations.
 
-Stdin behavior is deliberately preserved: WORKSPACE closes stdin with DEVNULL;
-HOST_TRANSPORT retains inherited stdin. There is no speculative stdin setting.
-The review suggested closing both; this refactor preserves existing behavior.
-Both current caller timeouts are 30 seconds; cleanup uses the existing five-second
-bound. Callers still supply their timeout explicitly rather than changing policy
-through a new deployment setting.
+## Method vocabulary
 
-| Object / methods | Contract and effects |
+| Method | Contract |
 | --- | --- |
-| `GitCommandRunner.run(command)` | Execute one admitted command with its profile, bounded process group and exact cleanup accounting; never authorize an effect. |
-| `GitCommandRunner.isolated_home(profile)` | Own one private temporary configuration home for an explicit sequence. |
-| `GitRepository.run(arguments, ...)` | Low-level trusted operations that have caller-specific refspec/lease policy; one bounded execution path. |
-| `init_bare`, `fetch`, `object_type`, `is_ancestor`, `changed_paths`, `resolve`, `check_ref_format`, `fsck` | Shared object-database mechanics with existing safety flags; no remote URL or grant selection. |
-| `GitWorkingTree.clone_from`, `checkout_detached`, `index_entries`, `status_porcelain`, `sparse_enabled`, `remove_remote`, `remotes` | Checked-out working state mechanics composed with a repository; no Agent admission or publication decision. |
+| `GitCommandRunner.run(command)` | Execute once; return native bytes or a cleanup-aware failure |
+| `GitCommandRunner.isolated_home(profile)` | Own a private configuration home for an explicit command sequence |
+| `GitCommandRunner.environment(command, home)` | Construct the selected profile without mutating the host environment |
+| `GitRepository.run(arguments, ...)` | Execute caller-admitted operations through the shared runner |
+| `init_bare`, `fetch`, `object_type`, `is_ancestor`, `changed_paths`, `resolve`, `check_ref_format`, `fsck` | Repository mechanics; caller owns refspec, lease and grant policy |
+| `GitWorkingTree.clone_from`, `checkout_detached`, `index_entries`, `status_porcelain`, `sparse_enabled`, `remove_remote`, `remotes` | Working-state mechanics composed with a repository |
+| `GitCommand.validate_execution_profile` | Check the read profile and recheck mutable arguments/configuration at execution |
 
-`GitCommandTimeout` retains `subprocess.TimeoutExpired` inheritance and the
-`cleanup_verified` observation. A timeout never proves the effect did not happen.
+## Environment and credential boundaries
 
-| Boundary | Preserved translation |
+WORKSPACE and HOST_TRANSPORT strip inherited `GIT_*`/`GCM_*` overrides and host
+GitHub login variables. Both isolate HOME, USERPROFILE and XDG_CONFIG_HOME and
+remove HOMEDRIVE/HOMEPATH. WORKSPACE sets `GIT_OPTIONAL_LOCKS=0` and
+`GIT_LFS_SKIP_SMUDGE=1`, and closes stdin with DEVNULL. HOST_TRANSPORT sets
+`GIT_ASKPASS=""` and inherits stdin. The runner binds the private credential helper;
+normal model-side container Git is never redirected to host execution here.
+
+An explicit sequence can share an isolated home and hooks path. Transport commands
+use per-command homes, including the Git 2.31 workaround. Verified publication
+selects strict home cleanup; GitHub transport tolerates temporary-home cleanup
+errors. Workspace and transport callers supply their 30-second timeouts explicitly.
+
+ISOLATED_HTTPS_READ_ONLY uses a narrow environment, no credentials/hooks/redirects
+and HTTPS-only transport. ISOLATED_FILE_READ_ONLY is a trusted constructor test
+capability, unavailable through the source HTTP schema. Read profiles reject extra
+environment, credentials, protocol/hook overrides and unsupported verbs. Native
+cwd is distinct from the `-C` repository argument.
+
+## Budgets, cleanup and errors
+
+Budgeted reads spool stdout and observe output size, a shared monotonic operation
+deadline and an optional source-owned cache callback. Expired deadlines are valid
+inputs; nonfinite polling values and NaN deadlines are refused. Source cache paths,
+labels, registry writes and blob admission stay with Skills.
+
+Source cleanup shares one five-second deadline across process-tree termination,
+pipe draining and final wait. Windows launches suspended into an owned Job Object
+before resuming, with no breakaway/taskkill fallback; success requires zero active
+job processes even after normal root exit. POSIX uses process groups. WORKSPACE
+and HOST_TRANSPORT use five seconds per cleanup substep. OS calls add overhead;
+these are bounded waits, not hard real-time guarantees.
+
+`GitCommandTimeout` inherits `subprocess.TimeoutExpired` and records
+`cleanup_verified`. A timeout never proves an effect did not happen.
+`GitCommandLimitExceeded` records a confirmed active-budget refusal;
+`GitCommandCleanupError` means termination was not confirmed. Interrupts retain
+their original identity/arguments plus the cleanup observation. Uncertain clone
+staging must remain available to its potentially active process.
+
+| Caller boundary | Public error translation |
 | --- | --- |
-| Agent workspace preparation | `GitWorkspaceError("git_timeout")` or `git_timeout_cleanup_unverified` |
-| Skill baseline initialization | `WorkspaceSkillError("workspace_git_initialization_failed")` |
-| Mediation remote configuration | Existing `GitWorkspaceError` timeout categories, exported through the public Agent error boundary |
-| GitHub push/fetch | Existing rejection/unknown-effect categories and cleanup observation; no automatic retry |
-| Verified publication staging | `VerifiedGitStageError("stage_git_unavailable")` |
+| Agent workspace preparation and mediation remote configuration | `git_timeout` or `git_timeout_cleanup_unverified` |
+| Skill workspace initialization | `workspace_git_initialization_failed` |
+| GitHub push/fetch | Rejection or unknown-effect category and cleanup observation; no automatic retry |
+| Verified publication staging | `stage_git_unavailable` |
+| Skill source reads | Confirmed limit/access refusal or `repository_cleanup_unverified` |
 
-OSError from process startup still propagates to these boundaries. Workspace
-admission, selected connection, repository/ref authorization, workflow-path policy,
-immutable bundle verification and publication status remain with their callers.
-The stronger existing transport cleanup algorithm replaces both process runners.
-Real host registrations use the default runner; test injection accepts an explicit
-runner object rather than retaining a parallel legacy subprocess implementation.
-
-| Object nomenclature | Responsibility / method vocabulary |
-| --- | --- |
-| `GitCommandRunner` | Controlled command execution, deadlines and process-tree cleanup; `run` returns a process result or explicit timeout uncertainty. |
-| `GitRepository` | Repository mechanics: inspect, clone, fetch and remote operations as actually needed by callers. |
-| `GitWorkingTree` | Checked-out file state: checkout, status and commit operations as actually supported. |
-
-No caller authorization moves here: Agent admission stays in workspaces, GitHub
-request/push policy in its transport, grants/credentials in trusted host services.
-Never route normal model-side container Git to host execution through these objects.
-Centralization must replace both existing process runners, with caller-specific
-stable error translation and exact cleanup behavior preserved.
-
-
-## D2 source-read extension contract
-
-This design is recorded before implementation. The shared runner gains active
-spooled-output/deadline/budget observation through a canonical
-`GitExecutionBudget` in `models.py`; it does not learn Skill cache paths, labels,
-registry writes or source admission. An optional source-owned budget callback is
-excluded from representation/serialization. `GitTreeEntry` groups native mode,
-kind and object identity without granting access or changing source blob policy.
-Existing GitCommand/Context/Credential models remain canonical.
-
-`ISOLATED_HTTPS_READ_ONLY` preserves the source launcher's narrow environment and
-ordered no-credentials/no-hooks/no-redirect/HTTPS-only configuration. A distinct
-`ISOLATED_FILE_READ_ONLY` profile is selected only by the existing trusted
-constructor test adapter; the production profile rejects attempts to smuggle
-file transport, credentials, hook/protocol configuration or extra environment.
-Native command cwd is separate from the existing `-C` repository argument.
-Only the read/cache Git verbs used by this boundary and the version query are
-admitted; selecting a profile never grants a GitHub effect.
-
-The runner owns Popen, process groups, polling, spooled stdout and bounded tree
-cleanup; there is no second source launcher. Source-owned cache budget checks
-are invoked at the same polling point. `GitCommandLimitExceeded` records the
-active budget refusal and cleanup observation without exporting native output.
-`GitCommandCleanupError` means termination was not confirmed; callers must not
-report successful cleanup or infer a safe retry. Source translation preserves
-confirmed-cleanup categories and introduces the explicit
-`repository_cleanup_unverified` category only for that uncertainty case.
-
-Budgeted source reads share one five-second cleanup deadline across native tree
-termination, pipe draining and final wait. On Windows they use a
-[suspended, job-contained root](windows/README.md), with no breakaway or taskkill
-fallback. Zero active processes in that job is required even after a normal root
-exit; root exit or a taskkill return code alone never proves descendant cleanup.
-POSIX retains its existing process-group path. Legacy profiles keep their existing
-five-second bound per cleanup substep. Process creation, polling and native kill
-calls add operating-system overhead; neither rule is a hard real-time guarantee.
-The source operation retains its 60-second deadline and existing 65-second HTTP
-client timeout, so an HTTP timeout can still win that race and retain the safe
-transport fallback rather than deliver a cleanup category.
-
-| D2 object / methods | Contract |
-| --- | --- |
-| `GitExecutionBudget` | Group stdout cap, shared monotonic operation deadline, finite polling interval and excluded caller accounting callback. An expired deadline is admitted; NaN is refused. |
-| `GitCommand.validate_execution_profile` | Validate trusted read-profile construction and recheck mutable argument/configuration containers at execution; never grant caller authorization. |
-| `GitCommandRunner._execute_budgeted` | Reuse the single native launcher, spool stdout and inspect active output, operation time and caller budgets. |
-| `GitCommandRunner._stop_tree`, `_cleanup_timeout` | Apply the selected cleanup budget and retain uncertainty on native failure; no success inferred from an exited root alone. |
-| `GitCommandRunner._read_process_tree` | Own a Windows job only for budgeted reads; close only its own handle, with no process-name or PID-tree search. |
-| `GitTreeEntry` | Carry native mode, object kind and object identity; path/blob admission belongs to the source consumer. |
-
-Legacy WORKSPACE/HOST_TRANSPORT environment, argv, stdin, credential helper and
-completed-result behavior remain unchanged. Their existing timeout categories
-and cleanup fields are preserved. The new bounded-source controls compare against
-an independent old-launcher capture and exercise real controlled processes,
-including descendants; they do not establish live HTTPS or provider acceptance.
-
-On an interrupt, the runner still attempts cleanup but preserves the original
-`KeyboardInterrupt`/`SystemExit` object and arguments, with `cleanup_verified`
-recording the observation. An uncertain interrupted clone keeps its staging;
-it is not converted into an ordinary source error or deleted before cleanup.
+Startup OSError propagates to the caller's translation. Internal process controls
+test these mechanics; live HTTPS, graph and provider acceptance remain distinct.

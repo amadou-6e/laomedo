@@ -1,4 +1,4 @@
-"""Registry files; existing admission and byte behavior are preserved."""
+"""Read admitted registry files and atomically replace JSON records."""
 
 from __future__ import annotations
 
