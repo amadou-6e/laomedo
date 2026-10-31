@@ -1,5 +1,7 @@
 """Development controls, not one-shot campaign evidence or provider parity."""
 
+from git_runner_controls import CallbackGitRunner
+
 from pathlib import Path
 import base64
 import os
@@ -12,7 +14,8 @@ from uuid import uuid4
 from laomedo.host.mediation.agent_cli import prepare_commands
 from laomedo.host.mediation.agent_cli import configure_remote
 from laomedo.github.transport.git.transport import GitHubGitTransport
-from laomedo.github.transport.git.utils import _base_git_environment
+from laomedo.git.repository import GitRepository
+from laomedo.git.models import GitExecutionContext
 from laomedo.host.mediation.store import MediationStore
 from laomedo.host.mediation.errors import MediationError
 from laomedo.host.mediation.errors import KnownRejected
@@ -344,16 +347,11 @@ class NativeCommandsTests(unittest.TestCase):
             repository.mkdir()
 
             def git(*args):
-                return (
-                    subprocess.run(
-                        ["git", "-C", str(repository), *args],
-                        capture_output=True,
-                        check=True,
-                        env=_base_git_environment(),
-                    )
-                    .stdout.decode()
-                    .strip()
+                result = GitRepository(repository, context=GitExecutionContext()).run(
+                    list(args)
                 )
+                self.assertEqual(result.returncode, 0, result.stderr)
+                return result.stdout.decode().strip()
 
             git("init", "--quiet", "-b", "main")
             (repository / "file").write_text("fixture", encoding="ascii")
@@ -389,7 +387,11 @@ class NativeCommandsTests(unittest.TestCase):
                 return subprocess.run(rewritten, **options)
 
             transport = GitHubGitTransport(
-                REPO, repository, commit, lambda cid, gen: "synthetic", run=provider
+                REPO,
+                repository,
+                commit,
+                lambda cid, gen: "synthetic",
+                runner=CallbackGitRunner(provider),
             )
             binding = {
                 "connection_id": "connection",

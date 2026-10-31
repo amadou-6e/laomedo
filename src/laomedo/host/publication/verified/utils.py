@@ -2,11 +2,17 @@
 
 from __future__ import annotations
 
+from laomedo.git.command import GitCommandRunner
+from laomedo.host.publication.verified.models import VerifiedStage
+from laomedo.host.publication.verified.settings import _COMMIT
+from laomedo.host.publication.verified.errors import VerifiedGitStageError
+from laomedo.host.publication.bundle.stage import _single_bundle_commit
+from laomedo.host.publication.bundle.errors import BundleStageError
+
 from contextlib import contextmanager
 from pathlib import Path
 import hashlib
 import json
-import laomedo.github.transport.git.utils as _git_utils
 import laomedo.host.publication.bundle.settings as _bundle_settings
 import laomedo.host.publication.bundle.errors as _bundle_errors
 import laomedo.host.publication.bundle.stage as _bundle_stage
@@ -133,7 +139,7 @@ def classify_verified_workflow(snapshot: _verified_models.VerifiedStage) -> bool
 
 @contextmanager
 def stage_verified_git(
-    snapshot: _verified_models.VerifiedStage, *, run=_git_utils._run_bounded_tree
+    snapshot: VerifiedStage, *, runner: GitCommandRunner | None = None
 ):
     """Yield a fresh bare Git repo containing only the snapshot's objects.
 
@@ -141,49 +147,41 @@ def stage_verified_git(
     deleted with it. A later push must use ``stage.bare`` while this context
     remains open; it must not stage again from an agent checkout.
     """
-    import laomedo.host.publication.verified.git as _verified_git
+    from laomedo.host.publication.verified.git import VerifiedGitStage
 
     if (
-        not isinstance(snapshot, _verified_models.VerifiedStage)
-        or not _verified_settings._COMMIT.fullmatch(snapshot.commit)
-        or not _verified_settings._COMMIT.fullmatch(snapshot.baseline)
+        not isinstance(snapshot, VerifiedStage)
+        or not _COMMIT.fullmatch(snapshot.commit)
+        or not _COMMIT.fullmatch(snapshot.baseline)
         or hashlib.sha256(snapshot.bundle).hexdigest() != snapshot.bundle_sha256
     ):
-        raise _verified_errors.VerifiedGitStageError("stage_snapshot_invalid")
+        raise VerifiedGitStageError("stage_snapshot_invalid")
     try:
-        advertised = _bundle_stage._single_bundle_commit(
-            snapshot.bundle, "refs/heads/validated"
-        )
-    except _bundle_errors.BundleStageError as error:
-        raise _verified_errors.VerifiedGitStageError("stage_bundle_invalid") from error
+        advertised = _single_bundle_commit(snapshot.bundle, "refs/heads/validated")
+    except BundleStageError as error:
+        raise VerifiedGitStageError("stage_bundle_invalid") from error
     if advertised != snapshot.commit:
-        raise _verified_errors.VerifiedGitStageError("stage_commit_mismatch")
+        raise VerifiedGitStageError("stage_commit_mismatch")
     with tempfile.TemporaryDirectory(prefix="laomedo-verified-git-") as root:
         directory = Path(root)
         bare = directory / "objects.git"
         bare.mkdir()
         bundle = directory / "verified.bundle"
         bundle.write_bytes(snapshot.bundle)
-        stage = _verified_git.VerifiedGitStage(bare, snapshot, run=run)
+        stage = VerifiedGitStage(bare, snapshot, runner=runner)
         try:
             if (
-                stage.git("init", "--bare", "--quiet").returncode
-                or stage.git(
-                    "fetch",
-                    "--no-tags",
-                    "--no-write-fetch-head",
-                    str(bundle),
-                    "refs/heads/validated:refs/stage/validated",
-                ).returncode
-                or stage.git("rev-parse", "refs/stage/validated").stdout.strip()
+                not stage.repository.init_bare()
+                or not stage.repository.fetch(
+                    str(bundle), "refs/heads/validated:refs/stage/validated"
+                )
+                or stage.repository.resolve("refs/stage/validated")
                 != snapshot.commit.encode("ascii")
-                or stage.git("fsck", "--full", "--strict", "--no-reflogs").returncode
+                or not stage.repository.fsck(no_reflogs=True)
             ):
-                raise _verified_errors.VerifiedGitStageError("stage_import_invalid")
+                raise VerifiedGitStageError("stage_import_invalid")
         except (OSError, subprocess.TimeoutExpired) as error:
-            raise _verified_errors.VerifiedGitStageError(
-                "stage_git_unavailable"
-            ) from error
+            raise VerifiedGitStageError("stage_git_unavailable") from error
         yield stage
 
 

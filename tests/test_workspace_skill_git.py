@@ -222,7 +222,7 @@ class WorkspaceSkillGitTests(unittest.TestCase):
         runner = self.runner()
         with (
             patch(
-                "laomedo.agents.workspace.git._bounded_git",
+                "laomedo.skills.workspace.utils.GitCommandRunner.run",
                 side_effect=FileNotFoundError,
             ),
             patch.object(runner, "_open_server") as server,

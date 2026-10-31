@@ -17,7 +17,7 @@ import urllib.error
 
 def source_request(action, **body):
     settings = _sources_settings.Settings()
-    import laomedo.skills.sources.transport as _sources_transport
+    from laomedo.http.redirect import NoRedirect
 
     url = settings.url
     parsed = urlsplit(url)
@@ -46,7 +46,7 @@ def source_request(action, **body):
                 "Authorization": "Bearer " + token,
             },
         )
-        with urllib.request.build_opener(_sources_transport.NoRedirect()).open(
+        with urllib.request.build_opener(NoRedirect()).open(
             request, timeout=65
         ) as response:
             data = response.read(1024 * 1024 + 1)

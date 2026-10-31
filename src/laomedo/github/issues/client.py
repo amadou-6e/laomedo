@@ -6,7 +6,7 @@ from urllib import request
 from urllib.parse import urlsplit
 import json
 import laomedo.github.issues.contract as _issues_contract
-import laomedo.skills.sources.transport as _sources_transport
+from laomedo.http.redirect import NoRedirect
 import laomedo.github.issues.settings as _issues_settings
 
 
@@ -37,9 +37,7 @@ def issue_request(action, **payload):
                 "Authorization": "Bearer " + token,
             },
         )
-        with request.build_opener(_sources_transport.NoRedirect()).open(
-            call, timeout=90
-        ) as response:
+        with request.build_opener(NoRedirect()).open(call, timeout=90) as response:
             data = response.read(1024 * 1024 + 1)
         if len(data) > 1024 * 1024:
             raise ValueError()

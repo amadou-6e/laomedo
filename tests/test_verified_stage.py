@@ -1,5 +1,7 @@
 """Credential-free local checks for a grant-bound verified bundle snapshot."""
 
+from git_runner_controls import CallbackGitRunner
+
 import hashlib
 from dataclasses import replace
 import json
@@ -17,7 +19,6 @@ from laomedo.host.publication.verified.errors import VerifiedStageError
 from laomedo.host.publication.verified.utils import resolve_verified_stage
 from laomedo.host.publication.verified.errors import VerifiedGitStageError
 from laomedo.host.publication.verified.utils import stage_verified_git
-from laomedo.github.transport.git.utils import _run_bounded_tree
 from laomedo.github.transport.git.transport import GitHubGitTransport
 from laomedo.host.mediation.store import MediationStore
 from laomedo.host.mediation.errors import MediationError
@@ -527,12 +528,10 @@ class VerifiedStageTests(unittest.TestCase):
         with stage_verified_git(snapshot) as staged:
             self.assertFalse(staged.classify_workflow_change())
             self.assertEqual(
-                staged.git("rev-parse", "refs/stage/validated").stdout.strip(),
+                staged.repository.resolve("refs/stage/validated"),
                 snapshot.commit.encode(),
             )
-            self.assertEqual(
-                staged.git("cat-file", "-t", snapshot.commit).stdout.strip(), b"commit"
-            )
+            self.assertEqual(staged.repository.object_type(snapshot.commit), b"commit")
             self.assertTrue(staged.bare.is_dir())
         self.assertFalse(staged.bare.exists())
 
@@ -545,10 +544,12 @@ class VerifiedStageTests(unittest.TestCase):
                 broken = bare / "refs" / "stage" / "broken"
                 broken.parent.mkdir(parents=True, exist_ok=True)
                 broken.write_text("0" * 40 + "\n", encoding="ascii")
-            return _run_bounded_tree(args, **options)
+            return subprocess.run(args, **options)
 
         with self.assertRaises(VerifiedGitStageError):
-            with stage_verified_git(snapshot, run=inject_broken_ref):
+            with stage_verified_git(
+                snapshot, runner=CallbackGitRunner(inject_broken_ref)
+            ):
                 pass
 
     def test_workflow_change_and_missing_baseline_are_distinguished(self):
@@ -884,7 +885,7 @@ class VerifiedStageTests(unittest.TestCase):
 
         def fake_git(args, **options):
             if "push" not in args:
-                return _run_bounded_tree(args, **options)
+                return subprocess.run(args, **options)
             bare = Path(args[args.index("-C") + 1])
             verified = subprocess.run(
                 ["git", "-C", str(bare), "rev-parse", "refs/stage/validated"],
@@ -901,7 +902,7 @@ class VerifiedStageTests(unittest.TestCase):
             self.repo,
             self.baseline,
             lambda *_args: credentials.append(1) or "synthetic-only",
-            run=fake_git,
+            runner=CallbackGitRunner(fake_git),
             require_verified_stage=True,
         )
         transport._stage = lambda *_args: self.fail("checkout fallback used")

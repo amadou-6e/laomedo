@@ -153,7 +153,7 @@ class SettingsContractTests(unittest.TestCase):
         }
         for relative, expression in protected.items():
             self.assertIn(expression, (SOURCE / relative).read_text(), relative)
-        helper = (SOURCE / "host/credentials/git_credential_helper.py").read_text()
+        helper = (SOURCE / "git/credentials/helper.py").read_text()
         self.assertIn('os.environ.get("LAOMEDO_MEDIATED_GIT_TOKEN", "")', helper)
         self.assertNotIn("pydantic", helper)
         self.assertNotIn("import laomedo", helper)
