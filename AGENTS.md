@@ -92,6 +92,19 @@
   the implementation but must document their contract; do not leave pass-only
   placeholders. User-facing explanations/recovery belong to the shared catalogue.
 
+## GitHub issue and branch workflow
+
+- Follow the [canonical GitHub workflow](https://github.com/amadou-6e/specs/blob/main/AGENTS.md#change-workflow).
+  Task branches use exactly `<type>/<issue-number>`, with only `feat`, `fix`,
+  `docs`, `chore`, and `refactor`. The number is an actual issue in this repository;
+  do not append descriptive slugs or invent review/validation/checkpoint prefixes.
+- Identify the issue owning the user-selected work, or create it before branching.
+  Link each PR to its issue and keep checkpoints and validation on that issue branch.
+  A pushed branch alone does not complete the GitHub workflow.
+- Existing issue edits and closure require explicit approval; do not use automatic-
+  closing PR keywords without it. Preserve the review, CI, and final graph-validation
+  gates above. These instructions do not enable GitHub enforcement or rename history.
+
 ## Commit and push checkpoints
 
 - After each coherent, reviewable block of work, commit and push the task branch
