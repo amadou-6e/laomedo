@@ -1,6 +1,5 @@
 # Sources HTTP boundary
 
-C3 location for the existing API; README committed before moving code.
 This leaf adapts local HTTP to `SkillSources` in `skills/sources`. It owns no duplicate
 domain records or authority. `source choices and pinned revisions` remain canonical under the domain owner.
 
@@ -22,5 +21,5 @@ Usage: configure the existing service URL/token-file environment, start
 `python -m laomedo.skills.interface.sources.cli` using its current flags, then
 call `laomedo.skills.interface.sources.client.source_request`. Stop through the
 existing server lifecycle; no graph-selected credential or listener binding.
-Maintained imports/launchers use the new owner. Explicit offline migration handles
-old selected copies, while retained historical bytes stay unchanged.
+Callers use the defining client module and CLI command above. Explicit offline
+migration supports selected saved consumers; archived evidence stays byte-preserved.

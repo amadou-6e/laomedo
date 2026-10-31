@@ -3,8 +3,6 @@
 This feature discovers admitted local or HTTPS repository sources, preserves cached
 choices and imports exact immutable skill bytes. It never executes skill content,
 advances an existing canonical latest pointer or grants edit authorization.
-The D2 README contract precedes its implementation; graph and live acceptance
-remain separate gates.
 
 ## Concerns and defining objects
 
@@ -73,20 +71,17 @@ retain `repository_limit_exceeded`; nonzero exit or oversized final output retai
 the same 60-second discovery/revisions deadline. Polling remains 50ms. Source cache
 accounting stays source-owned at 128 MiB; command-specific output caps and local
 file/depth/count limits retain their existing values and boundary behavior.
-The old source Popen/taskkill/killpg launcher is removed in the same checkpoint.
+All source Git commands use the shared runner; this package owns no native launcher.
 
-One explicit failure contract is strengthened: shared process-tree cleanup is
-bounded by one five-second deadline shared across job/process-group termination,
+Shared process-tree cleanup is bounded by one five-second deadline shared across job/process-group termination,
 pipe draining and final wait. Budgeted Windows reads are launched suspended and
 assigned to an owned Job Object before resuming; job accounting must confirm zero
-active processes, including after a successful root exit. Legacy profiles retain
-their old launch and taskkill behavior. Native process creation, killing and
+active processes, including after a successful root exit. WORKSPACE and HOST_TRANSPORT profiles use their own launch and taskkill policies. Native process creation, killing and
 polling have operating-system overhead; this is not a hard real-time guarantee.
-Legacy Git profiles keep their existing per-substep waits. If termination cannot be confirmed,
+WORKSPACE and HOST_TRANSPORT use per-substep cleanup waits. If termination cannot be confirmed,
 retain the owned clone staging and return `repository_cleanup_unverified`; do not claim the process stopped or advise
-an immediate repeat. Confirmed cleanup preserves the prior categories. This new
-uncertainty path needs its own catalogue/producer guard and remains live-unverified
-unless safely observed; internal child-process controls are supporting evidence.
+an immediate repeat. Confirmed cleanup preserves the prior categories. The catalogue and producer guard preserve this uncertainty category; internal
+process controls do not establish real browser acceptance.
 
 Retaining an uncertain clone staging directory is explicit: it must not be removed
 while its process may still use it. The staging owner uses TemporaryDirectory
@@ -109,19 +104,12 @@ stable. Private coordinator Git/local methods move to their actual collaborators
 external custom code using them requires explicit manual migration. The offline
 symbol map migrates independent utility imports, not arbitrary instance methods.
 
-Before replacing the launcher, capture its actual argv/environment and process
-limits at the exact base. Compare the new implementation against that independent
-baseline using credential-free repositories and real controlled child processes.
-Preserve historical source/evidence and distinguish these controls from real HTTPS
-source/pin browsing. D3 Agent workspace moves and D4 GitHub domain ownership remain
-separate checkpoints.
-
 The HTTP source client forwards only the exact `repository_cleanup_unverified`
 category from an error response of at most 16 KiB. Every other category, malformed
 body, oversize response or read failure keeps the existing
 `source_discovery_failed` mapping. It always closes HTTPError responses. No remote
-message or payload is presented. This is the sole intentional client/error contract
-change in D2; successful source payloads remain unchanged.
+message or payload is presented. Successful responses retain the source payload; error responses expose only
+the admitted safe category.
 
 ## Discovery failures at the node boundary
 
@@ -132,11 +120,9 @@ safe code and reach the existing shared error catalogue. It must not become a
 successful configuration response with generic refresh advice. The existing
 catalogue explains that the user must not repeat discovery or remove retained
 clone staging while earlier Git processes may remain. There is no staging cleanup
-button. Other discovery failure behavior remains unchanged by this focused repair.
+button. Other discovery failures use the source client's safe fallback.
 
-The component's local clearing is not a returned frontend template after an HTTP
-failure. Do not claim that previous browser choices were replaced by that clearing.
-Component and config-to-alert regressions are supporting controls. The exact real
-cleanup-uncertainty discovery story remains unverified until safely observed;
-ordinary service outage or a synthetic cleanup code cannot establish its acceptance.
-This gap remains a merge/acceptance blocker under the workspace rules.
+A failed form update does not return a replacement template. Previous browser
+choices may remain visible, so local clearing alone is not proof of a browser
+state transition. The real cleanup-uncertainty story requires separate acceptance
+evidence; an ordinary outage or synthetic cleanup code is insufficient.

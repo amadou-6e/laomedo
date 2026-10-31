@@ -1,0 +1,151 @@
+{
+  "scope": "Current maintained graph contract. Component bodies and code_hash values follow their canonical source dynamically. The masked graph digest covers every other graph value; intentional template changes update this single contract, without revision chains or copied old code.",
+  "files": [
+    {
+      "path": "examples/claude-agent/flow.json",
+      "graph_values_sha256": "21db21a9ab4a5c2a49e9bb98f756ddb6ad30216590cf51a43129fb4c60a58102",
+      "nodes": [
+        {
+          "node_id": "skill",
+          "component": "components/laomedo/skill.py",
+          "has_code_hash": true
+        }
+      ]
+    },
+    {
+      "path": "examples/github-pr/flow.json",
+      "graph_values_sha256": "df0897820938a69d3509d3f682d306c0dc43303cebe2d8350b225606dbcb1032",
+      "nodes": [
+        {
+          "node_id": "pr",
+          "component": "components/laomedo/github_pr.py",
+          "has_code_hash": true
+        }
+      ]
+    },
+    {
+      "path": "examples/github-pr/four-node-flow.json",
+      "graph_values_sha256": "74876fe7a3b60ff3ba9c144ad1930317eb62beb215413a3e6f1c65c4413b2f37",
+      "nodes": [
+        {
+          "node_id": "read-pr",
+          "component": "components/laomedo/github_pr.py",
+          "has_code_hash": true
+        },
+        {
+          "node_id": "apply-operation",
+          "component": "components/laomedo/github_pr.py",
+          "has_code_hash": true
+        }
+      ]
+    },
+    {
+      "path": "examples/github-pr/original-agent/flow.json",
+      "graph_values_sha256": "a59013b6b63f04c2f3bd7770e8f9b744e66059aa0efc8ef660f8ade6686308a1",
+      "nodes": [
+        {
+          "node_id": "pr",
+          "component": "components/laomedo/github_pr.py",
+          "has_code_hash": true
+        },
+        {
+          "node_id": "agent-skill",
+          "component": "components/laomedo/skill.py",
+          "has_code_hash": true
+        }
+      ]
+    },
+    {
+      "path": "examples/langflow-contract-routing/flow.json",
+      "graph_values_sha256": "9cf632e3efe2768317f244d4278a53961462f23816b21055900f56ad6e01abba",
+      "nodes": [
+        {
+          "node_id": "issue",
+          "component": "examples/langflow-workgraph-demo/fixture_issue.py",
+          "has_code_hash": true
+        },
+        {
+          "node_id": "skill",
+          "component": "components/laomedo/skill.py",
+          "has_code_hash": true
+        }
+      ]
+    },
+    {
+      "path": "examples/langflow-workgraph-demo/flow.json",
+      "graph_values_sha256": "d428bdd6b5a71b4c9d10ea9079080055252374aa16a0b027514dcdedf013fcae",
+      "nodes": [
+        {
+          "node_id": "issue",
+          "component": "examples/langflow-workgraph-demo/fixture_issue.py",
+          "has_code_hash": true
+        },
+        {
+          "node_id": "skill",
+          "component": "components/laomedo/skill.py",
+          "has_code_hash": true
+        }
+      ]
+    },
+    {
+      "path": "examples/native-codex-node/flow.json",
+      "graph_values_sha256": "97994ed101253b11b3769a68cbe53b5caaf20d95c6fee48b74ed655f367ac408",
+      "nodes": [
+        {
+          "node_id": "LaomedoSkill-native",
+          "component": "components/laomedo/skill.py",
+          "has_code_hash": true
+        }
+      ]
+    },
+    {
+      "path": "examples/opencode-node/flow.json",
+      "graph_values_sha256": "68327ea70bbe8ad374bf4edc8ca15db6879a0dd239d8d6baf6f8cc1f53eb88ff",
+      "nodes": [
+        {
+          "node_id": "OpenCode-pinned-skill",
+          "component": "components/laomedo/skill.py",
+          "has_code_hash": true
+        }
+      ]
+    },
+    {
+      "path": "examples/skill-operations/flow.json",
+      "graph_values_sha256": "5f8a6efbe7ab7d02729001e199059c49d38477e4185d7392a117580be53113f9",
+      "nodes": [
+        {
+          "node_id": "skill",
+          "component": "components/laomedo/skill.py",
+          "has_code_hash": true
+        },
+        {
+          "node_id": "agent-skill",
+          "component": "components/laomedo/skill.py",
+          "has_code_hash": true
+        }
+      ]
+    },
+    {
+      "path": "examples/skill-operations/overview-flow.json",
+      "graph_values_sha256": "de3778fdb7f841dc36bfe6b81fcf40296594319de21f561c8d2ed491fba74054",
+      "nodes": [
+        {
+          "node_id": "skill",
+          "component": "components/laomedo/skill.py",
+          "has_code_hash": true
+        }
+      ]
+    },
+    {
+      "path": "examples/skill-summary/flow.json",
+      "graph_values_sha256": "e79c694c0c823e471432f4306ec6b12a7e155076484ae88914969514741b650f",
+      "nodes": [
+        {
+          "node_id": "skill",
+          "component": "components/laomedo/skill.py",
+          "has_code_hash": true
+        }
+      ]
+    }
+  ]
+}

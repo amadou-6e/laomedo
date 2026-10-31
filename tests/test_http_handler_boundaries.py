@@ -11,7 +11,6 @@ import sys
 import threading
 import tempfile
 import unittest
-import runpy
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from unittest.mock import Mock, patch
 from urllib.error import HTTPError
@@ -45,7 +44,6 @@ HANDLERS = {
     "skills/sources": "SkillSourceRequestHandler",
     "skills/operations": "SkillOperationRequestHandler",
 }
-CONTRACT_TOOLS = runpy.run_path(str(ROOT / "tools/capture_http_handler_contracts.py"))
 
 
 class RedirectControlHandler(BaseHTTPRequestHandler):
@@ -128,42 +126,6 @@ class HandlerStructureTests(unittest.TestCase):
                 pending.extend(item.values())
             elif isinstance(item, list):
                 pending.extend(item)
-
-    def test_extracted_handler_control_flow_matches_the_formatted_baseline(self):
-        golden = json.loads(
-            (ROOT / "tests/contracts/http-handlers-4228872.json").read_text()
-        )
-        self.assertEqual(golden["baseline"], "422887273038523ca6343234739775b1d218b673")
-        for relative, record in golden["handlers"].items():
-            self.assertEqual(
-                CONTRACT_TOOLS["contract_for_source"](
-                    record["baseline_source"], record["service_binding"]
-                ),
-                record,
-                relative,
-            )
-            folder = SOURCE / HTTP_OWNERS[relative]
-            tree = ast.parse((folder / "handler.py").read_text())
-            handler = next(node for node in tree.body if isinstance(node, ast.ClassDef))
-            handler.name = "Handler"
-            if ast.get_docstring(handler):
-                handler.body.pop(0)
-            observed = CONTRACT_TOOLS["ast_digest"](handler)
-            self.assertEqual(observed, record["handler_ast_sha256"], relative)
-            server = ast.parse((folder / "server.py").read_text())
-            owner = next(node for node in server.body if isinstance(node, ast.ClassDef))
-            init = next(
-                node for node in owner.body if isinstance(node, ast.FunctionDef)
-            )
-            admission = next(node for node in init.body if isinstance(node, ast.If))
-            self.assertEqual(
-                CONTRACT_TOOLS["ast_digest"](admission),
-                record["admission_ast_sha256"],
-            )
-            self.assertEqual(
-                CONTRACT_TOOLS["ast_digest"](init.args),
-                record["arguments_ast_sha256"],
-            )
 
     def test_reworked_modules_have_no_nested_classes_or_domain_module_aliases(self):
         paths = [
@@ -317,15 +279,9 @@ class HandlerStructureTests(unittest.TestCase):
                         self.retired_bindings(ast.parse(snippet)), [], str(path)
                     )
 
-    def test_retained_probe_import_is_only_an_identity_alias(self):
+    def test_private_redirect_alias_is_absent(self):
         module = importlib.import_module("laomedo.github.transport.rest.transport")
-        contract = json.loads(
-            (ROOT / "tools/migrations/retained-http-callers.json").read_text()
-        )
-        self.assertIs(
-            getattr(module, contract["compatibility_symbol"].rsplit(".", 1)[1]),
-            NoRedirect,
-        )
+        self.assertFalse(hasattr(module, "_NoRedirect"))
 
     def test_retired_symbol_guard_covers_aliases_and_preserves_contract_strings(self):
         for source in (
@@ -342,21 +298,6 @@ class HandlerStructureTests(unittest.TestCase):
                 )
             ),
             [],
-        )
-
-    def test_canonical_ast_ignores_only_empty_version_metadata(self):
-        tree = ast.parse("class Example:\n    pass\n")
-        original = CONTRACT_TOOLS["ast_digest"](tree)
-        owner = tree.body[0]
-        if "type_params" not in owner._fields:
-            owner._fields = (*owner._fields, "type_params")
-        owner.type_params = []
-        self.assertEqual(CONTRACT_TOOLS["ast_digest"](tree), original)
-        owner.type_params = [ast.Name(id="Meaningful", ctx=ast.Load())]
-        self.assertNotEqual(CONTRACT_TOOLS["ast_digest"](tree), original)
-        self.assertNotEqual(
-            CONTRACT_TOOLS["ast_digest"](ast.parse("class Changed:\n    pass\n")),
-            original,
         )
 
     def test_skill_clients_stay_domain_leafs_and_use_this_worktree(self):

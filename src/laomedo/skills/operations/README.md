@@ -37,7 +37,7 @@ SkillCommit.to_record, SkillCommitReceipt.to_payload, SkillOperationResult.to_pa
 and SkillComparison.to_payload retain outward shapes. SkillOperationResult's
 serialize_commit/serialize_skill hooks preserve its established nested projections.
 ImportedSkillEditor and SkillFileChange need no behavior beyond canonical Pydantic
-construction. No duplicate proposal validator or commit identity model is added.
+construction. Proposal validation and commit identity each have one canonical owner.
 
 General registry path/hash/policy/diff functions remain in their defining registry
 modules. HTTP auth/routes/limits belong to skills/interface/operations, and host

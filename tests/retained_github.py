@@ -17,16 +17,16 @@ from types import ModuleType
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def load_retained_github(name):
+def load_retained_github(name, *, manifest="retained-github-callers.json"):
+    if manifest not in {"retained-github-callers.json", "retained-http-callers.json"}:
+        raise ValueError("Retained probe inventory not admitted")
     """Load one manifest-allowlisted probe after a hash-checked import-only rewrite.
 
     Only the named retained dependency edges are loaded recursively. Exact
     module names are registered so existing fixture monkeypatches stay attached
     to that selected copy. No finder, facade or broad migration is installed.
     """
-    manifest = json.loads(
-        Path(ROOT, "tools/migrations/retained-github-callers.json").read_text()
-    )
+    manifest = json.loads(Path(ROOT, "tools/migrations", manifest).read_text())
     records = {
         item["path"].removesuffix(".py").replace("/", "."): item
         for item in manifest["files"]

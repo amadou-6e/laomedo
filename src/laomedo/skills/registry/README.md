@@ -49,16 +49,11 @@ Strict models construct new writes. Historical readers keep their existing
 integrity checks and tolerate historical shapes; they do not validate old files
 against new-write models. A policy reference identifies policy, not authority.
 
-## Compatibility and exact byte behavior
+## Exact byte behavior and saved consumers
 
-This split preserves function signatures, exceptions and side-effect order.
-Private utility spellings become descriptive exported names at their defining
-modules: `_hash` becomes `hash_bytes`, `_canonical_json` becomes `canonical_json`,
-`_safe_name` becomes `validate_name`, `_safe_relative` becomes
-`validate_relative_path`, `_is_link` becomes `is_link`, `_read_json` becomes
-`read_json` and `_write_json` becomes `write_json`. The old `utils.py` is removed;
-the published symbol migration map is authoritative, with unmapped dynamic/star
-access requiring manual migration. No runtime import aliases are installed.
+Callers import path, file, hashing, policy and patch functions from their defining
+modules. Selected external saved code can use the explicit offline symbol map;
+dynamic/star access requires manual migration. No runtime import alias is installed.
 
 Tree identities retain sorted paths, UTF-8 names and length-prefixed exact file
 bytes. Canonical policy JSON retains sorted keys, compact separators, default
@@ -71,13 +66,6 @@ this is atomic replacement without an fsync durability guarantee. Inventory
 rejects links/reparse points, hard links, special files and empty directories;
 it does not itself enforce byte/count limits. Those limits remain caller-owned.
 
-The EXP-08 probe and tests are retained historical controls, not current runtime
-entrypoints or live acceptance. Their original bytes are hash-pinned. CI runs an
-explicit temporary import-only migrated copy and preserves their existing test
-assertions and standalone probe execution. No observation file is regenerated.
-A source hash and non-import AST comparison protect this migration; direct old
-probe execution requires an explicitly migrated copy.
-
-D1 is a module split only. Source/Git collaborators, Agent workspace relocation
-and shared GitHub domain ownership remain later, separate checkpoints. Internal
-controls and reviewer approval do not establish real graph or owner acceptance.
+Archived EXP-08 controls run through an explicit temporary import-only migration.
+Their original sources and observations remain byte-preserved. They supplement
+current registry behavior tests; they do not establish live graph acceptance.

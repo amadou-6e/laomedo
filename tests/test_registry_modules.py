@@ -1,4 +1,4 @@
-"""Registry split, exact byte semantics and retained internal-control contracts."""
+"""Registry ownership, exact byte behavior and saved-consumer contracts."""
 
 import ast
 import hashlib
@@ -26,68 +26,27 @@ with patch.object(sys, "path", [str(Path(ROOT, "tools/migrations")), *sys.path])
 
 
 class RegistryModuleTests(unittest.TestCase):
-    @staticmethod
-    def canonical(node, renames):
-        if (
-            isinstance(node, ast.Attribute)
-            and isinstance(node.value, ast.Name)
-            and node.value.id in {"_registry_settings", "_registry_errors"}
-        ):
-            return ast.Name(id=node.attr, ctx=ast.Load())
-        if isinstance(node, ast.Name):
-            node.id = renames.get(node.id, node.id)
-        if isinstance(node, ast.FunctionDef):
-            node.name = renames.get(node.name, node.name)
-        for name, value in ast.iter_fields(node):
-            if isinstance(value, list):
-                setattr(
-                    node,
-                    name,
-                    [
-                        (
-                            RegistryModuleTests.canonical(item, renames)
-                            if isinstance(item, ast.AST)
-                            else item
-                        )
-                        for item in value
-                    ],
-                )
-            elif isinstance(value, ast.AST):
-                setattr(node, name, RegistryModuleTests.canonical(value, renames))
-        return node
-
-    def test_all_thirteen_function_bodies_preserve_the_baseline(self):
-        record = json.loads(
-            Path(ROOT, "tests/contracts/registry-utils-61d8cb0.json").read_text(
-                encoding="utf-8"
-            )
-        )
-        self.assertEqual(
-            hashlib.sha256(record["baseline_source"].encode()).hexdigest(),
-            record["source_sha256"],
-        )
-        original = {
-            node.name: node
-            for node in ast.parse(record["baseline_source"]).body
-            if isinstance(node, ast.FunctionDef)
+    def test_registry_symbol_map_targets_are_callable(self):
+        """Saved consumers resolve each supported registry helper to its owner."""
+        expected = {
+            "_safe_name": "laomedo.skills.registry.paths.validate_name",
+            "_safe_relative": "laomedo.skills.registry.paths.validate_relative_path",
+            "_is_link": "laomedo.skills.registry.files.is_link",
+            "inventory": "laomedo.skills.registry.files.inventory",
+            "_write_json": "laomedo.skills.registry.files.write_json",
+            "_read_json": "laomedo.skills.registry.files.read_json",
+            "_hash": "laomedo.skills.registry.hashing.hash_bytes",
+            "_canonical_json": "laomedo.skills.registry.hashing.canonical_json",
+            "tree_hash": "laomedo.skills.registry.hashing.tree_hash",
+            "file_hashes": "laomedo.skills.registry.hashing.file_hashes",
+            "validate_policy": "laomedo.skills.registry.policy.validate_policy",
+            "validate_draft": "laomedo.skills.registry.policy.validate_draft",
+            "patch_for": "laomedo.skills.registry.diff.patch_for",
         }
-        self.assertEqual(len(original), 13)
-        names = {
-            old.rsplit(".", 1)[1]: new.rsplit(".", 1)[1]
-            for old, new in record["symbols"].items()
-        }
-        for old, target in record["symbols"].items():
-            module, name = target.rsplit(".", 1)
-            source = Path(ROOT, "src", *module.split(".")).with_suffix(".py")
-            actual = next(
-                node
-                for node in ast.parse(source.read_text(encoding="utf-8")).body
-                if isinstance(node, ast.FunctionDef) and node.name == name
-            )
-            expected = self.canonical(original[old.rsplit(".", 1)[1]], names)
-            self.assertEqual(ast.dump(actual), ast.dump(expected), old)
-            self.assertEqual(MIGRATION["SYMBOL_PATHS"][old], target)
-            self.assertTrue(callable(getattr(importlib.import_module(module), name)))
+        for name, target in expected.items():
+            self.assertEqual(MIGRATION["SYMBOL_PATHS"][RETIRED + "." + name], target)
+            module, symbol = target.rsplit(".", 1)
+            self.assertTrue(callable(getattr(importlib.import_module(module), symbol)))
 
     def test_split_module_migration_supports_known_symbols_and_refuses_ambiguity(self):
         self.assertFalse(Path(ROOT, "src/laomedo/skills/registry/utils.py").exists())

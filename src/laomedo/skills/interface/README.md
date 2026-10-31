@@ -1,9 +1,8 @@
 # Skills application interface
 
 This is the discoverable boundary used by components, the viewer and local
-service startup. C3 places the existing HTTP clients, handlers,
-servers and startup CLIs here; it introduces no forwarding facade or parallel
-protocol. Domain values and service behavior stay in their canonical packages.
+service startup. It owns HTTP clients, handlers, servers and trusted startup
+CLIs. These are the defining adapters, with one protocol implementation. Domain values and service behavior stay in their canonical packages.
 
 | Responsibility | Defining module | Naming and dependency rule |
 | --- | --- | --- |
@@ -33,6 +32,6 @@ saved services/graphs require an explicitly selected migration before using this
 installed version. Node identities, ports, routes, fields, environment names,
 missing/empty semantics, error codes and remote-effect uncertainty are unchanged.
 
-This README was committed before implementation. Registry/source Git/workspace
-changes remain separate checkpoints. Internal controls and this source move do
-not establish real graph acceptance or permission to merge.
+Domain services depend on registry and source owners, not these HTTP adapters.
+Internal controls establish protocol behavior; real graph workflows and owner
+validation are separate acceptance requirements.
