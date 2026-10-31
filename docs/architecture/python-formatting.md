@@ -51,7 +51,7 @@ update or revalidate those older runs.
 
 Exact source digests are recorded in
 [`tools/formatting/historical-sources.json`](../../tools/formatting/historical-sources.json)
-and checked by `tests/test_formatting_policy.py`. Create a maintained copy if
+and checked by `tests/shared/formatting/test_policy.py`. Create a maintained copy if
 one of these campaigns needs further development; retain the sealed original.
 Do not add exclusions or `fmt: off` blocks to bypass formatting maintained code.
 

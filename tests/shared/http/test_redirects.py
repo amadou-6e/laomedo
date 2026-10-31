@@ -1,13 +1,15 @@
 """Socket and ownership controls; not live graph or authentication acceptance."""
 
+from support.paths import repository_root
+
 import ast
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-import threading
 import unittest
 from urllib.error import HTTPError
 from urllib.request import build_opener
 
+from support.http_server import RunningHTTPServer
 from laomedo.http.redirect import NoRedirect
 from laomedo.host.credentials.opencode.transport import NoRedirect as OpenCodeRedirect
 from laomedo.host.credentials.siwc.connection import _NoRedirect as ChatGPTRedirect
@@ -30,9 +32,7 @@ class SharedHTTPTests(unittest.TestCase):
     def test_redirect_is_refused_without_contacting_destination(self):
         server = ThreadingHTTPServer(("127.0.0.1", 0), RedirectRequestHandler)
         server.requests = []
-        thread = threading.Thread(target=server.serve_forever, daemon=True)
-        thread.start()
-        try:
+        with RunningHTTPServer(server):
             for handler in (NoRedirect, NoRedirect()):
                 with self.subTest(construction=type(handler).__name__):
                     with self.assertRaises(HTTPError) as found:
@@ -41,11 +41,6 @@ class SharedHTTPTests(unittest.TestCase):
                         )
                     self.assertEqual(found.exception.code, 302)
             self.assertEqual(server.requests, ["/source", "/source"])
-        finally:
-            server.shutdown()
-            server.server_close()
-            thread.join(timeout=3)
-            self.assertFalse(thread.is_alive())
 
     def test_credential_domains_keep_their_distinct_error_codes(self):
         with self.assertRaisesRegex(ValueError, "^opencode_auth_redirect_rejected$"):
@@ -54,7 +49,7 @@ class SharedHTTPTests(unittest.TestCase):
             ChatGPTRedirect().redirect_request()
 
     def test_redirect_owners_and_foreign_feature_dependency(self):
-        root = Path(__file__).resolve().parents[1]
+        root = repository_root()
         owners = set()
         for directory in ("src", "components"):
             for path in (root / directory).rglob("*.py"):

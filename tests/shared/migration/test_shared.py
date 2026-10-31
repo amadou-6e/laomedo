@@ -1,5 +1,8 @@
 """One-pass Shared migration and explicit refusal controls, not live acceptance."""
 
+from support.paths import repository_root
+from shared.migration.utils import load_migration
+
 import importlib.util
 import importlib
 import json
@@ -10,12 +13,9 @@ from unittest.mock import patch
 
 from retained_shared import load_retained_shared, refuse_private_git_api
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = repository_root()
 TOOL = ROOT / "tools/migrations/migrate_module_paths.py"
-sys.path.insert(0, str(TOOL.parent))
-SPEC = importlib.util.spec_from_file_location("shared_migration_controls", TOOL)
-migration = importlib.util.module_from_spec(SPEC)
-SPEC.loader.exec_module(migration)
+migration = load_migration()
 
 
 class SharedMigrationTests(unittest.TestCase):

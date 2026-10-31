@@ -6,8 +6,11 @@ import sys
 import tempfile
 import unittest
 from unittest.mock import patch
-from test_module_path_migration import TOOL
-from test_module_path_migration import migration
+from support.paths import repository_root
+from shared.migration.utils import load_migration
+
+TOOL = repository_root() / "tools/migrations/migrate_module_paths.py"
+migration = load_migration()
 
 
 class MigrationFileTests(unittest.TestCase):

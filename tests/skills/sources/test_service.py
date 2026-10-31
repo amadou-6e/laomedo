@@ -4,7 +4,6 @@ import json
 import os
 import subprocess
 import tempfile
-import threading
 import unittest
 import urllib.request
 import urllib.error
@@ -14,6 +13,7 @@ from laomedo.skills.sources.errors import SourceError
 from laomedo.skills.sources.utils import _bundle
 from laomedo.skills.sources.server import SkillSourceServer as server
 from laomedo.skills.sources.client import source_request
+from support.http_server import RunningHTTPServer
 
 
 class SkillSourceTests(unittest.TestCase):
@@ -159,10 +159,9 @@ class SkillSourceTests(unittest.TestCase):
     def test_authenticated_client_and_fixed_error_boundary(self):
         token = "fixture-token-" + "x" * 32
         service = server(self.resolver, token, port=0)
-        thread = threading.Thread(target=service.serve_forever, daemon=True)
-        thread.start()
-        self.addCleanup(service.server_close)
-        self.addCleanup(service.shutdown)
+        running = RunningHTTPServer(service)
+        running.__enter__()
+        self.addCleanup(running.__exit__)
         base = f"http://127.0.0.1:{service.server_address[1]}"
         request = urllib.request.Request(
             base + "/v1/skill-sources/discover",

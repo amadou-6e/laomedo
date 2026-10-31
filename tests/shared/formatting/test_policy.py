@@ -1,5 +1,7 @@
 """Keep local and CI formatting consistent without rewriting sealed evidence."""
 
+from support.paths import repository_root
+
 from pathlib import Path
 from hashlib import sha256
 from importlib.util import find_spec
@@ -16,7 +18,7 @@ import unittest
 class FormattingPolicyTests(unittest.TestCase):
     """Exercise Black's actual file discovery and failure status."""
 
-    root = Path(__file__).resolve().parents[1]
+    root = repository_root()
 
     def test_new_python_file_is_checked_and_formatted(self):
         # Temporary maintained source remains discoverable without git add.

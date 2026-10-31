@@ -1,5 +1,14 @@
 """Internal native-graph controls; fake Agent dispatch is not acceptance evidence."""
 
+from importlib.util import find_spec
+from unittest import SkipTest
+
+if find_spec("lfx") is None:
+    raise SkipTest("Install the declared Langflow runtime to run Skill graph controls")
+
+
+from support.paths import repository_root
+
 import asyncio
 import importlib.util
 import sys
@@ -8,9 +17,10 @@ import unittest
 from unittest.mock import patch
 from lfx.graph.graph.base import Graph
 from lfx.schema import Data
-import test_skill_operations as controls
+import tempfile
+from skills.operations.utils import make_operation_case
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = repository_root()
 spec = importlib.util.spec_from_file_location(
     "skill_ops_graph_builder", ROOT / "examples/skill-operations/build_flow.py"
 )
@@ -20,9 +30,9 @@ spec.loader.exec_module(builder)
 
 class NativeSkillOperationTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
-        self.control = controls.SkillOperationTests()
-        self.control.setUp()
-        self.addCleanup(self.control.doCleanups)
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.control = make_operation_case(Path(temporary.name))
         self.calls = 0
         self.agent_calls = 0
 

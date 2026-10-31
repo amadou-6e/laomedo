@@ -1,5 +1,8 @@
 """Offline migration preserves behavior, identities and original files."""
 
+from support.paths import repository_root
+from shared.migration.utils import load_migration
+
 import ast
 import importlib.util
 import json
@@ -9,11 +12,8 @@ import sys
 import tempfile
 import unittest
 
-TOOL = Path(__file__).resolve().parents[1] / "tools/migrations/migrate_module_paths.py"
-sys.path.insert(0, str(TOOL.parent))
-_spec = importlib.util.spec_from_file_location("module_path_migration_test", TOOL)
-migration = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(migration)
+TOOL = repository_root() / "tools/migrations/migrate_module_paths.py"
+migration = load_migration()
 
 
 class ModuleMigrationTests(unittest.TestCase):

@@ -1,11 +1,13 @@
 """Current source/hash and full non-source graph invariants, not graph execution."""
 
+from support.paths import repository_root
+
 from hashlib import sha256
 import json
 from pathlib import Path
 import unittest
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = repository_root()
 
 
 class ComponentTemplateTests(unittest.TestCase):

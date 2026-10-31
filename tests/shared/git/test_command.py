@@ -1,5 +1,7 @@
 """Internal controls for generic Git isolation and the retired process paths."""
 
+from support.paths import repository_root
+
 import ast
 import os
 from pathlib import Path
@@ -172,7 +174,7 @@ class SharedGitTests(unittest.TestCase):
         process.stderr.close.assert_called_once()
 
     def test_generic_git_has_no_feature_dependencies_and_old_runners_are_removed(self):
-        source = Path(__file__).resolve().parents[1] / "src/laomedo"
+        source = repository_root() / "src/laomedo"
         for path in (source / "git").rglob("*.py"):
             tree = ast.parse(path.read_text())
             for node in ast.walk(tree):
@@ -204,7 +206,7 @@ class SharedGitTests(unittest.TestCase):
                 )
 
     def test_git_process_owners_keep_only_the_explicit_source_read_exception(self):
-        source = Path(__file__).resolve().parents[1] / "src/laomedo"
+        source = repository_root() / "src/laomedo"
         owners = set()
         for relative in (
             "git",

@@ -1,3 +1,11 @@
+from importlib.util import find_spec
+from unittest import SkipTest
+
+if find_spec("lfx") is None:
+    raise SkipTest("Install the declared Langflow runtime to run Skill graph controls")
+
+
+from support.paths import repository_root
 import asyncio
 from copy import deepcopy
 from pathlib import Path
@@ -9,7 +17,7 @@ import sys
 
 from laomedo.skills.sources.service import SkillSources
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = repository_root()
 
 
 class NativeSkillSourceTests(unittest.TestCase):

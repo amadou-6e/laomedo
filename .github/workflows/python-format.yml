@@ -16,6 +16,6 @@ jobs:
       - name: Install pinned development tools
         run: python -m pip install --editable '.[dev]'
       - name: Check formatting policy
-        run: python -m unittest discover -s tests -p test_formatting_policy.py -v
+        run: python -m unittest discover -s tests/shared/formatting -t tests -p test_policy.py -v
       - name: Check Python formatting
         run: python -m black --check --diff --no-cache .
