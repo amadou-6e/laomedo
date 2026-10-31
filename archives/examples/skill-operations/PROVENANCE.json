@@ -1,0 +1,72 @@
+{
+  "source_revision": "5b6d8268de7e13e3232ce02076f09374d2e20c2a",
+  "source_repository": "amadou-6e/laomedo",
+  "purpose": "Historical Skill operation campaign and saved exports. Not current runnable setup or current acceptance. Original bytes preserved, including original paths inside documents.",
+  "files": [
+    {
+      "original_path": "examples/skill-operations/PROTOCOL.md",
+      "archive_path": "archives/examples/skill-operations/PROTOCOL.md",
+      "sha256": "cf542b1466a5b61b7d9b221f0b99d2b33525c501c4224f5849795f5fbbaef855"
+    },
+    {
+      "original_path": "examples/skill-operations/README.md",
+      "archive_path": "archives/examples/skill-operations/README.md",
+      "sha256": "fd9052f7ce09cd13bb076ee3336cc73694799d9a1ff2399e323bf84bc49ea31f"
+    },
+    {
+      "original_path": "examples/skill-operations/build_flow.py",
+      "archive_path": "archives/examples/skill-operations/build_flow.py",
+      "sha256": "cb98c7e5f87ea85a752dec1e986c010c4379fa3c0fab6dd9b9d31c255d26a1e7"
+    },
+    {
+      "original_path": "examples/skill-operations/editor-skill/SKILL.md",
+      "archive_path": "archives/examples/skill-operations/editor-skill/SKILL.md",
+      "sha256": "1707a887a8bca0afb4685515690d7ba545d847a6d69403facb0491fb4ed370bd"
+    },
+    {
+      "original_path": "examples/skill-operations/evidence.json",
+      "archive_path": "archives/examples/skill-operations/evidence.json",
+      "sha256": "02ce4534a9d2042bdea100a2d924c1158472df6641bc21f353583781e2829989"
+    },
+    {
+      "original_path": "examples/skill-operations/executed-flow.json",
+      "archive_path": "archives/examples/skill-operations/executed-flow.json",
+      "sha256": "eec3ea4595003a1d0171d2b53cfc00d1adae5987c491cda51fcecdbeab12a29c"
+    },
+    {
+      "original_path": "examples/skill-operations/flow.json",
+      "archive_path": "archives/examples/skill-operations/flow.json",
+      "sha256": "7c65956a2039098ae9384d5191f197ccd412e2c68887e82c749e96196464efd1"
+    },
+    {
+      "original_path": "examples/skill-operations/historical-flow-before-skill-input.json",
+      "archive_path": "archives/examples/skill-operations/historical-flow-before-skill-input.json",
+      "sha256": "45ea8e14f22dc52e50e97d367812ad832deb048e1e31e9c58bff8b48c62879cf"
+    },
+    {
+      "original_path": "examples/skill-operations/overview-evidence.json",
+      "archive_path": "archives/examples/skill-operations/overview-evidence.json",
+      "sha256": "1e4acb18f5b3df05407cd214c27b17414055ceff7b2af5c29e4e7bca6bfcedc4"
+    },
+    {
+      "original_path": "examples/skill-operations/overview-flow.json",
+      "archive_path": "archives/examples/skill-operations/overview-flow.json",
+      "sha256": "dbd2f869b54fc9a22297e1dc1f2d514297ba1dee1e08998cf89d3fe259fce456"
+    },
+    {
+      "original_path": "examples/skill-operations/overview/OVERVIEW.md",
+      "archive_path": "archives/examples/skill-operations/overview/OVERVIEW.md",
+      "sha256": "6d35eaf384dfe6c5b3693bd7876733bb4d728c7d5c539275d0890bae1c0f9567"
+    },
+    {
+      "original_path": "examples/skill-operations/overview/assets/workflow.svg",
+      "archive_path": "archives/examples/skill-operations/overview/assets/workflow.svg",
+      "sha256": "f3983f9114c032b46ed0ad777007ba9da67cf5622db8b8661f95a43f0510ae74"
+    },
+    {
+      "original_path": "examples/skill-operations/viewer-evidence.json",
+      "archive_path": "archives/examples/skill-operations/viewer-evidence.json",
+      "sha256": "7f5950c9653496f3c32935cc73f6c5f688c923f01f34247b5129eaefa43cab49"
+    }
+  ]
+}

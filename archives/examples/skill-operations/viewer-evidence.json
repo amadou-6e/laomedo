@@ -1,0 +1,48 @@
+{
+  "verified_at": "2026-10-16T22:04:33.100Z",
+  "source_revision": "fe2857b7ba077ef29d94f3b480a8c0349b60f13e",
+  "real_agent_run": "1352ab4f-0994-49b3-9a20-075f27a971f4",
+  "real_commit": "sha256:e081d0f6f5c1edef841d3ecf4768b4d145a488301fe867afbfdeffc526317cd4",
+  "current_revision": "sha256:61e9b9220170c365d9932caf79f691455b5f1171f9723ac82d6f2d783c6852bf",
+  "selected_import_revision": "sha256:4f0efb08e4956c433413b5b612149a172b31789f37290f15fc947337f10c50b2",
+  "combined_files_and_commit_graph": true,
+  "files_history_buttons_absent": true,
+  "import_to_current_changed_files": [
+    "SKILL.md",
+    "references/operation-format.md"
+  ],
+  "current_to_current_empty": true,
+  "readable_unified_diff": true,
+  "pointer_resized": {
+    "before": 280,
+    "after": 407
+  },
+  "keyboard_resize": true,
+  "file_selection_restores_current_contents": true,
+  "execution_requests": 0,
+  "browser_errors": [],
+  "additional_agent_turns": 0,
+  "scope": "Read-only viewer of the existing real one-turn registry edit; no new mutation acceptance claim",
+  "build": {
+    "upstream": "fec71dca901949c09ed4d63315804337cd2eb13d",
+    "production_build": "passed"
+  },
+  "checks": {
+    "regression_suite": {
+      "run": 87,
+      "skipped": 3,
+      "result": "passed"
+    },
+    "follow_up_core_tests": 13,
+    "react_tests": 6,
+    "spec_files": 1813,
+    "spec_errors": 0,
+    "spec_warning": "Unrelated 26MiB blog-hub diagram"
+  },
+  "review": {
+    "claude_verdict": "APPROVE",
+    "implementation_reviewed": "290b5f57d7e524ea583bcbfefcf795fa27d3262a",
+    "specs_reviewed": "f67d7128fa96865cd4a5f07adff1196c6901b32a",
+    "post_review_fix": "fe2857b: recommended LF-only line splitting with Unicode regression test; connector presentation adjustment, no new history/mutation semantics. Reviewer prescribed targeted tests for this small fix."
+  }
+}
