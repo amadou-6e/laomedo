@@ -22,15 +22,38 @@ class PackageLayoutTests(unittest.TestCase):
             path = package_root().parent.joinpath(*name.split(".")).with_suffix(".py")
             self.assertFalse(path.exists(), name)
 
-    def test_installed_package_has_no_retired_python_modules(self):
-        """Catch stale build output copied into an otherwise successful wheel."""
-        source = ROOT.joinpath("src/laomedo")
-        for module in package_root().rglob("*.py"):
-            with self.subTest(module=module):
+    def test_installed_package_matches_current_source_files(self):
+        """Check the real installed artifact, including stale resources and modules."""
+        source = ROOT.joinpath("src/laomedo").resolve()
+        installed = package_root().resolve()
+        if source == installed:
+            self.skipTest("Install the wheel and run outside the source checkout")
+        modules = set()
+        for artifact in installed.rglob("*"):
+            if not artifact.is_file() or "__pycache__" in artifact.parts:
+                continue
+            relative = artifact.relative_to(installed)
+            current = source / relative
+            with self.subTest(artifact=relative.as_posix()):
                 self.assertTrue(
-                    source.joinpath(module.relative_to(package_root())).is_file(),
-                    "Installed module has no current source: " + str(module),
+                    current.is_file(),
+                    "Installed artifact has no current source: " + str(relative),
                 )
+                if artifact.suffix == ".py":
+                    modules.add(relative)
+                    # Python decodes source with universal newlines. Registry
+                    # bundles and packaged data retain their separate byte checks.
+                    self.assertEqual(
+                        artifact.read_text(encoding="utf-8-sig"),
+                        current.read_text(encoding="utf-8-sig"),
+                        "Installed Python differs from current source: "
+                        + str(relative),
+                    )
+        self.assertEqual(
+            modules,
+            {module.relative_to(source) for module in source.rglob("*.py")},
+            "The installed wheel must contain every current Python module",
+        )
 
     def test_package_root_has_only_shared_infrastructure(self):
         self.assertEqual(

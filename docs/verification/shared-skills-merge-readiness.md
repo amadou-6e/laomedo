@@ -55,8 +55,8 @@ by cache cleanup.
 | Affected checks after cache cleanup | Pass: 84 tests in 53.303s, including the exact failed assertion, migration, HTTP, catalogue, architecture and native Windows process controls |
 | Separate Langflow controls | All 22 test modules pass in isolated processes; aggregate discovery's root/graph module-name collision is a harness constraint |
 | GitHub CI at the source above | [Work Graph](https://github.com/amadou-6e/laomedo/actions/runs/41197088273) and [Black](https://github.com/amadou-6e/laomedo/actions/runs/41197088246) pass; package tests cover Python 3.10/3.13 |
-| Wheel build | Pass; local artifact SHA-256 `761a076f408a0848af6de82145625d6e773ecadf25d8068026db481c609484df` |
-| Isolated wheel smoke | Six defining imports, packaged authoring instructions and an actual Git version command pass outside the source checkout; no foreign feature/framework loads |
+| Initial local wheel | Build/import smoke succeeds, but subsequent file audit rejects artifact `761a076f408a0848af6de82145625d6e773ecadf25d8068026db481c609484df`: 470 Python files instead of 340, including 130 retired modules from stale `build/lib`. This artifact is invalid |
+| Installed-artifact regression | Guard checks every installed file against current source, all Python modules and Python content; source-checkout runs explicitly skip this artifact-only test. Clean rebuild verification is required |
 | Real local source | Actual refactoring skill discovered, pinned and inspected; owned scratch removed and original bytes unchanged |
 | Real HTTPS sources | Public `anthropics/skills` clones; full discovery reaches the 60-second operation budget and returns `repository_limit_exceeded`. Credential-free `amadou-6e/my-skills` returns `repository_access_unavailable`; its cause is not established |
 | Real viewer | Five fresh read-only stories pass: genuine edited revision/history, both edited files, and each file's parent-to-current comparison. Zero graph runs, model requests or Skill/graph writes; all eleven observed Node/Edge processes exited |
