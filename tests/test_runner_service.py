@@ -1,7 +1,7 @@
 """Internal controls only; live startup verification is recorded separately."""
 
 import json
-from laomedo import __file__
+from laomedo._paths import import_root
 import socket
 from pathlib import Path
 from types import SimpleNamespace
@@ -296,11 +296,11 @@ class RunnerServiceTests(unittest.TestCase):
         self.assertNotIn("--max-model-turns", args)
         self.assertNotIn("max_model_turns", self.service.config(self.url))
         self.assertEqual(args[1], "-c")
-        self.assertEqual(args[3], str(Path(__file__).resolve().parent.parent))
+        self.assertEqual(args[3], str(import_root()))
         self.assertEqual(args[4], "laomedo.agents.providers.claude.cli")
         self.assertEqual(
             spawn.call_args.kwargs["cwd"],
-            Path(__file__).resolve().parent.parent,
+            import_root(),
         )
         self.assertEqual(
             json.loads((self.root / "runner/turn-ledger.json").read_text())[
