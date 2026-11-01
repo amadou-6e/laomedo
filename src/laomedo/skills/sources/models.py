@@ -33,13 +33,16 @@ class SkillSourceChoice(BaseModel):
 
     @classmethod
     def for_folder(cls, name: str, path: str) -> "SkillSourceChoice":
+        """Create the established selectable label for an admitted Skill name and source-relative folder."""
         return cls(choice=name + " | " + path, name=name, path=path)
 
     @classmethod
     def for_registry(cls, name: str) -> "SkillSourceChoice":
+        """Create the established choice and path for an immutable registry Skill."""
         return cls(choice=name, name=name, path="skills/" + name)
 
     def to_record(self) -> dict:
+        """Project the admitted choice to its existing index and response fields."""
         return {"choice": self.choice, "name": self.name, "path": self.path}
 
 

@@ -127,6 +127,7 @@ class GitSkillSource:
         return total
 
     def repository(self, source, refresh=False, *, deadline):
+        """Clone or refresh the owned bare cache and capture bounded refs within the supplied deadline."""
         folder = self.state / hashlib.sha256(source.encode()).hexdigest()
         transport = (
             str(self.repository_provider(source))
@@ -197,6 +198,7 @@ class GitSkillSource:
         return SkillRepositoryState(directory=folder, refs=result)
 
     def entries(self, repo, commit, deadline):
+        """Decode and admit bounded Git tree metadata before reading any blob content."""
         raw = self._run(
             repo,
             ["ls-tree", "-rz", "--full-tree", commit],
@@ -225,6 +227,7 @@ class GitSkillSource:
         return result
 
     def read_blob(self, repo, entry, deadline):
+        """Check a tree entry mode and byte size before returning its exact Git blob bytes."""
         if entry.mode not in {"100644", "100755"} or entry.kind != "blob":
             raise SourceError("source_bundle_unsafe")
         if (

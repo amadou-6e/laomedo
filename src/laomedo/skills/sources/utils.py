@@ -8,10 +8,12 @@ from laomedo.skills.sources.settings import SKIP
 
 
 def excluded_parts(parts):
+    """Identify source path components excluded by the fixed discovery policy."""
     return any((p in SKIP or p.startswith(".") or p.endswith(".local") for p in parts))
 
 
 def skill_name(data, fallback):
+    """Read an admitted Skill name from instruction bytes while retaining the supported fallback."""
     text = data.decode("utf-8").replace("\r\n", "\n")
     frontmatter = re.match(
         "\\A---[ \\t]*\\r?\\n(.*?)\\r?\\n---(?:\\r?\\n|\\Z)", text, re.S

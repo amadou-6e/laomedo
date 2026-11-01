@@ -34,7 +34,10 @@ import shutil
 
 
 class SkillStore:
+    """Own immutable revisions, independent editable drafts and explicit reviewed promotion."""
+
     def __init__(self, root: Path, draft_root: Path | None = None):
+        """Bind the registry root and create its owned persistence directories."""
         self.root = root.resolve()
         draft_root = draft_root or (self.root.parent / (self.root.name + "-drafts"))
         self.draft_root = draft_root.resolve()
@@ -58,9 +61,11 @@ class SkillStore:
         self.draft_root.mkdir(parents=True, exist_ok=True)
 
     def _skill(self, skill_id: str) -> Path:
+        """Return the owned directory for a validated registry-local Skill identity."""
         return self.root / "skills" / validate_name(skill_id)
 
     def _draft(self, draft_id: str) -> Path:
+        """Return the owned draft record for an admitted draft identity."""
         try:
             from uuid import UUID
 
@@ -72,10 +77,12 @@ class SkillStore:
         return self.root / "drafts" / draft_id
 
     def _workspace(self, draft_id: str) -> Path:
+        """Resolve an owned draft working directory without accepting redirected paths."""
         self._draft(draft_id)
         return self.draft_root / draft_id
 
     def _revision_dir(self, skill_id: str, revision_id: str) -> Path:
+        """Resolve the owned directory for an exact immutable revision identity."""
         if not HASH.fullmatch(revision_id):
             raise SkillStoreError("invalid_revision_id")
         return self._skill(skill_id) / "revisions" / revision_id[7:]
@@ -87,6 +94,7 @@ class SkillStore:
         parent_revision: str | None,
         draft_id: str | None = None,
     ) -> dict:
+        """Retain exact candidate bytes and metadata without advancing canonical latest."""
         source_files = inventory(source)
         revision_id = tree_hash(source_files)
         target = self._revision_dir(skill_id, revision_id)
@@ -153,6 +161,7 @@ class SkillStore:
             lock.unlink(missing_ok=True)
 
     def revision(self, skill_id: str, revision_id: str | None = None) -> dict:
+        """Read the immutable revision record for an admitted Skill and revision identity."""
         if revision_id is None:
             pointer = read_json(self._skill(skill_id) / "latest.json")
             revision_id = pointer["revision_id"]
@@ -171,6 +180,7 @@ class SkillStore:
         return record
 
     def read_file(self, skill_id: str, revision_id: str, relative: str) -> dict:
+        """Return exact immutable file bytes after admitting the Skill, revision and relative path."""
         relative = validate_relative_path(relative)
         record = self.revision(skill_id, revision_id)
         if relative not in record["file_hashes"]:
@@ -190,6 +200,7 @@ class SkillStore:
         }
 
     def create_draft(self, skill_id: str, base_revision: str, policy: dict) -> dict:
+        """Create an independent editable copy bound to the base revision and admitted edit policy."""
         base = self.revision(skill_id, base_revision)
         policy_reference = validate_policy(policy)
         draft_id = str(uuid4())
@@ -220,6 +231,7 @@ class SkillStore:
             raise
 
     def draft_workspace(self, draft_id: str) -> Path:
+        """Return the owned, independently editable working directory of an admitted draft."""
         folder = self._draft(draft_id)
         record = read_json(folder / "record.json")
         if record.get("status") != "open":
@@ -378,6 +390,7 @@ class SkillStore:
         base_revision: str,
         reviewed_hash: str,
     ) -> None:
+        """Finish the recorded explicit promotion after rechecking the canonical latest identity."""
         log = skill / "promotions" / (record["draft_id"] + ".json")
         entry = {
             "draft_id": record["draft_id"],

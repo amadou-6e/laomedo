@@ -10,6 +10,7 @@ from laomedo.skills.interface.operations.server import SkillOperationServer
 
 
 def main():
+    """Parse trusted CLI configuration, construct the domain service and start its private listener."""
     parser = argparse.ArgumentParser()
     for field in ("registry", "database", "policies", "api-token-file"):
         parser.add_argument("--" + field, type=Path, required=True)

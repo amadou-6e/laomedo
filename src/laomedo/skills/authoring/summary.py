@@ -43,6 +43,7 @@ def has_description(text):
 
 
 def summary_authoring(snapshot):
+    """Return the packaged description-authoring contract without executing Skill content."""
     skill = next((f for f in snapshot["files"] if f["path"] == "SKILL.md"), None)
     if not skill or not isinstance(skill.get("text"), str):
         raise SkillStoreError("skill_summary_source_unavailable")

@@ -10,9 +10,11 @@ class SkillSourceRequestHandler(BaseHTTPRequestHandler):
     """Authenticate and route one request using only its server instance bindings."""
 
     def log_message(self, *_):
+        """Suppress access-log content so request paths and source data do not enter default HTTP logs."""
         pass  # Source URLs, filenames and request bodies are not access-log content.
 
     def reply(self, code, value):
+        """Send a no-store JSON response with the supplied status and explicit content length."""
         data = json.dumps(value).encode()
         self.send_response(code)
         self.send_header("Content-Type", "application/json")
@@ -22,6 +24,7 @@ class SkillSourceRequestHandler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
     def do_POST(self):
+        """Authenticate, admit exact route/fields and dispatch to the bound service using safe response categories."""
         if not secrets.compare_digest(
             self.headers.get("Authorization", ""), "Bearer " + self.server._token
         ):

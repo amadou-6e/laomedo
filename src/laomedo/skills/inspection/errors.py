@@ -10,5 +10,6 @@ class InspectionError(ValueError):
     no inspected file content is included in the error contract."""
 
     def __init__(self, code: str):
+        """Retain the stable machine category and exception arguments without formatting external context."""
         self.code = code
         super().__init__(code)

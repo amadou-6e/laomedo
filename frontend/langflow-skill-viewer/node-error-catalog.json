@@ -1433,5 +1433,55 @@
     "title": "This saved Agent node needs an update",
     "description": "This node inherits an older provider component. It was stopped before sending a request because its provider routing could be incorrect.",
     "recovery": "Replace the node with its current provider component, or migrate a copy of the saved flow with the module migration tool before loading it. Custom Agent subclasses must extend the shared AgentComponent."
+  },
+  "discovered_skill_required": {
+    "title": "Choose a Skill from this source",
+    "description": "No discovered Skill has been selected from the current source.",
+    "recovery": "Choose a Skill from the selected source, then choose its revision."
+  },
+  "discovered_revision_required": {
+    "title": "Choose a discovered Skill revision",
+    "description": "This source selection does not identify one of its discovered immutable revisions.",
+    "recovery": "Choose the Skill and its revision from the current source before running."
+  },
+  "immutable_skill_revision_required": {
+    "title": "Choose an immutable Skill revision",
+    "description": "The Skill needs an exact content-addressed revision before it can be read or edited.",
+    "recovery": "Select a discovered revision, or enter the exact registry revision when Source is empty."
+  },
+  "skill_agent_provenance_required": {
+    "title": "The Agent run reference is missing",
+    "description": "The proposed Skill edit has no completed Agent run reference to record in its history.",
+    "recovery": "Use the supported Agent Answer output for feedback. Inspect the existing run before starting another request."
+  },
+  "skill_feedback_original_agent_required": {
+    "title": "This Agent does not support Skill edit feedback",
+    "description": "The selected Agent cannot provide the Skill edit feedback required by this graph.",
+    "recovery": "Use the supported Codex Agent, connect Skill Task to Agent Task, and return Agent Answer to this Skill Operation."
+  },
+  "skill_feedback_request_required": {
+    "title": "Describe the requested Skill edits",
+    "description": "This Skill feedback loop has no edit request for the Agent to carry out.",
+    "recovery": "Fill in the Skill node Edit Request before running the graph."
+  },
+  "source_reference_invalid": {
+    "title": "The source reference does not match",
+    "description": "The chosen source reference does not identify the expected immutable Skill revision.",
+    "recovery": "Select the Skill and its revision again from the source. Do not apply edits using a mismatched reference."
+  },
+  "pr_agent_failed": {
+    "title": "The Agent did not complete the operation",
+    "description": "The feedback Agent did not return a completed result for the requested operation.",
+    "recovery": "Inspect the existing Agent run and its technical details. Reconcile any pending operation before starting another run."
+  },
+  "pr_agent_loop_invalid": {
+    "title": "The Agent feedback connections are invalid",
+    "description": "A PR or Skill feedback loop needs one Task connection to its Agent and the Agent Answer returned to the same node Operation input.",
+    "recovery": "Check those two connections. Extra Agent Skill References must come from independent, read-only Skill nodes."
+  },
+  "pr_operation_invalid": {
+    "title": "The returned operation is invalid",
+    "description": "The Agent answer does not contain an operation accepted by the receiving node.",
+    "recovery": "Inspect the existing Agent answer and the requested operation format before starting another run."
   }
 }

@@ -8,6 +8,7 @@ class SkillOperationServer(ThreadingHTTPServer):
     """Own the private loopback listener and instance-local service bindings."""
 
     def __init__(self, operations, token, port=8787):
+        """Validate private listener credentials and bind this service/token to one loopback server instance."""
         if not isinstance(token, str) or not 32 <= len(token) <= 512:
             raise ValueError("private_skill_service_required")
         self.operations = operations

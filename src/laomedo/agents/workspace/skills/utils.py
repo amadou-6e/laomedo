@@ -6,8 +6,6 @@ from laomedo.git.command import GitCommandRunner
 from laomedo.git.errors import GitCommandTimeout
 from laomedo.git.models import GitEnvironmentProfile, GitExecutionContext
 from laomedo.git.repository import GitRepository
-from laomedo.agents.workspace.skills.errors import WorkspaceSkillError
-from laomedo.skills.registry.files import is_link as _is_link
 
 from pathlib import Path
 import hashlib
@@ -22,6 +20,7 @@ import stat
 
 
 def _exclude(workspace: Path):
+    """Admit owned Git metadata and return the exclusion file without following redirected entries."""
     git = workspace / ".git"
     if not git.exists():
         return None
@@ -83,11 +82,12 @@ def initialize(workspace: Path) -> None:
         # Git marks newly created loose objects read-only on Windows. These are
         # private baseline files, so allow ordinary disposable-fixture cleanup.
         for item in (workspace / ".git" / "objects").rglob("*"):
-            if item.is_file() and not _is_link(item):
+            if item.is_file() and not is_link(item):
                 item.chmod(item.stat().st_mode | stat.S_IWRITE)
 
 
 def remove_owned_tree(path: Path, state: Path) -> None:
+    """Remove only an admitted run-owned tree; reject paths outside the trusted state root."""
     root = path.resolve()
     if (
         root == state.resolve()
@@ -97,6 +97,7 @@ def remove_owned_tree(path: Path, state: Path) -> None:
         raise WorkspaceSkillError("cleanup_path_outside_run_state")
 
     def readonly_retry(operation, item, error):
+        """Retry an owned cleanup entry after clearing its read-only flag; preserve other cleanup failures."""
         target = Path(item)
         if (
             not isinstance(error[1], PermissionError)
@@ -111,6 +112,7 @@ def remove_owned_tree(path: Path, state: Path) -> None:
 
 
 def install(workspace: Path, skills: list[dict]) -> dict:
+    """Install the exact run-local Skill exclusion and return the state needed to verify it."""
     for skill in skills:
         if not NAME.fullmatch(skill["skill_id"]):
             raise WorkspaceSkillError("invalid_skill_id")
@@ -131,6 +133,7 @@ def install(workspace: Path, skills: list[dict]) -> dict:
 
 
 def verify(workspace: Path, skills: list[dict], exclusion: dict) -> None:
+    """Verify delivered Skill hashes, directory safety and the exact owned Git exclusion state."""
     for parent in (workspace / ".agents", workspace / ".agents" / "skills"):
         if is_link(parent) or not parent.is_dir():
             raise WorkspaceSkillError("unsafe_materialized_skill_path")

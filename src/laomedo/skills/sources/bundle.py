@@ -15,6 +15,7 @@ from laomedo.skills.sources.settings import SECRET
 
 
 def validate_bundle(files):
+    """Admit a complete Skill inventory before publication, retaining byte and path limits."""
     if not files or "SKILL.md" not in files or len(files) > MAX_FILES:
         raise SourceError("source_bundle_invalid")
     if sum(map(len, files.values())) > MAX_BUNDLE_BYTES:
@@ -45,6 +46,7 @@ def validate_bundle(files):
 
 
 def validate_bundle_path(path):
+    """Refuse secret, aliased or nonportable source paths before their bytes are imported."""
     try:
         validate_relative_path(path)
     except SkillStoreError:

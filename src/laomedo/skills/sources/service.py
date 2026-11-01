@@ -31,7 +31,10 @@ from laomedo.skills.sources.utils import skill_name
 
 
 class SkillSources:
+    """Coordinate admitted source choices, immutable revisions and verified registry imports."""
+
     def __init__(self, registry, state, allowed_roots=(), *, repository_provider=None):
+        """Bind registry, source cache and admitted local/repository readers, then load the owned source index."""
         self.store = SkillStore(Path(registry))
         self.state = Path(state).absolute()
         self.state.mkdir(parents=True, exist_ok=True)
@@ -48,11 +51,13 @@ class SkillSources:
         )
 
     def _save(self):
+        """Atomically replace the owned source index after the coordinated operation."""
         temp = self.index_path.with_suffix(".pending")
         temp.write_text(json.dumps(self.index, sort_keys=True), encoding="utf-8")
         temp.replace(self.index_path)
 
     def _source(self, source, *, require_exists=True):
+        """Normalize source kind/location and refuse unsupported URLs or local paths before reads."""
         if not isinstance(source, str) or not source.strip() or len(source) > 2048:
             raise SourceError("source_required")
         source = source.strip()
@@ -100,6 +105,7 @@ class SkillSources:
         return AdmittedSkillSource(kind="local", location=str(path))
 
     def discover(self, source):
+        """Discover bounded Skill choices within the operation deadline and retain admitted selections."""
         with self.lock:
             deadline = time.monotonic() + 60
             admitted = self._source(source)
@@ -152,6 +158,7 @@ class SkillSources:
             }
 
     def _register(self, name, files, origin):
+        """Store validated candidate bytes and origin without advancing an established latest pointer."""
         validate_bundle(files)
         with tempfile.TemporaryDirectory(dir=self.state, prefix="import-") as temp:
             root = Path(temp)
@@ -185,6 +192,7 @@ class SkillSources:
         ).to_reference_payload()
 
     def revisions(self, source, choice):
+        """Collect and validate revision choices before committing any pending registry imports."""
         with self.lock:
             deadline = time.monotonic() + 60
             admitted = self._source(source)
@@ -201,6 +209,7 @@ class SkillSources:
             pending = []
 
             def offer(files, label, origin):
+                """Validate collected bytes and queue their exact revision/provenance before publication."""
                 validate_bundle(files)
                 revision = tree_hash(files)
                 reference = SkillReference(
@@ -324,6 +333,7 @@ class SkillSources:
             }
 
     def resolve(self, source, choice, revision):
+        """Verify and return a previously offered immutable source reference."""
         with self.lock:
             admitted = self._source(source, require_exists=False)
             reference = (

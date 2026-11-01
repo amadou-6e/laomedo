@@ -9,6 +9,7 @@ from laomedo.skills.registry.paths import validate_name, validate_relative_path
 
 
 def validate_policy(policy: dict) -> dict:
+    """Admit the complete edit policy and retain its canonical identity and refusal categories."""
     required = (
         "policy_id",
         "revision_id",
@@ -118,6 +119,7 @@ def validate_policy(policy: dict) -> dict:
 def validate_draft(
     base: dict[str, bytes], draft: dict[str, bytes], policy: dict
 ) -> list[str]:
+    """Apply the admitted edit policy to before/after inventories and reject disallowed changes."""
     validate_policy(policy)
     errors = []
     if len(draft) > policy["max_files"]:

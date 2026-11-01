@@ -10,5 +10,6 @@ class WorkspaceSkillError(ValueError):
     dispatch must not proceed with partially materialized skills."""
 
     def __init__(self, code: str):
+        """Retain the stable machine category and exception arguments without formatting external context."""
         self.code = code
         super().__init__(code)

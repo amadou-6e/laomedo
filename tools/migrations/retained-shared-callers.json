@@ -1,6 +1,6 @@
 {
   "source_revision": "bde33231c3eb97cc23c891451892b0ca7671951a",
-  "policy": "Exact post-format sources remain unchanged. Internal copies rewrite only inventoried top-level from-imports and the declared s11 _helpers dependency-loading statements; all remaining AST is identical. Retired process helpers refuse. No native/main entrypoint is supported or executed; no runtime facade or historical acceptance claim.",
+  "policy": "Exact post-format sources remain unchanged. Internal copies rewrite only inventoried top-level imports to explicit defining owners and the declared s11 _helpers dependency-loading statements; all remaining AST is identical. Retired process helpers refuse. No native/main entrypoint is supported or executed; no runtime facade or historical acceptance claim.",
   "files": [
     {
       "module": "experiments.exp100.probe_live",
@@ -42,7 +42,9 @@
       "module": "experiments.exp104.native_localrunner_worker",
       "path": "experiments/exp104/native_localrunner_worker.py",
       "sha256": "822c1a0e538361068530bfcb6ac5b688bb9fadcea0241810766310c5eabea753",
-      "dependencies": []
+      "dependencies": [
+        "experiments.exp104.native_managed_probe"
+      ]
     },
     {
       "module": "experiments.exp104.native_managed_probe",
@@ -154,6 +156,12 @@
         "experiments.exp104.native_localrunner_probe",
         "experiments.exp104.probe_active_delivery"
       ]
+    },
+    {
+      "module": "experiments.exp100.probe_stage_s7",
+      "path": "experiments/exp100/probe_stage_s7.py",
+      "sha256": "1046a41c3d5167fbf78beca93481b29a7b473e9c06bf0740c6ffa073cffab38d",
+      "dependencies": []
     }
   ]
 }

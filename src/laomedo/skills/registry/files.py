@@ -12,6 +12,7 @@ from laomedo.skills.registry.paths import validate_relative_path
 
 
 def is_link(path: Path) -> bool:
+    """Inspect entry metadata for a symbolic link or Windows reparse point; an absent path is not a link."""
     try:
         metadata = path.lstat()
     except FileNotFoundError:
@@ -53,12 +54,14 @@ def inventory(root: Path) -> dict[str, bytes]:
 
 
 def write_json(path: Path, value: dict) -> None:
+    """Atomically replace an owned JSON record using a temporary sibling file."""
     pending = path.with_name(path.name + ".pending-" + uuid4().hex)
     pending.write_bytes(json.dumps(value, indent=2, sort_keys=True).encode() + b"\n")
     os.replace(pending, path)
 
 
 def read_json(path: Path) -> dict:
+    """Read a stored JSON record and preserve its established missing-file behavior."""
     value = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(value, dict):
         raise SkillStoreError("invalid_record")

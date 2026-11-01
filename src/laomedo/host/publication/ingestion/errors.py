@@ -10,5 +10,6 @@ class BundleIngestError(RuntimeError):
     staged commit. Partially inspected data is not a verified bundle."""
 
     def __init__(self, code: str):
+        """Retain the stable machine category and exception arguments without formatting external context."""
         self.code = code
         super().__init__(code)

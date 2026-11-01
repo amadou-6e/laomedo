@@ -24,6 +24,7 @@ import stat
 
 
 def _read_regular(path: Path, limit: int) -> bytes:
+    """Read bounded bytes from a regular, non-link file; refuse unsafe metadata or size."""
     metadata = path.lstat()
     if is_link(path) or not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
         raise InspectionError("skill_revision_unsafe")
@@ -45,6 +46,7 @@ def _read_regular(path: Path, limit: int) -> bytes:
 def inspect_skill(
     root: Path, skill_id: str, revision_id: str, *, include_images: bool = False
 ) -> dict:
+    """Verify and project one immutable revision for read-only inspection; never construct a mutable store."""
     if not isinstance(skill_id, str) or not NAME.fullmatch(skill_id):
         raise InspectionError("invalid_skill_id")
     if not isinstance(revision_id, str) or not HASH.fullmatch(revision_id):

@@ -39,11 +39,13 @@ class FileEdit(BaseModel):
     @field_validator("path")
     @classmethod
     def validate_path(cls, value):
+        """Admit one portable edit path and retain the established path refusal category."""
         return validate_relative_path(value)
 
     @field_validator("content")
     @classmethod
     def validate_content(cls, value):
+        """Accept complete UTF-8 replacement text or a deletion marker; reject unsupported content."""
         if value is not None and len(value.encode()) > 512 * 1024:
             raise SkillStoreError("skill_operation_invalid")
         return value
@@ -76,6 +78,7 @@ class SkillProposal(BaseModel):
 
     @model_validator(mode="after")
     def validate_unique_paths(self):
+        """Reject duplicate and case-alias paths before an edit proposal can be applied."""
         if len({edit.path.casefold() for edit in self.files}) != len(self.files):
             raise SkillStoreError("skill_operation_invalid")
         return self
@@ -126,6 +129,7 @@ class SkillProposal(BaseModel):
         )
 
     def to_payload(self):
+        """Project the record to its established wire shape without adding model-only fields."""
         return {
             "action": self.action,
             "message": self.message,
@@ -157,6 +161,7 @@ class EditorProvenance(BaseModel):
 
     @model_validator(mode="after")
     def validate_provenance(self):
+        """Check trusted editor provenance fields and preserve the established error categories."""
         if any(
             value is not None and len(value) > 512
             for value in (self.run_id, self.thread_id, self.turn_id, self.trace_ref)
@@ -168,6 +173,7 @@ class EditorProvenance(BaseModel):
 
     @classmethod
     def from_payload(cls, value):
+        """Construct the canonical record from an admitted payload without changing its external shape."""
         value = {"kind": "operator"} if value is None else value
         if (
             not isinstance(value, dict)
@@ -181,6 +187,7 @@ class EditorProvenance(BaseModel):
         return cls(**value)
 
     def to_payload(self):
+        """Project the record to its established wire shape without adding model-only fields."""
         return self.model_dump(exclude_none=True)
 
 

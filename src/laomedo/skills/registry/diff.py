@@ -6,6 +6,7 @@ import difflib
 
 
 def patch_for(base: dict[str, bytes], draft: dict[str, bytes]) -> str:
+    """Build the unified text diff between before/after inventories, including additions and deletions."""
     chunks = []
     for relative in sorted(base.keys() | draft.keys()):
         if base.get(relative) == draft.get(relative):
@@ -20,6 +21,7 @@ def patch_for(base: dict[str, bytes], draft: dict[str, bytes]) -> str:
             continue
 
         def exact_lines(value: str) -> list[str]:
+            """Split text while retaining its exact line endings for revision comparisons."""
             return [
                 line.encode("unicode_escape").decode("ascii") + "\n"
                 for line in value.splitlines(keepends=True)

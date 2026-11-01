@@ -8,6 +8,7 @@ from laomedo.skills.interface.sources.server import SkillSourceServer
 
 
 def main():
+    """Parse trusted CLI configuration, construct the domain service and start its private listener."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--registry", type=Path, required=True)
     parser.add_argument("--state", type=Path, required=True)

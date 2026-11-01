@@ -31,6 +31,12 @@ def load_retained_shared(name):
         )
     )
     records = {item["module"]: item for item in inventory["files"]}
+    module_paths = json.loads(
+        (ROOT / "tools/migrations/module-paths.json").read_text(encoding="utf-8")
+    )
+    symbol_paths = json.loads(
+        (ROOT / "tools/migrations/symbol-paths.json").read_text(encoding="utf-8")
+    )
     if name not in records:
         raise ValueError("Historical Shared caller is not inventoried")
     record = records[name]
@@ -88,6 +94,26 @@ def load_retained_shared(name):
                     node.end_lineno - node.lineno + 1
                 )
         for node in reversed(tree.body):
+            if isinstance(node, ast.Import):
+                statements = []
+                changed = False
+                for item in node.names:
+                    target = (
+                        module_paths.get(item.name, item.name)
+                        if item.name.startswith("laomedo.skills.")
+                        else item.name
+                    )
+                    statements.append(
+                        "import "
+                        + target
+                        + (" as " + item.asname if item.asname else "")
+                    )
+                    changed |= target != item.name
+                if changed:
+                    lines[node.lineno - 1 : node.end_lineno] = [
+                        "\n".join(statements) + "\n"
+                    ]
+                continue
             if not isinstance(node, ast.ImportFrom):
                 continue
             replacements = []
@@ -118,6 +144,21 @@ def load_retained_shared(name):
                         "from laomedo.http.redirect import NoRedirect as " + alias
                     )
                     changed = True
+                elif node.module.startswith("laomedo.skills."):
+                    full = node.module + "." + item.name
+                    target = symbol_paths.get(
+                        full,
+                        module_paths.get(node.module, node.module) + "." + item.name,
+                    )
+                    module, symbol = target.rsplit(".", 1)
+                    replacements.append(
+                        "from "
+                        + module
+                        + " import "
+                        + symbol
+                        + (" as " + alias if alias != symbol else "")
+                    )
+                    changed |= target != full
                 else:
                     replacements.append(
                         "from "

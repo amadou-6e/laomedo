@@ -10,6 +10,7 @@ import json
 
 
 def skill_request(action, **body):
+    """Send a configured loopback Skill operation request and preserve conservative client outcomes."""
     settings = Settings()
     base = settings.url.rstrip("/")
     parsed = urlsplit(base)

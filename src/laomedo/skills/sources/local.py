@@ -21,9 +21,11 @@ class LocalSkillSource:
     """Own local source path admission, discovery and regular-file reading."""
 
     def __init__(self, allowed_roots=()):
+        """Bind the explicitly permitted local source roots without reading their content."""
         self.allowed_roots = [Path(path).absolute() for path in allowed_roots]
 
     def admit(self, path, *, require_exists=True):
+        """Validate allowed local roots and link/reparse boundaries before resolving the source path."""
         permitted = next(
             (
                 root
@@ -45,6 +47,7 @@ class LocalSkillSource:
         return path
 
     def discover(self, root, deadline):
+        """Discover bounded Skill choices within the operation deadline and retain admitted selections."""
         result = []
         count = 0
         for parent, dirs, files in os.walk(root, followlinks=False):
@@ -68,6 +71,7 @@ class LocalSkillSource:
         return result
 
     def read(self, folder, deadline):
+        """Read an admitted local Skill bundle within the deadline, or report its missing instruction file."""
         if any(is_link(path) for path in [folder, *folder.parents]):
             raise SourceError("local_source_unsafe")
         if not (folder / "SKILL.md").exists():

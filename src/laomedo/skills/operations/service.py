@@ -46,7 +46,10 @@ import time
 
 
 class SkillOperations:
+    """Own edit authorization, atomic application, replay and parent-linked local commit history."""
+
     def __init__(self, store: SkillStore, database: Path, policies: dict):
+        """Bind the registry and versioned policies, initialize the trusted local edit journal and retain replay state."""
         self.store = store
         self.database = Path(database)
         self.policies = deepcopy(policies)
@@ -65,6 +68,7 @@ class SkillOperations:
 
     @contextmanager
     def connect(self):
+        """Open a trusted journal connection with row access and transactional configuration."""
         db = sqlite3.connect(self.database, timeout=15)
         db.row_factory = sqlite3.Row
         try:
@@ -88,6 +92,7 @@ class SkillOperations:
         return SkillCommitReceipt(commit_id=identity, record=commit)
 
     def _read(self, db, skill, identity):
+        """Read a validated immutable bundle for edit or history processing."""
         row = db.execute(
             "SELECT record FROM commits WHERE id=? AND skill=?", (identity, skill)
         ).fetchone()
@@ -99,6 +104,7 @@ class SkillOperations:
         return {"commit_id": identity, **record}
 
     def prepare(self, skill_id, revision_id, commit_id=""):
+        """Reserve an edit capability for the exact Skill, base and policy without changing bundle bytes."""
         policy = self.policies.get(skill_id)
         if policy is None:
             raise SkillStoreError("skill_edit_not_authorized")
@@ -159,6 +165,7 @@ class SkillOperations:
         }
 
     def apply(self, ticket, operation, editor=None):
+        """Authorize and compare-and-swap one atomic edit/history commit while preserving identical replay."""
         operation = SkillProposal.from_payload(operation)
         encoded = json.dumps(operation.to_payload(), sort_keys=True)
         if not isinstance(ticket, str) or len(ticket) != 64:
@@ -271,6 +278,7 @@ class SkillOperations:
             return result
 
     def history(self, skill_id, revision_id, before=""):
+        """Return parent-linked commit records using the established page limit and cursor."""
         inspect_skill(self.store.root, skill_id, revision_id)
         with self.connect() as db:
             head = db.execute(
@@ -296,6 +304,7 @@ class SkillOperations:
         }
 
     def diff(self, skill_id, commit_id):
+        """Recompute a commit patch from its parent/current bundles and return its history metadata."""
         with self.connect() as db:
             record = self._read(db, skill_id, commit_id)
             snapshot = inspect_skill(self.store.root, skill_id, record["revision_id"])
@@ -354,6 +363,7 @@ class SkillOperations:
 
             # Keep actual lines readable; explicitly preserve missing-final-newline evidence.
             def lf_lines(text):
+                """Return text lines with line-ending treatment specific to the visual comparison boundary."""
                 parts = text.split("\n")
                 return [part + "\n" for part in parts[:-1]] + (
                     [parts[-1]] if parts[-1] else []
