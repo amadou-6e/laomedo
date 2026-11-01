@@ -39,7 +39,7 @@ established tolerant private-home policy. The caller owns its selected timeout.
 
 The boundary serves Agent Git preparation, mediated remote configuration, Skill
 baseline initialization, GitHub transport and verified publication staging.
-Credential-free source discovery in `skills/sources/service.py` owns a separate
+Credential-free source discovery in `skills/sources/repository.py` owns a separate
 read-budget process path and is outside this API. No read profiles, output budgets
 or Windows read-containment extension are exposed here.
 
