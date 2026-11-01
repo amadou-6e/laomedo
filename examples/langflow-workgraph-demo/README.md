@@ -32,7 +32,7 @@ Run in the installed pinned image, from this repository in PowerShell:
 ```powershell
 $image = 'langflowai/langflow@sha256:34055a07d446de51760e28dab6332e22624e5f48dca611567779992fc32c5ec0'
 docker run --rm --pull=never --network none --mount "type=bind,source=$PWD,target=/workspace" -w /workspace -e PYTHONPATH=/workspace --entrypoint /app/.venv/bin/python $image examples/langflow-workgraph-demo/build_flow.py
-docker run --rm --pull=never --network none --mount "type=bind,source=$PWD,target=/workspace,readonly" -w /workspace -e PYTHONPATH=/workspace --entrypoint /app/.venv/bin/python $image -m unittest discover -s tests/langflow -p test_workgraph_demo.py
+docker run --rm --pull=never --network none --mount "type=bind,source=$PWD,target=/workspace,readonly" -w /workspace -e PYTHONPATH=/workspace --entrypoint /app/.venv/bin/python $image -m unittest discover -s tests/test_langflow -p test_workgraph_demo.py
 $sourceCommit = git rev-parse HEAD
 docker run --rm --pull=never --network none --mount "type=bind,source=$PWD,target=/workspace" -w /workspace -e PYTHONPATH=/workspace -e "LAOMEDO_DEMO_SOURCE_COMMIT=$sourceCommit" --entrypoint /app/.venv/bin/python $image examples/langflow-workgraph-demo/acceptance.py
 ```

@@ -1,7 +1,7 @@
 """One-pass Shared migration and explicit refusal controls, not live acceptance."""
 
 from support.paths import repository_root
-from shared.migration.utils import load_migration
+from test_shared.test_migration.utils import load_migration
 
 import importlib
 import json

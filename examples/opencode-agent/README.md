@@ -101,6 +101,6 @@ The Langflow tests run inside the pinned 1.12.3 image with repository files copi
 to a temporary directory, without changing installed components:
 
 ```text
-python tests/langflow/test_opencode_component.py
-python tests/langflow/test_codex_component.py
+python tests/test_langflow/test_opencode_component.py
+python tests/test_langflow/test_codex_component.py
 ```

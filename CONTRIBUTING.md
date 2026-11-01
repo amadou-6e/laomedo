@@ -29,7 +29,7 @@ Archive approved artifacts before removing them from the production cut. A
 production test must not fetch an experiment branch or require its checkout.
 
 EXP-08 is archived on `exp`; its useful assertions live under
-`tests/skills/workspace` and run in normal discovery. Agent/GitHub experiment
+`tests/test_skills/test_workspace` and run in normal discovery. Agent/GitHub experiment
 sources and their existing test/CI dependencies remain until their separately
 selected migration. In particular, the retained Shared caller inventory and the
 EXP-05, EXP-09 and EXP-100 jobs are deferred. Their presence is not permission to
@@ -37,7 +37,10 @@ add new experiments to production.
 
 ## Test ownership and shared setup
 
-Group tests by concern, such as `tests/shared/git` and `tests/skills/operations`.
+Group tests by concern, such as `tests/test_shared/test_git` and `tests/test_skills/test_operations`.
+Every test-bearing folder beneath the `tests/` discovery root starts with
+`test_`, including parent concern folders and browser/runtime suites. Folders
+containing only support code or data keep their descriptive names.
 Use short filenames within those folders instead of repeating the concern in a
 flat filename prefix. Keep a distinct failure or security boundary explicit.
 

@@ -2,7 +2,7 @@
 
 from laomedo.skills.registry.store import SkillStore
 from laomedo.skills.operations.service import SkillOperations
-from skills.operations.models import SkillOperationCase
+from test_skills.test_operations.models import SkillOperationCase
 
 
 def make_operation_case(root):

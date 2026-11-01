@@ -1,7 +1,7 @@
 """Offline migration preserves behavior, identities and original files."""
 
 from support.paths import repository_root
-from shared.migration.utils import load_migration
+from test_shared.test_migration.utils import load_migration
 
 import ast
 import json

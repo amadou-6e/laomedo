@@ -7,7 +7,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 from support.paths import repository_root
-from shared.migration.utils import load_migration
+from test_shared.test_migration.utils import load_migration
 
 TOOL = repository_root() / "tools/migrations/migrate_module_paths.py"
 migration = load_migration()

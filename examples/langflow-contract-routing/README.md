@@ -26,7 +26,7 @@ pins refuse. A form edit after freezing cannot replace the agent's expectations.
 The local adapter record is not attestation against custom Python code; external
 publication remains independently verified by the host.
 
-Verification: run `python -m unittest discover -s tests/langflow` inside the
+Verification: run `python -m unittest discover -s tests/test_langflow` inside the
 pinned network-disabled image with PYTHONPATH=/workspace and the repository
 mounted at /workspace. Binding unit tests also run with
 `python -m unittest discover -s tests -p test_contract_graph.py`.

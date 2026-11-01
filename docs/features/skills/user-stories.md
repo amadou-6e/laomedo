@@ -85,7 +85,7 @@ Acceptance criteria:
 
 *Historical actual screenshot, 2026-10-19, from the accepted
 `skill-workspace-guide` viewer. The visible `1e4f984c` commit matches the real Agent
-record in [Skill summary evidence](../../../examples/skill-summary/evidence.json).
+record in [Skill summary evidence](https://github.com/amadou-6e/laomedo/blob/a45dd257361358279328711a0ccde8fac369dac2/examples/skill-summary/evidence.json).
 It is not a new capture or a current-runtime history acceptance result.*
 
 ## SK-05 — Publish a reviewed registry revision to Git

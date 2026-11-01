@@ -18,7 +18,7 @@ from unittest.mock import patch
 from lfx.graph.graph.base import Graph
 from lfx.schema import Data
 import tempfile
-from skills.operations.utils import make_operation_case
+from test_skills.test_operations.utils import make_operation_case
 
 ROOT = repository_root()
 spec = importlib.util.spec_from_file_location(

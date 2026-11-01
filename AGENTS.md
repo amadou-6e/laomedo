@@ -51,6 +51,10 @@
 
 ## Python module cohesion
 
+- Beneath the `tests/` discovery root, prefix every folder containing tests,
+  directly or through nested concerns, with `test_`. Keep support-only and
+  data-only folders descriptive. Update discovery, imports and CI paths together.
+
 - Group cohesive features into packages; do not stop at a fixed nesting depth.
   Repeated filename prefixes are a signal to review the package boundary.
 - A Python implementation file introduces classes or standalone functions, never

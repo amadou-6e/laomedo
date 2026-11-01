@@ -12,7 +12,7 @@ from importlib.metadata import version
 ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
 spec = importlib.util.spec_from_file_location(
-    "demo_tests", ROOT / "tests/langflow/test_workgraph_demo.py"
+    "demo_tests", ROOT / "tests/test_langflow/test_workgraph_demo.py"
 )
 probe = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(probe)
@@ -84,7 +84,7 @@ async def main():
             "acceptance.py",
         )
     ]
-    paths += [ROOT / "tests/langflow/test_workgraph_demo.py"]
+    paths += [ROOT / "tests/test_langflow/test_workgraph_demo.py"]
     paths += [HERE / "skill/SKILL.md"]
     report = {
         "schema_version": 1,

@@ -21,5 +21,5 @@ These are internal regression checks, not native Skill discovery acceptance.
 Run with the installed package:
 
 ```powershell
-python -m unittest discover -s tests/skills/workspace -t tests -v
+python -m unittest discover -s tests/test_skills/test_workspace -t tests -v
 ```
