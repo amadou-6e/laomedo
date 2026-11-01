@@ -21,8 +21,7 @@ Keep disposable probes, campaign harnesses and investigation-only artifacts on
 the experiment branch. Keep production regression cases in `tests` and the
 smallest useful maintained workflows in `examples`. An experiment branch is not
 permission to commit secrets, browser profiles, tokens, private logs, caches or
-dependency trees. A campaign's
-model allowance is not a gate in a normal service.
+dependency trees. A campaign's model allowance is not a gate in a normal service.
 
 Preserve actual historical evidence with its original revision and limitations.
 Archive approved artifacts before removing them from the production cut. A

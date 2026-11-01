@@ -11,7 +11,6 @@ original revisions and byte provenance; they are not current setup instructions.
 
 Other folders own provider-specific and GitHub graph workflows.
 `skill-agent-pilot` retains the historical Agent runner prototype and its Agent
-test assets. The earlier Skill-only campaigns are preserved on
-[`exp` at their retained revision](https://github.com/amadou-6e/laomedo/tree/a45dd257361358279328711a0ccde8fac369dac2/examples).
-The Skill walkthrough documents current setup and behavior; the maintained
-builder does not import campaign scripts or require an experiment checkout.
+test assets. `skill-files-viewer` and `skill-summary` retain the files and evidence
+of their named campaigns; the Skill walkthrough documents current setup and
+behavior. The maintained Skill builder does not import these campaign scripts.

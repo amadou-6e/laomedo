@@ -8,7 +8,7 @@
 | git-publishing-mock.png | Companion HTML mockup | This documentation increment | Proposed UI with illustrative data; not implemented |
 
 The historical image's revision `db60d3f1`, selected base `3d44565e` and commit
-`1e4f984c` match [recorded real evidence](https://github.com/amadou-6e/laomedo/blob/a45dd257361358279328711a0ccde8fac369dac2/examples/skill-summary/evidence.json).
+`1e4f984c` match [recorded real evidence](../../../../examples/skill-summary/evidence.json).
 Its source revision was `8bd3f4e59e0b5f63e9329930a8401d6ccde0520e`.
 The historical image is copied without editing its pixels. Fresh captures use
 headless Edge and no graph execution. Mockups are visibly labelled and do not
