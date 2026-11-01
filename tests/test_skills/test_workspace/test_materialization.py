@@ -100,9 +100,7 @@ class SkillMaterializationTests(unittest.TestCase):
                     exclusion = (
                         install(workspace, [self.reference]) if protected else None
                     )
-                    self.assertEqual(
-                        self.git(workspace, "status", "--porcelain"), b""
-                    )
+                    self.assertEqual(self.git(workspace, "status", "--porcelain"), b"")
                     offered = self.runner._materialize(workspace, self.reference)
                     delivered = workspace / ".agents/skills/materialized-skill"
                     self.assertEqual(inventory(delivered), inventory(self.source))
