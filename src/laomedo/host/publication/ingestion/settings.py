@@ -13,7 +13,7 @@ MAX_RECORD_BYTES = 256 * 1024
 HANDOFF_NAME = ".laomedo-handoff.bundle"
 
 
-_IDENTITY = re.compile(r"[A-Za-z0-9_-]{1,80}\Z")
+RUN_IDENTITY = re.compile(r"[A-Za-z0-9_-]{1,80}\Z")
 
 
 _SHA = re.compile(r"[0-9a-f]{40}\Z")

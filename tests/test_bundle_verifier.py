@@ -1,7 +1,7 @@
 """Credential-free worker controls; fake stage, no Docker or provider effects."""
 
 import hashlib
-import laomedo
+from laomedo import __file__
 import json
 from pathlib import Path
 import tempfile
@@ -9,9 +9,9 @@ import threading
 import unittest
 from unittest.mock import patch
 
-from laomedo.skills.ingestion.utils import freeze_run_bundle
-from laomedo.skills.ingestion.settings import HANDOFF_NAME
-from laomedo.skills.ingestion.utils import _durable_json
+from laomedo.host.publication.ingestion.utils import freeze_run_bundle
+from laomedo.host.publication.ingestion.settings import HANDOFF_NAME
+from laomedo.host.publication.ingestion.utils import write_durable_json as _durable_json
 from laomedo.host.publication.verifier import BundleVerifier
 from laomedo.host.publication.status import _publish_status
 from laomedo.host.publication.bundle.errors import BundleStageError
@@ -214,7 +214,7 @@ class BundleVerifierTests(unittest.TestCase):
         )
         self.assertEqual(
             Path(final["module_root"]).resolve(),
-            Path(laomedo.__file__).resolve().parent,
+            Path(__file__).resolve().parent,
         )
         self.assertFalse((self.workspace / "service-status.json").exists())
         self.assertNotIn("grant-a", json.dumps(final))

@@ -11,9 +11,9 @@ import urllib.error
 
 from laomedo.skills.sources.service import SkillSources
 from laomedo.skills.sources.errors import SourceError
-from laomedo.skills.sources.utils import _bundle
-from laomedo.skills.sources.server import SkillSourceServer as server
-from laomedo.skills.sources.client import source_request
+from laomedo.skills.sources.bundle import validate_bundle as _bundle
+from laomedo.skills.interface.sources.server import SkillSourceServer as server
+from laomedo.skills.interface.sources.client import source_request
 from support.http_server import RunningHTTPServer
 
 
@@ -50,7 +50,7 @@ class SkillSourceTests(unittest.TestCase):
             patch.object(Path, "rglob", return_value=iter([transient, retained])),
             patch.object(Path, "stat", remove_before_stat),
         ):
-            self.assertEqual(self.resolver._cache_bytes(), 3)
+            self.assertEqual(self.resolver.repository_source._cache_bytes(), 3)
         self.assertFalse(transient.exists())
 
     def test_cache_size_does_not_hide_unreadable_files(self):
@@ -61,7 +61,7 @@ class SkillSourceTests(unittest.TestCase):
             patch.object(Path, "stat", side_effect=PermissionError("unreadable")),
             self.assertRaises(PermissionError),
         ):
-            self.resolver._cache_bytes()
+            self.resolver.repository_source._cache_bytes()
 
     def test_local_discovery_import_and_immutable_history(self):
         result = self.resolver.discover(self.source.as_uri())
@@ -256,7 +256,7 @@ class SkillSourceTests(unittest.TestCase):
             ),
             patch("subprocess.Popen", side_effect=observe),
         ):
-            self.resolver._git(self.root, ["--version"])
+            self.resolver.repository_source._run(self.root, ["--version"])
         for name in ("OPENAI_API_KEY", "GH_TOKEN", "GIT_CONFIG_PARAMETERS", "HOME"):
             self.assertNotIn(name, captured[0])
         self.assertEqual(captured[0]["GIT_CONFIG_GLOBAL"], os.devnull)

@@ -1,4 +1,4 @@
-"""Host-provided configuration for this feature."""
+"""External source-service settings; fixed discovery policy stays source-owned."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     """Read at point of use; no cached environment, dotenv or credential contents.
 
     Strings preserve missing/empty values and exact ``== "1"`` flag behavior.
-    Existing consumers own URL/path validation and stable public errors.
+    Consumers own URL/path admission and stable public errors.
     """
 
     model_config = SettingsConfigDict(
@@ -38,13 +38,15 @@ class Settings(BaseSettings):
 
     url: str = Field(
         default="",
-        validation_alias="LAOMEDO_SKILL_OPERATION_URL",
+        description="Loopback endpoint used for admitted Skill source discovery and resolution.",
+        validation_alias="LAOMEDO_SKILL_SOURCE_URL",
         repr=False,
         exclude=True,
     )
-    token_file: str | None = Field(
-        default=None,
-        validation_alias="LAOMEDO_SKILL_OPERATION_TOKEN_FILE",
+    token_file: str = Field(
+        default="/run/secrets/laomedo-runner-token",
+        description="Local secret file containing the Skill source service bearer token.",
+        validation_alias="LAOMEDO_SKILL_SOURCE_TOKEN_FILE",
         repr=False,
         exclude=True,
     )

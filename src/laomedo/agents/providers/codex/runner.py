@@ -19,7 +19,8 @@ import laomedo.host.leases.client as _leases_client
 import laomedo.host.leases.models as _leases_models
 import laomedo.host.leases.utils as _leases_utils
 import laomedo.host.mediation.authority as _mediation_authority
-import laomedo.skills.workspace.utils as workspace_skills
+from laomedo.agents.workspace.skills.utils import verify
+from laomedo.agents.workspace.skills.utils import remove_owned_tree
 import re
 import shutil
 import subprocess
@@ -606,7 +607,7 @@ class CodexRunner(Runner):
                 }
                 _runtime_utils._json(run_dir / "record.json", record)
             try:
-                workspace_skills.verify(
+                verify(
                     run_dir / "workspace",
                     record["skills"],
                     record.get("skill_git_exclusion", {"enabled": False}),
@@ -1019,7 +1020,7 @@ class CodexRunner(Runner):
                 raise _runtime_errors.RunnerError("completed_without_agent_message")
             if status == "completed":
                 try:
-                    workspace_skills.verify(
+                    verify(
                         run_dir / "workspace",
                         record["skills"],
                         record.get("skill_git_exclusion", {"enabled": False}),
@@ -1036,7 +1037,7 @@ class CodexRunner(Runner):
                 )
                 old = run_dir / "post-run"
                 if old.exists():
-                    workspace_skills.remove_owned_tree(old, self.state)
+                    remove_owned_tree(old, self.state)
                 pending.rename(old)
                 record["post_run_hash"] = post_hash
                 record["output_ref"] = f"laomedo:run:{run_id}:workspace"

@@ -20,10 +20,12 @@
   "laomedo.local_runner": "laomedo.agents.providers.codex.cli",
   "laomedo.mediation_service": "laomedo.host.mediation.cli",
   "laomedo.siwc_auth": "laomedo.host.credentials.siwc.cli",
-  "laomedo.skill_operation_server": "laomedo.skills.operations.cli",
-  "laomedo.skill_source_server": "laomedo.skills.sources.cli",
-  "laomedo.skills.operations.server": "laomedo.skills.operations.cli",
-  "laomedo.skills.skill_operation_server": "laomedo.skills.operations.cli",
-  "laomedo.skills.skill_source_server": "laomedo.skills.sources.cli",
-  "laomedo.skills.sources.server": "laomedo.skills.sources.cli"
+  "laomedo.skill_operation_server": "laomedo.skills.interface.operations.cli",
+  "laomedo.skill_source_server": "laomedo.skills.interface.sources.cli",
+  "laomedo.skills.operations.cli": "laomedo.skills.interface.operations.cli",
+  "laomedo.skills.operations.server": "laomedo.skills.interface.operations.cli",
+  "laomedo.skills.skill_operation_server": "laomedo.skills.interface.operations.cli",
+  "laomedo.skills.skill_source_server": "laomedo.skills.interface.sources.cli",
+  "laomedo.skills.sources.cli": "laomedo.skills.interface.sources.cli",
+  "laomedo.skills.sources.server": "laomedo.skills.interface.sources.cli"
 }

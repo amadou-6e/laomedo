@@ -64,7 +64,7 @@ class SharedMigrationTests(unittest.TestCase):
                 "laomedo.git.errors",
             ),
             (
-                "from laomedo.skills.sources.transport import NoRedirect\n",
+                "from laomedo.http.redirect import NoRedirect\n",
                 "laomedo.http.redirect",
             ),
             (

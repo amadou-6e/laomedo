@@ -211,7 +211,6 @@ class SharedGitTests(unittest.TestCase):
         for relative in (
             "git",
             "agents/workspace",
-            "skills/workspace",
             "skills/sources",
             "github/transport/git",
             "host/publication/verified",
@@ -229,8 +228,8 @@ class SharedGitTests(unittest.TestCase):
             owners,
             {
                 "git/command.py",
-                # Skills replaces this exact source-owned budget path with its read extension.
-                "skills/sources/service.py",
+                # Source discovery owns its existing active spool/cache policy.
+                "skills/sources/repository.py",
             },
         )
 

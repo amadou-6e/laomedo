@@ -21,10 +21,14 @@ import laomedo.agents.runtime.utils as _runtime_utils
 import laomedo.agents.workspace.errors as _agents_workspace_errors
 import laomedo.agents.workspace.git as _workspace_git
 import laomedo.host.mediation.errors as _mediation_errors
-import laomedo.skills.registry.store as _registry_store
-import laomedo.skills.registry.utils as _registry_utils
-import laomedo.skills.workspace.errors as _skills_workspace_errors
-import laomedo.skills.workspace.utils as workspace_skills
+from laomedo.skills.registry.store import SkillStore
+from laomedo.skills.registry.hashing import tree_hash
+from laomedo.skills.registry.files import inventory
+from laomedo.agents.workspace.skills.errors import WorkspaceSkillError
+from laomedo.agents.workspace.skills.utils import install
+from laomedo.agents.workspace.skills.utils import initialize
+from laomedo.agents.workspace.skills.utils import verify
+from laomedo.agents.workspace.skills.utils import remove_owned_tree
 
 
 class Runner(ABC):
@@ -44,7 +48,7 @@ class Runner(ABC):
         artifact_sources=None,
     ):
         self.state = _runtime_utils._private(state)
-        self.store = _registry_store.SkillStore(skill_store)
+        self.store = SkillStore(skill_store)
         self.source = source_workspace.expanduser().resolve()
         self.git_workspace = git_workspace
         if (
@@ -268,10 +272,7 @@ class Runner(ABC):
             destination = target / relative
             destination.parent.mkdir(parents=True, exist_ok=True)
             destination.write_bytes(item["content"])
-        if (
-            _registry_utils.tree_hash(_registry_utils.inventory(target))
-            != ref["tree_hash"]
-        ):
+        if tree_hash(inventory(target)) != ref["tree_hash"]:
             raise _runtime_errors.RunnerError("materialized_skill_mismatch")
         try:
             skill_text = (target / "SKILL.md").read_text(encoding="utf-8")
@@ -393,7 +394,7 @@ class Runner(ABC):
             # prepare_git_workspace already created an isolated repository
             # with preserved history; do not replace it with a fresh baseline.
             if not self.git_workspace:
-                workspace_skills.initialize(workspace)
+                initialize(workspace)
             elif github_scope is not None:
                 # Install trusted remote/handoff metadata before the immutable
                 # skill exclusion digest. _open_server then verifies this same
@@ -413,11 +414,11 @@ class Runner(ABC):
                     raise _runtime_errors.RunnerError(
                         "unsafe_materialized_skill_path"
                     ) from None
-            git_exclusion = workspace_skills.install(workspace, skills)
+            git_exclusion = install(workspace, skills)
             if not skills:
                 try:
-                    workspace_skills.verify(workspace, skills, git_exclusion)
-                except _skills_workspace_errors.WorkspaceSkillError as error:
+                    verify(workspace, skills, git_exclusion)
+                except WorkspaceSkillError as error:
                     raise _runtime_errors.RunnerError(str(error)) from None
             artifacts = _artifacts_utils.import_selected(
                 request.get("artifact_refs", []),
@@ -477,7 +478,7 @@ class Runner(ABC):
             _runtime_utils._json(run_dir / "record.json", record)
         except Exception:
             try:
-                workspace_skills.remove_owned_tree(run_dir, self.state)
+                remove_owned_tree(run_dir, self.state)
             except OSError:
                 raise _runtime_errors.RunnerError(
                     "run_preparation_cleanup_unverified"

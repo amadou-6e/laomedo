@@ -7,9 +7,9 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
-import laomedo
+from laomedo import __path__
 
-laomedo.__path__.append(str(ROOT / "components/laomedo"))
+__path__.append(str(ROOT / "components/laomedo"))
 sys.path.insert(0, str(ROOT / "examples/native-codex-node"))
 from build_flow import edge
 from lfx.custom.custom_component.component import Component

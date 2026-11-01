@@ -19,8 +19,8 @@ from experiments.turn_harness import VerificationOpenCodeRunner as OpenCodeRunne
 from laomedo.host.credentials.opencode.utils import console_provider
 from laomedo.skills.registry.store import SkillStore
 from laomedo.skills.registry.errors import ConflictError
-from laomedo.skills.registry.utils import inventory
-from laomedo.skills.registry.utils import tree_hash
+from laomedo.skills.registry.files import inventory
+from laomedo.skills.registry.hashing import tree_hash
 
 IMAGE = "laomedo-opencode-controller:1.18.33"
 IMAGE_ID = "sha256:73313fbaf91940471244ff0efb2442a333de119389875765a63bc168fec181fd"

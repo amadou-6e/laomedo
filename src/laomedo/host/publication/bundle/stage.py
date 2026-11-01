@@ -13,9 +13,13 @@ import json
 import laomedo.host.publication.bundle.settings as _bundle_settings
 import laomedo.host.publication.bundle.errors as _bundle_errors
 import laomedo.host.publication.bundle.ownership as _bundle_ownership
-import laomedo.skills.ingestion.settings as _ingestion_settings
-import laomedo.skills.ingestion.errors as _ingestion_errors
-import laomedo.skills.ingestion.utils as _ingestion_utils
+from laomedo.host.publication.ingestion.settings import RUN_IDENTITY
+from laomedo.host.publication.ingestion.errors import BundleIngestError
+from laomedo.host.publication.ingestion.utils import validate_ingestion_roots
+from laomedo.host.publication.ingestion.utils import read_run_binding
+from laomedo.host.publication.ingestion.utils import write_durable_json
+from laomedo.host.publication.ingestion.utils import is_redirected_path
+from laomedo.host.publication.ingestion.utils import read_bundle_bytes
 import os
 import secrets
 import stat
@@ -124,30 +128,28 @@ def _export_binary(args: list[str], destination: Path, timeout: float = 30) -> d
 def _read_frozen(
     runner_state: Path, private_root: Path, run_id: str, attempt_id: str
 ) -> tuple[Path, dict]:
-    runner_state, private_root = _ingestion_utils._bound_roots(
-        runner_state, private_root
-    )
+    runner_state, private_root = validate_ingestion_roots(runner_state, private_root)
     if (
         not isinstance(run_id, str)
-        or not _ingestion_settings._IDENTITY.fullmatch(run_id)
+        or not RUN_IDENTITY.fullmatch(run_id)
         or not isinstance(attempt_id, str)
-        or not _ingestion_settings._IDENTITY.fullmatch(attempt_id)
+        or not RUN_IDENTITY.fullmatch(attempt_id)
     ):
         raise _bundle_errors.BundleStageError("identity_invalid")
-    _, binding = _ingestion_utils._record(runner_state, run_id)
+    _, binding = read_run_binding(runner_state, run_id)
     run_home = private_root / run_id
     attempt = run_home / attempt_id
     if (
-        _ingestion_utils._redirected(run_home)
+        is_redirected_path(run_home)
         or not run_home.is_dir()
         or run_home.resolve(strict=True).parent != private_root
-        or _ingestion_utils._redirected(attempt)
+        or is_redirected_path(attempt)
         or not attempt.is_dir()
         or attempt.resolve(strict=True).parent != run_home
     ):
         raise _bundle_errors.BundleStageError("frozen_attempt_unavailable")
     manifest = attempt / "result.json"
-    if _ingestion_utils._redirected(manifest) or not manifest.is_file():
+    if is_redirected_path(manifest) or not manifest.is_file():
         raise _bundle_errors.BundleStageError("frozen_attempt_unavailable")
     try:
         with manifest.open("rb") as stream:
@@ -168,8 +170,8 @@ def _read_frozen(
         raise _bundle_errors.BundleStageError("frozen_attempt_invalid")
     source = attempt / "input.bundle"
     try:
-        payload = _ingestion_utils._bundle_bytes(source)
-    except _ingestion_errors.BundleIngestError as error:
+        payload = read_bundle_bytes(source)
+    except BundleIngestError as error:
         raise _bundle_errors.BundleStageError("frozen_bundle_invalid") from error
     if hashlib.sha256(payload).hexdigest() != frozen["bundle_sha256"]:
         raise _bundle_errors.BundleStageError("frozen_bundle_changed")
@@ -363,7 +365,7 @@ def _locked_container_stage(
             return result
         metadata = pending.lstat()
         if (
-            _ingestion_utils._redirected(pending)
+            is_redirected_path(pending)
             or not stat.S_ISREG(metadata.st_mode)
             or metadata.st_nlink != 1
             or metadata.st_size > _bundle_settings.MAX_OUTPUT_BYTES
@@ -456,8 +458,8 @@ def verify_frozen_bundle(
         raise _bundle_errors.BundleStageError("verification_identity_consumed")
     baseline_bundle = Path(baseline_bundle)
     try:
-        baseline_bytes = _ingestion_utils._bundle_bytes(baseline_bundle)
-    except _ingestion_errors.BundleIngestError as error:
+        baseline_bytes = read_bundle_bytes(baseline_bundle)
+    except BundleIngestError as error:
         raise _bundle_errors.BundleStageError("baseline_bundle_invalid") from error
     if hashlib.sha256(baseline_bytes).hexdigest() != expected_baseline_sha256:
         raise _bundle_errors.BundleStageError("baseline_bundle_changed")
@@ -474,7 +476,7 @@ def verify_frozen_bundle(
         "policy_approved": False,
     }
     journal = attempt / "verification.json"
-    _ingestion_utils._durable_json(journal, result)
+    write_durable_json(journal, result)
     try:
         destination = attempt / "baseline.bundle"
         with destination.open("xb") as output:
@@ -499,5 +501,5 @@ def verify_frozen_bundle(
     except Exception as error:
         result["status"] = "unknown"
         result["error_class"] = type(error).__name__
-    _ingestion_utils._durable_json(journal, result)
+    write_durable_json(journal, result)
     return result

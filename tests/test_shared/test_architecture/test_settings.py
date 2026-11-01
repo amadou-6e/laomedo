@@ -120,7 +120,7 @@ class SettingsContractTests(unittest.TestCase):
                 )
 
     def test_dotenv_and_secret_directories_are_not_configuration_sources(self):
-        from laomedo.skills.sources.settings import Settings
+        from laomedo.skills.interface.sources.settings import Settings
 
         with (
             tempfile.TemporaryDirectory() as directory,
@@ -146,7 +146,7 @@ class SettingsContractTests(unittest.TestCase):
             "git/command.py": "os.environ.items()",
             "agents/providers/claude/utils.py": "os.environ.items()",
             "host/credentials/claude/utils.py": "os.environ if environment is None",
-            "skills/sources/service.py": "os.environ.items()",
+            "skills/sources/repository.py": "os.environ.items()",
             "agents/providers/codex/servers.py": "os.environ if docker_environment is None else docker_environment",
             "host/publication/cli.py": "key in os.environ",
             "github/issues/cli.py": "os.environ.get(args.github_token_env)",

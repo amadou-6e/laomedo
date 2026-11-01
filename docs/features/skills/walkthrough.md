@@ -77,7 +77,7 @@ provided each backend token-file setting matches its owning service.
 **Source service:**
 
 ```powershell
-& $pythonExe -m laomedo.skills.sources.cli `
+& $pythonExe -m laomedo.skills.interface.sources.cli `
   --registry "$runtimeRoot/registry" --state "$runtimeRoot/skill-sources" `
   --api-token-file "$runtimeRoot/runner/api-token" --port 8782
 ```
@@ -85,7 +85,7 @@ provided each backend token-file setting matches its owning service.
 **Operation/history service:**
 
 ```powershell
-& $pythonExe -m laomedo.skills.operations.cli `
+& $pythonExe -m laomedo.skills.interface.operations.cli `
   --registry "$runtimeRoot/registry" --database "$runtimeRoot/skill-operations.sqlite" `
   --policies "$runtimeRoot/skill-edit-policies.json" `
   --api-token-file "$runtimeRoot/runner/api-token" --port 8787

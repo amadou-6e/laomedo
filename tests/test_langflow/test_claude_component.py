@@ -8,9 +8,9 @@ import os
 import tempfile
 from unittest.mock import patch
 
-import laomedo
+from laomedo import __path__
 
-laomedo.__path__.append(str(Path(__file__).resolve().parents[2] / "components/laomedo"))
+__path__.append(str(Path(__file__).resolve().parents[2] / "components/laomedo"))
 from laomedo.claude_agent import LaomedoClaudeAgent
 from laomedo.agents.contracts.output import requirements
 

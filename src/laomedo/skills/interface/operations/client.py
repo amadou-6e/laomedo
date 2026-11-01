@@ -1,15 +1,16 @@
 """Backend-only Skill operation credentials, never graph inputs."""
 
+from laomedo.http.redirect import NoRedirect
+from laomedo.skills.interface.operations.settings import Settings
+
 from pathlib import Path
 from urllib import request
 from urllib.parse import urlsplit
 import json
-from laomedo.http.redirect import NoRedirect
-import laomedo.skills.operations.settings as _operations_settings
 
 
 def skill_request(action, **body):
-    settings = _operations_settings.Settings()
+    settings = Settings()
     base = settings.url.rstrip("/")
     parsed = urlsplit(base)
     if (

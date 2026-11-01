@@ -9,9 +9,9 @@ from unittest.mock import patch
 ROOT = Path(__file__).resolve().parents[2]
 # Test the installed runtime and component sources together without shadowing
 # the runtime's shared evaluator with the component file of the same name.
-import laomedo
+from laomedo import __path__
 
-laomedo.__path__.append(str(ROOT / "components/laomedo"))
+__path__.append(str(ROOT / "components/laomedo"))
 from laomedo.opencode_agent import LaomedoOpenCodeAgent
 from lfx.custom.custom_component.component import Component
 from lfx.custom.utils import build_custom_component_template

@@ -6,14 +6,16 @@ from laomedo.git.command import GitCommandRunner
 from laomedo.git.errors import GitCommandTimeout
 from laomedo.git.models import GitEnvironmentProfile, GitExecutionContext
 from laomedo.git.repository import GitRepository
-from laomedo.skills.workspace.errors import WorkspaceSkillError
-from laomedo.skills.registry.utils import _is_link
+from laomedo.agents.workspace.skills.errors import WorkspaceSkillError
+from laomedo.skills.registry.files import is_link as _is_link
 
 from pathlib import Path
 import hashlib
-import laomedo.skills.registry.settings as _registry_settings
-import laomedo.skills.registry.utils as _registry_utils
-import laomedo.skills.workspace.errors as _skills_workspace_errors
+from laomedo.skills.registry.settings import NAME
+from laomedo.skills.registry.files import is_link
+from laomedo.skills.registry.hashing import tree_hash
+from laomedo.skills.registry.files import inventory
+from laomedo.agents.workspace.skills.errors import WorkspaceSkillError
 import os
 import shutil
 import stat
@@ -23,22 +25,18 @@ def _exclude(workspace: Path):
     git = workspace / ".git"
     if not git.exists():
         return None
-    if not git.is_dir() or _registry_utils._is_link(git):
-        raise _skills_workspace_errors.WorkspaceSkillError(
-            "external_git_directory_unsupported"
-        )
+    if not git.is_dir() or is_link(git):
+        raise WorkspaceSkillError("external_git_directory_unsupported")
     # Inspect entry metadata only, not Git object contents.
     for parent, dirs, names in os.walk(git, followlinks=False):
         for name in dirs + names:
             item = Path(parent) / name
             if (
-                _registry_utils._is_link(item)
+                is_link(item)
                 or not (item.is_dir() or item.is_file())
                 or (item.is_file() and item.stat().st_nlink > 1)
             ):
-                raise _skills_workspace_errors.WorkspaceSkillError(
-                    "unsafe_git_metadata"
-                )
+                raise WorkspaceSkillError("unsafe_git_metadata")
     return git / "info" / "exclude"
 
 
@@ -94,18 +92,16 @@ def remove_owned_tree(path: Path, state: Path) -> None:
     if (
         root == state.resolve()
         or not root.is_relative_to(state.resolve())
-        or _registry_utils._is_link(path)
+        or is_link(path)
     ):
-        raise _skills_workspace_errors.WorkspaceSkillError(
-            "cleanup_path_outside_run_state"
-        )
+        raise WorkspaceSkillError("cleanup_path_outside_run_state")
 
     def readonly_retry(operation, item, error):
         target = Path(item)
         if (
             not isinstance(error[1], PermissionError)
             or not target.resolve().is_relative_to(root)
-            or _registry_utils._is_link(target)
+            or is_link(target)
         ):
             raise error[1]
         target.chmod(target.stat().st_mode | stat.S_IWRITE)
@@ -116,8 +112,8 @@ def remove_owned_tree(path: Path, state: Path) -> None:
 
 def install(workspace: Path, skills: list[dict]) -> dict:
     for skill in skills:
-        if not _registry_settings.NAME.fullmatch(skill["skill_id"]):
-            raise _skills_workspace_errors.WorkspaceSkillError("invalid_skill_id")
+        if not NAME.fullmatch(skill["skill_id"]):
+            raise WorkspaceSkillError("invalid_skill_id")
     exclude = _exclude(workspace)
     if exclude is None:
         return {"enabled": False}
@@ -136,30 +132,20 @@ def install(workspace: Path, skills: list[dict]) -> dict:
 
 def verify(workspace: Path, skills: list[dict], exclusion: dict) -> None:
     for parent in (workspace / ".agents", workspace / ".agents" / "skills"):
-        if _registry_utils._is_link(parent) or not parent.is_dir():
-            raise _skills_workspace_errors.WorkspaceSkillError(
-                "unsafe_materialized_skill_path"
-            )
+        if is_link(parent) or not parent.is_dir():
+            raise WorkspaceSkillError("unsafe_materialized_skill_path")
     if {entry.name for entry in (workspace / ".agents" / "skills").iterdir()} != {
         skill["skill_id"] for skill in skills
     }:
-        raise _skills_workspace_errors.WorkspaceSkillError(
-            "unexpected_materialized_skill"
-        )
+        raise WorkspaceSkillError("unexpected_materialized_skill")
     for skill in skills:
-        if not _registry_settings.NAME.fullmatch(skill["skill_id"]):
-            raise _skills_workspace_errors.WorkspaceSkillError("invalid_skill_id")
+        if not NAME.fullmatch(skill["skill_id"]):
+            raise WorkspaceSkillError("invalid_skill_id")
         if (
-            _registry_utils.tree_hash(
-                _registry_utils.inventory(
-                    workspace / ".agents" / "skills" / skill["skill_id"]
-                )
-            )
+            tree_hash(inventory(workspace / ".agents" / "skills" / skill["skill_id"]))
             != skill["tree_hash"]
         ):
-            raise _skills_workspace_errors.WorkspaceSkillError(
-                "materialized_skill_mismatch"
-            )
+            raise WorkspaceSkillError("materialized_skill_mismatch")
     exclude = _exclude(workspace)
     if exclusion.get("enabled"):
         if (
@@ -168,10 +154,6 @@ def verify(workspace: Path, skills: list[dict], exclusion: dict) -> None:
             or hashlib.sha256(exclude.read_bytes()).hexdigest()
             != exclusion["exclude_sha256"]
         ):
-            raise _skills_workspace_errors.WorkspaceSkillError(
-                "skill_git_exclusion_changed"
-            )
+            raise WorkspaceSkillError("skill_git_exclusion_changed")
     elif exclude is not None:
-        raise _skills_workspace_errors.WorkspaceSkillError(
-            "skill_git_exclusion_changed"
-        )
+        raise WorkspaceSkillError("skill_git_exclusion_changed")

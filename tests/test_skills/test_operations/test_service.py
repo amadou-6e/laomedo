@@ -14,7 +14,7 @@ from laomedo.skills.operations.service import SkillOperations
 from laomedo.skills.operations.utils import proposal
 from test_skills.test_operations.utils import make_operation_case
 from support.http_server import RunningHTTPServer
-from laomedo.skills.operations.server import SkillOperationServer as server
+from laomedo.skills.interface.operations.server import SkillOperationServer as server
 
 
 class SkillOperationTests(unittest.TestCase):

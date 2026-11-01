@@ -4,11 +4,11 @@ import importlib.util
 import json
 from pathlib import Path
 
-import laomedo
+from laomedo import __path__
 from lfx.graph.graph.base import Graph
 
 ROOT = Path(__file__).resolve().parents[2]
-laomedo.__path__.append(str(ROOT / "components/laomedo"))
+__path__.append(str(ROOT / "components/laomedo"))
 spec = importlib.util.spec_from_file_location(
     "skill_builder", ROOT / "examples/skills/build_flow.py"
 )

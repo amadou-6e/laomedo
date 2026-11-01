@@ -17,9 +17,13 @@ from pathlib import Path
 import hashlib
 import json
 import laomedo.host.publication.bundle.settings as _bundle_settings
-import laomedo.skills.ingestion.settings as _ingestion_settings
-import laomedo.skills.ingestion.errors as _ingestion_errors
-import laomedo.skills.ingestion.utils as _ingestion_utils
+from laomedo.host.publication.ingestion.settings import MAX_RECORD_BYTES
+from laomedo.host.publication.ingestion.settings import RUN_IDENTITY
+from laomedo.host.publication.ingestion.errors import BundleIngestError
+from laomedo.host.publication.ingestion.utils import validate_ingestion_roots
+from laomedo.host.publication.ingestion.utils import read_run_binding
+from laomedo.host.publication.ingestion.utils import freeze_run_bundle
+from laomedo.host.publication.ingestion.utils import is_redirected_path
 import os
 import stat
 import subprocess
@@ -30,7 +34,7 @@ def make_grant_stage_resolver(
     runner_state: Path, private_root: Path, agent_mount: Path
 ):
     """Create a host-only resolver; the request never selects filesystem roots."""
-    runner_state, private_root = _ingestion_utils._bound_roots(
+    runner_state, private_root = validate_ingestion_roots(
         Path(runner_state), Path(private_root)
     )
     mounted = Path(agent_mount).resolve()
@@ -68,7 +72,7 @@ def make_grant_bundle_freezer(
     This copies bytes only; Docker verification and provider effects remain
     separate. No request field selects a host path or a run identity.
     """
-    runner_state, private_root = _ingestion_utils._bound_roots(
+    runner_state, private_root = validate_ingestion_roots(
         Path(runner_state), Path(private_root)
     )
     mounted = Path(agent_mount).resolve()
@@ -81,15 +85,15 @@ def make_grant_bundle_freezer(
 
     def freeze(grant, payload: dict) -> dict:
         if set(payload) != {"attempt_id"}:
-            raise _ingestion_errors.BundleIngestError("freeze_request_invalid")
-        _, before = _ingestion_utils._record(runner_state, grant["run_id"])
+            raise BundleIngestError("freeze_request_invalid")
+        _, before = read_run_binding(runner_state, grant["run_id"])
         if (
             before.get("binding_mode") != "active"
             or before.get("grant_id") != grant["grant_id"]
             or before["repository"] != grant["repository"]
             or before["branch"] != grant["branch"]
         ):
-            raise _ingestion_errors.BundleIngestError("run_grant_mismatch")
+            raise BundleIngestError("run_grant_mismatch")
 
         def confirm_prior(attempt_id):
             # The normal resolver checks immutable bytes, verification and
@@ -109,7 +113,7 @@ def make_grant_bundle_freezer(
             )
             return confirmed_stage_authorizer(grant, snapshot) is True
 
-        result = _ingestion_utils.freeze_run_bundle(
+        result = freeze_run_bundle(
             runner_state,
             private_root,
             run_id=grant["run_id"],
@@ -118,11 +122,11 @@ def make_grant_bundle_freezer(
                 confirm_prior if confirmed_stage_authorizer is not None else None
             ),
         )
-        _, after = _ingestion_utils._record(runner_state, grant["run_id"])
+        _, after = read_run_binding(runner_state, grant["run_id"])
         if after != before or any(
             result.get(key) != value for key, value in before.items()
         ):
-            raise _ingestion_errors.BundleIngestError("run_changed_during_freeze")
+            raise BundleIngestError("run_changed_during_freeze")
         return result
 
     return freeze
@@ -182,7 +186,7 @@ def stage_verified_git(
 
 
 def _read_regular(path: Path, limit: int) -> bytes:
-    if _ingestion_utils._redirected(path) or not path.is_file():
+    if is_redirected_path(path) or not path.is_file():
         raise VerifiedStageError("stage_file_invalid")
     flags = os.O_RDONLY | getattr(os, "O_BINARY", 0) | getattr(os, "O_NOFOLLOW", 0)
     try:
@@ -209,7 +213,7 @@ def _read_regular(path: Path, limit: int) -> bytes:
                 or len(payload) > limit
                 or identity(before) != identity(after)
                 or identity(before) != identity(current)
-                or _ingestion_utils._redirected(path)
+                or is_redirected_path(path)
             ):
                 raise VerifiedStageError("stage_file_changed")
             return payload
@@ -233,20 +237,20 @@ def resolve_verified_stage(
     This is a credential-free local read. The caller must take ``run_id``,
     ``repository`` and ``branch`` from the validated grant, not from a request.
     """
-    if not isinstance(
-        stage_attempt_id, str
-    ) or not _ingestion_settings._IDENTITY.fullmatch(stage_attempt_id):
+    if not isinstance(stage_attempt_id, str) or not RUN_IDENTITY.fullmatch(
+        stage_attempt_id
+    ):
         raise VerifiedStageError("stage_identity_invalid")
     try:
-        runner_state, private_root = _ingestion_utils._bound_roots(
+        runner_state, private_root = validate_ingestion_roots(
             Path(runner_state), Path(private_root)
         )
-        _, binding = _ingestion_utils._record(runner_state, run_id)
+        _, binding = read_run_binding(runner_state, run_id)
         attempt, frozen = _read_frozen(
             runner_state, private_root, run_id, stage_attempt_id
         )
     except (
-        _ingestion_errors.BundleIngestError,
+        BundleIngestError,
         BundleStageError,
         OSError,
     ) as error:
@@ -265,9 +269,7 @@ def resolve_verified_stage(
         or frozen["baseline"] != binding["baseline"]
     ):
         raise VerifiedStageError("stage_scope_mismatch")
-    raw = _read_regular(
-        attempt / "verification.json", _ingestion_settings.MAX_RECORD_BYTES
-    )
+    raw = _read_regular(attempt / "verification.json", MAX_RECORD_BYTES)
     try:
         verification = json.loads(raw)
     except (ValueError, UnicodeError) as error:

@@ -6,8 +6,8 @@ from pathlib import Path
 from uuid import NAMESPACE_URL
 from uuid import uuid5
 from lfx.graph.graph.base import Graph
-from laomedo.skills.registry.utils import inventory
-from laomedo.skills.registry.utils import tree_hash
+from laomedo.skills.registry.files import inventory
+from laomedo.skills.registry.hashing import tree_hash
 
 ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent

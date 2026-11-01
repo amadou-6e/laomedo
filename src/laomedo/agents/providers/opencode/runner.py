@@ -16,9 +16,11 @@ import laomedo.agents.runtime.errors as _runtime_errors
 import laomedo.agents.runtime.runner as _runtime_runner
 import laomedo.agents.runtime.models as _runtime_models
 import laomedo.agents.runtime.utils as _runtime_utils
-import laomedo.skills.registry.errors as _registry_errors
-import laomedo.skills.registry.utils as _registry_utils
-import laomedo.skills.workspace.utils as workspace_skills
+from laomedo.skills.registry.errors import SkillStoreError
+from laomedo.skills.registry.hashing import tree_hash
+from laomedo.skills.registry.files import inventory
+from laomedo.agents.workspace.skills.utils import verify
+from laomedo.agents.workspace.skills.utils import remove_owned_tree
 import re
 import shutil
 import threading
@@ -244,15 +246,12 @@ class OpenCodeRunner(_runtime_runner.Runner):
                     or self.store.revision(name, digest)["tree_hash"] != digest
                 ):
                     raise _runtime_errors.RunnerError("pinned_skill_record_invalid")
-                if (
-                    _registry_utils.tree_hash(_registry_utils.inventory(root / name))
-                    != digest
-                ):
+                if tree_hash(inventory(root / name)) != digest:
                     raise _runtime_errors.RunnerError("pinned_skill_workspace_changed")
-        except (OSError, _registry_errors.SkillStoreError) as exc:
+        except (OSError, SkillStoreError) as exc:
             raise _runtime_errors.RunnerError("pinned_skill_workspace_changed") from exc
         try:
-            workspace_skills.verify(
+            verify(
                 workspace, skills, record.get("skill_git_exclusion", {"enabled": False})
             )
         except ValueError as exc:
@@ -560,7 +559,7 @@ class OpenCodeRunner(_runtime_runner.Runner):
                 post_hash = _runtime_utils._copy_tree(root / "workspace", pending)
                 old = root / "post-run"
                 if old.exists():
-                    workspace_skills.remove_owned_tree(old, self.state)
+                    remove_owned_tree(old, self.state)
                 pending.rename(old)
                 record.update(
                     post_run_hash=post_hash,
