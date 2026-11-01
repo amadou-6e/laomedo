@@ -155,7 +155,14 @@ run the controller again: that would be another operation.
 
 ## 5. Review the candidate and its diff
 
-Expected Operation Result: `status: proposed`, `promotion_performed: false`, a
+In this feedback graph, open the connected **Task** output immediately after
+completion to inspect the host receipt. Langflow builds connected outputs; the
+unused **Operation Result** inspector is not enabled automatically. Output
+inspectors are transient after leaving or reloading the page. Use the retained
+registry history to reconcile an earlier operation; do not rerun the graph merely
+to restore an inspector.
+
+Expected receipt: `status: proposed`, `promotion_performed: false`, a
 new Skill Reference, and a commit with parent, changed paths and editor provenance.
 Verify both `SKILL.md` and `references/usage.md` appear in its changed paths.
 

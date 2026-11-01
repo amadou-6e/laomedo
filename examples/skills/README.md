@@ -24,8 +24,12 @@ commit is valid at the imported root only. Supply real immutable references;
 credentials, transport tokens and edit tickets never belong in the saved graph.
 The command writes and validates a graph. It does not start an Agent or apply an
 edit. Inspect it in the app before explicitly running against your local services.
-After execution, inspect Operation Result and the selected file's history/diff;
-an uncertain apply reply needs reconciliation, not blind graph retry.
+After execution, inspect the connected Task output for the completed operation
+receipt, then the selected file's history/diff. Langflow builds connected outputs;
+the unused Operation Result port is not built automatically in this graph. Inspect
+the receipt before leaving the page: output inspectors are transient, while the
+registry history persists. An uncertain apply reply needs history reconciliation,
+not blind graph retry.
 
 `build_flow.py` constructs the workflow. `graph.py` owns only `node()` and `edge()`:
 they read actual component metadata and construct native graph handles without
