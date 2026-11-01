@@ -3,6 +3,7 @@
 from support.paths import repository_root
 from test_shared.test_migration.utils import load_migration
 
+import ast
 import importlib
 import json
 from pathlib import Path
@@ -17,6 +18,49 @@ migration = load_migration()
 
 
 class SharedMigrationTests(unittest.TestCase):
+    def test_skill_relocation_targets_resolve_to_declared_definitions(self):
+        targets = {
+            target
+            for target in migration.SYMBOL_PATHS.values()
+            if target.startswith(
+                (
+                    "laomedo.skills.",
+                    "laomedo.agents.workspace.skills.",
+                    "laomedo.host.publication.ingestion.",
+                )
+            )
+        }
+        self.assertTrue(targets)
+        for target in targets:
+            with self.subTest(target=target):
+                target_path = ROOT.joinpath("src", *target.split("."))
+                if (
+                    target_path.with_suffix(".py").is_file()
+                    or (target_path / "__init__.py").is_file()
+                ):
+                    continue  # A migrated module import names the module itself.
+                owner, name = target.rsplit(".", 1)
+                path = ROOT.joinpath("src", *owner.split(".")).with_suffix(".py")
+                self.assertTrue(path.is_file(), target)
+                definitions = set()
+                for node in ast.parse(path.read_text(encoding="utf-8-sig")).body:
+                    if isinstance(
+                        node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
+                    ):
+                        definitions.add(node.name)
+                    elif isinstance(node, (ast.Assign, ast.AnnAssign)):
+                        for assigned in (
+                            node.targets
+                            if isinstance(node, ast.Assign)
+                            else [node.target]
+                        ):
+                            definitions.update(
+                                item.id
+                                for item in ast.walk(assigned)
+                                if isinstance(item, ast.Name)
+                            )
+                self.assertIn(name, definitions, target)
+
     def test_every_shared_symbol_target_resolves_to_its_defining_module(self):
         targets = {
             target
