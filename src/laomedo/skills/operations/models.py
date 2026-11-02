@@ -397,3 +397,86 @@ class SkillComparison(BaseModel):
     def to_payload(self) -> dict:
         """Project the public comparison; the service enforces response size."""
         return self.model_dump()
+
+
+class ManualSkillPermissions(BaseModel):
+    """Host-only grants; neither authentication nor an edit policy grants publication."""
+
+    model_config = ConfigDict(strict=True, frozen=True, extra="forbid")
+    edit: bool = False
+    publish: bool = False
+
+
+class ManualSkillState(BaseModel):
+    """Read-only editor bindings, without policies or backend capabilities."""
+
+    model_config = ConfigDict(strict=True, frozen=True, extra="forbid")
+    skill_id: str
+    selected_revision: str
+    head_revision: str
+    head_commit: str
+    latest_revision: str
+    can_edit: bool
+    can_publish: bool
+    edit_enabled: bool
+
+
+class ManualSkillSave(BaseModel):
+    """A durable browser request bound to exact history and one canonical proposal."""
+
+    model_config = ConfigDict(
+        strict=True, frozen=True, extra="forbid", hide_input_in_errors=True
+    )
+    request_id: str
+    skill_id: str
+    revision_id: str
+    commit_id: str
+    operation: SkillProposal
+
+    @field_validator("operation", mode="before")
+    @classmethod
+    def admit_proposal(cls, value):
+        """Reuse the exact public proposal admission, including its error categories."""
+        return SkillProposal.from_payload(value)
+
+    @field_validator("request_id")
+    @classmethod
+    def canonical_request(cls, value):
+        """Admit canonical random UUIDs, never arbitrary external replay keys."""
+        from uuid import UUID
+
+        parsed = UUID(value)
+        if str(parsed) != value or parsed.version != 4:
+            raise ValueError("skill_manual_invalid")
+        return value
+
+    def to_record(self):
+        """Keep a canonical equality value without exposing service capabilities."""
+        return {
+            **self.model_dump(exclude={"operation"}),
+            "operation": self.operation.to_payload(),
+        }
+
+
+class ManualSkillPublication(BaseModel):
+    """Exact reviewed candidate and canonical base; no caller-supplied authority."""
+
+    model_config = ConfigDict(
+        strict=True, frozen=True, extra="forbid", hide_input_in_errors=True
+    )
+    skill_id: str
+    revision_id: str
+    commit_id: str
+    expected_latest: str
+
+
+class ManualPublicationReceipt(BaseModel):
+    """Durable confirmation of the exact registry promotion, independent of graph pins."""
+
+    model_config = ConfigDict(strict=True, frozen=True, extra="forbid")
+    skill_id: str
+    revision_id: str
+    commit_id: str
+    previous_revision: str
+    confirmed_at: str
+    promotion_performed: Literal[True] = True

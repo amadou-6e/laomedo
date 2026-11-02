@@ -85,7 +85,14 @@ def apply(checkout):
     shutil.copy2(overlay / "SkillNavigation.tsx", target / "SkillNavigation.tsx")
     shutil.copy2(overlay / "SkillSearch.tsx", target / "SkillSearch.tsx")
     shutil.copy2(overlay / "SkillSearch.test.tsx", target / "SkillSearch.test.tsx")
-    for name in ("SkillIcons.tsx", "SkillExplorer.tsx", "SkillExplorer.test.tsx"):
+    for name in (
+        "SkillIcons.tsx",
+        "SkillExplorer.tsx",
+        "SkillExplorer.test.tsx",
+        "SkillEditing.tsx",
+        "SkillEditing.test.tsx",
+        "SkillPublication.tsx",
+    ):
         shutil.copy2(overlay / name, target / name)
     shutil.copy2(
         overlay / "SkillNavigation.test.tsx", target / "SkillNavigation.test.tsx"

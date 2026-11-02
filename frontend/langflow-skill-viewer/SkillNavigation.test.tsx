@@ -39,7 +39,8 @@ test("bulk action includes nested folders and resolves a mixed state to open all
   expect(result.current.allOpen).toBe(true);
   act(() => result.current.toggleAll());
   expect(result.current.open).toEqual({ Find: false, Files: false, Commits: false });
-  expect([...result.current.collapsedFolders]).toEqual(["references", "references/nested"]);
+  expect([...result.current.collapsedFolders]).toEqual(["references", "references/nested",
+    "search:folder:references", "search:folder:references/nested", "search:file:SKILL.md", "search:file:references/nested/rules.md"]);
   act(() => result.current.toggleSection("Files"));
   expect(result.current.allOpen).toBe(false);
   act(() => result.current.toggleAll());

@@ -1673,5 +1673,55 @@
     "title": "The selected PR no longer matches",
     "description": "The resource no longer satisfies the selected labels or state filter.",
     "recovery": "Refresh discovery and review the filters and current selection. The node will not silently choose another resource."
+  },
+  "skill_manual_not_authorized": {
+    "title": "Manual changes are not enabled",
+    "description": "This Skill does not currently have the local permission required for this action.",
+    "recovery": "Your working copy is preserved. Check the local Skill edit and publication permissions before trying again."
+  },
+  "skill_manual_stale": {
+    "title": "The Skill changed while you were reviewing it",
+    "description": "The selected commit or registry current revision no longer matches this request. Nothing was silently rebased.",
+    "recovery": "Keep your working text, open the current editable revision and review the changes again before saving or publishing."
+  },
+  "skill_manual_invalid": {
+    "title": "The Skill change could not be accepted",
+    "description": "The manual request is malformed or does not describe a valid Skill bundle.",
+    "recovery": "Check the commit message, file paths, size limits and required SKILL.md content. Your working copy remains available."
+  },
+  "skill_manual_request_conflict": {
+    "title": "This save identity already belongs to another change",
+    "description": "The retained save request has different content from this attempt. It cannot be reused to replace the earlier change.",
+    "recovery": "Check the existing commit history before making a new save. Your working text has been preserved."
+  },
+  "skill_manual_policy_denied": {
+    "title": "The change does not meet the Skill editing rules",
+    "description": "At least one file or required Skill field failed the configured editing policy. The batch was not accepted.",
+    "recovery": "Keep your working copy and correct the changed files or required description before saving again."
+  },
+  "skill_manual_unavailable": {
+    "title": "The Skill change is not yet confirmed",
+    "description": "The application could not confirm the local Skill service response. A save or publication may already have completed.",
+    "recovery": "Use Check result to reconcile the same request. Do not create another save or publish against a different base until its result is known."
+  },
+  "skill_manual_nothing_to_publish": {
+    "title": "This revision is already current",
+    "description": "The reviewed candidate has the same contents as the registry current revision.",
+    "recovery": "Return to the files. No publication is needed for identical contents."
+  },
+  "skill_manual_save_expired": {
+    "title": "The save window expired",
+    "description": "This save was not applied before its short-lived edit permission expired. Your working text is still available.",
+    "recovery": "Check the current history and save the preserved edits again after refreshing the editable revision."
+  },
+  "skill_manual_controls_unavailable": {
+    "title": "Skill edit controls are unavailable",
+    "description": "The application could not load the current editing permissions and revision bindings. No edit was requested.",
+    "recovery": "Use Retry edit controls to reconnect. You can continue inspecting the selected files."
+  },
+  "skill_manual_comparison_unavailable": {
+    "title": "The publication comparison is unavailable",
+    "description": "The exact registry current revision could not be loaded for review. Nothing was published.",
+    "recovery": "Use Retry comparison. Publish remains disabled until the exact comparison is available."
   }
 }

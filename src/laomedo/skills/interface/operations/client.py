@@ -5,6 +5,8 @@ from laomedo.skills.interface.operations.settings import Settings
 
 from pathlib import Path
 from urllib import request
+from urllib.error import HTTPError
+from laomedo.skills.operations.settings import MANUAL_ERROR_CODES
 from urllib.parse import urlsplit
 import json
 
@@ -22,7 +24,17 @@ def skill_request(action, **body):
         or parsed.path
         or parsed.query
         or parsed.fragment
-        or action not in {"prepare", "apply", "history", "diff", "compare"}
+        or action
+        not in {
+            "prepare",
+            "apply",
+            "history",
+            "diff",
+            "compare",
+            "editor",
+            "save",
+            "publish",
+        }
     ):
         raise ValueError("skill_operation_service_not_configured")
     try:
@@ -45,5 +57,18 @@ def skill_request(action, **body):
         if not isinstance(result, dict):
             raise ValueError()
         return result
+    except HTTPError as exc:
+        if action in {"editor", "save", "publish"}:
+            try:
+                raw = exc.read(1024)
+                code = json.loads(raw).get("error_category")
+            except Exception:
+                code = None
+            raise ValueError(
+                code if code in MANUAL_ERROR_CODES else "skill_manual_unavailable"
+            ) from None
+        raise ValueError("skill_operation_unavailable") from None
     except Exception:
+        if action in {"editor", "save", "publish"}:
+            raise ValueError("skill_manual_unavailable") from None
         raise ValueError("skill_operation_unavailable") from None

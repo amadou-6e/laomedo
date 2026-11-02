@@ -40,3 +40,22 @@ test("grouped results select a line repeatedly, support case and no-match recove
   fireEvent.change(input, { target: { value: "" } });
   expect(screen.getByRole("status")).toHaveTextContent("Search pinned current text files");
 });
+
+test("search folders and files disclose independently and preserve collapse through query changes", () => {
+  render(<SkillSearch files={[file("refs/nested/a.md", "proposal"), file("refs/b.md", "proposal")]} onSelect={jest.fn()} />);
+  const input = screen.getByRole("searchbox");
+  fireEvent.change(input, { target: { value: "proposal" } });
+  const folder = screen.getByRole("button", { name: "Search folder: refs" });
+  const fileGroup = screen.getByRole("button", { name: "Search file: refs/nested/a.md" });
+  expect(fileGroup).toHaveAttribute("aria-expanded", "true");
+  fireEvent.click(fileGroup);
+  expect(screen.getByRole("button", { name: "refs/nested/a.md, line 1", hidden: true })).not.toBeVisible();
+  fireEvent.click(folder);
+  expect(fileGroup).not.toBeVisible();
+  fireEvent.change(input, { target: { value: "prop" } });
+  expect(folder).toHaveAttribute("aria-expanded", "false");
+  fireEvent.click(folder);
+  expect(fileGroup).toHaveAttribute("aria-expanded", "false");
+  fireEvent.click(fileGroup);
+  expect(screen.getByRole("button", { name: "refs/nested/a.md, line 1" })).toBeVisible();
+});

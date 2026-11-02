@@ -1,5 +1,34 @@
 # Langflow Skill files overlay
 
+## Skill workspace controls
+
+The viewer opens exact immutable revisions. Maximize/restore are icon buttons with
+accessible Full page/Restore window names. Markdown files use the actual VS Code
+Seti outline and theme colors; other type icons and Codicon chevrons are locally
+bundled with attribution in `skill-icons-NOTICE.txt`.
+
+Find displays folders, files and matching lines as a collapsible hierarchy.
+Disclosure is independent of file selection and preserved while typing or hiding
+Find; global Open/Collapse all includes the search groups. While editing, Find
+searches the current working text. Historical comparisons remain immutable.
+
+`SkillEditing.tsx` owns the manual working copy, canonical request bindings and
+uncertain-response reconciliation. `SkillPublication.tsx` owns the separate
+canonical-current-to-candidate per-file review. The host defaults manual writes
+to denied; see the Skill operation interface README for explicit local grants.
+Edit buffers several existing text files; Save commit submits all changes with
+one message and creates one history commit. Review publication then Publish
+revision promotes that exact reviewed candidate in the registry. Neither action
+updates graph pins, source files or Git. New-file creation, deletion and binary
+editing are not exposed by this initial manual UI; the underlying proposal
+contract retains its existing atomic additions/deletions support.
+
+Close/discard protects unsaved work; an in-flight or uncertain write keeps its
+identity until Check result reconciles it. Browser unload warns about unsaved
+buffers; crash restoration is unsupported. Failure cards use the shared
+descriptive catalogue. Unit controls support, but do not replace, real browser
+save/publication and failure/recovery acceptance on the tested artifact.
+
 ## Agent activity appearance and node names
 
 The graph selector lists captured executions of the current graph. Labelled

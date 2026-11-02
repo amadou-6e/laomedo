@@ -11,7 +11,7 @@ export type ErrorContext = {
 export type NodeFailure = Description & { diagnostics: Record<string, string> };
 const entries: Record<string, Description> = catalog;
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const operations = new Set(["fresh", "start", "resume", "status", "cancel", "modify", "close"]);
+const operations = new Set(["fresh", "start", "resume", "status", "cancel", "modify", "close", "save", "publish"]);
 const fallback: Description = {
   title: "The node could not confirm completion",
   description: "An unrecognized failure prevented a confirmed result. Its cause has not been established.",

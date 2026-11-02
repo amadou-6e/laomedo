@@ -57,6 +57,33 @@ with unknown original import time, rather than assigned an invented import date.
 
 General registry path/hash/policy/diff functions remain in their defining registry
 modules. HTTP auth/routes/limits belong to skills/interface/operations, and host
-publication belongs outside this feature. Error translation/catalogue coverage and
+Git/source publication belongs outside this feature. Error translation/catalogue coverage and
 real edit/history/diff browser acceptance remain required; internal fixtures are
 not a user-facing demonstration or acceptance result.
+
+## Manual editor and registry publication
+
+`ManualSkillEditor` in `manual.py` is the trusted local viewer's write boundary.
+Its canonical request/state/receipt and host grant models live in `models.py`.
+The closed public failure vocabulary lives in `settings.py`; presentation belongs
+to the shared catalogue. Existing Agent/ordinary operations never promote latest.
+
+| Method | Interface and effect |
+| --- | --- |
+| `editor(skill_id, revision_id)` | Read pinned selection, journal head, canonical current and effective manual grants; never expose tickets or policy contents. |
+| `save(**ManualSkillSave)` | Persist a UUID-bound exact proposal and backend-only ticket before using `SkillOperations.apply`; read an existing result after a lost reply, without bypassing ordinary apply expiry. |
+| `publish(**ManualSkillPublication)` | Require separate publication permission, freeze the cumulative canonical-to-candidate diff under the current policy and CAS canonical latest. Persist the frozen draft before promotion and a confirmation receipt afterward. |
+
+`ManualSkillPermissions` defaults both edit and publish to false. Grants only
+apply to Skills with configured versioned edit policies. The browser cannot
+change either. A manual save records trusted operator/backend provenance; it
+does not claim a separately verified human or Agent. Publication retains the
+candidate's existing history and a separate durable promotion receipt. Replaying
+an identical UUID cannot add a commit; reusing it with different content conflicts.
+The registry's retained promotion log reconciles a lost publication reply even
+after a later edit. `confirmed_at` is the receipt confirmation time, not an
+invented original publication time after crash recovery.
+
+Neither action edits source repositories or existing graph pins. No model runs,
+validation commands or Git operations execute through this interface. Editing
+binary files and crash-persistent browser working copies remain unsupported.
