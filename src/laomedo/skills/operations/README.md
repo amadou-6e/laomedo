@@ -33,7 +33,9 @@ does not promote canonical latest or publish Git commits.
 SkillProposal.from_payload/to_payload and EditorProvenance.from_payload/to_payload
 own dictionary boundaries and validation. FileEdit validates path/content;
 SkillProposal validates unique paths; EditorProvenance validates provenance.
-SkillCommit.to_record, SkillCommitReceipt.to_payload, SkillOperationResult.to_payload
+SkillCommit.from_import/from_registered_revision construct retained import or
+legacy revision registrations; SkillCommit.to_record preserves their hash payload.
+SkillCommitReceipt.to_payload, SkillOperationResult.to_payload
 and SkillComparison.to_payload retain outward shapes. SkillOperationResult's
 serialize_commit/serialize_skill hooks preserve its established nested projections.
 ImportedSkillEditor and SkillFileChange need no behavior beyond canonical Pydantic

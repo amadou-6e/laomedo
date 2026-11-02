@@ -39,7 +39,7 @@ provider-double tests and earlier archived experiments.
 | PR → Agent → same PR.Operation | One original Codex Agent run completed; the full workflow took 19.519 s. The host recorded one confirmed `pr_node_update` effect. An independent GitHub read confirmed the exact title `Original Codex Agent feedback verified`, with body, labels, open state, head commit and base unchanged. |
 | Saved controls across browser restarts | The later independent Edge launch restored the saved actual model and effort selections. This is graph persistence, not acceptance of an external account/session-management product. |
 | Skill history service recovery | The preview initially omitted the operation/history service connection: file inspection worked, but Retry repeated HTTP 400. Connecting the actual service recovered Retry in 307 ms. That first repair exposed a separate bug: the imported root was missing until an edit was prepared. The initial-import correction below addresses that missing entry. |
-| Initial import before editing | At `160f47d`, the actual existing Skill acquired one root explicitly labelled with unknown original import time. A fresh import of the real instruction bundle showed **Initial import** before any edit, with all imported paths and a verified root diff against an empty tree. Its file comparison to the unchanged current revision showed no changes. Refresh and an exact history-service restart retained the same commit IDs. A real outage showed the failure; Retry in that same dialog recovered in 162 ms without duplicating the entry. No Skill edit or graph/model dispatch occurred. |
+| Initial import before editing | At `859079d`, the actual existing Skill retained its root explicitly labelled with unknown original import time. A fresh import of the real instruction bundle showed **Initial import** before any edit, with all imported paths and a verified root diff against an empty tree. Its file comparison to the unchanged current revision showed no changes. Refresh and an exact history-service restart retained the same commit IDs. A real outage showed the failure; Retry in that same dialog recovered in 206 ms without duplicating the entry. No Skill edit or graph/model dispatch occurred. |
 | Cleanup | Native controller and lease cleanup were confirmed. The exact owned container was absent. The scoped write grant was revoked and its private binding cleared. Other sessions were not changed; read-only preview services remained available for owner inspection. |
 
 The real workflow's graph execution was
@@ -63,12 +63,21 @@ effort was not reported; it is not inferred from that selection.
 ![Actual fresh import selected in the Skill viewer, compared with unchanged current contents](initial-import.png)
 
 The initial-import correction uses installed wheel
-`664a12069fab33f16c54a9c160adcc9b740b9ee38378c664381f9aee36a98ab4`
-from `160f47d6cca7dcb1448ec8616c81a2f5aa0f0e35` for the history service and
+`ccd9ccdb5434fa229cce7a110447b97527c89f54afc633f4f1410e33071c4f1d`
+from `859079dfd13e7f55dda56ea75373032a93357fec` for the history service and
 import handling. The app, frontend and unrelated Agent/GitHub services retain
 their previously recorded versions. Frontend code did not change; the actual
 viewer exercised the updated service. The retained journal and empty edit-policy
-map were reused; two import roots were recorded, with no edit tickets.
+map were reused; three import roots were retained across the two validation
+passes, with no edit tickets. Each Skill has exactly one root.
+
+The final installed-wheel Skill suite completed 100 tests with three environmental
+skips. Internal controls additionally cover a legacy canonical promotion before
+the journal existed: its verified ancestry is registered with unknown original
+edit times, and an edit can proceed from its exact current Base Commit. That
+compatibility case is internal regression evidence, not a newly demonstrated
+Agent operation. The earlier `160f47d` installed full suite completed 1127 tests
+with 26 environmental skips; final-head hosted CI is recorded separately.
 
 ## Verification boundaries
 
