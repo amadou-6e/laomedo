@@ -10,9 +10,15 @@
 | navigation-collapsed.png | Same actual viewer after Collapse all | 2026-11-02, `ee2e66d` | Source retained; Open all available |
 | navigation-history.png | Same actual viewer, middle commit compared to current reference file | 2026-11-02, `ee2e66d` | Completed visual diff; actual backend-operator edits, no new Agent run |
 
+| workspace-search.png | Actual pinned two-file Skill, Find expanded and reference source selected | 2026-11-02, `6c473d9` | Real local workspace search; no new Agent run |
+| workspace-full-page.png | Same actual source and query, full-page dialog | 2026-11-02, `6c473d9`, 1600 × 1100 | Full viewport; restore and small viewport verified separately |
+
 The historical image's revision `db60d3f1`, selected base `3d44565e` and commit
 `1e4f984c` match [recorded real evidence](../../../../examples/skill-summary/evidence.json).
 Its source revision was `8bd3f4e59e0b5f63e9329930a8401d6ccde0520e`.
+| workspace-search.png | Actual pinned two-file Skill, Find expanded and reference source selected | 2026-11-02, `6c473d9` | Real local workspace search; no new Agent run |
+| workspace-full-page.png | Same actual source and query, full-page dialog | 2026-11-02, `6c473d9`, 1600 × 1100 | Full viewport; restore and small viewport verified separately |
+
 The historical image is copied without editing its pixels. Fresh captures use
 headless Edge and no graph execution. Mockups are visibly labelled and do not
 establish integration acceptance.

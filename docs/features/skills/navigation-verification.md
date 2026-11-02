@@ -1,5 +1,8 @@
 # Skill navigation and history verification
 
+This capture predates workspace Find and full-page controls. See the
+[latest viewer workflow and verification](workspace-viewer.md).
+
 Recorded 2026-11-02 against implementation `ee2e66dc3537a218e1955fd7f490ebf87df6c1d9`:
 Windows, headless Edge at 1600 × 1100, with an additional 1190 × 700 scroll check.
 App and frontend use that source; exact wheel SHA256 is

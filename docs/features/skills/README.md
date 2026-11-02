@@ -10,6 +10,9 @@ and clearly labelled proposals.
 [Current navigation and three-entry history verification](navigation-verification.md)
 records the simplified menu, nested files and real per-file comparisons.
 
+[Workspace Find and full-page viewing](workspace-viewer.md) explains cross-file
+search, result navigation and the latest real normal/recovery checks.
+
 Skills provide versioned instruction files and controlled multi-file editing.
 
 - [Architecture](architecture.md): component and package ownership.
