@@ -1,11 +1,16 @@
 """Authenticated app boundary, safe errors and exact manual payload forwarding."""
 
 import unittest
+from importlib.util import find_spec
 from unittest.mock import patch
 
 
 class ManualSkillRouteTests(unittest.TestCase):
     def setUp(self):
+        if find_spec("fastapi") is None:
+            self.skipTest(
+                "Optional FastAPI boundary is exercised in the pinned Langflow environment"
+            )
         from fastapi import FastAPI, Header, HTTPException
         from fastapi.testclient import TestClient
         from laomedo.integrations.langflow.skill_editing import (
