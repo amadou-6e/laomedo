@@ -1,6 +1,8 @@
 # GitHub workflow verification
 
 Recorded on 2026-11-02 for [PR #248](https://github.com/amadou-6e/laomedo/pull/248).
+These are historical results for source `b41fd923` in PR #248, not fresh acceptance of PR #249. The independent cut's current checks are in [isolated-cut.md](isolated-cut.md).
+
 These are real local browser and GitHub results, separate from the internal
 provider-double tests and earlier archived experiments.
 
@@ -51,6 +53,13 @@ effort was not reported; it is not inferred from that selection.
 ![Actual updated PR viewer](pr-viewer.png)
 
 ![Actual graph with PR feedback and independent pinned Skill](graph.png)
+
+Graph capture provenance: restored unchanged from commit
+`e2eb20c891e32abfec924efe38ffac8d0174c360` (earlier PR #248),
+1600 ? 1100, 55% canvas zoom, original `b41fd923` product/frontend. Icons and
+all node outputs are visible. This saved-graph view uses a different viewport
+zoom from the maintained builder's initial 0.6; it is not a new capture of PR #249
+or a new operation run.
 
 ![Actual refused PR operation with safe technical details](grant-refusal.png)
 
