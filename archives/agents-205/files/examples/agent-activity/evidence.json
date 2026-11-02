@@ -1,0 +1,175 @@
+{
+  "schema_version": "laomedo.graph-agent-acceptance.v1",
+  "observed_at": "2026-10-15",
+  "source_commit": "9f85367",
+  "scope": "real local original Docker runner and graph-wide Agents viewer; no GitHub writes",
+  "flow_id": "0f6013d0-7357-4a9c-8b8e-1441bf697c80",
+  "graph_execution_id": "a7abc7a4-7698-43fa-afe2-9f4c6ceabfd5",
+  "image_id": "sha256:73ad6bbdfa6a8c14ecb50cf4276c013184b0befa75bb7facdab38977e37bd738",
+  "cli_version": "0.159.2",
+  "invocations": [
+    {
+      "id": "d1a9a32d-7d38-47d8-9432-8e3a6897a73d",
+      "node": "Codex-follow-up",
+      "execution": "a7abc7a4-7698-43fa-afe2-9f4c6ceabfd5",
+      "runner_run_id": "1d5da818-23e4-4001-8b41-57b2769c18ae",
+      "native_session": "01a13fc6-249b-7023-959e-68ec71298ad2",
+      "started": "2026-10-15T13:35:29.904721+00:00",
+      "ended": "2026-10-15T13:35:46.722783+00:00",
+      "status": "completed",
+      "stream_state": "complete",
+      "turn_count": 1,
+      "item_types": [
+        "userMessage",
+        "agentMessage"
+      ],
+      "usage": {
+        "inputTokens": 13744,
+        "cachedInputTokens": 11008,
+        "cacheWriteInputTokens": 0,
+        "outputTokens": 24,
+        "reasoningOutputTokens": 0,
+        "totalTokens": 13768
+      },
+      "cost": {
+        "currency": "USD",
+        "catalog_date": "2026-10-15",
+        "model": "gpt-6-luna",
+        "basis": "API-equivalent token estimate; assumes Standard tier, no regional premium; excludes tool fees; not a subscription charge",
+        "source": "https://developers.openai.com/api/docs/models/gpt-6-luna",
+        "amount": 0.00039568,
+        "reason": null,
+        "per_thread": {
+          "01a13fc6-249b-7023-959e-68ec71298ad2": {
+            "currency": "USD",
+            "catalog_date": "2026-10-15",
+            "model": "gpt-6-luna",
+            "basis": "API-equivalent token estimate; assumes Standard tier, no regional premium; excludes tool fees; not a subscription charge",
+            "source": "https://developers.openai.com/api/docs/models/gpt-6-luna",
+            "amount": 0.00039568,
+            "reason": null
+          }
+        }
+      },
+      "telemetry_records": 413
+    },
+    {
+      "id": "c2e9cf9e-d075-4edd-9db0-e755505e5ffd",
+      "node": "Codex-parallel-read",
+      "execution": "a7abc7a4-7698-43fa-afe2-9f4c6ceabfd5",
+      "runner_run_id": "68686d5f-7f27-4f01-a253-9f387f664fa9",
+      "native_session": "01a13fc6-227a-7d60-b6da-95f2124f80db",
+      "started": "2026-10-15T13:35:07.943960+00:00",
+      "ended": "2026-10-15T13:36:11.239439+00:00",
+      "status": "completed",
+      "stream_state": "complete",
+      "turn_count": 2,
+      "item_types": [
+        "userMessage",
+        "agentMessage",
+        "commandExecution",
+        "subAgentActivity",
+        "collabAgentToolCall",
+        "agentMessage",
+        "subAgentActivity",
+        "agentMessage"
+      ],
+      "usage": {
+        "inputTokens": 70604,
+        "cachedInputTokens": 48128,
+        "cacheWriteInputTokens": 0,
+        "outputTokens": 253,
+        "reasoningOutputTokens": 0,
+        "totalTokens": 70857
+      },
+      "cost": {
+        "currency": "USD",
+        "catalog_date": "2026-10-15",
+        "model": "gpt-6-luna",
+        "basis": "API-equivalent token estimate; assumes Standard tier, no regional premium; excludes tool fees; not a subscription charge",
+        "source": "https://developers.openai.com/api/docs/models/gpt-6-luna",
+        "amount": 0.00285538,
+        "reason": null,
+        "per_thread": {
+          "01a13fc6-b51e-7061-99ff-9ec29a32e0d5": {
+            "currency": "USD",
+            "catalog_date": "2026-10-15",
+            "model": "gpt-6-luna",
+            "basis": "API-equivalent token estimate; assumes Standard tier, no regional premium; excludes tool fees; not a subscription charge",
+            "source": "https://developers.openai.com/api/docs/models/gpt-6-luna",
+            "amount": 0.0015174,
+            "reason": null
+          },
+          "01a13fc6-227a-7d60-b6da-95f2124f80db": {
+            "currency": "USD",
+            "catalog_date": "2026-10-15",
+            "model": "gpt-6-luna",
+            "basis": "API-equivalent token estimate; assumes Standard tier, no regional premium; excludes tool fees; not a subscription charge",
+            "source": "https://developers.openai.com/api/docs/models/gpt-6-luna",
+            "amount": 0.00133798,
+            "reason": null
+          }
+        }
+      },
+      "telemetry_records": 1618
+    },
+    {
+      "id": "00dda6fc-adde-4963-bdc0-cf8a821858e8",
+      "node": "Codex-read-project",
+      "execution": "a7abc7a4-7698-43fa-afe2-9f4c6ceabfd5",
+      "runner_run_id": "1d5da818-23e4-4001-8b41-57b2769c18ae",
+      "native_session": "01a13fc6-249b-7023-959e-68ec71298ad2",
+      "started": "2026-10-15T13:35:07.933543+00:00",
+      "ended": "2026-10-15T13:35:29.616204+00:00",
+      "status": "completed",
+      "stream_state": "complete",
+      "turn_count": 1,
+      "item_types": [
+        "userMessage",
+        "agentMessage",
+        "commandExecution",
+        "agentMessage"
+      ],
+      "usage": {
+        "inputTokens": 27522,
+        "cachedInputTokens": 26112,
+        "cacheWriteInputTokens": 0,
+        "outputTokens": 132,
+        "reasoningOutputTokens": 0,
+        "totalTokens": 27654
+      },
+      "cost": {
+        "currency": "USD",
+        "catalog_date": "2026-10-15",
+        "model": "gpt-6-luna",
+        "basis": "API-equivalent token estimate; assumes Standard tier, no regional premium; excludes tool fees; not a subscription charge",
+        "source": "https://developers.openai.com/api/docs/models/gpt-6-luna",
+        "amount": 0.00046812,
+        "reason": null,
+        "per_thread": {
+          "01a13fc6-249b-7023-959e-68ec71298ad2": {
+            "currency": "USD",
+            "catalog_date": "2026-10-15",
+            "model": "gpt-6-luna",
+            "basis": "API-equivalent token estimate; assumes Standard tier, no regional premium; excludes tool fees; not a subscription charge",
+            "source": "https://developers.openai.com/api/docs/models/gpt-6-luna",
+            "amount": 0.00046812,
+            "reason": null
+          }
+        }
+      },
+      "telemetry_records": 1249
+    }
+  ],
+  "total_api_equivalent_usd": 0.00371918,
+  "browser": "real Edge, no JavaScript errors, timeline/turns/child/messages/tools/usage rendered; no invalid-edge warning after visible Prior Run correction",
+  "recovered_failure": "Initial verification captured a downstream resume in the preceding invocation. Frozen dispatch cursors and durable runner attempt boundaries corrected it. Initial QA receipts are not acceptance.",
+  "limits": [
+    "API equivalent is not actual subscription billing",
+    "OTLP exporter flush completeness unverified",
+    "OTLP metrics and other providers not exercised",
+    "Hard crash recovery and deletion UI not implemented",
+    "Historical Docker image parity not claimed"
+  ],
+  "private_evidence": "Raw native events, task messages, OTLP payloads and credentials remain in private host state outside Git."
+}

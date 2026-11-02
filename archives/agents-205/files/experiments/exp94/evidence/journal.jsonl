@@ -1,0 +1,30 @@
+{"at_utc": "2026-10-06T09:04:11.796134+00:00", "kind": "server_ready", "monotonic": 357653.078, "port": 8769, "run_id": null}
+{"at_utc": "2026-10-06T09:06:05.899546+00:00", "case": "A", "duplicate": false, "kind": "post_received", "monotonic": 357767.187, "run_id": "693e76a7-147f-4492-a3f2-eb425786d444"}
+{"at_utc": "2026-10-06T09:06:05.900238+00:00", "kind": "ack_held", "monotonic": 357767.187, "run_id": "693e76a7-147f-4492-a3f2-eb425786d444"}
+{"at_utc": "2026-10-06T09:06:06.138946+00:00", "found": true, "kind": "request_lookup", "monotonic": 357767.421, "run_id": "693e76a7-147f-4492-a3f2-eb425786d444"}
+{"at_utc": "2026-10-06T09:06:06.148199+00:00", "kind": "cancel_received", "known": true, "monotonic": 357767.437, "run_id": "693e76a7-147f-4492-a3f2-eb425786d444"}
+{"at_utc": "2026-10-06T09:06:06.155936+00:00", "found": true, "kind": "status_read", "monotonic": 357767.437, "run_id": "693e76a7-147f-4492-a3f2-eb425786d444"}
+{"at_utc": "2026-10-06T09:06:08.901568+00:00", "case": "A", "kind": "ack_sent", "monotonic": 357770.187, "run_id": "693e76a7-147f-4492-a3f2-eb425786d444", "status": "cancelled"}
+{"at_utc": "2026-10-06T09:06:38.412842+00:00", "case": "B", "duplicate": false, "kind": "post_received", "monotonic": 357799.703, "run_id": "8e00e2f6-b7de-4393-bd75-8e7723a2bf94"}
+{"at_utc": "2026-10-06T09:06:38.413901+00:00", "kind": "synthetic_wait_started", "monotonic": 357799.703, "run_id": "8e00e2f6-b7de-4393-bd75-8e7723a2bf94"}
+{"at_utc": "2026-10-06T09:06:38.414958+00:00", "case": "B", "kind": "ack_sent", "monotonic": 357799.703, "run_id": "8e00e2f6-b7de-4393-bd75-8e7723a2bf94", "status": "running"}
+{"at_utc": "2026-10-06T09:06:38.579853+00:00", "found": true, "kind": "request_lookup", "monotonic": 357799.859, "run_id": "8e00e2f6-b7de-4393-bd75-8e7723a2bf94"}
+{"at_utc": "2026-10-06T09:06:38.588470+00:00", "kind": "cancel_received", "known": true, "monotonic": 357799.875, "run_id": "8e00e2f6-b7de-4393-bd75-8e7723a2bf94"}
+{"at_utc": "2026-10-06T09:06:38.596322+00:00", "found": true, "kind": "status_read", "monotonic": 357799.89, "run_id": "8e00e2f6-b7de-4393-bd75-8e7723a2bf94"}
+{"at_utc": "2026-10-06T09:06:38.617941+00:00", "found": true, "kind": "status_read", "monotonic": 357799.906, "run_id": "8e00e2f6-b7de-4393-bd75-8e7723a2bf94"}
+{"at_utc": "2026-10-06T09:07:07.193888+00:00", "case": "CONTROL", "duplicate": false, "kind": "post_received", "monotonic": 357828.484, "run_id": "536ba808-20f1-4930-a0bd-bd0425914254"}
+{"at_utc": "2026-10-06T09:07:07.194949+00:00", "case": "CONTROL", "kind": "ack_sent", "monotonic": 357828.484, "run_id": "536ba808-20f1-4930-a0bd-bd0425914254", "status": "running"}
+{"at_utc": "2026-10-06T09:07:07.398011+00:00", "found": true, "kind": "status_read", "monotonic": 357828.687, "run_id": "536ba808-20f1-4930-a0bd-bd0425914254"}
+{"at_utc": "2026-10-06T09:07:07.602912+00:00", "found": true, "kind": "status_read", "monotonic": 357828.89, "run_id": "536ba808-20f1-4930-a0bd-bd0425914254"}
+{"at_utc": "2026-10-06T09:07:07.807753+00:00", "found": true, "kind": "status_read", "monotonic": 357829.093, "run_id": "536ba808-20f1-4930-a0bd-bd0425914254"}
+{"at_utc": "2026-10-06T09:07:08.013051+00:00", "found": true, "kind": "status_read", "monotonic": 357829.296, "run_id": "536ba808-20f1-4930-a0bd-bd0425914254"}
+{"at_utc": "2026-10-06T09:07:08.194851+00:00", "kind": "synthetic_effect", "monotonic": 357829.484, "run_id": "536ba808-20f1-4930-a0bd-bd0425914254"}
+{"at_utc": "2026-10-06T09:07:08.216920+00:00", "found": true, "kind": "status_read", "monotonic": 357829.5, "run_id": "536ba808-20f1-4930-a0bd-bd0425914254"}
+{"at_utc": "2026-10-06T09:13:28.098203+00:00", "case": "CONTROL", "duplicate": false, "kind": "post_received", "monotonic": 358209.39, "run_id": "d5c19405-1280-4cc5-8c6d-934ed18bbbff"}
+{"at_utc": "2026-10-06T09:13:28.099263+00:00", "case": "CONTROL", "kind": "ack_sent", "monotonic": 358209.39, "run_id": "d5c19405-1280-4cc5-8c6d-934ed18bbbff", "status": "running"}
+{"at_utc": "2026-10-06T09:13:28.303823+00:00", "found": true, "kind": "status_read", "monotonic": 358209.593, "run_id": "d5c19405-1280-4cc5-8c6d-934ed18bbbff"}
+{"at_utc": "2026-10-06T09:13:28.508914+00:00", "found": true, "kind": "status_read", "monotonic": 358209.796, "run_id": "d5c19405-1280-4cc5-8c6d-934ed18bbbff"}
+{"at_utc": "2026-10-06T09:13:28.712828+00:00", "found": true, "kind": "status_read", "monotonic": 358210.0, "run_id": "d5c19405-1280-4cc5-8c6d-934ed18bbbff"}
+{"at_utc": "2026-10-06T09:13:28.916606+00:00", "found": true, "kind": "status_read", "monotonic": 358210.203, "run_id": "d5c19405-1280-4cc5-8c6d-934ed18bbbff"}
+{"at_utc": "2026-10-06T09:13:29.099051+00:00", "kind": "synthetic_effect", "monotonic": 358210.39, "run_id": "d5c19405-1280-4cc5-8c6d-934ed18bbbff"}
+{"at_utc": "2026-10-06T09:13:29.121144+00:00", "found": true, "kind": "status_read", "monotonic": 358210.406, "run_id": "d5c19405-1280-4cc5-8c6d-934ed18bbbff"}

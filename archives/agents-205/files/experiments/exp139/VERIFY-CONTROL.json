@@ -1,0 +1,13 @@
+{
+  "binding": "synthetic_active_copy_of_retained_capture",
+  "cleanup_verified": true,
+  "commit": "232bb2df1f929938932f4d4c894a2ea4376dda0e",
+  "container_status": "verified",
+  "image_id": "sha256:eceda79a349c46a8afd6fb271e92b979f872ca67cbdf228fde6dee0856481e78",
+  "limits_verified": true,
+  "model_turns": 0,
+  "provider_writes": 0,
+  "real_login": false,
+  "status": "verified",
+  "success_marker_seen": true
+}

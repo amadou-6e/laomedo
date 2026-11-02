@@ -1,0 +1,38 @@
+{
+  "github_tokens": 0,
+  "kind": "synthetic_separate_process_expiry",
+  "last_renewal_to_kill_seconds": 0.036,
+  "lease_exitcode": 1,
+  "lease_pid": 27860,
+  "mediator_alive_after_kill": true,
+  "mediator_pid": 26152,
+  "model_turns": 0,
+  "observations": [
+    {
+      "a_status": 200,
+      "b_status": 200,
+      "seconds_after_kill": 0.127
+    },
+    {
+      "a_status": 200,
+      "b_status": 200,
+      "seconds_after_kill": 15.001
+    },
+    {
+      "a_status": 200,
+      "b_status": 200,
+      "seconds_after_kill": 30.0
+    },
+    {
+      "a_status": 200,
+      "b_status": 200,
+      "seconds_after_kill": 45.0
+    },
+    {
+      "a_status": 403,
+      "b_status": 403,
+      "seconds_after_kill": 60.001
+    }
+  ],
+  "provider_call_count": 8
+}

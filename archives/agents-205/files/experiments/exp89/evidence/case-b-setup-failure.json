@@ -1,0 +1,10 @@
+{
+  "case": "B",
+  "probe_started_utc": "2026-10-05T18:55:05.278Z",
+  "browser_requests": [],
+  "runner_baseline": 1,
+  "flow_id": "64c2a2ba-802a-4415-b7f9-1291316efb12",
+  "probe_error": "locator.waitFor: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByTestId('input-chat-playground') to be visible\u001b[22m\n\u001b[2m    57 × locator resolved to hidden <textarea rows=\"1\" autocomplete=\"off\" data-lpignore=\"true\" data-bwignore=\"true\" d",
+  "probe_finished_utc": "2026-10-05T18:55:36.767Z",
+  "runner_events": []
+}

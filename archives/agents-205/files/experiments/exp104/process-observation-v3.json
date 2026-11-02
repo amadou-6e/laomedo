@@ -1,0 +1,103 @@
+{
+  "github_tokens": 0,
+  "kill_completed_monotonic": 379834.406,
+  "kill_started_monotonic": 379834.281,
+  "kind": "synthetic_separate_process_expiry",
+  "last_renewal_to_kill_wall_seconds": 0.152,
+  "lease_a_exitcode": 1,
+  "lease_a_pid": 9608,
+  "lease_b_alive_after_a_kill": true,
+  "lease_b_pid": 17296,
+  "mediator_alive_after_kill": true,
+  "mediator_pid": 15420,
+  "model_turns": 0,
+  "observations": [
+    {
+      "a_status": 200,
+      "at_monotonic": 379834.406,
+      "b_status": 200,
+      "seconds_after_kill": 0.0
+    },
+    {
+      "a_status": 200,
+      "at_monotonic": 379849.406,
+      "b_status": 200,
+      "seconds_after_kill": 15.0
+    },
+    {
+      "a_status": 200,
+      "at_monotonic": 379864.406,
+      "b_status": 200,
+      "seconds_after_kill": 30.0
+    },
+    {
+      "a_status": 200,
+      "at_monotonic": 379879.406,
+      "b_status": 200,
+      "seconds_after_kill": 45.0
+    },
+    {
+      "a_status": 403,
+      "at_monotonic": 379894.406,
+      "b_status": 200,
+      "seconds_after_kill": 60.0
+    }
+  ],
+  "provider_call_count": 9,
+  "provider_calls": [
+    {
+      "at_monotonic": 379834.453,
+      "at_wall": 1791299633.1669319,
+      "operation": "pr_update",
+      "repository": "example/disposable"
+    },
+    {
+      "at_monotonic": 379834.468,
+      "at_wall": 1791299633.1739311,
+      "operation": "pr_update",
+      "repository": "example/disposable"
+    },
+    {
+      "at_monotonic": 379849.437,
+      "at_wall": 1791299648.1481488,
+      "operation": "pr_update",
+      "repository": "example/disposable"
+    },
+    {
+      "at_monotonic": 379849.437,
+      "at_wall": 1791299648.1559854,
+      "operation": "pr_update",
+      "repository": "example/disposable"
+    },
+    {
+      "at_monotonic": 379864.421,
+      "at_wall": 1791299663.1299722,
+      "operation": "pr_update",
+      "repository": "example/disposable"
+    },
+    {
+      "at_monotonic": 379864.437,
+      "at_wall": 1791299663.1499815,
+      "operation": "pr_update",
+      "repository": "example/disposable"
+    },
+    {
+      "at_monotonic": 379879.406,
+      "at_wall": 1791299678.1175134,
+      "operation": "pr_update",
+      "repository": "example/disposable"
+    },
+    {
+      "at_monotonic": 379879.421,
+      "at_wall": 1791299678.1360369,
+      "operation": "pr_update",
+      "repository": "example/disposable"
+    },
+    {
+      "at_monotonic": 379894.421,
+      "at_wall": 1791299693.1304157,
+      "operation": "pr_update",
+      "repository": "example/disposable"
+    }
+  ]
+}

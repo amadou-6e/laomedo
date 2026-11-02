@@ -1,0 +1,54 @@
+{
+  "cases": {
+    "positive": {
+      "baseline": "2330db6d44d643183e26ba0691388f5271577055",
+      "baseline_sha256": "fefa32b210de34f3d779d7fc3980bfaffc46f641298b87bf9acac55f0d64de71",
+      "commit": "75eb2621b22cceeaef2801b5357a676dadc5e8f7",
+      "container_present_after": [
+        false
+      ],
+      "create_count": 1,
+      "result": {
+        "attempt_id": "attempt-positive",
+        "baseline": "2330db6d44d643183e26ba0691388f5271577055",
+        "baseline_bundle_sha256": "fefa32b210de34f3d779d7fc3980bfaffc46f641298b87bf9acac55f0d64de71",
+        "commit": "75eb2621b22cceeaef2801b5357a676dadc5e8f7",
+        "container": {
+          "cleanup_verified": true,
+          "elapsed_seconds": 0.813,
+          "exit_code": 0,
+          "limits_verified": true,
+          "output_bytes": null,
+          "output_sha256": null,
+          "stage_markers": [],
+          "status": "output_unavailable"
+        },
+        "image_id": "sha256:eceda79a349c46a8afd6fb271e92b979f872ca67cbdf228fde6dee0856481e78",
+        "policy_approved": false,
+        "run_id": "run-positive",
+        "source_bundle_sha256": "72f2fcfe168f6e68f7a13522a7484d5cfd96bf28da6506112a9989a79e438a3b",
+        "status": "failed"
+      },
+      "source_sha256": "72f2fcfe168f6e68f7a13522a7484d5cfd96bf28da6506112a9989a79e438a3b"
+    },
+    "wrong_commit": {
+      "new_create_count": 0,
+      "result": "candidate_commit_mismatch",
+      "verified_output_exists": false
+    }
+  },
+  "finished_at_unix": 1791549972.3096352,
+  "identity": "exp100-s7-20261009-a",
+  "image_id": "sha256:eceda79a349c46a8afd6fb271e92b979f872ca67cbdf228fde6dee0856481e78",
+  "model_turns": 0,
+  "probe_sha256": "4c87e2f399384b7570dec1c11fe436f7c1f7ca3e66b983b9b50de3539150ca42",
+  "provider_calls": 0,
+  "source_revision": "f57a9157397b7657b98f4551b876251e009db092",
+  "source_sha256": {
+    "laomedo/bundle_ingest.py": "652b9e8a6889f3ccbd9d2cf41bc7f9201ce524ee79e220eff87cb306965e8a72",
+    "laomedo/bundle_stage.py": "f8f524f2d41d0adf262fa81937f43ba1fba89fbed7b3ec037c106e173ba8ffb5",
+    "laomedo/resources/bundle_stage.sh": "5a7c32be96594c5a5ee3341f2870e85d83673860ec515996928e6badfb4368f5"
+  },
+  "started_at_unix": 1791549969.8364098,
+  "status": "failed"
+}

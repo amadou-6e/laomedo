@@ -1,0 +1,206 @@
+{
+  "active_github_grants": 0,
+  "amendments": [
+    "AMENDMENT-03",
+    "AMENDMENT-04"
+  ],
+  "blockers": [
+    "login_shell_drops_mediated_helper_path",
+    "sandbox_blocks_mediator_dns"
+  ],
+  "draft_pr": null,
+  "execution_source": "fc44d7edfb77519b4f4c0d8ef589606d424a232f",
+  "experiment": "EXP-139",
+  "historical_observation": "OBSERVATION.json",
+  "ledger": {
+    "attempted_turns": 4,
+    "max_authorized_turns": 4
+  },
+  "manifest_sha256": "3554dad38921b21a1c695faa80897baf200adcf5bf4790e959f8cd2813a068d0",
+  "preserved_no_turn_startup_run": "7391913c-318f-4317-8c68-fda10b84769d",
+  "report_sha256": "3de179af048ab7823ab1a088459309e802b5a0253263718a8ce33f911eb3a49b",
+  "result": "blocked_no_go",
+  "runner_listening": false,
+  "runs": [
+    {
+      "attempt_finished": true,
+      "case": "success",
+      "cleanup_verified": true,
+      "closure": {
+        "item_count": 13,
+        "reason": "closed",
+        "turn_count": 1,
+        "version": 1
+      },
+      "commands": [
+        {
+          "exit_code": 0,
+          "missing_remote_helper": false
+        },
+        {
+          "exit_code": 127,
+          "missing_remote_helper": false
+        },
+        {
+          "exit_code": 0,
+          "missing_remote_helper": false
+        },
+        {
+          "exit_code": 128,
+          "missing_remote_helper": true
+        }
+      ],
+      "completion_basis": "native_trace_closure",
+      "controller_cleanup": "confirmed",
+      "error_category": null,
+      "evidence_complete": true,
+      "exact_report_bytes": true,
+      "github_scope_present": true,
+      "graph_result": [
+        {
+          "outcomes": [
+            {
+              "contract_status": "accepted",
+              "destination": "failure"
+            }
+          ]
+        }
+      ],
+      "lease": {
+        "cleanup_verified": true,
+        "supervisor": "lease"
+      },
+      "precheck": {
+        "call_count": 3,
+        "installed": true
+      },
+      "precheck_recomputed_from_bound_calls": [
+        {
+          "contract_status": "rejected",
+          "error_codes": [
+            "required"
+          ]
+        },
+        {
+          "contract_status": "accepted",
+          "error_codes": []
+        },
+        {
+          "contract_status": "accepted",
+          "error_codes": []
+        }
+      ],
+      "requirements_revision": "sha256:8dff79caed45056d725eb1f89c8d14c48c4bf1450ffa9ed0c105061327abac07",
+      "run_id": "1f38d65e-ab64-419a-a5dd-f2ac04be4037",
+      "snapshot_ready": true,
+      "status": "completed",
+      "task_outcome": "failure",
+      "thread_id": "01a12cc2-847d-77b1-a6f8-551814ebc850",
+      "turn_count": 1
+    },
+    {
+      "attempt_finished": true,
+      "case": "rejection",
+      "cleanup_verified": true,
+      "closure": {
+        "item_count": 4,
+        "reason": "closed",
+        "turn_count": 1,
+        "version": 1
+      },
+      "commands": [],
+      "completion_basis": "native_trace_closure",
+      "controller_cleanup": "confirmed",
+      "error_category": null,
+      "evidence_complete": true,
+      "exact_report_bytes": false,
+      "github_scope_present": false,
+      "graph_result": [
+        {
+          "outcomes": [
+            {
+              "contract_status": "rejected",
+              "destination": "rejection"
+            }
+          ]
+        }
+      ],
+      "lease": {
+        "cleanup_verified": true,
+        "supervisor": "nonpublishing-lease"
+      },
+      "precheck": {
+        "call_count": 1,
+        "installed": true
+      },
+      "precheck_recomputed_from_bound_calls": [
+        {
+          "contract_status": "accepted",
+          "error_codes": []
+        }
+      ],
+      "requirements_revision": "sha256:8dff79caed45056d725eb1f89c8d14c48c4bf1450ffa9ed0c105061327abac07",
+      "run_id": "e041e18f-b10f-49e8-9d8b-aac232859ccb",
+      "snapshot_ready": true,
+      "status": "completed",
+      "task_outcome": "success",
+      "thread_id": "01a12cc7-5fc1-7a01-ac42-5f313e36edd6",
+      "turn_count": 1
+    },
+    {
+      "attempt_finished": true,
+      "case": "failure",
+      "cleanup_verified": true,
+      "closure": {
+        "item_count": 4,
+        "reason": "closed",
+        "turn_count": 1,
+        "version": 1
+      },
+      "commands": [],
+      "completion_basis": "native_trace_closure",
+      "controller_cleanup": "confirmed",
+      "error_category": null,
+      "evidence_complete": true,
+      "exact_report_bytes": false,
+      "github_scope_present": false,
+      "graph_result": [
+        {
+          "outcomes": [
+            {
+              "contract_status": "accepted",
+              "destination": "failure"
+            }
+          ]
+        }
+      ],
+      "lease": {
+        "cleanup_verified": true,
+        "supervisor": "nonpublishing-lease"
+      },
+      "precheck": {
+        "call_count": 1,
+        "installed": true
+      },
+      "precheck_recomputed_from_bound_calls": [
+        {
+          "contract_status": "accepted",
+          "error_codes": []
+        }
+      ],
+      "requirements_revision": "sha256:8dff79caed45056d725eb1f89c8d14c48c4bf1450ffa9ed0c105061327abac07",
+      "run_id": "f4bd61f7-d622-4efe-9333-54f0a3fc2cee",
+      "snapshot_ready": true,
+      "status": "completed",
+      "task_outcome": "failure",
+      "thread_id": "01a12cc6-cc21-79a0-aecd-3adb47d1013c",
+      "turn_count": 1
+    }
+  ],
+  "scope": "bounded_single_user_local_only",
+  "unverified": [
+    "live_success_publication",
+    "published_report_readback"
+  ],
+  "write_attempts": []
+}

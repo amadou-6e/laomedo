@@ -1,0 +1,46 @@
+{
+  "case": "CONTROL",
+  "probe_started_utc": "2026-10-05T18:57:51.462Z",
+  "browser_requests": [],
+  "runner_baseline": 8,
+  "flow_id": "33784376-4f1e-4145-ae2d-4188feeb6f1f",
+  "send_clicked_utc": "2026-10-05T18:57:54.386Z",
+  "target_event": {
+    "kind": "response_sent",
+    "run_id": "f083a73d-46ef-4521-bd99-1edf8529ecd4",
+    "at_utc": "2026-10-05T18:57:54.977047+00:00"
+  },
+  "buttons_at_target": [
+    {
+      "text": "Stop",
+      "title": "",
+      "aria": "",
+      "testId": "stop_building_button",
+      "disabled": false,
+      "visible": true
+    }
+  ],
+  "stop_control": null,
+  "buttons_after_wait": [],
+  "probe_finished_utc": "2026-10-05T18:58:03.679Z",
+  "runner_events": [
+    {
+      "kind": "post_received",
+      "run_id": "f083a73d-46ef-4521-bd99-1edf8529ecd4",
+      "at_utc": "2026-10-05T18:57:54.975974+00:00",
+      "case": "CONTROL",
+      "operation": "fresh"
+    },
+    {
+      "kind": "synthetic_effect",
+      "run_id": "f083a73d-46ef-4521-bd99-1edf8529ecd4",
+      "at_utc": "2026-10-05T18:57:54.976501+00:00"
+    },
+    {
+      "kind": "response_sent",
+      "run_id": "f083a73d-46ef-4521-bd99-1edf8529ecd4",
+      "at_utc": "2026-10-05T18:57:54.977047+00:00",
+      "status": "completed"
+    }
+  ]
+}

@@ -1,0 +1,95 @@
+{
+  "failure_code": "a_push_not_confirmed_no_retry",
+  "failure_type": "RuntimeError",
+  "plan": {
+    "baseline": "1f1a505f2fbd31993a7946924a9bec5a27bb15c1",
+    "branches": [
+      "exp104-s3-20261007-01-a",
+      "exp104-s3-20261007-01-b",
+      "exp104-s3-20261007-01-c"
+    ],
+    "code_sha": "aedeef4a29b4e948b14d7d7580972d4ecdb39858",
+    "commit": "6e00462cbfacee3b58d67af8da6c5037d7879106",
+    "connection_id": "exp104-s3-selected-gh",
+    "diagnostic": "exp104-s3-20261007-01",
+    "generation": 1,
+    "image": "sha256:bb8009c87ab69e751a1dd2c6c7f8abaae3d9fce8e072802d4a23c95594d16d84",
+    "preflight_wall": 1791381907.1354997,
+    "repository": "ga84jog/laomedo-exp104-disposable-20261007",
+    "repository_id": 1408647759,
+    "run_ids": [
+      "exp104-s3-20261007-01-run-a",
+      "exp104-s3-20261007-01-run-b",
+      "exp104-s3-20261007-01-run-c"
+    ],
+    "scope_confirmation": "selected_repository_only",
+    "token_key": "GH_LAOMEDO",
+    "workflow_control_commit": "ac193e399ef0efd785dcbdff040a0e61ea007c31"
+  },
+  "progress": {
+    "events": [
+      {
+        "error": "push_branch_denied",
+        "http": 403,
+        "name": "wrong_branch_control"
+      },
+      {
+        "at_monotonic": 462106.406,
+        "http": 200,
+        "name": "a_push",
+        "state": "unknown"
+      }
+    ],
+    "final_container_cleanup": {
+      "laomedo-exp104-s3-20261007-01-a": {
+        "detail": "removed",
+        "state_after": "absent",
+        "verified": true
+      },
+      "laomedo-exp104-s3-20261007-01-b": {
+        "detail": "removed",
+        "state_after": "absent",
+        "verified": true
+      },
+      "laomedo-exp104-s3-20261007-01-c": {
+        "detail": "absent",
+        "state_after": "absent",
+        "verified": true
+      }
+    },
+    "plan": {
+      "baseline": "1f1a505f2fbd31993a7946924a9bec5a27bb15c1",
+      "branches": [
+        "exp104-s3-20261007-01-a",
+        "exp104-s3-20261007-01-b",
+        "exp104-s3-20261007-01-c"
+      ],
+      "code_sha": "aedeef4a29b4e948b14d7d7580972d4ecdb39858",
+      "commit": "6e00462cbfacee3b58d67af8da6c5037d7879106",
+      "connection_id": "exp104-s3-selected-gh",
+      "diagnostic": "exp104-s3-20261007-01",
+      "generation": 1,
+      "image": "sha256:bb8009c87ab69e751a1dd2c6c7f8abaae3d9fce8e072802d4a23c95594d16d84",
+      "preflight_wall": 1791381907.1354997,
+      "repository": "ga84jog/laomedo-exp104-disposable-20261007",
+      "repository_id": 1408647759,
+      "run_ids": [
+        "exp104-s3-20261007-01-run-a",
+        "exp104-s3-20261007-01-run-b",
+        "exp104-s3-20261007-01-run-c"
+      ],
+      "scope_confirmation": "selected_repository_only",
+      "token_key": "GH_LAOMEDO",
+      "workflow_control_commit": "ac193e399ef0efd785dcbdff040a0e61ea007c31"
+    },
+    "service": {
+      "lease_instance": "11ecd94a37b4f01f",
+      "lease_pid": 2344,
+      "mediator_pid": 27176
+    },
+    "setup": "README initialized before probe",
+    "status": "incomplete"
+  },
+  "provider_attempts": 1,
+  "status": "incomplete"
+}

@@ -1,0 +1,179 @@
+{
+  "boot_log": "",
+  "capture": {
+    "a_denied": {
+      "body": {
+        "error": "grant_unavailable"
+      },
+      "http": 403
+    },
+    "a_initial": {
+      "body": {
+        "result": {
+          "number": 1
+        },
+        "state": "confirmed"
+      },
+      "http": 200
+    },
+    "a_parent_child_gone": true,
+    "a_replay": {
+      "body": {
+        "resent": false,
+        "result": {
+          "number": 1
+        },
+        "state": "confirmed"
+      },
+      "http": 200
+    },
+    "after_b_count": 3,
+    "after_denial_count": 2,
+    "b_after_denial": {
+      "body": {
+        "result": {
+          "number": 2
+        },
+        "state": "confirmed"
+      },
+      "http": 200
+    },
+    "b_effect_at": 18556.406174267,
+    "b_initial": {
+      "body": {
+        "result": {
+          "number": 2
+        },
+        "state": "confirmed"
+      },
+      "http": 200
+    },
+    "b_restart_denied": {
+      "body": {
+        "error": "grant_unavailable"
+      },
+      "http": 403
+    },
+    "before_denial_count": 2,
+    "conflict": {
+      "body": {
+        "error": "effect_conflict"
+      },
+      "http": 403
+    },
+    "conflict_count": 4,
+    "denied_at": 18556.392368309,
+    "expired_invocation": {
+      "error": "grant_unavailable"
+    },
+    "expired_renewed": false,
+    "initial_count": 2,
+    "kill_finished": 18551.381591196,
+    "kill_start": 18551.378663685,
+    "membership": {
+      "a": {
+        "child": "15:name=systemd:/system.slice/laomedo-s14-a.service\n14:misc:/\n13:rdma:/\n12:pids:/system.slice/laomedo-s14-a.service\n11:hugetlb:/\n10:net_prio:/\n9:perf_event:/\n8:net_cls:/\n7:freezer:/\n6:devices:/system.slice/laomedo-s14-a.service\n5:memory:/system.slice/laomedo-s14-a.service\n4:blkio:/\n3:cpuacct:/\n2:cpu:/\n1:cpuset:/\n0::/system.slice/laomedo-s14-a.service\n",
+        "pid": "15:name=systemd:/system.slice/laomedo-s14-a.service\n14:misc:/\n13:rdma:/\n12:pids:/system.slice/laomedo-s14-a.service\n11:hugetlb:/\n10:net_prio:/\n9:perf_event:/\n8:net_cls:/\n7:freezer:/\n6:devices:/system.slice/laomedo-s14-a.service\n5:memory:/system.slice/laomedo-s14-a.service\n4:blkio:/\n3:cpuacct:/\n2:cpu:/\n1:cpuset:/\n0::/system.slice/laomedo-s14-a.service\n"
+      },
+      "b": {
+        "child": "15:name=systemd:/system.slice/laomedo-s14-b.service\n14:misc:/\n13:rdma:/\n12:pids:/system.slice/laomedo-s14-b.service\n11:hugetlb:/\n10:net_prio:/\n9:perf_event:/\n8:net_cls:/\n7:freezer:/\n6:devices:/system.slice/laomedo-s14-b.service\n5:memory:/system.slice/laomedo-s14-b.service\n4:blkio:/\n3:cpuacct:/\n2:cpu:/\n1:cpuset:/\n0::/system.slice/laomedo-s14-b.service\n",
+        "pid": "15:name=systemd:/system.slice/laomedo-s14-b.service\n14:misc:/\n13:rdma:/\n12:pids:/system.slice/laomedo-s14-b.service\n11:hugetlb:/\n10:net_prio:/\n9:perf_event:/\n8:net_cls:/\n7:freezer:/\n6:devices:/system.slice/laomedo-s14-b.service\n5:memory:/system.slice/laomedo-s14-b.service\n4:blkio:/\n3:cpuacct:/\n2:cpu:/\n1:cpuset:/\n0::/system.slice/laomedo-s14-b.service\n"
+      }
+    },
+    "old_lease_renewed": false,
+    "pid1": "systemd",
+    "replay_count": 2,
+    "restart_count": 4,
+    "restarted_unit": {
+      "ControlGroup": "/system.slice/laomedo-s14-broker.service",
+      "KillMode": "control-group",
+      "MainPID": "111",
+      "Restart": "no"
+    },
+    "revoked": {
+      "detected_at": 1791631407.309739,
+      "detected_at_monotonic": 18556.289114626,
+      "reason": "heartbeat_lost",
+      "revoked_at": 1791631407.3171344,
+      "revoked_at_monotonic": 18556.296504963,
+      "revoked_grants": [
+        "ff10d6d9aab345d86931c839b3b7d889"
+      ]
+    },
+    "runners": {
+      "a": {
+        "child": 92,
+        "grant_id": "ff10d6d9aab345d86931c839b3b7d889",
+        "pid": 88
+      },
+      "b": {
+        "child": 93,
+        "grant_id": "6a96c23164f3149f541072e0753a27fb",
+        "pid": 89
+      }
+    },
+    "stage": "complete",
+    "status": "captured",
+    "surviving_units": {
+      "b": {
+        "ControlGroup": "/system.slice/laomedo-s14-b.service",
+        "KillMode": "control-group",
+        "MainPID": "89",
+        "Restart": "no"
+      },
+      "service": {
+        "ControlGroup": "/system.slice/laomedo-s14-broker.service",
+        "KillMode": "control-group",
+        "MainPID": "83",
+        "Restart": "no"
+      }
+    },
+    "units": {
+      "a": {
+        "ControlGroup": "/system.slice/laomedo-s14-a.service",
+        "KillMode": "control-group",
+        "MainPID": "88",
+        "Restart": "no"
+      },
+      "b": {
+        "ControlGroup": "/system.slice/laomedo-s14-b.service",
+        "KillMode": "control-group",
+        "MainPID": "89",
+        "Restart": "no"
+      },
+      "service": {
+        "ControlGroup": "/system.slice/laomedo-s14-broker.service",
+        "KillMode": "control-group",
+        "MainPID": "83",
+        "Restart": "no"
+      }
+    },
+    "unknown": {
+      "body": {
+        "resent": false,
+        "state": "unknown"
+      },
+      "http": 200
+    },
+    "unknown_count": 4,
+    "unknown_replay": {
+      "body": {
+        "resent": false,
+        "state": "unknown"
+      },
+      "http": 200
+    },
+    "unknown_replay_count": 4,
+    "version": "systemd 249 (249.11-0ubuntu3.22)"
+  },
+  "cleanup_verified": true,
+  "error_class": "ValueError",
+  "identity": "exp104-systemd-s14-20261010-a",
+  "image": "sha256:48b88125a5e7e0b03bb166468b3449ad46c263c4c148f9999098f41768dba793",
+  "model_turns": 0,
+  "provider_credentials": 0,
+  "review_sha256": "50d94d655ad68086bd587917cada04aa7156b9a97fc247e6673626f57e6f66ec",
+  "source": "0be8200bcef6b49c0c99127d2c6024faf5a5379d",
+  "stage": "capture",
+  "status": "incomplete"
+}

@@ -1,0 +1,53 @@
+{
+  "run_id": "2ec7a732-a397-4545-9781-ae939169b4d4",
+  "raw_event_ref": "laomedo:run:2ec7a732-a397-4545-9781-ae939169b4d4:events",
+  "ack_status": "prepared",
+  "tool_start": {
+    "item_id": "exec-b34a07ee-bb72-409f-b408-2029acbd57ee",
+    "command_sha256": "sha256:007636b0dad0e5c568343fa495eca6627801e48400f2256dd92f23f1fa9482cc",
+    "seconds_after_ack": 10.828
+  },
+  "cancel_status": "running",
+  "cancel_confirmed_on_accept": false,
+  "final_status": "cancelled",
+  "final_error_category": "cancelled_by_user",
+  "cancel_confirmed": true,
+  "native_thread_id_present": true,
+  "native_turns": [
+    {
+      "error_category": "cancelled_by_user",
+      "input_hash": "sha256:34d90ca22c0515a8cf5fb0134106da346fa68e59619d9e2afc0469f7fc0126d8",
+      "native_error_summary": {
+        "categories": {},
+        "error_events": 0,
+        "http_status_codes": [],
+        "last_category": null,
+        "retry_events": 0,
+        "schema_version": 1
+      },
+      "status": "cancelled",
+      "turn_id": "01a10cb0-679e-7561-b3b5-09ac1d59bac5"
+    }
+  ],
+  "native_turn_completed_statuses": [
+    "interrupted"
+  ],
+  "interrupt_acknowledged": true,
+  "raw_event_count": 84,
+  "raw_event_sha256": "sha256:187d8374c4f797db2fc8d754cfbe7394c21de1b89c382d114f6cce0084901aa4",
+  "container": {
+    "container_name": "laomedo-codex-afd7c21ccf0341a5adafdb40b208b3f2",
+    "inspect": "absent",
+    "ps_all": [],
+    "query_errors": [
+      "",
+      ""
+    ]
+  },
+  "sentinel_present": false,
+  "turn_ledger": {
+    "attempted_turns": 1,
+    "max_authorized_turns": 4
+  },
+  "cross_store_trace_join": "not_verified"
+}

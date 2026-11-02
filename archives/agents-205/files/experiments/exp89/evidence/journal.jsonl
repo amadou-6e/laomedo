@@ -1,0 +1,11 @@
+{"at_utc": "2026-10-05T18:46:22.384529+00:00", "kind": "server_ready", "monotonic": 306186.718, "port": 8768, "run_id": null}
+{"at_utc": "2026-10-05T18:56:38.758404+00:00", "case": "B", "kind": "post_received", "monotonic": 306803.093, "operation": "fresh", "run_id": "ec0825f9-75a7-44f3-a562-cf19552af7b8"}
+{"at_utc": "2026-10-05T18:56:38.759471+00:00", "kind": "synthetic_wait_started", "monotonic": 306803.093, "run_id": "ec0825f9-75a7-44f3-a562-cf19552af7b8"}
+{"at_utc": "2026-10-05T18:56:44.760152+00:00", "kind": "synthetic_effect", "monotonic": 306809.093, "run_id": "ec0825f9-75a7-44f3-a562-cf19552af7b8"}
+{"at_utc": "2026-10-05T18:56:44.760152+00:00", "kind": "response_sent", "monotonic": 306809.093, "run_id": "ec0825f9-75a7-44f3-a562-cf19552af7b8", "status": "completed"}
+{"at_utc": "2026-10-05T18:57:34.624944+00:00", "case": "A", "kind": "post_received", "monotonic": 306858.953, "operation": "start", "run_id": "9b78dca9-5bef-44ad-a4b4-861d791f00bc"}
+{"at_utc": "2026-10-05T18:57:34.625481+00:00", "kind": "ack_held", "monotonic": 306858.953, "run_id": "9b78dca9-5bef-44ad-a4b4-861d791f00bc"}
+{"at_utc": "2026-10-05T18:57:37.626656+00:00", "kind": "ack_sent", "monotonic": 306861.953, "run_id": "9b78dca9-5bef-44ad-a4b4-861d791f00bc"}
+{"at_utc": "2026-10-05T18:57:54.975974+00:00", "case": "CONTROL", "kind": "post_received", "monotonic": 306879.312, "operation": "fresh", "run_id": "f083a73d-46ef-4521-bd99-1edf8529ecd4"}
+{"at_utc": "2026-10-05T18:57:54.976501+00:00", "kind": "synthetic_effect", "monotonic": 306879.312, "run_id": "f083a73d-46ef-4521-bd99-1edf8529ecd4"}
+{"at_utc": "2026-10-05T18:57:54.977047+00:00", "kind": "response_sent", "monotonic": 306879.312, "run_id": "f083a73d-46ef-4521-bd99-1edf8529ecd4", "status": "completed"}

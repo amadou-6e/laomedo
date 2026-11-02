@@ -1,0 +1,37 @@
+{
+  "dry_run": {
+    "category": "authentication_or_authorization",
+    "exit_code": 128
+  },
+  "failure_code": "dry_run_preflight_failed",
+  "failure_type": "RuntimeError",
+  "plan": {
+    "baseline": "1f1a505f2fbd31993a7946924a9bec5a27bb15c1",
+    "branches": [
+      "exp104-s4-20261007-01-a",
+      "exp104-s4-20261007-01-b",
+      "exp104-s4-20261007-01-c"
+    ],
+    "code_sha": "c464040a94521b21650c7b132d9f5b691223d3e7",
+    "commit": "96ec65033182ba657bb4cc0af740e289e85e2e49",
+    "connection_id": "exp104-s4-selected-gh",
+    "diagnostic": "exp104-s4-20261007-01",
+    "generation": 1,
+    "image": "sha256:bb8009c87ab69e751a1dd2c6c7f8abaae3d9fce8e072802d4a23c95594d16d84",
+    "preflight_wall": 1791384407.444143,
+    "repository": "ga84jog/laomedo-exp104-disposable-20261007",
+    "repository_id": 1408647759,
+    "run_ids": [
+      "exp104-s4-20261007-01-run-a",
+      "exp104-s4-20261007-01-run-b",
+      "exp104-s4-20261007-01-run-c"
+    ],
+    "scope_confirmation": "selected_repository_only",
+    "token_key": "GH_LAOMEDO",
+    "workflow_control_commit": "49a8960030c1a40d19aaf2392d3e43d4a6fc0088"
+  },
+  "progress": null,
+  "provider_attempts": 0,
+  "push_diagnostics": [],
+  "status": "incomplete"
+}

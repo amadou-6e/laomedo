@@ -1,0 +1,105 @@
+{
+  "baseline": "794049f2740d8a5dc8ef400d1d8682dab6f58b5f",
+  "bundle_sha256": "012a535eda21fd01c9b1b089beea87769efcf1c59a22c192d2f5b28bf2363df5",
+  "bundle_unchanged": true,
+  "cases": [
+    {
+      "case": "valid_import",
+      "cleanup_verified": true,
+      "container_git_version": null,
+      "elapsed_seconds": 0.484,
+      "exit_code": 128,
+      "inspected_limits": {
+        "bind_mounts_read_only": true,
+        "bind_targets": [
+          "/input.bundle",
+          "/trusted",
+          "/verify.sh"
+        ],
+        "cap_drop": [
+          "ALL"
+        ],
+        "image_id": "sha256:eceda79a349c46a8afd6fb271e92b979f872ca67cbdf228fde6dee0856481e78",
+        "memory_bytes": 134217728,
+        "network_mode": "none",
+        "pids_limit": 32,
+        "read_only": true,
+        "security_opt": [
+          "no-new-privileges"
+        ],
+        "tmpfs_stage": "rw,nosuid,noexec,size=32m,mode=1777",
+        "user": "10001:10001"
+      },
+      "marker": null,
+      "status": "start_unknown"
+    },
+    {
+      "case": "tmpfs_quota",
+      "cleanup_verified": true,
+      "container_git_version": null,
+      "elapsed_seconds": 0.453,
+      "exit_code": 0,
+      "inspected_limits": {
+        "bind_mounts_read_only": true,
+        "bind_targets": [],
+        "cap_drop": [
+          "ALL"
+        ],
+        "image_id": "sha256:eceda79a349c46a8afd6fb271e92b979f872ca67cbdf228fde6dee0856481e78",
+        "memory_bytes": 134217728,
+        "network_mode": "none",
+        "pids_limit": 32,
+        "read_only": true,
+        "security_opt": [
+          "no-new-privileges"
+        ],
+        "tmpfs_stage": "rw,nosuid,noexec,size=32m,mode=1777",
+        "user": "10001:10001"
+      },
+      "marker": "S4_DISK_LIMIT",
+      "status": "completed"
+    },
+    {
+      "case": "network_none",
+      "cleanup_verified": true,
+      "container_git_version": null,
+      "elapsed_seconds": 0.453,
+      "exit_code": 0,
+      "inspected_limits": {
+        "bind_mounts_read_only": true,
+        "bind_targets": [],
+        "cap_drop": [
+          "ALL"
+        ],
+        "image_id": "sha256:eceda79a349c46a8afd6fb271e92b979f872ca67cbdf228fde6dee0856481e78",
+        "memory_bytes": 134217728,
+        "network_mode": "none",
+        "pids_limit": 32,
+        "read_only": true,
+        "security_opt": [
+          "no-new-privileges"
+        ],
+        "tmpfs_stage": "rw,nosuid,noexec,size=32m,mode=1777",
+        "user": "10001:10001"
+      },
+      "marker": "S4_NET_DENIED",
+      "status": "completed"
+    }
+  ],
+  "commit": "05211be1c0c04f1e36b63a953feff4c20d76a475",
+  "count_scope": "no provider/model component instantiated; no packet capture",
+  "host_git_version": "git version 2.31.1.windows.1",
+  "host_listener_reached": false,
+  "identity": "EXP-100-S4-01",
+  "image_id": "sha256:eceda79a349c46a8afd6fb271e92b979f872ca67cbdf228fde6dee0856481e78",
+  "model_turns": 0,
+  "network_evidence_limit": "listener failure is diagnostic only; isolation rests on inspected NetworkMode=none",
+  "probe_sha256": "16b1520dcedfcd40d7f595023c5381a1731a586616a51710bbdfe0ab58105d04",
+  "protocol_sha256": "3a4486b8a22f0675ab75a62a322c66ebb5bade52f0654bcbca360928ab8a6f4a",
+  "provider_calls": 0,
+  "schema_version": 1,
+  "script_sha256": "096c7b980c25f14acce98c87ab7e91a8a7e6a7964988d36a8e27cf1ea61a3b93",
+  "source_commit": "abdf5dd08942c69a9f89bee5bd82b0e193f3e4ba",
+  "status": "failed",
+  "trusted_source_unchanged": true
+}

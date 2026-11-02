@@ -1,0 +1,56 @@
+{
+  "case": "B",
+  "probe_started_utc": "2026-10-05T18:56:34.894Z",
+  "browser_requests": [],
+  "runner_baseline": 1,
+  "flow_id": "ac0dd02a-558d-4782-97fa-7a6fe0fd3369",
+  "send_clicked_utc": "2026-10-05T18:56:37.694Z",
+  "target_event": {
+    "kind": "synthetic_wait_started",
+    "run_id": "ec0825f9-75a7-44f3-a562-cf19552af7b8",
+    "at_utc": "2026-10-05T18:56:38.759471+00:00"
+  },
+  "buttons_at_target": [
+    {
+      "text": "Stop",
+      "title": "",
+      "aria": "",
+      "testId": "stop_building_button",
+      "disabled": false,
+      "visible": true
+    },
+    {
+      "text": "",
+      "title": "Stop",
+      "aria": "Stop",
+      "testId": "button-stop",
+      "disabled": false,
+      "visible": true
+    }
+  ],
+  "stop_clicked_utc": "2026-10-05T18:56:38.941Z",
+  "stop_control": {
+    "text": "Stop",
+    "title": "",
+    "aria": "",
+    "testId": "stop_building_button",
+    "disabled": false,
+    "visible": true
+  },
+  "probe_error": "locator.click: Timeout 3000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByTestId('stop_building_button').first()\u001b[22m\n\u001b[2m    - locator resolved to <button type=\"button\" data-testid=\"stop_building_button\" class=\"noflow nopan nodelete nodrag inline-f",
+  "probe_finished_utc": "2026-10-05T18:56:42.158Z",
+  "runner_events": [
+    {
+      "kind": "post_received",
+      "run_id": "ec0825f9-75a7-44f3-a562-cf19552af7b8",
+      "at_utc": "2026-10-05T18:56:38.758404+00:00",
+      "case": "B",
+      "operation": "fresh"
+    },
+    {
+      "kind": "synthetic_wait_started",
+      "run_id": "ec0825f9-75a7-44f3-a562-cf19552af7b8",
+      "at_utc": "2026-10-05T18:56:38.759471+00:00"
+    }
+  ]
+}

@@ -1,0 +1,99 @@
+{
+  "schema_version": "laomedo.resume-contention-acceptance.v1",
+  "observed_at": "2026-10-15",
+  "source_parent_commit": "a9fb992",
+  "source_hash_normalization": "CRLF normalized to LF; trailing blank lines normalized to one final LF",
+  "source_sha256": {
+    "components/laomedo/codex_agent.py": "b92cb7777c873dcd8c08c24e3c08b4b243aef81119c986bcc8635495203abb72",
+    "laomedo/local_runner.py": "cdb4b8908365059bd77584a30cf3820ccf89be624681d8b23fa6c6d9ab9674d5",
+    "laomedo/agent_activity.py": "f7c8d23c9d9dc89f016c3107494c7a5be02dbabc8cacaadc3d464409e6c76c24",
+    "laomedo/agent_activity_capture.py": "6a784354bbfd42db52bfd543f07cb41bdf4cb2b1064ecc80681f5455cacd0658",
+    "laomedo/agent_activity_projection.py": "107c9a51dbe169d73da133b5e302829c543a8a1d1cc9e8e93ad152a9cb78cf85",
+    "laomedo/runner_activity.py": "689f38846702bf59ac96eef821a7267670242d3db2c1f6411d0d3d0213c19288"
+  },
+  "scope": "real original Docker runner; one fresh turn and two competing resumes of the same completed native thread; no GitHub writes",
+  "graph_execution_id": "98e65dae-11b8-4c99-a915-f779fad659c9",
+  "invocations": [
+    {
+      "id": "8fb33ec5-f049-438e-b9c2-b6887bc6dfe4",
+      "provider": "codex-cli",
+      "started": "2026-10-15T14:07:34.129092+00:00",
+      "ended": "2026-10-15T14:07:34.523206+00:00",
+      "status": "failed",
+      "stream_state": "partial",
+      "reason": "dispatch_refused",
+      "native_session": null,
+      "usage": null,
+      "execution": "98e65dae-11b8-4c99-a915-f779fad659c9",
+      "runner_run_id": "866cd40e-364c-493a-91c7-3a8d87efb96e",
+      "model": null,
+      "event_count": 0,
+      "action_uniqueness": "uncertain",
+      "node": "Codex-competing-resume",
+      "turn_count": 0,
+      "estimated_cost": null
+    },
+    {
+      "id": "895a6094-e18f-47d2-98fe-fc4b7d0105d5",
+      "provider": "codex-cli",
+      "started": "2026-10-15T14:07:34.114028+00:00",
+      "ended": "2026-10-15T14:07:44.217139+00:00",
+      "status": "completed",
+      "stream_state": "complete",
+      "reason": null,
+      "native_session": "01a13fe3-8a9b-7690-838c-a125b1a0c76b",
+      "usage": {
+        "inputTokens": 15895,
+        "cachedInputTokens": 15104,
+        "cacheWriteInputTokens": 0,
+        "outputTokens": 25,
+        "reasoningOutputTokens": 0,
+        "totalTokens": 15920
+      },
+      "execution": "98e65dae-11b8-4c99-a915-f779fad659c9",
+      "runner_run_id": "866cd40e-364c-493a-91c7-3a8d87efb96e",
+      "model": "gpt-6-luna",
+      "event_count": 557,
+      "action_uniqueness": "uncertain",
+      "node": "Codex-follow-up",
+      "turn_count": 1,
+      "estimated_cost": 0.00024264
+    },
+    {
+      "id": "02505e1c-e973-4fe9-8da9-ccda23f6c59e",
+      "provider": "codex-cli",
+      "started": "2026-10-15T14:07:09.130478+00:00",
+      "ended": "2026-10-15T14:07:33.962932+00:00",
+      "status": "completed",
+      "stream_state": "complete",
+      "reason": null,
+      "native_session": "01a13fe3-8a9b-7690-838c-a125b1a0c76b",
+      "usage": {
+        "inputTokens": 31432,
+        "cachedInputTokens": 26112,
+        "cacheWriteInputTokens": 0,
+        "outputTokens": 130,
+        "reasoningOutputTokens": 0,
+        "totalTokens": 31562
+      },
+      "execution": "98e65dae-11b8-4c99-a915-f779fad659c9",
+      "runner_run_id": "866cd40e-364c-493a-91c7-3a8d87efb96e",
+      "model": "gpt-6-luna",
+      "event_count": 1277,
+      "action_uniqueness": "uncertain",
+      "node": "Codex-read-project",
+      "turn_count": 1,
+      "estimated_cost": 0.00085812
+    }
+  ],
+  "assertions": {
+    "accepted_invocations": 2,
+    "refused_invocations": 1,
+    "refused_event_count": 0,
+    "refused_turn_count": 0,
+    "refused_usage_unassigned": true,
+    "refused_cost_unassigned": true
+  },
+  "actual_subscription_cost": "unknown",
+  "private_evidence": "Raw native/OTLP events and credentials remain outside Git."
+}

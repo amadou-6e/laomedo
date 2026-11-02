@@ -1,0 +1,87 @@
+{
+  "case": "A",
+  "probe_started_utc": "2026-10-06T09:06:00.378Z",
+  "browser_requests": [
+    {
+      "at_utc": "2026-10-06T09:06:04.174Z",
+      "method": "GET",
+      "path": "/api/v1/monitor/builds"
+    }
+  ],
+  "runner_baseline": 1,
+  "flow_id": "e69ef28e-a90a-4a41-a056-a644113ae1c9",
+  "send_clicked_utc": "2026-10-06T09:06:04.714Z",
+  "target_event": {
+    "kind": "ack_held",
+    "run_id": "693e76a7-147f-4492-a3f2-eb425786d444",
+    "at_utc": "2026-10-06T09:06:05.900238+00:00"
+  },
+  "buttons_at_target": [
+    {
+      "text": "Stop",
+      "title": "",
+      "aria": "",
+      "testId": "stop_building_button",
+      "disabled": false,
+      "visible": true
+    },
+    {
+      "text": "",
+      "title": "Stop",
+      "aria": "Stop",
+      "testId": "button-stop",
+      "disabled": false,
+      "visible": true
+    }
+  ],
+  "stop_control": {
+    "text": "",
+    "title": "Stop",
+    "aria": "Stop",
+    "testId": "button-stop",
+    "disabled": false,
+    "visible": true
+  },
+  "stop_clicked_utc": "2026-10-06T09:06:06.111Z",
+  "buttons_after_wait": [],
+  "probe_finished_utc": "2026-10-06T09:06:15.326Z",
+  "runner_events": [
+    {
+      "kind": "post_received",
+      "run_id": "693e76a7-147f-4492-a3f2-eb425786d444",
+      "at_utc": "2026-10-06T09:06:05.899546+00:00",
+      "case": "A",
+      "duplicate": false
+    },
+    {
+      "kind": "ack_held",
+      "run_id": "693e76a7-147f-4492-a3f2-eb425786d444",
+      "at_utc": "2026-10-06T09:06:05.900238+00:00"
+    },
+    {
+      "kind": "request_lookup",
+      "run_id": "693e76a7-147f-4492-a3f2-eb425786d444",
+      "at_utc": "2026-10-06T09:06:06.138946+00:00",
+      "found": true
+    },
+    {
+      "kind": "cancel_received",
+      "run_id": "693e76a7-147f-4492-a3f2-eb425786d444",
+      "at_utc": "2026-10-06T09:06:06.148199+00:00",
+      "known": true
+    },
+    {
+      "kind": "status_read",
+      "run_id": "693e76a7-147f-4492-a3f2-eb425786d444",
+      "at_utc": "2026-10-06T09:06:06.155936+00:00",
+      "found": true
+    },
+    {
+      "kind": "ack_sent",
+      "run_id": "693e76a7-147f-4492-a3f2-eb425786d444",
+      "at_utc": "2026-10-06T09:06:08.901568+00:00",
+      "case": "A",
+      "status": "cancelled"
+    }
+  ]
+}

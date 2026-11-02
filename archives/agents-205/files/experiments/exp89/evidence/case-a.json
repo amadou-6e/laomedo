@@ -1,0 +1,61 @@
+{
+  "case": "A",
+  "probe_started_utc": "2026-10-05T18:57:31.285Z",
+  "browser_requests": [],
+  "runner_baseline": 5,
+  "flow_id": "ae95f3a1-556c-41dc-b60d-36e32f8548b6",
+  "send_clicked_utc": "2026-10-05T18:57:34.087Z",
+  "target_event": {
+    "kind": "post_received",
+    "run_id": "9b78dca9-5bef-44ad-a4b4-861d791f00bc",
+    "at_utc": "2026-10-05T18:57:34.624944+00:00"
+  },
+  "buttons_at_target": [
+    {
+      "text": "Stop",
+      "title": "",
+      "aria": "",
+      "testId": "stop_building_button",
+      "disabled": false,
+      "visible": true
+    },
+    {
+      "text": "",
+      "title": "Stop",
+      "aria": "Stop",
+      "testId": "button-stop",
+      "disabled": false,
+      "visible": true
+    }
+  ],
+  "stop_control": {
+    "text": "",
+    "title": "Stop",
+    "aria": "Stop",
+    "testId": "button-stop",
+    "disabled": false,
+    "visible": true
+  },
+  "stop_clicked_utc": "2026-10-05T18:57:34.916Z",
+  "buttons_after_wait": [],
+  "probe_finished_utc": "2026-10-05T18:57:43.224Z",
+  "runner_events": [
+    {
+      "kind": "post_received",
+      "run_id": "9b78dca9-5bef-44ad-a4b4-861d791f00bc",
+      "at_utc": "2026-10-05T18:57:34.624944+00:00",
+      "case": "A",
+      "operation": "start"
+    },
+    {
+      "kind": "ack_held",
+      "run_id": "9b78dca9-5bef-44ad-a4b4-861d791f00bc",
+      "at_utc": "2026-10-05T18:57:34.625481+00:00"
+    },
+    {
+      "kind": "ack_sent",
+      "run_id": "9b78dca9-5bef-44ad-a4b4-861d791f00bc",
+      "at_utc": "2026-10-05T18:57:37.626656+00:00"
+    }
+  ]
+}

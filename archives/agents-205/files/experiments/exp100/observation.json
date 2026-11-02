@@ -1,0 +1,185 @@
+{
+  "actions_read": {
+    "http_status": 200,
+    "result": {
+      "items": [],
+      "operation": "actions_read",
+      "status": 200
+    },
+    "state": "confirmed"
+  },
+  "agent_token_vars_removed": true,
+  "api_get": {
+    "http_status": 200,
+    "result": {
+      "items": [],
+      "operation": "api_get",
+      "status": 200
+    },
+    "state": "confirmed"
+  },
+  "api_post": {
+    "http_status": 200,
+    "result": {
+      "created": true,
+      "marker": "api_post-marker",
+      "operation": "api_post"
+    },
+    "state": "confirmed"
+  },
+  "changed_request": {
+    "error": "effect_conflict",
+    "http_status": 409
+  },
+  "denied_operation": {
+    "error": "operation_denied",
+    "http_status": 403
+  },
+  "expired": {
+    "error": "grant_unavailable",
+    "http_status": 403
+  },
+  "git_fetch": {
+    "http_status": 200,
+    "result": {
+      "exit_code": 0,
+      "operation": "git_fetch"
+    },
+    "state": "confirmed"
+  },
+  "git_push": {
+    "http_status": 200,
+    "result": {
+      "exit_code": 0,
+      "operation": "git_push"
+    },
+    "state": "confirmed"
+  },
+  "graphql_mutation": {
+    "http_status": 200,
+    "result": {
+      "created": true,
+      "marker": "graphql_mutation-marker",
+      "operation": "graphql_mutation"
+    },
+    "state": "confirmed"
+  },
+  "graphql_read": {
+    "http_status": 200,
+    "result": {
+      "items": [],
+      "operation": "graphql_read",
+      "status": 200
+    },
+    "state": "confirmed"
+  },
+  "host_token_vars_suppressed_from_child": [],
+  "issue_create": {
+    "http_status": 200,
+    "result": {
+      "created": true,
+      "marker": "issue_create-marker",
+      "operation": "issue_create"
+    },
+    "state": "confirmed"
+  },
+  "issue_list": {
+    "http_status": 200,
+    "result": {
+      "items": [
+        {
+          "marker": "issue_create-marker"
+        }
+      ]
+    },
+    "state": "confirmed"
+  },
+  "local_git_commit": "0e5ec07ef4dfb761a6288be6009613a4a59efa8e",
+  "lost_response": {
+    "http_status": 202,
+    "resent": false,
+    "state": "unknown"
+  },
+  "model_turns": 0,
+  "other_run": {
+    "http_status": 200,
+    "result": {
+      "items": [
+        {
+          "marker": "pr_create-marker"
+        },
+        {
+          "marker": "other-run-marker"
+        }
+      ]
+    },
+    "state": "confirmed"
+  },
+  "pr_create": {
+    "http_status": 200,
+    "result": {
+      "created": true,
+      "marker": "pr_create-marker",
+      "operation": "pr_create"
+    },
+    "state": "confirmed"
+  },
+  "pr_list": {
+    "http_status": 200,
+    "result": {
+      "items": [
+        {
+          "marker": "pr_create-marker"
+        }
+      ]
+    },
+    "state": "confirmed"
+  },
+  "repeat_confirmed": {
+    "http_status": 200,
+    "resent": false,
+    "result": {
+      "created": true,
+      "marker": "pr_create-marker",
+      "operation": "pr_create"
+    },
+    "state": "confirmed"
+  },
+  "repeat_uncertain": {
+    "http_status": 202,
+    "resent": false,
+    "state": "unknown"
+  },
+  "revocation_seconds": 0.125,
+  "revoked": {
+    "error": "grant_unavailable",
+    "http_status": 403
+  },
+  "same_id_other_run": {
+    "http_status": 200,
+    "result": {
+      "created": true,
+      "marker": "other-run-marker",
+      "operation": "pr_create"
+    },
+    "state": "confirmed"
+  },
+  "secret_export": {
+    "error": "unsupported_operation",
+    "http_status": 403
+  },
+  "unknown_grant": {
+    "error": "grant_unavailable",
+    "http_status": 403
+  },
+  "upstream_effect_counts": {
+    "api_post": 1,
+    "graphql_mutation": 1,
+    "issue_create": 2,
+    "pr_create": 2
+  },
+  "wrong_repo": {
+    "error": "repository_denied",
+    "http_status": 403
+  }
+}

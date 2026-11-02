@@ -1,0 +1,8 @@
+{"at_monotonic": 90851.187, "at_wall": 1791619048.549123, "operation": "git_fetch", "repository": "ga84jog/laomedo-exp104-disposable-20261007"}
+{"at_monotonic": 90854.531, "at_wall": 1791619051.8982666, "branch": "exp104-native-managed-s12-20261010-b-a", "commit": "a82bdd8dad29a3c2676a6729a7b8f84b0b52e936", "operation": "git_push", "repository": "ga84jog/laomedo-exp104-disposable-20261007"}
+{"at_monotonic": 90856.625, "at_wall": 1791619053.9917133, "operation": "pr_create", "repository": "ga84jog/laomedo-exp104-disposable-20261007"}
+{"at_monotonic": 90858.375, "at_wall": 1791619055.7452924, "operation": "pr_read", "repository": "ga84jog/laomedo-exp104-disposable-20261007"}
+{"at_monotonic": 90860.39, "at_wall": 1791619057.751095, "operation": "git_fetch", "repository": "ga84jog/laomedo-exp104-disposable-20261007"}
+{"at_monotonic": 90863.765, "at_wall": 1791619061.1342611, "branch": "exp104-native-managed-s12-20261010-b-b", "commit": "ed2eeceaee74b6f9702b464b5e58ebbee2cea314", "operation": "git_push", "repository": "ga84jog/laomedo-exp104-disposable-20261007"}
+{"at_monotonic": 90872.859, "at_wall": 1791619070.2284234, "operation": "pr_create", "repository": "ga84jog/laomedo-exp104-disposable-20261007"}
+{"at_monotonic": 90874.484, "at_wall": 1791619071.839204, "operation": "pr_read", "repository": "ga84jog/laomedo-exp104-disposable-20261007"}

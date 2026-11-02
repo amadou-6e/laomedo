@@ -1,0 +1,54 @@
+{
+  "controls": [
+    {
+      "exit_code": 0,
+      "helper_found": true,
+      "http_status": null,
+      "mode": "plain_shell",
+      "model_turns": 0,
+      "network_error": [],
+      "provider_writes": 0
+    },
+    {
+      "exit_code": 1,
+      "helper_found": false,
+      "http_status": null,
+      "mode": "login_shell",
+      "model_turns": 0,
+      "network_error": [],
+      "provider_writes": 0
+    },
+    {
+      "exit_code": 0,
+      "helper_found": true,
+      "http_status": null,
+      "mode": "git_explicit_exec_path",
+      "model_turns": 0,
+      "network_error": [],
+      "provider_writes": 0
+    },
+    {
+      "exit_code": 0,
+      "helper_found": false,
+      "http_status": 404,
+      "mode": "mediator_without_sandbox",
+      "model_turns": 0,
+      "network_error": [],
+      "provider_writes": 0
+    },
+    {
+      "exit_code": 0,
+      "helper_found": false,
+      "http_status": null,
+      "mode": "mediator_inside_sandbox",
+      "model_turns": 0,
+      "network_error": [
+        "EAI_AGAIN"
+      ],
+      "provider_writes": 0
+    }
+  ],
+  "fixture": "temporary_404_server_and_dummy_helper",
+  "model_turns": 0,
+  "provider_writes": 0
+}

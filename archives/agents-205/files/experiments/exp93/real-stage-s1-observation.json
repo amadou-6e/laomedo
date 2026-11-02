@@ -1,0 +1,27 @@
+{
+  "amendment_sha256": "6db19985ff22409a268c31adb90abcfa3de01971e4ca45095c96c1701a2bd422",
+  "cleanup": {
+    "a": true,
+    "b": true,
+    "grants": true,
+    "stages": true,
+    "tasks": true,
+    "workers": true
+  },
+  "effort": "low",
+  "failure_class": "ValueError",
+  "identity": "exp93-real-stage-s1-20261011-a",
+  "image_id": "sha256:eceda79a349c46a8afd6fb271e92b979f872ca67cbdf228fde6dee0856481e78",
+  "local_turns": 1,
+  "model": "gpt-6-luna",
+  "phase": "dispatch",
+  "protocol_sha256": "90b10774afbbc05d55345fb370f7496e0b51b4de38d2c912c0a4793c8c94b885",
+  "provider_writes": 0,
+  "result": "incomplete",
+  "review_sha256": "f4435a330c8a0823b2e0e5ff1c621d1eedaa103ad0de9a5b388ac57d3353b908",
+  "shared_cap": 16,
+  "shared_used": 13,
+  "source_sha": "8345768ab0165e772e0eee62cea952e642056b1d",
+  "spec_sha": "56642addc7b634b41ea4cc9808124438f239e24b",
+  "task_sha256": "e19c42a3f0754c2d2833071bd996e0723b416491c4fd9a967471e5bc8d827f51"
+}

@@ -1,0 +1,231 @@
+{
+  "cases": [
+    {
+      "bundle_sha256": "e28d199c1861b9037f10f656a9e2b194d8eecab8d0997146dae49621e79f8be4",
+      "case_status": "passed",
+      "commit": "294b007a1d351706042280131e90e3d5d89b1f1e",
+      "expected_reason": "accepted",
+      "id": "A1",
+      "reason": "accepted",
+      "stage": "complete",
+      "tree": "c5ec436a9c3b823eeb993642bc13bb7b53eb7c0a"
+    },
+    {
+      "bundle_sha256": "e28d199c1861b9037f10f656a9e2b194d8eecab8d0997146dae49621e79f8be4",
+      "case_status": "passed",
+      "commit": null,
+      "expected_reason": "ref_name",
+      "id": "R2",
+      "reason": "ref_name",
+      "stage": "header",
+      "tree": null
+    },
+    {
+      "bundle_sha256": "e28d199c1861b9037f10f656a9e2b194d8eecab8d0997146dae49621e79f8be4",
+      "case_status": "passed",
+      "commit": "294b007a1d351706042280131e90e3d5d89b1f1e",
+      "expected_reason": "accepted",
+      "id": "A1-seed",
+      "reason": "accepted",
+      "stage": "complete",
+      "tree": "c5ec436a9c3b823eeb993642bc13bb7b53eb7c0a"
+    },
+    {
+      "bundle_sha256": "08052daa4b36a5c3d96d2797ff798a4ab41ef6dc10e55919c12b66848b6e971f",
+      "case_status": "passed",
+      "commit": null,
+      "expected_reason": "missing_prerequisite",
+      "id": "M1",
+      "reason": "missing_prerequisite",
+      "stage": "prerequisite",
+      "tree": null
+    },
+    {
+      "bundle_sha256": "08052daa4b36a5c3d96d2797ff798a4ab41ef6dc10e55919c12b66848b6e971f",
+      "case_status": "passed",
+      "commit": "b311bc6055f96c2353e42ca10bfc4ccf43883466",
+      "expected_reason": "accepted",
+      "id": "A2",
+      "reason": "accepted",
+      "stage": "complete",
+      "tree": "44948802761a0b948d2b5d81e4d8a11036e4e1a3"
+    },
+    {
+      "bundle_sha256": "2a42a2e2c879071550958714f087769d28112f7c5321835654793008e59a2f86",
+      "case_status": "passed",
+      "commit": null,
+      "expected_reason": "ref_count",
+      "id": "R1",
+      "reason": "ref_count",
+      "stage": "header",
+      "tree": null
+    },
+    {
+      "bundle_sha256": "e28d199c1861b9037f10f656a9e2b194d8eecab8d0997146dae49621e79f8be4",
+      "case_status": "passed",
+      "commit": "294b007a1d351706042280131e90e3d5d89b1f1e",
+      "expected_reason": "accepted",
+      "id": "V1-control",
+      "reason": "accepted",
+      "stage": "complete",
+      "tree": "c5ec436a9c3b823eeb993642bc13bb7b53eb7c0a"
+    },
+    {
+      "bundle_sha256": "8f21d037b58805c2e61a96149dcb2c72549c0cf6dc264ca4c20d4ecf77d14dc1",
+      "case_status": "passed",
+      "commit": null,
+      "expected_reason": "object_invalid",
+      "id": "V1",
+      "reason": "object_invalid",
+      "stage": "import",
+      "tree": null
+    },
+    {
+      "bundle_sha256": "da1591a94e5f9f333c10f685803d82937e7afa092d155923dda10d98d3f02487",
+      "case_status": "passed",
+      "commit": null,
+      "expected_reason": "baseline_ancestry",
+      "id": "H1",
+      "reason": "baseline_ancestry",
+      "stage": "ancestry",
+      "tree": null
+    },
+    {
+      "bundle_sha256": "5c3f29152a50cc5024f1259a924e2cfafee3d108555e97a3dbfa98ef3cfdc62d",
+      "case_status": "passed",
+      "commit": null,
+      "expected_reason": "workflow_change",
+      "id": "W1",
+      "reason": "workflow_change",
+      "stage": "workflow",
+      "tree": null
+    },
+    {
+      "bundle_sha256": "e28d199c1861b9037f10f656a9e2b194d8eecab8d0997146dae49621e79f8be4",
+      "case_status": "passed",
+      "commit": "294b007a1d351706042280131e90e3d5d89b1f1e",
+      "expected_reason": "accepted",
+      "id": "A1-cap-control",
+      "reason": "accepted",
+      "stage": "complete",
+      "tree": "c5ec436a9c3b823eeb993642bc13bb7b53eb7c0a"
+    },
+    {
+      "bundle_sha256": "2b66bf4c7719cc4d037ba2f4fe26212397835de24b441c31a2fb50346b510930",
+      "case_status": "passed",
+      "commit": null,
+      "expected_reason": "bundle_version",
+      "id": "F1",
+      "reason": "bundle_version",
+      "stage": "header",
+      "tree": null
+    },
+    {
+      "bundle_sha256": "22b21d5d2e263dcaaa39e74993ed0d4d8e09d5ed28bbe3a1e3eba92436c08302",
+      "case_status": "passed",
+      "commit": null,
+      "expected_reason": "object_format",
+      "id": "O1",
+      "reason": "object_format",
+      "stage": "header",
+      "tree": null
+    },
+    {
+      "bundle_sha256": "12b7e471505cceb0c26186b649a4b6c3a84931058dddb9894e9c214a43099269",
+      "case_status": "passed",
+      "commit": "294b007a1d351706042280131e90e3d5d89b1f1e",
+      "expected_reason": "accepted",
+      "id": "F1-control",
+      "reason": "accepted",
+      "stage": "complete",
+      "tree": "c5ec436a9c3b823eeb993642bc13bb7b53eb7c0a"
+    },
+    {
+      "bundle_sha256": "d95e1c06105f0940bce31bc8afea12be211a356b3deaa10435a07e5f100ad396",
+      "case_status": "passed",
+      "commit": null,
+      "expected_reason": "ref_type",
+      "id": "R3",
+      "reason": "ref_type",
+      "stage": "type",
+      "tree": null
+    },
+    {
+      "bundle_sha256": "4f874727c84923a4d915c7d445936f96d51b52dc5fa7b441c623e7e61befc75b",
+      "case_status": "passed",
+      "commit": "6bbbfab4398a4a0351ca638988f5421bd27edff7",
+      "expected_reason": "accepted",
+      "id": "I1-control",
+      "reason": "accepted",
+      "stage": "complete",
+      "tree": "4c52b7c7be2ab58a7ad6b6bdd2e0ec2bc16fd994"
+    },
+    {
+      "bundle_sha256": "c8e5d6e17d030d8b365a727e8eb6e55e891bc8ec4ca1ded03cc7d088b0f3e3d4",
+      "case_status": "passed",
+      "commit": null,
+      "expected_reason": "object_invalid",
+      "id": "I1",
+      "reason": "object_invalid",
+      "stage": "integrity",
+      "tree": null
+    },
+    {
+      "bundle_sha256": "e28d199c1861b9037f10f656a9e2b194d8eecab8d0997146dae49621e79f8be4",
+      "case_status": "passed",
+      "commit": "294b007a1d351706042280131e90e3d5d89b1f1e",
+      "expected_reason": "accepted",
+      "id": "ISO-hook",
+      "reason": "accepted",
+      "stage": "complete",
+      "tree": "c5ec436a9c3b823eeb993642bc13bb7b53eb7c0a"
+    },
+    {
+      "bundle_sha256": "e28d199c1861b9037f10f656a9e2b194d8eecab8d0997146dae49621e79f8be4",
+      "case_status": "passed",
+      "commit": "294b007a1d351706042280131e90e3d5d89b1f1e",
+      "expected_reason": "accepted",
+      "id": "ISO-config",
+      "reason": "accepted",
+      "stage": "complete",
+      "tree": "c5ec436a9c3b823eeb993642bc13bb7b53eb7c0a"
+    },
+    {
+      "bundle_sha256": "e28d199c1861b9037f10f656a9e2b194d8eecab8d0997146dae49621e79f8be4",
+      "case_status": "passed",
+      "commit": "294b007a1d351706042280131e90e3d5d89b1f1e",
+      "expected_reason": "accepted",
+      "id": "ISO-remote",
+      "reason": "accepted",
+      "stage": "complete",
+      "tree": "c5ec436a9c3b823eeb993642bc13bb7b53eb7c0a"
+    },
+    {
+      "bundle_sha256": "e28d199c1861b9037f10f656a9e2b194d8eecab8d0997146dae49621e79f8be4",
+      "case_status": "passed",
+      "commit": "294b007a1d351706042280131e90e3d5d89b1f1e",
+      "expected_reason": "accepted",
+      "id": "ISO-replace-before",
+      "reason": "accepted",
+      "stage": "complete",
+      "tree": "c5ec436a9c3b823eeb993642bc13bb7b53eb7c0a"
+    },
+    {
+      "bundle_sha256": "e28d199c1861b9037f10f656a9e2b194d8eecab8d0997146dae49621e79f8be4",
+      "case_status": "passed",
+      "commit": "294b007a1d351706042280131e90e3d5d89b1f1e",
+      "expected_reason": "accepted",
+      "id": "ISO-replace-after",
+      "reason": "accepted",
+      "stage": "complete",
+      "tree": "c5ec436a9c3b823eeb993642bc13bb7b53eb7c0a"
+    }
+  ],
+  "git_version": "git version 2.31.1.windows.1",
+  "model_turns": 0,
+  "protocol_head": "e1c954b",
+  "provider_calls": 0,
+  "schema": "exp100-s2-observation-v1",
+  "source_head": "b73cda64e6ba668b2854696997ca05f6842d3786",
+  "status": "passed_local_cases"
+}

@@ -1,0 +1,39 @@
+{
+  "amendment_sha256": "6db19985ff22409a268c31adb90abcfa3de01971e4ca45095c96c1701a2bd422",
+  "boundary": {
+    "item_id": "exec-59157950-f2e2-4189-b1d9-346e0ee8f804",
+    "method": "item/started",
+    "type": "commandExecution"
+  },
+  "boundary_observed": true,
+  "cleanup": {
+    "a": true,
+    "b": true,
+    "grants": true,
+    "stages": true,
+    "tasks": true,
+    "workers": true
+  },
+  "effort": "low",
+  "failure_class": "ValueError",
+  "failure_code": "service_cleanup_unverified_or_late",
+  "identity": "exp93-real-stage-s2-20261011-a",
+  "image_id": "sha256:eceda79a349c46a8afd6fb271e92b979f872ca67cbdf228fde6dee0856481e78",
+  "local_turns": 1,
+  "model": "gpt-6-luna",
+  "native_identity": {
+    "run_id": "aa2b7bf9-7307-4719-bb25-d53f295db1e2",
+    "thread_id": "01a12ad0-30ff-7f13-9813-61467a8db855",
+    "turn_id": null
+  },
+  "phase": "runner_loss",
+  "protocol_sha256": "2876781d31887bb663d9027c019758c1921d5e113284035e5876579f6538d185",
+  "provider_writes": 0,
+  "result": "incomplete",
+  "review_sha256": "0b9e68cd09b393e1206b03c7d81e6a1a5a783bf1c32c25e85613775f2fb5a09e",
+  "shared_cap": 16,
+  "shared_used": 14,
+  "source_sha": "5c5d28efba7fd83a22fcb81d32712f7931d859b7",
+  "spec_sha": "56642addc7b634b41ea4cc9808124438f239e24b",
+  "task_sha256": "7ac639200e7995071de4aa5c0eba2ff52dcc1e9d3a8598c6fcf8788d8db7873d"
+}

@@ -1,0 +1,9 @@
+{
+  "app_server": "stub",
+  "bootstrap": "exact_MailboxAppServer_rewrite",
+  "bootstrap_ready": true,
+  "container_network": "none",
+  "credential_fixture": "dummy_only",
+  "model_turns": 0,
+  "provider_writes": 0
+}

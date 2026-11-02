@@ -1,0 +1,65 @@
+TAP version 13
+# Subtest: supported reads map exact requests
+ok 1 - supported reads map exact requests
+  ---
+  duration_ms: 2.1524
+  ...
+# Subtest: body file bytes and durable create identity preserved
+ok 2 - body file bytes and durable create identity preserved
+  ---
+  duration_ms: 0.3185
+  ...
+# Subtest: edit reads authorized target then sends exact expected snapshot
+ok 3 - edit reads authorized target then sends exact expected snapshot
+  ---
+  duration_ms: 0.3892
+  ...
+# Subtest: unknown write makes one call and is never retried
+ok 4 - unknown write makes one call and is never retried
+  ---
+  duration_ms: 0.5131
+  ...
+# Subtest: unsupported syntax and missing identity make zero calls
+ok 5 - unsupported syntax and missing identity make zero calls
+  ---
+  duration_ms: 0.8933
+  ...
+# Subtest: ambient token environment neither authorizes nor changes requests
+ok 6 - ambient token environment neither authorizes nor changes requests
+  ---
+  duration_ms: 0.1686
+  ...
+# Subtest: denial and unknown have different exit categories
+ok 7 - denial and unknown have different exit categories
+  ---
+  duration_ms: 0.3315
+  ...
+# Subtest: empty repository flag is refused
+ok 8 - empty repository flag is refused
+  ---
+  duration_ms: 0.1586
+  ...
+# Subtest: real body reader preserves BOM and rejects oversized files
+ok 9 - real body reader preserves BOM and rejects oversized files
+  ---
+  duration_ms: 10.2897
+  ...
+# Subtest: repeated unknown create never invents an effect
+ok 10 - repeated unknown create never invents an effect
+  ---
+  duration_ms: 0.3802
+  ...
+# Subtest: repeated unknown edit retains conflict code, no replacement identity
+ok 11 - repeated unknown edit retains conflict code, no replacement identity
+  ---
+  duration_ms: 0.4342
+  ...
+1..11
+# tests 11
+# suites 0
+# pass 11
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 91.9751

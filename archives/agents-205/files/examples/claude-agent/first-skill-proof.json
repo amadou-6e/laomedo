@@ -1,0 +1,40 @@
+{
+  "status": "passed_skill_operation",
+  "run_id": "ae53c65d-7925-4816-a1c2-9ec54c15c0ad",
+  "thread_id": "4362fec2-ea69-49e9-b39e-1e4342c35251",
+  "turns": 1,
+  "base_revision": "sha256:e53f206dfd9a1704dfbbdedcba7474f9ada2b98797b065adbf374042229e3369",
+  "candidate_revision": "sha256:8dbab707eec19209074fb2778bc57d293a649e70e3bacbeaab7b6cc763f0d87b",
+  "commit": {
+    "skill_id": "claude-workspace-guide",
+    "revision_id": "sha256:8dbab707eec19209074fb2778bc57d293a649e70e3bacbeaab7b6cc763f0d87b",
+    "parent_commit": "sha256:54ed6e6a6341fd139b52a9ba06f80482e52f3f2b17d21149aafc4916d6d20d8a",
+    "created_at": "2026-10-21T20:15:29.798161+00:00",
+    "message": "Added a single description line to the SKILL.md frontmatter, summarizing the skill's read-only role in helping users inspect a pinned skill revision in Laomedo. All other bytes, including CRLF line endings, are preserved.",
+    "files": [
+      "SKILL.md"
+    ],
+    "patch": "--- base/SKILL.md\n+++ draft/SKILL.md\n@@ -1,5 +1,6 @@\n ---\\r\\n\n name: claude-workspace-guide\\r\\n\n+description: Helps a user understand a selected registered skill in Laomedo by inspecting its pinned revision, files, and commit diffs in a read-only way.\\r\\n\n ---\\r\\n\n \\r\\n\n # Inspect a skill workspace\\r\\n\n",
+    "editor": {
+      "kind": "agent",
+      "run_id": "ae53c65d-7925-4816-a1c2-9ec54c15c0ad",
+      "thread_id": "4362fec2-ea69-49e9-b39e-1e4342c35251",
+      "trace_ref": "laomedo:run:ae53c65d-7925-4816-a1c2-9ec54c15c0ad:events"
+    },
+    "draft_id": "53309dd1-eb3d-4c18-98a1-7760bee7473c",
+    "policy_ref": {
+      "policy_id": "claude-workspace-guide",
+      "revision_id": "1",
+      "hash": "sha256:cdc9900f8c9d30c10777c34986d36f9399a96d44f11dc0066e887724b35a7166"
+    },
+    "nonce": "b221578e3c9d467188be7ad7c606fa92",
+    "commit_id": "sha256:96b748e8f161f22201943ddc8d96caf6a07430f35465090659bb1f3fe5776341"
+  },
+  "description_only_byte_comparison": true,
+  "source_hash": "sha256:e53f206dfd9a1704dfbbdedcba7474f9ada2b98797b065adbf374042229e3369",
+  "canonical_unchanged": true,
+  "parent_exit_observed": true,
+  "evidence_complete": "unknown",
+  "resume_attempted": false,
+  "verification_harness_error": "Original assertion compared normalized read_text LF with exact registry CRLF and used an overescaped regex. Host operation was correct; its finally block stopped the runner before resume."
+}

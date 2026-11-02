@@ -1,0 +1,123 @@
+{
+  "container_a_after": "absent",
+  "container_b_after": "absent",
+  "events": [
+    {
+      "error": "push_branch_denied",
+      "http": 403,
+      "name": "wrong_branch_control"
+    },
+    {
+      "at_monotonic": 451944.14,
+      "http": 200,
+      "name": "a_push",
+      "state": "confirmed"
+    },
+    {
+      "at_monotonic": 451944.859,
+      "http": 200,
+      "name": "b_read_before",
+      "state": "confirmed"
+    },
+    {
+      "at_monotonic": 451954.578,
+      "error": "grant_unavailable",
+      "http": 403,
+      "name": "a_denied_after_loss",
+      "provider_calls_after": 2,
+      "provider_calls_before": 2
+    },
+    {
+      "at_monotonic": 451955.203,
+      "http": 200,
+      "name": "b_read_after",
+      "state": "confirmed"
+    },
+    {
+      "error": "grant_unavailable",
+      "http": 403,
+      "name": "service_restart_old_b",
+      "new_instance": "fd6d2c927efce6b1"
+    },
+    {
+      "http": 200,
+      "name": "new_c_read",
+      "state": "confirmed"
+    },
+    {
+      "missing_run_refused": true,
+      "name": "negative_controls",
+      "provider_delta": 0,
+      "workflow_error": "workflow_approval_required",
+      "workflow_http": 403
+    },
+    {
+      "name": "synthetic_expiry_control",
+      "provider_calls": 0
+    },
+    {
+      "name": "synthetic_lost_response_control",
+      "state": "unknown",
+      "transport_calls": 1
+    }
+  ],
+  "lease_result_a": {
+    "cleanup_finished_at": 1791371757.527293,
+    "cleanup_verified": true,
+    "detected_at": 1791371752.399025,
+    "reason": "heartbeat_lost",
+    "revoked_at": 1791371752.4040253,
+    "revoked_grants": [
+      "59ccc27e2b1189275957e59b0c08a6cc"
+    ],
+    "state": "removed_after_loss"
+  },
+  "lease_result_b": {
+    "cleanup_finished_at": 1791371763.5543568,
+    "cleanup_verified": true,
+    "detected_at": 1791371758.4323423,
+    "reason": "service_restart",
+    "revoked_at": 1791371758.4343407,
+    "revoked_grants": [
+      "f8f51e26164ee721f7026716e6b27cc4"
+    ],
+    "state": "removed_after_loss"
+  },
+  "plan": {
+    "baseline": "1f1a505f2fbd31993a7946924a9bec5a27bb15c1",
+    "branches": [
+      "exp104-d2-20261007-02-a",
+      "exp104-d2-20261007-02-b",
+      "exp104-d2-20261007-02-c"
+    ],
+    "code_sha": "4b0c2cda3d2c54b5186eb23efb8ba0f783b8e839",
+    "commit": "058ad6e5fce09481a1be57c684df69f557d5ba53",
+    "connection_id": "exp104-d2-selected-gh",
+    "diagnostic": "exp104-d2-20261007-02",
+    "generation": 1,
+    "image": "sha256:bb8009c87ab69e751a1dd2c6c7f8abaae3d9fce8e072802d4a23c95594d16d84",
+    "preflight_wall": 1791371743.5918403,
+    "repository": "ga84jog/laomedo-exp104-disposable-20261007",
+    "repository_id": 1408647759,
+    "run_ids": [
+      "exp104-d2-20261007-02-run-a",
+      "exp104-d2-20261007-02-run-b",
+      "exp104-d2-20261007-02-run-c"
+    ],
+    "workflow_control_commit": "ebbdb7c77e5f4efe78e70aa424e5e6b43b703806"
+  },
+  "provider_attempts": 4,
+  "runner_loss": {
+    "completed_monotonic": 451945.031,
+    "completed_wall": 1791371748.0470436,
+    "pid": 22108,
+    "started_monotonic": 451944.859
+  },
+  "service": {
+    "lease_instance": "56fbcd5e6995ea13",
+    "lease_pid": 28796,
+    "mediator_pid": 31284
+  },
+  "setup": "README initialized before probe",
+  "status": "bounded_diagnostic_pass"
+}

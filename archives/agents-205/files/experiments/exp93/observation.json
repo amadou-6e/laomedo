@@ -1,0 +1,23 @@
+{
+  "after_restart_error": "runner_restarted",
+  "after_restart_status": "interrupted",
+  "cleanup_detail": "absent",
+  "cleanup_elapsed_seconds_upper": 0.39,
+  "cleanup_verified": true,
+  "control_id": "0f776da20e78efc759fd828ec299b6bcd70687d2df97d96bcafedfaf8573986f",
+  "control_name": "laomedo-codex-b5658cc946ce4181980fbd141486faf0",
+  "control_survived": true,
+  "finished_utc": "2026-10-06T08:27:38.410505+00:00",
+  "image_id": "sha256:bb8009c87ab69e751a1dd2c6c7f8abaae3d9fce8e072802d4a23c95594d16d84",
+  "kill_utc": "2026-10-06T08:27:37.616214+00:00",
+  "model_turns": 0,
+  "owned_absent_after_kill": true,
+  "owned_id": "d447c8173f6662a172d53fc3b97665383331929e7d768a872013b9d8632639db",
+  "owned_name": "laomedo-codex-edfa656b8f824c559f892bc7678cb076",
+  "protocol_commit": "47c09ed",
+  "reservation_saved_before_kill": true,
+  "run_id": "c32607ed-d52c-4da3-8e9e-d8be69e4504f",
+  "runner_requests": 1,
+  "started_utc": "2026-10-06T08:27:36.564543+00:00",
+  "turn_ledger_exists": false
+}

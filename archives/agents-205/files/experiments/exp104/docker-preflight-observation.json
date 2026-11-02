@@ -1,0 +1,8 @@
+{
+  "cleanup_state": "removed",
+  "cleanup_verified": true,
+  "inspect_state": "owned",
+  "kind": "local_docker_preflight",
+  "returncode": 0,
+  "stderr": ""
+}

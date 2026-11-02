@@ -1,0 +1,68 @@
+{
+  "claim": "detached_missing_branch_fails_before_mediation; explicit_branch_creation_enables_fake_push",
+  "controls": {
+    "bundle_present": true,
+    "calls": 4,
+    "operations": [
+      "fixture_read",
+      "bundle_freeze",
+      "bundle_status",
+      "git_push"
+    ],
+    "paths": [
+      "/v1/mediate",
+      "/v1/mediate",
+      "/v1/mediate",
+      "/v1/mediate"
+    ],
+    "results": [
+      {
+        "exit": 0,
+        "name": "helper",
+        "result": "/run/laomedo/bin\n"
+      },
+      {
+        "exit": 0,
+        "name": "client",
+        "result": "{\"state\":\"confirmed\",\"result\":{\"fixture\":true}}\n"
+      },
+      {
+        "exit": 1,
+        "name": "push",
+        "result": "absent"
+      },
+      {
+        "exit": 0,
+        "name": "fixed",
+        "result": "PUSH_CONFIRMED"
+      },
+      {
+        "exit": 0,
+        "name": "network",
+        "result": "EPERM"
+      },
+      {
+        "exit": 0,
+        "name": "auth",
+        "result": "EACCES"
+      },
+      {
+        "name": "symlink_request",
+        "status": 400,
+        "unchanged": true
+      },
+      {
+        "name": "fifo_request",
+        "status": 400
+      },
+      {
+        "ignored": true,
+        "name": "directory_replacement"
+      }
+    ]
+  },
+  "credential_fixture": "dummy_only",
+  "model_turns": 0,
+  "network": "none",
+  "provider_writes": 0
+}
