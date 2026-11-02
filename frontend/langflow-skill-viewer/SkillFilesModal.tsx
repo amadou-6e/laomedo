@@ -1,5 +1,5 @@
 import { dismissSkillActions } from "./SkillActions";
-import SkillNavigation from "./SkillNavigation";
+import SkillNavigation, { useSkillNavigation } from "./SkillNavigation";
 import { useEffect, useRef, useState, type MutableRefObject } from "react";
 import * as monaco from "monaco-editor/editor";
 import EditorWorker from "monaco-editor/editor/editor.worker?worker";
@@ -44,17 +44,20 @@ function tree(files: SkillFile[]): Branch[] {
   return roots;
 }
 
-function Folder({ item, select, active }: { item: Branch; select: (path: string) => void; active: string }) {
-  const [expanded, setExpanded] = useState(true);
+function Folder({ item, select, active, collapsed, onToggle }: {
+  item: Branch; select: (path: string) => void; active: string;
+  collapsed: Set<string>; onToggle: (path: string) => void;
+}) {
+  const expanded = !collapsed.has(item.path);
   return <li>
     <button type="button" className="w-full rounded px-2 py-1 text-left text-sm hover:bg-muted"
       aria-expanded={item.children ? expanded : undefined}
       aria-current={!item.children && active === item.path ? "true" : undefined}
-      onClick={() => item.children ? setExpanded(!expanded) : select(item.path)}>
+      onClick={() => item.children ? onToggle(item.path) : select(item.path)}>
       {item.children ? (expanded ? "▾ " : "▸ ") : ""}{item.name}
     </button>
-    {item.children && expanded && <ul className="ml-3 border-l pl-1">
-      {item.children.map((child) => <Folder key={child.path} item={child} select={select} active={active} />)}
+    {item.children && <ul hidden={!expanded} style={{ display: expanded ? undefined : "none" }} className="ml-3 border-l pl-1">
+      {item.children.map((child) => <Folder key={child.path} item={child} select={select} active={active} collapsed={collapsed} onToggle={onToggle} />)}
     </ul>}
   </li>;
 }
@@ -100,6 +103,8 @@ export default function SkillFilesModal({ skillId, revision, open, setOpen }: {
   const [preview, setPreview] = useState(false);
   const [historicalFiles, setHistoricalFiles] = useState<SkillFile[]>([]);
   const [selectedCommit, setSelectedCommit] = useState<Commit | null>(null);
+  const navigationFiles = [...(snapshot?.files || []), ...historicalFiles.filter((old) => !snapshot?.files.some((current) => current.path === old.path))];
+  const navigation = useSkillNavigation(`${skillId}:${revision}`, navigationFiles.map((file) => file.path));
   useEffect(() => {
     const controller = new AbortController();
     setSnapshot(null); setTabs([]); setActive(""); setError(""); setLoading(true); setPreview(false); setSelectedCommit(null); setHistoricalFiles([]);
@@ -140,7 +145,11 @@ export default function SkillFilesModal({ skillId, revision, open, setOpen }: {
         <button type="button" className="mt-2 rounded border px-3 py-1" onClick={() => setReload(reload + 1)}>Retry</button></div>}
       {snapshot && snapshot.skill_id === skillId && snapshot.revision_id === revision &&
         <SkillOverview key={`${skillId}:${revision}`} snapshot={snapshot} />}
-      {snapshot && snapshot.skill_id === skillId && snapshot.revision_id === revision && <SkillSplitPane navigation={<SkillNavigation files={<>
+      {snapshot && snapshot.skill_id === skillId && snapshot.revision_id === revision && <SkillSplitPane navigationActions={
+        <button type="button" className="w-full px-2 py-1 text-left text-sm hover:bg-muted" onClick={navigation.toggleAll}>
+          {navigation.allOpen ? "Collapse all" : "Open all"}
+        </button>
+      } navigation={<SkillNavigation open={navigation.open} onToggle={navigation.toggleSection} files={<>
         <nav aria-label="Skill file explorer" className="min-h-0 flex-1 overflow-auto pb-2">
           <div className="px-2 text-xs">{selectedCommit && <button type="button" className="float-right normal-case underline" onClick={() => { setSelectedCommit(null); setHistoricalFiles([]);
             const currentTabs = tabs.filter((path) => snapshot.files.some((file) => file.path === path));
@@ -148,7 +157,7 @@ export default function SkillFilesModal({ skillId, revision, open, setOpen }: {
               currentTabs[0] || snapshot.files.find((file) => file.path === "SKILL.md")?.path || snapshot.files[0]?.path || "";
             setTabs(currentTabs.includes(next) || !next ? currentTabs : [...currentTabs, next]); setActive(next);
           }}>Current source</button>}</div>
-          <ul>{tree([...snapshot.files, ...historicalFiles.filter((old) => !snapshot.files.some((current) => current.path === old.path))]).map((item) => <Folder key={item.path} item={item} select={select} active={active} />)}</ul>
+          <ul>{tree(navigationFiles).map((item) => <Folder key={item.path} item={item} select={select} active={active} collapsed={navigation.collapsedFolders} onToggle={navigation.toggleFolder} />)}</ul>
         </nav>
         </>} commits={<CommitTree key={`${skillId}:${revision}`} skillId={skillId} revision={revision}
           selected={selectedCommit?.commit_id || ""} onSelect={setSelectedCommit} />} />}>
