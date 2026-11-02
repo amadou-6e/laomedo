@@ -24,3 +24,6 @@ Skills provide versioned instruction files and controlled multi-file editing.
 The [canonical skill-registry specifications](https://github.com/amadou-6e/specs/tree/main/projects/laomedo/subsystems/skill-registry)
 own requirements. The registry guide retains its historical scope statements;
 they should not be read as proof of current end-to-end acceptance.
+
+[Explorer icons and chevrons](explorer.md) documents the current rows and their
+real navigation/theme verification.
