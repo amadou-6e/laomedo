@@ -22,7 +22,7 @@ from experiments.exp139.runtime import WriteBudget
 from experiments.exp139.runtime import configuration
 from laomedo.host.mediation.store import MediationStore
 from laomedo.host.mediation.errors import KnownRejected
-from laomedo.agents.contracts.output import requirements
+from laomedo.agents.interface.output.utils import requirements
 
 
 class BudgetTests(unittest.TestCase):

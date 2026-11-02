@@ -3,17 +3,15 @@
 import json
 import unittest
 
-from laomedo.agents.providers.codex.utils import _command_summary
+from laomedo.agents.agents.codex.utils import _command_summary
 from laomedo.agents.providers.codex.servers import AppServer
 from laomedo.agents.providers.codex.servers import SplitAppServer
-from laomedo.agents.providers.codex.runner import CodexRunner as LocalRunner
-from laomedo.agents.runtime.errors import RunnerError
+from laomedo.agents.agents.codex.agent import CodexAgent as LocalRunner
+from laomedo.agents.errors import RunnerError
 import threading
 from types import SimpleNamespace
 from laomedo.agents.artifacts.errors import ArtifactError
-import test_local_runner as fixtures
-
-
+import test_agents.test_runtime.test_lifecycle as fixtures
 def command(method, identity="exec-1", **fields):
     return {
         "method": method,

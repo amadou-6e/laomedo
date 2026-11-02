@@ -13,7 +13,7 @@ from time import monotonic
 from uuid import uuid4
 import json
 import laomedo._paths as _package_paths
-import laomedo.agents.workflow.errors as _workflow_errors
+import laomedo.work_graph.runs.errors as _workflow_errors
 import laomedo.work_graph.settings as _work_graph_settings
 import laomedo.work_graph.serialization as _work_graph_serialization
 import subprocess

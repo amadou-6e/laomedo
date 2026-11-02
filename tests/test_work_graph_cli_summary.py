@@ -39,7 +39,7 @@ class WorkGraphCliSummaryTests(unittest.TestCase):
                     "laomedo.work_graph.grant_utils._private_path",
                     return_value=run_path,
                 ),
-                patch("laomedo.agents.workflow.store.WorkflowRunStore"),
+                patch("laomedo.work_graph.runs.store.WorkflowRunStore"),
                 patch("laomedo.work_graph.client.LangflowLocalClient"),
                 patch(
                     "laomedo.work_graph.launch.launch_github_docker_saved_flow_stage",

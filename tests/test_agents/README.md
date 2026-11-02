@@ -1,14 +1,14 @@
-# Agent controls
+# Agent regression controls
 
-Agent tests are grouped by the responsibility they protect. `test_codex` owns
-Codex launch/controller policy. Other Agent suites remain at their existing
-locations until their concern and shared setup are migrated together; this
-package does not claim their organization is complete.
+Concern-owned packages cover protocol/session boundaries, runtime persistence,
+Codex, Claude, OpenCode, Activity, workspaces, orchestration and lease cleanup.
+Each package contains the existing source branch's assertions with defining
+imports and repository-root asset lookup. Internal providers support regression
+checks; they are not real Agent or browser acceptance.
 
 Run `python -m unittest discover -s tests/test_agents -t tests -v`.
 CI core discovery is `python -m unittest discover -s "$GITHUB_WORKSPACE/tests" -v`
-from `.github/workflows/work-graph.yml`. The move preserves eleven cases
-(+11 at the new path, -11 at the retired path); full-suite execution/count
-comparison remains pending for the broader refactor. Internal providers are unit
-controls, never real Agent acceptance. No test in this package dispatches a model
-or changes a remote resource.
+from `.github/workflows/work-graph.yml`. Optional runner coverage needs the pinned
+runner extra, including py-docker and the ACP SDK. No default test is intended to
+dispatch a paid model. Historical campaign dependencies remain explicit until
+archival and replacement; passing discovery alone is not integration acceptance.

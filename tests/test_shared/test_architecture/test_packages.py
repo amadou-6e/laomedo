@@ -75,9 +75,9 @@ class PackageLayoutTests(unittest.TestCase):
                 self.assertNotIn("alias_module", Path(module.__file__).read_text())
 
     def test_resource_owners_and_bytes(self):
-        from laomedo.agents.providers.codex.settings import CONFIG
-        from laomedo.agents.providers.codex.settings import SECCOMP
-        from laomedo.agents.providers.codex.settings import MEDIATION_CLIENT
+        from laomedo.agents.agents.codex.settings import CONFIG
+        from laomedo.agents.agents.codex.settings import SECCOMP
+        from laomedo.agents.agents.codex.settings import MEDIATION_CLIENT
         from laomedo.host.publication.bundle.settings import SCRIPT
 
         paths = [
@@ -108,8 +108,8 @@ class PackageLayoutTests(unittest.TestCase):
         env = dict(os.environ, PYTHONPATH=str(import_root()))
         modules = [
             "laomedo.host.managed_service",
-            "laomedo.agents.providers.codex.cli",
-            "laomedo.agents.providers.claude.cli",
+            "laomedo.agents.agents.codex.cli",
+            "laomedo.agents.agents.claude.cli",
             "laomedo.host.leases.process_cli",
             "laomedo.host.leases.service_cli",
             "laomedo.work_graph",

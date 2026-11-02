@@ -7,7 +7,7 @@ from urllib import error
 from urllib import parse
 from urllib import request
 import json
-import laomedo.agents.workflow.errors as _workflow_errors
+import laomedo.work_graph.runs.errors as _workflow_errors
 
 
 class LangflowLocalClient:

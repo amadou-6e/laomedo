@@ -12,7 +12,7 @@ from laomedo import __path__
 
 __path__.append(str(Path(__file__).resolve().parents[2] / "components/laomedo"))
 from laomedo.claude_agent import LaomedoClaudeAgent
-from laomedo.agents.contracts.output import requirements
+from laomedo.agents.interface.output.utils import requirements
 
 
 class ClaudeComponentTests(unittest.IsolatedAsyncioTestCase):

@@ -9,10 +9,10 @@ from urllib.request import ProxyHandler
 from urllib.request import Request
 from urllib.request import build_opener
 import json
-import laomedo._paths as _package_paths
-import laomedo.host.runner.prerequisites as _runner_prerequisites
-import laomedo.host.runner.startup as _runner_startup
-import laomedo.host.runner.utils as _runner_utils
+from laomedo._paths import import_root
+from laomedo.host.runner.prerequisites import check_docker
+from laomedo.host.runner.startup import startup_gate
+from laomedo.host.runner.utils import service_environment
 import socket
 import subprocess
 import sys
@@ -48,13 +48,18 @@ class RunnerService:
         # Retire persisted preview-only ceilings when reading older host configs.
         value = dict(value)
         value.pop("max_model_turns", None)
+        if not required <= set(value):
+            raise ValueError("invalid_runner_service_config")
+        if not isinstance(value["state"], str):
+            raise ValueError("absolute_runner_service_paths_required")
+        value.setdefault("lease_service", str(Path(value["state"]).parent / "lease"))
+        required.add("lease_service")
         if value["provider"] == "claude":
+            from laomedo.agents.agents.claude.settings import IMAGE
+
             value.pop("executable", None)  # Retired host-runtime configuration.
-            value.setdefault("image", "laomedo-claude-controller:2.1.310")
+            value.setdefault("image", IMAGE)
             value.setdefault("profile_volume", "laomedo-claude-profile")
-            value.setdefault(
-                "lease_service", str(Path(value["state"]).parent / "lease")
-            )
             required.update({"image", "profile_volume", "lease_service"})
         optional = {
             "artifact_sources",
@@ -89,9 +94,7 @@ class RunnerService:
                 raise ValueError("absolute_runner_service_paths_required")
         if type(value["port"]) is not int or not 1 <= value["port"] <= 65535:
             raise ValueError("invalid_runner_service_port")
-        for key in ("state", "skill_store", "source") + (
-            ("lease_service",) if value["provider"] == "claude" else ()
-        ):
+        for key in ("state", "skill_store", "source", "lease_service"):
             if not isinstance(value[key], str) or not Path(value[key]).is_absolute():
                 raise ValueError("absolute_runner_service_paths_required")
         if url is not None and url != f"http://127.0.0.1:{value['port']}":
@@ -178,9 +181,7 @@ class RunnerService:
                     "runner_state": state["state"],
                 }
             try:
-                self.docker_reason = _runner_prerequisites.check_docker(
-                    _runner_utils.service_environment("codex")
-                )
+                self.docker_reason = check_docker(service_environment("codex"))
                 self.docker_checked_at = time.monotonic()
             finally:
                 self.docker_lock.release()
@@ -233,9 +234,9 @@ class RunnerService:
                 return current
             config = self.config(url)
             module = (
-                "laomedo.agents.providers.claude.cli"
+                "laomedo.agents.agents.claude.cli"
                 if config["provider"] == "claude"
-                else "laomedo.agents.providers.codex.cli"
+                else "laomedo.agents.agents.codex.cli"
             )
             # Load this installation even when Python is embedded/isolated and
             # ignores PYTHONPATH. Both bootstrap and module choice are fixed;
@@ -249,7 +250,7 @@ class RunnerService:
                 sys.executable,
                 "-c",
                 bootstrap,
-                str(_package_paths.import_root()),
+                str(import_root()),
                 module,
                 "--state",
                 config["state"],
@@ -257,6 +258,8 @@ class RunnerService:
                 config["skill_store"],
                 "--source" if config["provider"] == "claude" else "--source-workspace",
                 config["source"],
+                "--lease-service",
+                config["lease_service"],
                 "--port",
                 str(config["port"]),
             ]
@@ -267,8 +270,6 @@ class RunnerService:
                         config["image"],
                         "--profile-volume",
                         config["profile_volume"],
-                        "--lease-service",
-                        config["lease_service"],
                     ]
                 )
             for provider, state in sorted(config.get("artifact_sources", {}).items()):
@@ -286,7 +287,7 @@ class RunnerService:
                 command.append("--git-workspace")
             # The trusted host supplies all paths.
             # Neither browser inputs nor model outputs become process arguments.
-            env = _runner_utils.service_environment(config["provider"])
+            env = service_environment(config["provider"])
             if (
                 config.get("mirror_host_claude_login") is True
                 and config["provider"] == "claude"
@@ -303,7 +304,7 @@ class RunnerService:
             with log_path.open("ab") as log:
                 self.process = subprocess.Popen(
                     command,
-                    cwd=_package_paths.import_root(),
+                    cwd=import_root(),
                     env=env,
                     stdin=subprocess.DEVNULL,
                     stdout=log,
@@ -331,7 +332,7 @@ class RunnerService:
                 return current
             # The API takes this same OS lock before binding its listener. It
             # cannot publish a listener after cancellation wins this lock.
-            with _runner_startup.startup_gate(self.startup_gate_path) as listening:
+            with startup_gate(self.startup_gate_path) as listening:
                 if listening.exists():
                     return self.status()
                 # Cooperative: the child finishes its bounded initialization

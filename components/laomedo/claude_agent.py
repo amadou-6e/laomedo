@@ -5,7 +5,7 @@ import json
 import os
 
 from laomedo.integrations.langflow.agent.component import AgentComponent as Component
-from laomedo.agents.providers.claude.catalog import EFFORTS
+from laomedo.agents.agents.claude.catalog import EFFORTS
 from langflow.io import IntInput
 
 

@@ -462,7 +462,7 @@
   "container_termination_unverified": {
     "title": "Execution cleanup or isolation could not be verified",
     "description": "The application could not establish a clean, safe execution boundary.",
-    "recovery": "Ask the operator to inspect the runtime and cleanup receipts. Do not start another run until the existing container and workspace state are confirmed."
+    "recovery": "Check the local runner cleanup details and the run status if one exists. Do not start new work until the container and workspace state are confirmed."
   },
   "executor_termination_unverified": {
     "title": "Execution cleanup or isolation could not be verified",
@@ -957,7 +957,7 @@
   "fresh_codex_request_required": {
     "title": "A new agent run is required",
     "description": "This handoff route accepts only Fresh operations targeting Codex or Claude.",
-    "recovery": "Choose Fresh and a supported target agent. Resume must use that agent’s original completed Run Reference."
+    "recovery": "Choose Fresh and a supported target agent. Resume must use that agentÃ¢â‚¬â„¢s original completed Run Reference."
   },
   "runner_token_file_required": {
     "title": "The handoff runner is not connected",
@@ -1483,5 +1483,295 @@
     "title": "The returned operation is invalid",
     "description": "The Agent answer does not contain an operation accepted by the receiving node.",
     "recovery": "Inspect the existing Agent answer and the requested operation format before starting another run."
+  },
+  "auth_revoked_during_turn": {
+    "title": "The Agent connection is no longer authorized",
+    "description": "The host detected that the account authorization changed while the Agent was working and requested cancellation. The remote work outcome may be unconfirmed.",
+    "recovery": "Check the existing run and its changes. Reconnect the intended account through the local account setup before starting new work; do not repeat an uncertain request automatically."
+  },
+  "branch_invalid": {
+    "title": "The branch name is invalid",
+    "description": "The configured branch name contains unsupported characters or path segments.",
+    "recovery": "Choose a supported branch name in the local configuration before starting new work."
+  },
+  "cancel_native_unconfirmed": {
+    "title": "The Agent's cancellation is not confirmed",
+    "description": "The runner requested cancellation but did not receive a matching native interruption result before its deadline.",
+    "recovery": "Check the existing run and its owned-container cleanup result. Missing interruption evidence does not authorize repeating work that may already have taken effect."
+  },
+  "cleanup_path_outside_run_state": {
+    "title": "The cleanup path is outside this run",
+    "description": "The requested cleanup location overlaps or escapes the run state boundary, so nothing was removed there.",
+    "recovery": "Check the runner state configuration and retained run paths. Do not remove unrelated files to work around this refusal."
+  },
+  "command_directory_invalid": {
+    "title": "The run command directory changed",
+    "description": "The command-wrapper directory contains unsupported entries or is a link. The runner refused to install wrappers there.",
+    "recovery": "Check the retained run directory before starting new work; preserve unrelated files and keep wrappers run-local."
+  },
+  "command_wrapper_changed": {
+    "title": "A run command wrapper changed",
+    "description": "An existing command wrapper no longer matches the trusted host-generated contents.",
+    "recovery": "Check the retained run directory before continuing. Do not replace trusted wrappers with Agent-generated commands."
+  },
+  "controller_listener_gate_failed": {
+    "title": "The Agent controller failed an isolation check",
+    "description": "The controller opened a listening socket outside the supported execution boundary. The runner refused to use it.",
+    "recovery": "Check the local runner configuration and confirm existing containers have stopped before starting new work."
+  },
+  "executor_lost": {
+    "title": "The isolated tool runner stopped",
+    "description": "The Agent lost its separate tool container while the request was active. The work outcome is not confirmed.",
+    "recovery": "Check the existing run and workspace changes before starting new work. Do not repeat the original request automatically; a tool may already have changed files."
+  },
+  "git_checkout_failed": {
+    "title": "The run baseline could not be checked out",
+    "description": "The cloned repository could not check out the source commit observed during admission.",
+    "recovery": "Check the source repository and local filesystem access. Confirm cleanup before preparing another run."
+  },
+  "git_clone_failed": {
+    "title": "The run repository could not be cloned",
+    "description": "Git did not create an independent clone of the selected source. No prepared workspace was returned.",
+    "recovery": "Check local Git availability and source access. Confirm failed-run cleanup before starting new work."
+  },
+  "git_clone_verification_failed": {
+    "title": "The run repository did not match its baseline",
+    "description": "The final checkout commit or remote list did not match the isolated workspace requirements.",
+    "recovery": "Check the source repository and any local process modifying it. Confirm cleanup before starting a new run."
+  },
+  "git_exclude_invalid": {
+    "title": "The run exclusion file is unavailable",
+    "description": "The runner expected a regular private Git exclusion file but found a missing or linked path.",
+    "recovery": "Check the retained run repository and filesystem access before continuing."
+  },
+  "git_remote_removal_failed": {
+    "title": "The run remote could not be removed",
+    "description": "The runner could not remove the clone remote, so it refused the workspace before dispatch.",
+    "recovery": "Check local Git and filesystem access. Confirm failed-run cleanup before starting new work."
+  },
+  "git_repository_root_required": {
+    "title": "The source is not a supported Git repository",
+    "description": "Git workspace mode requires a repository root with its own real .git directory; linked worktrees are unsupported.",
+    "recovery": "Choose a normal local repository root in the runner configuration, or use directory workspace mode."
+  },
+  "git_timeout": {
+    "title": "A local Git operation timed out",
+    "description": "The Git command exceeded its deadline and process-tree cleanup was confirmed. If it contacted a remote, that operation may still have completed.",
+    "recovery": "Check the existing run and any remote result before starting new work. Do not blindly repeat a push."
+  },
+  "git_timeout_cleanup_unverified": {
+    "title": "A local Git operation timed out and cleanup is uncertain",
+    "description": "The Git command exceeded its deadline, and the runner could not confirm all related processes stopped. If it contacted a remote, that operation may still be active or completed.",
+    "recovery": "Check the existing run, local Git processes and any remote result before continuing. Do not retry a push while its outcome is uncertain."
+  },
+  "git_workspace_cleanup_unverified": {
+    "title": "Workspace cleanup could not be confirmed",
+    "description": "Preparation failed and the runner could not remove its partial workspace. The workspace is not admitted for execution.",
+    "recovery": "Check the failed run directory and any process holding its files before starting new work. Preserve unrelated directories."
+  },
+  "git_workspace_path_invalid": {
+    "title": "The run workspace path is unavailable",
+    "description": "Git preparation needs a new run-owned directory, but the destination already exists or is a link.",
+    "recovery": "Check the configured source and run-state paths. Preserve unrelated files; use a new run directory after confirming existing work is stopped."
+  },
+  "git_workspace_snapshot_limit": {
+    "title": "The source is too large to snapshot safely",
+    "description": "The Git workspace exceeded the supported snapshot byte or entry limit before a verified snapshot was produced.",
+    "recovery": "Reduce the selected source to the files needed for this run; do not bypass the snapshot limits."
+  },
+  "incomplete_command_mount": {
+    "title": "The GitHub command setup is incomplete",
+    "description": "The runner could not prepare a complete authorized GitHub command environment. The Agent was not started.",
+    "recovery": "Check the local runner GitHub connection, repository and branch configuration before starting a new run."
+  },
+  "incomplete_mediator_mount": {
+    "title": "The GitHub connection setup is incomplete",
+    "description": "A required part of the runner connection for GitHub operations is missing. The Agent was not started.",
+    "recovery": "Check the local runner GitHub connection and run configuration. Complete the missing setup before starting a new run."
+  },
+  "invalid_join_body": {
+    "title": "The graph request could not be read",
+    "description": "The local graph bridge rejected a missing, oversized or malformed request before dispatching this request.",
+    "recovery": "Reopen the graph and check its Agent configuration. If this was a status or cancellation request, check the existing run before starting a replacement; rejecting this request does not stop earlier work."
+  },
+  "invalid_workspace": {
+    "title": "The workspace is unavailable",
+    "description": "The selected working-state path is missing, is not a directory or is a symbolic link.",
+    "recovery": "Check the configured source and retained run directory before continuing."
+  },
+  "mediated_remote_changed": {
+    "title": "The run remote no longer matches its authorized repository",
+    "description": "The fixed origin URL or push URL changed from the host-configured mediated remote.",
+    "recovery": "Check the existing run state and repository binding before continuing. Do not replace it with a credential-bearing URL."
+  },
+  "mediated_remote_install_failed": {
+    "title": "The mediated run remote could not be installed",
+    "description": "Local Git could not add the fixed remote required by the authorized run.",
+    "recovery": "Check the run repository and local filesystem access before continuing."
+  },
+  "mediated_remote_invalid": {
+    "title": "The mediated run remote could not be inspected",
+    "description": "Local Git could not read the fixed origin configuration safely.",
+    "recovery": "Check the run repository configuration before continuing. Keep provider credentials out of remotes and graph inputs."
+  },
+  "opencode_active_console_account_required": {
+    "title": "No active OpenCode account is selected",
+    "description": "The local OpenCode Console account store has no active account with an organization selected.",
+    "recovery": "Check the active account and organization in OpenCode Console, then refresh the local runner account configuration."
+  },
+  "opencode_auth_redirect_rejected": {
+    "title": "OpenCode account configuration redirected unexpectedly",
+    "description": "The account configuration request redirected to another address. The local authentication adapter refused to forward the credential.",
+    "recovery": "Check the locally configured OpenCode Console address and resolve the unexpected redirect before loading account configuration again."
+  },
+  "opencode_command_service_closed": {
+    "title": "The workspace command service has stopped",
+    "description": "This run no longer accepts workspace commands because its command service is closing or closed.",
+    "recovery": "Check the existing run status and workspace before deciding whether to start new work."
+  },
+  "opencode_console_models_required": {
+    "title": "OpenCode returned an unusable model catalogue",
+    "description": "The selected Console provider configuration contained no models or unsupported model identifiers.",
+    "recovery": "Check the selected account and its provider model configuration before refreshing the catalogue. Do not substitute an unverified model identifier."
+  },
+  "opencode_console_origin_not_allowed": {
+    "title": "The OpenCode Console address is not supported",
+    "description": "The locally selected account points to a Console address outside the supported HTTPS service boundary.",
+    "recovery": "Correct the local account configuration to use the supported OpenCode Console service. Keep credentials out of graph inputs."
+  },
+  "opencode_container_configuration_invalid": {
+    "title": "The local OpenCode Docker connection is invalid",
+    "description": "The runner could not use its Docker connection settings. The configuration is ambiguous or unsupported, so no controller was launched.",
+    "recovery": "Check the local runner configuration and select a supported local Docker connection. Graph inputs cannot change that connection."
+  },
+  "opencode_controller_image_unavailable": {
+    "title": "The OpenCode images could not be confirmed",
+    "description": "The runner could not confirm the configured local controller and worker images. No controller was launched.",
+    "recovery": "Check Docker is running and the approved images are available on the configured local connection. Then check the local runner configuration."
+  },
+  "opencode_controller_output_failed": {
+    "title": "The Agent output could not be captured",
+    "description": "The runner lost the controller output stream or its output exceeded the allowed limit. A completed Agent response could not be confirmed.",
+    "recovery": "Check the existing run status and workspace changes before starting new work. Check Technical details for the stable error code."
+  },
+  "opencode_history_credentials_present": {
+    "title": "Native history export was stopped to protect account data",
+    "description": "The dedicated OpenCode history store contains account or credential records. The runner refused to pass a database copy to the offline export container. Activity evidence is incomplete.",
+    "recovery": "Keep the current run and its history. Check the dedicated local OpenCode profile configuration and use a separate session-only store; do not repeat the Agent task to repair history capture."
+  },
+  "opencode_history_credentials_unverified": {
+    "title": "The native history store could not be verified",
+    "description": "The history database schema did not match the expected credential-store checks. No database copy was passed to the export container. Activity evidence is incomplete.",
+    "recovery": "Check that the configured OpenCode image and dedicated session store match the supported runtime. Preserve the existing history and do not rerun the task just to repair capture."
+  },
+  "opencode_history_database_limit": {
+    "title": "The native history store exceeds its capture limit",
+    "description": "The dedicated OpenCode session database is larger than the configured host memory budget, so native history export was refused. Existing history is preserved and activity evidence is incomplete.",
+    "recovery": "The local user can raise LAOMEDO_OPENCODE_HISTORY_MAX_DATABASE_BYTES within the supported 512 MiB limit in runner startup configuration. For larger stores, preserve an archive and configure a separate dedicated session store for new work. Do not delete active history or replay the Agent request."
+  },
+  "opencode_model_endpoint_not_allowed": {
+    "title": "An OpenCode model uses an unsupported endpoint",
+    "description": "A model in the Console configuration selected an endpoint outside the permitted OpenCode inference boundary.",
+    "recovery": "Check the local provider model configuration and its inference endpoint before loading it again. Do not bypass endpoint validation."
+  },
+  "opencode_model_sdk_not_allowed": {
+    "title": "An OpenCode model uses an unsupported SDK",
+    "description": "A model in the Console configuration requested a provider SDK that this local adapter does not support.",
+    "recovery": "Use a supported SDK in the local provider model configuration or update the adapter through a reviewed change."
+  },
+  "opencode_organization_context_mismatch": {
+    "title": "The OpenCode organizations do not match",
+    "description": "The returned provider configuration belongs to a different organization from the locally selected Console account.",
+    "recovery": "Check the active account and organization in OpenCode Console before refreshing the local runner account configuration."
+  },
+  "opencode_real_credential_required": {
+    "title": "The OpenCode account credential is missing or invalid",
+    "description": "The authentication adapter received an empty credential or a placeholder instead of a usable account credential.",
+    "recovery": "Sign in through the supported OpenCode account flow and refresh the local runner account configuration. Do not paste credentials into the graph."
+  },
+  "opencode_workspace_command_failed": {
+    "title": "The isolated workspace command could not finish",
+    "description": "The runner could not confirm the workspace command result. Its container was cleaned up before this failure was reported.",
+    "recovery": "Inspect the existing run and workspace changes. The command may already have changed files; do not repeat it automatically."
+  },
+  "permission_preflight_failed": {
+    "title": "The local runner sandbox could not be verified",
+    "description": "The runner could not confirm the required workspace access and protected-file restrictions. No model request was submitted by this preflight check.",
+    "recovery": "Check the configured runner image and its reviewed sandbox configuration. Keep execution disabled until the local runner preflight succeeds."
+  },
+  "repository_invalid": {
+    "title": "The repository identifier is invalid",
+    "description": "The configured repository does not use the supported owner/name format.",
+    "recovery": "Correct the repository identifier in the local configuration before starting new work."
+  },
+  "runner_transport_configuration_invalid": {
+    "title": "The local Agent transport settings are invalid",
+    "description": "The local runner could not validate its stream limits. The Agent was not started.",
+    "recovery": "Check the local runner stream byte limit and startup margin. Both must be positive, finite numbers, and the byte limit must be a whole number."
+  },
+  "source_commit_invalid": {
+    "title": "The source has no usable commit",
+    "description": "The runner could not resolve a valid source HEAD before preparing the workspace.",
+    "recovery": "Check that the source repository has a valid committed HEAD before starting new work."
+  },
+  "source_index_invalid": {
+    "title": "The source index could not be read",
+    "description": "The runner could not inspect tracked files safely before cloning the source.",
+    "recovery": "Check the source repository with Git and resolve index errors before starting a run."
+  },
+  "source_not_clean": {
+    "title": "The source has uncommitted changes",
+    "description": "The source contains tracked or untracked changes, so the runner refused to treat it as a pinned Git baseline.",
+    "recovery": "Commit, stash or otherwise preserve your source changes, then start a fresh run from a clean repository."
+  },
+  "sparse_source_unsupported": {
+    "title": "The source uses a sparse checkout",
+    "description": "Git workspace mode requires the full source checkout and refuses enabled sparse-checkout configuration.",
+    "recovery": "Use a full clean checkout before starting new work."
+  },
+  "submodule_source_unsupported": {
+    "title": "The source contains a submodule",
+    "description": "This workspace mode cannot safely prepare a source index containing Git submodules.",
+    "recovery": "Use a source without submodules or directory workspace mode with the required regular files."
+  },
+  "symlink_source_unsupported": {
+    "title": "The source contains a tracked link",
+    "description": "This workspace mode refuses tracked symbolic links before cloning.",
+    "recovery": "Use a source with regular files in place of links, or select a supported source."
+  },
+  "tracked_skill_path_unsupported": {
+    "title": "The source tracks the reserved skills directory",
+    "description": "The source tracks .agents/skills, which the runner reserves for pinned skill materialization.",
+    "recovery": "Remove that path from the source index while preserving any files you need, then commit a clean baseline."
+  },
+  "turn_timeout": {
+    "title": "The Agent did not finish before its deadline",
+    "description": "The runner reached the turn deadline and requested cancellation. A terminal Agent result was not confirmed in time.",
+    "recovery": "Check the existing run status and its cleanup result before starting another request. Do not assume the deadline means remote work stopped."
+  },
+  "unsafe_workspace_entry": {
+    "title": "The workspace contains an unsupported file entry",
+    "description": "Snapshot verification found a link, shared hardlinked file or other unsupported filesystem entry.",
+    "recovery": "Use regular private files and directories for the source. Check retained run state before continuing."
+  },
+  "workspace_command_output_too_large": {
+    "title": "The workspace command returned too much output",
+    "description": "The isolated command exceeded its output limit. The runner stopped it and confirmed container cleanup before reporting this failure.",
+    "recovery": "Check the current workspace changes before deciding whether to run another command. Limit the command output; the original command may already have changed files."
+  },
+  "workspace_copy_mismatch": {
+    "title": "The copied workspace did not match the source",
+    "description": "The copied file tree failed its hash check. The runner did not accept that snapshot.",
+    "recovery": "Check for concurrent source changes or filesystem errors before starting new work."
+  },
+  "workspace_git_initialization_failed": {
+    "title": "The workspace baseline could not be created",
+    "description": "Local Git could not initialize or commit the private file baseline required for this run.",
+    "recovery": "Check that Git is installed and can write to the runner state directory before starting new work."
+  },
+  "workspace_git_metadata_conflict": {
+    "title": "The copied workspace already contains Git metadata",
+    "description": "Baseline initialization found an existing .git path and refused to replace it.",
+    "recovery": "Check the configured workspace mode and source. Use Git workspace mode for a supported full repository."
   }
 }

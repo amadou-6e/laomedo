@@ -6,8 +6,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && test "$(claude --version)" = "${CLAUDE_VERSION} (Claude Code)" \
     && mkdir -p /profile /draft && chown node:node /profile /draft
 COPY command_mcp.py /opt/laomedo/command_mcp.py
+COPY package.json package-lock.json /opt/acp/
+RUN npm ci --prefix /opt/acp --omit=dev
 USER node
 ENV HOME=/profile CLAUDE_CONFIG_DIR=/profile/config \
-    CLAUDE_CODE_DISABLE_AUTO_MEMORY=1 DISABLE_AUTOUPDATER=1
+    CLAUDE_CODE_DISABLE_AUTO_MEMORY=1 DISABLE_AUTOUPDATER=1 \
+    CLAUDE_CODE_EXECUTABLE=/usr/local/bin/claude
 WORKDIR /draft
 ENTRYPOINT ["claude"]

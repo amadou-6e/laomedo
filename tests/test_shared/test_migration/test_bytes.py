@@ -15,7 +15,7 @@ migration = load_migration()
 
 class MigrationFileTests(unittest.TestCase):
     def test_json_splicing_preserves_unrelated_bytes(self):
-        source = '\ufeff{\r\n "id":"laomedo.local_runner", "label":"CafÃ© Î»", "number":1.2300e+03, "dup":1,"dup":2, "code":"from laomedo.skill_store import SkillStore\\n"\r\n}\r\n'.encode(
+        source = '\ufeff{\r\n "id":"laomedo.agents.agents.codex.agent", "label":"CafÃ© Î»", "number":1.2300e+03, "dup":1,"dup":2, "code":"from laomedo.skills.registry.store import SkillStore\\n"\r\n}\r\n'.encode(
             "utf-8"
         )
         with tempfile.TemporaryDirectory() as directory:
@@ -30,7 +30,7 @@ class MigrationFileTests(unittest.TestCase):
             self.assertEqual(
                 path.read_bytes(),
                 source.replace(
-                    b"from laomedo.skill_store import",
+                    b"from laomedo.skills.registry.store import",
                     b"from laomedo.skills.registry.store import",
                 ),
             )
@@ -40,7 +40,7 @@ class MigrationFileTests(unittest.TestCase):
             )
 
     def test_python_bom_and_lf_are_preserved(self):
-        source = b"\xef\xbb\xbffrom laomedo.local_runner import LocalRunner\n"
+        source = b"\xef\xbb\xbffrom laomedo.agents.agents.codex.agent import LocalRunner\n"
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "launch.py"
             path.write_bytes(source)
@@ -52,7 +52,7 @@ class MigrationFileTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(
                 path.read_bytes(),
-                b"\xef\xbb\xbffrom laomedo.agents.providers.codex.runner import CodexRunner as LocalRunner\n",
+                b"\xef\xbb\xbffrom laomedo.agents.agents.codex.agent import CodexRunner as LocalRunner\n",
             )
 
     def test_unparseable_import_requires_manual_migration(self):
@@ -73,7 +73,7 @@ class MigrationFileTests(unittest.TestCase):
             self.assertEqual(path.read_bytes(), before)
 
     def test_only_code_and_explicit_launcher_fields_are_selected(self):
-        old = "laomedo.local_runner"
+        old = "laomedo.agents.agents.codex.agent"
         graph = {
             "nodes": [
                 {
@@ -97,13 +97,13 @@ class MigrationFileTests(unittest.TestCase):
         self.assertEqual(data["node"]["template"]["task"]["value"], old)
         self.assertEqual(
             data["node"]["template"]["code"]["value"],
-            "import laomedo.agents.providers.codex.runner",
+            "import laomedo.agents.agents.codex.agent",
         )
         launcher = {"command": "python -m " + old, "nested": {"command": old}}
         self.assertEqual(
             migration.migrate_value(launcher),
             {
-                "command": "python -m laomedo.agents.providers.codex.cli",
+                "command": "python -m laomedo.agents.agents.codex.cli",
                 "nested": {"command": old},
             },
         )
@@ -112,7 +112,7 @@ class MigrationFileTests(unittest.TestCase):
         source = "from laomedo.activity import agent_activity_capture as capture\n"
         migrated = migration.migrate_source(source)
         self.assertEqual(
-            migrated, "from laomedo.activity.agent_activity import capture\n"
+            migrated, "from laomedo.agents.activity import capture\n"
         )
         namespace = {}
         exec(migrated, namespace)
@@ -121,7 +121,7 @@ class MigrationFileTests(unittest.TestCase):
     def test_check_mode_reports_changes_without_writing(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "launch.py"
-            path.write_bytes(b"import laomedo.local_runner\n")
+            path.write_bytes(b"import laomedo.agents.agents.codex.agent\n")
             original = path.read_bytes()
             result = subprocess.run(
                 [sys.executable, str(TOOL), str(path), "--check"],
@@ -138,8 +138,8 @@ class MigrationFileTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             first = Path(directory) / "first.py"
             second = Path(directory) / "second.py"
-            first.write_bytes(b"import laomedo.local_runner\n")
-            second.write_bytes(b"import laomedo.skill_store\n")
+            first.write_bytes(b"import laomedo.agents.agents.codex.agent\n")
+            second.write_bytes(b"import laomedo.skills.registry.store\n")
             backup = second.with_name(second.name + ".before-module-migration")
             backup.write_bytes(b"earlier backup")
             result = subprocess.run(
@@ -148,7 +148,7 @@ class MigrationFileTests(unittest.TestCase):
                 timeout=30,
             )
             self.assertEqual(result.returncode, 2)
-            self.assertEqual(first.read_bytes(), b"import laomedo.local_runner\n")
+            self.assertEqual(first.read_bytes(), b"import laomedo.agents.agents.codex.agent\n")
             self.assertFalse(
                 first.with_name(first.name + ".before-module-migration").exists()
             )

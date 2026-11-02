@@ -5,7 +5,7 @@ from laomedo.git.command import GitCommandRunner
 from laomedo.git.errors import GitCommandTimeout
 from laomedo.git.models import GitEnvironmentProfile, GitExecutionContext
 from laomedo.git.repository import GitRepository
-from laomedo.agents.workspace.errors import GitWorkspaceError
+from laomedo.agents.workspaces.errors import GitWorkspaceError
 import re
 
 

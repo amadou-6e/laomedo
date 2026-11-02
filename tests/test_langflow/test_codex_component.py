@@ -1,6 +1,6 @@
 """Run inside the pinned Langflow image; all runner traffic is synthetic."""
 
-from laomedo.activity.agent_activity.models import CaptureIdentity, ActivityInvocation
+from laomedo.agents.activity.models import CaptureIdentity; from laomedo.agents.activity.models import ActivityInvocation
 
 import asyncio
 from copy import deepcopy
@@ -93,7 +93,7 @@ def result(**changes):
 
 class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
     def test_bridge_activity_capture_uses_runner_token(self):
-        from laomedo.activity.agent_activity.capture import RunnerCapture
+        from laomedo.agents.activity.capture import ActivityCapture as RunnerCapture
 
         with tempfile.TemporaryDirectory() as folder:
             runner_path = Path(folder) / "runner-token"
@@ -110,7 +110,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
                     },
                 ),
                 patch(
-                    "laomedo.activity.agent_activity.utils.capture_for",
+                    "laomedo.agents.activity.utils.capture_for",
                     return_value=ActivityInvocation.model_construct(
                         store=object(), invocation_id="internal"
                     ),
@@ -123,7 +123,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(capture.base, node.runner_url)
 
     def test_static_output_requirements_reach_request_and_reject_conflicts(self):
-        from laomedo.agents.contracts.output import requirements
+        from laomedo.agents.interface.output.utils import requirements
         from lfx.schema import Data
 
         pin = requirements(

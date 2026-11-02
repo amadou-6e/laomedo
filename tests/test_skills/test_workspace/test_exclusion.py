@@ -11,7 +11,7 @@ from laomedo.agents.providers.codex.runner import CodexRunner as LocalRunner
 from laomedo.agents.runtime.errors import RunnerError
 from laomedo.skills.registry.store import SkillStore
 from laomedo.agents.workspace.skills.utils import remove_owned_tree
-from test_local_runner import FakeServer
+from test_agents.test_runtime.test_lifecycle import FakeServer
 
 
 class WorkspaceSkillGitTests(unittest.TestCase):

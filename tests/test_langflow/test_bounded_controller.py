@@ -14,7 +14,7 @@ from lfx.graph.graph.base import Graph
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
-handoff_http = importlib.import_module("laomedo.agents.handoffs.transport")
+handoff_http = importlib.import_module("laomedo.agents.interface.bridge")
 spec = importlib.util.spec_from_file_location(
     "controller_component", ROOT / "components/laomedo/bounded_controller.py"
 )

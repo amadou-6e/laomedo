@@ -4,9 +4,9 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from laomedo.agents.providers.codex.runner import CodexRunner
-from laomedo.agents.runtime.errors import RunnerError
-from laomedo.agents.runtime.utils import _hash_tree
+from laomedo.agents.agents.codex.agent import CodexAgent as CodexRunner
+from laomedo.agents.errors import RunnerError
+from laomedo.agents.workspaces.utils import _hash_tree
 from laomedo.git.models import GitEnvironmentProfile, GitExecutionContext
 from laomedo.git.repository import GitRepository
 from laomedo.skills.registry.errors import SkillStoreError

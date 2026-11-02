@@ -13,8 +13,8 @@ from experiments.exp139.bindings import MailboxAppServer
 from experiments.exp139.bindings import GIT_OVERRIDE
 from experiments.exp139.bindings import PROFILE_OVERRIDES
 from experiments.exp139.bindings import request_digest
-from laomedo.agents.providers.codex.runner import CodexRunner as LocalRunner
-from laomedo.agents.runtime.errors import RunnerError
+from laomedo.agents.agents.codex.agent import CodexAgent as LocalRunner
+from laomedo.agents.errors import RunnerError
 from laomedo.agents.providers.codex.servers import AppServer
 
 

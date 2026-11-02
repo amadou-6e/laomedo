@@ -7,8 +7,8 @@ from threading import Thread
 import unittest
 from uuid import uuid4
 
-from laomedo.agents.workflow.errors import LaunchError
-from laomedo.agents.workflow.store import WorkflowRunStore
+from laomedo.work_graph.runs.errors import LaunchError
+from laomedo.work_graph.runs.store import WorkflowRunStore
 
 HASH = "sha256:" + "1" * 64
 OTHER_HASH = "sha256:" + "2" * 64

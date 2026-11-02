@@ -27,7 +27,7 @@ def producer_paths(filename):
         if path.name != "__init__.py"
     )
     if filename == "local_runner.py":
-        owners.update({"laomedo.agents.runtime.runner", "laomedo.agents.runtime.utils"})
+        owners.update({"laomedo.agents.agents.base.agent", "laomedo.agents.agents.base.utils"})
     paths = sorted(
         ROOT.joinpath("src", *owner.split(".")).with_suffix(".py") for owner in owners
     )

@@ -6,16 +6,15 @@ from pathlib import Path
 import unittest
 from unittest.mock import patch
 
-from laomedo.agents.runtime.runner import Runner
-from laomedo.agents.providers.codex.runner import CodexRunner
-from laomedo.agents.providers.claude.runner import ClaudeRunner
-from laomedo.agents.providers.opencode.runner import OpenCodeRunner
-from laomedo.agents.runtime.errors import RunnerError
-from laomedo.agents.providers.codex import settings as codex_settings
-import test_local_runner
-import test_claude_runner
-import test_opencode_runner
-
+from laomedo.agents.agents.base.agent import BaseAgent as Runner
+from laomedo.agents.agents.codex.agent import CodexAgent as CodexRunner
+from laomedo.agents.agents.claude.agent import ClaudeAgent as ClaudeRunner
+from laomedo.agents.agents.opencode.agent import OpenCodeAgent as OpenCodeRunner
+from laomedo.agents.errors import RunnerError
+from laomedo.agents.agents.codex import settings as codex_settings
+import test_agents.test_runtime.test_lifecycle as test_local_runner
+import test_agents.test_claude.test_runner as test_claude_runner
+import test_agents.test_opencode.test_runner as test_opencode_runner
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -227,7 +226,7 @@ class ProviderBoundaryTests(unittest.TestCase):
                 self.assertEqual(list((control.runner.state / "runs").iterdir()), [])
 
     def test_provider_restart_reconciles_only_the_persisted_identity(self):
-        from laomedo.agents.runtime.utils import _json
+        from laomedo.agents.agents.base.utils import _json
 
         for fixture_type in (
             test_local_runner.LocalRunnerTests,
@@ -276,7 +275,7 @@ class ProviderBoundaryTests(unittest.TestCase):
             self.assertFalse(result["container_ownership"]["cleanup_verified"])
 
     def test_opencode_restart_reads_historical_metadata_without_codex_cleanup(self):
-        from laomedo.agents.runtime.utils import _json
+        from laomedo.agents.agents.base.utils import _json
 
         control = self.fixture(test_opencode_runner.OpenCodeTests)
         record = control.runner._prepare(control.payload)

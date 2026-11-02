@@ -11,7 +11,7 @@ from urllib.request import build_opener
 
 from support.http_server import RunningHTTPServer
 from laomedo.http.redirect import NoRedirect
-from laomedo.host.credentials.opencode.transport import NoRedirect as OpenCodeRedirect
+from laomedo.agents.agents.opencode.auth.transport import NoRedirect as OpenCodeRedirect
 from laomedo.host.credentials.siwc.connection import _NoRedirect as ChatGPTRedirect
 from laomedo.host.credentials.siwc.errors import AuthError
 
@@ -62,11 +62,11 @@ class SharedHTTPTests(unittest.TestCase):
                         owners.add(path.relative_to(root).as_posix())
                     if isinstance(node, ast.ImportFrom):
                         self.assertNotEqual(
-                            node.module, "laomedo.skills.sources.transport"
+                            node.module, "laomedo.http.redirect"
                         )
                     if isinstance(node, ast.Import):
                         self.assertNotIn(
-                            "laomedo.skills.sources.transport",
+                            "laomedo.http.redirect",
                             {item.name for item in node.names},
                         )
         self.assertEqual(

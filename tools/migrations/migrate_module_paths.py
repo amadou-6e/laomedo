@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import ast
 import codecs
+from hashlib import sha256
 import json
 import os
 from pathlib import Path
@@ -20,8 +21,26 @@ from migration_errors import ManualMigrationRequired
 MODULE_PATHS = json.loads(Path(__file__).with_name("module-paths.json").read_text())
 
 SYMBOL_PATHS = json.loads(Path(__file__).with_name("symbol-paths.json").read_text())
-CLI_PATHS = json.loads(Path(__file__).with_name("cli-paths.json").read_text())
 MANUAL_SYMBOLS = json.loads(Path(__file__).with_name("manual-symbols.json").read_text())
+CLI_PATHS = json.loads(Path(__file__).with_name("cli-paths.json").read_text())
+# Partial splits preserve the old owner for its remaining members; retired splits
+# require every imported member to resolve to an explicit defining-symbol mapping.
+RETIRED_SPLIT_MODULES = {
+    "laomedo.github.issues.utils",
+    "laomedo.skills.registry.utils",
+    "laomedo.skills.workspace",
+    "laomedo.skills.workspace.utils",
+    "laomedo.skills.workspace_skills",
+    "laomedo.workspace_skills",
+}
+SPLIT_MODULES = {
+    "laomedo.github.issues.contract",
+    "laomedo.github.pull_requests.contract",
+    "laomedo.github.transport.git.transport",
+    "laomedo.work_graph.github",
+    "laomedo.skills.sources.settings",
+    "laomedo.skills.sources.utils",
+} | RETIRED_SPLIT_MODULES
 if set(MODULE_PATHS.values()) & set(MODULE_PATHS):
     raise ValueError("Migration map targets must be final modules")
 SYMBOL_PATTERN = re.compile(
@@ -71,7 +90,10 @@ def _is_retired_dotted_reference(reference):
         for module in FINAL_FILE_MODULES
     ):
         return False
-    return any(reference.startswith(old + ".") for old in MODULE_PATHS)
+    return any(reference.startswith(old + ".") for old in MODULE_PATHS) or any(
+        reference == old or reference.startswith(old + ".")
+        for old in RETIRED_SPLIT_MODULES
+    )
 
 
 LAUNCH_FIELDS = {
@@ -91,55 +113,11 @@ def _physical_lines(source: str) -> list[str]:
     return [line for line in re.findall(r"[^\r\n]*(?:\r\n|\r|\n|$)", source) if line]
 
 
-def check_manual_git_calls(source: str, tree) -> None:
-    """Refuse retired procedural APIs and changed injection signatures, without execution."""
+def migrate_source(source: str) -> str:
+    """Rewrite published imports to defining modules; refuse ambiguous symbols."""
     for symbol, explanation in MANUAL_SYMBOLS.items():
         if re.search(r"(?<![\w.])" + re.escape(symbol) + r"(?!\w)", source):
             raise ManualMigrationRequired(symbol + ": " + explanation)
-    if tree is None:
-        return
-    bindings = {}
-    for node in ast.walk(tree):
-        if isinstance(node, ast.ImportFrom) and node.module and not node.level:
-            for item in node.names:
-                full = node.module + "." + item.name
-                if full in MANUAL_SYMBOLS:
-                    raise ManualMigrationRequired(full + ": " + MANUAL_SYMBOLS[full])
-                bindings[item.asname or item.name] = full
-        elif isinstance(node, ast.Import):
-            for item in node.names:
-                if item.asname:
-                    bindings[item.asname] = item.name
-
-    def reference(node):
-        if isinstance(node, ast.Name):
-            return bindings.get(node.id, node.id if node.id == "laomedo" else "")
-        if isinstance(node, ast.Attribute):
-            parent = reference(node.value)
-            return parent + "." + node.attr if parent else ""
-        return ""
-
-    changed = {
-        "laomedo.github.transport.git.transport.GitHubGitTransport",
-        "laomedo.host.publication.verified.git.VerifiedGitStage",
-        "laomedo.host.publication.verified.utils.stage_verified_git",
-    }
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Attribute) and reference(node) in MANUAL_SYMBOLS:
-            full = reference(node)
-            raise ManualMigrationRequired(full + ": " + MANUAL_SYMBOLS[full])
-        if isinstance(node, ast.Call):
-            full = reference(node.func)
-            target = SYMBOL_PATHS.get(full, full)
-            if target in changed and any(item.arg == "run" for item in node.keywords):
-                raise ManualMigrationRequired(
-                    full
-                    + ": run= now requires an explicit GitCommandRunner through runner=; manual migration is required"
-                )
-
-
-def migrate_source(source: str) -> str:
-    """Rewrite published imports to defining modules; refuse ambiguous symbols."""
     try:
         tree = ast.parse(source)
     except (SyntaxError, ValueError):
@@ -148,7 +126,6 @@ def migrate_source(source: str) -> str:
             raise ManualMigrationRequired(
                 "Source cannot be parsed; manual migration of its Laomedo imports is required"
             ) from None
-    check_manual_git_calls(source, tree)
     replacements, aliases, additional = [], {}, set()
     changed_parameters = set()
     capture_returns = set()
@@ -194,11 +171,64 @@ def migrate_source(source: str) -> str:
                 )
             )
 
+        imported_modules = {
+            item.asname or item.name: item.name
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Import)
+            for item in node.names
+        }
+        imported_modules.update(
+            {
+                item.asname or item.name: node.module + "." + item.name
+                for node in ast.walk(tree)
+                if isinstance(node, ast.ImportFrom) and node.module and not node.level
+                for item in node.names
+            }
+        )
+
+        def imported_reference(node):
+            """Resolve module aliases without evaluating arbitrary saved Python."""
+            if isinstance(node, ast.Name):
+                return imported_modules.get(node.id, "")
+            if isinstance(node, ast.Attribute):
+                parent = imported_reference(node.value)
+                return parent + "." + node.attr if parent else ""
+            return ""
+
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call):
+                reference = imported_reference(node.func)
+                target = SYMBOL_PATHS.get(reference, reference)
+                if target in {
+                    "laomedo.github.transport.git.transport.GitHubGitTransport",
+                    "laomedo.host.publication.verified.utils.stage_verified_git",
+                } and any(keyword.arg == "run" for keyword in node.keywords):
+                    raise ManualMigrationRequired(
+                        reference
+                        + ": run= was replaced by an explicit GitCommandRunner object; manual migration is required"
+                    )
+            if isinstance(node, ast.Attribute):
+                full = imported_reference(node)
+                if full in MANUAL_SYMBOLS:
+                    raise ManualMigrationRequired(full + ": " + MANUAL_SYMBOLS[full])
         for node in ast.walk(tree):
             if isinstance(node, ast.ImportFrom) and node.module and not node.level:
                 statements, changed = [], False
                 for item in node.names:
                     full = node.module + "." + item.name
+                    if full in SPLIT_MODULES:
+                        aliases[item.asname or item.name] = full
+                    if full in RETIRED_SPLIT_MODULES:
+                        changed = True
+                        continue
+                    if node.module in SPLIT_MODULES and item.name == "*":
+                        raise ManualMigrationRequired(
+                            "A star import from a split module requires manual migration to defining symbols"
+                        )
+                    if full in MANUAL_SYMBOLS:
+                        raise ManualMigrationRequired(
+                            full + ": " + MANUAL_SYMBOLS[full]
+                        )
                     if (
                         legacy_agent is not None
                         and full == "laomedo.codex_agent.LaomedoCodexAgent"
@@ -260,7 +290,10 @@ def migrate_source(source: str) -> str:
                             )
                         )
                         changed = True
-                    elif node.module in MODULE_PATHS:
+                    elif (
+                        node.module in MODULE_PATHS
+                        or node.module in RETIRED_SPLIT_MODULES
+                    ):
                         raise ManualMigrationRequired(
                             "No safe symbol mapping for "
                             + full
@@ -279,6 +312,14 @@ def migrate_source(source: str) -> str:
             elif isinstance(node, ast.Import):
                 statements, changed = [], False
                 for item in node.names:
+                    if item.name in RETIRED_SPLIT_MODULES:
+                        if not item.asname:
+                            raise ManualMigrationRequired(
+                                "A fully qualified retired split-module import requires manual migration"
+                            )
+                        aliases[item.asname] = item.name
+                        changed = True
+                        continue
                     target = MODULE_PATHS.get(item.name, item.name)
                     statements.append(
                         "import "
@@ -350,6 +391,14 @@ def migrate_source(source: str) -> str:
             insertion = position(first.lineno, 0)
             replacements.append((insertion, insertion, block))
         for node in ast.walk(tree):
+            if (
+                isinstance(node, ast.Attribute)
+                and ast.unparse(node) in SYMBOL_PATHS
+                and ast.unparse(node).rsplit(".", 1)[0] in SPLIT_MODULES
+            ):
+                raise ManualMigrationRequired(
+                    "Fully qualified access to a relocated split-module member requires an explicit defining-symbol import"
+                )
             if isinstance(node, ast.Attribute) and _is_retired_dotted_reference(
                 ast.unparse(node)
             ):
@@ -369,6 +418,27 @@ def migrate_source(source: str) -> str:
                     "capture_for now returns ActivityInvocation; manual migration must use .store and .invocation_id"
                 )
             if isinstance(node, ast.Call):
+                if (
+                    isinstance(node.func, ast.Name)
+                    and node.func.id in {"getattr", "setattr", "hasattr"}
+                    and len(node.args) >= 2
+                ):
+                    original = imported_reference(node.args[0]) or ast.unparse(
+                        node.args[0]
+                    )
+                    member = node.args[1]
+                    if (
+                        original in RETIRED_SPLIT_MODULES
+                        or original in SPLIT_MODULES
+                        and (
+                            not isinstance(member, ast.Constant)
+                            or not isinstance(member.value, str)
+                            or original + "." + member.value in SYMBOL_PATHS
+                        )
+                    ):
+                        raise ManualMigrationRequired(
+                            "Dynamic access to a relocated split-module member requires manual migration to its defining symbol"
+                        )
                 if changed_models and (
                     isinstance(node.func, ast.Name)
                     and node.func.id in {"asdict", "replace"}
@@ -501,12 +571,25 @@ def migrate_source(source: str) -> str:
                             "from " + target + " import " + name + " as " + alias
                         )
                         replace(node, alias)
-                elif original in MODULE_PATHS:
+                elif original in MODULE_PATHS or original in RETIRED_SPLIT_MODULES:
                     raise ManualMigrationRequired(
                         "No safe attribute mapping for "
                         + full
                         + "; manual migration is required"
                     )
+        for node in ast.walk(tree):
+            if (
+                isinstance(node, ast.Name)
+                and isinstance(node.ctx, ast.Load)
+                and aliases.get(node.id) in RETIRED_SPLIT_MODULES
+                and not (
+                    isinstance(parents.get(node), ast.Attribute)
+                    and parents[node].value is node
+                )
+            ):
+                raise ManualMigrationRequired(
+                    "A retired split-module object cannot be passed around; import its defining symbols"
+                )
         for start, end, value in sorted(replacements, reverse=True):
             source = source[:start] + value + source[end:]
         if additional:
@@ -577,12 +660,65 @@ def _selected_field(path: tuple, graph: bool) -> bool:
     )
 
 
+def _component_hash_updates(value):
+    """Refresh recognized Langflow source hashes without changing graph identity.
+
+    Langflow 1.12 uses the first twelve SHA-256 hex characters of UTF-8 component
+    source. Unknown formats are not rewritten under an assumed revision scheme.
+    """
+    if not _is_graph(value):
+        return {}
+    prefix = () if isinstance(value.get("nodes"), list) else ("data",)
+    nodes = value["nodes"] if not prefix else value["data"]["nodes"]
+    updates = {}
+    for index, node in enumerate(nodes):
+        if not isinstance(node, dict):
+            continue
+        data = node.get("data")
+        if not isinstance(data, dict):
+            continue
+        definition = data.get("node", {})
+        if not isinstance(definition, dict):
+            continue
+        metadata = definition.get("metadata")
+        template = definition.get("template")
+        code_field = template.get("code") if isinstance(template, dict) else None
+        code = code_field.get("value") if isinstance(code_field, dict) else None
+        if (
+            not isinstance(metadata, dict)
+            or "code_hash" not in metadata
+            or not isinstance(code, str)
+            or not code
+        ):
+            continue
+        migrated = migrate_source(code)
+        if migrated == code:
+            continue  # Unchanged code is not permission to repair an unrelated revision key.
+        existing = metadata["code_hash"]
+        if not isinstance(existing, str) or not re.fullmatch(r"[0-9a-f]{12}", existing):
+            if migrated != code:
+                raise ManualMigrationRequired(
+                    "Unknown component code hash format; manual component-revision migration is required"
+                )
+            continue
+        if existing != sha256(code.encode("utf-8")).hexdigest()[:12]:
+            raise ManualMigrationRequired(
+                "Component code hash does not match its original source; manual component-revision migration is required"
+            )
+        path = prefix + ("nodes", index, "data", "node", "metadata", "code_hash")
+        updates[path] = sha256(migrated.encode("utf-8")).hexdigest()[:12]
+    return updates
+
+
 def migrate_value(value):
-    """Migrate graph code or explicit launcher fields, leaving other values alone."""
+    """Migrate code, recognized derived code hashes and explicit launcher fields."""
     graph = _is_graph(value)
+    hashes = _component_hash_updates(value)
 
     def walk(item, path):
         if isinstance(item, str):
+            if path in hashes:
+                return hashes[path]
             return (
                 _migrate_selected(item, path) if _selected_field(path, graph) else item
             )
@@ -596,8 +732,10 @@ def migrate_value(value):
 
 
 def migrate_json_source(source: str) -> str:
-    """Splice changed JSON string tokens only; preserve all other source bytes."""
-    graph = _is_graph(json.loads(source))
+    """Splice code/hash tokens only; preserve unrelated source bytes and values."""
+    parsed = json.loads(source)
+    graph = _is_graph(parsed)
+    hashes = _component_hash_updates(parsed)
     decoder = json.JSONDecoder()
     replacements = []
 
@@ -631,8 +769,8 @@ def migrate_json_source(source: str) -> str:
                 index = whitespace(index + 1)
                 count += 1
         item, end = decoder.raw_decode(source, index)
-        if isinstance(item, str) and _selected_field(path, graph):
-            migrated = _migrate_selected(item, path)
+        if isinstance(item, str) and (path in hashes or _selected_field(path, graph)):
+            migrated = hashes[path] if path in hashes else _migrate_selected(item, path)
             if migrated != item:
                 token = source[index:end]
                 replacements.append(
@@ -679,7 +817,22 @@ def main() -> None:
     args = parser.parse_args()
     plans = []
     try:
+        project_root = Path(__file__).resolve().parents[2]
+        history = json.loads(
+            (project_root / "examples/agent-module-history.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        immutable = {
+            (project_root / record["historical_original"]).resolve()
+            for record in history["files"]
+            if record.get("immutable")
+        }
         for path in args.files:
+            if path.resolve() in immutable:
+                raise ManualMigrationRequired(
+                    "Historical execution evidence is immutable; migrate an explicitly named copy instead"
+                )
             if (
                 path.is_symlink()
                 or not path.is_file()

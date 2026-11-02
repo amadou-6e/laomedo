@@ -15,7 +15,7 @@ from uuid import uuid4
 from laomedo.integrations.langflow.join.controller import LangflowJoinController
 from laomedo.integrations.langflow.join.transport import RunnerHTTPTransport
 from laomedo.integrations.langflow.join.server import JoinServer as serve_langflow_join
-from laomedo.agents.workflow.store import WorkflowRunStore
+from laomedo.work_graph.runs.store import WorkflowRunStore
 from test_langflow_join_controller import FakeRunner
 
 

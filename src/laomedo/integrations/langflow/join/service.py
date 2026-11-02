@@ -6,8 +6,8 @@ files and a private run store outside Git; it never prints token contents.
 
 from pathlib import Path
 import argparse
-import laomedo.agents.workflow.errors as _workflow_errors
-import laomedo.agents.workflow.store as _workflow_store
+import laomedo.work_graph.runs.errors as _workflow_errors
+import laomedo.work_graph.runs.store as _workflow_store
 import laomedo.integrations.langflow.join.controller as _join_controller
 import laomedo.integrations.langflow.join.server as _join_server
 import laomedo.integrations.langflow.join.transport as _join_transport

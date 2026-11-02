@@ -4,7 +4,7 @@ from datetime import datetime
 from datetime import timezone
 from hashlib import sha256
 import json
-import laomedo.agents.workflow.errors as _workflow_errors
+import laomedo.work_graph.runs.errors as _workflow_errors
 import laomedo.work_graph.models as _work_graph_models
 
 
