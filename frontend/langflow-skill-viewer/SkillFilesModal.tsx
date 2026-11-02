@@ -100,6 +100,8 @@ export default function SkillFilesModal({ skillId, revision, open, setOpen }: {
     if (active === path) { setActive(next[next.length - 1] || ""); setPreview(false); }
   };
   return <div className="contents" onKeyDownCapture={(event) => {
+    // Keep canvas panning from consuming native button activation with Space.
+    if (event.key === " " && event.target instanceof Element && event.target.closest("button")) event.stopPropagation();
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "f") {
       event.preventDefault(); event.stopPropagation(); navigation.showFind();
       content.current?.querySelector<HTMLButtonElement>('button[aria-label="Show skill navigation"]')?.click();
