@@ -13,6 +13,7 @@ const manualUrl = (action: string) => `${getBaseUrl()}laomedo/skills/manual/${ac
 
 export function useSkillEditing(skillId: string, revision: string, snapshot: Snapshot | null, onSaved: (revision: string) => void) {
   const [state, setState] = useState<SkillEditorState | null>(null);
+  const [controlsUnavailable, setControlsUnavailable] = useState(false);
   const [refresh, setRefresh] = useState(0);
   const [buffers, setBuffers] = useState<Record<string, string>>({});
   const [candidate, setCandidate] = useState<Candidate | null>(null);
@@ -25,12 +26,12 @@ export function useSkillEditing(skillId: string, revision: string, snapshot: Sna
   const submitting = useRef(false);
   useEffect(() => { live.current = true; return () => { live.current = false; }; }, []);
   useEffect(() => {
-    const controller = new AbortController(); setState(null);
+    const controller = new AbortController(); setState(null); setControlsUnavailable(false);
     api.post<SkillEditorState>(manualUrl("editor"), { skill_id: skillId, revision_id: revision }, { signal: controller.signal }).then(({ data }) => {
       if (controller.signal.aborted) return;
       if (data.skill_id !== skillId || data.selected_revision !== revision || !data.head_commit || !data.head_revision || !data.latest_revision) throw Error();
       setState(data);
-    }).catch(() => { if (!controller.signal.aborted) setError("skill_manual_controls_unavailable"); });
+    }).catch(() => { if (!controller.signal.aborted) { setControlsUnavailable(true); setError("skill_manual_controls_unavailable"); } });
     return () => controller.abort();
   }, [skillId, revision, refresh]);
   const changes = useMemo(() => (snapshot?.revision_id === revision ? snapshot.files : []).filter((file) => file.kind === "text" &&
@@ -89,7 +90,7 @@ export function useSkillEditing(skillId: string, revision: string, snapshot: Sna
       if (definitive) { setPending(null); setRefresh((value) => value + 1); }
     } finally { submitting.current = false; if (live.current) setBusy(false); }
   };
-  return { state, files, editing: !!state?.can_edit, dirty, candidate, changes, message, setMessage, busy, pending, error, status,
+  return { state, controlsUnavailable, files, editing: !!state?.can_edit, dirty, candidate, changes, message, setMessage, busy, pending, error, status,
     dismissError: () => setError(""), refresh: () => { setError(""); setRefresh((value) => value + 1); }, discard,
     update: (path: string, text: string) => { setBuffers((old) => ({ ...old, [path]: text })); setStatus(""); },
     publish: () => {

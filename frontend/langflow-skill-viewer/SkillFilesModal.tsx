@@ -159,7 +159,7 @@ function SkillWorkspace({ skillId, initialRevision, setOpen }: { skillId: string
         <span className="truncate" title={skillId}>{skillId}</span><code className="shrink-0 text-xs text-muted-foreground" title={revision}>{revision.startsWith("sha256:") ? `sha256:${revision.slice(7, 15)}` : revision}</code>
         {revision !== initialRevision && <span className="truncate text-xs text-muted-foreground" title={initialRevision}>Graph pins {initialRevision.slice(7, 15)}</span>}
       </div>
-      {!manual.state && manual.error === "skill_manual_controls_unavailable" && !manual.busy && <button type="button" className="mb-2 self-start rounded border px-3 py-1 text-sm" onClick={manual.refresh}>Retry edit controls</button>}
+      {manual.controlsUnavailable && !manual.busy && <button type="button" className="mb-2 self-start rounded border px-3 py-1 text-sm" onClick={manual.refresh}>Retry edit controls</button>}
       {manual.state && !manual.state.edit_enabled && <p className="mb-2 text-xs text-muted-foreground">Manual editing is disabled for this Skill in local configuration.</p>}
       {closeNotice && (manual.busy || manual.pending) && <p role="status" className="mb-2 shrink-0 text-sm">Wait for confirmation, or use Check result before closing. Closing cannot cancel a save or publication.</p>}
       {manual.status && <p role="status" className="mb-2 shrink-0 text-sm">{manual.status}</p>}

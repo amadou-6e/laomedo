@@ -108,3 +108,15 @@ test("returning a file to its original text hides publication controls and Disca
   act(() => result.current.discard());
   expect(post.mock.calls.every(([url]) => url.endsWith("/editor"))).toBe(true);
 });
+
+test("dismissing a controls lookup failure leaves recovery available", async () => {
+  post.mockRejectedValueOnce(Error("offline"));
+  const { result } = renderHook(() => useSkillEditing("unit", "old", snapshot, jest.fn()));
+  await waitFor(() => expect(result.current.controlsUnavailable).toBe(true));
+  act(() => result.current.dismissError());
+  expect(result.current.error).toBe("");
+  expect(result.current.controlsUnavailable).toBe(true);
+  act(() => result.current.refresh());
+  await waitFor(() => expect(result.current.state).toEqual(state));
+  expect(result.current.controlsUnavailable).toBe(false);
+});
