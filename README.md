@@ -156,5 +156,7 @@ GitHub/GitLab repository roots; private Git authentication is not implemented.
 The [GitHub Issue node](examples/github/README.md) discovers repository
 labels and issues, filters by all selected labels, reads current content and
 accepts incoming close/modify operations through existing scoped mediation.
-Credentials stay on the host. A read-only activation draft and fake-provider
-browser/native checks are included; the old FrozenIssue experiment is separate.
+Credentials stay on the host. Follow the current
+[connection setup](docs/features/github/connection.md) for read access. Earlier
+activation drafts and campaign evidence are preserved on `exp`; internal
+browser/native controls live in the owning tests.

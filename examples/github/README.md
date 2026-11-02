@@ -15,6 +15,13 @@ allow that repository; selecting a reference never grants write authority.
 
 ## Inspect an Issue or PR
 
+### Issue inspection controls
+
+Repository URL selects the host connection. Labels match all selected names;
+State limits discovery to Open, Closed or All. Refresh discovery and choose the
+existing Issue before running it. The viewer shows that selected Issue; its
+Operation Result is separate from the content and must be checked after a write.
+
 From the implementation checkout:
 
 ```powershell
@@ -31,6 +38,34 @@ See [Issue controls](../../docs/features/github/issues/walkthrough.md) and
 [PR controls](../../docs/features/github/pull-requests/walkthrough.md). Filters
 must still match the selected resource. A missing or stale selection refuses;
 it does not silently choose another Issue/PR.
+
+## Issue operations
+
+The Issue node accepts a normal upstream **Operation** payload. This is separate
+from the bounded PR feedback example; arbitrary Issue/Agent cycles are not
+supported. The trusted host must already have an unexpired grant bound to the
+repository, run, selected Issue and allowed update. There is no node control to
+mint that authority. See [connection setup](../../docs/features/github/connection.md#before-you-enable-any-write).
+
+For an authorized title/body/label update, supply this shape through the upstream
+Data output, replacing the illustrative identity and values with the actual
+host-bound request:
+
+```json
+{"action":"modify","request_id":"unique-request-id","grant_ref":"host-bound-grant","changes":{"title":"Reviewed title","body":"Reviewed body","labels":["existing-label"]}}
+```
+
+Include only the fields that should change. An empty label list clears labels.
+To close the selected Issue, use the separate close operation without `changes`:
+
+```json
+{"action":"close","request_id":"another-unique-request-id","grant_ref":"host-bound-grant"}
+```
+
+The payload selects neither a different repository nor another Issue. Reusing an
+identity with different input conflicts. Inspect Operation Result and the real
+Issue before concluding the update succeeded. Preserve the existing record on
+`unknown` and do not blindly submit another operation.
 
 ## One PR operation with the real Agent
 

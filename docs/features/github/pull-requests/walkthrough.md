@@ -65,6 +65,9 @@ feedback connection, not an arbitrary cycle or a second PR node. The pinned
 Skill is an independent read-only dependency. Do not add a manual Operation
 value alongside the feedback edge or wire unrelated inputs into its isolated body.
 
+This walkthrough uses Claude. The maintained `examples/github/build_flow.py`
+builder uses the existing Codex Agent with the same PR Operation feedback wiring.
+
 ## 4. Run once and confirm the actual result
 
 Run the **GitHub PR** controller once. It reads current PR data, reserves its
