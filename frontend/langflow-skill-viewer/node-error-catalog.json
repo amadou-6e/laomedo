@@ -1712,7 +1712,7 @@
   "skill_manual_save_expired": {
     "title": "The save window expired",
     "description": "This save was not applied before its short-lived edit permission expired. Your working text is still available.",
-    "recovery": "Your edits are retained. Inspect history and refresh edit controls before choosing Publish again. Use Discard only after copying text you want to keep."
+    "recovery": "Your edits are retained. Inspect the current commit history, then choose Publish again. Use Discard only after copying text you want to keep."
   },
   "skill_manual_controls_unavailable": {
     "title": "Skill edit controls are unavailable",

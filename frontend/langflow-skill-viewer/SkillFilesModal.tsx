@@ -139,6 +139,7 @@ function SkillWorkspace({ skillId, initialRevision, setOpen }: { skillId: string
       // Consume the native event too: removing the card during document capture
       // must not send the same Escape to outer node/browser dismissal handlers.
       if (manual.error) { event.preventDefault(); event.stopImmediatePropagation(); manual.dismissError(); return; }
+      if (comparison.showError && manual.dirty) { event.preventDefault(); event.stopImmediatePropagation(); comparison.dismissError(); return; }
       // Other presenters own their dismissal; let the card's handler receive
       // Escape after preventing Radix from dismissing the workspace.
       if (event.target instanceof Element && event.target.closest("[data-error-code]")) { event.preventDefault(); return; }
