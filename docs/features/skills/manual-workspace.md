@@ -1,69 +1,42 @@
-# Manual Skill workspace
+# Skill workspace
 
-Open **Skill files** on the Skill node. The viewer opens its exact pinned revision.
-If that revision is older than the editing head, choose **Open latest editable
-revision** explicitly; this does not change the graph's pin.
+Open Skill files from the Skill node. Authorised text files are immediately
+editable; the workspace opens the journal head while the graph keeps its pin.
+Skill ID and short revision share a single header line. The Skill summary remains
+visible and its overview can be expanded.
 
-The header uses icon-only Full page and Restore window controls. Files have the
-VS Code Seti Markdown glyph and Codicon folder arrows. Find is a collapsible
-workspace search with nested folder, file and matching-line rows. It includes
-unsaved text while editing. Open/Collapse all also covers search groups.
+Change any existing text file to reveal the bottom-right **Discard** and
+**Publish** controls. Switching files, Find and historical comparisons preserve
+working text. An optional commit message defaults to `Update Skill files`.
 
-## Edit and save a candidate
+**Publish** saves the complete changed-file batch as one immutable commit, then
+promotes that exact revision to registry current. The footer lists all files to
+publish against registry current, including earlier saved changes. Choose a path
+to inspect its cumulative diff in the main editor. There is no separate Edit or
+publication-review mode. Git publication remains deferred.
 
-Choose Edit, change one or several existing text files, and enter a commit message.
-Switching files retains the working text; modified tabs have a dot. Save commit
-validates the complete batch and creates one immutable history entry. A saved
-candidate does not change registry current. Selecting an earlier commit in read
-mode compares only the selected file against the current viewed revision.
+**Discard** asks for confirmation, clears working changes and reloads the journal
+head. It never deletes saved history or changes registry current. Closing with
+working changes also asks first. Uncertain writes retain their exact identity and
+require **Check result** before closing or starting another write.
 
-![Actual two-file working copy](assets/manual-editing.png)
+If saving succeeds but promotion fails, the saved candidate remains traceable,
+and the footer offers retry or discard. A definitive failure permits a new
+explicit attempt after inspecting refreshed changes. An unknown result must be
+reconciled first. Policy/grant refusals preserve working text. Retry edit controls
+recovers restored permissions; Retry comparison reloads an unavailable base.
 
-Edit and Publish require separate explicit local service grants plus the existing
-versioned edit policy. The operations service accepts an optional
-`--manual-permissions` JSON file, keyed by Skill ID with `edit` and `publish`
-booleans. Missing permissions deny writes. Configure this file on the host; the
-browser cannot provide policy, tickets or provenance. This preview enables only
-`pr-feedback-title`. Backend provenance is `operator`, not a verified human identity.
+The host service requires its explicit `--manual-permissions` JSON, keyed by
+Skill ID with `edit` and `publish` booleans, plus the existing edit policy.
+Missing grants deny writes. Backend provenance is `operator`, not an independently
+verified human identity. Manual creation/deletion/binary edits, per-user ACL, Git
+publication and durable unsaved crash recovery remain unsupported.
 
-## Review and publish to the registry
+This control revision is undergoing real-browser and independent review. The
+following evidence and images describe the earlier control model and do not
+establish acceptance of this revision.
 
-Choose Review publication after saving. The changed-file list covers the exact
-candidate's cumulative changes against registry current. Select a file to see its
-visual diff; the viewer does not concatenate patches. Choose Publish revision to
-promote that exact reviewed candidate. A changed base or head refuses the action.
-
-![Actual per-file registry publication review](assets/manual-publication-review.png)
-
-![Actual published registry revision and retained history](assets/manual-published.png)
-
-Publishing changes registry current only. Existing graph pins, source files and
-Git repositories keep their existing values. Git publishing is deferred.
-
-## Failure and recovery
-
-A refused batch retains the working copy without a partial commit. Policy refusal
-allows correcting the files and saving again. A revoked grant retains text; after
-restoring local configuration, Retry edit controls refreshes the controls.
-
-A stale edit exposes Open latest editable revision while editing. Copy wanted
-working text before discarding; Keep editing preserves it, and Discard changes
-explicitly opens the newer head. Closing unsaved text also asks for confirmation.
-
-An uncertain save retains its exact request and offers Check result. Closing and
-discarding cannot cancel a pending write. Temporary network reconnection and
-canvas refresh retain the viewer, working files and pending identity, so Check
-result can reconcile the same request. Comparison failure disables Publish and
-exposes Retry comparison. History failure leaves local Find usable; Retry restores
-history after the service returns.
-
-Focused error cards support Dismiss and Escape without closing the Skill viewer. Unrelated
-background notifications are hidden during the modal, retaining their state and
-reappearing after close. They cannot cover Publish.
-
-![Actual application Dark mode](assets/manual-dark.png)
-
-## Recorded verification
+## Earlier control-model verification
 
 Recorded 2026-11-02 on Windows with headless Edge, actual saved graphs and local
 registry. App/frontend source `be7d83cbf635b0a53b6b0162a8848fbe4a0843b7`, pinned Langflow

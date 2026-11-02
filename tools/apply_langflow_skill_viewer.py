@@ -115,6 +115,7 @@ def apply(checkout):
         "SkillEditing.tsx",
         "SkillEditing.test.tsx",
         "SkillPublication.tsx",
+        "SkillPublication.test.tsx",
     ):
         shutil.copy2(overlay / name, target / name)
     shutil.copy2(

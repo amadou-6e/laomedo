@@ -7,14 +7,15 @@ import type { Snapshot } from "./SkillHistory";
 export type SkillEditorState = { skill_id: string; selected_revision: string; head_revision: string; head_commit: string;
   latest_revision: string; can_edit: boolean; can_publish: boolean; edit_enabled: boolean };
 type SaveResult = { skill: { skill_id: string; revision_id: string; tree_hash: string }; commit: { commit_id: string } };
-type Pending = { action: "save" | "publish"; body: Record<string, unknown> };
+type Candidate = { revision: string; commit: string };
+type Pending = { action: "save" | "publish"; body: Record<string, unknown>; expectedLatest: string };
 const manualUrl = (action: string) => `${getBaseUrl()}laomedo/skills/manual/${action}`;
 
 export function useSkillEditing(skillId: string, revision: string, snapshot: Snapshot | null, onSaved: (revision: string) => void) {
   const [state, setState] = useState<SkillEditorState | null>(null);
   const [refresh, setRefresh] = useState(0);
-  const [editing, setEditing] = useState(false);
   const [buffers, setBuffers] = useState<Record<string, string>>({});
+  const [candidate, setCandidate] = useState<Candidate | null>(null);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<Pending | null>(null);
@@ -32,35 +33,54 @@ export function useSkillEditing(skillId: string, revision: string, snapshot: Sna
     }).catch(() => { if (!controller.signal.aborted) setError("skill_manual_controls_unavailable"); });
     return () => controller.abort();
   }, [skillId, revision, refresh]);
-  const changes = useMemo(() => (snapshot?.files || []).filter((file) => file.kind === "text" &&
+  const changes = useMemo(() => (snapshot?.revision_id === revision ? snapshot.files : []).filter((file) => file.kind === "text" &&
     Object.prototype.hasOwnProperty.call(buffers, file.path) && buffers[file.path] !== file.text)
-    .map((file) => ({ path: file.path, content: buffers[file.path] })), [snapshot, buffers]);
-  const files = useMemo(() => (snapshot?.files || []).map((file) => editing && Object.prototype.hasOwnProperty.call(buffers, file.path) ?
-    { ...file, text: buffers[file.path], bytes: new TextEncoder().encode(buffers[file.path]).length } : file), [snapshot, buffers, editing]);
+    .map((file) => ({ path: file.path, content: buffers[file.path] })), [snapshot, revision, buffers]);
+  const dirty = changes.length > 0 || !!candidate;
+  const files = useMemo(() => (snapshot?.files || []).map((file) => Object.prototype.hasOwnProperty.call(buffers, file.path) ?
+    { ...file, text: buffers[file.path], bytes: new TextEncoder().encode(buffers[file.path]).length } : file), [snapshot, buffers]);
   useEffect(() => {
-    if (!changes.length && !pending) return;
+    // Only a clean workspace follows the head. Never rebase a working buffer.
+    if (state?.edit_enabled && state.head_revision !== revision && !dirty && !busy && !pending) onSaved(state.head_revision);
+  }, [state, revision, dirty, busy, pending, onSaved]);
+  useEffect(() => {
+    if (!dirty && !pending) return;
     const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
-  }, [changes.length, pending]);
-  const discard = () => { if (!busy && !pending) { setEditing(false); setBuffers({}); setMessage(""); } };
-  const submit = async (request: Pending) => {
+  }, [dirty, pending]);
+  const discard = () => {
+    if (busy || pending) return;
+    setBuffers({}); setCandidate(null); setMessage(""); setError(""); setStatus("");
+    if (state) onSaved(state.head_revision);
+    setRefresh((value) => value + 1);
+  };
+  const submit = async (initial: Pending) => {
     if (submitting.current) return;
     submitting.current = true;
-    setBusy(true); setPending(request); setError(""); setStatus("");
+    setBusy(true); setError(""); setStatus("");
+    let request = initial;
     try {
-      const { data } = await api.post(manualUrl(request.action), request.body);
-      if (!live.current) return;
-      if (request.action === "save") {
-        const saved = data as SaveResult;
-        if (saved.skill?.skill_id !== skillId || saved.skill.tree_hash !== saved.skill.revision_id || !saved.commit?.commit_id) throw Error();
-        setEditing(false); setBuffers({}); setMessage(""); onSaved(saved.skill.revision_id);
-        setStatus("Commit saved. Registry current is unchanged.");
-      } else {
+      while (true) {
+        setPending(request);
+        const { data } = await api.post(manualUrl(request.action), request.body);
+        if (!live.current) return;
+        if (request.action === "save") {
+          const saved = data as SaveResult;
+          if (saved.skill?.skill_id !== skillId || !saved.skill.revision_id || saved.skill.tree_hash !== saved.skill.revision_id || !saved.commit?.commit_id) throw Error();
+          const next = { revision: saved.skill.revision_id, commit: saved.commit.commit_id };
+          setCandidate(next); setBuffers({}); onSaved(next.revision);
+          request = { action: "publish", expectedLatest: request.expectedLatest, body: {
+            skill_id: skillId, revision_id: next.revision, commit_id: next.commit, expected_latest: request.expectedLatest,
+          } };
+          continue;
+        }
         if (data.skill_id !== skillId || data.revision_id !== request.body.revision_id || data.commit_id !== request.body.commit_id || data.promotion_performed !== true) throw Error();
+        setCandidate(null); setMessage(""); setPending(null);
         setStatus("Published to the Skill registry. Existing graphs keep their pinned revisions.");
+        setRefresh((value) => value + 1);
+        break;
       }
-      setPending(null); setRefresh((value) => value + 1);
     } catch (failure) {
       if (!live.current) return;
       const code = (failure as { response?: { data?: { detail?: { code?: string } } } }).response?.data?.detail?.code;
@@ -69,17 +89,20 @@ export function useSkillEditing(skillId: string, revision: string, snapshot: Sna
       if (definitive) { setPending(null); setRefresh((value) => value + 1); }
     } finally { submitting.current = false; if (live.current) setBusy(false); }
   };
-  return { state, files, editing, changes, message, setMessage, busy, pending, error, status,
-    dismissError: () => setError(""), refresh: () => { setError(""); setRefresh((value) => value + 1); },
-    start: () => { if (state?.can_edit && !busy && !pending) { setEditing(true); setStatus(""); } }, discard,
-    update: (path: string, text: string) => setBuffers((old) => ({ ...old, [path]: text })),
-    save: () => { if (state?.can_edit && changes.length && message.trim() && !pending) void submit({ action: "save", body: {
-      request_id: uuid(), skill_id: skillId, revision_id: revision, commit_id: state.head_commit,
-      operation: { action: "modify", message: message.trim(), files: changes },
-    } }); },
-    publish: (expectedLatest: string) => { if (state?.can_publish && !pending) void submit({ action: "publish", body: {
-      skill_id: skillId, revision_id: revision, commit_id: state.head_commit, expected_latest: expectedLatest,
-    } }); },
+  return { state, files, editing: !!state?.can_edit, dirty, candidate, changes, message, setMessage, busy, pending, error, status,
+    dismissError: () => setError(""), refresh: () => { setError(""); setRefresh((value) => value + 1); }, discard,
+    update: (path: string, text: string) => { setBuffers((old) => ({ ...old, [path]: text })); setStatus(""); },
+    publish: () => {
+      if (!state?.can_publish || !state.can_edit || !dirty || busy || pending) return;
+      const expectedLatest = state.latest_revision;
+      if (changes.length) void submit({ action: "save", expectedLatest, body: {
+        request_id: uuid(), skill_id: skillId, revision_id: revision, commit_id: state.head_commit,
+        operation: { action: "modify", message: message.trim() || "Update Skill files", files: changes },
+      } });
+      else if (candidate) void submit({ action: "publish", expectedLatest, body: {
+        skill_id: skillId, revision_id: candidate.revision, commit_id: candidate.commit, expected_latest: expectedLatest,
+      } });
+    },
     reconcile: () => { if (pending) void submit(pending); },
   };
 }

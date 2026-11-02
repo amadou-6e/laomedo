@@ -21,7 +21,8 @@ import SkillExplorer from "./SkillExplorer";
 import SkillOverview from "./SkillOverview";
 import { VscChromeMaximize, VscChromeRestore, VscLoading } from "react-icons/vsc";
 import { useSkillEditing } from "./SkillEditing";
-import SkillPublication from "./SkillPublication";
+import { useRegistryComparison } from "./SkillPublication";
+import SkillFileDiff from "./SkillFileDiff";
 import ErrorPopup from "@/components/laomedoErrors/ErrorPopup";
 
 // Bundle the editor and worker locally. No Monaco CDN or remote file loader.
@@ -81,10 +82,11 @@ function SkillWorkspace({ skillId, initialRevision, setOpen }: { skillId: string
   const [preview, setPreview] = useState(false);
   const [historicalFiles, setHistoricalFiles] = useState<SkillFile[]>([]);
   const [selectedCommit, setSelectedCommit] = useState<Commit | null>(null);
-  const [publicationBase, setPublicationBase] = useState("");
-  const [discardAction, setDiscardAction] = useState<"close" | "discard" | "latest" | null>(null);
+  const [discardAction, setDiscardAction] = useState<"close" | "discard" | null>(null);
   const [closeNotice, setCloseNotice] = useState(false);
   const manual = useSkillEditing(skillId, revision, snapshot, setRevision);
+  const comparison = useRegistryComparison(skillId, manual.state?.latest_revision || "", manual.files);
+  const [comparisonPath, setComparisonPath] = useState<string | null>(null);
   const navigationFiles = [...manual.files, ...historicalFiles.filter((old) => !manual.files.some((current) => current.path === old.path))];
   const navigation = useSkillNavigation(`${skillId}:${revision}`, navigationFiles.map((file) => file.path));
   useEffect(() => {
@@ -111,7 +113,7 @@ function SkillWorkspace({ skillId, initialRevision, setOpen }: { skillId: string
   }, [open, skillId, revision, reload]);
   const file = manual.files.find((entry) => entry.path === active);
   const markdown = file?.path.toLowerCase().endsWith(".md");
-  const select = (path: string) => { setTabs((current) => current.includes(path) ? current : [...current, path]); setActive(path); setPreview(false); setMatch(null); };
+  const select = (path: string) => { setComparisonPath(null); setTabs((current) => current.includes(path) ? current : [...current, path]); setActive(path); setPreview(false); setMatch(null); };
   const close = (path: string) => {
     const next = tabs.filter((entry) => entry !== path); setTabs(next);
     if (active === path) { setActive(next[next.length - 1] || ""); setPreview(false); }
@@ -119,13 +121,7 @@ function SkillWorkspace({ skillId, initialRevision, setOpen }: { skillId: string
   const requestClose = (value: boolean) => {
     if (value) return;
     if (manual.busy || manual.pending) { setCloseNotice(true); return; }
-    if (manual.changes.length) setDiscardAction("close"); else setOpen(false);
-  };
-  const openLatest = () => {
-    if (!manual.state || manual.busy || manual.pending) return;
-    manual.dismissError();
-    if (manual.changes.length) { setDiscardAction("latest"); return; }
-    manual.discard(); setPublicationBase(""); setRevision(manual.state.head_revision);
+    if (manual.dirty) setDiscardAction("close"); else setOpen(false);
   };
   return <div className="contents" onKeyDownCapture={(event) => {
     // Keep canvas panning from consuming native button activation with Space.
@@ -151,47 +147,27 @@ function SkillWorkspace({ skillId, initialRevision, setOpen }: { skillId: string
         event.preventDefault(); navigation.hideFind(); content.current?.querySelector<HTMLButtonElement>("#skill-Find-toggle")?.focus();
       }
     }}>
-    <BaseModal.Header description="Inspect revisions, save manual commits and explicitly publish reviewed changes to the Skill registry.">
-      <span>Skill files{manual.editing ? " · Editing" : manual.state && !manual.state.edit_enabled ? " · Read only" : ""}</span>
+    <BaseModal.Header>
+      <span>Skill files{manual.state && !manual.state.edit_enabled ? " · Read only" : ""}</span>
       <button type="button" aria-label={fullPage ? "Restore window" : "Full page"} title={fullPage ? "Restore window" : "Full page"}
         aria-pressed={fullPage} className="ml-auto mr-6 inline-flex h-8 w-8 items-center justify-center rounded hover:bg-muted"
         onClick={() => setFullPage(!fullPage)}>{fullPage ? <VscChromeRestore aria-hidden="true" size={16} /> : <VscChromeMaximize aria-hidden="true" size={16} />}</button>
     </BaseModal.Header>
     <BaseModal.Content overflowHidden>
       <div ref={content} className="flex min-h-0 flex-1 flex-col">
-      <div className="mb-2 text-sm" data-testid="skill-selection">{skillId}<br /><code title={revision}>{revision.startsWith("sha256:") ? `sha256:${revision.slice(7, 15)}…` : revision}</code></div>
-      <div className="flex shrink-0 flex-wrap items-center gap-2 pb-2 text-sm" aria-label="Manual Skill controls">
-        {manual.state && !manual.editing && !publicationBase && <>
-          <button type="button" className="rounded border px-3 py-1 disabled:opacity-50" disabled={!manual.state.can_edit || manual.busy || !!manual.pending}
-            onClick={() => { setSelectedCommit(null); setHistoricalFiles([]); manual.start(); }}>Edit</button>
-          <button type="button" className="rounded border px-3 py-1 disabled:opacity-50"
-            disabled={!manual.state.can_publish || manual.state.latest_revision === revision || manual.busy || !!manual.pending}
-            onClick={() => { setSelectedCommit(null); setPublicationBase(manual.state!.latest_revision); }}>Review publication</button>
-          {!manual.state.edit_enabled && <span className="text-xs text-muted-foreground">Manual editing is disabled for this Skill in local configuration.</span>}
-        </>}
-        {manual.state?.edit_enabled && manual.state.head_revision !== revision && <button type="button" className="rounded border px-3 py-1"
-          disabled={manual.busy || !!manual.pending} onClick={openLatest}>Open latest editable revision</button>}
-        {manual.editing && <>
-          <label className="flex min-w-0 flex-1 items-center gap-2">Commit message
-            <input aria-label="Commit message" value={manual.message} maxLength={2000} disabled={manual.busy || !!manual.pending}
-              className="min-w-0 flex-1 rounded border bg-background px-2 py-1" onChange={(event) => manual.setMessage(event.target.value)} />
-          </label>
-          <button type="button" className="rounded border px-3 py-1 disabled:opacity-50" disabled={!manual.state?.can_edit || manual.busy || !!manual.pending || !manual.changes.length || !manual.message.trim()}
-            onClick={manual.save}>Save commit{manual.changes.length ? ` · ${manual.changes.length} ${manual.changes.length === 1 ? "file" : "files"}` : ""}</button>
-          <button type="button" className="rounded border px-3 py-1" disabled={manual.busy || !!manual.pending}
-            onClick={() => manual.changes.length ? setDiscardAction("discard") : manual.discard()}>Discard edits</button>
-        </>}
-        {manual.busy && <span role="status" className="inline-flex items-center gap-1"><VscLoading className="animate-spin" aria-hidden="true" />{manual.pending?.action === "publish" ? "Publishing revision…" : "Saving commit…"}</span>}
-        {!manual.busy && manual.pending && <button type="button" className="rounded border px-3 py-1" onClick={manual.reconcile}>Check result</button>}
-        {(!manual.state || (manual.editing && !manual.state.can_edit)) && !manual.busy && <button type="button" className="rounded border px-3 py-1" onClick={manual.refresh}>Retry edit controls</button>}
+      <div className="mb-2 flex min-w-0 shrink-0 items-center gap-3 text-sm" data-testid="skill-selection">
+        <span className="truncate" title={skillId}>{skillId}</span><code className="shrink-0 text-xs text-muted-foreground" title={revision}>{revision.startsWith("sha256:") ? `sha256:${revision.slice(7, 15)}` : revision}</code>
+        {revision !== initialRevision && <span className="truncate text-xs text-muted-foreground" title={initialRevision}>Graph pins {initialRevision.slice(7, 15)}</span>}
       </div>
+      {!manual.state && manual.error === "skill_manual_controls_unavailable" && !manual.busy && <button type="button" className="mb-2 self-start rounded border px-3 py-1 text-sm" onClick={manual.refresh}>Retry edit controls</button>}
+      {manual.state && !manual.state.edit_enabled && <p className="mb-2 text-xs text-muted-foreground">Manual editing is disabled for this Skill in local configuration.</p>}
       {closeNotice && (manual.busy || manual.pending) && <p role="status" className="mb-2 shrink-0 text-sm">Wait for confirmation, or use Check result before closing. Closing cannot cancel a save or publication.</p>}
       {manual.status && <p role="status" className="mb-2 shrink-0 text-sm">{manual.status}</p>}
       {discardAction && <div role="alertdialog" aria-label="Unsaved Skill changes" className="mb-2 shrink-0 rounded border p-2 text-sm">
-        <p>Discard unsaved changes? Copy any working text you want to keep before discarding.</p><div className="mt-2 flex gap-2">
+        <p>Discard working changes and reload the latest saved files? Saved commits remain in history. Copy any text you want to keep first.</p><div className="mt-2 flex gap-2">
           <button type="button" className="rounded border px-3 py-1" onClick={() => setDiscardAction(null)}>Keep editing</button>
           <button type="button" className="rounded border px-3 py-1" onClick={() => { manual.discard(); if (discardAction === "close") setOpen(false);
-            if (discardAction === "latest" && manual.state) { setPublicationBase(""); setRevision(manual.state.head_revision); }
+
             setDiscardAction(null); }}>Discard changes</button>
         </div>
       </div>}
@@ -200,8 +176,7 @@ function SkillWorkspace({ skillId, initialRevision, setOpen }: { skillId: string
         <button type="button" className="mt-2 rounded border px-3 py-1" onClick={() => setReload(reload + 1)}>Retry</button></div>}
       {snapshot && snapshot.skill_id === skillId && snapshot.revision_id === revision &&
         <SkillOverview key={`${skillId}:${revision}`} snapshot={snapshot} />}
-      {snapshot && snapshot.skill_id === skillId && snapshot.revision_id === revision && (publicationBase ? <SkillPublication
-        key={`${revision}:${publicationBase}`} snapshot={snapshot} expectedLatest={publicationBase} editor={manual} onClose={() => setPublicationBase("")} /> : <SkillSplitPane navigationActions={
+      {snapshot && snapshot.skill_id === skillId && snapshot.revision_id === revision && <SkillSplitPane navigationActions={
         <button type="button" className="w-full px-2 py-1 text-left text-sm hover:bg-muted" onClick={navigation.toggleAll}>
           {navigation.allOpen ? "Collapse all" : "Open all"}
         </button>
@@ -221,8 +196,12 @@ function SkillWorkspace({ skillId, initialRevision, setOpen }: { skillId: string
           <SkillExplorer files={navigationFiles} select={select} active={active} collapsed={navigation.collapsedFolders} onToggle={navigation.toggleFolder} />
         </nav>
         </>} commits={<CommitTree key={`${skillId}:${revision}`} skillId={skillId} revision={revision}
-          selected={selectedCommit?.commit_id || ""} onSelect={(commit) => { if (!manual.editing) setSelectedCommit(commit); }} />} />}>
-        {selectedCommit ? <RevisionDiff key={`${skillId}:${revision}:${selectedCommit.commit_id}`}
+          selected={selectedCommit?.commit_id || ""} onSelect={(commit) => { setComparisonPath(null); setSelectedCommit(commit); }} />} />}>
+        {comparisonPath !== null && comparison.base ? <section className="flex min-h-0 min-w-0 flex-1 flex-col" aria-label="Registry comparison">
+          <div className="flex shrink-0 items-center gap-2 border-b px-2 py-1 text-sm"><span className="min-w-0 flex-1 truncate">{comparisonPath} · Registry current → working copy</span>
+            <button type="button" className="shrink-0 rounded border px-2 py-1" onClick={() => setComparisonPath(null)}>Current source</button></div>
+          <SkillFileDiff key={comparisonPath} path={comparisonPath} original={comparison.base.files.find((entry) => entry.path === comparisonPath)} current={manual.files.find((entry) => entry.path === comparisonPath)} />
+        </section> : selectedCommit ? <RevisionDiff key={`${skillId}:${revision}:${selectedCommit.commit_id}`}
           skillId={skillId} revision={revision} commit={selectedCommit} path={active} current={file} onFiles={setHistoricalFiles} /> : <section aria-label="Selected skill file" className="flex min-h-0 min-w-0 flex-1 flex-col">
           <div className="flex overflow-x-auto border-b" aria-label="Open files">
             {tabs.map((path) => <div className="flex shrink-0 items-center" key={path}>
@@ -243,9 +222,30 @@ function SkillWorkspace({ skillId, initialRevision, setOpen }: { skillId: string
           </>}
           {!file && <p className="p-4">Select a file.</p>}
         </section>}
-      </SkillSplitPane>)}
+      </SkillSplitPane>}
+      {manual.dirty && <div className="mt-2 flex shrink-0 flex-wrap items-center justify-end gap-2 border-t pt-2 text-sm" aria-label="Publish Skill changes">
+        <div className="relative mr-auto min-w-0 text-xs">
+          {comparison.base ? <details><summary className="cursor-pointer">{comparison.paths.length} {comparison.paths.length === 1 ? "file" : "files"} to publish{manual.state?.head_revision !== manual.state?.latest_revision ? " · Includes saved changes" : ""}</summary>
+            <nav aria-label="Files to publish" className="absolute bottom-full left-0 z-10 mb-2 max-h-48 min-w-56 max-w-[70vw] overflow-auto rounded border bg-background p-1 shadow-md">
+              {comparison.paths.map((path) => <button key={path} type="button" className="block w-full break-all px-2 py-1 text-left hover:bg-muted"
+                onClick={(event) => { setComparisonPath(path); event.currentTarget.closest("details")?.removeAttribute("open"); }}>{path}</button>)}
+            </nav></details> : comparison.failed ? <button type="button" className="underline" onClick={comparison.retry}>Retry comparison</button> : <span role="status">Loading publication changes…</span>}
+          {manual.candidate && <span className="block text-muted-foreground">Saved commit awaiting publication</span>}
+        </div>
+        <input aria-label="Commit message" placeholder="Commit message (optional)" value={manual.message} maxLength={2000}
+          disabled={manual.busy || !!manual.pending} className="min-w-0 max-w-64 rounded border bg-background px-2 py-1"
+          onChange={(event) => manual.setMessage(event.target.value)} />
+        {manual.busy && <span role="status" className="inline-flex items-center gap-1"><VscLoading className="animate-spin" aria-hidden="true" />Publishing…</span>}
+        {!manual.busy && manual.pending && <button type="button" className="rounded border px-3 py-1" onClick={manual.reconcile}>Check result</button>}
+        {manual.state && (!manual.state.can_edit || !manual.state.can_publish) && !manual.busy && !manual.pending && <button type="button" className="rounded border px-3 py-1" onClick={manual.refresh}>Retry edit controls</button>}
+        <button type="button" className="rounded border px-3 py-1 disabled:opacity-50" disabled={manual.busy || !!manual.pending}
+          onClick={() => setDiscardAction("discard")}>Discard</button>
+        <button type="button" className="rounded border bg-primary px-3 py-1 text-primary-foreground disabled:opacity-50"
+          disabled={!comparison.base || !comparison.paths.length || !manual.state?.can_edit || !manual.state?.can_publish || manual.busy || !!manual.pending} onClick={() => { setComparisonPath(null); manual.publish(); }}>Publish</button>
+      </div>}
       </div>
       {manual.error && <ErrorPopup message={manual.error} context={{ nodeId: "skill-viewer", nodeLabel: "Skill workspace", operation: manual.pending?.action }} onDismiss={manual.dismissError} />}
+      {comparison.showError && manual.dirty && <ErrorPopup message="skill_manual_comparison_unavailable" context={{ nodeId: "skill-viewer", nodeLabel: "Skill workspace" }} onDismiss={comparison.dismissError} />}
     </BaseModal.Content>
   </BaseModal></div>;
 }

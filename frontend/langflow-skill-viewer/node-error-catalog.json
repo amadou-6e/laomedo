@@ -1682,7 +1682,7 @@
   "skill_manual_stale": {
     "title": "The Skill changed while you were reviewing it",
     "description": "The selected commit or registry current revision no longer matches this request. Nothing was silently rebased.",
-    "recovery": "Choose Open latest editable revision if shown. Copy any working text you want to keep before confirming Discard changes. For a changed publication base, use Back to files and review publication again."
+    "recovery": "Your edits are retained. Copy text you want to keep, then use Discard and confirm Discard changes to reload the latest saved files. If only registry current changed, inspect the refreshed files to publish and explicitly choose Publish again."
   },
   "skill_manual_invalid": {
     "title": "The Skill change could not be accepted",
@@ -1697,7 +1697,7 @@
   "skill_manual_policy_denied": {
     "title": "The change does not meet the Skill editing rules",
     "description": "At least one file or required Skill field failed the configured editing policy. The batch was not accepted.",
-    "recovery": "Keep your working copy and correct the changed files or required description before saving again."
+    "recovery": "Keep your working copy and correct the changed files or required description, then choose Publish again."
   },
   "skill_manual_unavailable": {
     "title": "The Skill change is not yet confirmed",
@@ -1706,13 +1706,13 @@
   },
   "skill_manual_nothing_to_publish": {
     "title": "This revision is already current",
-    "description": "The reviewed candidate has the same contents as the registry current revision.",
-    "recovery": "Return to the files. No publication is needed for identical contents."
+    "description": "The candidate has the same contents as registry current.",
+    "recovery": "No publication is needed. Use Discard to clear the working state; saved history is retained."
   },
   "skill_manual_save_expired": {
     "title": "The save window expired",
     "description": "This save was not applied before its short-lived edit permission expired. Your working text is still available.",
-    "recovery": "Check the current history and save the preserved edits again after refreshing the editable revision."
+    "recovery": "Your edits are retained. Inspect history and refresh edit controls before choosing Publish again. Use Discard only after copying text you want to keep."
   },
   "skill_manual_controls_unavailable": {
     "title": "Skill edit controls are unavailable",
@@ -1722,6 +1722,6 @@
   "skill_manual_comparison_unavailable": {
     "title": "The publication comparison is unavailable",
     "description": "The exact registry current revision could not be loaded for review. Nothing was published.",
-    "recovery": "Use Retry comparison. Publish remains disabled until the exact comparison is available."
+    "recovery": "Use Retry comparison in the bottom publication bar. Publish stays disabled until the exact registry comparison is available."
   }
 }
