@@ -16,7 +16,12 @@ from pydantic import field_serializer
 from pydantic import field_validator
 from pydantic import model_validator
 from typing import Literal
-from laomedo.skills.registry.models import SkillPolicyReference, SkillReference
+from laomedo.skills.registry.models import (
+    SkillImportRecord,
+    SkillPolicyReference,
+    SkillReference,
+)
+from laomedo.skills.registry.diff import patch_for
 import json
 from laomedo.skills.registry.errors import SkillStoreError
 
@@ -223,7 +228,7 @@ class SkillCommit(BaseModel):
     )
     message: str = Field(description="Explanation of the import or admitted edit.")
     files: list[str] = Field(
-        description="Changed relative paths; empty for the initial import."
+        description="Changed relative paths; imports list all added files (legacy roots may be empty)."
     )
     patch: str = Field(
         description="Exact existing unified patch bytes represented as text."
@@ -242,6 +247,25 @@ class SkillCommit(BaseModel):
     nonce: str = Field(
         description="Existing random history salt; unchanged format and generation."
     )
+
+    @classmethod
+    def from_import(cls, imported: SkillImportRecord, files: dict[str, bytes]):
+        """Project the retained import event to a stable root commit, without edit authority."""
+        return cls(
+            skill_id=imported.skill_id,
+            revision_id=imported.revision_id,
+            parent_commit=None,
+            created_at=imported.recorded_at,
+            message=(
+                "Initial import"
+                if imported.origin == "import"
+                else "Record existing import (original import time unknown)"
+            ),
+            files=sorted(files),
+            patch=patch_for({}, files),
+            editor=ImportedSkillEditor(),
+            nonce=imported.nonce,
+        )
 
     def to_record(self) -> dict:
         """Preserve omission, provenance and ordering in the canonical hash preimage."""

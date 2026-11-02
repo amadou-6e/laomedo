@@ -5,7 +5,9 @@ from laomedo.skills.registry.hashing import file_hashes
 from laomedo.skills.registry.hashing import tree_hash
 
 from typing import Literal
-from pydantic import BaseModel, ConfigDict, Field, JsonValue
+from datetime import datetime, timezone
+from uuid import uuid4
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator
 
 
 class SkillPolicyReference(BaseModel):
@@ -84,6 +86,43 @@ class SkillRevision(SkillReference):
                 "draft_id",
             )
         }
+
+
+class SkillImportRecord(BaseModel):
+    """Durable initial-import event, independent of the edit service's journal."""
+
+    model_config = ConfigDict(
+        strict=True, frozen=True, extra="forbid", hide_input_in_errors=True
+    )
+    skill_id: str = Field(description="Registry-local imported Skill identity.")
+    revision_id: str = Field(description="Verified initial imported byte revision.")
+    recorded_at: str = Field(description="UTC time this import event was recorded.")
+    origin: Literal["import", "legacy-import"] = Field(
+        description="Legacy registration does not assert the original import time."
+    )
+    nonce: str = Field(
+        pattern=r"^[0-9a-f]{32}$",
+        description="Stable per-import salt retained across journals.",
+    )
+
+    @field_validator("recorded_at")
+    @classmethod
+    def validate_timestamp(cls, value):
+        """Require an explicit timezone without changing the recorded timestamp text."""
+        if datetime.fromisoformat(value).utcoffset() is None:
+            raise ValueError("Import registration requires a timezone")
+        return value
+
+    @classmethod
+    def create(cls, skill_id: str, revision_id: str, *, legacy=False):
+        """Capture an import once, distinguishing legacy registration from import time."""
+        return cls(
+            skill_id=skill_id,
+            revision_id=revision_id,
+            recorded_at=datetime.now(timezone.utc).isoformat(),
+            origin="legacy-import" if legacy else "import",
+            nonce=uuid4().hex,
+        )
 
 
 class SkillDraft(BaseModel):
