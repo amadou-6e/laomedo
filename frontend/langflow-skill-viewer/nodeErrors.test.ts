@@ -78,6 +78,43 @@ test("unknown errors are useful without exposing raw exception data", () => {
   expect(describeNodeFailure("my_secret_password", undefined).diagnostics.code).toBe("unrecognized_error");
 });
 
+test.each(["laomedo.github-pr.v1", "laomedo.github-issue.v1"])("%s operation failures survive object and serialized feedback outputs", schema_version => {
+ const envelope = Object.freeze({schema_version, pr: {body: "private-native-payload"}, operation: Object.freeze({status: "failed", error_category: "pr_grant_unavailable", authorization: "Bearer private-native-payload"})});
+ for (const message of [envelope, JSON.stringify(envelope)]) {
+  const status = {data: {outputs: {task: {message, type: typeof message === "string" ? "text" : "object"}}}};
+  expect(hasLaomedoFailure(status)).toBe(true);
+  const failure = describeNodeFailure("", status, {nodeId: "pr"});
+  expect(failure.title).toBe("This PR operation is not authorized");
+  expect(failure.diagnostics).toEqual({code: "pr_grant_unavailable", node_id: "pr"});
+  expect(JSON.stringify(failure)).not.toContain("private-native-payload");
+ }
+ expect(envelope.operation.status).toBe("failed");
+});
+
+test("an uncertain GitHub write keeps its code and inspection-first recovery", () => {
+ const status = {data: {outputs: {operation_result: {message: {schema_version: "laomedo.github-pr.v1", operation: {status: "unknown", error_category: "pr_write_unknown"}}}}}};
+ expect(hasLaomedoFailure(status)).toBe(true);
+ const failure = describeNodeFailure("", status);
+ expect(failure.diagnostics.code).toBe("pr_write_unknown");
+ expect(failure.recovery).toContain("Read the selected resource in GitHub before authorizing another operation");
+ expect(failure.recovery).not.toMatch(/try again|retry|press Run/i);
+});
+
+test("GitHub envelope admission ignores successful operations and arbitrary nested content", () => {
+ const failure = {status: "failed", error_category: "pr_grant_unavailable"};
+ const output = (message: unknown) => ({data: {outputs: {result: {message}}}});
+ for (const message of [
+  {operation: failure},
+  {schema_version: "unrelated.v1", operation: failure},
+  JSON.stringify({error_category: "pr_grant_unavailable", status: "failed"}),
+  "ordinary message with pr_grant_unavailable",
+  "{malformed",
+  {schema_version: "laomedo.github-pr.v1", operation: {status: "succeeded", error_category: "pr_grant_unavailable"}, pr: {body: failure}},
+  {schema_version: "laomedo.github-pr.v1", operation: {status: "not_requested"}, data: failure},
+  JSON.stringify({schema_version: "laomedo.github-pr.v1", operation: failure, padding: "x".repeat(1024 * 1024)}),
+ ]) expect(hasLaomedoFailure(output(message))).toBe(false);
+});
+
 test.each(["runner_transport_failed", "runner_status_unknown", "runner_wait_deadline", "future_condition"])("%s never recommends an unsafe retry", code => {
   const value = describeNodeFailure(code, undefined);
   expect(value.recovery).toMatch(/before starting another|before starting new/);

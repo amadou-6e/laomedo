@@ -75,6 +75,14 @@ that concrete configuration is approved.
 
 ## GitHub PR alignment
 
+The shared node error presenter recognizes failed and unknown operations in the
+versioned Issue/PR result envelopes, including the JSON text returned by PR
+feedback. A successful graph step does not hide an operation refusal. Error
+details retain the stable code and catalogue recovery without exposing PR bodies
+or authorization data. Unknown write outcomes require checking the existing
+remote result before another operation. Successful reads and ordinary message
+content do not become errors.
+
 LaomedoGitHubPR uses the Issue node's selector clearing and stale-response guards.
 Its primary toolbar actions are PR viewer and Open in GitHub. PRViewerModal reads
 the exact configured repository/number through authenticated POST
