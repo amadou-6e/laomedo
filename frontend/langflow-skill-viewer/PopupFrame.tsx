@@ -25,6 +25,13 @@ export default function PopupFrame({ label, heading, children, footer, onClose, 
     if (!entry) {
       const element = document.createElement("div");
       element.id = owner === document.body ? "laomedo-error-popup-stack" : `laomedo-dialog-error-popup-stack-${++dialogStackId}`;
+      if (owner === document.body) {
+        // Background notifications retain their state, but cannot cover controls
+        // in an active modal or offer buttons outside its focus boundary.
+        const style = document.createElement("style");
+        style.textContent = 'body:has([role="dialog"][aria-modal="true"]) > #laomedo-error-popup-stack { visibility: hidden; pointer-events: none !important; }';
+        element.appendChild(style);
+      }
       owner.appendChild(element); entry = { element, users: 0 }; stacks.set(owner, entry);
       if (owner !== document.body && typeof element.showPopover === "function") {
         element.setAttribute("popover", "manual"); element.showPopover();
