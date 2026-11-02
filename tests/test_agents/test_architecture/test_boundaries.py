@@ -3,25 +3,40 @@
 import ast
 import inspect
 from pathlib import Path
+from support.paths import repository_root
 import unittest
 from unittest.mock import patch
 
-from laomedo.agents.agents.base.agent import BaseAgent as Runner
-from laomedo.agents.agents.codex.agent import CodexAgent as CodexRunner
-from laomedo.agents.agents.claude.agent import ClaudeAgent as ClaudeRunner
-from laomedo.agents.agents.opencode.agent import OpenCodeAgent as OpenCodeRunner
+from laomedo.agents.agents.base.agent import BaseAgent
+from laomedo.agents.agents.codex.agent import CodexAgent
+from laomedo.agents.agents.claude.agent import ClaudeAgent
+from laomedo.agents.agents.opencode.agent import OpenCodeAgent
 from laomedo.agents.errors import RunnerError
 from laomedo.agents.agents.codex import settings as codex_settings
-import test_agents.test_runtime.test_lifecycle as test_local_runner
-import test_agents.test_claude.test_runner as test_claude_runner
-import test_agents.test_opencode.test_runner as test_opencode_runner
+import test_agents.test_runtime.test_lifecycle as lifecycle_controls
+import test_agents.test_claude.test_runner as claude_controls
+import test_agents.test_opencode.test_runner as opencode_controls
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = repository_root()
 
 
 class ProviderBoundaryTests(unittest.TestCase):
+    def test_base_guard_refuses_an_empty_source_scan(self):
+        """A retired source path must fail rather than silently remove coverage."""
+        with patch.object(Path, "glob", return_value=[]):
+            with self.assertRaisesRegex(AssertionError, "scan must not be empty"):
+                self.test_shared_runtime_never_imports_concrete_provider_or_credentials()
+
+    def test_provider_guard_refuses_an_empty_source_scan(self):
+        """Missing provider files must be a failing architecture control."""
+        with patch.object(Path, "rglob", return_value=[]):
+            with self.assertRaisesRegex(AssertionError, "scan must not be empty"):
+                self.test_concrete_providers_never_import_a_sibling_provider()
+
     def test_shared_runtime_never_imports_concrete_provider_or_credentials(self):
-        for path in (ROOT / "src/laomedo/agents/runtime").glob("*.py"):
+        paths = list((ROOT / "src/laomedo/agents/agents/base").glob("*.py"))
+        self.assertTrue(paths, "Shared Agent source scan must not be empty")
+        for path in paths:
             for node in ast.walk(ast.parse(path.read_text())):
                 names = (
                     [item.name for item in node.names]
@@ -31,7 +46,11 @@ class ProviderBoundaryTests(unittest.TestCase):
                 for name in names:
                     self.assertFalse(
                         name.startswith(
-                            ("laomedo.agents.providers.", "laomedo.host.credentials.")
+                            tuple(
+                                "laomedo.agents.agents." + provider + "."
+                                for provider in ("codex", "claude", "opencode")
+                            )
+                            + ("laomedo.host.credentials.",)
                         ),
                         (path.name, node.lineno, name),
                     )
@@ -43,8 +62,8 @@ class ProviderBoundaryTests(unittest.TestCase):
                     )
 
     def test_providers_extend_only_the_neutral_lifecycle(self):
-        for cls in (CodexRunner, ClaudeRunner, OpenCodeRunner):
-            self.assertEqual(cls.__bases__, (Runner,))
+        for cls in (CodexAgent, ClaudeAgent, OpenCodeAgent):
+            self.assertEqual(cls.__bases__, (BaseAgent,))
             self.assertFalse(cls.__abstractmethods__)
         forbidden = {
             "transport",
@@ -56,12 +75,22 @@ class ProviderBoundaryTests(unittest.TestCase):
             "auth_store",
             "image_id",
         }
-        self.assertFalse(forbidden & set(inspect.signature(Runner).parameters))
-        self.assertFalse(forbidden & set(inspect.signature(OpenCodeRunner).parameters))
+        self.assertFalse(forbidden & set(inspect.signature(BaseAgent).parameters))
+        self.assertFalse(forbidden & set(inspect.signature(OpenCodeAgent).parameters))
 
     def test_concrete_providers_never_import_a_sibling_provider(self):
-        for path in (ROOT / "src/laomedo/agents/providers").rglob("*.py"):
-            owner = path.relative_to(ROOT / "src/laomedo/agents/providers").parts[0]
+        paths = list((ROOT / "src/laomedo/agents/agents").rglob("*.py"))
+        self.assertTrue(paths, "Provider source scan must not be empty")
+        for provider in ("codex", "claude", "opencode"):
+            self.assertTrue(
+                any(
+                    path.is_relative_to(ROOT / "src/laomedo/agents/agents" / provider)
+                    for path in paths
+                ),
+                "Each provider source scan must not be empty: " + provider,
+            )
+        for path in paths:
+            owner = path.relative_to(ROOT / "src/laomedo/agents/agents").parts[0]
             for node in ast.walk(ast.parse(path.read_text())):
                 names = (
                     [item.name for item in node.names]
@@ -69,7 +98,10 @@ class ProviderBoundaryTests(unittest.TestCase):
                     else [node.module or ""] if isinstance(node, ast.ImportFrom) else []
                 )
                 for name in names:
-                    if name.startswith("laomedo.agents.providers."):
+                    if (
+                        name.startswith("laomedo.agents.agents.")
+                        and name.split(".")[3] != "base"
+                    ):
                         self.assertEqual(
                             name.split(".")[3], owner, (path.name, node.lineno, name)
                         )
@@ -85,7 +117,7 @@ class ProviderBoundaryTests(unittest.TestCase):
             ]
             self.assertIn("laomedo.integrations.langflow.agent.component", imports)
             self.assertNotIn("laomedo.codex_agent", imports)
-        shared = ROOT / "src/laomedo/integrations/langflow/agent/component.py"
+        shared = ROOT / "src/laomedo/agents/interface/langflow/component.py"
         for node in ast.walk(ast.parse(shared.read_text())):
             if isinstance(node, ast.Attribute):
                 self.assertFalse(
@@ -163,7 +195,7 @@ class ProviderBoundaryTests(unittest.TestCase):
         return record
 
     def test_codex_prepared_record_preserves_binding(self):
-        control = self.fixture(test_local_runner.LocalRunnerTests)
+        control = self.fixture(lifecycle_controls.LocalRunnerTests)
         self.assert_record(
             control,
             control.request(),
@@ -172,7 +204,7 @@ class ProviderBoundaryTests(unittest.TestCase):
                 "profile": codex_settings.VOLUME,
                 "image": codex_settings.IMAGE,
                 "image_id": codex_settings.IMAGE_ID,
-                "execution_mode": "legacy",
+                "execution_mode": "codex_acp",
                 "cli_version": codex_settings.CLI_VERSION,
                 "config_sha256": codex_settings.CONFIG_SHA256,
                 "credential": None,
@@ -180,7 +212,7 @@ class ProviderBoundaryTests(unittest.TestCase):
         )
 
     def test_claude_prepared_record_never_contains_codex_binding(self):
-        control = self.fixture(test_claude_runner.ClaudeRunnerTests)
+        control = self.fixture(claude_controls.ClaudeRunnerTests)
         self.assert_record(
             control,
             control.payload,
@@ -190,13 +222,13 @@ class ProviderBoundaryTests(unittest.TestCase):
                 "image": control.runner.image,
                 "image_id": control.runner.image_id,
                 "execution_mode": "claude_container",
-                "cli_version": "Claude Code " + test_claude_runner.CLI_VERSION,
+                "cli_version": "Claude Code " + claude_controls.CLI_VERSION,
                 "credential": None,
             },
         )
 
     def test_opencode_prepared_record_never_contains_codex_binding(self):
-        control = self.fixture(test_opencode_runner.OpenCodeTests)
+        control = self.fixture(opencode_controls.OpenCodeTests)
         self.assert_record(
             control,
             control.payload,
@@ -205,7 +237,7 @@ class ProviderBoundaryTests(unittest.TestCase):
                 "profile": None,
                 "image": None,
                 "image_id": None,
-                "execution_mode": "opencode_http",
+                "execution_mode": "opencode_acp",
                 "cli_version": "opencode 1.18.33",
                 "config_sha256": None,
                 "credential": None,
@@ -214,8 +246,8 @@ class ProviderBoundaryTests(unittest.TestCase):
 
     def test_unsupported_mediation_is_rejected_before_workspace_or_authority(self):
         for cls in (
-            test_claude_runner.ClaudeRunnerTests,
-            test_opencode_runner.OpenCodeTests,
+            claude_controls.ClaudeRunnerTests,
+            opencode_controls.OpenCodeTests,
         ):
             control = self.fixture(cls)
             with patch.object(control.runner, "github_authority") as authority:
@@ -230,13 +262,13 @@ class ProviderBoundaryTests(unittest.TestCase):
         from laomedo.agents.agents.base.utils import _json
 
         for fixture_type in (
-            test_local_runner.LocalRunnerTests,
-            test_claude_runner.ClaudeRunnerTests,
+            lifecycle_controls.LocalRunnerTests,
+            claude_controls.ClaudeRunnerTests,
         ):
             control = self.fixture(fixture_type)
             request = (
                 control.request()
-                if fixture_type is test_local_runner.LocalRunnerTests
+                if fixture_type is lifecycle_controls.LocalRunnerTests
                 else control.payload
             )
             record = control.runner._prepare(request)
@@ -247,19 +279,24 @@ class ProviderBoundaryTests(unittest.TestCase):
             }
             record.update(status="running", container_ownership=owner)
             _json(control.runner._run_dir(record["run_id"]) / "record.json", record)
+            cleanup_owner = (
+                "laomedo.agents.agents.codex.agent"
+                if fixture_type is lifecycle_controls.LocalRunnerTests
+                else "laomedo.agents.agents.claude.agent"
+            )
             with patch(
-                "laomedo.host.leases.utils.cleanup_exact",
+                cleanup_owner + ".cleanup_exact",
                 return_value=(False, "identity mismatch"),
             ) as cleanup:
-                if fixture_type is test_local_runner.LocalRunnerTests:
-                    restarted = CodexRunner(
+                if fixture_type is lifecycle_controls.LocalRunnerTests:
+                    restarted = CodexAgent(
                         control.runner.state,
                         control.runner.store.root,
                         control.source,
                         check_docker=False,
                     )
                 else:
-                    restarted = ClaudeRunner(
+                    restarted = ClaudeAgent(
                         control.runner.state,
                         control.runner.store.root,
                         control.source,
@@ -278,7 +315,7 @@ class ProviderBoundaryTests(unittest.TestCase):
     def test_opencode_restart_reads_historical_metadata_without_codex_cleanup(self):
         from laomedo.agents.agents.base.utils import _json
 
-        control = self.fixture(test_opencode_runner.OpenCodeTests)
+        control = self.fixture(opencode_controls.OpenCodeTests)
         record = control.runner._prepare(control.payload)
         record.update(
             status="running",
@@ -286,11 +323,17 @@ class ProviderBoundaryTests(unittest.TestCase):
             cli_version=codex_settings.CLI_VERSION,
         )
         _json(control.runner._run_dir(record["run_id"]) / "record.json", record)
-        with patch(
-            "laomedo.host.leases.utils.cleanup_exact",
-            side_effect=AssertionError("no owned controller"),
+        with (
+            patch(
+                "laomedo.agents.agents.codex.agent.cleanup_exact",
+                side_effect=AssertionError("no Codex controller"),
+            ),
+            patch(
+                "laomedo.agents.agents.claude.agent.cleanup_exact",
+                side_effect=AssertionError("no Claude controller"),
+            ),
         ):
-            restarted = OpenCodeRunner(
+            restarted = OpenCodeAgent(
                 control.runner.state, control.runner.store.root, control.source
             )
         historical = restarted.status(record["run_id"])
@@ -299,11 +342,11 @@ class ProviderBoundaryTests(unittest.TestCase):
         self.assertEqual(historical["error_category"], "runner_restarted")
 
     def test_claude_and_opencode_do_not_validate_codex_policy(self):
-        control = self.fixture(test_local_runner.LocalRunnerTests)
+        control = self.fixture(lifecycle_controls.LocalRunnerTests)
         from types import SimpleNamespace
 
         with patch.object(codex_settings, "CONFIG", ROOT / "not-a-codex-policy"):
-            claude = ClaudeRunner(
+            claude = ClaudeAgent(
                 control.runner.state.parent
                 / (control.runner.state.name + "-neutral-claude"),
                 control.runner.store.root,
@@ -312,7 +355,7 @@ class ProviderBoundaryTests(unittest.TestCase):
                     profile="local-unit", image_id="sha256:" + "b" * 64
                 ),
             )
-            opencode = OpenCodeRunner(
+            opencode = OpenCodeAgent(
                 control.runner.state.parent
                 / (control.runner.state.name + "-neutral-opencode"),
                 control.runner.store.root,

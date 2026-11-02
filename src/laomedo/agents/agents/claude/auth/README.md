@@ -9,7 +9,7 @@ rotating refresh credentials, sessions or settings.
 `LocalClaudeLoginError` preserves stable public outcome codes. No README, repr,
 dump, graph or validation evidence may contain credential values.
 
-## Mirror repair — implemented draft, live validation pending
+## Mirror repair â€” implemented draft, live validation pending
 
 The existing CLI copy has no durable ownership receipt. A failed actual graph
 stopped before a native turn; its original low-level cause is unknown. The repair
@@ -47,7 +47,7 @@ The duplicate Resume admission copy is deliberately retained. Catalog preparatio
 and cache freshness remain separate work. Cold catalog discovery has no newly
 claimed 30-second completion guarantee.
 
-### Payload model checkpoint
+### Access credential record
 
 `ClaudeAccessLoginRecord` is now implemented and has internal compatibility
 controls against 96 frozen old-writer outputs. The existing mirror coordinator

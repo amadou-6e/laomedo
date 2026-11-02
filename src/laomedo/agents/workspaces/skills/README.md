@@ -28,8 +28,7 @@ including omitted disabled keys, remain unchanged.
 | `install(workspace, skills)` | Append the existing per-skill exclusion rules and return enabled/rules/exclude_sha256 evidence, or enabled=False without Git. It installs exclusion rules; BaseAgent materializes the files separately. |
 | `verify(workspace, skills, exclusion)` | Check exact installed names, pinned byte hashes and unchanged exclusion evidence before dispatch/publication. It does not claim the provider used an offered skill. |
 
-The functions retain dictionary/list boundary signatures and payloads in this
-checkpoint. BaseAgent forms the existing canonical preparation records. Inventory,
+The functions retain dictionary/list boundary signatures and payloads. BaseAgent forms the existing canonical preparation records. Inventory,
 hashing and link detection import the defining general Skills registry helpers;
 general Skills never imports this Agent-only package. No Git subprocess belongs
 in this leaf: independent baseline creation is in ../baseline.py and reusable
@@ -48,10 +47,5 @@ than a fake combined namespace. Preserved exp104 probe/worker sources retain
 their exact bytes; direct legacy execution requires migration. Internal import
 migration controls are not live Agent or graph acceptance.
 
-Maintained tests load the preserved EXP104 worker/probe through
-`tests/retained_native_probe_loader.py`: verify original hashes, migrate only
-imports/qualified symbol reads, compare all other AST structure and keep the
-original `__file__` for resource resolution. A temporary test-only worker name
-is removed immediately after import. No canonical runtime alias is installed;
-neither probe's main entrypoint is invoked. Frozen source/blob contracts work
-with shallow CI and compare installed helper bytes to the checkout source.
+Historical campaign sources are retained on `exp`; their production dependencies
+remain an explicit integration gap until migrated to concern-owned regressions.
