@@ -34,7 +34,8 @@ const extensions: Record<string, string> = {
 export function SkillFileIcon({ path }: { path: string }) {
   const name = path.split("/").pop()?.toLowerCase() || "";
   const extension = name.includes(".") ? name.split(".").pop() || "" : "";
-  const type = /^dockerfile(?:\.|$)/.test(name) ? "docker" : extensions[extension] || "file";
+  const extensionType = Object.prototype.hasOwnProperty.call(extensions, extension) ? extensions[extension] : "file";
+  const type = /^dockerfile(?:\.|$)/.test(name) ? "docker" : extensionType;
   const { Icon, color, label } = appearances[type];
   return <span aria-hidden="true" data-file-type={type} title={`${label} file`} className={`inline-flex h-4 w-4 shrink-0 items-center justify-center ${color}`}>
     <Icon size={16} focusable="false" />

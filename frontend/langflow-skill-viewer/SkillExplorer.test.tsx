@@ -43,6 +43,7 @@ test.each([
   ["Dockerfile", "docker"], ["Dockerfile.runner", "docker"], ["diagram.svg", "image"],
   ["image.PNG", "image"], ["data.bin", "binary"], ["unknown.ext", "file"],
   ["README", "file"], ["py", "file"], ["", "file"],
+  ["file.__proto__", "file"], ["file.constructor", "file"],
 ])("%s has a bundled %s icon with no external asset", (path, expected) => {
   const { container } = render(<SkillFileIcon path={path} />);
   expect(container.querySelector("[data-file-type]")).toHaveAttribute("data-file-type", expected);
