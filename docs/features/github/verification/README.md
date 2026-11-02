@@ -38,6 +38,7 @@ provider-double tests and earlier archived experiments.
 | PR feedback without authority | The actual host returned `pr_grant_unavailable` before Agent dispatch. Error details displayed its explanation, recovery and safe diagnostic code, including after grant revocation. |
 | PR → Agent → same PR.Operation | One original Codex Agent run completed; the full workflow took 19.519 s. The host recorded one confirmed `pr_node_update` effect. An independent GitHub read confirmed the exact title `Original Codex Agent feedback verified`, with body, labels, open state, head commit and base unchanged. |
 | Saved controls across browser restarts | The later independent Edge launch restored the saved actual model and effort selections. This is graph persistence, not acceptance of an external account/session-management product. |
+| Skill history failure and recovery | The preview initially omitted the operation/history service connection: file inspection worked, but Retry repeated HTTP 400. After connecting the actual service to the same registry, Retry in the already-open dialog returned HTTP 200 in 307 ms. The imported Skill correctly showed no operation history; it still loaded after a page reload. No Skill edit or graph dispatch occurred. |
 | Cleanup | Native controller and lease cleanup were confirmed. The exact owned container was absent. The scoped write grant was revoked and its private binding cleared. Other sessions were not changed; read-only preview services remained available for owner inspection. |
 
 The real workflow's graph execution was
@@ -55,6 +56,8 @@ effort was not reported; it is not inferred from that selection.
 ![Actual refused PR operation with safe technical details](grant-refusal.png)
 
 ![Actual missing-selection error and diagnostic copy control](missing-selection.png)
+
+![Actual Skill viewer after history service recovery, with no operations yet](skill-history.png)
 
 ## Verification boundaries
 

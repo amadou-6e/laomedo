@@ -75,6 +75,16 @@ host-owned PR feedback grant bound to this exact PR and the permitted operation.
 Follow the [PR walkthrough](../../docs/features/github/pull-requests/walkthrough.md)
 for service and grant setup. Credentials belong outside the graph and Git.
 
+The Skill viewer's commit tree also needs the separate operation/history service
+connected to the app, using the same registry and its retained history database.
+Follow [Skill service setup](../../docs/features/skills/walkthrough.md#2-start-discovery-and-history-services)
+and set both `LAOMEDO_SKILL_OPERATION_URL` and
+`LAOMEDO_SKILL_OPERATION_TOKEN_FILE` before starting the app. File inspection can
+work without that connection while history fails. For inspection without edit
+authority, use an empty policy map (`{}`). A newly imported Skill with no operations
+correctly shows **No operation history for this skill.** Retry reloads history;
+it cannot start or configure the missing service.
+
 ```powershell
 python examples/github/build_flow.py --repository OWNER/REPO --number NUMBER --title "Current title" --feedback --runner-url http://127.0.0.1:PORT --skill-id pr-feedback-title --revision sha256:REVISION --output pr-flow.json
 ```
