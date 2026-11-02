@@ -1,4 +1,5 @@
 """Provider-neutral durable Agent lifecycle and workspace orchestration."""
+
 from __future__ import annotations
 from abc import ABC, abstractmethod
 from pathlib import Path
@@ -20,20 +21,34 @@ import laomedo.agents.runtime.utils as _runtime_utils
 import laomedo.agents.workspace.errors as _agents_workspace_errors
 import laomedo.agents.workspace.git as _workspace_git
 import laomedo.host.mediation.errors as _mediation_errors
-import laomedo.skills.registry.store as _registry_store
-import laomedo.skills.registry.utils as _registry_utils
-import laomedo.skills.workspace.errors as _skills_workspace_errors
-import laomedo.skills.workspace.utils as workspace_skills
+from laomedo.skills.registry.store import SkillStore
+from laomedo.skills.registry.hashing import tree_hash
+from laomedo.skills.registry.files import inventory
+from laomedo.agents.workspace.skills.errors import WorkspaceSkillError
+from laomedo.agents.workspace.skills.utils import install
+from laomedo.agents.workspace.skills.utils import initialize
+from laomedo.agents.workspace.skills.utils import verify
+from laomedo.agents.workspace.skills.utils import remove_owned_tree
+
 
 class Runner(ABC):
     """Template-method lifecycle; concrete providers own protocol and runtime policy."""
 
-    def __init__(self, state: Path, skill_store: Path, source_workspace: Path, *,
-                 lease_service: Path | None = None, github_authority=None,
-                 mediator_state: Path | None = None, git_workspace: bool = False,
-                 publication_controller=None, artifact_sources=None):
+    def __init__(
+        self,
+        state: Path,
+        skill_store: Path,
+        source_workspace: Path,
+        *,
+        lease_service: Path | None = None,
+        github_authority=None,
+        mediator_state: Path | None = None,
+        git_workspace: bool = False,
+        publication_controller=None,
+        artifact_sources=None,
+    ):
         self.state = _runtime_utils._private(state)
-        self.store = _registry_store.SkillStore(skill_store)
+        self.store = SkillStore(skill_store)
         self.source = source_workspace.expanduser().resolve()
         self.git_workspace = git_workspace
         if (
@@ -137,7 +152,6 @@ class Runner(ABC):
     def _run_dir(self, run_id: str) -> Path:
         return self.state / "runs" / _runtime_utils._id(run_id)
 
-
     def _reserve_turn(self) -> int:
         # Diagnostic sequence only; neither corrupt accounting nor a write failure
         # may become an authorization gate. Historical turn-ledger.json is untouched.
@@ -165,14 +179,11 @@ class Runner(ABC):
             pass
         return count + 1
 
-
     def _turn_available(self) -> None:
         """Extension point for isolated experiment harnesses; no production quota."""
 
-
     def status(self, run_id: str) -> dict:
         return _runtime_utils._read(self._run_dir(run_id) / "record.json")
-
 
     def lookup_request(self, request_id: str) -> dict:
         """Find one durable async run without starting or changing it."""
@@ -203,7 +214,6 @@ class Runner(ABC):
                 )
             }
 
-
     def cancel(self, run_id: str) -> dict:
         if self.publication_controller is not None:
             self.publication_controller.cancel(run_id)
@@ -228,7 +238,6 @@ class Runner(ABC):
                 return record
             return record
 
-
     def publish(self, run_id: str) -> dict:
         if self.publication_controller is None:
             raise _runtime_errors.RunnerError("publication_controller_unconfigured")
@@ -241,7 +250,6 @@ class Runner(ABC):
             "run_id": run_id,
             "publication_handoff": result,
         }
-
 
     def _materialize(self, workspace: Path, ref: dict) -> dict:
         if not isinstance(ref, dict) or not all(
@@ -264,10 +272,7 @@ class Runner(ABC):
             destination = target / relative
             destination.parent.mkdir(parents=True, exist_ok=True)
             destination.write_bytes(item["content"])
-        if (
-            _registry_utils.tree_hash(_registry_utils.inventory(target))
-            != ref["tree_hash"]
-        ):
+        if tree_hash(inventory(target)) != ref["tree_hash"]:
             raise _runtime_errors.RunnerError("materialized_skill_mismatch")
         try:
             skill_text = (target / "SKILL.md").read_text(encoding="utf-8")
@@ -293,7 +298,6 @@ class Runner(ABC):
             "delivery_mode": "project_discovery",
             "use_evidence": "offered",
         }
-
 
     def _prepare(
         self, request: dict, *, client_request_id=None, request_hash=None
@@ -390,7 +394,7 @@ class Runner(ABC):
             # prepare_git_workspace already created an isolated repository
             # with preserved history; do not replace it with a fresh baseline.
             if not self.git_workspace:
-                workspace_skills.initialize(workspace)
+                initialize(workspace)
             elif github_scope is not None:
                 # Install trusted remote/handoff metadata before the immutable
                 # skill exclusion digest. _open_server then verifies this same
@@ -410,11 +414,11 @@ class Runner(ABC):
                     raise _runtime_errors.RunnerError(
                         "unsafe_materialized_skill_path"
                     ) from None
-            git_exclusion = workspace_skills.install(workspace, skills)
+            git_exclusion = install(workspace, skills)
             if not skills:
                 try:
-                    workspace_skills.verify(workspace, skills, git_exclusion)
-                except _skills_workspace_errors.WorkspaceSkillError as error:
+                    verify(workspace, skills, git_exclusion)
+                except WorkspaceSkillError as error:
                     raise _runtime_errors.RunnerError(str(error)) from None
             artifacts = _artifacts_utils.import_selected(
                 request.get("artifact_refs", []),
@@ -474,14 +478,13 @@ class Runner(ABC):
             _runtime_utils._json(run_dir / "record.json", record)
         except Exception:
             try:
-                workspace_skills.remove_owned_tree(run_dir, self.state)
+                remove_owned_tree(run_dir, self.state)
             except OSError:
                 raise _runtime_errors.RunnerError(
                     "run_preparation_cleanup_unverified"
                 ) from None
             raise
         return record
-
 
     def start(self, request: dict) -> dict:
         record = self._prepare(request)
@@ -494,7 +497,6 @@ class Runner(ABC):
             )
             raise
         return self._execute(record["run_id"], request["task"], resume=False)
-
 
     def start_async(self, request: dict, *, response_gate=None) -> dict:
         """Reserve one request identity, then run only after the HTTP reply."""
@@ -535,7 +537,6 @@ class Runner(ABC):
             worker.start()
             return record
 
-
     def _async_worker(self, run_id, task, gate):
         gate.wait()
         try:
@@ -547,7 +548,6 @@ class Runner(ABC):
                 if record["status"] == "prepared":
                     record.update(status="failed", error_category=str(exc))
                     _runtime_utils._json(self._run_dir(run_id) / "record.json", record)
-
 
     def _artifact_source(self, provider, run_id):
         if provider == self.provider:
@@ -562,7 +562,6 @@ class Runner(ABC):
         if record.get("provider") != provider or record.get("run_id") != run_id:
             raise _artifacts_errors.ArtifactError("artifact_snapshot_mismatch")
         return run / "post-run", record
-
 
     def select_artifacts(self, run_id, paths):
         if not isinstance(paths, list) or len(paths) > 32:
@@ -598,7 +597,6 @@ class Runner(ABC):
             )
         return _artifacts_utils.selections(result)
 
-
     def _handoff(self, value):
         if value is None:
             return None
@@ -626,7 +624,6 @@ class Runner(ABC):
                 raise _runtime_errors.RunnerError("invalid_handoff_origin")
             _runtime_utils._id(origin["run_id"])
         return json.loads(json.dumps(value))
-
 
     def _mediator_route(self) -> tuple[str, str]:
         # host.docker.internal -> host loopback is checked by the Windows

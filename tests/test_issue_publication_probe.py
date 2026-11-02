@@ -1,6 +1,7 @@
 """EXP-14: a lost GitHub acknowledgement is unknown, never a blind retry."""
 
-from http.server import BaseHTTPRequestHandler; from http.server import ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler
+from http.server import ThreadingHTTPServer
 import importlib.util
 import json
 import os
@@ -10,7 +11,6 @@ import sys
 import tempfile
 from threading import Thread
 import unittest
-
 
 PROBE_PATH = Path(__file__).parents[1] / "experiments/issue-integration/44/probe.py"
 SPEC = importlib.util.spec_from_file_location("publication_probe_44", PROBE_PATH)
@@ -32,7 +32,9 @@ class FakeGitHub(BaseHTTPRequestHandler):
             stream.write(json.dumps(entry) + "\n")
             stream.flush()
             os.fsync(stream.fileno())
-        response = json.dumps({"number": 123, "html_url": "http://fake/issues/123"}).encode()
+        response = json.dumps(
+            {"number": 123, "html_url": "http://fake/issues/123"}
+        ).encode()
         self.send_response(201)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(response)))
@@ -59,20 +61,37 @@ class PublicationFaultTests(unittest.TestCase):
         self.url = f"http://127.0.0.1:{self.server.server_port}/issues"
 
     def prepare(self):
-        probe.prepare(self.intent, proposal_id="proposal-1", title="Fixture failure",
-                      body="Synthetic report", reviewed_by="fixture-user",
-                      decision="publish")
+        probe.prepare(
+            self.intent,
+            proposal_id="proposal-1",
+            title="Fixture failure",
+            body="Synthetic report",
+            reviewed_by="fixture-user",
+            decision="publish",
+        )
 
     def worker(self, phase):
         return subprocess.run(
-            [sys.executable, str(PROBE_PATH), str(self.intent), self.url,
-             "--crash-at", phase], capture_output=True, text=True, timeout=15,
+            [
+                sys.executable,
+                str(PROBE_PATH),
+                str(self.intent),
+                self.url,
+                "--crash-at",
+                phase,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=15,
         )
 
     def entries(self):
         if not self.ledger.exists():
             return []
-        return [json.loads(line) for line in self.ledger.read_text(encoding="utf-8").splitlines()]
+        return [
+            json.loads(line)
+            for line in self.ledger.read_text(encoding="utf-8").splitlines()
+        ]
 
     def test_before_send_is_conservatively_unknown_and_not_retried(self):
         self.prepare()
@@ -105,8 +124,14 @@ class PublicationFaultTests(unittest.TestCase):
 
     def test_review_gate_tamper_and_nonlocal_endpoint(self):
         with self.assertRaisesRegex(probe.ProbeError, "not_reviewed"):
-            probe.prepare(self.intent, proposal_id="proposal-1", title="Fixture",
-                          body="Synthetic", reviewed_by="", decision="publish")
+            probe.prepare(
+                self.intent,
+                proposal_id="proposal-1",
+                title="Fixture",
+                body="Synthetic",
+                reviewed_by="",
+                decision="publish",
+            )
         self.prepare()
         record = json.loads(self.intent.read_text(encoding="utf-8"))
         record["reviewed_body"] = "changed after review"

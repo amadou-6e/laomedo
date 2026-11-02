@@ -105,7 +105,7 @@ ambient credentials.
 | --- | --- | --- |
 | Edit files in `/draft` | Default snapshot has no history; opt-in Git workspace has isolated history | `test_local_runner.py` |
 | Literal `git fetch` / `git push` | Scoped native remote helper; fetch requires explicit run/base reads, push requires verified exact commit | `test_native_commands.py`; S10 B local-provider and S12 B live scripted-container evidence |
-| Normalized host `git_push` | Active capture, independent credential-free verification and trusted exact-commit transport | `test_bundle_verifier.py`, `test_verified_stage.py`, `test_github_git_transport.py`; S12 B live scripted-container evidence, not production LocalRunner acceptance |
+| Normalized host `git_push` | Active capture, independent credential-free verification and trusted exact-commit transport | `tests/test_host/test_publication/test_bundle/test_verifier.py`, `tests/test_host/test_publication/test_verified.py`, `test_github_git_transport.py`; S12 B live scripted-container evidence, not production LocalRunner acceptance |
 | Literal `gh pr` / `gh run` | Supported partial create/view/edit and run-list forms; result JSON | `test_native_commands.py`; S10 B fake PR correction/readback and S12 B live PR create/readback |
 | Literal `gh issue` | Unsupported before mediation; no implicit run permission | `test_native_commands.py`, `test_github_mediation.py` |
 | Normalized PR create/update | Granted branch/PR/base/marker checks, with provider target verification | `test_github_mediation.py`, `test_github_rest_transport.py` |

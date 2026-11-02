@@ -17,8 +17,9 @@ class MaterializeCandidateTests(unittest.TestCase):
             for directory in (".agents", ".codex", ".git"):
                 (raw / directory).mkdir()
             candidate = root / "candidate"
-            self.assertEqual(materialize(raw, candidate, root),
-                             [".agents", ".codex", ".git"])
+            self.assertEqual(
+                materialize(raw, candidate, root), [".agents", ".codex", ".git"]
+            )
             self.assertEqual((candidate / "SKILL.md").read_text(), "synthetic")
             self.assertEqual([path.name for path in candidate.iterdir()], ["SKILL.md"])
 

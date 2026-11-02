@@ -166,7 +166,7 @@ existing server is silently reconfigured.
 
 ## Checks
 
-Run `python tests/langflow/test_codex_component.py` inside the pinned Langflow
+Run `python tests/test_langflow/test_codex_component.py` inside the pinned Langflow
 image with this repository available. It uses a synthetic runner and no credentials
 or model turns. Run the existing `python -m unittest discover -s tests` on the host as well.
 Real imported-flow acceptance needs a separately authorized model-turn ledger.

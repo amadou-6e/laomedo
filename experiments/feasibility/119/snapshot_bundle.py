@@ -3,7 +3,8 @@
 import argparse
 import hashlib
 import json
-from pathlib import Path; from pathlib import PurePosixPath
+from pathlib import Path
+from pathlib import PurePosixPath
 
 
 def sha256(data: bytes) -> str:
@@ -12,18 +13,33 @@ def sha256(data: bytes) -> str:
 
 def safe_file(root: Path, relative: str) -> Path:
     path = PurePosixPath(relative)
-    if path.is_absolute() or not path.parts or any(part in (".", "..") for part in path.parts):
+    if (
+        path.is_absolute()
+        or not path.parts
+        or any(part in (".", "..") for part in path.parts)
+    ):
         raise ValueError(f"unsafe relative path: {relative}")
     candidate = root.joinpath(*path.parts)
-    has_link = any(root.joinpath(*path.parts[:index]).is_symlink() for index in range(1, len(path.parts) + 1))
-    if has_link or not candidate.is_file() or not candidate.resolve().is_relative_to(root.resolve()):
+    has_link = any(
+        root.joinpath(*path.parts[:index]).is_symlink()
+        for index in range(1, len(path.parts) + 1)
+    )
+    if (
+        has_link
+        or not candidate.is_file()
+        or not candidate.resolve().is_relative_to(root.resolve())
+    ):
         raise ValueError(f"missing, linked, or escaped file: {relative}")
     return candidate
 
 
 def section_bytes(content: bytes, heading: str) -> bytes:
     lines = content.splitlines(keepends=True)
-    matches = [index for index, line in enumerate(lines) if line.rstrip(b"\r\n").decode("utf-8") == heading]
+    matches = [
+        index
+        for index, line in enumerate(lines)
+        if line.rstrip(b"\r\n").decode("utf-8") == heading
+    ]
     if len(matches) != 1:
         raise ValueError(f"heading must occur exactly once: {heading}")
     start = matches[0]
@@ -43,7 +59,9 @@ def build(root: Path, manifest: dict, selection: list[str]) -> dict:
     files = manifest["files"]
     if len(files) != len(set(files)) or "SKILL.md" not in files:
         raise ValueError("files must be unique and include SKILL.md")
-    file_hashes = {relative: sha256(safe_file(root, relative).read_bytes()) for relative in files}
+    file_hashes = {
+        relative: sha256(safe_file(root, relative).read_bytes()) for relative in files
+    }
     item_ids = [item["id"] for item in manifest["items"]]
     if len(item_ids) != len(set(item_ids)):
         raise ValueError("duplicate item ID")
@@ -60,11 +78,20 @@ def build(root: Path, manifest: dict, selection: list[str]) -> dict:
                 raise ValueError(f"undeclared dependency: {relative}")
         content = safe_file(root, source["path"]).read_bytes()
         content_hash = sha256(section_bytes(content, source["heading"]))
-        item_records.append({"id": item["id"], "kind": item["kind"], "source": source, "content_hash": content_hash})
+        item_records.append(
+            {
+                "id": item["id"],
+                "kind": item["kind"],
+                "source": source,
+                "content_hash": content_hash,
+            }
+        )
         if item["id"] in selection:
             selected_files.update([source["path"], *requirements])
 
-    canonical_tree = "".join(f"{path}\0{file_hashes[path]}\n" for path in sorted(file_hashes))
+    canonical_tree = "".join(
+        f"{path}\0{file_hashes[path]}\n" for path in sorted(file_hashes)
+    )
     tree_hash = sha256(canonical_tree.encode("utf-8"))
     return {
         "schema_version": 1,
@@ -90,7 +117,12 @@ def main() -> None:
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
     manifest = json.loads(args.manifest.read_text(encoding="utf-8"))
-    result = json.dumps(build(args.source.resolve(strict=True), manifest, args.select), indent=2) + "\n"
+    result = (
+        json.dumps(
+            build(args.source.resolve(strict=True), manifest, args.select), indent=2
+        )
+        + "\n"
+    )
     if args.output:
         args.output.write_text(result, encoding="utf-8")
     else:

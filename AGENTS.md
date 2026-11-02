@@ -1,5 +1,33 @@
 # Contributor instructions
 
+## Experiments and production work
+
+- Use the permanent `exp` branch for new experiments, disposable probes, campaign
+  harnesses and experiment evidence. Follow `CONTRIBUTING.md`; do not add these
+  artifacts to `develop`, `main` or production PRs.
+- Use a separate worktree for `exp` and preserve other agents' checkouts. Bring
+  accepted `develop` changes into `exp` as needed; extract production-ready work
+  onto its own issue branch from `develop`. Never merge `exp` wholesale back.
+- Preserve historical files on `exp` before production removal. Move useful
+  assertions into concern-owned tests rather than importing campaign scripts.
+  Production tests must not fetch or require `exp`. No secrets or private runtime
+  state belong in either branch.
+- The current cleanup covers Shared preparation and Skills. Agent/GitHub
+  experiments and their existing test/CI dependencies are deferred, not examples
+  to follow for new work.
+
+## Python formatting
+
+- Install the pinned formatter with `python -m pip install -e '.[dev]'`.
+- Run `python -m black .` after editing Python and
+  `python -m black --check --diff --no-cache .` before pushing. CI enforces the
+  same project-wide configuration in `pyproject.toml`.
+- Preserve the exact archived sources listed in
+  `docs/architecture/python-formatting.md`; do not broaden exclusions or add
+  `fmt: skip/off` merely to avoid formatting maintained code.
+- Update the Black development dependency, required version and `uv.lock`
+  together when upgrading the formatter.
+
 - Before merging any PR, use the Claude reviewer workflow at
   `specs/shared/skills/claude-reviewer/SKILL.md` in the workspace's canonical specs
   checkout (normally the sibling of this implementation checkout).
@@ -22,6 +50,10 @@
   to verify removal of a cap; use explicitly approved live checks when needed.
 
 ## Python module cohesion
+
+- Beneath the `tests/` discovery root, prefix every folder containing tests,
+  directly or through nested concerns, with `test_`. Keep support-only and
+  data-only folders descriptive. Update discovery, imports and CI paths together.
 
 - Group cohesive features into packages; do not stop at a fixed nesting depth.
   Repeated filename prefixes are a signal to review the package boundary.

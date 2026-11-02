@@ -12,7 +12,9 @@ except ModuleNotFoundError as error:
     run_cases = None
 
 
-@unittest.skipUnless(run_cases is not None, "experiment source is not installed in the wheel")
+@unittest.skipUnless(
+    run_cases is not None, "experiment source is not installed in the wheel"
+)
 class Exp19ProbeTests(unittest.TestCase):
     def test_ready_issue_retains_trace_and_local_candidate_binding(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -25,28 +27,34 @@ class Exp19ProbeTests(unittest.TestCase):
         self.assertEqual(success["stream_state"], "complete")
         self.assertEqual(success["binding"]["run_id"], success["run_id"])
         self.assertEqual(success["binding"]["trace_id"], success["trace_id"])
-        self.assertEqual(success["binding"]["graph_snapshot_id"],
-                         success["graph_snapshot_id"])
+        self.assertEqual(
+            success["binding"]["graph_snapshot_id"], success["graph_snapshot_id"]
+        )
         self.assertEqual(success["binding"]["input_digest"], success["input_digest"])
-        self.assertEqual(success["binding"]["component_revision"],
-                         success["component_revision"])
+        self.assertEqual(
+            success["binding"]["component_revision"], success["component_revision"]
+        )
         self.assertIsNone(success["binding"]["target_pr"])
         self.assertEqual(success["pr_candidate"]["remote_count"], 0)
         self.assertIsNone(success["pr_candidate"]["target_pr"])
         self.assertEqual(len(success["pr_candidate"]["commit"]), 40)
-        self.assertEqual(success["binding"]["candidate_commit"],
-                         success["pr_candidate"]["commit"])
-        self.assertEqual(success["binding"]["candidate_branch"],
-                         success["pr_candidate"]["branch"])
+        self.assertEqual(
+            success["binding"]["candidate_commit"], success["pr_candidate"]["commit"]
+        )
+        self.assertEqual(
+            success["binding"]["candidate_branch"], success["pr_candidate"]["branch"]
+        )
         self.assertEqual(result["model_turns"], 0)
         self.assertEqual(result["github_writes"], 0)
 
     def test_stale_blocked_and_incomplete_sources_refuse_before_dispatch(self):
         with tempfile.TemporaryDirectory() as directory:
             cases = run_cases(Path(directory))["cases"]
-        for key, reason in (("stale_source", "source_snapshot_changed"),
-                            ("opened_prerequisite", "source_not_ready"),
-                            ("incomplete_blockers", "source_not_ready")):
+        for key, reason in (
+            ("stale_source", "source_snapshot_changed"),
+            ("opened_prerequisite", "source_not_ready"),
+            ("incomplete_blockers", "source_not_ready"),
+        ):
             with self.subTest(key=key):
                 case = cases[key]
                 self.assertEqual(case["outcome"], "refused")

@@ -16,7 +16,7 @@ Inside the existing pinned Langflow environment:
 
 ```text
 python examples/agent-handoffs/build_flow.py
-python tests/langflow/test_handoff_graph.py
+python tests/test_langflow/test_handoff_graph.py
 ```
 
 `laomedo.agents.handoffs.controller.BoundedController` schedules finite chains or bounded loops via

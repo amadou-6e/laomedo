@@ -1,8 +1,10 @@
 """Disposable, synthetic HTTP runner for EXP-89; no agent/model execution."""
 
 import argparse
-from datetime import datetime; from datetime import timezone
-from http.server import BaseHTTPRequestHandler; from http.server import ThreadingHTTPServer
+from datetime import datetime
+from datetime import timezone
+from http.server import BaseHTTPRequestHandler
+from http.server import ThreadingHTTPServer
 import json
 from pathlib import Path
 import secrets
@@ -31,8 +33,13 @@ def main():
     lock = threading.Lock()
 
     def record(kind, run_id=None, **extra):
-        entry = {"kind": kind, "run_id": run_id, "at_utc": utc(),
-                 "monotonic": time.monotonic(), **extra}
+        entry = {
+            "kind": kind,
+            "run_id": run_id,
+            "at_utc": utc(),
+            "monotonic": time.monotonic(),
+            **extra,
+        }
         with lock:
             with journal.open("a", encoding="utf-8", newline="\n") as stream:
                 stream.write(json.dumps(entry, sort_keys=True) + "\n")
@@ -47,8 +54,9 @@ def main():
             self.wfile.write(payload)
 
         def auth(self):
-            if not secrets.compare_digest(self.headers.get("Authorization", ""),
-                                          "Bearer " + token):
+            if not secrets.compare_digest(
+                self.headers.get("Authorization", ""), "Bearer " + token
+            ):
                 self.reply(401, {"status": "failed", "error_category": "unauthorized"})
                 return False
             return True
@@ -83,8 +91,14 @@ def main():
                         run["cancel_requested"] = True
                         run["status"] = "cancelled"
                 record("cancel_received", parts[2], known=bool(run))
-                self.reply(202 if run else 404, dict(run) if run else
-                           {"status": "failed", "error_category": "unknown_run"})
+                self.reply(
+                    202 if run else 404,
+                    (
+                        dict(run)
+                        if run
+                        else {"status": "failed", "error_category": "unknown_run"}
+                    ),
+                )
                 return
             if parts not in (["v1", "runs"], ["v1", "runs", "async"]):
                 self.reply(404, {"status": "failed"})
@@ -92,17 +106,26 @@ def main():
             task = str(body.get("task", ""))
             case = "A" if "CASE_A" in task else "B" if "CASE_B" in task else "CONTROL"
             run_id = str(uuid4())
-            run = {"run_id": run_id, "status": "running", "provider": "codex",
-                   "client_request_id": body.get("request_id"),
-                   "raw_event_ref": f"laomedo:run:{run_id}:events",
-                   "cancel_requested": False, "cancel_confirmed": False,
-                   "requested_model": body.get("model"),
-                   "requested_effort": body.get("effort"),
-                   "answer": "synthetic-complete"}
+            run = {
+                "run_id": run_id,
+                "status": "running",
+                "provider": "codex",
+                "client_request_id": body.get("request_id"),
+                "raw_event_ref": f"laomedo:run:{run_id}:events",
+                "cancel_requested": False,
+                "cancel_confirmed": False,
+                "requested_model": body.get("model"),
+                "requested_effort": body.get("effort"),
+                "answer": "synthetic-complete",
+            }
             with lock:
                 runs[run_id] = run
-            record("post_received", run_id, case=case,
-                   operation="start" if parts[-1] == "async" else "fresh")
+            record(
+                "post_received",
+                run_id,
+                case=case,
+                operation="start" if parts[-1] == "async" else "fresh",
+            )
             if case == "A":
                 record("ack_held", run_id)
                 time.sleep(3)

@@ -3,7 +3,11 @@
 These subclasses preserve legacy experiment controls without installing their
 global limits in user-facing runtime defaults or managed startup configuration.
 """
-from laomedo.agents.providers.codex.runner import CodexRunner as LocalRunner; from laomedo.agents.runtime.errors import RunnerError; from laomedo.agents.runtime.utils import _json; from laomedo.agents.runtime.utils import _read
+
+from laomedo.agents.providers.codex.runner import CodexRunner as LocalRunner
+from laomedo.agents.runtime.errors import RunnerError
+from laomedo.agents.runtime.utils import _json
+from laomedo.agents.runtime.utils import _read
 from laomedo.agents.providers.opencode.runner import OpenCodeRunner
 
 
@@ -27,8 +31,13 @@ class VerificationTurnBounds:
         self._turn_available()
         ledger = self.state / "turn-ledger.json"
         count = _read(ledger).get("attempted_turns", 0) if ledger.exists() else 0
-        _json(ledger, {"attempted_turns": count + 1,
-                       "max_authorized_turns": self.max_model_turns})
+        _json(
+            ledger,
+            {
+                "attempted_turns": count + 1,
+                "max_authorized_turns": self.max_model_turns,
+            },
+        )
         return count + 1
 
 

@@ -1,11 +1,11 @@
 """Independent checks of EXP-10's pinned synthetic timeout observation."""
 
 from copy import deepcopy
-from datetime import datetime; from datetime import timedelta
+from datetime import datetime
+from datetime import timedelta
 import json
 from pathlib import Path
 import unittest
-
 
 OBSERVATION = Path(__file__).with_name("observation.json")
 
@@ -30,8 +30,10 @@ def check_observation(report: dict) -> None:
         events = case["runner_events"]
         if [event["event"] for event in events[:2]] != ["entered", "effect"]:
             raise AssertionError(f"{name}: missing entry/effect evidence")
-        if sum(event["event"] == "entered" for event in events) != 1 or sum(
-                event["event"] == "effect" for event in events) != 1:
+        if (
+            sum(event["event"] == "entered" for event in events) != 1
+            or sum(event["event"] == "effect" for event in events) != 1
+        ):
             raise AssertionError(f"{name}: duplicate or absent synthetic action")
         if not case["effect_observed"]:
             raise AssertionError(f"{name}: effect wrongly marked absent")
@@ -50,8 +52,9 @@ def check_observation(report: dict) -> None:
         raise AssertionError("outer caller did not time out")
     if "remote execution may still be active" not in cases[2]["response"]["message"]:
         raise AssertionError("component hid uncertain remote effect")
-    if (cases[3]["response"].get("code") != "EXECUTION_TIMEOUT" or
-            not cases[3]["response"].get("job_id")):
+    if cases[3]["response"].get("code") != "EXECUTION_TIMEOUT" or not cases[3][
+        "response"
+    ].get("job_id"):
         raise AssertionError("server timeout lacked status/job evidence")
 
 
@@ -61,7 +64,9 @@ class TimeoutObservationTests(unittest.TestCase):
 
     def test_frozen_observation(self):
         check_observation(self.report)
-        self.assertNotIn("synthetic-exp10-token", OBSERVATION.read_text(encoding="utf-8"))
+        self.assertNotIn(
+            "synthetic-exp10-token", OBSERVATION.read_text(encoding="utf-8")
+        )
 
     def test_missing_late_effect_is_detected(self):
         changed = deepcopy(self.report)

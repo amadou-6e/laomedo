@@ -23,8 +23,9 @@ class ExportTests(unittest.TestCase):
         self.thread = "c61de4af-35cc-4e25-9dd6-73cc9acdf9d5"
         self.run_dir = self.state / "runs" / self.run_id
         self.run_dir.mkdir(parents=True)
-        (self.run_dir / "record.json").write_text(json.dumps({
-            "run_id": self.run_id, "thread_id": self.thread}))
+        (self.run_dir / "record.json").write_text(
+            json.dumps({"run_id": self.run_id, "thread_id": self.thread})
+        )
 
     def test_exact_session_only(self):
         calls = []
@@ -38,8 +39,12 @@ class ExportTests(unittest.TestCase):
                 return Result(str(len(payload)).encode())
             return Result(payload)
 
-        payload = json.dumps({"type": "session_meta", "payload": {
-            "id": self.thread}}).encode() + b"\n"
+        payload = (
+            json.dumps(
+                {"type": "session_meta", "payload": {"id": self.thread}}
+            ).encode()
+            + b"\n"
+        )
         output = export_rollout(self.state, self.run_id, docker_run=docker)
         self.assertEqual(output.read_bytes(), payload)
         self.assertEqual(len(calls), 3)
@@ -51,7 +56,9 @@ class ExportTests(unittest.TestCase):
     def test_rejects_wrong_session_meta_before_writing(self):
         def docker(args, **kwargs):
             if "find" in args:
-                return Result(f"/home/runner/.codex/sessions/rollout-{self.thread}.jsonl\n".encode())
+                return Result(
+                    f"/home/runner/.codex/sessions/rollout-{self.thread}.jsonl\n".encode()
+                )
             if "stat" in args:
                 return Result(str(len(payload)).encode())
             return Result(payload)

@@ -7,6 +7,7 @@ mediator capability. Unsupported operations fail explicitly.
 
 from __future__ import annotations
 
+from laomedo.http.redirect import NoRedirect
 from urllib import error
 from urllib import parse
 from urllib import request
@@ -21,11 +22,6 @@ _REPOSITORY = re.compile(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+\Z")
 ISSUE_GRAPHQL_QUERY = "query($owner:String!,$name:String!){repository(owner:$owner,name:$name){issues(first:30,states:OPEN){nodes{number title body}}}}"
 
 
-class _NoRedirect(request.HTTPRedirectHandler):
-    def redirect_request(self, *_):
-        return None
-
-
 class GitHubRestTransport:
     """Narrow first-slice adapter; never reads the ambient gh login."""
 
@@ -36,7 +32,7 @@ class GitHubRestTransport:
             raise ValueError("credential_supplier_required")
         self.repository = repository
         self.token_supplier = token_supplier
-        self.opener = opener or request.build_opener(_NoRedirect)
+        self.opener = opener or request.build_opener(NoRedirect)
 
     def __call__(
         self,

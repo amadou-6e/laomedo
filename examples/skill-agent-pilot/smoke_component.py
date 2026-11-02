@@ -36,11 +36,21 @@ def success(req, timeout):
     payload = json.loads(req.data)
     assert payload["task"] == "Read the fixture"
     assert payload["skill_ref"]["revision_id"] == component.revision_id
-    return Response(json.dumps({"status": "completed", "answer": "amber 3",
-        "run_id": "fixture-run", "thread_id": "fixture-thread",
-        "skill": {"revision_id": component.revision_id,
-                  "use_evidence": "offered"},
-        "raw_event_ref": "laomedo:run:fixture-run:events"}).encode())
+    return Response(
+        json.dumps(
+            {
+                "status": "completed",
+                "answer": "amber 3",
+                "run_id": "fixture-run",
+                "thread_id": "fixture-thread",
+                "skill": {
+                    "revision_id": component.revision_id,
+                    "use_evidence": "offered",
+                },
+                "raw_event_ref": "laomedo:run:fixture-run:events",
+            }
+        ).encode()
+    )
 
 
 langflow_component.request.urlopen = success
@@ -51,8 +61,9 @@ assert result["usage"] == "unknown"
 
 
 def failure(req, timeout):
-    data = json.dumps({"status": "timeout", "run_id": "failed-run",
-                       "error_category": "turn_timeout"}).encode()
+    data = json.dumps(
+        {"status": "timeout", "run_id": "failed-run", "error_category": "turn_timeout"}
+    ).encode()
     raise error.HTTPError(req.full_url, 502, "failed", {}, Response(data))
 
 

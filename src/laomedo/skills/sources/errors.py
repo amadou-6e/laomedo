@@ -10,5 +10,6 @@ class SourceError(ValueError):
     boundary, never a repository credential or raw upstream response."""
 
     def __init__(self, code: str):
+        """Retain the stable machine category and exception arguments without formatting external context."""
         self.code = code
         super().__init__(code)

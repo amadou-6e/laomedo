@@ -69,18 +69,18 @@ ledger. Transport/API logs do not contain raw provider errors or credentials.
 ## Verification
 
 Host tests: `python -m unittest discover -s tests -p test_live_github_issue.py`.
-Pinned native tests: `python -m unittest discover -s tests/langflow -p test_github_issue.py`.
-Browser tests: `tests/browser/github_issue.cjs <manifest>` and
-`tests/browser/github_issue_operation.cjs <manifest>` with Playwright/Edge.
+Pinned native tests: `python -m unittest discover -s tests/test_langflow -p test_github_issue.py`.
+Browser tests: `tests/test_browser/github_issue.cjs <manifest>` and
+`tests/test_browser/github_issue_operation.cjs <manifest>` with Playwright/Edge.
 The latter supports operation_action close or modify. The held-response regression
-is `tests/browser/github_issue_stale.cjs <manifest>`; it requires the fixture after
+is `tests/test_browser/github_issue_stale.cjs <manifest>`; it requires the fixture after
 close, so two open issues remain before its label/issue selection setup.
 
-Start the fake backend with `python tests/browser/serve_github_issue_fixture.py
+Start the fake backend with `python tests/test_browser/serve_github_issue_fixture.py
 --manifest <ignored-manifest>`. Its model/provider calls are fake, and the frozen
 fixture clock deliberately keeps its dummy capability usable for browser checks;
 real expiry/revocation are tested separately. Import source-only and incoming-
-operation graphs with `python tests/browser/prepare_github_issue_fixture.py
+operation graphs with `python tests/test_browser/prepare_github_issue_fixture.py
 --manifest <ignored-manifest> --action read|modify|close` against a disposable
 loopback viewer (default port 7866). Run read before modify before close, or reset
 the fixture between cases. The helper refuses manifests without fake-no-network.
@@ -101,5 +101,5 @@ running an operation. Open in GitHub opens the exact selected issue in a separat
 tab. Empty/invalid picker selection disables opening; reference-only runtime
 inputs are not guessed. Markdown skips HTML and remote images. The overlay also
 recognizes namespaced custom-component IDs. Browser regression:
-`tests/browser/issue_viewer.cjs <fake-manifest>`; native endpoint checks:
-`tests/langflow/test_issue_inspection.py`. See [activation draft](ISSUE-VIEWER-DEPLOYMENT.md).
+`tests/test_browser/issue_viewer.cjs <fake-manifest>`; native endpoint checks:
+`tests/test_langflow/test_issue_inspection.py`. See [activation draft](ISSUE-VIEWER-DEPLOYMENT.md).

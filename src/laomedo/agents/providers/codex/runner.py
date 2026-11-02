@@ -19,7 +19,8 @@ import laomedo.host.leases.client as _leases_client
 import laomedo.host.leases.models as _leases_models
 import laomedo.host.leases.utils as _leases_utils
 import laomedo.host.mediation.authority as _mediation_authority
-import laomedo.skills.workspace.utils as workspace_skills
+from laomedo.agents.workspace.skills.utils import verify
+from laomedo.agents.workspace.skills.utils import remove_owned_tree
 import re
 import shutil
 import subprocess
@@ -59,9 +60,7 @@ class CodexRunner(Runner):
             _codex_settings.GIT_IMAGE if git_workspace else _codex_settings.IMAGE
         )
         self.image_id = (
-            _codex_settings.GIT_IMAGE_ID
-            if git_workspace
-            else _codex_settings.IMAGE_ID
+            _codex_settings.GIT_IMAGE_ID if git_workspace else _codex_settings.IMAGE_ID
         )
         if image_id is not None:
             if (
@@ -82,10 +81,17 @@ class CodexRunner(Runner):
             raise _runtime_errors.RunnerError("split_executor_lease_unavailable")
         if git_workspace and split_executor:
             raise _runtime_errors.RunnerError("git_workspace_split_unsupported")
-        super().__init__(state, skill_store, source_workspace,
-                         lease_service=lease_service, github_authority=github_authority,
-                         mediator_state=mediator_state, git_workspace=git_workspace,
-                         publication_controller=publication_controller, artifact_sources=artifact_sources)
+        super().__init__(
+            state,
+            skill_store,
+            source_workspace,
+            lease_service=lease_service,
+            github_authority=github_authority,
+            mediator_state=mediator_state,
+            git_workspace=git_workspace,
+            publication_controller=publication_controller,
+            artifact_sources=artifact_sources,
+        )
         self.transport = transport
         self.split_executor = split_executor
         self.split_provider_config = tuple(split_provider_config)
@@ -153,16 +159,29 @@ class CodexRunner(Runner):
                     env=self.docker_environment,
                 )
             else:
-                _codex_utils._ensure_split_profile(self.profile, env=self.docker_environment)
-
+                _codex_utils._ensure_split_profile(
+                    self.profile, env=self.docker_environment
+                )
 
     def runtime_binding(self):
         return _runtime_models.RuntimeBinding(
-            provider=self.provider, profile=self.profile, image=self.image, image_id=self.image_id,
+            provider=self.provider,
+            profile=self.profile,
+            image=self.image,
+            image_id=self.image_id,
             execution_mode="split" if self.split_executor else "legacy",
-            cli_version=_codex_settings.CLI_VERSION, config_sha256=_codex_settings.CONFIG_SHA256,
-            credential=(_runtime_models.CredentialBinding(credential_mode="chatgpt_plan_oauth", credential_ref=None,
-                         auth_outcome="not_checked") if self.auth else None))
+            cli_version=_codex_settings.CLI_VERSION,
+            config_sha256=_codex_settings.CONFIG_SHA256,
+            credential=(
+                _runtime_models.CredentialBinding(
+                    credential_mode="chatgpt_plan_oauth",
+                    credential_ref=None,
+                    auth_outcome="not_checked",
+                )
+                if self.auth
+                else None
+            ),
+        )
 
     @property
     def supports_mediated_github(self):
@@ -172,8 +191,12 @@ class CodexRunner(Runner):
         owner = record.get("container_ownership") or {}
         if owner.get("supervised"):
             verified, detail = _leases_utils.cleanup_exact(
-                _leases_models.ContainerIdentity(name=owner["name"], run_id=record["run_id"],
-                                                token=owner["launch_token"]))
+                _leases_models.ContainerIdentity(
+                    name=owner["name"],
+                    run_id=record["run_id"],
+                    token=owner["launch_token"],
+                )
+            )
             owner["cleanup_verified"], owner["cleanup_detail"] = verified, detail
             if not verified:
                 record["error_category"] = "container_cleanup_unverified"
@@ -253,11 +276,12 @@ class CodexRunner(Runner):
             )
         if self.transport is _runtime_servers.AppServer:
             return self.transport(
-                command, root, env=getattr(self, "docker_environment", None),
+                command,
+                root,
+                env=getattr(self, "docker_environment", None),
                 docker_environment=getattr(self, "docker_environment", None),
             )
         return self.transport(command, root)
-
 
     def model_catalog(self) -> dict:
         """Serialize and briefly cache metadata discovery; never submit a turn."""
@@ -308,7 +332,6 @@ class CodexRunner(Runner):
                         server.close()
                 finally:
                     shutil.rmtree(root, ignore_errors=True)
-
 
     def preflight(self) -> dict:
         """Check the existing Docker app-server and advertised models without a turn."""
@@ -419,7 +442,6 @@ class CodexRunner(Runner):
             if server is not None:
                 server.close()
 
-
     def resume(
         self,
         run_id: str,
@@ -499,7 +521,6 @@ class CodexRunner(Runner):
         return self._execute(
             run_id, task, resume=True, activity_attempt_id=activity_attempt_id
         )
-
 
     def _execute(
         self,
@@ -586,7 +607,7 @@ class CodexRunner(Runner):
                 }
                 _runtime_utils._json(run_dir / "record.json", record)
             try:
-                workspace_skills.verify(
+                verify(
                     run_dir / "workspace",
                     record["skills"],
                     record.get("skill_git_exclusion", {"enabled": False}),
@@ -887,9 +908,7 @@ class CodexRunner(Runner):
                     or correction_count >= record["output_retries"]
                 ):
                     break
-                commands_before = _codex_utils._command_summary(
-                    server.events, turn_id
-                )
+                commands_before = _codex_utils._command_summary(server.events, turn_id)
 
                 def effect_event(event):
                     if event.get("method") not in {"item/started", "item/completed"}:
@@ -1001,7 +1020,7 @@ class CodexRunner(Runner):
                 raise _runtime_errors.RunnerError("completed_without_agent_message")
             if status == "completed":
                 try:
-                    workspace_skills.verify(
+                    verify(
                         run_dir / "workspace",
                         record["skills"],
                         record.get("skill_git_exclusion", {"enabled": False}),
@@ -1018,7 +1037,7 @@ class CodexRunner(Runner):
                 )
                 old = run_dir / "post-run"
                 if old.exists():
-                    workspace_skills.remove_owned_tree(old, self.state)
+                    remove_owned_tree(old, self.state)
                 pending.rename(old)
                 record["post_run_hash"] = post_hash
                 record["output_ref"] = f"laomedo:run:{run_id}:workspace"
@@ -1193,5 +1212,3 @@ class CodexRunner(Runner):
                 finally:
                     self.lock.release()
         return record
-
-

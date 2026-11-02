@@ -2,7 +2,6 @@ import importlib.util
 from pathlib import Path
 import unittest
 
-
 LEASE_PATH = Path(__file__).resolve().parents[1] / "experiments" / "exp07" / "lease.py"
 lease_spec = importlib.util.spec_from_file_location("exp07_lease", LEASE_PATH)
 lease_module = importlib.util.module_from_spec(lease_spec)

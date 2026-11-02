@@ -13,7 +13,7 @@ import laomedo.agents.artifacts.errors as _artifacts_errors
 import laomedo.agents.runtime.settings as _runtime_settings
 import laomedo.agents.runtime.errors as _runtime_errors
 import laomedo.agents.runtime.utils as _runtime_utils
-import laomedo.skills.registry.errors as _registry_errors
+from laomedo.skills.registry.errors import SkillStoreError
 import laomedo.agents.runtime.settings as _runtime_settings
 import secrets
 import threading
@@ -270,7 +270,7 @@ class RunnerServer(ThreadingHTTPServer):
                     self._reply(code, result)
                 except (
                     _runtime_errors.RunnerError,
-                    _registry_errors.SkillStoreError,
+                    SkillStoreError,
                     _artifacts_errors.ArtifactError,
                     KeyError,
                     ValueError,

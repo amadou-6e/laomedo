@@ -40,7 +40,7 @@ state = Path(os.environ["LAOMEDO_GUIDE_STATE"])
 store = SkillStore(state / "registry")
 for skill_id, source in [
     ("pr-feedback-title", repo / "examples/github-pr/original-agent/title-skill"),
-    ("skill-operation-editor", repo / "examples/skill-operations/editor-skill"),
+    ("skill-operation-editor", repo / "examples/skills/editor-skill"),
 ]:
     revision = store.import_skill(skill_id, source)
     print(skill_id, revision["revision_id"])
@@ -77,7 +77,7 @@ provided each backend token-file setting matches its owning service.
 **Source service:**
 
 ```powershell
-& $pythonExe -m laomedo.skills.sources.cli `
+& $pythonExe -m laomedo.skills.interface.sources.cli `
   --registry "$runtimeRoot/registry" --state "$runtimeRoot/skill-sources" `
   --api-token-file "$runtimeRoot/runner/api-token" --port 8782
 ```
@@ -85,7 +85,7 @@ provided each backend token-file setting matches its owning service.
 **Operation/history service:**
 
 ```powershell
-& $pythonExe -m laomedo.skills.operations.cli `
+& $pythonExe -m laomedo.skills.interface.operations.cli `
   --registry "$runtimeRoot/registry" --database "$runtimeRoot/skill-operations.sqlite" `
   --policies "$runtimeRoot/skill-edit-policies.json" `
   --api-token-file "$runtimeRoot/runner/api-token" --port 8787
@@ -155,7 +155,14 @@ run the controller again: that would be another operation.
 
 ## 5. Review the candidate and its diff
 
-Expected Operation Result: `status: proposed`, `promotion_performed: false`, a
+In this feedback graph, open the connected **Task** output immediately after
+completion to inspect the host receipt. Langflow builds connected outputs; the
+unused **Operation Result** inspector is not enabled automatically. Output
+inspectors are transient after leaving or reloading the page. Use the retained
+registry history to reconcile an earlier operation; do not rerun the graph merely
+to restore an inspector.
+
+Expected receipt: `status: proposed`, `promotion_performed: false`, a
 new Skill Reference, and a commit with parent, changed paths and editor provenance.
 Verify both `SKILL.md` and `references/usage.md` appear in its changed paths.
 

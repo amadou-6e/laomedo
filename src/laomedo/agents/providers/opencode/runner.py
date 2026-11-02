@@ -16,9 +16,11 @@ import laomedo.agents.runtime.errors as _runtime_errors
 import laomedo.agents.runtime.runner as _runtime_runner
 import laomedo.agents.runtime.models as _runtime_models
 import laomedo.agents.runtime.utils as _runtime_utils
-import laomedo.skills.registry.errors as _registry_errors
-import laomedo.skills.registry.utils as _registry_utils
-import laomedo.skills.workspace.utils as workspace_skills
+from laomedo.skills.registry.errors import SkillStoreError
+from laomedo.skills.registry.hashing import tree_hash
+from laomedo.skills.registry.files import inventory
+from laomedo.agents.workspace.skills.utils import verify
+from laomedo.agents.workspace.skills.utils import remove_owned_tree
 import re
 import shutil
 import threading
@@ -76,23 +78,46 @@ class OpenCodeRunner(_runtime_runner.Runner):
 
     provider = "opencode"
 
-    def __init__(self, state, skill_store, source_workspace, *, transport_factory=None,
-                 lease_service=None, github_authority=None, mediator_state=None,
-                 git_workspace=False, publication_controller=None, artifact_sources=None):
+    def __init__(
+        self,
+        state,
+        skill_store,
+        source_workspace,
+        *,
+        transport_factory=None,
+        lease_service=None,
+        github_authority=None,
+        mediator_state=None,
+        git_workspace=False,
+        publication_controller=None,
+        artifact_sources=None,
+    ):
         self.transport_factory = transport_factory
         self.active_backends = {}
         self._opencode_catalog_lock = threading.Lock()
         self._opencode_catalog_cached = None
-        super().__init__(state, skill_store, source_workspace, lease_service=lease_service,
-                         github_authority=github_authority, mediator_state=mediator_state,
-                         git_workspace=git_workspace, publication_controller=publication_controller,
-                         artifact_sources=artifact_sources)
+        super().__init__(
+            state,
+            skill_store,
+            source_workspace,
+            lease_service=lease_service,
+            github_authority=github_authority,
+            mediator_state=mediator_state,
+            git_workspace=git_workspace,
+            publication_controller=publication_controller,
+            artifact_sources=artifact_sources,
+        )
 
     def runtime_binding(self):
         return _runtime_models.RuntimeBinding(
-            provider=self.provider, profile=None, image=None, image_id=None,
-            execution_mode="opencode_http", cli_version="opencode " + _opencode_settings.CLI_VERSION,
-            config_sha256=None)
+            provider=self.provider,
+            profile=None,
+            image=None,
+            image_id=None,
+            execution_mode="opencode_http",
+            cli_version="opencode " + _opencode_settings.CLI_VERSION,
+            config_sha256=None,
+        )
 
     def recover_interrupted(self, record):
         """No persisted controller is owned by this HTTP adapter; its supervisor owns workers."""
@@ -221,15 +246,12 @@ class OpenCodeRunner(_runtime_runner.Runner):
                     or self.store.revision(name, digest)["tree_hash"] != digest
                 ):
                     raise _runtime_errors.RunnerError("pinned_skill_record_invalid")
-                if (
-                    _registry_utils.tree_hash(_registry_utils.inventory(root / name))
-                    != digest
-                ):
+                if tree_hash(inventory(root / name)) != digest:
                     raise _runtime_errors.RunnerError("pinned_skill_workspace_changed")
-        except (OSError, _registry_errors.SkillStoreError) as exc:
+        except (OSError, SkillStoreError) as exc:
             raise _runtime_errors.RunnerError("pinned_skill_workspace_changed") from exc
         try:
-            workspace_skills.verify(
+            verify(
                 workspace, skills, record.get("skill_git_exclusion", {"enabled": False})
             )
         except ValueError as exc:
@@ -537,7 +559,7 @@ class OpenCodeRunner(_runtime_runner.Runner):
                 post_hash = _runtime_utils._copy_tree(root / "workspace", pending)
                 old = root / "post-run"
                 if old.exists():
-                    workspace_skills.remove_owned_tree(old, self.state)
+                    remove_owned_tree(old, self.state)
                 pending.rename(old)
                 record.update(
                     post_run_hash=post_hash,

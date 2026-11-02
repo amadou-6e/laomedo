@@ -21,6 +21,7 @@ MODULE_PATHS = json.loads(Path(__file__).with_name("module-paths.json").read_tex
 
 SYMBOL_PATHS = json.loads(Path(__file__).with_name("symbol-paths.json").read_text())
 CLI_PATHS = json.loads(Path(__file__).with_name("cli-paths.json").read_text())
+MANUAL_SYMBOLS = json.loads(Path(__file__).with_name("manual-symbols.json").read_text())
 if set(MODULE_PATHS.values()) & set(MODULE_PATHS):
     raise ValueError("Migration map targets must be final modules")
 SYMBOL_PATTERN = re.compile(
@@ -90,6 +91,53 @@ def _physical_lines(source: str) -> list[str]:
     return [line for line in re.findall(r"[^\r\n]*(?:\r\n|\r|\n|$)", source) if line]
 
 
+def check_manual_git_calls(source: str, tree) -> None:
+    """Refuse retired procedural APIs and changed injection signatures, without execution."""
+    for symbol, explanation in MANUAL_SYMBOLS.items():
+        if re.search(r"(?<![\w.])" + re.escape(symbol) + r"(?!\w)", source):
+            raise ManualMigrationRequired(symbol + ": " + explanation)
+    if tree is None:
+        return
+    bindings = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and node.module and not node.level:
+            for item in node.names:
+                full = node.module + "." + item.name
+                if full in MANUAL_SYMBOLS:
+                    raise ManualMigrationRequired(full + ": " + MANUAL_SYMBOLS[full])
+                bindings[item.asname or item.name] = full
+        elif isinstance(node, ast.Import):
+            for item in node.names:
+                if item.asname:
+                    bindings[item.asname] = item.name
+
+    def reference(node):
+        if isinstance(node, ast.Name):
+            return bindings.get(node.id, node.id if node.id == "laomedo" else "")
+        if isinstance(node, ast.Attribute):
+            parent = reference(node.value)
+            return parent + "." + node.attr if parent else ""
+        return ""
+
+    changed = {
+        "laomedo.github.transport.git.transport.GitHubGitTransport",
+        "laomedo.host.publication.verified.git.VerifiedGitStage",
+        "laomedo.host.publication.verified.utils.stage_verified_git",
+    }
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Attribute) and reference(node) in MANUAL_SYMBOLS:
+            full = reference(node)
+            raise ManualMigrationRequired(full + ": " + MANUAL_SYMBOLS[full])
+        if isinstance(node, ast.Call):
+            full = reference(node.func)
+            target = SYMBOL_PATHS.get(full, full)
+            if target in changed and any(item.arg == "run" for item in node.keywords):
+                raise ManualMigrationRequired(
+                    full
+                    + ": run= now requires an explicit GitCommandRunner through runner=; manual migration is required"
+                )
+
+
 def migrate_source(source: str) -> str:
     """Rewrite published imports to defining modules; refuse ambiguous symbols."""
     try:
@@ -100,6 +148,7 @@ def migrate_source(source: str) -> str:
             raise ManualMigrationRequired(
                 "Source cannot be parsed; manual migration of its Laomedo imports is required"
             ) from None
+    check_manual_git_calls(source, tree)
     replacements, aliases, additional = [], {}, set()
     changed_parameters = set()
     capture_returns = set()
@@ -116,10 +165,13 @@ def migrate_source(source: str) -> str:
     )
     legacy_agent = None
     if tree is not None:
-        concrete = {node.name: node for node in tree.body if isinstance(node, ast.ClassDef)}
+        concrete = {
+            node.name: node for node in tree.body if isinstance(node, ast.ClassDef)
+        }
         for name in ("LaomedoClaudeAgent", "LaomedoOpenCodeAgent"):
             if name in concrete and any(
-                isinstance(node, ast.ImportFrom) and node.module == "laomedo.codex_agent"
+                isinstance(node, ast.ImportFrom)
+                and node.module == "laomedo.codex_agent"
                 and any(item.name == "LaomedoCodexAgent" for item in node.names)
                 for node in tree.body
             ):
@@ -147,9 +199,15 @@ def migrate_source(source: str) -> str:
                 statements, changed = [], False
                 for item in node.names:
                     full = node.module + "." + item.name
-                    if legacy_agent is not None and full == "laomedo.codex_agent.LaomedoCodexAgent":
+                    if (
+                        legacy_agent is not None
+                        and full == "laomedo.codex_agent.LaomedoCodexAgent"
+                    ):
                         alias = item.asname or item.name
-                        statements.append("from laomedo.integrations.langflow.agent.component import AgentComponent as " + alias)
+                        statements.append(
+                            "from laomedo.integrations.langflow.agent.component import AgentComponent as "
+                            + alias
+                        )
                         changed = True
                         continue
                     if full == "laomedo.activity.agent_activity.store.ActivityStore":
@@ -252,24 +310,43 @@ def migrate_source(source: str) -> str:
                 "supports_join_bridge": is_claude,
             }
             if is_claude:
-                capabilities.update(present_native_models=True, catalog_timeout_seconds=75,
-                                    catalog_provider="claude", bridge_url_env="LAOMEDO_CLAUDE_BRIDGE_URL",
-                                    bridge_token_env="LAOMEDO_CLAUDE_BRIDGE_TOKEN_FILE")
-            declared = {target.id for node in legacy_agent.body if isinstance(node, ast.Assign)
-                        for target in node.targets if isinstance(target, ast.Name)}
+                capabilities.update(
+                    present_native_models=True,
+                    catalog_timeout_seconds=75,
+                    catalog_provider="claude",
+                    bridge_url_env="LAOMEDO_CLAUDE_BRIDGE_URL",
+                    bridge_token_env="LAOMEDO_CLAUDE_BRIDGE_TOKEN_FILE",
+                )
+            declared = {
+                target.id
+                for node in legacy_agent.body
+                if isinstance(node, ast.Assign)
+                for target in node.targets
+                if isinstance(target, ast.Name)
+            }
             indent = " " * (legacy_agent.col_offset + 4)
             newline = re.search(r"\r\n|\r|\n", source)
             newline = newline.group() if newline else "\n"
-            block = "".join(indent + key + " = " + repr(value) + newline
-                            for key, value in capabilities.items() if key not in declared)
+            block = "".join(
+                indent + key + " = " + repr(value) + newline
+                for key, value in capabilities.items()
+                if key not in declared
+            )
             first = legacy_agent.body[0]
-            if (isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant)
-                    and isinstance(first.value.value, str)):
+            if (
+                isinstance(first, ast.Expr)
+                and isinstance(first.value, ast.Constant)
+                and isinstance(first.value.value, str)
+            ):
                 if len(legacy_agent.body) < 2:
-                    raise ManualMigrationRequired("A docstring-only legacy Agent requires manual migration")
+                    raise ManualMigrationRequired(
+                        "A docstring-only legacy Agent requires manual migration"
+                    )
                 first = legacy_agent.body[1]
             if first.lineno == legacy_agent.lineno:
-                raise ManualMigrationRequired("An inline legacy Agent class requires manual migration")
+                raise ManualMigrationRequired(
+                    "An inline legacy Agent class requires manual migration"
+                )
             insertion = position(first.lineno, 0)
             replacements.append((insertion, insertion, block))
         for node in ast.walk(tree):

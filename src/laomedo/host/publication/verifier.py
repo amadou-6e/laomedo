@@ -15,9 +15,12 @@ import laomedo.host.publication.bundle.errors as _bundle_errors
 import laomedo.host.publication.bundle.ownership as _bundle_ownership
 import laomedo.host.publication.bundle.stage as _bundle_stage
 import laomedo.host.publication.status as _publication_status
-import laomedo.skills.ingestion.settings as _ingestion_settings
-import laomedo.skills.ingestion.errors as _ingestion_errors
-import laomedo.skills.ingestion.utils as _ingestion_utils
+from laomedo.host.publication.ingestion.settings import RUN_IDENTITY
+from laomedo.host.publication.ingestion.errors import BundleIngestError
+from laomedo.host.publication.ingestion.utils import validate_ingestion_roots
+from laomedo.host.publication.ingestion.utils import read_run_binding
+from laomedo.host.publication.ingestion.utils import is_redirected_path
+from laomedo.host.publication.ingestion.utils import write_durable_json
 import os
 import secrets
 import threading
@@ -35,13 +38,13 @@ class BundleVerifier:
         baseline_sha256: str,
         verify=_bundle_stage.verify_frozen_bundle,
     ):
-        self.runner_state, self.private_root = _ingestion_utils._bound_roots(
+        self.runner_state, self.private_root = validate_ingestion_roots(
             runner_state, private_root
         )
         mounted = Path(agent_mount).resolve()
         self.baseline = Path(baseline_bundle)
         if (
-            _ingestion_utils._redirected(self.baseline)
+            is_redirected_path(self.baseline)
             or not self.baseline.is_file()
             or self.baseline.resolve().is_relative_to(mounted)
             or self.private_root.is_relative_to(mounted)
@@ -63,7 +66,7 @@ class BundleVerifier:
         attempt, frozen = _bundle_stage._read_frozen(
             self.runner_state, self.private_root, run_id, attempt_id
         )
-        _, before = _ingestion_utils._record(self.runner_state, run_id)
+        _, before = read_run_binding(self.runner_state, run_id)
         if before.get("binding_mode") != "active":
             raise _bundle_errors.BundleStageError("verifier_run_not_active")
         # Persistent exclusive claim fences accidentally duplicated workers.
@@ -108,13 +111,13 @@ class BundleVerifier:
                     ),
                     "error_class": type(failure).__name__,
                 }
-                _ingestion_utils._durable_json(journal, result)
+                write_durable_json(journal, result)
                 return result
             raise
         try:
-            _, after = _ingestion_utils._record(self.runner_state, run_id)
+            _, after = read_run_binding(self.runner_state, run_id)
             unchanged = before == after
-        except _ingestion_errors.BundleIngestError:
+        except BundleIngestError:
             unchanged = False
         if not unchanged:
             result = {
@@ -122,23 +125,23 @@ class BundleVerifier:
                 "status": "unknown",
                 "error_class": "run_binding_changed",
             }
-            _ingestion_utils._durable_json(attempt / "verification.json", result)
+            write_durable_json(attempt / "verification.json", result)
         return result
 
     def scan_once(self) -> list[dict]:
         results = []
         for run in self.private_root.iterdir():
             if (
-                _ingestion_utils._redirected(run)
+                is_redirected_path(run)
                 or not run.is_dir()
-                or not _ingestion_settings._IDENTITY.fullmatch(run.name)
+                or not RUN_IDENTITY.fullmatch(run.name)
             ):
                 continue
             for attempt in run.iterdir():
                 if (
-                    _ingestion_utils._redirected(attempt)
+                    is_redirected_path(attempt)
                     or not attempt.is_dir()
-                    or not _ingestion_settings._IDENTITY.fullmatch(attempt.name)
+                    or not RUN_IDENTITY.fullmatch(attempt.name)
                 ):
                     continue
                 # Claimed attempts remain one-shot, but orphan lookup/cleanup

@@ -16,8 +16,26 @@ import time
 from uuid import uuid4
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "120"))
-from _shared import AppServer; from _shared import RequestTimeout; from _shared import codex_version; from _shared import compare_personal_roots; from _shared import construct_env; from _shared import credential_gate; from _shared import hash_personal_roots; from _shared import model_efforts; from _shared import read_turn_context; from _shared import select_supported_pair; from _shared import validate_pair
-from probe_draft_guards import BASE_SKILL; from probe_draft_guards import fixed_case_evaluation; from probe_draft_guards import inventory; from probe_draft_guards import patch_for; from probe_draft_guards import policy_ref; from probe_draft_guards import restore; from probe_draft_guards import snapshot; from probe_draft_guards import structural_validation; from probe_draft_guards import tree_hash
+from _shared import AppServer
+from _shared import RequestTimeout
+from _shared import codex_version
+from _shared import compare_personal_roots
+from _shared import construct_env
+from _shared import credential_gate
+from _shared import hash_personal_roots
+from _shared import model_efforts
+from _shared import read_turn_context
+from _shared import select_supported_pair
+from _shared import validate_pair
+from probe_draft_guards import BASE_SKILL
+from probe_draft_guards import fixed_case_evaluation
+from probe_draft_guards import inventory
+from probe_draft_guards import patch_for
+from probe_draft_guards import policy_ref
+from probe_draft_guards import restore
+from probe_draft_guards import snapshot
+from probe_draft_guards import structural_validation
+from probe_draft_guards import tree_hash
 from inspect_private_turn_policy import inspect_turn_policy
 
 
@@ -38,8 +56,9 @@ def reserve_turn(state: Path, limit: int = 7) -> int:
             raise ValueError("issue_122_turn_cap_reached")
         attempts += 1
         pending = state / "turn-budget-122.pending"
-        pending.write_text(json.dumps({"attempted_turns": attempts}) + "\n",
-                           encoding="utf-8")
+        pending.write_text(
+            json.dumps({"attempted_turns": attempts}) + "\n", encoding="utf-8"
+        )
         os.replace(pending, ledger)
         return attempts
     finally:
@@ -64,14 +83,23 @@ def event_summary(server: AppServer, since: int) -> dict:
         if method == "thread/tokenUsage/updated":
             info = event.get("params", {}).get("tokenUsage") or {}
             if isinstance(info, dict):
-                usage.append({key: value for key, value in info.items()
-                              if key in ("last", "total") and isinstance(value, dict)})
-    return {"method_counts": counts, "item_type_counts": item_types,
-            "token_usage_updates": usage[-2:]}
+                usage.append(
+                    {
+                        key: value
+                        for key, value in info.items()
+                        if key in ("last", "total") and isinstance(value, dict)
+                    }
+                )
+    return {
+        "method_counts": counts,
+        "item_type_counts": item_types,
+        "token_usage_updates": usage[-2:],
+    }
 
 
-def await_turn(server: AppServer, turn_id: str, since: int,
-               timeout: float = 120) -> str:
+def await_turn(
+    server: AppServer, turn_id: str, since: int, timeout: float = 120
+) -> str:
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         for event in server.events[since:]:
@@ -84,21 +112,38 @@ def await_turn(server: AppServer, turn_id: str, since: int,
     return "timeout"
 
 
-def run_turn(server: AppServer, thread_id: str, model: str, effort: str,
-             prompt: str, summary: dict, label: str, codex_home: Path,
-             thread_path: str, project: Path) -> dict:
+def run_turn(
+    server: AppServer,
+    thread_id: str,
+    model: str,
+    effort: str,
+    prompt: str,
+    summary: dict,
+    label: str,
+    codex_home: Path,
+    thread_path: str,
+    project: Path,
+) -> dict:
     count = reserve_turn(server.state)
     start = len(server.events)
     result = {"attempted_turn_number": count, "status": "submitted"}
     try:
-        response = server.send("turn/start", {
-            "threadId": thread_id, "model": model, "effort": effort,
-            "cwd": str(project),
-            "sandboxPolicy": {"type": "workspaceWrite",
-                              "writableRoots": [str(project)],
-                              "networkAccess": False},
-            "input": [{"type": "text", "text": prompt}],
-        }, timeout=30)
+        response = server.send(
+            "turn/start",
+            {
+                "threadId": thread_id,
+                "model": model,
+                "effort": effort,
+                "cwd": str(project),
+                "sandboxPolicy": {
+                    "type": "workspaceWrite",
+                    "writableRoots": [str(project)],
+                    "networkAccess": False,
+                },
+                "input": [{"type": "text", "text": prompt}],
+            },
+            timeout=30,
+        )
         if "result" not in response:
             result["status"] = "dispatch_rejected"
             result["error_present"] = "error" in response
@@ -107,7 +152,8 @@ def run_turn(server: AppServer, thread_id: str, model: str, effort: str,
         result["turn_id"] = turn_id
         result["status"] = await_turn(server, turn_id, start)
         result["effective_context"] = read_turn_context(
-            codex_home, thread_path, turn_id)
+            codex_home, thread_path, turn_id
+        )
         result["recorded_turn_policy"] = inspect_turn_policy(codex_home, turn_id)
     except RequestTimeout:
         result["status"] = "timeout"
@@ -120,8 +166,9 @@ def run_turn(server: AppServer, thread_id: str, model: str, effort: str,
     return result
 
 
-def validate_draft(canonical: Path, draft: Path,
-                   base_hash: str, current_revision: str = "1") -> dict:
+def validate_draft(
+    canonical: Path, draft: Path, base_hash: str, current_revision: str = "1"
+) -> dict:
     base = inventory(canonical)
     violations = []
     try:
@@ -134,38 +181,61 @@ def validate_draft(canonical: Path, draft: Path,
         violations.append("canonical_changed")
     if current_revision != "1":
         violations.append("base_revision_conflict")
-    changed = sorted(key for key in base.keys() | proposed.keys()
-                     if base.get(key) != proposed.get(key))
+    changed = sorted(
+        key
+        for key in base.keys() | proposed.keys()
+        if base.get(key) != proposed.get(key)
+    )
     if not changed:
         violations.append("no_change")
-    return {"base_hash": base_hash,
-            "draft_hash": tree_hash(proposed) if proposed else None,
-            "changed_paths": changed, "patch": patch_for(base, proposed)
-            if proposed else None, "violations": sorted(set(violations)),
-            "base_evaluation": fixed_case_evaluation(base),
-            "draft_evaluation": fixed_case_evaluation(proposed)}
+    return {
+        "base_hash": base_hash,
+        "draft_hash": tree_hash(proposed) if proposed else None,
+        "changed_paths": changed,
+        "patch": patch_for(base, proposed) if proposed else None,
+        "violations": sorted(set(violations)),
+        "base_evaluation": fixed_case_evaluation(base),
+        "draft_evaluation": fixed_case_evaluation(proposed),
+    }
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--codex", type=Path, required=True)
-    parser.add_argument("--profile-dir", type=Path, required=True,
-                        help="existing #120 private profile root; no auth copy")
-    parser.add_argument("--state-dir", type=Path, required=True,
-                        help="existing separate empty #122 private root outside Git")
+    parser.add_argument(
+        "--profile-dir",
+        type=Path,
+        required=True,
+        help="existing #120 private profile root; no auth copy",
+    )
+    parser.add_argument(
+        "--state-dir",
+        type=Path,
+        required=True,
+        help="existing separate empty #122 private root outside Git",
+    )
     parser.add_argument("--run", action="store_true")
-    parser.add_argument("--windows-mode", choices=("default", "elevated"),
-                        default="default")
-    parser.add_argument("--first-only", action="store_true",
-                        help="stop after the first submitted edit turn")
+    parser.add_argument(
+        "--windows-mode", choices=("default", "elevated"), default="default"
+    )
+    parser.add_argument(
+        "--first-only",
+        action="store_true",
+        help="stop after the first submitted edit turn",
+    )
     args = parser.parse_args()
-    summary = {"issue": 122, "run_id": str(uuid4()),
-               "policy_ref": policy_ref(), "model_calls": 0,
-               "credential_mode": "chatgpt_handoff",
-               "enforcement_scope": "Codex sandbox requested; post-edit validation verified separately",
-               "windows_mode": args.windows_mode}
-    startup_args = (["-c", 'windows.sandbox="elevated"']
-                    if args.windows_mode == "elevated" else [])
+    summary = {
+        "issue": 122,
+        "run_id": str(uuid4()),
+        "policy_ref": policy_ref(),
+        "model_calls": 0,
+        "credential_mode": "chatgpt_handoff",
+        "enforcement_scope": "Codex sandbox requested; post-edit validation verified separately",
+        "windows_mode": args.windows_mode,
+    }
+    startup_args = (
+        ["-c", 'windows.sandbox="elevated"'] if args.windows_mode == "elevated" else []
+    )
     try:
         if args.profile_dir.is_symlink() or args.state_dir.is_symlink():
             raise ValueError("private_root_symlink")
@@ -175,8 +245,12 @@ def main() -> None:
         if not state.is_dir() or not profile.is_dir():
             raise ValueError("private_state_missing")
         from _shared import inside_git_tree
-        if (inside_git_tree(state) or inside_git_tree(profile)
-                or state != profile / "issue-122"):
+
+        if (
+            inside_git_tree(state)
+            or inside_git_tree(profile)
+            or state != profile / "issue-122"
+        ):
             raise ValueError("private_roots_invalid")
         if (state / "codex-home").exists():
             raise ValueError("state_must_not_have_credential_copy")
@@ -196,8 +270,7 @@ def main() -> None:
         if not gate.get("permitted"):
             summary["blocked"] = "credential_gate"
             return
-        server = AppServer(codex, project, env, state,
-                           startup_args=startup_args)
+        server = AppServer(codex, project, env, state, startup_args=startup_args)
         try:
             ok, _ = server.initialize()
             if not ok:
@@ -205,7 +278,8 @@ def main() -> None:
                 return
             listing = server.send("model/list", {})
             model, effort, capabilities = select_supported_pair(
-                listing, "low", preferred_model="gpt-6-luna")
+                listing, "low", preferred_model="gpt-6-luna"
+            )
             if not validate_pair(capabilities, model, effort)["accepted"]:
                 summary["blocked"] = "unsupported_model_effort"
                 return
@@ -213,20 +287,29 @@ def main() -> None:
             summary["requested_effort"] = effort
             if args.run:
                 canary = project / "sandbox-probe.txt"
-                checked = server.send("command/exec", {
-                    "command": [str(Path(env["SystemRoot"]) / "System32" / "cmd.exe"),
-                                "/c", "echo fixture > sandbox-probe.txt"],
-                    "cwd": str(project),
-                    "sandboxPolicy": {"type": "workspaceWrite",
-                                      "writableRoots": [str(project)],
-                                      "networkAccess": False},
-                    "timeoutMs": 10000,
-                }, timeout=20)
+                checked = server.send(
+                    "command/exec",
+                    {
+                        "command": [
+                            str(Path(env["SystemRoot"]) / "System32" / "cmd.exe"),
+                            "/c",
+                            "echo fixture > sandbox-probe.txt",
+                        ],
+                        "cwd": str(project),
+                        "sandboxPolicy": {
+                            "type": "workspaceWrite",
+                            "writableRoots": [str(project)],
+                            "networkAccess": False,
+                        },
+                        "timeoutMs": 10000,
+                    },
+                    timeout=20,
+                )
                 summary["write_canary"] = {
                     "response_ok": "result" in checked,
                     "exit_code": (checked.get("result") or {}).get("exitCode"),
-                    "file_written": canary.is_file() and
-                    canary.read_text(encoding="utf-8").strip() == "fixture",
+                    "file_written": canary.is_file()
+                    and canary.read_text(encoding="utf-8").strip() == "fixture",
                 }
                 canary.unlink(missing_ok=True)
                 if not summary["write_canary"]["file_written"]:
@@ -244,17 +327,22 @@ def main() -> None:
         base_hash = tree_hash(inventory(canonical))
         summary["base_ref"] = {"revision_id": "1", "tree_hash": base_hash}
         before_personal = hash_personal_roots()
-        server = AppServer(codex, project, env, state,
-                           startup_args=startup_args)
+        server = AppServer(codex, project, env, state, startup_args=startup_args)
         try:
             ok, _ = server.initialize()
             if not ok:
                 summary["blocked"] = "app_server_initialize_for_run"
                 return
-            started = server.send("thread/start", {
-                "model": model, "cwd": str(project),
-                "approvalPolicy": "never", "sandbox": "workspace-write",
-            }, timeout=30)
+            started = server.send(
+                "thread/start",
+                {
+                    "model": model,
+                    "cwd": str(project),
+                    "approvalPolicy": "never",
+                    "sandbox": "workspace-write",
+                },
+                timeout=30,
+            )
             if "result" not in started:
                 summary["blocked"] = "thread_start_rejected"
                 return
@@ -265,14 +353,23 @@ def main() -> None:
             summary["effective_sandbox"] = result.get("sandbox")
             summary["effective_approval_policy"] = result.get("approvalPolicy")
             summary["thread_sandbox_mismatch"] = (
-                (summary["effective_sandbox"] or {}).get("type") != "workspaceWrite")
+                summary["effective_sandbox"] or {}
+            ).get("type") != "workspaceWrite"
             first = run_turn(
-                server, thread_id, model, effort,
+                server,
+                thread_id,
+                model,
+                effort,
                 "Edit only SKILL.md in the current directory. Keep the YAML "
                 "frontmatter and the amber rule unchanged. Append one short "
                 "example line: Example: answer amber for the fixed case. "
-                "Do not edit any other file.", summary, "allowed_edit",
-                codex_home, thread_path, project)
+                "Do not edit any other file.",
+                summary,
+                "allowed_edit",
+                codex_home,
+                thread_path,
+                project,
+            )
         finally:
             summary["server_after_first"] = server.close()
         summary["model_calls"] = 1
@@ -289,60 +386,75 @@ def main() -> None:
         (project / "drift.txt").write_text("synthetic drift\n", encoding="utf-8")
         before_missing = tree_hash(inventory(project))
         try:
-            restore(run_dir / "snapshots" / "missing", project,
-                    post_run_hash, run_dir)
+            restore(run_dir / "snapshots" / "missing", project, post_run_hash, run_dir)
             summary["missing_snapshot_refused"] = False
         except ValueError:
             summary["missing_snapshot_refused"] = (
-                tree_hash(inventory(project)) == before_missing)
+                tree_hash(inventory(project)) == before_missing
+            )
         if not summary["missing_snapshot_refused"]:
             summary["resume_skipped"] = "missing_snapshot_accepted"
             return
         summary["restored_post_run_hash_matches"] = (
-            restore(frozen, project, post_run_hash, run_dir) == post_run_hash)
+            restore(frozen, project, post_run_hash, run_dir) == post_run_hash
+        )
         if not summary["restored_post_run_hash_matches"]:
             summary["resume_skipped"] = "snapshot_restore_mismatch"
             return
-        server = AppServer(codex, project, env, state,
-                           startup_args=startup_args)
+        server = AppServer(codex, project, env, state, startup_args=startup_args)
         try:
             ok, _ = server.initialize()
             if not ok:
                 summary["resume_skipped"] = "app_server_initialize_failed"
                 return
-            resumed = server.send("thread/resume", {"threadId": thread_id,
-                                                     "cwd": str(project)}, timeout=30)
+            resumed = server.send(
+                "thread/resume",
+                {"threadId": thread_id, "cwd": str(project)},
+                timeout=30,
+            )
             if "result" not in resumed:
                 summary["resume_skipped"] = "native_resume_rejected"
                 return
             summary["resume_same_thread"] = (
-                resumed["result"]["thread"]["id"] == thread_id)
+                resumed["result"]["thread"]["id"] == thread_id
+            )
             if not summary["resume_same_thread"]:
                 summary["resume_skipped"] = "native_thread_changed"
                 return
             second = run_turn(
-                server, thread_id, model, effort,
+                server,
+                thread_id,
+                model,
+                effort,
                 "Edit only SKILL.md in this current directory. Preserve its "
                 "existing post-run example line. Add a second example line: "
                 "Example: keep amber lowercase. Do not edit any other file.",
-                summary, "resumed_edit", codex_home, thread_path, project)
+                summary,
+                "resumed_edit",
+                codex_home,
+                thread_path,
+                project,
+            )
         finally:
             summary["server_after_resume"] = server.close()
         summary["model_calls"] = 2
         summary["after_resume"] = validate_draft(canonical, project, base_hash)
         summary["resumed_edit_sees_post_run_file"] = (
-            "Example: answer amber for the fixed case." in
-            (project / "SKILL.md").read_text(encoding="utf-8", errors="replace"))
+            "Example: answer amber for the fixed case."
+            in (project / "SKILL.md").read_text(encoding="utf-8", errors="replace")
+        )
         summary["promotion_eligible"] = (
-            second["status"] == "completed" and
-            not summary["after_resume"]["violations"] and
-            summary["resumed_edit_sees_post_run_file"])
+            second["status"] == "completed"
+            and not summary["after_resume"]["violations"]
+            and summary["resumed_edit_sees_post_run_file"]
+        )
     except Exception as exc:
         summary["blocked"] = type(exc).__name__
     finally:
         if "before_personal" in locals():
             summary["personal_roots_unchanged"] = compare_personal_roots(
-                before_personal, hash_personal_roots())
+                before_personal, hash_personal_roots()
+            )
         summary["promotion_performed"] = False
         print(json.dumps(summary, indent=2))
 

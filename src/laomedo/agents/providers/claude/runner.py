@@ -25,8 +25,10 @@ import laomedo.host.credentials.claude.errors as _claude_errors
 import laomedo.host.credentials.claude.utils as _host_credentials_claude_utils
 import laomedo.host.leases.models as _leases_models
 import laomedo.host.leases.utils as _leases_utils
-import laomedo.skills.registry.utils as _registry_utils
-import laomedo.skills.workspace.utils as workspace_skills
+from laomedo.skills.registry.hashing import tree_hash
+from laomedo.skills.registry.files import inventory
+from laomedo.agents.workspace.skills.utils import verify
+from laomedo.agents.workspace.skills.utils import remove_owned_tree
 import os
 import laomedo.host.credentials.claude.settings as _host_claude_settings
 import queue
@@ -51,15 +53,24 @@ class ClaudeRunner(_runtime_runner.Runner):
             if type(value) is not int or not 1 <= value <= 86400:
                 raise _runtime_errors.RunnerError("claude_turn_timeout_invalid")
             extra["run_timeout_seconds"] = value
-        required = extra.get("run_timeout_seconds") if extra else self.status(run_id).get("turn_timeout", self.turn_timeout)
+        required = (
+            extra.get("run_timeout_seconds")
+            if extra
+            else self.status(run_id).get("turn_timeout", self.turn_timeout)
+        )
         self._mirror_host_login(minimum_validity_seconds=required)
         return extra
 
     def runtime_binding(self):
         return _runtime_models.RuntimeBinding(
-            provider=self.provider, profile=self.profile, image=self.image, image_id=self.image_id,
-            execution_mode="claude_container", cli_version="Claude Code " + _claude_settings.CLI_VERSION,
-            config_sha256=None)
+            provider=self.provider,
+            profile=self.profile,
+            image=self.image,
+            image_id=self.image_id,
+            execution_mode="claude_container",
+            cli_version="Claude Code " + _claude_settings.CLI_VERSION,
+            config_sha256=None,
+        )
 
     def recover_interrupted(self, record):
         # The independent lease supervisor owns controller/worker lifetimes.
@@ -67,8 +78,12 @@ class ClaudeRunner(_runtime_runner.Runner):
         owner = record.get("container_ownership") or {}
         if owner.get("supervised"):
             verified, detail = _leases_utils.cleanup_exact(
-                _leases_models.ContainerIdentity(name=owner["name"], run_id=record["run_id"],
-                                                token=owner["launch_token"]))
+                _leases_models.ContainerIdentity(
+                    name=owner["name"],
+                    run_id=record["run_id"],
+                    token=owner["launch_token"],
+                )
+            )
             owner.update(cleanup_verified=verified, cleanup_detail=detail)
             if not verified:
                 record["error_category"] = "container_cleanup_unverified"
@@ -410,14 +425,9 @@ class ClaudeRunner(_runtime_runner.Runner):
     def _verify_skills(self, root, record):
         for skill in record["skills"]:
             path = root / "workspace/.agents/skills" / skill["skill_id"]
-            if (
-                _registry_utils.tree_hash(_registry_utils.inventory(path))
-                != skill["tree_hash"]
-            ):
+            if tree_hash(inventory(path)) != skill["tree_hash"]:
                 raise _runtime_errors.RunnerError("pinned_skill_workspace_changed")
-        workspace_skills.verify(
-            root / "workspace", record["skills"], record["skill_git_exclusion"]
-        )
+        verify(root / "workspace", record["skills"], record["skill_git_exclusion"])
         if (
             _runtime_utils._hash_tree(root / "canonical") != record["source_hash"]
             or (root / "store/sentinel.txt").read_text(encoding="utf-8")
@@ -1127,7 +1137,7 @@ class ClaudeRunner(_runtime_runner.Runner):
             snapshot = root / "post-run-pending"
             digest = _runtime_utils._copy_tree(root / "workspace", snapshot)
             if (root / "post-run").exists():
-                workspace_skills.remove_owned_tree(root / "post-run", self.state)
+                remove_owned_tree(root / "post-run", self.state)
             snapshot.rename(root / "post-run")
             record.update(
                 status="completed",

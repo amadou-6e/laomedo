@@ -1,0 +1,75 @@
+# Immutable skill registry
+
+The registry owns content-addressed skill bundles, draft working copies, their
+review records and explicit promotion. A byte revision is not an operations
+journal commit. Source discovery, edit authorization, host publication and Agent
+workspace installation remain with their callers.
+
+## Ownership and dependency direction
+
+| Concern | Defining module | Vocabulary |
+| --- | --- | --- |
+| Filesystem lifecycle | `store.py` | `SkillStore` owns registry roots, immutable revisions, drafts and promotion |
+| New record construction | `models.py` | Pydantic references, revision, draft and frozen review records |
+| Name and relative-path admission | `paths.py` | `validate_name`, `validate_relative_path` |
+| Filesystem reads and record replacement | `files.py` | `is_link`, `inventory`, `read_json`, `write_json` |
+| Byte identities | `hashing.py` | `hash_bytes`, `canonical_json`, `tree_hash`, `file_hashes` |
+| Editing policy | `policy.py` | `validate_policy`, `validate_draft` |
+| Exact review patch | `diff.py` | `patch_for` |
+| Failure domain | `errors.py` | `SkillStoreError`, `ConflictError`; stable code, arguments and inheritance |
+| Fixed identity syntax | `settings.py` | `NAME` and `HASH` patterns |
+
+Use Store for the object that owns persistence, Reference for an identity binding,
+Revision for immutable content metadata, Draft for an open edit and Result for
+observed validation. No abstract Base, second ledger or forwarding facade is
+needed. Independent helpers are function-only modules; classes and Pydantic
+records remain in class-only files. Callers import defining symbols directly.
+`files` and `hashing` depend on `paths`; `policy` depends on `paths` and `hashing`;
+models derive projections through those helpers; `SkillStore` owns effects.
+None of these helpers depends on source services, Agents or an app framework.
+
+## Object and method nomenclature
+
+| Object | Public methods | Meaning |
+| --- | --- | --- |
+| `SkillStore` | `import_skill` | Copy and verify an initial revision; never replace existing latest |
+| `SkillStore` | `revision`, `read_file` | Verify and read immutable metadata or one admitted file |
+| `SkillStore` | `create_draft`, `draft_workspace` | Reserve an independent editable copy and locate it |
+| `SkillStore` | `freeze_draft` | Observe bytes, policy results, provenance and patch; no promotion |
+| `SkillStore` | `promote_draft` | Explicit compare-and-swap promotion under exclusive locks |
+| `SkillReference` | `to_reference_payload` | Project the public skill/revision/tree identity only |
+| `SkillRevision`, `SkillDraft` | `to_record` | Serialize on-disk keys, order, nulls and empty values |
+| `FrozenSkillDraft` | `from_review`, `to_record` | Derive one coherent review result and its record projection |
+| `SkillPolicyReference`, `SkillRevisionReference`, `SkillTreeReference`, `SkillValidationResult` | No public behavior beyond canonical Pydantic construction | Group admitted identity or observed validation values without introducing a second domain model |
+
+Private store methods own path and transaction mechanics: `_skill`, `_draft`,
+`_workspace`, `_revision_dir` locate admitted paths; `_store_revision` copies and
+verifies bytes; `_finish_promotion` completes the promotion transaction.
+Strict models construct new writes. Record readers check integrity and tolerate historical extension fields;
+they do not impose new-write models on persisted records. A policy reference identifies policy, not authority.
+
+`SkillOperations` and `SkillSources` use the store's package-internal directory
+and staging methods for authorized edits and immutable source imports. These
+helpers support collaboration inside Skills; application adapters use the public
+registry and operations interfaces.
+
+## Exact byte behavior and saved consumers
+
+Callers import path, file, hashing, policy and patch functions from their defining
+modules. Selected external saved code can use the explicit offline symbol map;
+dynamic/star access requires manual migration. No runtime import alias is installed.
+
+Tree identities retain sorted paths, UTF-8 names and length-prefixed exact file
+bytes. Canonical policy JSON retains sorted keys, compact separators, default
+ASCII escaping and every admitted extra field. Policy validation stays manual:
+no coercion of booleans, integer limits or historical dictionaries is introduced.
+Hashing and patch generation preserve LF/CRLF and missing-final-newline differences;
+only the frontmatter validation view normalizes CRLF. JSON record writes
+retain unique pending names, indent/sort behavior, final LF and `os.replace`;
+this is atomic replacement without an fsync durability guarantee. Inventory
+rejects links/reparse points, hard links, special files and empty directories;
+it does not itself enforce byte/count limits. Those limits remain caller-owned.
+
+Archived EXP-08 controls run through an explicit temporary import-only migration.
+Their original sources and observations remain byte-preserved. They supplement
+current registry behavior tests; they do not establish live graph acceptance.

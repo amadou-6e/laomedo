@@ -18,15 +18,27 @@ import sys
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--scratch", action="store_true",
-                        help="reset the scratch directory before running")
+    parser.add_argument(
+        "--scratch",
+        action="store_true",
+        help="reset the scratch directory before running",
+    )
     args = parser.parse_args()
     sys.path.insert(0, str(Path(__file__).resolve().parent))
-    from _shared import compare_personal_roots; from _shared import ensure_clean; from _shared import hash_personal_roots; from _shared import options_env; from _shared import personal_roots; from _shared import resettable_dir; from _shared import resolve_cli; from _shared import cli_version; from _shared import runner_versions
+    from _shared import compare_personal_roots
+    from _shared import ensure_clean
+    from _shared import hash_personal_roots
+    from _shared import options_env
+    from _shared import personal_roots
+    from _shared import resettable_dir
+    from _shared import resolve_cli
+    from _shared import cli_version
+    from _shared import runner_versions
 
     summary = dict(runner_versions())
     state, leftovers = resettable_dir(
-        Path(__file__).resolve().parent / "_scratch_121_env")
+        Path(__file__).resolve().parent / "_scratch_121_env"
+    )
     summary["scratch_leftovers"] = leftovers
     private_home = state / "home"
     config_dir = state / "claude-config"
@@ -44,14 +56,21 @@ def main():
     # cannot produce a billable model call. This exercises session start in the
     # private profile without touching any real account.
     try:
-        from claude_agent_sdk import ClaudeAgentOptions; from claude_agent_sdk import query
-        from claude_agent_sdk._errors import CLINotFoundError; from claude_agent_sdk._errors import CLIConnectionError; from claude_agent_sdk._errors import ProcessError
+        from claude_agent_sdk import ClaudeAgentOptions
+        from claude_agent_sdk import query
+        from claude_agent_sdk._errors import CLINotFoundError
+        from claude_agent_sdk._errors import CLIConnectionError
+        from claude_agent_sdk._errors import ProcessError
 
         async def attempt():
             options = ClaudeAgentOptions(
                 cwd=str(state),
-                env=options_env(private_home, config_dir, state,
-                                api_key="invalid-laomedo-121-no-spend"),
+                env=options_env(
+                    private_home,
+                    config_dir,
+                    state,
+                    api_key="invalid-laomedo-121-no-spend",
+                ),
                 setting_sources=[],
                 max_turns=1,
                 permission_mode="default",
@@ -66,10 +85,12 @@ def main():
             except ProcessError as exc:
                 outcome["outcome"] = "process_error"
                 outcome["exit_code"] = getattr(exc, "exit_code", None)
-                text = (getattr(exc, "stderr", "") or "")
+                text = getattr(exc, "stderr", "") or ""
                 lowered = text.lower()
-                outcome["auth_signal"] = any(word in lowered for word in
-                                             ("api key", "auth", "login", "401", "credit"))
+                outcome["auth_signal"] = any(
+                    word in lowered
+                    for word in ("api key", "auth", "login", "401", "credit")
+                )
                 outcome["error"] = f"{type(exc).__name__}"
             except Exception as exc:
                 outcome["outcome"] = "other_error"
@@ -87,7 +108,8 @@ def main():
 
     summary["config_dir_created"] = config_dir.is_dir()
     summary["personal_roots_unchanged"] = compare_personal_roots(
-        before, hash_personal_roots())
+        before, hash_personal_roots()
+    )
     print(json.dumps(summary, indent=2))
 
 

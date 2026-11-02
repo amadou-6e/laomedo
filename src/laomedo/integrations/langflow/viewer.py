@@ -5,8 +5,8 @@ No runner/provider credentials are used by this route.
 """
 
 from pathlib import Path
-import laomedo.skills.inspection.errors as _inspection_errors
-import laomedo.skills.inspection.utils as _inspection_utils
+from laomedo.skills.inspection.errors import InspectionError
+from laomedo.skills.inspection.utils import inspect_skill
 import laomedo.integrations.langflow.settings as _langflow_settings
 
 
@@ -27,14 +27,12 @@ def install_routes(app, root: Path, authenticate):
         dependencies=[Depends(authenticate)],
     )
     async def skill_history(skill_id: str, revision_id: str, before: str = ""):
-        import laomedo.skills.operations.client as _operations_client
+        from laomedo.skills.interface.operations.client import skill_request
 
         try:
-            await run_in_threadpool(
-                _inspection_utils.inspect_skill, root, skill_id, revision_id
-            )
+            await run_in_threadpool(inspect_skill, root, skill_id, revision_id)
             value = await run_in_threadpool(
-                _operations_client.skill_request,
+                skill_request,
                 "history",
                 skill_id=skill_id,
                 revision_id=revision_id,
@@ -51,14 +49,12 @@ def install_routes(app, root: Path, authenticate):
         dependencies=[Depends(authenticate)],
     )
     async def skill_diff(skill_id: str, revision_id: str, commit_id: str):
-        import laomedo.skills.operations.client as _operations_client
+        from laomedo.skills.interface.operations.client import skill_request
 
         try:
-            await run_in_threadpool(
-                _inspection_utils.inspect_skill, root, skill_id, revision_id
-            )
+            await run_in_threadpool(inspect_skill, root, skill_id, revision_id)
             value = await run_in_threadpool(
-                _operations_client.skill_request,
+                skill_request,
                 "diff",
                 skill_id=skill_id,
                 commit_id=commit_id,
@@ -74,14 +70,12 @@ def install_routes(app, root: Path, authenticate):
         dependencies=[Depends(authenticate)],
     )
     async def compare_skill(skill_id: str, revision_id: str, commit_id: str):
-        import laomedo.skills.operations.client as _operations_client
+        from laomedo.skills.interface.operations.client import skill_request
 
         try:
-            await run_in_threadpool(
-                _inspection_utils.inspect_skill, root, skill_id, revision_id
-            )
+            await run_in_threadpool(inspect_skill, root, skill_id, revision_id)
             value = await run_in_threadpool(
-                _operations_client.skill_request,
+                skill_request,
                 "compare",
                 skill_id=skill_id,
                 revision_id=revision_id,
@@ -100,13 +94,13 @@ def install_routes(app, root: Path, authenticate):
     async def read_skill(skill_id: str, revision_id: str):
         try:
             result = await run_in_threadpool(
-                _inspection_utils.inspect_skill,
+                inspect_skill,
                 root,
                 skill_id,
                 revision_id,
                 include_images=True,
             )
-        except _inspection_errors.InspectionError as exc:
+        except InspectionError as exc:
             code = str(exc)
             status = (
                 400

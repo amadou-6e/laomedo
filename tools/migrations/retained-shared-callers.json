@@ -1,0 +1,167 @@
+{
+  "source_revision": "bde33231c3eb97cc23c891451892b0ca7671951a",
+  "policy": "Exact post-format sources remain unchanged. Internal copies rewrite only inventoried top-level imports to explicit defining owners and the declared s11 _helpers dependency-loading statements; all remaining AST is identical. Retired process helpers refuse. No native/main entrypoint is supported or executed; no runtime facade or historical acceptance claim.",
+  "files": [
+    {
+      "module": "experiments.exp100.probe_live",
+      "path": "experiments/exp100/probe_live.py",
+      "sha256": "20175fe7c50d18f033bad8ad535981f51d54453f3367ae1b4e434848fdf59fa0",
+      "dependencies": []
+    },
+    {
+      "module": "experiments.exp100.probe_native_capture",
+      "path": "experiments/exp100/probe_native_capture.py",
+      "sha256": "e947482147ecfaf0ec2375818d752b844635e718ce0becefc5bbc369116223fb",
+      "dependencies": [
+        "experiments.exp104.probe_active_delivery"
+      ]
+    },
+    {
+      "module": "experiments.exp100.probe_paired",
+      "path": "experiments/exp100/probe_paired.py",
+      "sha256": "b4b0120edc7e2d6cd1a80e472864c05f82dbaa21acf42c5225838006a2ac57c3",
+      "dependencies": [
+        "experiments.exp104.probe_active_delivery"
+      ]
+    },
+    {
+      "module": "experiments.exp104.live_probe",
+      "path": "experiments/exp104/live_probe.py",
+      "sha256": "36e9a23a9636c539a5a2e9ba70bf871f1f38cfde486472a30881ec5c22c653fa",
+      "dependencies": []
+    },
+    {
+      "module": "experiments.exp104.native_localrunner_probe",
+      "path": "experiments/exp104/native_localrunner_probe.py",
+      "sha256": "6f8694af395fb63c574e0602cc9fa6a5cc44730fc86eae0cb3ca6802385d8f90",
+      "dependencies": [
+        "experiments.exp104.native_localrunner_worker"
+      ]
+    },
+    {
+      "module": "experiments.exp104.native_localrunner_worker",
+      "path": "experiments/exp104/native_localrunner_worker.py",
+      "sha256": "822c1a0e538361068530bfcb6ac5b688bb9fadcea0241810766310c5eabea753",
+      "dependencies": [
+        "experiments.exp104.native_managed_probe"
+      ]
+    },
+    {
+      "module": "experiments.exp104.native_managed_probe",
+      "path": "experiments/exp104/native_managed_probe.py",
+      "sha256": "646f221d9fd6be9588f52b91593cfa2abef1875da4664c47020e3b64db7e7217",
+      "dependencies": [
+        "experiments.exp104.native_managed_worker"
+      ]
+    },
+    {
+      "module": "experiments.exp104.native_managed_worker",
+      "path": "experiments/exp104/native_managed_worker.py",
+      "sha256": "418aff208b78aa1681356abad39c6525d815ed939dfc17f8d024b08cc3f63b85",
+      "dependencies": []
+    },
+    {
+      "module": "experiments.exp104.probe_active_delivery",
+      "path": "experiments/exp104/probe_active_delivery.py",
+      "sha256": "fc5d43466cd43e701adde9f7b8b079f8b70ae7b1a5b774830d98cae5db6574fc",
+      "dependencies": []
+    },
+    {
+      "module": "experiments.exp104.probe_verifier_crash",
+      "path": "experiments/exp104/probe_verifier_crash.py",
+      "sha256": "4cba22b0c9a8901aa0fcd218430e041dd3d57dfd2cf85de005b0add433c02bee",
+      "dependencies": []
+    },
+    {
+      "module": "experiments.exp104.s11_probe",
+      "path": "experiments/exp104/s11_probe.py",
+      "sha256": "07b3070325444361612872c5cb9849c208ffd652d945efda4226339ab42ff669",
+      "dependencies": [
+        "experiments.exp104.live_probe"
+      ],
+      "dependency_bindings": {
+        "_helpers": "experiments.exp104.live_probe"
+      }
+    },
+    {
+      "module": "experiments.exp139.freeze",
+      "path": "experiments/exp139/freeze.py",
+      "sha256": "b5ccda1f3ecc16cf2d251b16572529d93c429ce141822294126caccf2aa60b4a",
+      "dependencies": [
+        "experiments.exp139.prepare",
+        "experiments.exp139.runtime"
+      ]
+    },
+    {
+      "module": "experiments.exp139.persistent_demo",
+      "path": "experiments/exp139/persistent_demo.py",
+      "sha256": "b5d698525bde668f5150f155703f02dc67b7f6599997e5c334823bc6898298bc",
+      "dependencies": [
+        "experiments.exp139.prepare",
+        "experiments.exp139.runtime"
+      ]
+    },
+    {
+      "module": "experiments.exp139.prepare",
+      "path": "experiments/exp139/prepare.py",
+      "sha256": "ab3840f23f364de67daaa98c57ef7ad921c259553edf5620fd8255f9530a9593",
+      "dependencies": []
+    },
+    {
+      "module": "experiments.exp139.prepare_amend08",
+      "path": "experiments/exp139/prepare_amend08.py",
+      "sha256": "f8404b4979a1a8d46c0dbfa952baf3c16ddd35762e928ac206371a395ef8a6dc",
+      "dependencies": [
+        "experiments.exp139.prepare"
+      ]
+    },
+    {
+      "module": "experiments.exp139.readback",
+      "path": "experiments/exp139/readback.py",
+      "sha256": "a46546c221fd440a939802be4f93d02ee5c9693054f3d97708d06642e2741ece",
+      "dependencies": [
+        "experiments.exp139.prepare"
+      ]
+    },
+    {
+      "module": "experiments.exp139.recover_demo",
+      "path": "experiments/exp139/recover_demo.py",
+      "sha256": "01611bb678604d3474babbb4bee76cd5712b4a5a165f4b13067fcb29f9bdf516",
+      "dependencies": [
+        "experiments.exp139.prepare",
+        "experiments.exp139.runtime"
+      ]
+    },
+    {
+      "module": "experiments.exp139.runtime",
+      "path": "experiments/exp139/runtime.py",
+      "sha256": "7905f3b117b46dbd00bbb8d63ed771be2ddaa296a7ef24c4f1d9d0d7418baea8",
+      "dependencies": [
+        "experiments.exp139.prepare"
+      ]
+    },
+    {
+      "module": "experiments.exp139.verifier_control",
+      "path": "experiments/exp139/verifier_control.py",
+      "sha256": "aa2c397b4524d5d0139d6819f1ff55e2b88bfcd8e1e53223154efa3010066bb2",
+      "dependencies": [
+        "experiments.exp139.runtime"
+      ]
+    },
+    {
+      "module": "experiments.exp93.real_stage_probe",
+      "path": "experiments/exp93/real_stage_probe.py",
+      "sha256": "0043a9ef767d4b0c480aef01e7f736388ee551f3754212bcdf4be3f4aaae3e85",
+      "dependencies": [
+        "experiments.exp104.native_localrunner_probe",
+        "experiments.exp104.probe_active_delivery"
+      ]
+    },
+    {
+      "module": "experiments.exp100.probe_stage_s7",
+      "path": "experiments/exp100/probe_stage_s7.py",
+      "sha256": "1046a41c3d5167fbf78beca93481b29a7b473e9c06bf0740c6ffa073cffab38d",
+      "dependencies": []
+    }
+  ]
+}

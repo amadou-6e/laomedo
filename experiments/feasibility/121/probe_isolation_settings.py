@@ -34,16 +34,34 @@ PARENT_SKILL = "fixture-121-parent"
 PARENT_CLAUDE_MD = "CLAUDE.md"
 MARKER = "LAOMEDO-121-READY"
 
-SUPPORTED_MODEL = "claude-sonnet-4-6"   # documented: supports low..max
+SUPPORTED_MODEL = "claude-sonnet-4-6"  # documented: supports low..max
 UNSUPPORTED_EFFORT_MODEL = "claude-haiku-4-5"  # documented: no effort support
 
 
-async def run_query(project, private_home, config_dir, state, prompt, summary,
-                    label, setting_sources, skills, model=None, effort=None,
-                    max_turns=1, budget=0.25, ledger=None):
+async def run_query(
+    project,
+    private_home,
+    config_dir,
+    state,
+    prompt,
+    summary,
+    label,
+    setting_sources,
+    skills,
+    model=None,
+    effort=None,
+    max_turns=1,
+    budget=0.25,
+    ledger=None,
+):
     from claude_agent_sdk import ClaudeAgentOptions
-    from claude_agent_sdk._errors import CLIConnectionError; from claude_agent_sdk._errors import CLINotFoundError; from claude_agent_sdk._errors import ProcessError; from claude_agent_sdk._errors import ResultError
-    from _shared import collect_events; from _shared import count_attempted_turn; from _shared import options_env
+    from claude_agent_sdk._errors import CLIConnectionError
+    from claude_agent_sdk._errors import CLINotFoundError
+    from claude_agent_sdk._errors import ProcessError
+    from claude_agent_sdk._errors import ResultError
+    from _shared import collect_events
+    from _shared import count_attempted_turn
+    from _shared import options_env
 
     options = ClaudeAgentOptions(
         cwd=str(project),
@@ -94,13 +112,16 @@ async def run_query(project, private_home, config_dir, state, prompt, summary,
     summary[label] = {**outcome, **collected}
     result = collected.get("result") or {}
     summary[label]["budget"] = ledger.settle(
-        reservation, result.get("total_cost_usd"),
-        outcome.get("outcome") or result.get("subtype") or "unknown")
+        reservation,
+        result.get("total_cost_usd"),
+        outcome.get("outcome") or result.get("subtype") or "unknown",
+    )
     return summary[label]
 
 
 async def _query(prompt, options):
     from claude_agent_sdk import query
+
     async for message in query(prompt=prompt, options=options):
         yield message
 
@@ -111,19 +132,35 @@ def decoy_state(summary, label, init):
         return
     names = set(init.get("skill_names") or [])
     summary[label]["decoys_seen"] = sorted(
-        name for name in names
-        if name in (PROJECT_SKILL, HOME_SKILL, CONFIG_SKILL, PARENT_SKILL))
+        name
+        for name in names
+        if name in (PROJECT_SKILL, HOME_SKILL, CONFIG_SKILL, PARENT_SKILL)
+    )
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--state-dir", type=Path, required=True,
-                        help="new or empty private state dir outside any git tree")
-    parser.add_argument("--budget-dir", type=Path, required=True,
-                        help="existing private parent shared with the stream probe")
+    parser.add_argument(
+        "--state-dir",
+        type=Path,
+        required=True,
+        help="new or empty private state dir outside any git tree",
+    )
+    parser.add_argument(
+        "--budget-dir",
+        type=Path,
+        required=True,
+        help="existing private parent shared with the stream probe",
+    )
     args = parser.parse_args()
     sys.path.insert(0, str(Path(__file__).resolve().parent))
-    from _shared import BudgetLedger; from _shared import compare_personal_roots; from _shared import credential_gate; from _shared import hash_personal_roots; from _shared import prepare_state_dir; from _shared import runner_versions; from _shared import write_skill
+    from _shared import BudgetLedger
+    from _shared import compare_personal_roots
+    from _shared import credential_gate
+    from _shared import hash_personal_roots
+    from _shared import prepare_state_dir
+    from _shared import runner_versions
+    from _shared import write_skill
 
     state = args.state_dir.resolve()
     summary = dict(runner_versions())
@@ -136,8 +173,7 @@ def main():
     prepared = prepare_state_dir(state)
     summary["state_dir"] = prepared
     if prepared.get("refused"):
-        summary["credential_gate"] = {"permitted": False,
-                                      "reason": prepared["refused"]}
+        summary["credential_gate"] = {"permitted": False, "reason": prepared["refused"]}
         print(json.dumps(summary, indent=2))
         return
 
@@ -151,26 +187,42 @@ def main():
     project = run_root / "project"
     for directory in (private_home, config_dir, project):
         directory.mkdir(parents=True, exist_ok=True)
-    (project / "notes.txt").write_text(f"The launch code is {MARKER}.\n",
-                                       encoding="utf-8")
+    (project / "notes.txt").write_text(
+        f"The launch code is {MARKER}.\n", encoding="utf-8"
+    )
     # Decoy skills at both candidate user roots and in the project.
-    write_skill(project / ".claude" / "skills", PROJECT_SKILL,
-                "Synthetic project fixture for issue 121.")
-    write_skill(private_home / ".claude" / "skills", HOME_SKILL,
-                "Synthetic user-home fixture for issue 121.")
-    write_skill(config_dir / "skills", CONFIG_SKILL,
-                "Synthetic config-dir fixture for issue 121.")
+    write_skill(
+        project / ".claude" / "skills",
+        PROJECT_SKILL,
+        "Synthetic project fixture for issue 121.",
+    )
+    write_skill(
+        private_home / ".claude" / "skills",
+        HOME_SKILL,
+        "Synthetic user-home fixture for issue 121.",
+    )
+    write_skill(
+        config_dir / "skills",
+        CONFIG_SKILL,
+        "Synthetic config-dir fixture for issue 121.",
+    )
     # Parent leakage decoys in <state>, two levels above the working directory.
-    (state / PARENT_CLAUDE_MD).write_text("Decoy: must not be loaded.\n", encoding="utf-8")
-    write_skill(state / ".claude" / "skills", PARENT_SKILL,
-                "Synthetic parent fixture for issue 121.")
+    (state / PARENT_CLAUDE_MD).write_text(
+        "Decoy: must not be loaded.\n", encoding="utf-8"
+    )
+    write_skill(
+        state / ".claude" / "skills",
+        PARENT_SKILL,
+        "Synthetic parent fixture for issue 121.",
+    )
     summary["parent_decoys_planted"] = ["CLAUDE.md", PARENT_SKILL]
     summary["parent_decoy_note"] = (
         "Decoys are in the probe's own state dir, a parent of the working "
         "directory; nothing is written outside --state-dir. A parent skill seen "
         "in init means leakage. CLAUDE.md loading is not observable in the "
         "sanitized stream and is recorded as unobservable. Directories above "
-        "--state-dir are not tested; use a state root outside the user folder.")
+        "--state-dir are not tested; use a state root outside the user folder."
+    )
 
     gate = credential_gate(state, config_dir)
     summary["credential_gate"] = gate
@@ -183,55 +235,117 @@ def main():
     try:
         source_cases = [
             ("sources_empty", [], "Reply with the single word ready."),
-            ("sources_user_project", ["user", "project"],
-             "Reply with the single word ready."),
-            ("sources_project_only", ["project"],
-             "Reply with the single word ready."),
+            (
+                "sources_user_project",
+                ["user", "project"],
+                "Reply with the single word ready.",
+            ),
+            ("sources_project_only", ["project"], "Reply with the single word ready."),
         ]
         for label, sources, prompt in source_cases:
-            run = asyncio.run(run_query(
-                project, private_home, config_dir, state, prompt, summary,
-                label, sources, "all", ledger=ledger))
+            run = asyncio.run(
+                run_query(
+                    project,
+                    private_home,
+                    config_dir,
+                    state,
+                    prompt,
+                    summary,
+                    label,
+                    sources,
+                    "all",
+                    ledger=ledger,
+                )
+            )
             decoy_state(summary, label, run.get("init"))
 
         # Supported pair: model and effort both in the documented table.
-        run = asyncio.run(run_query(
-            project, private_home, config_dir, state,
-            "Reply with the single word ready.",
-            summary, "supported_model_effort", ["project"], "all",
-            model=SUPPORTED_MODEL, effort="low", ledger=ledger))
+        run = asyncio.run(
+            run_query(
+                project,
+                private_home,
+                config_dir,
+                state,
+                "Reply with the single word ready.",
+                summary,
+                "supported_model_effort",
+                ["project"],
+                "all",
+                model=SUPPORTED_MODEL,
+                effort="low",
+                ledger=ledger,
+            )
+        )
         decoy_state(summary, "supported_model_effort", run.get("init"))
 
         # Documented-unsupported: Haiku supports no effort levels. Record what
         # the runner does (fallback per the docs, ignore, or error).
-        asyncio.run(run_query(
-            project, private_home, config_dir, state,
-            "Reply with the single word ready.",
-            summary, "haiku_with_low_effort", ["project"], "all",
-            model=UNSUPPORTED_EFFORT_MODEL, effort="low", ledger=ledger))
+        asyncio.run(
+            run_query(
+                project,
+                private_home,
+                config_dir,
+                state,
+                "Reply with the single word ready.",
+                summary,
+                "haiku_with_low_effort",
+                ["project"],
+                "all",
+                model=UNSUPPORTED_EFFORT_MODEL,
+                effort="low",
+                ledger=ledger,
+            )
+        )
 
         # Invalid settings must fail explicitly.
-        asyncio.run(run_query(
-            project, private_home, config_dir, state,
-            "Reply with the single word ready.",
-            summary, "invalid_effort", ["project"], "all",
-            model=SUPPORTED_MODEL, effort="superultra", ledger=ledger))
-        asyncio.run(run_query(
-            project, private_home, config_dir, state,
-            "Reply with the single word ready.",
-            summary, "invalid_model", ["project"], "all",
-            model="nonexistent-model-121", ledger=ledger))
+        asyncio.run(
+            run_query(
+                project,
+                private_home,
+                config_dir,
+                state,
+                "Reply with the single word ready.",
+                summary,
+                "invalid_effort",
+                ["project"],
+                "all",
+                model=SUPPORTED_MODEL,
+                effort="superultra",
+                ledger=ledger,
+            )
+        )
+        asyncio.run(
+            run_query(
+                project,
+                private_home,
+                config_dir,
+                state,
+                "Reply with the single word ready.",
+                summary,
+                "invalid_model",
+                ["project"],
+                "all",
+                model="nonexistent-model-121",
+                ledger=ledger,
+            )
+        )
     finally:
-        costs = [entry["result"]["total_cost_usd"]
-                 for entry in summary.values()
-                 if isinstance(entry, dict) and isinstance(entry.get("result"), dict)
-                 and entry["result"].get("total_cost_usd") is not None]
+        costs = [
+            entry["result"]["total_cost_usd"]
+            for entry in summary.values()
+            if isinstance(entry, dict)
+            and isinstance(entry.get("result"), dict)
+            and entry["result"].get("total_cost_usd") is not None
+        ]
         summary["observed_cost_usd"] = round(sum(costs), 6) if costs else None
-        summary["model_calls_note"] = ("upper bound on billable model calls: a "
-                                       "turn is counted when submitted, before "
-                                       "any response")
+        summary["model_calls_note"] = (
+            "upper bound on billable model calls: a "
+            "turn is counted when submitted, before "
+            "any response"
+        )
         summary["personal_roots_unchanged"] = compare_personal_roots(
-            before, hash_personal_roots())
+            before, hash_personal_roots()
+        )
         print(json.dumps(summary, indent=2))
 
 
