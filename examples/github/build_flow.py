@@ -98,7 +98,7 @@ def build(
         "data": {
             "nodes": nodes,
             "edges": edges,
-            "viewport": {"x": 60, "y": 30, "zoom": 0.65 if feedback else 0.8},
+            "viewport": {"x": 60, "y": 30, "zoom": 0.6 if feedback else 0.8},
         },
     }
     Graph.from_payload(flow)

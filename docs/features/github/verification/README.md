@@ -31,6 +31,9 @@ provider-double tests and earlier archived experiments.
 | Select and inspect an Issue | Real Issue #23 discovered, selected and read; 1.061 s component run. Actual populated viewer and exact GitHub link opened with no model call. |
 | Select and inspect a PR | Real PR #24 discovered, selected and read after its update; 1.229 s component run. Actual populated viewer and exact GitHub link opened with no model call. |
 | Repository changes and refresh | Both pickers cleared after a repository URL change. Refresh did not select the first result; refreshing an explicit selection retained its exact number. |
+| Issue operation | After explicit owner approval, native Load JSON → Issue.Operation updated Issue #23 to `GitHub issue operation verified` with existing `bug` and `documentation` labels. The real graph completed the operation in 4.189 s; an independent read and one confirmed `issue_update` effect verified the change. Its body and open state stayed unchanged. The grant was revoked and the incoming operation removed afterward. |
+| All-label filtering | The actual scoped service and Issue picker both returned only Issue #23 for `bug` AND `documentation`. The PR picker returned the actual empty result for the same pair. Both recovered to the unfiltered explicit selection. |
+| Stale saved selection | Saved graph inputs deliberately paired an actual selected Issue/PR with a filter absent from its current GitHub labels. Running revalidated real data and refused with `selected_issue_no_longer_matches` / `selected_pr_no_longer_matches`. Both recovered through the real label control and picker, then read successfully. No provider mutation or model call was used. |
 | Missing PR selection | Refused in 0.970 s with `selected_pr_required`. Descriptive details and the stable code were copied through the real clipboard; the card stayed within the viewport and dismissed. |
 | PR feedback without authority | The actual host returned `pr_grant_unavailable` before Agent dispatch. Error details displayed its explanation, recovery and safe diagnostic code, including after grant revocation. |
 | PR → Agent → same PR.Operation | One original Codex Agent run completed; the full workflow took 19.519 s. The host recorded one confirmed `pr_node_update` effect. An independent GitHub read confirmed the exact title `Original Codex Agent feedback verified`, with body, labels, open state, head commit and base unchanged. |
@@ -46,6 +49,8 @@ effort was not reported; it is not inferred from that selection.
 ![Actual Issue viewer](issue-viewer.png)
 
 ![Actual updated PR viewer](pr-viewer.png)
+
+![Actual graph with PR feedback and independent pinned Skill](graph.png)
 
 ![Actual refused PR operation with safe technical details](grant-refusal.png)
 
@@ -66,10 +71,13 @@ app before its approximately 100-second startup finished; subsequent real checks
 passed. Earlier private browser assertions were corrected for native placeholder
 wording and modal/navigation timing, without changing provider responses.
 
-An existing-Issue mutation has not been exercised in this increment: explicit
-approval for its proposed title/label edit is pending. Label-AND and stale-filter
-permutations, uncertain writes, and delivery-loss recovery retain internal
-regression coverage; they are not claimed as newly verified live paths here.
+The first Issue-operation setup supplied an unconnected value; it performed a
+read and recorded no effect. Independent reconciliation confirmed no remote
+change before the same request identity was supplied through a real native
+JSON output connection. Only that connected attempt performed the approved edit.
+
+Uncertain writes and delivery-loss recovery retain internal regression coverage;
+they are not claimed as newly verified live paths here.
 No uncertain write was blindly resent. PR creation and an Issue feedback cycle
 remain outside the implemented contract. Agent/ACP restructuring is deferred.
 
