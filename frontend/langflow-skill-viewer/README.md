@@ -56,7 +56,12 @@ using the installed Langflow authentication dependency. Configure
 to the built overlay. No provider/runner credentials are read by this route.
 The core Laomedo package does not gain a mandatory Langflow/FastAPI dependency.
 
-API tests: `python -m unittest discover -s tests -p test_skill_inspection.py`.
+API tests:
+
+```powershell
+python -m unittest discover -s tests/test_skills/test_inspection -t tests -p test_bundle.py -v
+```
+
 Run them in the pinned Langflow image for the optional HTTP/auth and Linux link
 checks. Browser regression: `NODE_PATH=<Playwright installation> node
  tests/test_skills/test_browser/files.cjs <fixture-manifest.json>`. The manifest identifies

@@ -111,7 +111,8 @@ class MediationServiceStartupTests(unittest.TestCase):
         self,
     ):
         # Composition regression only: stage integrity/journal authorization
-        # have their real-Git controls in test_verified_stage.py. No provider
+        # have their real-Git controls in
+        # tests/test_host/test_publication/test_verified.py. No provider
         # operation, acceptance probe or service loop is executed here.
         (self.path / "runner").mkdir()
         (self.path / "stages").mkdir()

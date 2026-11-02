@@ -6,6 +6,11 @@ Tests follow the production concern, rather than a `test_bundle_*` filename
 family at the discovery root. Agent execution and GitHub mediation suites retain
 their separately scoped organization.
 
+The [deferred-suite inventory](../README.md#deferred-adjacent-suites) names the
+five neighboring root files retained for mediation, credentials, orchestration
+and historical consumers. Those exclusions do not authorize new root prefix
+families.
+
 Run this package from the normal test discovery root:
 
 ```powershell
