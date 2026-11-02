@@ -136,8 +136,14 @@ export default function SkillFilesModal({ skillId, revision, open, setOpen }: {
     const next = tabs.filter((entry) => entry !== path); setTabs(next);
     if (active === path) { setActive(next[next.length - 1] || ""); setPreview(false); }
   };
-  return <BaseModal open={open} setOpen={setOpen} size="large"
-    width={fullPage ? "100dvw" : undefined} height={fullPage ? "100dvh" : undefined}
+  return <div className="contents" onKeyDownCapture={(event) => {
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "f") {
+      event.preventDefault(); event.stopPropagation(); navigation.showFind();
+      content.current?.querySelector<HTMLButtonElement>('button[aria-label="Show skill navigation"]')?.click();
+      requestAnimationFrame(() => content.current?.querySelector<HTMLInputElement>('input[aria-label="Search all Skill files"]')?.focus());
+    }
+  }}><BaseModal open={open} setOpen={setOpen} size="large"
+    width={fullPage ? "100dvw" : "85dvw"} height={fullPage ? "100dvh" : undefined}
     className={fullPage ? "!max-h-[100dvh] !max-w-none !rounded-none" : "!min-w-0 !max-w-[100dvw]"}
     onEscapeKeyDown={(event) => {
       if (dismissSkillActions(event)) { event.preventDefault(); return; }
@@ -151,13 +157,7 @@ export default function SkillFilesModal({ skillId, revision, open, setOpen }: {
         onClick={() => setFullPage(!fullPage)}>{fullPage ? "Restore window" : "Full page"}</button>
     </BaseModal.Header>
     <BaseModal.Content overflowHidden>
-      <div ref={content} className="flex min-h-0 flex-1 flex-col" onKeyDownCapture={(event) => {
-        if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "f") {
-          event.preventDefault(); event.stopPropagation(); navigation.showFind();
-          content.current?.querySelector<HTMLButtonElement>('button[aria-label="Show skill navigation"]')?.click();
-          requestAnimationFrame(() => content.current?.querySelector<HTMLInputElement>('input[aria-label="Search all Skill files"]')?.focus());
-        }
-      }}>
+      <div ref={content} className="flex min-h-0 flex-1 flex-col">
       <div className="mb-2 text-sm" data-testid="skill-selection">{skillId}<br /><code title={revision}>{revision.startsWith("sha256:") ? `sha256:${revision.slice(7, 15)}…` : revision}</code></div>
       {loading && <p role="status">Loading selected skill revision…</p>}
       {error && <div role="alert"><p>Skill files unavailable: {error}</p>
@@ -209,5 +209,5 @@ export default function SkillFilesModal({ skillId, revision, open, setOpen }: {
       </SkillSplitPane>}
       </div>
     </BaseModal.Content>
-  </BaseModal>;
+  </BaseModal></div>;
 }
