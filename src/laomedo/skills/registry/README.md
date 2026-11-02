@@ -34,6 +34,7 @@ None of these helpers depends on source services, Agents or an app framework.
 | --- | --- | --- |
 | `SkillStore` | `import_skill` | Copy and verify an initial revision; never replace existing latest |
 | `SkillStore` | `import_record` | Read the durable initial import; register legacy root metadata once with original import time explicitly unknown |
+| `SkillStore` | `revision_lineage` | Read verified canonical ancestry oldest first; refuse cycles or missing revisions |
 | `SkillStore` | `revision`, `read_file` | Verify and read immutable metadata or one admitted file |
 | `SkillStore` | `create_draft`, `draft_workspace` | Reserve an independent editable copy and locate it |
 | `SkillStore` | `freeze_draft` | Observe bytes, policy results, provenance and patch; no promotion |

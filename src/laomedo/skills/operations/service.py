@@ -108,10 +108,28 @@ class SkillOperations:
         if head is not None:
             return head["id"]
         imported = self.store.import_record(skill_id)
+        lineage = self.store.revision_lineage(skill_id)
+        if lineage[0]["revision_id"] != imported.revision_id:
+            raise SkillStoreError("revision_integrity_failure")
         files = inventory(
             self.store._revision_dir(skill_id, imported.revision_id) / "bundle"
         )
-        return self._commit(db, SkillCommit.from_import(imported, files)).commit_id
+        head_id = self._commit(db, SkillCommit.from_import(imported, files)).commit_id
+        for revision in lineage[1:]:
+            after = inventory(
+                self.store._revision_dir(skill_id, revision["revision_id"]) / "bundle"
+            )
+            reference = SkillReference(
+                skill_id=skill_id,
+                revision_id=revision["revision_id"],
+                tree_hash=revision["tree_hash"],
+            )
+            head_id = self._commit(
+                db,
+                SkillCommit.from_registered_revision(reference, head_id, files, after),
+            ).commit_id
+            files = after
+        return head_id
 
     def prepare(self, skill_id, revision_id, commit_id=""):
         """Reserve an edit capability for the exact Skill, base and policy without changing bundle bytes."""
@@ -265,9 +283,15 @@ class SkillOperations:
         """Return parent-linked commit records using the established page limit and cursor."""
         inspect_skill(self.store.root, skill_id, revision_id)
         with self.connect() as db:
-            db.execute("BEGIN IMMEDIATE")
+            head = db.execute(
+                "SELECT id FROM heads WHERE skill=?", (skill_id,)
+            ).fetchone()
             items, visited = [], set()
-            current = before or self._import_head(db, skill_id)
+            if not before and head is None:
+                db.execute("BEGIN IMMEDIATE")
+                current = self._import_head(db, skill_id)
+            else:
+                current = before or head["id"]
             while current and len(items) < 100:
                 if current in visited:
                     raise SkillStoreError("skill_history_limit")

@@ -16,6 +16,8 @@ from pydantic import field_serializer
 from pydantic import field_validator
 from pydantic import model_validator
 from typing import Literal
+from datetime import datetime, timezone
+from uuid import uuid4
 from laomedo.skills.registry.models import (
     SkillImportRecord,
     SkillPolicyReference,
@@ -265,6 +267,31 @@ class SkillCommit(BaseModel):
             patch=patch_for({}, files),
             editor=ImportedSkillEditor(),
             nonce=imported.nonce,
+        )
+
+    @classmethod
+    def from_registered_revision(
+        cls,
+        reference: SkillReference,
+        parent_commit: str,
+        before: dict[str, bytes],
+        after: dict[str, bytes],
+    ):
+        """Register retained canonical bytes without asserting missing edit provenance/time."""
+        return cls(
+            skill_id=reference.skill_id,
+            revision_id=reference.revision_id,
+            parent_commit=parent_commit,
+            created_at=datetime.now(timezone.utc).isoformat(),
+            message="Record existing promoted revision (original edit time unknown)",
+            files=sorted(
+                path
+                for path in before.keys() | after.keys()
+                if before.get(path) != after.get(path)
+            ),
+            patch=patch_for(before, after),
+            editor=ImportedSkillEditor(),
+            nonce=uuid4().hex,
         )
 
     def to_record(self) -> dict:

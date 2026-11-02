@@ -43,7 +43,12 @@ construction. Proposal validation and commit identity each have one canonical ow
 into an initial commit with no parent and all imported paths/differences against
 an empty tree. The same event yields the same identity on refresh and restart.
 An immediate SQLite transaction prevents concurrent first reads from duplicating
-the root. The first edit parents that commit. Existing journal heads and legacy
+the root; subsequent history reads do not acquire an edit lock. The first edit
+parents that commit. When canonical revisions were promoted outside an older
+journal, their verified ancestry is registered after the root, with original edit
+times and provenance explicitly unknown. The latest registration becomes the head;
+editing that revision requires its exact Base Commit, as for any non-root edit.
+Existing journal heads and legacy
 empty-root patches retain their original identities and verification behavior;
 no historical commit is rewritten. Legacy imports without a journal are labelled
 with unknown original import time, rather than assigned an invented import date.

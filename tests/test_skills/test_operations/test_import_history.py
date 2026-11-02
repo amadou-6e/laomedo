@@ -121,9 +121,42 @@ class SkillImportHistoryTests(unittest.TestCase):
             reviewed_draft_hash=frozen["proposed_tree_hash"],
             expected_policy_hash=frozen["policy_ref"]["hash"],
         )
-        root = self.read_only.history(self.skill, promoted["revision_id"])["commits"][0]
+        history = self.read_only.history(self.skill, promoted["revision_id"])
+        self.assertEqual(len(history["commits"]), 2)
+        head, root = history["commits"]
         self.assertEqual(root["revision_id"], self.revision)
         self.assertNotEqual(root["revision_id"], promoted["revision_id"])
+        self.assertEqual(head["revision_id"], promoted["revision_id"])
+        self.assertEqual(head["parent_commit"], root["commit_id"])
+        self.assertIn("original edit time unknown", head["message"])
+        self.assertIn(
+            "+promoted", self.read_only.diff(self.skill, head["commit_id"])["patch"]
+        )
+        editable = SkillOperations(
+            self.case.store, self.read_only.database, {self.skill: self.case.policy}
+        )
+        with self.assertRaisesRegex(ConflictError, "skill_base_changed"):
+            editable.prepare(self.skill, promoted["revision_id"])
+        prepared = editable.prepare(
+            self.skill, promoted["revision_id"], head["commit_id"]
+        )
+        applied = editable.apply(prepared["ticket"], self.case.operation)
+        self.assertEqual(applied["commit"]["parent_commit"], head["commit_id"])
+        reopened = SkillOperations(self.case.store, self.read_only.database, {})
+        self.assertEqual(
+            reopened.history(self.skill, applied["skill"]["revision_id"])["commits"][
+                -2:
+            ],
+            [head, root],
+        )
+
+    def test_existing_history_read_does_not_request_an_edit_lock(self):
+        expected = self.read_only.history(self.skill, self.revision)
+        with self.read_only.connect() as writer:
+            writer.execute("BEGIN IMMEDIATE")
+            self.assertEqual(
+                self.read_only.history(self.skill, self.revision), expected
+            )
 
     def test_existing_legacy_root_and_edit_ids_are_not_rewritten(self):
         with self.case.service.connect() as db:
@@ -179,12 +212,14 @@ class SkillImportHistoryTests(unittest.TestCase):
                 self.case.store.import_skill(name, source)
         path = self.case.store._skill(name) / "import.json"
         event = path.read_bytes()
+        revisions = sorted((path.parent / "revisions").iterdir())
         content = (source / "rules/one.md").read_bytes()
         (source / "rules/one.md").write_bytes(b"different retry\n")
         with self.assertRaisesRegex(ConflictError, "skill_already_exists"):
             self.case.store.import_skill(name, source)
         self.assertFalse((path.parent / "latest.json").exists())
         self.assertEqual(path.read_bytes(), event)
+        self.assertEqual(sorted((path.parent / "revisions").iterdir()), revisions)
         (source / "rules/one.md").write_bytes(content)
         self.case.store.import_skill(name, source)
         self.assertEqual(path.read_bytes(), event)

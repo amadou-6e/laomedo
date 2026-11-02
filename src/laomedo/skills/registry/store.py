@@ -150,11 +150,16 @@ class SkillStore:
             os.close(descriptor)
             if (skill / "latest.json").exists():
                 raise ConflictError("skill_already_exists")
-            record = self._store_revision(skill_id, source, None)
             import_path = skill / "import.json"
             if import_path.exists():
                 # An interrupted import may have recorded the event before latest.
                 imported = self._read_import(skill_id)
+                if tree_hash(inventory(source)) != imported.revision_id:
+                    raise ConflictError("skill_already_exists")
+            else:
+                imported = None
+            record = self._store_revision(skill_id, source, None)
+            if imported is not None:
                 if imported.revision_id != record["revision_id"]:
                     raise ConflictError("skill_already_exists")
             else:
@@ -199,13 +204,7 @@ class SkillStore:
             os.close(descriptor)
             if (skill / "import.json").exists():
                 return self._read_import(skill_id)
-            root = self.revision(skill_id)
-            visited = set()
-            while root["parent_revision"] is not None:
-                if root["revision_id"] in visited:
-                    raise SkillStoreError("revision_integrity_failure")
-                visited.add(root["revision_id"])
-                root = self.revision(skill_id, root["parent_revision"])
+            root = self.revision_lineage(skill_id)[0]
             imported = SkillImportRecord.create(
                 skill_id, root["revision_id"], legacy=True
             )
@@ -213,6 +212,19 @@ class SkillStore:
             return imported
         finally:
             lock.unlink(missing_ok=True)
+
+    def revision_lineage(self, skill_id: str) -> list[dict]:
+        """Read verified canonical ancestry oldest first, refusing cycles or missing bytes."""
+        current = self.revision(skill_id)
+        revisions, visited = [], set()
+        while True:
+            if current["revision_id"] in visited:
+                raise SkillStoreError("revision_integrity_failure")
+            visited.add(current["revision_id"])
+            revisions.append(current)
+            if current["parent_revision"] is None:
+                return list(reversed(revisions))
+            current = self.revision(skill_id, current["parent_revision"])
 
     def revision(self, skill_id: str, revision_id: str | None = None) -> dict:
         """Read the immutable revision record for an admitted Skill and revision identity."""
