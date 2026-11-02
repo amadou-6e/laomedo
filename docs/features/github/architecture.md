@@ -12,8 +12,8 @@ is distinct from confirmed success and must not be blindly resent. See
 [mediated commands](../agents/mediation/commands.md) and
 [host services](../agents/mediation/host-services.md).
 
-The [Issue guide](../../../examples/github-issue/README.md) describes discovery
-and operation results. The [PR guide](../../../examples/github-pr/README.md)
+The [Issue guide](../../../examples/github/README.md) describes discovery
+and operation results. The [PR guide](../../../examples/github/README.md)
 describes returning an Agent operation to the same selected PR node. Provider
 execution remains an [Agent](../agents/README.md) concern.
 

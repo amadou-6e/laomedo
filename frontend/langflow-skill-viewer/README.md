@@ -85,7 +85,7 @@ reference without picker selection does not become a saved selection.
 Copy PRViewerModal.test.tsx beside the applied PR modal as index.tsx's sibling
 and run the upstream Jest suite for that file. The tests unmock Markdown so they
 exercise real rendering. The local evidence is recorded with source hashes in
-`examples/github-pr/evidence.json`. The full production build and five viewer
+[the historical PR evidence](https://github.com/amadou-6e/laomedo/blob/714db418243bc17fff1c2a5bed5181006e21fdee/archives/github-244/files/examples/github-pr/evidence.json). The full production build and five viewer
 tests passed; isolated Edge rendering exercised the real dialog. This does not
 claim an installed full-app selector test or active GitHub PR service deployment.
 

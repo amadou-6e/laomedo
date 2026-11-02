@@ -88,7 +88,7 @@ refuse the update. If the outcome is **unknown**, inspect the existing host inte
 and remote PR before a new run; repeating Fresh can submit another model task
 and another operation.
 
-The [recorded original-Agent example](../../../../examples/github-pr/original-agent/README.md)
+The [recorded original-Agent example](https://github.com/amadou-6e/laomedo/blob/714db418243bc17fff1c2a5bed5181006e21fdee/archives/github-244/files/examples/github-pr/original-agent/README.md)
 demonstrated this title update using Codex in its named historical run. It is not
 a new execution of this Claude walkthrough or proof of every model's proposal quality.
 

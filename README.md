@@ -153,7 +153,7 @@ GitHub/GitLab repository roots; private Git authentication is not implemented.
 
 ### Live GitHub Issue component
 
-The [GitHub Issue node](examples/github-issue/README.md) discovers repository
+The [GitHub Issue node](examples/github/README.md) discovers repository
 labels and issues, filters by all selected labels, reads current content and
 accepts incoming close/modify operations through existing scoped mediation.
 Credentials stay on the host. A read-only activation draft and fake-provider
