@@ -65,7 +65,7 @@ not a user-facing demonstration or acceptance result.
 
 `ManualSkillEditor` in `manual.py` is the trusted local viewer's write boundary.
 Its canonical request/state/receipt and host grant models live in `models.py`.
-The closed public failure vocabulary lives in `settings.py`; presentation belongs
+The closed public failure vocabulary lives in `contract.py`; presentation belongs
 to the shared catalogue. Existing Agent/ordinary operations never promote latest.
 
 | Method | Interface and effect |
@@ -87,3 +87,8 @@ invented original publication time after crash recovery.
 Neither action edits source repositories or existing graph pins. No model runs,
 validation commands or Git operations execute through this interface. Editing
 binary files and crash-persistent browser working copies remain unsupported.
+
+Confirmed save/publication receipts remain readable for the same exact request
+after write-grant revocation or policy changes. This is reconciliation of an
+existing effect, never renewed mutation authority. Uncompleted requests still
+require the current manual grant and exact applicable policy.

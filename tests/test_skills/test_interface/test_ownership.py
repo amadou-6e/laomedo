@@ -43,25 +43,9 @@ class SkillOwnershipTests(unittest.TestCase):
             "operations/client.py",
             "operations/server.py",
             "operations/cli.py",
+            "operations/settings.py",
             "workspace/utils.py",
             "ingestion/utils.py",
         ):
             with self.subTest(retired=name):
                 self.assertFalse((root / name).exists())
-
-    def test_operation_settings_do_not_restore_the_retired_http_configuration(self):
-        """Domain failure vocabulary is distinct from interface-owned URL/token settings."""
-        path = repository_root() / "src/laomedo/skills/operations/settings.py"
-        tree = ast.parse(path.read_text(encoding="utf-8"))
-        self.assertFalse(
-            any(
-                isinstance(
-                    node, (ast.Import, ast.ImportFrom, ast.ClassDef, ast.FunctionDef)
-                )
-                for node in tree.body
-            )
-        )
-        self.assertEqual(
-            {node.targets[0].id for node in tree.body if isinstance(node, ast.Assign)},
-            {"MANUAL_ERROR_CODES"},
-        )

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { v4 as uuid } from "uuid";
 import { api } from "@/controllers/API/api";
 import { getBaseUrl } from "@/customization/utils/urls";
 import type { Snapshot } from "./SkillHistory";
@@ -73,7 +74,7 @@ export function useSkillEditing(skillId: string, revision: string, snapshot: Sna
     start: () => { if (state?.can_edit && !busy && !pending) { setEditing(true); setStatus(""); } }, discard,
     update: (path: string, text: string) => setBuffers((old) => ({ ...old, [path]: text })),
     save: () => { if (state?.can_edit && changes.length && message.trim() && !pending) void submit({ action: "save", body: {
-      request_id: crypto.randomUUID(), skill_id: skillId, revision_id: revision, commit_id: state.head_commit,
+      request_id: uuid(), skill_id: skillId, revision_id: revision, commit_id: state.head_commit,
       operation: { action: "modify", message: message.trim(), files: changes },
     } }); },
     publish: (expectedLatest: string) => { if (state?.can_publish && !pending) void submit({ action: "publish", body: {

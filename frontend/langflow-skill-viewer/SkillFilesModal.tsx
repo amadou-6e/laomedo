@@ -82,7 +82,8 @@ function SkillWorkspace({ skillId, initialRevision, setOpen }: { skillId: string
   const [historicalFiles, setHistoricalFiles] = useState<SkillFile[]>([]);
   const [selectedCommit, setSelectedCommit] = useState<Commit | null>(null);
   const [publicationBase, setPublicationBase] = useState("");
-  const [discardAction, setDiscardAction] = useState<"close" | "discard" | null>(null);
+  const [discardAction, setDiscardAction] = useState<"close" | "discard" | "latest" | null>(null);
+  const [closeNotice, setCloseNotice] = useState(false);
   const manual = useSkillEditing(skillId, revision, snapshot, setRevision);
   const navigationFiles = [...manual.files, ...historicalFiles.filter((old) => !manual.files.some((current) => current.path === old.path))];
   const navigation = useSkillNavigation(`${skillId}:${revision}`, navigationFiles.map((file) => file.path));
@@ -116,8 +117,15 @@ function SkillWorkspace({ skillId, initialRevision, setOpen }: { skillId: string
     if (active === path) { setActive(next[next.length - 1] || ""); setPreview(false); }
   };
   const requestClose = (value: boolean) => {
-    if (value || manual.busy || manual.pending) return;
+    if (value) return;
+    if (manual.busy || manual.pending) { setCloseNotice(true); return; }
     if (manual.changes.length) setDiscardAction("close"); else setOpen(false);
+  };
+  const openLatest = () => {
+    if (!manual.state || manual.busy || manual.pending) return;
+    manual.dismissError();
+    if (manual.changes.length) { setDiscardAction("latest"); return; }
+    manual.discard(); setPublicationBase(""); setRevision(manual.state.head_revision);
   };
   return <div className="contents" onKeyDownCapture={(event) => {
     // Keep canvas panning from consuming native button activation with Space.
@@ -131,6 +139,9 @@ function SkillWorkspace({ skillId, initialRevision, setOpen }: { skillId: string
     width={fullPage ? "100dvw" : "85dvw"} height={fullPage ? "100dvh" : undefined}
     className={fullPage ? "!max-h-[100dvh] !max-w-none !rounded-none" : "!min-w-0 !max-w-[100dvw]"}
     onEscapeKeyDown={(event) => {
+      // Radix handles Escape at document level before the card's React handler.
+      if (manual.error) { event.preventDefault(); manual.dismissError(); return; }
+      if (event.target instanceof Element && event.target.closest("[data-error-code]")) { event.preventDefault(); return; }
       if (dismissSkillActions(event)) { event.preventDefault(); return; }
       if (navigation.open.Find && document.activeElement?.closest("#skill-Find-body")) {
         event.preventDefault(); navigation.hideFind(); content.current?.querySelector<HTMLButtonElement>("#skill-Find-toggle")?.focus();
@@ -149,31 +160,35 @@ function SkillWorkspace({ skillId, initialRevision, setOpen }: { skillId: string
         {manual.state && !manual.editing && !publicationBase && <>
           <button type="button" className="rounded border px-3 py-1 disabled:opacity-50" disabled={!manual.state.can_edit || manual.busy || !!manual.pending}
             onClick={() => { setSelectedCommit(null); setHistoricalFiles([]); manual.start(); }}>Edit</button>
-          {manual.state.edit_enabled && manual.state.head_revision !== revision && <button type="button" className="rounded border px-3 py-1" onClick={() => setRevision(manual.state!.head_revision)}>Open latest editable revision</button>}
           <button type="button" className="rounded border px-3 py-1 disabled:opacity-50"
             disabled={!manual.state.can_publish || manual.state.latest_revision === revision || manual.busy || !!manual.pending}
             onClick={() => { setSelectedCommit(null); setPublicationBase(manual.state!.latest_revision); }}>Review publication</button>
           {!manual.state.edit_enabled && <span className="text-xs text-muted-foreground">Manual editing is disabled for this Skill in local configuration.</span>}
         </>}
+        {manual.state?.edit_enabled && manual.state.head_revision !== revision && <button type="button" className="rounded border px-3 py-1"
+          disabled={manual.busy || !!manual.pending} onClick={openLatest}>Open latest editable revision</button>}
         {manual.editing && <>
           <label className="flex min-w-0 flex-1 items-center gap-2">Commit message
             <input aria-label="Commit message" value={manual.message} maxLength={2000} disabled={manual.busy || !!manual.pending}
               className="min-w-0 flex-1 rounded border bg-background px-2 py-1" onChange={(event) => manual.setMessage(event.target.value)} />
           </label>
-          <button type="button" className="rounded border px-3 py-1 disabled:opacity-50" disabled={manual.busy || !!manual.pending || !manual.changes.length || !manual.message.trim()}
+          <button type="button" className="rounded border px-3 py-1 disabled:opacity-50" disabled={!manual.state?.can_edit || manual.busy || !!manual.pending || !manual.changes.length || !manual.message.trim()}
             onClick={manual.save}>Save commit{manual.changes.length ? ` · ${manual.changes.length} ${manual.changes.length === 1 ? "file" : "files"}` : ""}</button>
           <button type="button" className="rounded border px-3 py-1" disabled={manual.busy || !!manual.pending}
             onClick={() => manual.changes.length ? setDiscardAction("discard") : manual.discard()}>Discard edits</button>
         </>}
         {manual.busy && <span role="status" className="inline-flex items-center gap-1"><VscLoading className="animate-spin" aria-hidden="true" />{manual.pending?.action === "publish" ? "Publishing revision…" : "Saving commit…"}</span>}
         {!manual.busy && manual.pending && <button type="button" className="rounded border px-3 py-1" onClick={manual.reconcile}>Check result</button>}
-        {!manual.state && !manual.busy && <button type="button" className="rounded border px-3 py-1" onClick={manual.refresh}>Retry edit controls</button>}
+        {(!manual.state || (manual.editing && !manual.state.can_edit)) && !manual.busy && <button type="button" className="rounded border px-3 py-1" onClick={manual.refresh}>Retry edit controls</button>}
       </div>
+      {closeNotice && (manual.busy || manual.pending) && <p role="status" className="mb-2 shrink-0 text-sm">Wait for confirmation, or use Check result before closing. Closing cannot cancel a save or publication.</p>}
       {manual.status && <p role="status" className="mb-2 shrink-0 text-sm">{manual.status}</p>}
       {discardAction && <div role="alertdialog" aria-label="Unsaved Skill changes" className="mb-2 shrink-0 rounded border p-2 text-sm">
-        <p>Discard unsaved changes?</p><div className="mt-2 flex gap-2">
+        <p>Discard unsaved changes? Copy any working text you want to keep before discarding.</p><div className="mt-2 flex gap-2">
           <button type="button" className="rounded border px-3 py-1" onClick={() => setDiscardAction(null)}>Keep editing</button>
-          <button type="button" className="rounded border px-3 py-1" onClick={() => { manual.discard(); if (discardAction === "close") setOpen(false); setDiscardAction(null); }}>Discard changes</button>
+          <button type="button" className="rounded border px-3 py-1" onClick={() => { manual.discard(); if (discardAction === "close") setOpen(false);
+            if (discardAction === "latest" && manual.state) { setPublicationBase(""); setRevision(manual.state.head_revision); }
+            setDiscardAction(null); }}>Discard changes</button>
         </div>
       </div>}
       {loading && <p role="status">Loading selected skill revision…</p>}

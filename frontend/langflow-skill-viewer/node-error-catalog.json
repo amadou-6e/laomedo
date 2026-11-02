@@ -1677,12 +1677,12 @@
   "skill_manual_not_authorized": {
     "title": "Manual changes are not enabled",
     "description": "This Skill does not currently have the local permission required for this action.",
-    "recovery": "Your working copy is preserved. Check the local Skill edit and publication permissions before trying again."
+    "recovery": "Your working text is preserved. Check the local Skill edit and publication permissions. After restoring permission, use Retry edit controls or reopen the viewer."
   },
   "skill_manual_stale": {
     "title": "The Skill changed while you were reviewing it",
     "description": "The selected commit or registry current revision no longer matches this request. Nothing was silently rebased.",
-    "recovery": "Keep your working text, open the current editable revision and review the changes again before saving or publishing."
+    "recovery": "Choose Open latest editable revision if shown. Copy any working text you want to keep before confirming Discard changes. For a changed publication base, use Back to files and review publication again."
   },
   "skill_manual_invalid": {
     "title": "The Skill change could not be accepted",

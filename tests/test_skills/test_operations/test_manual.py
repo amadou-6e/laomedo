@@ -194,7 +194,7 @@ class ManualSkillEditorTests(unittest.TestCase):
             )
 
     def test_manual_catalogue_covers_the_closed_public_failure_set(self):
-        from laomedo.skills.operations.settings import MANUAL_ERROR_CODES
+        from laomedo.skills.operations.contract import MANUAL_ERROR_CODES
 
         catalog = json.loads(
             (
@@ -209,6 +209,33 @@ class ManualSkillEditorTests(unittest.TestCase):
                     for field in ("title", "description", "recovery")
                 )
             )
+
+    def test_completed_effects_reconcile_after_write_revocation_without_new_authority(
+        self,
+    ):
+        payload, saved = self.save()
+        publication = self.publication(saved)
+        real_promote = self.case.store.promote_draft
+
+        def lose_response(*args, **kwargs):
+            real_promote(*args, **kwargs)
+            raise OSError("lost after durable promotion")
+
+        with patch.object(self.case.store, "promote_draft", side_effect=lose_response):
+            with self.assertRaises(OSError):
+                self.editor.publish(**publication)
+        self.editor.permissions.clear()
+        self.case.service.policies.clear()
+        self.assertEqual(self.editor.save(**payload), saved)
+        result = self.editor.publish(**publication)
+        self.assertEqual(result["revision_id"], saved["skill"]["revision_id"])
+        self.assertEqual(self.editor.publish(**publication), result)
+        with self.assertRaisesRegex(ValueError, "skill_manual_not_authorized"):
+            self.editor.save(**dict(payload, request_id=str(uuid4())))
+        self.assertEqual(
+            self.case.store.revision("internal-test")["revision_id"],
+            saved["skill"]["revision_id"],
+        )
 
     def test_private_http_requires_auth_and_rejects_forged_editor_or_authority(self):
         from urllib.request import Request, urlopen

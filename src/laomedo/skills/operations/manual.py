@@ -72,12 +72,15 @@ class ManualSkillEditor:
     def save(self, **payload):
         """Bind UUID to exact proposal before applying; reconcile an already committed save."""
         save = ManualSkillSave.model_validate(payload)
-        self._policy(save.skill_id, "edit")
         encoded = canonical_json(save.to_record()).decode()
         with self.operations.connect() as db:
             existing = db.execute(
                 "SELECT * FROM manual_saves WHERE request=?", (save.request_id,)
             ).fetchone()
+        result = self._saved_result(existing, save, encoded)
+        if result is not None:
+            return result
+        self._policy(save.skill_id, "edit")
         if existing is None:
             reservation = self.operations.prepare(
                 save.skill_id, save.revision_id, save.commit_id
@@ -90,6 +93,17 @@ class ManualSkillEditor:
                 existing = db.execute(
                     "SELECT * FROM manual_saves WHERE request=?", (save.request_id,)
                 ).fetchone()
+        result = self._saved_result(existing, save, encoded)
+        if result is not None:
+            return result
+        return self.operations.apply(
+            existing["ticket"], save.operation.to_payload(), {"kind": "operator"}
+        )
+
+    def _saved_result(self, existing, save, encoded):
+        """Read an exact completed receipt without granting another mutation."""
+        if existing is None:
+            return None
         if existing["payload"] != encoded:
             raise ConflictError("skill_manual_request_conflict")
         # apply's normal capability expiry remains unchanged. A retained result is
@@ -103,9 +117,7 @@ class ManualSkillEditor:
             if json.loads(applied["proposal"]) != save.operation.to_payload():
                 raise ConflictError("skill_manual_request_conflict")
             return json.loads(applied["result"])
-        return self.operations.apply(
-            existing["ticket"], save.operation.to_payload(), {"kind": "operator"}
-        )
+        return None
 
     def _publication_draft(self, publication, policy):
         """Freeze the cumulative canonical-to-candidate diff under the current policy."""
@@ -173,8 +185,6 @@ class ManualSkillEditor:
     def publish(self, **payload):
         """Promote the exact reviewed head once; replay its durable receipt after uncertainty."""
         publication = ManualSkillPublication.model_validate(payload)
-        policy = self._policy(publication.skill_id, "publish")
-        policy_hash = validate_policy(policy)["hash"]
         identity = (
             publication.skill_id,
             publication.commit_id,
@@ -201,6 +211,8 @@ class ManualSkillEditor:
             ):
                 raise ConflictError("skill_manual_stale")
             if row is None:
+                policy = self._policy(publication.skill_id, "publish")
+                policy_hash = validate_policy(policy)["hash"]
                 draft = self._publication_draft(publication, policy)
                 db.execute(
                     "INSERT INTO manual_publications VALUES (?,?,?,?,?,NULL)",
@@ -210,8 +222,6 @@ class ManualSkillEditor:
                     "SELECT * FROM manual_publications WHERE skill=? AND commit_id=? AND base=?",
                     identity,
                 ).fetchone()
-        if row["policy"] != policy_hash:
-            raise SkillStoreError("skill_manual_policy_denied")
         # Persisted before this filesystem CAS. A crash after promotion can use
         # the same draft and existing store recovery path on the next request.
         with self.operations.connect() as db:
@@ -223,6 +233,11 @@ class ManualSkillEditor:
             if existing["result"]:
                 return json.loads(existing["result"])
             if not self._published(row, publication):
+                policy_hash = validate_policy(
+                    self._policy(publication.skill_id, "publish")
+                )["hash"]
+                if row["policy"] != policy_hash:
+                    raise SkillStoreError("skill_manual_policy_denied")
                 head = db.execute(
                     "SELECT id FROM heads WHERE skill=?", (publication.skill_id,)
                 ).fetchone()

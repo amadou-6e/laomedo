@@ -1,7 +1,8 @@
 """Authenticated viewer writes; service capabilities never reach the browser."""
 
 from laomedo.skills.interface.operations.client import skill_request
-from laomedo.skills.operations.settings import MANUAL_ERROR_CODES
+from laomedo.skills.operations.contract import MANUAL_ERROR_CODES
+from urllib.parse import urlsplit
 
 
 def install_skill_editing_routes(app, authenticate):
@@ -10,7 +11,6 @@ def install_skill_editing_routes(app, authenticate):
     from fastapi.responses import JSONResponse
     from starlette.concurrency import run_in_threadpool
 
-    # FastAPI resolves postponed annotations from this module's globals.
     @app.post(
         "/api/v1/laomedo/skills/manual/{action}", dependencies=[Depends(authenticate)]
     )
@@ -18,7 +18,8 @@ def install_skill_editing_routes(app, authenticate):
         if action not in {"editor", "save", "publish"}:
             raise HTTPException(404, detail={"code": "skill_manual_invalid"})
         origin = request.headers.get("origin")
-        if origin and origin.rstrip("/") != str(request.base_url).rstrip("/"):
+        base = urlsplit(str(request.base_url))
+        if origin and origin.rstrip("/") != f"{base.scheme}://{base.netloc}":
             raise HTTPException(403, detail={"code": "skill_manual_not_authorized"})
         body = await request.body()
         if len(body) > 4 * 1024 * 1024:

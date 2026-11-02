@@ -77,3 +77,30 @@ class ManualSkillRouteTests(unittest.TestCase):
             response.json(), {"detail": {"code": "skill_manual_unavailable"}}
         )
         self.assertNotIn("private", response.text)
+
+    def test_same_origin_admits_an_app_root_path_without_trusting_another_origin(self):
+        from fastapi.testclient import TestClient
+
+        with (
+            TestClient(self.app, root_path="/laomedo") as client,
+            patch(
+                "laomedo.integrations.langflow.skill_editing.skill_request",
+                return_value={"can_edit": False},
+            ),
+        ):
+            self.assertEqual(
+                client.post(
+                    "/api/v1/laomedo/skills/manual/editor",
+                    json={},
+                    headers={**self.headers, "Origin": "http://testserver"},
+                ).status_code,
+                200,
+            )
+            self.assertEqual(
+                client.post(
+                    "/api/v1/laomedo/skills/manual/editor",
+                    json={},
+                    headers={**self.headers, "Origin": "https://testserver"},
+                ).status_code,
+                403,
+            )
