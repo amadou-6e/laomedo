@@ -1,7 +1,6 @@
 """Gateway regression controls with internal provider doubles."""
 
 import json
-from pathlib import Path
 import tempfile
 import unittest
 from laomedo.github.issues.gateway import GitHubIssueGateway

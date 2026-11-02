@@ -40,7 +40,8 @@ function structuredFailure(value: unknown, depth = 0): Record<string, unknown> |
   if (depth > 5) return;
   // Feedback Task outputs serialize the same GitHub operation envelope as JSON.
   // Admit only its versioned schema; ordinary text and embedded PR bodies are data.
-  if (typeof value === "string" && value.length <= 1024 * 1024 && value.trimStart().startsWith("{")) {
+  // The 256 KiB body contract can expand sixfold under JSON ASCII escaping.
+  if (typeof value === "string" && value.length <= 2 * 1024 * 1024 && value.trimStart().startsWith("{")) {
     try {
       const parsed = JSON.parse(value);
       if (parsed?.schema_version === "laomedo.github-pr.v1" || parsed?.schema_version === "laomedo.github-issue.v1") value = parsed;

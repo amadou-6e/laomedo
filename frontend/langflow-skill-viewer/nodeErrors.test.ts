@@ -111,8 +111,16 @@ test("GitHub envelope admission ignores successful operations and arbitrary nest
   "{malformed",
   {schema_version: "laomedo.github-pr.v1", operation: {status: "succeeded", error_category: "pr_grant_unavailable"}, pr: {body: failure}},
   {schema_version: "laomedo.github-pr.v1", operation: {status: "not_requested"}, data: failure},
-  JSON.stringify({schema_version: "laomedo.github-pr.v1", operation: failure, padding: "x".repeat(1024 * 1024)}),
+  JSON.stringify({schema_version: "laomedo.github-pr.v1", operation: failure, padding: "x".repeat(2 * 1024 * 1024)}),
  ]) expect(hasLaomedoFailure(output(message))).toBe(false);
+});
+
+test("a maximum-size body with sixfold JSON escaping cannot hide a GitHub refusal", () => {
+ const message = JSON.stringify({schema_version: "laomedo.github-pr.v1", pr: {body: "\u0000".repeat(256 * 1024)}, operation: {status: "failed", error_category: "pr_grant_unavailable"}});
+ expect(message.length).toBeGreaterThan(1024 * 1024);
+ const status = {data: {outputs: {task: {message}}}};
+ expect(hasLaomedoFailure(status)).toBe(true);
+ expect(describeNodeFailure("", status).diagnostics.code).toBe("pr_grant_unavailable");
 });
 
 test.each(["runner_transport_failed", "runner_status_unknown", "runner_wait_deadline", "future_condition"])("%s never recommends an unsafe retry", code => {
