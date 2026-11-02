@@ -4,7 +4,7 @@
 feedback and context. Their `test_graph` packages exercise actual components and
 the supported bounded feedback scheduler with internal provider doubles.
 `test_interface` owns loopback authentication, parsing, error projection and the
-publisher boundary. `test_transport` owns Git and REST delivery. `test_browser`
+publisher boundary. `test_transport` owns Git and REST delivery. `test_issues/test_browser`
 holds the existing internal browser controls, never real integration acceptance.
 
 Every test-bearing folder begins `test_`. Helpers have descriptive names:

@@ -14,8 +14,8 @@ class BrowserEntrypointTests(unittest.TestCase):
             k: v for k, v in os.environ.items() if k not in {"PYTHONPATH", "PYTHONHOME"}
         }
         for name in (
-            "serve_github_issue_fixture.py",
-            "prepare_github_issue_fixture.py",
+            "serve.py",
+            "prepare.py",
         ):
             with self.subTest(script=name), tempfile.TemporaryDirectory() as cwd:
                 result = subprocess.run(

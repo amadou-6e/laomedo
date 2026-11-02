@@ -14,7 +14,7 @@ Keep `tests/` as the discovery root. Every folder beneath it containing tests,
 directly or in nested concerns, starts with `test_`: for example,
 `test_skills/test_operations/`. Support-only and data-only folders (`support`,
 `fixtures`, `contracts`) keep their descriptive names. `test_skills/test_browser/`
-contains the Skill browser controls; `test_github/test_browser/` owns GitHub
+contains the Skill browser controls; `test_github/test_issues/test_browser/` owns GitHub
 controls. `test_langflow/` contains the remaining separately discovered runtime
 checks. Folder naming does not change their prerequisites or acceptance status.
 

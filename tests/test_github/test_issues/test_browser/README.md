@@ -9,7 +9,7 @@ From the implementation checkout, with the installed app/LFX and Playwright
 environments, start the loopback test backend in its own terminal:
 
 ```powershell
-python tests/test_github/test_browser/serve_github_issue_fixture.py --manifest C:/Private/issue-backend.json
+python tests/test_github/test_issues/test_browser/serve.py --manifest C:/Private/issue-backend.json
 ```
 
 Configure the disposable task app with the URL and token-file settings from that
@@ -18,13 +18,13 @@ temporary state. Prepare the Issue flow in that task app:
 
 ```powershell
 Copy-Item C:/Private/issue-backend.json C:/Private/issue-browser.json
-python tests/test_github/test_browser/prepare_github_issue_fixture.py --manifest C:/Private/issue-browser.json --base http://127.0.0.1:APP_PORT --action read
-node tests/test_github/test_browser/github_issue.cjs C:/Private/issue-browser.json
+python tests/test_github/test_issues/test_browser/prepare.py --manifest C:/Private/issue-browser.json --base http://127.0.0.1:APP_PORT --action read
+node tests/test_github/test_issues/test_browser/selection.cjs C:/Private/issue-browser.json
 ```
 
 Use `--action modify` or `close` only for the corresponding internal operation
-controls. `github_issue_operation.cjs`, `github_issue_stale.cjs` and
-`issue_viewer.cjs` exercise the named states using their explicit fixture manifest.
+controls. `operation.cjs`, `stale.cjs` and
+`viewer.cjs` exercise the named states using their explicit fixture manifest.
 The `.cjs` controls need `@playwright/test` and the installed Edge channel.
 Supply private absolute manifest paths and the actual task app port. Stop only
 the test backend and app you started; retain any failed-control evidence, and

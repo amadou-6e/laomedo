@@ -4,7 +4,12 @@ from pathlib import Path
 import sys
 
 # Direct script invocation needs the discovery root before support imports.
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+for parent in Path(__file__).resolve().parents:
+    if (parent / "support/paths.py").is_file():
+        sys.path.insert(0, str(parent))
+        break
+else:
+    raise RuntimeError("Test discovery root is unavailable")
 from support.paths import repository_root
 
 
