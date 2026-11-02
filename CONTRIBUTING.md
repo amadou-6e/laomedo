@@ -28,9 +28,10 @@ Archive approved artifacts before removing them from the production cut. A
 production test must not fetch an experiment branch or require its checkout.
 
 EXP-08 is archived on `exp`; its useful assertions live under
-`tests/test_skills/test_workspace` and run in normal discovery. Agent/GitHub experiment
-sources and their existing test/CI dependencies remain until their separately
-selected migration. In particular, the retained Shared caller inventory and the
+`tests/test_skills/test_workspace` and run in normal discovery. GitHub's selected
+cleanup archives its campaigns independently. Agent experiment sources and
+their existing test/CI dependencies remain until their separately selected
+migration. In particular, the retained Shared caller inventory and the
 EXP-05, EXP-09 and EXP-100 jobs are deferred. Their presence is not permission to
 add new experiments to production.
 
