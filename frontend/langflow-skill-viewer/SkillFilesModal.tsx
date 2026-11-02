@@ -226,6 +226,7 @@ function SkillWorkspace({ skillId, initialRevision, setOpen }: { skillId: string
         </section>}
       </SkillSplitPane>)}
       </div>
+      {manual.error && <ErrorPopup message={manual.error} context={{ nodeId: "skill-viewer", nodeLabel: "Skill workspace", operation: manual.pending?.action }} onDismiss={manual.dismissError} />}
     </BaseModal.Content>
-  </BaseModal>{manual.error && <ErrorPopup message={manual.error} context={{ nodeId: "skill-viewer", nodeLabel: "Skill workspace", operation: manual.pending?.action }} onDismiss={manual.dismissError} />}</div>;
+  </BaseModal></div>;
 }
