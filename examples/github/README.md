@@ -81,9 +81,12 @@ Follow [Skill service setup](../../docs/features/skills/walkthrough.md#2-start-d
 and set both `LAOMEDO_SKILL_OPERATION_URL` and
 `LAOMEDO_SKILL_OPERATION_TOKEN_FILE` before starting the app. File inspection can
 work without that connection while history fails. For inspection without edit
-authority, use an empty policy map (`{}`). A newly imported Skill with no operations
-correctly shows **No operation history for this skill.** Retry reloads history;
-it cannot start or configure the missing service.
+authority, use an empty policy map (`{}`). A newly imported Skill shows an
+**Initial import** entry before any edit. Older imports without recorded timing
+are registered with **original import time unknown**; existing journal entries
+retain their IDs. Selecting the initial snapshot compares it to current contents,
+so an unedited Skill shows no file changes. Retry reloads history; it cannot start
+or configure the missing service.
 
 ```powershell
 python examples/github/build_flow.py --repository OWNER/REPO --number NUMBER --title "Current title" --feedback --runner-url http://127.0.0.1:PORT --skill-id pr-feedback-title --revision sha256:REVISION --output pr-flow.json

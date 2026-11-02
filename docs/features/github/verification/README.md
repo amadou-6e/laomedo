@@ -38,7 +38,8 @@ provider-double tests and earlier archived experiments.
 | PR feedback without authority | The actual host returned `pr_grant_unavailable` before Agent dispatch. Error details displayed its explanation, recovery and safe diagnostic code, including after grant revocation. |
 | PR → Agent → same PR.Operation | One original Codex Agent run completed; the full workflow took 19.519 s. The host recorded one confirmed `pr_node_update` effect. An independent GitHub read confirmed the exact title `Original Codex Agent feedback verified`, with body, labels, open state, head commit and base unchanged. |
 | Saved controls across browser restarts | The later independent Edge launch restored the saved actual model and effort selections. This is graph persistence, not acceptance of an external account/session-management product. |
-| Skill history failure and recovery | The preview initially omitted the operation/history service connection: file inspection worked, but Retry repeated HTTP 400. After connecting the actual service to the same registry, Retry in the already-open dialog returned HTTP 200 in 307 ms. The imported Skill correctly showed no operation history; it still loaded after a page reload. No Skill edit or graph dispatch occurred. |
+| Skill history service recovery | The preview initially omitted the operation/history service connection: file inspection worked, but Retry repeated HTTP 400. Connecting the actual service recovered Retry in 307 ms. That first repair exposed a separate bug: the imported root was missing until an edit was prepared. The initial-import correction below addresses that missing entry. |
+| Initial import before editing | At `160f47d`, the actual existing Skill acquired one root explicitly labelled with unknown original import time. A fresh import of the real instruction bundle showed **Initial import** before any edit, with all imported paths and a verified root diff against an empty tree. Its file comparison to the unchanged current revision showed no changes. Refresh and an exact history-service restart retained the same commit IDs. A real outage showed the failure; Retry in that same dialog recovered in 162 ms without duplicating the entry. No Skill edit or graph/model dispatch occurred. |
 | Cleanup | Native controller and lease cleanup were confirmed. The exact owned container was absent. The scoped write grant was revoked and its private binding cleared. Other sessions were not changed; read-only preview services remained available for owner inspection. |
 
 The real workflow's graph execution was
@@ -57,7 +58,17 @@ effort was not reported; it is not inferred from that selection.
 
 ![Actual missing-selection error and diagnostic copy control](missing-selection.png)
 
-![Actual Skill viewer after history service recovery, with no operations yet](skill-history.png)
+![Actual existing Skill with its imported root and explicitly unknown original import time](skill-history.png)
+
+![Actual fresh import selected in the Skill viewer, compared with unchanged current contents](initial-import.png)
+
+The initial-import correction uses installed wheel
+`664a12069fab33f16c54a9c160adcc9b740b9ee38378c664381f9aee36a98ab4`
+from `160f47d6cca7dcb1448ec8616c81a2f5aa0f0e35` for the history service and
+import handling. The app, frontend and unrelated Agent/GitHub services retain
+their previously recorded versions. Frontend code did not change; the actual
+viewer exercised the updated service. The retained journal and empty edit-policy
+map were reused; two import roots were recorded, with no edit tickets.
 
 ## Verification boundaries
 
