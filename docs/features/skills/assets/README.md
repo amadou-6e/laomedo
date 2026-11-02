@@ -14,6 +14,11 @@
 | explorer-light.png | Actual two-file Skill, bundled Markdown logos and Codicon chevrons | 2026-11-02, `70571ca` | Real file selection, disclosure and navigation; no new Agent run |
 | explorer-dark.png | Same actual Skill, application Dark mode selected | 2026-11-02, `70571ca` | Real theme controls; original dedicated-browser theme restored |
 
+| manual-editing.png | Actual manual Skill workspace, registry data | 2026-11-02, `be7d83c` | Real UI state; no new Agent/GitHub execution |
+| manual-publication-review.png | Actual manual Skill workspace, registry data | 2026-11-02, `be7d83c` | Real UI state; no new Agent/GitHub execution |
+| manual-published.png | Actual manual Skill workspace, registry data | 2026-11-02, `be7d83c` | Real UI state; no new Agent/GitHub execution |
+| manual-dark.png | Actual manual Skill workspace, registry data | 2026-11-02, `be7d83c` | Real UI state; no new Agent/GitHub execution |
+
 The historical image's revision `db60d3f1`, selected base `3d44565e` and commit
 `1e4f984c` match [recorded real evidence](../../../../examples/skill-summary/evidence.json).
 Its source revision was `8bd3f4e59e0b5f63e9329930a8401d6ccde0520e`.

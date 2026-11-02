@@ -27,3 +27,6 @@ they should not be read as proof of current end-to-end acceptance.
 
 [Explorer icons and chevrons](explorer.md) documents the current rows and their
 real navigation/theme verification.
+
+[Manual workspace and registry publication](manual-workspace.md) explains editing,
+commit history, per-file publication review and the current real recovery checks.

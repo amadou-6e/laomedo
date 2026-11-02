@@ -112,3 +112,18 @@ Proposed acceptance criteria for discussion:
 *Mockup with illustrative content. No publishing operation or Git integration was run.
 This exploration does not replace canonical UI design specifications.
 [Editable HTML mockup](assets/git-publishing-mock.html).*
+
+## SK-06 - Manually save a multi-file candidate
+
+As a Skill author, I want to edit existing text files together and save one
+traceable commit, retaining working text on refusals and reconnect. Implemented;
+[revision-specific real normal/recovery verification](manual-workspace.md) is
+recorded separately from final owner acceptance.
+
+## SK-07 - Explicitly publish a reviewed registry candidate
+
+As a Skill author, I want to inspect the cumulative per-file changes against
+registry current and explicitly promote that exact candidate, refusing stale
+heads/bases without changing graph pins or Git. Implemented; see the same
+[real publication and replay record](manual-workspace.md). Git publishing in
+SK-05 remains proposed. Final owner acceptance is pending.
