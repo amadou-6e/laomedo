@@ -23,7 +23,7 @@ ROOT = repository_root()
 class ProviderBoundaryTests(unittest.TestCase):
     def test_base_guard_refuses_an_empty_source_scan(self):
         """A retired source path must fail rather than silently remove coverage."""
-        with patch.object(Path, "glob", return_value=[]):
+        with patch.object(Path, "rglob", return_value=[]):
             with self.assertRaisesRegex(AssertionError, "scan must not be empty"):
                 self.test_shared_runtime_never_imports_concrete_provider_or_credentials()
 
@@ -34,7 +34,7 @@ class ProviderBoundaryTests(unittest.TestCase):
                 self.test_concrete_providers_never_import_a_sibling_provider()
 
     def test_shared_runtime_never_imports_concrete_provider_or_credentials(self):
-        paths = list((ROOT / "src/laomedo/agents/agents/base").glob("*.py"))
+        paths = list((ROOT / "src/laomedo/agents/agents/base").rglob("*.py"))
         self.assertTrue(paths, "Shared Agent source scan must not be empty")
         for path in paths:
             for node in ast.walk(ast.parse(path.read_text())):
