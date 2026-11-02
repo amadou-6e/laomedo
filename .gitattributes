@@ -20,3 +20,6 @@ frontend/langflow-skill-viewer/claude-selection.patch text eol=lf whitespace=-bl
 # Historical graph evidence retains exact original bytes.
 examples/github-pr/original-agent/historical-flow-before-skill-input.json -text
 examples/skill-operations/historical-flow-before-skill-input.json -text
+
+# Preserve archived Agent Git blobs without checkout normalization.
+archives/agents-205/files/** -text
