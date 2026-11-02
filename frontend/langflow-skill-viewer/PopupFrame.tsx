@@ -29,7 +29,9 @@ export default function PopupFrame({ label, heading, children, footer, onClose, 
         // Background notifications retain their state, but cannot cover controls
         // in an active modal or offer buttons outside its focus boundary.
         const style = document.createElement("style");
-        style.textContent = 'body:has([role="dialog"][aria-modal="true"]) > #laomedo-error-popup-stack { visibility: hidden; pointer-events: none !important; }';
+        // Radix marks background content aria-hidden rather than setting
+        // aria-modal on DialogContent, so use the mounted dialog boundary.
+        style.textContent = 'body:has([role="dialog"]) > #laomedo-error-popup-stack { visibility: hidden; pointer-events: none !important; }';
         element.appendChild(style);
       }
       owner.appendChild(element); entry = { element, users: 0 }; stacks.set(owner, entry);
