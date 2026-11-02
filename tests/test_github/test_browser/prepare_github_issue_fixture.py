@@ -1,5 +1,10 @@
 """Import actual nodes into a disposable fake-provider Langflow viewer only."""
 
+from pathlib import Path
+import sys
+
+# Direct script invocation needs the discovery root before support imports.
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from support.paths import repository_root
 
 
@@ -9,7 +14,6 @@ import gzip
 import time
 import copy
 import uuid
-from pathlib import Path
 import argparse
 
 parser = argparse.ArgumentParser()

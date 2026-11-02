@@ -1,14 +1,18 @@
+from pathlib import Path
+import sys
+
+# Direct script invocation needs the discovery root before support imports.
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from support.paths import repository_root
+
 import argparse
 import json
-import sys
 import tempfile
 import secrets
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--manifest", type=str, required=True)
 args = parser.parse_args()
-from pathlib import Path
 
 ROOT = repository_root()
 sys.path.insert(0, str(ROOT))

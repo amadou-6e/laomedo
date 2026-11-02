@@ -1,11 +1,11 @@
 """Read-only native GitHub dependencies through the user's existing gh login."""
 
+from laomedo.github.contract import validate_repository
 from datetime import datetime
 from datetime import timezone
 from typing import Callable
 import json
 import laomedo.work_graph.models as _work_graph_models
-import re
 import subprocess
 
 QUERY = """
@@ -29,9 +29,6 @@ query($owner: String!, $name: String!, $cursor: String) {
   }
 }
 """
-
-
-from laomedo.github.contract import validate_repository
 
 
 def _gh_page(owner: str, name: str, cursor: str | None) -> dict:

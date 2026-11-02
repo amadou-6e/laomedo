@@ -73,6 +73,11 @@ class GitHubOwnershipTests(unittest.TestCase):
             migrated,
         )
         self.assertEqual(migration.migrate_source(migrated), migrated)
+        moved_main = migration.migrate_source(
+            "from laomedo.github.issues.utils import main\n"
+        )
+        self.assertIn("from laomedo.github.issues.context import main", moved_main)
+        self.assertEqual(migration.migrate_source(moved_main), moved_main)
 
     def test_deferred_context_consumers_use_only_exact_inventoried_import_adaptation(
         self,

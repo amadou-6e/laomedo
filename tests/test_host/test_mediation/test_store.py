@@ -1,5 +1,3 @@
-from support.paths import repository_root
-
 """Zero-credential checks of the durable mediated-write boundary."""
 
 from pathlib import Path

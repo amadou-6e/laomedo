@@ -1,7 +1,5 @@
 """Command-line entry point for laomedo.github.interface.issues.server."""
 
-from http.server import BaseHTTPRequestHandler
-from http.server import ThreadingHTTPServer
 from pathlib import Path
 import argparse
 import json

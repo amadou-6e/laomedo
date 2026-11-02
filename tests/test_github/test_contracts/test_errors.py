@@ -39,6 +39,9 @@ class GitHubErrorCatalogueTests(unittest.TestCase):
                 for field in ("title", "description", "recovery"):
                     self.assertTrue(catalogue[code][field].strip())
                 self.assertNotEqual(catalogue[code]["title"], code)
+                self.assertNotIn("operator", catalogue[code]["recovery"].lower())
+        for code in ("unauthorized", "invalid_request"):
+            self.assertNotIn("runner", json.dumps(catalogue[code]).lower())
         for code in ("issue_write_unknown", "pr_write_unknown"):
             self.assertIn("before authorizing another", catalogue[code]["recovery"])
             self.assertNotIn("operator", catalogue[code]["recovery"].lower())
