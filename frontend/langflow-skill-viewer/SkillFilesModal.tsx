@@ -1,6 +1,7 @@
 import { dismissSkillActions } from "./SkillActions";
 import SkillNavigation, { useSkillNavigation } from "./SkillNavigation";
-import { useEffect, useRef, useState, type MutableRefObject } from "react";
+import { useEffect, useRef, useState } from "react";
+import SkillSearch, { type SkillMatch } from "./SkillSearch";
 import * as monaco from "monaco-editor/editor";
 import EditorWorker from "monaco-editor/editor/editor.worker?worker";
 import "monaco-editor/languages/definitions/markdown/register";
@@ -9,7 +10,6 @@ import "monaco-editor/languages/definitions/javascript/register";
 import "monaco-editor/languages/features/json/register";
 import JsonWorker from "monaco-editor/language/json/json.worker?worker";
 import "monaco-editor/languages/definitions/shell/register";
-import "monaco-editor/features/find/register";
 import ReactMarkdown from "react-markdown";
 import { api } from "@/controllers/API/api";
 import { getBaseUrl } from "@/customization/utils/urls";
@@ -62,7 +62,7 @@ function Folder({ item, select, active, collapsed, onToggle }: {
   </li>;
 }
 
-function Source({ file, closeFind }: { file: SkillFile; closeFind: MutableRefObject<(() => boolean) | null> }) {
+function Source({ file, match }: { file: SkillFile; match: (SkillMatch & { selection: number }) | null }) {
   const container = useRef<HTMLDivElement>(null);
   const editor = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const dark = useDarkStore((state) => state.dark);
@@ -74,16 +74,16 @@ function Source({ file, closeFind }: { file: SkillFile; closeFind: MutableRefObj
       automaticLayout: true, minimap: { enabled: false }, scrollBeyondLastLine: false,
       theme: dark ? "vs-dark" : "vs", fontSize: 14, fontFamily: "'JetBrains Mono', monospace" });
     editor.current = instance;
-    closeFind.current = () => {
-      if (!container.current?.querySelector(".find-widget.visible")) return false;
-      instance.trigger("skill-files", "closeFindWidget", null);
-      return true;
-    };
-    return () => { closeFind.current = null; editor.current = null; instance.dispose(); model.dispose(); };
+    return () => { editor.current = null; instance.dispose(); model.dispose(); };
   }, [file, dark]);
+  useEffect(() => {
+    if (!match || match.path !== file.path || !editor.current) return;
+    const range = new monaco.Range(match.line, match.column, match.line, match.column + match.length);
+    editor.current.setSelection(range);
+    editor.current.revealRangeInCenter(range);
+    editor.current.focus();
+  }, [file, dark, match]);
   return <div className="flex min-h-0 flex-1 flex-col">
-    <button type="button" className="self-end rounded px-3 py-1 text-sm hover:bg-muted"
-      onClick={() => { editor.current?.focus(); void editor.current?.getAction("actions.find")?.run(); }}>Find in file</button>
     <div ref={container} className="min-h-0 flex-1" data-testid="skill-file-source" aria-label={`Read-only source: ${file.path}`} />
   </div>;
 }
@@ -93,7 +93,9 @@ const ERROR_CODES = new Set(["invalid_skill_id", "immutable_skill_revision_requi
 export default function SkillFilesModal({ skillId, revision, open, setOpen }: {
   skillId: string; revision: string; open: boolean; setOpen: (value: boolean) => void;
 }) {
-  const closeFind = useRef<(() => boolean) | null>(null);
+  const content = useRef<HTMLDivElement>(null);
+  const [fullPage, setFullPage] = useState(false);
+  const [match, setMatch] = useState<(SkillMatch & { selection: number }) | null>(null);
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -107,7 +109,7 @@ export default function SkillFilesModal({ skillId, revision, open, setOpen }: {
   const navigation = useSkillNavigation(`${skillId}:${revision}`, navigationFiles.map((file) => file.path));
   useEffect(() => {
     const controller = new AbortController();
-    setSnapshot(null); setTabs([]); setActive(""); setError(""); setLoading(true); setPreview(false); setSelectedCommit(null); setHistoricalFiles([]);
+    setSnapshot(null); setTabs([]); setActive(""); setError(""); setLoading(true); setPreview(false); setSelectedCommit(null); setHistoricalFiles([]); setMatch(null);
     if (!open) { setLoading(false); return () => controller.abort(); }
     if (!skillId || !revision) {
       setError("Select a skill and revision first."); setLoading(false);
@@ -129,16 +131,33 @@ export default function SkillFilesModal({ skillId, revision, open, setOpen }: {
   }, [open, skillId, revision, reload]);
   const file = snapshot?.files.find((entry) => entry.path === active);
   const markdown = file?.path.toLowerCase().endsWith(".md");
-  const select = (path: string) => { setTabs((current) => current.includes(path) ? current : [...current, path]); setActive(path); setPreview(false); };
+  const select = (path: string) => { setTabs((current) => current.includes(path) ? current : [...current, path]); setActive(path); setPreview(false); setMatch(null); };
   const close = (path: string) => {
     const next = tabs.filter((entry) => entry !== path); setTabs(next);
     if (active === path) { setActive(next[next.length - 1] || ""); setPreview(false); }
   };
-  return <BaseModal open={open} setOpen={setOpen} size="large" onEscapeKeyDown={(event) => { if (dismissSkillActions(event) || closeFind.current?.()) event.preventDefault(); }}>
+  return <BaseModal open={open} setOpen={setOpen} size="large"
+    width={fullPage ? "100dvw" : undefined} height={fullPage ? "100dvh" : undefined}
+    className={fullPage ? "!max-h-[100dvh] !max-w-none !rounded-none" : "!min-w-0 !max-w-[100dvw]"}
+    onEscapeKeyDown={(event) => {
+      if (dismissSkillActions(event)) { event.preventDefault(); return; }
+      if (navigation.open.Find && document.activeElement?.closest("#skill-Find-body")) {
+        event.preventDefault(); navigation.hideFind(); content.current?.querySelector<HTMLButtonElement>("#skill-Find-toggle")?.focus();
+      }
+    }}>
     <BaseModal.Header description="Inspect the exact registered skill bundle. No files can be edited or executed.">
       <span>Skill files · Read only</span>
+      <button type="button" aria-pressed={fullPage} className="ml-auto mr-6 rounded border px-2 py-1 text-sm font-normal hover:bg-muted"
+        onClick={() => setFullPage(!fullPage)}>{fullPage ? "Restore window" : "Full page"}</button>
     </BaseModal.Header>
     <BaseModal.Content overflowHidden>
+      <div ref={content} className="flex min-h-0 flex-1 flex-col" onKeyDownCapture={(event) => {
+        if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "f") {
+          event.preventDefault(); event.stopPropagation(); navigation.showFind();
+          content.current?.querySelector<HTMLButtonElement>('button[aria-label="Show skill navigation"]')?.click();
+          requestAnimationFrame(() => content.current?.querySelector<HTMLInputElement>('input[aria-label="Search all Skill files"]')?.focus());
+        }
+      }}>
       <div className="mb-2 text-sm" data-testid="skill-selection">{skillId}<br /><code title={revision}>{revision.startsWith("sha256:") ? `sha256:${revision.slice(7, 15)}…` : revision}</code></div>
       {loading && <p role="status">Loading selected skill revision…</p>}
       {error && <div role="alert"><p>Skill files unavailable: {error}</p>
@@ -149,7 +168,12 @@ export default function SkillFilesModal({ skillId, revision, open, setOpen }: {
         <button type="button" className="w-full px-2 py-1 text-left text-sm hover:bg-muted" onClick={navigation.toggleAll}>
           {navigation.allOpen ? "Collapse all" : "Open all"}
         </button>
-      } navigation={<SkillNavigation open={navigation.open} onToggle={navigation.toggleSection} files={<>
+      } navigation={<SkillNavigation open={navigation.open} onToggle={navigation.toggleSection}
+        find={<SkillSearch key={`${skillId}:${revision}`} files={snapshot.files} onSelect={(result) => {
+          setSelectedCommit(null); setHistoricalFiles([]); select(result.path);
+          setMatch((previous) => ({ ...result, selection: (previous?.selection || 0) + 1 }));
+        }} />}
+        files={<>
         <nav aria-label="Skill file explorer" className="min-h-0 flex-1 overflow-auto pb-2">
           <div className="px-2 text-xs">{selectedCommit && <button type="button" className="float-right normal-case underline" onClick={() => { setSelectedCommit(null); setHistoricalFiles([]);
             const currentTabs = tabs.filter((path) => snapshot.files.some((file) => file.path === path));
@@ -178,11 +202,12 @@ export default function SkillFilesModal({ skillId, revision, open, setOpen }: {
             {file.kind === "binary" ? <p className="p-4">Preview unavailable for binary files.<br /><code>{file.file_hash}</code></p> :
               preview && markdown ? <div className="prose prose-sm max-w-none flex-1 overflow-auto p-4 dark:prose-invert" data-testid="skill-markdown-preview">
                 <ReactMarkdown skipHtml components={{ a: ({ children }) => <span>{children}</span>, img: ({ alt }) => <span>[Image: {alt || "not loaded"}]</span> }}>{file.text || ""}</ReactMarkdown>
-              </div> : <Source file={file} closeFind={closeFind} />}
+              </div> : <Source file={file} match={match} />}
           </>}
           {!file && <p className="p-4">Select a file.</p>}
         </section>}
       </SkillSplitPane>}
+      </div>
     </BaseModal.Content>
   </BaseModal>;
 }

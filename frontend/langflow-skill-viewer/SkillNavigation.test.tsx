@@ -31,13 +31,14 @@ test("individual chevrons preserve selected content without redundant section me
 
 test("bulk action includes nested folders and resolves a mixed state to open all", () => {
   const { result } = renderHook(() => useSkillNavigation("skill:revision", ["SKILL.md", "references/nested/rules.md"]));
+  act(() => result.current.showFind());
   act(() => result.current.toggleFolder("references/nested"));
   expect(result.current.allOpen).toBe(false);
   act(() => result.current.toggleAll());
   expect(result.current.collapsedFolders.size).toBe(0);
   expect(result.current.allOpen).toBe(true);
   act(() => result.current.toggleAll());
-  expect(result.current.open).toEqual({ Files: false, Commits: false });
+  expect(result.current.open).toEqual({ Find: false, Files: false, Commits: false });
   expect([...result.current.collapsedFolders]).toEqual(["references", "references/nested"]);
   act(() => result.current.toggleSection("Files"));
   expect(result.current.allOpen).toBe(false);
@@ -47,11 +48,13 @@ test("bulk action includes nested folders and resolves a mixed state to open all
 
 test("no-folder skills use section state, ignore stale historical folders, and reset on identity changes", () => {
   const { result, rerender } = renderHook(({ identity, paths }) => useSkillNavigation(identity, paths), { initialProps: { identity: "one", paths: ["SKILL.md", "old/rules.md"] } });
+  act(() => result.current.showFind());
   act(() => result.current.toggleFolder("old"));
   rerender({ identity: "one", paths: ["SKILL.md"] });
   expect(result.current.allOpen).toBe(true);
   act(() => result.current.toggleAll());
   expect(result.current.allOpen).toBe(false);
   rerender({ identity: "two", paths: ["SKILL.md"] });
-  expect(result.current.allOpen).toBe(true);
+  expect(result.current.allOpen).toBe(false);
+  expect(result.current.open.Find).toBe(false);
 });

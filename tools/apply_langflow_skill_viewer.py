@@ -83,6 +83,8 @@ def apply(checkout):
     shutil.copy2(overlay / "SkillActions.tsx", target / "SkillActions.tsx")
     shutil.copy2(overlay / "SkillActions.test.tsx", target / "SkillActions.test.tsx")
     shutil.copy2(overlay / "SkillNavigation.tsx", target / "SkillNavigation.tsx")
+    shutil.copy2(overlay / "SkillSearch.tsx", target / "SkillSearch.tsx")
+    shutil.copy2(overlay / "SkillSearch.test.tsx", target / "SkillSearch.test.tsx")
     shutil.copy2(
         overlay / "SkillNavigation.test.tsx", target / "SkillNavigation.test.tsx"
     )
