@@ -41,6 +41,9 @@ function Source({ file, match, editable = false, onChange }: { file: SkillFile; 
     const language = ({ md: "markdown", py: "python", js: "javascript", mjs: "javascript", json: "json", sh: "shell" } as Record<string, string>)[extension || ""] || "plaintext";
     const model = monaco.editor.createModel(file.text || "", language);
     const instance = monaco.editor.create(container.current!, { model, readOnly: !editable, domReadOnly: !editable,
+      // Langflow exempts textareas from canvas shortcuts. Chrome's experimental
+      // EditContext uses a non-editable div, so ordinary letters trigger them.
+      editContext: false,
       automaticLayout: true, minimap: { enabled: false }, scrollBeyondLastLine: false,
       theme: dark ? "vs-dark" : "vs", fontSize: 14, fontFamily: "'JetBrains Mono', monospace" });
     editor.current = instance;
