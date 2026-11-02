@@ -46,16 +46,18 @@ immutable commits, with no Agent run or GitHub mutation for this change.
 | Story | Observed result |
 | --- | --- |
 | Always-on editing and density | Authorised head opens editable; removed mode/latest controls absent; Skill ID and SHA share one line; graph pin hint and summary remain visible. Native typing retains spaces. |
-| Conditional actions | Footer absent while clean, appears after a file change; restoring text or confirmed Discard hides it without writing. Publish/Discard stay in bounds at 900 by 650 full page. |
-| Atomic publication | One Publish saves two changed files once and promotes the exact candidate, including earlier saved changes. Registry bytes match the full submitted batch; durable receipt replay confirms the same result. |
+| Conditional actions | Footer absent while clean, appears after a file change; confirmed Discard hides it without writing. Publish/Discard stay in bounds at 900 by 650 full page. |
+| Atomic publication | Publish saves two changed files once. A refused promotion retains the candidate; restoring permission and retrying promotes it without another save, including earlier saved changes. Registry bytes match the full submitted batch; durable receipt replay confirms the same result. |
 | Cumulative disclosure | Full changed-file count includes earlier saved commits; selecting a path opens its registry-to-working-copy diff. |
-| Comparison recovery | A browser-level block of the uncached registry-base request (no substituted HTTP response) disables Publish. Escape dismisses only the card; unblocking and Retry comparison preserve text and restore Publish. This is browser transport fault injection, not a naturally occurring service outage. |
+| Comparison recovery | Publish stays disabled during a browser-level block of the uncached registry-base request (no substituted HTTP response). Escape dismisses only the card; unblocking and Retry comparison reload the base and preserve text. Publish also requires current grants. This is browser transport fault injection, not a naturally occurring service outage. |
 | Permissions and display | Actual grant removal enforces read-only; restore/reopen restores editing. Actual application Dark mode and full-page/restore retain the footer and working state; Light mode is restored. |
 
 At this check the real example retains 13 history entries. Older
 snapshots, both original Skill graph pins and source bundles remain unchanged.
-Sixty-eight internal frontend tests pass; Skills, architecture and error catalogue
-guards also pass. Those controls support the browser checks and do not replace them.
+Sixty-eight internal frontend tests pass against the `e54015b6` source. Skills,
+architecture and error catalogue guards passed at `0b659ec`; later runtime changes
+only affect editor input and Escape handling, plus recovery wording. Those controls
+support the browser checks and do not replace them.
 
 The earlier always-on source `0b659ec` additionally exercised real browser offline
 save reconciliation (same UUID/batch), live publication-grant refusal with retained
