@@ -3,14 +3,17 @@
 Tests follow the concern they protect. `test_shared/` owns architecture, Git, HTTP,
 migration, formatting and component-template controls. `test_skills/` owns the registry,
 sources, operations, inspection, authoring and workspace delivery. Graph cases
-live with their respective Skill concern. Agent/GitHub suites retain their
-current grouping and separate optional-runtime harness.
+live with their respective Skill concern. `test_host/test_publication/` owns
+ingestion, frozen-bundle staging/ownership/worker checks and verified snapshots;
+these concerns are not filename families at the test root. Agent/GitHub suites
+retain their separately scoped grouping and optional-runtime harness.
 
 Keep `tests/` as the discovery root. Every folder beneath it containing tests,
 directly or in nested concerns, starts with `test_`: for example,
 `test_skills/test_operations/`. Support-only and data-only folders (`support`,
-`fixtures`, `contracts`) keep their descriptive names. `test_browser/` contains
-the browser checks; `test_langflow/` contains the separately discovered runtime
+`fixtures`, `contracts`) keep their descriptive names. `test_skills/test_browser/`
+contains the Skill browser controls; `test_browser/` retains the deferred GitHub
+controls. `test_langflow/` contains the separately discovered runtime
 checks. Folder naming does not change their prerequisites or acceptance status.
 
 Run core discovery against an installed package, including outside this checkout:
@@ -19,12 +22,13 @@ Run core discovery against an installed package, including outside this checkout
 python -m unittest discover -s C:/path/to/implementation/tests -v
 ```
 
-`test_shared`, `test_skills` and `support` are packages relative to that discovery
+`test_shared`, `test_skills`, `test_host` and `support` are packages relative to that discovery
 root. Focus an owning package using `-t tests`, for example:
 
 ```powershell
 python -m unittest discover -s tests/test_skills -t tests -v
 python -m unittest discover -s tests/test_shared -t tests -v
+python -m unittest discover -s tests/test_host/test_publication -t tests -v
 ```
 
 The Skill graph modules explicitly skip only when `lfx` is absent. With the
@@ -51,9 +55,11 @@ tests; they are not alternative production contracts or derived expectations.
 
 `test_shared.test_migration.utils.load_migration()` loads the actual checkout-owned offline
 migration tool and restores the temporary import path. Migration assertions stay
-in the test modules. Existing root `retained_shared.py` and `git_runner_controls.py`
-remain shared by deferred Agent/GitHub controls; their historical dependencies
-are retained. No test fetches an experiment branch or requires a second checkout.
+in the test modules. `support.retained` and `support.git` own the existing
+hash-pinned historical loader and Git command seams used across these concerns
+and deferred Agent/GitHub controls. Their callers import defining helpers
+directly; no root forwarding modules remain. Historical dependencies are retained.
+No test fetches an experiment branch or requires a second checkout.
 
 `test_skills/test_workspace` retains the exact-byte and Git-isolation assertions from the
 archived EXP-08 campaign. It uses the installed registry/materialization boundary

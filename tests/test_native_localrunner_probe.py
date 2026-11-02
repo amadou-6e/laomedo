@@ -1,6 +1,6 @@
 """Credential-free prospective S13 controls; no model or live capture."""
 
-from retained_shared import load_retained_shared
+from support.retained import load_retained_shared
 
 load_retained_shared("experiments.exp104.native_localrunner_probe")
 load_retained_shared("experiments.exp104.native_localrunner_worker")

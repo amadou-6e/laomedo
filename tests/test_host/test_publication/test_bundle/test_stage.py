@@ -1,6 +1,6 @@
 """No-provider checks for bounded frozen-bundle verification and export."""
 
-from retained_shared import load_retained_shared
+from support.retained import load_retained_shared
 
 load_retained_shared("experiments.exp139.runtime")
 
@@ -31,7 +31,6 @@ IMAGE_ID = PINNED_IMAGE_ID
 
 class BundleStageTests(unittest.TestCase):
     def test_exp139_verifier_reads_commit_from_real_frozen_bundle(self):
-        sys.path.append(str(Path(__file__).resolve().parents[1]))
         from experiments.exp139.runtime import verify_attempt
 
         self.assertNotIn("advertised_commit", self.frozen)

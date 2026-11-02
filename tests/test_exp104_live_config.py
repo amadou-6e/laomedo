@@ -1,6 +1,6 @@
 """No-network checks of the one-shot EXP-104 probe configuration."""
 
-from retained_shared import load_retained_shared
+from support.retained import load_retained_shared
 
 
 import unittest

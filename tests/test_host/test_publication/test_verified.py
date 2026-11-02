@@ -1,6 +1,6 @@
 """Credential-free local checks for a grant-bound verified bundle snapshot."""
 
-from git_runner_controls import CallbackGitRunner
+from support.git import CallbackGitRunner
 
 import hashlib
 from dataclasses import replace

@@ -2,7 +2,7 @@
 
 from pathlib import Path
 from pydantic import SecretStr
-from git_runner_controls import CallbackGitRunner
+from support.git import CallbackGitRunner
 from laomedo.git.command import GitCommandRunner
 from laomedo.git.models import GitCommand, GitCredential, GitExecutionContext
 import os

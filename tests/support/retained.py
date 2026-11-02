@@ -1,5 +1,7 @@
 """Explicit dependency-loading copies for internal controls, never live acceptance."""
 
+from support.paths import repository_root
+
 import ast
 from hashlib import sha256
 import importlib
@@ -8,7 +10,7 @@ from pathlib import Path
 import sys
 from types import ModuleType
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = repository_root()
 
 
 def refuse_private_git_api(*_args, **_kwargs):
@@ -133,7 +135,8 @@ def load_retained_shared(name):
                     and item.name in {"_git_environment", "_bounded_git"}
                 ):
                     replacements.append(
-                        "from retained_shared import refuse_private_git_api as " + alias
+                        "from support.retained import refuse_private_git_api as "
+                        + alias
                     )
                     changed = True
                 elif (

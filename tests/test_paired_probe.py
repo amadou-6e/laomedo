@@ -1,6 +1,6 @@
 """Development-only paired checker/provider tests. Never runs the one-shot probe."""
 
-from retained_shared import load_retained_shared
+from support.retained import load_retained_shared
 from unittest.mock import patch
 from laomedo.git.command import GitCommandRunner
 from laomedo.git.models import GitCommand, GitExecutionContext

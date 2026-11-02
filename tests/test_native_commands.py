@@ -1,6 +1,6 @@
 """Development controls, not one-shot campaign evidence or provider parity."""
 
-from git_runner_controls import CallbackGitRunner
+from support.git import CallbackGitRunner
 
 from pathlib import Path
 import base64

@@ -1,6 +1,6 @@
 """Fail-closed controls for the unexecuted EXP-104 S11 live probe."""
 
-from retained_shared import load_retained_shared
+from support.retained import load_retained_shared
 from laomedo.git.command import GitCommandRunner
 from laomedo.git.models import GitCommand, GitExecutionContext
 

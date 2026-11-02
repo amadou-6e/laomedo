@@ -1,6 +1,6 @@
 """Synthetic development checks only; never invoke the live capture."""
 
-from retained_shared import load_retained_shared
+from support.retained import load_retained_shared
 
 load_retained_shared("experiments.exp100.probe_live")
 

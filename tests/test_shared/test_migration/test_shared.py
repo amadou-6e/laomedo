@@ -10,7 +10,7 @@ from pathlib import Path
 import unittest
 from unittest.mock import patch
 
-from retained_shared import load_retained_shared, refuse_private_git_api
+from support.retained import load_retained_shared, refuse_private_git_api
 
 ROOT = repository_root()
 TOOL = ROOT / "tools/migrations/migrate_module_paths.py"

@@ -59,7 +59,7 @@ The core Laomedo package does not gain a mandatory Langflow/FastAPI dependency.
 API tests: `python -m unittest discover -s tests -p test_skill_inspection.py`.
 Run them in the pinned Langflow image for the optional HTTP/auth and Linux link
 checks. Browser regression: `NODE_PATH=<Playwright installation> node
- tests/test_browser/skill_files.cjs <fixture-manifest.json>`. The manifest identifies
+ tests/test_skills/test_browser/files.cjs <fixture-manifest.json>`. The manifest identifies
 a disposable loopback test flow containing two Skill nodes with distinct immutable fixture revisions and a non-agent control node,
 and no agent/publisher or credential binding. Include `second_skill_id` and
 `second_revision` in the manifest for the delayed selection-change check. No model turn is needed.
@@ -114,7 +114,7 @@ Public GitHub/GitLab root URLs, allowed local folders and the existing registry
 are supported; private Git authentication and GitLab subgroup URLs are deferred.
 Existing local private checkouts can be supplied within an allowed root.
 
-Run `tests/test_browser/skill_sources.cjs <fixture-manifest.json>` with Playwright.
+Run `tests/test_skills/test_browser/sources.cjs <fixture-manifest.json>` with Playwright.
 The fixture must have a disposable source-only flow, two local skills, two local
 alpha snapshots and a trusted Git fixture adapter offering main and tag v1.
 It uses real custom-component refresh APIs and no model or publisher node.

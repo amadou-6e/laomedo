@@ -1,7 +1,7 @@
 """Synthetic end-to-end grant, exact-commit push, and selective revocation."""
 
 from pathlib import Path
-from git_runner_controls import CallbackGitRunner
+from support.git import CallbackGitRunner
 import subprocess
 import tempfile
 import unittest

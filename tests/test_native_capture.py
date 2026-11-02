@@ -1,6 +1,6 @@
 """Mutation controls of capture assessment, not campaign execution/evidence."""
 
-from retained_shared import load_retained_shared
+from support.retained import load_retained_shared
 
 
 import copy
