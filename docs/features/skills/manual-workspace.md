@@ -97,7 +97,13 @@ No new Agent execution or current GitHub discovery acceptance is claimed.
 The offline check loses connectivity before dispatch; confirmed receipt replay is
 also verified. Lost responses after a committed effect, crash interruption and
 revoked-policy reconciliation have internal regression coverage, not a new live
-fault demonstration. Unsaved buffers have no durable browser reload/crash recovery.
+fault demonstration. The native browser-close warning was also observed with actual unsaved text;
+cancelling close kept the text, then explicit discard left the registry unchanged.
+Unsaved buffers have no durable browser reload/crash recovery.
 Manual creation/deletion/binary editing, per-user ACL and Git publishing are
-unsupported. Both PRs remain unmerged pending final reviewer completion and the
-requesting owner's inspection and validation of this revision.
+unsupported. Claude approved code at `fbd3bd9`, specification at `32bc8e6`, and
+the actual rendered UI at `be7d83c`; later wording fixes address its nonblocking
+notes. The reviewer assessed installer wiring and live evidence; its file tool
+could not open two frozen frontend files outside the workspace. Both PRs remain
+unmerged pending the requesting owner's inspection and validation and the
+accepted specification merge order.

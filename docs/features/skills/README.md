@@ -7,11 +7,11 @@ candidate edit and per-file comparison. A proposal stays separate from promotion
 [User stories and visuals](user-stories.md) describe the implemented experience
 and clearly labelled proposals.
 
-[Current navigation and three-entry history verification](navigation-verification.md)
+[Earlier navigation and three-entry history verification](navigation-verification.md)
 records the simplified menu, nested files and real per-file comparisons.
 
 [Workspace Find and full-page viewing](workspace-viewer.md) explains cross-file
-search, result navigation and the latest real normal/recovery checks.
+search, result navigation and the earlier real normal/recovery checks.
 
 Skills provide versioned instruction files and controlled multi-file editing.
 
@@ -25,7 +25,7 @@ The [canonical skill-registry specifications](https://github.com/amadou-6e/specs
 own requirements. The registry guide retains its historical scope statements;
 they should not be read as proof of current end-to-end acceptance.
 
-[Explorer icons and chevrons](explorer.md) documents the current rows and their
+[Explorer icons and chevrons](explorer.md) documents the earlier rows and their
 real navigation/theme verification.
 
 [Manual workspace and registry publication](manual-workspace.md) explains editing,

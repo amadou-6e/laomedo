@@ -1,5 +1,10 @@
 # Skill explorer
 
+This is a historical verification record at the revision named below. The
+[manual workspace guide](manual-workspace.md) owns the current editing, search
+and review status; earlier read-only limits and pending-review notes below
+refer to their recorded revision.
+
 Files show a 16 px type logo before their name. Known extensions use the
 appropriate bundled logo; unknown names/extensions have a generic file icon.
 Recognized names such as Dockerfile also have a type logo. File rows reserve

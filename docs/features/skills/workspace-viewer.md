@@ -1,5 +1,10 @@
 # Workspace Find and full-page viewing
 
+This is a historical verification record at the revision named below. The
+[manual workspace guide](manual-workspace.md) owns the current editing, search
+and review status; earlier read-only limits and pending-review notes below
+refer to their recorded revision.
+
 Open **Skill files** from the selected Skill node. **Full page** fills the
 browser viewport; **Restore window** returns to the normal viewer. Both keep
 the selected file, commit, tabs, navigation width and search state.

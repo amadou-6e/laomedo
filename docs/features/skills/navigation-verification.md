@@ -1,5 +1,10 @@
 # Skill navigation and history verification
 
+This is a historical verification record at the revision named below. The
+[manual workspace guide](manual-workspace.md) owns the current editing, search
+and review status; earlier read-only limits and pending-review notes below
+refer to their recorded revision.
+
 This capture predates workspace Find and full-page controls. See the
 [latest viewer workflow and verification](workspace-viewer.md).
 
