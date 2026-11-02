@@ -7,7 +7,7 @@ from lfx.io import Output
 from lfx.io import StrInput
 from lfx.schema import Data
 from lfx.schema import Message
-from laomedo.github.issues.utils import fetch_context
+from laomedo.github.issues.context_reader import fetch_context
 
 
 class FixtureIssue(Component):

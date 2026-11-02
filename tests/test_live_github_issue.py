@@ -275,7 +275,7 @@ class LiveGitHubIssueTests(unittest.TestCase):
         import threading
         from urllib import request
         from urllib import error
-        from laomedo.github.issues.server import IssueServer as server
+        from laomedo.github.interface.issues.server import IssueServer as server
 
         token = "dummy-control-" + "x" * 40
         service = server(self.gateway, token, port=0)
@@ -364,7 +364,7 @@ class LiveGitHubIssueTests(unittest.TestCase):
         from unittest.mock import patch
         from unittest.mock import MagicMock
         from urllib.error import HTTPError
-        from laomedo.github.issues.client import issue_request
+        from laomedo.github.interface.issues.client import issue_request
 
         token_file = Path(self.temp.name) / "dummy-control-token"
         token_file.write_text("x" * 40, encoding="utf-8")
@@ -385,7 +385,7 @@ class LiveGitHubIssueTests(unittest.TestCase):
         )
         with (
             patch.dict("os.environ", env),
-            patch("laomedo.github.issues.client.request.build_opener") as opener,
+            patch("laomedo.github.interface.issues.client.request.build_opener") as opener,
         ):
             for failure in (
                 TimeoutError("dummy-secret"),
@@ -422,7 +422,7 @@ class LiveGitHubIssueTests(unittest.TestCase):
         from urllib import request
         from urllib import error
         from unittest.mock import patch
-        from laomedo.github.issues.server import IssueServer as server
+        from laomedo.github.interface.issues.server import IssueServer as server
 
         token = "x" * 40
         service = server(self.gateway, token, port=0)

@@ -31,10 +31,7 @@ query($owner: String!, $name: String!, $cursor: String) {
 """
 
 
-def validate_repository(repository: str) -> tuple[str, str]:
-    if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository):
-        raise ValueError("Repository must be owner/name")
-    return tuple(repository.split("/"))
+from laomedo.github.contract import validate_repository
 
 
 def _gh_page(owner: str, name: str, cursor: str | None) -> dict:

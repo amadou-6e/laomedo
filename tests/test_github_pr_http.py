@@ -6,7 +6,7 @@ import unittest
 from unittest.mock import Mock
 from urllib import request
 from urllib import error
-from laomedo.github.pull_requests.server import PullRequestServer as server
+from laomedo.github.interface.pull_requests.server import PullRequestServer as server
 
 
 class PRHTTPTests(unittest.TestCase):

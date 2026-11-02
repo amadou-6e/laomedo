@@ -1,20 +1,18 @@
-"""Command-line entry point for laomedo.github.issues.server."""
+"""Command-line entry point for laomedo.github.interface.issues.server."""
 
 from http.server import BaseHTTPRequestHandler
 from http.server import ThreadingHTTPServer
 from pathlib import Path
 import argparse
 import json
-import laomedo.github.issues.contract as _issues_contract
-import laomedo.github.issues.gateway as _issues_gateway
-import laomedo.github.transport.rest.transport as _rest_transport
-import laomedo.host.credentials.token.connection as _token_connection
-import laomedo.host.mediation.errors as _mediation_errors
-import laomedo.host.mediation.store as _mediation_store
+from laomedo.github.issues.gateway import GitHubIssueGateway
+from laomedo.github.transport.rest.transport import GitHubRestTransport
+from laomedo.host.credentials.token.connection import HostTokenConnection
+from laomedo.host.mediation.store import MediationStore
 import os
 import secrets
 
-from laomedo.github.issues.server import IssueServer
+from laomedo.github.interface.issues.server import IssueServer
 
 
 def main():
@@ -34,7 +32,7 @@ def main():
     args = parser.parse_args()
     args.repository = args.repository.lower()
     if args.github_token_file:
-        connection = _token_connection.HostTokenConnection(
+        connection = HostTokenConnection(
             connection_id=args.connection_id,
             generation=args.connection_generation,
             repository=args.repository,
@@ -82,10 +80,8 @@ def main():
                 raise ValueError("connection_unavailable")
             return initial
 
-    transport = _rest_transport.GitHubRestTransport(args.repository, credential)
-    mediation = _mediation_store.MediationStore(
-        args.mediation_store, connection_is_current=current
-    )
+    transport = GitHubRestTransport(args.repository, credential)
+    mediation = MediationStore(args.mediation_store, connection_is_current=current)
 
     def grant(ref):
         if args.grant_bindings is None:
@@ -93,9 +89,7 @@ def main():
         bindings = json.loads(args.grant_bindings.read_text(encoding="utf-8"))
         return bindings[ref]
 
-    gateway = _issues_gateway.GitHubIssueGateway(
-        {args.repository: transport}, mediation, grant
-    )
+    gateway = GitHubIssueGateway({args.repository: transport}, mediation, grant)
     IssueServer(
         gateway, args.api_token_file.read_text(encoding="utf-8").strip(), port=args.port
     ).serve_forever()

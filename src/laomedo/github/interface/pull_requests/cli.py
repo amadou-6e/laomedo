@@ -1,20 +1,18 @@
-"""Command-line entry point for laomedo.github.pull_requests.server."""
+"""Command-line entry point for laomedo.github.interface.pull_requests.server."""
 
 from http.server import BaseHTTPRequestHandler
 from http.server import ThreadingHTTPServer
 from pathlib import Path
 import argparse
 import json
-import laomedo.github.pull_requests.contract as _pull_requests_contract
-import laomedo.github.pull_requests.gateway as _pull_requests_gateway
-import laomedo.github.transport.rest.transport as _rest_transport
-import laomedo.host.credentials.token.connection as _token_connection
-import laomedo.host.mediation.errors as _mediation_errors
-import laomedo.host.mediation.store as _mediation_store
+from laomedo.github.pull_requests.gateway import GitHubPRGateway
+from laomedo.github.transport.rest.transport import GitHubRestTransport
+from laomedo.host.credentials.token.connection import HostTokenConnection
+from laomedo.host.mediation.store import MediationStore
 import os
 import secrets
 
-from laomedo.github.pull_requests.server import PullRequestServer
+from laomedo.github.interface.pull_requests.server import PullRequestServer
 
 
 def main():
@@ -39,7 +37,7 @@ def main():
     args = parser.parse_args()
     args.repository = args.repository.lower()
     if args.github_token_file:
-        connection = _token_connection.HostTokenConnection(
+        connection = HostTokenConnection(
             connection_id=args.connection_id,
             generation=args.connection_generation,
             repository=args.repository,
@@ -87,10 +85,8 @@ def main():
                 raise ValueError("connection_unavailable")
             return initial
 
-    transport = _rest_transport.GitHubRestTransport(args.repository, credential)
-    mediation = _mediation_store.MediationStore(
-        args.mediation_store, connection_is_current=current
-    )
+    transport = GitHubRestTransport(args.repository, credential)
+    mediation = MediationStore(args.mediation_store, connection_is_current=current)
 
     def grant(ref):
         if args.grant_bindings is None:
@@ -103,7 +99,7 @@ def main():
         if args.feedback_bindings
         else {}
     )
-    gateway = _pull_requests_gateway.GitHubPRGateway(
+    gateway = GitHubPRGateway(
         {args.repository: transport}, mediation, grant, feedback_grants=feedback_grants
     )
     PullRequestServer(

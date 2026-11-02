@@ -6,8 +6,8 @@ import unittest
 from unittest.mock import patch
 
 from laomedo.github.issues.errors import IssueContextError
-from laomedo.github.issues.utils import _gh_json
-from laomedo.github.issues.utils import fetch_context
+from laomedo.github.issues.context_reader import _gh_json
+from laomedo.github.issues.context_reader import fetch_context
 
 REPO = "example/work"
 BASE = f"repos/{REPO}/issues/7"

@@ -89,7 +89,7 @@ class PRAgentLoopTests(unittest.IsolatedAsyncioTestCase):
             return getattr(self.gateway, action.replace("-", "_"))(**body)
 
         self.client = patch(
-            "laomedo.github.pull_requests.client.pr_request", side_effect=request
+            "laomedo.github.interface.pull_requests.client.pr_request", side_effect=request
         )
         self.client.start()
         self.addCleanup(self.client.stop)
