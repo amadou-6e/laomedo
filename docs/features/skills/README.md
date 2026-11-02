@@ -7,6 +7,9 @@ candidate edit and per-file comparison. A proposal stays separate from promotion
 [User stories and visuals](user-stories.md) describe the implemented experience
 and clearly labelled proposals.
 
+[Current navigation and three-entry history verification](navigation-verification.md)
+records the simplified menu, nested files and real per-file comparisons.
+
 Skills provide versioned instruction files and controlled multi-file editing.
 
 - [Architecture](architecture.md): component and package ownership.

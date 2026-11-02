@@ -110,6 +110,20 @@ not create a PR or support arbitrary graph cycles.
 
 ## Ownership and history
 
+The instruction bundle contains `SKILL.md` and `references/pr-operation.md`.
+The local review graph pins the candidate produced by two actual ordinary Skill
+operations: **Add PR operation contract**, then **Clarify PR update boundaries**.
+Together with its imported root, these form three parent-linked history entries.
+Open Skill files, select each commit and switch files to inspect cumulative
+differences to the pinned current candidate. Canonical latest is not promoted.
+
+These edits are attributed to the trusted backend operator, not an Agent or a
+verified human. A fresh source import has only its own initial entry; history
+requires retaining the registry and operation database and performing real edits.
+The builder does not synthesize commits. The earlier verified PR Agent run used
+revision `4f0efb08`; it was not rerun with this revised two-file instruction.
+See [current navigation and history verification](../../docs/features/skills/navigation-verification.md).
+
 `build_flow.py` owns the CLI and `build()` projection. Shared `../graph.py` owns
 pure `node()` and `edge()` metadata construction, also used by Skills. The
 `title-skill` folder contains only the real operation instruction.

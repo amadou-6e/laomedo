@@ -7,6 +7,10 @@ Implemented stories use actual app screenshots; the deferred Git publishing stor
 uses an explicitly labelled mockup. Status distinguishes implementation from live
 acceptance. See [visual provenance](assets/README.md).
 
+The [2026-11-02 navigation record](navigation-verification.md) adds current real
+verification of the single SKILL menu, nested files and three-entry history;
+the earlier captures below retain their explicitly dated scope.
+
 ## SK-01 — Select an exact skill revision
 
 As a workflow author, I want to select a Skill and revision from a source,
