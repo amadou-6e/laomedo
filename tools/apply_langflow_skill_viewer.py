@@ -79,7 +79,30 @@ def apply(checkout):
         agent_target / "AgentAdvancedControls.test.tsx",
     )
     target.mkdir()
-    shutil.copy2(overlay / "SkillFilesModal.tsx", target / "index.tsx")
+    shutil.copy2(overlay / "SkillFilesModal.tsx", target / "SkillFilesModal.tsx")
+    (target / "index.tsx").write_text(
+        'export { SkillViewerRequest as default } from "./SkillViewer";\n',
+        encoding="utf-8",
+    )
+    for name in ("SkillViewer.tsx", "SkillViewer.test.tsx"):
+        shutil.copy2(overlay / name, target / name)
+    authenticated_page = (
+        checkout / "src/frontend/src/pages/AppAuthenticatedPage/index.tsx"
+    )
+    authenticated = authenticated_page.read_text(encoding="utf-8")
+    authenticated = replace_once(
+        authenticated,
+        'import { Outlet } from "react-router-dom";',
+        'import { Outlet } from "react-router-dom";\n'
+        'import SkillViewerProvider from "@/modals/skillFilesModal/SkillViewer";',
+    )
+    authenticated = replace_once(
+        authenticated, "    <>\n", "    <SkillViewerProvider>\n"
+    )
+    authenticated = replace_once(
+        authenticated, "    </>\n", "    </SkillViewerProvider>\n"
+    )
+    authenticated_page.write_text(authenticated, encoding="utf-8")
     shutil.copy2(overlay / "SkillActions.tsx", target / "SkillActions.tsx")
     shutil.copy2(overlay / "SkillActions.test.tsx", target / "SkillActions.test.tsx")
     shutil.copy2(overlay / "SkillNavigation.tsx", target / "SkillNavigation.tsx")

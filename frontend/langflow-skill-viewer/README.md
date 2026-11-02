@@ -181,3 +181,15 @@ The original Codex agent node offers Activity in place of Code. It opens the gra
 The overlay applicator installs AgentActivityNavigation.ts at src/frontend/src/stores/agentActivityStore.ts. The node entry point uses an explicit transient target scoped to the graph, clears it when leaving Activity, and does not change canvas selection or save graph data. Opening Agents directly from the sidebar does not infer a target from selected canvas nodes.
 
 OpenCode agent nodes use the same Activity entry point. Provider-qualified message snapshots, capture limits and usage semantics are documented in [the OpenCode node guide](../../examples/opencode-node/README.md).
+
+## Skill workspace lifetime
+
+`SkillViewerProvider` owns one workspace under the authenticated application,
+above the canvas and node toolbars. The toolbar sends a `SkillViewerRequest`
+with an exact Skill/revision, then releases its local open flag. Canvas refresh,
+selection changes and temporary network reconnection cannot unmount the workspace
+or replace its unsaved buffers and pending request. Further requests leave an
+open workspace unchanged. Its own close/Keep editing/Check result controls own
+dismissal. Leaving the authenticated application releases this in-memory state;
+browser reload/crash restoration is unsupported. No state is stored in graph pins,
+local storage or a new global provider profile.
