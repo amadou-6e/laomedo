@@ -19,7 +19,7 @@ import CommitTree, { RevisionDiff, type Commit, type SkillFile, type Snapshot } 
 import SkillSplitPane from "./SkillSplitPane";
 import SkillExplorer from "./SkillExplorer";
 import SkillOverview from "./SkillOverview";
-import { VscChromeMaximize, VscChromeRestore, VscLoading } from "react-icons/vsc";
+import { VscChromeMaximize, VscChromeRestore, VscCode, VscLoading, VscPreview } from "react-icons/vsc";
 import { useSkillEditing } from "./SkillEditing";
 import { useRegistryComparison } from "./SkillPublication";
 import SkillFileDiff from "./SkillFileDiff";
@@ -130,7 +130,7 @@ function SkillWorkspace({ skillId, initialRevision, setOpen }: { skillId: string
     // Keep canvas panning from consuming native button activation with Space.
     if (event.key === " " && event.target instanceof Element && event.target.closest("button")) event.stopPropagation();
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "f") {
-      event.preventDefault(); event.stopPropagation(); navigation.showFind();
+      event.preventDefault(); event.stopPropagation(); setPreview(false); navigation.showFind();
       content.current?.querySelector<HTMLButtonElement>('button[aria-label="Show skill navigation"]')?.click();
       requestAnimationFrame(() => content.current?.querySelector<HTMLInputElement>('input[aria-label="Search all Skill files"]')?.focus());
     }
@@ -207,18 +207,21 @@ function SkillWorkspace({ skillId, initialRevision, setOpen }: { skillId: string
           <SkillFileDiff key={comparisonPath} path={comparisonPath} original={comparison.base.files.find((entry) => entry.path === comparisonPath)} current={manual.files.find((entry) => entry.path === comparisonPath)} />
         </section> : selectedCommit ? <RevisionDiff key={`${skillId}:${revision}:${selectedCommit.commit_id}`}
           skillId={skillId} revision={revision} commit={selectedCommit} path={active} current={file} onFiles={setHistoricalFiles} /> : <section aria-label="Selected skill file" className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <div className="flex overflow-x-auto border-b" aria-label="Open files">
+          <div className="flex shrink-0 items-center border-b">
+            <div className="flex min-w-0 flex-1 overflow-x-auto" aria-label="Open files">
             {tabs.map((path) => <div className="flex shrink-0 items-center" key={path}>
               <button type="button" aria-pressed={path === active} className="px-3 py-2 text-sm hover:bg-muted" onClick={() => { setActive(path); setPreview(false); }}>{path}{manual.changes.some((change) => change.path === path) ? " •" : ""}</button>
               <button type="button" aria-label={`Close ${path}`} className="pr-3" onClick={() => close(path)}>×</button>
             </div>)}
+            </div>
+            {markdown && file?.kind === "text" && <button type="button" aria-pressed={preview}
+              aria-label={preview ? "Show source" : "Preview Markdown"} title={preview ? "Show source" : "Preview Markdown"}
+              className="m-1 flex h-8 w-8 shrink-0 items-center justify-center rounded hover:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+              onClick={() => setPreview((current) => !current)}>
+              {preview ? <VscCode aria-hidden="true" className="h-4 w-4" /> : <VscPreview aria-hidden="true" className="h-4 w-4" />}
+            </button>}
           </div>
           {file && <>
-            <div className="flex items-center gap-2 border-b py-1">
-              <button type="button" aria-pressed={!preview} className="rounded px-3 py-1 hover:bg-muted" onClick={() => setPreview(false)}>Source</button>
-              {markdown && <button type="button" aria-pressed={preview} className="rounded px-3 py-1 hover:bg-muted" onClick={() => setPreview(true)}>Preview</button>}
-              <span className="ml-auto text-xs">{file.bytes} bytes</span>
-            </div>
             {file.kind === "binary" ? <p className="p-4">Preview unavailable for binary files.<br /><code>{file.file_hash}</code></p> :
               preview && markdown ? <div className="prose prose-sm max-w-none flex-1 overflow-auto p-4 dark:prose-invert" data-testid="skill-markdown-preview">
                 <ReactMarkdown skipHtml components={{ a: ({ children }) => <span>{children}</span>, img: ({ alt }) => <span>[Image: {alt || "not loaded"}]</span> }}>{file.text || ""}</ReactMarkdown>
