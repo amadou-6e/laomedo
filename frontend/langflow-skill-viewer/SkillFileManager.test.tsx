@@ -43,6 +43,8 @@ test("keyboard context menu stays inside the dialog, core entrypoint is protecte
   expect(within(menu).getByRole("menuitem", { name: "Rename..." })).toHaveAttribute("data-disabled");
   expect(within(menu).getByRole("menuitem", { name: "Delete..." })).toHaveAttribute("data-disabled");
   expect(within(menu).getByRole("menuitem", { name: "Copy relative path" })).not.toHaveAttribute("data-disabled");
+  fireEvent.contextMenu(within(menu).getByRole("menuitem", { name: "Copy relative path" }), { clientX: 10, clientY: 10 });
+  expect(screen.getByRole("menu")).toHaveAttribute("aria-label", "File actions: SKILL.md");
   fireEvent.keyDown(menu, { key: "Escape" });
   await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
   expect(screen.getByRole("dialog")).toBeInTheDocument();

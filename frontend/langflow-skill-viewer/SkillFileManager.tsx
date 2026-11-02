@@ -128,6 +128,9 @@ const SkillFileManager = forwardRef<SkillFileManagerHandle, Props>(function Skil
     </div>
     {props.portal && <Menu.Portal container={props.portal}><Menu.Content data-skill-file-menu aria-labelledby={undefined} aria-label={`File actions: ${entry.path || "root"}`}
       side="bottom" align="start" collisionBoundary={props.portal} collisionPadding={8} className="z-50 min-w-48 max-w-[90vw] rounded border bg-background p-1 text-foreground shadow-md"
+      // Windows emits contextmenu on key-up after the Menu key has opened and
+      // focused this portal. Keep that event from reopening the explorer root.
+      onContextMenu={(event) => { event.preventDefault(); event.stopPropagation(); }}
       onCloseAutoFocus={(event) => { event.preventDefault(); focus(entry.path); }}
       onEscapeKeyDown={(event) => { event.preventDefault(); setMenu(null); focus(entry.path); }}>
       {disabledReason && <Menu.Label className="max-w-64 px-2 py-1 text-xs text-muted-foreground">{disabledReason}</Menu.Label>}
