@@ -76,8 +76,12 @@ Follow the [PR walkthrough](../../docs/features/github/pull-requests/walkthrough
 for service and grant setup. Credentials belong outside the graph and Git.
 
 ```powershell
-python examples/github/build_flow.py --repository OWNER/REPO --number NUMBER --title "Current title" --feedback --runner-url http://host.docker.internal:PORT --skill-id pr-feedback-title --revision sha256:REVISION --output pr-flow.json
+python examples/github/build_flow.py --repository OWNER/REPO --number NUMBER --title "Current title" --feedback --runner-url http://127.0.0.1:PORT --skill-id pr-feedback-title --revision sha256:REVISION --output pr-flow.json
 ```
+
+Use a runner URL reachable from the app backend: `127.0.0.1` for a native local
+app, or the appropriate host address (such as `host.docker.internal`) when that
+backend runs inside Docker.
 
 The two operation participants are `PR → Agent → same PR.Operation`; an
 independent read-only Skill supplies the trusted instruction. Run the PR node
