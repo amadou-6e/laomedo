@@ -67,7 +67,7 @@ def build(
             "instructions",
             {"skill_id": skill_id, "revision_id": revision},
             0,
-            550,
+            800,
         )
         for field in ("skill_id", "revision_id"):
             value = skill["data"]["node"]["template"][field]
@@ -98,7 +98,7 @@ def build(
         "data": {
             "nodes": nodes,
             "edges": edges,
-            "viewport": {"x": 60, "y": 50, "zoom": 0.8},
+            "viewport": {"x": 60, "y": 30, "zoom": 0.65 if feedback else 0.8},
         },
     }
     Graph.from_payload(flow)
