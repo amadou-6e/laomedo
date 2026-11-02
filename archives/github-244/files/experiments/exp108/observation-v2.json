@@ -1,0 +1,109 @@
+{
+  "protocol": "EXP-108-v2",
+  "synthetic_only": true,
+  "model_turns": 0,
+  "real_github_requests": 0,
+  "browser_connection_id": "e36000ffacf5",
+  "token_connection_id": "9a9619c2ac5f",
+  "token_generation_after_rotation": 2,
+  "fake_provider_requests": 26,
+  "fake_provider_writes": 4,
+  "cases": [
+    {
+      "case": "ambient_credentials_not_fallback",
+      "passed": true
+    },
+    {
+      "case": "callback_wrong_owner",
+      "passed": true
+    },
+    {
+      "case": "callback_wrong_session",
+      "passed": true
+    },
+    {
+      "case": "callback_wrong_state",
+      "passed": true
+    },
+    {
+      "case": "code_for_other_valid_state_refused",
+      "passed": true
+    },
+    {
+      "case": "browser_callback_after_broker_restart",
+      "passed": true
+    },
+    {
+      "case": "callback_replay",
+      "passed": true
+    },
+    {
+      "case": "browser_run_mediated",
+      "passed": true
+    },
+    {
+      "case": "browser_account_mismatch",
+      "passed": true
+    },
+    {
+      "case": "browser_repository_mismatch",
+      "passed": true
+    },
+    {
+      "case": "explicit_token_run_mediated",
+      "passed": true
+    },
+    {
+      "case": "classic_token_refused",
+      "passed": true
+    },
+    {
+      "case": "expired_token_refused",
+      "passed": true
+    },
+    {
+      "case": "missing_scope_refused",
+      "passed": true
+    },
+    {
+      "case": "wrong_repository_refused",
+      "passed": true
+    },
+    {
+      "case": "wrong_account_refused",
+      "passed": true
+    },
+    {
+      "case": "cross_user_refused",
+      "passed": true
+    },
+    {
+      "case": "old_generation_refused",
+      "passed": true
+    },
+    {
+      "case": "unrelated_browser_run_still_works",
+      "passed": true
+    },
+    {
+      "case": "disconnect_refuses_active_run",
+      "passed": true
+    },
+    {
+      "case": "disconnect_refuses_new_run",
+      "passed": true
+    },
+    {
+      "case": "ready_connection_survives_broker_restart",
+      "passed": true
+    },
+    {
+      "case": "provider_revocation_refused",
+      "passed": true
+    },
+    {
+      "case": "no_secret_in_stage_or_observation",
+      "passed": true
+    }
+  ]
+}

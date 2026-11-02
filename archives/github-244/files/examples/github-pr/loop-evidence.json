@@ -1,0 +1,42 @@
+{
+  "date": "2026-10-14",
+  "runtime": "lfx/langflow-base 1.12.3",
+  "scope": "local fixture only",
+  "hash_basis": "raw workspace bytes SHA-256",
+  "source_sha256": {
+    "components/laomedo/github_pr.py": "c4fe3877e1775a5cee1f84dfa3a7bbbc321abe35457d1cad9c7c7afbba0bcd89",
+    "laomedo/pr_agent_loop.py": "134155b1592039d693cac2114353349d62ad56453b918f40e26afcd6e22a3e6a",
+    "laomedo/github_pr_gateway.py": "f78aae95b4541aa0bf26350b4a3eed293d9f34707909f8251e05dc778d8c7336",
+    "laomedo/github_pr_server.py": "9523caa2c8fff141c2bc5a6f36069cb3e279a09331f8ca9ac2795c4280f28b75",
+    "laomedo/github_pr_contract.py": "ce2a087f14658923f04dcbb01a0721fbf759ff5f9d96d7f7ff98fd4fb233da90",
+    "examples/github-pr/agent.py": "e46ccc39b1cc6a361434fc19641d981ed0c5aa1ac24f7a2ce6ecb5a3bcc8b4ee",
+    "examples/github-pr/build_flow.py": "371262dc1e596093692fbd79d2009e31f1e98636ee66af2262f66ca76d4b9877",
+    "examples/github-pr/flow.json": "778402132d9706b4138bf95d10b0b564ead6d32a43919720ebbf86a06475066e",
+    "tests/langflow/test_pr_agent_loop.py": "61fbff31471f77afb0bb945e734eb7263658011faa7f7c9e20998ae3251138e5"
+  },
+  "tests": {
+    "two_node_graph": 11,
+    "native_pr": 4,
+    "host_pr": 12,
+    "authenticated_inspection": 3
+  },
+  "fixture": {
+    "provider": "fake",
+    "model_turns": 0,
+    "live_writes": 0,
+    "graph_runs": 2,
+    "fixture_mutations": 1,
+    "operation_status": "succeeded",
+    "title": "PR operation verified",
+    "nodes": 2,
+    "edges": 2
+  },
+  "app": {
+    "saved_flow_build": "succeeded",
+    "browser_visible_nodes": 2,
+    "selected_pr_viewer": "passed",
+    "github_link": "passed",
+    "terminal_next_vertices": []
+  },
+  "live_model_or_github_acceptance": false
+}

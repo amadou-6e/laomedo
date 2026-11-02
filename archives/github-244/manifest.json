@@ -1,0 +1,251 @@
+{
+  "source_revision": "20df788fe776fc0bc0d7576a5f0774880aa9e89d",
+  "policy": "Exact current develop Git blobs, not rerun evidence. Prototype-only behaviors remain historical; production tests never load this archive.",
+  "files": [
+    {
+      "path": "examples/github-issue/DEPLOYMENT.md",
+      "sha256": "9201e65b43ef6f47399f9b02bc0206b07f58964640c5b80f7e075c893856a4ef",
+      "bytes": 2335
+    },
+    {
+      "path": "examples/github-issue/ISSUE-VIEWER-DEPLOYMENT.md",
+      "sha256": "211a16797b02f15d2db7e73c0ce91825c228fced32128116b20282391dac9b93",
+      "bytes": 1740
+    },
+    {
+      "path": "examples/github-issue/OPERATION-DEMO-RESULT.md",
+      "sha256": "b2e5481acbbf59886f7d47933583900d438aa14b40ea303e86b7cd40313c3968",
+      "bytes": 2261
+    },
+    {
+      "path": "examples/github-issue/OPERATION-DEMO.md",
+      "sha256": "25a0aacdd1483bc6ffeddf301c56fad0dd82c2b01feff28b492d028c9d1e69a3",
+      "bytes": 2775
+    },
+    {
+      "path": "examples/github-issue/README.md",
+      "sha256": "b6c076558ea75b86e93148db8977c0f4c27b83cb39c388cb877db73e78ca9446",
+      "bytes": 6294
+    },
+    {
+      "path": "examples/github-issue/agent_operation_demo.py",
+      "sha256": "0ab62c36a65f9782f3b3bccc2c70326b95a0c4312fa196fdaa46c2e4312b9e30",
+      "bytes": 9810
+    },
+    {
+      "path": "examples/github-issue/demo-workspace/README.md",
+      "sha256": "98e87e43ebc9b0b0fcee1f2e878c5d1b1e843c3f596df118424b89479573005c",
+      "bytes": 81
+    },
+    {
+      "path": "examples/github-issue/operation-demo-result.json",
+      "sha256": "30b2fdab2de250cfb7a9a27a919bf6a62b49867d79ed2abc69565702d0773b3c",
+      "bytes": 1687
+    },
+    {
+      "path": "examples/github-pr/README.md",
+      "sha256": "115252d695f264693901a5cb38ff102cb02d8cbe5f69eac91a31d4403169af9a",
+      "bytes": 6191
+    },
+    {
+      "path": "examples/github-pr/agent.py",
+      "sha256": "12cebaa9b09bb3b4d006da443b429fe6caa669e65a9e072364c289e7dd538b70",
+      "bytes": 1917
+    },
+    {
+      "path": "examples/github-pr/build_flow.py",
+      "sha256": "eec156557ba020d95b4d0bcef8cd7982433ce31234e8d35cc622cb00bef72ea6",
+      "bytes": 2440
+    },
+    {
+      "path": "examples/github-pr/evidence.json",
+      "sha256": "a3387bb9250b83c4ab4cbb369161eb94eaf1eca549fc7eb1da23e80401f6e367",
+      "bytes": 5204
+    },
+    {
+      "path": "examples/github-pr/flow.json",
+      "sha256": "5d1fb00bc378dbad439a1c3808dfd1f6e5bac0a2f4641247652325c1b5bfe3fc",
+      "bytes": 33134
+    },
+    {
+      "path": "examples/github-pr/four-node-flow.json",
+      "sha256": "97e956b7759cf5b5c98e5ba60afa209dd347929c7d5970067f1e62b8727ea7c1",
+      "bytes": 46268
+    },
+    {
+      "path": "examples/github-pr/loop-evidence.json",
+      "sha256": "0a540e6884cae122a0f02812f7c2a8c7daf0aa6ae12d1787b63faa6f0465587a",
+      "bytes": 1706
+    },
+    {
+      "path": "examples/github-pr/operation-feedback-evidence.json",
+      "sha256": "801a024f7911c5922322238682d59909e59c5ebac68ed3f77e53c31fa6a99fe5",
+      "bytes": 1287
+    },
+    {
+      "path": "examples/github-pr/operation.py",
+      "sha256": "8921a5b1cae3d027781025d340348d359e21562615eb251b0fe47ec5871b339c",
+      "bytes": 893
+    },
+    {
+      "path": "examples/github-pr/original-agent/PROTOCOL.md",
+      "sha256": "d26329485737a74e0b843a62df81cb864f8a0e38c8381760681f4a013cb8ca0a",
+      "bytes": 3063
+    },
+    {
+      "path": "examples/github-pr/original-agent/README.md",
+      "sha256": "7624afaab20538e043f85ffa9eea60d2dd863d5b3ea9baa9eef32f2b94d12fb6",
+      "bytes": 4925
+    },
+    {
+      "path": "examples/github-pr/original-agent/build_flow.py",
+      "sha256": "f03a38b901c76e70d57053f9f93894d0a15b72962579888f32936fef70ccc80e",
+      "bytes": 2961
+    },
+    {
+      "path": "examples/github-pr/original-agent/cancellation-evidence.json",
+      "sha256": "a24c6b08b9aa932384824584a2e5229fb59718f0ba92d227f0b1ad1fe516265e",
+      "bytes": 751
+    },
+    {
+      "path": "examples/github-pr/original-agent/evidence.json",
+      "sha256": "7f6db3f915ccd96aa10d4063ba9ac3410c08f842560664889c4d912fe1a7bdca",
+      "bytes": 1949
+    },
+    {
+      "path": "examples/github-pr/original-agent/flow.json",
+      "sha256": "4964fea1c973be83111d3decc31fbfbb727812af77c2ca5293cce773d2c3976c",
+      "bytes": 115231
+    },
+    {
+      "path": "examples/github-pr/original-agent/historical-flow-before-skill-input.json",
+      "sha256": "3584ef1108f5be5ddc5b0f7a6f583044fcf31f769874d5368ec86772c63b6b4f",
+      "bytes": 80614
+    },
+    {
+      "path": "examples/github-pr/original-agent/skill/SKILL.md",
+      "sha256": "7e070b2b78acaf058985450088d5f9dd22dd40b1759a7100aa4667c9950b4dba",
+      "bytes": 844
+    },
+    {
+      "path": "examples/github-pr/original-agent/title-skill/SKILL.md",
+      "sha256": "4adc7ae423dd3aafabcc6722efaaa56f54ad60d14072de1568ad59b98328a947",
+      "bytes": 641
+    },
+    {
+      "path": "examples/github-pr/real-evidence.json",
+      "sha256": "349a6b4efefbd88eae8d6a54945b7373b541df526336f804f4e7ea4c652f256f",
+      "bytes": 1821
+    },
+    {
+      "path": "examples/github-pr/result.py",
+      "sha256": "408407e0d5fda3807450b7475e48020c2df691b795c2be9d7bcbc8c741eb5e69",
+      "bytes": 469
+    },
+    {
+      "path": "examples/github-pr/run_fixture.py",
+      "sha256": "5c423253627ffb3b4fb5fa6bd468a8fc80e6e290768f68cc421244aaadf4741e",
+      "bytes": 2884
+    },
+    {
+      "path": "experiments/exp108/AMENDMENT-01.md",
+      "sha256": "600647ff31ccacc6a454ad90df022b9d6322b022aad4e315d7f07eb62931945f",
+      "bytes": 851
+    },
+    {
+      "path": "experiments/exp108/AMENDMENT-02.md",
+      "sha256": "48df580bdd0a0ca61f5c6dddf5a0e17d44ab6bddcacae876b167757d85feafc0",
+      "bytes": 623
+    },
+    {
+      "path": "experiments/exp108/PROTOCOL.md",
+      "sha256": "acfd7b474e7db9e09ef6ee574e3df45c2f16d88872fb113e2867051b913d8a73",
+      "bytes": 3596
+    },
+    {
+      "path": "experiments/exp108/README.md",
+      "sha256": "4e484981820343d1276d52e89ce3ec7ded921c13b9139c0d952ad99c451b9d92",
+      "bytes": 2850
+    },
+    {
+      "path": "experiments/exp108/connection.py",
+      "sha256": "154667268008b240c8ff953cfa1f63ea2ee5a8a65ba1c858e29f19128db2abcc",
+      "bytes": 10408
+    },
+    {
+      "path": "experiments/exp108/fake_provider.py",
+      "sha256": "636f5f2867dcce20baebea503f95e3f07c31c656b383c2476781747673348789",
+      "bytes": 3974
+    },
+    {
+      "path": "experiments/exp108/observation-v2.json",
+      "sha256": "85d971b43c9cfed93cdbb31b3246beb59608d699f1aa385e5a4cdf1003c24c7f",
+      "bytes": 2170
+    },
+    {
+      "path": "experiments/exp108/observation.json",
+      "sha256": "6ae2e418007297ebecc8b65a28421310f28be02ec9a0d33260ff621e028231b2",
+      "bytes": 2005
+    },
+    {
+      "path": "experiments/exp108/probe.py",
+      "sha256": "fc47398555586ba47b67ad9ee35ac983b10a0c92ed815d2fe503fd03af57d5bc",
+      "bytes": 15247
+    },
+    {
+      "path": "experiments/exp108/test_probe.py",
+      "sha256": "57ab6be8277458080a454753035c72aceb0fa59c528f7b5e73c60d09847f152d",
+      "bytes": 611
+    },
+    {
+      "path": "experiments/issue-integration/32/README.md",
+      "sha256": "e0aa63e6573a88a07e5ba549bc421ea05160debab5ca0a46d172b5969761a20a",
+      "bytes": 2233
+    },
+    {
+      "path": "experiments/issue-integration/44/README.md",
+      "sha256": "1b14987aabe1ff46ba554d594e21033048ca686f45f9ab7ecf9c04d10fb6ca49",
+      "bytes": 2552
+    },
+    {
+      "path": "experiments/issue-integration/44/probe.py",
+      "sha256": "eeb4b910df5b3743568f5aad56c812fd439ddf7334c30e1bd8a3c1427b03f85d",
+      "bytes": 5309
+    },
+    {
+      "path": "experiments/issue-integration/45/README.md",
+      "sha256": "ed18ff88c5c64722793b932575ffb2114ec69a08f41c4382971e6f2d59c5fbc5",
+      "bytes": 5540
+    },
+    {
+      "path": "experiments/issue-integration/45/evidence.json",
+      "sha256": "3573d6a7d581228990487b32f7d5b2169df59b8bed8c3a92ce43c35d34bab5ac",
+      "bytes": 4809
+    },
+    {
+      "path": "experiments/issue-integration/45/live_probe.py",
+      "sha256": "a12265ed2e1afd2c81a8fcbf86ca3633bee851db1e2f17bb365464405c848852",
+      "bytes": 5589
+    },
+    {
+      "path": "tests/test_agent_issue_operations_demo.py",
+      "sha256": "577abaa3aac1208cb97da378660997d8e4d8a9318806f9206940795c6c37fcff",
+      "bytes": 5257
+    },
+    {
+      "path": "tests/test_exp108_ci.py",
+      "sha256": "af6722c7decc345938b926514edb354733614d8ed95328f6cc6a8dd3efb14245",
+      "bytes": 928
+    },
+    {
+      "path": "tests/test_issue_publication_live_probe.py",
+      "sha256": "e3fa7a3ebf4990db1963dc2bd435674d111a61153508ba93fcc3587a77813e8f",
+      "bytes": 1777
+    },
+    {
+      "path": "tests/test_issue_publication_probe.py",
+      "sha256": "3b6658798696ca2df321de5b21d17aef961e1e9e9364c5e9d07f01b9be6d72e2",
+      "bytes": 5686
+    }
+  ]
+}
