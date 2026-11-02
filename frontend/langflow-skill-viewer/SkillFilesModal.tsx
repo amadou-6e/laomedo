@@ -140,8 +140,10 @@ function SkillWorkspace({ skillId, initialRevision, setOpen }: { skillId: string
     className={fullPage ? "!max-h-[100dvh] !max-w-none !rounded-none" : "!min-w-0 !max-w-[100dvw]"}
     onEscapeKeyDown={(event) => {
       // Radix handles Escape at document level before the card's React handler.
-      if (manual.error) { event.preventDefault(); manual.dismissError(); return; }
-      if (event.target instanceof Element && event.target.closest("[data-error-code]")) { event.preventDefault(); return; }
+      // Consume the native event too: removing the card during document capture
+      // must not send the same Escape to outer node/browser dismissal handlers.
+      if (manual.error) { event.preventDefault(); event.stopImmediatePropagation(); manual.dismissError(); return; }
+      if (event.target instanceof Element && event.target.closest("[data-error-code]")) { event.preventDefault(); event.stopImmediatePropagation(); return; }
       if (dismissSkillActions(event)) { event.preventDefault(); return; }
       if (navigation.open.Find && document.activeElement?.closest("#skill-Find-body")) {
         event.preventDefault(); navigation.hideFind(); content.current?.querySelector<HTMLButtonElement>("#skill-Find-toggle")?.focus();
