@@ -17,7 +17,7 @@ import { useDarkStore } from "@/stores/darkStore";
 import BaseModal from "@/modals/baseModal";
 import CommitTree, { RevisionDiff, type Commit, type SkillFile, type Snapshot } from "./SkillHistory";
 import SkillSplitPane from "./SkillSplitPane";
-import SkillExplorer from "./SkillExplorer";
+import SkillFileManager, { type SkillFileManagerHandle } from "./SkillFileManager";
 import SkillOverview from "./SkillOverview";
 import { VscChromeMaximize, VscChromeRestore, VscCode, VscLoading, VscPreview } from "react-icons/vsc";
 import { useSkillEditing } from "./SkillEditing";
@@ -87,11 +87,18 @@ function SkillWorkspace({ skillId, initialRevision, setOpen }: { skillId: string
   const [selectedCommit, setSelectedCommit] = useState<Commit | null>(null);
   const [discardAction, setDiscardAction] = useState<"close" | "discard" | null>(null);
   const [closeNotice, setCloseNotice] = useState(false);
-  const manual = useSkillEditing(skillId, revision, snapshot, setRevision);
+  const [fileImporting, setFileImporting] = useState(false);
+  const fileActions = useRef<SkillFileManagerHandle>(null);
+  const manual = useSkillEditing(skillId, revision, snapshot, setRevision, fileImporting);
   const comparison = useRegistryComparison(skillId, manual.state?.latest_revision || "", manual.files);
   const [comparisonPath, setComparisonPath] = useState<string | null>(null);
   const navigationFiles = [...manual.files, ...historicalFiles.filter((old) => !manual.files.some((current) => current.path === old.path))];
   const navigation = useSkillNavigation(`${skillId}:${revision}`, navigationFiles.map((file) => file.path));
+  useEffect(() => {
+    if (selectedCommit || !snapshot || snapshot.revision_id !== revision) return;
+    setTabs((current) => current.every((path) => manual.files.some((file) => file.path === path)) ? current : current.filter((path) => manual.files.some((file) => file.path === path)));
+    setActive((current) => manual.files.some((file) => file.path === current) ? current : manual.files.find((file) => file.path === "SKILL.md")?.path || manual.files[0]?.path || "");
+  }, [manual.files, selectedCommit, snapshot, revision]);
   useEffect(() => {
     const controller = new AbortController();
     setSnapshot(null); setTabs([]); setActive(""); setError(""); setLoading(true); setPreview(false); setSelectedCommit(null); setHistoricalFiles([]); setMatch(null);
@@ -123,7 +130,7 @@ function SkillWorkspace({ skillId, initialRevision, setOpen }: { skillId: string
   };
   const requestClose = (value: boolean) => {
     if (value) return;
-    if (manual.busy || manual.pending) { setCloseNotice(true); return; }
+    if (manual.busy || manual.pending || fileImporting) { setCloseNotice(true); return; }
     if (manual.dirty) setDiscardAction("close"); else setOpen(false);
   };
   return <div className="contents" onKeyDownCapture={(event) => {
@@ -146,6 +153,7 @@ function SkillWorkspace({ skillId, initialRevision, setOpen }: { skillId: string
       // Other presenters own their dismissal; let the card's handler receive
       // Escape after preventing Radix from dismissing the workspace.
       if (event.target instanceof Element && event.target.closest("[data-error-code]")) { event.preventDefault(); return; }
+      if (fileActions.current?.dismiss()) { event.preventDefault(); event.stopImmediatePropagation(); return; }
       if (dismissSkillActions(event)) { event.preventDefault(); return; }
       if (navigation.open.Find && document.activeElement?.closest("#skill-Find-body")) {
         event.preventDefault(); navigation.hideFind(); content.current?.querySelector<HTMLButtonElement>("#skill-Find-toggle")?.focus();
@@ -166,6 +174,7 @@ function SkillWorkspace({ skillId, initialRevision, setOpen }: { skillId: string
       {manual.controlsUnavailable && !manual.busy && <button type="button" className="mb-2 self-start rounded border px-3 py-1 text-sm" onClick={manual.refresh}>Retry edit controls</button>}
       {manual.state && !manual.state.edit_enabled && <p className="mb-2 text-xs text-muted-foreground">Manual editing is disabled for this Skill in local configuration.</p>}
       {closeNotice && (manual.busy || manual.pending) && <p role="status" className="mb-2 shrink-0 text-sm">Wait for confirmation, or use Check result before closing. Closing cannot cancel a save or publication.</p>}
+      {fileImporting && <p role="status" className="mb-2 inline-flex shrink-0 items-center gap-1 text-sm"><VscLoading aria-hidden="true" className="animate-spin" />Importing local files...</p>}
       {manual.status && <p role="status" className="mb-2 shrink-0 text-sm">{manual.status}</p>}
       {discardAction && <div role="alertdialog" aria-label="Unsaved Skill changes" className="mb-2 shrink-0 rounded border p-2 text-sm">
         <p>Discard working changes and reload the latest saved files? Saved commits remain in history. Copy any text you want to keep first.</p><div className="mt-2 flex gap-2">
@@ -192,12 +201,18 @@ function SkillWorkspace({ skillId, initialRevision, setOpen }: { skillId: string
         files={<>
         <nav aria-label="Skill file explorer" className="min-h-0 flex-1 overflow-auto pb-2">
           <div className="px-2 text-xs">{selectedCommit && <button type="button" className="float-right normal-case underline" onClick={() => { setSelectedCommit(null); setHistoricalFiles([]);
-            const currentTabs = tabs.filter((path) => snapshot.files.some((file) => file.path === path));
-            const next = snapshot.files.some((file) => file.path === active) ? active :
-              currentTabs[0] || snapshot.files.find((file) => file.path === "SKILL.md")?.path || snapshot.files[0]?.path || "";
+            const currentTabs = tabs.filter((path) => manual.files.some((file) => file.path === path));
+            const next = manual.files.some((file) => file.path === active) ? active :
+              currentTabs[0] || manual.files.find((file) => file.path === "SKILL.md")?.path || manual.files[0]?.path || "";
             setTabs(currentTabs.includes(next) || !next ? currentTabs : [...currentTabs, next]); setActive(next);
           }}>Current source</button>}</div>
-          <SkillExplorer files={navigationFiles} select={select} active={active} collapsed={navigation.collapsedFolders} onToggle={navigation.toggleFolder} />
+          <SkillFileManager ref={fileActions} manual={manual} files={navigationFiles} select={select} active={active}
+            collapsed={navigation.collapsedFolders} onToggle={navigation.toggleFolder} portal={content.current} onImporting={setFileImporting}
+            disabledReason={selectedCommit ? "Historical comparison is read only." : fileImporting ? "Importing local files." : manual.busy ? "Publishing changes." : manual.pending ? "Check the pending result before changing files." : !manual.editing ? "File changes require local edit permission at the current head." : ""}
+            onRemap={(source, destination) => {
+              const map = (path: string) => path === source || path.startsWith(source + "/") ? destination + path.slice(source.length) : path;
+              setTabs((current) => [...new Set(current.map(map))]); setActive((current) => map(current)); setComparisonPath(null); setPreview(false);
+            }} />
         </nav>
         </>} commits={<CommitTree key={`${skillId}:${revision}`} skillId={skillId} revision={revision}
           selected={selectedCommit?.commit_id || ""} onSelect={(commit) => { setComparisonPath(null); setSelectedCommit(commit); }} />} />}>
@@ -225,7 +240,7 @@ function SkillWorkspace({ skillId, initialRevision, setOpen }: { skillId: string
             {file.kind === "binary" ? <p className="p-4">Preview unavailable for binary files.<br /><code>{file.file_hash}</code></p> :
               preview && markdown ? <div className="prose prose-sm max-w-none flex-1 overflow-auto p-4 dark:prose-invert" data-testid="skill-markdown-preview">
                 <ReactMarkdown skipHtml components={{ a: ({ children }) => <span>{children}</span>, img: ({ alt }) => <span>[Image: {alt || "not loaded"}]</span> }}>{file.text || ""}</ReactMarkdown>
-              </div> : <Source file={file} match={match} editable={manual.editing && !manual.busy && !manual.pending} onChange={manual.update} />}
+              </div> : <Source file={file} match={match} editable={manual.editing && !manual.busy && !manual.pending && !fileImporting} onChange={manual.update} />}
           </>}
           {!file && <p className="p-4">Select a file.</p>}
         </section>}
@@ -240,15 +255,15 @@ function SkillWorkspace({ skillId, initialRevision, setOpen }: { skillId: string
           {manual.candidate && <span className="block text-muted-foreground">Saved commit awaiting publication</span>}
         </div>
         <input aria-label="Commit message" placeholder="Commit message (optional)" value={manual.message} maxLength={2000}
-          disabled={manual.busy || !!manual.pending} className="min-w-0 max-w-64 rounded border bg-background px-2 py-1"
+          disabled={manual.busy || !!manual.pending || fileImporting} className="min-w-0 max-w-64 rounded border bg-background px-2 py-1"
           onChange={(event) => manual.setMessage(event.target.value)} />
         {manual.busy && <span role="status" className="inline-flex items-center gap-1"><VscLoading className="animate-spin" aria-hidden="true" />Publishing…</span>}
         {!manual.busy && manual.pending && <button type="button" className="rounded border px-3 py-1" onClick={manual.reconcile}>Check result</button>}
         {manual.state && (!manual.state.can_edit || !manual.state.can_publish) && !manual.busy && !manual.pending && <button type="button" className="rounded border px-3 py-1" onClick={manual.refresh}>Retry edit controls</button>}
-        <button type="button" className="rounded border px-3 py-1 disabled:opacity-50" disabled={manual.busy || !!manual.pending}
+        <button type="button" className="rounded border px-3 py-1 disabled:opacity-50" disabled={manual.busy || !!manual.pending || fileImporting}
           onClick={() => setDiscardAction("discard")}>Discard</button>
         <button type="button" className="rounded border bg-primary px-3 py-1 text-primary-foreground disabled:opacity-50"
-          disabled={!comparison.base || !comparison.paths.length || !manual.state?.can_edit || !manual.state?.can_publish || manual.busy || !!manual.pending} onClick={() => { setComparisonPath(null); manual.publish(); }}>Publish</button>
+          disabled={!comparison.base || !comparison.paths.length || !manual.state?.can_edit || !manual.state?.can_publish || manual.busy || !!manual.pending || fileImporting} onClick={() => { setComparisonPath(null); manual.publish(); }}>Publish</button>
       </div>}
       </div>
       {manual.error && <ErrorPopup message={manual.error} context={{ nodeId: "skill-viewer", nodeLabel: "Skill workspace", operation: manual.pending?.action }} onDismiss={manual.dismissError} />}

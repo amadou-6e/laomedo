@@ -37,6 +37,11 @@ def apply(checkout):
         ["git", "-C", str(checkout), "apply", "--check", str(patch)], check=True
     )
     subprocess.run(["git", "-C", str(checkout), "apply", str(patch)], check=True)
+    file_patch = overlay / "file-actions-dependencies.patch"
+    subprocess.run(
+        ["git", "-C", str(checkout), "apply", "--check", str(file_patch)], check=True
+    )
+    subprocess.run(["git", "-C", str(checkout), "apply", str(file_patch)], check=True)
     subprocess.run(
         ["git", "-C", str(checkout), "apply", "--check", str(models_patch)], check=True
     )
@@ -112,6 +117,10 @@ def apply(checkout):
         "SkillIcons.tsx",
         "SkillExplorer.tsx",
         "SkillExplorer.test.tsx",
+        "SkillFileManager.tsx",
+        "SkillFileManager.test.tsx",
+        "SkillWorkingTree.ts",
+        "SkillWorkingTree.test.ts",
         "SkillEditing.tsx",
         "SkillEditing.test.tsx",
         "SkillPublication.tsx",
@@ -135,6 +144,10 @@ def apply(checkout):
     shutil.copy2(
         overlay / "MONACO-LICENSE.txt",
         checkout / "src/frontend/public/monaco-LICENSE.txt",
+    )
+    shutil.copy2(
+        overlay / "skill-files-NOTICE.txt",
+        checkout / "src/frontend/public/skill-files-NOTICE.txt",
     )
     shutil.copy2(
         overlay / "skill-icons-NOTICE.txt",

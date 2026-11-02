@@ -12,16 +12,44 @@ Disclosure is independent of file selection and preserved while typing or hiding
 Find; global Open/Collapse all includes the search groups. While editing, Find
 searches the current working text. Historical comparisons remain immutable.
 
-`SkillEditing.tsx` owns the manual working copy, canonical request bindings and
-uncertain-response reconciliation. `SkillPublication.tsx` owns the separate
-canonical-current-to-candidate per-file review. The host defaults manual writes
-to denied; see the Skill operation interface README for explicit local grants.
-Edit buffers several existing text files; Save commit submits all changes with
-one message and creates one history commit. Review publication then Publish
-revision promotes that exact reviewed candidate in the registry. Neither action
-updates graph pins, source files or Git. New-file creation, deletion and binary
-editing are not exposed by this initial manual UI; the underlying proposal
-contract retains its existing atomic additions/deletions support.
+The Source/Preview toolbar is replaced by one fixed icon beside scrollable file
+tabs. Its tooltip and accessible name say Preview Markdown or Show source. It
+renders the working copy and preserves buffers; Ctrl+F and Find results return
+to source.
+
+| Concern | Owner | Interface |
+| --- | --- | --- |
+| Working files and exact save/publication stages | `SkillEditing.tsx` | `update`, `replaceFiles`, `discard`, `publish`, `reconcile`; retain uncertain request identity |
+| Portable paths, byte admission and patch projection | `SkillWorkingTree.ts` | `validateFilePath`, `readLocalFiles`, `moveFiles`, `deleteFiles`, `validateWorkingOperation`, `fileEdits` |
+| Explorer menus, forms, clipboard and drag/drop | `SkillFileManager.tsx` | `SkillFileManager`; `dismiss` closes only its transient menu/form and restores focus |
+| File-tree rows and disclosure | `SkillExplorer.tsx` | `SkillExplorer`; optional row decoration leaves ordinary selection/disclosure reusable |
+| Full cumulative registry comparison | `SkillPublication.tsx` | `useRegistryComparison`; all changed paths, including saved unpublished commits |
+
+Authorised text is editable immediately. Right-click a file, folder or explorer
+background, or press Shift+F10/ContextMenu on the focused target, for Upload files,
+Rename, Move to, Delete and Copy relative path. Required SKILL.md stays at root.
+Move to provides keyboard parity with dragging files/folders into a folder or the
+root background. External file drops and the multi-file picker import local bytes;
+directory imports and empty folder identity are unsupported. No implicit overwrite
+or folder merge occurs. Rename/move preserve unsaved content; deletion asks first.
+All changes remain in the working copy until Publish. Discard restores saved files.
+
+Publish saves one atomic changed-file batch and promotes that exact commit to the
+registry. The conditional bottom-right footer discloses cumulative changed paths
+and offers per-file comparison. Graph pins, source files and Git stay unchanged.
+Host grants and the versioned edit policy remain authoritative at save/promotion.
+Read-only/historical/importing/pending states disable mutations with a reason.
+Clipboard refusal retains a selectable Relative path field for manual copying.
+
+Binary assets retain exact uploaded bytes or an immutable-base source reference
+when moved. Their editor is metadata-only. Text uses UTF-8 without BOM/newline
+normalisation. Uploads are bounded to 512 KiB/file, 128 files, 4 MiB bundle; the 4 MiB
+encoded-request limit is usually tighter for new binary files (base64 overhead).
+`js-sha256` 1.0.0 is pinned with integrity in the dependency patch and bundled
+locally; it does not require WebCrypto/secure origins. Attribution is shipped in
+`skill-files-NOTICE.txt`. No uploaded file executes, no URL is fetched, and no
+archive is extracted. Portable path/collision/secret-name refusals preserve the
+whole previous working tree; the shared error catalogue owns explanation/recovery.
 
 Close/discard protects unsaved work; an in-flight or uncertain write keeps its
 identity until Check result reconciles it. Browser unload warns about unsaved
@@ -72,7 +100,7 @@ a CDN. Retain [Monaco's MIT license](MONACO-LICENSE.txt) with distributed builds
 the upstream Langflow license also applies to its patched files.
 
 The selected LaomedoSkill node exposes Skill files instead of primary Code.
-A read-only Monaco viewer includes nested folder navigation, open-file tabs,
+The Monaco workspace includes nested folder navigation, open-file tabs,
 source search, Markdown preview and binary metadata. The panel snapshots the
 selected ID/revision, clears old data while loading, and handles fixed errors
 with Retry. Opening, browsing or closing never executes the graph or changes a

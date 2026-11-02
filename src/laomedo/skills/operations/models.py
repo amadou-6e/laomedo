@@ -6,6 +6,9 @@ the public contract and stable error categories.
 
 from __future__ import annotations
 
+import base64
+import binascii
+
 from laomedo.skills.registry.paths import validate_relative_path
 
 from pydantic import BaseModel
@@ -29,7 +32,11 @@ from laomedo.skills.registry.errors import SkillStoreError
 
 
 class FileEdit(BaseModel):
-    """One admitted relative file replacement or deletion."""
+    """One bounded replacement, deletion or immutable-base byte copy.
+
+    Existing text/deletion projections remain unchanged. Binary encoding is a
+    transport detail; only decoded bytes enter revision identity.
+    """
 
     model_config = ConfigDict(
         strict=True, frozen=True, extra="forbid", hide_input_in_errors=True
@@ -40,22 +47,91 @@ class FileEdit(BaseModel):
         description="Admitted relative path in the editable skill bundle.",
     )
     content: str | None = Field(
-        description="UTF-8 replacement text; null requests deletion."
+        default=None, description="UTF-8 text, base64 bytes, or null for deletion."
+    )
+    encoding: Literal["utf-8", "base64"] = "utf-8"
+    source_path: str | None = Field(
+        default=None,
+        description="Copy bytes from this file in the exact reserved base.",
     )
 
-    @field_validator("path")
+    @field_validator("path", "source_path")
     @classmethod
     def validate_path(cls, value):
         """Admit one portable edit path and retain the established path refusal category."""
+        if value is None:
+            return value
+        if len(value) > 512:
+            raise SkillStoreError("skill_operation_invalid")
         return validate_relative_path(value)
 
-    @field_validator("content")
-    @classmethod
-    def validate_content(cls, value):
-        """Accept complete UTF-8 replacement text or a deletion marker; reject unsupported content."""
-        if value is not None and len(value.encode()) > 512 * 1024:
+    @model_validator(mode="after")
+    def validate_content(self):
+        """Keep forms exclusive and validate bounded canonical binary before allocation."""
+        if self.source_path is not None:
+            if (
+                "content" in self.model_fields_set
+                or "encoding" in self.model_fields_set
+            ):
+                raise SkillStoreError("skill_operation_invalid")
+        elif "content" not in self.model_fields_set:
             raise SkillStoreError("skill_operation_invalid")
-        return value
+        elif self.encoding == "base64":
+            if self.content is None or len(self.content) > 4 * ((512 * 1024 + 2) // 3):
+                raise SkillStoreError("skill_operation_invalid")
+            try:
+                decoded = base64.b64decode(self.content, validate=True)
+            except (ValueError, binascii.Error):
+                raise SkillStoreError("skill_operation_invalid") from None
+            if (
+                len(decoded) > 512 * 1024
+                or base64.b64encode(decoded).decode("ascii") != self.content
+            ):
+                raise SkillStoreError("skill_operation_invalid")
+        elif self.content is not None and len(self.content.encode()) > 512 * 1024:
+            raise SkillStoreError("skill_operation_invalid")
+        return self
+
+    @classmethod
+    def from_payload(cls, value):
+        """Admit the three exact wire forms without coercion or parser disclosures."""
+        if not isinstance(value, dict) or not (
+            set(value) == {"path", "content"}
+            or set(value) == {"path", "source_path"}
+            or set(value) == {"path", "content", "encoding"}
+            and value["encoding"] == "base64"
+        ):
+            raise SkillStoreError("skill_operation_invalid")
+        validate_relative_path(value["path"])
+        if "source_path" in value:
+            validate_relative_path(value["source_path"])
+        try:
+            return cls(**value)
+        except (ValueError, TypeError):
+            raise SkillStoreError("skill_operation_invalid") from None
+
+    def to_payload(self):
+        """Preserve legacy request equality; emit new fields only for the new forms."""
+        if self.source_path is not None:
+            return {"path": self.path, "source_path": self.source_path}
+        result = {"path": self.path, "content": self.content}
+        if self.encoding == "base64":
+            result["encoding"] = self.encoding
+        return result
+
+    def to_bytes(self, base: dict[str, bytes]) -> bytes | None:
+        """Resolve only against immutable before-bytes, independent of batch ordering."""
+        if self.source_path is not None:
+            if self.source_path not in base:
+                raise SkillStoreError("skill_file_missing")
+            return base[self.source_path]
+        if self.content is None:
+            return None
+        return (
+            base64.b64decode(self.content)
+            if self.encoding == "base64"
+            else self.content.encode()
+        )
 
 
 class SkillProposal(BaseModel):
@@ -114,25 +190,16 @@ class SkillProposal(BaseModel):
         ):
             raise SkillStoreError("skill_operation_invalid")
         seen = set()
-        for edit in value["files"]:
-            if not isinstance(edit, dict) or set(edit) != {"path", "content"}:
-                raise SkillStoreError("skill_operation_invalid")
-            path = validate_relative_path(edit["path"])
-            if (
-                path.casefold() in seen
-                or len(path) > 512
-                or edit["content"] is not None
-                and (
-                    not isinstance(edit["content"], str)
-                    or len(edit["content"].encode()) > 512 * 1024
-                )
-            ):
+        edits = tuple(FileEdit.from_payload(edit) for edit in value["files"])
+        for edit in edits:
+            path = edit.path
+            if path.casefold() in seen:
                 raise SkillStoreError("skill_operation_invalid")
             seen.add(path.casefold())
         return cls(
             action=value["action"],
             message=value["message"],
-            files=tuple(FileEdit(**edit) for edit in value["files"]),
+            files=edits,
         )
 
     def to_payload(self):
@@ -140,7 +207,7 @@ class SkillProposal(BaseModel):
         return {
             "action": self.action,
             "message": self.message,
-            "files": [edit.model_dump() for edit in self.files],
+            "files": [edit.to_payload() for edit in self.files],
         }
 
 

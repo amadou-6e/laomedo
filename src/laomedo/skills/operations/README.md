@@ -31,7 +31,7 @@ does not promote canonical latest or publish Git commits.
 ## Canonical record interfaces
 
 SkillProposal.from_payload/to_payload and EditorProvenance.from_payload/to_payload
-own dictionary boundaries and validation. FileEdit validates path/content;
+own dictionary boundaries and validation. FileEdit validates path/content and mutually exclusive byte representations;
 SkillProposal validates unique paths; EditorProvenance validates provenance.
 SkillCommit.from_import/from_registered_revision construct retained import or
 legacy revision registrations; SkillCommit.to_record preserves their hash payload.
@@ -86,9 +86,25 @@ invented original publication time after crash recovery.
 
 Neither action edits source repositories or existing graph pins. No model runs,
 validation commands or Git operations execute through this interface. Editing
-binary files and crash-persistent browser working copies remain unsupported.
+binary contents in place and crash-persistent browser working copies remain unsupported.
+Binary uploads/moves/deletions use the same atomic transaction under asset policy.
 
 Confirmed save/publication receipts remain readable for the same exact request
 after write-grant revocation or policy changes. This is reconciliation of an
 existing effect, never renewed mutation authority. Uncompleted requests still
 require the current manual grant and exact applicable policy.
+
+
+## File edit representations
+
+| FileEdit method | Contract |
+| --- | --- |
+| `from_payload(value)` | Admit exact text/deletion, canonical base64 or immutable source-copy shapes; reject coercion/mixed forms with stable categories. |
+| `to_payload()` | Keep old text/deletion wire dictionaries unchanged, including replay equality; emit encoding/source_path only for their new forms. |
+| `to_bytes(base)` | Return exact replacement bytes or deletion; copy only from the reserved before-inventory, independent of deletion order. Never read a host path or same-batch new file. |
+
+Binary content is not a separate publishing path. Raw bytes determine tree/file
+identity; the journal retains old/new binary metadata and hashes. Save and
+cumulative promotion both require exact allowed paths, additions/deletions and
+size policy. Non-text changes additionally require allow_assets and a fixed inert
+suffix from registry settings; script/dependency restrictions remain intact.

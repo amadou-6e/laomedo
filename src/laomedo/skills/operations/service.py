@@ -202,12 +202,13 @@ class SkillOperations:
             self.store.revision(row["skill"], base["revision_id"])
             after = dict(before)
             for edit in operation.files:
-                if edit.content is None:
+                content = edit.to_bytes(before)
+                if content is None:
                     if edit.path not in after:
                         raise SkillStoreError("skill_file_missing")
                     del after[edit.path]
                 else:
-                    after[edit.path] = edit.content.encode()
+                    after[edit.path] = content
             if not has_description(after.get("SKILL.md", b"").decode("utf-8-sig")):
                 raise SkillStoreError("skill_summary_required")
             validate_bundle(after)

@@ -1,8 +1,11 @@
 import type { SkillFile } from "./SkillHistory";
 import { SkillChevron, SkillFileIcon } from "./SkillIcons";
+import type { ReactElement, ReactNode } from "react";
 
 type Branch = { name: string; path: string; children?: Branch[] };
-type ExplorerState = { active: string; collapsed: Set<string>; select: (path: string) => void; onToggle: (path: string) => void };
+export type ExplorerEntry = { path: string; folder: boolean };
+type ExplorerState = { active: string; collapsed: Set<string>; select: (path: string) => void; onToggle: (path: string) => void;
+  decorate?: (entry: ExplorerEntry, row: ReactElement) => ReactNode };
 
 function tree(files: SkillFile[]): Branch[] {
   const roots: Branch[] = [];
@@ -24,8 +27,7 @@ function tree(files: SkillFile[]): Branch[] {
 
 function Folder({ item, ...state }: ExplorerState & { item: Branch }) {
   const expanded = !state.collapsed.has(item.path);
-  return <li className="min-w-0">
-    <button type="button" title={item.path} className="flex h-7 w-full min-w-0 items-center gap-1 rounded px-1 text-left text-sm hover:bg-muted"
+  const row = <button type="button" title={item.path} className="flex h-7 w-full min-w-0 items-center gap-1 rounded px-1 text-left text-sm hover:bg-muted"
       aria-expanded={item.children ? expanded : undefined}
       aria-current={!item.children && state.active === item.path ? "true" : undefined}
       onClick={() => item.children ? state.onToggle(item.path) : state.select(item.path)}>
@@ -34,7 +36,9 @@ function Folder({ item, ...state }: ExplorerState & { item: Branch }) {
         <SkillFileIcon path={item.path} />
       </>}
       <span className="min-w-0 truncate">{item.name}</span>
-    </button>
+    </button>;
+  return <li className="min-w-0">
+    {state.decorate ? state.decorate({ path: item.path, folder: !!item.children }, row) : row}
     {item.children && <ul hidden={!expanded} style={{ display: expanded ? undefined : "none" }} className="ml-4 min-w-0 border-l">
       {item.children.map((child) => <Folder key={child.path} item={child} {...state} />)}
     </ul>}

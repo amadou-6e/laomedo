@@ -3,6 +3,7 @@ import { v4 as uuid } from "uuid";
 import { api } from "@/controllers/API/api";
 import { getBaseUrl } from "@/customization/utils/urls";
 import type { Snapshot } from "./SkillHistory";
+import { fileActionErrors, fileEdits, validateEditSize, validateWorkingOperation, workingFiles, type FileBuffers, type WorkingFile } from "./SkillWorkingTree";
 
 export type SkillEditorState = { skill_id: string; selected_revision: string; head_revision: string; head_commit: string;
   latest_revision: string; can_edit: boolean; can_publish: boolean; edit_enabled: boolean };
@@ -11,11 +12,11 @@ type Candidate = { revision: string; commit: string };
 type Pending = { action: "save" | "publish"; body: Record<string, unknown>; expectedLatest: string };
 const manualUrl = (action: string) => `${getBaseUrl()}laomedo/skills/manual/${action}`;
 
-export function useSkillEditing(skillId: string, revision: string, snapshot: Snapshot | null, onSaved: (revision: string) => void) {
+export function useSkillEditing(skillId: string, revision: string, snapshot: Snapshot | null, onSaved: (revision: string) => void, importing = false) {
   const [state, setState] = useState<SkillEditorState | null>(null);
   const [controlsUnavailable, setControlsUnavailable] = useState(false);
   const [refresh, setRefresh] = useState(0);
-  const [buffers, setBuffers] = useState<Record<string, string>>({});
+  const [buffers, setBuffers] = useState<FileBuffers>(new Map());
   const [candidate, setCandidate] = useState<Candidate | null>(null);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
@@ -34,16 +35,13 @@ export function useSkillEditing(skillId: string, revision: string, snapshot: Sna
     }).catch(() => { if (!controller.signal.aborted) { setControlsUnavailable(true); setError("skill_manual_controls_unavailable"); } });
     return () => controller.abort();
   }, [skillId, revision, refresh]);
-  const changes = useMemo(() => (snapshot?.revision_id === revision ? snapshot.files : []).filter((file) => file.kind === "text" &&
-    Object.prototype.hasOwnProperty.call(buffers, file.path) && buffers[file.path] !== file.text)
-    .map((file) => ({ path: file.path, content: buffers[file.path] })), [snapshot, revision, buffers]);
+  const files = useMemo(() => workingFiles(snapshot?.files || [], buffers), [snapshot, buffers]);
+  const changes = useMemo(() => snapshot?.revision_id === revision ? fileEdits(snapshot.files, files) : [], [snapshot, revision, files]);
   const dirty = changes.length > 0 || !!candidate;
-  const files = useMemo(() => (snapshot?.files || []).map((file) => Object.prototype.hasOwnProperty.call(buffers, file.path) ?
-    { ...file, text: buffers[file.path], bytes: new TextEncoder().encode(buffers[file.path]).length } : file), [snapshot, buffers]);
   useEffect(() => {
     // Only a clean workspace follows the head. Never rebase a working buffer.
-    if (state?.edit_enabled && state.head_revision !== revision && !dirty && !busy && !pending) onSaved(state.head_revision);
-  }, [state, revision, dirty, busy, pending, onSaved]);
+    if (state?.edit_enabled && state.head_revision !== revision && !dirty && !busy && !pending && !importing) onSaved(state.head_revision);
+  }, [state, revision, dirty, busy, pending, importing, onSaved]);
   useEffect(() => {
     if (!dirty && !pending) return;
     const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
@@ -51,8 +49,8 @@ export function useSkillEditing(skillId: string, revision: string, snapshot: Sna
     return () => window.removeEventListener("beforeunload", warn);
   }, [dirty, pending]);
   const discard = () => {
-    if (busy || pending) return;
-    setBuffers({}); setCandidate(null); setMessage(""); setError(""); setStatus("");
+    if (busy || pending || importing) return;
+    setBuffers(new Map()); setCandidate(null); setMessage(""); setError(""); setStatus("");
     if (state) onSaved(state.head_revision);
     setRefresh((value) => value + 1);
   };
@@ -70,7 +68,7 @@ export function useSkillEditing(skillId: string, revision: string, snapshot: Sna
           const saved = data as SaveResult;
           if (saved.skill?.skill_id !== skillId || !saved.skill.revision_id || saved.skill.tree_hash !== saved.skill.revision_id || !saved.commit?.commit_id) throw Error();
           const next = { revision: saved.skill.revision_id, commit: saved.commit.commit_id };
-          setCandidate(next); setBuffers({}); onSaved(next.revision);
+          setCandidate(next); setBuffers(new Map()); onSaved(next.revision);
           request = { action: "publish", expectedLatest: request.expectedLatest, body: {
             skill_id: skillId, revision_id: next.revision, commit_id: next.commit, expected_latest: request.expectedLatest,
           } };
@@ -92,9 +90,23 @@ export function useSkillEditing(skillId: string, revision: string, snapshot: Sna
   };
   return { state, controlsUnavailable, files, editing: !!state?.can_edit, dirty, candidate, changes, message, setMessage, busy, pending, error, status,
     dismissError: () => setError(""), refresh: () => { setError(""); setRefresh((value) => value + 1); }, discard,
-    update: (path: string, text: string) => { setBuffers((old) => ({ ...old, [path]: text })); setStatus(""); },
+    reportError: (code: string) => setError(code),
+    update: (path: string, text: string) => {
+      const file = files.find((entry) => entry.path === path);
+      if (!file || file.kind !== "text" || !state?.can_edit || busy || pending || importing) return;
+      setBuffers((old) => new Map(old).set(path, { ...file, text, bytes: new TextEncoder().encode(text).length })); setStatus("");
+    },
+    replaceFiles: (next: WorkingFile[]) => {
+      if (!snapshot || !state?.can_edit || busy || pending || submitting.current) return false;
+      try { validateWorkingOperation(snapshot.files, next); }
+      catch (failure) { setError(failure instanceof Error && (fileActionErrors as readonly string[]).includes(failure.message) ? failure.message : "skill_manual_file_invalid"); return false; }
+      const staged: FileBuffers = new Map(next.map((file) => [file.path, file]));
+      for (const file of snapshot.files) if (!staged.has(file.path)) staged.set(file.path, null);
+      setBuffers(staged); setStatus(""); return true;
+    },
     publish: () => {
-      if (!state?.can_publish || !state.can_edit || !dirty || busy || pending) return;
+      if (!state?.can_publish || !state.can_edit || !dirty || busy || pending || importing) return;
+      try { validateEditSize(changes); } catch { setError("skill_manual_file_limit"); return; }
       const expectedLatest = state.latest_revision;
       if (changes.length) void submit({ action: "save", expectedLatest, body: {
         request_id: uuid(), skill_id: skillId, revision_id: revision, commit_id: state.head_commit,
