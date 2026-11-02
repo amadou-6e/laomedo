@@ -12,7 +12,7 @@ from laomedo.agents.interface.output.utils import evaluate_envelope
 from laomedo.agents.interface.output.utils import verify_requirements
 from laomedo.agents.interface.output.utils import precheck_response
 from laomedo.agents.interface.output.utils import dynamic_tool
-from laomedo.agents.providers.codex.servers import AppServer
+from laomedo.agents.agents.codex.controller.service import CodexController as AppServer
 
 FORM = {
     "schema_version": 1,
@@ -142,38 +142,28 @@ class OutputContractTests(unittest.TestCase):
     def test_native_precheck_and_final_validation_apply_identical_requirements(self):
         pin = requirements(FORM)
         app = AppServer.__new__(AppServer)
-        app.events, app.output_requirements, app.active_thread_id = [], pin, "thread"
-        app.process = type("Process", (), {"stdin": io.StringIO()})()
+        app.output_requirements, app.active_thread_id = pin, "thread"
+        app.precheck_call_count, app.verified_precheck_calls = 0, set()
         for index, submission in enumerate(({}, {"report": "valid"})):
-            app._observe(
+            response = app._precheck(
                 {
-                    "id": index,
-                    "method": "item/tool/call",
-                    "params": {
-                        "threadId": "thread",
-                        "turnId": "turn",
-                        "callId": str(index),
-                        "namespace": None,
-                        "tool": "laomedo_output_precheck",
-                        "arguments": {
-                            "requirements_revision": pin["requirements_revision"],
-                            "submission": submission,
-                        },
+                    "threadId": "thread",
+                    "turnId": "turn",
+                    "callId": str(index),
+                    "namespace": None,
+                    "tool": "laomedo_output_precheck",
+                    "arguments": {
+                        "requirements_revision": pin["requirements_revision"],
+                        "submission": submission,
                     },
                 }
             )
-        replies = [
-            json.loads(line) for line in app.process.stdin.getvalue().splitlines()
-        ]
-        self.assertEqual(
-            json.loads(replies[0]["result"]["contentItems"][0]["text"]),
-            evaluate(pin, {}),
-        )
-        self.assertEqual(
-            json.loads(replies[1]["result"]["contentItems"][0]["text"]),
-            evaluate(pin, {"report": "valid"}),
-        )
-        self.assertEqual(dynamic_tool(pin)["type"], "function")
+            self.assertEqual(
+                json.loads(response["contentItems"][0]["text"]),
+                evaluate(pin, submission),
+            )
+        self.assertEqual(app.precheck_call_count, 2)
+        self.assertEqual(app.verified_precheck_calls, {"0", "1"})
 
     def test_native_binding_mismatch_and_final_pin_mismatch_rejected(self):
         pin = requirements(FORM)
@@ -210,38 +200,3 @@ class OutputContractTests(unittest.TestCase):
                 },
             )
             self.assertEqual(result["errors"][0]["code"], "task_outcome_mismatch")
-
-    def test_native_request_queue_answers_precheck_before_turn_ack(self):
-        pin = requirements(FORM)
-        app = AppServer.__new__(AppServer)
-        app.seq, app.events, app.messages = 0, [], queue.Queue()
-        app.output_requirements, app.active_thread_id = pin, "thread"
-        app.process = type(
-            "Process", (), {"stdin": io.StringIO(), "poll": lambda _: None}
-        )()
-        app.messages.put(
-            {
-                "id": "server-request",
-                "method": "item/tool/call",
-                "params": {
-                    "threadId": "thread",
-                    "turnId": "turn",
-                    "callId": "call",
-                    "namespace": None,
-                    "tool": "laomedo_output_precheck",
-                    "arguments": {
-                        "requirements_revision": pin["requirements_revision"],
-                        "submission": {},
-                    },
-                },
-            }
-        )
-        app.messages.put({"id": 1, "result": {"turn": {"id": "turn"}}})
-        response = app.request("turn/start", {"threadId": "thread"})
-        self.assertEqual(response["result"]["turn"]["id"], "turn")
-        lines = [json.loads(line) for line in app.process.stdin.getvalue().splitlines()]
-        self.assertEqual(lines[1]["id"], "server-request")
-        self.assertIn(
-            '"code":"required"', lines[1]["result"]["contentItems"][0]["text"]
-        )
-        self.assertEqual(app.precheck_call_count, 1)

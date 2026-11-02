@@ -1,4 +1,4 @@
-"""Export Skill → existing Codex Agent → same Skill Operation without execution."""
+"""Export Skill â†’ existing Codex Agent â†’ same Skill Operation without execution."""
 
 import argparse
 import importlib.util
@@ -7,7 +7,7 @@ from pathlib import Path
 from uuid import uuid5
 from uuid import NAMESPACE_URL
 from lfx.graph.graph.base import Graph
-from laomedo.agents.contracts.output import requirements
+from laomedo.agents.interface.output.utils import requirements
 
 ROOT = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location(
@@ -84,7 +84,7 @@ def build(skill_id, revision, editor_revision, runner_url, edit_request, commit_
         field["options"] = [field["value"]]
     flow = {
         "id": str(uuid5(NAMESPACE_URL, "laomedo-skill-operations-176")),
-        "name": "Skill → Codex Agent → same Skill Operation",
+        "name": "Skill â†’ Codex Agent â†’ same Skill Operation",
         "description": "Atomic multi-file candidate; immutable commit history and diffs. No automatic promotion or Git publishing.",
         "last_tested_version": "1.12.3",
         "flow_type": "workflow",

@@ -1,6 +1,7 @@
 """Internal tests only; real graph acceptance is recorded separately."""
 
-from laomedo.agents.activity.models import CaptureIdentity; from laomedo.agents.activity.models import ActivityInvocation
+from laomedo.agents.activity.models import CaptureIdentity
+from laomedo.agents.activity.models import ActivityInvocation
 import json
 from pathlib import Path
 import tempfile

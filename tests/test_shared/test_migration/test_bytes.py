@@ -40,7 +40,9 @@ class MigrationFileTests(unittest.TestCase):
             )
 
     def test_python_bom_and_lf_are_preserved(self):
-        source = b"\xef\xbb\xbffrom laomedo.agents.agents.codex.agent import LocalRunner\n"
+        source = (
+            b"\xef\xbb\xbffrom laomedo.agents.agents.codex.agent import LocalRunner\n"
+        )
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "launch.py"
             path.write_bytes(source)
@@ -111,9 +113,7 @@ class MigrationFileTests(unittest.TestCase):
     def test_removed_intermediate_import_is_migrated(self):
         source = "from laomedo.activity import agent_activity_capture as capture\n"
         migrated = migration.migrate_source(source)
-        self.assertEqual(
-            migrated, "from laomedo.agents.activity import capture\n"
-        )
+        self.assertEqual(migrated, "from laomedo.agents.activity import capture\n")
         namespace = {}
         exec(migrated, namespace)
         self.assertTrue(hasattr(namespace["capture"], "RunnerCapture"))
@@ -148,7 +148,9 @@ class MigrationFileTests(unittest.TestCase):
                 timeout=30,
             )
             self.assertEqual(result.returncode, 2)
-            self.assertEqual(first.read_bytes(), b"import laomedo.agents.agents.codex.agent\n")
+            self.assertEqual(
+                first.read_bytes(), b"import laomedo.agents.agents.codex.agent\n"
+            )
             self.assertFalse(
                 first.with_name(first.name + ".before-module-migration").exists()
             )

@@ -81,7 +81,9 @@ class LaomedoBoundedController(Component):
 
     async def _result(self):
         if getattr(self, "_dispatch_task", None) is None:
-            from laomedo.agents.orchestration.controller import AgentHandoffController as BoundedController
+            from laomedo.agents.orchestration.controller import (
+                AgentHandoffController as BoundedController,
+            )
             from laomedo.agents.interface.bridge import HttpAgentBridge as RunnerAdapter
 
             targets = json.loads(self.targets_json)

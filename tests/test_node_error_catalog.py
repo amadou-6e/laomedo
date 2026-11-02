@@ -10,6 +10,11 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def producer_paths(filename):
+    if "/" in filename:
+        path = ROOT / "src/laomedo" / filename
+        if not path.is_file():
+            raise AssertionError("Missing defining error producer: " + filename)
+        return [path]
     module = "laomedo." + Path(filename).stem
     mapping = json.loads((ROOT / "tools/migrations/module-paths.json").read_text())
     symbols = json.loads((ROOT / "tools/migrations/symbol-paths.json").read_text())
@@ -27,7 +32,9 @@ def producer_paths(filename):
         if path.name != "__init__.py"
     )
     if filename == "local_runner.py":
-        owners.update({"laomedo.agents.agents.base.agent", "laomedo.agents.agents.base.utils"})
+        owners.update(
+            {"laomedo.agents.agents.base.agent", "laomedo.agents.agents.base.utils"}
+        )
     paths = sorted(
         ROOT.joinpath("src", *owner.split(".")).with_suffix(".py") for owner in owners
     )
@@ -44,6 +51,189 @@ def producer_path(filename):
 
 
 class NodeErrorCatalogueTests(unittest.TestCase):
+    def test_affected_runtime_failures_have_neutral_recovery_and_producer_coverage(
+        self,
+    ):
+        catalogue = json.loads(
+            (ROOT / "frontend/langflow-skill-viewer/node-error-catalog.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        affected = {
+            "opencode_controller_startup_failed",
+            "opencode_container_cleanup_unverified",
+            "lease_service_unavailable",
+            "lease_service_lost",
+        }
+        paths = [
+            ROOT / "src/laomedo/agents/agents/opencode/boundary.py",
+            ROOT / "src/laomedo/agents/agents/codex/agent.py",
+        ]
+        produced = set()
+        for path in paths:
+            produced.update(
+                node.args[0].value
+                for node in ast.walk(ast.parse(path.read_text(encoding="utf-8")))
+                if isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Name)
+                and node.func.id == "RunnerError"
+                and node.args
+                and isinstance(node.args[0], ast.Constant)
+                and isinstance(node.args[0].value, str)
+            )
+        self.assertFalse(affected - produced)
+        for code in affected:
+            with self.subTest(code=code):
+                entry = catalogue[code]
+                self.assertEqual(set(entry), {"title", "description", "recovery"})
+                self.assertTrue(
+                    all(type(text) is str and text.strip() for text in entry.values())
+                )
+                text = " ".join(entry.values())
+                self.assertNotRegex(
+                    text.lower(),
+                    r"\boperator\b|api was ready|controller exited|stopped during startup",
+                )
+                self.assertIn("Status", entry["recovery"])
+                self.assertNotRegex(
+                    text.lower(), r"\bretry\b|\brestart\b|\breinstall\b|\blog ?in\b"
+                )
+
+    def test_join_body_refusal_is_descriptive_and_preserves_earlier_run_uncertainty(
+        self,
+    ):
+        catalogue = json.loads(
+            (ROOT / "frontend/langflow-skill-viewer/node-error-catalog.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        entry = catalogue["invalid_join_body"]
+        self.assertIn("before dispatching this request", entry["description"])
+        self.assertIn("does not stop earlier work", entry["recovery"])
+        tree = ast.parse(
+            (ROOT / "src/laomedo/agents/interface/langflow/component.py").read_text(
+                encoding="utf-8"
+            )
+        )
+        routed = next(
+            ast.literal_eval(node.value)
+            for node in tree.body
+            if isinstance(node, ast.Assign)
+            and any(
+                isinstance(target, ast.Name) and target.id == "_ROUTABLE_ERRORS"
+                for target in node.targets
+            )
+        )
+        self.assertIn("invalid_join_body", routed)
+
+    def test_opencode_discovery_recovery_names_the_existing_user_controls(self):
+        catalogue = json.loads(
+            (ROOT / "frontend/langflow-skill-viewer/node-error-catalog.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        recovery = catalogue["opencode_model_discovery_in_progress"]["recovery"]
+        self.assertNotIn("operator", recovery.lower())
+        self.assertIn("Provider/Model", recovery)
+        self.assertIn("Refresh list", recovery)
+        self.assertIn("did not start an agent task", recovery)
+
+    def test_reworked_working_state_and_git_producers_are_catalogued_and_routable(self):
+        catalogue = json.loads(
+            (
+                ROOT / "frontend/langflow-skill-viewer/node-error-catalog.json"
+            ).read_text()
+        )
+        component = ast.parse(
+            (ROOT / "src/laomedo/agents/interface/langflow/component.py").read_text()
+        )
+        routed = next(
+            ast.literal_eval(n.value)
+            for n in component.body
+            if isinstance(n, ast.Assign)
+            and any(
+                isinstance(t, ast.Name) and t.id == "_ROUTABLE_ERRORS"
+                for t in n.targets
+            )
+        )
+        paths = (
+            "agents/workspaces/workspace.py",
+            "agents/workspaces/utils.py",
+            "agents/workspaces/baseline.py",
+            "agents/workspaces/cleanup.py",
+            "agents/workspaces/skills/utils.py",
+            "git/worktree.py",
+            "host/mediation/agent_cli.py",
+        )
+        codes = {"git_timeout", "git_timeout_cleanup_unverified"}
+        for relative in paths:
+            tree = ast.parse((ROOT / "src/laomedo" / relative).read_text())
+            codes.update(
+                n.exc.args[0].value
+                for n in ast.walk(tree)
+                if isinstance(n, ast.Raise)
+                and isinstance(n.exc, ast.Call)
+                and n.exc.args
+                and isinstance(n.exc.args[0], ast.Constant)
+                and isinstance(n.exc.args[0].value, str)
+            )
+        self.assertFalse(codes - catalogue.keys())
+        self.assertFalse(codes - routed)
+        for code in codes:
+            for field in ("title", "description", "recovery"):
+                self.assertTrue(catalogue[code][field].strip(), (code, field))
+
+    def test_shared_acp_timeout_methods_are_preserved_by_the_graph_boundary(self):
+        source = ast.parse(
+            (ROOT / "src/laomedo/agents/agents/base/acp/session.py").read_text()
+        )
+        methods = {
+            node.args[1].value
+            for node in ast.walk(source)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "_request"
+            and len(node.args) >= 2
+            and isinstance(node.args[1], ast.Constant)
+            and isinstance(node.args[1].value, str)
+        }
+        tree = ast.parse(
+            (ROOT / "src/laomedo/agents/interface/langflow/component.py").read_text()
+        )
+        routed = next(
+            ast.literal_eval(node.value)
+            for node in tree.body
+            if isinstance(node, ast.Assign)
+            and any(
+                isinstance(target, ast.Name) and target.id == "_ROUTABLE_ERRORS"
+                for target in node.targets
+            )
+        )
+        self.assertTrue(methods)
+        self.assertFalse({"request_timeout:" + method for method in methods} - routed)
+
+    def test_opencode_catalogue_codes_survive_the_graph_boundary(self):
+        catalogue = json.loads(
+            (
+                ROOT / "frontend/langflow-skill-viewer/node-error-catalog.json"
+            ).read_text()
+        )
+        tree = ast.parse(
+            (ROOT / "src/laomedo/agents/interface/langflow/component.py").read_text()
+        )
+        routed = next(
+            ast.literal_eval(node.value)
+            for node in tree.body
+            if isinstance(node, ast.Assign)
+            and any(
+                isinstance(target, ast.Name) and target.id == "_ROUTABLE_ERRORS"
+                for target in node.targets
+            )
+        )
+        self.assertFalse(
+            {code for code in catalogue if code.startswith("opencode_")} - routed
+        )
+
     def test_handoff_selection_producer_has_catalogue_coverage(self):
         catalogue = json.loads(
             (
@@ -99,7 +289,7 @@ class NodeErrorCatalogueTests(unittest.TestCase):
             and isinstance(node.exc.args[0].value, str)
         }
         tree = ast.parse(
-            (ROOT / "src/laomedo/integrations/langflow/agent/component.py").read_text()
+            (ROOT / "src/laomedo/agents/interface/langflow/component.py").read_text()
         )
         routed = next(
             ast.literal_eval(node.value)
@@ -123,7 +313,7 @@ class NodeErrorCatalogueTests(unittest.TestCase):
             ).read_text()
         )
         tree = ast.parse(
-            (ROOT / "src/laomedo/integrations/langflow/agent/component.py").read_text(
+            (ROOT / "src/laomedo/agents/interface/langflow/component.py").read_text(
                 encoding="utf-8"
             )
         )
@@ -150,7 +340,7 @@ class NodeErrorCatalogueTests(unittest.TestCase):
             ).read_text()
         )
         tree = ast.parse(
-            (ROOT / "src/laomedo/agents/providers/claude/runner.py").read_text(
+            (ROOT / "src/laomedo/agents/agents/claude/agent.py").read_text(
                 encoding="utf-8"
             )
         )
@@ -212,7 +402,7 @@ class NodeErrorCatalogueTests(unittest.TestCase):
             # Catalogue the boundary's public exception types across defining siblings.
             # Claude catalogue parser ValueErrors become RunnerError at _discover_models;
             # join config/parser ValueErrors are private setup or become join_request_refused.
-            public_types = {"RunnerError", "LaunchError"}
+            public_types = {"RunnerError", "LaunchError", "HistoryError"}
             if filename.startswith("agent_activity"):
                 public_types.add("ValueError")
             if filename == "handoff_http.py":
@@ -260,7 +450,9 @@ class NodeErrorCatalogueTests(unittest.TestCase):
         producers = {
             "local_runner.py": {"_prepare", "_materialize"},
             "opencode_runner.py": {"_verify_pinned_skills"},
-            "workspace_skills.py": {"verify", "install", "_exclude"},
+            "agents/workspaces/baseline.py": {"initialize"},
+            "agents/workspaces/cleanup.py": {"remove_owned_tree"},
+            "agents/workspaces/skills/utils.py": {"verify", "install", "_exclude"},
         }
         missing = []
         for filename, names in producers.items():
@@ -306,7 +498,9 @@ class NodeErrorCatalogueTests(unittest.TestCase):
             ).read_text()
         )
         source = ast.parse(
-            (ROOT / "src/laomedo/agents/runtime/runner.py").read_text(encoding="utf-8")
+            (ROOT / "src/laomedo/agents/agents/base/agent.py").read_text(
+                encoding="utf-8"
+            )
         )
         method = next(
             node
@@ -335,7 +529,7 @@ class NodeErrorCatalogueTests(unittest.TestCase):
             *(ROOT / "components/laomedo").glob("*agent.py"),
             ROOT / "components/laomedo/handoff.py",
             ROOT / "components/laomedo/bounded_controller.py",
-            ROOT / "src/laomedo/integrations/langflow/agent/component.py",
+            ROOT / "src/laomedo/agents/interface/langflow/component.py",
         ]:
             for node in ast.walk(ast.parse(source.read_text(encoding="utf-8"))):
                 if (
@@ -453,11 +647,19 @@ OPENCODE_ERROR_PRODUCERS = tuple(
             for name in (
                 "opencode_runner.py",
                 "opencode_boundary.py",
-                "opencode_events.py",
                 "opencode_telemetry.py",
                 "agent_activity_capture.py",
             )
             for path in producer_paths(name)
+        }
+        | {
+            path.relative_to(ROOT).as_posix()
+            for folder in (
+                "src/laomedo/agents/agents/opencode",
+                "src/laomedo/agents/agents/base/acp",
+                "src/laomedo/agents/activity/acp",
+            )
+            for path in ROOT.joinpath(folder).rglob("*.py")
         }
     )
 )
@@ -553,12 +755,14 @@ class OpenCodeErrorCatalogueTests(unittest.TestCase):
             )
         )
         tree = ast.parse(
-            (ROOT / "src/laomedo/agents/runtime/runner.py").read_text(encoding="utf-8")
+            (ROOT / "src/laomedo/agents/agents/base/agent.py").read_text(
+                encoding="utf-8"
+            )
         )
         runner = next(
             node
             for node in tree.body
-            if isinstance(node, ast.ClassDef) and node.name == "Runner"
+            if isinstance(node, ast.ClassDef) and node.name == "BaseAgent"
         )
         methods = {
             node.name: node

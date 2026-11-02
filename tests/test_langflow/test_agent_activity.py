@@ -1,4 +1,5 @@
-from laomedo.agents.activity.models import CaptureIdentity; from laomedo.agents.activity.models import ActivityInvocation
+from laomedo.agents.activity.models import CaptureIdentity
+from laomedo.agents.activity.models import ActivityInvocation
 import tempfile
 import unittest
 import os

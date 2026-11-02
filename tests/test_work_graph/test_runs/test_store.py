@@ -1,4 +1,5 @@
 from support.paths import repository_root
+
 """Durability and dispatch refusal at the synthetic workflow boundary."""
 
 import json

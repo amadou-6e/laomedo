@@ -1,4 +1,5 @@
 from support.paths import repository_root
+
 """Internal controls for safe failure facts, not live runner acceptance."""
 
 import ast

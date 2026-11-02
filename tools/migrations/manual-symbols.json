@@ -1,4 +1,6 @@
 {
+  "laomedo.activity.opencode.constants": "Retired native OpenCode event parser; manually migrate to the provider ACP Activity contract. No safe automatic symbol mapping.",
+  "laomedo.activity.opencode_events": "Retired native OpenCode event parser; manually migrate to the provider ACP Activity contract. No safe automatic symbol mapping.",
   "laomedo.agent_cli._bounded_git": "Use GitCommandRunner.run(GitCommand); argv/env helpers have been removed.",
   "laomedo.agent_cli._git_environment": "Use GitExecutionContext and GitCommandRunner; preserve the caller isolation profile.",
   "laomedo.agents.git_workspace._bounded_git": "Use GitCommandRunner.run(GitCommand); argv/env helpers have been removed.",
@@ -34,6 +36,7 @@
   "laomedo.host.publication.verified_git_stage._run_bounded_tree": "Use GitCommandRunner with GitCommand/GitExecutionContext; preserve caller policy and error translation. No argv/environment adapter exists.",
   "laomedo.local_runner.prepare_git_workspace": "Use AgentWorkspace(WorkspacePaths(...)).prepare_git(); preparation is object-owned.",
   "laomedo.local_runner.workspace_skills": "The combined workspace helper namespace was split; import each defining function from agents.workspaces.baseline, cleanup or skills.utils explicitly.",
+  "laomedo.opencode_events": "Retired native OpenCode event parser; manually migrate to the provider ACP Activity contract. No safe automatic symbol mapping.",
   "laomedo.opencode_runner.workspace_skills": "The combined workspace helper namespace was split; import each defining function from agents.workspaces.baseline, cleanup or skills.utils explicitly.",
   "laomedo.skills.workspace_skills._bounded_git": "Use GitCommandRunner.run(GitCommand); argv/env helpers have been removed.",
   "laomedo.skills.workspace_skills._git_environment": "Use GitExecutionContext and GitCommandRunner; preserve the caller isolation profile.",

@@ -13,9 +13,9 @@ from laomedo.skills.registry.errors import SkillStoreError
 from laomedo.skills.registry.store import SkillStore
 from laomedo.skills.registry.files import inventory
 from laomedo.skills.registry.hashing import tree_hash
-from laomedo.agents.workspace.skills.utils import install
-from laomedo.agents.workspace.skills.utils import remove_owned_tree
-from laomedo.agents.workspace.skills.utils import verify
+from laomedo.agents.workspaces.skills.utils import install
+from laomedo.agents.workspaces.cleanup import remove_owned_tree
+from laomedo.agents.workspaces.skills.utils import verify
 
 
 class SkillMaterializationTests(unittest.TestCase):

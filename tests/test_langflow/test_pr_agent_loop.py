@@ -229,7 +229,10 @@ class PRAgentLoopTests(unittest.IsolatedAsyncioTestCase):
             started.set()
             await asyncio.Future()
 
-        with patch("laomedo.integrations.langflow.feedback.pr.agent_operation", new=pending_agent):
+        with patch(
+            "laomedo.integrations.langflow.feedback.pr.agent_operation",
+            new=pending_agent,
+        ):
             run = asyncio.create_task(self.execute())
             await asyncio.wait_for(started.wait(), timeout=10)
             run.cancel()

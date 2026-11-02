@@ -1,4 +1,5 @@
 from support.paths import repository_root
+
 """Credential-free runner and pinned-skill contract tests."""
 
 from pathlib import Path

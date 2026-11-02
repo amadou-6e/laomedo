@@ -22,10 +22,40 @@ shared test environment initially failed two controller controls because it lack
 
 ## Current checks and remaining work
 
-Provider and runner HTTP imports succeed. A full concern-owned Agent regression
-run is in progress; the earlier 122 tests belong to the superseded import-only
-checkpoint. They do not verify this larger assembly. No paid model request,
-credential transfer or remote GitHub mutation was performed.
+Provider and runner HTTP imports succeed. The installed-wheel Agent suite passed
+452 cases in 134.119 seconds with four skips, outside checkout. The package import
+origin was explicitly checked before running; an earlier target had Windows ACLs
+that caused Python to fall back to an older installed package and is not acceptance.
+The wheel SHA256 is
+`1a5bd3ab0cc5e7df0f17e37cf8b8f9cbf03987ff382ca8dae04881facdc9f844`.
+Seven required provider/resource/API entries were verified, with no retired
+runtime/provider/Activity package entries. A focused 33-case source run passed
+error-catalogue and credential-byte compatibility checks after integration fixes.
+No real provider turn or browser acceptance is inferred.
+
+All 162 selected Python implementation files match the existing source branch's
+AST exactly; integration changes are caller, packaging, test-ownership and
+catalogue corrections. The earlier 122 tests belong to the superseded import-only
+checkpoint and do not establish this larger assembly.
+
+441 original example/campaign files are preserved and committed-byte verified on
+`exp` at `8b8734ced8cadf8542f680b64df31561c855ed6d`, under
+`archives/agents-205`. The manifest maps original paths, byte counts and SHA256.
+Archived `.gitattributes` has a non-active `.source` name so it cannot normalize
+sibling data. Initial line-ending normalization was detected and corrected before
+any production removal. Examples/campaigns still remain in production until their
+callers and useful regressions are migrated; this is not a completed removal claim.
+
+Whole `src` Python/mjs physical lines: 32,288 on develop versus 36,747 after this
+assembly (+4,459). This includes pre-existing ACP and typed-record work absent
+from develop, not a claim of source reduction from relocation. The source origin
+and further consolidation must be considered before claiming the requested parity.
+
+Full core discovery exposed historical campaign imports through retired Agent
+paths. These remain an integration blocker; they are not hidden by compatibility
+shims or discarded to obtain a passing count. Maintained Skill caller imports were
+corrected without copying unmerged Skills or GitHub domain implementations.
+No paid model request, credential transfer or remote resource mutation occurred.
 
 Required before acceptance: finish caller/resource/CLI/template integration,
 compare core discovery and installed wheel behavior, address regressions and

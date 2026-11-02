@@ -1,4 +1,5 @@
 from support.paths import repository_root
+
 """Internal prerequisite controls; not live Docker installation acceptance."""
 
 from pathlib import Path

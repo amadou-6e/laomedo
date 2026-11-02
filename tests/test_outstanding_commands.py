@@ -12,6 +12,8 @@ import threading
 from types import SimpleNamespace
 from laomedo.agents.artifacts.errors import ArtifactError
 import test_agents.test_runtime.test_lifecycle as fixtures
+
+
 def command(method, identity="exec-1", **fields):
     return {
         "method": method,

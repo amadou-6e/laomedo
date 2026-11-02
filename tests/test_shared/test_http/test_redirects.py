@@ -61,9 +61,7 @@ class SharedHTTPTests(unittest.TestCase):
                     }:
                         owners.add(path.relative_to(root).as_posix())
                     if isinstance(node, ast.ImportFrom):
-                        self.assertNotEqual(
-                            node.module, "laomedo.http.redirect"
-                        )
+                        self.assertNotEqual(node.module, "laomedo.http.redirect")
                     if isinstance(node, ast.Import):
                         self.assertNotIn(
                             "laomedo.http.redirect",

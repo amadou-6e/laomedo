@@ -1,6 +1,7 @@
 """Run inside the pinned Langflow image; all runner traffic is synthetic."""
 
-from laomedo.agents.activity.models import CaptureIdentity; from laomedo.agents.activity.models import ActivityInvocation
+from laomedo.agents.activity.models import CaptureIdentity
+from laomedo.agents.activity.models import ActivityInvocation
 
 import asyncio
 from copy import deepcopy

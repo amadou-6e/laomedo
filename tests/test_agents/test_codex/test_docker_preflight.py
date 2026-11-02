@@ -1,4 +1,5 @@
 from support.paths import repository_root
+
 """Internal preflight controls; real Docker/agent acceptance is recorded separately."""
 
 import ast
