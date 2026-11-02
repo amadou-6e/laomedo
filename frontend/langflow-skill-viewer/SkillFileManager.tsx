@@ -18,6 +18,7 @@ const SkillFileManager = forwardRef<SkillFileManagerHandle, Props>(function Skil
   const { manual, files, disabledReason, onImporting } = props;
   const root = useRef<HTMLDivElement>(null), picker = useRef<HTMLInputElement>(null);
   const live = useRef(true), reading = useRef(false), uploadFolder = useRef("");
+  const latestManual = useRef(manual); latestManual.current = manual;
   const dragged = useRef<string | null>(null), formRef = useRef<Form | null>(null);
   const [menu, setMenu] = useState<string | null>(null), [form, setForm] = useState<Form | null>(null);
   const [value, setValue] = useState(""), [dropFolder, setDropFolder] = useState<string | null>(null);
@@ -63,11 +64,15 @@ const SkillFileManager = forwardRef<SkillFileManagerHandle, Props>(function Skil
     if (disabledReason || reading.current || !selected.length) return;
     reading.current = true; onImporting(true);
     try {
-      const current = manual.files;
-      if (folder && !current.some((file) => file.path.startsWith(folder + "/"))) throw Error("skill_manual_file_invalid");
+      const admitted = manual.state;
+      if (folder && !manual.files.some((file) => file.path.startsWith(folder + "/"))) throw Error("skill_manual_file_invalid");
       const imported = await readLocalFiles(selected, folder);
       if (!live.current) return;
-      if (manual.replaceFiles([...current, ...imported])) { showForm(null); props.select(imported[0].path); focus(imported[0].path); }
+      const current = latestManual.current;
+      if (!current.editing || current.pending || current.busy || current.state?.head_commit !== admitted?.head_commit || current.state?.selected_revision !== admitted?.selected_revision) {
+        current.reportError("skill_manual_not_authorized"); return;
+      }
+      if (current.replaceFiles([...current.files, ...imported])) { showForm(null); props.select(imported[0].path); focus(imported[0].path); }
     } catch (failure) { if (live.current) fail(failure); }
     finally { reading.current = false; if (live.current) onImporting(false); }
   };

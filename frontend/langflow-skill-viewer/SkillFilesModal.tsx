@@ -1,6 +1,6 @@
 import { dismissSkillActions } from "./SkillActions";
 import SkillNavigation, { useSkillNavigation } from "./SkillNavigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import SkillSearch, { type SkillMatch } from "./SkillSearch";
 import * as monaco from "monaco-editor/editor";
 import EditorWorker from "monaco-editor/editor/editor.worker?worker";
@@ -74,6 +74,8 @@ function SkillWorkspace({ skillId, initialRevision, setOpen }: { skillId: string
   const open = true;
   const [revision, setRevision] = useState(initialRevision);
   const content = useRef<HTMLDivElement>(null);
+  const [contentNode, setContentNode] = useState<HTMLDivElement | null>(null);
+  const attachContent = useCallback((node: HTMLDivElement | null) => { content.current = node; if (node) setContentNode(node); }, []);
   const [fullPage, setFullPage] = useState(false);
   const [match, setMatch] = useState<(SkillMatch & { selection: number }) | null>(null);
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
@@ -166,7 +168,7 @@ function SkillWorkspace({ skillId, initialRevision, setOpen }: { skillId: string
         onClick={() => setFullPage(!fullPage)}>{fullPage ? <VscChromeRestore aria-hidden="true" size={16} /> : <VscChromeMaximize aria-hidden="true" size={16} />}</button>
     </BaseModal.Header>
     <BaseModal.Content overflowHidden>
-      <div ref={content} className="flex min-h-0 flex-1 flex-col">
+      <div ref={attachContent} className="flex min-h-0 flex-1 flex-col">
       <div className="mb-2 flex min-w-0 shrink-0 items-center gap-3 text-sm" data-testid="skill-selection">
         <span className="truncate" title={skillId}>{skillId}</span><code className="shrink-0 text-xs text-muted-foreground" title={revision}>{revision.startsWith("sha256:") ? `sha256:${revision.slice(7, 15)}` : revision}</code>
         {revision !== initialRevision && <span className="truncate text-xs text-muted-foreground" title={initialRevision}>Graph pins {initialRevision.slice(7, 15)}</span>}
@@ -207,7 +209,7 @@ function SkillWorkspace({ skillId, initialRevision, setOpen }: { skillId: string
             setTabs(currentTabs.includes(next) || !next ? currentTabs : [...currentTabs, next]); setActive(next);
           }}>Current source</button>}</div>
           <SkillFileManager ref={fileActions} manual={manual} files={navigationFiles} select={select} active={active}
-            collapsed={navigation.collapsedFolders} onToggle={navigation.toggleFolder} portal={content.current} onImporting={setFileImporting}
+            collapsed={navigation.collapsedFolders} onToggle={navigation.toggleFolder} portal={contentNode} onImporting={setFileImporting}
             disabledReason={selectedCommit ? "Historical comparison is read only." : fileImporting ? "Importing local files." : manual.busy ? "Publishing changes." : manual.pending ? "Check the pending result before changing files." : !manual.editing ? "File changes require local edit permission at the current head." : ""}
             onRemap={(source, destination) => {
               const map = (path: string) => path === source || path.startsWith(source + "/") ? destination + path.slice(source.length) : path;

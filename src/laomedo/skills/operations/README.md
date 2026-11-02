@@ -108,3 +108,7 @@ identity; the journal retains old/new binary metadata and hashes. Save and
 cumulative promotion both require exact allowed paths, additions/deletions and
 size policy. Non-text changes additionally require allow_assets and a fixed inert
 suffix from registry settings; script/dependency restrictions remain intact.
+
+Changed NUL-containing files use the same binary admission as non-UTF-8 bytes;
+text-path policies refuse them unless they are explicitly permitted inert assets.
+Valid UTF-8 without NUL remains text regardless of filename suffix.

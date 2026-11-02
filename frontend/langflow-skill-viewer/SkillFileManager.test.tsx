@@ -4,6 +4,8 @@ import { api } from "@/controllers/API/api";
 import SkillFileManager, { type SkillFileManagerHandle } from "./SkillFileManager";
 import { useSkillEditing } from "./SkillEditing";
 import type { Snapshot } from "./SkillHistory";
+import { TextDecoder, TextEncoder } from "util";
+Object.assign(global, { TextDecoder, TextEncoder });
 
 jest.mock("@/controllers/API/api", () => ({ api: { post: jest.fn() } }));
 jest.mock("@/customization/utils/urls", () => ({ getBaseUrl: () => "/api/v1/" }));
@@ -23,6 +25,8 @@ function Example({ reason = "" }: { reason?: string }) {
   }, []);
   return <div ref={setPortal} role="dialog" onKeyDown={(event) => { if (event.key === "Escape" && actions.current?.dismiss()) { event.preventDefault(); event.stopPropagation(); } }}>
     <span>{manual.editing ? "Ready" : "Loading controls"}</span>
+    <output data-testid="edit-grant">{String(manual.state?.can_edit)}</output>
+    <button type="button" onClick={manual.refresh}>Refresh controls</button>
     <SkillFileManager ref={actions} manual={manual} files={manual.files} active="SKILL.md" collapsed={new Set()} select={() => {}} onToggle={() => {}}
       portal={portal} disabledReason={reason || (!manual.editing ? "Read only" : "")} onImporting={() => {}} onRemap={() => {}} />
     {manual.error && <p role="alert">{manual.error}</p>}
@@ -71,4 +75,20 @@ test("readonly mutations show the reason; denied clipboard exposes only the rela
   const field = await screen.findByRole("textbox", { name: "Relative path" });expect(field).toHaveValue("refs/a.md");expect(field).toHaveAttribute("readonly");
   expect(await screen.findByRole("alert")).toHaveTextContent("skill_manual_clipboard_unavailable");
   expect(screen.queryByText("private failure")).toBeNull();
+});
+
+test("a grant revoked while a local file is being read cannot stage that file through an old closure", async () => {
+  let resolve!: (bytes: ArrayBuffer) => void;
+  const value = new File(["A"], "new.md");
+  Object.defineProperty(value, "arrayBuffer", { value: () => new Promise<ArrayBuffer>((done) => { resolve = done; }) });
+  render(<Example />); await screen.findByText("Ready");
+  fireEvent.change(screen.getByLabelText("Upload Skill files"), { target: { files: [value] } });
+  await waitFor(() => expect(resolve).toBeDefined());
+  post.mockResolvedValueOnce({ data: { ...state, can_edit: false, edit_enabled: false } });
+  fireEvent.click(screen.getByRole("button", { name: "Refresh controls" }));
+  await waitFor(() => expect(screen.getByTestId("edit-grant")).toHaveTextContent("false"));
+  resolve(new Uint8Array([65]).buffer);
+  expect(await screen.findByRole("alert")).toHaveTextContent("skill_manual_not_authorized");
+  expect(screen.queryByRole("button", { name: "new.md", exact: true })).toBeNull();
+  expect(post.mock.calls.every(([url]) => url.endsWith("/editor"))).toBe(true);
 });

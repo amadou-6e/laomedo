@@ -45,15 +45,17 @@ export function validateWorkingOperation(base: SkillFile[], next: WorkingFile[])
   if (!next.some((file) => file.path === "SKILL.md")) throw Error("skill_manual_file_invalid");
   if (next.length > 128 || next.some((file) => file.bytes > MAX_FILE) || next.reduce((sum, file) => sum + file.bytes, 0) > MAX_BUNDLE) throw Error("skill_manual_file_limit");
   const seen: string[] = [];
+  const edits = fileEdits(base, next);
+  const destinations = new Set(edits.filter((edit) => !("content" in edit) || edit.content !== null).map((edit) => edit.path));
   for (const file of next) {
-    validateFilePath(file.path);
+    if (destinations.has(file.path)) validateFilePath(file.path);
     const path = file.path.toLowerCase();
     if (seen.some((old) => own(old, path) || own(path, old))) throw Error("skill_manual_file_conflict");
     seen.push(path);
   }
   // Python's host relay serializes JSON as ASCII. Reserve envelope/message/spacing
   // overhead, including surrogate escapes, before accepting an atomic file action.
-  validateEditSize(fileEdits(base, next));
+  validateEditSize(edits);
 }
 
 export function validateEditSize(edits: FileEdit[]) {

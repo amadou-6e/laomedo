@@ -35,6 +35,15 @@ test("moves retain unsaved text and immutable binary origins across repeated mov
   expect(deleteFiles(second, "final")).toEqual([base[0]]);
 });
 
+test("new-path safety restrictions leave unchanged legacy paths usable during unrelated file actions", () => {
+  const existing = [...base, file(".github/instructions.md"), file("token.json")];
+  const renamed = moveFiles(existing, "refs/one.md", "refs/renamed.md");
+  expect(() => validateWorkingOperation(existing, renamed)).not.toThrow();
+  expect(renamed.find((entry) => entry.path === ".github/instructions.md")).toBe(existing[2]);
+  expect(fileEdits(existing, renamed)).toEqual([{ path: "refs/one.md", content: null }, { path: "refs/renamed.md", content: "original" }]);
+  expect(() => validateWorkingOperation(existing, [...renamed, file(".github/new.md")])).toThrow("skill_manual_file_invalid");
+});
+
 test.each(["../escape.md", "C:/escape.md", "refs/.secret/file.md", "refs/.env.local", "refs/auth.json", "refs/key.pem", "refs/CON.txt", "refs/name.", "refs//x.md"])("unsafe %s refuses the whole operation", (path) => {
   expect(() => validateWorkingOperation(base, [...base, file(path)])).toThrow("skill_manual_file_invalid");
   expect(base.map((f) => f.path)).toEqual(["SKILL.md", "refs/one.md"]);
