@@ -105,6 +105,10 @@ def apply(checkout):
         overlay / "MONACO-LICENSE.txt",
         checkout / "src/frontend/public/monaco-LICENSE.txt",
     )
+    shutil.copy2(
+        overlay / "skill-icons-NOTICE.txt",
+        checkout / "src/frontend/public/skill-icons-NOTICE.txt",
+    )
     issue_target = checkout / "src/frontend/src/modals/issueViewerModal"
     issue_target.mkdir()
     shutil.copy2(overlay / "IssueViewerModal.tsx", issue_target / "index.tsx")

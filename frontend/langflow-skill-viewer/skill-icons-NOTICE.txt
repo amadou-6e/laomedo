@@ -1,0 +1,15 @@
+Skill explorer icon attribution
+
+VS Code Codicons by Microsoft Corporation
+Source: https://github.com/microsoft/vscode-codicons
+License: Creative Commons Attribution 4.0 International (CC BY 4.0)
+https://creativecommons.org/licenses/by/4.0/
+
+Simple Icons by the Simple Icons contributors
+Source: https://simpleicons.org/
+License: Creative Commons Zero 1.0 Universal (CC0 1.0)
+https://creativecommons.org/publicdomain/zero/1.0/
+
+These icons are bundled through the existing react-icons dependency.
+Their glyph geometry is unchanged; display size and theme colors are selected
+by Laomedo. Product and project names and logos remain their owners' trademarks.
