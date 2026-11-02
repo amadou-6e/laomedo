@@ -17,50 +17,13 @@ import { useDarkStore } from "@/stores/darkStore";
 import BaseModal from "@/modals/baseModal";
 import CommitTree, { RevisionDiff, type Commit, type SkillFile, type Snapshot } from "./SkillHistory";
 import SkillSplitPane from "./SkillSplitPane";
+import SkillExplorer from "./SkillExplorer";
 import SkillOverview from "./SkillOverview";
 
 // Bundle the editor and worker locally. No Monaco CDN or remote file loader.
 (self as typeof self & { MonacoEnvironment?: object }).MonacoEnvironment = {
   getWorker: (_module: string, label: string) => label === "json" ? new JsonWorker() : new EditorWorker(),
 };
-
-type Branch = { name: string; path: string; children?: Branch[] };
-
-function tree(files: SkillFile[]): Branch[] {
-  const roots: Branch[] = [];
-  for (const file of files) {
-    let level = roots;
-    const parts = file.path.split("/");
-    parts.forEach((name, index) => {
-      let item = level.find((entry) => entry.name === name);
-      if (!item) {
-        item = { name, path: parts.slice(0, index + 1).join("/") };
-        if (index < parts.length - 1) item.children = [];
-        level.push(item);
-      }
-      if (item.children) level = item.children;
-    });
-  }
-  return roots;
-}
-
-function Folder({ item, select, active, collapsed, onToggle }: {
-  item: Branch; select: (path: string) => void; active: string;
-  collapsed: Set<string>; onToggle: (path: string) => void;
-}) {
-  const expanded = !collapsed.has(item.path);
-  return <li>
-    <button type="button" className="w-full rounded px-2 py-1 text-left text-sm hover:bg-muted"
-      aria-expanded={item.children ? expanded : undefined}
-      aria-current={!item.children && active === item.path ? "true" : undefined}
-      onClick={() => item.children ? onToggle(item.path) : select(item.path)}>
-      {item.children ? (expanded ? "▾ " : "▸ ") : ""}{item.name}
-    </button>
-    {item.children && <ul hidden={!expanded} style={{ display: expanded ? undefined : "none" }} className="ml-3 border-l pl-1">
-      {item.children.map((child) => <Folder key={child.path} item={child} select={select} active={active} collapsed={collapsed} onToggle={onToggle} />)}
-    </ul>}
-  </li>;
-}
 
 function Source({ file, match }: { file: SkillFile; match: (SkillMatch & { selection: number }) | null }) {
   const container = useRef<HTMLDivElement>(null);
@@ -181,7 +144,7 @@ export default function SkillFilesModal({ skillId, revision, open, setOpen }: {
               currentTabs[0] || snapshot.files.find((file) => file.path === "SKILL.md")?.path || snapshot.files[0]?.path || "";
             setTabs(currentTabs.includes(next) || !next ? currentTabs : [...currentTabs, next]); setActive(next);
           }}>Current source</button>}</div>
-          <ul>{tree(navigationFiles).map((item) => <Folder key={item.path} item={item} select={select} active={active} collapsed={navigation.collapsedFolders} onToggle={navigation.toggleFolder} />)}</ul>
+          <SkillExplorer files={navigationFiles} select={select} active={active} collapsed={navigation.collapsedFolders} onToggle={navigation.toggleFolder} />
         </nav>
         </>} commits={<CommitTree key={`${skillId}:${revision}`} skillId={skillId} revision={revision}
           selected={selectedCommit?.commit_id || ""} onSelect={setSelectedCommit} />} />}>

@@ -1,3 +1,4 @@
+import { SkillChevron } from "./SkillIcons";
 import { useEffect, useState, type ReactNode } from "react";
 
 export function useSkillNavigation(identity: string, paths: string[]) {
@@ -32,7 +33,7 @@ export default function SkillNavigation({ files, commits, find, open, onToggle }
         <button id={`skill-${name}-toggle`} type="button" aria-expanded={open[name]} aria-controls={`skill-${name}-body`}
           className="flex min-w-0 flex-1 items-center gap-1 px-1 py-1 text-left text-xs font-semibold uppercase tracking-wide focus-visible:outline focus-visible:-outline-offset-2"
           onClick={() => onToggle(name)}>
-          <span aria-hidden="true">{open[name] ? '\u25be' : '\u25b8'}</span>{name}
+          <SkillChevron expanded={!!open[name]} />{name}
         </button>
       </div>
       <div id={`skill-${name}-body`} hidden={!open[name]} style={{ display: open[name] ? 'flex' : 'none' }}
