@@ -69,7 +69,12 @@ const SkillFileManager = forwardRef<SkillFileManagerHandle, Props>(function Skil
       const imported = await readLocalFiles(selected, folder);
       if (!live.current) return;
       const current = latestManual.current;
-      if (!current.editing || current.pending || current.busy || current.state?.head_commit !== admitted?.head_commit || current.state?.selected_revision !== admitted?.selected_revision) {
+      if (!current.state) { current.reportError("skill_manual_controls_unavailable"); return; }
+      if (current.state.head_commit !== admitted?.head_commit || current.state.selected_revision !== admitted?.selected_revision) {
+        current.reportError("skill_manual_stale"); return;
+      }
+      if (current.pending || current.busy) return;
+      if (!current.editing) {
         current.reportError("skill_manual_not_authorized"); return;
       }
       if (current.replaceFiles([...current.files, ...imported])) { showForm(null); props.select(imported[0].path); focus(imported[0].path); }
@@ -105,7 +110,7 @@ const SkillFileManager = forwardRef<SkillFileManagerHandle, Props>(function Skil
       <button type="button" className="rounded border px-2 py-1" onClick={cancel}>{form.kind === "copy" ? "Close path" : "Cancel"}</button></div>
   </form>;
   const decorate = (entry: ExplorerEntry, row: ReactElement) => <Menu.Root key={entry.path} open={menu === entry.path} onOpenChange={(open) => { setMenu(open ? entry.path : null); }}>
-    <div className={`relative ${dropFolder === entry.path && entry.folder ? "bg-accent ring-1 ring-primary" : ""}`} data-skill-file-path={entry.path} draggable={!disabledReason && !!entry.path && entry.path !== "SKILL.md"}
+    <div className={`relative ${!entry.path ? "flex min-h-0 flex-1 flex-col" : ""} ${dropFolder === entry.path && entry.folder ? "bg-accent ring-1 ring-primary" : ""}`} data-skill-file-path={entry.path} draggable={!disabledReason && !!entry.path && entry.path !== "SKILL.md"}
       data-drop-target={dropFolder === entry.path && entry.folder ? "true" : undefined}
       onContextMenu={(event) => { event.preventDefault(); event.stopPropagation(); setMenu(entry.path); }}
       onKeyDown={(event) => {
@@ -137,9 +142,9 @@ const SkillFileManager = forwardRef<SkillFileManagerHandle, Props>(function Skil
     </Menu.Content></Menu.Portal>}
     {formView(entry)}
   </Menu.Root>;
-  return <div ref={root} className="min-h-24 flex-1" tabIndex={-1} aria-label="Skill files area">
+  return <div ref={root} className="flex min-h-24 flex-1 flex-col" tabIndex={-1} aria-label="Skill files area">
     <input ref={picker} type="file" multiple hidden aria-label="Upload Skill files" onChange={(event) => { const selected = [...(event.target.files || [])]; event.target.value = ""; void importFiles(selected, uploadFolder.current); }} />
-    {decorate({ path: "", folder: true }, <div tabIndex={0} role="group" aria-label="Skill file actions" className={`min-h-24 outline-none focus-visible:ring-1 focus-visible:ring-primary ${dropFolder === "" ? "bg-accent ring-1 ring-primary" : ""}`}>
+    {decorate({ path: "", folder: true }, <div tabIndex={0} role="group" aria-label="Skill file actions" className={`min-h-24 flex-1 outline-none focus-visible:ring-1 focus-visible:ring-primary ${dropFolder === "" ? "bg-accent ring-1 ring-primary" : ""}`}>
       <SkillExplorer files={files} active={props.active} collapsed={props.collapsed} select={props.select} onToggle={props.onToggle} decorate={decorate} />
     </div>)}
   </div>;

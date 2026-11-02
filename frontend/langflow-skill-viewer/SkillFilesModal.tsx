@@ -201,7 +201,7 @@ function SkillWorkspace({ skillId, initialRevision, setOpen }: { skillId: string
           setMatch((previous) => ({ ...result, selection: (previous?.selection || 0) + 1 }));
         }} />}
         files={<>
-        <nav aria-label="Skill file explorer" className="min-h-0 flex-1 overflow-auto pb-2">
+        <nav aria-label="Skill file explorer" className="flex min-h-0 flex-1 flex-col overflow-auto pb-2">
           <div className="px-2 text-xs">{selectedCommit && <button type="button" className="float-right normal-case underline" onClick={() => { setSelectedCommit(null); setHistoricalFiles([]);
             const currentTabs = tabs.filter((path) => manual.files.some((file) => file.path === path));
             const next = manual.files.some((file) => file.path === active) ? active :

@@ -41,6 +41,9 @@ test("new-path safety restrictions leave unchanged legacy paths usable during un
   expect(() => validateWorkingOperation(existing, renamed)).not.toThrow();
   expect(renamed.find((entry) => entry.path === ".github/instructions.md")).toBe(existing[2]);
   expect(fileEdits(existing, renamed)).toEqual([{ path: "refs/one.md", content: null }, { path: "refs/renamed.md", content: "original" }]);
+  const editedLegacy = renamed.map((entry) => entry.path === "token.json" ? file("token.json", "preserved edit") : entry);
+  expect(() => validateWorkingOperation(existing, editedLegacy)).not.toThrow();
+  expect(fileEdits(existing, editedLegacy)).toContainEqual({ path: "token.json", content: "preserved edit" });
   expect(() => validateWorkingOperation(existing, [...renamed, file(".github/new.md")])).toThrow("skill_manual_file_invalid");
 });
 

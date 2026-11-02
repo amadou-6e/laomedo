@@ -6,8 +6,8 @@ the public contract and stable error categories.
 
 from __future__ import annotations
 
-import base64
-import binascii
+from base64 import b64decode, b64encode
+from binascii import Error as Base64Error
 
 from laomedo.skills.registry.paths import validate_relative_path
 
@@ -80,12 +80,12 @@ class FileEdit(BaseModel):
             if self.content is None or len(self.content) > 4 * ((512 * 1024 + 2) // 3):
                 raise SkillStoreError("skill_operation_invalid")
             try:
-                decoded = base64.b64decode(self.content, validate=True)
-            except (ValueError, binascii.Error):
+                decoded = b64decode(self.content, validate=True)
+            except (ValueError, Base64Error):
                 raise SkillStoreError("skill_operation_invalid") from None
             if (
                 len(decoded) > 512 * 1024
-                or base64.b64encode(decoded).decode("ascii") != self.content
+                or b64encode(decoded).decode("ascii") != self.content
             ):
                 raise SkillStoreError("skill_operation_invalid")
         elif self.content is not None and len(self.content.encode()) > 512 * 1024:
@@ -128,7 +128,7 @@ class FileEdit(BaseModel):
         if self.content is None:
             return None
         return (
-            base64.b64decode(self.content)
+            b64decode(self.content)
             if self.encoding == "base64"
             else self.content.encode()
         )

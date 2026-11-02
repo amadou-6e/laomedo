@@ -46,7 +46,8 @@ export function validateWorkingOperation(base: SkillFile[], next: WorkingFile[])
   if (next.length > 128 || next.some((file) => file.bytes > MAX_FILE) || next.reduce((sum, file) => sum + file.bytes, 0) > MAX_BUNDLE) throw Error("skill_manual_file_limit");
   const seen: string[] = [];
   const edits = fileEdits(base, next);
-  const destinations = new Set(edits.filter((edit) => !("content" in edit) || edit.content !== null).map((edit) => edit.path));
+  const originalPaths = new Set(base.map((file) => file.path));
+  const destinations = new Set(edits.filter((edit) => !originalPaths.has(edit.path) && (!("content" in edit) || edit.content !== null)).map((edit) => edit.path));
   for (const file of next) {
     if (destinations.has(file.path)) validateFilePath(file.path);
     const path = file.path.toLowerCase();

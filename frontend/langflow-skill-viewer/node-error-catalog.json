@@ -1682,7 +1682,7 @@
   "skill_manual_stale": {
     "title": "The Skill changed while you were reviewing it",
     "description": "The selected commit or registry current revision no longer matches this request. Nothing was silently rebased.",
-    "recovery": "Your edits are retained. Copy text you want to keep, then use Discard and confirm Discard changes to reload the latest saved files. If only registry current changed, inspect the refreshed files to publish and explicitly choose Publish again."
+    "recovery": "Your working copy is preserved. Use Discard and confirm Discard changes to reload saved files, or close and reopen if there are no changes. If only registry current changed, inspect the refreshed diff and explicitly choose Publish again."
   },
   "skill_manual_invalid": {
     "title": "The Skill change could not be accepted",
