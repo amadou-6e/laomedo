@@ -64,7 +64,7 @@ objects directly; nested handler definitions have module-level owners.
 | Existing concern | Selected destination / boundary |
 | --- | --- |
 | `workflow/store.py` | `laomedo.work_graph/runs`: graph-side correlation and persisted workflow state, not Agent-owned run storage. |
-| `feedback/pr.py` | GitHub PR feedback policy outside Agents; coordinate with independent GitHub work to avoid conflicting owners. |
+| `feedback/pr.py` | Agent issue #205 owns the removal/move from Agents; destination is GitHub PR feedback policy. PR #249 is not responsible for this later relocation. Coordinate its destination API before editing; no move has occurred. |
 | `contracts/graph.py` | `laomedo.work_graph`: downstream graph contract discovery; output validation remains `agents/interface/output`. |
 | `runtime/serving.py` | Trusted runner HTTP service under `host/runner/http`, composing the abstract Agent; app-side bridge under `agents/interface`. Preserve lazy imports. |
 | Codex servers/preflight | `agents/agents/codex`: provider-native controller, transport and pinned probe policy/resources. |
