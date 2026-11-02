@@ -27,3 +27,11 @@ Its source revision was `8bd3f4e59e0b5f63e9329930a8401d6ccde0520e`.
 The historical image is copied without editing its pixels. Fresh captures use
 headless Edge and no graph execution. Mockups are visibly labelled and do not
 establish integration acceptance.
+
+
+Always-on controls captured 2026-11-02 in the real authenticated Skill viewer:
+
+| File | Actual state | Source | Bounds |
+| --- | --- | --- | --- |
+| always-on-clean.png | Editable real journal head, no footer | `e54015b6caf77bd4af0a3861adfe11450d702449` | Headless Edge 1600 by 1100; no model/GitHub dispatch |
+| always-on-dirty.png | Native typing, conditional Publish/Discard footer | `e54015b6caf77bd4af0a3861adfe11450d702449` | Headless Edge 1600 by 1100; no model/GitHub dispatch |

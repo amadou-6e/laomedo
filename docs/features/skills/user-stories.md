@@ -113,17 +113,19 @@ Proposed acceptance criteria for discussion:
 This exploration does not replace canonical UI design specifications.
 [Editable HTML mockup](assets/git-publishing-mock.html).*
 
-## SK-06 - Manually save a multi-file candidate
+## SK-06 - Edit and publish a multi-file revision
 
-As a Skill author, I want to edit existing text files together and save one
-traceable commit, retaining working text on refusals and reconnect. Implemented;
+As a Skill author, I want existing text files to be editable immediately, with
+Publish and Discard shown after an edit. Publish records the whole file batch in
+one traceable commit and promotes it, retaining work on refusals and reconnect. Implemented;
 [revision-specific real normal/recovery verification](manual-workspace.md) is
 recorded separately from final owner acceptance.
 
-## SK-07 - Explicitly publish a reviewed registry candidate
+## SK-07 - Inspect cumulative changes and publish explicitly
 
-As a Skill author, I want to inspect the cumulative per-file changes against
-registry current and explicitly promote that exact candidate, refusing stale
+As a Skill author, I want the footer to disclose cumulative per-file changes
+against registry current and let me inspect a selected diff before choosing
+Publish, without a separate review mode. Publication refuses stale
 heads/bases without changing graph pins or Git. Implemented; see the same
 [real publication and replay record](manual-workspace.md). Git publishing in
 SK-05 remains proposed. Final owner acceptance is pending.

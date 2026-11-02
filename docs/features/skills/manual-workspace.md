@@ -32,9 +32,48 @@ Missing grants deny writes. Backend provenance is `operator`, not an independent
 verified human identity. Manual creation/deletion/binary edits, per-user ACL, Git
 publication and durable unsaved crash recovery remain unsupported.
 
-This control revision is undergoing real-browser and independent review. The
-following evidence and images describe the earlier control model and do not
-establish acceptance of this revision.
+## Current control revision
+
+![Actual always-editable Skill with compact header](assets/always-on-clean.png)
+
+![Actual changed-file footer with Publish and Discard](assets/always-on-dirty.png)
+
+Recorded 2026-11-02 in the actual authenticated local Skill viewer on Windows,
+headless Edge, frontend source `e54015b6caf77bd4af0a3861adfe11450d702449`, pinned Langflow
+`fec71dca901949c09ed4d63315804337cd2eb13d`. These are real registry files and
+immutable commits, with no Agent run or GitHub mutation for this change.
+
+| Story | Observed result |
+| --- | --- |
+| Always-on editing and density | Authorised head opens editable; removed mode/latest controls absent; Skill ID and SHA share one line; graph pin hint and summary remain visible. Native typing retains spaces. |
+| Conditional actions | Footer absent while clean, appears after a file change; restoring text or confirmed Discard hides it without writing. Publish/Discard stay in bounds at 900 by 650 full page. |
+| Atomic publication | One Publish saves two changed files once and promotes the exact candidate, including earlier saved changes. Registry bytes match the full submitted batch; durable receipt replay confirms the same result. |
+| Cumulative disclosure | Full changed-file count includes earlier saved commits; selecting a path opens its registry-to-working-copy diff. |
+| Comparison recovery | A browser-level block of the uncached registry-base request (no substituted HTTP response) disables Publish. Escape dismisses only the card; unblocking and Retry comparison preserve text and restore Publish. This is browser transport fault injection, not a naturally occurring service outage. |
+| Permissions and display | Actual grant removal enforces read-only; restore/reopen restores editing. Actual application Dark mode and full-page/restore retain the footer and working state; Light mode is restored. |
+
+At this check the real example retains 13 history entries. Older
+snapshots, both original Skill graph pins and source bundles remain unchanged.
+Sixty-eight internal frontend tests pass; Skills, architecture and error catalogue
+guards also pass. Those controls support the browser checks and do not replace them.
+
+The earlier always-on source `0b659ec` additionally exercised real browser offline
+save reconciliation (same UUID/batch), live publication-grant refusal with retained
+candidate, grant restoration/promotion, invalid-batch refusal, stale edits, native
+unload, Find/history navigation and an actual history-service stop/restart. Its
+initial viewport check raced resizing; a settled follow-up passed. Cached offline
+comparisons did not exercise an uncached failure and are not reported as that path.
+The final source fixes the comparison card's native Escape handling found by the
+uncached check. Lost responses after committed effects and crash recovery have
+internal coverage, not a new live crash demonstration.
+
+A message applies to the next new commit. Once saved, that commit and its message
+are immutable; retrying only its publication does not amend the message. A saved
+candidate is retained if promotion fails. Reopening an unpublished head alone
+keeps the footer hidden until a fresh file edit, as requested.
+
+Final requesting-owner validation remains pending. Earlier records below describe
+the superseded controls and their own source revisions.
 
 ## Earlier control-model verification
 
