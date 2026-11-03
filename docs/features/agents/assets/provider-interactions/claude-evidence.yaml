@@ -1,0 +1,187 @@
+version: 1
+title: "3. Evidence to Activity"
+header: "Claude | 3. Evidence to Activity"
+note: "Data-flow view, not every direct function call. Capture completeness, task completion and cleanup remain separate facts. | Current runtime 19c7f1f. Paths are repository/package-relative as shown."
+matrix:
+  rows: 1
+  columns: 4
+  cells: [["col_0", "col_1", "col_2", "col_3"]]
+  origin: [45, 150]
+  column_gaps: [110, 110, 110]
+nodes:
+  cli:
+    label_html: "<b>Claude native runtime</b><br/>claude executable<br/><br/>Native subscription session and telemetry. Controller shell/file tools are disabled."
+    style:
+      width: 285
+      height: 150
+      fill: "#E7F3EC"
+      stroke: "#8193A5"
+      font_size: 14
+      rounded: true
+  adapter:
+    label_html: "<b>Packaged upstream ACP adapter</b><br/>claude-agent-acp<br/><br/>Translate ACP to native Claude execution; raw SDK messages return through the shared ACP connection."
+    style:
+      width: 285
+      height: 150
+      fill: "#E7F3EC"
+      stroke: "#8193A5"
+      font_size: 14
+      rounded: true
+  telemetry:
+    label_html: "<b>Native OTLP receiver</b><br/>claude/activity/; activity/http/<br/><br/>ClaudeTelemetry receives HTTP telemetry, binds native run/thread/turn and retains safe receipts."
+    style:
+      width: 285
+      height: 150
+      fill: "#F0EAF8"
+      stroke: "#8193A5"
+      font_size: 14
+      rounded: true
+  acp:
+    label_html: "<b>Shared ACP bridge + Python SDK</b><br/>agents/agents/base/acp/session.py; transport.py<br/><br/>AcpSession composes the upstream ACP SDK. DockerTransport carries its frames over attached stdin/stdout."
+    style:
+      width: 285
+      height: 150
+      fill: "#EAF0FA"
+      stroke: "#8193A5"
+      font_size: 14
+      rounded: true
+  activity:
+    label_html: "<b>Shared Activity store / projection</b><br/>agents/activity/<br/><br/>Retain raw/normalized receipts and present the run in graph-wide Activity. Native decoding remains provider-owned."
+    style:
+      width: 285
+      height: 150
+      fill: "#EAF0FA"
+      stroke: "#8193A5"
+      font_size: 14
+      rounded: true
+  parser:
+    label_html: "<b>ClaudeAgent native parser</b><br/>agent.py:_native_event<br/><br/>Interpret raw SDK messages and terminal results; retain correlated receipts."
+    style:
+      width: 285
+      height: 150
+      fill: "#F0EAF8"
+      stroke: "#8193A5"
+      font_size: 14
+      rounded: true
+  ui:
+    label_html: "<b>Graph Activity viewer</b><br/>Application UI<br/><br/>Read native observations and partial/unknown evidence without a model request."
+    style:
+      width: 285
+      height: 150
+      fill: "#EAF0FA"
+      stroke: "#8193A5"
+      font_size: 14
+      rounded: true
+groups:
+  col_0:
+    title: "Native sources"
+    layout: "column"
+    children: ["cli", "adapter"]
+    gap: 80
+    style:
+      padding: [60, 20, 25, 20]
+      min_height: 520
+      fill: "#F5F7FA"
+      font_size: 15
+  col_1:
+    title: "Provider receiver / shared wire"
+    layout: "column"
+    children: ["telemetry", "acp"]
+    gap: 80
+    style:
+      padding: [60, 20, 25, 20]
+      min_height: 520
+      fill: "#F5F7FA"
+      font_size: 15
+  col_2:
+    title: "Shared records / provider parser"
+    layout: "column"
+    children: ["activity", "parser"]
+    gap: 80
+    style:
+      padding: [60, 20, 25, 20]
+      min_height: 520
+      fill: "#F5F7FA"
+      font_size: 15
+  col_3:
+    title: "Wider application"
+    layout: "column"
+    children: ["ui"]
+    gap: 80
+    style:
+      padding: [60, 20, 25, 20]
+      min_height: 520
+      fill: "#F5F7FA"
+      font_size: 15
+edges:
+  edge_0:
+    from: "cli"
+    to: "telemetry"
+    label: "native OTLP HTTP"
+    style:
+      stroke: "#8C619B"
+      dashed: true
+      width: 2
+      end_arrow: "classic"
+    from_port: [1, 0.5]
+    to_port: [0, 0.5]
+    waypoints: [[425.0, 285.0], [425.0, 285.0]]
+  edge_1:
+    from: "telemetry"
+    to: "activity"
+    label: "retained observations"
+    style:
+      stroke: "#8C619B"
+      dashed: true
+      width: 2
+      end_arrow: "classic"
+    from_port: [1, 0.5]
+    to_port: [0, 0.5]
+    waypoints: [[860.0, 285.0], [860.0, 285.0]]
+  edge_2:
+    from: "activity"
+    to: "ui"
+    label: "read / project"
+    style:
+      stroke: "#8C619B"
+      dashed: true
+      width: 2
+      end_arrow: "classic"
+    from_port: [1, 0.5]
+    to_port: [0, 0.5]
+    waypoints: [[1295.0, 285.0], [1295.0, 285.0]]
+  edge_3:
+    from: "adapter"
+    to: "acp"
+    label: "raw SDK over ACP"
+    style:
+      stroke: "#8C619B"
+      dashed: true
+      width: 2
+      end_arrow: "classic"
+    from_port: [1, 0.5]
+    to_port: [0, 0.5]
+    waypoints: [[425.0, 515.0], [425.0, 515.0]]
+  edge_4:
+    from: "acp"
+    to: "parser"
+    label: "native callback"
+    style:
+      stroke: "#8C619B"
+      dashed: true
+      width: 2
+      end_arrow: "classic"
+    from_port: [1, 0.5]
+    to_port: [0, 0.5]
+    waypoints: [[860.0, 515.0], [860.0, 515.0]]
+  edge_5:
+    from: "parser"
+    to: "activity"
+    label: "SDK receipts"
+    style:
+      stroke: "#8C619B"
+      dashed: true
+      width: 2
+      end_arrow: "classic"
+    from_port: [0.5, 0]
+    to_port: [0.5, 1]

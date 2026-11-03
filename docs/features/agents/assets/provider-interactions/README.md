@@ -2,21 +2,43 @@
 
 For an explanation of custom code, use the individual provider diagrams:
 
-| Provider | Editable diagram | Preview |
-| --- | --- | --- |
-| Codex | [Codex custom code](codex-custom-code.drawio) | [PNG](codex-custom-code.png) |
-| Claude | [Claude custom code](claude-custom-code.drawio) | [PNG](claude-custom-code.png) |
-| OpenCode | [OpenCode custom code](opencode-custom-code.drawio) | [PNG](opencode-custom-code.png) |
+| Provider | Editable diagram | Run/session | Tools/credentials | Evidence/Activity |
+| --- | --- | --- | --- | --- |
+| Codex | [Codex](codex-custom-code.drawio) | [PNG](codex-custom-code.png) | [PNG](codex-tools-auth.png) | [PNG](codex-evidence.png) |
+| Claude | [Claude](claude-custom-code.drawio) | [PNG](claude-custom-code.png) | [PNG](claude-tools-auth.png) | [PNG](claude-evidence.png) |
+| OpenCode | [OpenCode](opencode-custom-code.drawio) | [PNG](opencode-custom-code.png) | [PNG](opencode-tools-auth.png) | [PNG](opencode-evidence.png) |
 
-They are also collected in [one three-page file](provider-custom-code.drawio).
-Blue cards identify Laomedo-owned code, including the explicitly labelled shared
-bridge; green cards identify external/shared dependencies; amber cards identify
-gaps. Every code card names its location and purpose. Provider-relative paths
-start at `src/laomedo/agents/agents/<provider>/`; `../base/` is the shared sibling.
-Paths beginning `host/` are relative to `src/laomedo/`, and `docker/` is relative
-to the repository root. Supporting cards explain ownership and purpose, not an
-additional execution sequence. The arrows are logical dependencies/calls, not
-a complete wire trace.
+Each provider file has three connected pages: run/session, tools/credentials and
+evidence-to-Activity. They replace the detached supporting-code cards. Every
+implementation or resource card participates in its page's architecture; arrows
+identify its caller, native interface, credential consumer or evidence consumer.
+The pages are also collected in [one nine-page file](provider-custom-code.drawio).
+
+Blue cards identify shared Laomedo code; purple identifies provider-owned Python;
+orange identifies custom in-container code; green identifies upstream components
+or resources. Arrow labels distinguish control, protocol, credential and evidence
+paths. Provider paths such as `claude/agent.py` start at
+`src/laomedo/agents/agents/`; abbreviated leaf paths stay within the named provider.
+Shared `agents/` and host `host/` paths start at `src/laomedo/`; `docker/` paths
+start at the repository root. These are logical architecture/data-flow views,
+not every direct function call, protocol response or execution ordering detail.
+
+The run view places the application contract, concrete provider, shared ACP/Docker
+adapters and native controller in one path. Claude deliberately shows ACP owned by
+its Agent while its container wrapper owns launch policy. OpenCode's two native
+cards describe responsibilities of the same process, not two containers.
+
+The tools view connects the credential source to its provider adapter and actual
+controller consumer; the command path connects the native tool client, host
+broker, shared Docker operations and separate worker. Codex's page shows the
+optional split path; its bridge network and unverified native sandbox are explicit.
+Normal-mode execution and other admitted login sources are not silently excluded.
+
+The evidence view follows native observations through provider interpretation
+into shared Activity and the graph viewer. Claude's OTLP and raw SDK channels are
+distinct; OpenCode reconciles post-closure history with provisional ACP capture.
+Codex's explicit rollout-export branch ends in a selected artifact, not an invented
+automatic Activity import.
 
 Codex's custom TypeScript hooks preserve native events and host policy missing
 from the standard ACP contract. Claude uses a packaged upstream ACP adapter but
@@ -66,10 +88,13 @@ and the presence of local images do not close those gaps.
 
 ## Editing and export
 
-The three numbered YAML files are the styled graph sources. They use the
+The numbered overview YAML files and the provider-prefixed YAML files are the
+styled graph sources. They use the
 `my-skills/02-graphics/skill-drawio-creation` renderer. Rebuild each page with
 `03-scripts/render_grouped_erd.py`, then retain its editable `mxGraphModel` as a
-page in the combined file. Manual layout corrections in the combined file must
+page in the combined file. Provider pages use their saved attachment ports and
+orthogonal waypoints. Rebuild all three provider pages before assembling each
+provider file and the nine-page collection. Manual layout corrections in the combined file must
 also be preserved when rebuilding. Export and inspect every final page with the
 draw.io desktop CLI; XML validity alone does not establish visual quality.
 

@@ -1,0 +1,209 @@
+version: 1
+title: "2. Tools and credentials"
+header: "OpenCode | 2. Tools and credentials"
+note: "Credential path across the top; command requests return through host admission to a separate worker. | Current runtime 19c7f1f. Paths are repository/package-relative as shown."
+matrix:
+  rows: 1
+  columns: 4
+  cells: [["col_0", "col_1", "col_2", "col_3"]]
+  origin: [45, 150]
+  column_gaps: [110, 110, 110]
+nodes:
+  source:
+    label_html: "<b>Existing Console account</b><br/>Host-owned account source<br/><br/>Host setup selects approved access/routing data; no full profile or refresh ownership transfer."
+    style:
+      width: 285
+      height: 150
+      fill: "#E7F3EC"
+      stroke: "#8193A5"
+      font_size: 14
+      rounded: true
+  docker:
+    label_html: "<b>Shared Docker mechanics</b><br/>py-docker -&gt; Docker SDK -&gt; Engine<br/><br/>Create/attach owned containers, execute jobs, retain receipts and reconcile cleanup."
+    style:
+      width: 285
+      height: 150
+      fill: "#E7F3EC"
+      stroke: "#8193A5"
+      font_size: 14
+      rounded: true
+  auth:
+    label_html: "<b>Native auth adaptation</b><br/>opencode/auth/; utils.py<br/><br/>Host setup selects Console credential/routing. Runtime checks expiry and keyed credential binding."
+    style:
+      width: 285
+      height: 150
+      fill: "#F0EAF8"
+      stroke: "#8193A5"
+      font_size: 14
+      rounded: true
+  broker:
+    label_html: "<b>Host CommandBroker</b><br/>opencode/boundary.py; http/<br/><br/>Authenticated remote MCP receives native tool calls and admits credential-free Docker command jobs."
+    style:
+      width: 285
+      height: 150
+      fill: "#F0EAF8"
+      stroke: "#8193A5"
+      font_size: 14
+      rounded: true
+  profile:
+    label_html: "<b>Restricted view + profile mounts</b><br/>Private generated config / auth / sessions<br/><br/>Only admitted skills/config and read-only auth reach the controller. Model-writable project config stays out."
+    style:
+      width: 285
+      height: 150
+      fill: "#E7F3EC"
+      stroke: "#8193A5"
+      font_size: 14
+      rounded: true
+  bridge:
+    label_html: "<b>Native remote MCP client</b><br/>Part of the opencode process<br/><br/>Calls host /mcp directly; this is not another custom adapter."
+    style:
+      width: 285
+      height: 150
+      fill: "#E7F3EC"
+      stroke: "#8193A5"
+      font_size: 14
+      rounded: true
+  cli:
+    label_html: "<b>Native OpenCode ACP + Agent</b><br/>opencode acp<br/><br/>One upstream process supplies both ACP and native execution. No custom in-container ACP adapter."
+    style:
+      width: 285
+      height: 150
+      fill: "#E7F3EC"
+      stroke: "#8193A5"
+      font_size: 14
+      rounded: true
+  worker:
+    label_html: "<b>Credential-free command worker</b><br/>Separate Docker container<br/><br/>No network or credential mount. Current image comes from Codex; neutral packaging is still needed."
+    style:
+      width: 285
+      height: 150
+      fill: "#E7F3EC"
+      stroke: "#8193A5"
+      font_size: 14
+      rounded: true
+groups:
+  col_0:
+    title: "Host source / shared Docker"
+    layout: "column"
+    children: ["source", "docker"]
+    gap: 80
+    style:
+      padding: [60, 20, 25, 20]
+      min_height: 520
+      fill: "#F5F7FA"
+      font_size: 15
+  col_1:
+    title: "Provider host adapters"
+    layout: "column"
+    children: ["auth", "broker"]
+    gap: 80
+    style:
+      padding: [60, 20, 25, 20]
+      min_height: 520
+      fill: "#F5F7FA"
+      font_size: 15
+  col_2:
+    title: "Controller state / tools"
+    layout: "column"
+    children: ["profile", "bridge"]
+    gap: 80
+    style:
+      padding: [60, 20, 25, 20]
+      min_height: 520
+      fill: "#F5F7FA"
+      font_size: 15
+  col_3:
+    title: "Controller / separate worker"
+    layout: "column"
+    children: ["cli", "worker"]
+    gap: 80
+    style:
+      padding: [60, 20, 25, 20]
+      min_height: 520
+      fill: "#F5F7FA"
+      font_size: 15
+edges:
+  edge_0:
+    from: "source"
+    to: "auth"
+    label: "approved access"
+    style:
+      stroke: "#A37537"
+      dashed: true
+      width: 2
+      end_arrow: "classic"
+    from_port: [1, 0.5]
+    to_port: [0, 0.5]
+    waypoints: [[425.0, 285.0], [425.0, 285.0]]
+  edge_1:
+    from: "auth"
+    to: "profile"
+    label: "selected credential"
+    style:
+      stroke: "#A37537"
+      dashed: true
+      width: 2
+      end_arrow: "classic"
+    from_port: [1, 0.5]
+    to_port: [0, 0.5]
+    waypoints: [[860.0, 285.0], [860.0, 285.0]]
+  edge_2:
+    from: "profile"
+    to: "cli"
+    label: "admitted mount"
+    style:
+      stroke: "#A37537"
+      dashed: true
+      width: 2
+      end_arrow: "classic"
+    from_port: [1, 0.5]
+    to_port: [0, 0.5]
+    waypoints: [[1295.0, 285.0], [1295.0, 285.0]]
+  edge_3:
+    from: "cli"
+    to: "bridge"
+    label: "native MCP tool call"
+    style:
+      stroke: "#218168"
+      dashed: false
+      width: 2
+      end_arrow: "classic"
+    from_port: [0.5, 1]
+    to_port: [1, 0.5]
+    waypoints: [[1512.5, 398.0], [1260.0, 398.0], [1260.0, 515.0]]
+  edge_4:
+    from: "bridge"
+    to: "broker"
+    label: "remote MCP /mcp"
+    style:
+      stroke: "#218168"
+      dashed: false
+      width: 2
+      end_arrow: "classic"
+    from_port: [0, 0.5]
+    to_port: [1, 0.5]
+    waypoints: [[860.0, 515.0], [860.0, 515.0]]
+  edge_5:
+    from: "broker"
+    to: "docker"
+    label: "admitted job"
+    style:
+      stroke: "#42699A"
+      dashed: false
+      width: 2
+      end_arrow: "classic"
+    from_port: [0, 0.5]
+    to_port: [1, 0.5]
+    waypoints: [[425.0, 515.0], [425.0, 515.0]]
+  edge_6:
+    from: "docker"
+    to: "worker"
+    label: "execute / cleanup"
+    style:
+      stroke: "#42699A"
+      dashed: false
+      width: 2
+      end_arrow: "classic"
+    from_port: [0.5, 1]
+    to_port: [0.5, 1]
+    waypoints: [[207.5, 750], [1512.5, 750]]

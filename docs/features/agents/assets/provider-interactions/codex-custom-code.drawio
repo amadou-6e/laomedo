@@ -1,90 +1,324 @@
 <?xml version='1.0' encoding='utf-8'?>
 <mxfile host="app.diagrams.net" type="device">
-  <diagram id="grouped-erd" name="Codex custom code">
-    <mxGraphModel grid="1" gridSize="10" page="1" pageScale="1" pageWidth="1785" pageHeight="1180">
+  <diagram id="codex-custom-code" name="1. Run and session">
+    <mxGraphModel grid="1" gridSize="10" page="1" pageScale="1" pageWidth="2190" pageHeight="900">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
-        <mxCell id="diagram-title" value="Codex | Where the custom code lives and why" vertex="1" parent="1" style="text;html=1;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontSize=24;fontColor=#20384A;">
-          <mxGeometry x="50" y="25" width="1720" height="45" as="geometry" />
+        <mxCell id="diagram-title" value="Codex | 1. Run and session" vertex="1" parent="1" style="text;html=1;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontSize=24;fontColor=#20384A;">
+          <mxGeometry x="60" y="25" width="2115" height="45" as="geometry" />
         </mxCell>
-        <mxCell id="diagram-note" value="CURRENT candidate 19c7f1f. Blue: Laomedo code. Green: upstream/shared dependencies. Amber: gaps. Provider-relative paths unless host/ or docker/ is shown." vertex="1" parent="1" style="text;html=1;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontSize=12;fontColor=#9A6949;">
-          <mxGeometry x="50" y="78" width="1720" height="45" as="geometry" />
+        <mxCell id="diagram-note" value="Blue: shared code. Purple: provider Python. Green: upstream/resources. Orange: custom controller code. | Current runtime 19c7f1f. Paths are repository/package-relative as shown." vertex="1" parent="1" style="text;html=1;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontSize=12;fontColor=#9A6949;">
+          <mxGeometry x="60" y="78" width="2115" height="45" as="geometry" />
         </mxCell>
-        <mxCell id="host" value="Laomedo: provider-owned Python" style="rounded=0;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;resizeChildren=0;align=left;verticalAlign=top;spacingLeft=12;spacingTop=10;fillColor=#F5F7FA;strokeColor=#BDCBD6;fontColor=#20384A;fontSize=16;fontStyle=1;" vertex="1" parent="1">
-          <mxGeometry x="35" y="237.5" width="350" height="415" as="geometry" />
+        <mxCell id="col_0" value="App contract / launch input" style="rounded=0;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;resizeChildren=0;align=left;verticalAlign=top;spacingLeft=12;spacingTop=10;fillColor=#F5F7FA;strokeColor=#BDCBD6;fontColor=#20384A;fontSize=15;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="45" y="150" width="325" height="520" as="geometry" />
         </mxCell>
-        <mxCell id="agent" value="&lt;b&gt;CodexAgent : BaseAgent&lt;/b&gt;&lt;br/&gt;agent.py; shared ../base/agent.py&lt;br/&gt;&lt;br/&gt;Base shares admission and records. This subclass owns native binding, execution and finalization." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#EAF0FA;strokeColor=#8193A5;fontColor=#20384A;fontSize=15;" vertex="1" parent="host">
-          <mxGeometry x="20" y="55" width="310" height="150" as="geometry" />
+        <mxCell id="entry" value="&lt;b&gt;Application boundary + BaseAgent&lt;/b&gt;&lt;br/&gt;agents/interface/; agents/agents/base/agent.py&lt;br/&gt;&lt;br/&gt;Public operations, run admission and records. Concrete providers implement the native execution hooks." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#EAF0FA;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_0">
+          <mxGeometry x="20" y="60" width="285" height="150" as="geometry" />
         </mxCell>
-        <mxCell id="runtime" value="&lt;b&gt;CodexController&lt;/b&gt;&lt;br/&gt;controller/service.py + models.py&lt;br/&gt;&lt;br/&gt;Build launch policy, own the ACP session and enforce required adapter extensions." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#EAF0FA;strokeColor=#8193A5;fontColor=#20384A;fontSize=15;" vertex="1" parent="host">
-          <mxGeometry x="20" y="240" width="310" height="150" as="geometry" />
+        <mxCell id="policy" value="&lt;b&gt;Checked native launch policy&lt;/b&gt;&lt;br/&gt;codex/controller/models.py; resources/&lt;br/&gt;&lt;br/&gt;CodexLaunch projects mounts/config. settings.py pins image/CLI and reviewed seccomp/config identities." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#F0EAF8;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_0">
+          <mxGeometry x="20" y="290" width="285" height="150" as="geometry" />
         </mxCell>
-        <mxCell id="shared" value="Host: common code and libraries" style="rounded=0;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;resizeChildren=0;align=left;verticalAlign=top;spacingLeft=12;spacingTop=10;fillColor=#F5F7FA;strokeColor=#BDCBD6;fontColor=#20384A;fontSize=16;fontStyle=1;" vertex="1" parent="1">
-          <mxGeometry x="485" y="145" width="350" height="600" as="geometry" />
+        <mxCell id="col_1" value="Provider host implementation" style="rounded=0;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;resizeChildren=0;align=left;verticalAlign=top;spacingLeft=12;spacingTop=10;fillColor=#F5F7FA;strokeColor=#BDCBD6;fontColor=#20384A;fontSize=15;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="480" y="150" width="325" height="520" as="geometry" />
         </mxCell>
-        <mxCell id="acp" value="&lt;b&gt;SHARED: Laomedo ACP bridge&lt;/b&gt;&lt;br/&gt;../base/acp/session.py + transport.py&lt;br/&gt;&lt;br/&gt;Compose the Python ACP SDK and adapt attached Docker stdin/stdout; native policy stays provider-owned." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#EAF0FA;strokeColor=#8193A5;fontColor=#20384A;fontSize=15;" vertex="1" parent="shared">
-          <mxGeometry x="20" y="55" width="310" height="150" as="geometry" />
+        <mxCell id="agent" value="&lt;b&gt;CodexAgent : BaseAgent&lt;/b&gt;&lt;br/&gt;codex/agent.py&lt;br/&gt;&lt;br/&gt;Bind the native session and runtime; validate output; coordinate execution and finalization." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#F0EAF8;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_1">
+          <mxGeometry x="20" y="60" width="285" height="150" as="geometry" />
         </mxCell>
-        <mxCell id="sdk" value="&lt;b&gt;UPSTREAM: ACP Python SDK&lt;/b&gt;&lt;br/&gt;agent-client-protocol 0.12.1&lt;br/&gt;&lt;br/&gt;Implements protocol schemas and JSON-RPC request/response handling." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#E7F3EC;strokeColor=#8193A5;fontColor=#20384A;fontSize=15;" vertex="1" parent="shared">
-          <mxGeometry x="20" y="240" width="310" height="150" as="geometry" />
+        <mxCell id="runtime" value="&lt;b&gt;CodexController&lt;/b&gt;&lt;br/&gt;codex/controller/service.py&lt;br/&gt;&lt;br/&gt;Own the ACP session, native callbacks, output precheck and exact controller lifetime." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#F0EAF8;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_1">
+          <mxGeometry x="20" y="290" width="285" height="150" as="geometry" />
         </mxCell>
-        <mxCell id="docker" value="&lt;b&gt;SHARED: container libraries&lt;/b&gt;&lt;br/&gt;py-docker -&amp;gt; Docker SDK -&amp;gt; Engine&lt;br/&gt;&lt;br/&gt;Open attached sessions, run jobs, retain ownership receipts and confirm exact-resource cleanup." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#E7F3EC;strokeColor=#8193A5;fontColor=#20384A;fontSize=15;" vertex="1" parent="shared">
-          <mxGeometry x="20" y="425" width="310" height="150" as="geometry" />
+        <mxCell id="col_2" value="Shared host adapters" style="rounded=0;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;resizeChildren=0;align=left;verticalAlign=top;spacingLeft=12;spacingTop=10;fillColor=#F5F7FA;strokeColor=#BDCBD6;fontColor=#20384A;fontSize=15;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="915" y="150" width="325" height="520" as="geometry" />
         </mxCell>
-        <mxCell id="container" value="Provider Docker controller" style="rounded=0;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;resizeChildren=0;align=left;verticalAlign=top;spacingLeft=12;spacingTop=10;fillColor=#F5F7FA;strokeColor=#BDCBD6;fontColor=#20384A;fontSize=16;fontStyle=1;" vertex="1" parent="1">
-          <mxGeometry x="955" y="237.5" width="350" height="415" as="geometry" />
+        <mxCell id="acp" value="&lt;b&gt;Shared ACP bridge + Python SDK&lt;/b&gt;&lt;br/&gt;agents/agents/base/acp/session.py; transport.py&lt;br/&gt;&lt;br/&gt;AcpSession composes the upstream ACP SDK. DockerTransport carries its frames over attached stdin/stdout." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#EAF0FA;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_2">
+          <mxGeometry x="20" y="60" width="285" height="150" as="geometry" />
         </mxCell>
-        <mxCell id="adapter" value="&lt;b&gt;CUSTOM: patched ACP adapter&lt;/b&gt;&lt;br/&gt;docker/codex-acp/&lt;br/&gt;&lt;br/&gt;LaomedoExtension.ts + native-events.patch preserve raw native events, host policy and precheck." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#EAF0FA;strokeColor=#8193A5;fontColor=#20384A;fontSize=15;" vertex="1" parent="container">
-          <mxGeometry x="20" y="55" width="310" height="150" as="geometry" />
+        <mxCell id="docker" value="&lt;b&gt;Shared Docker mechanics&lt;/b&gt;&lt;br/&gt;py-docker -&amp;gt; Docker SDK -&amp;gt; Engine&lt;br/&gt;&lt;br/&gt;Create/attach owned containers, execute jobs, retain receipts and reconcile cleanup." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#E7F3EC;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_2">
+          <mxGeometry x="20" y="290" width="285" height="150" as="geometry" />
         </mxCell>
-        <mxCell id="cli" value="&lt;b&gt;Upstream Codex CLI&lt;/b&gt;&lt;br/&gt;codex app-server&lt;br/&gt;&lt;br/&gt;Performs model reasoning, manages native threads and executes admitted native tools." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#E7F3EC;strokeColor=#8193A5;fontColor=#20384A;fontSize=15;" vertex="1" parent="container">
-          <mxGeometry x="20" y="240" width="310" height="150" as="geometry" />
+        <mxCell id="col_3" value="Docker controller" style="rounded=0;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;resizeChildren=0;align=left;verticalAlign=top;spacingLeft=12;spacingTop=10;fillColor=#F5F7FA;strokeColor=#BDCBD6;fontColor=#20384A;fontSize=15;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1350" y="150" width="325" height="520" as="geometry" />
         </mxCell>
-        <mxCell id="external" value="External service / known gaps" style="rounded=0;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;resizeChildren=0;align=left;verticalAlign=top;spacingLeft=12;spacingTop=10;fillColor=#F5F7FA;strokeColor=#BDCBD6;fontColor=#20384A;fontSize=16;fontStyle=1;" vertex="1" parent="1">
-          <mxGeometry x="1405" y="222.5" width="300" height="445" as="geometry" />
+        <mxCell id="adapter" value="&lt;b&gt;Patched upstream ACP adapter&lt;/b&gt;&lt;br/&gt;docker/codex-acp/Laomedo*.ts + patch&lt;br/&gt;&lt;br/&gt;Custom extension preserves raw native events, policy and precheck; launch hook validates native argv." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#FFF0DF;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_3">
+          <mxGeometry x="20" y="60" width="285" height="150" as="geometry" />
         </mxCell>
-        <mxCell id="model" value="&lt;b&gt;EXTERNAL: model service&lt;/b&gt;&lt;br/&gt;Outside the local Docker runner&lt;br/&gt;&lt;br/&gt;The native CLI authenticates and sends model requests. ACP does not perform inference." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#E7F3EC;strokeColor=#8193A5;fontColor=#20384A;fontSize=15;" vertex="1" parent="external">
-          <mxGeometry x="20" y="55" width="260" height="150" as="geometry" />
+        <mxCell id="cli" value="&lt;b&gt;Codex native runtime&lt;/b&gt;&lt;br/&gt;codex app-server&lt;br/&gt;&lt;br/&gt;Upstream native threads, reasoning, model requests and admitted tool execution." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#E7F3EC;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_3">
+          <mxGeometry x="20" y="290" width="285" height="150" as="geometry" />
         </mxCell>
-        <mxCell id="gap" value="&lt;b&gt;Current boundary gap&lt;/b&gt;&lt;br/&gt;Not a validation claim&lt;br/&gt;&lt;br/&gt;Native split sandbox/network isolation is unverified; native parsing still partly shared." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#FFF1DF;strokeColor=#8193A5;fontColor=#20384A;fontSize=15;" vertex="1" parent="external">
-          <mxGeometry x="20" y="240" width="260" height="180" as="geometry" />
+        <mxCell id="col_4" value="External model" style="rounded=0;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;resizeChildren=0;align=left;verticalAlign=top;spacingLeft=12;spacingTop=10;fillColor=#F5F7FA;strokeColor=#BDCBD6;fontColor=#20384A;fontSize=15;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1785" y="150" width="325" height="520" as="geometry" />
         </mxCell>
-        <mxCell id="support" value="Supporting code: location and purpose" style="rounded=0;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;resizeChildren=0;align=left;verticalAlign=top;spacingLeft=12;spacingTop=10;fillColor=#F5F7FA;strokeColor=#BDCBD6;fontColor=#20384A;fontSize=16;fontStyle=1;" vertex="1" parent="1">
-          <mxGeometry x="177.5" y="835" width="1385" height="265" as="geometry" />
+        <mxCell id="model" value="&lt;b&gt;External model service&lt;/b&gt;&lt;br/&gt;Outside local Docker&lt;br/&gt;&lt;br/&gt;Native runtime performs authenticated model requests." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#E7F3EC;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_4">
+          <mxGeometry x="20" y="60" width="285" height="150" as="geometry" />
         </mxCell>
-        <mxCell id="support_0" value="&lt;b&gt;CUSTOM: native launch hooks&lt;/b&gt;&lt;br/&gt;docker/codex-acp/LaomedoLaunch.ts&lt;br/&gt;&lt;br/&gt;Validate host-owned native argv and executable selection; no arbitrary command tunnel." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#EAF0FA;strokeColor=#8193A5;fontColor=#20384A;fontSize=15;" vertex="1" parent="support">
-          <mxGeometry x="20" y="55" width="310" height="185" as="geometry" />
+        <mxCell id="edge-edge_0" value="start / resume" style="edgeStyle=segmentEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;strokeColor=#42699A;strokeWidth=2;endArrow=classic;startArrow=none;dashed=0;fontSize=12;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="entry" target="agent">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="425" y="285" />
+              <mxPoint x="425" y="285" />
+            </Array>
+          </mxGeometry>
         </mxCell>
-        <mxCell id="support_1" value="&lt;b&gt;CUSTOM: optional split executor&lt;/b&gt;&lt;br/&gt;split/executor.py + models.py&lt;br/&gt;&lt;br/&gt;Register a separate command executor and bind its resource identity. Native isolation needs proof." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#EAF0FA;strokeColor=#8193A5;fontColor=#20384A;fontSize=15;" vertex="1" parent="support">
-          <mxGeometry x="365" y="55" width="310" height="185" as="geometry" />
-        </mxCell>
-        <mxCell id="support_2" value="&lt;b&gt;CUSTOM: native policy resources&lt;/b&gt;&lt;br/&gt;resources/ + settings.py&lt;br/&gt;&lt;br/&gt;Pin image, CLI and reviewed launch/seccomp policy; refuse changed runtime bindings." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#EAF0FA;strokeColor=#8193A5;fontColor=#20384A;fontSize=15;" vertex="1" parent="support">
-          <mxGeometry x="710" y="55" width="310" height="185" as="geometry" />
-        </mxCell>
-        <mxCell id="support_3" value="&lt;b&gt;CUSTOM: credentials + evidence&lt;/b&gt;&lt;br/&gt;host/credentials/siwc/; activity/&lt;br/&gt;&lt;br/&gt;Host owns ChatGPT sign-in; rollout_export.py retains selected native evidence. Some parsing remains shared." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#EAF0FA;strokeColor=#8193A5;fontColor=#20384A;fontSize=15;" vertex="1" parent="support">
-          <mxGeometry x="1055" y="55" width="310" height="185" as="geometry" />
-        </mxCell>
-        <mxCell id="edge-agent_runtime" value="delegates" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;strokeColor=#218168;strokeWidth=2;endArrow=classic;startArrow=none;dashed=0;fontSize=12;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="agent" target="runtime">
+        <mxCell id="edge-edge_1" value="execute / finalize" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;strokeColor=#42699A;strokeWidth=2;endArrow=classic;startArrow=none;dashed=0;fontSize=12;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="agent" target="runtime">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="edge-runtime_acp" value="open / prompt" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;strokeColor=#218168;strokeWidth=2;endArrow=classic;startArrow=none;dashed=0;fontSize=12;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="runtime" target="acp">
+        <mxCell id="edge-edge_2" value="session / prompt" style="edgeStyle=segmentEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;strokeColor=#218168;strokeWidth=2;endArrow=classic;startArrow=none;dashed=0;fontSize=12;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="runtime" target="acp">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="860" y="515" />
+              <mxPoint x="860" y="285" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge-edge_3" value="launch / close" style="edgeStyle=segmentEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;strokeColor=#42699A;strokeWidth=2;endArrow=classic;startArrow=none;dashed=0;fontSize=12;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="runtime" target="docker">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="860" y="515" />
+              <mxPoint x="860" y="515" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge-edge_4" value="ACP stdio" style="edgeStyle=segmentEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;strokeColor=#218168;strokeWidth=2;endArrow=classic;startArrow=none;dashed=0;fontSize=12;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="acp" target="adapter">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1295" y="285" />
+              <mxPoint x="1295" y="285" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge-edge_5" value="launch / attach" style="edgeStyle=segmentEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.83;entryDx=0;entryDy=0;entryPerimeter=0;strokeColor=#42699A;strokeWidth=2;endArrow=classic;startArrow=none;dashed=0;fontSize=12;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="docker" target="adapter">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1319" y="515" />
+              <mxPoint x="1319" y="334.5" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge-edge_6" value="native interface" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;strokeColor=#218168;strokeWidth=2;endArrow=classic;startArrow=none;dashed=0;fontSize=12;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="adapter" target="cli">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="edge-acp_sdk" value="uses" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;strokeColor=#218168;strokeWidth=2;endArrow=classic;startArrow=none;dashed=0;fontSize=12;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="acp" target="sdk">
+        <mxCell id="edge-edge_7" value="model requests" style="edgeStyle=segmentEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;strokeColor=#218168;strokeWidth=2;endArrow=classic;startArrow=none;dashed=0;fontSize=12;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cli" target="model">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1730" y="515" />
+              <mxPoint x="1730" y="285" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge-edge_8" value="validated launch" style="edgeStyle=segmentEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;strokeColor=#42699A;strokeWidth=2;endArrow=classic;startArrow=none;dashed=0;fontSize=12;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="policy" target="runtime">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="425" y="515" />
+              <mxPoint x="425" y="515" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="codex-tools-auth" name="2. Tools and credentials">
+    <mxGraphModel grid="1" gridSize="10" page="1" pageScale="1" pageWidth="2190" pageHeight="900">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="diagram-title" value="Codex | 2. Tools and credentials" vertex="1" parent="1" style="text;html=1;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontSize=24;fontColor=#20384A;">
+          <mxGeometry x="60" y="25" width="2115" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="diagram-note" value="OPTIONAL SPLIT PATH. Normal mode uses native execution. App-owned login is only one credential source. | Current runtime 19c7f1f. Paths are repository/package-relative as shown." vertex="1" parent="1" style="text;html=1;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontSize=12;fontColor=#9A6949;">
+          <mxGeometry x="60" y="78" width="2115" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="col_0" value="Optional host login / Docker" style="rounded=0;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;resizeChildren=0;align=left;verticalAlign=top;spacingLeft=12;spacingTop=10;fillColor=#F5F7FA;strokeColor=#BDCBD6;fontColor=#20384A;fontSize=15;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="45" y="150" width="325" height="520" as="geometry" />
+        </mxCell>
+        <mxCell id="source" value="&lt;b&gt;Host ChatGPT connection&lt;/b&gt;&lt;br/&gt;host/credentials/siwc/&lt;br/&gt;&lt;br/&gt;Optional app-owned login supplies the admitted access credential via CodexAgent; currently allowed only with Codex split mode." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#EAF0FA;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_0">
+          <mxGeometry x="20" y="60" width="285" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="docker" value="&lt;b&gt;Shared Docker mechanics&lt;/b&gt;&lt;br/&gt;py-docker -&amp;gt; Docker SDK -&amp;gt; Engine&lt;br/&gt;&lt;br/&gt;Create/attach owned containers, execute jobs, retain receipts and reconcile cleanup." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#E7F3EC;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_0">
+          <mxGeometry x="20" y="290" width="285" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="col_1" value="Provider split resource owners" style="rounded=0;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;resizeChildren=0;align=left;verticalAlign=top;spacingLeft=12;spacingTop=10;fillColor=#F5F7FA;strokeColor=#BDCBD6;fontColor=#20384A;fontSize=15;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="480" y="150" width="325" height="520" as="geometry" />
+        </mxCell>
+        <mxCell id="runtime" value="&lt;b&gt;CodexController&lt;/b&gt;&lt;br/&gt;codex/controller/service.py&lt;br/&gt;&lt;br/&gt;Own the ACP session, native callbacks, output precheck and exact controller lifetime." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#F0EAF8;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_1">
+          <mxGeometry x="20" y="60" width="285" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="executor" value="&lt;b&gt;Optional split executor&lt;/b&gt;&lt;br/&gt;codex/split/executor.py; models.py&lt;br/&gt;&lt;br/&gt;Controller creates/registers this separate execution resource. Native isolation remains unverified." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#F0EAF8;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_1">
+          <mxGeometry x="20" y="290" width="285" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="col_2" value="Controller admitted state" style="rounded=0;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;resizeChildren=0;align=left;verticalAlign=top;spacingLeft=12;spacingTop=10;fillColor=#F5F7FA;strokeColor=#BDCBD6;fontColor=#20384A;fontSize=15;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="915" y="150" width="325" height="520" as="geometry" />
+        </mxCell>
+        <mxCell id="profile" value="&lt;b&gt;Controller credential/session binding&lt;/b&gt;&lt;br/&gt;SplitLaunch; profile / environment&lt;br/&gt;&lt;br/&gt;Access may be launch-only. Bind native session state separately; no access credential reaches the executor." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#E7F3EC;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_2">
+          <mxGeometry x="20" y="60" width="285" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="col_3" value="Controller process" style="rounded=0;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;resizeChildren=0;align=left;verticalAlign=top;spacingLeft=12;spacingTop=10;fillColor=#F5F7FA;strokeColor=#BDCBD6;fontColor=#20384A;fontSize=15;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1350" y="150" width="325" height="520" as="geometry" />
+        </mxCell>
+        <mxCell id="cli" value="&lt;b&gt;Codex native runtime&lt;/b&gt;&lt;br/&gt;codex app-server&lt;br/&gt;&lt;br/&gt;Upstream native threads, reasoning, model requests and admitted tool execution." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#E7F3EC;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_3">
+          <mxGeometry x="20" y="60" width="285" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="col_4" value="Separate command executor" style="rounded=0;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;resizeChildren=0;align=left;verticalAlign=top;spacingLeft=12;spacingTop=10;fillColor=#F5F7FA;strokeColor=#BDCBD6;fontColor=#20384A;fontSize=15;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1785" y="150" width="325" height="520" as="geometry" />
+        </mxCell>
+        <mxCell id="server" value="&lt;b&gt;Credential-free exec-server&lt;/b&gt;&lt;br/&gt;Separate codex exec-server container&lt;br/&gt;&lt;br/&gt;Capability-authenticated WebSocket. Bridge networking; native sandbox isolation remains unverified." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#E7F3EC;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_4">
+          <mxGeometry x="20" y="60" width="285" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-edge_0" value="via Agent binding" style="edgeStyle=segmentEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;strokeColor=#A37537;strokeWidth=2;endArrow=classic;startArrow=none;dashed=1;fontSize=12;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="source" target="runtime">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="425" y="285" />
+              <mxPoint x="425" y="285" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge-edge_1" value="admitted policy" style="edgeStyle=segmentEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;strokeColor=#A37537;strokeWidth=2;endArrow=classic;startArrow=none;dashed=1;fontSize=12;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="runtime" target="profile">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="860" y="285" />
+              <mxPoint x="860" y="285" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge-edge_2" value="controller only" style="edgeStyle=segmentEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;strokeColor=#A37537;strokeWidth=2;endArrow=classic;startArrow=none;dashed=1;fontSize=12;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="profile" target="cli">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1295" y="285" />
+              <mxPoint x="1295" y="285" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge-edge_3" value="registered WebSocket" style="edgeStyle=segmentEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;strokeColor=#218168;strokeWidth=2;endArrow=classic;startArrow=none;dashed=0;fontSize=12;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cli" target="server">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1730" y="285" />
+              <mxPoint x="1730" y="285" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge-edge_4" value="create / monitor" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;strokeColor=#42699A;strokeWidth=2;endArrow=classic;startArrow=none;dashed=0;fontSize=12;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="runtime" target="executor">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="edge-sdk_adapter" value="ACP via attached stdio" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;strokeColor=#218168;strokeWidth=2;endArrow=classic;startArrow=none;dashed=0;fontSize=12;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="sdk" target="adapter">
+        <mxCell id="edge-edge_5" value="owned session" style="edgeStyle=segmentEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;strokeColor=#42699A;strokeWidth=2;endArrow=classic;startArrow=none;dashed=0;fontSize=12;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="executor" target="docker">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="425" y="515" />
+              <mxPoint x="425" y="515" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge-edge_6" value="launch / cleanup" style="edgeStyle=segmentEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;entryPerimeter=0;strokeColor=#42699A;strokeWidth=2;endArrow=classic;startArrow=none;dashed=0;fontSize=12;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="docker" target="server">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="207.5" y="750" />
+              <mxPoint x="1947.5" y="750" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="codex-evidence" name="3. Evidence to Activity">
+    <mxGraphModel grid="1" gridSize="10" page="1" pageScale="1" pageWidth="2190" pageHeight="900">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="diagram-title" value="Codex | 3. Evidence to Activity" vertex="1" parent="1" style="text;html=1;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontSize=24;fontColor=#20384A;">
+          <mxGeometry x="60" y="25" width="2115" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="diagram-note" value="Data-flow view, not every direct function call. Capture completeness, task completion and cleanup remain separate facts. | Current runtime 19c7f1f. Paths are repository/package-relative as shown." vertex="1" parent="1" style="text;html=1;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontSize=12;fontColor=#9A6949;">
+          <mxGeometry x="60" y="78" width="2115" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="col_0" value="Native sources" style="rounded=0;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;resizeChildren=0;align=left;verticalAlign=top;spacingLeft=12;spacingTop=10;fillColor=#F5F7FA;strokeColor=#BDCBD6;fontColor=#20384A;fontSize=15;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="45" y="150" width="325" height="520" as="geometry" />
+        </mxCell>
+        <mxCell id="source" value="&lt;b&gt;Native Codex events&lt;/b&gt;&lt;br/&gt;Native runtime + patched ACP adapter&lt;br/&gt;&lt;br/&gt;Custom extension preserves item/thread/terminal events and host policy." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#FFF0DF;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_0">
+          <mxGeometry x="20" y="60" width="285" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="rollout" value="&lt;b&gt;Native rollout files&lt;/b&gt;&lt;br/&gt;Dedicated profile sessions/&lt;br/&gt;&lt;br/&gt;Codex persists thread evidence. Export selects the exact bound thread." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#E7F3EC;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_0">
+          <mxGeometry x="20" y="290" width="285" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="col_1" value="Shared wire / explicit export" style="rounded=0;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;resizeChildren=0;align=left;verticalAlign=top;spacingLeft=12;spacingTop=10;fillColor=#F5F7FA;strokeColor=#BDCBD6;fontColor=#20384A;fontSize=15;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="480" y="150" width="325" height="520" as="geometry" />
+        </mxCell>
+        <mxCell id="acp" value="&lt;b&gt;Shared ACP bridge + Python SDK&lt;/b&gt;&lt;br/&gt;agents/agents/base/acp/session.py; transport.py&lt;br/&gt;&lt;br/&gt;AcpSession composes the upstream ACP SDK. DockerTransport carries its frames over attached stdin/stdout." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#EAF0FA;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_1">
+          <mxGeometry x="20" y="60" width="285" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="export" value="&lt;b&gt;Explicit rollout export command&lt;/b&gt;&lt;br/&gt;codex/activity/rollout_export.py&lt;br/&gt;&lt;br/&gt;Standalone Docker CLI reads only the selected native thread. This is not automatic Activity ingestion." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#F0EAF8;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_1">
+          <mxGeometry x="20" y="290" width="285" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="col_2" value="Provider capture / selected output" style="rounded=0;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;resizeChildren=0;align=left;verticalAlign=top;spacingLeft=12;spacingTop=10;fillColor=#F5F7FA;strokeColor=#BDCBD6;fontColor=#20384A;fontSize=15;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="915" y="150" width="325" height="520" as="geometry" />
+        </mxCell>
+        <mxCell id="capture" value="&lt;b&gt;Controller native callback&lt;/b&gt;&lt;br/&gt;controller/service.py:_native_event&lt;br/&gt;&lt;br/&gt;Bind native identities/completion and retain safe raw/activity receipts." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#F0EAF8;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_2">
+          <mxGeometry x="20" y="60" width="285" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="retained" value="&lt;b&gt;Retained export artifact&lt;/b&gt;&lt;br/&gt;Explicitly selected output file&lt;br/&gt;&lt;br/&gt;An evidence copy produced by the export command; separate from live Activity capture." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#E7F3EC;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_2">
+          <mxGeometry x="20" y="290" width="285" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="col_3" value="Shared Activity" style="rounded=0;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;resizeChildren=0;align=left;verticalAlign=top;spacingLeft=12;spacingTop=10;fillColor=#F5F7FA;strokeColor=#BDCBD6;fontColor=#20384A;fontSize=15;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1350" y="150" width="325" height="520" as="geometry" />
+        </mxCell>
+        <mxCell id="activity" value="&lt;b&gt;Shared Activity store / projection&lt;/b&gt;&lt;br/&gt;agents/activity/&lt;br/&gt;&lt;br/&gt;Retain and project observed records for the wider app. Native interpretation is still partly shared." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#EAF0FA;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_3">
+          <mxGeometry x="20" y="60" width="285" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="col_4" value="Wider application" style="rounded=0;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;resizeChildren=0;align=left;verticalAlign=top;spacingLeft=12;spacingTop=10;fillColor=#F5F7FA;strokeColor=#BDCBD6;fontColor=#20384A;fontSize=15;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1785" y="150" width="325" height="520" as="geometry" />
+        </mxCell>
+        <mxCell id="ui" value="&lt;b&gt;Graph Activity viewer&lt;/b&gt;&lt;br/&gt;Application UI&lt;br/&gt;&lt;br/&gt;Read retained evidence, usage and uncertainty; no new model request." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#EAF0FA;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_4">
+          <mxGeometry x="20" y="60" width="285" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-edge_0" value="raw notifications" style="edgeStyle=segmentEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;strokeColor=#8C619B;strokeWidth=2;endArrow=classic;startArrow=none;dashed=1;fontSize=12;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="source" target="acp">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="425" y="285" />
+              <mxPoint x="425" y="285" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge-edge_1" value="native callback" style="edgeStyle=segmentEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;strokeColor=#8C619B;strokeWidth=2;endArrow=classic;startArrow=none;dashed=1;fontSize=12;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="acp" target="capture">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="860" y="285" />
+              <mxPoint x="860" y="285" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge-edge_2" value="retained receipts" style="edgeStyle=segmentEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;strokeColor=#8C619B;strokeWidth=2;endArrow=classic;startArrow=none;dashed=1;fontSize=12;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="capture" target="activity">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1295" y="285" />
+              <mxPoint x="1295" y="285" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge-edge_3" value="read / project" style="edgeStyle=segmentEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;strokeColor=#8C619B;strokeWidth=2;endArrow=classic;startArrow=none;dashed=1;fontSize=12;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="activity" target="ui">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1730" y="285" />
+              <mxPoint x="1730" y="285" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge-edge_4" value="native persistence" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;strokeColor=#8C619B;strokeWidth=2;endArrow=classic;startArrow=none;dashed=1;fontSize=12;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="source" target="rollout">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="edge-adapter_cli" value="native interface" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;strokeColor=#218168;strokeWidth=2;endArrow=classic;startArrow=none;dashed=0;fontSize=12;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="adapter" target="cli">
-          <mxGeometry relative="1" as="geometry" />
+        <mxCell id="edge-edge_5" value="selected read" style="edgeStyle=segmentEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;strokeColor=#8C619B;strokeWidth=2;endArrow=classic;startArrow=none;dashed=1;fontSize=12;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="rollout" target="export">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="425" y="515" />
+              <mxPoint x="425" y="515" />
+            </Array>
+          </mxGeometry>
         </mxCell>
-        <mxCell id="edge-cli_model" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;strokeColor=#218168;strokeWidth=2;endArrow=classic;startArrow=none;dashed=0;fontSize=12;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cli" target="model">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="edge-runtime_docker" value="launch / close" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;strokeColor=#486FA3;strokeWidth=2;endArrow=classic;startArrow=none;dashed=1;fontSize=12;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="runtime" target="docker">
-          <mxGeometry relative="1" as="geometry" />
+        <mxCell id="edge-edge_6" value="retains copy" style="edgeStyle=segmentEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;strokeColor=#8C619B;strokeWidth=2;endArrow=classic;startArrow=none;dashed=1;fontSize=12;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="export" target="retained">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="860" y="515" />
+              <mxPoint x="860" y="515" />
+            </Array>
+          </mxGeometry>
         </mxCell>
       </root>
     </mxGraphModel>
