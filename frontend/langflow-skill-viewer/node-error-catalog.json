@@ -1461,7 +1461,7 @@
   },
   "skill_feedback_request_required": {
     "title": "Supply a Skill operation",
-    "description": "This feedback connection has no saved legacy edit request. No editing Agent was started.",
+    "description": "New edits belong in Operation or the Skill files editor. No editing Agent was started.",
     "recovery": "Remove the Skill Task-to-Agent Task feedback loop and supply file changes from an upstream node to Operation. For manual changes, open Skill files, edit the files and Publish."
   },
   "source_reference_invalid": {
