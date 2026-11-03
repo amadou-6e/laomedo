@@ -1,6 +1,6 @@
 # Claude Agent
 
-`ClaudeAgent` is the provider-qualified concrete Agent (formerly `ClaudeRunner`). It inherits the [abstract lifecycle](../base/README.md).
+`ClaudeAgent` is the provider-qualified concrete Agent. It inherits the [abstract lifecycle](../base/README.md).
 The implementation is in `agent.py`; folder and object renaming do not
 remove its whole-pipeline overrides.
 
@@ -13,7 +13,7 @@ A container opens and closes per turn. Output correction resumes the native sess
 | `preflight()` | Check configured readiness/isolation; do not dispatch work. |
 | `resume(...)` | Continue only an admitted existing provider/session binding. |
 | `recover_interrupted(record)` | Reconcile exact recorded resources, without replaying execution. |
-| `_execute(...)` | Protected provider hook, currently a pipeline override awaiting consolidation. |
+| `_execute(...)` | Protected provider hook implementing execution and finalization. |
 
 Model Refresh, startup catalogue warming and Python preflight can all mirror the
 local login before their native control request. Their stage policies can exceed

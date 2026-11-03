@@ -30,19 +30,19 @@ owned by this lifecycle.
 Failures use the single [RunnerError](../../errors.py) hierarchy and stable codes.
 Uncertain remote execution must not become an automatic retry. Normal Agent
 execution has no verification quota or experiment admission hook.
-# Structured preparation records
+## Structured preparation records
 
 `PreparedRunRecord` in `models.py` constructs the initial durable run value.
 `PreparedWorkspaceState` groups source/effective hashes, baseline and workspace
 mode. `RuntimeBinding` remains the canonical provider binding; `AgentSkillBinding`
 groups installed skill identity and byte evidence. `for_preparation()` derives
-initial state after existing admission; `to_record()` preserves the legacy flat
+initial state after existing admission; `to_record()` preserves the persisted flat
 JSON record, including explicit nulls and an omitted absent `github_scope`.
 
 Provider execution, cancellation, recovery and historical readers still own the
-existing mutable dictionary lifecycle. The new model is a writer, not a strict
+existing mutable dictionary lifecycle. The preparation model is a writer, not a strict
 reader for later provider-specific extensions. It performs no filesystem or model
-effects. Native/raw records are not silently coerced into a closed new schema.
+effects. Native/raw records are not silently coerced into a closed schema.
 
 ## Private failure observations
 
@@ -50,8 +50,8 @@ effects. Native/raw records are not silently coerced into a closed new schema.
 contains allowlisted stage/code/SDK metadata; `AttemptFailureRecord` groups the
 first failure, optional cleanup failure, final category and a qualified cleanup
 fact. `from_*` constructs trusted observations and `to_record()` projects private
-JSON. Existing atomic `_json` writes `diagnostics/<attempt-id>.json` after normal
-attempt/run writes; no new Store, reader API, HTTP fields or historical migration.
+JSON. Atomic `_json` writes `diagnostics/<attempt-id>.json` after normal
+attempt/run writes. These observations are private diagnostic records.
 Diagnostic errors never replace execution errors or prevent lock release.
 The existing `BaseAgent._retain_attempt_failure` method owns the shared guarded
 construction and atomic write. Providers supply already observed primary/cleanup

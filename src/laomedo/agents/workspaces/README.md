@@ -38,9 +38,8 @@ Restore/protected-state transitions still belong to BaseAgent. Sources must be
 trusted host input, never prior Agent output. Existing symlink, gitlink, sparse,
 tracked-skill, dirty-source and cleanup refusals stay in force. Historical
 WorkspaceSkillError covers baseline/cleanup as well as skill verification;
-this relocation does not reclassify it or change its translation to RunnerError.
+callers translate it to RunnerError without changing the refusal code.
 
 The [skill delivery README](skills/README.md) identifies its canonical records
-and exact function vocabulary. The old general Skills workspace package is
-removed; these are the current defining owners. Known helper imports migrate to
-their defining functions; a split namespace is not recreated by a facade.
+and exact function vocabulary. Callers import these defining owners directly;
+general Skill registry operations remain in the Skills package.

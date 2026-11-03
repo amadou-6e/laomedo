@@ -15,10 +15,8 @@ selection, GitHub workflows or native provider skill execution.
 
 Binding names the installed identity/evidence pair. Exclusion names observed
 run-local Git metadata, not registry policy or authorization. The two existing
-Pydantic models remain defined once in Agent base models during this pure
-relocation. No duplicate model, forwarding models.py or new provider-specific
-record is introduced. Their existing construction and model_dump projections,
-including omitted disabled keys, remain unchanged.
+Pydantic models are defined once in Agent base models. Their construction and
+model_dump projections preserve omitted disabled keys.
 
 ## Function interfaces
 
@@ -34,11 +32,11 @@ general Skills never imports this Agent-only package. No Git subprocess belongs
 in this leaf: independent baseline creation is in ../baseline.py and reusable
 mechanics remain in laomedo/git.
 
-## Migration and failures
+## Failure and consumer contracts
 
-The original helper bodies, byte handling, side-effect order and stable codes
-are preserved. All three resulting producer owners (baseline, cleanup and this
-leaf) need catalogue guards; moving the path must not drop those checks.
+Byte handling, side-effect order and stable refusal codes are part of the contract.
+Baseline, cleanup and skill verification each have their own error producers and
+catalogue coverage guards.
 WorkspaceSkillError translation to RunnerError remains with existing callers.
 
 The offline symbol map migrates known functions directly. Historical provider

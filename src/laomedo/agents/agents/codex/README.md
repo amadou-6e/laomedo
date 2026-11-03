@@ -1,6 +1,6 @@
 # Codex Agent
 
-`CodexAgent` is the provider-qualified concrete Agent (formerly `CodexRunner`). It inherits the [abstract lifecycle](../base/README.md).
+`CodexAgent` is the provider-qualified concrete Agent. It inherits the [abstract lifecycle](../base/README.md).
 The implementation is in `agent.py`; folder and object renaming do not
 remove its whole-pipeline overrides.
 
@@ -13,7 +13,7 @@ A controller and optional executor span the attempt and output corrections. Nati
 | `preflight()` | Check configured readiness/isolation; do not dispatch work. |
 | `resume(...)` | Continue only an admitted existing provider/session binding. |
 | `recover_interrupted(record)` | Reconcile exact recorded resources, without replaying execution. |
-| `_execute(...)` | Protected provider hook, currently a pipeline override awaiting consolidation. |
+| `_execute(...)` | Protected provider hook implementing execution and finalization. |
 
 Native `activity/` belongs to this provider. Codex's ChatGPT connection and secure
 storage remain host-owned under `host/credentials/siwc`; no provider `auth/`

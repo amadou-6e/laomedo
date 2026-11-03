@@ -1,6 +1,6 @@
 # Opencode Agent
 
-`OpenCodeAgent` is the provider-qualified concrete Agent (formerly `OpenCodeRunner`). It inherits the [abstract lifecycle](../base/README.md).
+`OpenCodeAgent` is the provider-qualified concrete Agent. It inherits the [abstract lifecycle](../base/README.md).
 The implementation is in `agent.py`; folder and object renaming do not
 remove its whole-pipeline overrides.
 
@@ -13,7 +13,7 @@ The controller and broker span an attempt. Native history export follows confirm
 | `preflight()` | Check configured readiness/isolation; do not dispatch work. |
 | `resume(...)` | Continue only an admitted existing provider/session binding. |
 | `recover_interrupted(record)` | Reconcile exact recorded resources, without replaying execution. |
-| `_execute(...)` | Protected provider hook, currently a pipeline override awaiting consolidation. |
+| `_execute(...)` | Protected provider hook implementing execution and finalization. |
 
 Native `activity/` and authentication under `auth/` (where implemented) belong
 to this provider. `settings.py` owns protocol pins/configuration; `models.py`
