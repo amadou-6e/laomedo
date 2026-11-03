@@ -91,6 +91,16 @@ class SkillInspectionTests(unittest.TestCase):
         )
         self.assertEqual(base64.b64decode(assets["pixel.png"]["binary_base64"]), image)
         self.assertNotIn("binary_base64", assets["SKILL.md"])
+        combined = inspect_skill(
+            self.store.root,
+            "media",
+            record["revision_id"],
+            include_images=True,
+            include_binary=True,
+        )
+        raster = next(file for file in combined["files"] if file["path"] == "pixel.png")
+        self.assertIn("image_data_url", raster)
+        self.assertNotIn("binary_base64", raster)
         (
             self.store._revision_dir("media", record["revision_id"])
             / "bundle/pixel.png"

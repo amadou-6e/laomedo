@@ -6,13 +6,19 @@ Skill ID and short revision share a single header line. The Skill summary remain
 visible and its overview can be expanded.
 
 Right-click a file, folder or empty space in **Files** for Upload files, Rename,
-Move to, Delete and Copy relative path. Shift+F10 or the Menu key opens the same
-menu for the focused target. **Move to** is the keyboard alternative to dragging
-files or folders. Drop local files into Files to import them; upload on a file
+Delete and Copy relative path. Shift+F10 or the Menu key opens the same
+menu for the focused target. Move files/folders with drag/drop; Ctrl+X and Ctrl+V
+provide the keyboard equivalent without a Move to menu. Drop local files into Files to import them; upload on a file
 targets its parent, and empty space targets the Skill root.
 
-Renames and moves retain working text and binary bytes. Delete asks for
-confirmation. Required SKILL.md stays at the root. These actions are staged until
+F2 or Rename edits the filename in place with a blue border. Enter or blur
+commits, Escape cancels. Renames and moves retain working text and binary bytes.
+Delete removes files immediately; Files-focused Ctrl+Z restores them and Ctrl+Y
+or Ctrl+Shift+Z reapplies. Deleting a subtree and undoing restores its dirty text.
+Editor/input shortcuts remain native. Undoing an upload removes that file, including
+subsequent edits to it. A new file action clears redo; confirmed save/discard clears
+tree history, while a refused/uncertain save retains it. Following a different
+revision clears old buffers and tree history so stale actions cannot replace new bytes. Required SKILL.md stays at the root. These actions are staged until
 Publish; Discard restores saved files. No automatic overwrite occurs.
 
 Change any existing text file to reveal the bottom-right **Discard** and
@@ -39,10 +45,57 @@ recovers restored permissions; Retry comparison reloads an unavailable base.
 The host service requires its explicit `--manual-permissions` JSON, keyed by
 Skill ID with `edit` and `publish` booleans, plus the existing edit policy.
 Missing grants deny writes. Backend provenance is `operator`, not an independently
-verified human identity. Manual creation/deletion/binary edits, per-user ACL, Git
-publication and durable unsaved crash recovery remain unsupported.
+verified human identity. Binary in-place editing, directory imports, per-user ACL,
+Git publication and durable unsaved crash recovery remain unsupported.
 
-## File actions: current UI verification
+## VS Code-style explorer: current verification
+
+Empty folders stay in the open workspace after their last file moves/deletes,
+including after Publish. They accept drops/imports and can be renamed, moved or
+deleted. **Empty · not saved** distinguishes local directory state: registry
+commits store files only. Reopening reconstructs folders from saved files; Discard
+restores saved structure. No hidden placeholder file is created. Folder-only
+actions do not enable Publish. Drop targets use grey highlighting only.
+
+JSON files use a braces icon. Existing and newly imported raster images have an
+automatic preview: PNG, JPEG, GIF, WebP and ICO are identified from bounded bytes.
+Other binary files show paged hex/ASCII; an undecodable image falls back to bytes.
+SVG, HTML and PDF are never executed as documents. Binary preview is read-only.
+
+![Actual inline filename rename and JSON braces](assets/explorer-inline-rename.png)
+
+![Actual grey-only pointer drop target](assets/explorer-grey-drop.png)
+
+![Actual saved raster image preview](assets/explorer-binary-preview.png)
+
+![Actual publication with retained empty folder](assets/explorer-published-empty.png)
+
+Captured 2026-11-03 in authenticated headless Edge on Windows, runtime
+`bc7c0eda233757b3bf360e5d3a8262e2c10c7569`, pinned Langflow
+`fec71dca901949c09ed4d63315804337cd2eb13d`. The displayed PNG is a real, retained
+workspace screenshot asset, so its contents show an earlier UI. It is evidence of
+binary rendering, not a current UI reference.
+
+| Story | Actual observation |
+| --- | --- |
+| Empty folder and moving | Pointer move of final child retains labelled folder; import of actual repository JSON into it succeeds. Grey target has no outline or shadow. Ctrl+X/V also moves; no Move to menu. |
+| Rename | F2/native Menu key, stem selection, in-row blue border, Enter, invalid-name error/recovery and Escape pass. 900×650 and Dark/Light checked. |
+| Delete and undo/redo | Immediate dirty subtree deletion has no confirmation; Files Ctrl+Z restores exact unsaved text and Ctrl+Y deletes again. Native editor undo remains independent. |
+| Preview | Actual saved/imported PNG decodes. Actual installed Monaco font has exact first 16 bytes in paged hex; Show more expands. No document embed is used. |
+| Save and restore | Two real UI save/promotions move the operation file out, verify the empty folder survives Publish, then restore the maintained paths. Confirmed save clears undo. Eighteen genuine commits remain; original revision bytes and graph pins are restored/preserved. |
+
+No application Agent/model run or GitHub write was needed. Temporary JSON/font/
+image imports and text edits were discarded. Source bundles, original Skill pins,
+manual grants and Light theme remain unchanged. Independent review, internal
+controls and CI supplement these actual paths; requesting-owner validation remains
+required. No live post-effect response-loss/crash recovery claim is made.
+
+The pinned Monaco 0.57.0 JSON worker imports editor contributions lazily. The
+viewer registers that module before its first standalone editor to avoid missing
+service errors. The final actual run requires zero page errors; preserve that
+regression check when upgrading the pinned frontend/editor.
+
+## Earlier file-action verification at 2b5fe172 (historical)
 
 ![Actual file context menu](assets/file-actions-menu.png)
 

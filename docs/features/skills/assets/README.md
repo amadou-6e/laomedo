@@ -52,3 +52,6 @@ later menu/metadata UI fixes have fresh final-source interaction checks. The PNG
 uploaded during acceptance is the existing always-on-clean.png documentation
 asset; it is not presented as a new file-action screenshot. Final owner validation
 is still required.
+
+
+`explorer-inline-rename.png`, `explorer-grey-drop.png`, `explorer-binary-preview.png` and `explorer-published-empty.png` are actual authenticated Edge captures from bc7c0eda on 2026-11-03. The preview is a real historical PNG asset. Full pointer/keyboard/file-byte checks and two real save/promotions are described in manual-workspace.md; 18 genuine commits remain. These are not proposed mockups or owner acceptance.
