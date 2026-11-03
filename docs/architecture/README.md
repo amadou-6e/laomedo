@@ -8,6 +8,8 @@ application integration.
 - [Package layout and migration](package-layout.md): source ownership, canonical
   entrypoints, typed internal data and migration from retired module paths.
 - [Node boundaries](node-contracts.md): responsibilities and operation exchange.
+- [Agent provider parity plan](agent-provider-parity-plan.md): proposed contract,
+  runtime ownership and staged gap closure; awaiting review, not implemented.
 - [Work Graph foundation](work-graph.md): imported work, immutable snapshots and
   dependency readiness; distinct from the Langflow execution graph.
 - Feature owners: [Agents](../features/agents/README.md),
