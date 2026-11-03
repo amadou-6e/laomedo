@@ -164,7 +164,7 @@ def check_manual_git_calls(source: str, tree) -> None:
         if isinstance(node, ast.Call):
             full = reference(node.func)
             target = SYMBOL_PATHS.get(full, full)
-            if target in changed and any(item.arg == "run" for item in node.keywords):
+            if target in changed and any(item.arg in {"run", None} for item in node.keywords):
                 raise ManualMigrationRequired(
                     full
                     + ": run= now requires an explicit GitCommandRunner through runner=; manual migration is required"
@@ -896,7 +896,10 @@ def main() -> None:
                 parser.error("Select regular source/config/graph files under 16 MiB")
             original = path.read_bytes()
             bom = codecs.BOM_UTF8 if original.startswith(codecs.BOM_UTF8) else b""
-            source = original[len(bom) :].decode("utf-8")
+            try:
+                source = original[len(bom) :].decode("utf-8")
+            except UnicodeDecodeError:
+                raise ValueError("Selected source is not valid UTF-8") from None
             text = (
                 migrate_json_source(source)
                 if path.suffix.lower() == ".json"
