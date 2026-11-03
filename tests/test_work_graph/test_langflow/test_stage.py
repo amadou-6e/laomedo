@@ -1,4 +1,4 @@
-"""Credential-free checks of the pinned Langflow launch graph boundary."""
+"""Preserved frozen-graph runtime boundary controls."""
 
 from copy import deepcopy
 from datetime import datetime
@@ -13,7 +13,6 @@ from threading import Thread
 import time
 import unittest
 from unittest.mock import patch
-
 from laomedo.integrations.langflow.stage_adapter import FrozenLangflowStage
 from laomedo.work_graph.github import import_pages
 from laomedo.work_graph.grants import LocalGrantAuthority
@@ -21,21 +20,11 @@ from laomedo.work_graph.launch import launch_github_saved_flow_stage
 from laomedo.work_graph.launch import launch_work_stage
 from laomedo.work_graph.runs.errors import LaunchError
 from laomedo.work_graph.runs.store import WorkflowRunStore
+from support.paths import repository_root
 
-FLOW = Path(__file__).resolve().parents[1] / "experiments" / "exp03" / "flow.json"
+from test_work_graph.test_langflow.utils import field, pinned_runtime_available
 
-
-def pinned_runtime_available():
-    try:
-        return version("langflow") == "1.12.3" and version("lfx") == "1.12.3"
-    except PackageNotFoundError:
-        return False
-
-
-def field(flow, node_id, name):
-    return next(node for node in flow["data"]["nodes"] if node["id"] == node_id)[
-        "data"
-    ]["node"]["template"][name]
+FLOW = repository_root() / "tests/test_work_graph/fixtures/frozen-flow.json"
 
 
 @unittest.skipUnless(
@@ -152,7 +141,7 @@ class LangflowStageAdapterTests(unittest.TestCase):
 
     def test_work_graph_gate_launches_the_checked_langflow_graph(self):
         corpus = json.loads(
-            (FLOW.parents[0] / ".." / "exp16" / "corpus.json")
+            (repository_root() / "tests/test_work_graph/fixtures/corpus.json")
             .resolve()
             .read_text(encoding="utf-8")
         )
@@ -172,6 +161,7 @@ class LangflowStageAdapterTests(unittest.TestCase):
                 "grant_id": ref,
                 "operator_authorized": True,
                 "work_key": "github:S-20",
+                "content_digest": binding["selected_content_digest"],
                 "graph_snapshot_id": binding["selected_graph_snapshot_id"],
                 "runner": "langflow-local",
                 "scope": "stage-launch",
@@ -204,7 +194,7 @@ class LangflowStageAdapterTests(unittest.TestCase):
 
     def test_saved_flow_entrypoint_routes_through_live_source_and_grant_gate(self):
         corpus = json.loads(
-            (FLOW.parents[0] / ".." / "exp16" / "corpus.json")
+            (repository_root() / "tests/test_work_graph/fixtures/corpus.json")
             .resolve()
             .read_text(encoding="utf-8")
         )
@@ -269,7 +259,3 @@ class LangflowStageAdapterTests(unittest.TestCase):
                     "selected_graph_snapshot_id": frozen.snapshot_id,
                 },
             )
-
-
-if __name__ == "__main__":
-    unittest.main()
