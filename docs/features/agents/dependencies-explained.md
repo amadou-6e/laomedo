@@ -69,6 +69,10 @@ Docker supplies the environment in which the agent-side program runs. Docker
 is not ACP and does not understand prompts. Our Docker transport moves the bytes
 between these ends; the ACP SDK understands their message structure.
 
+Arrows in the following sketches follow the request or call direction. Responses
+and progress return towards Laomedo; they are omitted to keep the sketches readable.
+The model service is remote, outside both the host process and the container.
+
 ## Why there is another layer after ACP
 
 Not every agent originally exposes ACP. If an agent exposes another interface,
@@ -81,9 +85,9 @@ That translator is an ACP adapter.
 HOST                              INSIDE THE CONTAINER
 Laomedo
   calls ACP Python SDK
-          ??? ACP messages ??????? codex-acp adapter
-                                    ??? Codex requests ??? codex app-server
-                                                           ??? model service
+          +-- ACP messages ------> codex-acp adapter
+                                    +-- Codex requests --> codex app-server
+                                                           +--> Remote model service (outside Docker)
 ```
 
 `codex app-server` is Codex running in a mode intended for another application
@@ -105,10 +109,10 @@ It is data emitted by a component, not a substitute name for that component.
 HOST                              INSIDE THE CONTAINER
 Laomedo
   calls ACP Python SDK
-          ??? ACP messages ??????? claude-agent-acp adapter
-                                    ??? library calls ??? Claude Agent SDK
-                                                           ??? Claude execution
-                                                                 ??? model service
+          +-- ACP messages ------> claude-agent-acp adapter
+                                    +-- library calls --> Claude Agent SDK
+                                                           +--> Claude execution
+                                                                 +--> Remote model service (outside Docker)
 ```
 
 The Claude Agent SDK is Anthropic's programming interface for running its agent
@@ -129,9 +133,9 @@ additional tool interface, not the code translating all Claude requests into ACP
 HOST                              INSIDE THE CONTAINER
 Laomedo
   calls ACP Python SDK
-          ??? ACP messages ??????? OpenCode running as `opencode acp`
-                                    ??? native agent execution
-                                          ??? model service
+          +-- ACP messages ------> OpenCode running as `opencode acp`
+                                    +--> native agent execution
+                                          +--> Remote model service (outside Docker)
 ```
 
 OpenCode includes an ACP interface. The endpoint and the agent execution belong
