@@ -25,7 +25,8 @@ Normal Codex host runners additionally require `python -m pip install -e '.[runn
 is optional for Langflow/core and stage-worker installations. The pre-PyPI Git
 dependency and retained-receipt recovery are described in
 [Docker runtime adoption](docker-runtime-adoption.md#local-installation-and-recovery).
-The package root contains only `__init__.py` and `_paths.py`; there are no
+The root introduces only `__init__.py` and `_paths.py` as runtime modules; its
+README indexes feature ownership. There are no
 forwarding modules, import hooks or checkout bridge.
 
 ```text
@@ -155,8 +156,8 @@ Recurring values travel as canonical Pydantic models in the feature's `models.py
 
 | Owner | Models and purpose |
 | --- | --- |
-| agents/runtime | RuntimeBinding groups provider-owned public record metadata |
-| agents/contracts | RunnerRequest groups endpoint, payload and method; its projection preserves saved component HTTP interfaces |
+| agents/agents/base | RuntimeBinding groups provider-owned public record metadata |
+| agents/interface | AgentRequest groups endpoint, payload and method; its projection preserves saved component HTTP interfaces |
 | work_graph | WorkItem, Dependency and GraphSnapshot retain immutable source identity, ordering and snapshot hashes |
 | skills/operations | FileEdit, SkillProposal and EditorProvenance carry a multi-file edit and authenticated editor context |
 | host/publication/verified | VerifiedStage carries the immutable verified bundle and its provenance |
@@ -165,7 +166,7 @@ Recurring values travel as canonical Pydantic models in the feature's `models.py
 | host/publication/{bundle,handoff,verified} | ContainerStageRecord, BundleVerificationRecord, PullRequestPublicationRequest and VerifiedStageIdentity preserve journal and digest projections |
 | work_graph | RelevantWorkContent, WorkSnapshot, WorkOverride, WorkLaunchBinding, WorkGrantLimits, WorkLaunchGrant, WorkGrantReference and WorkLaunchResult preserve launch hashes, grants and receipts |
 | host/leases | ContainerIdentity carries exact name, run ID and a secret launch token |
-| activity/agent_activity | CaptureIdentity carries graph provenance; ActivityInvocation replaces the anonymous store/invocation tuple |
+| agents/activity | CaptureIdentity carries graph provenance; ActivityInvocation replaces the anonymous store/invocation tuple |
 
 Models own validation, constructors and explicit projections. HTTP/provider JSON
 and persisted records retain their existing fields and identities. Strict models
@@ -193,18 +194,19 @@ pinned-stage-image and real graph evidence remain separate from internal tests.
 
 ## Provider-neutral Agent boundary
 
-The shared `Runner` is a template-method lifecycle, not a default Codex provider.
-It owns private state, durable request identity and acknowledgement, workspace
-preparation, immutable skill/artifact inputs and host authorization orchestration.
-Codex, Claude and OpenCode extend it directly. They own their constructors,
-request policy, model discovery/cache, native execution, resume binding,
-pre-dispatch authentication, cancellation and exact restart cleanup.
-`RuntimeBinding` in `agents/runtime/models.py` groups the public record fields;
-it never carries an access token. Credential identity metadata is distinct from
-login material. The record key set remains stable, including explicit nulls.
-OpenCode prepared records now report its own CLI and `opencode_http` mode, with
-null image/profile/config fields, rather than inherited Codex metadata. Historical
-records remain readable; the migration does not rewrite execution history.
+Abstract `BaseAgent` in `agents/agents/base/agent.py` owns durable request
+identity, acknowledgements, workspace preparation and immutable Skill/artifact
+inputs. `CodexAgent`, `ClaudeAgent` and `OpenCodeAgent` extend it directly. They
+own provider admission, model discovery, authentication, native interpretation,
+cancellation and resource recovery. Host services retain authority and publication
+policy; the lifecycle uses explicitly supplied capabilities.
+
+All three use the common ACP session boundary. Provider-specific native records
+remain provider-owned. `RuntimeBinding` in `agents/agents/base/models.py` carries
+public execution metadata; credential identity is separate from login material.
+OpenCode records its own CLI and `opencode_acp` execution mode. Historical records
+retain their original identities and remain readable; migration does not rewrite
+execution history.
 
 The shared HTTP server delegates editor refresh and resume extensions to provider
 hooks. Shared runtime code imports neither concrete providers nor credential
