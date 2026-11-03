@@ -77,6 +77,19 @@ def apply(checkout):
     shutil.copy2(overlay / "RenderAgentInputParameters.tsx", agent_target / "index.tsx")
     for name in ("SkillNodeControls.ts", "SkillNodeControls.test.tsx"):
         shutil.copy2(overlay / name, agent_target / name)
+    parameter = (
+        checkout / "src/frontend/src/components/core/parameterRenderComponent/index.tsx"
+    )
+    source = (
+        'import { skillChoicePlaceholder } from "@/CustomNodes/GenericNode/components/RenderInputParameters/SkillNodeControls";\n'
+        + parameter.read_text(encoding="utf-8")
+    )
+    source = replace_once(
+        source,
+        "      placeholder: placeholder || templateData?.placeholder,",
+        "      placeholder: skillChoicePlaceholder(useFlowStore.getState().nodes.find(node => node.id === nodeId)?.data, name, placeholder || templateData?.placeholder),",
+    )
+    parameter.write_text(source, encoding="utf-8")
     edit_rows = checkout / "src/frontend/src/modals/editNodeModal/hooks/use-row-data.ts"
     source = edit_rows.read_text(encoding="utf-8")
     source = (

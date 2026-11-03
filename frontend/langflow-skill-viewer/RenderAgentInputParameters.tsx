@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { Fragment, useMemo } from "react";
 import { getNodeInputColors } from "@/CustomNodes/helpers/get-node-input-colors";
 import { getNodeInputColorsName } from "@/CustomNodes/helpers/get-node-input-colors-name";
 import {
@@ -12,7 +12,7 @@ import { scapedJSONStringfy } from "@/utils/reactflowUtils";
 import NodeInputField from "../NodeInputField";
 import { findPrimaryInput } from "./utils";
 import AgentAdvancedControls, { advancedAgentFields, isAgentControlHidden } from "./AgentAdvancedControls";
-import { advancedSkillFields, isConnectedSkillSetting, isSkillControlHidden, isSkillNode, skillFieldInfo } from "./SkillNodeControls";
+import { advancedSkillFields, isConnectedSkillSetting, isSkillControlHidden, isSkillNode, skillFieldInfo, skillSourceError } from "./SkillNodeControls";
 
 const RenderInputParameters = ({
   data,
@@ -125,6 +125,7 @@ const RenderInputParameters = ({
       const handleIdx = handleFields.indexOf(templateField);
 
       return (
+        <Fragment key={memoizedKey}>
         <NodeInputField
           lastInput={
             !(shownOutputs.length > 0 || showHiddenOutputs || (!advanced && advancedFields.length > 0)) &&
@@ -158,6 +159,12 @@ const RenderInputParameters = ({
               : `${(((handleIdx + 1) / (handleFields.length + 1)) * 100).toFixed(2)}%`
           }
         />
+        {showNode && templateField === "source" && skillSourceError(data) && (
+          <div role="alert" data-testid="skill-source-error" className="px-5 pb-2 text-sm text-destructive">
+            {skillSourceError(data)}
+          </div>
+        )}
+        </Fragment>
       );
     },
   );

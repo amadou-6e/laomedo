@@ -1,6 +1,6 @@
 import { fireEvent, render, renderHook, screen } from "@testing-library/react";
 import RenderInputParameters from "./index";
-import { advancedSkillFields, isSkillControlHidden, skillFieldInfo, skillNodeDescription } from "./SkillNodeControls";
+import { advancedSkillFields, isSkillControlHidden, skillFieldInfo, skillNodeDescription, skillSourceError, skillChoicePlaceholder } from "./SkillNodeControls";
 import useRowData from "@/modals/editNodeModal/hooks/use-row-data";
 import InspectionPanelFields from "@/pages/FlowPage/components/InspectionPanel/components/InspectionPanelFields";
 
@@ -60,8 +60,38 @@ test("settings dialog excludes a saved visible request using the actual node typ
 test("Parameters panel cannot expose or re-add the saved request", () => {
   render(<InspectionPanelFields data={data as any} />);
   expect(screen.queryByText("edit_request", { exact: true })).toBeNull();
+  expect(screen.queryByText("discovery_status", { exact: true })).toBeNull();
   expect(screen.getByText("revision_id", { exact: true })).toBeVisible();
   expect(screen.getByText("operation", { exact: true })).toBeVisible();
+});
+
+test("Source failures are inline without a Discovery row; empty and successful sources are quiet", () => {
+  const node = (source: string, status: string) => ({ ...data, node: { ...data.node, template: { ...data.node.template,
+    source: { ...scalar, value: source }, discovery_status: { ...scalar, value: status } } } });
+  const view = draw(node("", "Discovery failed. Check source access and refresh."));
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect(screen.queryByRole("textbox", { name: "discovery_status" })).toBeNull();
+  const renderNode = (value: any, showNode = true) => <RenderInputParameters data={value} types={{}} isToolMode={false} showNode={showNode} shownOutputs={[]} showHiddenOutputs={false} />;
+  view.rerender(renderNode(node("https://github.com/owner/repo", "Discovery failed. Check source access and refresh.")));
+  const error = screen.getByRole("alert");
+  expect(error).toHaveTextContent("Check source access and refresh.");
+  expect(screen.getByRole("textbox", { name: "source" }).nextElementSibling).toBe(error);
+  view.rerender(renderNode(node("https://github.com/owner/repo", "2 skills found. Choose a Skill.")));
+  expect(screen.queryByRole("alert")).toBeNull();
+  view.rerender(renderNode(node("https://github.com/owner/repo", "Discovery failed. Check source access and refresh."), false));
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect(skillSourceError(node("/source", "private/raw exception text"))).toBeUndefined();
+});
+
+test("Skill placeholder requires an entered source and discovered options, preserving other nodes and fields", () => {
+  const node = (source: string, options: string[]) => ({ ...data, node: { ...data.node, template: { ...data.node.template,
+    source: { ...scalar, value: source }, skill_id: { ...scalar, options } } } });
+  expect(skillChoicePlaceholder(node("", []), "skill_id")).toBe("No source found");
+  expect(skillChoicePlaceholder(node("  ", ["stale"]), "skill_id")).toBe("No source found");
+  expect(skillChoicePlaceholder(node("/source", []), "skill_id")).toBe("No source found");
+  expect(skillChoicePlaceholder(node("/source", ["available"]), "skill_id")).toBe("Select an option");
+  expect(skillChoicePlaceholder(data, "revision_id", "Revision")).toBe("Revision");
+  expect(skillChoicePlaceholder({ ...data, type: "Other" }, "skill_id", "Original")).toBe("Original");
 });
 
 test("connected settings retain their ordinary socket and hidden fields stay hidden", () => {

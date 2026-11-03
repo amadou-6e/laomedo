@@ -51,8 +51,10 @@ service or mount automatically.
 
 ## Select files on the node
 
-1. Enter Source. **Discovery** reports the scan and available skills.
-2. Choose **Skill**. Discovery then lists that Skill's available revisions.
+1. Enter Source. The Skill selector says **No source found** until skills are
+   available, then **Select an option**. Failed scans show a message directly
+   below Source; empty Source and successful scans show no status row.
+2. Choose **Skill** to load that Skill's available revisions.
 3. Expand **Advanced settings** and choose **Revision**. It is an exact file
    version, not a moving latest pointer. **Base Commit** identifies the parent
    for an operation; leave it empty only for the initial imported revision.
