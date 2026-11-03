@@ -1,4 +1,4 @@
-"""Construct native metadata and handles for the maintained Skill example."""
+"""Construct native metadata and handles for the maintained graph examples."""
 
 import ast
 import json
