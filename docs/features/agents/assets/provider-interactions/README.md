@@ -1,20 +1,19 @@
 # Agent provider interactions
 
-For an explanation of custom code, use the individual provider diagrams:
+Open the [editable provider comparison](provider-custom-code.drawio).
+Each tab stacks Codex, Claude and OpenCode vertically at the same scale, with
+its relevant file tree beside each provider's graph.
 
-| Provider | Editable diagram | Run/session | Tools/credentials | Evidence/Activity |
-| --- | --- | --- | --- | --- |
-| Codex | [Codex](codex-custom-code.drawio) | [PNG](codex-custom-code.png) | [PNG](codex-tools-auth.png) | [PNG](codex-evidence.png) |
-| Claude | [Claude](claude-custom-code.drawio) | [PNG](claude-custom-code.png) | [PNG](claude-tools-auth.png) | [PNG](claude-evidence.png) |
-| OpenCode | [OpenCode](opencode-custom-code.drawio) | [PNG](opencode-custom-code.png) | [PNG](opencode-tools-auth.png) | [PNG](opencode-evidence.png) |
+| Tab | Rendered preview |
+| --- | --- |
+| Run and session | [PNG](comparison-run.png) |
+| Tools and credentials | [PNG](comparison-tools-auth.png) |
+| Evidence to Activity | [PNG](comparison-evidence.png) |
 
-Each provider file has three pages: run/session, tools/credentials and
-evidence-to-Activity. Every tab includes its own relevant code tree beside the
-graph. Matching `[A]`, `[B]`, etc. references connect graph nodes to their defining
-files; files shared by nodes show multiple references. Every
-implementation or resource card participates in its page's architecture; arrows
-identify its caller, native interface, credential consumer or evidence consumer.
-The pages are also collected in [one nine-page file](provider-custom-code.drawio).
+Scroll vertically to compare providers within a concern. Matching `[A]`, `[B]`,
+etc. references connect graph nodes to their defining files; files shared by
+nodes show multiple references. Arrows identify each component's caller, native
+interface, credential consumer or evidence consumer.
 
 There is no separate folder tab. Each inline tree includes only the tracked
 implementation/policy files relevant to that view and marks them `CUSTOM`.
@@ -58,23 +57,9 @@ supplies ACP natively; our code isolates commands and reconciles native history.
 Its absent maintained Docker recipe/launcher and Codex-worker-image dependency
 remain gaps, not necessary properties of OpenCode.
 
-Open [the editable draw.io diagram](agent-provider-interactions.drawio).
-Its three pages separate the inspected implementation from the proposed design:
-
-1. **Current interaction stack**: Laomedo Python, the ACP Python SDK, Docker
-   transport, py-docker, Docker SDK, Engine and provider controller. Green edges
-   show Agent communication; dashed blue edges show Docker control/attached I/O.
-   ACP messages travel through the Docker-attached stdin/stdout session; ACP is
-   not a Docker lifecycle API. The model service is outside the local controller.
-2. **Current provider differences**: the common ACP client connects to a patched
-   Codex adapter, a packaged Claude adapter or OpenCode's native ACP server.
-   Native tool-execution adapters and deployment gaps are shown separately.
-   These are responsibility/delegation paths, not a sequence diagram. Limitation
-   cards are annotations, not calls. Provider network requests originate in the
-   native controller; credential-free workers execute admitted commands.
-3. **Proposed parity boundary**: the planned shared application/lifecycle contract
-   and small provider runtimes. This page is **PROPOSED / NOT IMPLEMENTED** and
-   awaits Claude's review of the [parity plan](../../../../architecture/agent-provider-parity-plan.md).
+The proposed shared boundary remains documented in the
+[parity plan](../../../../architecture/agent-provider-parity-plan.md), which
+awaits Claude's review; these comparison tabs describe the inspected implementation.
 
 The inspected runtime baseline is `refactor/205` at `19c7f1f`; subsequent plan
 commit `4b9dc1dd` changes documentation only. These diagrams describe source
@@ -99,19 +84,19 @@ and the presence of local images do not close those gaps.
 
 ## Editing and export
 
-The numbered overview YAML files and the provider-prefixed YAML files are the
-styled graph sources. They use the
-`my-skills/02-graphics/skill-drawio-creation` renderer. Rebuild each page with
-`03-scripts/render_grouped_erd.py`, then retain its editable `mxGraphModel` as a
-page in the combined file. Provider pages use their saved attachment ports and
-orthogonal waypoints. Each node's `source_files` and `graph_reference` define the
-inline tree: group tracked files by path, show the same reference on the graph
-node and tree leaf, and list `external_source` nodes separately. Preserve this
-editable sidebar when rebuilding the XML; the generic graph renderer alone
-does not append it. Rebuild all three provider pages before assembling each
-provider file and the nine-page collection. Manual layout corrections in the combined file must
-also be preserved when rebuilding. Export and inspect every final page with the
-draw.io desktop CLI; XML validity alone does not establish visual quality.
+The nine provider-prefixed YAML files retain the styled graph sources and
+source-file metadata. They use the `my-skills/02-graphics/skill-drawio-creation`
+renderer (`03-scripts/render_grouped_erd.py`). Preserve saved attachment ports,
+orthogonal waypoints and the editable inline file trees when rebuilding.
+Each node's `source_files` and `graph_reference` associate tree leaves with graph
+nodes; list `external_source` nodes separately.
+
+Assemble the graphs by concern into the three tabs of the single canonical file.
+Prefix cell IDs and references with the provider name, group each provider's
+cells into its row, preserve row-relative edge geometry, and align file trees.
+Use Codex, Claude, OpenCode order and a continuous canvas for vertical scrolling.
+Export and inspect all three final tabs with the draw.io desktop CLI; XML validity
+alone does not establish visual quality. The PNG previews are exports of that file.
 
 Keep the diagram and its exports aligned with the described revision. Update
 the current pages only after implementation changes; do not turn proposed
