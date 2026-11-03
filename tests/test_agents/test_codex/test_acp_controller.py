@@ -84,12 +84,42 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
                 },
             )
 
+            return SimpleNamespace(stop_reason="end_turn")
+
         self.controller.acp.prompt.side_effect = finish
         turn = await self.controller.prompt(
             "task", skills=[], cancelled=threading.Event(), seconds=1
         )
         self.assertEqual((turn.turn_id, turn.status), ("turn", "completed"))
         self.assertFalse(self.controller.interrupt_acknowledged)
+
+    async def test_conflicting_acp_stop_cannot_confirm_native_success(self):
+        for reason in ("max_tokens", "refusal", "cancelled", "max_turn_requests"):
+            with self.subTest(stop_reason=reason):
+
+                async def finish(*args, **kwargs):
+                    self.controller.events.append(
+                        {
+                            "method": "turn/completed",
+                            "params": {
+                                "threadId": "native-thread",
+                                "turn": {"id": "turn", "status": "completed"},
+                            },
+                        }
+                    )
+                    return SimpleNamespace(stop_reason=reason)
+
+                self.controller.acp.prompt.reset_mock()
+                self.controller.acp.prompt.side_effect = finish
+                turn = await self.controller.prompt(
+                    "task", skills=[], cancelled=threading.Event(), seconds=1
+                )
+                self.assertEqual(
+                    (turn.turn_id, turn.status, turn.error),
+                    ("turn", "unknown", "runner_runtime_unknown"),
+                )
+                self.assertEqual(self.controller.native_completion_status, "completed")
+                self.controller.acp.prompt.assert_awaited_once()
 
     async def test_child_completion_cannot_close_root_turn(self):
         async def finish(*args, **kwargs):

@@ -257,8 +257,9 @@ class CodexController:
         """Use the common health/cancel loop and require raw native completion."""
         offset = len(self.events)
         failure = None
+        response = None
         try:
-            await self.acp.prompt(
+            response = await self.acp.prompt(
                 text,
                 cancelled=cancelled,
                 seconds=seconds,
@@ -318,6 +319,14 @@ class CodexController:
             )
         status = self.native_completion_status
         error = None
+        if status == "completed" and (
+            response is None or response.stop_reason != "end_turn"
+        ):
+            # Contradictory terminal evidence cannot establish successful work.
+            # Preserve the native status separately and never dispatch again.
+            return CodexTurn(
+                turn_id=turn["id"], status="unknown", error="runner_runtime_unknown"
+            )
         if cancelled.is_set() and status == "interrupted":
             status, error = "cancelled", "cancelled_by_user"
         elif cancelled.is_set() and status != "completed":
