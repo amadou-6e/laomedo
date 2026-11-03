@@ -747,10 +747,15 @@ class ClaudeAgent(BaseAgent):
                 },
             )
             bound = True
-            for method, params in buffered:
-                native(method, params)
+            if not resume:
+                for method, params in buffered:
+                    native(method, params)
+            # A session load can replay earlier receipts. They do not belong to
+            # this prompt's attempt, activity or terminal-result count.
+            buffered.clear()
             if flag.is_set():
                 raise RunnerError("claude_cancelled")
+            record["_prompt_dispatched"] = True
             outcome = await client.prompt(
                 prompt, cancelled=flag, seconds=max(0.001, deadline - time.monotonic())
             )
@@ -1039,7 +1044,15 @@ class ClaudeAgent(BaseAgent):
                             "threadId": record["thread_id"],
                             "turn": {
                                 "id": host_turn,
-                                "status": "cancelled" if flag.is_set() else "failed",
+                                "status": (
+                                    "cancelled"
+                                    if flag.is_set()
+                                    else (
+                                        "unknown"
+                                        if record.get("_prompt_dispatched")
+                                        else "failed"
+                                    )
+                                ),
                             },
                             "identity_source": "host_attempt",
                         },
@@ -1190,7 +1203,13 @@ class ClaudeAgent(BaseAgent):
             if record is None:
                 raise
             record.update(
-                status="cancelled" if flag.is_set() else "failed",
+                status=(
+                    "cancelled"
+                    if flag.is_set()
+                    else "unknown" if record.get("_prompt_dispatched") else "failed"
+                ),
+                answer=None,
+                native_answer=None,
                 error_category=(
                     "claude_mediation_outcome_unknown"
                     if record.get("mediation_outcome") == "unknown"
@@ -1214,6 +1233,7 @@ class ClaudeAgent(BaseAgent):
                     and record.get("mediation_outcome") != "unknown"
                 )
                 record.pop("_attempt_deadline", None)
+                record.pop("_prompt_dispatched", None)
                 record.update(attempt_finished=True, cancel_requested=flag.is_set())
                 if attempt is not None:
                     attempt.update(

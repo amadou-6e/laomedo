@@ -208,6 +208,32 @@ class ClaudeRunnerTests(unittest.TestCase):
             projected["diagnostics"][0]["evidence"], "native_stream_and_receipt"
         )
 
+    def test_post_dispatch_failure_preserves_uncertainty_without_answer_or_retry(self):
+        def fail_after_dispatch(root, record, prompt, flag, *, resume):
+            record["_prompt_dispatched"] = True
+            record["answer"] = "previous answer"
+            record["native_answer"] = "previous answer"
+            raise RunnerError("runner_transport_failed")
+
+        with patch.object(
+            self.runner, "_invoke", side_effect=fail_after_dispatch
+        ) as invoke:
+            result = self.runner.start(self.payload)
+        self.assertEqual(result["status"], "unknown")
+        self.assertEqual(result["error_category"], "runner_transport_failed")
+        self.assertIsNone(result["answer"])
+        self.assertIsNone(result["native_answer"])
+        self.assertFalse(result["snapshot_ready"])
+        self.assertNotIn("_prompt_dispatched", result)
+        invoke.assert_called_once()
+        root = self.runner._run_dir(result["run_id"])
+        events = [
+            json.loads(line)["event"]
+            for line in (root / "activity-events.jsonl").read_text().splitlines()
+        ]
+        terminal = [event for event in events if event["method"] == "turn/completed"]
+        self.assertEqual(terminal[0]["params"]["turn"]["status"], "unknown")
+
     def test_failed_turn_closes_timeline_and_invalidates_usage(self):
         with patch.object(
             self.runner, "_invoke", side_effect=RunnerError("claude_process_failed")
