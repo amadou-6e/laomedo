@@ -12,3 +12,14 @@ from `.github/workflows/work-graph.yml`. Optional runner coverage needs the pinn
 runner extra, including py-docker and the ACP SDK. No default test is intended to
 dispatch a paid model. Historical campaign dependencies remain explicit until
 archival and replacement; passing discovery alone is not integration acceptance.
+
+Historical observation checkers are preserved on `exp` at `8b2f2395` in
+`archives/agents-205/test-callers`: `test_native_capture`,
+`test_native_localrunner_evidence`, `test_native_managed_checks` and
+`test_native_managed_evidence`. They verify campaign-specific JSON hashes,
+reconstructed journals and synthetic acceptance oracles, not installed APIs.
+Their exact bytes and the underlying campaign artifacts remain historical evidence;
+normal test discovery does not claim to reproduce those old campaigns. Current
+production receipt retention and uncertainty are checked in `test_activity/`;
+provider isolation and cleanup are checked in `test_opencode/`, `test_codex/` and
+`test_leases/`. These controls are not substitutes for live campaign acceptance.
