@@ -40,6 +40,11 @@ class VerificationTurnBounds:
         )
         return count + 1
 
+    def resume(self, *args, **kwargs):
+        """Apply harness admission before the provider can mutate a saved run."""
+        self._turn_available()
+        return super().resume(*args, **kwargs)
+
 
 class VerificationLocalRunner(VerificationTurnBounds, LocalRunner):
     """Unit-only bounded provider; never composed by a normal service."""

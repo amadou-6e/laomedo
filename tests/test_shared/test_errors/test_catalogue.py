@@ -6,7 +6,9 @@ import re
 from pathlib import Path
 import unittest
 
-ROOT = Path(__file__).resolve().parents[1]
+from support.paths import repository_root
+
+ROOT = repository_root()
 
 
 def producer_paths(filename):
