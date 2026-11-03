@@ -4,2649 +4,3091 @@
   "files": [
     {
       "path": "examples/agent-activity/README.md",
-      "sha256": "fc2ebe74a8314646eeb445a5101fcc9d1fe236377ac5bdc7e00b8a444cf998c1",
-      "bytes": 1433,
-      "archive_path": "files/examples/agent-activity/README.md"
+      "sha256": "cdcf24333bd3ff4a4c3a80ea90423bbcbb4eb2d5b638c11e87165f9c98731697",
+      "bytes": 1405,
+      "archive_path": "files/examples/agent-activity/README.md",
+      "source_git_blob": "fc793f5114362891c8fc75430f120f87add2a293"
     },
     {
       "path": "examples/agent-activity/build_flow.py",
-      "sha256": "f70965d9437815a404f924ce612bb60991bcd7881108aa1a92e9e771f91fd801",
-      "bytes": 4841,
-      "archive_path": "files/examples/agent-activity/build_flow.py"
+      "sha256": "245c4cff0d2ee00ae91978f58a185b637971a98aa6977d7cf15f362ad1600c03",
+      "bytes": 4713,
+      "archive_path": "files/examples/agent-activity/build_flow.py",
+      "source_git_blob": "b6dd1dbe2d8aa9d8d4ae0d46097e41fbf3a1cffc"
     },
     {
       "path": "examples/agent-activity/evidence.json",
-      "sha256": "eb0360647f8323dd2d1a7485f5c5a9676f933df4f7a92ee0d3898c51130832db",
-      "bytes": 7250,
-      "archive_path": "files/examples/agent-activity/evidence.json"
+      "sha256": "7c55c5680875bf2799f093b2137ac0f5772efae0b95648b75e59f305f7d95fbc",
+      "bytes": 7075,
+      "archive_path": "files/examples/agent-activity/evidence.json",
+      "source_git_blob": "e3d15c9339d9b142f0f5dd7ad20cd997e70006d6"
     },
     {
       "path": "examples/agent-activity/resume-contention-evidence.json",
-      "sha256": "473dfbccfdf98d5bfb10496090fc8608b7ab4456b0f0b2be26b746f81a910204",
-      "bytes": 3968,
-      "archive_path": "files/examples/agent-activity/resume-contention-evidence.json"
+      "sha256": "069610006b6854e47ddcc6597e34298406d862f9553fd7e09d51e478dc78f2bf",
+      "bytes": 3869,
+      "archive_path": "files/examples/agent-activity/resume-contention-evidence.json",
+      "source_git_blob": "39a236fe3342dcb4ffd956c98615ff6cd2854b9f"
     },
     {
       "path": "examples/agent-activity/skill/SKILL.md",
-      "sha256": "69fd7e37e488f509be6cd9d80ee41ae5896f55d54ac0db791d7789c694320486",
-      "bytes": 411,
-      "archive_path": "files/examples/agent-activity/skill/SKILL.md"
+      "sha256": "030e28a8ad38a47066ea3ad884bb27fc7ee1d0af5b6a6dd84bcf92df42b90fd2",
+      "bytes": 403,
+      "archive_path": "files/examples/agent-activity/skill/SKILL.md",
+      "source_git_blob": "dc0985a10857f5daecf4669238e33d677d1e5ecd"
     },
     {
       "path": "examples/agent-controls/README.md",
-      "sha256": "86ec5ade292671b8f35080c947f945e3321f0021d75489634667e39b676aca3c",
-      "bytes": 3302,
-      "archive_path": "files/examples/agent-controls/README.md"
+      "sha256": "62c0067bf10d33de438dbbf1558cc4b382a27c7c7b94ef045d295007802275f6",
+      "bytes": 3260,
+      "archive_path": "files/examples/agent-controls/README.md",
+      "source_git_blob": "3e9e4d2cd17c68035fa4c66eaffbff5603ce0a55"
     },
     {
       "path": "examples/agent-controls/dropdown-evidence.json",
-      "sha256": "63208cfbb5cab61cd11b5bdf41eb8255600d5d9e055f3cfd47912c7e60d6ae86",
-      "bytes": 1673,
-      "archive_path": "files/examples/agent-controls/dropdown-evidence.json"
+      "sha256": "3060919f70470962f1cdb293a012b2ea7729c3fb6803ede01e52101473a1f5c2",
+      "bytes": 1635,
+      "archive_path": "files/examples/agent-controls/dropdown-evidence.json",
+      "source_git_blob": "afeadca7a57716ee93e83259edbc2788fca0ee75"
     },
     {
       "path": "examples/agent-controls/evidence.json",
-      "sha256": "f9ef7ff4970a43a07a0fc51f67c02f493835d77eac31eaea824d608455510ccd",
-      "bytes": 1186,
-      "archive_path": "files/examples/agent-controls/evidence.json"
+      "sha256": "d5047097829e3d4dea7df5523a102d92781af46a455fd81b4a4716a58a453665",
+      "bytes": 1156,
+      "archive_path": "files/examples/agent-controls/evidence.json",
+      "source_git_blob": "d345a9b910a00950edd9956daf0e285171afb81e"
     },
     {
       "path": "examples/agent-controls/ownership-evidence.json",
-      "sha256": "8b0ae420bfa0e367ae3225c433d421b0d5a34986f4594dec28b3ee1ee5ed5020",
-      "bytes": 1783,
-      "archive_path": "files/examples/agent-controls/ownership-evidence.json"
+      "sha256": "c1fd15aa13ec6b2fe984bb66adb966d0acc50cfc01a157cc3d318bf524be0186",
+      "bytes": 1742,
+      "archive_path": "files/examples/agent-controls/ownership-evidence.json",
+      "source_git_blob": "1fcd612e73baf87f61dc526900eaf6a31e0b2973"
     },
     {
       "path": "examples/agent-controls/real-skill-edit-evidence.json",
-      "sha256": "dce5776b50de7eb435b756bdeab3069342f5338e5cff3b912c92410887bbaa8f",
-      "bytes": 1258,
-      "archive_path": "files/examples/agent-controls/real-skill-edit-evidence.json"
+      "sha256": "f66e299c7aa1d027a883539cf0bac18210690508e04125118cfdec0cb59ffa33",
+      "bytes": 1230,
+      "archive_path": "files/examples/agent-controls/real-skill-edit-evidence.json",
+      "source_git_blob": "7139c05692c998e9072ae58ebdaba103b47de30b"
     },
     {
       "path": "examples/agent-controls/runtime-capabilities-audit.md",
-      "sha256": "c815d1cc9a760724415fcc8f102576a252199994e875d664b01d5e886a17cd4f",
-      "bytes": 4812,
-      "archive_path": "files/examples/agent-controls/runtime-capabilities-audit.md"
+      "sha256": "67711c810c0821712176ba624793f32979e8a1223172c20de1cbdd7c2e96388a",
+      "bytes": 4781,
+      "archive_path": "files/examples/agent-controls/runtime-capabilities-audit.md",
+      "source_git_blob": "6b88b24df7376f9257eb32557d35c06bf8403ebb"
     },
     {
       "path": "examples/agent-handoffs/README.md",
-      "sha256": "2faf6e7e3cbfa752ba661fa4cf0f66e61259e654c483a0f0db57d3d9ef04fb19",
-      "bytes": 4611,
-      "archive_path": "files/examples/agent-handoffs/README.md"
+      "sha256": "58dde5247b1d93600206384485f4b754eb4b04a5c53cc800f313663425869e96",
+      "bytes": 4535,
+      "archive_path": "files/examples/agent-handoffs/README.md",
+      "source_git_blob": "8f5b06fe3af2e07ab91fdf3b7a871e6bbb75eb35"
     },
     {
       "path": "examples/agent-handoffs/build_flow.py",
-      "sha256": "2a83213d015b1d0208e978ec6f08a8ee2935ada8451bc592e5f3474fd3d66602",
-      "bytes": 5616,
-      "archive_path": "files/examples/agent-handoffs/build_flow.py"
+      "sha256": "780e75c80464e81cd942fe9965535f9c72178877f20e4651e50ec0156dd48749",
+      "bytes": 5475,
+      "archive_path": "files/examples/agent-handoffs/build_flow.py",
+      "source_git_blob": "0589520d8c898b845f09af9c9408b125c7131baf"
     },
     {
       "path": "examples/agent-handoffs/compose.yaml",
-      "sha256": "b4f7f102aafab3c9f35940b0d6dd2a694195711c57a1010b2a867192073ea7a0",
-      "bytes": 840,
-      "archive_path": "files/examples/agent-handoffs/compose.yaml"
+      "sha256": "033159226c6d13bab4c20f0a430ef0669a9d4d445a2406c236b2b45d328a593f",
+      "bytes": 820,
+      "archive_path": "files/examples/agent-handoffs/compose.yaml",
+      "source_git_blob": "ee6e1dd73162a8376d06f5d120449ffacd09585b"
     },
     {
       "path": "examples/agent-handoffs/flow.json",
-      "sha256": "564de02f636623ddedc93fb23d5199034dc948a5e06d7285e04c88a08e94a27c",
-      "bytes": 159573,
-      "archive_path": "files/examples/agent-handoffs/flow.json"
+      "sha256": "5ea6b3800376618a6c87741d3de8873d6517d19883ab9d72bfcab2e04809872f",
+      "bytes": 157722,
+      "archive_path": "files/examples/agent-handoffs/flow.json",
+      "source_git_blob": "ddeea77be7379cf03e70ad2e76503c7ccc57bbb9"
     },
     {
       "path": "examples/agent-handoffs/live-evidence.json",
-      "sha256": "7825c1464462e6e550bad437b5585e87795631809f2ee82fdaa9f51ee7ba20c5",
-      "bytes": 1226,
-      "archive_path": "files/examples/agent-handoffs/live-evidence.json"
+      "sha256": "a2554353b4046b7800e1d52fe0de5bd6a3dc183a08752cbee34f32e389fcc191",
+      "bytes": 1201,
+      "archive_path": "files/examples/agent-handoffs/live-evidence.json",
+      "source_git_blob": "18a855bf626dc95ee927cfe608242187abc3692d"
     },
     {
       "path": "examples/agent-handoffs/live-loop-evidence.json",
-      "sha256": "d148ea7b303e39f0a521093d3ca4dea3ced327e94af36ac14096358786a318c0",
-      "bytes": 1186,
-      "archive_path": "files/examples/agent-handoffs/live-loop-evidence.json"
+      "sha256": "16270415f34cd4e03af11327c74a210a81548ae2c92d14f733f7291d9717ef94",
+      "bytes": 1166,
+      "archive_path": "files/examples/agent-handoffs/live-loop-evidence.json",
+      "source_git_blob": "24c49c68bcddc217643854c654519ff6d4fd9093"
     },
     {
       "path": "examples/agent-handoffs/live_chain.py",
-      "sha256": "a29257f18ad3ea3459e3a9c82baee5c0bfef3713c1ca2f694087a7dee6bba618",
-      "bytes": 1869,
-      "archive_path": "files/examples/agent-handoffs/live_chain.py"
+      "sha256": "8c304c54cb23dcecffcdce1735e6c7383baf684ba7bc7459f1e37ac0095a3127",
+      "bytes": 1819,
+      "archive_path": "files/examples/agent-handoffs/live_chain.py",
+      "source_git_blob": "e7a5ad3330315f7f8635e01659b6c5e7676b1a02"
     },
     {
       "path": "examples/agent-handoffs/live_loop.py",
-      "sha256": "e4f8124ad957ff8ccb8456c3863f87d7672af4188eae6a7aa462647134f02cbe",
-      "bytes": 2777,
-      "archive_path": "files/examples/agent-handoffs/live_loop.py"
+      "sha256": "28549cafc3aca2bffa0abb9e56dca789afea2141c61affeb37cd783bd4968d52",
+      "bytes": 2699,
+      "archive_path": "files/examples/agent-handoffs/live_loop.py",
+      "source_git_blob": "dd7039853ea4e7ec85c2fbc84802674c09c88a1d"
     },
     {
       "path": "examples/agent-handoffs/loop-flow.json",
-      "sha256": "f48b4e8eb7b351ab3d259e510513c94b203bc3f427403f6df1dc23adf98c80f5",
-      "bytes": 79131,
-      "archive_path": "files/examples/agent-handoffs/loop-flow.json"
+      "sha256": "8b84eed101a4eb941bedfdd63412aab9d5219e20dc032ee69e0477e1a47644ea",
+      "bytes": 77686,
+      "archive_path": "files/examples/agent-handoffs/loop-flow.json",
+      "source_git_blob": "16b46f02a967b9d51f33a03a2b31f58e393d0f1f"
     },
     {
       "path": "examples/claude-agent/.gitattributes",
-      "sha256": "fc74087115fa7366f0d67d008483d22076f1386bfaf1f4d08e3dc0e724d10cb7",
-      "bytes": 61,
-      "archive_path": "files/examples/claude-agent/.gitattributes.source"
+      "sha256": "d8ae3130e3a3adf1c94118d3ca14cd66bf25566e9bee9b598edb6580a7acd675",
+      "bytes": 59,
+      "archive_path": "files/examples/claude-agent/.gitattributes.source",
+      "source_git_blob": "ad36381b8e36bfceb5a254007e40c16e30153fa7"
     },
     {
       "path": "examples/claude-agent/PROTOCOL.md",
-      "sha256": "4dc6f6d6db02c881b80aa43da54c4546f8fa0f24909ea74a44d8a57c73f42629",
-      "bytes": 4866,
-      "archive_path": "files/examples/claude-agent/PROTOCOL.md"
+      "sha256": "209494e517423898409bf48b7048d25a9a88145428080dbcb151d02e03cc69a0",
+      "bytes": 4786,
+      "archive_path": "files/examples/claude-agent/PROTOCOL.md",
+      "source_git_blob": "e8bd0cf4e6798a2076619d7c94989c2b181967ed"
     },
     {
       "path": "examples/claude-agent/README.md",
-      "sha256": "fc1593452cc24f666f8475e7f86f50d072e92809609efa100b5a65e002b3c439",
-      "bytes": 12506,
-      "archive_path": "files/examples/claude-agent/README.md"
+      "sha256": "a87aaeb861304651d557b870bf5fc6f11a9b20bac4b2bdc400b9857e823b4fb9",
+      "bytes": 12298,
+      "archive_path": "files/examples/claude-agent/README.md",
+      "source_git_blob": "a356714965ffe6fb4dc876e209a00bb1b46985fd"
     },
     {
       "path": "examples/claude-agent/activity-flow.json",
-      "sha256": "de3694647ccfc7052e4c9bf55a990da5f1fadfa2cb0e8f2dc30d65b548836b3c",
-      "bytes": 20096,
-      "archive_path": "files/examples/claude-agent/activity-flow.json"
+      "sha256": "62c17cea5105d466052fc49f7c085ca55a6db8380d14fecb685dcc7281b2d909",
+      "bytes": 19594,
+      "archive_path": "files/examples/claude-agent/activity-flow.json",
+      "source_git_blob": "134eb38434a3c5579d9a7118f284dbccaad20037"
     },
     {
       "path": "examples/claude-agent/activity-proof.json",
-      "sha256": "1512edac4c05e854947d0c15cfe803c3b8a1dc54ae5543c2a9c9c99702e2e431",
-      "bytes": 3358,
-      "archive_path": "files/examples/claude-agent/activity-proof.json"
+      "sha256": "bf732a2f26bef379ea3c63618d38de2aff012e8a97adfc631282c24bcd5ae302",
+      "bytes": 3264,
+      "archive_path": "files/examples/claude-agent/activity-proof.json",
+      "source_git_blob": "d647325aecb54c58ac239cb9510a0f3ab63f360a"
     },
     {
       "path": "examples/claude-agent/build_flow.py",
-      "sha256": "acbffce9bafe532ffc854917aa0d04ecb46f64235c1f74eb7209e6cc8897c9f9",
-      "bytes": 1748,
-      "archive_path": "files/examples/claude-agent/build_flow.py"
+      "sha256": "0878a70f6c7aea7d54c7e1d34b654f4605e73cf804627ba57cfee9a5ffac3fa9",
+      "bytes": 1698,
+      "archive_path": "files/examples/claude-agent/build_flow.py",
+      "source_git_blob": "0307c54265e28d423339e1456e7dc9ab26b74f2e"
     },
     {
       "path": "examples/claude-agent/current-template-flow.json",
-      "sha256": "00b2727f259431144a1661db425a0438f35572e8649de15254261c6740ea4f37",
-      "bytes": 24624,
-      "archive_path": "files/examples/claude-agent/current-template-flow.json"
+      "sha256": "2f3b3bac6cab43bc8efa47874c8f52c2c1464f4230f053202c4a69aa28335cc7",
+      "bytes": 24068,
+      "archive_path": "files/examples/claude-agent/current-template-flow.json",
+      "source_git_blob": "debf88f4a41723a9c70bec90e4e1661d8d32d228"
     },
     {
       "path": "examples/claude-agent/evidence.json",
-      "sha256": "c8cee2afcd29b116a1bd93d9eb964663c0e142d7d610a3d1b2d83f349bb41473",
-      "bytes": 3087,
-      "archive_path": "files/examples/claude-agent/evidence.json"
+      "sha256": "69a8722fddbdcc395f183b005b56f8dc480adfa113f68aff1803cb1c38615faf",
+      "bytes": 3025,
+      "archive_path": "files/examples/claude-agent/evidence.json",
+      "source_git_blob": "2fedd3498e17a97206280a44933c665f1a462cb7"
     },
     {
       "path": "examples/claude-agent/executed-flow.json",
-      "sha256": "77bc46a505ad3b965ff408612e18d570b1940aa1e316977e186d7adcb05e72f2",
-      "bytes": 49403,
-      "archive_path": "files/examples/claude-agent/executed-flow.json"
+      "sha256": "dacdd81a4aba43ac27691a8565a60d8fcdb5c12b91bea81341132a6227d94341",
+      "bytes": 48482,
+      "archive_path": "files/examples/claude-agent/executed-flow.json",
+      "source_git_blob": "6f47d751535abd16fbedec7b408fb4a61c1c9607"
     },
     {
       "path": "examples/claude-agent/first-executed-flow.json",
-      "sha256": "44b0a478321864748f3bd27f7a1f2122147511d67d1c1140f15cfe9e950525e4",
-      "bytes": 49243,
-      "archive_path": "files/examples/claude-agent/first-executed-flow.json"
+      "sha256": "f6b5fd9fe94f9aa6d1d84c55203158a00c7df4c92dd6fd908d11a6839f3d9d02",
+      "bytes": 48323,
+      "archive_path": "files/examples/claude-agent/first-executed-flow.json",
+      "source_git_blob": "de8412e7932d6db646868f87fd4930c3cc4dec67"
     },
     {
       "path": "examples/claude-agent/first-skill-proof.json",
-      "sha256": "830d3ed90b184294f2603bf8a6058d3dd595b71ed6da53ec12c8620a6927affa",
-      "bytes": 2424,
-      "archive_path": "files/examples/claude-agent/first-skill-proof.json"
+      "sha256": "0bf400f85cae71c0ba67d345ccd6b3d8806c81255deaddc872bd60669957c0c8",
+      "bytes": 2385,
+      "archive_path": "files/examples/claude-agent/first-skill-proof.json",
+      "source_git_blob": "bd519b51ece5fca0ebd1d3de17bb834c3277b02f"
     },
     {
       "path": "examples/claude-agent/flow.json",
-      "sha256": "48d346783dd8db847dfe8aae6eadbd9354c81bfac70d094ce17d2a28ab55c2b5",
-      "bytes": 56233,
-      "archive_path": "files/examples/claude-agent/flow.json"
+      "sha256": "28272a10bc74641f209d7227ffe1aa2f906368b145060f12b8513dd1e1ecb7ca",
+      "bytes": 55263,
+      "archive_path": "files/examples/claude-agent/flow.json",
+      "source_git_blob": "55c48d7f58fdc2ea7a3d478cd3d009450c2030e6"
     },
     {
       "path": "examples/claude-agent/generated-skill/SKILL.md",
       "sha256": "0c2e0b77995f63a3869988e2c5cdc06189b58c0320cc81c6efb91a64818b3d6a",
       "bytes": 1407,
-      "archive_path": "files/examples/claude-agent/generated-skill/SKILL.md"
+      "archive_path": "files/examples/claude-agent/generated-skill/SKILL.md",
+      "source_git_blob": "08472ac901fe52fedea336dbf62589f171e3a882"
     },
     {
       "path": "examples/claude-agent/model-discovery-proof.json",
-      "sha256": "cf0f8280c14bf61d56004a1591b8cff593dbe4d963083386d10ecd30e357555c",
-      "bytes": 9018,
-      "archive_path": "files/examples/claude-agent/model-discovery-proof.json"
+      "sha256": "446dd49e558a05f53d1583eca50f6d31ff48c050271701ffe326546b420fd668",
+      "bytes": 8658,
+      "archive_path": "files/examples/claude-agent/model-discovery-proof.json",
+      "source_git_blob": "7a8414e4eb0e5595931b78aefd3a945ac0f7f907"
     },
     {
       "path": "examples/claude-agent/no-skill-flow.json",
-      "sha256": "f6f68aa1e2529f21751272f4d606b9242ef804fab2f6e65875af8dd25124c501",
-      "bytes": 26345,
-      "archive_path": "files/examples/claude-agent/no-skill-flow.json"
+      "sha256": "f9cba2a8a5aa779ae066cd4d06586ae06931501157ea25b2d08ff0d3a67f1c38",
+      "bytes": 25705,
+      "archive_path": "files/examples/claude-agent/no-skill-flow.json",
+      "source_git_blob": "610619a5ae9bc8d9ac2bc86d7a64effd07c8b4d0"
     },
     {
       "path": "examples/claude-agent/no-skill-proof.json",
-      "sha256": "02d8e383dc3002b0528665d80be7f6b54818063d1d0e864a6d52210e7055330e",
-      "bytes": 3803,
-      "archive_path": "files/examples/claude-agent/no-skill-proof.json"
+      "sha256": "a784c6bf8ddb4422da88bfad8077cac256d9a0265399d54003077b55a6475e85",
+      "bytes": 3705,
+      "archive_path": "files/examples/claude-agent/no-skill-proof.json",
+      "source_git_blob": "296976a268200b989674fd2277654eb93b1699aa"
     },
     {
       "path": "examples/claude-agent/source-skill/SKILL.md",
       "sha256": "598c0ece245aa9fdb0faa34f08427c3c3fd7bac7c59c04b3444e8413529ac673",
       "bytes": 1308,
-      "archive_path": "files/examples/claude-agent/source-skill/SKILL.md"
+      "archive_path": "files/examples/claude-agent/source-skill/SKILL.md",
+      "source_git_blob": "53df636f0c656909a63bafd8e7e541a7610d7ce4"
     },
     {
       "path": "examples/native-codex-node/README.md",
-      "sha256": "0e7d590a15ada08fd538fd7a6388044b0d5f4a65c1e8f7786b90286549f467e6",
-      "bytes": 8447,
-      "archive_path": "files/examples/native-codex-node/README.md"
+      "sha256": "5b90a87727b0f50cf1315f6bcc75b406ed25b52a731450e2b033ff8296aeadc4",
+      "bytes": 8320,
+      "archive_path": "files/examples/native-codex-node/README.md",
+      "source_git_blob": "0411e187af6b282e84be8c6383c7a40c2c755e26"
     },
     {
       "path": "examples/native-codex-node/acceptance.py",
-      "sha256": "4e35ac7128034d53ae9a1a5bd408e54caf2d2c8412157b95c312b79a00f72f86",
-      "bytes": 16879,
-      "archive_path": "files/examples/native-codex-node/acceptance.py"
+      "sha256": "3489fa6c269b00b437b0d9551421c23b1e3484037212240552051a7d16f78bee",
+      "bytes": 16444,
+      "archive_path": "files/examples/native-codex-node/acceptance.py",
+      "source_git_blob": "b11f68cbf9883c6143ffca8f3e8452330fb063a7"
     },
     {
       "path": "examples/native-codex-node/build_flow.py",
-      "sha256": "34fcf8e3a903c565be0ad7433005b89b979c8f349a347f88baed134bd664c121",
-      "bytes": 4694,
-      "archive_path": "files/examples/native-codex-node/build_flow.py"
+      "sha256": "13c659bacdb83abde52f34abcc2ae2b57d896247e6064580f20b02ecd40638d9",
+      "bytes": 4573,
+      "archive_path": "files/examples/native-codex-node/build_flow.py",
+      "source_git_blob": "158a13ef5981d9cab4dafd14c4eb6732fdf2d017"
     },
     {
       "path": "examples/native-codex-node/compose.yaml",
-      "sha256": "8888f37d7a703f65a9616bf67228c7056e88357d6cf5f5be103dd694f6e622f5",
-      "bytes": 742,
-      "archive_path": "files/examples/native-codex-node/compose.yaml"
+      "sha256": "61be09dca493216d06e00bd5ce9da1e7822a553c1ddac2ef0c5318c058f9ce78",
+      "bytes": 725,
+      "archive_path": "files/examples/native-codex-node/compose.yaml",
+      "source_git_blob": "038e5806f208745e9ef334d8cfdc5ffe65f1a70e"
     },
     {
       "path": "examples/native-codex-node/evidence.json",
-      "sha256": "c3e9b3ad1d9b2f6594ef900a934b58ad3cc43f483b4f7aae6a9947913eb718fc",
-      "bytes": 3620,
-      "archive_path": "files/examples/native-codex-node/evidence.json"
+      "sha256": "256a4e16e39bba0e6f8f547305aa72193a2f5394ebf22643b5d86203426df17a",
+      "bytes": 3523,
+      "archive_path": "files/examples/native-codex-node/evidence.json",
+      "source_git_blob": "10bda1a9fea42e1cbbac4aa619116422528b4c4b"
     },
     {
       "path": "examples/native-codex-node/flow.json",
-      "sha256": "a9c72428f10fcc044b49905e84486788635efee79b01cc14d01b8d099a40a898",
-      "bytes": 105845,
-      "archive_path": "files/examples/native-codex-node/flow.json"
+      "sha256": "88753967ca334508a50a2628038649a4ed415f6da1ded42f2d5125fdb125a160",
+      "bytes": 103994,
+      "archive_path": "files/examples/native-codex-node/flow.json",
+      "source_git_blob": "60c8d2186f034a7005b7daaa6a5c6d1627d8f35b"
     },
     {
       "path": "examples/native-codex-node/skill-node-evidence.json",
-      "sha256": "8ccc4fcc554e2c9fcb79f2bac01461cbea0ceb81ef4981eec9744d528594f8ec",
-      "bytes": 436,
-      "archive_path": "files/examples/native-codex-node/skill-node-evidence.json"
+      "sha256": "65c70db467966332de763442c939bb58ca8cfdb0340ff9bc3b589f92fe84ee7b",
+      "bytes": 423,
+      "archive_path": "files/examples/native-codex-node/skill-node-evidence.json",
+      "source_git_blob": "c8a0b31846655a38228459fd5ec4a1bc8aebcc3d"
     },
     {
       "path": "examples/native-codex-node/verify_skill_node.py",
-      "sha256": "ed66be4d5352f42f10cbf4c291721cab97d411175c832517689f65eef69be84c",
-      "bytes": 3615,
-      "archive_path": "files/examples/native-codex-node/verify_skill_node.py"
+      "sha256": "291be5d15048323cc1e01018f662c10dea7397f91ed538004825f00fe92a7715",
+      "bytes": 3515,
+      "archive_path": "files/examples/native-codex-node/verify_skill_node.py",
+      "source_git_blob": "d7e3a4352625065fcc0772b6ccca5cb5a92dca51"
     },
     {
       "path": "examples/opencode-agent/Dockerfile",
-      "sha256": "caa292a5120b3be4ccdb36c5cc3464f3ce8ae27f32eccaa384011e1153dededa",
-      "bytes": 330,
-      "archive_path": "files/examples/opencode-agent/Dockerfile"
+      "sha256": "b7459e0baa2055e347adf43115982d69ac066b446e9b76de7de29129820fd9d1",
+      "bytes": 323,
+      "archive_path": "files/examples/opencode-agent/Dockerfile",
+      "source_git_blob": "1f2d0fe7056c4cb7e5d75780f9e48de5b1148ddd"
     },
     {
       "path": "examples/opencode-agent/README.md",
-      "sha256": "c050915f1da4c0ef4567bca5a9bb4239eea830a1c634bf6527eae82df8948781",
-      "bytes": 6718,
-      "archive_path": "files/examples/opencode-agent/README.md"
+      "sha256": "401a0f531619317fa1a8c08d1363674d76af2ef826c38d56277c12221345dec4",
+      "bytes": 6612,
+      "archive_path": "files/examples/opencode-agent/README.md",
+      "source_git_blob": "55c6334483cb94097193a0851a98fc23b6296fce"
     },
     {
       "path": "examples/opencode-agent/acceptance.py",
-      "sha256": "c79e75ddea8e83e47854e92fdc01b2e44a5560c9ea0fdf0813db1794d8185cb9",
-      "bytes": 9958,
-      "archive_path": "files/examples/opencode-agent/acceptance.py"
+      "sha256": "6e9c136655b69b1e115034b0fb7f14016776d07c7d8e51fe03cac6a82b673321",
+      "bytes": 9699,
+      "archive_path": "files/examples/opencode-agent/acceptance.py",
+      "source_git_blob": "3cba988907d9706815c08ce305b33a079ea90543"
     },
     {
       "path": "examples/opencode-agent/build_flow.py",
-      "sha256": "37cebfbf0fc0283ddf9da71657b207517632ee1b0d222d505ca6c7c38f38b3e0",
-      "bytes": 2422,
-      "archive_path": "files/examples/opencode-agent/build_flow.py"
+      "sha256": "9bda6a76c3d8e8a8663852715d6d3cd5143f79f805f46a9b9870f2b103d80195",
+      "bytes": 2358,
+      "archive_path": "files/examples/opencode-agent/build_flow.py",
+      "source_git_blob": "d466ee974cd6d572ae1e099cf912b0f4b0f854d8"
     },
     {
       "path": "examples/opencode-agent/cancel_acceptance.py",
-      "sha256": "858c835095a01b4dce56539f1c9a683e15e8c56cb8e43670ac844fd0c3f70305",
-      "bytes": 4131,
-      "archive_path": "files/examples/opencode-agent/cancel_acceptance.py"
+      "sha256": "7e6b2a9a6608ee50748732725caf90d928d001c98c1dd6403cd4675b88a1299c",
+      "bytes": 4009,
+      "archive_path": "files/examples/opencode-agent/cancel_acceptance.py",
+      "source_git_blob": "1c91b53e85a8aa3c971224cc0e32d450889e468c"
     },
     {
       "path": "examples/opencode-agent/direct_cli.py",
-      "sha256": "9c64e6ebdf4e6c600f25aed7ea67d20378da8ee649736e96f077786dcf105d1d",
-      "bytes": 3195,
-      "archive_path": "files/examples/opencode-agent/direct_cli.py"
+      "sha256": "a59db4893ebec3efa95c85d030e09b34390c4853076978e23fd99e0968bcf610",
+      "bytes": 3106,
+      "archive_path": "files/examples/opencode-agent/direct_cli.py",
+      "source_git_blob": "656180253f7509d2fec0915c84407cd3a5df3fb7"
     },
     {
       "path": "examples/opencode-agent/flow.json",
-      "sha256": "c46c615a9f08ced3e1c1b150b8c61d235e29fe7b855b8e152e229d6385748743",
-      "bytes": 75946,
-      "archive_path": "files/examples/opencode-agent/flow.json"
+      "sha256": "cfbca5d38e2c9ccb35e2894e9e8c19b81500c69d6d1d5f3c0d900b9663786528",
+      "bytes": 74493,
+      "archive_path": "files/examples/opencode-agent/flow.json",
+      "source_git_blob": "5088216ccd8a60d054506db187072eb17f001368"
     },
     {
       "path": "examples/opencode-agent/flow_acceptance.py",
-      "sha256": "aa23e7c60dbd6856649b9ed6372bc48d7720a77c867e02c6c261e8b15aabf5ef",
-      "bytes": 6264,
-      "archive_path": "files/examples/opencode-agent/flow_acceptance.py"
+      "sha256": "628da33fe22100ec35b27f84c69316a81cf3af5bb0874af28e8d8e30f8bba05c",
+      "bytes": 6103,
+      "archive_path": "files/examples/opencode-agent/flow_acceptance.py",
+      "source_git_blob": "10a15df2dc8680dbb79d0444e2fab32bd72b11d8"
     },
     {
       "path": "examples/opencode-agent/inspect_auth.py",
-      "sha256": "2e1110263f03f9445b2aa803c03cfcf522f9a1af4bee0ece3f183f9fe44ecd68",
-      "bytes": 1876,
-      "archive_path": "files/examples/opencode-agent/inspect_auth.py"
+      "sha256": "786999fae9c2331abcad5d46f30fdb10127304287c910d26cb7da257a4846721",
+      "bytes": 1822,
+      "archive_path": "files/examples/opencode-agent/inspect_auth.py",
+      "source_git_blob": "3502d387b6e30c1707b47e432135052dbf64a49e"
     },
     {
       "path": "examples/opencode-agent/live-cancellation-retest.json",
-      "sha256": "e1ab6f5fda0749620476a86860fe831b630bb60662f8ad436700659ca4e92ed4",
-      "bytes": 653,
-      "archive_path": "files/examples/opencode-agent/live-cancellation-retest.json"
+      "sha256": "375a3063e6efbd4cf08291044f7c3fb2eac1e73d1db7a1fd1a124cedad2a9be6",
+      "bytes": 634,
+      "archive_path": "files/examples/opencode-agent/live-cancellation-retest.json",
+      "source_git_blob": "4f7dabfb28c6dc6126d0727c5adffbc57ff30477"
     },
     {
       "path": "examples/opencode-agent/live-evidence.json",
-      "sha256": "8f8e38458adb9d20b723c616071554b511db9ffe8f83d9d354918bada13be076",
-      "bytes": 1231,
-      "archive_path": "files/examples/opencode-agent/live-evidence.json"
+      "sha256": "3ca82b32c0df761cc3e5729de60d9466a86576c9ee424f4f49e43206e23d3533",
+      "bytes": 1208,
+      "archive_path": "files/examples/opencode-agent/live-evidence.json",
+      "source_git_blob": "df6264a0866d186d2bf09df49db28b5d8a590664"
     },
     {
       "path": "examples/opencode-agent/live-success-evidence.json",
-      "sha256": "c6af3db09dfdaee1542ae6397bfcd7613b054c13dd69fab8fffd53b072f6d7d7",
-      "bytes": 3001,
-      "archive_path": "files/examples/opencode-agent/live-success-evidence.json"
+      "sha256": "a22cc2c097aead5b342803e10ce2ba1dc10a2e4325a0c67d170c73521b545c23",
+      "bytes": 2905,
+      "archive_path": "files/examples/opencode-agent/live-success-evidence.json",
+      "source_git_blob": "4caf4e9413fce121c9b52ab18d760205301b9564"
     },
     {
       "path": "examples/opencode-agent/preflight_auth_mount.py",
-      "sha256": "6e15faf00e0ad9e3c32d71dc2f1b9c0dcdd5a75ee11bcf31fc461ec8db2ee1a8",
-      "bytes": 1539,
-      "archive_path": "files/examples/opencode-agent/preflight_auth_mount.py"
+      "sha256": "c420388c15d7675588d1b9f56bdbcd619e7cbd7a636c2bfbc51c4789c2d06da4",
+      "bytes": 1488,
+      "archive_path": "files/examples/opencode-agent/preflight_auth_mount.py",
+      "source_git_blob": "251d1c358a0d233b30c26aa744580f3ec92b5100"
     },
     {
       "path": "examples/opencode-agent/review-fixes-evidence.json",
-      "sha256": "4fa78cfb8097adbe6ffac33f48ed3d45fb021fbf7089ff0aa816d697ff52e027",
-      "bytes": 1844,
-      "archive_path": "files/examples/opencode-agent/review-fixes-evidence.json"
+      "sha256": "d3e8d6961def3ebd52c0f6abb1553a0d60dc3148e562a28d20036bfcf5380a93",
+      "bytes": 1805,
+      "archive_path": "files/examples/opencode-agent/review-fixes-evidence.json",
+      "source_git_blob": "ab7581089436743f6c923ccce15552b365441069"
     },
     {
       "path": "examples/opencode-agent/saved-flow-proof-evidence.json",
-      "sha256": "f475b041e2531101e10acd9778eec8e5bfe8c1e476bd6c2d73cce951ec536312",
-      "bytes": 1676,
-      "archive_path": "files/examples/opencode-agent/saved-flow-proof-evidence.json"
+      "sha256": "d514e1dd07af7463c10fd9152ce654f9464da28920c2086ff665a99d86db4e91",
+      "bytes": 1637,
+      "archive_path": "files/examples/opencode-agent/saved-flow-proof-evidence.json",
+      "source_git_blob": "0aaeb532b3b7c80b386b5687e419a60d6051cdcf"
     },
     {
       "path": "examples/opencode-agent/saved_flow_proof.py",
-      "sha256": "e14c51c190c99a55dd5ab78faa555de864546bcb94a5aac4b165e24910ca4776",
-      "bytes": 10566,
-      "archive_path": "files/examples/opencode-agent/saved_flow_proof.py"
+      "sha256": "9fb741baf20b2c50cdd5be9a65bc9e8c1e5c0e0d6d2798c3e2e24c7a22671419",
+      "bytes": 10321,
+      "archive_path": "files/examples/opencode-agent/saved_flow_proof.py",
+      "source_git_blob": "92491da4ae9125429547bbdb62cda16c74c923c8"
     },
     {
       "path": "examples/opencode-agent/skill/SKILL.md",
-      "sha256": "f843719b4f4b7a5e8f8b4a5cfbc885ff88db36929eb322a31173390c7ddfab80",
-      "bytes": 277,
-      "archive_path": "files/examples/opencode-agent/skill/SKILL.md"
+      "sha256": "c36e07beb72036fee3b27a3e1d6871102e1a1164f5796d1b263796c4182b4269",
+      "bytes": 270,
+      "archive_path": "files/examples/opencode-agent/skill/SKILL.md",
+      "source_git_blob": "44de5041f4eb41080ccfd373a2d24c289fd024f8"
     },
     {
       "path": "examples/opencode-agent/smoke_auth_mount.py",
-      "sha256": "3283125bdbbdddb9b8f034368103a17f75702f4be59f6c5e3f7eba7ae9e42c25",
-      "bytes": 2510,
-      "archive_path": "files/examples/opencode-agent/smoke_auth_mount.py"
+      "sha256": "e3245417e025430d029c7ae11c8a218157c552e83dc9ff5aca611aef317f713b",
+      "bytes": 2436,
+      "archive_path": "files/examples/opencode-agent/smoke_auth_mount.py",
+      "source_git_blob": "e1f38ef2301d8c09021207c44411745507e57e87"
     },
     {
       "path": "examples/opencode-node/README.md",
-      "sha256": "d871743de0623701cf16fbc38f5cd245c83898a8248886467e1b5427352be989",
-      "bytes": 6874,
-      "archive_path": "files/examples/opencode-node/README.md"
+      "sha256": "1e8067ec1a5fdd3766054285f807f3d7d023155bf4f77dfa7c29fbbdab137476",
+      "bytes": 6759,
+      "archive_path": "files/examples/opencode-node/README.md",
+      "source_git_blob": "7692b21ee5b8bc174ef1008c5bbc17a9ba2e888a"
     },
     {
       "path": "examples/opencode-node/build_flow.py",
-      "sha256": "3bf58e2370b313f422270b590a6b903d2c951c147b99e1bbc31bb799167ec0b6",
-      "bytes": 3958,
-      "archive_path": "files/examples/opencode-node/build_flow.py"
+      "sha256": "cb19249f98cb6ea64a18189f394d26e1c9b8c7bc293e9f166dcfead74fc5ceb0",
+      "bytes": 3865,
+      "archive_path": "files/examples/opencode-node/build_flow.py",
+      "source_git_blob": "3c1e295cd90358b703e5df7aa5bbceef1183279c"
     },
     {
       "path": "examples/opencode-node/flow.json",
-      "sha256": "a62bdf79e3f458bb9dcdf28e5ecf7718ab9b14b89a2b96af5ebfcc7e22ecdf5b",
-      "bytes": 52480,
-      "archive_path": "files/examples/opencode-node/flow.json"
+      "sha256": "f7f14e7d1199f04a13041dc64704e78a9828d9d8fbdd613550b1fd8d3230f735",
+      "bytes": 51617,
+      "archive_path": "files/examples/opencode-node/flow.json",
+      "source_git_blob": "98ae8735b11e55c4a91eeb527298cad781e284ab"
     },
     {
       "path": "experiments/exp05/README.md",
       "sha256": "ea70a324789cfdf4476c8101663963fd874bf6d2c5f11a7b49389889f92a6513",
       "bytes": 2503,
-      "archive_path": "files/experiments/exp05/README.md"
+      "archive_path": "files/experiments/exp05/README.md",
+      "source_git_blob": "803aefe9d29c755bfb56a3b8ff756e616a6f3654"
     },
     {
       "path": "experiments/exp05/evidence.py",
       "sha256": "f234134a425b9ea50517d9091f7b5f1f009dff6f336376f998b95fdb026bc547",
       "bytes": 7946,
-      "archive_path": "files/experiments/exp05/evidence.py"
+      "archive_path": "files/experiments/exp05/evidence.py",
+      "source_git_blob": "7ac12bdc6a61cf9e86258837f8c0d4fa561db869"
     },
     {
       "path": "experiments/exp05/observation.json",
       "sha256": "837b450971628bcbfc3d36fded2f36f13b3e4cf14bb46fb80bdd010a44177129",
       "bytes": 10935,
-      "archive_path": "files/experiments/exp05/observation.json"
+      "archive_path": "files/experiments/exp05/observation.json",
+      "source_git_blob": "9adca90a29ead5990a386350ecb79200db7a8b4b"
     },
     {
       "path": "experiments/exp05/probe.py",
       "sha256": "82be5f712b61f010d5d8018f62e4fe16ec147647e281ac381bf3df7bf4d4e608",
       "bytes": 7850,
-      "archive_path": "files/experiments/exp05/probe.py"
+      "archive_path": "files/experiments/exp05/probe.py",
+      "source_git_blob": "dfb59473ed4f87f43fbc594210874bff10fcd542"
     },
     {
       "path": "experiments/exp05/test_evidence.py",
       "sha256": "4bfb9863475e756adc34963adc62e6d9b299a42ca39a1753295f48c805833770",
       "bytes": 3637,
-      "archive_path": "files/experiments/exp05/test_evidence.py"
+      "archive_path": "files/experiments/exp05/test_evidence.py",
+      "source_git_blob": "db8a3f720f4068c5e34146b6908edd714bfa71db"
     },
     {
       "path": "experiments/exp09/AMENDMENT-01.md",
       "sha256": "6e1cec4fd1d05059fbe2d07b9bfd2e5c9fe485d49822c19e51c81bb4ac0cb92f",
       "bytes": 1271,
-      "archive_path": "files/experiments/exp09/AMENDMENT-01.md"
+      "archive_path": "files/experiments/exp09/AMENDMENT-01.md",
+      "source_git_blob": "be450d07b8ea880b9ca622f7ad9008cd729d17e5"
     },
     {
       "path": "experiments/exp09/PROTOCOL.md",
       "sha256": "eae4ae54e714df0b6a0993c67289181d0f624d40702bec53af29dd3a5141fdae",
       "bytes": 2869,
-      "archive_path": "files/experiments/exp09/PROTOCOL.md"
+      "archive_path": "files/experiments/exp09/PROTOCOL.md",
+      "source_git_blob": "5fe8d366e571d9bd8e68077e41e6c3ce3c996628"
     },
     {
       "path": "experiments/exp09/README.md",
       "sha256": "d93c8d6ee4c2dc7a8142543990b6096cc8cbc6dbb047d958552070455b75d774",
       "bytes": 1427,
-      "archive_path": "files/experiments/exp09/README.md"
+      "archive_path": "files/experiments/exp09/README.md",
+      "source_git_blob": "224a8208244c164583bf12fc5c95f1feaa93c169"
     },
     {
       "path": "experiments/exp09/__init__.py",
       "sha256": "028f200abbce7a8e2577e646745cf55ce30b12b8d818d1fa9c736c798fa04c97",
       "bytes": 81,
-      "archive_path": "files/experiments/exp09/__init__.py"
+      "archive_path": "files/experiments/exp09/__init__.py",
+      "source_git_blob": "dc3b1fd4ae123f4545d39c8e67a5fb9c844ae3cf"
     },
     {
       "path": "experiments/exp09/observation.json",
       "sha256": "e266575e16a15b947b02dbe2fa8ea6b0c4e9e84eb84b5e85940e4080d2c02ffe",
       "bytes": 4339,
-      "archive_path": "files/experiments/exp09/observation.json"
+      "archive_path": "files/experiments/exp09/observation.json",
+      "source_git_blob": "4cc884e93b6db638ddca4f7511f88bc8cb9e60ad"
     },
     {
       "path": "experiments/exp09/probe.py",
       "sha256": "3aba89575323de7364497152c69eeed341d92dc314289d2021fead2c303444bd",
       "bytes": 9842,
-      "archive_path": "files/experiments/exp09/probe.py"
+      "archive_path": "files/experiments/exp09/probe.py",
+      "source_git_blob": "821f9b98367040044d025dfe4db46addb16afca1"
     },
     {
       "path": "experiments/exp09/test_probe.py",
       "sha256": "4bf8c2cca45d137e0ae4bd91beb2a53455cba95f9c8163e1b7a74f61efc1a7d0",
       "bytes": 4936,
-      "archive_path": "files/experiments/exp09/test_probe.py"
+      "archive_path": "files/experiments/exp09/test_probe.py",
+      "source_git_blob": "d6195fa84082e6e80069253010df8c11412196d3"
     },
     {
       "path": "experiments/exp100/AMENDMENT-01.md",
       "sha256": "82560bbe15932acf4b4dbf4cd5b5ef860ef9a25316faa23272beb99dedf3fc6b",
       "bytes": 4959,
-      "archive_path": "files/experiments/exp100/AMENDMENT-01.md"
+      "archive_path": "files/experiments/exp100/AMENDMENT-01.md",
+      "source_git_blob": "18004e494e069d04e0004afb3c1bf8c5e53cc696"
     },
     {
       "path": "experiments/exp100/AMENDMENT-02.md",
       "sha256": "e33540c619c8551f387eb8fa13a31c568528d2b159f907b7dbd2cc55658d4cea",
       "bytes": 1341,
-      "archive_path": "files/experiments/exp100/AMENDMENT-02.md"
+      "archive_path": "files/experiments/exp100/AMENDMENT-02.md",
+      "source_git_blob": "51daa5872b565e6b45d14fcb81d43479d3fed3e5"
     },
     {
       "path": "experiments/exp100/AMENDMENT-03.md",
       "sha256": "b4f71096593f1313fd98c2c8a4a2493e3447fd9a9e728c633d055f3a1ed9900c",
       "bytes": 1129,
-      "archive_path": "files/experiments/exp100/AMENDMENT-03.md"
+      "archive_path": "files/experiments/exp100/AMENDMENT-03.md",
+      "source_git_blob": "1507945113cb187d87ae46ca6eca705fac18cb4b"
     },
     {
       "path": "experiments/exp100/AMENDMENT-04.md",
       "sha256": "8c923d788aec54587b4f31fd549eca07d7119919a6a8ccc8b96cc57916b071b4",
       "bytes": 1739,
-      "archive_path": "files/experiments/exp100/AMENDMENT-04.md"
+      "archive_path": "files/experiments/exp100/AMENDMENT-04.md",
+      "source_git_blob": "5906433efafebba1a33658ed77359679d219d8e6"
     },
     {
       "path": "experiments/exp100/AMENDMENT-05.md",
       "sha256": "a0b82a18ea7893d5f0eb2f0619fc3892d3cf3d6b487585feab4892da6b51ce1e",
       "bytes": 995,
-      "archive_path": "files/experiments/exp100/AMENDMENT-05.md"
+      "archive_path": "files/experiments/exp100/AMENDMENT-05.md",
+      "source_git_blob": "03645409ecc637e06ed57feb0086c32e147a9a29"
     },
     {
       "path": "experiments/exp100/AMENDMENT-06.md",
       "sha256": "16958dcd5de0afe6ba204922dd26378408aa490174e87b4efe15b830ce65b7ee",
       "bytes": 887,
-      "archive_path": "files/experiments/exp100/AMENDMENT-06.md"
+      "archive_path": "files/experiments/exp100/AMENDMENT-06.md",
+      "source_git_blob": "f556b8901905c773621d340858ea6a2d24a2a639"
     },
     {
       "path": "experiments/exp100/AMENDMENT-07.md",
       "sha256": "1900e33f274d5f2a58b3c028245474cf2f6babb8f60bb4cb16fff09087e63009",
       "bytes": 1644,
-      "archive_path": "files/experiments/exp100/AMENDMENT-07.md"
+      "archive_path": "files/experiments/exp100/AMENDMENT-07.md",
+      "source_git_blob": "7a58c4353433b771675da79d7682db746d3e9fd1"
     },
     {
       "path": "experiments/exp100/AMENDMENT-08.md",
       "sha256": "ac1edd292053932ed77cacd823eb831f8ed660f9c2102c74140af8df090e33f0",
       "bytes": 3660,
-      "archive_path": "files/experiments/exp100/AMENDMENT-08.md"
+      "archive_path": "files/experiments/exp100/AMENDMENT-08.md",
+      "source_git_blob": "51fcea8e7dc0f211241a46913a6032070427f17d"
     },
     {
       "path": "experiments/exp100/AMENDMENT-09.md",
       "sha256": "7b67edf565c84acfa2006f31160a006ad9fc32d487c28e5545046598aca230b3",
       "bytes": 1629,
-      "archive_path": "files/experiments/exp100/AMENDMENT-09.md"
+      "archive_path": "files/experiments/exp100/AMENDMENT-09.md",
+      "source_git_blob": "259b21c7fcf955f2fdbd6b036f72ad21b994fffd"
     },
     {
       "path": "experiments/exp100/AMENDMENT-10.md",
       "sha256": "059404dc1bcac31d50d15f760ef040c28cde9ef22df74761e7492129585b0388",
       "bytes": 1824,
-      "archive_path": "files/experiments/exp100/AMENDMENT-10.md"
+      "archive_path": "files/experiments/exp100/AMENDMENT-10.md",
+      "source_git_blob": "daa3058a32602f03914e9d26816c21a3ba92de91"
     },
     {
       "path": "experiments/exp100/AMENDMENT-11.md",
       "sha256": "0ee068bcbc39622285c88ebe443e5ac861bdacc1514d5a1b8afa1c1653a99c5b",
       "bytes": 1127,
-      "archive_path": "files/experiments/exp100/AMENDMENT-11.md"
+      "archive_path": "files/experiments/exp100/AMENDMENT-11.md",
+      "source_git_blob": "dae72d3b8456b050284c56553c42e021fe52d2d6"
     },
     {
       "path": "experiments/exp100/CLI-S9-OBSERVATION.json",
       "sha256": "4e9262344fed6db233989cb6f943f953e9be35f12c8e3345b8db722a117a0d92",
       "bytes": 695,
-      "archive_path": "files/experiments/exp100/CLI-S9-OBSERVATION.json"
+      "archive_path": "files/experiments/exp100/CLI-S9-OBSERVATION.json",
+      "source_git_blob": "c3cf8d0d6ad1c6cd315f18cbce9335d729a6698c"
     },
     {
       "path": "experiments/exp100/CLI-S9-TESTS.tap",
       "sha256": "c751cb413c8de677394fd6899f86bb419e3774780c755d2f054ff20b0c92da2a",
       "bytes": 1862,
-      "archive_path": "files/experiments/exp100/CLI-S9-TESTS.tap"
+      "archive_path": "files/experiments/exp100/CLI-S9-TESTS.tap",
+      "source_git_blob": "4245ce8fff119f77eadb23a7337df6c73cc201f6"
     },
     {
       "path": "experiments/exp100/IMPLEMENTATION.md",
       "sha256": "c6d80413049564631fcc9c680a10b8536bda34b63591deac0c059cdef79e4466",
       "bytes": 4090,
-      "archive_path": "files/experiments/exp100/IMPLEMENTATION.md"
+      "archive_path": "files/experiments/exp100/IMPLEMENTATION.md",
+      "source_git_blob": "e1c82a5fbf674120f5945854d50ea77bf567b698"
     },
     {
       "path": "experiments/exp100/LIVE-AMENDMENT-01.md",
       "sha256": "cc5da10c4bdf68026e9aa628b584111d6be7b7e94e66a9018f69a7eb52be6031",
       "bytes": 532,
-      "archive_path": "files/experiments/exp100/LIVE-AMENDMENT-01.md"
+      "archive_path": "files/experiments/exp100/LIVE-AMENDMENT-01.md",
+      "source_git_blob": "85d673fe83226aa2286233d73dd64559d247a805"
     },
     {
       "path": "experiments/exp100/LIVE-MANIFEST.json",
       "sha256": "ee22192232b88375724d5ef7559ed2fa7ca09c08979ec0594a16d2876a1cd1fd",
       "bytes": 1881,
-      "archive_path": "files/experiments/exp100/LIVE-MANIFEST.json"
+      "archive_path": "files/experiments/exp100/LIVE-MANIFEST.json",
+      "source_git_blob": "393332d3ffa45d1967cbb7aedab30c2d2e5cf32c"
     },
     {
       "path": "experiments/exp100/LIVE-OBSERVATION.json",
       "sha256": "54f45affa640cebfe995942152f9923300e8ecd16d3cfdf4fda70a01647a3b13",
       "bytes": 9600,
-      "archive_path": "files/experiments/exp100/LIVE-OBSERVATION.json"
+      "archive_path": "files/experiments/exp100/LIVE-OBSERVATION.json",
+      "source_git_blob": "03dfdcb66159abcc28eb35b341b1fb1872bb0466"
     },
     {
       "path": "experiments/exp100/LIVE-PROTOCOL.md",
       "sha256": "30efa3608cbe13f8517ad859e7a51747a01be470543d5a77baeadda65e36d01d",
       "bytes": 5253,
-      "archive_path": "files/experiments/exp100/LIVE-PROTOCOL.md"
+      "archive_path": "files/experiments/exp100/LIVE-PROTOCOL.md",
+      "source_git_blob": "094af51379095d1232107b6d1961b3278e8d9853"
     },
     {
       "path": "experiments/exp100/LIVE-RESULTS.md",
       "sha256": "f90984da4aac5f1d0bbd444b46962b82f23c3c4ded3f01fc6600ca0c7d209ead",
       "bytes": 5978,
-      "archive_path": "files/experiments/exp100/LIVE-RESULTS.md"
+      "archive_path": "files/experiments/exp100/LIVE-RESULTS.md",
+      "source_git_blob": "e4a2947f99223c4058e05067b0757f631703c913"
     },
     {
       "path": "experiments/exp100/PAIRED-AMENDMENT-01.md",
       "sha256": "09200ab94670d94f2560a18a24c52f6cf63f666bf6cfafda2dfa6be786cef7d0",
       "bytes": 2036,
-      "archive_path": "files/experiments/exp100/PAIRED-AMENDMENT-01.md"
+      "archive_path": "files/experiments/exp100/PAIRED-AMENDMENT-01.md",
+      "source_git_blob": "d4c85ce36e302678894bbac2aa4d127d91a5d2b0"
     },
     {
       "path": "experiments/exp100/PAIRED-IMPLEMENTATION-NOTES.md",
       "sha256": "cdca8af89d5eee7d1ae7e4ece28f533de55208c55bdceb2392a1eba4e4b53401",
       "bytes": 4680,
-      "archive_path": "files/experiments/exp100/PAIRED-IMPLEMENTATION-NOTES.md"
+      "archive_path": "files/experiments/exp100/PAIRED-IMPLEMENTATION-NOTES.md",
+      "source_git_blob": "fd1b3a01253c3e149522fe24d5e11c92ab5f8c6f"
     },
     {
       "path": "experiments/exp100/PAIRED-MANIFEST.json",
       "sha256": "c15b68968444cfe8ec1cfd60aa61f0ef5c16c8f7f10bb40abe900bb78d82126c",
       "bytes": 7530,
-      "archive_path": "files/experiments/exp100/PAIRED-MANIFEST.json"
+      "archive_path": "files/experiments/exp100/PAIRED-MANIFEST.json",
+      "source_git_blob": "5743befde84895656ae3ba4db76fc75fe10cf042"
     },
     {
       "path": "experiments/exp100/PAIRED-OBSERVATION.json",
       "sha256": "4165c588ccf3e5251322a4baaa3e8e0d8bb2d30d8753850f8d782acaa715b1af",
       "bytes": 44240,
-      "archive_path": "files/experiments/exp100/PAIRED-OBSERVATION.json"
+      "archive_path": "files/experiments/exp100/PAIRED-OBSERVATION.json",
+      "source_git_blob": "9426e9178a9538ece0bbcb28bbd7e1a0b7025c25"
     },
     {
       "path": "experiments/exp100/PAIRED-PROTOCOL.md",
       "sha256": "fc8ea54bf9329b30c37c8750867a299e6267d8156ad95fa7cf933bbfd5587466",
       "bytes": 4329,
-      "archive_path": "files/experiments/exp100/PAIRED-PROTOCOL.md"
+      "archive_path": "files/experiments/exp100/PAIRED-PROTOCOL.md",
+      "source_git_blob": "aa7a7b5c5e34ca05a2134714eeb601611e73b071"
     },
     {
       "path": "experiments/exp100/PAIRED-RESULTS.md",
       "sha256": "a31dcdaab0f82cffd83b73afbf92adb4980f5ea8462689c6504a8bce0b8fa6cf",
       "bytes": 5771,
-      "archive_path": "files/experiments/exp100/PAIRED-RESULTS.md"
+      "archive_path": "files/experiments/exp100/PAIRED-RESULTS.md",
+      "source_git_blob": "6bb35a199279aee73bad89c9ed55f07a3daf079e"
     },
     {
       "path": "experiments/exp100/PROTOCOL-02.md",
       "sha256": "9bff7e14a87c13a4cb4ac12b65f9e866ac4458766cc94a098dcba9af88d473da",
       "bytes": 4146,
-      "archive_path": "files/experiments/exp100/PROTOCOL-02.md"
+      "archive_path": "files/experiments/exp100/PROTOCOL-02.md",
+      "source_git_blob": "4cd2fc335a33432bc560053b50b650c53c3d6bf5"
     },
     {
       "path": "experiments/exp100/PROTOCOL-03.md",
       "sha256": "e40b949f7b2c290919707916edefd2d69972ee2762ddc0f2d22d25516b9c11fc",
       "bytes": 4350,
-      "archive_path": "files/experiments/exp100/PROTOCOL-03.md"
+      "archive_path": "files/experiments/exp100/PROTOCOL-03.md",
+      "source_git_blob": "24b97bb73b5b32e7ba7b666d9c692e6f089094ac"
     },
     {
       "path": "experiments/exp100/PROTOCOL-04.md",
       "sha256": "3a4486b8a22f0675ab75a62a322c66ebb5bade52f0654bcbca360928ab8a6f4a",
       "bytes": 2678,
-      "archive_path": "files/experiments/exp100/PROTOCOL-04.md"
+      "archive_path": "files/experiments/exp100/PROTOCOL-04.md",
+      "source_git_blob": "cf8c661efb07a7ac5977e7f4c79316485380ef1b"
     },
     {
       "path": "experiments/exp100/PROTOCOL-05.md",
       "sha256": "c3d2ea41fee9473a703a43c79b3dcd0ff778b8b0c32faa8f55a48daa785f3e1e",
       "bytes": 2078,
-      "archive_path": "files/experiments/exp100/PROTOCOL-05.md"
+      "archive_path": "files/experiments/exp100/PROTOCOL-05.md",
+      "source_git_blob": "dd79539af828726013ee59b2cee71dfceb3e4c0e"
     },
     {
       "path": "experiments/exp100/PROTOCOL-06.md",
       "sha256": "bd0e5a2d2ba66b518aa1d792eafbabd70e248fd0eba88d19e0f4c5817e38557b",
       "bytes": 2679,
-      "archive_path": "files/experiments/exp100/PROTOCOL-06.md"
+      "archive_path": "files/experiments/exp100/PROTOCOL-06.md",
+      "source_git_blob": "504805dded75b08e188a0a600326dafdea257ffd"
     },
     {
       "path": "experiments/exp100/PROTOCOL-07.md",
       "sha256": "5bf450470c3a644307d7b0b499f0f1461cce1eba027c9d8c59e91826f93626ed",
       "bytes": 3307,
-      "archive_path": "files/experiments/exp100/PROTOCOL-07.md"
+      "archive_path": "files/experiments/exp100/PROTOCOL-07.md",
+      "source_git_blob": "2f215cb75816fa8317ce325f7849cca35a4c1e48"
     },
     {
       "path": "experiments/exp100/PROTOCOL-08.md",
       "sha256": "1de7c68594711c8d4dea098fb7ad0c03fb9bf10b77cd16d97236acae278a75d2",
       "bytes": 3446,
-      "archive_path": "files/experiments/exp100/PROTOCOL-08.md"
+      "archive_path": "files/experiments/exp100/PROTOCOL-08.md",
+      "source_git_blob": "845757fd69571fcdaa64df0bfe7c6dca83333956"
     },
     {
       "path": "experiments/exp100/PROTOCOL-09.md",
       "sha256": "aac108a2a8d18ecbeead889f7926ab03aff147381c1bc94ff2a036a74a740d97",
       "bytes": 2370,
-      "archive_path": "files/experiments/exp100/PROTOCOL-09.md"
+      "archive_path": "files/experiments/exp100/PROTOCOL-09.md",
+      "source_git_blob": "bdce5107b4f4b57e64ba739128991c74be81814a"
     },
     {
       "path": "experiments/exp100/PROTOCOL-10.md",
       "sha256": "e66aff1bb9902d44eb70f41ad7724279733a4926bbe6b43780484470b6ab3b8d",
       "bytes": 2395,
-      "archive_path": "files/experiments/exp100/PROTOCOL-10.md"
+      "archive_path": "files/experiments/exp100/PROTOCOL-10.md",
+      "source_git_blob": "f3c038d77398cd584748bb34bc2d483aaec38564"
     },
     {
       "path": "experiments/exp100/PROTOCOL.md",
       "sha256": "3ea99d534c23e2806d041437667cde10587ba77a373250c486ab9dc0b2e4e80d",
       "bytes": 3454,
-      "archive_path": "files/experiments/exp100/PROTOCOL.md"
+      "archive_path": "files/experiments/exp100/PROTOCOL.md",
+      "source_git_blob": "0d7674ea010a54497e69c19f115c6d5d196703fd"
     },
     {
       "path": "experiments/exp100/RESULTS-S2.md",
       "sha256": "ba778b76b6b860e672ccab0da17140425c62283ccc57919efada03dd2c63b7bb",
       "bytes": 4327,
-      "archive_path": "files/experiments/exp100/RESULTS-S2.md"
+      "archive_path": "files/experiments/exp100/RESULTS-S2.md",
+      "source_git_blob": "668d23b950de500231c5883dd1801ab4bfcd47ae"
     },
     {
       "path": "experiments/exp100/RESULTS-S3.md",
       "sha256": "e76ca19a221cf962e8d8a66e65847f49a2830c5500495e8b55bae6bc5454f599",
       "bytes": 3415,
-      "archive_path": "files/experiments/exp100/RESULTS-S3.md"
+      "archive_path": "files/experiments/exp100/RESULTS-S3.md",
+      "source_git_blob": "3302d67f20c084735f4c52aad59806d9e1a3e7d5"
     },
     {
       "path": "experiments/exp100/RESULTS-S4-02.md",
       "sha256": "48b85bd8b8927acd65135c09ce5056f20b37f9e94a223944e6cdbfa0ac852062",
       "bytes": 1461,
-      "archive_path": "files/experiments/exp100/RESULTS-S4-02.md"
+      "archive_path": "files/experiments/exp100/RESULTS-S4-02.md",
+      "source_git_blob": "c8e0f8ad2e9a742ef150594392dbaf73a2a4293a"
     },
     {
       "path": "experiments/exp100/RESULTS-S4-03.md",
       "sha256": "b167dfebcc8010bdd46263cdb5628e4230798150db55aa546399d62ff31c0ba9",
       "bytes": 1997,
-      "archive_path": "files/experiments/exp100/RESULTS-S4-03.md"
+      "archive_path": "files/experiments/exp100/RESULTS-S4-03.md",
+      "source_git_blob": "66bb8f5169e753cefc8f8b35f6e7ac07048c222b"
     },
     {
       "path": "experiments/exp100/RESULTS-S4.md",
       "sha256": "04d2984fd7ad13e4429a416eba6b3850ee1b88c8e59aca0858644067b2344c89",
       "bytes": 1777,
-      "archive_path": "files/experiments/exp100/RESULTS-S4.md"
+      "archive_path": "files/experiments/exp100/RESULTS-S4.md",
+      "source_git_blob": "644f667a4f08827eff5c275d23a0d87d9658bb9b"
     },
     {
       "path": "experiments/exp100/RESULTS-S7.md",
       "sha256": "54f270526728236fd786c9811fef9ed6b2a89747ac3f4c36a377b1ed8b996327",
       "bytes": 1627,
-      "archive_path": "files/experiments/exp100/RESULTS-S7.md"
+      "archive_path": "files/experiments/exp100/RESULTS-S7.md",
+      "source_git_blob": "58cc994debac55d69374c8c4fba28e4ae277f7c6"
     },
     {
       "path": "experiments/exp100/RESULTS-S8.md",
       "sha256": "d0298f0d93667d95b4b5cf1bcc8153cf3ae208bdd14e4c74aaa7527d2840929e",
       "bytes": 1763,
-      "archive_path": "files/experiments/exp100/RESULTS-S8.md"
+      "archive_path": "files/experiments/exp100/RESULTS-S8.md",
+      "source_git_blob": "00bd827618fc0f24bcce60cbf1994ae2cc66a112"
     },
     {
       "path": "experiments/exp100/RESULTS-S9.md",
       "sha256": "14573dd21930540b42617269b008102e4d786e51dde184bc74c1b26ad7767ab5",
       "bytes": 2677,
-      "archive_path": "files/experiments/exp100/RESULTS-S9.md"
+      "archive_path": "files/experiments/exp100/RESULTS-S9.md",
+      "source_git_blob": "2bebcf2e1dbaa218b8fca394691a2aa11552696c"
     },
     {
       "path": "experiments/exp100/RESULTS.md",
       "sha256": "093397bb2285a19d8bf2f9f05c9125c1d4c43be41b1d04ff59589595183b46d5",
       "bytes": 6489,
-      "archive_path": "files/experiments/exp100/RESULTS.md"
+      "archive_path": "files/experiments/exp100/RESULTS.md",
+      "source_git_blob": "7a79e1d291cf50ce0faadd67f901901553033812"
     },
     {
       "path": "experiments/exp100/S10-A-OBSERVATION.json",
       "sha256": "a37d176dc91b216e904d597ead1434002468cb5cc19b52a824a3b2698b90af99",
       "bytes": 3116,
-      "archive_path": "files/experiments/exp100/S10-A-OBSERVATION.json"
+      "archive_path": "files/experiments/exp100/S10-A-OBSERVATION.json",
+      "source_git_blob": "ba3087b315e84294e643bfc3c5bc8f6e65a519c4"
     },
     {
       "path": "experiments/exp100/S10-A-RESULTS.md",
       "sha256": "0c8c5d37c6f0ac3178752cf49d053cf17f593c12041c4f6fed9a0eaff8566740",
       "bytes": 1993,
-      "archive_path": "files/experiments/exp100/S10-A-RESULTS.md"
+      "archive_path": "files/experiments/exp100/S10-A-RESULTS.md",
+      "source_git_blob": "9337def7db7daa2ef6328bfd9d6f2e20f2022512"
     },
     {
       "path": "experiments/exp100/S10-B-OBSERVATION.json",
       "sha256": "99122e350db228ef1e40c0efd42582a73753e809946db2dcacc74e651eddec34",
       "bytes": 11684,
-      "archive_path": "files/experiments/exp100/S10-B-OBSERVATION.json"
+      "archive_path": "files/experiments/exp100/S10-B-OBSERVATION.json",
+      "source_git_blob": "f48579d624d1d1ece9488d44c6c90b414154dd04"
     },
     {
       "path": "experiments/exp100/S10-B-RESULTS.md",
       "sha256": "892aa2685693d9df5708b422204a44ad4ca7c76d6dfa631470d230273ddf6013",
       "bytes": 4079,
-      "archive_path": "files/experiments/exp100/S10-B-RESULTS.md"
+      "archive_path": "files/experiments/exp100/S10-B-RESULTS.md",
+      "source_git_blob": "170ab21c02620f6fb2430f1d6c8d14bb144d7653"
     },
     {
       "path": "experiments/exp100/broker.py",
       "sha256": "d023a0e3050d9885cdeffc6bcec3a8e23acda67534c952923f19b6399c578f2b",
       "bytes": 6808,
-      "archive_path": "files/experiments/exp100/broker.py"
+      "archive_path": "files/experiments/exp100/broker.py",
+      "source_git_blob": "cff65475e0b608c23d4e1dec87e9ea1083334e1a"
     },
     {
       "path": "experiments/exp100/bundle_transfer.py",
       "sha256": "79f87eb3d145ef2b3ee1cf2ef31555f61d5ab758e28d0425ceb74a56f60ce825",
       "bytes": 8862,
-      "archive_path": "files/experiments/exp100/bundle_transfer.py"
+      "archive_path": "files/experiments/exp100/bundle_transfer.py",
+      "source_git_blob": "03270ca9af43c8487b22c61dc9e3d904f6f37a07"
     },
     {
       "path": "experiments/exp100/client.py",
       "sha256": "96da33b780c1a9237ddc60cd0e3f63c0da3e0c4f3d896a1eb7c18b10d2a92ce7",
       "bytes": 1320,
-      "archive_path": "files/experiments/exp100/client.py"
+      "archive_path": "files/experiments/exp100/client.py",
+      "source_git_blob": "fb71dcaea6e0e35c6418f8ffe0d79dd09e7560a4"
     },
     {
       "path": "experiments/exp100/gh_adapter.mjs",
       "sha256": "dde338ad04049c9dbe4922d2df5ec4518fb6e9423ec2f804bd7524f6f2fe48f7",
       "bytes": 7086,
-      "archive_path": "files/experiments/exp100/gh_adapter.mjs"
+      "archive_path": "files/experiments/exp100/gh_adapter.mjs",
+      "source_git_blob": "dc0f97a9a112cccb5888ff04aee98cd1d903a797"
     },
     {
       "path": "experiments/exp100/handoff_s3.py",
       "sha256": "b3b81daf4559abed333d38530c985ab5823839996b6127956d4a545f0775b7d2",
       "bytes": 10120,
-      "archive_path": "files/experiments/exp100/handoff_s3.py"
+      "archive_path": "files/experiments/exp100/handoff_s3.py",
+      "source_git_blob": "ae1795797a88e254426bd5f8b3b6eac0269ba57c"
     },
     {
       "path": "experiments/exp100/native_capture_fixture.mjs",
       "sha256": "520ea072e8f8893a925811ba9a27079ea78b71c9eb119f52cc157e5ccdbe0528",
       "bytes": 3450,
-      "archive_path": "files/experiments/exp100/native_capture_fixture.mjs"
+      "archive_path": "files/experiments/exp100/native_capture_fixture.mjs",
+      "source_git_blob": "edf75f7d7922f466aaa65ffcb22ec034f3d81e68"
     },
     {
       "path": "experiments/exp100/observation-s2.json",
       "sha256": "8b99b90a908e6d0bdb1a5905b9008da7f52dc1e8dd00bd28804a4d115a4c7d1c",
       "bytes": 7670,
-      "archive_path": "files/experiments/exp100/observation-s2.json"
+      "archive_path": "files/experiments/exp100/observation-s2.json",
+      "source_git_blob": "28249289e412d8770eeda86d8388b65dc6d95131"
     },
     {
       "path": "experiments/exp100/observation-s3.json",
       "sha256": "e88135f7e2cde7156a15ddf31738f03bbe322f5a28fa5b3c99e0053d14514222",
       "bytes": 5070,
-      "archive_path": "files/experiments/exp100/observation-s3.json"
+      "archive_path": "files/experiments/exp100/observation-s3.json",
+      "source_git_blob": "211070d02045ee7c7b8aa6f33c5046c82b6772e7"
     },
     {
       "path": "experiments/exp100/observation-s4-02.json",
       "sha256": "299223608741d2096823713a0ae0b10e48c38f02c49410ad1865fef463a4b2ae",
       "bytes": 1827,
-      "archive_path": "files/experiments/exp100/observation-s4-02.json"
+      "archive_path": "files/experiments/exp100/observation-s4-02.json",
+      "source_git_blob": "5bf81fd57b0fbce8c481cd3b355f7ff568c04fd7"
     },
     {
       "path": "experiments/exp100/observation-s4-03.json",
       "sha256": "a50e56b66cd77077e84814cd8a404343dfdce9d5a2c51d4c293472a5d0739c81",
       "bytes": 2025,
-      "archive_path": "files/experiments/exp100/observation-s4-03.json"
+      "archive_path": "files/experiments/exp100/observation-s4-03.json",
+      "source_git_blob": "a8166671497048d84a7ccdcb46b4e64e60ef09a2"
     },
     {
       "path": "experiments/exp100/observation-s4.json",
       "sha256": "8fbeede8fbe5f43bac62ab6942f2da9645185c24d48b3685c19f0c7139b327b6",
       "bytes": 3437,
-      "archive_path": "files/experiments/exp100/observation-s4.json"
+      "archive_path": "files/experiments/exp100/observation-s4.json",
+      "source_git_blob": "c7cc97c2273f344ec5c840186e5f07f9fe521f18"
     },
     {
       "path": "experiments/exp100/observation-s7.json",
       "sha256": "640ec776d228f1e77ef623f58f1b1b6ec37bd8e6f06010d2fd37db868f24a71a",
       "bytes": 2224,
-      "archive_path": "files/experiments/exp100/observation-s7.json"
+      "archive_path": "files/experiments/exp100/observation-s7.json",
+      "source_git_blob": "4f1695119395c6398c871574727bc6690f42d12a"
     },
     {
       "path": "experiments/exp100/observation-s8.json",
       "sha256": "7ab3533bd247b04eac55591211b086e430e7d8ec2c068bef54d2ee93d3f67605",
       "bytes": 2725,
-      "archive_path": "files/experiments/exp100/observation-s8.json"
+      "archive_path": "files/experiments/exp100/observation-s8.json",
+      "source_git_blob": "54679b9f158c1705e0b4bd686c5868419f7b2085"
     },
     {
       "path": "experiments/exp100/observation.json",
       "sha256": "1d1d1f7c34ad3e0cf80946d9427629487719de2440d3cfe4375d92bf91ef6322",
       "bytes": 3647,
-      "archive_path": "files/experiments/exp100/observation.json"
+      "archive_path": "files/experiments/exp100/observation.json",
+      "source_git_blob": "04f47f94551f9cf1053126e8fdab3e78799fc4ba"
     },
     {
       "path": "experiments/exp100/paired_cases.py",
       "sha256": "ec6b9b69141c9b793aa9a13619f290ca6b1832d116ddb39f1b113d29782bdcfa",
       "bytes": 9335,
-      "archive_path": "files/experiments/exp100/paired_cases.py"
+      "archive_path": "files/experiments/exp100/paired_cases.py",
+      "source_git_blob": "0cef273a547a4acab088713028a4b29f62c54a87"
     },
     {
       "path": "experiments/exp100/paired_feasibility.py",
       "sha256": "8cb59705e9ae6c550bc3c6b248e7beea5fad2a300b7e112b81cda4d1dd7a4d26",
       "bytes": 3852,
-      "archive_path": "files/experiments/exp100/paired_feasibility.py"
+      "archive_path": "files/experiments/exp100/paired_feasibility.py",
+      "source_git_blob": "7f4a831029007d641da6bdf1fbc2d38287ee9714"
     },
     {
       "path": "experiments/exp100/paired_provider.py",
       "sha256": "e25920d16f6f0f3882c8eae483f94fab5379d78a79d62c562f68da9cbf0c936a",
       "bytes": 8532,
-      "archive_path": "files/experiments/exp100/paired_provider.py"
+      "archive_path": "files/experiments/exp100/paired_provider.py",
+      "source_git_blob": "4d88c809b64895f508b5cc35906b978f25ac7a0a"
     },
     {
       "path": "experiments/exp100/probe.py",
       "sha256": "af552a1d6f602e4345d271c3521934924b3a42f08eafc906cd069e90aea9f541",
       "bytes": 11511,
-      "archive_path": "files/experiments/exp100/probe.py"
+      "archive_path": "files/experiments/exp100/probe.py",
+      "source_git_blob": "17fd1d1a5f42be92f70556d1b46b3bad6ac97c43"
     },
     {
       "path": "experiments/exp100/probe_cli_s9.py",
       "sha256": "72c75ed333ea440865d39136c3a3a508f8db91e563e6ea5c6b3bea4414bdda0a",
       "bytes": 2290,
-      "archive_path": "files/experiments/exp100/probe_cli_s9.py"
+      "archive_path": "files/experiments/exp100/probe_cli_s9.py",
+      "source_git_blob": "ef4155a2edad6b14b377a17d654c1ec8427feb3d"
     },
     {
       "path": "experiments/exp100/probe_live.py",
       "sha256": "20175fe7c50d18f033bad8ad535981f51d54453f3367ae1b4e434848fdf59fa0",
       "bytes": 28952,
-      "archive_path": "files/experiments/exp100/probe_live.py"
+      "archive_path": "files/experiments/exp100/probe_live.py",
+      "source_git_blob": "8660a06695cff5d9e3a56654105913517cc1d202"
     },
     {
       "path": "experiments/exp100/probe_native_capture.py",
       "sha256": "e947482147ecfaf0ec2375818d752b844635e718ce0becefc5bbc369116223fb",
       "bytes": 23165,
-      "archive_path": "files/experiments/exp100/probe_native_capture.py"
+      "archive_path": "files/experiments/exp100/probe_native_capture.py",
+      "source_git_blob": "5bf6d1029d1c725044ad8ee776926b8e5f9ff29b"
     },
     {
       "path": "experiments/exp100/probe_paired.py",
       "sha256": "b4b0120edc7e2d6cd1a80e472864c05f82dbaa21acf42c5225838006a2ac57c3",
       "bytes": 44739,
-      "archive_path": "files/experiments/exp100/probe_paired.py"
+      "archive_path": "files/experiments/exp100/probe_paired.py",
+      "source_git_blob": "47865540d5679b0f8189c2fe442f6930ac9ce5a0"
     },
     {
       "path": "experiments/exp100/probe_s2.py",
       "sha256": "3d9457e9c39d9fa8d760e58254a170e496f61276c9cfde44874c51693f41549a",
       "bytes": 7195,
-      "archive_path": "files/experiments/exp100/probe_s2.py"
+      "archive_path": "files/experiments/exp100/probe_s2.py",
+      "source_git_blob": "43420262c5138c44c1a2c78b63ea7f69a8e41d31"
     },
     {
       "path": "experiments/exp100/probe_s3.py",
       "sha256": "b3b744eb08efc0d8aee4b4235a8bda1ea743487acfaacb0bceda8ef57197cdf5",
       "bytes": 8442,
-      "archive_path": "files/experiments/exp100/probe_s3.py"
+      "archive_path": "files/experiments/exp100/probe_s3.py",
+      "source_git_blob": "dcddf21777bddfb03dd28463f7a3933bda5148fd"
     },
     {
       "path": "experiments/exp100/probe_s4.py",
       "sha256": "d920a577db904feb174fa18f315da60f81f405634b69e2b0c82c0956007410f2",
       "bytes": 14576,
-      "archive_path": "files/experiments/exp100/probe_s4.py"
+      "archive_path": "files/experiments/exp100/probe_s4.py",
+      "source_git_blob": "2636a880cffe276b939a4109c814384220216c0f"
     },
     {
       "path": "experiments/exp100/probe_s4_bundle.py",
       "sha256": "ff485c8503cf83aa7abe0faa87ca4b08bd797af0c3492634fadbd916a218dd2b",
       "bytes": 5786,
-      "archive_path": "files/experiments/exp100/probe_s4_bundle.py"
+      "archive_path": "files/experiments/exp100/probe_s4_bundle.py",
+      "source_git_blob": "c74946aa59ad0c0ba8fe6985295cf82200234ac7"
     },
     {
       "path": "experiments/exp100/probe_s4_diag.py",
       "sha256": "1d84b3ad55b15dc644792338e39ea9f0bc4e763ac6cbceaba9e990d2f0a47140",
       "bytes": 4230,
-      "archive_path": "files/experiments/exp100/probe_s4_diag.py"
+      "archive_path": "files/experiments/exp100/probe_s4_diag.py",
+      "source_git_blob": "9e9dbc29827e87f990bad0a63e5304771573c6d0"
     },
     {
       "path": "experiments/exp100/probe_stage_s7.py",
       "sha256": "1046a41c3d5167fbf78beca93481b29a7b473e9c06bf0740c6ffa073cffab38d",
       "bytes": 11563,
-      "archive_path": "files/experiments/exp100/probe_stage_s7.py"
+      "archive_path": "files/experiments/exp100/probe_stage_s7.py",
+      "source_git_blob": "76b2a6d19356aa83040eb8cbd1ad6e9da95d554a"
     },
     {
       "path": "experiments/exp100/probe_stage_s8.py",
       "sha256": "4c4ae58baa7d88be1fb3474007f806119e6de725a95a21239d578189cbbbe031",
       "bytes": 669,
-      "archive_path": "files/experiments/exp100/probe_stage_s8.py"
+      "archive_path": "files/experiments/exp100/probe_stage_s8.py",
+      "source_git_blob": "65e9a27fba45bc24961bfedfa18a0c22c9536c7d"
     },
     {
       "path": "experiments/exp100/test_bundle_transfer.py",
       "sha256": "e8909ccd821fb043e3430e3502e768879a41a27c00fd5c0ae8af4e1640ea6871",
       "bytes": 16359,
-      "archive_path": "files/experiments/exp100/test_bundle_transfer.py"
+      "archive_path": "files/experiments/exp100/test_bundle_transfer.py",
+      "source_git_blob": "51e691926d04c73880ae09c43ee3b8b0b0760329"
     },
     {
       "path": "experiments/exp100/test_gh_adapter.mjs",
       "sha256": "83ab1d69f954dc399f19b32900cfd8bbb680faea82886b7dc6872275457221a5",
       "bytes": 6158,
-      "archive_path": "files/experiments/exp100/test_gh_adapter.mjs"
+      "archive_path": "files/experiments/exp100/test_gh_adapter.mjs",
+      "source_git_blob": "5e9e6b714122d3bb55d9588d24891030789cbe3e"
     },
     {
       "path": "experiments/exp100/test_handoff_s3.py",
       "sha256": "720448e97eebff827a5f9a7268dfc3a8ffb926fd8c82dab4a475dbb1c3b8b0b5",
       "bytes": 21157,
-      "archive_path": "files/experiments/exp100/test_handoff_s3.py"
+      "archive_path": "files/experiments/exp100/test_handoff_s3.py",
+      "source_git_blob": "b4b16e3799aa31e7b982a58397630d225abacb36"
     },
     {
       "path": "experiments/exp100/test_probe.py",
       "sha256": "15b525d28314cda21360c21b1f44aa7208e18aa208e3403de63b26737b30377e",
       "bytes": 1188,
-      "archive_path": "files/experiments/exp100/test_probe.py"
+      "archive_path": "files/experiments/exp100/test_probe.py",
+      "source_git_blob": "75bbcc3281b6523e34cbc4a10787e8e3feeb578d"
     },
     {
       "path": "experiments/exp100/test_probe_s2.py",
       "sha256": "de6a8615ef3528a68e4eba632048f2c4fa3d933e3ac33d07d72d501c23af2638",
       "bytes": 1059,
-      "archive_path": "files/experiments/exp100/test_probe_s2.py"
+      "archive_path": "files/experiments/exp100/test_probe_s2.py",
+      "source_git_blob": "44f028c4ee14b057275fcd12810e181bbdccddab"
     },
     {
       "path": "experiments/exp100/test_probe_s4.py",
       "sha256": "93094893c04173325ee03c16e32f99c410b2203ce8b9535234a035752eb9ebb5",
       "bytes": 5105,
-      "archive_path": "files/experiments/exp100/test_probe_s4.py"
+      "archive_path": "files/experiments/exp100/test_probe_s4.py",
+      "source_git_blob": "08ed713b8dcd211129746ea662d95cb813f67c8e"
     },
     {
       "path": "experiments/exp100/test_probe_s4_bundle.py",
       "sha256": "b26595cfec4b3fa073eb508cc8621780057fb200f7c7eb1f8f288a244dc2ab91",
       "bytes": 4564,
-      "archive_path": "files/experiments/exp100/test_probe_s4_bundle.py"
+      "archive_path": "files/experiments/exp100/test_probe_s4_bundle.py",
+      "source_git_blob": "d87d2013a3bf88eb69aad77c0ec6f77aba783086"
     },
     {
       "path": "experiments/exp100/test_probe_s4_diag.py",
       "sha256": "5840ce04ad950d20aaced1f1f59c5d3c71f7ceaf75cf9ce7c0a207c9403f9f38",
       "bytes": 3275,
-      "archive_path": "files/experiments/exp100/test_probe_s4_diag.py"
+      "archive_path": "files/experiments/exp100/test_probe_s4_diag.py",
+      "source_git_blob": "51971a134973d81024bdd496ff78378349b491f7"
     },
     {
       "path": "experiments/exp100/verify_s4.sh",
       "sha256": "096c7b980c25f14acce98c87ab7e91a8a7e6a7964988d36a8e27cf1ea61a3b93",
       "bytes": 807,
-      "archive_path": "files/experiments/exp100/verify_s4.sh"
+      "archive_path": "files/experiments/exp100/verify_s4.sh",
+      "source_git_blob": "eac52a7a7f57efbef724ea5ada06b3a521f11c80"
     },
     {
       "path": "experiments/exp100/verify_s4_bundle.sh",
       "sha256": "927eb58b01e4050ccc2fe7c3ff040e63665f0ab0a589bf4cfa24196254008e28",
       "bytes": 1166,
-      "archive_path": "files/experiments/exp100/verify_s4_bundle.sh"
+      "archive_path": "files/experiments/exp100/verify_s4_bundle.sh",
+      "source_git_blob": "11f182c8675a3bd785ac80060fa70370dd934d7d"
     },
     {
       "path": "experiments/exp100/verify_s4_diag.sh",
       "sha256": "8ceff70e99d703376d23684686703a70b11e179933dfdf2f8578ad93a4b292f6",
       "bytes": 1032,
-      "archive_path": "files/experiments/exp100/verify_s4_diag.sh"
+      "archive_path": "files/experiments/exp100/verify_s4_diag.sh",
+      "source_git_blob": "e5a4663a64a0aa28010f49a1771b28839be76bc2"
     },
     {
       "path": "experiments/exp104/ACTIVE-DELIVERY-AMENDMENT-01.md",
       "sha256": "7314643216376f5256649b7c61e4fec6887c6b5a550b808567044911f4856257",
       "bytes": 1133,
-      "archive_path": "files/experiments/exp104/ACTIVE-DELIVERY-AMENDMENT-01.md"
+      "archive_path": "files/experiments/exp104/ACTIVE-DELIVERY-AMENDMENT-01.md",
+      "source_git_blob": "5c38e8dee6d81e298ee88e27be628fe2cd247002"
     },
     {
       "path": "experiments/exp104/ACTIVE-DELIVERY-AMENDMENT-02.md",
       "sha256": "248ede5fa09e30092859534c777887a0966966c96815109d23436d25e35aea05",
       "bytes": 1073,
-      "archive_path": "files/experiments/exp104/ACTIVE-DELIVERY-AMENDMENT-02.md"
+      "archive_path": "files/experiments/exp104/ACTIVE-DELIVERY-AMENDMENT-02.md",
+      "source_git_blob": "d084a97be3091bbac542ef83c4ce1934417956e2"
     },
     {
       "path": "experiments/exp104/ACTIVE-DELIVERY-OBSERVATION.json",
       "sha256": "2c649c2d3d3eb0f178c261d7146b721973a353305c0e9266a8131f7e9c10bef8",
       "bytes": 3081,
-      "archive_path": "files/experiments/exp104/ACTIVE-DELIVERY-OBSERVATION.json"
+      "archive_path": "files/experiments/exp104/ACTIVE-DELIVERY-OBSERVATION.json",
+      "source_git_blob": "35b296ff80340dfbbec9def9531a6dae74c8262d"
     },
     {
       "path": "experiments/exp104/ACTIVE-DELIVERY-PROTOCOL.md",
       "sha256": "18af8178882daeee0bfc5300191dfad0080eb35111b8231d91119d6accbab7f7",
       "bytes": 3336,
-      "archive_path": "files/experiments/exp104/ACTIVE-DELIVERY-PROTOCOL.md"
+      "archive_path": "files/experiments/exp104/ACTIVE-DELIVERY-PROTOCOL.md",
+      "source_git_blob": "95d32241a41b82a982eb764f4b63d7c3eb73105a"
     },
     {
       "path": "experiments/exp104/ACTIVE-DELIVERY-RESULTS.md",
       "sha256": "c4c5fb81199702559e933a1221276df60b34db2a4cc172d966c230e5bf23ff2e",
       "bytes": 2778,
-      "archive_path": "files/experiments/exp104/ACTIVE-DELIVERY-RESULTS.md"
+      "archive_path": "files/experiments/exp104/ACTIVE-DELIVERY-RESULTS.md",
+      "source_git_blob": "67de794c4d283ac471e8bc62bd4dfce5f51555aa"
     },
     {
       "path": "experiments/exp104/AMENDMENT-01.md",
       "sha256": "fec64ed222fc2bd1828632df1cfb242b4deda8ae7c820b17386133e9b8f64e00",
       "bytes": 2704,
-      "archive_path": "files/experiments/exp104/AMENDMENT-01.md"
+      "archive_path": "files/experiments/exp104/AMENDMENT-01.md",
+      "source_git_blob": "29b475c2702a6a9a74194141e286c92e911e1925"
     },
     {
       "path": "experiments/exp104/AMENDMENT-02.md",
       "sha256": "4b8c55246994f3af2637f01e90de0f194737972d49027ee3a54b23e7c6f744eb",
       "bytes": 1441,
-      "archive_path": "files/experiments/exp104/AMENDMENT-02.md"
+      "archive_path": "files/experiments/exp104/AMENDMENT-02.md",
+      "source_git_blob": "ceea8aa11302fb5ada24c2ac707389e42e527825"
     },
     {
       "path": "experiments/exp104/AMENDMENT-03.md",
       "sha256": "09d5a002e83597201822cf117682a4d7c0bef811994442a82b99f6680146cc17",
       "bytes": 1237,
-      "archive_path": "files/experiments/exp104/AMENDMENT-03.md"
+      "archive_path": "files/experiments/exp104/AMENDMENT-03.md",
+      "source_git_blob": "988ead9606a2934f9a21ff30af30a0bf004fd4f0"
     },
     {
       "path": "experiments/exp104/AMENDMENT-04.md",
       "sha256": "4088ba39f908ed819717fce4f444d55265dd8660da858bf5cfea7e87a5e7c3cd",
       "bytes": 2205,
-      "archive_path": "files/experiments/exp104/AMENDMENT-04.md"
+      "archive_path": "files/experiments/exp104/AMENDMENT-04.md",
+      "source_git_blob": "646b6e44189da3967ccc0573da9d37374b00e877"
     },
     {
       "path": "experiments/exp104/AMENDMENT-05.md",
       "sha256": "cd28a6312d692379ca250bbef5d94e465d2b7bd7e7c3b42337417965c2e425c5",
       "bytes": 3148,
-      "archive_path": "files/experiments/exp104/AMENDMENT-05.md"
+      "archive_path": "files/experiments/exp104/AMENDMENT-05.md",
+      "source_git_blob": "70efe7bd7f9ef80af1e2a11a84f03c84fc8a89b0"
     },
     {
       "path": "experiments/exp104/AMENDMENT-06.md",
       "sha256": "a92e0d191aec18d0782b3bf1978a24963ef5cbb0d54761eb5346be3357e6b670",
       "bytes": 1424,
-      "archive_path": "files/experiments/exp104/AMENDMENT-06.md"
+      "archive_path": "files/experiments/exp104/AMENDMENT-06.md",
+      "source_git_blob": "e355a1bea314b7ee3910e88ad54f3ee327bb7e94"
     },
     {
       "path": "experiments/exp104/AMENDMENT-07.md",
       "sha256": "e62c4781c1616a9e4effc9cc6263c1dbb03e8d45556fc5e6359cb1fd65b83cac",
       "bytes": 1343,
-      "archive_path": "files/experiments/exp104/AMENDMENT-07.md"
+      "archive_path": "files/experiments/exp104/AMENDMENT-07.md",
+      "source_git_blob": "98dd6c58a2e2c0f5ca84f5642c7d86a5737efa73"
     },
     {
       "path": "experiments/exp104/AMENDMENT-08.md",
       "sha256": "951ebd5548ebd4b09e40f09904fe70d9436c1ccdb4d73ef4c4dd565e15dff273",
       "bytes": 1898,
-      "archive_path": "files/experiments/exp104/AMENDMENT-08.md"
+      "archive_path": "files/experiments/exp104/AMENDMENT-08.md",
+      "source_git_blob": "a2fe335e124b0be1a9323832e3822b26444ea667"
     },
     {
       "path": "experiments/exp104/AMENDMENT-09.md",
       "sha256": "97e98995e4f2d5b27a626df405cc1c035b8b7c70672a23b41e53fa838438bf5e",
       "bytes": 2817,
-      "archive_path": "files/experiments/exp104/AMENDMENT-09.md"
+      "archive_path": "files/experiments/exp104/AMENDMENT-09.md",
+      "source_git_blob": "961f23dee73f518a12e43fc876643d8a8ef890d0"
     },
     {
       "path": "experiments/exp104/AMENDMENT-10.md",
       "sha256": "160f7df7c975954b2ac5beb48aacd50cb5337aabf471172d6b0cf28ff470df32",
       "bytes": 1973,
-      "archive_path": "files/experiments/exp104/AMENDMENT-10.md"
+      "archive_path": "files/experiments/exp104/AMENDMENT-10.md",
+      "source_git_blob": "13d91fc0c7812ddd84bb225420d73613980c6103"
     },
     {
       "path": "experiments/exp104/AMENDMENT-11.md",
       "sha256": "afbf312409e79a973db6e386d1752e860ce0cbce4b470ed32bb0757c7f0d9a52",
       "bytes": 1347,
-      "archive_path": "files/experiments/exp104/AMENDMENT-11.md"
+      "archive_path": "files/experiments/exp104/AMENDMENT-11.md",
+      "source_git_blob": "4a3e22386e098a1fc2ccd6fae5c2e0e0ad7536cf"
     },
     {
       "path": "experiments/exp104/AMENDMENT-12.md",
       "sha256": "85bee035d7c3c9cbf40e801f0d07f4fddc4a84574768afaa02ac24eb256ee3a4",
       "bytes": 2392,
-      "archive_path": "files/experiments/exp104/AMENDMENT-12.md"
+      "archive_path": "files/experiments/exp104/AMENDMENT-12.md",
+      "source_git_blob": "143656b7ab9d3707ed9c983bf7cffc4978dee5d5"
     },
     {
       "path": "experiments/exp104/AMENDMENT-13.md",
       "sha256": "449a062ea085fc8e9247352abc2acc0ba34a9dd12431d4832d5bec87b7933a50",
       "bytes": 2694,
-      "archive_path": "files/experiments/exp104/AMENDMENT-13.md"
+      "archive_path": "files/experiments/exp104/AMENDMENT-13.md",
+      "source_git_blob": "bc9d76fb33977e0f03822111ced7ee0b616e1481"
     },
     {
       "path": "experiments/exp104/AMENDMENT-14.md",
       "sha256": "c01865f0e9b3d10a9fe5722f9409c8a89b66c3aeced81413287646dc660b3279",
       "bytes": 1405,
-      "archive_path": "files/experiments/exp104/AMENDMENT-14.md"
+      "archive_path": "files/experiments/exp104/AMENDMENT-14.md",
+      "source_git_blob": "ab46b0dfe446d1e0e5c8b275833ecf4ccafd5f7f"
     },
     {
       "path": "experiments/exp104/AMENDMENT-15.md",
       "sha256": "100506eb48af934fc84037d83b8caceb061c7c04bf34b2ffc42c5704c0607c6b",
       "bytes": 2516,
-      "archive_path": "files/experiments/exp104/AMENDMENT-15.md"
+      "archive_path": "files/experiments/exp104/AMENDMENT-15.md",
+      "source_git_blob": "bc3b2f5e60b92ff6d6edd0d8ed68ac120efec5df"
     },
     {
       "path": "experiments/exp104/AMENDMENT-16.md",
       "sha256": "66e7a1bf607a2b0f6d8795ef7cafad10d80e4e5e49b06a270f19e3cda361a25e",
       "bytes": 1744,
-      "archive_path": "files/experiments/exp104/AMENDMENT-16.md"
+      "archive_path": "files/experiments/exp104/AMENDMENT-16.md",
+      "source_git_blob": "0bc1cfdbdf3b6f6fc26d22659b0aa57b3acd0635"
     },
     {
       "path": "experiments/exp104/AMENDMENT-17.md",
       "sha256": "3011cf027d7d0f8ee22756a40cbe8b96df97eed2e37658541b79427f62b06c54",
       "bytes": 2204,
-      "archive_path": "files/experiments/exp104/AMENDMENT-17.md"
+      "archive_path": "files/experiments/exp104/AMENDMENT-17.md",
+      "source_git_blob": "ca4c05e23914c445da197d315a5c327baa4b18ee"
     },
     {
       "path": "experiments/exp104/AMENDMENT-18.md",
       "sha256": "8368aa6eeb138f8c37d2190adece962e962400f86c73c2fa19821aed7e879c97",
       "bytes": 1256,
-      "archive_path": "files/experiments/exp104/AMENDMENT-18.md"
+      "archive_path": "files/experiments/exp104/AMENDMENT-18.md",
+      "source_git_blob": "a0f04ee2333007264c6cf9e3079e6df4229075bb"
     },
     {
       "path": "experiments/exp104/AMENDMENT-19.md",
       "sha256": "cf877dfd0bca77c4e474ea2223b4ccc65dd4ffdf61d2a746193c00efdaadc64a",
       "bytes": 2571,
-      "archive_path": "files/experiments/exp104/AMENDMENT-19.md"
+      "archive_path": "files/experiments/exp104/AMENDMENT-19.md",
+      "source_git_blob": "3df434382a48b54de65a3e6cbe8a52652a751921"
     },
     {
       "path": "experiments/exp104/AMENDMENT-20.md",
       "sha256": "79e9c9538fa07f67a41353f05b3fe5070abf42f468ab668c694f42603ca27074",
       "bytes": 1874,
-      "archive_path": "files/experiments/exp104/AMENDMENT-20.md"
+      "archive_path": "files/experiments/exp104/AMENDMENT-20.md",
+      "source_git_blob": "3439b2231f1652a846a861610fad4c414fc70678"
     },
     {
       "path": "experiments/exp104/AMENDMENT-21.md",
       "sha256": "e8224b8b64e4896cfda71f492b489ff2ff68f78d6c1eedcdb2aaa6ec28e58c71",
       "bytes": 5781,
-      "archive_path": "files/experiments/exp104/AMENDMENT-21.md"
+      "archive_path": "files/experiments/exp104/AMENDMENT-21.md",
+      "source_git_blob": "00bc262ea22014ddecb802f434cb152b9baf700b"
     },
     {
       "path": "experiments/exp104/AMENDMENT-22.md",
       "sha256": "8bd25025b8998f13c3d9a6f3c72428e33c3809a279aae4a155c6c652d1ca9085",
       "bytes": 1264,
-      "archive_path": "files/experiments/exp104/AMENDMENT-22.md"
+      "archive_path": "files/experiments/exp104/AMENDMENT-22.md",
+      "source_git_blob": "a4d366c34daf1fb13bcacb73e05c31ae831abb43"
     },
     {
       "path": "experiments/exp104/AMENDMENT-23.md",
       "sha256": "89497b9660bb4d8296ab3a42aef93a863cbe480dea928b9df239f098201b6382",
       "bytes": 1269,
-      "archive_path": "files/experiments/exp104/AMENDMENT-23.md"
+      "archive_path": "files/experiments/exp104/AMENDMENT-23.md",
+      "source_git_blob": "faaac533f5a07498069767a022614557f2e4ddfa"
     },
     {
       "path": "experiments/exp104/AMENDMENT-24.md",
       "sha256": "1d7833b01a0635877767022f020231d975192d5a8517a4407963141148f6fb58",
       "bytes": 2765,
-      "archive_path": "files/experiments/exp104/AMENDMENT-24.md"
+      "archive_path": "files/experiments/exp104/AMENDMENT-24.md",
+      "source_git_blob": "c7f5470e3a42aa41bf92ee10700270212278d855"
     },
     {
       "path": "experiments/exp104/AMENDMENT-25.md",
       "sha256": "e98847b6ac33de0a26048b2563ecf414b6238c2a6094b417398e918b50d2b6f1",
       "bytes": 1895,
-      "archive_path": "files/experiments/exp104/AMENDMENT-25.md"
+      "archive_path": "files/experiments/exp104/AMENDMENT-25.md",
+      "source_git_blob": "f7c1a64c83c199c2ea3ea361d00a9fe5f83ef4cb"
     },
     {
       "path": "experiments/exp104/AMENDMENT-26.md",
       "sha256": "f3d20b6ab53556d93a428cbfb5b4d7c383624cafe0f0b770d546d899a2d2ba41",
       "bytes": 2132,
-      "archive_path": "files/experiments/exp104/AMENDMENT-26.md"
+      "archive_path": "files/experiments/exp104/AMENDMENT-26.md",
+      "source_git_blob": "92f193048660d5be3d47d50a5a11058d6b11fed5"
     },
     {
       "path": "experiments/exp104/AMENDMENT-27.md",
       "sha256": "d953870f6eecd437a3960f4688ae83aff227c6005370b9f777e840b7b498d997",
       "bytes": 2025,
-      "archive_path": "files/experiments/exp104/AMENDMENT-27.md"
+      "archive_path": "files/experiments/exp104/AMENDMENT-27.md",
+      "source_git_blob": "5689bc0e910ff403350a66ad4115e81fdd507cc7"
     },
     {
       "path": "experiments/exp104/DEVIATION-S5.md",
       "sha256": "8faebaf16b58f9d6df24e06476e261513927ebfb88ac66967fd4bffa0fd32be2",
       "bytes": 2265,
-      "archive_path": "files/experiments/exp104/DEVIATION-S5.md"
+      "archive_path": "files/experiments/exp104/DEVIATION-S5.md",
+      "source_git_blob": "78ef37f4fbc4cde5214a952e8f25862ecd93e787"
     },
     {
       "path": "experiments/exp104/IMPLEMENTATION.md",
       "sha256": "3f164c0a5f34420f7028ab495d364cd5e9b13778d42032e8de37621f46e70fc2",
       "bytes": 12361,
-      "archive_path": "files/experiments/exp104/IMPLEMENTATION.md"
+      "archive_path": "files/experiments/exp104/IMPLEMENTATION.md",
+      "source_git_blob": "5ad0b0f94bb56c24ce61396b44e990b3e8b0c0f3"
     },
     {
       "path": "experiments/exp104/LIVE-PROTOCOL.md",
       "sha256": "3c35211e33546a1ae4bdc7da7c18eef427bca7a12f80b94ae1e44175dc748cbb",
       "bytes": 5021,
-      "archive_path": "files/experiments/exp104/LIVE-PROTOCOL.md"
+      "archive_path": "files/experiments/exp104/LIVE-PROTOCOL.md",
+      "source_git_blob": "c2890d06a70c6f4b38c58d211acee5fb38b64010"
     },
     {
       "path": "experiments/exp104/MANAGED-STARTUP-OBSERVATION.json",
       "sha256": "c2bf7b11bc5b6d0fdf695ca76e8529a372856794bb3578ec15c81d64419f1966",
       "bytes": 792,
-      "archive_path": "files/experiments/exp104/MANAGED-STARTUP-OBSERVATION.json"
+      "archive_path": "files/experiments/exp104/MANAGED-STARTUP-OBSERVATION.json",
+      "source_git_blob": "912045533bdda38d5a61f479d2175fa5208696a1"
     },
     {
       "path": "experiments/exp104/MANAGED-STARTUP-PROTOCOL.md",
       "sha256": "f5a18dc9cde26d05677a3afeea20d4ff0816ea79f94a790ce49dbd6de1611d66",
       "bytes": 2547,
-      "archive_path": "files/experiments/exp104/MANAGED-STARTUP-PROTOCOL.md"
+      "archive_path": "files/experiments/exp104/MANAGED-STARTUP-PROTOCOL.md",
+      "source_git_blob": "345eae1bb9a522a4d291f61082d57ccb51d66384"
     },
     {
       "path": "experiments/exp104/MANAGED-STARTUP-RESULTS.md",
       "sha256": "a29e8c349b23ef1f4b9966bdc6b44b4f57eaba75d136c26b176a25a49ccdd97f",
       "bytes": 2185,
-      "archive_path": "files/experiments/exp104/MANAGED-STARTUP-RESULTS.md"
+      "archive_path": "files/experiments/exp104/MANAGED-STARTUP-RESULTS.md",
+      "source_git_blob": "48b5f459a7c22334092326c89cff0878bba56cce"
     },
     {
       "path": "experiments/exp104/NATIVE-LOCALRUNNER-PROTOCOL.md",
       "sha256": "9298932563bf53094c13b4aa72511dba2e91c78ec1611d88c09ed10f6be012f9",
       "bytes": 4311,
-      "archive_path": "files/experiments/exp104/NATIVE-LOCALRUNNER-PROTOCOL.md"
+      "archive_path": "files/experiments/exp104/NATIVE-LOCALRUNNER-PROTOCOL.md",
+      "source_git_blob": "48caaf6a1cf2bc9325f06c0769df0ce03b9f8913"
     },
     {
       "path": "experiments/exp104/NATIVE-LOCALRUNNER-S13-A-RESULTS.md",
       "sha256": "f587c289d9f71401eec82810f9c2ae2b4dcb10de32b819e9f8309e402a8a6580",
       "bytes": 4830,
-      "archive_path": "files/experiments/exp104/NATIVE-LOCALRUNNER-S13-A-RESULTS.md"
+      "archive_path": "files/experiments/exp104/NATIVE-LOCALRUNNER-S13-A-RESULTS.md",
+      "source_git_blob": "a316333d19ec197b1e7ef8529b473629c21d04cf"
     },
     {
       "path": "experiments/exp104/NATIVE-MANAGED-AMENDMENT-01.md",
       "sha256": "20ed51f08cbfb3020755a57410241472188013f177f5013fab6fca993be7b9d4",
       "bytes": 1169,
-      "archive_path": "files/experiments/exp104/NATIVE-MANAGED-AMENDMENT-01.md"
+      "archive_path": "files/experiments/exp104/NATIVE-MANAGED-AMENDMENT-01.md",
+      "source_git_blob": "dc146d32bcde4659fdfc4d99a1943fb4758b6e1b"
     },
     {
       "path": "experiments/exp104/NATIVE-MANAGED-PRE-RUN.md",
       "sha256": "12b7ad71926bfc45cd5c982e7a0225e4f4d48272aecb5b2c7debe5c2ac5f616c",
       "bytes": 3603,
-      "archive_path": "files/experiments/exp104/NATIVE-MANAGED-PRE-RUN.md"
+      "archive_path": "files/experiments/exp104/NATIVE-MANAGED-PRE-RUN.md",
+      "source_git_blob": "6ff3a1820796efe535fbcbd88600ea4e6114b899"
     },
     {
       "path": "experiments/exp104/NATIVE-MANAGED-PROTOCOL.md",
       "sha256": "7eaf772f9db09e8a315ab08d4fa5fb4f8eb1831668d3f3c9cf4fd4962a0db654",
       "bytes": 7781,
-      "archive_path": "files/experiments/exp104/NATIVE-MANAGED-PROTOCOL.md"
+      "archive_path": "files/experiments/exp104/NATIVE-MANAGED-PROTOCOL.md",
+      "source_git_blob": "74232507dfd82bed6eb410081f5982a35e645b95"
     },
     {
       "path": "experiments/exp104/NATIVE-MANAGED-S12-A-RESULTS.md",
       "sha256": "d85a3069f8f567cf87df416d7544560df79c2af1cb72bc0ad94729d59a963d21",
       "bytes": 1458,
-      "archive_path": "files/experiments/exp104/NATIVE-MANAGED-S12-A-RESULTS.md"
+      "archive_path": "files/experiments/exp104/NATIVE-MANAGED-S12-A-RESULTS.md",
+      "source_git_blob": "20899063fe3bcb42b9762e255fbfe1d463adb641"
     },
     {
       "path": "experiments/exp104/NATIVE-MANAGED-S12-B-RESULTS.md",
       "sha256": "f67f464854ae8a4c899d8b4c7753819d09452795a41a265dd063ba95fcef1009",
       "bytes": 3496,
-      "archive_path": "files/experiments/exp104/NATIVE-MANAGED-S12-B-RESULTS.md"
+      "archive_path": "files/experiments/exp104/NATIVE-MANAGED-S12-B-RESULTS.md",
+      "source_git_blob": "07d1c61b1e8a08ac97151aa8e06cd7081fc891bf"
     },
     {
       "path": "experiments/exp104/RESULTS.md",
       "sha256": "2764bc326bd157884e093fe48dbb5037761903c0b9fd3466a61e5931dfd4ddf2",
       "bytes": 21180,
-      "archive_path": "files/experiments/exp104/RESULTS.md"
+      "archive_path": "files/experiments/exp104/RESULTS.md",
+      "source_git_blob": "b1bfa1b9ea6a6d931a9177c979ca117cbbd37ba1"
     },
     {
       "path": "experiments/exp104/S10-PRE-RUN.md",
       "sha256": "746fde39c350b7cfd820182b415eec996d12990c62887b00c056a6c3d932bcd6",
       "bytes": 3047,
-      "archive_path": "files/experiments/exp104/S10-PRE-RUN.md"
+      "archive_path": "files/experiments/exp104/S10-PRE-RUN.md",
+      "source_git_blob": "3bbb4a5fa57d40d78f2a77d39ec81d4c8492bc19"
     },
     {
       "path": "experiments/exp104/S10-RESULTS.md",
       "sha256": "60581c1e51a7ed838a9c94a76c5ea2a6ffd0b57b897d671c99eb3fd7955792cd",
       "bytes": 1139,
-      "archive_path": "files/experiments/exp104/S10-RESULTS.md"
+      "archive_path": "files/experiments/exp104/S10-RESULTS.md",
+      "source_git_blob": "93ea02344e826a053a690dbec3c450ddd281718a"
     },
     {
       "path": "experiments/exp104/S11-OBSERVATION.json",
       "sha256": "ea7aa7c1b11f6f9a81b33e94ff264b4e632bcb8973d7f28871055adfc057c817",
       "bytes": 4138,
-      "archive_path": "files/experiments/exp104/S11-OBSERVATION.json"
+      "archive_path": "files/experiments/exp104/S11-OBSERVATION.json",
+      "source_git_blob": "18f2fd84048fe86f63960472359188514a417953"
     },
     {
       "path": "experiments/exp104/S11-PRE-RUN.md",
       "sha256": "a8793c48f930516dd118dbc449f67fd082ae1f9fc3aa92b5d2cfd48970f8e853",
       "bytes": 2971,
-      "archive_path": "files/experiments/exp104/S11-PRE-RUN.md"
+      "archive_path": "files/experiments/exp104/S11-PRE-RUN.md",
+      "source_git_blob": "2bb4b8e4976a92b21e22ddd1c54ace1187e27ac1"
     },
     {
       "path": "experiments/exp104/S11-PROVIDER-ATTEMPTS.jsonl",
       "sha256": "b53387625dccf213d0e53d490855fbb92b2e787566ffb3f6d62bd20c4299273f",
       "bytes": 761,
-      "archive_path": "files/experiments/exp104/S11-PROVIDER-ATTEMPTS.jsonl"
+      "archive_path": "files/experiments/exp104/S11-PROVIDER-ATTEMPTS.jsonl",
+      "source_git_blob": "8abbb2ec3aa2af5158718ef9293401c298020026"
     },
     {
       "path": "experiments/exp104/S11-RESULTS.md",
       "sha256": "c9dc0e2ac7ca866589db226f5d2eea654a15ad46ada708a85aba1b317986c628",
       "bytes": 3481,
-      "archive_path": "files/experiments/exp104/S11-RESULTS.md"
+      "archive_path": "files/experiments/exp104/S11-RESULTS.md",
+      "source_git_blob": "5ebe1174c00b605b2ae0cbb05adcba0a3ce63126"
     },
     {
       "path": "experiments/exp104/S12-PROTOCOL.md",
       "sha256": "45fdc6b32af8cf30c79eab4e155c9071f9e3d160e61815160f23b49105bcec5e",
       "bytes": 2424,
-      "archive_path": "files/experiments/exp104/S12-PROTOCOL.md"
+      "archive_path": "files/experiments/exp104/S12-PROTOCOL.md",
+      "source_git_blob": "effeb252869729955027e4a5f7599101349c6899"
     },
     {
       "path": "experiments/exp104/S13-PROTOCOL.md",
       "sha256": "2d48bec38680b8b07f7056d944c3f803e0e452b440c1229d0a5967f145a7bfbf",
       "bytes": 1757,
-      "archive_path": "files/experiments/exp104/S13-PROTOCOL.md"
+      "archive_path": "files/experiments/exp104/S13-PROTOCOL.md",
+      "source_git_blob": "08cd790793121666e41cf90593081ad97d91b5c9"
     },
     {
       "path": "experiments/exp104/S14-PROTOCOL.md",
       "sha256": "c091f48b2b615bfee58a507a3094ae13cde8974b2f3e2e05526ac2229d093acd",
       "bytes": 2165,
-      "archive_path": "files/experiments/exp104/S14-PROTOCOL.md"
+      "archive_path": "files/experiments/exp104/S14-PROTOCOL.md",
+      "source_git_blob": "8cbe2c896aaa4b16007094a60b94e46430b904be"
     },
     {
       "path": "experiments/exp104/S7-PRE-RUN.md",
       "sha256": "5b44ee7fe604f2501441fcf743395c540c8f463e0bf3512245a6ccf278a4c882",
       "bytes": 2570,
-      "archive_path": "files/experiments/exp104/S7-PRE-RUN.md"
+      "archive_path": "files/experiments/exp104/S7-PRE-RUN.md",
+      "source_git_blob": "b1430593f1c3fb9bfa232dd5f4e58bb9f8227632"
     },
     {
       "path": "experiments/exp104/S8-PRE-RUN.md",
       "sha256": "56fa8a254c97fb22eb667bf897c9e755b13afd918dd0e175323dfbb41d7d272e",
       "bytes": 2865,
-      "archive_path": "files/experiments/exp104/S8-PRE-RUN.md"
+      "archive_path": "files/experiments/exp104/S8-PRE-RUN.md",
+      "source_git_blob": "3cbc8d6a695a19fa2994c759e764da8c759cbf18"
     },
     {
       "path": "experiments/exp104/S9-PRE-RUN.md",
       "sha256": "3f412cfc5cd541c359166cce0711fb62a168f16150583b2de7f5168ffc52ec6f",
       "bytes": 2900,
-      "archive_path": "files/experiments/exp104/S9-PRE-RUN.md"
+      "archive_path": "files/experiments/exp104/S9-PRE-RUN.md",
+      "source_git_blob": "d45321f3b4af128546438cff3c9584bbf7b055d5"
     },
     {
       "path": "experiments/exp104/S9-RESULTS.md",
       "sha256": "de96632a89573095d4d40cba1432efe47d6932e3c60f07dafda479902b8db4b3",
       "bytes": 1253,
-      "archive_path": "files/experiments/exp104/S9-RESULTS.md"
+      "archive_path": "files/experiments/exp104/S9-RESULTS.md",
+      "source_git_blob": "6e8ada0e29376fb975fef70bd9804e269c422dfc"
     },
     {
       "path": "experiments/exp104/SYSTEMD-AMENDMENT-01.md",
       "sha256": "251c37f59047138a121e471dcb108f0102cc89779753beab0c288e2f85119137",
       "bytes": 1695,
-      "archive_path": "files/experiments/exp104/SYSTEMD-AMENDMENT-01.md"
+      "archive_path": "files/experiments/exp104/SYSTEMD-AMENDMENT-01.md",
+      "source_git_blob": "65308048224df4eaa5e0b71f74c8bb536a6fae32"
     },
     {
       "path": "experiments/exp104/SYSTEMD-PROTOCOL.md",
       "sha256": "03e16221fd95a20b35e19f9cf21528dfef0d18eccde13bff5795219264e38f3c",
       "bytes": 4724,
-      "archive_path": "files/experiments/exp104/SYSTEMD-PROTOCOL.md"
+      "archive_path": "files/experiments/exp104/SYSTEMD-PROTOCOL.md",
+      "source_git_blob": "c0fa8e7642cb735a83575d12135a79d6c6b67968"
     },
     {
       "path": "experiments/exp104/SYSTEMD-RESULTS.md",
       "sha256": "e1c095be6263c7751e40901718284a3c2a54bcf079dbc71732972a18641b7422",
       "bytes": 3462,
-      "archive_path": "files/experiments/exp104/SYSTEMD-RESULTS.md"
+      "archive_path": "files/experiments/exp104/SYSTEMD-RESULTS.md",
+      "source_git_blob": "a272ba8ecca5666851278dbe0770114e404f8700"
     },
     {
       "path": "experiments/exp104/VERIFIER-CRASH-AMENDMENT-01.md",
       "sha256": "df40827589af5bae60f461af4e4b31d9f513151319dedfa62c89f756e8d0d24f",
       "bytes": 802,
-      "archive_path": "files/experiments/exp104/VERIFIER-CRASH-AMENDMENT-01.md"
+      "archive_path": "files/experiments/exp104/VERIFIER-CRASH-AMENDMENT-01.md",
+      "source_git_blob": "5d846eefb0e89bb20deb78650b5c953999b0a503"
     },
     {
       "path": "experiments/exp104/VERIFIER-CRASH-AMENDMENT-02.md",
       "sha256": "fc8cf538e78c4baa7b03922b6ad8c9dcd3e8587f3dce752b4f0ca98374cd06da",
       "bytes": 1272,
-      "archive_path": "files/experiments/exp104/VERIFIER-CRASH-AMENDMENT-02.md"
+      "archive_path": "files/experiments/exp104/VERIFIER-CRASH-AMENDMENT-02.md",
+      "source_git_blob": "06a89b7b1cf2f369a8380de90e637028a2322908"
     },
     {
       "path": "experiments/exp104/VERIFIER-CRASH-PROTOCOL.md",
       "sha256": "8942f8794b6e067c1d33295716284a17723a544608477b855dbfce8a4b57c71e",
       "bytes": 2938,
-      "archive_path": "files/experiments/exp104/VERIFIER-CRASH-PROTOCOL.md"
+      "archive_path": "files/experiments/exp104/VERIFIER-CRASH-PROTOCOL.md",
+      "source_git_blob": "b94461c69f8771235a7be432c0d4d5dcf8af9d78"
     },
     {
       "path": "experiments/exp104/VERIFIER-CRASH-S1-OBSERVATION.json",
       "sha256": "8df630dafa61eba8c2020b720a2f20ac21539e5b37cf93fec14b7e25f0617f76",
       "bytes": 598,
-      "archive_path": "files/experiments/exp104/VERIFIER-CRASH-S1-OBSERVATION.json"
+      "archive_path": "files/experiments/exp104/VERIFIER-CRASH-S1-OBSERVATION.json",
+      "source_git_blob": "2357e536e6b23c9b95f3e2a82bea6cd945457c09"
     },
     {
       "path": "experiments/exp104/VERIFIER-CRASH-S1-RESULTS.md",
       "sha256": "59af1b753a81de204a607219dcf3fd7fa9f715d8377d31fbdf0e5c63686f5190",
       "bytes": 1293,
-      "archive_path": "files/experiments/exp104/VERIFIER-CRASH-S1-RESULTS.md"
+      "archive_path": "files/experiments/exp104/VERIFIER-CRASH-S1-RESULTS.md",
+      "source_git_blob": "d233ea228229179d2870800c073d93aeac29f5b6"
     },
     {
       "path": "experiments/exp104/VERIFIER-CRASH-S2-OBSERVATION.json",
       "sha256": "9e6bd8f8ad1d3b895cc5e284e55af7e23ac9a88f6d785a22053e690577d78bf8",
       "bytes": 969,
-      "archive_path": "files/experiments/exp104/VERIFIER-CRASH-S2-OBSERVATION.json"
+      "archive_path": "files/experiments/exp104/VERIFIER-CRASH-S2-OBSERVATION.json",
+      "source_git_blob": "e7d6b0bc47e5c84cafcfda3f7d02962cdb231cb0"
     },
     {
       "path": "experiments/exp104/VERIFIER-CRASH-S2-RESULTS.md",
       "sha256": "ebbdc21421bdfd353a23337442f34e16d79fb60d3929a8bc93f52b40fc7ea7ed",
       "bytes": 2365,
-      "archive_path": "files/experiments/exp104/VERIFIER-CRASH-S2-RESULTS.md"
+      "archive_path": "files/experiments/exp104/VERIFIER-CRASH-S2-RESULTS.md",
+      "source_git_blob": "1ea25be8e1dbf2bfff5a593711cf2733b04035bb"
     },
     {
       "path": "experiments/exp104/active_delivery_fixture.mjs",
       "sha256": "cf98a7a100929ec1df125cff5b60dcdffb22f1a583e44f7bd62b5bee1cff7590",
       "bytes": 3724,
-      "archive_path": "files/experiments/exp104/active_delivery_fixture.mjs"
+      "archive_path": "files/experiments/exp104/active_delivery_fixture.mjs",
+      "source_git_blob": "eba8b8d11afb2f6453516b930843584441e5dda2"
     },
     {
       "path": "experiments/exp104/capture_provider_journal.py",
       "sha256": "b42a1d42c5fd8fcbee58df07ea681aaca3a9bca9ac8717ccb9d6f9c56adced3a",
       "bytes": 1693,
-      "archive_path": "files/experiments/exp104/capture_provider_journal.py"
+      "archive_path": "files/experiments/exp104/capture_provider_journal.py",
+      "source_git_blob": "76d87f01092ea9d27ccb18b658b0427280a3b6f1"
     },
     {
       "path": "experiments/exp104/docker-preflight-observation.json",
       "sha256": "4718cd69e586671541920afd14f10382821b1f807035016d244e48aad8c89c1f",
       "bytes": 160,
-      "archive_path": "files/experiments/exp104/docker-preflight-observation.json"
+      "archive_path": "files/experiments/exp104/docker-preflight-observation.json",
+      "source_git_blob": "6d475d639c8e0fbb38124e07314dc7fd0971711e"
     },
     {
       "path": "experiments/exp104/docker_preflight.py",
       "sha256": "aefd157fd9f2b4fb61a6822834851b6262868ba86ad3b29a72f5840f117020a6",
       "bytes": 2635,
-      "archive_path": "files/experiments/exp104/docker_preflight.py"
+      "archive_path": "files/experiments/exp104/docker_preflight.py",
+      "source_git_blob": "ed6a1c12f2ff633def46cc2d20a06a9f42862195"
     },
     {
       "path": "experiments/exp104/live-dry-run-s5-01.json",
       "sha256": "22feddb5e8bd5b74b027eee24e589142903c3572031b5d515e3ae5739fd95c89",
       "bytes": 35,
-      "archive_path": "files/experiments/exp104/live-dry-run-s5-01.json"
+      "archive_path": "files/experiments/exp104/live-dry-run-s5-01.json",
+      "source_git_blob": "355046ab4335ed8ca604409072d32c36d8185bf7"
     },
     {
       "path": "experiments/exp104/live-dry-run-s6-01.json",
       "sha256": "22feddb5e8bd5b74b027eee24e589142903c3572031b5d515e3ae5739fd95c89",
       "bytes": 35,
-      "archive_path": "files/experiments/exp104/live-dry-run-s6-01.json"
+      "archive_path": "files/experiments/exp104/live-dry-run-s6-01.json",
+      "source_git_blob": "355046ab4335ed8ca604409072d32c36d8185bf7"
     },
     {
       "path": "experiments/exp104/live-observation-d2-02.json",
       "sha256": "ae2c85e0ee414b30edb9a5e10557b935399c2b49af25e8f70737a6ae3deb9fec",
       "bytes": 3265,
-      "archive_path": "files/experiments/exp104/live-observation-d2-02.json"
+      "archive_path": "files/experiments/exp104/live-observation-d2-02.json",
+      "source_git_blob": "01dc25069f3b029ceb31e8f76ae08dc7518053c1"
     },
     {
       "path": "experiments/exp104/live-observation-d2.json",
       "sha256": "95a5a579dfba4f943acee6d5f89616c035b43a3bceead12a4a81b8799aada3d0",
       "bytes": 985,
-      "archive_path": "files/experiments/exp104/live-observation-d2.json"
+      "archive_path": "files/experiments/exp104/live-observation-d2.json",
+      "source_git_blob": "db05ba6951ca92f7bb9b20ac1619fd162684113c"
     },
     {
       "path": "experiments/exp104/live-observation-s3-01.json",
       "sha256": "5c2dd78ce0b8c3d9788e4b06848fc6fdbcbeedd695c3b36d635c7387be7c74af",
       "bytes": 3023,
-      "archive_path": "files/experiments/exp104/live-observation-s3-01.json"
+      "archive_path": "files/experiments/exp104/live-observation-s3-01.json",
+      "source_git_blob": "04cc3776db70bf7ba43b4e488f4b18ae21430571"
     },
     {
       "path": "experiments/exp104/live-observation-s4-01.json",
       "sha256": "876ea17e29665f266a1b031e6fc240630e3555878d4ed426ec50c4301674e841",
       "bytes": 1220,
-      "archive_path": "files/experiments/exp104/live-observation-s4-01.json"
+      "archive_path": "files/experiments/exp104/live-observation-s4-01.json",
+      "source_git_blob": "fec5e5703b6fa38fc1e2c388f042db03519e8329"
     },
     {
       "path": "experiments/exp104/live-observation-s5-01.json",
       "sha256": "d0f3523a398676fad6512560e2d3453df46fc4be00f1a914b282a732c2daa661",
       "bytes": 4374,
-      "archive_path": "files/experiments/exp104/live-observation-s5-01.json"
+      "archive_path": "files/experiments/exp104/live-observation-s5-01.json",
+      "source_git_blob": "479993a5884ca1d00d3fce4fdc9bcd55188b3414"
     },
     {
       "path": "experiments/exp104/live-observation-s6-01.json",
       "sha256": "8d0ef471b530cce222eca01edf077c7aec419ca52f7b085e9e56bc905f1af003",
       "bytes": 4887,
-      "archive_path": "files/experiments/exp104/live-observation-s6-01.json"
+      "archive_path": "files/experiments/exp104/live-observation-s6-01.json",
+      "source_git_blob": "c2e961ec234cee682a52ab120791018483d6ea7e"
     },
     {
       "path": "experiments/exp104/live-provider-attempts-d2-02.jsonl",
       "sha256": "62f69933e06927980de4b4023b19d6cb58ebad66b0732d29bb8c86f65178db6c",
       "bytes": 690,
-      "archive_path": "files/experiments/exp104/live-provider-attempts-d2-02.jsonl"
+      "archive_path": "files/experiments/exp104/live-provider-attempts-d2-02.jsonl",
+      "source_git_blob": "aa148647d0674dda648032b186ffd19f09d9bd10"
     },
     {
       "path": "experiments/exp104/live-provider-attempts-s3-01.jsonl",
       "sha256": "0b53ea588792bb9aa0c93e716d5a1716fe2d0f6679bc27faf6da01895ba39d02",
       "bytes": 236,
-      "archive_path": "files/experiments/exp104/live-provider-attempts-s3-01.jsonl"
+      "archive_path": "files/experiments/exp104/live-provider-attempts-s3-01.jsonl",
+      "source_git_blob": "82c7392b99c5de0e3308cb14c22c68b9130b2f1b"
     },
     {
       "path": "experiments/exp104/live-provider-attempts-s5-01.jsonl",
       "sha256": "31dd9e35a109450112dcddeed2e95665923f31063e5dc85f3ffa3beb9733456a",
       "bytes": 687,
-      "archive_path": "files/experiments/exp104/live-provider-attempts-s5-01.jsonl"
+      "archive_path": "files/experiments/exp104/live-provider-attempts-s5-01.jsonl",
+      "source_git_blob": "574054cf32e2030522672ee10ae5dced40cfb942"
     },
     {
       "path": "experiments/exp104/live-provider-attempts-s6-01.jsonl",
       "sha256": "c0d169879a8b13e3a0de2d70f766875f1acc0722a10333337d62accfe4cb35a8",
       "bytes": 684,
-      "archive_path": "files/experiments/exp104/live-provider-attempts-s6-01.jsonl"
+      "archive_path": "files/experiments/exp104/live-provider-attempts-s6-01.jsonl",
+      "source_git_blob": "0a4170c932f399efdc6bc03cfa6e04fed35ce234"
     },
     {
       "path": "experiments/exp104/live_probe.py",
       "sha256": "36e9a23a9636c539a5a2e9ba70bf871f1f38cfde486472a30881ec5c22c653fa",
       "bytes": 44251,
-      "archive_path": "files/experiments/exp104/live_probe.py"
+      "archive_path": "files/experiments/exp104/live_probe.py",
+      "source_git_blob": "cf5f60fa75ba876495020a8f227159d1ff62379a"
     },
     {
       "path": "experiments/exp104/native-localrunner-s13-a-observation.json",
       "sha256": "9f2b0e04ad56eb52a6d84b9ca55fc4378552076a4f6bf939b2a992c64f09eeec",
       "bytes": 5829,
-      "archive_path": "files/experiments/exp104/native-localrunner-s13-a-observation.json"
+      "archive_path": "files/experiments/exp104/native-localrunner-s13-a-observation.json",
+      "source_git_blob": "79c72515c2eae0753ce8c3c54e0085c21da83112"
     },
     {
       "path": "experiments/exp104/native-localrunner-s13-a-provider-attempts.jsonl",
       "sha256": "c21a24bc259a8fc08dd6dd6bc21c554b2087d4b08d47887092a1ec5cd8a166b6",
       "bytes": 1368,
-      "archive_path": "files/experiments/exp104/native-localrunner-s13-a-provider-attempts.jsonl"
+      "archive_path": "files/experiments/exp104/native-localrunner-s13-a-provider-attempts.jsonl",
+      "source_git_blob": "617a72045f7b1b7fb42ff2809b19daf82eb2fb94"
     },
     {
       "path": "experiments/exp104/native-managed-s12-a-observation.json",
       "sha256": "c3f2f57597abbafb0f1814378bf2aaf65585c76d6b74f344e2ba6db1bb75f220",
       "bytes": 676,
-      "archive_path": "files/experiments/exp104/native-managed-s12-a-observation.json"
+      "archive_path": "files/experiments/exp104/native-managed-s12-a-observation.json",
+      "source_git_blob": "91fac4f75da0c4dd38001465bede7cb15f0b73d7"
     },
     {
       "path": "experiments/exp104/native-managed-s12-b-observation.json",
       "sha256": "e80b5afa08d6077d154807a23ed7f57ab0d7994e47c7700f84faaf26c594bff4",
       "bytes": 3911,
-      "archive_path": "files/experiments/exp104/native-managed-s12-b-observation.json"
+      "archive_path": "files/experiments/exp104/native-managed-s12-b-observation.json",
+      "source_git_blob": "d3a2d36e251e92c16340e27052d4b2df7a0587ac"
     },
     {
       "path": "experiments/exp104/native-managed-s12-b-provider-attempts.jsonl",
       "sha256": "cee7d437a24955f0d13b5d33a6fd270771b3e4415690dbbd0731a3478d6ae7df",
       "bytes": 1370,
-      "archive_path": "files/experiments/exp104/native-managed-s12-b-provider-attempts.jsonl"
+      "archive_path": "files/experiments/exp104/native-managed-s12-b-provider-attempts.jsonl",
+      "source_git_blob": "4b31b73d434309eaf3f2f19db326370872e56cc0"
     },
     {
       "path": "experiments/exp104/native_localrunner_checks.py",
       "sha256": "082292fa6fdcfe8116d621b7cd8215674977b1536c6e71a591a2c807f13eae11",
       "bytes": 5246,
-      "archive_path": "files/experiments/exp104/native_localrunner_checks.py"
+      "archive_path": "files/experiments/exp104/native_localrunner_checks.py",
+      "source_git_blob": "eb638928557ca540e47a280247aa23799d2e0acf"
     },
     {
       "path": "experiments/exp104/native_localrunner_probe.py",
       "sha256": "6f8694af395fb63c574e0602cc9fa6a5cc44730fc86eae0cb3ca6802385d8f90",
       "bytes": 34258,
-      "archive_path": "files/experiments/exp104/native_localrunner_probe.py"
+      "archive_path": "files/experiments/exp104/native_localrunner_probe.py",
+      "source_git_blob": "3fa04d7387233a62d28cce2e90dce306185dcd98"
     },
     {
       "path": "experiments/exp104/native_localrunner_worker.py",
       "sha256": "822c1a0e538361068530bfcb6ac5b688bb9fadcea0241810766310c5eabea753",
       "bytes": 6978,
-      "archive_path": "files/experiments/exp104/native_localrunner_worker.py"
+      "archive_path": "files/experiments/exp104/native_localrunner_worker.py",
+      "source_git_blob": "b742ed934fb5a3f6be21766fb04873749ff5f960"
     },
     {
       "path": "experiments/exp104/native_managed_checks.py",
       "sha256": "23e2d15ed5830b9473ed1ee1815888b19d00a13d17e9bcedbf9387afb88879e0",
       "bytes": 4467,
-      "archive_path": "files/experiments/exp104/native_managed_checks.py"
+      "archive_path": "files/experiments/exp104/native_managed_checks.py",
+      "source_git_blob": "6f498479427cb37f079b669794033000d3c05613"
     },
     {
       "path": "experiments/exp104/native_managed_probe.py",
       "sha256": "646f221d9fd6be9588f52b91593cfa2abef1875da4664c47020e3b64db7e7217",
       "bytes": 30947,
-      "archive_path": "files/experiments/exp104/native_managed_probe.py"
+      "archive_path": "files/experiments/exp104/native_managed_probe.py",
+      "source_git_blob": "dff4b757d71dbfa0b4320e43e91fb231628ca927"
     },
     {
       "path": "experiments/exp104/native_managed_tasks.py",
       "sha256": "484fbba25a542dda32c3671fb476d145d6171019aefff25cb2cf51c93065efa7",
       "bytes": 5086,
-      "archive_path": "files/experiments/exp104/native_managed_tasks.py"
+      "archive_path": "files/experiments/exp104/native_managed_tasks.py",
+      "source_git_blob": "0b49d5245ea1dbe04af800c4a5907421c2788287"
     },
     {
       "path": "experiments/exp104/native_managed_worker.py",
       "sha256": "418aff208b78aa1681356abad39c6525d815ed939dfc17f8d024b08cc3f63b85",
       "bytes": 7766,
-      "archive_path": "files/experiments/exp104/native_managed_worker.py"
+      "archive_path": "files/experiments/exp104/native_managed_worker.py",
+      "source_git_blob": "378ab14420263549ebce5e02d314908402a181cc"
     },
     {
       "path": "experiments/exp104/probe_active_delivery.py",
       "sha256": "fc5d43466cd43e701adde9f7b8b079f8b70ae7b1a5b774830d98cae5db6574fc",
       "bytes": 19453,
-      "archive_path": "files/experiments/exp104/probe_active_delivery.py"
+      "archive_path": "files/experiments/exp104/probe_active_delivery.py",
+      "source_git_blob": "5d1d1cd6f02c997613849172a6a8a437b0962391"
     },
     {
       "path": "experiments/exp104/probe_managed_startup.py",
       "sha256": "71e889c59b44daee3fd0e12e822b5804098f46ef6a52bac641a1ff6d81452785",
       "bytes": 10484,
-      "archive_path": "files/experiments/exp104/probe_managed_startup.py"
+      "archive_path": "files/experiments/exp104/probe_managed_startup.py",
+      "source_git_blob": "445b9bccfec598a307b1654db27118b9dc858113"
     },
     {
       "path": "experiments/exp104/probe_verifier_crash.py",
       "sha256": "4cba22b0c9a8901aa0fcd218430e041dd3d57dfd2cf85de005b0add433c02bee",
       "bytes": 11615,
-      "archive_path": "files/experiments/exp104/probe_verifier_crash.py"
+      "archive_path": "files/experiments/exp104/probe_verifier_crash.py",
+      "source_git_blob": "40d07c0639dcf0fe612db8c26ca022c40e8c8e04"
     },
     {
       "path": "experiments/exp104/process-observation-v2.json",
       "sha256": "d6732a6961d77bdbc4c3dcd2901733eaf9154ec1603d5ffbd3c5a50d7248ea90",
       "bytes": 2286,
-      "archive_path": "files/experiments/exp104/process-observation-v2.json"
+      "archive_path": "files/experiments/exp104/process-observation-v2.json",
+      "source_git_blob": "a7041b794302e884eb1e94c6f08ec66f975c0cbd"
     },
     {
       "path": "experiments/exp104/process-observation-v3.json",
       "sha256": "fe37a2af147b6f6daa5acadf42018241fd240cdb1621e2b0f9899cde769e6fb7",
       "bytes": 2512,
-      "archive_path": "files/experiments/exp104/process-observation-v3.json"
+      "archive_path": "files/experiments/exp104/process-observation-v3.json",
+      "source_git_blob": "d9f9d2a3e5674ac818b699cc030d23337f52affb"
     },
     {
       "path": "experiments/exp104/process-observation.json",
       "sha256": "fa929c57b03325f1caef44d58cd62deef8defc6de707124e497ca09b4da0c23f",
       "bytes": 757,
-      "archive_path": "files/experiments/exp104/process-observation.json"
+      "archive_path": "files/experiments/exp104/process-observation.json",
+      "source_git_blob": "d4911efee11dcd6cd03b17ecc973950d13af0b22"
     },
     {
       "path": "experiments/exp104/process_probe.py",
       "sha256": "7fc20350c18c5c8ce31383f646a74bc6725d8c3b6f9660d9a7e3c3c3a891a894",
       "bytes": 11197,
-      "archive_path": "files/experiments/exp104/process_probe.py"
+      "archive_path": "files/experiments/exp104/process_probe.py",
+      "source_git_blob": "d44027b2d40d493f6d120bbafec85c924c06c33a"
     },
     {
       "path": "experiments/exp104/s11_probe.py",
       "sha256": "07b3070325444361612872c5cb9849c208ffd652d945efda4226339ab42ff669",
       "bytes": 33908,
-      "archive_path": "files/experiments/exp104/s11_probe.py"
+      "archive_path": "files/experiments/exp104/s11_probe.py",
+      "source_git_blob": "b26860af738c193e3034530a5cb8c1e15c4e237d"
     },
     {
       "path": "experiments/exp104/systemd-image/Dockerfile",
       "sha256": "bc5013077dc6b074a8f0fc6feff48f23265c36fa8d2cedd5e165a73316abaf07",
       "bytes": 323,
-      "archive_path": "files/experiments/exp104/systemd-image/Dockerfile"
+      "archive_path": "files/experiments/exp104/systemd-image/Dockerfile",
+      "source_git_blob": "5bf858a7aa539210f099805aeb9654fdb3ee0e1a"
     },
     {
       "path": "experiments/exp104/systemd-observation.json",
       "sha256": "3b064adb74b39255055b61759cfa9925cfbedc2ba8f5bbd3be65d276f3d3db18",
       "bytes": 5636,
-      "archive_path": "files/experiments/exp104/systemd-observation.json"
+      "archive_path": "files/experiments/exp104/systemd-observation.json",
+      "source_git_blob": "57a66abdd4a8d0df7b2b070c2cb778eb0b122438"
     },
     {
       "path": "experiments/exp104/systemd_checks.py",
       "sha256": "5ecc21168fb38605e331490e95027f16751ad93ede3f0552933b81b0b8f4f981",
       "bytes": 3734,
-      "archive_path": "files/experiments/exp104/systemd_checks.py"
+      "archive_path": "files/experiments/exp104/systemd_checks.py",
+      "source_git_blob": "550ea1c8311041ceebf91e5b98af273796a60cff"
     },
     {
       "path": "experiments/exp104/systemd_fixture.py",
       "sha256": "786f93e8ee82d99a5cd9e9371928c73644316f989180b2ece7f52abb4e51819a",
       "bytes": 11176,
-      "archive_path": "files/experiments/exp104/systemd_fixture.py"
+      "archive_path": "files/experiments/exp104/systemd_fixture.py",
+      "source_git_blob": "c978cc381ce4a7f582cde588abf14296df230425"
     },
     {
       "path": "experiments/exp104/systemd_probe.py",
       "sha256": "1cfb497e1f587aa31181997149b206b256d06abd93723552dea1095851554dba",
       "bytes": 7756,
-      "archive_path": "files/experiments/exp104/systemd_probe.py"
+      "archive_path": "files/experiments/exp104/systemd_probe.py",
+      "source_git_blob": "6ae26c7faea1b26ee270697eeeab08f6cf9dcc23"
     },
     {
       "path": "experiments/exp139/AMEND05-OBSERVATION.json",
       "sha256": "09ae461f8a235bd2e82041e68ad9a1b1e2633a01e5808522aa1dcb7c2e874791",
       "bytes": 2750,
-      "archive_path": "files/experiments/exp139/AMEND05-OBSERVATION.json"
+      "archive_path": "files/experiments/exp139/AMEND05-OBSERVATION.json",
+      "source_git_blob": "6d739e28353be5b6b2374851c77f25ef56122c17"
     },
     {
       "path": "experiments/exp139/AMEND05-RESULTS.md",
       "sha256": "3645edc37461c04b3f2e5b6eadf9fa68d202517b8e826dcd615ed7e7da5ec3c8",
       "bytes": 1810,
-      "archive_path": "files/experiments/exp139/AMEND05-RESULTS.md"
+      "archive_path": "files/experiments/exp139/AMEND05-RESULTS.md",
+      "source_git_blob": "cfb445963d0d917d878248e3893658ad532a538d"
     },
     {
       "path": "experiments/exp139/AMEND06-OBSERVATION.json",
       "sha256": "2217710c793da1259f53fd409c1fbf07baca27b84bd0fd80f326586da4bea6a7",
       "bytes": 2669,
-      "archive_path": "files/experiments/exp139/AMEND06-OBSERVATION.json"
+      "archive_path": "files/experiments/exp139/AMEND06-OBSERVATION.json",
+      "source_git_blob": "adb72e600cf37a77a51198b5b4407376e8a7e65e"
     },
     {
       "path": "experiments/exp139/AMEND06-RESULTS.md",
       "sha256": "f82889a2f729a046e17cf6c0492ddaa2d26a2e4348feac1111edba2c9855bd76",
       "bytes": 1526,
-      "archive_path": "files/experiments/exp139/AMEND06-RESULTS.md"
+      "archive_path": "files/experiments/exp139/AMEND06-RESULTS.md",
+      "source_git_blob": "e8bb8e7f7c1bd7c881d52a9fa7632cb4714d8912"
     },
     {
       "path": "experiments/exp139/AMEND07-OBSERVATION.json",
       "sha256": "efa14c9d514896732fd6e95730bd2725857a0dab1a6ceee56ed64dca6b56f5ca",
       "bytes": 2211,
-      "archive_path": "files/experiments/exp139/AMEND07-OBSERVATION.json"
+      "archive_path": "files/experiments/exp139/AMEND07-OBSERVATION.json",
+      "source_git_blob": "8a838857ab2c686becf6077e3582698fc13f8b26"
     },
     {
       "path": "experiments/exp139/AMEND07-RESULTS.md",
       "sha256": "8bbf07417c5ed50699a6bba61de7babea5c4ffe34511f198b9d0062ac48d5b42",
       "bytes": 3484,
-      "archive_path": "files/experiments/exp139/AMEND07-RESULTS.md"
+      "archive_path": "files/experiments/exp139/AMEND07-RESULTS.md",
+      "source_git_blob": "9ea0d5810768879974830875d8a27d5ebab20dc2"
     },
     {
       "path": "experiments/exp139/AMEND08-OBSERVATION.json",
       "sha256": "4e2cf33380ec7fe64385b76ffa2116b0a4554462fc0bde9e0e82a96a23cab51e",
       "bytes": 3129,
-      "archive_path": "files/experiments/exp139/AMEND08-OBSERVATION.json"
+      "archive_path": "files/experiments/exp139/AMEND08-OBSERVATION.json",
+      "source_git_blob": "fae68b4f108a1a8787d768fe7862fc9668cc1928"
     },
     {
       "path": "experiments/exp139/AMEND08-RESULTS.md",
       "sha256": "cbaaee000a8954f0dd9e14c3c039a64cc13e1fcc300c972d7fa71fc509321bfe",
       "bytes": 5398,
-      "archive_path": "files/experiments/exp139/AMEND08-RESULTS.md"
+      "archive_path": "files/experiments/exp139/AMEND08-RESULTS.md",
+      "source_git_blob": "79eb86b8f0c99d116958fb62ab4263bb54e84afb"
     },
     {
       "path": "experiments/exp139/AMENDMENT-01.md",
       "sha256": "801f2613e797ee8611ac1c2287b43450bfb969531a110dde329004c20ea7d1f5",
       "bytes": 2144,
-      "archive_path": "files/experiments/exp139/AMENDMENT-01.md"
+      "archive_path": "files/experiments/exp139/AMENDMENT-01.md",
+      "source_git_blob": "20e05da185774e49a69493427b8d14227868983d"
     },
     {
       "path": "experiments/exp139/AMENDMENT-02.md",
       "sha256": "ab5714b52e3c1d6593e07271656728b420a886b9180023c802756e69f884e7af",
       "bytes": 1508,
-      "archive_path": "files/experiments/exp139/AMENDMENT-02.md"
+      "archive_path": "files/experiments/exp139/AMENDMENT-02.md",
+      "source_git_blob": "f893d13d41c170809c0ec2a2d998379f1e6aafdc"
     },
     {
       "path": "experiments/exp139/AMENDMENT-03.md",
       "sha256": "1347cda7b575eb2e37ca2d1638d218df6cf92e8c2c278a7988e64ea227338b72",
       "bytes": 2270,
-      "archive_path": "files/experiments/exp139/AMENDMENT-03.md"
+      "archive_path": "files/experiments/exp139/AMENDMENT-03.md",
+      "source_git_blob": "a79b43985e6f665f7557412fca67f34840fb98b8"
     },
     {
       "path": "experiments/exp139/AMENDMENT-04.md",
       "sha256": "a957f0f86cfb956c92e378786200f9ed2bacbe976c9f875faf9edb978cb5d45f",
       "bytes": 1571,
-      "archive_path": "files/experiments/exp139/AMENDMENT-04.md"
+      "archive_path": "files/experiments/exp139/AMENDMENT-04.md",
+      "source_git_blob": "f8289d7eb2f033f0d4c3b806d7e859b0f7026e97"
     },
     {
       "path": "experiments/exp139/AMENDMENT-05.md",
       "sha256": "ea5825fa5dcaca528347cca6533386944c0547d9dc016f7d398c34c031c54af2",
       "bytes": 4675,
-      "archive_path": "files/experiments/exp139/AMENDMENT-05.md"
+      "archive_path": "files/experiments/exp139/AMENDMENT-05.md",
+      "source_git_blob": "fbfe9c28c3a9826f85627ed841d37d5023bc96b9"
     },
     {
       "path": "experiments/exp139/AMENDMENT-06.md",
       "sha256": "8061d909dda2682397d93236e14cd30336316f78461f673344c649f37a7bae92",
       "bytes": 1977,
-      "archive_path": "files/experiments/exp139/AMENDMENT-06.md"
+      "archive_path": "files/experiments/exp139/AMENDMENT-06.md",
+      "source_git_blob": "95f0f802976a9d0587f5e109e09a7871a3ac4dc3"
     },
     {
       "path": "experiments/exp139/AMENDMENT-07.md",
       "sha256": "4ff81916b7172cd920237db26c9990d2f8eeb547f7e2e777081eb1259e333626",
       "bytes": 2456,
-      "archive_path": "files/experiments/exp139/AMENDMENT-07.md"
+      "archive_path": "files/experiments/exp139/AMENDMENT-07.md",
+      "source_git_blob": "d149d0ea59d65cb979f575524ad87601ffcd76f0"
     },
     {
       "path": "experiments/exp139/AMENDMENT-08-DRAFT.md",
       "sha256": "cc1ced31c267dbe310aa823742889560f130c3d99c60d16cdd2718de4d0152ab",
       "bytes": 2891,
-      "archive_path": "files/experiments/exp139/AMENDMENT-08-DRAFT.md"
+      "archive_path": "files/experiments/exp139/AMENDMENT-08-DRAFT.md",
+      "source_git_blob": "01e5c679246292b5935680aa2e48886f2623dcff"
     },
     {
       "path": "experiments/exp139/AUTHORIZATION.md",
       "sha256": "6e61f24c9e0eb13ff62c88ec8e0e9efda7767bd168a4ebe84567d04c48260766",
       "bytes": 1978,
-      "archive_path": "files/experiments/exp139/AUTHORIZATION.md"
+      "archive_path": "files/experiments/exp139/AUTHORIZATION.md",
+      "source_git_blob": "c67a6464ff2840729ad1e54a576474b5c319ae57"
     },
     {
       "path": "experiments/exp139/BRANCH-CONTROL.json",
       "sha256": "6ca46b193b44f444d19e416a5de8dd74a988648ecf3803d9682721b80c1ef18c",
       "bytes": 1369,
-      "archive_path": "files/experiments/exp139/BRANCH-CONTROL.json"
+      "archive_path": "files/experiments/exp139/BRANCH-CONTROL.json",
+      "source_git_blob": "4a84ec3a785cfb696739195f07fa0c7e09ed21dc"
     },
     {
       "path": "experiments/exp139/DEMO-MANIFEST.json",
       "sha256": "0404c689d3355dcc61ff0cafb4b9b42b540a42f7e49a514ab7f7dab85b478941",
       "bytes": 30466,
-      "archive_path": "files/experiments/exp139/DEMO-MANIFEST.json"
+      "archive_path": "files/experiments/exp139/DEMO-MANIFEST.json",
+      "source_git_blob": "880047ae4bc560a7b2690d8badf4337d54ec4cbf"
     },
     {
       "path": "experiments/exp139/DEPLOYMENT.md",
       "sha256": "cd442ff55eac424b8bd0196362882b2ddb61b84bb1f48f238a50c69e6e5386e6",
       "bytes": 4470,
-      "archive_path": "files/experiments/exp139/DEPLOYMENT.md"
+      "archive_path": "files/experiments/exp139/DEPLOYMENT.md",
+      "source_git_blob": "71bc83b5a5444a5b575d9585ba89b0d92771371d"
     },
     {
       "path": "experiments/exp139/GIT-PERMISSIONS-DRAFT.toml",
       "sha256": "e7601b7c84ad8f82e1bfccd52927b1d521a8decd20e29a7bcf855af13219ca97",
       "bytes": 345,
-      "archive_path": "files/experiments/exp139/GIT-PERMISSIONS-DRAFT.toml"
+      "archive_path": "files/experiments/exp139/GIT-PERMISSIONS-DRAFT.toml",
+      "source_git_blob": "4d5f7b81c9af6fe4b93c7a072e5fd78a3ebabaf8"
     },
     {
       "path": "experiments/exp139/HELPER-CONTROL.json",
       "sha256": "678d52c59aff88b11aa3bbe64bc47dfea0ff9d3fdc388fbfbea8807683815ce8",
       "bytes": 1171,
-      "archive_path": "files/experiments/exp139/HELPER-CONTROL.json"
+      "archive_path": "files/experiments/exp139/HELPER-CONTROL.json",
+      "source_git_blob": "3033e55749df0dba90cc7df6758195f3ef7ca342"
     },
     {
       "path": "experiments/exp139/HOST-GIT-AUDIT.md",
       "sha256": "e3b1f15c3eca6cdd37a4f92a94a9038e30ad50bff040aa66786b05bb29df3230",
       "bytes": 2706,
-      "archive_path": "files/experiments/exp139/HOST-GIT-AUDIT.md"
+      "archive_path": "files/experiments/exp139/HOST-GIT-AUDIT.md",
+      "source_git_blob": "d6981f04ed9d0de7130fe7a5a8c51d487590b39f"
     },
     {
       "path": "experiments/exp139/INTERACTIVE-DEMO.md",
       "sha256": "55d00b6c0a884365a21f5586c84d30493e7e3cae6960a7aae2134f50d70e57cd",
       "bytes": 1997,
-      "archive_path": "files/experiments/exp139/INTERACTIVE-DEMO.md"
+      "archive_path": "files/experiments/exp139/INTERACTIVE-DEMO.md",
+      "source_git_blob": "2074605ab3a6ff9a18d8f39b53a9ba3b6e09ad80"
     },
     {
       "path": "experiments/exp139/INTERACTIVE-RECOVERY.md",
       "sha256": "6be68b881531e82a865535622ae39e3510429281c2ebed6193dd3d97440dcff8",
       "bytes": 1181,
-      "archive_path": "files/experiments/exp139/INTERACTIVE-RECOVERY.md"
+      "archive_path": "files/experiments/exp139/INTERACTIVE-RECOVERY.md",
+      "source_git_blob": "d3460be01621fd9def036c6a9499e0e89c0cd006"
     },
     {
       "path": "experiments/exp139/MAILBOX-CONTROL.json",
       "sha256": "89a69a0dbbf7ba303ba253175ccb2a00e04f32e26ef51cf841ac40645023a64f",
       "bytes": 1176,
-      "archive_path": "files/experiments/exp139/MAILBOX-CONTROL.json"
+      "archive_path": "files/experiments/exp139/MAILBOX-CONTROL.json",
+      "source_git_blob": "f08f00ca48df81006bd5c3473d44be696c76ac83"
     },
     {
       "path": "experiments/exp139/MANIFEST.json",
       "sha256": "a99a8d852d37c34784502b2acd16865deb7a29aaa175436ac5be75ea62d9fb8f",
       "bytes": 29096,
-      "archive_path": "files/experiments/exp139/MANIFEST.json"
+      "archive_path": "files/experiments/exp139/MANIFEST.json",
+      "source_git_blob": "303bb63e13dd0f5c7a8e44c8bfdf1ded610e768c"
     },
     {
       "path": "experiments/exp139/OBSERVATION.json",
       "sha256": "b8ba53e6f85e0bc30b6e0e6f6bf8e536027064c3fb47a8e349ab914074ad5936",
       "bytes": 3126,
-      "archive_path": "files/experiments/exp139/OBSERVATION.json"
+      "archive_path": "files/experiments/exp139/OBSERVATION.json",
+      "source_git_blob": "85fa3130a3fa6e4d5276e64a25465fab857c4857"
     },
     {
       "path": "experiments/exp139/PROTOCOL.md",
       "sha256": "ef6be834087f594faabc63b6832b383d070c51b200ac3c597ce9d9a151c9b315",
       "bytes": 4086,
-      "archive_path": "files/experiments/exp139/PROTOCOL.md"
+      "archive_path": "files/experiments/exp139/PROTOCOL.md",
+      "source_git_blob": "d26eee2bba0d66408ccb58d12ef3157288ff2872"
     },
     {
       "path": "experiments/exp139/RECOVERY-DRAFT.md",
       "sha256": "c2d3b95d97b4a91f1fe37dad8065bf2063d0c84e0990a708e1b52e81afe49766",
       "bytes": 2878,
-      "archive_path": "files/experiments/exp139/RECOVERY-DRAFT.md"
+      "archive_path": "files/experiments/exp139/RECOVERY-DRAFT.md",
+      "source_git_blob": "e0fd3ec4ef00dd78e7bb83e1bcff1e0e1747adda"
     },
     {
       "path": "experiments/exp139/RECOVERY-OBSERVATION.json",
       "sha256": "1e096e107d3df883aab1cff211cfc0723f00b1869b980326ccb78fb0d6be7692",
       "bytes": 5505,
-      "archive_path": "files/experiments/exp139/RECOVERY-OBSERVATION.json"
+      "archive_path": "files/experiments/exp139/RECOVERY-OBSERVATION.json",
+      "source_git_blob": "620576e3962176f21734e8764b15f2c3fe670096"
     },
     {
       "path": "experiments/exp139/RECOVERY-RESULTS.md",
       "sha256": "4867263d85669dfbb79d04d077c7ac654b9aa9a3873f342093e0b570e795dbcc",
       "bytes": 6354,
-      "archive_path": "files/experiments/exp139/RECOVERY-RESULTS.md"
+      "archive_path": "files/experiments/exp139/RECOVERY-RESULTS.md",
+      "source_git_blob": "4faffd23444765867364ef744db5baedb9299472"
     },
     {
       "path": "experiments/exp139/RESULTS.md",
       "sha256": "d2db14a793f48ee3c5cf4450208c5d81c6ecf3d5ac72af44719d007279b8e3c5",
       "bytes": 5394,
-      "archive_path": "files/experiments/exp139/RESULTS.md"
+      "archive_path": "files/experiments/exp139/RESULTS.md",
+      "source_git_blob": "68d7fd98638f721de02a6399b257ba431f7bf783"
     },
     {
       "path": "experiments/exp139/STANDING-DEVELOPMENT.md",
       "sha256": "b91e24f8c5c28f83ef1915e6d7b55bcdea7f1fd0937ba4a6ecebc799b467f1e4",
       "bytes": 3308,
-      "archive_path": "files/experiments/exp139/STANDING-DEVELOPMENT.md"
+      "archive_path": "files/experiments/exp139/STANDING-DEVELOPMENT.md",
+      "source_git_blob": "a0d24fffbbe25af94238f595347adf0aa9407a87"
     },
     {
       "path": "experiments/exp139/STARTUP-CONTROL.json",
       "sha256": "0626bb496103e9c17937053cd328099d0247432aa86609d7eaba627ecfb0a307",
       "bytes": 216,
-      "archive_path": "files/experiments/exp139/STARTUP-CONTROL.json"
+      "archive_path": "files/experiments/exp139/STARTUP-CONTROL.json",
+      "source_git_blob": "53c6a67fcefb61bc5cb971ba08244aa2afbfea3e"
     },
     {
       "path": "experiments/exp139/STARTUP-DRAFT-05.md",
       "sha256": "3341128a161e692981b34196a9a2b4dc08ead36c2ef9972035f6f06cc5bd5f12",
       "bytes": 2755,
-      "archive_path": "files/experiments/exp139/STARTUP-DRAFT-05.md"
+      "archive_path": "files/experiments/exp139/STARTUP-DRAFT-05.md",
+      "source_git_blob": "9d66b3cbe1d0206e187bbdf1cc35d23cc91b350b"
     },
     {
       "path": "experiments/exp139/VERIFY-CONTROL.json",
       "sha256": "095e3fbf16831d9b97186e533a1e5a13c17248ee91c96091a4d4b067be2f0cfe",
       "bytes": 417,
-      "archive_path": "files/experiments/exp139/VERIFY-CONTROL.json"
+      "archive_path": "files/experiments/exp139/VERIFY-CONTROL.json",
+      "source_git_blob": "39e9f09093bdab66d065474c1943602dc9894a1f"
     },
     {
       "path": "experiments/exp139/bindings.py",
       "sha256": "f602ebf3a7f2d656d4aea3f9120f6c37378287685f869c15f07819d3c3a14a4b",
       "bytes": 7993,
-      "archive_path": "files/experiments/exp139/bindings.py"
+      "archive_path": "files/experiments/exp139/bindings.py",
+      "source_git_blob": "cb2b65d427f4a15cadb9f3903fc1a1ec2ec196d1"
     },
     {
       "path": "experiments/exp139/branch_control.py",
       "sha256": "f7396c1d47990d53a2dd9bcf5da49b3dc87e08507954f872544aa6fbdad25880",
       "bytes": 1765,
-      "archive_path": "files/experiments/exp139/branch_control.py"
+      "archive_path": "files/experiments/exp139/branch_control.py",
+      "source_git_blob": "1bf23a0e0dcbea749bce3137921d4979bd871858"
     },
     {
       "path": "experiments/exp139/freeze.py",
       "sha256": "b5ccda1f3ecc16cf2d251b16572529d93c429ce141822294126caccf2aa60b4a",
       "bytes": 3537,
-      "archive_path": "files/experiments/exp139/freeze.py"
+      "archive_path": "files/experiments/exp139/freeze.py",
+      "source_git_blob": "ae395e494aeb7992c91cec6db29d533827d2f172"
     },
     {
       "path": "experiments/exp139/helper_control.py",
       "sha256": "c4660074a9ca09357e22e6af3632da19da1a0ad1aeab5caf99f8a078cc28872b",
       "bytes": 4945,
-      "archive_path": "files/experiments/exp139/helper_control.py"
+      "archive_path": "files/experiments/exp139/helper_control.py",
+      "source_git_blob": "18ef9bfd507c22d8b1385b3e8195ecd7928d5e04"
     },
     {
       "path": "experiments/exp139/mailbox_client.mjs",
       "sha256": "9188c2fbefd916df769dcb1c54fd0c427a75721087c5b83f4eee75d265aec5e1",
       "bytes": 1489,
-      "archive_path": "files/experiments/exp139/mailbox_client.mjs"
+      "archive_path": "files/experiments/exp139/mailbox_client.mjs",
+      "source_git_blob": "28044f30400910e4ee3920f5a31fc6e5fb45fdbe"
     },
     {
       "path": "experiments/exp139/mailbox_control.py",
       "sha256": "5ac219a090a87ef946e56ea454c021f91cd72c0771eee3ee6043a9fef292ed40",
       "bytes": 8672,
-      "archive_path": "files/experiments/exp139/mailbox_control.py"
+      "archive_path": "files/experiments/exp139/mailbox_control.py",
+      "source_git_blob": "54ce84ee523867535ba7c0cad2f64283b938774c"
     },
     {
       "path": "experiments/exp139/mailbox_relay.mjs",
       "sha256": "bfd76725ea02ca6eee79560036ff488a40f780d971d8aec04d32c9ed67390cc0",
       "bytes": 3931,
-      "archive_path": "files/experiments/exp139/mailbox_relay.mjs"
+      "archive_path": "files/experiments/exp139/mailbox_relay.mjs",
+      "source_git_blob": "fad55e2afff3a04f990d5c8314472a1fdd764122"
     },
     {
       "path": "experiments/exp139/observe_amend05.py",
       "sha256": "368c798117acca3cef803f87023bd563a08e13519cd674ede9dc41befec5e72d",
       "bytes": 6940,
-      "archive_path": "files/experiments/exp139/observe_amend05.py"
+      "archive_path": "files/experiments/exp139/observe_amend05.py",
+      "source_git_blob": "14b2696c159e5278c735fe817d1ede3abe88083a"
     },
     {
       "path": "experiments/exp139/observe_amend06.py",
       "sha256": "386a43d49736e44d9f9e14a12fb499bebc91dfc9d9b76483334d9515a5c29a4d",
       "bytes": 6943,
-      "archive_path": "files/experiments/exp139/observe_amend06.py"
+      "archive_path": "files/experiments/exp139/observe_amend06.py",
+      "source_git_blob": "cb14269f0bff11f6d22da72091a1cafbeabfa77c"
     },
     {
       "path": "experiments/exp139/observe_amend07.py",
       "sha256": "4d1683c72b426c2f0b242d3148f9910621bf93c769871345d09d1e71426097ec",
       "bytes": 6334,
-      "archive_path": "files/experiments/exp139/observe_amend07.py"
+      "archive_path": "files/experiments/exp139/observe_amend07.py",
+      "source_git_blob": "224b1300a5e9b05a96b8d76d0dd074534dda09e9"
     },
     {
       "path": "experiments/exp139/observe_amend08.py",
       "sha256": "ddbf3b2e1615621d1002572e536f9c6f883aa724a61a0ba0410093f91062bc82",
       "bytes": 6792,
-      "archive_path": "files/experiments/exp139/observe_amend08.py"
+      "archive_path": "files/experiments/exp139/observe_amend08.py",
+      "source_git_blob": "09d723497c992d12d9c917674d5844499f07577c"
     },
     {
       "path": "experiments/exp139/observe_recovery.py",
       "sha256": "5665acc965891b19e2bc8970e9cb4e216475a4fb95bcac3bad4d15ba070842e9",
       "bytes": 7021,
-      "archive_path": "files/experiments/exp139/observe_recovery.py"
+      "archive_path": "files/experiments/exp139/observe_recovery.py",
+      "source_git_blob": "a23d3ada4ae341ce8f498c0a61f8d4fd918607a1"
     },
     {
       "path": "experiments/exp139/persistent_demo.py",
       "sha256": "b5d698525bde668f5150f155703f02dc67b7f6599997e5c334823bc6898298bc",
       "bytes": 10717,
-      "archive_path": "files/experiments/exp139/persistent_demo.py"
+      "archive_path": "files/experiments/exp139/persistent_demo.py",
+      "source_git_blob": "cb0aacf0f51d82100fe8618883b409ba4a309308"
     },
     {
       "path": "experiments/exp139/prepare.py",
       "sha256": "ab3840f23f364de67daaa98c57ef7ad921c259553edf5620fd8255f9530a9593",
       "bytes": 11707,
-      "archive_path": "files/experiments/exp139/prepare.py"
+      "archive_path": "files/experiments/exp139/prepare.py",
+      "source_git_blob": "cfa34c7203905d94054d96177a40ea541d22808d"
     },
     {
       "path": "experiments/exp139/prepare_amend08.py",
       "sha256": "f8404b4979a1a8d46c0dbfa952baf3c16ddd35762e928ac206371a395ef8a6dc",
       "bytes": 6308,
-      "archive_path": "files/experiments/exp139/prepare_amend08.py"
+      "archive_path": "files/experiments/exp139/prepare_amend08.py",
+      "source_git_blob": "ae8a790e34b5bec77b0cbc07f4bd852d199e5baa"
     },
     {
       "path": "experiments/exp139/readback.py",
       "sha256": "a46546c221fd440a939802be4f93d02ee5c9693054f3d97708d06642e2741ece",
       "bytes": 5045,
-      "archive_path": "files/experiments/exp139/readback.py"
+      "archive_path": "files/experiments/exp139/readback.py",
+      "source_git_blob": "0ea2603f077f7ad09dac7523bb7cf6df5d6a3490"
     },
     {
       "path": "experiments/exp139/recover_demo.py",
       "sha256": "01611bb678604d3474babbb4bee76cd5712b4a5a165f4b13067fcb29f9bdf516",
       "bytes": 4131,
-      "archive_path": "files/experiments/exp139/recover_demo.py"
+      "archive_path": "files/experiments/exp139/recover_demo.py",
+      "source_git_blob": "8bdabf50b5bfd04ecf642d09e804a05c2d23c6af"
     },
     {
       "path": "experiments/exp139/run_flow.py",
       "sha256": "5b9578546b27fd038b76e59fa9c030fa587227641b15e49efddd52514f26f27a",
       "bytes": 3055,
-      "archive_path": "files/experiments/exp139/run_flow.py"
+      "archive_path": "files/experiments/exp139/run_flow.py",
+      "source_git_blob": "83ec9e26881fb6f83147365a963361ae5dba0821"
     },
     {
       "path": "experiments/exp139/runtime.py",
       "sha256": "7905f3b117b46dbd00bbb8d63ed771be2ddaa296a7ef24c4f1d9d0d7418baea8",
       "bytes": 18422,
-      "archive_path": "files/experiments/exp139/runtime.py"
+      "archive_path": "files/experiments/exp139/runtime.py",
+      "source_git_blob": "fc0d1594d2297aa06141f60cebd70d1649301f4d"
     },
     {
       "path": "experiments/exp139/startup_control.py",
       "sha256": "1b2ea4c34081abfd56de3314e0a516a7c267514576834adb64d37f1a8ca8959d",
       "bytes": 3592,
-      "archive_path": "files/experiments/exp139/startup_control.py"
+      "archive_path": "files/experiments/exp139/startup_control.py",
+      "source_git_blob": "f3e6e2e75b5b3877edee456f6335925e6204bb99"
     },
     {
       "path": "experiments/exp139/verifier_control.py",
       "sha256": "aa2c397b4524d5d0139d6819f1ff55e2b88bfcd8e1e53223154efa3010066bb2",
       "bytes": 2682,
-      "archive_path": "files/experiments/exp139/verifier_control.py"
+      "archive_path": "files/experiments/exp139/verifier_control.py",
+      "source_git_blob": "6d44527ee51c8ac4f9ac3b8e9230d6253fe1b88e"
     },
     {
       "path": "experiments/exp19/README.md",
       "sha256": "029db97a4b5544cbaba7270938a04298e6978cbd330c882430558990ae1768cc",
       "bytes": 3523,
-      "archive_path": "files/experiments/exp19/README.md"
+      "archive_path": "files/experiments/exp19/README.md",
+      "source_git_blob": "13431b851b42a37b3d5a8b1dbd344e6b270583bf"
     },
     {
       "path": "experiments/exp19/__init__.py",
       "sha256": "2a90798cee6a8b2970835c1a21235b9f8b2d3acdb90a66e4a3dbec83d44cda6f",
       "bytes": 48,
-      "archive_path": "files/experiments/exp19/__init__.py"
+      "archive_path": "files/experiments/exp19/__init__.py",
+      "source_git_blob": "9d96ff91b8950545f5b3571d8b39461aa3ec3fcf"
     },
     {
       "path": "experiments/exp19/compose.yaml",
       "sha256": "892d0c6169507d12875bfda561081aea722e8ae57461c4b2365f21de0574393c",
       "bytes": 807,
-      "archive_path": "files/experiments/exp19/compose.yaml"
+      "archive_path": "files/experiments/exp19/compose.yaml",
+      "source_git_blob": "9ec32b71056ac2c8a8c27563a90c8e3b75d4a571"
     },
     {
       "path": "experiments/exp19/live_e2e.py",
       "sha256": "12c45935d6a757df2cea32539e2d7ea8e539d609c37b30eb698d1f378c9f3879",
       "bytes": 31115,
-      "archive_path": "files/experiments/exp19/live_e2e.py"
+      "archive_path": "files/experiments/exp19/live_e2e.py",
+      "source_git_blob": "178a949c66be79847a86c4608527c3a79644f7f0"
     },
     {
       "path": "experiments/exp19/observation.json",
       "sha256": "814e3526d5405da8c015784ad08386c992b5ddf1aeae257b477ad3606780c9c9",
       "bytes": 3044,
-      "archive_path": "files/experiments/exp19/observation.json"
+      "archive_path": "files/experiments/exp19/observation.json",
+      "source_git_blob": "5a202c8234d7f1a5a18266706c118b97cd2aa056"
     },
     {
       "path": "experiments/exp19/probe.py",
       "sha256": "fbc0e70c8cd42146172445500a699d1a6c9be2930533238c01c41591b16e5301",
       "bytes": 11358,
-      "archive_path": "files/experiments/exp19/probe.py"
+      "archive_path": "files/experiments/exp19/probe.py",
+      "source_git_blob": "2acb5cd1cd7ca29b79a4934a88ad5fc43bf83fad"
     },
     {
       "path": "experiments/exp19/skill/SKILL.md",
       "sha256": "422381228a00f03dcf21407a4a5b8b1c8244dc812d69e5504c7d6b5e44ad2a92",
       "bytes": 734,
-      "archive_path": "files/experiments/exp19/skill/SKILL.md"
+      "archive_path": "files/experiments/exp19/skill/SKILL.md",
+      "source_git_blob": "d3e79a4e73ac74cfc59466e69a9f04d0070332d6"
     },
     {
       "path": "experiments/exp19/source/README.md",
       "sha256": "5cc8af90837bc5623b71d4e1fca88693d34b12cfbc02811659bebb426327f6a7",
       "bytes": 301,
-      "archive_path": "files/experiments/exp19/source/README.md"
+      "archive_path": "files/experiments/exp19/source/README.md",
+      "source_git_blob": "a90af2c38bc8ad7fe53cca2484b6226047ef6ef6"
     },
     {
       "path": "experiments/exp19/source/experiments/exp19/.gitkeep",
       "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
       "bytes": 1,
-      "archive_path": "files/experiments/exp19/source/experiments/exp19/.gitkeep"
+      "archive_path": "files/experiments/exp19/source/experiments/exp19/.gitkeep",
+      "source_git_blob": "8b137891791fe96927ad78e64b0aad7bded08bdc"
     },
     {
       "path": "experiments/exp22/PHASE-B-AMENDMENT.md",
       "sha256": "9b081d71274c18e18f2a95b9bfa3f61114dabd154e95f82dd78789108b3df3a7",
       "bytes": 3808,
-      "archive_path": "files/experiments/exp22/PHASE-B-AMENDMENT.md"
+      "archive_path": "files/experiments/exp22/PHASE-B-AMENDMENT.md",
+      "source_git_blob": "7551d88d7b0ece08c7efd57e52c551b83b2248a8"
     },
     {
       "path": "experiments/exp22/PHASE-B-RESULTS.md",
       "sha256": "ac36a6e3c5022e18a3e146899f1cd094f60364b0350f0b2932a13f4f936c0e89",
       "bytes": 4337,
-      "archive_path": "files/experiments/exp22/PHASE-B-RESULTS.md"
+      "archive_path": "files/experiments/exp22/PHASE-B-RESULTS.md",
+      "source_git_blob": "f448889923b25f927e9003be655848b5b81d428e"
     },
     {
       "path": "experiments/exp22/PROTOCOL.md",
       "sha256": "ed835c4a6f426e69ffd870f2fc7c4bcadd6b153de84104f4fcb57b3b69a25952",
       "bytes": 3327,
-      "archive_path": "files/experiments/exp22/PROTOCOL.md"
+      "archive_path": "files/experiments/exp22/PROTOCOL.md",
+      "source_git_blob": "3d2ee8ed1623b1de95e4d684da1a6af2401241b6"
     },
     {
       "path": "experiments/exp22/RESULTS.md",
       "sha256": "6c71ff7c44fbbfa77d4b133cd6ede678fe573758e0a7d9284b4a04bc4eda5eee",
       "bytes": 2653,
-      "archive_path": "files/experiments/exp22/RESULTS.md"
+      "archive_path": "files/experiments/exp22/RESULTS.md",
+      "source_git_blob": "9c7a7a98ffdcb9e6fa716ec8a460bd18c7e1d677"
     },
     {
       "path": "experiments/exp22/active.json",
       "sha256": "b2384ed73147130414177323af659197401f9700474ad7d98b50e263a21aa40c",
       "bytes": 1664,
-      "archive_path": "files/experiments/exp22/active.json"
+      "archive_path": "files/experiments/exp22/active.json",
+      "source_git_blob": "ef23334d063e7ffd804a9449c7b0799ff6a1b8f7"
     },
     {
       "path": "experiments/exp22/phase_b_probe.py",
       "sha256": "e5f7b061348f02d0ab3f199421c6b89ac0429c8eaef796e98b0b2b1dcef1200e",
       "bytes": 8833,
-      "archive_path": "files/experiments/exp22/phase_b_probe.py"
+      "archive_path": "files/experiments/exp22/phase_b_probe.py",
+      "source_git_blob": "5fb54617184f266ffd9a45a7b0e5f45e33fc6980"
     },
     {
       "path": "experiments/exp22/prethread.json",
       "sha256": "348ac81af68234dd521565ea380b99a034b2b2fe3671692e4a7c0da553a12c14",
       "bytes": 202,
-      "archive_path": "files/experiments/exp22/prethread.json"
+      "archive_path": "files/experiments/exp22/prethread.json",
+      "source_git_blob": "e6e67b68a0ca2e5df9ce036f220a4b2501072a8b"
     },
     {
       "path": "experiments/exp66/AMENDMENT-01.md",
       "sha256": "f49a48f3d488fe0906f00031755abaab59fea6342b179644a2dd68fd5d21255c",
       "bytes": 1261,
-      "archive_path": "files/experiments/exp66/AMENDMENT-01.md"
+      "archive_path": "files/experiments/exp66/AMENDMENT-01.md",
+      "source_git_blob": "93bf632285e3cacc33a87a6030843a4cb5d2f054"
     },
     {
       "path": "experiments/exp66/NATIVE-PROTOCOL.md",
       "sha256": "f9ce8d5e8ecb528d16676692a47869e89275295f3278a187da21424ddf3c5621",
       "bytes": 3570,
-      "archive_path": "files/experiments/exp66/NATIVE-PROTOCOL.md"
+      "archive_path": "files/experiments/exp66/NATIVE-PROTOCOL.md",
+      "source_git_blob": "a34f20e3c7383c77fdd3bbd7c03e575f581888f1"
     },
     {
       "path": "experiments/exp66/PROTOCOL.md",
       "sha256": "e9cd1ea610220b66974b3eed4635183bc6af07f536b7927bf85fdedc8af6d594",
       "bytes": 3200,
-      "archive_path": "files/experiments/exp66/PROTOCOL.md"
+      "archive_path": "files/experiments/exp66/PROTOCOL.md",
+      "source_git_blob": "cc0d060ed01b1e563783f4d2ea9fb0becc776dc4"
     },
     {
       "path": "experiments/exp66/README.md",
       "sha256": "2e26eb6410b60c21039a75cbb469f68beaf1ab0db2c9fb59ee8bee0e1afd472a",
       "bytes": 2096,
-      "archive_path": "files/experiments/exp66/README.md"
+      "archive_path": "files/experiments/exp66/README.md",
+      "source_git_blob": "447fb1621be82fff5d31be0d0e538a074ff3226e"
     },
     {
       "path": "experiments/exp66/TASK-before.txt",
       "sha256": "4d4db171086faaa0d63ee3a14afb0f5dc0b27d42b806b4c5866a4dadd1de2eee",
       "bytes": 496,
-      "archive_path": "files/experiments/exp66/TASK-before.txt"
+      "archive_path": "files/experiments/exp66/TASK-before.txt",
+      "source_git_blob": "ace8ecf377912506e1d6a744e60c77e96ac9e45c"
     },
     {
       "path": "experiments/exp66/TASK-during.txt",
       "sha256": "3b23982c8120604654f29eb32ce60265a2aed8d3ed5331d66a9a3a3e674ded1a",
       "bytes": 536,
-      "archive_path": "files/experiments/exp66/TASK-during.txt"
+      "archive_path": "files/experiments/exp66/TASK-during.txt",
+      "source_git_blob": "9bd70364bc1ea19d9101b56a61a024260005987c"
     },
     {
       "path": "experiments/exp66/native_probe.py",
       "sha256": "1914e0ce9e0a0aadc9300b3cb5ba2d504bcf81912b10400a46883228fac12d4d",
       "bytes": 15654,
-      "archive_path": "files/experiments/exp66/native_probe.py"
+      "archive_path": "files/experiments/exp66/native_probe.py",
+      "source_git_blob": "a97d996671b22167cad860fd5cb33e10e38c5409"
     },
     {
       "path": "experiments/exp66/observation.json",
       "sha256": "3a842e283fff276fe3293604e1c2d8e0c3fbc4df7c9e7166247d9becedf67695",
       "bytes": 10497,
-      "archive_path": "files/experiments/exp66/observation.json"
+      "archive_path": "files/experiments/exp66/observation.json",
+      "source_git_blob": "9df6c5ec074f97a20ef2c1bba2cac1e7ae90c162"
     },
     {
       "path": "experiments/exp66/probe.py",
       "sha256": "96994f577ca95986e33d92ff7630c05e11a3db7b26c3561b190bbead8001cbde",
       "bytes": 9132,
-      "archive_path": "files/experiments/exp66/probe.py"
+      "archive_path": "files/experiments/exp66/probe.py",
+      "source_git_blob": "2071a1be036002e18cc40eb11546cecbe07a98be"
     },
     {
       "path": "experiments/exp66/test_cleanup.py",
       "sha256": "520c1e506aedc943b0b5603ee636faccd1e1c2cf0c05b9219baf0ae21bf1465a",
       "bytes": 3214,
-      "archive_path": "files/experiments/exp66/test_cleanup.py"
+      "archive_path": "files/experiments/exp66/test_cleanup.py",
+      "source_git_blob": "2555b371017a54f15cbe8510ede2ed75c9464417"
     },
     {
       "path": "experiments/exp78/AMENDMENT-01.md",
       "sha256": "c271b14eaf6bca9fd8c983ad1f40385a823b38cba92dcf8d12f310afad44703b",
       "bytes": 1334,
-      "archive_path": "files/experiments/exp78/AMENDMENT-01.md"
+      "archive_path": "files/experiments/exp78/AMENDMENT-01.md",
+      "source_git_blob": "4e2b4b0997e42741127e5acba33a4a8b9458da7a"
     },
     {
       "path": "experiments/exp78/AMENDMENT-02.md",
       "sha256": "9915bfccc93cadd2a47ee216467e59d34a1956993a560d1d725c29dabdb4df77",
       "bytes": 623,
-      "archive_path": "files/experiments/exp78/AMENDMENT-02.md"
+      "archive_path": "files/experiments/exp78/AMENDMENT-02.md",
+      "source_git_blob": "4fc9b2974b223598bac772ee200ccd1c89fc82ee"
     },
     {
       "path": "experiments/exp78/AMENDMENT-03.md",
       "sha256": "b0e10ae1c5c7699c88dd3637cdb7484d09c2e58faf141367c4210afb820b09f2",
       "bytes": 850,
-      "archive_path": "files/experiments/exp78/AMENDMENT-03.md"
+      "archive_path": "files/experiments/exp78/AMENDMENT-03.md",
+      "source_git_blob": "94d177fbdc2a8c40e0801f072f6761147e30ec81"
     },
     {
       "path": "experiments/exp78/AMENDMENT-04.md",
       "sha256": "3ab1a0a6dbc1d65a039dd5ed9b585d0760862ab2aeb1348af1ee95fd2734220e",
       "bytes": 639,
-      "archive_path": "files/experiments/exp78/AMENDMENT-04.md"
+      "archive_path": "files/experiments/exp78/AMENDMENT-04.md",
+      "source_git_blob": "25956c31b0c0f52cd45b29c21c6806708d3fc9ed"
     },
     {
       "path": "experiments/exp78/PROTOCOL.md",
       "sha256": "85d266b28580623f02898d1c00012bf742fd6259fd4f7e57bd48840032f123e8",
       "bytes": 2074,
-      "archive_path": "files/experiments/exp78/PROTOCOL.md"
+      "archive_path": "files/experiments/exp78/PROTOCOL.md",
+      "source_git_blob": "0ee7690db7953419438a8e0658fd332d92f20577"
     },
     {
       "path": "experiments/exp78/RESULTS.md",
       "sha256": "13b8c11ca80d6bd798e00d6ebcae1433ab1028f4aa1fff5549f448e54d8cd501",
       "bytes": 3170,
-      "archive_path": "files/experiments/exp78/RESULTS.md"
+      "archive_path": "files/experiments/exp78/RESULTS.md",
+      "source_git_blob": "38b29cc7f932baf8f80b8113c289922985a6b9af"
     },
     {
       "path": "experiments/exp78/observation-docker.json",
       "sha256": "9e22f55b8d9c99c95f500b1c8bc7ee4be1d58509cfc150411bb01b964f4bd9bc",
       "bytes": 1215,
-      "archive_path": "files/experiments/exp78/observation-docker.json"
+      "archive_path": "files/experiments/exp78/observation-docker.json",
+      "source_git_blob": "aef12c7307f4d7844121f751d395beb3ec784a51"
     },
     {
       "path": "experiments/exp78/observation.json",
       "sha256": "da6f386af0913ac63598cb0982a0e7ddb6b3d6214f2a76e7f862cf56b9392ac2",
       "bytes": 1597,
-      "archive_path": "files/experiments/exp78/observation.json"
+      "archive_path": "files/experiments/exp78/observation.json",
+      "source_git_blob": "11cc48a642b9d7542da892e9e0f02ab714279254"
     },
     {
       "path": "experiments/exp78/probe.py",
       "sha256": "62b153b7203a3f5c75316b52a33af8d2f9f5d8f63341ca820e912248f53d4bb9",
       "bytes": 8701,
-      "archive_path": "files/experiments/exp78/probe.py"
+      "archive_path": "files/experiments/exp78/probe.py",
+      "source_git_blob": "1f401e7214b44cea8130f7a437a17b5361fa6b12"
     },
     {
       "path": "experiments/exp78/probe_docker.py",
       "sha256": "509fcd515566389bc7b8f3467f8c412ab8428b142c6852ac1d195f1002e4add8",
       "bytes": 10848,
-      "archive_path": "files/experiments/exp78/probe_docker.py"
+      "archive_path": "files/experiments/exp78/probe_docker.py",
+      "source_git_blob": "345e1ebf70374745e99cfe37f53673eacd75244e"
     },
     {
       "path": "experiments/exp89/.gitignore",
       "sha256": "26fb4e831a6ff3c143167b6b1adf4d74d9a4a24651775c56af2ec8e9ffa27d9f",
       "bytes": 47,
-      "archive_path": "files/experiments/exp89/.gitignore"
+      "archive_path": "files/experiments/exp89/.gitignore",
+      "source_git_blob": "ce49b5bb1126d5b54419017c135ccaf57ecaa70d"
     },
     {
       "path": "experiments/exp89/AMENDMENT-01.md",
       "sha256": "57859325dddaf448b5ccb54bc7777513293db8511e85604c6d4627c7e25a42ff",
       "bytes": 1263,
-      "archive_path": "files/experiments/exp89/AMENDMENT-01.md"
+      "archive_path": "files/experiments/exp89/AMENDMENT-01.md",
+      "source_git_blob": "f54f9022ce576a5a0c1165782ea84b5e60eef6c0"
     },
     {
       "path": "experiments/exp89/AMENDMENT-02.md",
       "sha256": "df91b7112ca3130c9e2b2a8a53b9b47b2b6a619ed11fb0a7dfd507f342917b89",
       "bytes": 768,
-      "archive_path": "files/experiments/exp89/AMENDMENT-02.md"
+      "archive_path": "files/experiments/exp89/AMENDMENT-02.md",
+      "source_git_blob": "9fddd76813cb2a2059e61415ebd63ac5b809e280"
     },
     {
       "path": "experiments/exp89/AMENDMENT-03.md",
       "sha256": "ecedc216d2834e3ecc908ef83999ed5e673ec3f967d8c94af340bfe8e1cf4607",
       "bytes": 943,
-      "archive_path": "files/experiments/exp89/AMENDMENT-03.md"
+      "archive_path": "files/experiments/exp89/AMENDMENT-03.md",
+      "source_git_blob": "129e45b373fda4c91ce7409a0a6a28e32504678c"
     },
     {
       "path": "experiments/exp89/PROTOCOL.md",
       "sha256": "69abaf63416d77316798fb4b3b2cd5bd70c125bd84457969f41a35f6300c578f",
       "bytes": 3377,
-      "archive_path": "files/experiments/exp89/PROTOCOL.md"
+      "archive_path": "files/experiments/exp89/PROTOCOL.md",
+      "source_git_blob": "0096bbf36aebf701df9a073b442776ff3781fd28"
     },
     {
       "path": "experiments/exp89/RESULTS.md",
       "sha256": "b15e4e73ed4b43a83196a089af20cbb1bdad2486911d1863851d782c06e12304",
       "bytes": 4055,
-      "archive_path": "files/experiments/exp89/RESULTS.md"
+      "archive_path": "files/experiments/exp89/RESULTS.md",
+      "source_git_blob": "68eedbce6cbfeef31435826647512823edae3600"
     },
     {
       "path": "experiments/exp89/evidence/case-a.json",
       "sha256": "24baf9d36276f01b7068e5832ed57f14f73dcae8b916d69d6b36a69cad597abe",
       "bytes": 1520,
-      "archive_path": "files/experiments/exp89/evidence/case-a.json"
+      "archive_path": "files/experiments/exp89/evidence/case-a.json",
+      "source_git_blob": "174d5e004847b2ee4197154f4008c0b5d45c2f48"
     },
     {
       "path": "experiments/exp89/evidence/case-b-setup-failure.json",
       "sha256": "a242cd27ce7d75869feec0fafae2a5e54a85c92d1ff1daa1c792abf27f2a5182",
       "bytes": 545,
-      "archive_path": "files/experiments/exp89/evidence/case-b-setup-failure.json"
+      "archive_path": "files/experiments/exp89/evidence/case-b-setup-failure.json",
+      "source_git_blob": "5c6b5684f5f732b56f48c5129f84626686f4275f"
     },
     {
       "path": "experiments/exp89/evidence/case-b.json",
       "sha256": "4757f687a65192ad873609c7cfd6edf175a698a998543a2f8f53c246b92c5d1c",
       "bytes": 1668,
-      "archive_path": "files/experiments/exp89/evidence/case-b.json"
+      "archive_path": "files/experiments/exp89/evidence/case-b.json",
+      "source_git_blob": "9ae800b981946dc8715ea93cbee0fcdd5b13da09"
     },
     {
       "path": "experiments/exp89/evidence/case-control.json",
       "sha256": "093f29e3427417970c38fe9c3aa8df2a10d4b7d6e49e2a9f2ec8bc2222df7b9e",
       "bytes": 1240,
-      "archive_path": "files/experiments/exp89/evidence/case-control.json"
+      "archive_path": "files/experiments/exp89/evidence/case-control.json",
+      "source_git_blob": "cd3e706626281622d83063d9f073e0bf5beb4fe7"
     },
     {
       "path": "experiments/exp89/evidence/journal.jsonl",
       "sha256": "9902f3058cfaac0e3cc8cd146795001fdc554a130724d7dc2934c3288eecf31c",
       "bytes": 1758,
-      "archive_path": "files/experiments/exp89/evidence/journal.jsonl"
+      "archive_path": "files/experiments/exp89/evidence/journal.jsonl",
+      "source_git_blob": "1a1728a094420c728acb90c3c19649d4e1875d43"
     },
     {
       "path": "experiments/exp89/fake_runner.py",
       "sha256": "87d0ebdd676dd53dae950c7f4dfc61a01a8876b3150c76d0a84128bdeba69e1d",
       "bytes": 5576,
-      "archive_path": "files/experiments/exp89/fake_runner.py"
+      "archive_path": "files/experiments/exp89/fake_runner.py",
+      "source_git_blob": "186a636cb73dbc87f77af2ef05602594104f1a7a"
     },
     {
       "path": "experiments/exp89/inspect_ui.js",
       "sha256": "6ba98f3e98257e3d52c2675436258117b6bc3b615a382798fc56d7d11bc1d89f",
       "bytes": 2910,
-      "archive_path": "files/experiments/exp89/inspect_ui.js"
+      "archive_path": "files/experiments/exp89/inspect_ui.js",
+      "source_git_blob": "156206a2590651503d22e73256e37379c7cff113"
     },
     {
       "path": "experiments/exp89/observation.json",
       "sha256": "7d36fe7906885b23e2036691617a7a657553debdcafa63be935e553d208cc726",
       "bytes": 2122,
-      "archive_path": "files/experiments/exp89/observation.json"
+      "archive_path": "files/experiments/exp89/observation.json",
+      "source_git_blob": "5d3c7583f80b40356e04cad59061fe9086ab74ff"
     },
     {
       "path": "experiments/exp89/package-lock.json",
       "sha256": "65973fe6c4f25c7eef8347b967fd2da2a29c98b7a0e2c4c5f6e6e22e146b8511",
       "bytes": 679,
-      "archive_path": "files/experiments/exp89/package-lock.json"
+      "archive_path": "files/experiments/exp89/package-lock.json",
+      "source_git_blob": "82bd98a4a12a4c36c4fc11e6f89e8bfc221bf47c"
     },
     {
       "path": "experiments/exp89/package.json",
       "sha256": "c2599c41372bbbff3ddd7776f7ad5d0dad1eadf8d68134be836656068fa14130",
       "bytes": 142,
-      "archive_path": "files/experiments/exp89/package.json"
+      "archive_path": "files/experiments/exp89/package.json",
+      "source_git_blob": "e01e34696a459e1810146660f0d685b9cc32131f"
     },
     {
       "path": "experiments/exp89/probe_ui_stop.js",
       "sha256": "9bc151dc7d23abaabaafb4d0987ce04b1bafec24b7fb33e56fcf4de45e6261d6",
       "bytes": 6331,
-      "archive_path": "files/experiments/exp89/probe_ui_stop.js"
+      "archive_path": "files/experiments/exp89/probe_ui_stop.js",
+      "source_git_blob": "4f2b2f22d4120e367e2e2d67274bccc6b32167e5"
     },
     {
       "path": "experiments/exp89/test_observation.py",
       "sha256": "b86f2a6479a756f64fc748589c3a3612116a749cf01a555ff43ef5307b514bc3",
       "bytes": 4160,
-      "archive_path": "files/experiments/exp89/test_observation.py"
+      "archive_path": "files/experiments/exp89/test_observation.py",
+      "source_git_blob": "d049fe5667067c10dea572a652fa8ac018f33a48"
     },
     {
       "path": "experiments/exp91/PROTOCOL.md",
       "sha256": "6959f927514baccacb0370190d6a8082e17b683439d35f59edd325f5a136fc6a",
       "bytes": 2776,
-      "archive_path": "files/experiments/exp91/PROTOCOL.md"
+      "archive_path": "files/experiments/exp91/PROTOCOL.md",
+      "source_git_blob": "76bc7aeb916be4653d297e863e8dc99b56a27f86"
     },
     {
       "path": "experiments/exp91/RESULTS.md",
       "sha256": "4aec838a2634d2188b110cf45bc16428f655475e5408deb5e0afed87555d1372",
       "bytes": 1952,
-      "archive_path": "files/experiments/exp91/RESULTS.md"
+      "archive_path": "files/experiments/exp91/RESULTS.md",
+      "source_git_blob": "577924a1f3ce753a9a2c7e9b151dd57ca6fe627f"
     },
     {
       "path": "experiments/exp91/observation.json",
       "sha256": "c76fbe2abb6911531af44f3609118213d1aaba73638e6e0c425d1ff69f4beb07",
       "bytes": 1183,
-      "archive_path": "files/experiments/exp91/observation.json"
+      "archive_path": "files/experiments/exp91/observation.json",
+      "source_git_blob": "71d3cece2862b70c58ce01fcf3e08d458d862042"
     },
     {
       "path": "experiments/exp91/probe.py",
       "sha256": "6a389736a3057d948ebf41114b29f8851519c15b6f1a4bb5df27c944310a5677",
       "bytes": 8958,
-      "archive_path": "files/experiments/exp91/probe.py"
+      "archive_path": "files/experiments/exp91/probe.py",
+      "source_git_blob": "f9fe403bafea1e3c454b23e136ca19147fb10d88"
     },
     {
       "path": "experiments/exp91/test_observation.py",
       "sha256": "a31303078b86c746a9aed39bc229e33034071dd7dda7346dfcac2bec12da452c",
       "bytes": 1219,
-      "archive_path": "files/experiments/exp91/test_observation.py"
+      "archive_path": "files/experiments/exp91/test_observation.py",
+      "source_git_blob": "a209ed6757aacae80b81ba5a317a4d9b66abbab3"
     },
     {
       "path": "experiments/exp93/ATTACHED-CLIENT-AMENDMENT-01.md",
       "sha256": "8c2667124c3859e6766d961e71a5e82ab07e048f658d10bbf4f0e397fcd84b09",
       "bytes": 881,
-      "archive_path": "files/experiments/exp93/ATTACHED-CLIENT-AMENDMENT-01.md"
+      "archive_path": "files/experiments/exp93/ATTACHED-CLIENT-AMENDMENT-01.md",
+      "source_git_blob": "3707a921acd8a6e70bafbc1752695c082a1f4665"
     },
     {
       "path": "experiments/exp93/ATTACHED-CLIENT-D1-RESULTS.md",
       "sha256": "0ec648aeba9bdc0794247319f71dfa74a4e57468a38caedd25640bbdcce72ff7",
       "bytes": 1177,
-      "archive_path": "files/experiments/exp93/ATTACHED-CLIENT-D1-RESULTS.md"
+      "archive_path": "files/experiments/exp93/ATTACHED-CLIENT-D1-RESULTS.md",
+      "source_git_blob": "b32e69824f250ef044ec04fa29724397442662f8"
     },
     {
       "path": "experiments/exp93/ATTACHED-CLIENT-DIAGNOSTIC-PROTOCOL.md",
       "sha256": "c1a5f74bf37f55f644645f22f022a724b67aaca2f56a157eb2aafbefa2c79c96",
       "bytes": 1726,
-      "archive_path": "files/experiments/exp93/ATTACHED-CLIENT-DIAGNOSTIC-PROTOCOL.md"
+      "archive_path": "files/experiments/exp93/ATTACHED-CLIENT-DIAGNOSTIC-PROTOCOL.md",
+      "source_git_blob": "68effc422768bcb8227080109e423a54ec5dcbeb"
     },
     {
       "path": "experiments/exp93/GROUP-AMENDMENT.md",
       "sha256": "142ec67c371b2956cd02c4620a3ac0e16c1ef27bd659069ed07e85750f7e9d36",
       "bytes": 1373,
-      "archive_path": "files/experiments/exp93/GROUP-AMENDMENT.md"
+      "archive_path": "files/experiments/exp93/GROUP-AMENDMENT.md",
+      "source_git_blob": "dd1c0073616f5d5d74a9d450b2d46447d11f182a"
     },
     {
       "path": "experiments/exp93/LAUNCHER-AMENDMENT.md",
       "sha256": "b5c4148295a2d9e0d299858002c9193c2a9daf243a8e07a2558f4ac67d5d0349",
       "bytes": 1216,
-      "archive_path": "files/experiments/exp93/LAUNCHER-AMENDMENT.md"
+      "archive_path": "files/experiments/exp93/LAUNCHER-AMENDMENT.md",
+      "source_git_blob": "d78b531020b1713532f88aecf6ab4b233c650502"
     },
     {
       "path": "experiments/exp93/PROTOCOL.md",
       "sha256": "8a86738dd2e678c5d6f3ef92da01ac35408042a016ca664db9d9e0884bd8670d",
       "bytes": 1921,
-      "archive_path": "files/experiments/exp93/PROTOCOL.md"
+      "archive_path": "files/experiments/exp93/PROTOCOL.md",
+      "source_git_blob": "9a8eb4fb5c949ce78e09b12d3216f48b5c3f94e2"
     },
     {
       "path": "experiments/exp93/REAL-STAGE-AMENDMENT-01.md",
       "sha256": "6db19985ff22409a268c31adb90abcfa3de01971e4ca45095c96c1701a2bd422",
       "bytes": 1638,
-      "archive_path": "files/experiments/exp93/REAL-STAGE-AMENDMENT-01.md"
+      "archive_path": "files/experiments/exp93/REAL-STAGE-AMENDMENT-01.md",
+      "source_git_blob": "505c7c6bb74a5608eea4c23c32e953a44e5efc3a"
     },
     {
       "path": "experiments/exp93/REAL-STAGE-PROTOCOL.md",
       "sha256": "90b10774afbbc05d55345fb370f7496e0b51b4de38d2c912c0a4793c8c94b885",
       "bytes": 4790,
-      "archive_path": "files/experiments/exp93/REAL-STAGE-PROTOCOL.md"
+      "archive_path": "files/experiments/exp93/REAL-STAGE-PROTOCOL.md",
+      "source_git_blob": "77dc9c3eafcc17711e7a85015da372b385bfbb8e"
     },
     {
       "path": "experiments/exp93/REAL-STAGE-S1-RESULTS.md",
       "sha256": "a8e965673dcff1617964a6a9efff4d9d917422b02d454dca0ab2caea038d90d6",
       "bytes": 1904,
-      "archive_path": "files/experiments/exp93/REAL-STAGE-S1-RESULTS.md"
+      "archive_path": "files/experiments/exp93/REAL-STAGE-S1-RESULTS.md",
+      "source_git_blob": "4aa884a0d6a29dc2d41076202d0cdb013f0ee49a"
     },
     {
       "path": "experiments/exp93/REAL-STAGE-S2-PROTOCOL.md",
       "sha256": "2876781d31887bb663d9027c019758c1921d5e113284035e5876579f6538d185",
       "bytes": 2245,
-      "archive_path": "files/experiments/exp93/REAL-STAGE-S2-PROTOCOL.md"
+      "archive_path": "files/experiments/exp93/REAL-STAGE-S2-PROTOCOL.md",
+      "source_git_blob": "d8da23d893236c3cbc9d6f2dd38f77c8ac910658"
     },
     {
       "path": "experiments/exp93/REAL-STAGE-S2-RESULTS.md",
       "sha256": "f1a6e6e488b82cba32c6a63b976ebb0b97c0fcc7f4bf00ef655f4793ee58885b",
       "bytes": 2139,
-      "archive_path": "files/experiments/exp93/REAL-STAGE-S2-RESULTS.md"
+      "archive_path": "files/experiments/exp93/REAL-STAGE-S2-RESULTS.md",
+      "source_git_blob": "14895a2a33f2afba38a565121766e92fc45100b4"
     },
     {
       "path": "experiments/exp93/REAL-STAGE-S3-PROTOCOL.md",
       "sha256": "7d71c019f399da5a7bb7eeb4950d068effe52567ae93dbc6c6706d330943e8e2",
       "bytes": 3521,
-      "archive_path": "files/experiments/exp93/REAL-STAGE-S3-PROTOCOL.md"
+      "archive_path": "files/experiments/exp93/REAL-STAGE-S3-PROTOCOL.md",
+      "source_git_blob": "9b875746e4406685abdf2d210ae4a1944b73b2e3"
     },
     {
       "path": "experiments/exp93/REAL-STAGE-S3-RESULTS.md",
       "sha256": "abfbc310253a5e5f65230be005ab43ee352897e4369b0b30576495e30f5d37f0",
       "bytes": 2583,
-      "archive_path": "files/experiments/exp93/REAL-STAGE-S3-RESULTS.md"
+      "archive_path": "files/experiments/exp93/REAL-STAGE-S3-RESULTS.md",
+      "source_git_blob": "900f5e34ed5b095b1858008a184cf5b0301d8f63"
     },
     {
       "path": "experiments/exp93/RESULTS.md",
       "sha256": "31e305064b32fb0bbf7ca20ef8dd6b8d2f9dcc98825fa409f417be1082f3bdc1",
       "bytes": 6163,
-      "archive_path": "files/experiments/exp93/RESULTS.md"
+      "archive_path": "files/experiments/exp93/RESULTS.md",
+      "source_git_blob": "63c7180d5562c3a813f7b9a815c422aeeaa52c0c"
     },
     {
       "path": "experiments/exp93/SERVICE-AMENDMENT.md",
       "sha256": "f930578715eca0560da7a82cbfef997c7b7ce94e915e3685012cbab35ea938a6",
       "bytes": 3192,
-      "archive_path": "files/experiments/exp93/SERVICE-AMENDMENT.md"
+      "archive_path": "files/experiments/exp93/SERVICE-AMENDMENT.md",
+      "source_git_blob": "9097d369b8d3582edcca888c22ab5eb03c0be908"
     },
     {
       "path": "experiments/exp93/attached-client-d1-observation.json",
       "sha256": "abef5bbdec993c16052f7ff3282c6433d723a5e6a02173cc15851be62459532a",
       "bytes": 1657,
-      "archive_path": "files/experiments/exp93/attached-client-d1-observation.json"
+      "archive_path": "files/experiments/exp93/attached-client-d1-observation.json",
+      "source_git_blob": "858d30c975ccf390035f68ace00e42694db75d8e"
     },
     {
       "path": "experiments/exp93/attached_client_probe.py",
       "sha256": "6f34e09d44f4634517fa85f5a9ff7d2ef41208c8e3a51fd93f0f168c2d1d40e6",
       "bytes": 8263,
-      "archive_path": "files/experiments/exp93/attached_client_probe.py"
+      "archive_path": "files/experiments/exp93/attached_client_probe.py",
+      "source_git_blob": "00916f619ef23b1fa99a6b913db2a3d2e7268191"
     },
     {
       "path": "experiments/exp93/group-observation.json",
       "sha256": "f9a9b1d5eabb669c1658320e6f1cb6c228dfe461f376062a720d8e50e83b529c",
       "bytes": 258,
-      "archive_path": "files/experiments/exp93/group-observation.json"
+      "archive_path": "files/experiments/exp93/group-observation.json",
+      "source_git_blob": "bda6e93eb3e127968d8e688d79111adb03cab765"
     },
     {
       "path": "experiments/exp93/group_probe.py",
       "sha256": "a95a3661db7cd565dd341f849472ded7e3e4ee23ca83efe4e30f67e4b84b6cf2",
       "bytes": 5179,
-      "archive_path": "files/experiments/exp93/group_probe.py"
+      "archive_path": "files/experiments/exp93/group_probe.py",
+      "source_git_blob": "f39562bd03b53b22297cd11a179f940ec1f6cad6"
     },
     {
       "path": "experiments/exp93/launcher-observation.json",
       "sha256": "95409d79d7e5becfb4f00a35ff43f0a1415935a42d5dd4621dcd3f7266f1be33",
       "bytes": 212,
-      "archive_path": "files/experiments/exp93/launcher-observation.json"
+      "archive_path": "files/experiments/exp93/launcher-observation.json",
+      "source_git_blob": "b81a9b00e408ee790ef95a416a3540ee21f43bfd"
     },
     {
       "path": "experiments/exp93/launcher_probe.py",
       "sha256": "11ff88973860b48613f33a8b979187a740753f91d50aed07d04e7bd1e1d1ba90",
       "bytes": 5612,
-      "archive_path": "files/experiments/exp93/launcher_probe.py"
+      "archive_path": "files/experiments/exp93/launcher_probe.py",
+      "source_git_blob": "5fcec8cf39c9a5caf7868946467bc806c30c6aa1"
     },
     {
       "path": "experiments/exp93/observation.json",
       "sha256": "042ce591787d527a80ac5f334696e1e9a071cc45a512ceef8aa7ac9e24f55f64",
       "bytes": 997,
-      "archive_path": "files/experiments/exp93/observation.json"
+      "archive_path": "files/experiments/exp93/observation.json",
+      "source_git_blob": "f46caf1e0172d86133245d8f4e170ef2ece602eb"
     },
     {
       "path": "experiments/exp93/probe.py",
       "sha256": "296ee3905e838f724236f837bb8363e7e94c9173c28246c89e3bc52bc5f29454",
       "bytes": 10192,
-      "archive_path": "files/experiments/exp93/probe.py"
+      "archive_path": "files/experiments/exp93/probe.py",
+      "source_git_blob": "3188e2aa4f2d60a521e34a44f3d4f3afe26b631f"
     },
     {
       "path": "experiments/exp93/real-stage-s1-observation.json",
       "sha256": "73f7b83a358f038768c97fe73274dfdbedb75fe7fc403c4d5e351c74c3f63d40",
       "bytes": 949,
-      "archive_path": "files/experiments/exp93/real-stage-s1-observation.json"
+      "archive_path": "files/experiments/exp93/real-stage-s1-observation.json",
+      "source_git_blob": "cd1b215f13d8726bcf01939eb208445dbb42f6a2"
     },
     {
       "path": "experiments/exp93/real-stage-s2-lease-diagnostic.json",
       "sha256": "e9dc5680c5e1e379766c3c3b9ca18bacf4fc9b95493e3ce03976d328dd5facb2",
       "bytes": 1297,
-      "archive_path": "files/experiments/exp93/real-stage-s2-lease-diagnostic.json"
+      "archive_path": "files/experiments/exp93/real-stage-s2-lease-diagnostic.json",
+      "source_git_blob": "1aa7810b92df52966605fd44ff2b316f3a2cc80e"
     },
     {
       "path": "experiments/exp93/real-stage-s2-observation.json",
       "sha256": "2d03481c1c8318e84b1a4a47923c94cf5c1ec88a2acfec14530c8785b47d301e",
       "bytes": 1338,
-      "archive_path": "files/experiments/exp93/real-stage-s2-observation.json"
+      "archive_path": "files/experiments/exp93/real-stage-s2-observation.json",
+      "source_git_blob": "4add49636f4f277345a88384a8d1b38a4f4a9637"
     },
     {
       "path": "experiments/exp93/real-stage-s3-observation.json",
       "sha256": "f5ac3861beb6750a3df46b4251687201761281e15dd277e9a48272aa4c5ea1f8",
       "bytes": 2925,
-      "archive_path": "files/experiments/exp93/real-stage-s3-observation.json"
+      "archive_path": "files/experiments/exp93/real-stage-s3-observation.json",
+      "source_git_blob": "88449ded14bbb3091d40b85ad3a4643eb86ce185"
     },
     {
       "path": "experiments/exp93/real_stage_probe.py",
       "sha256": "0043a9ef767d4b0c480aef01e7f736388ee551f3754212bcdf4be3f4aaae3e85",
       "bytes": 29079,
-      "archive_path": "files/experiments/exp93/real_stage_probe.py"
+      "archive_path": "files/experiments/exp93/real_stage_probe.py",
+      "source_git_blob": "b45680482366617937068ed6784d5f27c1eb2818"
     },
     {
       "path": "experiments/exp93/real_stage_support.py",
       "sha256": "1cd9f295fe2ed7b75ccb31fe3893f932db4d62df4932309f01f62882b28e4728",
       "bytes": 5997,
-      "archive_path": "files/experiments/exp93/real_stage_support.py"
+      "archive_path": "files/experiments/exp93/real_stage_support.py",
+      "source_git_blob": "7f7ca6859b6911eaf7d2403a87ffc5dd446ba459"
     },
     {
       "path": "experiments/exp93/real_stage_worker.py",
       "sha256": "4d2183142e220ec5b6ac0da4e51d03ec6459fd8f339267860ace780c2d0d9033",
       "bytes": 4396,
-      "archive_path": "files/experiments/exp93/real_stage_worker.py"
+      "archive_path": "files/experiments/exp93/real_stage_worker.py",
+      "source_git_blob": "aa39dae2ebd7ab76fb9bb78e49be7079189779e8"
     },
     {
       "path": "experiments/exp93/service-observation.json",
       "sha256": "479c8ac735298190f61c267dcce2353c06e2671d359081701e155cf52e05ae1c",
       "bytes": 627,
-      "archive_path": "files/experiments/exp93/service-observation.json"
+      "archive_path": "files/experiments/exp93/service-observation.json",
+      "source_git_blob": "66d312ab44d6ad6aa70a861f396102377e9418cc"
     },
     {
       "path": "experiments/exp93/service_probe.py",
       "sha256": "f05e4d32c2040f603a4525418f8f4e762cb377a648c4c457b08f319cff797349",
       "bytes": 13218,
-      "archive_path": "files/experiments/exp93/service_probe.py"
+      "archive_path": "files/experiments/exp93/service_probe.py",
+      "source_git_blob": "81b5784e4f96f2c46681ea4e5acc6a3e67d83149"
     },
     {
       "path": "experiments/exp93/test_real_stage.py",
       "sha256": "f06c191a7c3ddfd79ea74d16ea4156edec669ee279b87b96b90f34a53ef3c497",
       "bytes": 13834,
-      "archive_path": "files/experiments/exp93/test_real_stage.py"
+      "archive_path": "files/experiments/exp93/test_real_stage.py",
+      "source_git_blob": "e2ba7d3090efd00df64f721d9c783577c26f2ddf"
     },
     {
       "path": "experiments/exp94/.gitignore",
       "sha256": "08a020114362b59ed282decb91f35e126f0e8b388fdd203635d067d11c3665b5",
       "bytes": 48,
-      "archive_path": "files/experiments/exp94/.gitignore"
+      "archive_path": "files/experiments/exp94/.gitignore",
+      "source_git_blob": "16aa9e1f8f162df6cc1e2d2a5668ea177024ae6a"
     },
     {
       "path": "experiments/exp94/AMENDMENT-01.md",
       "sha256": "bc35a04fe865466101fb9c783865f268aad938c1d900e816a11bd2fb1823a7b4",
       "bytes": 858,
-      "archive_path": "files/experiments/exp94/AMENDMENT-01.md"
+      "archive_path": "files/experiments/exp94/AMENDMENT-01.md",
+      "source_git_blob": "759ecad1665848de0eca5d2cc1109d28714e9c25"
     },
     {
       "path": "experiments/exp94/PROTOCOL.md",
       "sha256": "70020e4ec194099ab6e21e0dd468f4006780b1cf3f10daf7f71ef9eb8c947b52",
       "bytes": 2288,
-      "archive_path": "files/experiments/exp94/PROTOCOL.md"
+      "archive_path": "files/experiments/exp94/PROTOCOL.md",
+      "source_git_blob": "c58b86cda30f6d9465e5fd96baa11a788181e537"
     },
     {
       "path": "experiments/exp94/RESULTS.md",
       "sha256": "9b1bcbfdddc45bd7ead89d86c19d35c1a4d4699ef9d89cc1875465b90f775a9d",
       "bytes": 3094,
-      "archive_path": "files/experiments/exp94/RESULTS.md"
+      "archive_path": "files/experiments/exp94/RESULTS.md",
+      "source_git_blob": "0b0f9cbaf0d940387e7d1afee7b88b673fd1342c"
     },
     {
       "path": "experiments/exp94/evidence/case-a.json",
       "sha256": "7a12bd36b7a64da5530f8ba88e8ed64588d91b2643d54b5e1acf58b950622533",
       "bytes": 2199,
-      "archive_path": "files/experiments/exp94/evidence/case-a.json"
+      "archive_path": "files/experiments/exp94/evidence/case-a.json",
+      "source_git_blob": "2995a20f045ffadef5c1d003e54b4fe395fda7f6"
     },
     {
       "path": "experiments/exp94/evidence/case-b.json",
       "sha256": "62dd9ea8722a0a67b23c2e2a385cc0603ad060e3581e63518a65c809318fd909",
       "bytes": 2395,
-      "archive_path": "files/experiments/exp94/evidence/case-b.json"
+      "archive_path": "files/experiments/exp94/evidence/case-b.json",
+      "source_git_blob": "199a1770a9ec902427299ea102c331a62e08176b"
     },
     {
       "path": "experiments/exp94/evidence/case-control.json",
       "sha256": "8601db3000bfebcd941b9c31fdff8ad014075d4040fc7d43c3b728e473f6a12e",
       "bytes": 2515,
-      "archive_path": "files/experiments/exp94/evidence/case-control.json"
+      "archive_path": "files/experiments/exp94/evidence/case-control.json",
+      "source_git_blob": "d7ff36c2c8729b663d26247aed36c897bf5d6bf8"
     },
     {
       "path": "experiments/exp94/evidence/case-control_late.json",
       "sha256": "82aa5ea95f7fe966df9a5ed06e5ec24772583b3f3b5b94c9acf80124b6b6d02e",
       "bytes": 2570,
-      "archive_path": "files/experiments/exp94/evidence/case-control_late.json"
+      "archive_path": "files/experiments/exp94/evidence/case-control_late.json",
+      "source_git_blob": "b4f22aac2dd256406e3db4389c501fecd47c12be"
     },
     {
       "path": "experiments/exp94/evidence/journal.jsonl",
       "sha256": "0a24849c5badb341fc92c570f9728454f702dceda0c872bbf8560c2ff9ea27f2",
       "bytes": 4899,
-      "archive_path": "files/experiments/exp94/evidence/journal.jsonl"
+      "archive_path": "files/experiments/exp94/evidence/journal.jsonl",
+      "source_git_blob": "0aacf174abb66108e19871f5aac8a72178f5f0b9"
     },
     {
       "path": "experiments/exp94/fake_runner.py",
       "sha256": "180594f53134066fea4dcaa1bf0a09194b56039ce20acbf6e42aaf108ac5395a",
       "bytes": 8128,
-      "archive_path": "files/experiments/exp94/fake_runner.py"
+      "archive_path": "files/experiments/exp94/fake_runner.py",
+      "source_git_blob": "2a1e7f0d92e5131c0fa4a01e2d2130d8abbd7b23"
     },
     {
       "path": "experiments/exp94/package-lock.json",
       "sha256": "5bbaa8171599efd52717db93a4d3ecf26397eef8371cf294c9340300d250901a",
       "bytes": 679,
-      "archive_path": "files/experiments/exp94/package-lock.json"
+      "archive_path": "files/experiments/exp94/package-lock.json",
+      "source_git_blob": "56ff362e9ca6297c5b992b4ea2eaefdb8947f845"
     },
     {
       "path": "experiments/exp94/package.json",
       "sha256": "e6d4817c2a78afeffa7156879fc074cd3358dcf4d866f4d6b2fe8360cc97c6ad",
       "bytes": 142,
-      "archive_path": "files/experiments/exp94/package.json"
+      "archive_path": "files/experiments/exp94/package.json",
+      "source_git_blob": "d8c595e6c7165ac96071246ce08d0982dfdb91ef"
     },
     {
       "path": "experiments/exp94/probe_ui_stop.js",
       "sha256": "fd417a63dd93ceb833498e44aaa7741a200015b109e8dcc2fbbe48780042d418",
       "bytes": 5959,
-      "archive_path": "files/experiments/exp94/probe_ui_stop.js"
+      "archive_path": "files/experiments/exp94/probe_ui_stop.js",
+      "source_git_blob": "f68cfcacf7fac21fe29904aafee4dfbf5169b7bf"
     },
     {
       "path": "experiments/turn_harness.py",
       "sha256": "2d00af106b66dc83a17da7e5dfa285185919d7a1544ab6b97c544ffd5a20103d",
       "bytes": 1808,
-      "archive_path": "files/experiments/turn_harness.py"
+      "archive_path": "files/experiments/turn_harness.py",
+      "source_git_blob": "f9141f90e763ab2c73b02bd1cbf67b341a985c78"
     }
-  ]
+  ],
+  "archive_derivation": "git cat-file --batch: exact original blob bytes; no checkout/archive EOL conversion. Earlier archive revisions remain preserved in exp history."
 }

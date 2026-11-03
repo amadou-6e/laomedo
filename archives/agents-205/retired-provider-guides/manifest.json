@@ -4,123 +4,148 @@
   "files": [
     {
       "path": "examples/agent-controls/README.md",
-      "sha256": "86ec5ade292671b8f35080c947f945e3321f0021d75489634667e39b676aca3c",
-      "bytes": 3302
+      "sha256": "62c0067bf10d33de438dbbf1558cc4b382a27c7c7b94ef045d295007802275f6",
+      "bytes": 3260,
+      "source_git_blob": "3e9e4d2cd17c68035fa4c66eaffbff5603ce0a55"
     },
     {
       "path": "examples/agent-controls/dropdown-evidence.json",
-      "sha256": "63208cfbb5cab61cd11b5bdf41eb8255600d5d9e055f3cfd47912c7e60d6ae86",
-      "bytes": 1673
+      "sha256": "3060919f70470962f1cdb293a012b2ea7729c3fb6803ede01e52101473a1f5c2",
+      "bytes": 1635,
+      "source_git_blob": "afeadca7a57716ee93e83259edbc2788fca0ee75"
     },
     {
       "path": "examples/agent-controls/evidence.json",
-      "sha256": "f9ef7ff4970a43a07a0fc51f67c02f493835d77eac31eaea824d608455510ccd",
-      "bytes": 1186
+      "sha256": "d5047097829e3d4dea7df5523a102d92781af46a455fd81b4a4716a58a453665",
+      "bytes": 1156,
+      "source_git_blob": "d345a9b910a00950edd9956daf0e285171afb81e"
     },
     {
       "path": "examples/agent-controls/ownership-evidence.json",
-      "sha256": "8b0ae420bfa0e367ae3225c433d421b0d5a34986f4594dec28b3ee1ee5ed5020",
-      "bytes": 1783
+      "sha256": "c1fd15aa13ec6b2fe984bb66adb966d0acc50cfc01a157cc3d318bf524be0186",
+      "bytes": 1742,
+      "source_git_blob": "1fcd612e73baf87f61dc526900eaf6a31e0b2973"
     },
     {
       "path": "examples/agent-controls/real-skill-edit-evidence.json",
-      "sha256": "dce5776b50de7eb435b756bdeab3069342f5338e5cff3b912c92410887bbaa8f",
-      "bytes": 1258
+      "sha256": "f66e299c7aa1d027a883539cf0bac18210690508e04125118cfdec0cb59ffa33",
+      "bytes": 1230,
+      "source_git_blob": "7139c05692c998e9072ae58ebdaba103b47de30b"
     },
     {
       "path": "examples/agent-controls/runtime-capabilities-audit.md",
-      "sha256": "c815d1cc9a760724415fcc8f102576a252199994e875d664b01d5e886a17cd4f",
-      "bytes": 4812
+      "sha256": "67711c810c0821712176ba624793f32979e8a1223172c20de1cbdd7c2e96388a",
+      "bytes": 4781,
+      "source_git_blob": "6b88b24df7376f9257eb32557d35c06bf8403ebb"
     },
     {
       "path": "examples/opencode-agent/Dockerfile",
-      "sha256": "caa292a5120b3be4ccdb36c5cc3464f3ce8ae27f32eccaa384011e1153dededa",
-      "bytes": 330
+      "sha256": "b7459e0baa2055e347adf43115982d69ac066b446e9b76de7de29129820fd9d1",
+      "bytes": 323,
+      "source_git_blob": "1f2d0fe7056c4cb7e5d75780f9e48de5b1148ddd"
     },
     {
       "path": "examples/opencode-agent/README.md",
-      "sha256": "c050915f1da4c0ef4567bca5a9bb4239eea830a1c634bf6527eae82df8948781",
-      "bytes": 6718
+      "sha256": "401a0f531619317fa1a8c08d1363674d76af2ef826c38d56277c12221345dec4",
+      "bytes": 6612,
+      "source_git_blob": "55c6334483cb94097193a0851a98fc23b6296fce"
     },
     {
       "path": "examples/opencode-agent/acceptance.py",
-      "sha256": "c79e75ddea8e83e47854e92fdc01b2e44a5560c9ea0fdf0813db1794d8185cb9",
-      "bytes": 9958
+      "sha256": "6e9c136655b69b1e115034b0fb7f14016776d07c7d8e51fe03cac6a82b673321",
+      "bytes": 9699,
+      "source_git_blob": "3cba988907d9706815c08ce305b33a079ea90543"
     },
     {
       "path": "examples/opencode-agent/build_flow.py",
-      "sha256": "37cebfbf0fc0283ddf9da71657b207517632ee1b0d222d505ca6c7c38f38b3e0",
-      "bytes": 2422
+      "sha256": "9bda6a76c3d8e8a8663852715d6d3cd5143f79f805f46a9b9870f2b103d80195",
+      "bytes": 2358,
+      "source_git_blob": "d466ee974cd6d572ae1e099cf912b0f4b0f854d8"
     },
     {
       "path": "examples/opencode-agent/cancel_acceptance.py",
-      "sha256": "858c835095a01b4dce56539f1c9a683e15e8c56cb8e43670ac844fd0c3f70305",
-      "bytes": 4131
+      "sha256": "7e6b2a9a6608ee50748732725caf90d928d001c98c1dd6403cd4675b88a1299c",
+      "bytes": 4009,
+      "source_git_blob": "1c91b53e85a8aa3c971224cc0e32d450889e468c"
     },
     {
       "path": "examples/opencode-agent/direct_cli.py",
-      "sha256": "9c64e6ebdf4e6c600f25aed7ea67d20378da8ee649736e96f077786dcf105d1d",
-      "bytes": 3195
+      "sha256": "a59db4893ebec3efa95c85d030e09b34390c4853076978e23fd99e0968bcf610",
+      "bytes": 3106,
+      "source_git_blob": "656180253f7509d2fec0915c84407cd3a5df3fb7"
     },
     {
       "path": "examples/opencode-agent/flow.json",
-      "sha256": "c46c615a9f08ced3e1c1b150b8c61d235e29fe7b855b8e152e229d6385748743",
-      "bytes": 75946
+      "sha256": "cfbca5d38e2c9ccb35e2894e9e8c19b81500c69d6d1d5f3c0d900b9663786528",
+      "bytes": 74493,
+      "source_git_blob": "5088216ccd8a60d054506db187072eb17f001368"
     },
     {
       "path": "examples/opencode-agent/flow_acceptance.py",
-      "sha256": "aa23e7c60dbd6856649b9ed6372bc48d7720a77c867e02c6c261e8b15aabf5ef",
-      "bytes": 6264
+      "sha256": "628da33fe22100ec35b27f84c69316a81cf3af5bb0874af28e8d8e30f8bba05c",
+      "bytes": 6103,
+      "source_git_blob": "10a15df2dc8680dbb79d0444e2fab32bd72b11d8"
     },
     {
       "path": "examples/opencode-agent/inspect_auth.py",
-      "sha256": "2e1110263f03f9445b2aa803c03cfcf522f9a1af4bee0ece3f183f9fe44ecd68",
-      "bytes": 1876
+      "sha256": "786999fae9c2331abcad5d46f30fdb10127304287c910d26cb7da257a4846721",
+      "bytes": 1822,
+      "source_git_blob": "3502d387b6e30c1707b47e432135052dbf64a49e"
     },
     {
       "path": "examples/opencode-agent/live-cancellation-retest.json",
-      "sha256": "e1ab6f5fda0749620476a86860fe831b630bb60662f8ad436700659ca4e92ed4",
-      "bytes": 653
+      "sha256": "375a3063e6efbd4cf08291044f7c3fb2eac1e73d1db7a1fd1a124cedad2a9be6",
+      "bytes": 634,
+      "source_git_blob": "4f7dabfb28c6dc6126d0727c5adffbc57ff30477"
     },
     {
       "path": "examples/opencode-agent/live-evidence.json",
-      "sha256": "8f8e38458adb9d20b723c616071554b511db9ffe8f83d9d354918bada13be076",
-      "bytes": 1231
+      "sha256": "3ca82b32c0df761cc3e5729de60d9466a86576c9ee424f4f49e43206e23d3533",
+      "bytes": 1208,
+      "source_git_blob": "df6264a0866d186d2bf09df49db28b5d8a590664"
     },
     {
       "path": "examples/opencode-agent/live-success-evidence.json",
-      "sha256": "c6af3db09dfdaee1542ae6397bfcd7613b054c13dd69fab8fffd53b072f6d7d7",
-      "bytes": 3001
+      "sha256": "a22cc2c097aead5b342803e10ce2ba1dc10a2e4325a0c67d170c73521b545c23",
+      "bytes": 2905,
+      "source_git_blob": "4caf4e9413fce121c9b52ab18d760205301b9564"
     },
     {
       "path": "examples/opencode-agent/preflight_auth_mount.py",
-      "sha256": "6e15faf00e0ad9e3c32d71dc2f1b9c0dcdd5a75ee11bcf31fc461ec8db2ee1a8",
-      "bytes": 1539
+      "sha256": "c420388c15d7675588d1b9f56bdbcd619e7cbd7a636c2bfbc51c4789c2d06da4",
+      "bytes": 1488,
+      "source_git_blob": "251d1c358a0d233b30c26aa744580f3ec92b5100"
     },
     {
       "path": "examples/opencode-agent/review-fixes-evidence.json",
-      "sha256": "4fa78cfb8097adbe6ffac33f48ed3d45fb021fbf7089ff0aa816d697ff52e027",
-      "bytes": 1844
+      "sha256": "d3e8d6961def3ebd52c0f6abb1553a0d60dc3148e562a28d20036bfcf5380a93",
+      "bytes": 1805,
+      "source_git_blob": "ab7581089436743f6c923ccce15552b365441069"
     },
     {
       "path": "examples/opencode-agent/saved-flow-proof-evidence.json",
-      "sha256": "f475b041e2531101e10acd9778eec8e5bfe8c1e476bd6c2d73cce951ec536312",
-      "bytes": 1676
+      "sha256": "d514e1dd07af7463c10fd9152ce654f9464da28920c2086ff665a99d86db4e91",
+      "bytes": 1637,
+      "source_git_blob": "0aaeb532b3b7c80b386b5687e419a60d6051cdcf"
     },
     {
       "path": "examples/opencode-agent/saved_flow_proof.py",
-      "sha256": "e14c51c190c99a55dd5ab78faa555de864546bcb94a5aac4b165e24910ca4776",
-      "bytes": 10566
+      "sha256": "9fb741baf20b2c50cdd5be9a65bc9e8c1e5c0e0d6d2798c3e2e24c7a22671419",
+      "bytes": 10321,
+      "source_git_blob": "92491da4ae9125429547bbdb62cda16c74c923c8"
     },
     {
       "path": "examples/opencode-agent/skill/SKILL.md",
-      "sha256": "f843719b4f4b7a5e8f8b4a5cfbc885ff88db36929eb322a31173390c7ddfab80",
-      "bytes": 277
+      "sha256": "c36e07beb72036fee3b27a3e1d6871102e1a1164f5796d1b263796c4182b4269",
+      "bytes": 270,
+      "source_git_blob": "44de5041f4eb41080ccfd373a2d24c289fd024f8"
     },
     {
       "path": "examples/opencode-agent/smoke_auth_mount.py",
-      "sha256": "3283125bdbbdddb9b8f034368103a17f75702f4be59f6c5e3f7eba7ae9e42c25",
-      "bytes": 2510
+      "sha256": "e3245417e025430d029c7ae11c8a218157c552e83dc9ff5aca611aef317f713b",
+      "bytes": 2436,
+      "source_git_blob": "e1f38ef2301d8c09021207c44411745507e57e87"
     }
-  ]
+  ],
+  "archive_derivation": "git cat-file --batch: exact original blob bytes; no checkout/archive EOL conversion. Earlier archive revisions remain preserved in exp history."
 }

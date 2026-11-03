@@ -5,7 +5,9 @@
     {
       "path": "tests/test_shared/test_migration/test_shared.py",
       "sha256": "8c082970dc2d58838bf4cc6c8077dd2ee1fa9d213e0358cfb141d137a911b6cd",
-      "bytes": 6329
+      "bytes": 6329,
+      "source_git_blob": "f00c122ba47afba592a86f7d99c3ffc9f646002f"
     }
-  ]
+  ],
+  "archive_derivation": "git cat-file --batch: exact original blob bytes; no checkout/archive EOL conversion. Earlier archive revisions remain preserved in exp history."
 }

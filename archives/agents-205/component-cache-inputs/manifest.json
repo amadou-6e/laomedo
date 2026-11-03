@@ -4,23 +4,28 @@
   "files": [
     {
       "path": "examples/github-pr/flow.json",
-      "sha256": "cf6e39576334fada018c4dffbe46ac375360c2f84ff0a8389b32dd9c9e7580c4",
-      "bytes": 33663
+      "sha256": "5d1fb00bc378dbad439a1c3808dfd1f6e5bac0a2f4641247652325c1b5bfe3fc",
+      "bytes": 33134,
+      "source_git_blob": "ef890e0f80faab123a4df687524edf700c71cd68"
     },
     {
       "path": "examples/langflow-contract-routing/flow.json",
-      "sha256": "eb31588d987aac8f7b25402db195ca13a0929c0d9e79dd9f14a72decad2e7f95",
-      "bytes": 104525
+      "sha256": "fbe578a9dc78f0a2909b352e5e96245e49d686c183a7ad1f22eea9424388f83f",
+      "bytes": 102370,
+      "source_git_blob": "34521686c16de2d449fc37a96ce66226f695459a"
     },
     {
       "path": "examples/langflow-workgraph-demo/flow.json",
-      "sha256": "9a3c562b90be45e43b60606165ba06ea7d45f364c764138a79e67656f5c92327",
-      "bytes": 118573
+      "sha256": "c7d92d99aaf65fb64b110ad6df60410f833b904d9abfa10030198bde779d0cfb",
+      "bytes": 116083,
+      "source_git_blob": "5802f16d33354b9f08ca08899e6b4856900ba77f"
     },
     {
       "path": "examples/skill-agent-pilot/pilot-flow.json",
       "sha256": "c726d6d2d63cce7429a55ae6e176b197ef0fe6cdea58f2d4d313672188c378f0",
-      "bytes": 45356
+      "bytes": 45356,
+      "source_git_blob": "ab7db5a935cf388cdb82b8ecbde2e1ed8b299294"
     }
-  ]
+  ],
+  "archive_derivation": "git cat-file --batch: exact original blob bytes; no checkout/archive EOL conversion. Earlier archive revisions remain preserved in exp history."
 }
