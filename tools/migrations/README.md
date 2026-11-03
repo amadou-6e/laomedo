@@ -46,3 +46,7 @@ must never edit in place. Their original bytes and provenance belong to exp;
 the tool needs neither that checkout nor a historical source-body manifest.
 Migrate an explicitly named copy instead. This list is consumer-migration safety
 data, separate from obsolete refactor proof snapshots.
+
+Manual API names are conservatively refused even in comments or string literals.
+Graph migration checks source hashes at every admitted node depth, including
+nested groups; a stale or unknown hash requires manual work before any write.

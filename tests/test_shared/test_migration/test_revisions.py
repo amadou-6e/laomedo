@@ -136,3 +136,52 @@ class GraphRevisionTests(unittest.TestCase):
         self.assertFalse(
             path.with_name(path.name + ".before-module-migration").exists()
         )
+
+    def test_nested_group_revision_tracks_admitted_code_and_refuses_stale_hash(self):
+        code = "from laomedo.skill_store import SkillStore\n"
+        node = {
+            "id": "nested",
+            "data": {
+                "node": {
+                    "metadata": {"code_hash": sha256(code.encode()).hexdigest()[:12]},
+                    "template": {"code": {"value": code}, "task": {"value": "keep"}},
+                }
+            },
+        }
+        graph = {
+            "id": "outer",
+            "nodes": [
+                {
+                    "id": "group",
+                    "data": {
+                        "node": {"flow": {"data": {"nodes": [node], "edges": []}}}
+                    },
+                }
+            ],
+            "edges": [],
+        }
+        source = json.dumps(graph, indent=2)
+        result = migration.migrate_json_source(source)
+        updated = json.loads(result)
+        actual = updated["nodes"][0]["data"]["node"]["flow"]["data"]["nodes"][0][
+            "data"
+        ]["node"]
+        changed = "from laomedo.skills.registry.store import SkillStore\n"
+        self.assertEqual(actual["template"]["code"]["value"], changed)
+        self.assertEqual(
+            actual["metadata"]["code_hash"], sha256(changed.encode()).hexdigest()[:12]
+        )
+        self.assertEqual(
+            result,
+            source.replace(json.dumps(code), json.dumps(changed)).replace(
+                sha256(code.encode()).hexdigest()[:12],
+                sha256(changed.encode()).hexdigest()[:12],
+            ),
+        )
+        self.assertEqual(migration.migrate_value(graph), updated)
+        self.assertEqual(migration.migrate_json_source(result), result)
+        node["data"]["node"]["metadata"]["code_hash"] = "0123456789ab"
+        with self.assertRaisesRegex(
+            migration.ManualMigrationRequired, "does not match"
+        ):
+            migration.migrate_json_source(json.dumps(graph))

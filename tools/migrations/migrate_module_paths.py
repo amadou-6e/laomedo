@@ -31,7 +31,6 @@ SPLIT_MODULES = {
     if symbol.rsplit(".", 1)[0] != target.rsplit(".", 1)[0]
     and symbol.rsplit(".", 1)[0] not in MODULE_PATHS
 }
-RETIRED_SPLIT_MODULES = set()
 if set(MODULE_PATHS.values()) & set(MODULE_PATHS):
     raise ValueError("Migration map targets must be final modules")
 SYMBOL_PATTERN = re.compile(
@@ -728,45 +727,47 @@ def _component_hash_updates(value):
     """
     if not _is_graph(value):
         return {}
-    prefix = () if isinstance(value.get("nodes"), list) else ("data",)
-    nodes = value["nodes"] if not prefix else value["data"]["nodes"]
     updates = {}
-    for index, node in enumerate(nodes):
-        if not isinstance(node, dict):
-            continue
-        data = node.get("data")
-        if not isinstance(data, dict):
-            continue
-        definition = data.get("node", {})
-        if not isinstance(definition, dict):
-            continue
-        metadata = definition.get("metadata")
-        template = definition.get("template")
+
+    def walk(item, path):
+        if isinstance(item, list):
+            for index, child in enumerate(item):
+                walk(child, path + (index,))
+            return
+        if not isinstance(item, dict):
+            return
+        metadata = item.get("metadata")
+        template = item.get("template")
         code_field = template.get("code") if isinstance(template, dict) else None
         code = code_field.get("value") if isinstance(code_field, dict) else None
+        code_path = path + ("template", "code", "value")
         if (
-            not isinstance(metadata, dict)
-            or "code_hash" not in metadata
-            or not isinstance(code, str)
-            or not code
+            _selected_field(code_path, graph=True)
+            and isinstance(metadata, dict)
+            and "code_hash" in metadata
+            and isinstance(code, str)
+            and code
         ):
-            continue
-        migrated = migrate_source(code)
-        if migrated == code:
-            continue  # Unchanged code is not permission to repair an unrelated revision key.
-        existing = metadata["code_hash"]
-        if not isinstance(existing, str) or not re.fullmatch(r"[0-9a-f]{12}", existing):
+            migrated = migrate_source(code)
             if migrated != code:
-                raise ManualMigrationRequired(
-                    "Unknown component code hash format; manual component-revision migration is required"
-                )
-            continue
-        if existing != sha256(code.encode("utf-8")).hexdigest()[:12]:
-            raise ManualMigrationRequired(
-                "Component code hash does not match its original source; manual component-revision migration is required"
-            )
-        path = prefix + ("nodes", index, "data", "node", "metadata", "code_hash")
-        updates[path] = sha256(migrated.encode("utf-8")).hexdigest()[:12]
+                existing = metadata["code_hash"]
+                if not isinstance(existing, str) or not re.fullmatch(
+                    r"[0-9a-f]{12}", existing
+                ):
+                    raise ManualMigrationRequired(
+                        "Unknown component code hash format; manual component-revision migration is required"
+                    )
+                if existing != sha256(code.encode("utf-8")).hexdigest()[:12]:
+                    raise ManualMigrationRequired(
+                        "Component code hash does not match its original source; manual component-revision migration is required"
+                    )
+                updates[path + ("metadata", "code_hash")] = sha256(
+                    migrated.encode("utf-8")
+                ).hexdigest()[:12]
+        for key, child in item.items():
+            walk(child, path + (key,))
+
+    walk(value, ())
     return updates
 
 
