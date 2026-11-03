@@ -3,10 +3,27 @@ import { createHash } from "crypto";
 import { readFileSync } from "fs";
 import { join } from "path";
 import catalog from "@/components/laomedoErrors/node-error-catalog.json";
-import { deleteFiles, fileEdits, moveFiles, readLocalFiles, validateWorkingOperation, type WorkingFile } from "./SkillWorkingTree";
+import { deleteFiles, deleteTree, fileEdits, folderPaths, moveFiles, moveTree, replayTreeChange, readLocalFiles, validateTree, validateWorkingOperation, type WorkingFile } from "./SkillWorkingTree";
 Object.assign(global, { TextDecoder, TextEncoder });
 const file = (path: string, text = "original"): WorkingFile => ({ path, text, kind: "text", bytes: Buffer.byteLength(text), file_hash: "sha256:" + createHash("sha256").update(text).digest("hex") });
 const base = [file("SKILL.md"), file("refs/one.md")];
+test("moving a last child retains its empty parent; folder actions and delta undo preserve dirty text", () => {
+  const before = { files: base, folders: folderPaths(base) };
+  const moved = moveTree(before, 'refs/one.md', 'one.md');
+  expect(moved.folders).toContain('refs');
+  const edited = { ...moved, files: moved.files.map((f) => f.path === 'SKILL.md' ? file(f.path, 'dirty editor text') : f.path === 'one.md' ? file(f.path, 'edited moved file') : f) };
+  const undone = replayTreeChange(edited, { before, after: moved, move: { source: 'refs/one.md', destination: 'one.md' } }, true);
+  expect(undone.files.find((f) => f.path === 'refs/one.md')?.text).toBe('edited moved file');
+  expect(undone.files.find((f) => f.path === 'SKILL.md')?.text).toBe('dirty editor text');
+  const renamed = moveTree(moved, 'refs', 'empty');
+  expect(renamed.folders).toContain('empty'); expect(renamed.folders).not.toContain('refs');
+  const deleted = deleteTree(edited, 'one.md');
+  const restored = replayTreeChange(deleted, { before: edited, after: deleted }, true);
+  expect(restored.files.find((f) => f.path === 'one.md')?.text).toBe('edited moved file');
+  expect(() => validateTree(base, { ...moved, files: [...moved.files, file('refs')] })).toThrow('skill_manual_file_conflict');
+  expect(() => moveTree(moved, 'refs', 'one.md/child')).not.toThrow();
+  expect(() => validateTree(base, moveTree(moved, 'refs', 'one.md/child'))).toThrow('skill_manual_file_conflict');
+});
 function local(name: string, bytes: Uint8Array) {
   const value = new File([bytes], name);
   Object.defineProperty(value, "arrayBuffer", { value: async () => bytes.slice().buffer });

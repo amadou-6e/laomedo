@@ -3,7 +3,7 @@ import { v4 as uuid } from "uuid";
 import { api } from "@/controllers/API/api";
 import { getBaseUrl } from "@/customization/utils/urls";
 import type { Snapshot } from "./SkillHistory";
-import { fileActionErrors, fileEdits, validateEditSize, validateWorkingOperation, workingFiles, type FileBuffers, type WorkingFile } from "./SkillWorkingTree";
+import { fileActionErrors, fileEdits, folderPaths, replayTreeChange, validateEditSize, validateTree, workingFiles, type FileBuffers, type WorkingFile, type WorkingTree, type TreeChange } from "./SkillWorkingTree";
 
 export type SkillEditorState = { skill_id: string; selected_revision: string; head_revision: string; head_commit: string;
   latest_revision: string; can_edit: boolean; can_publish: boolean; edit_enabled: boolean };
@@ -17,6 +17,8 @@ export function useSkillEditing(skillId: string, revision: string, snapshot: Sna
   const [controlsUnavailable, setControlsUnavailable] = useState(false);
   const [refresh, setRefresh] = useState(0);
   const [buffers, setBuffers] = useState<FileBuffers>(new Map());
+  const [folders, setFolders] = useState<string[]>([]);
+  const undo = useRef<TreeChange[]>([]), redo = useRef<TreeChange[]>([]);
   const [candidate, setCandidate] = useState<Candidate | null>(null);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
@@ -36,6 +38,15 @@ export function useSkillEditing(skillId: string, revision: string, snapshot: Sna
     return () => controller.abort();
   }, [skillId, revision, refresh]);
   const files = useMemo(() => workingFiles(snapshot?.files || [], buffers), [snapshot, buffers]);
+  const tree: WorkingTree = { files, folders: folderPaths(files, folders) };
+  const stage = (next: WorkingTree) => {
+    if (!snapshot || !state?.can_edit || busy || pending || submitting.current) return false;
+    try { validateTree(snapshot.files, next); }
+    catch (failure) { setError(failure instanceof Error && (fileActionErrors as readonly string[]).includes(failure.message) ? failure.message : "skill_manual_file_invalid"); return false; }
+    const staged: FileBuffers = new Map(next.files.map((file) => [file.path, file]));
+    for (const file of snapshot.files) if (!staged.has(file.path)) staged.set(file.path, null);
+    setBuffers(staged); setFolders(folderPaths(next.files, next.folders)); setStatus(""); return true;
+  };
   const changes = useMemo(() => snapshot?.revision_id === revision ? fileEdits(snapshot.files, files) : [], [snapshot, revision, files]);
   const dirty = changes.length > 0 || !!candidate;
   useEffect(() => {
@@ -50,7 +61,7 @@ export function useSkillEditing(skillId: string, revision: string, snapshot: Sna
   }, [dirty, pending]);
   const discard = () => {
     if (busy || pending || importing) return;
-    setBuffers(new Map()); setCandidate(null); setMessage(""); setError(""); setStatus("");
+    setBuffers(new Map()); setFolders([]); undo.current = []; redo.current = []; setCandidate(null); setMessage(""); setError(""); setStatus("");
     if (state) onSaved(state.head_revision);
     setRefresh((value) => value + 1);
   };
@@ -68,7 +79,7 @@ export function useSkillEditing(skillId: string, revision: string, snapshot: Sna
           const saved = data as SaveResult;
           if (saved.skill?.skill_id !== skillId || !saved.skill.revision_id || saved.skill.tree_hash !== saved.skill.revision_id || !saved.commit?.commit_id) throw Error();
           const next = { revision: saved.skill.revision_id, commit: saved.commit.commit_id };
-          setCandidate(next); setBuffers(new Map()); onSaved(next.revision);
+          setCandidate(next); setBuffers(new Map()); undo.current = []; redo.current = []; onSaved(next.revision);
           request = { action: "publish", expectedLatest: request.expectedLatest, body: {
             skill_id: skillId, revision_id: next.revision, commit_id: next.commit, expected_latest: request.expectedLatest,
           } };
@@ -88,7 +99,7 @@ export function useSkillEditing(skillId: string, revision: string, snapshot: Sna
       if (definitive) { setPending(null); setRefresh((value) => value + 1); }
     } finally { submitting.current = false; if (live.current) setBusy(false); }
   };
-  return { state, controlsUnavailable, files, editing: !!state?.can_edit, dirty, candidate, changes, message, setMessage, busy, pending, error, status,
+  return { state, controlsUnavailable, files, tree, editing: !!state?.can_edit, dirty, candidate, changes, message, setMessage, busy, pending, error, status,
     dismissError: () => setError(""), refresh: () => { setError(""); setRefresh((value) => value + 1); }, discard,
     reportError: (code: string) => setError(code),
     update: (path: string, text: string) => {
@@ -96,13 +107,17 @@ export function useSkillEditing(skillId: string, revision: string, snapshot: Sna
       if (!file || file.kind !== "text" || !state?.can_edit || busy || pending || importing) return;
       setBuffers((old) => new Map(old).set(path, { ...file, text, bytes: new TextEncoder().encode(text).length })); setStatus("");
     },
-    replaceFiles: (next: WorkingFile[]) => {
-      if (!snapshot || !state?.can_edit || busy || pending || submitting.current) return false;
-      try { validateWorkingOperation(snapshot.files, next); }
-      catch (failure) { setError(failure instanceof Error && (fileActionErrors as readonly string[]).includes(failure.message) ? failure.message : "skill_manual_file_invalid"); return false; }
-      const staged: FileBuffers = new Map(next.map((file) => [file.path, file]));
-      for (const file of snapshot.files) if (!staged.has(file.path)) staged.set(file.path, null);
-      setBuffers(staged); setStatus(""); return true;
+    replaceFiles: (next: WorkingFile[], nextFolders = tree.folders, move?: TreeChange["move"]) => {
+      const after = { files: next, folders: folderPaths(next, nextFolders) };
+      if (!stage(after)) return false;
+      undo.current = [...undo.current.slice(-49), { before: tree, after, move }]; redo.current = []; return true;
+    },
+    undoFiles: (backwards = true): TreeChange["move"] | false | undefined => {
+      if (importing) return false;
+      const from = backwards ? undo.current : redo.current, to = backwards ? redo.current : undo.current;
+      const change = from.at(-1); if (!change || !stage(replayTreeChange(tree, change, backwards))) return false;
+      from.pop(); to.push(change);
+      return change.move && (backwards ? { source: change.move.destination, destination: change.move.source } : change.move);
     },
     publish: () => {
       if (!state?.can_publish || !state.can_edit || !dirty || busy || pending || importing) return;

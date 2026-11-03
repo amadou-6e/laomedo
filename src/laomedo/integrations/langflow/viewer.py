@@ -102,6 +102,7 @@ def install_routes(app, root: Path, authenticate):
                 skill_id,
                 revision_id,
                 include_images=True,
+                include_binary=True,
             )
         except InspectionError as exc:
             code = str(exc)

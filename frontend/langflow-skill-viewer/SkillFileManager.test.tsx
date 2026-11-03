@@ -41,7 +41,7 @@ test("keyboard context menu stays inside the dialog, core entrypoint is protecte
   const menu = await screen.findByRole("menu", { name: "File actions: SKILL.md" });
   expect(menu.closest('[role="dialog"]')).toBe(screen.getByRole("dialog"));
   expect(within(menu).getByRole("menuitem", { name: "Rename..." })).toHaveAttribute("data-disabled");
-  expect(within(menu).getByRole("menuitem", { name: "Delete..." })).toHaveAttribute("data-disabled");
+  expect(within(menu).getByRole("menuitem", { name: "Delete", exact: true })).toHaveAttribute("data-disabled");
   expect(within(menu).getByRole("menuitem", { name: "Copy relative path" })).not.toHaveAttribute("data-disabled");
   fireEvent.contextMenu(within(menu).getByRole("menuitem", { name: "Copy relative path" }), { clientX: 10, clientY: 10 });
   expect(screen.getByRole("menu")).toHaveAttribute("aria-label", "File actions: SKILL.md");
@@ -50,19 +50,32 @@ test("keyboard context menu stays inside the dialog, core entrypoint is protecte
   expect(screen.getByRole("dialog")).toBeInTheDocument();
 });
 
-test("rename stages a new path without writing and deletion cancellation preserves it", async () => {
+test("inline rename and immediate deletion undo/redo stay local and preserve an empty folder", async () => {
   render(<Example />); await screen.findByText("Ready");
   fireEvent.contextMenu(screen.getByRole("button", { name: "a.md", exact: true }), { clientX: 10, clientY: 10 });
   fireEvent.click(await screen.findByRole("menuitem", { name: "Rename..." }));
-  const form = await screen.findByRole("form", { name: "Rename refs/a.md" });
-  fireEvent.change(within(form).getByRole("textbox", { name: "Name" }), { target: { value: "renamed.md" } });
-  fireEvent.click(within(form).getByRole("button", { name: "Rename", exact: true }));
+  const input = await screen.findByRole("textbox", { name: "Rename refs/a.md" });
+  expect(screen.queryByText("Name")).toBeNull();
+  expect(input.closest('[data-skill-file-path]')).toHaveAttribute('data-skill-file-path', 'refs/a.md');
+  fireEvent.change(input, { target: { value: "renamed.md" } });
+  fireEvent.keyDown(input, { key: "Enter" });
   const renamed = await screen.findByRole("button", { name: "renamed.md", exact: true });
   expect(screen.queryByRole("button", { name: "a.md", exact: true })).toBeNull();
-  fireEvent.contextMenu(renamed, { clientX: 10, clientY: 10 });fireEvent.click(await screen.findByRole("menuitem", { name: "Delete..." }));
-  const deletion = await screen.findByRole("form", { name: "Delete refs/renamed.md" });
-  fireEvent.click(within(deletion).getByRole("button", { name: "Cancel", exact: true }));
-  expect(renamed).toBeInTheDocument();
+  fireEvent.contextMenu(renamed, { clientX: 10, clientY: 10 });fireEvent.click(await screen.findByRole("menuitem", { name: "Delete", exact: true }));
+  expect(screen.queryByRole("button", { name: "renamed.md", exact: true })).toBeNull();
+  expect(screen.getByText('(empty · not saved)')).toBeVisible();
+  const tree = screen.getByLabelText('Skill files area');
+  fireEvent.keyDown(tree, { key: 'z', ctrlKey: true });
+  expect(await screen.findByRole('button', { name: 'renamed.md', exact: true })).toBeVisible();
+  fireEvent.keyDown(tree, { key: 'y', ctrlKey: true });
+  expect(screen.queryByRole('button', { name: 'renamed.md', exact: true })).toBeNull();
+  fireEvent.keyDown(tree, { key: 'z', ctrlKey: true });
+  fireEvent.keyDown(await screen.findByRole('button', { name: 'renamed.md', exact: true }), { key: 'x', ctrlKey: true });
+  fireEvent.keyDown(screen.getByRole('group', { name: 'Skill file actions' }), { key: 'v', ctrlKey: true });
+  expect(await screen.findByRole('button', { name: 'renamed.md', exact: true })).toHaveAttribute('title', 'renamed.md');
+  expect(screen.getByText('(empty · not saved)')).toBeVisible();
+  fireEvent.contextMenu(screen.getByRole('button', { name: 'renamed.md', exact: true }));
+  expect(within(await screen.findByRole('menu')).queryByRole('menuitem', { name: 'Move to...' })).toBeNull();
   expect(post.mock.calls.every(([url]) => url.endsWith("/editor"))).toBe(true);
 });
 

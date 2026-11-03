@@ -18,6 +18,7 @@ import BaseModal from "@/modals/baseModal";
 import CommitTree, { RevisionDiff, type Commit, type SkillFile, type Snapshot } from "./SkillHistory";
 import SkillSplitPane from "./SkillSplitPane";
 import SkillFileManager, { type SkillFileManagerHandle } from "./SkillFileManager";
+import SkillBinaryPreview from "./SkillBinaryPreview";
 import SkillOverview from "./SkillOverview";
 import { VscChromeMaximize, VscChromeRestore, VscCode, VscLoading, VscPreview } from "react-icons/vsc";
 import { useSkillEditing } from "./SkillEditing";
@@ -95,7 +96,7 @@ function SkillWorkspace({ skillId, initialRevision, setOpen }: { skillId: string
   const comparison = useRegistryComparison(skillId, manual.state?.latest_revision || "", manual.files);
   const [comparisonPath, setComparisonPath] = useState<string | null>(null);
   const navigationFiles = [...manual.files, ...historicalFiles.filter((old) => !manual.files.some((current) => current.path === old.path))];
-  const navigation = useSkillNavigation(`${skillId}:${revision}`, navigationFiles.map((file) => file.path));
+  const navigation = useSkillNavigation(`${skillId}:${revision}`, [...navigationFiles.map((file) => file.path), ...manual.tree.folders.map((folder) => folder + "/_")]);
   useEffect(() => {
     if (selectedCommit || !snapshot || snapshot.revision_id !== revision) return;
     setTabs((current) => current.every((path) => manual.files.some((file) => file.path === path)) ? current : current.filter((path) => manual.files.some((file) => file.path === path)));
@@ -239,7 +240,7 @@ function SkillWorkspace({ skillId, initialRevision, setOpen }: { skillId: string
             </button>}
           </div>
           {file && <>
-            {file.kind === "binary" ? <p className="min-w-0 overflow-auto break-words p-4">Preview unavailable for binary files.<br /><code className="break-all">{file.file_hash}</code></p> :
+            {file.kind === "binary" ? <SkillBinaryPreview key={`${file.path}:${file.file_hash}`} file={file} /> :
               preview && markdown ? <div className="prose prose-sm max-w-none flex-1 overflow-auto p-4 dark:prose-invert" data-testid="skill-markdown-preview">
                 <ReactMarkdown skipHtml components={{ a: ({ children }) => <span>{children}</span>, img: ({ alt }) => <span>[Image: {alt || "not loaded"}]</span> }}>{file.text || ""}</ReactMarkdown>
               </div> : <Source file={file} match={match} editable={manual.editing && !manual.busy && !manual.pending && !fileImporting} onChange={manual.update} />}

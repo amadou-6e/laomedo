@@ -1,5 +1,5 @@
 import type { IconType } from "react-icons";
-import { SiCss, SiDocker, SiGnubash, SiGo, SiHtml5, SiJavascript, SiJson, SiPython, SiRust, SiToml, SiTypescript, SiYaml } from "react-icons/si";
+import { SiCss, SiDocker, SiGnubash, SiGo, SiHtml5, SiJavascript, SiPython, SiRust, SiToml, SiTypescript, SiYaml } from "react-icons/si";
 import { VscChevronDown, VscChevronRight, VscFile, VscFileBinary, VscFileMedia } from "react-icons/vsc";
 
 type FileAppearance = { Icon: IconType; label: string; color: string };
@@ -13,7 +13,7 @@ const appearances: Record<string, FileAppearance> = {
   python: { Icon: SiPython, label: "Python", color: "text-blue-500 dark:text-blue-300" },
   javascript: { Icon: SiJavascript, label: "JavaScript", color: "text-yellow-700 dark:text-yellow-300" },
   typescript: { Icon: SiTypescript, label: "TypeScript", color: "text-blue-600 dark:text-blue-300" },
-  json: { Icon: SiJson, label: "JSON", color: "text-yellow-700 dark:text-yellow-300" },
+  json: { Icon: ({ size = 16, ...props }) => <svg width={size} height={size} viewBox="0 0 16 16" fill="none" {...props}><path d="M6 2H4v4L2 8l2 2v4h2M10 2h2v4l2 2-2 2v4h-2" stroke="currentColor" strokeWidth="1.2" /></svg>, label: "JSON", color: "text-yellow-700 dark:text-yellow-300" },
   yaml: { Icon: SiYaml, label: "YAML", color: "text-red-600 dark:text-red-300" },
   toml: { Icon: SiToml, label: "TOML", color: "text-red-700 dark:text-red-300" },
   shell: { Icon: SiGnubash, label: "Shell", color: "text-green-700 dark:text-green-300" },

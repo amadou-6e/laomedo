@@ -121,6 +121,8 @@ def apply(checkout):
         "SkillFileManager.test.tsx",
         "SkillWorkingTree.ts",
         "SkillWorkingTree.test.ts",
+        "SkillBinaryPreview.tsx",
+        "SkillBinaryPreview.test.tsx",
         "SkillEditing.tsx",
         "SkillEditing.test.tsx",
         "SkillPublication.tsx",

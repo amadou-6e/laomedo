@@ -7,16 +7,16 @@ export type ExplorerEntry = { path: string; folder: boolean };
 type ExplorerState = { active: string; collapsed: Set<string>; select: (path: string) => void; onToggle: (path: string) => void;
   decorate?: (entry: ExplorerEntry, row: ReactElement) => ReactNode };
 
-function tree(files: SkillFile[]): Branch[] {
+function tree(files: SkillFile[], folders: string[]): Branch[] {
   const roots: Branch[] = [];
-  for (const file of files) {
+  for (const file of [...folders.map((path) => ({ path: path + "/" })), ...files]) {
     let level = roots;
-    const parts = file.path.split("/");
+    const parts = file.path.split("/").filter(Boolean);
     parts.forEach((name, index) => {
       let item = level.find((entry) => entry.name === name);
       if (!item) {
         item = { name, path: parts.slice(0, index + 1).join("/") };
-        if (index < parts.length - 1) item.children = [];
+        if (index < parts.length - 1 || file.path.endsWith("/")) item.children = [];
         level.push(item);
       }
       if (item.children) level = item.children;
@@ -35,7 +35,7 @@ function Folder({ item, ...state }: ExplorerState & { item: Branch }) {
         <span aria-hidden="true" className="h-4 w-4 shrink-0" />
         <SkillFileIcon path={item.path} />
       </>}
-      <span className="min-w-0 truncate">{item.name}</span>
+      <span className="min-w-0 truncate">{item.name}{item.children?.length === 0 && <span className="ml-2 text-xs text-muted-foreground">(empty · not saved)</span>}</span>
     </button>;
   return <li className="min-w-0">
     {state.decorate ? state.decorate({ path: item.path, folder: !!item.children }, row) : row}
@@ -45,6 +45,6 @@ function Folder({ item, ...state }: ExplorerState & { item: Branch }) {
   </li>;
 }
 
-export default function SkillExplorer({ files, ...state }: ExplorerState & { files: SkillFile[] }) {
-  return <ul className="min-w-0">{tree(files).map((item) => <Folder key={item.path} item={item} {...state} />)}</ul>;
+export default function SkillExplorer({ files, folders = [], ...state }: ExplorerState & { files: SkillFile[]; folders?: string[] }) {
+  return <ul className="min-w-0">{tree(files, folders).map((item) => <Folder key={item.path} item={item} {...state} />)}</ul>;
 }

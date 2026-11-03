@@ -5,6 +5,8 @@ import type { SkillFile } from "./SkillHistory";
 export type WorkingFile = SkillFile & { contentBase64?: string; sourcePath?: string };
 export type FileEdit = { path: string; content: string | null; encoding?: "base64" } | { path: string; source_path: string };
 export type FileBuffers = Map<string, WorkingFile | null>;
+export type WorkingTree = { files: WorkingFile[]; folders: string[] };
+export type TreeChange = { before: WorkingTree; after: WorkingTree; move?: { source: string; destination: string } };
 export const fileActionErrors = ["skill_manual_file_invalid", "skill_manual_file_conflict", "skill_manual_file_limit",
   "skill_manual_file_read_failed", "skill_manual_clipboard_unavailable"] as const;
 const MAX_FILE = 512 * 1024, MAX_BUNDLE = 4 * 1024 * 1024;
@@ -13,6 +15,62 @@ const own = (path: string, parent: string) => path === parent || path.startsWith
 export const parentPath = (path: string) => path.split("/").slice(0, -1).join("/");
 export const baseName = (path: string) => path.split("/").at(-1) || "";
 export const joinPath = (folder: string, name: string) => folder ? `${folder}/${name}` : name;
+
+export function folderPaths(files: SkillFile[], folders: string[] = []): string[] {
+  return [...new Set([...folders, ...files.map((file) => parentPath(file.path))].flatMap((path) =>
+    path.split("/").map((_, index, parts) => parts.slice(0, index + 1).join("/")).filter(Boolean)))].sort();
+}
+
+export function validateTree(base: SkillFile[], tree: WorkingTree) {
+  validateWorkingOperation(base, tree.files);
+  const folders = folderPaths(tree.files, tree.folders);
+  if (folders.length > 256) throw Error("skill_manual_file_limit");
+  for (const folder of folders) {
+    const key = folder.toLowerCase();
+    if (folders.some((other) => other !== folder && other.toLowerCase() === key) ||
+      tree.files.some((file) => own(key, file.path.toLowerCase()))) throw Error("skill_manual_file_conflict");
+  }
+}
+
+export function moveTree(tree: WorkingTree, source: string, destination: string): WorkingTree {
+  validateFilePath(destination);
+  const folders = folderPaths(tree.files, tree.folders), folder = folders.includes(source);
+  if (!source || source === "SKILL.md" || own(destination, source) && source !== destination) throw Error("skill_manual_file_invalid");
+  if (source === destination) return tree;
+  if (folders.some((path) => !own(path, source) && path.toLowerCase() === destination.toLowerCase()) ||
+    source.toLowerCase() === destination.toLowerCase()) throw Error("skill_manual_file_conflict");
+  const files = tree.files.some((file) => own(file.path, source)) ? moveFiles(tree.files, source, destination) : tree.files;
+  if (!folder && files === tree.files) throw Error("skill_manual_file_invalid");
+  return { files, folders: folderPaths(files, folders.map((path) => folder && own(path, source) ? destination + path.slice(source.length) : path)) };
+}
+
+export function deleteTree(tree: WorkingTree, path: string): WorkingTree {
+  const folders = folderPaths(tree.files, tree.folders);
+  if (!path || path === "SKILL.md" || !folders.includes(path) && !tree.files.some((file) => own(file.path, path))) throw Error("skill_manual_file_invalid");
+  return { files: tree.files.filter((file) => !own(file.path, path)), folders: folders.filter((folder) => !own(folder, path)) };
+}
+
+/** Apply only the action's path delta; unrelated editor changes remain intact. */
+export function replayTreeChange(current: WorkingTree, change: TreeChange, undo: boolean): WorkingTree {
+  const from = undo ? change.after : change.before, to = undo ? change.before : change.after;
+  const before = new Map(from.files.map((file) => [file.path, file])), after = new Map(to.files.map((file) => [file.path, file]));
+  const files = new Map(current.files.map((file) => [file.path, file]));
+  const moved = new Map<string, WorkingFile>();
+  if (change.move) {
+    const source = undo ? change.move.destination : change.move.source, destination = undo ? change.move.source : change.move.destination;
+    for (const file of current.files) if (own(file.path, source)) moved.set(destination + file.path.slice(source.length), file);
+  }
+  for (const path of new Set([...before.keys(), ...after.keys()])) {
+    if (before.get(path) === after.get(path)) continue;
+    const restored = after.get(path), edited = moved.get(path);
+    if (!restored) files.delete(path);
+    else files.set(path, edited ? { ...edited, path, sourcePath: restored.sourcePath } : restored);
+  }
+  const folders = new Set(current.folders);
+  for (const path of from.folders) if (!to.folders.includes(path)) folders.delete(path);
+  for (const path of to.folders) if (!from.folders.includes(path)) folders.add(path);
+  return { files: [...files.values()], folders: folderPaths([...files.values()], [...folders]) };
+}
 
 export function validateFilePath(path: string) {
   const parts = path.split("/");
