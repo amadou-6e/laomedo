@@ -22,7 +22,7 @@ Acceptance criteria:
 
 *Actual component form, 2026-10-28. The documentation node is unconfigured;
 no repository data or operation outcome is fabricated.*
-Guide: [PR node](../../../../examples/github/README.md).
+Guide: [PR node](../../../../examples/github-pr/README.md).
 
 ## PR-02 — Inspect the selected PR without running it
 
@@ -61,8 +61,8 @@ Acceptance criteria:
 - Confirmed, failed and unknown outcomes remain distinct; uncertain writes are not blindly resent.
 
 Visual: [the actual PR Operation input and Operation Result output](assets/pr-node.png).
-Recorded real example: [original Agent PR feedback](https://github.com/amadou-6e/laomedo/blob/714db418243bc17fff1c2a5bed5181006e21fdee/archives/github-244/files/examples/github-pr/original-agent/README.md)
-and its [evidence](https://github.com/amadou-6e/laomedo/blob/714db418243bc17fff1c2a5bed5181006e21fdee/archives/github-244/files/examples/github-pr/original-agent/evidence.json), dated
+Recorded real example: [original Agent PR feedback](../../../../examples/github-pr/original-agent/README.md)
+and its [evidence](../../../../examples/github-pr/original-agent/evidence.json), dated
 2026-10-15. No new GitHub write was made for these stories.
 
 ## PR-04 — Create a PR before its reference exists

@@ -8,9 +8,7 @@ import unittest
 from unittest.mock import patch
 
 try:
-    from support.retained import load_retained_shared
-
-    live_e2e = load_retained_shared("experiments.exp19.live_e2e")
+    from experiments.exp19 import live_e2e
     from experiments.exp19.probe import _graph
     from experiments.exp19.probe import _pages
 except ModuleNotFoundError as error:

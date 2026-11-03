@@ -120,20 +120,6 @@ class LaomedoCodexAgent(Component):
             )
         self.assertEqual(self.calls, 0)
 
-    async def test_new_feedback_without_legacy_request_fails_before_service_or_agent(
-        self,
-    ):
-        flow = self.build()
-        node = next(node for node in flow["data"]["nodes"] if node["id"] == "skill")
-        node["data"]["node"]["template"]["edit_request"]["value"] = ""
-        with self.assertRaisesRegex(Exception, "skill_feedback_request_required"):
-            await asyncio.wait_for(
-                Graph.from_payload(flow).arun(inputs=[{}], outputs=["skill"]),
-                timeout=20,
-            )
-        self.assertEqual(self.calls, 0)
-        self.assertEqual(self.agent_calls, 0)
-
     async def test_playing_read_only_skill_does_not_schedule_feedback_agent(self):
         graph = Graph.from_payload(self.build())
         graph.prepare(stop_component_id="agent-skill")

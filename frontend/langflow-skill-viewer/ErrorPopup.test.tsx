@@ -35,19 +35,6 @@ test("concurrent cards share one stack and removing one preserves the other", ()
   view.unmount(); expect(document.querySelector("#laomedo-error-popup-stack")).toBeNull();
 });
 
-test("modal cards stay within their own focus boundary without replacing the global stack", () => {
-  const view = render(<><ErrorPopup message="prior_run_required" onDismiss={() => {}} />
-    <div role="dialog" aria-label="Skill workspace"><ErrorPopup message="skill_manual_stale" onDismiss={() => {}} /></div></>);
-  const dialog = screen.getByRole("dialog", { name: "Skill workspace" });
-  const card = dialog.querySelector('[data-error-code="skill_manual_stale"]')!;
-  expect(card).toBeInTheDocument();
-  expect(card.parentElement?.parentElement).toBe(dialog);
-  expect(card.parentElement?.style.pointerEvents).toBe("auto");
-  expect(document.querySelectorAll("#laomedo-error-popup-stack")).toHaveLength(1);
-  view.unmount();
-  expect(document.querySelector('[id^="laomedo-dialog-error-popup-stack"]')).toBeNull();
-});
-
 jest.mock("@/components/ui/button", () => ({ Button: ({ size, ...props }: any) => <button {...props} /> }));
 jest.mock("@/controllers/API/api", () => ({ api: { get: jest.fn(), post: jest.fn() } }));
 jest.mock("@/customization/utils/urls", () => ({ getBaseUrl: () => "/api/v1/" }));

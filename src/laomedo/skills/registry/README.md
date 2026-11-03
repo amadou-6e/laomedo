@@ -33,15 +33,12 @@ None of these helpers depends on source services, Agents or an app framework.
 | Object | Public methods | Meaning |
 | --- | --- | --- |
 | `SkillStore` | `import_skill` | Copy and verify an initial revision; never replace existing latest |
-| `SkillStore` | `import_record` | Read the durable initial import; register legacy root metadata once with original import time explicitly unknown |
-| `SkillStore` | `revision_lineage` | Read verified canonical ancestry oldest first; refuse cycles or missing revisions |
 | `SkillStore` | `revision`, `read_file` | Verify and read immutable metadata or one admitted file |
 | `SkillStore` | `create_draft`, `draft_workspace` | Reserve an independent editable copy and locate it |
 | `SkillStore` | `freeze_draft` | Observe bytes, policy results, provenance and patch; no promotion |
 | `SkillStore` | `promote_draft` | Explicit compare-and-swap promotion under exclusive locks |
 | `SkillReference` | `to_reference_payload` | Project the public skill/revision/tree identity only |
 | `SkillRevision`, `SkillDraft` | `to_record` | Serialize on-disk keys, order, nulls and empty values |
-| `SkillImportRecord` | `create` | Capture import time and stable nonce independently of edit authorization or journal availability |
 | `FrozenSkillDraft` | `from_review`, `to_record` | Derive one coherent review result and its record projection |
 | `SkillPolicyReference`, `SkillRevisionReference`, `SkillTreeReference`, `SkillValidationResult` | No public behavior beyond canonical Pydantic construction | Group admitted identity or observed validation values without introducing a second domain model |
 
@@ -55,14 +52,6 @@ they do not impose new-write models on persisted records. A policy reference ide
 and staging methods for authorized edits and immutable source imports. These
 helpers support collaboration inside Skills; application adapters use the public
 registry and operations interfaces.
-
-An initial import writes `import.json` before publishing `latest.json`. This
-event binds the initial immutable revision, recording time and stable nonce;
-operations materialize its root commit without requiring an edit. Interrupted
-imports reuse that event for the same bytes. Legacy registries without this
-event follow canonical ancestry to the imported root and record its registration
-time explicitly as such; they do not claim to recover the original import time.
-Revision payloads and content hashes stay unchanged.
 
 ## Exact byte behavior and saved consumers
 

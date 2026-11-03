@@ -1,18 +1,12 @@
 """Live issue discovery and graph operations through existing mediation grants."""
 
-from laomedo.github.models import GitHubOperationIntent, GitHubGrantBinding
-
 from contextlib import closing
 from datetime import datetime
 from datetime import timezone
 from hashlib import sha256
 import json
-from laomedo.github.contract import issue_digest
-from laomedo.github.contract import labels_value
-from laomedo.github.contract import repository_from_url
-from laomedo.github.issues.contract import validate_patch
-from laomedo.host.mediation.errors import KnownRejected
-from laomedo.host.mediation.errors import MediationError
+import laomedo.github.issues.contract as _issues_contract
+import laomedo.host.mediation.errors as _mediation_errors
 import re
 
 
@@ -33,17 +27,17 @@ class GitHubIssueGateway:
             )
 
     def _transport(self, repository_url):
-        repository = repository_from_url(repository_url)
+        repository = _issues_contract.repository_from_url(repository_url)
         if repository not in self.transports:
             raise ValueError("repository_connection_unavailable")
         return repository, self.transports[repository]
 
     def discover(self, repository_url, labels, state="open"):
         repository, transport = self._transport(repository_url)
-        labels = labels_value(labels)
+        labels = _issues_contract.labels_value(labels)
         if state not in {"open", "closed", "all"}:
             raise ValueError("issue_state_invalid")
-        available = labels_value(
+        available = _issues_contract.labels_value(
             [item["name"] for item in transport(repository, "label_list", {})["items"]]
         )
         if not set(labels) <= set(available):
@@ -85,7 +79,7 @@ class GitHubIssueGateway:
 
     def execute(self, repository_url, labels, state, issue_number, operation=None):
         repository, transport = self._transport(repository_url)
-        labels = labels_value(labels)
+        labels = _issues_contract.labels_value(labels)
         if (
             state not in {"open", "closed", "all"}
             or type(issue_number) is not int
@@ -122,7 +116,7 @@ class GitHubIssueGateway:
                     raise ValueError("issue_operation_invalid")
                 changes = {"state": "closed"}
             else:
-                changes = validate_patch(operation.get("changes"))
+                changes = _issues_contract.validate_patch(operation.get("changes"))
                 if "state" in changes:
                     raise ValueError("issue_operation_invalid")
             key = (operation["grant_ref"], operation["request_id"])
@@ -148,22 +142,19 @@ class GitHubIssueGateway:
                     raise ValueError()
             except Exception:
                 raise ValueError("issue_grant_unavailable") from None
-            try:
-                input_hash = issue_digest(
-                    GitHubOperationIntent(
-                        repository=repository,
-                        number=issue_number,
-                        labels=labels,
-                        state=state,
-                        operation=operation,
-                        binding=GitHubGrantBinding(
-                            grant_id=authenticated["grant_id"],
-                            run_id=authenticated["run_id"],
-                        ),
-                    ).to_payload()
-                )
-            except ValueError:
-                raise ValueError("issue_grant_unavailable") from None
+            input_hash = _issues_contract.issue_digest(
+                {
+                    "repository": repository,
+                    "number": issue_number,
+                    "labels": labels,
+                    "state": state,
+                    "operation": operation,
+                    "binding": {
+                        "grant_id": authenticated["grant_id"],
+                        "run_id": authenticated["run_id"],
+                    },
+                }
+            )
             with closing(self.mediation._connect()) as db, db:
                 prior = db.execute(
                     "SELECT input_hash,payload,result FROM issue_node_intents WHERE grant_ref=? AND request_id=?",
@@ -204,7 +195,7 @@ class GitHubIssueGateway:
             else {
                 "number": issue_number,
                 "changes": changes,
-                "expected": issue_digest(issue),
+                "expected": _issues_contract.issue_digest(issue),
             }
         )
         if prior is None:
@@ -232,8 +223,8 @@ class GitHubIssueGateway:
                     self.mediation._grant(
                         db, grant["token"], repository, "issue_update"
                     )
-            except MediationError as error:
-                raise KnownRejected(error.code) from None
+            except _mediation_errors.MediationError as error:
+                raise _mediation_errors.KnownRejected(error.code) from None
 
         def scoped_transport(repo, action, body, **binding):
             return transport(repo, action, body, before_write=before_write, **binding)
@@ -257,7 +248,7 @@ class GitHubIssueGateway:
                 else "issue_write_unknown" if status == "unknown" else None
             )
             response = self._result(updated, status, category)
-        except MediationError as error:
+        except _mediation_errors.MediationError as error:
             response = self._result(issue, "failed", error.code)
         return self._finish(key, response)
 
@@ -267,6 +258,6 @@ class GitHubIssueGateway:
             "schema_version": "laomedo.github-issue.v1",
             "issue": issue,
             "fetched_at": datetime.now(timezone.utc).isoformat(),
-            "content_digest": issue_digest(issue) if issue else None,
+            "content_digest": _issues_contract.issue_digest(issue) if issue else None,
             "operation": {"status": status, "error_category": category},
         }

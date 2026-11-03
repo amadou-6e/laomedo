@@ -13,15 +13,19 @@ SOURCE = ROOT / "src" / "laomedo"
 
 
 class ModuleCohesionTests(unittest.TestCase):
-    def test_archived_pr_graph_does_not_return_as_a_production_asset(self):
-        # Exact bytes and source revision are preserved on exp at714db418.
-        self.assertFalse(
-            (ROOT / "examples/github-pr").is_dir()
-            and any(
-                path.is_file() and "__pycache__" not in path.parts
-                for path in (ROOT / "examples/github-pr").rglob("*")
+    def test_historical_graph_inputs_keep_their_original_bytes(self):
+        # Baseline:6069ac99998af97acd314bb2c56c08d4bc2c3f29; migrate copies only.
+        # The Skill campaign is preserved on exp at1d3c2aa with byte provenance;
+        # it is no longer a production test asset. The deferred PR asset remains.
+        expected = {
+            "examples/github-pr/original-agent/historical-flow-before-skill-input.json": "3584ef1108f5be5ddc5b0f7a6f583044fcf31f769874d5368ec86772c63b6b4f",
+        }
+        for relative, digest in expected.items():
+            self.assertEqual(
+                hashlib.sha256((ROOT / relative).read_bytes()).hexdigest(),
+                digest,
+                relative,
             )
-        )
 
     def test_symbol_map_targets_have_a_declared_definition_or_submodule(self):
         targets = set(

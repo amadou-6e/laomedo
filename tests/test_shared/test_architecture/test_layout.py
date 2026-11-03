@@ -16,10 +16,6 @@ class TestLayoutTests(unittest.TestCase):
                 "test_verified_stage.py",
                 "test_skill_*.py",
                 "test_workspace_skill*.py",
-                "test_github_*.py",
-                "test_live_github_*.py",
-                "test_issue_context.py",
-                "test_pr_feedback.py",
             )
             for path in root.glob(pattern)
         )

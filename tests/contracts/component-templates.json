@@ -72,6 +72,22 @@
       "graph_values_sha256": "b6b01e6f3963ad0808f625117e9d0d18ebc8b9bd3bc22e2ae8fa871685bc881a"
     },
     {
+      "path": "examples/github-pr/flow.json",
+      "nodes": [
+        {
+          "node_id": "pr",
+          "component": "components/laomedo/github_pr.py",
+          "has_code_hash": true
+        },
+        {
+          "node_id": "agent",
+          "component": "examples/github-pr/agent.py",
+          "has_code_hash": true
+        }
+      ],
+      "graph_values_sha256": "2799d28ce15a141709f987cf5bd25a796088a81bd0f59472446013d3b4481f50"
+    },
+    {
       "path": "examples/langflow-workgraph-demo/flow.json",
       "nodes": [
         {

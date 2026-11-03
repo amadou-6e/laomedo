@@ -8,7 +8,6 @@ their work. Production service-manager installation remains deployment work.
 
 from __future__ import annotations
 
-from laomedo.github.transport.mediated import GitHubMediatedTransport
 from pathlib import Path
 import argparse
 import json
@@ -92,7 +91,7 @@ def build_services(
         state / "lease", mediator=store, mediation_authority=authority.authorize_lease
     )
     transport = _mediation_service.JournaledTransport(
-        GitHubMediatedTransport(git_transport, rest_transport),
+        _git_transport.GitHubMediatedTransport(git_transport, rest_transport),
         state / "mediator" / "provider-attempts.jsonl",
         state / "mediator" / "push-diagnostics.jsonl",
     )

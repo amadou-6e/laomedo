@@ -28,6 +28,7 @@ from laomedo.skills.inspection.utils import inspect_skill
 from laomedo.skills.operations.models import EditorProvenance
 from laomedo.skills.operations.models import SkillProposal
 from laomedo.skills.operations.models import (
+    ImportedSkillEditor,
     SkillCommit,
     SkillCommitReceipt,
     SkillComparison,
@@ -102,35 +103,6 @@ class SkillOperations:
             raise SkillStoreError("skill_history_integrity_failure")
         return {"commit_id": identity, **record}
 
-    def _import_head(self, db, skill_id):
-        """Materialize the retained import once; callers hold an immediate transaction."""
-        head = db.execute("SELECT id FROM heads WHERE skill=?", (skill_id,)).fetchone()
-        if head is not None:
-            return head["id"]
-        imported = self.store.import_record(skill_id)
-        lineage = self.store.revision_lineage(skill_id)
-        if lineage[0]["revision_id"] != imported.revision_id:
-            raise SkillStoreError("revision_integrity_failure")
-        files = inventory(
-            self.store._revision_dir(skill_id, imported.revision_id) / "bundle"
-        )
-        head_id = self._commit(db, SkillCommit.from_import(imported, files)).commit_id
-        for revision in lineage[1:]:
-            after = inventory(
-                self.store._revision_dir(skill_id, revision["revision_id"]) / "bundle"
-            )
-            reference = SkillReference(
-                skill_id=skill_id,
-                revision_id=revision["revision_id"],
-                tree_hash=revision["tree_hash"],
-            )
-            head_id = self._commit(
-                db,
-                SkillCommit.from_registered_revision(reference, head_id, files, after),
-            ).commit_id
-            files = after
-        return head_id
-
     def prepare(self, skill_id, revision_id, commit_id=""):
         """Reserve an edit capability for the exact Skill, base and policy without changing bundle bytes."""
         policy = self.policies.get(skill_id)
@@ -140,10 +112,36 @@ class SkillOperations:
         authoring = summary_authoring(snapshot)
         with self.connect() as db:
             db.execute("BEGIN IMMEDIATE")
-            head_id = self._import_head(db, skill_id)
-            base = self._read(db, skill_id, head_id)
+            head = db.execute(
+                "SELECT id FROM heads WHERE skill=?", (skill_id,)
+            ).fetchone()
+            if head is None:
+                if (
+                    commit_id
+                    or self.store.revision(skill_id)["revision_id"] != revision_id
+                ):
+                    raise ConflictError("skill_base_changed")
+                head = {
+                    "id": self._commit(
+                        db,
+                        SkillCommit(
+                            skill_id=skill_id,
+                            revision_id=revision_id,
+                            parent_commit=None,
+                            created_at=datetime.now(timezone.utc).isoformat(),
+                            message="Import existing immutable skill",
+                            files=[],
+                            patch="",
+                            editor=ImportedSkillEditor(),
+                            nonce=uuid4().hex,
+                        ),
+                    ).commit_id
+                }
+            base = self._read(db, skill_id, head["id"])
             if base["revision_id"] != revision_id or (
-                commit_id != head_id if commit_id else base["parent_commit"] is not None
+                commit_id != head["id"]
+                if commit_id
+                else base["parent_commit"] is not None
             ):
                 raise ConflictError("skill_base_changed")
             ticket = secrets.token_hex(32)
@@ -152,7 +150,7 @@ class SkillOperations:
                 (
                     ticket,
                     skill_id,
-                    head_id,
+                    head["id"],
                     json.dumps(policy),
                     time.time() + 300,
                     time.monotonic(),
@@ -160,7 +158,7 @@ class SkillOperations:
             )
         return {
             "ticket": ticket,
-            "base_commit": head_id,
+            "base_commit": head["id"],
             "snapshot": snapshot,
             "policy": policy,
             **authoring,
@@ -202,13 +200,12 @@ class SkillOperations:
             self.store.revision(row["skill"], base["revision_id"])
             after = dict(before)
             for edit in operation.files:
-                content = edit.to_bytes(before)
-                if content is None:
+                if edit.content is None:
                     if edit.path not in after:
                         raise SkillStoreError("skill_file_missing")
                     del after[edit.path]
                 else:
-                    after[edit.path] = content
+                    after[edit.path] = edit.content.encode()
             if not has_description(after.get("SKILL.md", b"").decode("utf-8-sig")):
                 raise SkillStoreError("skill_summary_required")
             validate_bundle(after)
@@ -288,11 +285,7 @@ class SkillOperations:
                 "SELECT id FROM heads WHERE skill=?", (skill_id,)
             ).fetchone()
             items, visited = [], set()
-            if not before and head is None:
-                db.execute("BEGIN IMMEDIATE")
-                current = self._import_head(db, skill_id)
-            else:
-                current = before or head["id"]
+            current = before or (head["id"] if head else None)
             while current and len(items) < 100:
                 if current in visited:
                     raise SkillStoreError("skill_history_limit")
@@ -328,8 +321,7 @@ class SkillOperations:
                     self.store._revision_dir(skill_id, parent["revision_id"]) / "bundle"
                 )
                 if parent
-                # Old journals used an empty root patch. Preserve their hashes.
-                else after if not record["files"] and not record["patch"] else {}
+                else after
             )
             if parent:
                 inspect_skill(self.store.root, skill_id, parent["revision_id"])

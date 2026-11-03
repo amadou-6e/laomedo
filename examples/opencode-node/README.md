@@ -32,7 +32,7 @@ python examples/opencode-node/build_flow.py --reference reference.json --model o
 The reference file must contain the selected real `skill_id`, `revision_id` and
 `tree_hash`. The saved example uses the same read-only project inspection skill
 as the graph activity verification. The bounded verification workspace contains a byte-identical excerpt of the first
-six lines of the real `examples/github/README.md`, plus the pinned skill. Change the runner's source workspace when
+six lines of the real `examples/github-pr/README.md`, plus the pinned skill. Change the runner's source workspace when
 using the node for other projects.
 
 Install the whole Laomedo component category and runtime package. The OpenCode

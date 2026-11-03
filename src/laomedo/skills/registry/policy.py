@@ -6,7 +6,6 @@ from pathlib import PurePosixPath
 from laomedo.skills.registry.errors import SkillStoreError
 from laomedo.skills.registry.hashing import canonical_json, hash_bytes
 from laomedo.skills.registry.paths import validate_name, validate_relative_path
-from laomedo.skills.registry.settings import ASSET_SUFFIXES
 
 
 def validate_policy(policy: dict) -> dict:
@@ -61,7 +60,7 @@ def validate_policy(policy: dict) -> dict:
         if not isinstance(policy[key], bool):
             raise SkillStoreError("invalid_policy_boolean")
     safe_documents = {".md", ".txt", ".json", ".yaml", ".yml"}
-    safe_assets = ASSET_SUFFIXES
+    safe_assets = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico", ".pdf"}
     script_suffixes = {
         ".py",
         ".js",
@@ -139,15 +138,9 @@ def validate_draft(
         if relative not in draft and not policy["allow_deletions"]:
             errors.append("deletion_forbidden")
         if relative in draft:
-            binary = b"\0" in draft[relative]
             try:
                 draft[relative].decode("utf-8")
             except UnicodeDecodeError:
-                binary = True
-            if binary and not (
-                policy["allow_assets"]
-                and PurePosixPath(relative).suffix.lower() in ASSET_SUFFIXES
-            ):
                 errors.append("non_utf8_changed_file")
     for relative, data in draft.items():
         if len(data) > policy["max_file_bytes"]:

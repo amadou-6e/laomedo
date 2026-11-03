@@ -1,7 +1,38 @@
 """Shared narrow issue identities and mutation payload validation."""
 
-from laomedo.github.contract import labels_value
-from laomedo.github.issues.models import GitHubIssue
+from urllib.parse import urlsplit
+import hashlib
+import json
+import re
+
+
+def repository_from_url(value):
+    if not isinstance(value, str):
+        raise ValueError("repository_url_invalid")
+    parsed = urlsplit(value)
+    if (
+        parsed.scheme != "https"
+        or parsed.hostname != "github.com"
+        or parsed.username
+        or parsed.password
+        or parsed.port
+        or parsed.query
+        or parsed.fragment
+        or not re.fullmatch(r"/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/?", parsed.path)
+    ):
+        raise ValueError("repository_url_invalid")
+    return parsed.path.strip("/").lower()
+
+
+def labels_value(value):
+    if (
+        not isinstance(value, list)
+        or len(value) > 100
+        or any(not isinstance(v, str) or not v or len(v) > 100 for v in value)
+        or len(set(value)) != len(value)
+    ):
+        raise ValueError("labels_invalid")
+    return sorted(value)
 
 
 def issue_value(raw, repository, number):
@@ -30,17 +61,28 @@ def issue_value(raw, repository, number):
         if not isinstance(label, dict) or not isinstance(label.get("name"), str):
             raise ValueError("issue_response_invalid")
         names.append(label["name"])
-    return GitHubIssue(
-        repository=repository,
-        number=number,
-        url=raw["html_url"],
-        node_id=raw["node_id"],
-        title=raw["title"],
-        body=raw.get("body") or "",
-        labels=labels_value(names),
-        state=raw["state"],
-        updated_at=raw["updated_at"],
-    ).to_payload()
+    return {
+        "repository": repository,
+        "number": number,
+        "url": raw["html_url"],
+        "node_id": raw["node_id"],
+        "title": raw["title"],
+        "body": raw.get("body") or "",
+        "labels": labels_value(names),
+        "state": raw["state"],
+        "updated_at": raw["updated_at"],
+    }
+
+
+def issue_digest(value):
+    return (
+        "sha256:"
+        + hashlib.sha256(
+            json.dumps(
+                value, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+            ).encode()
+        ).hexdigest()
+    )
 
 
 def validate_patch(value):

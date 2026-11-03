@@ -11,7 +11,7 @@ export type ErrorContext = {
 export type NodeFailure = Description & { diagnostics: Record<string, string> };
 const entries: Record<string, Description> = catalog;
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const operations = new Set(["fresh", "start", "resume", "status", "cancel", "modify", "close", "save", "publish"]);
+const operations = new Set(["fresh", "start", "resume", "status", "cancel", "modify", "close"]);
 const fallback: Description = {
   title: "The node could not confirm completion",
   description: "An unrecognized failure prevented a confirmed result. Its cause has not been established.",
@@ -37,26 +37,8 @@ function codeFromMessage(raw: unknown): string | undefined {
 }
 
 function structuredFailure(value: unknown, depth = 0): Record<string, unknown> | undefined {
-  if (depth > 5) return;
-  // Feedback Task outputs serialize the same GitHub operation envelope as JSON.
-  // Admit only its versioned schema; ordinary text and embedded PR bodies are data.
-  // The 256 KiB body contract can expand sixfold under JSON ASCII escaping.
-  if (typeof value === "string" && value.length <= 2 * 1024 * 1024 && value.trimStart().startsWith("{")) {
-    try {
-      const parsed = JSON.parse(value);
-      if (parsed?.schema_version === "laomedo.github-pr.v1" || parsed?.schema_version === "laomedo.github-issue.v1") value = parsed;
-    } catch { /* An ordinary message is not a structured failure. */ }
-  }
-  if (!value || typeof value !== "object" || Array.isArray(value)) return;
+  if (!value || typeof value !== "object" || depth > 5 || Array.isArray(value)) return;
   const item = value as Record<string, unknown>;
-  if (item.schema_version === "laomedo.github-pr.v1" || item.schema_version === "laomedo.github-issue.v1") {
-    const operation = item.operation;
-    if (operation && typeof operation === "object" && !Array.isArray(operation)) {
-      const result = operation as Record<string, unknown>;
-      if (["failed", "unknown"].includes(String(result.status)) && typeof result.error_category === "string") return result;
-    }
-    return;
-  }
   if (typeof item.error_category === "string" && item.status !== "completed") return item;
   if (["failed", "unknown", "timeout", "interrupted"].includes(String(item.status)) &&
       typeof item.run_id === "string" && uuid.test(item.run_id)) return item;
