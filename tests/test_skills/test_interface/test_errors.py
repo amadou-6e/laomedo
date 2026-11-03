@@ -8,6 +8,22 @@ from support.paths import repository_root
 
 
 class ErrorCatalogueTests(unittest.TestCase):
+    def test_removed_request_recovery_names_the_available_controls(self):
+        root = repository_root()
+        catalog = json.loads(
+            (root / "frontend/langflow-skill-viewer/node-error-catalog.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        recovery = catalog["skill_feedback_request_required"]["recovery"]
+        self.assertNotIn("Edit Request", recovery)
+        for control in ("Operation", "Skill files", "Publish"):
+            self.assertIn(control, recovery)
+        self.assertIn(
+            "Advanced settings",
+            catalog["immutable_skill_revision_required"]["recovery"],
+        )
+
     def test_skill_and_feedback_producers_have_descriptive_entries(self):
         root = repository_root()
         catalog = json.loads(

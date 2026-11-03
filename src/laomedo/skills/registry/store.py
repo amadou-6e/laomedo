@@ -26,11 +26,13 @@ from laomedo.skills.registry.errors import SkillStoreError
 from laomedo.skills.registry.models import (
     FrozenSkillDraft,
     SkillDraft,
+    SkillImportRecord,
     SkillPolicyReference,
     SkillRevision,
 )
 import os
 import shutil
+from pydantic import ValidationError
 
 
 class SkillStore:
@@ -148,7 +150,21 @@ class SkillStore:
             os.close(descriptor)
             if (skill / "latest.json").exists():
                 raise ConflictError("skill_already_exists")
+            import_path = skill / "import.json"
+            if import_path.exists():
+                # An interrupted import may have recorded the event before latest.
+                imported = self._read_import(skill_id)
+                if tree_hash(inventory(source)) != imported.revision_id:
+                    raise ConflictError("skill_already_exists")
+            else:
+                imported = None
             record = self._store_revision(skill_id, source, None)
+            if imported is not None:
+                if imported.revision_id != record["revision_id"]:
+                    raise ConflictError("skill_already_exists")
+            else:
+                imported = SkillImportRecord.create(skill_id, record["revision_id"])
+                write_json(import_path, imported.model_dump())
             write_json(
                 skill / "latest.json",
                 {
@@ -159,6 +175,56 @@ class SkillStore:
             return record
         finally:
             lock.unlink(missing_ok=True)
+
+    def _read_import(self, skill_id: str) -> SkillImportRecord:
+        """Validate import metadata and its root bytes without changing revision schemas."""
+        try:
+            imported = SkillImportRecord(
+                **read_json(self._skill(skill_id) / "import.json")
+            )
+        except (ValidationError, ValueError):
+            raise SkillStoreError("revision_integrity_failure") from None
+        root = self.revision(skill_id, imported.revision_id)
+        if imported.skill_id != skill_id or root["parent_revision"] is not None:
+            raise SkillStoreError("revision_integrity_failure")
+        return imported
+
+    def import_record(self, skill_id: str) -> SkillImportRecord:
+        """Read the import event, registering an older root once without inventing its date."""
+        skill = self._skill(skill_id)
+        if (skill / "import.json").exists():
+            return self._read_import(skill_id)
+        # Share import's exclusion lock; never race a partially published import.
+        lock = skill / "import.lock"
+        try:
+            descriptor = os.open(lock, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        except FileExistsError:
+            raise ConflictError("import_busy") from None
+        try:
+            os.close(descriptor)
+            if (skill / "import.json").exists():
+                return self._read_import(skill_id)
+            root = self.revision_lineage(skill_id)[0]
+            imported = SkillImportRecord.create(
+                skill_id, root["revision_id"], legacy=True
+            )
+            write_json(skill / "import.json", imported.model_dump())
+            return imported
+        finally:
+            lock.unlink(missing_ok=True)
+
+    def revision_lineage(self, skill_id: str) -> list[dict]:
+        """Read verified canonical ancestry oldest first, refusing cycles or missing bytes."""
+        current = self.revision(skill_id)
+        revisions, visited = [], set()
+        while True:
+            if current["revision_id"] in visited:
+                raise SkillStoreError("revision_integrity_failure")
+            visited.add(current["revision_id"])
+            revisions.append(current)
+            if current["parent_revision"] is None:
+                return list(reversed(revisions))
+            current = self.revision(skill_id, current["parent_revision"])
 
     def revision(self, skill_id: str, revision_id: str | None = None) -> dict:
         """Read the immutable revision record for an admitted Skill and revision identity."""

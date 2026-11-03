@@ -12,9 +12,10 @@
   assertions into concern-owned tests rather than importing campaign scripts.
   Production tests must not fetch or require `exp`. No secrets or private runtime
   state belong in either branch.
-- The current cleanup covers Shared preparation and Skills. Agent/GitHub
-  experiments and their existing test/CI dependencies are deferred, not examples
-  to follow for new work.
+- GitHub owns its selected follow-on cleanup after Shared preparation and Skills.
+  Agent experiments and their existing test/CI dependencies remain deferred,
+  except explicit import/template migrations needed by a selected owner. Their
+  presence is not permission to add new investigations to production.
 
 ## Python formatting
 

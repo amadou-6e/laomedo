@@ -23,7 +23,7 @@ Acceptance criteria:
 *Actual component form, 2026-10-28. The documentation node is unconfigured;
 no repository data or operation outcome is fabricated.*
 
-Guide: [Issue node](../../../../examples/github-issue/README.md).
+Guide: [Issue node](../../../../examples/github/README.md).
 
 ## ISSUE-02 — Inspect the selected issue without running it
 
@@ -44,7 +44,7 @@ Acceptance criteria:
 
 *Actual empty state, 2026-10-28. This illustrates the selection requirement;
 it does not demonstrate a populated live issue or a successful provider read.*
-Guide: [Issue inspection controls](../../../../examples/github-issue/README.md#issue-inspection-controls).
+Guide: [Issue inspection controls](../../../../examples/github/README.md#issue-inspection-controls).
 
 ## ISSUE-03 — Apply an operation to the selected issue
 
@@ -62,5 +62,5 @@ Acceptance criteria:
 - Confirmed, failed and unknown outcomes remain distinct; uncertain writes are not blindly resent.
 
 Visual: [the actual Issue Operation input and Operation Result output](assets/issue-node.png).
-See the [Issue operation guide](../../../../examples/github-issue/README.md).
+See the [Issue operation guide](../../../../examples/github/README.md).
 No new issue mutation was performed for this documentation.

@@ -3,6 +3,9 @@
 from http.server import BaseHTTPRequestHandler
 import json
 import secrets
+from pydantic import ValidationError
+from laomedo.skills.operations.contract import MANUAL_ERROR_CODES
+from laomedo.skills.registry.errors import SkillStoreError
 
 
 class SkillOperationRequestHandler(BaseHTTPRequestHandler):
@@ -44,6 +47,15 @@ class SkillOperationRequestHandler(BaseHTTPRequestHandler):
                 "history": {"skill_id", "revision_id", "before"},
                 "diff": {"skill_id", "commit_id"},
                 "compare": {"skill_id", "commit_id", "revision_id"},
+                "editor": {"skill_id", "revision_id"},
+                "save": {
+                    "request_id",
+                    "skill_id",
+                    "revision_id",
+                    "commit_id",
+                    "operation",
+                },
+                "publish": {"skill_id", "revision_id", "commit_id", "expected_latest"},
             }
             if (
                 action not in fields
@@ -52,7 +64,49 @@ class SkillOperationRequestHandler(BaseHTTPRequestHandler):
                 or set(body) != fields[action]
             ):
                 raise ValueError("skill_request_invalid")
-            self.reply(200, getattr(self.server.operations, action)(**body))
-        except Exception:
+            owner = (
+                self.server.manual
+                if action in {"editor", "save", "publish"}
+                else self.server.operations
+            )
+            self.reply(200, getattr(owner, action)(**body))
+        except Exception as exc:
             # Never disclose parser data, source paths, tickets or tracebacks.
-            self.reply(400, {"error_category": "skill_operation_refused"})
+            if self.path in {
+                "/v1/skill-operations/" + name for name in ("editor", "save", "publish")
+            }:
+                code = str(exc) if isinstance(exc, SkillStoreError) else ""
+                if code not in MANUAL_ERROR_CODES:
+                    if code in {
+                        "skill_base_changed",
+                        "base_revision_changed",
+                        "promotion_busy",
+                        "reviewed_ref_mismatch",
+                    }:
+                        code = "skill_manual_stale"
+                    elif code == "skill_edit_not_authorized":
+                        code = "skill_manual_not_authorized"
+                    elif code == "skill_ticket_expired":
+                        code = "skill_manual_save_expired"
+                    elif code in {
+                        "skill_edit_policy_denied",
+                        "skill_summary_required",
+                        "skill_edit_no_change",
+                    }:
+                        code = "skill_manual_policy_denied"
+                    elif code in {
+                        "invalid_skill_id",
+                        "invalid_revision_id",
+                        "unsafe_relative_path",
+                        "skill_operation_invalid",
+                        "skill_file_missing",
+                    } or (
+                        not isinstance(exc, SkillStoreError)
+                        and isinstance(exc, (ValidationError, ValueError, TypeError))
+                    ):
+                        code = "skill_manual_invalid"
+                    else:
+                        code = "skill_manual_unavailable"
+                self.reply(400, {"error_category": code})
+            else:
+                self.reply(400, {"error_category": "skill_operation_refused"})
