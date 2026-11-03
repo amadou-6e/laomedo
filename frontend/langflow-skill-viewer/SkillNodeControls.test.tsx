@@ -78,7 +78,7 @@ test("Source failures are inline without a Discovery row; empty and successful s
   const error = screen.getByRole("alert");
   expect(error).toHaveTextContent("Check source access and refresh.");
   expect(error.querySelector("button")).toHaveAttribute("data-code", SKILL_SOURCE_ERROR_CODE);
-  expect(isKnownNodeError(SKILL_SOURCE_ERROR_CODE)).toBe(true);
+  expect(isKnownNodeError(SKILL_SOURCE_ERROR_CODE, true)).toBe(true);
   expect(screen.getByRole("textbox", { name: "source" }).nextElementSibling).toBe(error);
   view.rerender(renderNode(node("https://github.com/owner/repo", "2 skills found. Choose a Skill.")));
   expect(screen.queryByRole("alert")).toBeNull();
