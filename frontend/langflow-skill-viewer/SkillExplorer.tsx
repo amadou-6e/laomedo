@@ -27,7 +27,7 @@ function tree(files: SkillFile[], folders: string[]): Branch[] {
 
 function Folder({ item, ...state }: ExplorerState & { item: Branch }) {
   const expanded = !state.collapsed.has(item.path);
-  const row = <button type="button" title={item.path} className="flex h-7 w-full min-w-0 items-center gap-1 rounded px-1 text-left text-sm hover:bg-muted"
+  const row = <button type="button" title={item.path} className="flex h-7 w-full min-w-0 items-center gap-1 rounded border-0 px-1 text-left text-sm outline-none ring-0 hover:bg-muted focus-visible:bg-[#005fb8] focus-visible:text-white focus-visible:outline-none focus-visible:ring-0 dark:focus-visible:bg-[#4aa0ff] dark:focus-visible:text-black"
       aria-expanded={item.children ? expanded : undefined}
       aria-current={!item.children && state.active === item.path ? "true" : undefined}
       onClick={() => item.children ? state.onToggle(item.path) : state.select(item.path)}>

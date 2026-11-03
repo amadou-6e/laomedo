@@ -20,16 +20,15 @@ export default function SkillBinaryPreview({ file }: { file: WorkingFile }) {
     } catch { return null; }
   }, [file]);
   const [limit, setLimit] = useState(4096);
-  return <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-auto p-4" aria-label={`Binary preview: ${file.path}`}>
-    <p className="mb-3 break-all text-xs text-muted-foreground">{file.bytes} bytes · {file.file_hash}</p>
-    {content?.url && !failed ? <img src={content.url} alt={`Preview of ${file.path}`} className="min-h-0 max-w-full self-center object-contain" onError={() => setFailed(true)} /> :
+  return <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden" aria-label={`Binary preview: ${file.path}`}>
+    {content?.url && !failed ? <img src={content.url} alt={`Preview of ${file.path}`} className="absolute inset-0 h-full w-full object-contain" onError={() => setFailed(true)} /> :
       content ? <>
-        {failed && <p role="status" className="mb-2 text-sm">The image could not be decoded. Showing its bytes.</p>}
-        <pre tabIndex={0} aria-label={`Hex bytes: ${file.path}`} className="overflow-auto text-xs leading-5">{Array.from({ length: Math.ceil(Math.min(limit, content.bytes.length) / 16) }, (_, row) => {
+        {failed && <p role="status" className="shrink-0 p-3 text-sm">The image could not be decoded. Showing its bytes.</p>}
+        <pre tabIndex={0} aria-label={`Hex bytes: ${file.path}`} className="min-h-0 flex-1 overflow-auto p-3 text-xs leading-5">{Array.from({ length: Math.ceil(Math.min(limit, content.bytes.length) / 16) }, (_, row) => {
           const offset = row * 16, values = [...content.bytes.subarray(offset, offset + 16)];
           return `${offset.toString(16).padStart(8, "0")}  ${values.map((byte) => byte.toString(16).padStart(2, "0")).join(" ").padEnd(47)}  ${values.map((byte) => byte >= 32 && byte < 127 ? String.fromCharCode(byte) : ".").join("")}`;
         }).join("\n")}</pre>
-        {limit < content.bytes.length && <button type="button" className="mt-2 self-start rounded border px-2 py-1 text-sm" onClick={() => setLimit((value) => value + 4096)}>Show more bytes</button>}
-      </> : <p className="text-sm">Preview bytes are unavailable for this file.</p>}
+        {limit < content.bytes.length && <button type="button" className="m-2 shrink-0 self-start rounded border px-2 py-1 text-sm" onClick={() => setLimit((value) => value + 4096)}>Show more bytes</button>}
+      </> : <p className="p-3 text-sm">Preview bytes are unavailable for this file.</p>}
   </div>;
 }

@@ -123,6 +123,8 @@ def apply(checkout):
         "SkillWorkingTree.test.ts",
         "SkillBinaryPreview.tsx",
         "SkillBinaryPreview.test.tsx",
+        "SkillDiscardDialog.tsx",
+        "SkillDiscardDialog.test.tsx",
         "SkillEditing.tsx",
         "SkillEditing.test.tsx",
         "SkillPublication.tsx",

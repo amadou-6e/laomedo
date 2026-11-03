@@ -22,6 +22,7 @@ import CommitTree, { RevisionDiff, type Commit, type SkillFile, type Snapshot } 
 import SkillSplitPane from "./SkillSplitPane";
 import SkillFileManager, { type SkillFileManagerHandle } from "./SkillFileManager";
 import SkillBinaryPreview from "./SkillBinaryPreview";
+import SkillDiscardDialog from "./SkillDiscardDialog";
 import SkillOverview from "./SkillOverview";
 import { VscChromeMaximize, VscChromeRestore, VscCode, VscLoading, VscPreview } from "react-icons/vsc";
 import { useSkillEditing } from "./SkillEditing";
@@ -92,6 +93,7 @@ function SkillWorkspace({ skillId, initialRevision, setOpen }: { skillId: string
   const [historicalFiles, setHistoricalFiles] = useState<SkillFile[]>([]);
   const [selectedCommit, setSelectedCommit] = useState<Commit | null>(null);
   const [discardAction, setDiscardAction] = useState<"close" | "discard" | null>(null);
+  const discardOpener = useRef<HTMLElement | null>(null);
   const [closeNotice, setCloseNotice] = useState(false);
   const [fileImporting, setFileImporting] = useState(false);
   const fileActions = useRef<SkillFileManagerHandle>(null);
@@ -137,9 +139,10 @@ function SkillWorkspace({ skillId, initialRevision, setOpen }: { skillId: string
   const requestClose = (value: boolean) => {
     if (value) return;
     if (manual.busy || manual.pending || fileImporting) { setCloseNotice(true); return; }
-    if (manual.dirty) setDiscardAction("close"); else setOpen(false);
+    if (manual.dirty) { discardOpener.current = document.activeElement as HTMLElement; setDiscardAction("close"); } else setOpen(false);
   };
   return <div className="contents" onKeyDownCapture={(event) => {
+    if (discardAction) return;
     // Keep canvas panning from consuming native button activation with Space.
     if (event.key === " " && event.target instanceof Element && event.target.closest("button")) event.stopPropagation();
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "f") {
@@ -151,6 +154,7 @@ function SkillWorkspace({ skillId, initialRevision, setOpen }: { skillId: string
     width={fullPage ? "100dvw" : "85dvw"} height={fullPage ? "100dvh" : undefined}
     className={fullPage ? "!max-h-[100dvh] !max-w-none !rounded-none" : "!min-w-0 !max-w-[100dvw]"}
     onEscapeKeyDown={(event) => {
+      if (discardAction) { event.preventDefault(); event.stopImmediatePropagation(); setDiscardAction(null); return; }
       // Radix handles Escape at document level before the card's React handler.
       // Consume the native event too: removing the card during document capture
       // must not send the same Escape to outer node/browser dismissal handlers.
@@ -182,14 +186,6 @@ function SkillWorkspace({ skillId, initialRevision, setOpen }: { skillId: string
       {closeNotice && (manual.busy || manual.pending) && <p role="status" className="mb-2 shrink-0 text-sm">Wait for confirmation, or use Check result before closing. Closing cannot cancel a save or publication.</p>}
       {fileImporting && <p role="status" className="mb-2 inline-flex shrink-0 items-center gap-1 text-sm"><VscLoading aria-hidden="true" className="animate-spin" />Importing local files...</p>}
       {manual.status && <p role="status" className="mb-2 shrink-0 text-sm">{manual.status}</p>}
-      {discardAction && <div role="alertdialog" aria-label="Unsaved Skill changes" className="mb-2 shrink-0 rounded border p-2 text-sm">
-        <p>Discard working changes and reload the latest saved files? Saved commits remain in history. Copy any text you want to keep first.</p><div className="mt-2 flex gap-2">
-          <button type="button" className="rounded border px-3 py-1" onClick={() => setDiscardAction(null)}>Keep editing</button>
-          <button type="button" className="rounded border px-3 py-1" onClick={() => { manual.discard(); if (discardAction === "close") setOpen(false);
-
-            setDiscardAction(null); }}>Discard changes</button>
-        </div>
-      </div>}
       {loading && <p role="status">Loading selected skill revision…</p>}
       {error && <div role="alert"><p>Skill files unavailable: {error}</p>
         <button type="button" className="mt-2 rounded border px-3 py-1" onClick={() => setReload(reload + 1)}>Retry</button></div>}
@@ -267,11 +263,19 @@ function SkillWorkspace({ skillId, initialRevision, setOpen }: { skillId: string
         {!manual.busy && manual.pending && <button type="button" className="rounded border px-3 py-1" onClick={manual.reconcile}>Check result</button>}
         {manual.state && (!manual.state.can_edit || !manual.state.can_publish) && !manual.busy && !manual.pending && <button type="button" className="rounded border px-3 py-1" onClick={manual.refresh}>Retry edit controls</button>}
         <button type="button" className="rounded border px-3 py-1 disabled:opacity-50" disabled={manual.busy || !!manual.pending || fileImporting}
-          onClick={() => setDiscardAction("discard")}>Discard</button>
+          onClick={(event) => { discardOpener.current = event.currentTarget; setDiscardAction("discard"); }}>Discard</button>
         <button type="button" className="rounded border bg-primary px-3 py-1 text-primary-foreground disabled:opacity-50"
           disabled={!comparison.base || !comparison.paths.length || !manual.state?.can_edit || !manual.state?.can_publish || manual.busy || !!manual.pending || fileImporting} onClick={() => { setComparisonPath(null); manual.publish(); }}>Publish</button>
       </div>}
       </div>
+      <SkillDiscardDialog open={discardAction !== null} disabled={manual.busy || !!manual.pending || fileImporting}
+        cancel={() => setDiscardAction(null)} confirm={() => {
+          if (manual.busy || manual.pending || fileImporting) return;
+          manual.discard(); if (discardAction === "close") setOpen(false); setDiscardAction(null);
+        }} restoreFocus={() => requestAnimationFrame(() => {
+          if (discardOpener.current?.isConnected) discardOpener.current.focus();
+          else content.current?.querySelector<HTMLButtonElement>('button[title="SKILL.md"]')?.focus();
+        })} />
       {manual.error && <ErrorPopup message={manual.error} context={{ nodeId: "skill-viewer", nodeLabel: "Skill workspace", operation: manual.pending?.action }} onDismiss={manual.dismissError} />}
       {comparison.showError && manual.dirty && <ErrorPopup message="skill_manual_comparison_unavailable" context={{ nodeId: "skill-viewer", nodeLabel: "Skill workspace" }} onDismiss={comparison.dismissError} />}
     </BaseModal.Content>
