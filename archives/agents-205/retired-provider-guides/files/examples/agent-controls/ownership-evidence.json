@@ -1,0 +1,41 @@
+{
+  "verified_at": "2026-10-17T16:19:26.313Z",
+  "real_graph": "6673bdea-7f34-407d-8318-da7dfe9bf150",
+  "agent": "LaomedoCodexAgent",
+  "request_id_not_exposed": true,
+  "manual_agent_skill_settings_absent": true,
+  "actual_skill_configured_on_skill_node": true,
+  "collapsed_by_default": true,
+  "main_controls_visible": true,
+  "inline_expansion": true,
+  "edited_value_retained": true,
+  "keyboard_toggle": true,
+  "connected_ports_preserved": true,
+  "collapsed_height": 661.095703125,
+  "expanded_height": 1032.39599609375,
+  "execution_requests": 0,
+  "browser_errors": [],
+  "additional_agent_turns": 0,
+  "source_revision": "cc4594effb8c9b11c6350eff71573f4386f0a3b9",
+  "frontend_revision": "e229c5f",
+  "request_identity": "Automatically generated once per build; obsolete manual values ignored",
+  "skill_authority": "Connected Skill nodes only; missing fresh/start reference refuses before dispatch",
+  "checks": {
+    "agent_component_tests": 46,
+    "native_feedback_tests": 26,
+    "react_tests": 5,
+    "production_build": "passed",
+    "migrated_export_and_builder_validation": "passed",
+    "spec_validation": "1815files/0errors/one unrelated diagram warning"
+  },
+  "review": {
+    "implementation": "APPROVE1371aea",
+    "specs": "APPROVE9f35938",
+    "later_change": "cc4594e normalizes Skill-origin starts per reviewed F2;26tests including regression passed; dropdown options populated. Specs2e10f08 documents accepted double resolution."
+  },
+  "limitations": [
+    "No provider/model execution of the migrated feedback graph",
+    "Read-only Skill dependencies resolve in both outer and isolated graphs; linked sources may be read twice",
+    "Historical evidence and pre-migration exports preserved separately"
+  ]
+}

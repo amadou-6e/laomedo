@@ -24,3 +24,4 @@ examples/skill-operations/historical-flow-before-skill-input.json -text
 # Preserve archived Agent Git blobs without checkout normalization.
 archives/agents-205/files/** -text
 archives/agents-205/test-callers/files/** -text
+archives/agents-205/retired-provider-guides/files/** -text

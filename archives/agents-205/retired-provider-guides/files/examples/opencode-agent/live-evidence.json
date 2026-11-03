@@ -1,0 +1,23 @@
+{
+  "date": "2026-10-02",
+  "additional_authorized_turns": 4,
+  "additional_submitted_turns": 4,
+  "ledger_before": {"attempted_turns": 2, "max_authorized_turns": 2},
+  "ledger_after": {"attempted_turns": 6, "max_authorized_turns": 6},
+  "attempts": [
+    {"attempt": 3, "run_id": "8b17d032-10bd-46da-9cb2-b1062498956c", "status": "failed", "provider_http": 401},
+    {"attempt": 4, "run_id": "0809b895-018b-4abc-9320-51ae89816d12", "status": "failed", "provider_http": 401},
+    {"attempt": 5, "run_id": "59f8dc76-7d9a-43ce-931e-eff06b7ad50d", "status": "failed", "provider_http": 401},
+    {"attempt": 6, "run_id": "ee764da5-14cf-4579-a4d5-73bfc6c1bbb9", "status": "failed", "provider_http": 400, "reason": "Model does not support this protocol."}
+  ],
+  "observed_tool_results": 0,
+  "fresh_completion": "unverified",
+  "resume": "not submitted; no completed fresh snapshot",
+  "corrected_runtime_preflight": {
+    "model": "opencode-go/gpt-6-luna",
+    "endpoint": "https://opencode.ai/inference/go/openai/v1",
+    "sdk": "@ai-sdk/openai",
+    "private_credential_matches_active_console": true
+  },
+  "limit": "Final model-specific protocol correction verified without inference after cap exhaustion."
+}

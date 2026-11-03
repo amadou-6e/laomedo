@@ -1,0 +1,30 @@
+{
+  "verified_at": "2026-10-17T15:48:24.537Z",
+  "real_graph": "6673bdea-7f34-407d-8318-da7dfe9bf150",
+  "agent": "LaomedoCodexAgent",
+  "collapsed_by_default": true,
+  "main_controls_visible": true,
+  "inline_expansion": true,
+  "edited_value_retained": true,
+  "keyboard_toggle": true,
+  "connected_ports_preserved": true,
+  "collapsed_height": 1161.720443725586,
+  "expanded_height": 2205.6775970458984,
+  "execution_requests": 0,
+  "browser_errors": [],
+  "additional_agent_turns": 0,
+  "source_revision": "be8d0108b015f96d7dab70d79daa187b433e8cf1",
+  "base_revision": "5b218c7c455c9cfc0c57f364bbfb8c135729c640",
+  "preview_timeout_restored_and_verified_after_reload": true,
+  "production_build": "passed",
+  "react_tests": {
+    "passed": 5,
+    "scope": "Internal tests; real browser verification recorded separately"
+  },
+  "claude_review": {
+    "full": "APPROVE fba1269",
+    "focused": "APPROVE 3a9b345",
+    "final_difference": "be8d010 changes only the internal normal-port test input"
+  },
+  "scope": "Real original Agent component and existing graph/registry, read-only UI verification; no new Agent execution or provider acceptance claim"
+}

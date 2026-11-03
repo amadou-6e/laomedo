@@ -1,0 +1,126 @@
+{
+  "source_revision": "018f57162acf6c2329a9605c6bb194c456d3da3a",
+  "policy": "Historical provider probes and UI campaign evidence; not current product acceptance.",
+  "files": [
+    {
+      "path": "examples/agent-controls/README.md",
+      "sha256": "86ec5ade292671b8f35080c947f945e3321f0021d75489634667e39b676aca3c",
+      "bytes": 3302
+    },
+    {
+      "path": "examples/agent-controls/dropdown-evidence.json",
+      "sha256": "63208cfbb5cab61cd11b5bdf41eb8255600d5d9e055f3cfd47912c7e60d6ae86",
+      "bytes": 1673
+    },
+    {
+      "path": "examples/agent-controls/evidence.json",
+      "sha256": "f9ef7ff4970a43a07a0fc51f67c02f493835d77eac31eaea824d608455510ccd",
+      "bytes": 1186
+    },
+    {
+      "path": "examples/agent-controls/ownership-evidence.json",
+      "sha256": "8b0ae420bfa0e367ae3225c433d421b0d5a34986f4594dec28b3ee1ee5ed5020",
+      "bytes": 1783
+    },
+    {
+      "path": "examples/agent-controls/real-skill-edit-evidence.json",
+      "sha256": "dce5776b50de7eb435b756bdeab3069342f5338e5cff3b912c92410887bbaa8f",
+      "bytes": 1258
+    },
+    {
+      "path": "examples/agent-controls/runtime-capabilities-audit.md",
+      "sha256": "c815d1cc9a760724415fcc8f102576a252199994e875d664b01d5e886a17cd4f",
+      "bytes": 4812
+    },
+    {
+      "path": "examples/opencode-agent/Dockerfile",
+      "sha256": "caa292a5120b3be4ccdb36c5cc3464f3ce8ae27f32eccaa384011e1153dededa",
+      "bytes": 330
+    },
+    {
+      "path": "examples/opencode-agent/README.md",
+      "sha256": "c050915f1da4c0ef4567bca5a9bb4239eea830a1c634bf6527eae82df8948781",
+      "bytes": 6718
+    },
+    {
+      "path": "examples/opencode-agent/acceptance.py",
+      "sha256": "c79e75ddea8e83e47854e92fdc01b2e44a5560c9ea0fdf0813db1794d8185cb9",
+      "bytes": 9958
+    },
+    {
+      "path": "examples/opencode-agent/build_flow.py",
+      "sha256": "37cebfbf0fc0283ddf9da71657b207517632ee1b0d222d505ca6c7c38f38b3e0",
+      "bytes": 2422
+    },
+    {
+      "path": "examples/opencode-agent/cancel_acceptance.py",
+      "sha256": "858c835095a01b4dce56539f1c9a683e15e8c56cb8e43670ac844fd0c3f70305",
+      "bytes": 4131
+    },
+    {
+      "path": "examples/opencode-agent/direct_cli.py",
+      "sha256": "9c64e6ebdf4e6c600f25aed7ea67d20378da8ee649736e96f077786dcf105d1d",
+      "bytes": 3195
+    },
+    {
+      "path": "examples/opencode-agent/flow.json",
+      "sha256": "c46c615a9f08ced3e1c1b150b8c61d235e29fe7b855b8e152e229d6385748743",
+      "bytes": 75946
+    },
+    {
+      "path": "examples/opencode-agent/flow_acceptance.py",
+      "sha256": "aa23e7c60dbd6856649b9ed6372bc48d7720a77c867e02c6c261e8b15aabf5ef",
+      "bytes": 6264
+    },
+    {
+      "path": "examples/opencode-agent/inspect_auth.py",
+      "sha256": "2e1110263f03f9445b2aa803c03cfcf522f9a1af4bee0ece3f183f9fe44ecd68",
+      "bytes": 1876
+    },
+    {
+      "path": "examples/opencode-agent/live-cancellation-retest.json",
+      "sha256": "e1ab6f5fda0749620476a86860fe831b630bb60662f8ad436700659ca4e92ed4",
+      "bytes": 653
+    },
+    {
+      "path": "examples/opencode-agent/live-evidence.json",
+      "sha256": "8f8e38458adb9d20b723c616071554b511db9ffe8f83d9d354918bada13be076",
+      "bytes": 1231
+    },
+    {
+      "path": "examples/opencode-agent/live-success-evidence.json",
+      "sha256": "c6af3db09dfdaee1542ae6397bfcd7613b054c13dd69fab8fffd53b072f6d7d7",
+      "bytes": 3001
+    },
+    {
+      "path": "examples/opencode-agent/preflight_auth_mount.py",
+      "sha256": "6e15faf00e0ad9e3c32d71dc2f1b9c0dcdd5a75ee11bcf31fc461ec8db2ee1a8",
+      "bytes": 1539
+    },
+    {
+      "path": "examples/opencode-agent/review-fixes-evidence.json",
+      "sha256": "4fa78cfb8097adbe6ffac33f48ed3d45fb021fbf7089ff0aa816d697ff52e027",
+      "bytes": 1844
+    },
+    {
+      "path": "examples/opencode-agent/saved-flow-proof-evidence.json",
+      "sha256": "f475b041e2531101e10acd9778eec8e5bfe8c1e476bd6c2d73cce951ec536312",
+      "bytes": 1676
+    },
+    {
+      "path": "examples/opencode-agent/saved_flow_proof.py",
+      "sha256": "e14c51c190c99a55dd5ab78faa555de864546bcb94a5aac4b165e24910ca4776",
+      "bytes": 10566
+    },
+    {
+      "path": "examples/opencode-agent/skill/SKILL.md",
+      "sha256": "f843719b4f4b7a5e8f8b4a5cfbc885ff88db36929eb322a31173390c7ddfab80",
+      "bytes": 277
+    },
+    {
+      "path": "examples/opencode-agent/smoke_auth_mount.py",
+      "sha256": "3283125bdbbdddb9b8f034368103a17f75702f4be59f6c5e3f7eba7ae9e42c25",
+      "bytes": 2510
+    }
+  ]
+}

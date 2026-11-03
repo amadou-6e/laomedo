@@ -1,0 +1,28 @@
+{
+  "status": "verified",
+  "run_id": "f57804a7-2873-4075-9ebc-666093b23e6a",
+  "commit_id": "sha256:972496c432d856ee4459c37845b7f0b9fb253326ebf6e5944cb249c0755edb7b",
+  "revision_id": "sha256:71f205a450cce93bb3d3e9f00c529897984e514e72a17c8004c2a324a09e4d62",
+  "parent_commit": "sha256:8621efcd6ee613a41c476248803a276b992928c3c645d5b50396635cc1114eb6",
+  "files": [
+    "SKILL.md",
+    "references/operation-format.md"
+  ],
+  "exact_two_file_readback": true,
+  "unrelated_files_unchanged": true,
+  "canonical_unchanged": true,
+  "container_cleanup_verified": true,
+  "new_model_turns": 1,
+  "turn_id": "01a154f7-a650-7283-8e83-170e1fa95976",
+  "commit_turn_id_recorded": false,
+  "total_preserved_ledger_turns": 3,
+  "promotion_performed": false,
+  "date": "2026-10-19",
+  "agent": "LaomedoCodexAgent",
+  "runner": "LocalRunner",
+  "image_id": "sha256:73ad6bbdfa6a8c14ecb50cf4276c013184b0befa75bb7facdab38977e37bd738",
+  "agent_source_sha256": "ffca35df2789ac63b953bd7f3547428fae84f4a8e55afdb0a20a7c1818a9b17b",
+  "graph_id": "6673bdea-7f34-407d-8318-da7dfe9bf150",
+  "scope": "Real recorded pre-integration candidate edit; not a rerun of the final develop integration.",
+  "user_graph_review_and_merge_approval": "2026-10-19"
+}
