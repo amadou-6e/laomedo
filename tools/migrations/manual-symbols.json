@@ -28,6 +28,7 @@
   "laomedo.agents.providers.claude_runner.command": "Retired provider launch or workspace helper. Manually adapt to the configured Agent workspace/runtime objects and py-docker Client, preserving isolation, endpoint and cleanup policy.",
   "laomedo.agents.providers.claude_runner.docker_environment": "Retired provider launch or workspace helper. Manually adapt to the configured Agent workspace/runtime objects and py-docker Client, preserving isolation, endpoint and cleanup policy.",
   "laomedo.agents.providers.claude_runner.workspace_skills": "The combined workspace helper namespace was split; import each defining function from agents.workspaces.baseline, cleanup or skills.utils explicitly.",
+  "laomedo.agents.providers.codex.servers": "Legacy Codex server communication was retired. Manually migrate to the current ACP provider controller and revalidate constructor, event and cleanup contracts; no safe automatic module mapping exists.",
   "laomedo.agents.providers.opencode_boundary._remove_owned": "Retired native OpenCode transport/event helper; manually adapt to the provider ACP/history contract. There is no safe automatic replacement.",
   "laomedo.agents.providers.opencode_boundary.worker_command": "Retired native OpenCode transport/event helper; manually adapt to the provider ACP/history contract. There is no safe automatic replacement.",
   "laomedo.agents.providers.opencode_runner.OpenCodeHTTP": "Retired native OpenCode transport/event helper; manually adapt to the provider ACP/history contract. There is no safe automatic replacement.",
