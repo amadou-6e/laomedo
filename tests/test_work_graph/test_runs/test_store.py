@@ -1,5 +1,3 @@
-from support.paths import repository_root
-
 """Durability and dispatch refusal at the synthetic workflow boundary."""
 
 import json
@@ -11,17 +9,14 @@ from laomedo.work_graph.runs.errors import ExternalOutcomeUnknown
 from laomedo.work_graph.runs.errors import LaunchError
 from laomedo.work_graph.runs.store import WorkflowRunStore
 
-FLOW = repository_root() / "experiments" / "exp03" / "flow.json"
-
 
 class WorkflowRunStoreTests(unittest.TestCase):
     def setUp(self):
         self.temp = TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.store = WorkflowRunStore(Path(self.temp.name) / "runs.sqlite3")
-        self.graph = json.loads(FLOW.read_text(encoding="utf-8"))["data"]
-        marker = next(n for n in self.graph["nodes"] if n["id"] == "Exp03Marker-exp03")
-        self.code = {marker["id"]: marker["data"]["node"]["template"]["code"]["value"]}
+        self.graph = {"nodes": [{"id": "agent"}], "edges": []}
+        self.code = {"agent": "internal identity control"}
 
     def reserve(self, **override):
         args = {

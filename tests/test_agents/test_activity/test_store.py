@@ -8,13 +8,15 @@ from unittest.mock import patch
 from pathlib import Path
 from types import SimpleNamespace
 
-try:
+from importlib.util import find_spec
+
+if find_spec("fastapi"):
     from fastapi import FastAPI
     from fastapi import Header
     from fastapi import HTTPException
     from fastapi.testclient import TestClient
     from laomedo.agents.activity.routes import install_activity_routes
-except ImportError:
+else:
     FastAPI = None
 from laomedo.agents.activity.store import ActivityStore
 
