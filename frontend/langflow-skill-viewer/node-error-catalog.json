@@ -1488,5 +1488,50 @@
     "title": "Repository cleanup could not be confirmed",
     "description": "Repository reading was interrupted, but the application could not confirm that its Git processes ended.",
     "recovery": "Check the local Git processes before trying this source again. Do not repeat the operation or remove retained clone staging while its earlier processes may still be running. Retained staging counts toward the source cache limit and can block later reads; the current UI has no staging cleanup control."
+  },
+  "source_limit_exceeded": {
+    "title": "The Skill source reached a reading limit",
+    "description": "The source contains more entries or file data than the local reader allows.",
+    "recovery": "Select a smaller Skill folder or repository, then refresh the Skill list."
+  },
+  "source_bundle_unsafe": {
+    "title": "Some Skill source files cannot be read safely",
+    "description": "The reader rejected an unsupported entry, link or unsafe relative path in the source.",
+    "recovery": "Use a source containing supported regular files and safe relative paths, then refresh the Skill list."
+  },
+  "repository_limit_exceeded": {
+    "title": "Repository reading reached a limit",
+    "description": "Reading the repository exceeded the allowed time, output or cache size.",
+    "recovery": "Use a smaller repository or an allowed local Skill folder. Check the local source cache and refresh after the earlier read has stopped."
+  },
+  "repository_revision_unavailable": {
+    "title": "The selected source revision is unavailable",
+    "description": "The selected repository revision could not be resolved from this source.",
+    "recovery": "Refresh the available revisions and select one that exists in this source. Keep an existing saved registry reference when its files are still available."
+  },
+  "repository_access_unavailable": {
+    "title": "The source repository could not be read",
+    "description": "The local reader could not obtain a valid repository response. The underlying cause has not been confirmed.",
+    "recovery": "Check the repository URL. Use a public HTTPS repository or a local checkout allowed by the source service, then refresh the Skill list."
+  },
+  "source_service_unavailable": {
+    "title": "The Skill source service could not complete the request",
+    "description": "The application could not obtain a valid response from the local source service. The underlying cause has not been confirmed.",
+    "recovery": "Check the local Skill source service configuration and connection using the Skills setup guide, then refresh the Skill list."
+  },
+  "invalid_source_operation": {
+    "title": "The Skill source request is unsupported",
+    "description": "The source client received an operation it does not support.",
+    "recovery": "Reload the graph with the current Skill component and use its Source and Skill selectors."
+  },
+  "source_service_not_configured": {
+    "title": "The Skill source service is not configured",
+    "description": "The application does not have an admitted local source-service address.",
+    "recovery": "Complete the local Skill source service setup in the Skills walkthrough, then refresh the Skill list."
+  },
+  "source_discovery_failed": {
+    "title": "The Skill source could not be loaded",
+    "description": "The application could not load skills or revisions from Source. The cause has not been confirmed. No Agent was started.",
+    "recovery": "Check that the repository is public, or use a local checkout allowed by the host source service. Check the source service connection, then refresh the Skill list."
   }
 }
