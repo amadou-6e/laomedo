@@ -1,0 +1,443 @@
+{
+  "purpose": "Exact original and later example/test/doc variants before concern consolidation. No current coverage or live acceptance claim.",
+  "files": [
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "docs/architecture/node-http-boundaries.md",
+      "source_git_blob": "eec87bff6cb4ecbbf065c6718b3140ed1c567d3d",
+      "archive_path": "archives/reconciliation-237/remaining-history/8f7b184573cc/docs/architecture/node-http-boundaries.md"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "docs/architecture/structured-data.md",
+      "source_git_blob": "6909089716f31807d926400df9bb602fc7cc4341",
+      "archive_path": "archives/reconciliation-237/remaining-history/8f7b184573cc/docs/architecture/structured-data.md"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "examples/agent-handoffs/flow.json",
+      "source_git_blob": "c5ab98d30341df5e7cc8d765808b21cc2ca568b4",
+      "archive_path": "archives/reconciliation-237/remaining-history/8f7b184573cc/examples/agent-handoffs/flow.json"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "examples/agent-handoffs/loop-flow.json",
+      "source_git_blob": "1b8d913860b45b2f3ae6447cd9c52be630ee31f1",
+      "archive_path": "archives/reconciliation-237/remaining-history/8f7b184573cc/examples/agent-handoffs/loop-flow.json"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "examples/claude-agent/build_flow.py",
+      "source_git_blob": "bd5b3332d221ecafb38e61ee58b768868d0ea2e5",
+      "archive_path": "archives/reconciliation-237/remaining-history/8f7b184573cc/examples/claude-agent/build_flow.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "examples/claude-agent/flow.json",
+      "source_git_blob": "01ba127aadb40949d3e89dc1b27a805f66ed5537",
+      "archive_path": "archives/reconciliation-237/remaining-history/8f7b184573cc/examples/claude-agent/flow.json"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "examples/github-issue/README.md",
+      "source_git_blob": "245173778490d2855c6bfd40ecccba93aea3d5cc",
+      "archive_path": "archives/reconciliation-237/remaining-history/8f7b184573cc/examples/github-issue/README.md"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "examples/github-issue/agent_operation_demo.py",
+      "source_git_blob": "3c6b4b491b4b2fdf5c061c229bb7bb3ab447a01f",
+      "archive_path": "archives/reconciliation-237/remaining-history/8f7b184573cc/examples/github-issue/agent_operation_demo.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "examples/github-pr/README.md",
+      "source_git_blob": "a7dd43ff45c4616dc3b2a17a243dde801e5d9780",
+      "archive_path": "archives/reconciliation-237/remaining-history/8f7b184573cc/examples/github-pr/README.md"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "examples/github-pr/flow.json",
+      "source_git_blob": "c0f00360641399f436ff6bfb47e8bcd48ceb56e4",
+      "archive_path": "archives/reconciliation-237/remaining-history/8f7b184573cc/examples/github-pr/flow.json"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "examples/github-pr/four-node-flow.json",
+      "source_git_blob": "1b01b99db20e1fcfd013ae8a4bdf2d8b2348c1c1",
+      "archive_path": "archives/reconciliation-237/remaining-history/8f7b184573cc/examples/github-pr/four-node-flow.json"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "examples/github-pr/original-agent/flow.json",
+      "source_git_blob": "0269b4f43f1919913fceda08bb7b56dc27c921e9",
+      "archive_path": "archives/reconciliation-237/remaining-history/8f7b184573cc/examples/github-pr/original-agent/flow.json"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "examples/github-pr/run_fixture.py",
+      "source_git_blob": "2043d7446c5e2eef91813455c15fb3cc6296879c",
+      "archive_path": "archives/reconciliation-237/remaining-history/8f7b184573cc/examples/github-pr/run_fixture.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "examples/native-codex-node/acceptance.py",
+      "source_git_blob": "d6227ac0a5d7ab6cd8a9be8e2ce6673b0b28306b",
+      "archive_path": "archives/reconciliation-237/remaining-history/8f7b184573cc/examples/native-codex-node/acceptance.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "examples/native-codex-node/flow.json",
+      "source_git_blob": "d8eed212bcd15525446f275a9c6d09ccf69597a8",
+      "archive_path": "archives/reconciliation-237/remaining-history/8f7b184573cc/examples/native-codex-node/flow.json"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "examples/opencode-agent/acceptance.py",
+      "source_git_blob": "7e0261fbba20335536007cefc0ef08d31b58e523",
+      "archive_path": "archives/reconciliation-237/remaining-history/8f7b184573cc/examples/opencode-agent/acceptance.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "examples/opencode-agent/direct_cli.py",
+      "source_git_blob": "610400dc27e2c8fa4b205bafabdff4b8f705f97a",
+      "archive_path": "archives/reconciliation-237/remaining-history/8f7b184573cc/examples/opencode-agent/direct_cli.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "examples/opencode-agent/flow.json",
+      "source_git_blob": "80492a4c2a5de33872613ca263538dc8900c9fd3",
+      "archive_path": "archives/reconciliation-237/remaining-history/8f7b184573cc/examples/opencode-agent/flow.json"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "examples/opencode-agent/inspect_auth.py",
+      "source_git_blob": "a63a6ad95f8a6219ab3ec76d1f9d37ad06a04c69",
+      "archive_path": "archives/reconciliation-237/remaining-history/8f7b184573cc/examples/opencode-agent/inspect_auth.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "examples/opencode-agent/smoke_auth_mount.py",
+      "source_git_blob": "53cba6223c4dd2b50c04717ff1cb541de8f9b86a",
+      "archive_path": "archives/reconciliation-237/remaining-history/8f7b184573cc/examples/opencode-agent/smoke_auth_mount.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "examples/opencode-node/build_flow.py",
+      "source_git_blob": "af6b73fc9627630d62d39bd381956f562ac38fa9",
+      "archive_path": "archives/reconciliation-237/remaining-history/8f7b184573cc/examples/opencode-node/build_flow.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "examples/opencode-node/flow.json",
+      "source_git_blob": "419ba4abfe586b90908da057b65774c87a87e8eb",
+      "archive_path": "archives/reconciliation-237/remaining-history/8f7b184573cc/examples/opencode-node/flow.json"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "examples/skill-operations/README.md",
+      "source_git_blob": "cf1fde0f26b9634bc3b7ac86d717307aa7ac0817",
+      "archive_path": "archives/reconciliation-237/remaining-history/8f7b184573cc/examples/skill-operations/README.md"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "examples/skill-operations/build_flow.py",
+      "source_git_blob": "600035caa3601a9bb3b1d1f973e26d1fc2d9f613",
+      "archive_path": "archives/reconciliation-237/remaining-history/8f7b184573cc/examples/skill-operations/build_flow.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "examples/skill-operations/flow.json",
+      "source_git_blob": "637ae1fe8e27569aff27e637165ef59c81e077f7",
+      "archive_path": "archives/reconciliation-237/remaining-history/8f7b184573cc/examples/skill-operations/flow.json"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "examples/skill-operations/overview-flow.json",
+      "source_git_blob": "55d3c819cce485fa95a104d42313921b15d28c4f",
+      "archive_path": "archives/reconciliation-237/remaining-history/8f7b184573cc/examples/skill-operations/overview-flow.json"
+    },
+    {
+      "source_revision": "3af136b054b8dcab9d879687bd64f343e0160601",
+      "original_path": "tests/test_agent_activity_package.py",
+      "source_git_blob": "1d653e64dda3d3f5dc6061bcf077352cc75f1bea",
+      "archive_path": "archives/reconciliation-237/remaining-history/3af136b054b8/tests/test_agent_activity_package.py"
+    },
+    {
+      "source_revision": "3af136b054b8dcab9d879687bd64f343e0160601",
+      "original_path": "tests/test_agent_mediation_container.py",
+      "source_git_blob": "88baccb4df4513fdfc02451c20a63a1e0507e9b4",
+      "archive_path": "archives/reconciliation-237/remaining-history/3af136b054b8/tests/test_agent_mediation_container.py"
+    },
+    {
+      "source_revision": "3af136b054b8dcab9d879687bd64f343e0160601",
+      "original_path": "tests/test_artifact_handoffs.py",
+      "source_git_blob": "8f5c781de2c480609e4c26267c126143c0046631",
+      "archive_path": "archives/reconciliation-237/remaining-history/3af136b054b8/tests/test_artifact_handoffs.py"
+    },
+    {
+      "source_revision": "3af136b054b8dcab9d879687bd64f343e0160601",
+      "original_path": "tests/test_claude_container_parity.py",
+      "source_git_blob": "5b7e481adec2d07d509629e5d8490d66fd00b99c",
+      "archive_path": "archives/reconciliation-237/remaining-history/3af136b054b8/tests/test_claude_container_parity.py"
+    },
+    {
+      "source_revision": "3af136b054b8dcab9d879687bd64f343e0160601",
+      "original_path": "tests/test_claude_login.py",
+      "source_git_blob": "e632835c0aa51e188176828e8aa8d26af97fe457",
+      "archive_path": "archives/reconciliation-237/remaining-history/3af136b054b8/tests/test_claude_login.py"
+    },
+    {
+      "source_revision": "3af136b054b8dcab9d879687bd64f343e0160601",
+      "original_path": "tests/test_claude_models.py",
+      "source_git_blob": "c30409ae1cfb2d5841b65b7df98aef6844ff5469",
+      "archive_path": "archives/reconciliation-237/remaining-history/3af136b054b8/tests/test_claude_models.py"
+    },
+    {
+      "source_revision": "3af136b054b8dcab9d879687bd64f343e0160601",
+      "original_path": "tests/test_claude_runner.py",
+      "source_git_blob": "71dc2ee305c27537654dafe6ad41915b50a24b54",
+      "archive_path": "archives/reconciliation-237/remaining-history/3af136b054b8/tests/test_claude_runner.py"
+    },
+    {
+      "source_revision": "3af136b054b8dcab9d879687bd64f343e0160601",
+      "original_path": "tests/test_claude_telemetry.py",
+      "source_git_blob": "1a137831931b7f9be29dda3251da5f3d8c2e3a54",
+      "archive_path": "archives/reconciliation-237/remaining-history/3af136b054b8/tests/test_claude_telemetry.py"
+    },
+    {
+      "source_revision": "3af136b054b8dcab9d879687bd64f343e0160601",
+      "original_path": "tests/test_codex_activity_parity.py",
+      "source_git_blob": "3a2e12ca14087d2eb0540329a4d5b556dbc6972e",
+      "archive_path": "archives/reconciliation-237/remaining-history/3af136b054b8/tests/test_codex_activity_parity.py"
+    },
+    {
+      "source_revision": "3af136b054b8dcab9d879687bd64f343e0160601",
+      "original_path": "tests/test_codex_docker_preflight.py",
+      "source_git_blob": "d01630c665a3e0b44a636335dd0ea435d0b04c11",
+      "archive_path": "archives/reconciliation-237/remaining-history/3af136b054b8/tests/test_codex_docker_preflight.py"
+    },
+    {
+      "source_revision": "3af136b054b8dcab9d879687bd64f343e0160601",
+      "original_path": "tests/test_contract_graph.py",
+      "source_git_blob": "1a87d823b61d9c65d0b3315bda6f3069b249d5a7",
+      "archive_path": "archives/reconciliation-237/remaining-history/3af136b054b8/tests/test_contract_graph.py"
+    },
+    {
+      "source_revision": "3af136b054b8dcab9d879687bd64f343e0160601",
+      "original_path": "tests/test_early_runner.py",
+      "source_git_blob": "b59c9051b2b2f0e1b45921a5825961530e13e133",
+      "archive_path": "archives/reconciliation-237/remaining-history/3af136b054b8/tests/test_early_runner.py"
+    },
+    {
+      "source_revision": "3af136b054b8dcab9d879687bd64f343e0160601",
+      "original_path": "tests/test_execution_evidence.py",
+      "source_git_blob": "4642a1acd4b61d3021649ebf872703d3af08f8ef",
+      "archive_path": "archives/reconciliation-237/remaining-history/3af136b054b8/tests/test_execution_evidence.py"
+    },
+    {
+      "source_revision": "3af136b054b8dcab9d879687bd64f343e0160601",
+      "original_path": "tests/test_git_workspace.py",
+      "source_git_blob": "1f51018ff32dfe0f018bdf746a8f761db9bcc597",
+      "archive_path": "archives/reconciliation-237/remaining-history/3af136b054b8/tests/test_git_workspace.py"
+    },
+    {
+      "source_revision": "3af136b054b8dcab9d879687bd64f343e0160601",
+      "original_path": "tests/test_handoff_http.py",
+      "source_git_blob": "9267e083f5dece2c2f9bebe8eb0d1c1ac53f73b5",
+      "archive_path": "archives/reconciliation-237/remaining-history/3af136b054b8/tests/test_handoff_http.py"
+    },
+    {
+      "source_revision": "3af136b054b8dcab9d879687bd64f343e0160601",
+      "original_path": "tests/test_handoffs.py",
+      "source_git_blob": "fb04c466465b4e2a8c6352cbc244511a418b40f9",
+      "archive_path": "archives/reconciliation-237/remaining-history/3af136b054b8/tests/test_handoffs.py"
+    },
+    {
+      "source_revision": "3af136b054b8dcab9d879687bd64f343e0160601",
+      "original_path": "tests/test_host_services.py",
+      "source_git_blob": "91a890b0ffbe2527303c0ce08db469291f04abf8",
+      "archive_path": "archives/reconciliation-237/remaining-history/3af136b054b8/tests/test_host_services.py"
+    },
+    {
+      "source_revision": "3af136b054b8dcab9d879687bd64f343e0160601",
+      "original_path": "tests/test_langflow/test_agent_activity.py",
+      "source_git_blob": "206ac81b2d84c1d58f96adc010b7dd69d5c3d91f",
+      "archive_path": "archives/reconciliation-237/remaining-history/3af136b054b8/tests/test_langflow/test_agent_activity.py"
+    },
+    {
+      "source_revision": "3af136b054b8dcab9d879687bd64f343e0160601",
+      "original_path": "tests/test_langflow_stage_adapter.py",
+      "source_git_blob": "0baa3e0c62c06eadc017d0688876ab7b963fc053",
+      "archive_path": "archives/reconciliation-237/remaining-history/3af136b054b8/tests/test_langflow_stage_adapter.py"
+    },
+    {
+      "source_revision": "3af136b054b8dcab9d879687bd64f343e0160601",
+      "original_path": "tests/test_lease_service.py",
+      "source_git_blob": "8747b35b6d30964bb98e5f1defefe8e8456ea2d0",
+      "archive_path": "archives/reconciliation-237/remaining-history/3af136b054b8/tests/test_lease_service.py"
+    },
+    {
+      "source_revision": "3af136b054b8dcab9d879687bd64f343e0160601",
+      "original_path": "tests/test_live_workgraph_bindings.py",
+      "source_git_blob": "aace7f2d45d1126a63e19659f3ea0aa28d31ff86",
+      "archive_path": "archives/reconciliation-237/remaining-history/3af136b054b8/tests/test_live_workgraph_bindings.py"
+    },
+    {
+      "source_revision": "3af136b054b8dcab9d879687bd64f343e0160601",
+      "original_path": "tests/test_live_workgraph_budget.py",
+      "source_git_blob": "b0375e40d88a32aba4db01f487816026477bb093",
+      "archive_path": "archives/reconciliation-237/remaining-history/3af136b054b8/tests/test_live_workgraph_budget.py"
+    },
+    {
+      "source_revision": "3af136b054b8dcab9d879687bd64f343e0160601",
+      "original_path": "tests/test_live_workgraph_observation.py",
+      "source_git_blob": "bee469f72d64064820fda8c0597a5edcaf9b4c2a",
+      "archive_path": "archives/reconciliation-237/remaining-history/3af136b054b8/tests/test_live_workgraph_observation.py"
+    },
+    {
+      "source_revision": "3af136b054b8dcab9d879687bd64f343e0160601",
+      "original_path": "tests/test_local_runner.py",
+      "source_git_blob": "1879709b28a7b05bf079dfe15900bb2ac92603c5",
+      "archive_path": "archives/reconciliation-237/remaining-history/3af136b054b8/tests/test_local_runner.py"
+    },
+    {
+      "source_revision": "3af136b054b8dcab9d879687bd64f343e0160601",
+      "original_path": "tests/test_mediation_service_startup.py",
+      "source_git_blob": "fc2d6479aea82fca580773d992ed41efd7bdb562",
+      "archive_path": "archives/reconciliation-237/remaining-history/3af136b054b8/tests/test_mediation_service_startup.py"
+    },
+    {
+      "source_revision": "3af136b054b8dcab9d879687bd64f343e0160601",
+      "original_path": "tests/test_model_catalog.py",
+      "source_git_blob": "ab67dceef365be2d6086e042d4c59d60fb108e26",
+      "archive_path": "archives/reconciliation-237/remaining-history/3af136b054b8/tests/test_model_catalog.py"
+    },
+    {
+      "source_revision": "3af136b054b8dcab9d879687bd64f343e0160601",
+      "original_path": "tests/test_native_commands.py",
+      "source_git_blob": "7690accf45fcd720133f652eca658b6dca27a60f",
+      "archive_path": "archives/reconciliation-237/remaining-history/3af136b054b8/tests/test_native_commands.py"
+    },
+    {
+      "source_revision": "3af136b054b8dcab9d879687bd64f343e0160601",
+      "original_path": "tests/test_native_timeout_reconciliation.py",
+      "source_git_blob": "1ce74511d58dede0bf45a3759a5399131e521dac",
+      "archive_path": "archives/reconciliation-237/remaining-history/3af136b054b8/tests/test_native_timeout_reconciliation.py"
+    },
+    {
+      "source_revision": "3af136b054b8dcab9d879687bd64f343e0160601",
+      "original_path": "tests/test_node_error_catalog.py",
+      "source_git_blob": "d684028ef1bfa205fe60aaa3b34dfc59e5ad4224",
+      "archive_path": "archives/reconciliation-237/remaining-history/3af136b054b8/tests/test_node_error_catalog.py"
+    },
+    {
+      "source_revision": "3af136b054b8dcab9d879687bd64f343e0160601",
+      "original_path": "tests/test_normal_runner_accounting.py",
+      "source_git_blob": "dad30a52e3dd1531187c62d031fa9bcca23699dd",
+      "archive_path": "archives/reconciliation-237/remaining-history/3af136b054b8/tests/test_normal_runner_accounting.py"
+    },
+    {
+      "source_revision": "3af136b054b8dcab9d879687bd64f343e0160601",
+      "original_path": "tests/test_opencode_activity.py",
+      "source_git_blob": "15bb1cc678bdcd6bd1f6c73a5754fa28df653b52",
+      "archive_path": "archives/reconciliation-237/remaining-history/3af136b054b8/tests/test_opencode_activity.py"
+    },
+    {
+      "source_revision": "3af136b054b8dcab9d879687bd64f343e0160601",
+      "original_path": "tests/test_opencode_auth.py",
+      "source_git_blob": "517f7a8d0de09e48b2ea3268c28a4c82d45ba134",
+      "archive_path": "archives/reconciliation-237/remaining-history/3af136b054b8/tests/test_opencode_auth.py"
+    },
+    {
+      "source_revision": "3af136b054b8dcab9d879687bd64f343e0160601",
+      "original_path": "tests/test_opencode_boundary.py",
+      "source_git_blob": "2e3710f7e086b54e6c1a06508b87418ba4dfe322",
+      "archive_path": "archives/reconciliation-237/remaining-history/3af136b054b8/tests/test_opencode_boundary.py"
+    },
+    {
+      "source_revision": "3af136b054b8dcab9d879687bd64f343e0160601",
+      "original_path": "tests/test_opencode_events.py",
+      "source_git_blob": "972d4c808d5c0385abead73b816d0f5ab20f6f01",
+      "archive_path": "archives/reconciliation-237/remaining-history/3af136b054b8/tests/test_opencode_events.py"
+    },
+    {
+      "source_revision": "3af136b054b8dcab9d879687bd64f343e0160601",
+      "original_path": "tests/test_opencode_runner.py",
+      "source_git_blob": "250774e20d8f3bd8901e3ed565e3fa3a24342fa7",
+      "archive_path": "archives/reconciliation-237/remaining-history/3af136b054b8/tests/test_opencode_runner.py"
+    },
+    {
+      "source_revision": "3af136b054b8dcab9d879687bd64f343e0160601",
+      "original_path": "tests/test_opencode_telemetry.py",
+      "source_git_blob": "e0e014034c7fdac14981371098baf83939ad7830",
+      "archive_path": "archives/reconciliation-237/remaining-history/3af136b054b8/tests/test_opencode_telemetry.py"
+    },
+    {
+      "source_revision": "3af136b054b8dcab9d879687bd64f343e0160601",
+      "original_path": "tests/test_output_contract.py",
+      "source_git_blob": "051310efffac9ab2a6ccefaa8ed9899ef57cc122",
+      "archive_path": "archives/reconciliation-237/remaining-history/3af136b054b8/tests/test_output_contract.py"
+    },
+    {
+      "source_revision": "3af136b054b8dcab9d879687bd64f343e0160601",
+      "original_path": "tests/test_outstanding_commands.py",
+      "source_git_blob": "c33531e06a0fdfdfc58d5cbfc0d04427238052af",
+      "archive_path": "archives/reconciliation-237/remaining-history/3af136b054b8/tests/test_outstanding_commands.py"
+    },
+    {
+      "source_revision": "3af136b054b8dcab9d879687bd64f343e0160601",
+      "original_path": "tests/test_persistent_demo.py",
+      "source_git_blob": "93fd393610800908a3420d11f4fa9d035301796c",
+      "archive_path": "archives/reconciliation-237/remaining-history/3af136b054b8/tests/test_persistent_demo.py"
+    },
+    {
+      "source_revision": "3af136b054b8dcab9d879687bd64f343e0160601",
+      "original_path": "tests/test_provider_boundaries.py",
+      "source_git_blob": "7dfcde7b9a086d8ade5ac15c937dee7765118955",
+      "archive_path": "archives/reconciliation-237/remaining-history/3af136b054b8/tests/test_provider_boundaries.py"
+    },
+    {
+      "source_revision": "3af136b054b8dcab9d879687bd64f343e0160601",
+      "original_path": "tests/test_publication_handoff.py",
+      "source_git_blob": "2d818073c947bc3519d8e846acc301ed32d40497",
+      "archive_path": "archives/reconciliation-237/remaining-history/3af136b054b8/tests/test_publication_handoff.py"
+    },
+    {
+      "source_revision": "3af136b054b8dcab9d879687bd64f343e0160601",
+      "original_path": "tests/test_rollout_export.py",
+      "source_git_blob": "0dd8d61581b96da228f072b233e83ece8def2e72",
+      "archive_path": "archives/reconciliation-237/remaining-history/3af136b054b8/tests/test_rollout_export.py"
+    },
+    {
+      "source_revision": "3af136b054b8dcab9d879687bd64f343e0160601",
+      "original_path": "tests/test_runner_service.py",
+      "source_git_blob": "ec46a469578d73f013999640c26d739f13240cbe",
+      "archive_path": "archives/reconciliation-237/remaining-history/3af136b054b8/tests/test_runner_service.py"
+    },
+    {
+      "source_revision": "3af136b054b8dcab9d879687bd64f343e0160601",
+      "original_path": "tests/test_runner_trace_join.py",
+      "source_git_blob": "f24a87333a9242279bf54987f3c1d5363f98e882",
+      "archive_path": "archives/reconciliation-237/remaining-history/3af136b054b8/tests/test_runner_trace_join.py"
+    },
+    {
+      "source_revision": "3af136b054b8dcab9d879687bd64f343e0160601",
+      "original_path": "tests/test_work_graph_cli_summary.py",
+      "source_git_blob": "e523cb05281a0dc35dc2866c565c5304403b53f2",
+      "archive_path": "archives/reconciliation-237/remaining-history/3af136b054b8/tests/test_work_graph_cli_summary.py"
+    },
+    {
+      "source_revision": "3af136b054b8dcab9d879687bd64f343e0160601",
+      "original_path": "tests/test_work_graph_launch.py",
+      "source_git_blob": "a410697ebe61c3f0018eb32b75e6af5806ed7dfa",
+      "archive_path": "archives/reconciliation-237/remaining-history/3af136b054b8/tests/test_work_graph_launch.py"
+    },
+    {
+      "source_revision": "3af136b054b8dcab9d879687bd64f343e0160601",
+      "original_path": "tests/test_workflow_run_store.py",
+      "source_git_blob": "fbda2cb23ddaf7b56b0dcd64bfa1f00e3d115a8e",
+      "archive_path": "archives/reconciliation-237/remaining-history/3af136b054b8/tests/test_workflow_run_store.py"
+    }
+  ]
+}
