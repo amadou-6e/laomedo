@@ -15,7 +15,7 @@ migration = load_migration()
 
 class MigrationFileTests(unittest.TestCase):
     def test_json_splicing_preserves_unrelated_bytes(self):
-        source = '\ufeff{\r\n "id":"laomedo.local_runner", "label":"CafÃƒÂ© ÃŽÂ»", "number":1.2300e+03, "dup":1,"dup":2, "code":"from laomedo.skill_store import SkillStore\\n"\r\n}\r\n'.encode(
+        source = '\ufeff{\r\n "id":"laomedo.local_runner", "label":"Caf\u00e9 \u03bb", "number":1.2300e+03, "dup":1,"dup":2, "code":"from laomedo.skill_store import SkillStore\\n"\r\n}\r\n'.encode(
             "utf-8"
         )
         with tempfile.TemporaryDirectory() as directory:

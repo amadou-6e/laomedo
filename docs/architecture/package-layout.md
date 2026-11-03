@@ -131,8 +131,10 @@ one-time migration data, not runtime compatibility code.
 
 File migration splices changed JSON strings, preserving unrelated bytes,
 formatting, duplicate keys, Unicode, number spelling, BOM and line endings.
-Graph migration selects template code. It preserves `metadata.code_hash` and
-stored dependency metadata; it does not regenerate component-cache metadata.
+Graph migration selects template code, including nested groups and wrapped flow
+bundles. For changed source, it validates the existing twelve-hex SHA-256
+`metadata.code_hash` before refreshing that derived key. Stale or unknown hashes
+require manual migration. Stored dependency metadata is preserved.
 Generate current component templates/exports through Langflow or the graph's
 builder when refreshed metadata is required. Import migration alone does not
 certify those fields. Launcher fields are selected only at
@@ -155,7 +157,8 @@ tests do not establish a live workflow.
 Package boundaries follow a feature's responsibilities and dependencies, with no
 fixed nesting depth. Repeated filename prefixes trigger an ownership review.
 Implementation files introduce classes or standalone functions, never both.
-Request-handler classes may be nested in their owning server constructor.
+Request-handler classes are defined at module scope in their owning package;
+server lifetime and request handling have separate discoverable owners.
 Exceptions live in class-only `errors.py`. Helpers that belong to an object become
 methods; independent helpers stay in that feature's function-only `utils.py` or a
 focused module such as `serialization.py`. `settings.py` owns genuinely shared
@@ -190,6 +193,10 @@ Recurring values travel as canonical Pydantic models in the feature's `models.py
 | work_graph | WorkItem, Dependency and GraphSnapshot retain immutable source identity, ordering and snapshot hashes |
 | skills/operations | FileEdit, SkillProposal and EditorProvenance carry a multi-file edit and authenticated editor context |
 | host/publication/verified | VerifiedStage carries the immutable verified bundle and its provenance |
+| host/credentials/siwc | OAuthAuthorizationRequest, OAuthAttempt, OAuthCodeExchange and OAuthAccount preserve private authorization projections |
+| host/mediation | MediationServiceRecord and AuthorizedLeaseScope bind service metadata and admitted capabilities |
+| host/publication/{bundle,handoff,verified} | ContainerStageRecord, BundleVerificationRecord, PullRequestPublicationRequest and VerifiedStageIdentity preserve journal and digest projections |
+| work_graph | RelevantWorkContent, WorkSnapshot, WorkOverride, WorkLaunchBinding, WorkGrantLimits, WorkLaunchGrant, WorkGrantReference and WorkLaunchResult preserve launch hashes, grants and receipts |
 | host/leases | ContainerIdentity carries exact name, run ID and a secret launch token |
 | activity/agent_activity | CaptureIdentity carries graph provenance; ActivityInvocation replaces the anonymous store/invocation tuple |
 
@@ -255,7 +262,7 @@ needed. Current source templates are distinct from historical execution evidence
 
 Issue #205 covers this boundary. General helper decomposition, cross-feature HTTP/
 Git ownership, mediation server extraction and frontend feature directories remain
-separate follow-ups (#206?#210).
+separate concerns owned by issues #206 and #210.
 
 Concrete Codex components reject stale subclass inheritance before model discovery,
 bridge selection or dispatch with `agent_component_migration_required`. The shared
