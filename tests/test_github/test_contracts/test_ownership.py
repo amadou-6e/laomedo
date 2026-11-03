@@ -7,7 +7,6 @@ import unittest
 from unittest.mock import Mock, patch
 
 from support.paths import repository_root
-from support.retained import load_retained_shared
 from test_shared.test_migration.utils import load_migration
 from laomedo.github.transport.mediated import GitHubMediatedTransport
 
@@ -79,16 +78,6 @@ class GitHubOwnershipTests(unittest.TestCase):
         self.assertIn("from laomedo.github.issues.context import main", moved_main)
         self.assertEqual(migration.migrate_source(moved_main), moved_main)
 
-    def test_deferred_context_consumers_use_only_exact_inventoried_import_adaptation(
-        self,
-    ):
-        reader = importlib.import_module("laomedo.github.issues.context_reader")
-        for name in ("experiments.exp139.prepare", "experiments.exp19.live_e2e"):
-            module = load_retained_shared(name)
-            self.assertIs(module.fetch_context, reader.fetch_context)
-            self.assertTrue(module._retained_shared_sha256)
-        with self.assertRaisesRegex(ValueError, "not inventoried"):
-            load_retained_shared("experiments.uninventoried")
         # The loader enforces equality of the full non-import AST on every load.
         # Its existing tamper/refusal controls remain in test_shared.
 
@@ -126,3 +115,24 @@ class GitHubOwnershipTests(unittest.TestCase):
             self.assertEqual(caught.exception.code, 0)
         context = importlib.import_module("laomedo.github.issues.context")
         self.assertEqual(context.main.__module__, context.__name__)
+
+    def test_production_contract_tests_have_no_campaign_import_dependency(self):
+        paths = list((ROOT / "tests/test_github").rglob("test_*.py"))
+        self.assertTrue(paths, "Scan the actual GitHub regression owner")
+        for path in paths:
+            for node in ast.walk(ast.parse(path.read_text(encoding="utf-8-sig"))):
+                if isinstance(node, ast.Import):
+                    modules = [alias.name for alias in node.names]
+                elif isinstance(node, ast.ImportFrom):
+                    modules = [node.module or ""]
+                else:
+                    continue
+                with self.subTest(path=path.relative_to(ROOT), line=node.lineno):
+                    self.assertFalse(
+                        any(
+                            module == "experiments"
+                            or module.startswith("experiments.")
+                            or module == "support.retained"
+                            for module in modules
+                        )
+                    )

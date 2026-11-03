@@ -53,3 +53,8 @@ The old Issue campaign's model-receipt orchestration tests are preserved on
 remain deferred. Their exact inventoried imports may be adapted by the existing
 `support.retained` loader; GitHub production tests never import campaigns or
 fetch `exp`.
+
+Historical campaign-import identity checks are archival evidence on `exp`
+(`archives/reconciliation-237/original-tests/manifest.json`). Production Reader,
+CLI, gateway and HTTP controls exercise current contracts directly. They do not
+require retired Agent campaign entrypoints to become compatible again.
