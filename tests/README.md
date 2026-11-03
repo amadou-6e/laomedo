@@ -20,8 +20,8 @@ checks. Folder naming does not change their prerequisites or acceptance status.
 
 The existing root files `test_host_mediated_push.py`, `test_host_services.py` and
 `test_host_token_connection.py` cover deferred mediation, service composition
-and credentials. `test_publication_handoff.py` covers GitHub publication
-orchestration; `test_probe_stage_s7.py` retains an EXP-100 consumer control.
+and credentials. Host publication handoff controls live in
+`test_host/test_publication/test_handoff`; `test_probe_stage_s7.py` retains an EXP-100 consumer control.
 They are explicit exclusions from the Shared/Skills organization pass, even
 where they use the same host publication package. Agent/provider, GitHub,
 Langflow join, runner and historical campaign families retain their separate

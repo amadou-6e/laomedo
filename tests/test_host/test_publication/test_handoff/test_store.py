@@ -72,12 +72,12 @@ class PublicationHandoffTests(unittest.TestCase):
         )
         self.calls = []
 
-    def issue(self, run):
+    def issue(self, run, *, branch=None):
         return self.store.issue(
             run_id=run,
             invocation_id=run + "-invocation",
             repository=self.repository,
-            branch=run + "-branch",
+            branch=branch or run + "-branch",
             operations={"git_push", "pr_create", "pr_list"},
             ttl_seconds=50,
             lease_token=run + "-lease",
@@ -176,6 +176,21 @@ class PublicationHandoffTests(unittest.TestCase):
                 transport=self.transport,
             ),
         )
+
+    def test_rejected_old_handoff_does_not_block_new_run_on_same_branch(self):
+        old_grant = self.grant
+        self.begin()
+        self.store.end_publication_handoff(old_grant, "rejected")
+        self.assertEqual(self.store.publication_handoff(old_grant)["phase"], "rejected")
+        self.grant, self.token = self.issue("run-b", branch="run-a-branch")
+        self.begin()
+        self.assertEqual(self.store.publication_handoff(self.grant)["run_id"], "run-b")
+        self.assertEqual(
+            self.store.publication_handoff(self.grant)["phase"], "agent_active"
+        )
+        self.refused("handoff_not_ready", self.publish)
+        self.assertEqual(self.calls, [])
+        self.assertEqual(self.store.publication_handoff(old_grant)["phase"], "rejected")
 
     def test_rejection_failure_interruption_unknown_evidence_never_publish(self):
         variants = [
