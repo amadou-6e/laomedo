@@ -44,7 +44,15 @@ retains the applicable authority approval/binding/read/revocation, repeated
 revocation and fresh-run publication assertions in the owning suites above;
 prototype mailbox, budget and campaign receipt contracts remain historical.
 Production discovery neither imports those wrappers nor fetches the archive.
-The GitHub-owned EXP-100 CI dependency remains separately scoped.
+The historical Issue Agent demo and EXP-100/S3 subprocess wrapper are also
+archived at `305d5b269dd2cc1086a88b28812ab4e4edd5d6a0` under
+`archives/agents-205/legacy-agent-callers/`. Their applicable ingestion, history,
+hook isolation and failure-receipt assertions run against production APIs in
+`test_host/test_publication`. The Issue gateway suite retains modification,
+replay, stale-filter and unknown-write controls; native evidence admission belongs
+to the Agent closure and publication handoff suites. The old demo's approved
+fixed multi-Issue sequence remains historical, not a generalized product feature.
+The GitHub-owned EXP-100 broker CI dependency remains separately scoped.
 
 ## Discovery
 

@@ -27,3 +27,9 @@ for these production assertions. No test imports another TestCase to borrow setu
 ```powershell
 python -m unittest discover -s tests/test_host/test_publication -t tests -v
 ```
+
+The regression boundary also covers divergent verified history, changed file
+identity during ingestion, exclusion of agent Git hooks/remotes from private
+staging, and safe persisted unexpected failures. These assertions target the
+production ingestion, verified Git stage and verifier APIs; no campaign module
+is imported. They are internal controls, not live publication acceptance.
