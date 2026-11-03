@@ -18,9 +18,9 @@ checks. Folder naming does not change their prerequisites or acceptance status.
 
 ## Deferred adjacent suites
 
-The existing root files `test_host_mediated_push.py`, `test_host_services.py` and
-`test_host_token_connection.py` cover deferred mediation, service composition
-and credentials. `test_publication_handoff.py` covers GitHub publication
+The existing root file `test_host_mediated_push.py` covers the separately owned
+GitHub mediation workstream. Service composition and token connection regressions
+live under `test_host/test_services.py` and `test_host/test_credentials/test_token/`. `test_publication_handoff.py` covers GitHub publication
 orchestration; `test_probe_stage_s7.py` retains an EXP-100 consumer control.
 They are explicit exclusions from the Shared/Skills organization pass, even
 where they use the same host publication package. Agent/provider, GitHub,
