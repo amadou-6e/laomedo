@@ -725,8 +725,6 @@ def _component_hash_updates(value):
     Langflow 1.12 uses the first twelve SHA-256 hex characters of UTF-8 component
     source. Unknown formats are not rewritten under an assumed revision scheme.
     """
-    if not _is_graph(value):
-        return {}
     updates = {}
 
     def walk(item, path):

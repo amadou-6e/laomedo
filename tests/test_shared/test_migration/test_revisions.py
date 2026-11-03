@@ -185,3 +185,36 @@ class GraphRevisionTests(unittest.TestCase):
             migration.ManualMigrationRequired, "does not match"
         ):
             migration.migrate_json_source(json.dumps(graph))
+
+    def test_graph_wrappers_share_hash_admission_with_code_migration(self):
+        code = "from laomedo.skill_store import SkillStore\n"
+        changed = "from laomedo.skills.registry.store import SkillStore\n"
+        for wrap in (lambda graph: {"flow": graph}, lambda graph: {"flows": [graph]}):
+            for stored in (
+                sha256(code.encode()).hexdigest()[:12],
+                "0123456789ab",
+                "external",
+            ):
+                with self.subTest(wrapper=wrap, stored=stored):
+                    definition = {
+                        "metadata": {"code_hash": stored},
+                        "template": {"code": {"value": code}},
+                    }
+                    graph = wrap({"data": {"nodes": [{"data": {"node": definition}}]}})
+                    original = json.dumps(graph, indent=2)
+                    if stored != sha256(code.encode()).hexdigest()[:12]:
+                        with self.assertRaises(migration.ManualMigrationRequired):
+                            migration.migrate_json_source(original)
+                        with self.assertRaises(migration.ManualMigrationRequired):
+                            migration.migrate_value(graph)
+                    else:
+                        expected = original.replace(
+                            json.dumps(code), json.dumps(changed)
+                        ).replace(stored, sha256(changed.encode()).hexdigest()[:12])
+                        self.assertEqual(
+                            migration.migrate_json_source(original), expected
+                        )
+                        self.assertEqual(
+                            migration.migrate_value(graph), json.loads(expected)
+                        )
+                    self.assertEqual(json.dumps(graph, indent=2), original)
