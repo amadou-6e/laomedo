@@ -67,7 +67,6 @@ src/laomedo/
 |       |-- git/
 |       `-- rest/
 |-- host/
-|   |-- private_state/
 |   |-- credentials/
 |   |   |-- codex/
 |   |   |   `-- resources/

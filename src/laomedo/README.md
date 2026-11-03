@@ -17,7 +17,6 @@ laomedo/
     interface/              Source and operation HTTP/CLI adapters
   host/                     Trusted local services, authority and publication
     credentials/            Host connection and authentication boundaries
-    private_state/          Permission effects and private-directory admission
     mediation/              Host admission, journal and effect dispatch
     publication/            Bundle, handoff, ingress and verified-stage owners
   work_graph/               Work snapshots, dependencies, launch grants and dispatch

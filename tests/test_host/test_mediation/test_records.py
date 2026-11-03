@@ -1,5 +1,6 @@
 """Preserve serialized contracts, authority boundaries and unknown outcomes."""
 
+from contextlib import closing
 from support.paths import repository_root
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -93,3 +94,35 @@ class MediationRecordTests(unittest.TestCase):
         self.assertEqual(result, scope)
         self.assertIs(type(result["operations"]), set)
         self.assertIs(type(next(iter(result["target_prs"]))), int)
+
+    def test_issued_pr_grant_cannot_supply_a_null_publication_base(self):
+        from laomedo.host.mediation.errors import MediationError
+        from laomedo.host.mediation.store import MediationStore
+
+        with TemporaryDirectory() as temporary:
+            store = MediationStore(Path(temporary) / "mediator.sqlite")
+            values = dict(
+                run_id="run",
+                invocation_id="invocation",
+                repository="owner/repo",
+                branch="work",
+                operations={"pr_create"},
+                ttl_seconds=10,
+            )
+            for base in (None, 7, ""):
+                with (
+                    self.subTest(base=base),
+                    self.assertRaisesRegex(MediationError, "^grant_request_invalid$"),
+                ):
+                    store.issue(**values, base_branch=base)
+            grant, _ = store.issue(**values, base_branch="develop")
+            with closing(store._connect()) as db:
+                row = db.execute(
+                    "SELECT base_branch FROM grants WHERE grant_id=?", (grant,)
+                ).fetchone()
+                columns = {
+                    column["name"]: column
+                    for column in db.execute("PRAGMA table_info(grants)")
+                }
+            self.assertEqual(row["base_branch"], "develop")
+            self.assertEqual(columns["base_branch"]["notnull"], 1)

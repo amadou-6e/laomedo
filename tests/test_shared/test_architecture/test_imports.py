@@ -14,18 +14,23 @@ class InternalImportOwnerTests(unittest.TestCase):
         missing = []
         for path in paths:
             for node in ast.walk(ast.parse(path.read_text(encoding="utf-8-sig"))):
-                if not isinstance(node, ast.ImportFrom) or not (
-                    node.module or ""
-                ).startswith("laomedo."):
+                if isinstance(node, ast.ImportFrom):
+                    modules = [node.module] if node.module else []
+                elif isinstance(node, ast.Import):
+                    modules = [alias.name for alias in node.names]
+                else:
                     continue
-                owner = source.joinpath(*node.module.split("."))
-                if (
-                    not owner.with_suffix(".py").is_file()
-                    and not (owner / "__init__.py").is_file()
-                ):
-                    missing.append(
-                        (path.relative_to(source).as_posix(), node.lineno, node.module)
-                    )
+                for module in modules:
+                    if not module.startswith("laomedo."):
+                        continue
+                    owner = source.joinpath(*module.split("."))
+                    if (
+                        not owner.with_suffix(".py").is_file()
+                        and not (owner / "__init__.py").is_file()
+                    ):
+                        missing.append(
+                            (path.relative_to(source).as_posix(), node.lineno, module)
+                        )
         self.assertEqual(
             missing,
             [],

@@ -209,3 +209,26 @@ class OAuthRecordTests(unittest.TestCase):
             raised.exception.json(include_input=False),
         ):
             self.assertNotIn("private-invalid-access", rendered)
+
+    def test_legacy_host_identity_json_keeps_existing_query_encoding(self):
+        from urllib.parse import parse_qs, urlencode
+
+        for host_id in (None, 7, True, ["legacy"], {"legacy": "host"}):
+            values = dict(
+                client_id="dynamic_agent_client",
+                ext_agent_host_id=host_id,
+                redirect_uri="http://127.0.0.1:1/auth/callback",
+                scope="scope",
+                resource="resource",
+                state="private-state",
+                nonce="private-nonce",
+                code_challenge="challenge",
+            )
+            with self.subTest(identity_type=type(host_id).__name__):
+                request = OAuthAuthorizationRequest(**values)
+                expected = parse_qs(urlencode({"ext_agent_host_id": host_id}))
+                self.assertEqual(
+                    parse_qs(request.to_query())["ext_agent_host_id"],
+                    expected["ext_agent_host_id"],
+                )
+                self.assertNotIn("ext_agent_host_id", request.model_dump())

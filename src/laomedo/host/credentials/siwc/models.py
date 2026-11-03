@@ -13,7 +13,11 @@ class OAuthAuthorizationRequest(BaseModel):
     client_id: str = Field(
         description="Existing dynamic or previously enrolled client identity."
     )
-    ext_agent_host_id: str = Field(description="Existing app-owned host identity.")
+    ext_agent_host_id: JsonValue = Field(
+        repr=False,
+        exclude=True,
+        description="Existing private host.json identity; preserve legacy JSON reader values and explicit query encoding.",
+    )
     redirect_uri: str = Field(description="Previously admitted local callback URI.")
     scope: str = Field(description="Existing requested OAuth scope string.")
     resource: str = Field(description="Existing resource audience.")
@@ -168,7 +172,11 @@ class OAuthAccount(BaseModel):
         exclude=True,
         description="Legacy optional provider email claim, without stronger admission.",
     )
-    ext_agent_host_id: str = Field(description="Existing app-owned host identity.")
+    ext_agent_host_id: JsonValue = Field(
+        repr=False,
+        exclude=True,
+        description="Existing private host.json identity; preserve legacy JSON reader values and explicit query encoding.",
+    )
     id_token: SecretStr = Field(
         repr=False,
         exclude=True,

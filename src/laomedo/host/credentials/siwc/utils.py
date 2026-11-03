@@ -12,18 +12,18 @@ from urllib.request import HTTPSHandler
 from urllib.request import Request
 from urllib.request import build_opener
 from uuid import uuid4
+import csv
 import json
 import jwt
 from laomedo.host.credentials.siwc.settings import AUTH_ORIGIN
 import os
 import secrets
 import ssl
+import subprocess
 import time
 import truststore
 
 from laomedo.host.credentials.siwc.errors import AuthError
-from laomedo.host.private_state.errors import PrivateStateError
-from laomedo.host.private_state.utils import restrict_directory
 
 
 def _tls_context():
@@ -174,11 +174,29 @@ def _outside_git(path: Path) -> Path:
 
 
 def _restrict_windows_directory(path: Path) -> None:
-    """Keep SIWC's legacy permission mechanism and public exception contract."""
-    try:
-        restrict_directory(path)
-    except PrivateStateError:
-        raise AuthError("auth_store_permissions_unverified") from None
+    if os.name != "nt":
+        os.chmod(path, 0o700)
+        return
+    identity = subprocess.run(
+        ["whoami", "/user", "/fo", "csv", "/nh"],
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    if identity.returncode:
+        raise AuthError("auth_store_permissions_unverified")
+    rows = list(csv.reader(identity.stdout.splitlines()))
+    if len(rows) != 1 or len(rows[0]) != 2 or not rows[0][1].startswith("S-"):
+        raise AuthError("auth_store_permissions_unverified")
+    sid = rows[0][1]
+    result = subprocess.run(
+        ["icacls", str(path), "/inheritance:r", "/grant:r", "*" + sid + ":(OI)(CI)F"],
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+    if result.returncode:
+        raise AuthError("auth_store_permissions_unverified")
 
 
 @contextmanager
