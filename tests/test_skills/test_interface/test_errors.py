@@ -17,7 +17,7 @@ class ErrorCatalogueTests(unittest.TestCase):
         )
         for relative in (
             "components/laomedo/skill.py",
-            "src/laomedo/agents/feedback/pr.py",
+            "src/laomedo/integrations/langflow/feedback/pr.py",
         ):
             tree = ast.parse((root / relative).read_text(encoding="utf-8"))
             codes = {

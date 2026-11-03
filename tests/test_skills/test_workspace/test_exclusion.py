@@ -11,7 +11,7 @@ from laomedo.agents.agents.codex.agent import CodexAgent as LocalRunner
 from laomedo.agents.errors import RunnerError
 from laomedo.skills.registry.store import SkillStore
 from laomedo.agents.workspaces.cleanup import remove_owned_tree
-from test_agents.test_runtime.test_lifecycle import FakeServer
+from test_agents.test_runtime.transport import FakeServer
 
 
 class WorkspaceSkillGitTests(unittest.TestCase):
@@ -222,7 +222,7 @@ class WorkspaceSkillGitTests(unittest.TestCase):
         runner = self.runner()
         with (
             patch(
-                "laomedo.agents.workspaces.skills.utils.GitCommandRunner.run",
+                "laomedo.agents.workspaces.baseline.GitCommandRunner.run",
                 side_effect=FileNotFoundError,
             ),
             patch.object(runner, "_open_server") as server,
