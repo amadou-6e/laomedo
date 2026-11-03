@@ -239,7 +239,7 @@ function SkillWorkspace({ skillId, initialRevision, setOpen }: { skillId: string
             </button>}
           </div>
           {file && <>
-            {file.kind === "binary" ? <p className="p-4">Preview unavailable for binary files.<br /><code>{file.file_hash}</code></p> :
+            {file.kind === "binary" ? <p className="min-w-0 overflow-auto break-words p-4">Preview unavailable for binary files.<br /><code className="break-all">{file.file_hash}</code></p> :
               preview && markdown ? <div className="prose prose-sm max-w-none flex-1 overflow-auto p-4 dark:prose-invert" data-testid="skill-markdown-preview">
                 <ReactMarkdown skipHtml components={{ a: ({ children }) => <span>{children}</span>, img: ({ alt }) => <span>[Image: {alt || "not loaded"}]</span> }}>{file.text || ""}</ReactMarkdown>
               </div> : <Source file={file} match={match} editable={manual.editing && !manual.busy && !manual.pending && !fileImporting} onChange={manual.update} />}
