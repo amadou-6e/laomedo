@@ -1,0 +1,26 @@
+{
+  "source_revision": "7ce0b936580bbdc275eb6b5dc27302f531dd6c17",
+  "policy": "Exact existing serialized component caches before source/hash-only rebinding; no new execution evidence.",
+  "files": [
+    {
+      "path": "examples/github-pr/flow.json",
+      "sha256": "cf6e39576334fada018c4dffbe46ac375360c2f84ff0a8389b32dd9c9e7580c4",
+      "bytes": 33663
+    },
+    {
+      "path": "examples/langflow-contract-routing/flow.json",
+      "sha256": "eb31588d987aac8f7b25402db195ca13a0929c0d9e79dd9f14a72decad2e7f95",
+      "bytes": 104525
+    },
+    {
+      "path": "examples/langflow-workgraph-demo/flow.json",
+      "sha256": "9a3c562b90be45e43b60606165ba06ea7d45f364c764138a79e67656f5c92327",
+      "bytes": 118573
+    },
+    {
+      "path": "examples/skill-agent-pilot/pilot-flow.json",
+      "sha256": "c726d6d2d63cce7429a55ae6e176b197ef0fe6cdea58f2d4d313672188c378f0",
+      "bytes": 45356
+    }
+  ]
+}
