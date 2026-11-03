@@ -13,8 +13,8 @@
   "files": [
     {
       "path": ".gitattributes",
-      "bytes": 9,
-      "sha256": "8b9c3028d6467ff3be7c793141927841d70f47f52d0590677438f488ca154992"
+      "bytes": 30,
+      "sha256": "f06202a408fef9b9ea69bb6b1cb8160dbb0378c5bb67a444d510d231813824c8"
     },
     {
       "path": "actual-semantic-differences.json",
