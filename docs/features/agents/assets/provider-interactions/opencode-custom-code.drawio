@@ -1,0 +1,92 @@
+<?xml version='1.0' encoding='utf-8'?>
+<mxfile host="app.diagrams.net" type="device">
+  <diagram id="grouped-erd" name="OpenCode custom code">
+    <mxGraphModel grid="1" gridSize="10" page="1" pageScale="1" pageWidth="1785" pageHeight="1180">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="diagram-title" value="OpenCode | Where the custom code lives and why" vertex="1" parent="1" style="text;html=1;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontSize=24;fontColor=#20384A;">
+          <mxGeometry x="50" y="25" width="1720" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="diagram-note" value="CURRENT candidate 19c7f1f. Blue: Laomedo code. Green: upstream/shared dependencies. Amber: gaps. Provider-relative paths unless host/ or docker/ is shown." vertex="1" parent="1" style="text;html=1;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontSize=12;fontColor=#9A6949;">
+          <mxGeometry x="50" y="78" width="1720" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="host" value="Laomedo: provider-owned Python" style="rounded=0;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;resizeChildren=0;align=left;verticalAlign=top;spacingLeft=12;spacingTop=10;fillColor=#F5F7FA;strokeColor=#BDCBD6;fontColor=#20384A;fontSize=16;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="35" y="237.5" width="350" height="415" as="geometry" />
+        </mxCell>
+        <mxCell id="agent" value="&lt;b&gt;OpenCodeAgent : BaseAgent&lt;/b&gt;&lt;br/&gt;agent.py; shared ../base/agent.py&lt;br/&gt;&lt;br/&gt;Base shares admission and records. This subclass owns native binding, execution and finalization." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#EAF0FA;strokeColor=#8193A5;fontColor=#20384A;fontSize=15;" vertex="1" parent="host">
+          <mxGeometry x="20" y="55" width="310" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="runtime" value="&lt;b&gt;IsolatedOpenCode&lt;/b&gt;&lt;br/&gt;boundary.py + models.py&lt;br/&gt;&lt;br/&gt;Build isolated controller view; own ACP session, model selection, cancellation and resource closure." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#EAF0FA;strokeColor=#8193A5;fontColor=#20384A;fontSize=15;" vertex="1" parent="host">
+          <mxGeometry x="20" y="240" width="310" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="shared" value="Host: common code and libraries" style="rounded=0;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;resizeChildren=0;align=left;verticalAlign=top;spacingLeft=12;spacingTop=10;fillColor=#F5F7FA;strokeColor=#BDCBD6;fontColor=#20384A;fontSize=16;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="485" y="145" width="350" height="600" as="geometry" />
+        </mxCell>
+        <mxCell id="acp" value="&lt;b&gt;SHARED: Laomedo ACP bridge&lt;/b&gt;&lt;br/&gt;../base/acp/session.py + transport.py&lt;br/&gt;&lt;br/&gt;Compose the Python ACP SDK and adapt attached Docker stdin/stdout; native policy stays provider-owned." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#EAF0FA;strokeColor=#8193A5;fontColor=#20384A;fontSize=15;" vertex="1" parent="shared">
+          <mxGeometry x="20" y="55" width="310" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="sdk" value="&lt;b&gt;UPSTREAM: ACP Python SDK&lt;/b&gt;&lt;br/&gt;agent-client-protocol 0.12.1&lt;br/&gt;&lt;br/&gt;Implements protocol schemas and JSON-RPC request/response handling." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#E7F3EC;strokeColor=#8193A5;fontColor=#20384A;fontSize=15;" vertex="1" parent="shared">
+          <mxGeometry x="20" y="240" width="310" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="docker" value="&lt;b&gt;SHARED: container libraries&lt;/b&gt;&lt;br/&gt;py-docker -&amp;gt; Docker SDK -&amp;gt; Engine&lt;br/&gt;&lt;br/&gt;Open attached sessions, run jobs, retain ownership receipts and confirm exact-resource cleanup." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#E7F3EC;strokeColor=#8193A5;fontColor=#20384A;fontSize=15;" vertex="1" parent="shared">
+          <mxGeometry x="20" y="425" width="310" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="container" value="Provider Docker controller" style="rounded=0;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;resizeChildren=0;align=left;verticalAlign=top;spacingLeft=12;spacingTop=10;fillColor=#F5F7FA;strokeColor=#BDCBD6;fontColor=#20384A;fontSize=16;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="955" y="237.5" width="350" height="415" as="geometry" />
+        </mxCell>
+        <mxCell id="adapter" value="&lt;b&gt;UPSTREAM: native ACP server&lt;/b&gt;&lt;br/&gt;opencode acp&lt;br/&gt;&lt;br/&gt;ACP is built into OpenCode. No separate adapter package or custom ACP fork is needed." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#E7F3EC;strokeColor=#8193A5;fontColor=#20384A;fontSize=15;" vertex="1" parent="container">
+          <mxGeometry x="20" y="55" width="310" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="cli" value="&lt;b&gt;Upstream OpenCode CLI&lt;/b&gt;&lt;br/&gt;same opencode process&lt;br/&gt;&lt;br/&gt;Native ACP endpoint and Agent runtime live in one process; owns sessions and model requests." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#E7F3EC;strokeColor=#8193A5;fontColor=#20384A;fontSize=15;" vertex="1" parent="container">
+          <mxGeometry x="20" y="240" width="310" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="external" value="External service / known gaps" style="rounded=0;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;resizeChildren=0;align=left;verticalAlign=top;spacingLeft=12;spacingTop=10;fillColor=#F5F7FA;strokeColor=#BDCBD6;fontColor=#20384A;fontSize=16;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1405" y="222.5" width="300" height="445" as="geometry" />
+        </mxCell>
+        <mxCell id="model" value="&lt;b&gt;EXTERNAL: model service&lt;/b&gt;&lt;br/&gt;Outside the local Docker runner&lt;br/&gt;&lt;br/&gt;The native CLI authenticates and sends model requests. ACP does not perform inference." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#E7F3EC;strokeColor=#8193A5;fontColor=#20384A;fontSize=15;" vertex="1" parent="external">
+          <mxGeometry x="20" y="55" width="260" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="gap" value="&lt;b&gt;Current deployment gaps&lt;/b&gt;&lt;br/&gt;Missing maintained launch path&lt;br/&gt;&lt;br/&gt;Image exists locally, but recipe was archived; no provider CLI/default transport. Output requirements rejected." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#FFF1DF;strokeColor=#8193A5;fontColor=#20384A;fontSize=15;" vertex="1" parent="external">
+          <mxGeometry x="20" y="240" width="260" height="180" as="geometry" />
+        </mxCell>
+        <mxCell id="support" value="Supporting code: location and purpose" style="rounded=0;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;resizeChildren=0;align=left;verticalAlign=top;spacingLeft=12;spacingTop=10;fillColor=#F5F7FA;strokeColor=#BDCBD6;fontColor=#20384A;fontSize=16;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="177.5" y="835" width="1385" height="265" as="geometry" />
+        </mxCell>
+        <mxCell id="support_0" value="&lt;b&gt;CUSTOM: command broker&lt;/b&gt;&lt;br/&gt;boundary.py: CommandBroker; http/&lt;br/&gt;&lt;br/&gt;Expose authenticated remote MCP and dispatch credential-free, network-disabled workers." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#EAF0FA;strokeColor=#8193A5;fontColor=#20384A;fontSize=15;" vertex="1" parent="support">
+          <mxGeometry x="20" y="55" width="310" height="185" as="geometry" />
+        </mxCell>
+        <mxCell id="support_1" value="&lt;b&gt;CUSTOM: Console auth adaptation&lt;/b&gt;&lt;br/&gt;auth/ + utils.py&lt;br/&gt;&lt;br/&gt;Select approved Console credential/routing, validate expiry and bind the private runtime identity." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#EAF0FA;strokeColor=#8193A5;fontColor=#20384A;fontSize=15;" vertex="1" parent="support">
+          <mxGeometry x="365" y="55" width="310" height="185" as="geometry" />
+        </mxCell>
+        <mxCell id="support_2" value="&lt;b&gt;CUSTOM: history + Activity&lt;/b&gt;&lt;br/&gt;history/ + activity/&lt;br/&gt;&lt;br/&gt;Export bound session trees after closure; reconcile child usage and project native records for Activity." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#EAF0FA;strokeColor=#8193A5;fontColor=#20384A;fontSize=15;" vertex="1" parent="support">
+          <mxGeometry x="710" y="55" width="310" height="185" as="geometry" />
+        </mxCell>
+        <mxCell id="support_3" value="&lt;b&gt;CURRENT: worker image coupling&lt;/b&gt;&lt;br/&gt;settings.py: WORKER_IMAGE&lt;br/&gt;&lt;br/&gt;Workers reuse the Codex ACP image as a command environment. This needs neutral ownership, not a new ACP adapter." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#FFF1DF;strokeColor=#8193A5;fontColor=#20384A;fontSize=15;" vertex="1" parent="support">
+          <mxGeometry x="1055" y="55" width="310" height="185" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-agent_runtime" value="delegates" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;strokeColor=#218168;strokeWidth=2;endArrow=classic;startArrow=none;dashed=0;fontSize=12;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="agent" target="runtime">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-runtime_acp" value="open / prompt" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;strokeColor=#218168;strokeWidth=2;endArrow=classic;startArrow=none;dashed=0;fontSize=12;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="runtime" target="acp">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-acp_sdk" value="uses" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;strokeColor=#218168;strokeWidth=2;endArrow=classic;startArrow=none;dashed=0;fontSize=12;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="acp" target="sdk">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-sdk_adapter" value="ACP via attached stdio" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;strokeColor=#218168;strokeWidth=2;endArrow=classic;startArrow=none;dashed=0;fontSize=12;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="sdk" target="adapter">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-adapter_cli" value="same process" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;strokeColor=#218168;strokeWidth=2;endArrow=classic;startArrow=none;dashed=0;fontSize=12;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="adapter" target="cli">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-cli_model" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;strokeColor=#218168;strokeWidth=2;endArrow=classic;startArrow=none;dashed=0;fontSize=12;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cli" target="model">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-runtime_docker" value="launch / close" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;strokeColor=#486FA3;strokeWidth=2;endArrow=classic;startArrow=none;dashed=1;fontSize=12;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="runtime" target="docker">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

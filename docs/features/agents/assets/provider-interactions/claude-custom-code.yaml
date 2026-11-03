@@ -1,0 +1,241 @@
+version: 1
+title: "Claude custom code"
+header: "Claude | Where the custom code lives and why"
+note: "CURRENT candidate 19c7f1f. Blue: Laomedo code. Green: upstream/shared dependencies. Amber: gaps. Provider-relative paths unless host/ or docker/ is shown."
+matrix:
+  rows: 2
+  columns: 4
+  cells: [["host", "shared", "container", "external"], ["support", null, null, null]]
+  origin: [35, 145]
+  column_widths: [350, 350, 350, 300]
+  column_gaps: [100, 120, 100]
+  row_gaps: [90]
+  full_width_rows: ["support"]
+nodes:
+  agent:
+    label_html: "<b>ClaudeAgent : BaseAgent</b><br/>agent.py; shared ../base/agent.py<br/><br/>Base shares admission and records. This subclass owns native binding, execution and finalization."
+    style:
+      width: 310
+      height: 150
+      fill: "#EAF0FA"
+      stroke: "#8193A5"
+      font_size: 15
+      rounded: true
+  runtime:
+    label_html: "<b>ClaudeContainer</b><br/>container.py + models.py<br/><br/>Create supervised per-turn controller scopes; enforce mounts, tool policy and exact cleanup."
+    style:
+      width: 310
+      height: 150
+      fill: "#EAF0FA"
+      stroke: "#8193A5"
+      font_size: 15
+      rounded: true
+  acp:
+    label_html: "<b>SHARED: Laomedo ACP bridge</b><br/>../base/acp/session.py + transport.py<br/><br/>Compose the Python ACP SDK and adapt attached Docker stdin/stdout; native policy stays provider-owned."
+    style:
+      width: 310
+      height: 150
+      fill: "#EAF0FA"
+      stroke: "#8193A5"
+      font_size: 15
+      rounded: true
+  sdk:
+    label_html: "<b>UPSTREAM: ACP Python SDK</b><br/>agent-client-protocol 0.12.1<br/><br/>Implements protocol schemas and JSON-RPC request/response handling."
+    style:
+      width: 310
+      height: 150
+      fill: "#E7F3EC"
+      stroke: "#8193A5"
+      font_size: 15
+      rounded: true
+  docker:
+    label_html: "<b>SHARED: container libraries</b><br/>py-docker -&gt; Docker SDK -&gt; Engine<br/><br/>Open attached sessions, run jobs, retain ownership receipts and confirm exact-resource cleanup."
+    style:
+      width: 310
+      height: 150
+      fill: "#E7F3EC"
+      stroke: "#8193A5"
+      font_size: 15
+      rounded: true
+  adapter:
+    label_html: "<b>UPSTREAM: Claude ACP adapter</b><br/>claude-agent-acp package<br/><br/>Translates ACP into Claude-native execution. Installed in /opt/acp; no local adapter fork."
+    style:
+      width: 310
+      height: 150
+      fill: "#E7F3EC"
+      stroke: "#8193A5"
+      font_size: 15
+      rounded: true
+  cli:
+    label_html: "<b>Upstream Claude CLI</b><br/>claude executable<br/><br/>Owns native sessions, subscription requests and native telemetry; native shell/file tools are disabled."
+    style:
+      width: 310
+      height: 150
+      fill: "#E7F3EC"
+      stroke: "#8193A5"
+      font_size: 15
+      rounded: true
+  model:
+    label_html: "<b>EXTERNAL: model service</b><br/>Outside the local Docker runner<br/><br/>The native CLI authenticates and sends model requests. ACP does not perform inference."
+    style:
+      width: 260
+      height: 150
+      fill: "#E7F3EC"
+      stroke: "#8193A5"
+      font_size: 15
+      rounded: true
+  gap:
+    label_html: "<b>Current boundary gap</b><br/>Not a validation claim<br/><br/>ACP session ownership is inside Agent; shared lifecycle consolidation remains incomplete."
+    style:
+      width: 260
+      height: 180
+      fill: "#FFF1DF"
+      stroke: "#8193A5"
+      font_size: 15
+      rounded: true
+  support_0:
+    label_html: "<b>CUSTOM: command bridge</b><br/>docker/claude/command_mcp.py<br/><br/>Expose admitted MCP tools to Claude; forward authenticated requests to the host command service."
+    style:
+      width: 310
+      height: 185
+      fill: "#EAF0FA"
+      stroke: "#8193A5"
+      font_size: 15
+      rounded: true
+  support_1:
+    label_html: "<b>CUSTOM: isolated command service</b><br/>container.py: CommandService; http/<br/><br/>Execute in a credential-free, network-disabled worker; authorize mediated GitHub effects separately."
+    style:
+      width: 310
+      height: 185
+      fill: "#EAF0FA"
+      stroke: "#8193A5"
+      font_size: 15
+      rounded: true
+  support_2:
+    label_html: "<b>CUSTOM: access-only login mirror</b><br/>auth/ + auth/resources/write_login.py<br/><br/>Mirror only approved access credentials into the dedicated profile; host retains refresh ownership."
+    style:
+      width: 310
+      height: 185
+      fill: "#EAF0FA"
+      stroke: "#8193A5"
+      font_size: 15
+      rounded: true
+  support_3:
+    label_html: "<b>CUSTOM: native telemetry receiver</b><br/>activity/ + activity/http/<br/><br/>Receive native OTLP, bind it to run/thread/turn and retain safe evidence without inventing usage."
+    style:
+      width: 310
+      height: 185
+      fill: "#EAF0FA"
+      stroke: "#8193A5"
+      font_size: 15
+      rounded: true
+groups:
+  host:
+    title: "Laomedo: provider-owned Python"
+    layout: "column"
+    children: ["agent", "runtime"]
+    gap: 35
+    style:
+      padding: [55, 20, 25, 20]
+      fill: "#F5F7FA"
+      font_size: 16
+  shared:
+    title: "Host: common code and libraries"
+    layout: "column"
+    children: ["acp", "sdk", "docker"]
+    gap: 35
+    style:
+      padding: [55, 20, 25, 20]
+      fill: "#F5F7FA"
+      font_size: 16
+  container:
+    title: "Provider Docker controller"
+    layout: "column"
+    children: ["adapter", "cli"]
+    gap: 35
+    style:
+      padding: [55, 20, 25, 20]
+      fill: "#F5F7FA"
+      font_size: 16
+  external:
+    title: "External service / known gaps"
+    layout: "column"
+    children: ["model", "gap"]
+    gap: 35
+    style:
+      padding: [55, 20, 25, 20]
+      fill: "#F5F7FA"
+      font_size: 16
+  support:
+    title: "Supporting code: location and purpose"
+    layout: "row"
+    children: ["support_0", "support_1", "support_2", "support_3"]
+    gap: 35
+    style:
+      padding: [55, 20, 25, 20]
+      fill: "#F5F7FA"
+      font_size: 16
+edges:
+  agent_runtime:
+    from: "agent"
+    to: "runtime"
+    label: "delegates"
+    style:
+      stroke: "#218168"
+      dashed: false
+      width: 2
+      end_arrow: "classic"
+  runtime_acp:
+    from: "runtime"
+    to: "acp"
+    label: "open / prompt"
+    style:
+      stroke: "#218168"
+      dashed: false
+      width: 2
+      end_arrow: "classic"
+  acp_sdk:
+    from: "acp"
+    to: "sdk"
+    label: "uses"
+    style:
+      stroke: "#218168"
+      dashed: false
+      width: 2
+      end_arrow: "classic"
+  sdk_adapter:
+    from: "sdk"
+    to: "adapter"
+    label: "ACP via attached stdio"
+    style:
+      stroke: "#218168"
+      dashed: false
+      width: 2
+      end_arrow: "classic"
+  adapter_cli:
+    from: "adapter"
+    to: "cli"
+    label: "native interface"
+    style:
+      stroke: "#218168"
+      dashed: false
+      width: 2
+      end_arrow: "classic"
+  cli_model:
+    from: "cli"
+    to: "model"
+    label: ""
+    style:
+      stroke: "#218168"
+      dashed: false
+      width: 2
+      end_arrow: "classic"
+  runtime_docker:
+    from: "runtime"
+    to: "docker"
+    label: "launch / close"
+    style:
+      stroke: "#486FA3"
+      dashed: true
+      width: 2
+      end_arrow: "classic"

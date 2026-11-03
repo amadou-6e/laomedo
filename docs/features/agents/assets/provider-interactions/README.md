@@ -1,5 +1,30 @@
 # Agent provider interactions
 
+For an explanation of custom code, use the individual provider diagrams:
+
+| Provider | Editable diagram | Preview |
+| --- | --- | --- |
+| Codex | [Codex custom code](codex-custom-code.drawio) | [PNG](codex-custom-code.png) |
+| Claude | [Claude custom code](claude-custom-code.drawio) | [PNG](claude-custom-code.png) |
+| OpenCode | [OpenCode custom code](opencode-custom-code.drawio) | [PNG](opencode-custom-code.png) |
+
+They are also collected in [one three-page file](provider-custom-code.drawio).
+Blue cards identify Laomedo-owned code, including the explicitly labelled shared
+bridge; green cards identify external/shared dependencies; amber cards identify
+gaps. Every code card names its location and purpose. Provider-relative paths
+start at `src/laomedo/agents/agents/<provider>/`; `../base/` is the shared sibling.
+Paths beginning `host/` are relative to `src/laomedo/`, and `docker/` is relative
+to the repository root. Supporting cards explain ownership and purpose, not an
+additional execution sequence. The arrows are logical dependencies/calls, not
+a complete wire trace.
+
+Codex's custom TypeScript hooks preserve native events and host policy missing
+from the standard ACP contract. Claude uses a packaged upstream ACP adapter but
+needs our command bridge, access-only mirror and telemetry receiver. OpenCode
+supplies ACP natively; our code isolates commands and reconciles native history.
+Its absent maintained Docker recipe/launcher and Codex-worker-image dependency
+remain gaps, not necessary properties of OpenCode.
+
 Open [the editable draw.io diagram](agent-provider-interactions.drawio).
 Its three pages separate the inspected implementation from the proposed design:
 
