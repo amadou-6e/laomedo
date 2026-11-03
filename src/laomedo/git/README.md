@@ -85,3 +85,15 @@ staging must remain available to its potentially active process.
 
 Startup OSError propagates to the caller's translation. Internal process controls
 test these mechanics; live HTTPS, graph and provider acceptance remain distinct.
+
+Isolated read options use a fixed per-subcommand allowlist before the `--`
+operand delimiter. Command overrides such as clone `-u`, `--upload-pack`,
+`--template` and alternate Git directories are refused. This protocol policy is
+not externally configurable and does not change workspace/transport profiles.
+
+A Windows job-handle close failure remains a conservative cleanup error even
+when active-process accounting reached zero. Source staging remains retained in
+that case. On POSIX, timeout/error termination uses the owned process group; the
+inherited successful-root path does not independently sweep surviving descendants.
+Windows Job Object descendant accounting is tested separately; no equivalent
+POSIX successful-root containment claim is made here.

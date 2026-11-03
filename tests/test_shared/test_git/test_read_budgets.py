@@ -120,6 +120,10 @@ class SourceBoundaryTests(unittest.TestCase):
             {"context": context.model_copy(update={"extra_env": {"HOME": "private"}})},
             {"context": context.model_copy(update={"home": self.root})},
             {"arguments": ["push", "origin", "HEAD"]},
+            {"arguments": ["clone", "-u", "unsafe", "source", "target"]},
+            {"arguments": ["clone", "-uunsafe", "source", "target"]},
+            {"arguments": ["clone", "--template=unsafe", "source", "target"]},
+            {"arguments": ["clone", "--separate-git-dir=unsafe", "source", "target"]},
             {"arguments": ["fetch", "--upload-pack=unsafe", "origin"]},
             {"arguments": ["-c", "protocol.file.allow=always", "clone"]},
         ):

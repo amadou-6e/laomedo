@@ -29,6 +29,7 @@ class GitSkillSource:
     """Own source cache semantics; generic process policy stays in GitCommandRunner."""
 
     def __init__(self, state: Path, *, repository_provider=None, runner=None):
+        """Bind the owned source cache, optional trusted file adapter and shared native runner."""
         self.state = state
         self.repository_provider = repository_provider
         self.runner = runner if runner is not None else GitCommandRunner()
@@ -50,10 +51,12 @@ class GitSkillSource:
         return total
 
     def _check_cache_budget(self):
+        """Refuse a cache above 128 MiB, including retained uncertain clones; ignore only vanished locks."""
         if self._cache_bytes() > 128 * 1024 * 1024:
             raise SourceError("repository_limit_exceeded")
 
     def _run(self, cwd, args, limit=4 * 1024 * 1024, *, deadline=float("inf")):
+        """Execute a credential-free bounded read and translate confirmed limit or uncertain cleanup observations."""
         profile = (
             GitEnvironmentProfile.ISOLATED_FILE_READ_ONLY
             if self.repository_provider
@@ -82,6 +85,7 @@ class GitSkillSource:
         return result.stdout
 
     def repository(self, source, refresh=False, *, deadline):
+        """Clone or refresh one admitted bare cache, retaining partial staging when termination is unconfirmed."""
         folder = self.state / hashlib.sha256(source.encode()).hexdigest()
         transport = (
             str(self.repository_provider(source))
@@ -159,6 +163,7 @@ class GitSkillSource:
         return SkillRepositoryState(directory=folder, refs=result)
 
     def entries(self, repo, commit, deadline):
+        """Admit bounded native tree metadata and source-relative regular-file entries before reading bytes."""
         raw = self._run(
             repo,
             ["ls-tree", "-rz", "--full-tree", commit],
@@ -187,6 +192,7 @@ class GitSkillSource:
         return result
 
     def read_blob(self, repo, entry, deadline):
+        """Check the admitted blob mode and byte size, then return exact bytes under the shared operation deadline."""
         if entry.mode not in {"100644", "100755"} or entry.kind != "blob":
             raise SourceError("source_bundle_unsafe")
         if (

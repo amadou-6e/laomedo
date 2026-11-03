@@ -14,7 +14,7 @@ from pydantic import (
     model_validator,
 )
 
-from .settings import GIT_COMMAND_TIMEOUT_SECONDS
+from .settings import GIT_COMMAND_TIMEOUT_SECONDS, ISOLATED_READ_OPTIONS
 
 
 class GitEnvironmentProfile(str, Enum):
@@ -191,22 +191,13 @@ class GitCommand(BaseModel):
             or self.directory is not None
             or self.budget is None
             or not self.arguments
-            or self.arguments[0]
-            not in {
-                "--version",
-                "clone",
-                "fetch",
-                "for-each-ref",
-                "rev-parse",
-                "ls-tree",
-                "cat-file",
-            }
-            or any(
-                value.startswith(
-                    ("-c", "-C", "--config", "--upload-pack", "--exec-path")
-                )
-                for value in self.arguments
-            )
+            or self.arguments[0] not in ISOLATED_READ_OPTIONS
         ):
             raise ValueError("git_read_profile_invalid")
+        options = ISOLATED_READ_OPTIONS[self.arguments[0]]
+        for argument in self.arguments[1:]:
+            if argument == "--":
+                break  # Subsequent values are operands, never options.
+            if argument.startswith("-") and argument not in options:
+                raise ValueError("git_read_profile_invalid")
         return self
