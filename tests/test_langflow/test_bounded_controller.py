@@ -22,7 +22,7 @@ module = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = module
 spec.loader.exec_module(module)
 build_spec = importlib.util.spec_from_file_location(
-    "chain_builder", ROOT / "examples/agent-handoffs/build_flow.py"
+    "chain_builder", ROOT / "tests/test_agents/test_examples/handoffs.py"
 )
 builder = importlib.util.module_from_spec(build_spec)
 build_spec.loader.exec_module(builder)
@@ -77,7 +77,7 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
             ):
                 Adapter.answers, Adapter.calls = answers, []
                 Adapter.delay = 1.05 if expected == "deadline" else 0
-                with patch.object(handoff_http, "RunnerAdapter", Adapter):
+                with patch.object(handoff_http, "HttpAgentBridge", Adapter):
                     await Graph.from_payload(self.flow(state, **fields)).arun(
                         inputs=[{"input_value": "start"}], types=["chat"]
                     )
@@ -116,7 +116,7 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
             }.items():
                 setattr(node, name, value)
             node._pre_run_setup()
-            with patch.object(handoff_http, "RunnerAdapter", Blocking):
+            with patch.object(handoff_http, "HttpAgentBridge", Blocking):
                 task = asyncio.create_task(node.execution_output())
                 await asyncio.to_thread(entered.wait, 2)
                 task.cancel()

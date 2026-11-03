@@ -197,10 +197,10 @@ and selected artifact manifests persist in the downstream runner record.
 `LaomedoBoundedController` implements bounded scheduling without cyclic visual
 edges, persists turn reservations and partial outcomes, and exposes exact stop
 reason/cancellation evidence. It requires the Laomedo runtime package on Langflow's
-Python path and private execution storage. The separate deployment configuration
-in [agent-handoffs](../examples/agent-handoffs/README.md) remains a draft.
-Tests cover real graph builds with synthetic HTTP; the example also records one
-successful real two-agent chain at exactly two authorized submitted turns.
+Python path and private execution storage. The [Agent builder](../examples/agents/README.md) constructs current lifecycle
+and handoff graphs. Internal tests exercise graph builds with synthetic HTTP;
+these do not establish real execution acceptance. Historical chain/loop campaign
+records are preserved on `exp` with their original limitations.
 
 ## Direct Contract Success to Draft PR Publisher
 

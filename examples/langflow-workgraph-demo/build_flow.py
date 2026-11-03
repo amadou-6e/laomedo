@@ -14,7 +14,7 @@ from lfx.graph.graph.base import Graph
 ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
 helper_spec = importlib.util.spec_from_file_location(
-    "native_builder", ROOT / "examples/native-codex-node/build_flow.py"
+    "native_builder", ROOT / "examples/skills/graph.py"
 )
 helper = importlib.util.module_from_spec(helper_spec)
 helper_spec.loader.exec_module(helper)

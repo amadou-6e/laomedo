@@ -26,7 +26,6 @@ CLI_PATHS = json.loads(Path(__file__).with_name("cli-paths.json").read_text())
 # Partial splits preserve the old owner for its remaining members; retired splits
 # require every imported member to resolve to an explicit defining-symbol mapping.
 RETIRED_SPLIT_MODULES = {
-    "laomedo.github.issues.utils",
     "laomedo.skills.registry.utils",
     "laomedo.skills.workspace",
     "laomedo.skills.workspace.utils",
@@ -34,6 +33,7 @@ RETIRED_SPLIT_MODULES = {
     "laomedo.workspace_skills",
 }
 SPLIT_MODULES = {
+    "laomedo.github.issues.utils",
     "laomedo.github.issues.contract",
     "laomedo.github.pull_requests.contract",
     "laomedo.github.transport.git.transport",
@@ -819,9 +819,7 @@ def main() -> None:
     try:
         project_root = Path(__file__).resolve().parents[2]
         history = json.loads(
-            (project_root / "examples/agent-module-history.json").read_text(
-                encoding="utf-8"
-            )
+            (Path(__file__).with_name("agent-history.json")).read_text(encoding="utf-8")
         )
         immutable = {
             (project_root / record["historical_original"]).resolve()

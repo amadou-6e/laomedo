@@ -18,7 +18,7 @@ from laomedo.agents.interface.output.utils import requirements
 class ClaudeComponentTests(unittest.IsolatedAsyncioTestCase):
     def test_unmigrated_provider_subclasses_fail_before_routing_or_http(self):
         import laomedo.codex_agent as concrete
-        from laomedo.integrations.langflow.agent import component as common
+        from laomedo.agents.interface.langflow import component as common
         from lfx.custom.custom_component.component import Component
         from lfx.custom.utils import build_custom_component_template
 
@@ -125,7 +125,7 @@ class ClaudeComponentTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("handoff_reference", config)
 
     def test_model_refresh_uses_claude_runner_token_not_codex_token(self):
-        import laomedo.integrations.langflow.agent.component as codex
+        import laomedo.agents.interface.langflow.component as codex
 
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -158,7 +158,7 @@ class ClaudeComponentTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(http.call_args.kwargs["timeout"], 75)
 
     def test_resolved_model_efforts_follow_first_native_match_like_runner(self):
-        import laomedo.integrations.langflow.agent.component as codex
+        import laomedo.agents.interface.langflow.component as codex
 
         body = {
             "provider": "claude",
@@ -197,7 +197,7 @@ class ClaudeComponentTests(unittest.IsolatedAsyncioTestCase):
     async def test_native_labels_and_all_efforts_reach_dropdown_and_dispatch_payload(
         self,
     ):
-        import laomedo.integrations.langflow.agent.component as codex
+        import laomedo.agents.interface.langflow.component as codex
 
         node = self.node(model="fable", effort="max")
         catalog = codex._ModelCatalog()
@@ -235,7 +235,7 @@ class ClaudeComponentTests(unittest.IsolatedAsyncioTestCase):
     async def test_imported_resolved_model_keeps_native_efforts_and_pin_without_duplicate_picker_rows(
         self,
     ):
-        import laomedo.integrations.langflow.agent.component as codex
+        import laomedo.agents.interface.langflow.component as codex
 
         node = self.node(model="claude-sonnet-test", effort="max")
         catalog = codex._ModelCatalog()
@@ -371,7 +371,7 @@ class ClaudeComponentTests(unittest.IsolatedAsyncioTestCase):
         self,
     ):
         from urllib.error import HTTPError
-        import laomedo.integrations.langflow.agent.component as common
+        import laomedo.agents.interface.langflow.component as common
 
         for code in (
             "claude_host_login_unavailable",

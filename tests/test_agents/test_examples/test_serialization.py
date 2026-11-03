@@ -1,7 +1,8 @@
-"""Validate the exported native flow's input pins and serialized component identity."""
+"""Internal saved-graph serialization controls; not current example acceptance."""
 
 import json
 from pathlib import Path
+from support.paths import repository_root
 import unittest
 
 from laomedo.skills.registry.hashing import tree_hash
@@ -9,8 +10,10 @@ from laomedo.skills.registry.hashing import tree_hash
 
 class NativeFlowTests(unittest.TestCase):
     def test_opencode_example_embeds_current_component(self):
-        root = Path(__file__).resolve().parents[1]
-        flow = json.loads((root / "examples/opencode-node/flow.json").read_text())
+        root = repository_root()
+        flow = json.loads(
+            (root / "tests/test_agents/test_examples/data/opencode.json").read_text()
+        )
         agents = [
             node
             for node in flow["data"]["nodes"]
@@ -26,11 +29,11 @@ class NativeFlowTests(unittest.TestCase):
     def test_current_claude_templates_embed_the_neutral_adapter_and_optional_skills(
         self,
     ):
-        root = Path(__file__).resolve().parents[1]
+        root = repository_root()
         source = (root / "components/laomedo/claude_agent.py").read_text()
         for relative in (
-            "examples/claude-agent/current-template-flow.json",
-            "examples/claude-agent/flow.json",
+            "tests/test_agents/test_examples/data/claude-template.json",
+            "tests/test_agents/test_examples/data/claude.json",
         ):
             flow = json.loads((root / relative).read_text())
             agents = [
@@ -45,8 +48,10 @@ class NativeFlowTests(unittest.TestCase):
                 self.assertFalse(fields["skill_reference"]["required"])
 
     def test_connection_handles_match_serialized_port_schemas(self):
-        root = Path(__file__).resolve().parents[1]
-        flow = json.loads((root / "examples/native-codex-node/flow.json").read_text())
+        root = repository_root()
+        flow = json.loads(
+            (root / "tests/test_agents/test_examples/data/codex.json").read_text()
+        )
         nodes = {node["id"]: node for node in flow["data"]["nodes"]}
         for edge in flow["data"]["edges"]:
             source = json.loads(edge["sourceHandle"])
@@ -66,8 +71,10 @@ class NativeFlowTests(unittest.TestCase):
             self.assertEqual(target, edge["data"]["targetHandle"])
 
     def test_native_flow_pins_whole_skill_and_both_output_branches(self):
-        root = Path(__file__).resolve().parents[1]
-        flow = json.loads((root / "examples/native-codex-node/flow.json").read_text())
+        root = repository_root()
+        flow = json.loads(
+            (root / "tests/test_agents/test_examples/data/codex.json").read_text()
+        )
         agent = next(
             n for n in flow["data"]["nodes"] if n["data"]["type"] == "LaomedoCodexAgent"
         )

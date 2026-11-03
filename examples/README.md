@@ -11,9 +11,9 @@ original revisions and byte provenance; they are not current setup instructions.
 
 The [Agent builder](agents/README.md) exports current fresh/resume graphs for all
 three providers and provenance handoffs where the component exposes that input.
-Its structural checks do not establish live execution acceptance. Older provider
-folders remain temporarily while their regression assets and documentation links
-are migrated; they are not additional current setup entrypoints.
+Its structural checks do not establish live execution acceptance. Historical provider campaigns and execution evidence are preserved on `exp`.
+Saved graph compatibility assets belong to concern-owned tests rather than
+additional setup entrypoints.
 
 Other folders own GitHub graph workflows.
 `skill-agent-pilot` retains the historical Agent runner prototype and its Agent

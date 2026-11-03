@@ -24,7 +24,7 @@ spec = importlib.util.spec_from_file_location("codex_agent", MODULE_PATH)
 module = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = module
 spec.loader.exec_module(module)
-from laomedo.integrations.langflow.agent import component as shared_module
+from laomedo.agents.interface.langflow import component as shared_module
 
 skill_spec = importlib.util.spec_from_file_location(
     "skill_component", MODULE_PATH.with_name("skill.py")
@@ -111,7 +111,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
                     },
                 ),
                 patch(
-                    "laomedo.agents.activity.utils.capture_for",
+                    "laomedo.agents.activity.capture.capture_for",
                     return_value=ActivityInvocation.model_construct(
                         store=object(), invocation_id="internal"
                     ),
@@ -492,7 +492,9 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
         from lfx.graph.graph.base import Graph
 
         root = Path(__file__).resolve().parents[2]
-        flow = json.loads((root / "examples/native-codex-node/flow.json").read_text())
+        flow = json.loads(
+            (root / "tests/test_agents/test_examples/data/codex.json").read_text()
+        )
         agent = next(
             n for n in flow["data"]["nodes"] if n["data"]["type"] == "LaomedoCodexAgent"
         )
@@ -794,7 +796,9 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
         from lfx.graph.graph.base import Graph
 
         root = Path(__file__).resolve().parents[2]
-        flow = json.loads((root / "examples/native-codex-node/flow.json").read_text())
+        flow = json.loads(
+            (root / "tests/test_agents/test_examples/data/codex.json").read_text()
+        )
         graph = Graph.from_payload(flow)
         with patch.object(
             shared_module.request,
@@ -817,7 +821,9 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
         from lfx.graph.graph.base import Graph
 
         root = Path(__file__).resolve().parents[2]
-        flow = json.loads((root / "examples/native-codex-node/flow.json").read_text())
+        flow = json.loads(
+            (root / "tests/test_agents/test_examples/data/codex.json").read_text()
+        )
         observed = []
         fresh_route = shared_module.AgentComponent._fresh_route
 
@@ -860,7 +866,9 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
         from lfx.graph.graph.base import Graph
 
         root = Path(__file__).resolve().parents[2]
-        flow = json.loads((root / "examples/native-codex-node/flow.json").read_text())
+        flow = json.loads(
+            (root / "tests/test_agents/test_examples/data/codex.json").read_text()
+        )
         node = next(
             n for n in flow["data"]["nodes"] if n["data"]["type"] == "LaomedoCodexAgent"
         )
@@ -897,11 +905,13 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
 
         root = Path(__file__).resolve().parents[2]
         builder_spec = importlib.util.spec_from_file_location(
-            "resume_flow_builder", root / "examples/native-codex-node/build_flow.py"
+            "resume_flow_builder", root / "examples/skills/graph.py"
         )
         builder = importlib.util.module_from_spec(builder_spec)
         builder_spec.loader.exec_module(builder)
-        flow = json.loads((root / "examples/native-codex-node/flow.json").read_text())
+        flow = json.loads(
+            (root / "tests/test_agents/test_examples/data/codex.json").read_text()
+        )
         first = next(
             n for n in flow["data"]["nodes"] if n["data"]["type"] == "LaomedoCodexAgent"
         )
@@ -953,7 +963,9 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
         from lfx.graph.graph.base import Graph
 
         root = Path(__file__).resolve().parents[2]
-        flow = json.loads((root / "examples/native-codex-node/flow.json").read_text())
+        flow = json.loads(
+            (root / "tests/test_agents/test_examples/data/codex.json").read_text()
+        )
         skill = next(
             n for n in flow["data"]["nodes"] if n["data"]["type"] == "LaomedoSkill"
         )

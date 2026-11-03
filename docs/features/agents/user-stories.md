@@ -48,7 +48,7 @@ Acceptance criteria:
 
 Visual: [the actual Operation control above](assets/agent-node.png). This capture
 shows Status only; it does not establish fresh Resume or Cancel acceptance.
-Provider lifecycle guidance: [Claude example](../../../examples/claude-agent/README.md).
+Provider lifecycle guidance: [Agent examples](../../../examples/agents/README.md).
 
 ## AG-03 — Inspect what happened
 

@@ -1,4 +1,4 @@
-"""Generate acyclic two-agent chain using pinned Langflow port metadata."""
+"""Internal handoff/controller graph controls; never an acceptance example."""
 
 from copy import deepcopy
 import importlib.util
@@ -9,16 +9,20 @@ from lfx.custom.custom_component.component import Component
 from lfx.custom.utils import build_custom_component_template
 from lfx.graph.graph.base import Graph
 
-ROOT = Path(__file__).resolve().parents[2]
+from support.paths import repository_root
+
+ROOT = repository_root()
 helper_spec = importlib.util.spec_from_file_location(
-    "native_flow_builder", ROOT / "examples/native-codex-node/build_flow.py"
+    "native_flow_builder", ROOT / "examples/skills/graph.py"
 )
 helper = importlib.util.module_from_spec(helper_spec)
 helper_spec.loader.exec_module(helper)
 
 
 def build():
-    original = json.loads((ROOT / "examples/native-codex-node/flow.json").read_text())
+    original = json.loads(
+        (ROOT / "tests/test_agents/test_examples/data/codex.json").read_text()
+    )
     nodes = original["data"]["nodes"]
     a = deepcopy(next(n for n in nodes if n["data"]["type"] == "LaomedoCodexAgent"))
     agent_template, _ = build_custom_component_template(
@@ -79,7 +83,9 @@ def build():
 
 
 def build_controller(**values):
-    original = json.loads((ROOT / "examples/native-codex-node/flow.json").read_text())
+    original = json.loads(
+        (ROOT / "tests/test_agents/test_examples/data/codex.json").read_text()
+    )
     template, _ = build_custom_component_template(
         Component(_code=(ROOT / "components/laomedo/bounded_controller.py").read_text())
     )
@@ -129,13 +135,3 @@ def build_controller(**values):
     }
     Graph.from_payload(flow)
     return flow
-
-
-if __name__ == "__main__":
-    Path(__file__).with_name("flow.json").write_text(
-        json.dumps(build(), indent=2) + "\n"
-    )
-    Path(__file__).with_name("loop-flow.json").write_text(
-        json.dumps(build_controller(), indent=2) + "\n"
-    )
-    print("six_vertex_chain_validated")

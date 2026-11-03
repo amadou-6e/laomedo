@@ -12,7 +12,7 @@ from lfx.graph.graph.base import Graph
 
 ROOT = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location(
-    "chain_builder", ROOT / "examples/agent-handoffs/build_flow.py"
+    "chain_builder", ROOT / "tests/test_agents/test_examples/handoffs.py"
 )
 builder = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(builder)
