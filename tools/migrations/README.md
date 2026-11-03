@@ -40,3 +40,9 @@ Removed process helpers become explicit refusals;
 unsupported native/main entrypoints must not run against the current package.
 Scoped internal controls can supply a credential-free test environment, with
 cleanup. This proves those controls only, never native or live integration.
+
+`protected-graphs.json` names historical execution exports that the offline tool
+must never edit in place. Their original bytes and provenance belong to exp;
+the tool needs neither that checkout nor a historical source-body manifest.
+Migrate an explicitly named copy instead. This list is consumer-migration safety
+data, separate from obsolete refactor proof snapshots.
