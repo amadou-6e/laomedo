@@ -8,11 +8,21 @@ For an explanation of custom code, use the individual provider diagrams:
 | Claude | [Claude](claude-custom-code.drawio) | [PNG](claude-custom-code.png) | [PNG](claude-tools-auth.png) | [PNG](claude-evidence.png) |
 | OpenCode | [OpenCode](opencode-custom-code.drawio) | [PNG](opencode-custom-code.png) | [PNG](opencode-tools-auth.png) | [PNG](opencode-evidence.png) |
 
-Each provider file has three connected pages: run/session, tools/credentials and
-evidence-to-Activity. They replace the detached supporting-code cards. Every
+Each provider file has four pages: run/session, tools/credentials,
+evidence-to-Activity and the tracked provider/Docker folder structure. The first
+three replace the detached supporting-code cards. Every
 implementation or resource card participates in its page's architecture; arrows
 identify its caller, native interface, credential consumer or evidence consumer.
-The pages are also collected in [one nine-page file](provider-custom-code.drawio).
+The pages are also collected in [one twelve-page file](provider-custom-code.drawio).
+
+Folder-page previews: [Codex](codex-folders.png), [Claude](claude-folders.png),
+[OpenCode](opencode-folders.png). Each tracked file has an ownership marker;
+custom implementation, package/test code and build/policy files are distinguished
+from generated locks, documentation and upstream licences. Codex's modified Moby
+seccomp profile is explicitly marked custom plus derived. RUN, TOOLS / AUTH and
+EVIDENCE connect the file inventory to the architecture tabs. The OpenCode page
+marks its absent Docker recipe as missing, not an implemented folder. Installed
+SDK/CLI/adapter source is identified as external to this tracked tree.
 
 Blue cards identify shared Laomedo code; purple identifies provider-owned Python;
 orange identifies custom in-container code; green identifies upstream components

@@ -323,4 +323,342 @@
       </root>
     </mxGraphModel>
   </diagram>
+  <diagram id="codex-folder-structure" name="4. Folder structure">
+    <mxGraphModel grid="1" gridSize="10" page="1" pageScale="1" pageWidth="1750" pageHeight="1275">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" value="Codex | 4. Provider folder structure and custom files" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=24;fontColor=#20384A;fontStyle=1;">
+          <mxGeometry x="35" y="25" width="1650" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="note" value="Tracked source inventory at runtime 19c7f1f. CUSTOM means Laomedo-owned, not an upstream SDK/CLI implementation." vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontColor=#697583;fontStyle=0;">
+          <mxGeometry x="35" y="78" width="1650" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="count" value="22 provider files; 9 Docker build files. RUN, TOOLS / AUTH and EVIDENCE refer to the first three tabs." vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontColor=#20384A;fontStyle=0;">
+          <mxGeometry x="35" y="110" width="1650" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_heading" value="src/laomedo/agents/agents/codex/" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=14;fontColor=#20384A;fontStyle=1;">
+          <mxGeometry x="35" y="165" width="825" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_columns" value="TRACKED TREE" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontColor=#697583;fontStyle=1;">
+          <mxGeometry x="47" y="205" width="420" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_owner" value="OWNERSHIP" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontColor=#697583;fontStyle=1;">
+          <mxGeometry x="515" y="205" width="180" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_role" value="VIEW" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontColor=#697583;fontStyle=1;">
+          <mxGeometry x="715" y="205" width="135" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_9269298ae9c1" value="activity/" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontFamily=Consolas;fontColor=#20384A;fontStyle=1;" filePath="src/laomedo/agents/agents/codex/activity/" inventoryKind="directory">
+          <mxGeometry x="47" y="235" width="455" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_d1af957575ca" value="|-- README.md" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontFamily=Consolas;fontColor=#455869;fontStyle=0;" filePath="src/laomedo/agents/agents/codex/activity/README.md" inventoryKind="file" ownership="DOCUMENTATION">
+          <mxGeometry x="69" y="260" width="433" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_d1af957575ca_tag" value="DOCUMENTATION" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontColor=#697583;fontStyle=1;">
+          <mxGeometry x="515" y="260" width="190" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_d1af957575ca_view" value="EVIDENCE" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=10;fontColor=#697583;fontStyle=0;">
+          <mxGeometry x="715" y="260" width="135" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_be94881f729d" value="|-- __init__.py" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontFamily=Consolas;fontColor=#455869;fontStyle=0;" filePath="src/laomedo/agents/agents/codex/activity/__init__.py" inventoryKind="file" ownership="CUSTOM PACKAGE">
+          <mxGeometry x="69" y="285" width="433" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_be94881f729d_tag" value="CUSTOM PACKAGE" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontColor=#75589C;fontStyle=1;">
+          <mxGeometry x="515" y="285" width="190" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_be94881f729d_view" value="EVIDENCE" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=10;fontColor=#697583;fontStyle=0;">
+          <mxGeometry x="715" y="285" width="135" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_69b8f8175917" value="|-- rollout_export.py" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontFamily=Consolas;fontColor=#455869;fontStyle=0;" filePath="src/laomedo/agents/agents/codex/activity/rollout_export.py" inventoryKind="file" ownership="CUSTOM CODE">
+          <mxGeometry x="69" y="310" width="433" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_69b8f8175917_tag" value="CUSTOM CODE" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontColor=#75589C;fontStyle=1;">
+          <mxGeometry x="515" y="310" width="190" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_69b8f8175917_view" value="EVIDENCE" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=10;fontColor=#697583;fontStyle=0;">
+          <mxGeometry x="715" y="310" width="135" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_19d1e08eda4e" value="controller/" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontFamily=Consolas;fontColor=#20384A;fontStyle=1;" filePath="src/laomedo/agents/agents/codex/controller/" inventoryKind="directory">
+          <mxGeometry x="47" y="335" width="455" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_7125c4d2680b" value="|-- README.md" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontFamily=Consolas;fontColor=#455869;fontStyle=0;" filePath="src/laomedo/agents/agents/codex/controller/README.md" inventoryKind="file" ownership="DOCUMENTATION">
+          <mxGeometry x="69" y="360" width="433" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_7125c4d2680b_tag" value="DOCUMENTATION" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontColor=#697583;fontStyle=1;">
+          <mxGeometry x="515" y="360" width="190" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_7125c4d2680b_view" value="RUN" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=10;fontColor=#697583;fontStyle=0;">
+          <mxGeometry x="715" y="360" width="135" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_e79509ce3f34" value="|-- __init__.py" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontFamily=Consolas;fontColor=#455869;fontStyle=0;" filePath="src/laomedo/agents/agents/codex/controller/__init__.py" inventoryKind="file" ownership="CUSTOM PACKAGE">
+          <mxGeometry x="69" y="385" width="433" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_e79509ce3f34_tag" value="CUSTOM PACKAGE" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontColor=#75589C;fontStyle=1;">
+          <mxGeometry x="515" y="385" width="190" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_e79509ce3f34_view" value="RUN" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=10;fontColor=#697583;fontStyle=0;">
+          <mxGeometry x="715" y="385" width="135" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_dea09a7dac90" value="|-- models.py" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontFamily=Consolas;fontColor=#455869;fontStyle=0;" filePath="src/laomedo/agents/agents/codex/controller/models.py" inventoryKind="file" ownership="CUSTOM CODE">
+          <mxGeometry x="69" y="410" width="433" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_dea09a7dac90_tag" value="CUSTOM CODE" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontColor=#75589C;fontStyle=1;">
+          <mxGeometry x="515" y="410" width="190" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_dea09a7dac90_view" value="RUN" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=10;fontColor=#697583;fontStyle=0;">
+          <mxGeometry x="715" y="410" width="135" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_1943dc1ac3ca" value="|-- service.py" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontFamily=Consolas;fontColor=#455869;fontStyle=0;" filePath="src/laomedo/agents/agents/codex/controller/service.py" inventoryKind="file" ownership="CUSTOM CODE">
+          <mxGeometry x="69" y="435" width="433" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_1943dc1ac3ca_tag" value="CUSTOM CODE" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontColor=#75589C;fontStyle=1;">
+          <mxGeometry x="515" y="435" width="190" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_1943dc1ac3ca_view" value="RUN + EVIDENCE" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=10;fontColor=#697583;fontStyle=0;">
+          <mxGeometry x="715" y="435" width="135" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_fca9da22350f" value="|-- settings.py" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontFamily=Consolas;fontColor=#455869;fontStyle=0;" filePath="src/laomedo/agents/agents/codex/controller/settings.py" inventoryKind="file" ownership="CUSTOM CODE">
+          <mxGeometry x="69" y="460" width="433" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_fca9da22350f_tag" value="CUSTOM CODE" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontColor=#75589C;fontStyle=1;">
+          <mxGeometry x="515" y="460" width="190" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_fca9da22350f_view" value="RUN" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=10;fontColor=#697583;fontStyle=0;">
+          <mxGeometry x="715" y="460" width="135" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_ffd840848076" value="resources/" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontFamily=Consolas;fontColor=#20384A;fontStyle=1;" filePath="src/laomedo/agents/agents/codex/resources/" inventoryKind="directory">
+          <mxGeometry x="47" y="485" width="455" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_c4fdca5b7111" value="|-- codex-seccomp.json" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontFamily=Consolas;fontColor=#455869;fontStyle=0;" filePath="src/laomedo/agents/agents/codex/resources/codex-seccomp.json" inventoryKind="file" ownership="CUSTOM + DERIVED">
+          <mxGeometry x="69" y="510" width="433" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_c4fdca5b7111_tag" value="CUSTOM + DERIVED" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontColor=#A87532;fontStyle=1;">
+          <mxGeometry x="515" y="510" width="190" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_c4fdca5b7111_view" value="RUN" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=10;fontColor=#697583;fontStyle=0;">
+          <mxGeometry x="715" y="510" width="135" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_40e80dd6dc36" value="|-- codex-seccomp.md" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontFamily=Consolas;fontColor=#455869;fontStyle=0;" filePath="src/laomedo/agents/agents/codex/resources/codex-seccomp.md" inventoryKind="file" ownership="DOCUMENTATION">
+          <mxGeometry x="69" y="535" width="433" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_40e80dd6dc36_tag" value="DOCUMENTATION" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontColor=#697583;fontStyle=1;">
+          <mxGeometry x="515" y="535" width="190" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_40e80dd6dc36_view" value="RUN" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=10;fontColor=#697583;fontStyle=0;">
+          <mxGeometry x="715" y="535" width="135" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_6b9fbe195537" value="|-- moby-profiles-LICENSE" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontFamily=Consolas;fontColor=#455869;fontStyle=0;" filePath="src/laomedo/agents/agents/codex/resources/moby-profiles-LICENSE" inventoryKind="file" ownership="UPSTREAM LICENSE">
+          <mxGeometry x="69" y="560" width="433" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_6b9fbe195537_tag" value="UPSTREAM LICENSE" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontColor=#557E65;fontStyle=1;">
+          <mxGeometry x="515" y="560" width="190" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_6b9fbe195537_view" value="RUN" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=10;fontColor=#697583;fontStyle=0;">
+          <mxGeometry x="715" y="560" width="135" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_299c6bc3c4d9" value="|-- runner-config.toml" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontFamily=Consolas;fontColor=#455869;fontStyle=0;" filePath="src/laomedo/agents/agents/codex/resources/runner-config.toml" inventoryKind="file" ownership="CUSTOM POLICY">
+          <mxGeometry x="69" y="585" width="433" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_299c6bc3c4d9_tag" value="CUSTOM POLICY" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontColor=#A87532;fontStyle=1;">
+          <mxGeometry x="515" y="585" width="190" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_299c6bc3c4d9_view" value="RUN" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=10;fontColor=#697583;fontStyle=0;">
+          <mxGeometry x="715" y="585" width="135" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_f969e5f89f6e" value="split/" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontFamily=Consolas;fontColor=#20384A;fontStyle=1;" filePath="src/laomedo/agents/agents/codex/split/" inventoryKind="directory">
+          <mxGeometry x="47" y="610" width="455" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_13232a9a535f" value="|-- README.md" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontFamily=Consolas;fontColor=#455869;fontStyle=0;" filePath="src/laomedo/agents/agents/codex/split/README.md" inventoryKind="file" ownership="DOCUMENTATION">
+          <mxGeometry x="69" y="635" width="433" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_13232a9a535f_tag" value="DOCUMENTATION" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontColor=#697583;fontStyle=1;">
+          <mxGeometry x="515" y="635" width="190" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_13232a9a535f_view" value="TOOLS / AUTH" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=10;fontColor=#697583;fontStyle=0;">
+          <mxGeometry x="715" y="635" width="135" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_4ebc338fcce2" value="|-- __init__.py" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontFamily=Consolas;fontColor=#455869;fontStyle=0;" filePath="src/laomedo/agents/agents/codex/split/__init__.py" inventoryKind="file" ownership="CUSTOM PACKAGE">
+          <mxGeometry x="69" y="660" width="433" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_4ebc338fcce2_tag" value="CUSTOM PACKAGE" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontColor=#75589C;fontStyle=1;">
+          <mxGeometry x="515" y="660" width="190" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_4ebc338fcce2_view" value="TOOLS / AUTH" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=10;fontColor=#697583;fontStyle=0;">
+          <mxGeometry x="715" y="660" width="135" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_d98fac9153e0" value="|-- executor.py" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontFamily=Consolas;fontColor=#455869;fontStyle=0;" filePath="src/laomedo/agents/agents/codex/split/executor.py" inventoryKind="file" ownership="CUSTOM CODE">
+          <mxGeometry x="69" y="685" width="433" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_d98fac9153e0_tag" value="CUSTOM CODE" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontColor=#75589C;fontStyle=1;">
+          <mxGeometry x="515" y="685" width="190" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_d98fac9153e0_view" value="TOOLS / AUTH" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=10;fontColor=#697583;fontStyle=0;">
+          <mxGeometry x="715" y="685" width="135" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_a1129e2e4ef4" value="|-- models.py" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontFamily=Consolas;fontColor=#455869;fontStyle=0;" filePath="src/laomedo/agents/agents/codex/split/models.py" inventoryKind="file" ownership="CUSTOM CODE">
+          <mxGeometry x="69" y="710" width="433" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_a1129e2e4ef4_tag" value="CUSTOM CODE" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontColor=#75589C;fontStyle=1;">
+          <mxGeometry x="515" y="710" width="190" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_a1129e2e4ef4_view" value="TOOLS / AUTH" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=10;fontColor=#697583;fontStyle=0;">
+          <mxGeometry x="715" y="710" width="135" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_50404c07dea1" value="README.md" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontFamily=Consolas;fontColor=#455869;fontStyle=0;" filePath="src/laomedo/agents/agents/codex/README.md" inventoryKind="file" ownership="DOCUMENTATION">
+          <mxGeometry x="47" y="735" width="455" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_50404c07dea1_tag" value="DOCUMENTATION" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontColor=#697583;fontStyle=1;">
+          <mxGeometry x="515" y="735" width="190" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_50404c07dea1_view" value="RUN" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=10;fontColor=#697583;fontStyle=0;">
+          <mxGeometry x="715" y="735" width="135" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_31ad52d1c8cc" value="__init__.py" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontFamily=Consolas;fontColor=#455869;fontStyle=0;" filePath="src/laomedo/agents/agents/codex/__init__.py" inventoryKind="file" ownership="CUSTOM PACKAGE">
+          <mxGeometry x="47" y="760" width="455" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_31ad52d1c8cc_tag" value="CUSTOM PACKAGE" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontColor=#75589C;fontStyle=1;">
+          <mxGeometry x="515" y="760" width="190" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_31ad52d1c8cc_view" value="RUN" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=10;fontColor=#697583;fontStyle=0;">
+          <mxGeometry x="715" y="760" width="135" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_886f461f3746" value="agent.py" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontFamily=Consolas;fontColor=#455869;fontStyle=0;" filePath="src/laomedo/agents/agents/codex/agent.py" inventoryKind="file" ownership="CUSTOM CODE">
+          <mxGeometry x="47" y="785" width="455" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_886f461f3746_tag" value="CUSTOM CODE" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontColor=#75589C;fontStyle=1;">
+          <mxGeometry x="515" y="785" width="190" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_886f461f3746_view" value="RUN" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=10;fontColor=#697583;fontStyle=0;">
+          <mxGeometry x="715" y="785" width="135" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_5fc3c39dded9" value="cli.py" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontFamily=Consolas;fontColor=#455869;fontStyle=0;" filePath="src/laomedo/agents/agents/codex/cli.py" inventoryKind="file" ownership="CUSTOM CODE">
+          <mxGeometry x="47" y="810" width="455" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_5fc3c39dded9_tag" value="CUSTOM CODE" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontColor=#75589C;fontStyle=1;">
+          <mxGeometry x="515" y="810" width="190" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_5fc3c39dded9_view" value="RUN" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=10;fontColor=#697583;fontStyle=0;">
+          <mxGeometry x="715" y="810" width="135" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_c3c362d315d6" value="settings.py" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontFamily=Consolas;fontColor=#455869;fontStyle=0;" filePath="src/laomedo/agents/agents/codex/settings.py" inventoryKind="file" ownership="CUSTOM CODE">
+          <mxGeometry x="47" y="835" width="455" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_c3c362d315d6_tag" value="CUSTOM CODE" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontColor=#75589C;fontStyle=1;">
+          <mxGeometry x="515" y="835" width="190" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_c3c362d315d6_view" value="RUN" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=10;fontColor=#697583;fontStyle=0;">
+          <mxGeometry x="715" y="835" width="135" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_96ea220abf73" value="utils.py" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontFamily=Consolas;fontColor=#455869;fontStyle=0;" filePath="src/laomedo/agents/agents/codex/utils.py" inventoryKind="file" ownership="CUSTOM CODE">
+          <mxGeometry x="47" y="860" width="455" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_96ea220abf73_tag" value="CUSTOM CODE" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontColor=#75589C;fontStyle=1;">
+          <mxGeometry x="515" y="860" width="190" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="provider_96ea220abf73_view" value="RUN" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=10;fontColor=#697583;fontStyle=0;">
+          <mxGeometry x="715" y="860" width="135" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="docker_title" value="docker/codex-acp/" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=15;fontColor=#20384A;fontStyle=1;">
+          <mxGeometry x="930" y="165" width="750" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="docker_file_0" value="Dockerfile" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontColor=#455869;fontStyle=0;">
+          <mxGeometry x="940" y="220" width="420" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="docker_tag_0" value="CUSTOM BUILD" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontColor=#A87532;fontStyle=1;" filePath="docker/codex-acp/Dockerfile" inventoryKind="file" ownership="CUSTOM BUILD">
+          <mxGeometry x="1370" y="220" width="300" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="docker_file_1" value="LaomedoExtension.test.ts" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontColor=#455869;fontStyle=0;">
+          <mxGeometry x="940" y="250" width="420" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="docker_tag_1" value="CUSTOM TEST" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontColor=#75589C;fontStyle=1;" filePath="docker/codex-acp/LaomedoExtension.test.ts" inventoryKind="file" ownership="CUSTOM TEST">
+          <mxGeometry x="1370" y="250" width="300" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="docker_file_2" value="LaomedoExtension.ts" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontColor=#455869;fontStyle=0;">
+          <mxGeometry x="940" y="280" width="420" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="docker_tag_2" value="CUSTOM CODE" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontColor=#75589C;fontStyle=1;" filePath="docker/codex-acp/LaomedoExtension.ts" inventoryKind="file" ownership="CUSTOM CODE">
+          <mxGeometry x="1370" y="280" width="300" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="docker_file_3" value="LaomedoLaunch.test.ts" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontColor=#455869;fontStyle=0;">
+          <mxGeometry x="940" y="310" width="420" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="docker_tag_3" value="CUSTOM TEST" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontColor=#75589C;fontStyle=1;" filePath="docker/codex-acp/LaomedoLaunch.test.ts" inventoryKind="file" ownership="CUSTOM TEST">
+          <mxGeometry x="1370" y="310" width="300" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="docker_file_4" value="LaomedoLaunch.ts" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontColor=#455869;fontStyle=0;">
+          <mxGeometry x="940" y="340" width="420" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="docker_tag_4" value="CUSTOM CODE" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontColor=#75589C;fontStyle=1;" filePath="docker/codex-acp/LaomedoLaunch.ts" inventoryKind="file" ownership="CUSTOM CODE">
+          <mxGeometry x="1370" y="340" width="300" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="docker_file_5" value="README.md" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontColor=#455869;fontStyle=0;">
+          <mxGeometry x="940" y="370" width="420" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="docker_tag_5" value="DOCUMENTATION" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontColor=#697583;fontStyle=1;" filePath="docker/codex-acp/README.md" inventoryKind="file" ownership="DOCUMENTATION">
+          <mxGeometry x="1370" y="370" width="300" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="docker_file_6" value="native-events.patch" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontColor=#455869;fontStyle=0;">
+          <mxGeometry x="940" y="400" width="420" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="docker_tag_6" value="CUSTOM CODE" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontColor=#75589C;fontStyle=1;" filePath="docker/codex-acp/native-events.patch" inventoryKind="file" ownership="CUSTOM CODE">
+          <mxGeometry x="1370" y="400" width="300" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="docker_file_7" value="package-lock.json" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontColor=#455869;fontStyle=0;">
+          <mxGeometry x="940" y="430" width="420" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="docker_tag_7" value="GENERATED LOCK" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontColor=#697583;fontStyle=1;" filePath="docker/codex-acp/package-lock.json" inventoryKind="file" ownership="GENERATED LOCK">
+          <mxGeometry x="1370" y="430" width="300" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="docker_file_8" value="package.json" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontColor=#455869;fontStyle=0;">
+          <mxGeometry x="940" y="460" width="420" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="docker_tag_8" value="CUSTOM BUILD" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontColor=#A87532;fontStyle=1;" filePath="docker/codex-acp/package.json" inventoryKind="file" ownership="CUSTOM BUILD">
+          <mxGeometry x="1370" y="460" width="300" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="legend_title" value="How to read the markers" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=16;fontColor=#20384A;fontStyle=1;">
+          <mxGeometry x="930" y="525" width="700" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="legend_0" value="CUSTOM CODE / TEST / PACKAGE — Written or maintained by Laomedo, including glue around upstream libraries." vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontColor=#455869;fontStyle=0;">
+          <mxGeometry x="940" y="565" width="700" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="legend_1" value="CUSTOM BUILD / POLICY — Our image recipe, dependency manifest or runtime policy." vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontColor=#455869;fontStyle=0;">
+          <mxGeometry x="940" y="618" width="700" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="legend_2" value="CUSTOM + DERIVED — Moby seccomp baseline with Laomedo rule additions." vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontColor=#455869;fontStyle=0;">
+          <mxGeometry x="940" y="671" width="700" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="legend_3" value="GENERATED LOCK / UPSTREAM LICENSE — Dependency metadata or third-party licence, not our implementation." vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontColor=#455869;fontStyle=0;">
+          <mxGeometry x="940" y="724" width="700" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="legend_4" value="DOCUMENTATION — Explanations/provenance; not executable code." vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontColor=#455869;fontStyle=0;">
+          <mxGeometry x="940" y="777" width="700" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="shared_title" value="Shared code lives outside this provider" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=16;fontColor=#20384A;fontStyle=1;">
+          <mxGeometry x="930" y="870" width="700" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="shared_0" value="src/laomedo/agents/agents/base/ — lifecycle + shared ACP" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontColor=#20384A;fontStyle=0;">
+          <mxGeometry x="940" y="910" width="700" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="shared_1" value="src/laomedo/agents/interface/ — application contract" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontColor=#20384A;fontStyle=0;">
+          <mxGeometry x="940" y="945" width="700" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="shared_2" value="src/laomedo/agents/activity/ — shared evidence/viewer" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontColor=#20384A;fontStyle=0;">
+          <mxGeometry x="940" y="980" width="700" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="shared_3" value="py-docker / Docker SDK / ACP SDK — separate dependencies" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontColor=#20384A;fontStyle=0;">
+          <mxGeometry x="940" y="1015" width="700" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="shared_4" value="src/laomedo/host/credentials/siwc/ — host-owned ChatGPT login" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontColor=#20384A;fontStyle=0;">
+          <mxGeometry x="940" y="1050" width="700" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="upstream_title" value="Upstream implementation is not in this tree" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=16;fontColor=#20384A;fontStyle=1;">
+          <mxGeometry x="930" y="1125" width="700" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="upstream" value="Codex CLI and upstream codex-acp sources are installed/downloaded by the Docker build. Our hooks/patch are tracked above." vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=14;fontColor=#20384A;fontStyle=0;">
+          <mxGeometry x="940" y="1165" width="700" height="95" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
 </mxfile>
