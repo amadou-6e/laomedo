@@ -16,8 +16,7 @@ from laomedo.work_graph.launch import preflight
 class WorkGraphRecordTests(unittest.TestCase):
     def test_work_grant_cli_flat_shape_and_redeemed_payload_match_old_writers(self):
         from laomedo.work_graph.__main__ import main
-        from laomedo.work_graph.grants import LocalGrantAuthority
-        from laomedo.agents.workflow.errors import LaunchError
+        from laomedo.work_graph.grants import LocalGrantAuthority, LaunchError
         from test_work_graph.utils import make_snapshot
 
         WORK = "github:S-20"

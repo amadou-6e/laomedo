@@ -144,3 +144,20 @@ class SharedMigrationTests(unittest.TestCase):
         source = ROOT / "src/laomedo"
         for path in (source / "git").rglob("*.py"):
             self.assertNotIn("retained_shared", path.read_text(encoding="utf-8"))
+
+    def test_fully_qualified_injection_calls_and_expanded_keywords_refuse(self):
+        for owner, symbol in (
+            ("laomedo.github.transport.git.transport", "GitHubGitTransport"),
+            ("laomedo.github_git_transport", "GitHubGitTransport"),
+            ("laomedo.host.publication.verified.git", "VerifiedGitStage"),
+            ("laomedo.verified_git_stage", "VerifiedGitStage"),
+            ("laomedo.host.publication.verified.utils", "stage_verified_git"),
+            ("laomedo.verified_git_stage", "stage_verified_git"),
+        ):
+            for arguments in ("run=callback", "**options"):
+                source = f"import {owner}\n{owner}.{symbol}({arguments})\n"
+                with (
+                    self.subTest(source=source),
+                    self.assertRaisesRegex(migration.ManualMigrationRequired, "run="),
+                ):
+                    migration.migrate_source(source)

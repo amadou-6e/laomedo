@@ -15,7 +15,7 @@ migration = load_migration()
 
 class MigrationFileTests(unittest.TestCase):
     def test_json_splicing_preserves_unrelated_bytes(self):
-        source = '\ufeff{\r\n "id":"laomedo.local_runner", "label":"CafÃ© Î»", "number":1.2300e+03, "dup":1,"dup":2, "code":"from laomedo.skill_store import SkillStore\\n"\r\n}\r\n'.encode(
+        source = '\ufeff{\r\n "id":"laomedo.local_runner", "label":"CafÃƒÂ© ÃŽÂ»", "number":1.2300e+03, "dup":1,"dup":2, "code":"from laomedo.skill_store import SkillStore\\n"\r\n}\r\n'.encode(
             "utf-8"
         )
         with tempfile.TemporaryDirectory() as directory:
@@ -166,4 +166,23 @@ class MigrationFileTests(unittest.TestCase):
             self.assertEqual(path.read_bytes(), b"original")
             self.assertEqual(
                 sorted(p.name for p in path.parent.iterdir()), ["launch.py"]
+            )
+
+    def test_invalid_utf8_refuses_without_payload_traceback_or_writes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "invalid.py"
+            original = b"\xffPRIVATE-INPUT"
+            path.write_bytes(original)
+            result = subprocess.run(
+                [sys.executable, str(TOOL), str(path), "--apply"],
+                capture_output=True,
+                timeout=30,
+            )
+            self.assertEqual(result.returncode, 2)
+            self.assertIn(b"not valid UTF-8", result.stderr)
+            self.assertNotIn(b"PRIVATE-INPUT", result.stderr)
+            self.assertNotIn(b"Traceback", result.stderr)
+            self.assertEqual(path.read_bytes(), original)
+            self.assertFalse(
+                path.with_name(path.name + ".before-module-migration").exists()
             )
