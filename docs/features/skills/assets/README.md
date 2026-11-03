@@ -35,3 +35,20 @@ Always-on controls captured 2026-11-02 in the real authenticated Skill viewer:
 | --- | --- | --- | --- |
 | always-on-clean.png | Editable real journal head, no footer | `e54015b6caf77bd4af0a3861adfe11450d702449` | Headless Edge 1600 by 1100; no model/GitHub dispatch |
 | always-on-dirty.png | Native typing, conditional Publish/Discard footer | `e54015b6caf77bd4af0a3861adfe11450d702449` | Headless Edge 1600 by 1100; no model/GitHub dispatch |
+
+
+File-action captures, 2026-11-03, actual authenticated local registry,
+UI source `2b5fe172fccbb3b761eb6a8674703668d849778a`:
+
+| File | Actual state | Bounds |
+| --- | --- | --- |
+| file-actions-menu.png | Native Menu key opens the selected file's context menu; 16-entry real history | Headless Edge 1600 by 1100 |
+| file-actions-history.png | Removed real workflow document compared from its retained revision to current | Headless Edge 1600 by 1100 |
+| file-actions-narrow.png | Full-page binary metadata; entire SHA visible through soft wrapping | Headless Edge 900 by 650 |
+
+Pixels are copied unchanged from actual browser captures. Publication transactions
+were exercised at `7973c31`; backend/transaction code is byte-identical, and the
+later menu/metadata UI fixes have fresh final-source interaction checks. The PNG
+uploaded during acceptance is the existing always-on-clean.png documentation
+asset; it is not presented as a new file-action screenshot. Final owner validation
+is still required.

@@ -129,3 +129,23 @@ Publish, without a separate review mode. Publication refuses stale
 heads/bases without changing graph pins or Git. Implemented; see the same
 [real publication and replay record](manual-workspace.md). Git publishing in
 SK-05 remains proposed. Final owner acceptance is pending.
+
+
+## SK-08 - Manage working files
+
+As a Skill author, I want to upload text and binary files, rename, move, delete
+and copy relative paths from the explorer, so I can publish a complete traceable
+revision without leaving the viewer. Implemented; see [actual workflows and
+revision-specific evidence](manual-workspace.md).
+
+Acceptance criteria:
+
+- Right-click and keyboard menus provide the same target-specific actions.
+- Picker/drop import is atomic; collisions, invalid paths and limits preserve work.
+- Rename/move preserve bytes and buffers; Delete confirms; Discard restores saved files.
+- Read-only and pending states block mutations while keeping inspection/copy available.
+- Publish saves the complete batch and promotes the exact candidate; history retains
+  changed paths, text differences and binary size/hash evidence.
+
+Owner validation of the final workflow remains pending. Binary content editing,
+directory uploads, empty folders and Git publication are outside this story.

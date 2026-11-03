@@ -5,6 +5,16 @@ editable; the workspace opens the journal head while the graph keeps its pin.
 Skill ID and short revision share a single header line. The Skill summary remains
 visible and its overview can be expanded.
 
+Right-click a file, folder or empty space in **Files** for Upload files, Rename,
+Move to, Delete and Copy relative path. Shift+F10 or the Menu key opens the same
+menu for the focused target. **Move to** is the keyboard alternative to dragging
+files or folders. Drop local files into Files to import them; upload on a file
+targets its parent, and empty space targets the Skill root.
+
+Renames and moves retain working text and binary bytes. Delete asks for
+confirmation. Required SKILL.md stays at the root. These actions are staged until
+Publish; Discard restores saved files. No automatic overwrite occurs.
+
 Change any existing text file to reveal the bottom-right **Discard** and
 **Publish** controls. Switching files, Find and historical comparisons preserve
 working text. An optional commit message defaults to `Update Skill files`.
@@ -32,7 +42,61 @@ Missing grants deny writes. Backend provenance is `operator`, not an independent
 verified human identity. Manual creation/deletion/binary edits, per-user ACL, Git
 publication and durable unsaved crash recovery remain unsupported.
 
-## Current control revision
+## File actions: current UI verification
+
+![Actual file context menu](assets/file-actions-menu.png)
+
+![Actual deleted-file revision comparison](assets/file-actions-history.png)
+
+![Binary metadata remains visible in a narrow window](assets/file-actions-narrow.png)
+
+Captured 2026-11-03 from the authenticated local Skill viewer in headless Edge on
+Windows. UI source `2b5fe172fccbb3b761eb6a8674703668d849778a`, pinned Langflow
+`fec71dca901949c09ed4d63315804337cd2eb13d`. These images show real registry files
+and retained revisions. The local example has 16 commits and three current files.
+The Source/Preview row is one icon beside the scrollable file tabs; its accessible
+name and tooltip describe the destination. Preview uses working text.
+
+| Story | Observed result and source |
+| --- | --- |
+| Context menus and keyboard | Final UI: pointer, Shift+F10 and native Menu key retain the selected target. Escape closes the menu/form and returns focus to its row. Root menu covers blank Files space. |
+| Working file actions | Final UI: actual multi-file picker imports Markdown and an existing 209,352-byte PNG; rename, pointer move, keyboard Move to, relative-path copy, delete/cancel and Discard pass. The saved three-file tree and history remain unchanged after temporary edits. |
+| Layout and grants | Final UI: 900 by 650 full-page menus/forms and the complete binary hash stay visible. Actual Dark mode works; Light is restored. Revoked local grants disable mutations and external drops while Copy remains available; grants are restored. |
+| Failure and recovery | Final UI: real name collision, invalid rename, oversized local file, directory drop and exclusive OS file lock refuse the whole operation. Unlock/reselect recovers reading. An actual non-secure local origin has no Clipboard/WebCrypto API: manual path copying and the bundled binary hash still work. |
+| Atomic publication | Source `7973c31`: original policy refuses the real two-file batch without a commit; explicitly admitting the example's asset paths permits one atomic UI save/promotion. Independent stored-byte hashes match the original document and PNG. |
+| Binary moves and history | Source `7973c31`: saved binary moves resolve immutable before-bytes, with deletions in the same commit. Browser transport blocking before a save locks mutation/close; Check result replays the exact UUID/base/payload, then promotes once. Size/hash and removed text are inspectable in per-file history. |
+
+The final UI changes after `7973c31` are the Menu-key portal guard and narrow-window
+binary-hash wrapping, plus their regression checks. Transaction hooks, working-tree
+helpers, publication controls and all packaged backend bytes are unchanged;
+publication evidence is retained at its original revision. Final UI working and
+failure paths were rerun. An authenticated API save of the existing image supplied
+a second nonempty folder for the folder-action story; that setup is recorded as an
+API operation, and the subsequent rename/move/delete/Discard uses the actual UI.
+
+All three new commits were independently checked against raw stored files:
+parent chain, complete changed-path sets, tree hashes and retained diffs match.
+Earlier snapshots, source bundles and both saved graph Skill pins remain unchanged.
+The original Agent attempt count and prior GitHub effects remain unchanged.
+Eighty-six internal frontend checks pass; the Skills suite and architecture/error
+catalogue checks support the live paths. They do not replace owner validation.
+
+Binary contents are metadata-only; valid UTF-8 without NUL remains text regardless
+of suffix. The host must explicitly permit asset paths, additions/deletions and
+publication. Protocol bounds are 128 files, 512 KiB/file and 4 MiB per bundle;
+the 4 MiB encoded request admits less new binary data because of base64 overhead.
+No file executes or publishes to Git. Directory uploads, empty folders, binary
+content editing and durable unsaved crash recovery are unsupported. Transport
+blocking above occurs before transmission; lost replies after a committed effect
+have internal coverage, not a new live crash test.
+
+The final requesting-owner inspection remains pending; both PRs stay unmerged.
+
+## Earlier always-on control verification
+
+The following captures and records precede the file actions and single preview
+icon above. They retain their original source revisions.
+
 
 ![Actual always-editable Skill with compact header](assets/always-on-clean.png)
 
