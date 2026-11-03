@@ -10,7 +10,7 @@
 | navigation-collapsed.png | Same actual viewer after Collapse all | 2026-11-02, `ee2e66d` | Source retained; Open all available |
 | navigation-history.png | Same actual viewer, middle commit compared to current reference file | 2026-11-02, `ee2e66d` | Completed visual diff; actual backend-operator edits, no new Agent run |
 | workspace-search.png | Actual pinned two-file Skill, Find expanded and reference source selected | 2026-11-02, `6c473d9` | Real local workspace search; no new Agent run |
-| workspace-full-page.png | Same actual source and query, full-page dialog | 2026-11-02, `6c473d9`, 1600 Ãƒâ€” 1100 | Full viewport; restore and small viewport verified separately |
+| workspace-full-page.png | Same actual source and query, full-page dialog | 2026-11-02, `6c473d9`, 1600 × 1100 | Full viewport; restore and small viewport verified separately |
 | explorer-light.png | Actual two-file Skill, bundled Markdown logos and Codicon chevrons | 2026-11-02, `70571ca` | Real file selection, disclosure and navigation; no new Agent run |
 | explorer-dark.png | Same actual Skill, application Dark mode selected | 2026-11-02, `70571ca` | Real theme controls; original dedicated-browser theme restored |
 
