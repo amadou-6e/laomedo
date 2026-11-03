@@ -1,0 +1,11 @@
+{
+  "step": "Shared + Skills + GitHub",
+  "scope": "Local detached integration only; not published or merge acceptance",
+  "resolutions": {
+    "catalogue": "Per-key GitHub delta applied to exact Shared+Skill map; no conflicting semantic values",
+    "host_services_and_cli": "Shared typed records/direct symbols plus final GitHubMediatedTransport defining module",
+    "mediation_validation": "Original direct-symbol Shared authorization with final GitHub labels owner",
+    "work_graph_github": "Original direct model imports with GitHub repository validator",
+    "tests_guide": "Retain current Shared concern moves and GitHub guide; no stale namespace reinstatement"
+  }
+}

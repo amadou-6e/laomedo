@@ -1,0 +1,76 @@
+{
+  "heads": {
+    "fix/237": "939f1e08b2efe5602a9f08ec30186957f7ccb2a9",
+    "refactor/206": "1c949341da6b49c0c85f5462a585cac270599d83",
+    "fix/245": "3dbdac97dc682709d6cdcb5511f2fafa49da6c94",
+    "refactor/205": "ed8b771062b4a348da72fca3d3addcb9dbc34ca2"
+  },
+  "requirements": {
+    "c5ff97a8fc2af8a6dde695baecd6f66acb57970c": [
+      "fix/237"
+    ],
+    "1139d2013288c3870ce4c4ada61c927d857979c8": [
+      "refactor/205"
+    ],
+    "0a4f9f5986e571a2a253143a8704eb63755746c2": [
+      "fix/237"
+    ],
+    "5f74c72bfac702b32e880652a2a2e6fef452774f": [
+      "fix/237"
+    ],
+    "ecc4c16fad9b31947d0de40f4fc6281525f2a5aa": [
+      "fix/237"
+    ],
+    "f2cc88f57344026362ea7e516009432920375934": [
+      "fix/237"
+    ],
+    "217a610b99203f83575225f168c37ae39d96b3ba": [
+      "refactor/205"
+    ],
+    "fb58409d3dd333304a0c8fb092f7f496bf0e742e": [
+      "refactor/205"
+    ],
+    "939f1e08b2efe5602a9f08ec30186957f7ccb2a9": [
+      "fix/237"
+    ],
+    "1c949341da6b49c0c85f5462a585cac270599d83": [
+      "refactor/206"
+    ],
+    "4d3120157e0dd369f197046ab7bfd0636b183883": [
+      "refactor/206"
+    ],
+    "e5fa1cf5ccdf50d08de524c4233a52120d61b35f": [
+      "refactor/206"
+    ],
+    "f65999be00644d6c31d6b23f9d91142ddeb83d9b": [
+      "refactor/206"
+    ],
+    "388f864f222793f5ec935fd644205c48d2e45108": [
+      "fix/245"
+    ],
+    "7f0b2202f9a0ce9fc2278574781b64dbc23b3832": [
+      "fix/245"
+    ],
+    "919f8d0ad1d60fa8e8eb8403e189340b79514f1b": [
+      "fix/245"
+    ],
+    "37dc9aa9f37304bc8b2c8e8e33b70e356b771764": [
+      "fix/237",
+      "refactor/206",
+      "fix/245"
+    ],
+    "687ebec9bd33e851defc9c200c55783ac9e6a513": [
+      "refactor/205"
+    ],
+    "81c1e521461a2b80f305ba0d293a2476e14db64c": [
+      "refactor/205"
+    ],
+    "14b8a2e45b213817f8b0a697b0b393dab02da1bc": [
+      "refactor/205"
+    ],
+    "c24ee342b7bc8b5bf881e37978fae6ae28a358b9": [
+      "refactor/205"
+    ]
+  },
+  "proof": "Every bundle prerequisite is an ancestor of at least one of the four pushed production cuts; no local-only prerequisite."
+}

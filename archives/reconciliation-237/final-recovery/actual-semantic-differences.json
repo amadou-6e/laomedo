@@ -1,0 +1,794 @@
+[
+  {
+    "original": "components/laomedo/bounded_controller.py::LaomedoBoundedController",
+    "original_line": 17,
+    "status": "changed",
+    "candidates": [
+      {
+        "key": "components/laomedo/bounded_controller.py::LaomedoBoundedController",
+        "line": 17,
+        "reverted_to_baseline": false
+      }
+    ]
+  },
+  {
+    "original": "components/laomedo/bounded_controller.py::LaomedoBoundedController._result",
+    "original_line": 82,
+    "status": "changed",
+    "candidates": [
+      {
+        "key": "components/laomedo/bounded_controller.py::LaomedoBoundedController._result",
+        "line": 82,
+        "reverted_to_baseline": false
+      }
+    ]
+  },
+  {
+    "original": "components/laomedo/skill.py::LaomedoSkill",
+    "original_line": 22,
+    "status": "changed",
+    "candidates": [
+      {
+        "key": "components/laomedo/skill.py::LaomedoSkill",
+        "line": 22,
+        "reverted_to_baseline": false
+      }
+    ]
+  },
+  {
+    "original": "components/laomedo/skill.py::LaomedoSkill._operate",
+    "original_line": 136,
+    "status": "changed",
+    "candidates": [
+      {
+        "key": "components/laomedo/skill.py::LaomedoSkill._operate",
+        "line": 150,
+        "reverted_to_baseline": false
+      }
+    ]
+  },
+  {
+    "original": "components/laomedo/skill.py::LaomedoSkill.update_build_config",
+    "original_line": 288,
+    "status": "changed",
+    "candidates": [
+      {
+        "key": "components/laomedo/skill.py::LaomedoSkill.update_build_config",
+        "line": 303,
+        "reverted_to_baseline": false
+      }
+    ]
+  },
+  {
+    "original": "src/laomedo/agents/agents/base/agent.py::BaseAgent",
+    "original_line": 58,
+    "status": "changed",
+    "candidates": [
+      {
+        "key": "src/laomedo/agents/agents/base/agent.py::BaseAgent",
+        "line": 58,
+        "reverted_to_baseline": false
+      }
+    ]
+  },
+  {
+    "original": "src/laomedo/agents/agents/base/agent.py::BaseAgent._turn_available",
+    "original_line": 243,
+    "status": "missing",
+    "candidates": []
+  },
+  {
+    "original": "src/laomedo/agents/agents/base/agent.py::BaseAgent._async_worker",
+    "original_line": 566,
+    "status": "changed",
+    "candidates": [
+      {
+        "key": "src/laomedo/agents/agents/base/agent.py::BaseAgent._async_worker",
+        "line": 563,
+        "reverted_to_baseline": false
+      }
+    ]
+  },
+  {
+    "original": "src/laomedo/agents/agents/claude/agent.py::ClaudeAgent",
+    "original_line": 49,
+    "status": "changed",
+    "candidates": [
+      {
+        "key": "src/laomedo/agents/agents/claude/agent.py::ClaudeAgent",
+        "line": 49,
+        "reverted_to_baseline": false
+      }
+    ]
+  },
+  {
+    "original": "src/laomedo/agents/agents/claude/agent.py::ClaudeAgent._communicate_acp",
+    "original_line": 650,
+    "status": "changed",
+    "candidates": [
+      {
+        "key": "src/laomedo/agents/agents/claude/agent.py::ClaudeAgent._communicate_acp",
+        "line": 650,
+        "reverted_to_baseline": false
+      }
+    ]
+  },
+  {
+    "original": "src/laomedo/agents/agents/claude/agent.py::ClaudeAgent._execute",
+    "original_line": 923,
+    "status": "changed",
+    "candidates": [
+      {
+        "key": "src/laomedo/agents/agents/claude/agent.py::ClaudeAgent._execute",
+        "line": 928,
+        "reverted_to_baseline": false
+      }
+    ]
+  },
+  {
+    "original": "src/laomedo/agents/agents/codex/activity/rollout_export.py::export_rollout",
+    "original_line": 23,
+    "status": "changed",
+    "candidates": [
+      {
+        "key": "src/laomedo/agents/agents/codex/activity/rollout_export.py::export_rollout",
+        "line": 23,
+        "reverted_to_baseline": false
+      }
+    ]
+  },
+  {
+    "original": "src/laomedo/agents/agents/codex/agent.py::CodexAgent",
+    "original_line": 64,
+    "status": "changed",
+    "candidates": [
+      {
+        "key": "src/laomedo/agents/agents/codex/agent.py::CodexAgent",
+        "line": 64,
+        "reverted_to_baseline": false
+      }
+    ]
+  },
+  {
+    "original": "src/laomedo/agents/agents/codex/agent.py::CodexAgent._execute_acp",
+    "original_line": 622,
+    "status": "changed",
+    "candidates": [
+      {
+        "key": "src/laomedo/agents/agents/codex/agent.py::CodexAgent._execute_acp",
+        "line": 622,
+        "reverted_to_baseline": false
+      }
+    ]
+  },
+  {
+    "original": "src/laomedo/agents/agents/codex/controller/service.py::CodexController",
+    "original_line": 18,
+    "status": "changed",
+    "candidates": [
+      {
+        "key": "src/laomedo/agents/agents/codex/controller/service.py::CodexController",
+        "line": 18,
+        "reverted_to_baseline": false
+      }
+    ]
+  },
+  {
+    "original": "src/laomedo/agents/agents/codex/controller/service.py::CodexController.prompt",
+    "original_line": 256,
+    "status": "changed",
+    "candidates": [
+      {
+        "key": "src/laomedo/agents/agents/codex/controller/service.py::CodexController.prompt",
+        "line": 256,
+        "reverted_to_baseline": false
+      }
+    ]
+  },
+  {
+    "original": "src/laomedo/agents/agents/codex/utils.py::_answer",
+    "original_line": 205,
+    "status": "changed",
+    "candidates": [
+      {
+        "key": "src/laomedo/agents/agents/codex/utils.py::_answer",
+        "line": 205,
+        "reverted_to_baseline": false
+      }
+    ]
+  },
+  {
+    "original": "src/laomedo/agents/agents/opencode/agent.py::OpenCodeAgent",
+    "original_line": 29,
+    "status": "changed",
+    "candidates": [
+      {
+        "key": "src/laomedo/agents/agents/opencode/agent.py::OpenCodeAgent",
+        "line": 29,
+        "reverted_to_baseline": false
+      }
+    ]
+  },
+  {
+    "original": "src/laomedo/agents/agents/opencode/agent.py::OpenCodeAgent._execute",
+    "original_line": 290,
+    "status": "changed",
+    "candidates": [
+      {
+        "key": "src/laomedo/agents/agents/opencode/agent.py::OpenCodeAgent._execute",
+        "line": 290,
+        "reverted_to_baseline": false
+      }
+    ]
+  },
+  {
+    "original": "src/laomedo/agents/agents/opencode/boundary.py::CommandBroker",
+    "original_line": 32,
+    "status": "changed",
+    "candidates": [
+      {
+        "key": "src/laomedo/agents/agents/opencode/boundary.py::CommandBroker",
+        "line": 32,
+        "reverted_to_baseline": false
+      }
+    ]
+  },
+  {
+    "original": "src/laomedo/agents/agents/opencode/boundary.py::CommandBroker.execute",
+    "original_line": 112,
+    "status": "changed",
+    "candidates": [
+      {
+        "key": "src/laomedo/agents/agents/opencode/boundary.py::CommandBroker.execute",
+        "line": 112,
+        "reverted_to_baseline": false
+      }
+    ]
+  },
+  {
+    "original": "src/laomedo/agents/agents/opencode/boundary.py::IsolatedOpenCode",
+    "original_line": 235,
+    "status": "changed",
+    "candidates": [
+      {
+        "key": "src/laomedo/agents/agents/opencode/boundary.py::IsolatedOpenCode",
+        "line": 236,
+        "reverted_to_baseline": false
+      }
+    ]
+  },
+  {
+    "original": "src/laomedo/agents/agents/opencode/boundary.py::IsolatedOpenCode._run_acp",
+    "original_line": 536,
+    "status": "changed",
+    "candidates": [
+      {
+        "key": "src/laomedo/agents/agents/opencode/boundary.py::IsolatedOpenCode._run_acp",
+        "line": 537,
+        "reverted_to_baseline": false
+      }
+    ]
+  },
+  {
+    "original": "src/laomedo/agents/interface/bridge.py::HttpAgentBridge",
+    "original_line": 18,
+    "status": "changed",
+    "candidates": [
+      {
+        "key": "src/laomedo/agents/interface/bridge.py::HttpAgentBridge",
+        "line": 18,
+        "reverted_to_baseline": false
+      }
+    ]
+  },
+  {
+    "original": "src/laomedo/agents/interface/bridge.py::HttpAgentBridge.dispatch",
+    "original_line": 102,
+    "status": "changed",
+    "candidates": [
+      {
+        "key": "src/laomedo/agents/interface/bridge.py::HttpAgentBridge.dispatch",
+        "line": 102,
+        "reverted_to_baseline": false
+      }
+    ]
+  },
+  {
+    "original": "src/laomedo/agents/orchestration/controller.py::AgentHandoffController",
+    "original_line": 17,
+    "status": "changed",
+    "candidates": [
+      {
+        "key": "src/laomedo/agents/orchestration/controller.py::AgentHandoffController",
+        "line": 17,
+        "reverted_to_baseline": false
+      }
+    ]
+  },
+  {
+    "original": "src/laomedo/agents/orchestration/controller.py::AgentHandoffController.run",
+    "original_line": 69,
+    "status": "changed",
+    "candidates": [
+      {
+        "key": "src/laomedo/agents/orchestration/controller.py::AgentHandoffController.run",
+        "line": 69,
+        "reverted_to_baseline": false
+      }
+    ]
+  },
+  {
+    "original": "src/laomedo/git/models.py::GitTreeEntry",
+    "original_line": 65,
+    "status": "missing",
+    "candidates": []
+  },
+  {
+    "original": "src/laomedo/git/models.py::GitCommand",
+    "original_line": 148,
+    "status": "changed",
+    "candidates": [
+      {
+        "key": "src/laomedo/git/models.py::GitCommand",
+        "line": 131,
+        "reverted_to_baseline": false
+      }
+    ]
+  },
+  {
+    "original": "src/laomedo/git/models.py::GitCommand.validate_execution_profile",
+    "original_line": 190,
+    "status": "changed",
+    "candidates": [
+      {
+        "key": "src/laomedo/git/models.py::GitCommand.validate_execution_profile",
+        "line": 173,
+        "reverted_to_baseline": false
+      }
+    ]
+  },
+  {
+    "original": "src/laomedo/github/issues/gateway.py::GitHubIssueGateway",
+    "original_line": 19,
+    "status": "changed",
+    "candidates": [
+      {
+        "key": "src/laomedo/github/issues/gateway.py::GitHubIssueGateway",
+        "line": 19,
+        "reverted_to_baseline": false
+      }
+    ]
+  },
+  {
+    "original": "src/laomedo/github/issues/gateway.py::GitHubIssueGateway.execute",
+    "original_line": 86,
+    "status": "changed",
+    "candidates": [
+      {
+        "key": "src/laomedo/github/issues/gateway.py::GitHubIssueGateway.execute",
+        "line": 86,
+        "reverted_to_baseline": false
+      }
+    ]
+  },
+  {
+    "original": "src/laomedo/github/pull_requests/gateway.py::GitHubPRGateway",
+    "original_line": 21,
+    "status": "changed",
+    "candidates": [
+      {
+        "key": "src/laomedo/github/pull_requests/gateway.py::GitHubPRGateway",
+        "line": 21,
+        "reverted_to_baseline": false
+      }
+    ]
+  },
+  {
+    "original": "src/laomedo/github/pull_requests/gateway.py::GitHubPRGateway.execute",
+    "original_line": 214,
+    "status": "changed",
+    "candidates": [
+      {
+        "key": "src/laomedo/github/pull_requests/gateway.py::GitHubPRGateway.execute",
+        "line": 214,
+        "reverted_to_baseline": false
+      }
+    ]
+  },
+  {
+    "original": "src/laomedo/host/credentials/siwc/models.py::OAuthAuthorizationRequest",
+    "original_line": 7,
+    "status": "changed",
+    "candidates": [
+      {
+        "key": "src/laomedo/host/credentials/siwc/models.py::OAuthAuthorizationRequest",
+        "line": 7,
+        "reverted_to_baseline": false
+      }
+    ]
+  },
+  {
+    "original": "src/laomedo/host/credentials/siwc/models.py::OAuthAccount",
+    "original_line": 153,
+    "status": "changed",
+    "candidates": [
+      {
+        "key": "src/laomedo/host/credentials/siwc/models.py::OAuthAccount",
+        "line": 157,
+        "reverted_to_baseline": false
+      }
+    ]
+  },
+  {
+    "original": "src/laomedo/host/mediation/utils.py::_validate_read",
+    "original_line": 157,
+    "status": "changed",
+    "candidates": [
+      {
+        "key": "src/laomedo/host/mediation/utils.py::_validate_read",
+        "line": 157,
+        "reverted_to_baseline": false
+      }
+    ]
+  },
+  {
+    "original": "src/laomedo/integrations/langflow/viewer.py::install_routes",
+    "original_line": 16,
+    "status": "changed",
+    "candidates": [
+      {
+        "key": "src/laomedo/integrations/langflow/viewer.py::install_routes",
+        "line": 13,
+        "reverted_to_baseline": false
+      }
+    ]
+  },
+  {
+    "original": "src/laomedo/skills/inspection/utils.py::inspect_skill",
+    "original_line": 45,
+    "status": "changed",
+    "candidates": [
+      {
+        "key": "src/laomedo/skills/inspection/utils.py::inspect_skill",
+        "line": 46,
+        "reverted_to_baseline": false
+      }
+    ]
+  },
+  {
+    "original": "src/laomedo/skills/interface/operations/cli.py::main",
+    "original_line": 12,
+    "status": "changed",
+    "candidates": [
+      {
+        "key": "src/laomedo/skills/interface/operations/cli.py::main",
+        "line": 12,
+        "reverted_to_baseline": false
+      }
+    ]
+  },
+  {
+    "original": "src/laomedo/skills/interface/operations/client.py::skill_request",
+    "original_line": 12,
+    "status": "changed",
+    "candidates": [
+      {
+        "key": "src/laomedo/skills/interface/operations/client.py::skill_request",
+        "line": 14,
+        "reverted_to_baseline": false
+      }
+    ]
+  },
+  {
+    "original": "src/laomedo/skills/interface/operations/handler.py::SkillOperationRequestHandler",
+    "original_line": 8,
+    "status": "changed",
+    "candidates": [
+      {
+        "key": "src/laomedo/skills/interface/operations/handler.py::SkillOperationRequestHandler",
+        "line": 11,
+        "reverted_to_baseline": false
+      }
+    ]
+  },
+  {
+    "original": "src/laomedo/skills/interface/operations/handler.py::SkillOperationRequestHandler.do_POST",
+    "original_line": 23,
+    "status": "changed",
+    "candidates": [
+      {
+        "key": "src/laomedo/skills/interface/operations/handler.py::SkillOperationRequestHandler.do_POST",
+        "line": 28,
+        "reverted_to_baseline": false
+      }
+    ]
+  },
+  {
+    "original": "src/laomedo/skills/interface/operations/server.py::SkillOperationServer",
+    "original_line": 7,
+    "status": "changed",
+    "candidates": [
+      {
+        "key": "src/laomedo/skills/interface/operations/server.py::SkillOperationServer",
+        "line": 8,
+        "reverted_to_baseline": false
+      }
+    ]
+  },
+  {
+    "original": "src/laomedo/skills/interface/operations/server.py::SkillOperationServer.__init__",
+    "original_line": 10,
+    "status": "changed",
+    "candidates": [
+      {
+        "key": "src/laomedo/skills/interface/operations/server.py::SkillOperationServer.__init__",
+        "line": 11,
+        "reverted_to_baseline": false
+      }
+    ]
+  },
+  {
+    "original": "src/laomedo/skills/interface/operations/settings.py::Settings",
+    "original_line": 9,
+    "status": "changed",
+    "candidates": [
+      {
+        "key": "src/laomedo/skills/interface/operations/settings.py::Settings",
+        "line": 9,
+        "reverted_to_baseline": true
+      }
+    ]
+  },
+  {
+    "original": "src/laomedo/skills/interface/sources/client.py::source_request",
+    "original_line": 13,
+    "status": "changed",
+    "candidates": [
+      {
+        "key": "src/laomedo/skills/interface/sources/client.py::source_request",
+        "line": 16,
+        "reverted_to_baseline": false
+      }
+    ]
+  },
+  {
+    "original": "src/laomedo/skills/interface/sources/settings.py::Settings",
+    "original_line": 9,
+    "status": "changed",
+    "candidates": [
+      {
+        "key": "src/laomedo/skills/interface/sources/settings.py::Settings",
+        "line": 9,
+        "reverted_to_baseline": true
+      }
+    ]
+  },
+  {
+    "original": "src/laomedo/skills/operations/models.py::FileEdit",
+    "original_line": 24,
+    "status": "changed",
+    "candidates": [
+      {
+        "key": "src/laomedo/skills/operations/models.py::FileEdit",
+        "line": 34,
+        "reverted_to_baseline": false
+      }
+    ]
+  },
+  {
+    "original": "src/laomedo/skills/operations/models.py::FileEdit.validate_path",
+    "original_line": 41,
+    "status": "changed",
+    "candidates": [
+      {
+        "key": "src/laomedo/skills/operations/models.py::FileEdit.validate_path",
+        "line": 60,
+        "reverted_to_baseline": false
+      }
+    ]
+  },
+  {
+    "original": "src/laomedo/skills/operations/models.py::FileEdit.validate_content",
+    "original_line": 46,
+    "status": "changed",
+    "candidates": [
+      {
+        "key": "src/laomedo/skills/operations/models.py::FileEdit.validate_content",
+        "line": 69,
+        "reverted_to_baseline": false
+      }
+    ]
+  },
+  {
+    "original": "src/laomedo/skills/operations/models.py::SkillProposal",
+    "original_line": 52,
+    "status": "changed",
+    "candidates": [
+      {
+        "key": "src/laomedo/skills/operations/models.py::SkillProposal",
+        "line": 137,
+        "reverted_to_baseline": false
+      }
+    ]
+  },
+  {
+    "original": "src/laomedo/skills/operations/models.py::SkillProposal.from_payload",
+    "original_line": 84,
+    "status": "changed",
+    "candidates": [
+      {
+        "key": "src/laomedo/skills/operations/models.py::SkillProposal.from_payload",
+        "line": 170,
+        "reverted_to_baseline": false
+      }
+    ]
+  },
+  {
+    "original": "src/laomedo/skills/operations/models.py::SkillProposal.to_payload",
+    "original_line": 128,
+    "status": "changed",
+    "candidates": [
+      {
+        "key": "src/laomedo/skills/operations/models.py::SkillProposal.to_payload",
+        "line": 205,
+        "reverted_to_baseline": false
+      }
+    ]
+  },
+  {
+    "original": "src/laomedo/skills/operations/models.py::SkillCommit",
+    "original_line": 199,
+    "status": "changed",
+    "candidates": [
+      {
+        "key": "src/laomedo/skills/operations/models.py::SkillCommit",
+        "line": 280,
+        "reverted_to_baseline": false
+      }
+    ]
+  },
+  {
+    "original": "src/laomedo/skills/operations/service.py::SkillOperations",
+    "original_line": 48,
+    "status": "changed",
+    "candidates": [
+      {
+        "key": "src/laomedo/skills/operations/service.py::SkillOperations",
+        "line": 47,
+        "reverted_to_baseline": false
+      }
+    ]
+  },
+  {
+    "original": "src/laomedo/skills/operations/service.py::SkillOperations.prepare",
+    "original_line": 101,
+    "status": "changed",
+    "candidates": [
+      {
+        "key": "src/laomedo/skills/operations/service.py::SkillOperations.prepare",
+        "line": 134,
+        "reverted_to_baseline": false
+      }
+    ]
+  },
+  {
+    "original": "src/laomedo/skills/operations/service.py::SkillOperations.apply",
+    "original_line": 161,
+    "status": "changed",
+    "candidates": [
+      {
+        "key": "src/laomedo/skills/operations/service.py::SkillOperations.apply",
+        "line": 169,
+        "reverted_to_baseline": false
+      }
+    ]
+  },
+  {
+    "original": "src/laomedo/skills/operations/service.py::SkillOperations.history",
+    "original_line": 273,
+    "status": "changed",
+    "candidates": [
+      {
+        "key": "src/laomedo/skills/operations/service.py::SkillOperations.history",
+        "line": 283,
+        "reverted_to_baseline": false
+      }
+    ]
+  },
+  {
+    "original": "src/laomedo/skills/operations/service.py::SkillOperations.diff",
+    "original_line": 298,
+    "status": "changed",
+    "candidates": [
+      {
+        "key": "src/laomedo/skills/operations/service.py::SkillOperations.diff",
+        "line": 313,
+        "reverted_to_baseline": false
+      }
+    ]
+  },
+  {
+    "original": "src/laomedo/skills/registry/policy.py::validate_policy",
+    "original_line": 11,
+    "status": "changed",
+    "candidates": [
+      {
+        "key": "src/laomedo/skills/registry/policy.py::validate_policy",
+        "line": 12,
+        "reverted_to_baseline": false
+      }
+    ]
+  },
+  {
+    "original": "src/laomedo/skills/registry/policy.py::validate_draft",
+    "original_line": 118,
+    "status": "changed",
+    "candidates": [
+      {
+        "key": "src/laomedo/skills/registry/policy.py::validate_draft",
+        "line": 120,
+        "reverted_to_baseline": false
+      }
+    ]
+  },
+  {
+    "original": "src/laomedo/skills/registry/store.py::SkillStore",
+    "original_line": 36,
+    "status": "changed",
+    "candidates": [
+      {
+        "key": "src/laomedo/skills/registry/store.py::SkillStore",
+        "line": 38,
+        "reverted_to_baseline": false
+      }
+    ]
+  },
+  {
+    "original": "src/laomedo/skills/registry/store.py::SkillStore.import_skill",
+    "original_line": 122,
+    "status": "changed",
+    "candidates": [
+      {
+        "key": "src/laomedo/skills/registry/store.py::SkillStore.import_skill",
+        "line": 132,
+        "reverted_to_baseline": false
+      }
+    ]
+  },
+  {
+    "original": "src/laomedo/skills/sources/repository.py::GitSkillSource",
+    "original_line": 24,
+    "status": "changed",
+    "candidates": [
+      {
+        "key": "src/laomedo/skills/sources/repository.py::GitSkillSource",
+        "line": 28,
+        "reverted_to_baseline": false
+      }
+    ]
+  },
+  {
+    "original": "src/laomedo/skills/sources/repository.py::GitSkillSource._check_cache_budget",
+    "original_line": 32,
+    "status": "changed",
+    "candidates": [
+      {
+        "key": "src/laomedo/skills/sources/repository.py::GitSkillSource._check_cache_budget",
+        "line": 53,
+        "reverted_to_baseline": false
+      }
+    ]
+  },
+  {
+    "original": "src/laomedo/skills/sources/repository.py::GitSkillSource.entries",
+    "original_line": 144,
+    "status": "changed",
+    "candidates": [
+      {
+        "key": "src/laomedo/skills/sources/repository.py::GitSkillSource.entries",
+        "line": 165,
+        "reverted_to_baseline": true
+      }
+    ]
+  }
+]

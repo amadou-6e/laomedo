@@ -1,0 +1,25 @@
+{
+  "heads": {
+    "original": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+    "mixed": "3af136b054b8dcab9d879687bd64f343e0160601",
+    "baseline": "37dc9aa9f37304bc8b2c8e8e33b70e356b771764",
+    "shared": "939f1e08b2efe5602a9f08ec30186957f7ccb2a9",
+    "skills": "1c949341da6b49c0c85f5462a585cac270599d83",
+    "github": "3dbdac97dc682709d6cdcb5511f2fafa49da6c94",
+    "agents": "ed8b771062b4a348da72fca3d3addcb9dbc34ca2",
+    "combined": "a500adf73d2a19e57d92f827dfc5d220e8942095",
+    "exp": "0f66ebb560c2b9d916ddeb3c0c6d54291642bbf0"
+  },
+  "path_dispositions": {
+    "superseded": 410,
+    "baseline": 1505,
+    "cut": 503,
+    "historical": 578
+  },
+  "unresolved_paths": [],
+  "scope": "Conservation accounting, not live acceptance or a claim that every old test name remains current. Historical preservation does not establish active regression coverage.",
+  "original_agents_paths": 162,
+  "missing_original_agents_paths": [],
+  "original_github_paths": 47,
+  "missing_original_github_paths": []
+}

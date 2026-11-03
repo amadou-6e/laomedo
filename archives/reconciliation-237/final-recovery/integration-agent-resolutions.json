@@ -1,0 +1,60 @@
+{
+  "graphs": [
+    {
+      "path": "examples/langflow-contract-routing/flow.json",
+      "node": "skill",
+      "resolution": "preserve later Skill source; update defining module imports only"
+    },
+    {
+      "path": "examples/langflow-contract-routing/flow.json",
+      "node": "contract",
+      "resolution": "preserve later Skill source; update defining module imports only"
+    },
+    {
+      "path": "examples/langflow-workgraph-demo/flow.json",
+      "node": "skill",
+      "resolution": "preserve later Skill source; update defining module imports only"
+    },
+    {
+      "path": "examples/langflow-workgraph-demo/flow.json",
+      "node": "requirements",
+      "resolution": "preserve later Skill source; update defining module imports only"
+    },
+    {
+      "path": "examples/langflow-workgraph-demo/flow.json",
+      "node": "contract",
+      "resolution": "preserve later Skill source; update defining module imports only"
+    },
+    {
+      "path": "tests/test_agents/test_examples/data/claude.json",
+      "node": "skill",
+      "resolution": "preserve later Skill source; update defining module imports only"
+    },
+    {
+      "path": "tests/test_agents/test_examples/data/claude.json",
+      "node": "agent",
+      "resolution": "preserve later Skill source; update defining module imports only"
+    },
+    {
+      "path": "tests/test_agents/test_examples/data/codex.json",
+      "node": "LaomedoSkill-native",
+      "resolution": "preserve later Skill source; update defining module imports only"
+    },
+    {
+      "path": "tests/test_agents/test_examples/data/opencode.json",
+      "node": "OpenCode-pinned-skill",
+      "resolution": "preserve later Skill source; update defining module imports only"
+    }
+  ],
+  "retired": [
+    "examples/agent-activity/README.md",
+    "examples/github-pr/flow.json",
+    "examples/opencode-node/README.md",
+    "tests/test_exp19_live_e2e.py",
+    "tests/test_container_lease.py",
+    "tests/test_runner_sandbox_policy.py"
+  ],
+  "archive": "ea577c0383a701a2a6bba2ed68bff3df41232f5d",
+  "lease_test": "SDK boundary preserves late_owned/unknown as unverified; old timing implementation intentionally delegated, no mocked legacy clock assertion on new runtime",
+  "sandbox": "owned temporary root replaces deleted unrelated example"
+}

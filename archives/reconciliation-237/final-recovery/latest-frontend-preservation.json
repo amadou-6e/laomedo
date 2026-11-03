@@ -1,0 +1,10 @@
+{
+  "old": "3af136b054b8dcab9d879687bd64f343e0160601",
+  "current": "a500adf73d2a19e57d92f827dfc5d220e8942095",
+  "frontend_inputs": 72,
+  "exact_git_blob_matches": 71,
+  "changes": [
+    "frontend/langflow-skill-viewer/node-error-catalog.json"
+  ],
+  "installer_blob_unchanged": true
+}

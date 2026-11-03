@@ -1,0 +1,80 @@
+{
+  "shared_source": {
+    "head": "939f1e08b2efe5602a9f08ec30186957f7ccb2a9",
+    "tests": 1132,
+    "skips": 21,
+    "failures": 0
+  },
+  "agent_source": {
+    "tested_head": "461aeb5b988412e09fb858720e21db3a70bb55a6",
+    "tests": 1180,
+    "skips": 10,
+    "failures": 0,
+    "limit": "Final adapter-binding-only delta has separate four-case Node checks; this is not a full exact-head test claim."
+  },
+  "combined_installed": {
+    "tested_head": "ffc18b04dc21e7b9362bc8b29c4f16913198f9c6",
+    "tests": 1287,
+    "skips": 19,
+    "failures": 0,
+    "no_pythonpath_or_dependency_fallback": true,
+    "wheel_sha256": "85ac630b41b89629c5068a2d9dfe885b36b5260c700982d8958ad69cc680e083",
+    "sdk": "49652f4281b37e62fb43404532a376a3f1f2e07d",
+    "acp": "0.12.1",
+    "langflow_base_and_lfx": "1.12.3",
+    "limit": "Later final-head changes are offline migration/test-only; src, components, frontend, pyproject and lock are identical."
+  },
+  "final_installed_targets": {
+    "head": "a500adf73d2a19e57d92f827dfc5d220e8942095",
+    "github": {
+      "tests": 151,
+      "skips": 1
+    },
+    "migration": {
+      "tests": 43,
+      "skips": 0
+    },
+    "agent_architecture": {
+      "tests": 19,
+      "skips": 0
+    },
+    "package_architecture": {
+      "tests": 26,
+      "skips": 0
+    },
+    "all_exit_codes": 0,
+    "source_fallback": false,
+    "node_enabled": true
+  },
+  "review": {
+    "shared_code": "APPROVE at939f1e08; full substantive own-diff and focused corrections",
+    "final_conservation": "BLOCKED: actual retained-session call ended at five-hour subscription limit, reset reported2026-11-03T23:10 Europe/Berlin; no verdict",
+    "visual": "Not independently reviewed for final cumulative captures; no owner acceptance claimed"
+  },
+  "browser": {
+    "source_head": "033ae7892ce2f6038eae0374446aaa626a6e5fe0",
+    "production_inputs_identical_to": "a500adf73d2a19e57d92f827dfc5d220e8942095",
+    "real_data": "Read-only copy of existing pr-feedback-title registry and SQLite backup; actual allowed local my-skills source",
+    "history_entries": 18,
+    "model_requests": 0,
+    "response_interception": false,
+    "stories": [
+      "Open retained history",
+      "Initial-commit selected-file diff",
+      "Workspace search tree and collapse",
+      "Existing binary image full-page/restore",
+      "Actual text edit enables Publish/Discard; modal discard restores saved state",
+      "Empty Source affordance",
+      "Real disallowed-source failure",
+      "Recovery to actual local my-skills discovery"
+    ],
+    "limitations": [
+      "Bounded preservation checks, not complete feature/owner acceptance",
+      "No manual registry publication was performed",
+      "Private HTTPS authentication remains issue251",
+      "Cleanup-uncertainty error was not naturally reproduced",
+      "Provider runtime acceptance and isolation remain separate Agent gates"
+    ]
+  },
+  "scope": "Supporting regression/artifact/browser records; no synthetic provider deliverable, feature acceptance or merge approval."
+}
