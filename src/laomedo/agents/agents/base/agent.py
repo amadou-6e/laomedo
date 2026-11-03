@@ -568,11 +568,24 @@ class BaseAgent(ABC):
         try:
             self._mirror_host_login()
             self._execute(run_id, task, resume=False)
-        except RunnerError as exc:
+        except Exception as exc:
             with self.control_lock:
                 record = self.status(run_id)
-                if record["status"] == "prepared":
-                    record.update(status="failed", error_category=str(exc))
+                if record["status"] in {"prepared", "running"}:
+                    # An acknowledged worker failure is not proof that remote
+                    # work stopped. Preserve its identity for reconciliation.
+                    record.update(
+                        status="unknown" if record["status"] == "running" else "failed",
+                        error_category=(
+                            exc.code
+                            if isinstance(exc, RunnerError)
+                            else "runner_runtime_unknown"
+                        ),
+                        snapshot_ready=False,
+                        post_run_hash=None,
+                        output_ref=None,
+                        answer=None,
+                    )
                     _json(self._run_dir(run_id) / "record.json", record)
 
     def _artifact_source(self, provider, run_id):

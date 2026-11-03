@@ -12,7 +12,9 @@ from laomedo.work_graph.github import import_pages
 from laomedo.work_graph.models import Dependency
 from laomedo.work_graph.models import GraphSnapshot
 
-FIXTURE = Path(__file__).parents[1] / "examples/work-graph/github-pages.json"
+from support.paths import repository_root
+
+FIXTURE = repository_root() / "examples/work-graph/github-pages.json"
 NOW = "2026-10-01T08:00:00+00:00"
 
 

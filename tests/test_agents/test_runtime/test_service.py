@@ -308,6 +308,49 @@ class RunnerServiceTests(unittest.TestCase):
         self.assertEqual(result["status"], "failed")
         self.assertEqual(result["error_category"], "claude_host_login_expired")
 
+    def test_worker_exception_preserves_unknown_outcome_and_terminal_records(self):
+        from laomedo.agents.errors import RunnerError
+
+        for status in ("prepared", "running", "completed", "failed", "unknown"):
+            for failure in (
+                OSError("PRIVATE failure"),
+                RunnerError("runner_transport_failed"),
+            ):
+                with self.subTest(status=status, failure=type(failure).__name__):
+                    record = {"run_id": "same-run", "status": status}
+                    path = self.root / "record.json"
+                    path.unlink(missing_ok=True)
+                    runner = SimpleNamespace(
+                        _mirror_host_login=lambda: None,
+                        _execute=Mock(side_effect=failure),
+                        control_lock=threading.Lock(),
+                        status=lambda run_id: record,
+                        _run_dir=lambda run_id: self.root,
+                    )
+                    gate = threading.Event()
+                    gate.set()
+                    LocalRunner._async_worker(runner, "same-run", "task", gate)
+                    if status not in {"prepared", "running"}:
+                        self.assertFalse(path.exists())
+                        self.assertEqual(record["status"], status)
+                        continue
+                    result = json.loads(path.read_text())
+                    self.assertEqual(result["run_id"], "same-run")
+                    self.assertEqual(
+                        result["status"], "unknown" if status == "running" else "failed"
+                    )
+                    self.assertEqual(
+                        result["error_category"],
+                        (
+                            "runner_transport_failed"
+                            if isinstance(failure, RunnerError)
+                            else "runner_runtime_unknown"
+                        ),
+                    )
+                    self.assertFalse(result["snapshot_ready"])
+                    self.assertIsNone(result["post_run_hash"])
+                    self.assertNotIn("PRIVATE", path.read_text())
+
     def test_concurrent_clicks_do_not_spawn_twice_or_restore_legacy_turn_limit(self):
         self.config["max_model_turns"] = 1
         self.path.write_text(json.dumps(self.config))

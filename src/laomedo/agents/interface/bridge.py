@@ -2,7 +2,7 @@
 
 from pathlib import Path
 from laomedo.agents.interface.models import AgentDispatchResult
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
 from urllib.request import Request
 from urllib.request import urlopen
@@ -166,7 +166,13 @@ class HttpAgentBridge:
         except HTTPError as exc:
             status_code = exc.code
             with exc:
-                raw = json.load(exc)
+                try:
+                    raw = json.load(exc)
+                except (ValueError, OSError):
+                    raise HandoffError("runner_result_pending") from None
+        except (URLError, OSError, ValueError):
+            # The POST may have reached the runner. Do not resend it here.
+            raise HandoffError("runner_result_pending") from None
         if status_code == 409:
             raise HandoffError("runner_request_conflict")
         if (
@@ -217,10 +223,9 @@ class HttpAgentBridge:
                         poll, timeout=max(0.001, min(5, deadline - time.monotonic()))
                     ) as response:
                         raw = json.load(response)
-                except TimeoutError as exc:
-                    if time.monotonic() >= deadline:
-                        raise HandoffError("runner_result_pending") from exc
-                    raise
+                except (URLError, OSError, ValueError):
+                    # Keep active so status/cancel can reconcile the same run.
+                    raise HandoffError("runner_result_pending") from None
                 if (
                     not isinstance(raw, dict)
                     or raw.get("run_id") != self.active[handoff["execution_id"]][1]

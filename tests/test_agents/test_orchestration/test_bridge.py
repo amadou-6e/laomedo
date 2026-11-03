@@ -6,7 +6,7 @@ import threading
 import time
 import unittest
 from unittest.mock import patch
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 
 from laomedo.agents.interface.bridge import HttpAgentBridge
 from laomedo.agents.orchestration.errors import HandoffError
@@ -156,4 +156,83 @@ class HttpTests(unittest.TestCase):
             with self.assertRaisesRegex(HandoffError, "invalid_runner_response"):
                 self.adapter().dispatch(
                     item, deadline=time.monotonic() + 10, cancelled=threading.Event()
+                )
+
+    def test_start_transport_failure_never_resends_or_exposes_private_error(self):
+        item = envelope(
+            None,
+            {"provider": "codex", "model": "model", "effort": "low"},
+            "task",
+            skills=[],
+        )
+        for failure in (
+            TimeoutError("PRIVATE"),
+            URLError("PRIVATE"),
+            OSError("PRIVATE"),
+            ValueError("PRIVATE"),
+            HTTPError("http://localhost", 502, "PRIVATE", {}, io.BytesIO(b"not json")),
+        ):
+            with self.subTest(failure=type(failure).__name__):
+                adapter = self.adapter()
+                with patch(
+                    "laomedo.agents.interface.bridge.urlopen", side_effect=failure
+                ) as send:
+                    with self.assertRaises(HandoffError) as caught:
+                        adapter.dispatch(
+                            item,
+                            deadline=time.monotonic() + 10,
+                            cancelled=threading.Event(),
+                        )
+                self.assertEqual(str(caught.exception), "runner_result_pending")
+                self.assertEqual(send.call_count, 1)
+                self.assertEqual(adapter.active, {})
+
+    def test_poll_failure_retains_acknowledged_run_without_resending(self):
+        item = envelope(
+            None,
+            {"provider": "codex", "model": "model", "effort": "low"},
+            "task",
+            skills=[],
+        )
+        for failure in (
+            TimeoutError("PRIVATE"),
+            URLError("PRIVATE"),
+            OSError("PRIVATE"),
+            ValueError("PRIVATE"),
+        ):
+            with self.subTest(failure=type(failure).__name__):
+                adapter = self.adapter()
+                methods = []
+
+                def respond(req, timeout):
+                    methods.append(req.get_method())
+                    if req.get_method() == "POST":
+                        body = json.loads(req.data)
+                        return Response(
+                            json.dumps(
+                                {
+                                    "run_id": "same-run",
+                                    "status": "running",
+                                    "client_request_id": body["request_id"],
+                                    "raw_event_ref": "laomedo:run:same-run:events",
+                                }
+                            ).encode()
+                        )
+                    raise failure
+
+                with patch(
+                    "laomedo.agents.interface.bridge.urlopen", side_effect=respond
+                ):
+                    with self.assertRaises(HandoffError) as caught:
+                        adapter.dispatch(
+                            item,
+                            deadline=time.monotonic() + 10,
+                            cancelled=threading.Event(),
+                            early_start=True,
+                        )
+                self.assertEqual(str(caught.exception), "runner_result_pending")
+                self.assertEqual(methods, ["POST", "GET"])
+                self.assertEqual(
+                    adapter.active[item["execution_id"]],
+                    ("http://localhost:8765", "same-run"),
                 )
