@@ -18,7 +18,7 @@ let browser;
       const body = response.request().postDataJSON();
       return body.field === field && body.field_value === value && response.ok();
     }, { timeout: 70000 });
-    await action(); await done;
+    await Promise.all([done, action()]);
   };
   const setSource = async (source, wait = true) => {
     const change = async () => {
