@@ -201,6 +201,7 @@ def migrate_source(source: str) -> str:
                 target = SYMBOL_PATHS.get(reference, reference)
                 if target in {
                     "laomedo.github.transport.git.transport.GitHubGitTransport",
+                    "laomedo.host.publication.verified.git.VerifiedGitStage",
                     "laomedo.host.publication.verified.utils.stage_verified_git",
                 } and any(keyword.arg == "run" for keyword in node.keywords):
                     raise ManualMigrationRequired(

@@ -15,3 +15,11 @@ explicitly manual retired OpenCode parser cover the twenty-two original inputs.
 Run `python -m unittest discover -s tests/test_shared/test_migration -t tests -v`.
 No check fetches `exp` or runs a provider. Historical source dependencies that have
 not yet been migrated remain explicit failures, not new compatibility facades.
+
+The old EXP-104 native-entrypoint composition check is preserved on `exp` at
+`a891a387` under `archives/agents-205/shared-native-entrypoint`. The campaign still
+uses a retired native controller and is not a supported offline migration target.
+The production suite retains direct/aliased retired-helper refusals and all three
+unsafe `run=` injection-signature refusals. It does not claim that loading an old
+campaign proves current runtime isolation. Automatic map targets must resolve to
+current owners; removed native/provider helpers require explicit manual migration.

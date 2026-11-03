@@ -18,6 +18,27 @@ migration = load_migration()
 
 
 class SharedMigrationTests(unittest.TestCase):
+    def test_automatic_targets_have_current_owners_and_no_manual_contract(self):
+        self.assertTrue(migration.MODULE_PATHS)
+        self.assertTrue(migration.SYMBOL_PATHS)
+        self.assertFalse(set(migration.SYMBOL_PATHS) & set(migration.MANUAL_SYMBOLS))
+        for target in set(migration.MODULE_PATHS.values()) | set(
+            migration.SYMBOL_PATHS.values()
+        ):
+            with self.subTest(target=target):
+                path = ROOT.joinpath("src", *target.split("."))
+                if (
+                    path.with_suffix(".py").is_file()
+                    or (path / "__init__.py").is_file()
+                ):
+                    continue
+                owner = path.parent
+                self.assertTrue(
+                    owner.with_suffix(".py").is_file()
+                    or (owner / "__init__.py").is_file(),
+                    target,
+                )
+
     def test_skill_relocation_targets_resolve_to_declared_definitions(self):
         targets = {
             target
@@ -25,7 +46,7 @@ class SharedMigrationTests(unittest.TestCase):
             if target.startswith(
                 (
                     "laomedo.skills.",
-                    "laomedo.agents.workspace.skills.",
+                    "laomedo.agents.workspaces.skills.",
                     "laomedo.host.publication.ingestion.",
                 )
             )
