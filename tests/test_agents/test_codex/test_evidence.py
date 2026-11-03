@@ -9,7 +9,8 @@ import unittest
 from unittest.mock import patch
 
 from laomedo.agents.agents.codex.utils import _execution_evidence
-import test_agents.test_runtime.test_lifecycle as fixtures
+from test_agents.test_runtime.transport import FakeServer
+from test_agents.test_runtime.utils import prepare_runner
 
 
 def item(method, identity="answer", kind="agentMessage", **fields):
@@ -170,37 +171,38 @@ class ClosureTests(unittest.TestCase):
         )
 
 
+class ClosedServer(FakeServer):
+    def __init__(server, *args):
+        super().__init__(*args)
+        server.reader = SimpleNamespace(is_alive=lambda: False)
+        server.stderr_reader = SimpleNamespace(is_alive=lambda: False)
+
+    def wait_turn(server, turn_id, timeout, cancelled):
+        (server.evidence / "workspace" / "agent.txt").write_text("from-first-turn")
+        server.events = [
+            item("item/started"),
+            item("item/completed", text="done"),
+            terminal(),
+        ]
+        for event in server.events:
+            if event["method"] == "turn/completed":
+                event["params"]["turn"]["id"] = turn_id
+            else:
+                event["params"]["turnId"] = turn_id
+        for event in server.events:
+            server.log.write(json.dumps(event) + "\n")
+        server.log.flush()
+        return "completed", None
+
+
 class RunnerClosureTests(unittest.TestCase):
-    setUp = fixtures.LocalRunnerTests.setUp
-    tearDown = fixtures.LocalRunnerTests.tearDown
-    request = fixtures.LocalRunnerTests.request
+    def setUp(self):
+        prepare_runner(self)
+
+    def request(self):
+        return self.case.request()
 
     def test_host_closes_and_reopens_exact_trace_after_verified_cleanup(self):
-        class ClosedServer(fixtures.FakeServer):
-            def __init__(server, *args):
-                super().__init__(*args)
-                server.reader = SimpleNamespace(is_alive=lambda: False)
-                server.stderr_reader = SimpleNamespace(is_alive=lambda: False)
-
-            def wait_turn(server, turn_id, timeout, cancelled):
-                (server.evidence / "workspace" / "agent.txt").write_text(
-                    "from-first-turn"
-                )
-                server.events = [
-                    item("item/started"),
-                    item("item/completed", text="done"),
-                    terminal(),
-                ]
-                for event in server.events:
-                    if event["method"] == "turn/completed":
-                        event["params"]["turn"]["id"] = turn_id
-                    else:
-                        event["params"]["turnId"] = turn_id
-                for event in server.events:
-                    server.log.write(json.dumps(event) + "\n")
-                server.log.flush()
-                return "completed", None
-
         self.runner.transport = ClosedServer
         self.runner.supervise_containers = True
         self.runner.lease_service = self.root / "dummy-lease"
@@ -211,9 +213,10 @@ class RunnerClosureTests(unittest.TestCase):
             grant_id=None,
         )
         with (
-            patch("laomedo.host.leases.client.LeaseClient", return_value=lease),
+            patch("laomedo.agents.agents.codex.agent.LeaseClient", return_value=lease),
             patch(
-                "laomedo.host.leases.utils.cleanup_exact", return_value=(True, "absent")
+                "laomedo.agents.agents.codex.agent.cleanup_exact",
+                return_value=(True, "absent"),
             ),
         ):
             result = self.runner.start(self.request())

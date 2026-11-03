@@ -5,6 +5,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
+from laomedo.agents.agents.codex.settings import IMAGE_ID
 from laomedo.agents.errors import RunnerError
 from laomedo.agents.agents.codex.activity.rollout_export import export_rollout
 
@@ -48,6 +49,9 @@ class ExportTests(unittest.TestCase):
         output = export_rollout(self.state, self.run_id, docker_run=docker)
         self.assertEqual(output.read_bytes(), payload)
         self.assertEqual(len(calls), 3)
+        for call in calls:
+            self.assertIn("--network=none", call)
+            self.assertIn(IMAGE_ID, call)
         self.assertIn("-links", calls[0])
         self.assertIn("1", calls[0])
         self.assertIn("readonly", " ".join(calls[0]))
