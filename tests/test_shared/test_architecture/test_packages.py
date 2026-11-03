@@ -96,11 +96,11 @@ class PackageLayoutTests(unittest.TestCase):
                 (ROOT / "src/laomedo" / path.relative_to(package_root())).read_bytes(),
             )
         self.assertEqual(
-            CONFIG.parent, package_root() / "agents/providers/codex/resources"
+            CONFIG.parent, package_root() / "agents/agents/codex/resources"
         )
         self.assertEqual(SECCOMP.parent, CONFIG.parent)
         self.assertEqual(
-            MEDIATION_CLIENT.parent, package_root() / "agents/resources/mediation"
+            MEDIATION_CLIENT.parent, package_root() / "host/mediation/resources"
         )
         self.assertEqual(SCRIPT.parent, package_root() / "host/publication/resources")
 

@@ -179,6 +179,15 @@ def migrate_source(source: str) -> str:
         }
         imported_modules.update(
             {
+                item.name.split(".")[0]: item.name.split(".")[0]
+                for node in ast.walk(tree)
+                if isinstance(node, ast.Import)
+                for item in node.names
+                if not item.asname
+            }
+        )
+        imported_modules.update(
+            {
                 item.asname or item.name: node.module + "." + item.name
                 for node in ast.walk(tree)
                 if isinstance(node, ast.ImportFrom) and node.module and not node.level
@@ -203,7 +212,7 @@ def migrate_source(source: str) -> str:
                     "laomedo.github.transport.git.transport.GitHubGitTransport",
                     "laomedo.host.publication.verified.git.VerifiedGitStage",
                     "laomedo.host.publication.verified.utils.stage_verified_git",
-                } and any(keyword.arg == "run" for keyword in node.keywords):
+                } and any(keyword.arg in {None, "run"} for keyword in node.keywords):
                     raise ManualMigrationRequired(
                         reference
                         + ": run= was replaced by an explicit GitCommandRunner object; manual migration is required"
@@ -840,7 +849,12 @@ def main() -> None:
                 parser.error("Select regular source/config/graph files under 16 MiB")
             original = path.read_bytes()
             bom = codecs.BOM_UTF8 if original.startswith(codecs.BOM_UTF8) else b""
-            source = original[len(bom) :].decode("utf-8")
+            try:
+                source = original[len(bom) :].decode("utf-8")
+            except UnicodeDecodeError:
+                raise ManualMigrationRequired(
+                    "Selected source is not valid UTF-8; fix its encoding before migration"
+                ) from None
             text = (
                 migrate_json_source(source)
                 if path.suffix.lower() == ".json"

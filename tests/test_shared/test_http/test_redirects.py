@@ -61,10 +61,12 @@ class SharedHTTPTests(unittest.TestCase):
                     }:
                         owners.add(path.relative_to(root).as_posix())
                     if isinstance(node, ast.ImportFrom):
-                        self.assertNotEqual(node.module, "laomedo.http.redirect")
+                        self.assertNotEqual(
+                            node.module, "laomedo.skills.sources.transport"
+                        )
                     if isinstance(node, ast.Import):
                         self.assertNotIn(
-                            "laomedo.http.redirect",
+                            "laomedo.skills.sources.transport",
                             {item.name for item in node.names},
                         )
         self.assertEqual(
@@ -72,9 +74,9 @@ class SharedHTTPTests(unittest.TestCase):
             {
                 "src/laomedo/http/redirect.py",
                 # Self-contained components and credential-specific refusals are deliberate.
-                "src/laomedo/integrations/langflow/agent/component.py",
+                "src/laomedo/agents/interface/langflow/component.py",
                 "components/laomedo/pr_publisher.py",
-                "src/laomedo/host/credentials/opencode/transport.py",
+                "src/laomedo/agents/agents/opencode/auth/transport.py",
                 "src/laomedo/host/credentials/siwc/connection.py",
             },
         )

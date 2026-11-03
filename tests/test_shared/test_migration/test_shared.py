@@ -36,6 +36,69 @@ class SharedMigrationTests(unittest.TestCase):
                     target,
                 )
 
+    def test_automatic_symbols_are_declared_and_not_shadowed_by_manual_prefixes(self):
+        cache = {}
+        for key, target in migration.SYMBOL_PATHS.items():
+            with self.subTest(symbol=key):
+                self.assertFalse(
+                    any(
+                        key == manual or key.startswith(manual + ".")
+                        for manual in migration.MANUAL_SYMBOLS
+                    )
+                )
+                direct = ROOT.joinpath("src", *target.split("."))
+                if (
+                    direct.with_suffix(".py").is_file()
+                    or (direct / "__init__.py").is_file()
+                ):
+                    continue
+                owner, name = target.rsplit(".", 1)
+                path = ROOT.joinpath("src", *owner.split(".")).with_suffix(".py")
+                if not path.is_file():
+                    path = ROOT.joinpath("src", *owner.split("."), "__init__.py")
+                if path not in cache:
+                    names = set()
+                    for node in ast.parse(path.read_text(encoding="utf-8-sig")).body:
+                        if isinstance(
+                            node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)
+                        ):
+                            names.add(node.name)
+                        elif isinstance(node, (ast.Assign, ast.AnnAssign)):
+                            for assigned in (
+                                node.targets
+                                if isinstance(node, ast.Assign)
+                                else [node.target]
+                            ):
+                                names.update(
+                                    item.id
+                                    for item in ast.walk(assigned)
+                                    if isinstance(item, ast.Name)
+                                )
+                        elif isinstance(node, (ast.Import, ast.ImportFrom)):
+                            names.update(
+                                item.asname or item.name.split(".")[0]
+                                for item in node.names
+                            )
+                    cache[path] = names
+                self.assertIn(name, cache[path], target)
+
+    def test_fully_qualified_injection_calls_and_expanded_keywords_refuse(self):
+        for owner, symbol in (
+            ("laomedo.github.transport.git.transport", "GitHubGitTransport"),
+            ("laomedo.github_git_transport", "GitHubGitTransport"),
+            ("laomedo.host.publication.verified.git", "VerifiedGitStage"),
+            ("laomedo.verified_git_stage", "VerifiedGitStage"),
+            ("laomedo.host.publication.verified.utils", "stage_verified_git"),
+            ("laomedo.verified_git_stage", "stage_verified_git"),
+        ):
+            for arguments in ("run=callback", "**options"):
+                source = f"import {owner}\n{owner}.{symbol}({arguments})\n"
+                with (
+                    self.subTest(source=source),
+                    self.assertRaisesRegex(migration.ManualMigrationRequired, "run="),
+                ):
+                    migration.migrate_source(source)
+
     def test_skill_relocation_targets_resolve_to_declared_definitions(self):
         targets = {
             target

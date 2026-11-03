@@ -5,7 +5,7 @@ from support.paths import repository_root
 from pathlib import Path
 from laomedo.git.repository import GitRepository
 from laomedo.git.models import GitExecutionContext
-from git_runner_controls import CallbackGitRunner
+from support.git import CallbackGitRunner
 import base64
 import os
 import shutil

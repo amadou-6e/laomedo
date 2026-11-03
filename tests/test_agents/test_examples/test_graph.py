@@ -2,6 +2,7 @@
 
 import importlib.util
 import json
+from hashlib import sha256
 import unittest
 
 from support.paths import repository_root
@@ -47,6 +48,10 @@ class GraphBuilderTests(unittest.TestCase):
                     for node in nodes:
                         fields = node["data"]["node"]["template"]
                         self.assertEqual(fields["code"]["value"], source)
+                        self.assertEqual(
+                            node["data"]["node"]["metadata"]["code_hash"],
+                            sha256(source.encode()).hexdigest()[:12],
+                        )
                         self.assertFalse(fields["skill_reference"]["required"])
                     if workflow == "resume":
                         edge = flow["data"]["edges"][0]
