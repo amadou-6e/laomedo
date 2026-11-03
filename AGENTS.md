@@ -12,9 +12,10 @@
   assertions into concern-owned tests rather than importing campaign scripts.
   Production tests must not fetch or require `exp`. No secrets or private runtime
   state belong in either branch.
-- The current cleanup covers Shared preparation and Skills. Agent/GitHub
-  experiments and their existing test/CI dependencies are deferred, not examples
-  to follow for new work.
+- Remove retained campaigns only in their owning feature's selected migration,
+  after exact-source archival and useful regression ports. Remaining dependencies
+  are explicit scope constraints, not examples to follow for new production work.
+  The GitHub-owned EXP-100 broker dependency remains separately scoped.
 
 ## Python formatting
 
