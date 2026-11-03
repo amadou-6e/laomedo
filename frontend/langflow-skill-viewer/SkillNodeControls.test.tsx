@@ -2,6 +2,7 @@ import { fireEvent, render, renderHook, screen } from "@testing-library/react";
 import RenderInputParameters from "./index";
 import { advancedSkillFields, isSkillControlHidden, skillFieldInfo, skillNodeDescription } from "./SkillNodeControls";
 import useRowData from "@/modals/editNodeModal/hooks/use-row-data";
+import InspectionPanelFields from "@/pages/FlowPage/components/InspectionPanel/components/InspectionPanelFields";
 
 const update = jest.fn();
 let edges: any[] = [];
@@ -23,6 +24,8 @@ jest.mock("@/CustomNodes/utils/sort-fields", () => ({ __esModule: true, default:
 jest.mock("@/utils/reactflowUtils", () => ({ scapedJSONStringfy: JSON.stringify }));
 jest.mock("./utils", () => ({ findPrimaryInput: (fields: string[]) => ({ displayHandleMap: new Map(fields.map(name => [name, name === "operation" || edges.some(e => e.data.targetHandle.fieldName === name)])), primaryInputFieldName: "operation" }) }));
 jest.mock("../NodeInputField", () => ({ __esModule: true, default: (props: any) => <input aria-label={props.name} title={props.info} data-handle={String(props.displayHandle)} defaultValue={props.data.node.template[props.name].value || ""} /> }));
+jest.mock("@/components/common/genericIconComponent", () => ({ __esModule: true, default: () => null }));
+jest.mock("@/pages/FlowPage/components/InspectionPanel/components/InspectionPanelParameterRow", () => ({ __esModule: true, default: ({ name }: any) => <span>{name}</span> }));
 
 function draw(node = data, showNode = true) {
   return render(<RenderInputParameters data={node} types={{}} isToolMode={false} showNode={showNode} shownOutputs={[]} showHiddenOutputs={false} />);
@@ -52,6 +55,13 @@ test("settings dialog excludes a saved visible request using the actual node typ
   expect(result.current.map(row => row.key)).not.toContain("edit_request");
   expect(result.current.map(row => row.key)).toContain("revision_id");
   expect(data.node.template.edit_request.value).toBe("saved request");
+});
+
+test("Parameters panel cannot expose or re-add the saved request", () => {
+  render(<InspectionPanelFields data={data as any} />);
+  expect(screen.queryByText("edit_request", { exact: true })).toBeNull();
+  expect(screen.getByText("revision_id", { exact: true })).toBeVisible();
+  expect(screen.getByText("operation", { exact: true })).toBeVisible();
 });
 
 test("connected settings retain their ordinary socket and hidden fields stay hidden", () => {

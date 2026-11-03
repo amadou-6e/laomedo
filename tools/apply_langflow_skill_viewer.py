@@ -109,6 +109,21 @@ def apply(checkout):
         "  const rowData = useRowData(nodeClass, open, nodeId);",
     )
     edit_component.write_text(source, encoding="utf-8")
+    inspection_fields = (
+        checkout
+        / "src/frontend/src/pages/FlowPage/components/InspectionPanel/components/InspectionPanelFields.tsx"
+    )
+    source = (
+        'import { isSkillControlHidden } from "@/CustomNodes/GenericNode/components/RenderInputParameters/SkillNodeControls";\n'
+        + inspection_fields.read_text(encoding="utf-8")
+    )
+    source = replace_once(
+        source,
+        "      .filter((templateField) => {\n",
+        "      .filter((templateField) => {\n"
+        "        if (isSkillControlHidden(data, templateField)) return false;\n",
+    )
+    inspection_fields.write_text(source, encoding="utf-8")
     generic_node = checkout / "src/frontend/src/CustomNodes/GenericNode/index.tsx"
     source = generic_node.read_text(encoding="utf-8")
     source = (
