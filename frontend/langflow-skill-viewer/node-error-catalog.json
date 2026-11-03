@@ -1,4 +1,9 @@
 {
+  "source_discovery_failed": {
+    "title": "The Skill source could not be loaded",
+    "description": "The application could not load skills or revisions from Source. The cause has not been confirmed. No Agent was started.",
+    "recovery": "Check that the repository is public, or use a local checkout allowed by the host source service. Check the source service connection, then refresh the Skill list."
+  },
   "prior_run_required": {
     "title": "No previous run is available",
     "description": "This operation needs a reference to an earlier run.",

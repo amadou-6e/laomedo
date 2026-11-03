@@ -1,6 +1,7 @@
 import { fireEvent, render, renderHook, screen } from "@testing-library/react";
 import RenderInputParameters from "./index";
-import { advancedSkillFields, isSkillControlHidden, skillFieldInfo, skillNodeDescription, skillSourceError, skillChoicePlaceholder } from "./SkillNodeControls";
+import { advancedSkillFields, isSkillControlHidden, skillFieldInfo, skillNodeDescription, skillSourceError, skillChoicePlaceholder, SKILL_SOURCE_ERROR_CODE } from "./SkillNodeControls";
+import { isKnownNodeError } from "@/components/laomedoErrors/nodeErrors";
 import useRowData from "@/modals/editNodeModal/hooks/use-row-data";
 import InspectionPanelFields from "@/pages/FlowPage/components/InspectionPanel/components/InspectionPanelFields";
 
@@ -25,6 +26,7 @@ jest.mock("@/utils/reactflowUtils", () => ({ scapedJSONStringfy: JSON.stringify 
 jest.mock("./utils", () => ({ findPrimaryInput: (fields: string[]) => ({ displayHandleMap: new Map(fields.map(name => [name, name === "operation" || edges.some(e => e.data.targetHandle.fieldName === name)])), primaryInputFieldName: "operation" }) }));
 jest.mock("../NodeInputField", () => ({ __esModule: true, default: (props: any) => <input aria-label={props.name} title={props.info} data-handle={String(props.displayHandle)} defaultValue={props.data.node.template[props.name].value || ""} /> }));
 jest.mock("@/components/common/genericIconComponent", () => ({ __esModule: true, default: () => null }));
+jest.mock("@/components/laomedoErrors/NodeErrorNotice", () => ({ __esModule: true, default: ({ label, message }: any) => <button data-code={message}>{label}</button> }));
 jest.mock("@/pages/FlowPage/components/InspectionPanel/components/InspectionPanelParameterRow", () => ({ __esModule: true, default: ({ name }: any) => <span>{name}</span> }));
 
 function draw(node = data, showNode = true) {
@@ -75,12 +77,16 @@ test("Source failures are inline without a Discovery row; empty and successful s
   view.rerender(renderNode(node("https://github.com/owner/repo", "Discovery failed. Check source access and refresh.")));
   const error = screen.getByRole("alert");
   expect(error).toHaveTextContent("Check source access and refresh.");
+  expect(error.querySelector("button")).toHaveAttribute("data-code", SKILL_SOURCE_ERROR_CODE);
+  expect(isKnownNodeError(SKILL_SOURCE_ERROR_CODE)).toBe(true);
   expect(screen.getByRole("textbox", { name: "source" }).nextElementSibling).toBe(error);
   view.rerender(renderNode(node("https://github.com/owner/repo", "2 skills found. Choose a Skill.")));
   expect(screen.queryByRole("alert")).toBeNull();
   view.rerender(renderNode(node("https://github.com/owner/repo", "Discovery failed. Check source access and refresh."), false));
   expect(screen.queryByRole("alert")).toBeNull();
   expect(skillSourceError(node("/source", "private/raw exception text"))).toBeUndefined();
+  expect(skillSourceError(node("/source", "No skills found in this source."))).toBeUndefined();
+  expect(skillSourceError(node("/source", "No revisions found for this Skill."))).toBeUndefined();
 });
 
 test("Skill placeholder requires an entered source and discovered options, preserving other nodes and fields", () => {

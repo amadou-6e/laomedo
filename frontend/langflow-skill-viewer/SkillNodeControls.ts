@@ -15,11 +15,13 @@ export function isSkillControlHidden(data: any, name: string): boolean {
   return isSkillNode(data) && ["edit_request", "discovery_status"].includes(name);
 }
 
-/** Only fixed, safe failure messages belong below Source; progress stays internal. */
+export const SKILL_SOURCE_ERROR_CODE = "source_discovery_failed";
+
+/** Only fixed, safe failure messages belong below Source; empty results stay quiet. */
 export function skillSourceError(data: any): string | undefined {
   if (!isSkillNode(data) || !String(data.node?.template?.source?.value || "").trim()) return;
   const status = data.node?.template?.discovery_status?.value;
-  return ["Discovery failed. Check source access and refresh.", "No skills found in this source.", "No revisions found for this Skill."].includes(status) ? status : undefined;
+  return status === "Discovery failed. Check source access and refresh." ? status : undefined;
 }
 
 export function skillChoicePlaceholder(data: any, name: string, fallback?: string): string | undefined {

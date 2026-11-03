@@ -69,7 +69,10 @@ saved feedback requests are retained internally for compatibility only.
 
 If Discovery fails, check the source URL/path, the allowed local roots, and the
 running host service and backend connection above. Then refresh the Skill list.
-An empty result means no admitted `SKILL.md` bundles were found. Access to the
+Click the inline error message to open recovery and Technical details in the
+shared presenter. Its `source_discovery_failed` code does not establish a cause.
+An empty result means no admitted `SKILL.md` bundles were found; the selector
+stays at No source found without an error message. Access to the
 source does not grant editing or publishing permission; those are configured
 separately in the [walkthrough](walkthrough.md) and
 [manual workspace guide](manual-workspace.md).

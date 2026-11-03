@@ -191,10 +191,12 @@ Skill nodes use a separate **Advanced settings** disclosure for Revision and Bas
 Commit. It starts collapsed and keeps controls mounted. The node-type policy also
 applies to old saved field flags, hides Edit Request on canvas and in the settings
 dialog, and preserves saved values. Connected inputs retain their normal sockets.
-There is no Discovery row. Only failures or empty results appear directly beneath
+There is no Discovery row. Only failures appear directly beneath
 a nonempty Source. Empty Source and successful scans have no message. The empty
 Skill selector says No source found until a nonempty Source has choices, then
-Select an option. Existing selected values remain visible.
+Select an option. Existing selected values remain visible. Clicking the failure
+message opens the shared error presenter, including recovery and the stable
+source_discovery_failed code under Technical details. Empty scan results add no error.
 New edits arrive through Operation or the Skill files editor/Publish. Hidden saved
 requests retain legacy feedback compatibility only. New feedback without a saved
 request fails before preparation/Agent dispatch with existing

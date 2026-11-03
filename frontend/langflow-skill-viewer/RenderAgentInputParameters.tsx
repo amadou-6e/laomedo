@@ -12,7 +12,8 @@ import { scapedJSONStringfy } from "@/utils/reactflowUtils";
 import NodeInputField from "../NodeInputField";
 import { findPrimaryInput } from "./utils";
 import AgentAdvancedControls, { advancedAgentFields, isAgentControlHidden } from "./AgentAdvancedControls";
-import { advancedSkillFields, isConnectedSkillSetting, isSkillControlHidden, isSkillNode, skillFieldInfo, skillSourceError } from "./SkillNodeControls";
+import { advancedSkillFields, isConnectedSkillSetting, isSkillControlHidden, isSkillNode, skillFieldInfo, skillSourceError, SKILL_SOURCE_ERROR_CODE } from "./SkillNodeControls";
+import NodeErrorNotice from "@/components/laomedoErrors/NodeErrorNotice";
 
 const RenderInputParameters = ({
   data,
@@ -161,7 +162,8 @@ const RenderInputParameters = ({
         />
         {showNode && templateField === "source" && skillSourceError(data) && (
           <div role="alert" data-testid="skill-source-error" className="px-5 pb-2 text-sm text-destructive">
-            {skillSourceError(data)}
+            <NodeErrorNotice message={SKILL_SOURCE_ERROR_CODE} label={skillSourceError(data)}
+              context={{ nodeId: data.id, nodeType: "LaomedoSkill" }} />
           </div>
         )}
         </Fragment>
