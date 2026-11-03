@@ -7,12 +7,19 @@ Implemented stories use actual app screenshots; the deferred Git publishing stor
 uses an explicitly labelled mockup. Status distinguishes implementation from live
 acceptance. See [visual provenance](assets/README.md).
 
+The [2026-11-02 navigation record](navigation-verification.md) adds current real
+verification of the single SKILL menu, nested files and three-entry history;
+the earlier captures below retain their explicitly dated scope.
+
 ## SK-01 — Select an exact skill revision
 
 As a workflow author, I want to select a Skill and revision from a source,
 so an Agent receives the intended instructions rather than an unspecified latest version.
 
-**Status: Implemented.** Source, Skill and Revision belong on the Skill node.
+**Status: Implemented.** Source and Skill are on the node; Revision is inside
+the initially collapsed Advanced settings section. Source failures appear beneath
+the input; no Discovery row appears. The empty Skill selector says No source found
+until discovery supplies choices, then Select an option. Edit Request is not a node control.
 
 Acceptance criteria:
 
@@ -22,7 +29,8 @@ Acceptance criteria:
 
 ![Actual unconfigured Skill node with source, skill and revision controls](assets/skill-node.png)
 
-*Actual current component form, 2026-10-28. This documentation node has no source
+*Historical component form, 2026-10-28, before the compact Advanced settings layout.
+This documentation node has no source
 or selected revision; the image illustrates the controls, not successful discovery.*
 
 Guide: [source selection](../../../frontend/langflow-skill-viewer/README.md#linked-source-selector-157).
@@ -108,3 +116,50 @@ Proposed acceptance criteria for discussion:
 *Mockup with illustrative content. No publishing operation or Git integration was run.
 This exploration does not replace canonical UI design specifications.
 [Editable HTML mockup](assets/git-publishing-mock.html).*
+
+## SK-06 - Edit and publish a multi-file revision
+
+As a Skill author, I want existing text files to be editable immediately, with
+Publish and Discard shown after an edit. Publish records the whole file batch in
+one traceable commit and promotes it, retaining work on refusals and reconnect. Implemented;
+[revision-specific real normal/recovery verification](manual-workspace.md) is
+recorded separately from final owner acceptance.
+
+## SK-07 - Inspect cumulative changes and publish explicitly
+
+As a Skill author, I want the footer to disclose cumulative per-file changes
+against registry current and let me inspect a selected diff before choosing
+Publish, without a separate review mode. Publication refuses stale
+heads/bases without changing graph pins or Git. Implemented; see the same
+[real publication and replay record](manual-workspace.md). Git publishing in
+SK-05 remains proposed. Final owner acceptance is pending.
+
+
+## SK-08 - Manage working files
+
+As a Skill author, I want to upload text and binary files, rename, move, delete
+and copy relative paths from the explorer, so I can publish a complete traceable
+revision without leaving the viewer. Implemented; see [actual workflows and
+revision-specific evidence](manual-workspace.md).
+
+Acceptance criteria:
+
+- Right-click and keyboard menus provide the same target-specific actions.
+- Picker/drop import is atomic; collisions, invalid paths and limits preserve work.
+- Rename/move preserve bytes and buffers; Delete confirms; Discard restores saved files.
+- Read-only and pending states block mutations while keeping inspection/copy available.
+- Publish saves the complete batch and promotes the exact candidate; history retains
+  changed paths, text differences and binary size/hash evidence.
+
+Owner validation of the final workflow remains pending. Binary content editing,
+directory uploads, empty folders and Git publication are outside this story.
+
+
+### SK09 — Work with files using editor conventions
+
+The owner retains empty working folders, renames directly in the filename row, deletes without a confirmation card and restores/reapplies Files actions with Ctrl+Z/Ctrl+Y. Drag targets have grey highlighting; Ctrl+X/V is the keyboard move path with no Move to menu. JSON has braces and binary files have inert raster or paged-byte previews. Publication keeps local empty folders but registry history remains file-only. Actual final evidence and constraints are in manual-workspace.md; owner validation is pending.
+
+
+### SK10 — Preview and safely discard working files
+
+The owner views binaries across the available editor pane without a byte/hash row, and returns from inline rename without a black filename outline. Discard opens a focus-trapped popup. Cancelling preserves exact buffers; confirming restores saved files/history. Dirty workspace dismissal shares this popup and closes only on explicit confirmation. Actual normal, full-page, small and Dark/Light evidence is in manual-workspace.md; owner validation remains pending.

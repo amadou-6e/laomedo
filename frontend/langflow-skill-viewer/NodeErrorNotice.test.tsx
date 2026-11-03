@@ -10,6 +10,20 @@ test("node details open the shared card and can be dismissed", () => {
  fireEvent.click(screen.getByRole("button",{name:"Dismiss"}));
  expect(screen.queryByRole("region",{name:"Error details"})).toBeNull();
 });
+
+test("the source error line itself opens shared recovery and safe technical details", () => {
+ render(<NodeErrorNotice label="Discovery failed. Check source access and refresh." message="source_discovery_failed" context={{nodeId:"skill",nodeType:"LaomedoSkill"}} />);
+ const line=screen.getByRole("button",{name:"Error details: The Skill source could not be loaded"});
+ expect(line).toHaveTextContent("Discovery failed. Check source access and refresh.");
+ expect(screen.queryByText("Error details", {exact:true})).toBeNull();
+ fireEvent.click(line);
+ expect(screen.getByRole("heading",{name:"The Skill source could not be loaded"})).toBeVisible();
+ expect(screen.getByRole("region",{name:"Error details"})).toHaveTextContent("local checkout");
+ fireEvent.click(screen.getByText("Technical details",{exact:true}));
+ expect(screen.getByRole("region",{name:"Error details"})).toHaveTextContent("source_discovery_failed");
+ fireEvent.click(screen.getByRole("button",{name:"Dismiss"}));
+ expect(screen.queryByRole("region",{name:"Error details"})).toBeNull();
+});
 test("transport details open recovery through the same card frame", async () => {
  render(<NodeErrorNotice message="runner_transport_failed" context={{}} />);
  fireEvent.click(screen.getByRole("button",{name:/Error details:/}));
