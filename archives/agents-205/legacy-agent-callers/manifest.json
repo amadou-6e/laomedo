@@ -43,6 +43,34 @@
       "source_git_blob": "ae1795797a88e254426bd5f8b3b6eac0269ba57c",
       "bytes": 10120,
       "sha256": "b3b81daf4559abed333d38530c985ab5823839996b6127956d4a545f0775b7d2"
+    },
+    {
+      "path": "examples/github-issue/OPERATION-DEMO.md",
+      "archive_path": "files/examples/github-issue/OPERATION-DEMO.md",
+      "source_git_blob": "65159a26c6e0adda8e104bc6242233534672e746",
+      "bytes": 2775,
+      "sha256": "25a0aacdd1483bc6ffeddf301c56fad0dd82c2b01feff28b492d028c9d1e69a3"
+    },
+    {
+      "path": "examples/github-issue/OPERATION-DEMO-RESULT.md",
+      "archive_path": "files/examples/github-issue/OPERATION-DEMO-RESULT.md",
+      "source_git_blob": "c83e4cf9fa0e10bb74f8c94dc375588422b47c37",
+      "bytes": 2261,
+      "sha256": "b2e5481acbbf59886f7d47933583900d438aa14b40ea303e86b7cd40313c3968"
+    },
+    {
+      "path": "examples/github-issue/operation-demo-result.json",
+      "archive_path": "files/examples/github-issue/operation-demo-result.json",
+      "source_git_blob": "7b52e30e71c9e12fd228135bb7ece7f2399d53c7",
+      "bytes": 1687,
+      "sha256": "30b2fdab2de250cfb7a9a27a919bf6a62b49867d79ed2abc69565702d0773b3c"
+    },
+    {
+      "path": "examples/github-issue/demo-workspace/README.md",
+      "archive_path": "files/examples/github-issue/demo-workspace/README.md",
+      "source_git_blob": "8bb3327bc0e2ea692df4fd352ea08dbcc27092fc",
+      "bytes": 81,
+      "sha256": "98e87e43ebc9b0b0fcee1f2e878c5d1b1e843c3f596df118424b89479573005c"
     }
   ]
 }
