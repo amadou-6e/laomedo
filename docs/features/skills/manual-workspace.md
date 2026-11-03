@@ -31,8 +31,9 @@ publish against registry current, including earlier saved changes. Choose a path
 to inspect its cumulative diff in the main editor. There is no separate Edit or
 publication-review mode. Git publication remains deferred.
 
-**Discard** asks for confirmation, clears working changes and reloads the journal
-head. It never deletes saved history or changes registry current. Closing with
+**Discard** opens a centered popup. Keep editing, Escape or clicking outside
+closes only the popup and preserves working changes. Explicit Discard changes
+reloads the journal head. It never deletes saved history or changes registry current. Closing with
 working changes also asks first. Uncertain writes retain their exact identity and
 require **Check result** before closing or starting another write.
 
@@ -48,7 +49,54 @@ Missing grants deny writes. Backend provenance is `operator`, not an independent
 verified human identity. Binary in-place editing, directory imports, per-user ACL,
 Git publication and durable unsaved crash recovery remain unsupported.
 
-## VS Code-style explorer: current verification
+## Preview and Discard popup: current verification
+
+Binary preview fills the available editor content area without a byte-count/hash
+row, padding or preview frame. Images scale to fit with their aspect ratio kept;
+the existing Full page control enlarges the workspace. Other binary formats retain
+a scrolling paged byte view. The source bytes and preview safety rules are unchanged.
+
+A completed rename has no visible outline or border. Keyboard focus uses a blue
+row fill; the in-place rename input keeps its blue border. Discard confirmation is
+a modal popup, not a banner inside the editor. Initial focus is Keep editing. Tab
+and Shift+Tab stay inside; Escape and outside click cancel without changing text.
+Explicit confirmation reloads saved files. Dirty Close, outer Escape and outer
+outside click use the same popup, closing the workspace only after confirmation.
+
+![Actual full-area image preview](assets/preview-fill.png)
+
+![Actual centered Discard popup](assets/discard-popup.png)
+
+![Actual filename focus after rename](assets/rename-focus.png)
+
+![Actual popup at 900 by 650](assets/discard-popup-small.png)
+
+Captured 2026-11-03 in authenticated headless Edge on Windows, runtime
+`00657129879be566b7f1a03836d771f825c3848d`, with pinned Langflow
+`fec71dca901949c09ed4d63315804337cd2eb13d`. The PNG shown inside the preview is an
+actual historical screenshot asset; its embedded old UI is part of that image.
+
+Actual browser checks cover saved/staged raster fit, byte-view metadata removal,
+Enter/blur rename focus, normal/full-page 900×650 and Dark/Light. The popup leaves
+editor geometry unchanged, safely cancels on initial Enter, traps focus, restores
+the opener and preserves exact text on cancellation. Backspace, Delete and
+Ctrl+Z/Ctrl+Y inside it leave canvas nodes and text unchanged. Explicit discard and
+dirty close/reopen restore the saved text and unchanged 18-entry history. The
+browser recorded zero page errors, graph dispatches or registry writes. All
+temporary imports/edits were discarded; Light theme and clipboard were restored.
+
+Tailwind expresses outline suppression as a transparent 2px outline; actual row
+borders and ring dimensions are zero. Computed focus colours are Light #005fb8
+with white text and Dark #4aa0ff with black text. Screenshots show no black row
+contour. The browser waits for the existing resize animation and actual edit-control
+refresh before measuring or issuing another action; the initial helper observations
+are retained separately and are not reported as passed runs.
+
+Internal frontend controls (92 across 15 suites) supplement the actual paths.
+This change adds no save/replay logic and does not claim live lost-response/crash
+recovery. Requesting-owner validation remains required before merge.
+
+## Earlier explorer verification at bc7c0eda (historical)
 
 Empty folders stay in the open workspace after their last file moves/deletes,
 including after Publish. They accept drops/imports and can be renamed, moved or

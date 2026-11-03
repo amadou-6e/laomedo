@@ -154,3 +154,8 @@ directory uploads, empty folders and Git publication are outside this story.
 ### SK09 — Work with files using editor conventions
 
 The owner retains empty working folders, renames directly in the filename row, deletes without a confirmation card and restores/reapplies Files actions with Ctrl+Z/Ctrl+Y. Drag targets have grey highlighting; Ctrl+X/V is the keyboard move path with no Move to menu. JSON has braces and binary files have inert raster or paged-byte previews. Publication keeps local empty folders but registry history remains file-only. Actual final evidence and constraints are in manual-workspace.md; owner validation is pending.
+
+
+### SK10 — Preview and safely discard working files
+
+The owner views binaries across the available editor pane without a byte/hash row, and returns from inline rename without a black filename outline. Discard opens a focus-trapped popup. Cancelling preserves exact buffers; confirming restores saved files/history. Dirty workspace dismissal shares this popup and closes only on explicit confirmation. Actual normal, full-page, small and Dark/Light evidence is in manual-workspace.md; owner validation remains pending.

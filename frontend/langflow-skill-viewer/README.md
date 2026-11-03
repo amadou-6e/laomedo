@@ -23,16 +23,21 @@ to source.
 | Portable paths, byte admission and patch projection | `SkillWorkingTree.ts` | `validateFilePath`, `readLocalFiles`, `moveFiles`, `deleteFiles`, `validateWorkingOperation`, `fileEdits` |
 | Explorer menus, forms, clipboard and drag/drop | `SkillFileManager.tsx` | `SkillFileManager`; `dismiss` closes only its transient menu/form and restores focus |
 | File-tree rows and disclosure | `SkillExplorer.tsx` | `SkillExplorer`; optional row decoration leaves ordinary selection/disclosure reusable |
+| Inert image and paged byte display | `SkillBinaryPreview.tsx` | `SkillBinaryPreview`; fills the editor pane without byte/hash metadata |
+| Working-copy discard confirmation | `SkillDiscardDialog.tsx` | `SkillDiscardDialog`; modal cancel/confirm and focus lifecycle, no persistence responsibility |
 | Full cumulative registry comparison | `SkillPublication.tsx` | `useRegistryComparison`; all changed paths, including saved unpublished commits |
 
 Authorised text is editable immediately. Right-click a file, folder or explorer
 background, or press Shift+F10/ContextMenu on the focused target, for Upload files,
-Rename, Move to, Delete and Copy relative path. Required SKILL.md stays at root.
-Move to provides keyboard parity with dragging files/folders into a folder or the
-root background. External file drops and the multi-file picker import local bytes;
-directory imports and empty folder identity are unsupported. No implicit overwrite
-or folder merge occurs. Rename/move preserve unsaved content; deletion asks first.
-All changes remain in the working copy until Publish. Discard restores saved files.
+Rename, Delete and Copy relative path. Required SKILL.md stays at root. Drag/drop
+moves files/folders; Ctrl+X/V is its keyboard alternative without a Move to menu.
+External file drops and the multi-file picker import local bytes. Empty folders
+remain local to the open workspace and are labelled not saved; registry commits
+are file-only. Directory import is unsupported. No implicit overwrite or folder
+merge occurs. Rename edits the filename in place; its input has a blue border,
+while completed rows have no visible outline and retain blue keyboard focus.
+Delete is immediate; Files Ctrl+Z/Ctrl+Y reverses/reapplies tree actions with dirty
+buffers intact. All changes remain in the working copy until Publish.
 
 Publish saves one atomic changed-file batch and promotes that exact commit to the
 registry. The conditional bottom-right footer discloses cumulative changed paths
@@ -42,7 +47,9 @@ Read-only/historical/importing/pending states disable mutations with a reason.
 Clipboard refusal retains a selectable Relative path field for manual copying.
 
 Binary assets retain exact uploaded bytes or an immutable-base source reference
-when moved. Their editor is metadata-only. Text uses UTF-8 without BOM/newline
+when moved. Preview fills the editor pane: magic-identified raster images use an
+inert image; other binary data uses paged hex/ASCII. No byte/hash row or preview
+frame is shown. Text uses UTF-8 without BOM/newline
 normalisation. Uploads are bounded to 512 KiB/file, 128 files, 4 MiB bundle; the 4 MiB
 encoded-request limit is usually tighter for new binary files (base64 overhead).
 `js-sha256` 1.0.0 is pinned with integrity in the dependency patch and bundled
@@ -51,7 +58,11 @@ locally; it does not require WebCrypto/secure origins. Attribution is shipped in
 archive is extracted. Portable path/collision/secret-name refusals preserve the
 whole previous working tree; the shared error catalogue owns explanation/recovery.
 
-Close/discard protects unsaved work; an in-flight or uncertain write keeps its
+Discard and dirty workspace dismissal open the same centered confirmation popup,
+without inserting a banner or shifting the editor. Keep editing has initial focus;
+Tab stays inside. Escape, outside click and Keep editing preserve buffers and
+restore focus. Explicit confirmation reloads saved files/history; the dirty-close
+path also closes the workspace. An in-flight or uncertain write keeps its
 identity until Check result reconciles it. Browser unload warns about unsaved
 buffers; crash restoration is unsupported. Failure cards use the shared
 descriptive catalogue. Unit controls support, but do not replace, real browser

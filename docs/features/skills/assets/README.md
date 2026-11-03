@@ -55,3 +55,6 @@ is still required.
 
 
 `explorer-inline-rename.png`, `explorer-grey-drop.png`, `explorer-binary-preview.png` and `explorer-published-empty.png` are actual authenticated Edge captures from bc7c0eda on 2026-11-03. The preview is a real historical PNG asset. Full pointer/keyboard/file-byte checks and two real save/promotions are described in manual-workspace.md; 18 genuine commits remain. These are not proposed mockups or owner acceptance.
+
+
+`preview-fill.png`, `discard-popup.png`, `rename-focus.png` and `discard-popup-small.png` are actual authenticated Edge captures from runtime00657129 on2026-11-03. The displayed PNG asset contains historical UI; the surrounding viewer is the tested runtime. Full-area fit, native focus/cancellation and unchanged18commit history were verified separately. Owner validation is pending.
