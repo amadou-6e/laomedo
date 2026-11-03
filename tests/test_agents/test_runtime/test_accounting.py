@@ -31,7 +31,6 @@ class NormalRunnerAccountingTests(unittest.TestCase):
                 ):
                     _json(historical, old)
                     before = historical.read_bytes()
-                    runner._turn_available()
                     previous = runner._reserve_turn()
                     self.assertGreater(runner._reserve_turn(), previous)
                     self.assertEqual(historical.read_bytes(), before)

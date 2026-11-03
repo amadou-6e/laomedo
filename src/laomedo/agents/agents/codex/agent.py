@@ -799,7 +799,6 @@ class CodexAgent(BaseAgent):
                     cancel_requested=True,
                 )
                 return record
-            self._turn_available()
             native_id = await server.open(record, resume=resume)
             record["thread_id"] = native_id
             record["precheck"]["installed"] = bool(record.get("output_requirements"))

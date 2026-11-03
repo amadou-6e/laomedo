@@ -71,6 +71,24 @@ class HandoffTests(unittest.TestCase):
             "success",
         )
 
+    def test_nonterminal_or_unknown_result_never_claims_definite_agent_failure(self):
+        from unittest.mock import Mock
+
+        for status in ("unknown", "interrupted", "prepared", "running"):
+            with self.subTest(status=status):
+                c = self.controller([])
+                c.adapter.dispatch = Mock(
+                    return_value={
+                        "provider": "codex",
+                        "run_id": "same-run",
+                        "status": status,
+                    }
+                )
+                result = self.run_chain(c)
+                self.assertEqual(result["stop_reason"], "dispatch_uncertain")
+                self.assertEqual(c.adapter.dispatch.call_count, 1)
+                self.assertEqual(c.submitted, 1)
+
     def test_iteration_and_turn_caps_independently(self):
         for field, reason in [
             ("max_iterations", "iteration_limit"),

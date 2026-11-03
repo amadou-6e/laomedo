@@ -160,6 +160,13 @@ class AgentHandoffController:
                     return self._finish("cancelled")
                 if self.clock() >= self.deadline:
                     return self._finish("deadline")
+                if result.get("status") in {
+                    "unknown",
+                    "interrupted",
+                    "prepared",
+                    "running",
+                }:
+                    return self._finish("dispatch_uncertain")
                 if result.get("status") != "completed":
                     return self._finish("agent_failed")
                 try:

@@ -1,6 +1,6 @@
 # Abstract Agent lifecycle
 
-`agent.py` defines abstract `BaseAgent` (formerly `Runner`). It owns common run admission, file-backed records, request identity,
+`agent.py` defines abstract `BaseAgent`. It owns common run admission, file-backed records, request identity,
 workspace freezing and artifact selection. It composes provider execution hooks;
 it must not import concrete providers or their credential implementations.
 
@@ -24,12 +24,12 @@ Protected extension points are `runtime_binding`, `recover_interrupted`,
 `prepare_resume`, `_execute` and `_mirror_host_login`. Constructor recovery can
 run before concrete initialization completes. Keep this ordering explicit.
 Private helpers (`_prepare`, `_materialize`, `_freeze_workspace`, `_run_dir`)
-are not application entrypoints. RunStore extraction is still a target: current
-file records and schemas remain unchanged during relocation.
+are not application entrypoints. File-backed records and persisted schemas are
+owned by this lifecycle.
 
 Failures use the single [RunnerError](../../errors.py) hierarchy and stable codes.
-Uncertain remote execution must not become an automatic retry. The existing
-`_turn_available` hook imposes no production verification quota.
+Uncertain remote execution must not become an automatic retry. Normal Agent
+execution has no verification quota or experiment admission hook.
 # Structured preparation records
 
 `PreparedRunRecord` in `models.py` constructs the initial durable run value.

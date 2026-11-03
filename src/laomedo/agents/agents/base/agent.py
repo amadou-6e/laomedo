@@ -240,9 +240,6 @@ class BaseAgent(ABC):
             pass
         return count + 1
 
-    def _turn_available(self) -> None:
-        """Extension point for isolated experiment harnesses; no production quota."""
-
     def status(self, run_id: str) -> dict:
         return _read(self._run_dir(run_id) / "record.json")
 

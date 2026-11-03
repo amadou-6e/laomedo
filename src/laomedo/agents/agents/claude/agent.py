@@ -1166,7 +1166,6 @@ class ClaudeAgent(BaseAgent):
                     or corrections >= record["output_retries"]
                 ):
                     break
-                self._turn_available()
                 prompt = json.dumps(
                     {
                         "instruction": "Correct only the previous output. Return one JSON object, no fences or trailing characters. Do not repeat any action.",

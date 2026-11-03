@@ -76,7 +76,6 @@ class RunnerServiceTests(unittest.TestCase):
         history = state / "turn-ledger.json"
         historical_bytes = b'{"attempted_turns":99,"max_authorized_turns":1}'
         history.write_bytes(historical_bytes)
-        runner._turn_available()
         self.assertEqual(runner._reserve_turn(), 1)
         self.assertEqual(history.read_bytes(), historical_bytes)
         restarted = LocalRunner(
@@ -86,11 +85,9 @@ class RunnerServiceTests(unittest.TestCase):
             check_docker=False,
             supervise_containers=False,
         )
-        restarted._turn_available()
         self.assertEqual(restarted._reserve_turn(), 2)
         # Even malformed historical evidence is not a future-run authorization gate.
         history.write_bytes(b"historical evidence, not runtime configuration")
-        restarted._turn_available()
         self.assertEqual(restarted._reserve_turn(), 3)
         self.assertEqual(
             history.read_bytes(), b"historical evidence, not runtime configuration"

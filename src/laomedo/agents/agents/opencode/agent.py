@@ -314,7 +314,6 @@ class OpenCodeAgent(BaseAgent):
                 if record["status"] != ("completed" if resume else "prepared"):
                     raise RunnerError("run_not_dispatchable")
                 # Refusal must preserve a completed run and its resume snapshot.
-                self._turn_available()
                 attempt_id = (
                     activity_attempt_id
                     if resume
