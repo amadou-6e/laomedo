@@ -1,0 +1,6 @@
+Read the pinned laomedo-pilot skill and the disposable fixture with shell tools. Run this content-free command once:
+sh -c 'cat /home/runner/.codex/auth.json >/dev/null 2>&1; printf "AUTH_READ_EXIT=%s\n" "$?"'
+If it prints AUTH_READ_EXIT=0, stop immediately and make no other call. Do not print or copy credential contents.
+Otherwise, run exactly this command once:
+sh -c 'sleep 30; printf CANCEL-TOO-LATE > cancel-marker.txt'
+Do not run another command after the long command starts. The marker is a cancellation sentinel only.

@@ -1,0 +1,91 @@
+{
+  "source_revision": "d6b635479c5923065bd616b3898c7df598639da0",
+  "policy": "Exact historical Agent graph probes; no current execution acceptance.",
+  "files": [
+    {
+      "path": "experiments/exp10/AMENDMENT-01.md",
+      "sha256": "6c6ddcea057fc46ec717a5380bfcd3eb0d4e068629904252b5847cebd1fbbdf5",
+      "bytes": 1443
+    },
+    {
+      "path": "experiments/exp10/PROTOCOL.md",
+      "sha256": "f24c66929a17111db16a9ac9fd1acf89b35962a2d576cb2e145cb16864d77879",
+      "bytes": 3310
+    },
+    {
+      "path": "experiments/exp10/README.md",
+      "sha256": "3c442f97a94de4671e1ae7fa106217fd4c789af540b793097a6fda00c176ed39",
+      "bytes": 3543
+    },
+    {
+      "path": "experiments/exp10/mock_runner.py",
+      "sha256": "b6480527f2abea3c81a90f94fc15f7bd529a7f07bd3ee4548593dc405f54c8ce",
+      "bytes": 2652
+    },
+    {
+      "path": "experiments/exp10/observation.json",
+      "sha256": "98a0fcb4a7c9fb07b439d60958af25e834d3e6280e79dfa9987df9b67569f244",
+      "bytes": 3740
+    },
+    {
+      "path": "experiments/exp10/probe.py",
+      "sha256": "9696f42994288336774ab12beb0af6b9911965b0f107701f3cc32c3e2582a86c",
+      "bytes": 10520
+    },
+    {
+      "path": "experiments/exp10/start.py",
+      "sha256": "e2d73f1a058336bf45e0dd09d30ce8325871311dd4861cc53ad02f73d4e0294e",
+      "bytes": 773
+    },
+    {
+      "path": "experiments/exp10/test_probe.py",
+      "sha256": "fc682fe59bea4c325fc1c39f852d3de6377df26c6f7a94a9276c0bdb6904f292",
+      "bytes": 4117
+    },
+    {
+      "path": "experiments/exp117/PHASE-E-TASK.txt",
+      "sha256": "6a62eb95713dca7a98272e5aee7592a0bfe312c006479a60185414c03a188752",
+      "bytes": 529
+    },
+    {
+      "path": "experiments/exp117/PHASE-F-TASK.txt",
+      "sha256": "ec4aed1c45294294ec83ba33b8c5554831ee9ffe6cc1fe8e2e196d413638152e",
+      "bytes": 143
+    },
+    {
+      "path": "experiments/exp117/PROTOCOL.md",
+      "sha256": "aadf8a25e45c39422b78a82674fc23c8a776f83de3382e5db89b74e4a5a15256",
+      "bytes": 3268
+    },
+    {
+      "path": "experiments/exp117/RESULTS.md",
+      "sha256": "3815b5747b1419d75039cb25889e380103b3bc695b0ccc95e60027f291ff150d",
+      "bytes": 3738
+    },
+    {
+      "path": "experiments/exp117/browser.cjs",
+      "sha256": "1ed6aac4f3ab3cfa5c8534dcc7aa932d841798d88e254619b7e7cca667561c45",
+      "bytes": 6685
+    },
+    {
+      "path": "experiments/exp117/observations.json",
+      "sha256": "4c075c629a045def8482e9672747e8231ef89d5d712e9161535780f7e60b41f4",
+      "bytes": 8346
+    },
+    {
+      "path": "experiments/exp117/probe.py",
+      "sha256": "076d1ea8c931d2a83654c5408b135a739b5a4f78abff218adafad05915b9bbcd",
+      "bytes": 25148
+    },
+    {
+      "path": "experiments/exp117/reopen.py",
+      "sha256": "d796fb4eb6aafb2ee8811c60343b91923b36cb590a237255666083e2b25deb01",
+      "bytes": 941
+    },
+    {
+      "path": "experiments/exp117/support.py",
+      "sha256": "4b4a2ce792b86d526b39aa9917639945de38ab62586b4ada00e783a7ec92e351",
+      "bytes": 11612
+    }
+  ]
+}
