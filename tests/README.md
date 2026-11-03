@@ -20,7 +20,7 @@ checks. Folder naming does not change their prerequisites or acceptance status.
 
 The existing root file `test_host_mediated_push.py` covers the separately owned
 GitHub mediation workstream. Service composition and token connection regressions
-live under `test_host/test_services.py` and `test_host/test_credentials/test_token/`. `test_publication_handoff.py` covers GitHub publication
+live under `test_host/test_startup.py` and `test_host/test_credentials/test_token/`. `test_publication_handoff.py` covers GitHub publication
 orchestration; `test_probe_stage_s7.py` retains an EXP-100 consumer control.
 They are explicit exclusions from the Shared/Skills organization pass, even
 where they use the same host publication package. Agent/provider, GitHub,
