@@ -89,7 +89,7 @@ def build(
             ports.edge(skill, "skill", agent, "skill_reference") for agent in agents
         )
     flow = {
-        "name": f"{provider.title()} Agent â€” {workflow}",
+        "name": f"{provider.title()} Agent — {workflow}",
         "description": "Current component graph. Building does not execute an Agent.",
         "flow_type": "workflow",
         "access_type": "PRIVATE",

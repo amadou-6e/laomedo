@@ -9,7 +9,7 @@ rotating refresh credentials, sessions or settings.
 `LocalClaudeLoginError` preserves stable public outcome codes. No README, repr,
 dump, graph or validation evidence may contain credential values.
 
-## Mirror repair â€” implemented draft, live validation pending
+## Mirror repair — implemented draft, live validation pending
 
 The existing CLI copy has no durable ownership receipt. A failed actual graph
 stopped before a native turn; its original low-level cause is unknown. The repair
