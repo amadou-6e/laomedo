@@ -17,8 +17,9 @@ As a workflow author, I want to select a Skill and revision from a source,
 so an Agent receives the intended instructions rather than an unspecified latest version.
 
 **Status: Implemented.** Source and Skill are on the node; Revision is inside
-the initially collapsed Advanced settings section. Discovery explains scanning
-and directs selection there. Edit Request is not a node control.
+the initially collapsed Advanced settings section. Source failures appear beneath
+the input; no Discovery row appears. The empty Skill selector says No source found
+until discovery supplies choices, then Select an option. Edit Request is not a node control.
 
 Acceptance criteria:
 

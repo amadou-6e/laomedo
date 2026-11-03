@@ -183,7 +183,7 @@ type checking is clean.
 
 The same overlay adds searchable Skill and Revision dropdowns for an optional
 Source. Source changes clear dependent choices immediately; late responses for a
-superseded source/skill/revision are ignored. Discovery status is read-only.
+superseded source/skill/revision are ignored. Discovery status remains internal.
 Skill files accepts the resolved tuple only while it matches the current controls.
 Source-empty old saved nodes retain their manual exact reference behavior.
 
@@ -191,8 +191,10 @@ Skill nodes use a separate **Advanced settings** disclosure for Revision and Bas
 Commit. It starts collapsed and keeps controls mounted. The node-type policy also
 applies to old saved field flags, hides Edit Request on canvas and in the settings
 dialog, and preserves saved values. Connected inputs retain their normal sockets.
-Discovery is read-only status; its help explains scanning without execution, and
-its next-step message points to Advanced settings when Revision is empty.
+There is no Discovery row. Only failures or empty results appear directly beneath
+a nonempty Source. Empty Source and successful scans have no message. The empty
+Skill selector says No source found until a nonempty Source has choices, then
+Select an option. Existing selected values remain visible.
 New edits arrive through Operation or the Skill files editor/Publish. Hidden saved
 requests retain legacy feedback compatibility only. New feedback without a saved
 request fails before preparation/Agent dispatch with existing

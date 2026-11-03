@@ -16,7 +16,7 @@ search, result navigation and the earlier real normal/recovery checks.
 Skills provide versioned instruction files and controlled multi-file editing.
 
 [Configure a source](sources.md) explains local folders, public repositories,
-Discovery and choosing an exact Revision in Advanced settings.
+source errors and choosing an exact Revision in Advanced settings.
 
 - [Architecture](architecture.md): component and package ownership.
 - [Registry and drafts](registry.md): immutable revisions, exact file hashes,
