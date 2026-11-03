@@ -578,6 +578,7 @@ class BaseAgent(ABC):
                             if isinstance(exc, RunnerError)
                             else "runner_runtime_unknown"
                         ),
+                        attempt_finished=True,
                         snapshot_ready=False,
                         post_run_hash=None,
                         output_ref=None,

@@ -344,6 +344,10 @@ class RunnerServiceTests(unittest.TestCase):
                             else "runner_runtime_unknown"
                         ),
                     )
+                    from laomedo.agents.interface.utils import terminal_record
+
+                    self.assertTrue(result["attempt_finished"])
+                    self.assertTrue(terminal_record(result))
                     self.assertFalse(result["snapshot_ready"])
                     self.assertIsNone(result["post_run_hash"])
                     self.assertNotIn("PRIVATE", path.read_text())
