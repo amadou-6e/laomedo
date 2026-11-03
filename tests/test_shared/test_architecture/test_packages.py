@@ -64,6 +64,7 @@ class PackageLayoutTests(unittest.TestCase):
                     module = importlib.import_module(canonical)
                 except ModuleNotFoundError as error:
                     if (error.name or "").split(".")[0] in {
+                        "acp",
                         "fastapi",
                         "starlette",
                         "lfx",

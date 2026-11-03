@@ -164,7 +164,9 @@ def check_manual_git_calls(source: str, tree) -> None:
         if isinstance(node, ast.Call):
             full = reference(node.func)
             target = SYMBOL_PATHS.get(full, full)
-            if target in changed and any(item.arg in {"run", None} for item in node.keywords):
+            if target in changed and any(
+                item.arg in {"run", None} for item in node.keywords
+            ):
                 raise ManualMigrationRequired(
                     full
                     + ": run= now requires an explicit GitCommandRunner through runner=; manual migration is required"
