@@ -6,12 +6,11 @@ credential-loading CLI. A real scoped identity is a separate deployment gate."""
 
 from __future__ import annotations
 
-import laomedo.host.leases.server as _leases_server
+from laomedo.host.leases.server import LeaseHTTPServer
 from pathlib import Path
 import json
-import laomedo.github.transport.git.errors as _git_errors
-import laomedo.host.leases.utils as _leases_utils
-import laomedo.host.mediation.store as _mediation_store
+from laomedo.github.transport.git.errors import PushOutcomeUnknown
+from laomedo.host.mediation.store import MediationStore
 import secrets
 import threading
 import time
@@ -20,7 +19,7 @@ import time
 class MediationHTTPService:
     def __init__(
         self,
-        store: _mediation_store.MediationStore,
+        store: MediationStore,
         transport,
         *,
         host="127.0.0.1",
@@ -29,7 +28,7 @@ class MediationHTTPService:
         if transport is None:
             raise ValueError("credential_transport_required")
         self.instance = secrets.token_hex(16)
-        self.server = _leases_server.LeaseHTTPServer(
+        self.server = LeaseHTTPServer(
             None, store, transport, self.instance, host=host, port=port
         )
 
@@ -69,7 +68,7 @@ class JournaledTransport:
             journal.write(json.dumps(event, sort_keys=True) + "\n")
         try:
             return self.transport(repository, operation, payload, **binding)
-        except _git_errors.PushOutcomeUnknown as failure:
+        except PushOutcomeUnknown as failure:
             if self.diagnostic_path is not None:
                 diagnostic = {
                     "at_wall": time.time(),

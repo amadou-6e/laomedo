@@ -8,6 +8,7 @@ from contextlib import closing
 from contextlib import redirect_stdout
 from io import StringIO
 import json
+from support.paths import repository_root
 from pathlib import Path
 import sqlite3
 from tempfile import TemporaryDirectory
@@ -25,7 +26,7 @@ from laomedo.agents.workflow.errors import ExternalOutcomeUnknown
 from laomedo.agents.workflow.errors import LaunchError
 from laomedo.agents.workflow.store import WorkflowRunStore
 
-CORPUS = Path(__file__).resolve().parents[1] / "experiments" / "exp16" / "corpus.json"
+CORPUS = repository_root() / "tests/test_work_graph/fixtures/corpus.json"
 REPO = "verify/exp16"
 WORK = "github:S-20"
 TIME = datetime(2026, 10, 5, 10, 0, tzinfo=timezone.utc)
@@ -294,9 +295,7 @@ class WorkGraphLaunchTests(unittest.TestCase):
 
     def test_host_grant_is_bound_private_and_one_use(self):
         with self.assertRaisesRegex(LaunchError, "grant_store_inside_git"):
-            LocalGrantAuthority(
-                Path(__file__).resolve().parents[1] / ".tools.local" / "grants.sqlite"
-            )
+            LocalGrantAuthority(repository_root() / ".tools.local" / "grants.sqlite")
         temporary = TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
         authority = LocalGrantAuthority(Path(temporary.name) / "grants.sqlite")
@@ -327,7 +326,7 @@ class WorkGraphLaunchTests(unittest.TestCase):
             max_turns=0,
         )
         with patch(
-            "laomedo.work_graph.grant_utils._host_principal", return_value="other-user"
+            "laomedo.work_graph.grants._host_principal", return_value="other-user"
         ):
             with self.assertRaisesRegex(LaunchError, "grant_operator_mismatch"):
                 authority(ref, binding)

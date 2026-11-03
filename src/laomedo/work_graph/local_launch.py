@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
+from laomedo.work_graph.models import WorkLaunchResult
+
 from pathlib import Path
 import json
-import laomedo.agents.workflow.errors as _workflow_errors
-import laomedo.agents.workflow.store as _workflow_store
-import laomedo.work_graph.grant_utils as _work_graph_grant_utils
-import laomedo.work_graph.grants as _work_graph_grants
-import laomedo.work_graph.launch as _work_graph_launch
-import laomedo.work_graph.models as _work_graph_models
+from laomedo.agents.workflow.errors import LaunchError
+from laomedo.agents.workflow.store import WorkflowRunStore
+from laomedo.work_graph.grant_utils import _private_path
+from laomedo.work_graph.grants import LocalGrantAuthority
+from laomedo.work_graph.launch import launch_github_docker_saved_flow_stage
+from laomedo.work_graph.models import GraphSnapshot
 
 
 def launch_local_saved_flow(
@@ -25,18 +27,18 @@ def launch_local_saved_flow(
     choice=None,
     source_root=None,
 ):
-    import laomedo.work_graph.client as _work_graph_client
+    from laomedo.work_graph.client import LangflowLocalClient
 
-    frozen = _work_graph_models.GraphSnapshot.from_dict(
+    frozen = GraphSnapshot.from_dict(
         json.loads(Path(snapshot_path).read_text(encoding="utf-8"))
     )
-    authority = _work_graph_grants.LocalGrantAuthority(grant_store)
-    run_path = _work_graph_grant_utils._private_path(run_store)
+    authority = LocalGrantAuthority(grant_store)
+    run_path = _private_path(run_store)
     if run_path == authority.path:
-        raise _workflow_errors.LaunchError("run_and_grant_store_must_differ")
-    store = _workflow_store.WorkflowRunStore(run_path)
-    client = _work_graph_client.LangflowLocalClient(langflow_base)
-    record, output = _work_graph_launch.launch_github_docker_saved_flow_stage(
+        raise LaunchError("run_and_grant_store_must_differ")
+    store = WorkflowRunStore(run_path)
+    client = LangflowLocalClient(langflow_base)
+    record, output = launch_github_docker_saved_flow_stage(
         frozen=frozen,
         work_key=work_key,
         flow_id=flow_id,
@@ -51,13 +53,13 @@ def launch_local_saved_flow(
         outputs=None,
         source_root=source_root,
     )
-    return {
-        "run_id": record["run_id"],
-        "trace_id": record["trace_id"],
-        "status": record["status"],
-        "completion_basis": record["completion_basis"],
-        "evidence_complete": bool(record["evidence_complete"]),
-        "dispatch_attempts": record["dispatch_attempts"],
-        "output_present": bool(output),
-        "graph_revision": record["graph_revision"],
-    }
+    return WorkLaunchResult(
+        run_id=record["run_id"],
+        trace_id=record["trace_id"],
+        status=record["status"],
+        completion_basis=record["completion_basis"],
+        evidence_complete=bool(record["evidence_complete"]),
+        dispatch_attempts=record["dispatch_attempts"],
+        output_present=bool(output),
+        graph_revision=record["graph_revision"],
+    ).to_payload()

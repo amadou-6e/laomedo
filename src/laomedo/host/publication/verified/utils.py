@@ -1,29 +1,29 @@
 """Resolve and freeze immutable verified Git stages."""
 
 from __future__ import annotations
-
-from laomedo.git.command import GitCommandRunner
-from laomedo.host.publication.verified.models import VerifiedStage
-from laomedo.host.publication.verified.settings import _COMMIT
-from laomedo.host.publication.verified.errors import (
-    VerifiedGitStageError,
-    VerifiedStageError,
-)
-from laomedo.host.publication.bundle.stage import _single_bundle_commit, _read_frozen
-from laomedo.host.publication.bundle.errors import BundleStageError
+from laomedo.host.publication.verified.models import VerifiedStageIdentity
 
 from contextlib import contextmanager
 from pathlib import Path
 import hashlib
 import json
-import laomedo.host.publication.bundle.settings as _bundle_settings
+from laomedo.git.command import GitCommandRunner
+from laomedo.host.publication.bundle.settings import MAX_OUTPUT_BYTES
+from laomedo.host.publication.bundle.settings import PINNED_IMAGE_ID
+from laomedo.host.publication.bundle.errors import BundleStageError
+from laomedo.host.publication.bundle.stage import _read_frozen
+from laomedo.host.publication.bundle.stage import _single_bundle_commit
+from laomedo.host.publication.verified.settings import _COMMIT
+from laomedo.host.publication.verified.errors import VerifiedGitStageError
+from laomedo.host.publication.verified.errors import VerifiedStageError
+from laomedo.host.publication.verified.models import VerifiedStage
 from laomedo.host.publication.ingestion.settings import MAX_RECORD_BYTES
 from laomedo.host.publication.ingestion.settings import RUN_IDENTITY
 from laomedo.host.publication.ingestion.errors import BundleIngestError
 from laomedo.host.publication.ingestion.utils import validate_ingestion_roots
 from laomedo.host.publication.ingestion.utils import read_run_binding
-from laomedo.host.publication.ingestion.utils import freeze_run_bundle
 from laomedo.host.publication.ingestion.utils import is_redirected_path
+from laomedo.host.publication.ingestion.utils import freeze_run_bundle
 import os
 import stat
 import subprocess
@@ -285,7 +285,7 @@ def resolve_verified_stage(
         or verification.get("source_bundle_sha256") != frozen["bundle_sha256"]
         or verification.get("baseline") != binding["baseline"]
         or verification.get("commit") != commit
-        or verification.get("image_id") != _bundle_settings.PINNED_IMAGE_ID
+        or verification.get("image_id") != PINNED_IMAGE_ID
         or not isinstance(verification.get("baseline_bundle_sha256"), str)
         or len(verification["baseline_bundle_sha256"]) != 64
         or any(
@@ -300,9 +300,7 @@ def resolve_verified_stage(
         or container.get("export_class") != "ok"
     ):
         raise VerifiedStageError("stage_verification_invalid")
-    bundle = _read_regular(
-        attempt / "verified.bundle", _bundle_settings.MAX_OUTPUT_BYTES
-    )
+    bundle = _read_regular(attempt / "verified.bundle", MAX_OUTPUT_BYTES)
     digest = hashlib.sha256(bundle).hexdigest()
     if (
         container.get("output_sha256") != digest
@@ -321,28 +319,15 @@ def resolve_verified_stage(
         if binding.get("binding_mode") == "active"
         else {"run_record_sha256": binding["run_record_sha256"]}
     )
-    identity = {
-        "run_id": run_id,
-        "attempt_id": stage_attempt_id,
-        **binding_identity,
-        "repository": repository,
-        "branch": branch,
-        "baseline": binding["baseline"],
-        "commit": commit,
-        "source_bundle_sha256": frozen["bundle_sha256"],
-        "verified_bundle_sha256": digest,
-    }
-    stage_digest = hashlib.sha256(
-        json.dumps(identity, sort_keys=True, separators=(",", ":")).encode("utf-8")
-    ).hexdigest()
-    return VerifiedStage(
+    identity = VerifiedStageIdentity(
         run_id=run_id,
         attempt_id=stage_attempt_id,
+        **binding_identity,
         repository=repository,
         branch=branch,
         baseline=binding["baseline"],
         commit=commit,
-        bundle_sha256=digest,
-        stage_digest=stage_digest,
-        bundle=bundle,
+        source_bundle_sha256=frozen["bundle_sha256"],
+        verified_bundle_sha256=digest,
     )
+    return VerifiedStage.from_identity(identity, bundle)

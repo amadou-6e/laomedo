@@ -83,3 +83,15 @@ invocation. No archived script or model turn is needed.
 Keep helpers small and concern-owned. Consolidate repeated setup, not distinct
 error, authorization, wire-format, path, history or cleanup assertions. Compare
 test size including support code; moving a file does not reduce it.
+
+## Shared records and bounded execution
+
+`test_work_graph/` owns snapshot, launch/grant, CLI and hash-preimage checks.
+`test_host/test_credentials/test_siwc/` owns OAuth private projections;
+`test_host/test_mediation/` owns admitted host scope and metadata;
+`test_host/test_publication/test_records.py` owns publication journal and digest
+projections. These are supporting contract checks, never live sign-in or remote
+publication evidence. Shared Git tests cover narrow credential-free read profiles,
+active budgets, uncertain cleanup and actual owned Windows child-process trees.
+Their process helper lives beside that suite, not in an experiment or test-root
+filename family. Existing transport/workspace regression behavior remains covered.

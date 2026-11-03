@@ -7,8 +7,9 @@ environments, repository and working-tree mechanics. Feature owners retain
 admission, credential selection, authorization, refs and error translation.
 [HTTP](../../src/laomedo/http/README.md) owns neutral redirect refusal. Credential
 handlers keep their distinct errors; self-contained components retain their
-standard-library copies. Source discovery's separate read-budget process path is
-owned by Skills and is outside the shared workspace/transport Git profiles.
+standard-library copies. Credential-free source discovery uses the shared bounded-read profile. Skills
+retains source admission, cache accounting and translation of cleanup uncertainty;
+the Git owner retains native process isolation and termination.
 
 GitHubGitTransport, VerifiedGitStage and stage_verified_git accept a
 GitCommandRunner through `runner=`. Their previous subprocess-shaped `run=`
@@ -51,12 +52,13 @@ src/laomedo/
 |   `-- resources/
 |-- skills/
 |   |-- authoring/
-|   |-- ingestion/
 |   |-- inspection/
 |   |-- operations/
 |   |-- registry/
 |   |-- sources/
-|   |-- workspace/
+|   |-- interface/
+|   |   |-- sources/
+|   |   `-- operations/
 |   `-- resources/
 |-- github/
 |   |-- issues/
@@ -65,6 +67,7 @@ src/laomedo/
 |       |-- git/
 |       `-- rest/
 |-- host/
+|   |-- private_state/
 |   |-- credentials/
 |   |   |-- codex/
 |   |   |   `-- resources/
@@ -78,6 +81,7 @@ src/laomedo/
 |   `-- publication/
 |       |-- bundle/
 |       |-- handoff/
+|       |-- ingestion/
 |       |-- verified/
 |       `-- resources/
 |-- integrations/

@@ -10,20 +10,19 @@ from __future__ import annotations
 from pathlib import Path
 import hashlib
 import json
+from laomedo.host.publication.ingestion.settings import HANDOFF_NAME
+from laomedo.host.publication.ingestion.settings import MAX_BUNDLE_BYTES
 from laomedo.host.publication.ingestion.settings import MAX_RECORD_BYTES
-from laomedo.host.publication.ingestion.settings import RUN_IDENTITY
 from laomedo.host.publication.ingestion.settings import _BRANCH
+from laomedo.host.publication.ingestion.settings import RUN_IDENTITY
 from laomedo.host.publication.ingestion.settings import _REPOSITORY
 from laomedo.host.publication.ingestion.settings import _SHA
-from laomedo.host.publication.ingestion.settings import MAX_BUNDLE_BYTES
-from laomedo.host.publication.ingestion.settings import HANDOFF_NAME
 from laomedo.host.publication.ingestion.errors import BundleIngestError
 import os
 import stat
 
 
 def is_redirected_path(path: Path) -> bool:
-    """Conservatively identify symbolic links, Windows reparse points and unreadable path metadata."""
     try:
         metadata = path.lstat()
     except OSError:
@@ -35,14 +34,12 @@ def is_redirected_path(path: Path) -> bool:
 
 
 def _outside_git(path: Path) -> bool:
-    """Check that the supplied path and its parents are outside a Git working tree."""
     return not any((parent / ".git").exists() for parent in (path, *path.parents))
 
 
 def validate_ingestion_roots(
     runner_state: Path, private_root: Path
 ) -> tuple[Path, Path]:
-    """Admit trusted runner/private roots before resolving a run-bound handoff."""
     if (
         is_redirected_path(runner_state)
         or is_redirected_path(private_root)
@@ -64,7 +61,6 @@ def validate_ingestion_roots(
 
 
 def read_run_binding(runner_state: Path, run_id: str) -> tuple[Path, dict]:
-    """Read the admitted run record and workspace binding while preserving identity checks."""
     if not isinstance(run_id, str) or not RUN_IDENTITY.fullmatch(run_id):
         raise BundleIngestError("run_identity_invalid")
     run_dir = runner_state / "runs" / run_id
@@ -161,7 +157,6 @@ def read_run_binding(runner_state: Path, run_id: str) -> tuple[Path, dict]:
 
 
 def read_bundle_bytes(path: Path) -> bytes:
-    """Read bounded, regular bundle bytes without accepting redirected or aliased paths."""
     if is_redirected_path(path) or not path.is_file():
         raise BundleIngestError("bundle_not_regular")
     flags = os.O_RDONLY | getattr(os, "O_BINARY", 0) | getattr(os, "O_NOFOLLOW", 0)
@@ -193,7 +188,6 @@ def read_bundle_bytes(path: Path) -> bytes:
 
 
 def write_durable_json(path: Path, value: dict) -> None:
-    """Atomically replace and synchronize an owned handoff receipt before reporting it durable."""
     pending = path.with_name(path.name + ".pending")
     with pending.open("x", encoding="utf-8", newline="\n") as output:
         output.write(json.dumps(value, sort_keys=True) + "\n")

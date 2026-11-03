@@ -52,7 +52,7 @@ class PackageLayoutTests(unittest.TestCase):
 
     def test_package_root_has_only_shared_infrastructure(self):
         self.assertEqual(
-            {p.name for p in package_root().iterdir() if p.is_file()},
+            {p.name for p in package_root().iterdir() if p.is_file()} - {"README.md"},
             {"__init__.py", "_paths.py"},
         )
 

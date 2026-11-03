@@ -101,6 +101,13 @@ def check_manual_git_calls(source: str, tree) -> None:
     bindings = {}
     for node in ast.walk(tree):
         if isinstance(node, ast.ImportFrom) and node.module and not node.level:
+            if node.module in {
+                "laomedo.skills.sources.utils",
+                "laomedo.skills.sources.settings",
+            } and any(item.name == "*" for item in node.names):
+                raise ManualMigrationRequired(
+                    "A star import from a split Skill module requires explicit defining symbols"
+                )
             for item in node.names:
                 full = node.module + "." + item.name
                 if full in MANUAL_SYMBOLS:
@@ -125,6 +132,17 @@ def check_manual_git_calls(source: str, tree) -> None:
         "laomedo.host.publication.verified.utils.stage_verified_git",
     }
     for node in ast.walk(tree):
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "getattr"
+            and node.args
+            and reference(node.args[0])
+            in {"laomedo.skills.sources.utils", "laomedo.skills.sources.settings"}
+        ):
+            raise ManualMigrationRequired(
+                "Dynamic access to a split Skill module requires explicit defining symbols"
+            )
         if isinstance(node, ast.Attribute) and reference(node) in MANUAL_SYMBOLS:
             full = reference(node)
             raise ManualMigrationRequired(full + ": " + MANUAL_SYMBOLS[full])
