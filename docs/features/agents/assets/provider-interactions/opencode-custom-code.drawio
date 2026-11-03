@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <mxfile host="app.diagrams.net" type="device">
   <diagram id="opencode-custom-code" name="1. Run and session">
-    <mxGraphModel grid="1" gridSize="10" page="1" pageScale="1" pageWidth="2190" pageHeight="900">
+    <mxGraphModel grid="1" gridSize="10" page="1" pageScale="1" pageWidth="2995" pageHeight="933">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -14,40 +14,40 @@
         <mxCell id="col_0" value="App contract / launch input" style="rounded=0;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;resizeChildren=0;align=left;verticalAlign=top;spacingLeft=12;spacingTop=10;fillColor=#F5F7FA;strokeColor=#BDCBD6;fontColor=#20384A;fontSize=15;fontStyle=1;" vertex="1" parent="1">
           <mxGeometry x="45" y="150" width="325" height="520" as="geometry" />
         </mxCell>
-        <mxCell id="entry" value="&lt;b&gt;Application boundary + BaseAgent&lt;/b&gt;&lt;br/&gt;agents/interface/; agents/agents/base/agent.py&lt;br/&gt;&lt;br/&gt;Public operations, run admission and records. Concrete providers implement the native execution hooks." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#EAF0FA;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_0">
+        <mxCell id="entry" value="&lt;b&gt;[A] Application boundary + BaseAgent&lt;/b&gt;&lt;br/&gt;agents/interface/; agents/agents/base/agent.py&lt;br/&gt;&lt;br/&gt;Public operations, run admission and records. Concrete providers implement the native execution hooks." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#EAF0FA;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_0">
           <mxGeometry x="20" y="60" width="285" height="150" as="geometry" />
         </mxCell>
         <mxCell id="col_1" value="Provider host implementation" style="rounded=0;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;resizeChildren=0;align=left;verticalAlign=top;spacingLeft=12;spacingTop=10;fillColor=#F5F7FA;strokeColor=#BDCBD6;fontColor=#20384A;fontSize=15;fontStyle=1;" vertex="1" parent="1">
           <mxGeometry x="480" y="150" width="325" height="520" as="geometry" />
         </mxCell>
-        <mxCell id="agent" value="&lt;b&gt;OpenCodeAgent : BaseAgent&lt;/b&gt;&lt;br/&gt;opencode/agent.py&lt;br/&gt;&lt;br/&gt;Require an injected transport, bind attempts and coordinate final snapshots/evidence. Deployment wiring remains incomplete." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#F0EAF8;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_1">
+        <mxCell id="agent" value="&lt;b&gt;[B] OpenCodeAgent : BaseAgent&lt;/b&gt;&lt;br/&gt;opencode/agent.py&lt;br/&gt;&lt;br/&gt;Require an injected transport, bind attempts and coordinate final snapshots/evidence. Deployment wiring remains incomplete." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#F0EAF8;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_1">
           <mxGeometry x="20" y="60" width="285" height="150" as="geometry" />
         </mxCell>
-        <mxCell id="runtime" value="&lt;b&gt;IsolatedOpenCode&lt;/b&gt;&lt;br/&gt;opencode/boundary.py; models.py&lt;br/&gt;&lt;br/&gt;Own controller setup, shared ACP session, native model selection, cancellation and exact resource closure." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#F0EAF8;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_1">
+        <mxCell id="runtime" value="&lt;b&gt;[C] IsolatedOpenCode&lt;/b&gt;&lt;br/&gt;opencode/boundary.py; models.py&lt;br/&gt;&lt;br/&gt;Own controller setup, shared ACP session, native model selection, cancellation and exact resource closure." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#F0EAF8;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_1">
           <mxGeometry x="20" y="290" width="285" height="150" as="geometry" />
         </mxCell>
         <mxCell id="col_2" value="Shared host adapters" style="rounded=0;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;resizeChildren=0;align=left;verticalAlign=top;spacingLeft=12;spacingTop=10;fillColor=#F5F7FA;strokeColor=#BDCBD6;fontColor=#20384A;fontSize=15;fontStyle=1;" vertex="1" parent="1">
           <mxGeometry x="915" y="150" width="325" height="520" as="geometry" />
         </mxCell>
-        <mxCell id="acp" value="&lt;b&gt;Shared ACP bridge + Python SDK&lt;/b&gt;&lt;br/&gt;agents/agents/base/acp/session.py; transport.py&lt;br/&gt;&lt;br/&gt;AcpSession composes the upstream ACP SDK. DockerTransport carries its frames over attached stdin/stdout." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#EAF0FA;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_2">
+        <mxCell id="acp" value="&lt;b&gt;[D] Shared ACP bridge + Python SDK&lt;/b&gt;&lt;br/&gt;agents/agents/base/acp/session.py; transport.py&lt;br/&gt;&lt;br/&gt;AcpSession composes the upstream ACP SDK. DockerTransport carries its frames over attached stdin/stdout." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#EAF0FA;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_2">
           <mxGeometry x="20" y="60" width="285" height="150" as="geometry" />
         </mxCell>
-        <mxCell id="docker" value="&lt;b&gt;Shared Docker mechanics&lt;/b&gt;&lt;br/&gt;py-docker -&amp;gt; Docker SDK -&amp;gt; Engine&lt;br/&gt;&lt;br/&gt;Create/attach owned containers, execute jobs, retain receipts and reconcile cleanup." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#E7F3EC;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_2">
+        <mxCell id="docker" value="&lt;b&gt;[E] Shared Docker mechanics&lt;/b&gt;&lt;br/&gt;py-docker -&amp;gt; Docker SDK -&amp;gt; Engine&lt;br/&gt;&lt;br/&gt;Create/attach owned containers, execute jobs, retain receipts and reconcile cleanup." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#E7F3EC;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_2">
           <mxGeometry x="20" y="290" width="285" height="150" as="geometry" />
         </mxCell>
         <mxCell id="col_3" value="Docker controller" style="rounded=0;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;resizeChildren=0;align=left;verticalAlign=top;spacingLeft=12;spacingTop=10;fillColor=#F5F7FA;strokeColor=#BDCBD6;fontColor=#20384A;fontSize=15;fontStyle=1;" vertex="1" parent="1">
           <mxGeometry x="1350" y="150" width="325" height="520" as="geometry" />
         </mxCell>
-        <mxCell id="adapter" value="&lt;b&gt;Native ACP endpoint&lt;/b&gt;&lt;br/&gt;opencode acp&lt;br/&gt;&lt;br/&gt;Part of the same native OpenCode process; no custom in-container adapter." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#E7F3EC;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_3">
+        <mxCell id="adapter" value="&lt;b&gt;[F] Native ACP endpoint&lt;/b&gt;&lt;br/&gt;opencode acp&lt;br/&gt;&lt;br/&gt;Part of the same native OpenCode process; no custom in-container adapter." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#E7F3EC;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_3">
           <mxGeometry x="20" y="60" width="285" height="150" as="geometry" />
         </mxCell>
-        <mxCell id="cli" value="&lt;b&gt;Native OpenCode ACP + Agent&lt;/b&gt;&lt;br/&gt;opencode acp&lt;br/&gt;&lt;br/&gt;One upstream process supplies both ACP and native execution. No custom in-container ACP adapter." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#E7F3EC;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_3">
+        <mxCell id="cli" value="&lt;b&gt;[G] Native OpenCode ACP + Agent&lt;/b&gt;&lt;br/&gt;opencode acp&lt;br/&gt;&lt;br/&gt;One upstream process supplies both ACP and native execution. No custom in-container ACP adapter." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#E7F3EC;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_3">
           <mxGeometry x="20" y="290" width="285" height="150" as="geometry" />
         </mxCell>
         <mxCell id="col_4" value="External model" style="rounded=0;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;resizeChildren=0;align=left;verticalAlign=top;spacingLeft=12;spacingTop=10;fillColor=#F5F7FA;strokeColor=#BDCBD6;fontColor=#20384A;fontSize=15;fontStyle=1;" vertex="1" parent="1">
           <mxGeometry x="1785" y="150" width="325" height="520" as="geometry" />
         </mxCell>
-        <mxCell id="model" value="&lt;b&gt;External model service&lt;/b&gt;&lt;br/&gt;Outside local Docker&lt;br/&gt;&lt;br/&gt;Native OpenCode performs authenticated model requests." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#E7F3EC;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_4">
+        <mxCell id="model" value="&lt;b&gt;[H] External model service&lt;/b&gt;&lt;br/&gt;Outside local Docker&lt;br/&gt;&lt;br/&gt;Native OpenCode performs authenticated model requests." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#E7F3EC;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_4">
           <mxGeometry x="20" y="60" width="285" height="150" as="geometry" />
         </mxCell>
         <mxCell id="edge-edge_0" value="start / resume" style="edgeStyle=segmentEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;strokeColor=#42699A;strokeWidth=2;endArrow=classic;startArrow=none;dashed=0;fontSize=12;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="entry" target="agent">
@@ -104,11 +104,92 @@
             </Array>
           </mxGeometry>
         </mxCell>
+        <mxCell id="filemap_title" parent="1" vertex="1" value="Where this tab&amp;#x27;s code lives" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=19;fontColor=#20384A;fontStyle=1;">
+          <mxGeometry x="2175.0" y="150" width="760" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="filemap_legend" parent="1" vertex="1" value="Match [A], [B], ... to the graph. CUSTOM = Laomedo-owned source. Only files relevant to this tab are shown." style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontColor=#20384A;fontStyle=0;">
+          <mxGeometry x="2175.0" y="190" width="760" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="filemap_row_0" parent="1" vertex="1" value="src/laomedo/agents/" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Consolas;fontSize=13;fontColor=#20384A;fontStyle=1;" inventoryKind="directory" filePath="src/laomedo/agents">
+          <mxGeometry x="2175.0" y="255" width="465" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="filemap_row_1" parent="1" vertex="1" value="agents/" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Consolas;fontSize=13;fontColor=#20384A;fontStyle=1;" inventoryKind="directory" filePath="src/laomedo/agents/agents">
+          <mxGeometry x="2195.0" y="281" width="445" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="filemap_row_2" parent="1" vertex="1" value="base/" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Consolas;fontSize=13;fontColor=#20384A;fontStyle=1;" inventoryKind="directory" filePath="src/laomedo/agents/agents/base">
+          <mxGeometry x="2215.0" y="307" width="425" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="filemap_row_3" parent="1" vertex="1" value="acp/" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Consolas;fontSize=13;fontColor=#20384A;fontStyle=1;" inventoryKind="directory" filePath="src/laomedo/agents/agents/base/acp">
+          <mxGeometry x="2235.0" y="333" width="405" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="filemap_row_4" parent="1" vertex="1" value="session.py" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Consolas;fontSize=13;fontColor=#455869;fontStyle=0;" inventoryKind="file" filePath="src/laomedo/agents/agents/base/acp/session.py" ownership="custom" graphReferences="D">
+          <mxGeometry x="2255.0" y="359" width="385" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="filemap_tag_4" parent="1" vertex="1" value="CUSTOM  [D]" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontColor=#75589C;fontStyle=1;">
+          <mxGeometry x="2650.0" y="359" width="280" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="filemap_row_5" parent="1" vertex="1" value="transport.py" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Consolas;fontSize=13;fontColor=#455869;fontStyle=0;" inventoryKind="file" filePath="src/laomedo/agents/agents/base/acp/transport.py" ownership="custom" graphReferences="D">
+          <mxGeometry x="2255.0" y="385" width="385" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="filemap_tag_5" parent="1" vertex="1" value="CUSTOM  [D]" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontColor=#75589C;fontStyle=1;">
+          <mxGeometry x="2650.0" y="385" width="280" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="filemap_row_6" parent="1" vertex="1" value="agent.py" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Consolas;fontSize=13;fontColor=#455869;fontStyle=0;" inventoryKind="file" filePath="src/laomedo/agents/agents/base/agent.py" ownership="custom" graphReferences="A">
+          <mxGeometry x="2235.0" y="411" width="405" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="filemap_tag_6" parent="1" vertex="1" value="CUSTOM  [A]" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontColor=#75589C;fontStyle=1;">
+          <mxGeometry x="2650.0" y="411" width="280" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="filemap_row_7" parent="1" vertex="1" value="opencode/" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Consolas;fontSize=13;fontColor=#20384A;fontStyle=1;" inventoryKind="directory" filePath="src/laomedo/agents/agents/opencode">
+          <mxGeometry x="2215.0" y="437" width="425" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="filemap_row_8" parent="1" vertex="1" value="agent.py" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Consolas;fontSize=13;fontColor=#455869;fontStyle=0;" inventoryKind="file" filePath="src/laomedo/agents/agents/opencode/agent.py" ownership="custom" graphReferences="B">
+          <mxGeometry x="2235.0" y="463" width="405" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="filemap_tag_8" parent="1" vertex="1" value="CUSTOM  [B]" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontColor=#75589C;fontStyle=1;">
+          <mxGeometry x="2650.0" y="463" width="280" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="filemap_row_9" parent="1" vertex="1" value="boundary.py" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Consolas;fontSize=13;fontColor=#455869;fontStyle=0;" inventoryKind="file" filePath="src/laomedo/agents/agents/opencode/boundary.py" ownership="custom" graphReferences="C">
+          <mxGeometry x="2235.0" y="489" width="405" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="filemap_tag_9" parent="1" vertex="1" value="CUSTOM  [C]" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontColor=#75589C;fontStyle=1;">
+          <mxGeometry x="2650.0" y="489" width="280" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="filemap_row_10" parent="1" vertex="1" value="models.py" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Consolas;fontSize=13;fontColor=#455869;fontStyle=0;" inventoryKind="file" filePath="src/laomedo/agents/agents/opencode/models.py" ownership="custom" graphReferences="C">
+          <mxGeometry x="2235.0" y="515" width="405" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="filemap_tag_10" parent="1" vertex="1" value="CUSTOM  [C]" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontColor=#75589C;fontStyle=1;">
+          <mxGeometry x="2650.0" y="515" width="280" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="filemap_row_11" parent="1" vertex="1" value="interface/" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Consolas;fontSize=13;fontColor=#20384A;fontStyle=1;" inventoryKind="directory" filePath="src/laomedo/agents/interface">
+          <mxGeometry x="2195.0" y="541" width="445" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="filemap_row_12" parent="1" vertex="1" value="bridge.py" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Consolas;fontSize=13;fontColor=#455869;fontStyle=0;" inventoryKind="file" filePath="src/laomedo/agents/interface/bridge.py" ownership="custom" graphReferences="A">
+          <mxGeometry x="2215.0" y="567" width="425" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="filemap_tag_12" parent="1" vertex="1" value="CUSTOM  [A]" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontColor=#75589C;fontStyle=1;">
+          <mxGeometry x="2650.0" y="567" width="280" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="filemap_external_title" parent="1" vertex="1" value="Graph nodes supplied elsewhere / runtime state" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=15;fontColor=#20384A;fontStyle=1;">
+          <mxGeometry x="2175.0" y="611" width="760" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="filemap_external_0" parent="1" vertex="1" value="[E] Separate dependencies: py-docker -&amp;gt; Docker SDK -&amp;gt; Docker Engine." style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontColor=#557E65;fontStyle=0;">
+          <mxGeometry x="2175.0" y="651" width="760" height="53" as="geometry" />
+        </mxCell>
+        <mxCell id="filemap_external_1" parent="1" vertex="1" value="[F] Native opencode ACP implementation; no custom adapter files." style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontColor=#557E65;fontStyle=0;">
+          <mxGeometry x="2175.0" y="709" width="760" height="53" as="geometry" />
+        </mxCell>
+        <mxCell id="filemap_external_2" parent="1" vertex="1" value="[G] Upstream native opencode runtime installed in its Docker image." style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontColor=#557E65;fontStyle=0;">
+          <mxGeometry x="2175.0" y="767" width="760" height="53" as="geometry" />
+        </mxCell>
+        <mxCell id="filemap_external_3" parent="1" vertex="1" value="[H] External model API; no repository source for the service." style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontColor=#557E65;fontStyle=0;">
+          <mxGeometry x="2175.0" y="825" width="760" height="53" as="geometry" />
+        </mxCell>
       </root>
     </mxGraphModel>
   </diagram>
   <diagram id="opencode-tools-auth" name="2. Tools and credentials">
-    <mxGraphModel grid="1" gridSize="10" page="1" pageScale="1" pageWidth="1755" pageHeight="900">
+    <mxGraphModel grid="1" gridSize="10" page="1" pageScale="1" pageWidth="2560" pageHeight="945">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -121,37 +202,37 @@
         <mxCell id="col_0" value="Host source / shared Docker" style="rounded=0;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;resizeChildren=0;align=left;verticalAlign=top;spacingLeft=12;spacingTop=10;fillColor=#F5F7FA;strokeColor=#BDCBD6;fontColor=#20384A;fontSize=15;fontStyle=1;" vertex="1" parent="1">
           <mxGeometry x="45" y="150" width="325" height="520" as="geometry" />
         </mxCell>
-        <mxCell id="source" value="&lt;b&gt;Existing Console account&lt;/b&gt;&lt;br/&gt;Host-owned account source&lt;br/&gt;&lt;br/&gt;Host setup selects approved access/routing data; no full profile or refresh ownership transfer." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#E7F3EC;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_0">
+        <mxCell id="source" value="&lt;b&gt;[A] Existing Console account&lt;/b&gt;&lt;br/&gt;Host-owned account source&lt;br/&gt;&lt;br/&gt;Host setup selects approved access/routing data; no full profile or refresh ownership transfer." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#E7F3EC;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_0">
           <mxGeometry x="20" y="60" width="285" height="150" as="geometry" />
         </mxCell>
-        <mxCell id="docker" value="&lt;b&gt;Shared Docker mechanics&lt;/b&gt;&lt;br/&gt;py-docker -&amp;gt; Docker SDK -&amp;gt; Engine&lt;br/&gt;&lt;br/&gt;Create/attach owned containers, execute jobs, retain receipts and reconcile cleanup." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#E7F3EC;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_0">
+        <mxCell id="docker" value="&lt;b&gt;[B] Shared Docker mechanics&lt;/b&gt;&lt;br/&gt;py-docker -&amp;gt; Docker SDK -&amp;gt; Engine&lt;br/&gt;&lt;br/&gt;Create/attach owned containers, execute jobs, retain receipts and reconcile cleanup." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#E7F3EC;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_0">
           <mxGeometry x="20" y="290" width="285" height="150" as="geometry" />
         </mxCell>
         <mxCell id="col_1" value="Provider host adapters" style="rounded=0;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;resizeChildren=0;align=left;verticalAlign=top;spacingLeft=12;spacingTop=10;fillColor=#F5F7FA;strokeColor=#BDCBD6;fontColor=#20384A;fontSize=15;fontStyle=1;" vertex="1" parent="1">
           <mxGeometry x="480" y="150" width="325" height="520" as="geometry" />
         </mxCell>
-        <mxCell id="auth" value="&lt;b&gt;Native auth adaptation&lt;/b&gt;&lt;br/&gt;opencode/auth/; utils.py&lt;br/&gt;&lt;br/&gt;Host setup selects Console credential/routing. Runtime checks expiry and keyed credential binding." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#F0EAF8;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_1">
+        <mxCell id="auth" value="&lt;b&gt;[C] Native auth adaptation&lt;/b&gt;&lt;br/&gt;opencode/auth/; utils.py&lt;br/&gt;&lt;br/&gt;Host setup selects Console credential/routing. Runtime checks expiry and keyed credential binding." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#F0EAF8;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_1">
           <mxGeometry x="20" y="60" width="285" height="150" as="geometry" />
         </mxCell>
-        <mxCell id="broker" value="&lt;b&gt;Host CommandBroker&lt;/b&gt;&lt;br/&gt;opencode/boundary.py; http/&lt;br/&gt;&lt;br/&gt;Authenticated remote MCP receives native tool calls and admits credential-free Docker command jobs." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#F0EAF8;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_1">
+        <mxCell id="broker" value="&lt;b&gt;[D] Host CommandBroker&lt;/b&gt;&lt;br/&gt;opencode/boundary.py; http/&lt;br/&gt;&lt;br/&gt;Authenticated remote MCP receives native tool calls and admits credential-free Docker command jobs." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#F0EAF8;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_1">
           <mxGeometry x="20" y="290" width="285" height="150" as="geometry" />
         </mxCell>
         <mxCell id="col_2" value="Controller state / tools" style="rounded=0;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;resizeChildren=0;align=left;verticalAlign=top;spacingLeft=12;spacingTop=10;fillColor=#F5F7FA;strokeColor=#BDCBD6;fontColor=#20384A;fontSize=15;fontStyle=1;" vertex="1" parent="1">
           <mxGeometry x="915" y="150" width="325" height="520" as="geometry" />
         </mxCell>
-        <mxCell id="profile" value="&lt;b&gt;Restricted view + profile mounts&lt;/b&gt;&lt;br/&gt;Private generated config / auth / sessions&lt;br/&gt;&lt;br/&gt;Only admitted skills/config and read-only auth reach the controller. Model-writable project config stays out." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#E7F3EC;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_2">
+        <mxCell id="profile" value="&lt;b&gt;[E] Restricted view + profile mounts&lt;/b&gt;&lt;br/&gt;Private generated config / auth / sessions&lt;br/&gt;&lt;br/&gt;Only admitted skills/config and read-only auth reach the controller. Model-writable project config stays out." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#E7F3EC;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_2">
           <mxGeometry x="20" y="60" width="285" height="150" as="geometry" />
         </mxCell>
-        <mxCell id="bridge" value="&lt;b&gt;Native remote MCP client&lt;/b&gt;&lt;br/&gt;Part of the opencode process&lt;br/&gt;&lt;br/&gt;Calls host /mcp directly; this is not another custom adapter." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#E7F3EC;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_2">
+        <mxCell id="bridge" value="&lt;b&gt;[F] Native remote MCP client&lt;/b&gt;&lt;br/&gt;Part of the opencode process&lt;br/&gt;&lt;br/&gt;Calls host /mcp directly; this is not another custom adapter." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#E7F3EC;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_2">
           <mxGeometry x="20" y="290" width="285" height="150" as="geometry" />
         </mxCell>
         <mxCell id="col_3" value="Controller / separate worker" style="rounded=0;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;resizeChildren=0;align=left;verticalAlign=top;spacingLeft=12;spacingTop=10;fillColor=#F5F7FA;strokeColor=#BDCBD6;fontColor=#20384A;fontSize=15;fontStyle=1;" vertex="1" parent="1">
           <mxGeometry x="1350" y="150" width="325" height="520" as="geometry" />
         </mxCell>
-        <mxCell id="cli" value="&lt;b&gt;Native OpenCode ACP + Agent&lt;/b&gt;&lt;br/&gt;opencode acp&lt;br/&gt;&lt;br/&gt;One upstream process supplies both ACP and native execution. No custom in-container ACP adapter." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#E7F3EC;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_3">
+        <mxCell id="cli" value="&lt;b&gt;[G] Native OpenCode ACP + Agent&lt;/b&gt;&lt;br/&gt;opencode acp&lt;br/&gt;&lt;br/&gt;One upstream process supplies both ACP and native execution. No custom in-container ACP adapter." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#E7F3EC;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_3">
           <mxGeometry x="20" y="60" width="285" height="150" as="geometry" />
         </mxCell>
-        <mxCell id="worker" value="&lt;b&gt;Credential-free command worker&lt;/b&gt;&lt;br/&gt;Separate Docker container&lt;br/&gt;&lt;br/&gt;No network or credential mount. Current image comes from Codex; neutral packaging is still needed." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#E7F3EC;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_3">
+        <mxCell id="worker" value="&lt;b&gt;[H] Credential-free command worker&lt;/b&gt;&lt;br/&gt;Separate Docker container&lt;br/&gt;&lt;br/&gt;No network or credential mount. Current image comes from Codex; neutral packaging is still needed." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#E7F3EC;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_3">
           <mxGeometry x="20" y="290" width="285" height="150" as="geometry" />
         </mxCell>
         <mxCell id="edge-edge_0" value="approved access" style="edgeStyle=segmentEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;strokeColor=#A37537;strokeWidth=2;endArrow=classic;startArrow=none;dashed=1;fontSize=12;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="source" target="auth">
@@ -211,11 +292,83 @@
             </Array>
           </mxGeometry>
         </mxCell>
+        <mxCell id="filemap_title" parent="1" vertex="1" value="Where this tab&amp;#x27;s code lives" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=19;fontColor=#20384A;fontStyle=1;">
+          <mxGeometry x="1740.0" y="150" width="760" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="filemap_legend" parent="1" vertex="1" value="Match [A], [B], ... to the graph. CUSTOM = Laomedo-owned source. Only files relevant to this tab are shown." style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontColor=#20384A;fontStyle=0;">
+          <mxGeometry x="1740.0" y="190" width="760" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="filemap_row_0" parent="1" vertex="1" value="src/laomedo/agents/agents/opencode/" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Consolas;fontSize=13;fontColor=#20384A;fontStyle=1;" inventoryKind="directory" filePath="src/laomedo/agents/agents/opencode">
+          <mxGeometry x="1740.0" y="255" width="465" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="filemap_row_1" parent="1" vertex="1" value="auth/" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Consolas;fontSize=13;fontColor=#20384A;fontStyle=1;" inventoryKind="directory" filePath="src/laomedo/agents/agents/opencode/auth">
+          <mxGeometry x="1760.0" y="281" width="445" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="filemap_row_2" parent="1" vertex="1" value="transport.py" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Consolas;fontSize=13;fontColor=#455869;fontStyle=0;" inventoryKind="file" filePath="src/laomedo/agents/agents/opencode/auth/transport.py" ownership="custom" graphReferences="C">
+          <mxGeometry x="1780.0" y="307" width="425" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="filemap_tag_2" parent="1" vertex="1" value="CUSTOM  [C]" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontColor=#75589C;fontStyle=1;">
+          <mxGeometry x="2215.0" y="307" width="280" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="filemap_row_3" parent="1" vertex="1" value="utils.py" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Consolas;fontSize=13;fontColor=#455869;fontStyle=0;" inventoryKind="file" filePath="src/laomedo/agents/agents/opencode/auth/utils.py" ownership="custom" graphReferences="C">
+          <mxGeometry x="1780.0" y="333" width="425" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="filemap_tag_3" parent="1" vertex="1" value="CUSTOM  [C]" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontColor=#75589C;fontStyle=1;">
+          <mxGeometry x="2215.0" y="333" width="280" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="filemap_row_4" parent="1" vertex="1" value="http/" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Consolas;fontSize=13;fontColor=#20384A;fontStyle=1;" inventoryKind="directory" filePath="src/laomedo/agents/agents/opencode/http">
+          <mxGeometry x="1760.0" y="359" width="445" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="filemap_row_5" parent="1" vertex="1" value="handler.py" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Consolas;fontSize=13;fontColor=#455869;fontStyle=0;" inventoryKind="file" filePath="src/laomedo/agents/agents/opencode/http/handler.py" ownership="custom" graphReferences="D">
+          <mxGeometry x="1780.0" y="385" width="425" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="filemap_tag_5" parent="1" vertex="1" value="CUSTOM  [D]" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontColor=#75589C;fontStyle=1;">
+          <mxGeometry x="2215.0" y="385" width="280" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="filemap_row_6" parent="1" vertex="1" value="server.py" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Consolas;fontSize=13;fontColor=#455869;fontStyle=0;" inventoryKind="file" filePath="src/laomedo/agents/agents/opencode/http/server.py" ownership="custom" graphReferences="D">
+          <mxGeometry x="1780.0" y="411" width="425" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="filemap_tag_6" parent="1" vertex="1" value="CUSTOM  [D]" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontColor=#75589C;fontStyle=1;">
+          <mxGeometry x="2215.0" y="411" width="280" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="filemap_row_7" parent="1" vertex="1" value="boundary.py" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Consolas;fontSize=13;fontColor=#455869;fontStyle=0;" inventoryKind="file" filePath="src/laomedo/agents/agents/opencode/boundary.py" ownership="custom" graphReferences="D">
+          <mxGeometry x="1760.0" y="437" width="445" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="filemap_tag_7" parent="1" vertex="1" value="CUSTOM  [D]" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontColor=#75589C;fontStyle=1;">
+          <mxGeometry x="2215.0" y="437" width="280" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="filemap_row_8" parent="1" vertex="1" value="utils.py" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Consolas;fontSize=13;fontColor=#455869;fontStyle=0;" inventoryKind="file" filePath="src/laomedo/agents/agents/opencode/utils.py" ownership="custom" graphReferences="C">
+          <mxGeometry x="1760.0" y="463" width="445" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="filemap_tag_8" parent="1" vertex="1" value="CUSTOM  [C]" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontColor=#75589C;fontStyle=1;">
+          <mxGeometry x="2215.0" y="463" width="280" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="filemap_external_title" parent="1" vertex="1" value="Graph nodes supplied elsewhere / runtime state" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=15;fontColor=#20384A;fontStyle=1;">
+          <mxGeometry x="1740.0" y="507" width="760" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="filemap_external_0" parent="1" vertex="1" value="[A] Existing host login/account state, not repository files." style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontColor=#557E65;fontStyle=0;">
+          <mxGeometry x="1740.0" y="547" width="760" height="53" as="geometry" />
+        </mxCell>
+        <mxCell id="filemap_external_1" parent="1" vertex="1" value="[B] Separate dependencies: py-docker -&amp;gt; Docker SDK -&amp;gt; Docker Engine." style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontColor=#557E65;fontStyle=0;">
+          <mxGeometry x="1740.0" y="605" width="760" height="53" as="geometry" />
+        </mxCell>
+        <mxCell id="filemap_external_2" parent="1" vertex="1" value="[E] Admitted private profile/config/session state. Never tracked as source." style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontColor=#557E65;fontStyle=0;">
+          <mxGeometry x="1740.0" y="663" width="760" height="53" as="geometry" />
+        </mxCell>
+        <mxCell id="filemap_external_3" parent="1" vertex="1" value="[F] Upstream component or runtime state; no custom source file in this repository." style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontColor=#557E65;fontStyle=0;">
+          <mxGeometry x="1740.0" y="721" width="760" height="53" as="geometry" />
+        </mxCell>
+        <mxCell id="filemap_external_4" parent="1" vertex="1" value="[G] Upstream native opencode runtime installed in its Docker image." style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontColor=#557E65;fontStyle=0;">
+          <mxGeometry x="1740.0" y="779" width="760" height="53" as="geometry" />
+        </mxCell>
+        <mxCell id="filemap_external_5" parent="1" vertex="1" value="[H] Runtime command-worker container, not another provider source module." style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontColor=#557E65;fontStyle=0;">
+          <mxGeometry x="1740.0" y="837" width="760" height="53" as="geometry" />
+        </mxCell>
       </root>
     </mxGraphModel>
   </diagram>
   <diagram id="opencode-evidence" name="3. Evidence to Activity">
-    <mxGraphModel grid="1" gridSize="10" page="1" pageScale="1" pageWidth="1755" pageHeight="900">
+    <mxGraphModel grid="1" gridSize="10" page="1" pageScale="1" pageWidth="2560" pageHeight="921">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -228,34 +381,34 @@
         <mxCell id="col_0" value="Native sources" style="rounded=0;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;resizeChildren=0;align=left;verticalAlign=top;spacingLeft=12;spacingTop=10;fillColor=#F5F7FA;strokeColor=#BDCBD6;fontColor=#20384A;fontSize=15;fontStyle=1;" vertex="1" parent="1">
           <mxGeometry x="45" y="150" width="325" height="520" as="geometry" />
         </mxCell>
-        <mxCell id="cli" value="&lt;b&gt;Native OpenCode ACP + Agent&lt;/b&gt;&lt;br/&gt;opencode acp&lt;br/&gt;&lt;br/&gt;One upstream process supplies both ACP and native execution. No custom in-container ACP adapter." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#E7F3EC;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_0">
+        <mxCell id="cli" value="&lt;b&gt;[A] Native OpenCode ACP + Agent&lt;/b&gt;&lt;br/&gt;opencode acp&lt;br/&gt;&lt;br/&gt;One upstream process supplies both ACP and native execution. No custom in-container ACP adapter." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#E7F3EC;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_0">
           <mxGeometry x="20" y="60" width="285" height="150" as="geometry" />
         </mxCell>
-        <mxCell id="db" value="&lt;b&gt;Native session database&lt;/b&gt;&lt;br/&gt;Persistent mounted sessions/&lt;br/&gt;&lt;br/&gt;OpenCode writes native messages and session relations; history export reads a consistent bound tree." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#E7F3EC;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_0">
+        <mxCell id="db" value="&lt;b&gt;[B] Native session database&lt;/b&gt;&lt;br/&gt;Persistent mounted sessions/&lt;br/&gt;&lt;br/&gt;OpenCode writes native messages and session relations; history export reads a consistent bound tree." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#E7F3EC;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_0">
           <mxGeometry x="20" y="290" width="285" height="150" as="geometry" />
         </mxCell>
         <mxCell id="col_1" value="Shared capture / provider history" style="rounded=0;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;resizeChildren=0;align=left;verticalAlign=top;spacingLeft=12;spacingTop=10;fillColor=#F5F7FA;strokeColor=#BDCBD6;fontColor=#20384A;fontSize=15;fontStyle=1;" vertex="1" parent="1">
           <mxGeometry x="480" y="150" width="325" height="520" as="geometry" />
         </mxCell>
-        <mxCell id="capture" value="&lt;b&gt;Shared AcpCapture&lt;/b&gt;&lt;br/&gt;agents/activity/acp/capture.py&lt;br/&gt;&lt;br/&gt;Retain bound live updates and reconcile offline native records. Completeness is a separate observation." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#EAF0FA;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_1">
+        <mxCell id="capture" value="&lt;b&gt;[C] Shared AcpCapture&lt;/b&gt;&lt;br/&gt;agents/activity/acp/capture.py&lt;br/&gt;&lt;br/&gt;Retain bound live updates and reconcile offline native records. Completeness is a separate observation." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#EAF0FA;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_1">
           <mxGeometry x="20" y="60" width="285" height="150" as="geometry" />
         </mxCell>
-        <mxCell id="reader" value="&lt;b&gt;HistoryReader&lt;/b&gt;&lt;br/&gt;opencode/history/reader.py&lt;br/&gt;&lt;br/&gt;After closure, export consistent native session trees without the live credential store." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#F0EAF8;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_1">
+        <mxCell id="reader" value="&lt;b&gt;[D] HistoryReader&lt;/b&gt;&lt;br/&gt;opencode/history/reader.py&lt;br/&gt;&lt;br/&gt;After closure, export consistent native session trees without the live credential store." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#F0EAF8;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_1">
           <mxGeometry x="20" y="290" width="285" height="150" as="geometry" />
         </mxCell>
         <mxCell id="col_2" value="Provider interpretation" style="rounded=0;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;resizeChildren=0;align=left;verticalAlign=top;spacingLeft=12;spacingTop=10;fillColor=#F5F7FA;strokeColor=#BDCBD6;fontColor=#20384A;fontSize=15;fontStyle=1;" vertex="1" parent="1">
           <mxGeometry x="915" y="150" width="325" height="520" as="geometry" />
         </mxCell>
-        <mxCell id="projection" value="&lt;b&gt;OpenCode Activity projection&lt;/b&gt;&lt;br/&gt;opencode/activity/projection.py&lt;br/&gt;&lt;br/&gt;Interpret native usage, child identity and costs; preserve missing observations." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#F0EAF8;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_2">
+        <mxCell id="projection" value="&lt;b&gt;[E] OpenCode Activity projection&lt;/b&gt;&lt;br/&gt;opencode/activity/projection.py&lt;br/&gt;&lt;br/&gt;Interpret native usage, child identity and costs; preserve missing observations." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#F0EAF8;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_2">
           <mxGeometry x="20" y="60" width="285" height="150" as="geometry" />
         </mxCell>
         <mxCell id="col_3" value="Shared application" style="rounded=0;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;resizeChildren=0;align=left;verticalAlign=top;spacingLeft=12;spacingTop=10;fillColor=#F5F7FA;strokeColor=#BDCBD6;fontColor=#20384A;fontSize=15;fontStyle=1;" vertex="1" parent="1">
           <mxGeometry x="1350" y="150" width="325" height="520" as="geometry" />
         </mxCell>
-        <mxCell id="activity" value="&lt;b&gt;Shared Activity store / projection&lt;/b&gt;&lt;br/&gt;agents/activity/&lt;br/&gt;&lt;br/&gt;Persist and present retained observations. Provider history/projection supplies native identity, child usage and cost facts." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#EAF0FA;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_3">
+        <mxCell id="activity" value="&lt;b&gt;[F] Shared Activity store / projection&lt;/b&gt;&lt;br/&gt;agents/activity/&lt;br/&gt;&lt;br/&gt;Persist and present retained observations. Provider history/projection supplies native identity, child usage and cost facts." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#EAF0FA;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_3">
           <mxGeometry x="20" y="60" width="285" height="150" as="geometry" />
         </mxCell>
-        <mxCell id="ui" value="&lt;b&gt;Graph Activity viewer&lt;/b&gt;&lt;br/&gt;Application UI&lt;br/&gt;&lt;br/&gt;Show retained native evidence, usage and capture limitations without model work." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#EAF0FA;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_3">
+        <mxCell id="ui" value="&lt;b&gt;[G] Graph Activity viewer&lt;/b&gt;&lt;br/&gt;Application UI&lt;br/&gt;&lt;br/&gt;Show retained native evidence, usage and capture limitations without model work." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#EAF0FA;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="col_3">
           <mxGeometry x="20" y="290" width="285" height="150" as="geometry" />
         </mxCell>
         <mxCell id="edge-edge_0" value="live updates" style="edgeStyle=segmentEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;strokeColor=#8C619B;strokeWidth=2;endArrow=classic;startArrow=none;dashed=1;fontSize=12;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="cli" target="capture">
@@ -299,325 +452,101 @@
         <mxCell id="edge-edge_6" value="read" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;strokeColor=#8C619B;strokeWidth=2;endArrow=classic;startArrow=none;dashed=1;fontSize=12;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="activity" target="ui">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-      </root>
-    </mxGraphModel>
-  </diagram>
-  <diagram id="opencode-folder-structure" name="4. Folder structure">
-    <mxGraphModel grid="1" gridSize="10" page="1" pageScale="1" pageWidth="1750" pageHeight="1250">
-      <root>
-        <mxCell id="0" />
-        <mxCell id="1" parent="0" />
-        <mxCell id="title" value="OpenCode | 4. Provider folder structure and custom files" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=24;fontColor=#20384A;fontStyle=1;">
-          <mxGeometry x="35" y="25" width="1650" height="45" as="geometry" />
+        <mxCell id="filemap_title" parent="1" vertex="1" value="Where this tab&amp;#x27;s code lives" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=19;fontColor=#20384A;fontStyle=1;">
+          <mxGeometry x="1740.0" y="150" width="760" height="35" as="geometry" />
         </mxCell>
-        <mxCell id="note" value="Tracked source inventory at runtime 19c7f1f. CUSTOM means Laomedo-owned, not an upstream SDK/CLI implementation." vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontColor=#697583;fontStyle=0;">
-          <mxGeometry x="35" y="78" width="1650" height="30" as="geometry" />
+        <mxCell id="filemap_legend" parent="1" vertex="1" value="Match [A], [B], ... to the graph. CUSTOM = Laomedo-owned source. Only files relevant to this tab are shown." style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontColor=#20384A;fontStyle=0;">
+          <mxGeometry x="1740.0" y="190" width="760" height="55" as="geometry" />
         </mxCell>
-        <mxCell id="count" value="26 provider files; 0 Docker build files. RUN, TOOLS / AUTH and EVIDENCE refer to the first three tabs." vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontColor=#20384A;fontStyle=0;">
-          <mxGeometry x="35" y="110" width="1650" height="28" as="geometry" />
+        <mxCell id="filemap_row_0" parent="1" vertex="1" value="frontend/langflow-skill-viewer/" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Consolas;fontSize=13;fontColor=#20384A;fontStyle=1;" inventoryKind="directory" filePath="frontend/langflow-skill-viewer">
+          <mxGeometry x="1740.0" y="255" width="465" height="25" as="geometry" />
         </mxCell>
-        <mxCell id="provider_heading" value="src/laomedo/agents/agents/opencode/" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=14;fontColor=#20384A;fontStyle=1;">
-          <mxGeometry x="35" y="165" width="825" height="38" as="geometry" />
+        <mxCell id="filemap_row_1" parent="1" vertex="1" value="AgentActivity.tsx" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Consolas;fontSize=13;fontColor=#455869;fontStyle=0;" inventoryKind="file" filePath="frontend/langflow-skill-viewer/AgentActivity.tsx" ownership="custom" graphReferences="G">
+          <mxGeometry x="1760.0" y="281" width="445" height="25" as="geometry" />
         </mxCell>
-        <mxCell id="provider_columns" value="TRACKED TREE" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontColor=#697583;fontStyle=1;">
-          <mxGeometry x="47" y="205" width="420" height="24" as="geometry" />
+        <mxCell id="filemap_tag_1" parent="1" vertex="1" value="CUSTOM  [G]" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontColor=#75589C;fontStyle=1;">
+          <mxGeometry x="2215.0" y="281" width="280" height="25" as="geometry" />
         </mxCell>
-        <mxCell id="provider_owner" value="OWNERSHIP" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontColor=#697583;fontStyle=1;">
-          <mxGeometry x="515" y="205" width="180" height="24" as="geometry" />
+        <mxCell id="filemap_row_2" parent="1" vertex="1" value="GraphAgents.tsx" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Consolas;fontSize=13;fontColor=#455869;fontStyle=0;" inventoryKind="file" filePath="frontend/langflow-skill-viewer/GraphAgents.tsx" ownership="custom" graphReferences="G">
+          <mxGeometry x="1760.0" y="307" width="445" height="25" as="geometry" />
         </mxCell>
-        <mxCell id="provider_role" value="VIEW" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontColor=#697583;fontStyle=1;">
-          <mxGeometry x="715" y="205" width="135" height="24" as="geometry" />
+        <mxCell id="filemap_tag_2" parent="1" vertex="1" value="CUSTOM  [G]" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontColor=#75589C;fontStyle=1;">
+          <mxGeometry x="2215.0" y="307" width="280" height="25" as="geometry" />
         </mxCell>
-        <mxCell id="provider_591c04a01067" value="activity/" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontFamily=Consolas;fontColor=#20384A;fontStyle=1;" filePath="src/laomedo/agents/agents/opencode/activity/" inventoryKind="directory">
-          <mxGeometry x="47" y="235" width="455" height="24" as="geometry" />
+        <mxCell id="filemap_row_3" parent="1" vertex="1" value="src/laomedo/agents/" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Consolas;fontSize=13;fontColor=#20384A;fontStyle=1;" inventoryKind="directory" filePath="src/laomedo/agents">
+          <mxGeometry x="1740.0" y="333" width="465" height="25" as="geometry" />
         </mxCell>
-        <mxCell id="provider_4a463bb0dcb3" value="|-- README.md" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontFamily=Consolas;fontColor=#455869;fontStyle=0;" filePath="src/laomedo/agents/agents/opencode/activity/README.md" inventoryKind="file" ownership="DOCUMENTATION">
-          <mxGeometry x="69" y="260" width="433" height="24" as="geometry" />
+        <mxCell id="filemap_row_4" parent="1" vertex="1" value="activity/" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Consolas;fontSize=13;fontColor=#20384A;fontStyle=1;" inventoryKind="directory" filePath="src/laomedo/agents/activity">
+          <mxGeometry x="1760.0" y="359" width="445" height="25" as="geometry" />
         </mxCell>
-        <mxCell id="provider_4a463bb0dcb3_tag" value="DOCUMENTATION" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontColor=#697583;fontStyle=1;">
-          <mxGeometry x="515" y="260" width="190" height="24" as="geometry" />
+        <mxCell id="filemap_row_5" parent="1" vertex="1" value="acp/" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Consolas;fontSize=13;fontColor=#20384A;fontStyle=1;" inventoryKind="directory" filePath="src/laomedo/agents/activity/acp">
+          <mxGeometry x="1780.0" y="385" width="425" height="25" as="geometry" />
         </mxCell>
-        <mxCell id="provider_4a463bb0dcb3_view" value="EVIDENCE" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=10;fontColor=#697583;fontStyle=0;">
-          <mxGeometry x="715" y="260" width="135" height="24" as="geometry" />
+        <mxCell id="filemap_row_6" parent="1" vertex="1" value="capture.py" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Consolas;fontSize=13;fontColor=#455869;fontStyle=0;" inventoryKind="file" filePath="src/laomedo/agents/activity/acp/capture.py" ownership="custom" graphReferences="C">
+          <mxGeometry x="1800.0" y="411" width="405" height="25" as="geometry" />
         </mxCell>
-        <mxCell id="provider_c67d246a3536" value="|-- __init__.py" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontFamily=Consolas;fontColor=#455869;fontStyle=0;" filePath="src/laomedo/agents/agents/opencode/activity/__init__.py" inventoryKind="file" ownership="CUSTOM PACKAGE">
-          <mxGeometry x="69" y="285" width="433" height="24" as="geometry" />
+        <mxCell id="filemap_tag_6" parent="1" vertex="1" value="CUSTOM  [C]" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontColor=#75589C;fontStyle=1;">
+          <mxGeometry x="2215.0" y="411" width="280" height="25" as="geometry" />
         </mxCell>
-        <mxCell id="provider_c67d246a3536_tag" value="CUSTOM PACKAGE" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontColor=#75589C;fontStyle=1;">
-          <mxGeometry x="515" y="285" width="190" height="24" as="geometry" />
+        <mxCell id="filemap_row_7" parent="1" vertex="1" value="projection.py" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Consolas;fontSize=13;fontColor=#455869;fontStyle=0;" inventoryKind="file" filePath="src/laomedo/agents/activity/projection.py" ownership="custom" graphReferences="F">
+          <mxGeometry x="1780.0" y="437" width="425" height="25" as="geometry" />
         </mxCell>
-        <mxCell id="provider_c67d246a3536_view" value="EVIDENCE" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=10;fontColor=#697583;fontStyle=0;">
-          <mxGeometry x="715" y="285" width="135" height="24" as="geometry" />
+        <mxCell id="filemap_tag_7" parent="1" vertex="1" value="CUSTOM  [F]" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontColor=#75589C;fontStyle=1;">
+          <mxGeometry x="2215.0" y="437" width="280" height="25" as="geometry" />
         </mxCell>
-        <mxCell id="provider_f435d2c151b5" value="|-- models.py" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontFamily=Consolas;fontColor=#455869;fontStyle=0;" filePath="src/laomedo/agents/agents/opencode/activity/models.py" inventoryKind="file" ownership="CUSTOM CODE">
-          <mxGeometry x="69" y="310" width="433" height="24" as="geometry" />
+        <mxCell id="filemap_row_8" parent="1" vertex="1" value="routes.py" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Consolas;fontSize=13;fontColor=#455869;fontStyle=0;" inventoryKind="file" filePath="src/laomedo/agents/activity/routes.py" ownership="custom" graphReferences="F">
+          <mxGeometry x="1780.0" y="463" width="425" height="25" as="geometry" />
         </mxCell>
-        <mxCell id="provider_f435d2c151b5_tag" value="CUSTOM CODE" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontColor=#75589C;fontStyle=1;">
-          <mxGeometry x="515" y="310" width="190" height="24" as="geometry" />
+        <mxCell id="filemap_tag_8" parent="1" vertex="1" value="CUSTOM  [F]" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontColor=#75589C;fontStyle=1;">
+          <mxGeometry x="2215.0" y="463" width="280" height="25" as="geometry" />
         </mxCell>
-        <mxCell id="provider_f435d2c151b5_view" value="EVIDENCE" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=10;fontColor=#697583;fontStyle=0;">
-          <mxGeometry x="715" y="310" width="135" height="24" as="geometry" />
+        <mxCell id="filemap_row_9" parent="1" vertex="1" value="store.py" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Consolas;fontSize=13;fontColor=#455869;fontStyle=0;" inventoryKind="file" filePath="src/laomedo/agents/activity/store.py" ownership="custom" graphReferences="F">
+          <mxGeometry x="1780.0" y="489" width="425" height="25" as="geometry" />
         </mxCell>
-        <mxCell id="provider_472b218a46b4" value="|-- projection.py" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontFamily=Consolas;fontColor=#455869;fontStyle=0;" filePath="src/laomedo/agents/agents/opencode/activity/projection.py" inventoryKind="file" ownership="CUSTOM CODE">
-          <mxGeometry x="69" y="335" width="433" height="24" as="geometry" />
+        <mxCell id="filemap_tag_9" parent="1" vertex="1" value="CUSTOM  [F]" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontColor=#75589C;fontStyle=1;">
+          <mxGeometry x="2215.0" y="489" width="280" height="25" as="geometry" />
         </mxCell>
-        <mxCell id="provider_472b218a46b4_tag" value="CUSTOM CODE" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontColor=#75589C;fontStyle=1;">
-          <mxGeometry x="515" y="335" width="190" height="24" as="geometry" />
+        <mxCell id="filemap_row_10" parent="1" vertex="1" value="agents/opencode/" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Consolas;fontSize=13;fontColor=#20384A;fontStyle=1;" inventoryKind="directory" filePath="src/laomedo/agents/agents/opencode">
+          <mxGeometry x="1760.0" y="515" width="445" height="25" as="geometry" />
         </mxCell>
-        <mxCell id="provider_472b218a46b4_view" value="EVIDENCE" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=10;fontColor=#697583;fontStyle=0;">
-          <mxGeometry x="715" y="335" width="135" height="24" as="geometry" />
+        <mxCell id="filemap_row_11" parent="1" vertex="1" value="activity/" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Consolas;fontSize=13;fontColor=#20384A;fontStyle=1;" inventoryKind="directory" filePath="src/laomedo/agents/agents/opencode/activity">
+          <mxGeometry x="1780.0" y="541" width="425" height="25" as="geometry" />
         </mxCell>
-        <mxCell id="provider_99b8339adff4" value="|-- telemetry.py" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontFamily=Consolas;fontColor=#455869;fontStyle=0;" filePath="src/laomedo/agents/agents/opencode/activity/telemetry.py" inventoryKind="file" ownership="CUSTOM CODE">
-          <mxGeometry x="69" y="360" width="433" height="24" as="geometry" />
+        <mxCell id="filemap_row_12" parent="1" vertex="1" value="models.py" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Consolas;fontSize=13;fontColor=#455869;fontStyle=0;" inventoryKind="file" filePath="src/laomedo/agents/agents/opencode/activity/models.py" ownership="custom" graphReferences="E">
+          <mxGeometry x="1800.0" y="567" width="405" height="25" as="geometry" />
         </mxCell>
-        <mxCell id="provider_99b8339adff4_tag" value="CUSTOM CODE" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontColor=#75589C;fontStyle=1;">
-          <mxGeometry x="515" y="360" width="190" height="24" as="geometry" />
+        <mxCell id="filemap_tag_12" parent="1" vertex="1" value="CUSTOM  [E]" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontColor=#75589C;fontStyle=1;">
+          <mxGeometry x="2215.0" y="567" width="280" height="25" as="geometry" />
         </mxCell>
-        <mxCell id="provider_99b8339adff4_view" value="EVIDENCE" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=10;fontColor=#697583;fontStyle=0;">
-          <mxGeometry x="715" y="360" width="135" height="24" as="geometry" />
+        <mxCell id="filemap_row_13" parent="1" vertex="1" value="projection.py" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Consolas;fontSize=13;fontColor=#455869;fontStyle=0;" inventoryKind="file" filePath="src/laomedo/agents/agents/opencode/activity/projection.py" ownership="custom" graphReferences="E">
+          <mxGeometry x="1800.0" y="593" width="405" height="25" as="geometry" />
         </mxCell>
-        <mxCell id="provider_dc49af8c51d7" value="auth/" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontFamily=Consolas;fontColor=#20384A;fontStyle=1;" filePath="src/laomedo/agents/agents/opencode/auth/" inventoryKind="directory">
-          <mxGeometry x="47" y="385" width="455" height="24" as="geometry" />
+        <mxCell id="filemap_tag_13" parent="1" vertex="1" value="CUSTOM  [E]" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontColor=#75589C;fontStyle=1;">
+          <mxGeometry x="2215.0" y="593" width="280" height="25" as="geometry" />
         </mxCell>
-        <mxCell id="provider_0c5b5b04ee8d" value="|-- README.md" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontFamily=Consolas;fontColor=#455869;fontStyle=0;" filePath="src/laomedo/agents/agents/opencode/auth/README.md" inventoryKind="file" ownership="DOCUMENTATION">
-          <mxGeometry x="69" y="410" width="433" height="24" as="geometry" />
+        <mxCell id="filemap_row_14" parent="1" vertex="1" value="history/" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Consolas;fontSize=13;fontColor=#20384A;fontStyle=1;" inventoryKind="directory" filePath="src/laomedo/agents/agents/opencode/history">
+          <mxGeometry x="1780.0" y="619" width="425" height="25" as="geometry" />
         </mxCell>
-        <mxCell id="provider_0c5b5b04ee8d_tag" value="DOCUMENTATION" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontColor=#697583;fontStyle=1;">
-          <mxGeometry x="515" y="410" width="190" height="24" as="geometry" />
+        <mxCell id="filemap_row_15" parent="1" vertex="1" value="models.py" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Consolas;fontSize=13;fontColor=#455869;fontStyle=0;" inventoryKind="file" filePath="src/laomedo/agents/agents/opencode/history/models.py" ownership="custom" graphReferences="D">
+          <mxGeometry x="1800.0" y="645" width="405" height="25" as="geometry" />
         </mxCell>
-        <mxCell id="provider_0c5b5b04ee8d_view" value="TOOLS / AUTH" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=10;fontColor=#697583;fontStyle=0;">
-          <mxGeometry x="715" y="410" width="135" height="24" as="geometry" />
+        <mxCell id="filemap_tag_15" parent="1" vertex="1" value="CUSTOM  [D]" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontColor=#75589C;fontStyle=1;">
+          <mxGeometry x="2215.0" y="645" width="280" height="25" as="geometry" />
         </mxCell>
-        <mxCell id="provider_97998dc94832" value="|-- __init__.py" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontFamily=Consolas;fontColor=#455869;fontStyle=0;" filePath="src/laomedo/agents/agents/opencode/auth/__init__.py" inventoryKind="file" ownership="CUSTOM PACKAGE">
-          <mxGeometry x="69" y="435" width="433" height="24" as="geometry" />
+        <mxCell id="filemap_row_16" parent="1" vertex="1" value="reader.py" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Consolas;fontSize=13;fontColor=#455869;fontStyle=0;" inventoryKind="file" filePath="src/laomedo/agents/agents/opencode/history/reader.py" ownership="custom" graphReferences="D">
+          <mxGeometry x="1800.0" y="671" width="405" height="25" as="geometry" />
         </mxCell>
-        <mxCell id="provider_97998dc94832_tag" value="CUSTOM PACKAGE" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontColor=#75589C;fontStyle=1;">
-          <mxGeometry x="515" y="435" width="190" height="24" as="geometry" />
+        <mxCell id="filemap_tag_16" parent="1" vertex="1" value="CUSTOM  [D]" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontColor=#75589C;fontStyle=1;">
+          <mxGeometry x="2215.0" y="671" width="280" height="25" as="geometry" />
         </mxCell>
-        <mxCell id="provider_97998dc94832_view" value="TOOLS / AUTH" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=10;fontColor=#697583;fontStyle=0;">
-          <mxGeometry x="715" y="435" width="135" height="24" as="geometry" />
+        <mxCell id="filemap_external_title" parent="1" vertex="1" value="Graph nodes supplied elsewhere / runtime state" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=15;fontColor=#20384A;fontStyle=1;">
+          <mxGeometry x="1740.0" y="715" width="760" height="35" as="geometry" />
         </mxCell>
-        <mxCell id="provider_2caa7a8ba8f5" value="|-- transport.py" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontFamily=Consolas;fontColor=#455869;fontStyle=0;" filePath="src/laomedo/agents/agents/opencode/auth/transport.py" inventoryKind="file" ownership="CUSTOM CODE">
-          <mxGeometry x="69" y="460" width="433" height="24" as="geometry" />
+        <mxCell id="filemap_external_0" parent="1" vertex="1" value="[A] Upstream native opencode runtime installed in its Docker image." style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontColor=#557E65;fontStyle=0;">
+          <mxGeometry x="1740.0" y="755" width="760" height="53" as="geometry" />
         </mxCell>
-        <mxCell id="provider_2caa7a8ba8f5_tag" value="CUSTOM CODE" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontColor=#75589C;fontStyle=1;">
-          <mxGeometry x="515" y="460" width="190" height="24" as="geometry" />
-        </mxCell>
-        <mxCell id="provider_2caa7a8ba8f5_view" value="TOOLS / AUTH" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=10;fontColor=#697583;fontStyle=0;">
-          <mxGeometry x="715" y="460" width="135" height="24" as="geometry" />
-        </mxCell>
-        <mxCell id="provider_a606a742dbe5" value="|-- utils.py" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontFamily=Consolas;fontColor=#455869;fontStyle=0;" filePath="src/laomedo/agents/agents/opencode/auth/utils.py" inventoryKind="file" ownership="CUSTOM CODE">
-          <mxGeometry x="69" y="485" width="433" height="24" as="geometry" />
-        </mxCell>
-        <mxCell id="provider_a606a742dbe5_tag" value="CUSTOM CODE" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontColor=#75589C;fontStyle=1;">
-          <mxGeometry x="515" y="485" width="190" height="24" as="geometry" />
-        </mxCell>
-        <mxCell id="provider_a606a742dbe5_view" value="TOOLS / AUTH" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=10;fontColor=#697583;fontStyle=0;">
-          <mxGeometry x="715" y="485" width="135" height="24" as="geometry" />
-        </mxCell>
-        <mxCell id="provider_4d7601dab4f9" value="history/" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontFamily=Consolas;fontColor=#20384A;fontStyle=1;" filePath="src/laomedo/agents/agents/opencode/history/" inventoryKind="directory">
-          <mxGeometry x="47" y="510" width="455" height="24" as="geometry" />
-        </mxCell>
-        <mxCell id="provider_ba5b870d9ce4" value="|-- README.md" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontFamily=Consolas;fontColor=#455869;fontStyle=0;" filePath="src/laomedo/agents/agents/opencode/history/README.md" inventoryKind="file" ownership="DOCUMENTATION">
-          <mxGeometry x="69" y="535" width="433" height="24" as="geometry" />
-        </mxCell>
-        <mxCell id="provider_ba5b870d9ce4_tag" value="DOCUMENTATION" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontColor=#697583;fontStyle=1;">
-          <mxGeometry x="515" y="535" width="190" height="24" as="geometry" />
-        </mxCell>
-        <mxCell id="provider_ba5b870d9ce4_view" value="EVIDENCE" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=10;fontColor=#697583;fontStyle=0;">
-          <mxGeometry x="715" y="535" width="135" height="24" as="geometry" />
-        </mxCell>
-        <mxCell id="provider_5cf7663e8339" value="|-- __init__.py" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontFamily=Consolas;fontColor=#455869;fontStyle=0;" filePath="src/laomedo/agents/agents/opencode/history/__init__.py" inventoryKind="file" ownership="CUSTOM PACKAGE">
-          <mxGeometry x="69" y="560" width="433" height="24" as="geometry" />
-        </mxCell>
-        <mxCell id="provider_5cf7663e8339_tag" value="CUSTOM PACKAGE" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontColor=#75589C;fontStyle=1;">
-          <mxGeometry x="515" y="560" width="190" height="24" as="geometry" />
-        </mxCell>
-        <mxCell id="provider_5cf7663e8339_view" value="EVIDENCE" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=10;fontColor=#697583;fontStyle=0;">
-          <mxGeometry x="715" y="560" width="135" height="24" as="geometry" />
-        </mxCell>
-        <mxCell id="provider_1e449dc8fabf" value="|-- errors.py" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontFamily=Consolas;fontColor=#455869;fontStyle=0;" filePath="src/laomedo/agents/agents/opencode/history/errors.py" inventoryKind="file" ownership="CUSTOM CODE">
-          <mxGeometry x="69" y="585" width="433" height="24" as="geometry" />
-        </mxCell>
-        <mxCell id="provider_1e449dc8fabf_tag" value="CUSTOM CODE" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontColor=#75589C;fontStyle=1;">
-          <mxGeometry x="515" y="585" width="190" height="24" as="geometry" />
-        </mxCell>
-        <mxCell id="provider_1e449dc8fabf_view" value="EVIDENCE" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=10;fontColor=#697583;fontStyle=0;">
-          <mxGeometry x="715" y="585" width="135" height="24" as="geometry" />
-        </mxCell>
-        <mxCell id="provider_46b085760579" value="|-- models.py" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontFamily=Consolas;fontColor=#455869;fontStyle=0;" filePath="src/laomedo/agents/agents/opencode/history/models.py" inventoryKind="file" ownership="CUSTOM CODE">
-          <mxGeometry x="69" y="610" width="433" height="24" as="geometry" />
-        </mxCell>
-        <mxCell id="provider_46b085760579_tag" value="CUSTOM CODE" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontColor=#75589C;fontStyle=1;">
-          <mxGeometry x="515" y="610" width="190" height="24" as="geometry" />
-        </mxCell>
-        <mxCell id="provider_46b085760579_view" value="EVIDENCE" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=10;fontColor=#697583;fontStyle=0;">
-          <mxGeometry x="715" y="610" width="135" height="24" as="geometry" />
-        </mxCell>
-        <mxCell id="provider_0adfa74c766e" value="|-- reader.py" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontFamily=Consolas;fontColor=#455869;fontStyle=0;" filePath="src/laomedo/agents/agents/opencode/history/reader.py" inventoryKind="file" ownership="CUSTOM CODE">
-          <mxGeometry x="69" y="635" width="433" height="24" as="geometry" />
-        </mxCell>
-        <mxCell id="provider_0adfa74c766e_tag" value="CUSTOM CODE" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontColor=#75589C;fontStyle=1;">
-          <mxGeometry x="515" y="635" width="190" height="24" as="geometry" />
-        </mxCell>
-        <mxCell id="provider_0adfa74c766e_view" value="EVIDENCE" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=10;fontColor=#697583;fontStyle=0;">
-          <mxGeometry x="715" y="635" width="135" height="24" as="geometry" />
-        </mxCell>
-        <mxCell id="provider_798664931cd4" value="|-- settings.py" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontFamily=Consolas;fontColor=#455869;fontStyle=0;" filePath="src/laomedo/agents/agents/opencode/history/settings.py" inventoryKind="file" ownership="CUSTOM CODE">
-          <mxGeometry x="69" y="660" width="433" height="24" as="geometry" />
-        </mxCell>
-        <mxCell id="provider_798664931cd4_tag" value="CUSTOM CODE" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontColor=#75589C;fontStyle=1;">
-          <mxGeometry x="515" y="660" width="190" height="24" as="geometry" />
-        </mxCell>
-        <mxCell id="provider_798664931cd4_view" value="EVIDENCE" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=10;fontColor=#697583;fontStyle=0;">
-          <mxGeometry x="715" y="660" width="135" height="24" as="geometry" />
-        </mxCell>
-        <mxCell id="provider_f20558f2ef36" value="http/" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontFamily=Consolas;fontColor=#20384A;fontStyle=1;" filePath="src/laomedo/agents/agents/opencode/http/" inventoryKind="directory">
-          <mxGeometry x="47" y="685" width="455" height="24" as="geometry" />
-        </mxCell>
-        <mxCell id="provider_c8c04a225364" value="|-- README.md" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontFamily=Consolas;fontColor=#455869;fontStyle=0;" filePath="src/laomedo/agents/agents/opencode/http/README.md" inventoryKind="file" ownership="DOCUMENTATION">
-          <mxGeometry x="69" y="710" width="433" height="24" as="geometry" />
-        </mxCell>
-        <mxCell id="provider_c8c04a225364_tag" value="DOCUMENTATION" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontColor=#697583;fontStyle=1;">
-          <mxGeometry x="515" y="710" width="190" height="24" as="geometry" />
-        </mxCell>
-        <mxCell id="provider_c8c04a225364_view" value="TOOLS" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=10;fontColor=#697583;fontStyle=0;">
-          <mxGeometry x="715" y="710" width="135" height="24" as="geometry" />
-        </mxCell>
-        <mxCell id="provider_67785474b954" value="|-- __init__.py" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontFamily=Consolas;fontColor=#455869;fontStyle=0;" filePath="src/laomedo/agents/agents/opencode/http/__init__.py" inventoryKind="file" ownership="CUSTOM PACKAGE">
-          <mxGeometry x="69" y="735" width="433" height="24" as="geometry" />
-        </mxCell>
-        <mxCell id="provider_67785474b954_tag" value="CUSTOM PACKAGE" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontColor=#75589C;fontStyle=1;">
-          <mxGeometry x="515" y="735" width="190" height="24" as="geometry" />
-        </mxCell>
-        <mxCell id="provider_67785474b954_view" value="TOOLS" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=10;fontColor=#697583;fontStyle=0;">
-          <mxGeometry x="715" y="735" width="135" height="24" as="geometry" />
-        </mxCell>
-        <mxCell id="provider_6c397d95252b" value="|-- handler.py" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontFamily=Consolas;fontColor=#455869;fontStyle=0;" filePath="src/laomedo/agents/agents/opencode/http/handler.py" inventoryKind="file" ownership="CUSTOM CODE">
-          <mxGeometry x="69" y="760" width="433" height="24" as="geometry" />
-        </mxCell>
-        <mxCell id="provider_6c397d95252b_tag" value="CUSTOM CODE" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontColor=#75589C;fontStyle=1;">
-          <mxGeometry x="515" y="760" width="190" height="24" as="geometry" />
-        </mxCell>
-        <mxCell id="provider_6c397d95252b_view" value="TOOLS" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=10;fontColor=#697583;fontStyle=0;">
-          <mxGeometry x="715" y="760" width="135" height="24" as="geometry" />
-        </mxCell>
-        <mxCell id="provider_da7c7b66fa21" value="|-- server.py" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontFamily=Consolas;fontColor=#455869;fontStyle=0;" filePath="src/laomedo/agents/agents/opencode/http/server.py" inventoryKind="file" ownership="CUSTOM CODE">
-          <mxGeometry x="69" y="785" width="433" height="24" as="geometry" />
-        </mxCell>
-        <mxCell id="provider_da7c7b66fa21_tag" value="CUSTOM CODE" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontColor=#75589C;fontStyle=1;">
-          <mxGeometry x="515" y="785" width="190" height="24" as="geometry" />
-        </mxCell>
-        <mxCell id="provider_da7c7b66fa21_view" value="TOOLS" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=10;fontColor=#697583;fontStyle=0;">
-          <mxGeometry x="715" y="785" width="135" height="24" as="geometry" />
-        </mxCell>
-        <mxCell id="provider_16366706da58" value="README.md" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontFamily=Consolas;fontColor=#455869;fontStyle=0;" filePath="src/laomedo/agents/agents/opencode/README.md" inventoryKind="file" ownership="DOCUMENTATION">
-          <mxGeometry x="47" y="810" width="455" height="24" as="geometry" />
-        </mxCell>
-        <mxCell id="provider_16366706da58_tag" value="DOCUMENTATION" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontColor=#697583;fontStyle=1;">
-          <mxGeometry x="515" y="810" width="190" height="24" as="geometry" />
-        </mxCell>
-        <mxCell id="provider_16366706da58_view" value="RUN" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=10;fontColor=#697583;fontStyle=0;">
-          <mxGeometry x="715" y="810" width="135" height="24" as="geometry" />
-        </mxCell>
-        <mxCell id="provider_9f46a8c9bafa" value="__init__.py" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontFamily=Consolas;fontColor=#455869;fontStyle=0;" filePath="src/laomedo/agents/agents/opencode/__init__.py" inventoryKind="file" ownership="CUSTOM PACKAGE">
-          <mxGeometry x="47" y="835" width="455" height="24" as="geometry" />
-        </mxCell>
-        <mxCell id="provider_9f46a8c9bafa_tag" value="CUSTOM PACKAGE" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontColor=#75589C;fontStyle=1;">
-          <mxGeometry x="515" y="835" width="190" height="24" as="geometry" />
-        </mxCell>
-        <mxCell id="provider_9f46a8c9bafa_view" value="RUN" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=10;fontColor=#697583;fontStyle=0;">
-          <mxGeometry x="715" y="835" width="135" height="24" as="geometry" />
-        </mxCell>
-        <mxCell id="provider_e211cb75a8f7" value="agent.py" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontFamily=Consolas;fontColor=#455869;fontStyle=0;" filePath="src/laomedo/agents/agents/opencode/agent.py" inventoryKind="file" ownership="CUSTOM CODE">
-          <mxGeometry x="47" y="860" width="455" height="24" as="geometry" />
-        </mxCell>
-        <mxCell id="provider_e211cb75a8f7_tag" value="CUSTOM CODE" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontColor=#75589C;fontStyle=1;">
-          <mxGeometry x="515" y="860" width="190" height="24" as="geometry" />
-        </mxCell>
-        <mxCell id="provider_e211cb75a8f7_view" value="RUN" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=10;fontColor=#697583;fontStyle=0;">
-          <mxGeometry x="715" y="860" width="135" height="24" as="geometry" />
-        </mxCell>
-        <mxCell id="provider_3ecf583b83eb" value="boundary.py" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontFamily=Consolas;fontColor=#455869;fontStyle=0;" filePath="src/laomedo/agents/agents/opencode/boundary.py" inventoryKind="file" ownership="CUSTOM CODE">
-          <mxGeometry x="47" y="885" width="455" height="24" as="geometry" />
-        </mxCell>
-        <mxCell id="provider_3ecf583b83eb_tag" value="CUSTOM CODE" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontColor=#75589C;fontStyle=1;">
-          <mxGeometry x="515" y="885" width="190" height="24" as="geometry" />
-        </mxCell>
-        <mxCell id="provider_3ecf583b83eb_view" value="RUN + TOOLS" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=10;fontColor=#697583;fontStyle=0;">
-          <mxGeometry x="715" y="885" width="135" height="24" as="geometry" />
-        </mxCell>
-        <mxCell id="provider_f0d9100b696e" value="models.py" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontFamily=Consolas;fontColor=#455869;fontStyle=0;" filePath="src/laomedo/agents/agents/opencode/models.py" inventoryKind="file" ownership="CUSTOM CODE">
-          <mxGeometry x="47" y="910" width="455" height="24" as="geometry" />
-        </mxCell>
-        <mxCell id="provider_f0d9100b696e_tag" value="CUSTOM CODE" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontColor=#75589C;fontStyle=1;">
-          <mxGeometry x="515" y="910" width="190" height="24" as="geometry" />
-        </mxCell>
-        <mxCell id="provider_f0d9100b696e_view" value="RUN" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=10;fontColor=#697583;fontStyle=0;">
-          <mxGeometry x="715" y="910" width="135" height="24" as="geometry" />
-        </mxCell>
-        <mxCell id="provider_02202f9f8fd9" value="settings.py" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontFamily=Consolas;fontColor=#455869;fontStyle=0;" filePath="src/laomedo/agents/agents/opencode/settings.py" inventoryKind="file" ownership="CUSTOM CODE">
-          <mxGeometry x="47" y="935" width="455" height="24" as="geometry" />
-        </mxCell>
-        <mxCell id="provider_02202f9f8fd9_tag" value="CUSTOM CODE" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontColor=#75589C;fontStyle=1;">
-          <mxGeometry x="515" y="935" width="190" height="24" as="geometry" />
-        </mxCell>
-        <mxCell id="provider_02202f9f8fd9_view" value="RUN" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=10;fontColor=#697583;fontStyle=0;">
-          <mxGeometry x="715" y="935" width="135" height="24" as="geometry" />
-        </mxCell>
-        <mxCell id="provider_e9aebb8214f1" value="utils.py" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontFamily=Consolas;fontColor=#455869;fontStyle=0;" filePath="src/laomedo/agents/agents/opencode/utils.py" inventoryKind="file" ownership="CUSTOM CODE">
-          <mxGeometry x="47" y="960" width="455" height="24" as="geometry" />
-        </mxCell>
-        <mxCell id="provider_e9aebb8214f1_tag" value="CUSTOM CODE" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontColor=#75589C;fontStyle=1;">
-          <mxGeometry x="515" y="960" width="190" height="24" as="geometry" />
-        </mxCell>
-        <mxCell id="provider_e9aebb8214f1_view" value="RUN" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=10;fontColor=#697583;fontStyle=0;">
-          <mxGeometry x="715" y="960" width="135" height="24" as="geometry" />
-        </mxCell>
-        <mxCell id="docker_title" value="docker/opencode/ — MISSING" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=15;fontColor=#A87532;fontStyle=1;">
-          <mxGeometry x="930" y="165" width="750" height="38" as="geometry" />
-        </mxCell>
-        <mxCell id="missing" value="No maintained recipe in this branch. Earlier example recipe is archived on exp; no placeholder folder is shown as implemented." vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=14;fontColor=#A87532;fontStyle=0;">
-          <mxGeometry x="940" y="210" width="700" height="85" as="geometry" />
-        </mxCell>
-        <mxCell id="legend_title" value="How to read the markers" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=16;fontColor=#20384A;fontStyle=1;">
-          <mxGeometry x="930" y="335" width="700" height="32" as="geometry" />
-        </mxCell>
-        <mxCell id="legend_0" value="CUSTOM CODE / TEST / PACKAGE — Written or maintained by Laomedo, including glue around upstream libraries." vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontColor=#455869;fontStyle=0;">
-          <mxGeometry x="940" y="375" width="700" height="50" as="geometry" />
-        </mxCell>
-        <mxCell id="legend_1" value="CUSTOM BUILD / POLICY — Our image recipe, dependency manifest or runtime policy." vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontColor=#455869;fontStyle=0;">
-          <mxGeometry x="940" y="428" width="700" height="50" as="geometry" />
-        </mxCell>
-        <mxCell id="legend_2" value="CUSTOM + DERIVED — Moby seccomp baseline with Laomedo rule additions." vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontColor=#455869;fontStyle=0;">
-          <mxGeometry x="940" y="481" width="700" height="50" as="geometry" />
-        </mxCell>
-        <mxCell id="legend_3" value="GENERATED LOCK / UPSTREAM LICENSE — Dependency metadata or third-party licence, not our implementation." vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontColor=#455869;fontStyle=0;">
-          <mxGeometry x="940" y="534" width="700" height="50" as="geometry" />
-        </mxCell>
-        <mxCell id="legend_4" value="DOCUMENTATION — Explanations/provenance; not executable code." vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontColor=#455869;fontStyle=0;">
-          <mxGeometry x="940" y="587" width="700" height="50" as="geometry" />
-        </mxCell>
-        <mxCell id="shared_title" value="Shared code lives outside this provider" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=16;fontColor=#20384A;fontStyle=1;">
-          <mxGeometry x="930" y="680" width="700" height="30" as="geometry" />
-        </mxCell>
-        <mxCell id="shared_0" value="src/laomedo/agents/agents/base/ — lifecycle + shared ACP" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontColor=#20384A;fontStyle=0;">
-          <mxGeometry x="940" y="720" width="700" height="32" as="geometry" />
-        </mxCell>
-        <mxCell id="shared_1" value="src/laomedo/agents/interface/ — application contract" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontColor=#20384A;fontStyle=0;">
-          <mxGeometry x="940" y="755" width="700" height="32" as="geometry" />
-        </mxCell>
-        <mxCell id="shared_2" value="src/laomedo/agents/activity/ — shared evidence/viewer" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontColor=#20384A;fontStyle=0;">
-          <mxGeometry x="940" y="790" width="700" height="32" as="geometry" />
-        </mxCell>
-        <mxCell id="shared_3" value="py-docker / Docker SDK / ACP SDK — separate dependencies" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontColor=#20384A;fontStyle=0;">
-          <mxGeometry x="940" y="825" width="700" height="32" as="geometry" />
-        </mxCell>
-        <mxCell id="upstream_title" value="Upstream implementation is not in this tree" vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=16;fontColor=#20384A;fontStyle=1;">
-          <mxGeometry x="930" y="900" width="700" height="30" as="geometry" />
-        </mxCell>
-        <mxCell id="upstream" value="OpenCode CLI supplies native ACP. There is no custom ACP adapter source tree to duplicate." vertex="1" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=14;fontColor=#20384A;fontStyle=0;">
-          <mxGeometry x="940" y="940" width="700" height="95" as="geometry" />
+        <mxCell id="filemap_external_1" parent="1" vertex="1" value="[B] Native session database in the persistent mounted profile." style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontColor=#557E65;fontStyle=0;">
+          <mxGeometry x="1740.0" y="813" width="760" height="53" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>

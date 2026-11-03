@@ -10,7 +10,7 @@ matrix:
   column_gaps: [110, 110, 110]
 nodes:
   cli:
-    label_html: "<b>Claude native runtime</b><br/>claude executable<br/><br/>Native subscription session and telemetry. Controller shell/file tools are disabled."
+    label_html: "<b>[A] Claude native runtime</b><br/>claude executable<br/><br/>Native subscription session and telemetry. Controller shell/file tools are disabled."
     style:
       width: 285
       height: 150
@@ -18,8 +18,11 @@ nodes:
       stroke: "#8193A5"
       font_size: 14
       rounded: true
+    source_files: []
+    graph_reference: "A"
+    external_source: "Upstream native claude runtime installed in its Docker image."
   adapter:
-    label_html: "<b>Packaged upstream ACP adapter</b><br/>claude-agent-acp<br/><br/>Translate ACP to native Claude execution; raw SDK messages return through the shared ACP connection."
+    label_html: "<b>[B] Packaged upstream ACP adapter</b><br/>claude-agent-acp<br/><br/>Translate ACP to native Claude execution; raw SDK messages return through the shared ACP connection."
     style:
       width: 285
       height: 150
@@ -27,8 +30,11 @@ nodes:
       stroke: "#8193A5"
       font_size: 14
       rounded: true
+    source_files: []
+    graph_reference: "B"
+    external_source: "Installed upstream claude-agent-acp package."
   telemetry:
-    label_html: "<b>Native OTLP receiver</b><br/>claude/activity/; activity/http/<br/><br/>ClaudeTelemetry receives HTTP telemetry, binds native run/thread/turn and retains safe receipts."
+    label_html: "<b>[C] Native OTLP receiver</b><br/>claude/activity/; activity/http/<br/><br/>ClaudeTelemetry receives HTTP telemetry, binds native run/thread/turn and retains safe receipts."
     style:
       width: 285
       height: 150
@@ -36,8 +42,10 @@ nodes:
       stroke: "#8193A5"
       font_size: 14
       rounded: true
+    source_files: ["src/laomedo/agents/agents/claude/activity/telemetry.py", "src/laomedo/agents/agents/claude/activity/http/handler.py", "src/laomedo/agents/agents/claude/activity/models.py"]
+    graph_reference: "C"
   acp:
-    label_html: "<b>Shared ACP bridge + Python SDK</b><br/>agents/agents/base/acp/session.py; transport.py<br/><br/>AcpSession composes the upstream ACP SDK. DockerTransport carries its frames over attached stdin/stdout."
+    label_html: "<b>[D] Shared ACP bridge + Python SDK</b><br/>agents/agents/base/acp/session.py; transport.py<br/><br/>AcpSession composes the upstream ACP SDK. DockerTransport carries its frames over attached stdin/stdout."
     style:
       width: 285
       height: 150
@@ -45,8 +53,10 @@ nodes:
       stroke: "#8193A5"
       font_size: 14
       rounded: true
+    source_files: ["src/laomedo/agents/agents/base/acp/session.py", "src/laomedo/agents/agents/base/acp/transport.py"]
+    graph_reference: "D"
   activity:
-    label_html: "<b>Shared Activity store / projection</b><br/>agents/activity/<br/><br/>Retain raw/normalized receipts and present the run in graph-wide Activity. Native decoding remains provider-owned."
+    label_html: "<b>[E] Shared Activity store / projection</b><br/>agents/activity/<br/><br/>Retain raw/normalized receipts and present the run in graph-wide Activity. Native decoding remains provider-owned."
     style:
       width: 285
       height: 150
@@ -54,8 +64,10 @@ nodes:
       stroke: "#8193A5"
       font_size: 14
       rounded: true
+    source_files: ["src/laomedo/agents/activity/store.py", "src/laomedo/agents/activity/projection.py", "src/laomedo/agents/activity/routes.py"]
+    graph_reference: "E"
   parser:
-    label_html: "<b>ClaudeAgent native parser</b><br/>agent.py:_native_event<br/><br/>Interpret raw SDK messages and terminal results; retain correlated receipts."
+    label_html: "<b>[F] ClaudeAgent native parser</b><br/>agent.py:_native_event<br/><br/>Interpret raw SDK messages and terminal results; retain correlated receipts."
     style:
       width: 285
       height: 150
@@ -63,8 +75,10 @@ nodes:
       stroke: "#8193A5"
       font_size: 14
       rounded: true
+    source_files: ["src/laomedo/agents/agents/claude/agent.py"]
+    graph_reference: "F"
   ui:
-    label_html: "<b>Graph Activity viewer</b><br/>Application UI<br/><br/>Read native observations and partial/unknown evidence without a model request."
+    label_html: "<b>[G] Graph Activity viewer</b><br/>Application UI<br/><br/>Read native observations and partial/unknown evidence without a model request."
     style:
       width: 285
       height: 150
@@ -72,6 +86,8 @@ nodes:
       stroke: "#8193A5"
       font_size: 14
       rounded: true
+    source_files: ["frontend/langflow-skill-viewer/GraphAgents.tsx", "frontend/langflow-skill-viewer/AgentActivity.tsx"]
+    graph_reference: "G"
 groups:
   col_0:
     title: "Native sources"

@@ -10,7 +10,7 @@ matrix:
   column_gaps: [110, 110, 110]
 nodes:
   cli:
-    label_html: "<b>Native OpenCode ACP + Agent</b><br/>opencode acp<br/><br/>One upstream process supplies both ACP and native execution. No custom in-container ACP adapter."
+    label_html: "<b>[A] Native OpenCode ACP + Agent</b><br/>opencode acp<br/><br/>One upstream process supplies both ACP and native execution. No custom in-container ACP adapter."
     style:
       width: 285
       height: 150
@@ -18,8 +18,11 @@ nodes:
       stroke: "#8193A5"
       font_size: 14
       rounded: true
+    source_files: []
+    graph_reference: "A"
+    external_source: "Upstream native opencode runtime installed in its Docker image."
   db:
-    label_html: "<b>Native session database</b><br/>Persistent mounted sessions/<br/><br/>OpenCode writes native messages and session relations; history export reads a consistent bound tree."
+    label_html: "<b>[B] Native session database</b><br/>Persistent mounted sessions/<br/><br/>OpenCode writes native messages and session relations; history export reads a consistent bound tree."
     style:
       width: 285
       height: 150
@@ -27,8 +30,11 @@ nodes:
       stroke: "#8193A5"
       font_size: 14
       rounded: true
+    source_files: []
+    graph_reference: "B"
+    external_source: "Native session database in the persistent mounted profile."
   capture:
-    label_html: "<b>Shared AcpCapture</b><br/>agents/activity/acp/capture.py<br/><br/>Retain bound live updates and reconcile offline native records. Completeness is a separate observation."
+    label_html: "<b>[C] Shared AcpCapture</b><br/>agents/activity/acp/capture.py<br/><br/>Retain bound live updates and reconcile offline native records. Completeness is a separate observation."
     style:
       width: 285
       height: 150
@@ -36,8 +42,10 @@ nodes:
       stroke: "#8193A5"
       font_size: 14
       rounded: true
+    source_files: ["src/laomedo/agents/activity/acp/capture.py"]
+    graph_reference: "C"
   reader:
-    label_html: "<b>HistoryReader</b><br/>opencode/history/reader.py<br/><br/>After closure, export consistent native session trees without the live credential store."
+    label_html: "<b>[D] HistoryReader</b><br/>opencode/history/reader.py<br/><br/>After closure, export consistent native session trees without the live credential store."
     style:
       width: 285
       height: 150
@@ -45,8 +53,10 @@ nodes:
       stroke: "#8193A5"
       font_size: 14
       rounded: true
+    source_files: ["src/laomedo/agents/agents/opencode/history/reader.py", "src/laomedo/agents/agents/opencode/history/models.py"]
+    graph_reference: "D"
   projection:
-    label_html: "<b>OpenCode Activity projection</b><br/>opencode/activity/projection.py<br/><br/>Interpret native usage, child identity and costs; preserve missing observations."
+    label_html: "<b>[E] OpenCode Activity projection</b><br/>opencode/activity/projection.py<br/><br/>Interpret native usage, child identity and costs; preserve missing observations."
     style:
       width: 285
       height: 150
@@ -54,8 +64,10 @@ nodes:
       stroke: "#8193A5"
       font_size: 14
       rounded: true
+    source_files: ["src/laomedo/agents/agents/opencode/activity/projection.py", "src/laomedo/agents/agents/opencode/activity/models.py"]
+    graph_reference: "E"
   activity:
-    label_html: "<b>Shared Activity store / projection</b><br/>agents/activity/<br/><br/>Persist and present retained observations. Provider history/projection supplies native identity, child usage and cost facts."
+    label_html: "<b>[F] Shared Activity store / projection</b><br/>agents/activity/<br/><br/>Persist and present retained observations. Provider history/projection supplies native identity, child usage and cost facts."
     style:
       width: 285
       height: 150
@@ -63,8 +75,10 @@ nodes:
       stroke: "#8193A5"
       font_size: 14
       rounded: true
+    source_files: ["src/laomedo/agents/activity/store.py", "src/laomedo/agents/activity/projection.py", "src/laomedo/agents/activity/routes.py"]
+    graph_reference: "F"
   ui:
-    label_html: "<b>Graph Activity viewer</b><br/>Application UI<br/><br/>Show retained native evidence, usage and capture limitations without model work."
+    label_html: "<b>[G] Graph Activity viewer</b><br/>Application UI<br/><br/>Show retained native evidence, usage and capture limitations without model work."
     style:
       width: 285
       height: 150
@@ -72,6 +86,8 @@ nodes:
       stroke: "#8193A5"
       font_size: 14
       rounded: true
+    source_files: ["frontend/langflow-skill-viewer/GraphAgents.tsx", "frontend/langflow-skill-viewer/AgentActivity.tsx"]
+    graph_reference: "G"
 groups:
   col_0:
     title: "Native sources"

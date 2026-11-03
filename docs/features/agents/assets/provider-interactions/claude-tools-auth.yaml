@@ -10,7 +10,7 @@ matrix:
   column_gaps: [110, 110, 110]
 nodes:
   source:
-    label_html: "<b>Existing host login</b><br/>Host-owned credential source<br/><br/>Host signs in/refreshes. Local access-only mirroring is explicitly opt-in."
+    label_html: "<b>[A] Existing host login</b><br/>Host-owned credential source<br/><br/>Host signs in/refreshes. Local access-only mirroring is explicitly opt-in."
     style:
       width: 285
       height: 150
@@ -18,8 +18,11 @@ nodes:
       stroke: "#8193A5"
       font_size: 14
       rounded: true
+    source_files: []
+    graph_reference: "A"
+    external_source: "Existing host login/account state, not repository files."
   docker:
-    label_html: "<b>Shared Docker mechanics</b><br/>py-docker -&gt; Docker SDK -&gt; Engine<br/><br/>Create/attach owned containers, execute jobs, retain receipts and reconcile cleanup."
+    label_html: "<b>[B] Shared Docker mechanics</b><br/>py-docker -&gt; Docker SDK -&gt; Engine<br/><br/>Create/attach owned containers, execute jobs, retain receipts and reconcile cleanup."
     style:
       width: 285
       height: 150
@@ -27,8 +30,11 @@ nodes:
       stroke: "#8193A5"
       font_size: 14
       rounded: true
+    source_files: []
+    graph_reference: "B"
+    external_source: "Separate dependencies: py-docker -> Docker SDK -> Docker Engine."
   auth:
-    label_html: "<b>Access-only login mirror</b><br/>claude/auth/; resources/write_login.py<br/><br/>Copy only the approved access credential to the dedicated volume; host keeps refresh ownership."
+    label_html: "<b>[C] Access-only login mirror</b><br/>claude/auth/; resources/write_login.py<br/><br/>Copy only the approved access credential to the dedicated volume; host keeps refresh ownership."
     style:
       width: 285
       height: 150
@@ -36,8 +42,10 @@ nodes:
       stroke: "#8193A5"
       font_size: 14
       rounded: true
+    source_files: ["src/laomedo/agents/agents/claude/auth/utils.py", "src/laomedo/agents/agents/claude/auth/models.py", "src/laomedo/agents/agents/claude/auth/resources/write_login.py"]
+    graph_reference: "C"
   broker:
-    label_html: "<b>Host CommandService</b><br/>claude/container.py; http/<br/><br/>Receive authenticated /command requests and execute admitted worker jobs; mediate GitHub only with a grant."
+    label_html: "<b>[D] Host CommandService</b><br/>claude/container.py; http/<br/><br/>Receive authenticated /command requests and execute admitted worker jobs; mediate GitHub only with a grant."
     style:
       width: 285
       height: 150
@@ -45,8 +53,10 @@ nodes:
       stroke: "#8193A5"
       font_size: 14
       rounded: true
+    source_files: ["src/laomedo/agents/agents/claude/container.py", "src/laomedo/agents/agents/claude/http/handler.py", "src/laomedo/agents/agents/claude/http/server.py"]
+    graph_reference: "D"
   profile:
-    label_html: "<b>Dedicated Claude profile</b><br/>Mounted access/session volume<br/><br/>Controller reads mirrored access credentials and persists the native session for Resume."
+    label_html: "<b>[E] Dedicated Claude profile</b><br/>Mounted access/session volume<br/><br/>Controller reads mirrored access credentials and persists the native session for Resume."
     style:
       width: 285
       height: 150
@@ -54,8 +64,11 @@ nodes:
       stroke: "#8193A5"
       font_size: 14
       rounded: true
+    source_files: []
+    graph_reference: "E"
+    external_source: "Admitted private profile/config/session state. Never tracked as source."
   bridge:
-    label_html: "<b>Custom in-container MCP bridge</b><br/>docker/claude/command_mcp.py<br/><br/>Native MCP stdio tool calls become authenticated HTTP requests to the host command service."
+    label_html: "<b>[F] Custom in-container MCP bridge</b><br/>docker/claude/command_mcp.py<br/><br/>Native MCP stdio tool calls become authenticated HTTP requests to the host command service."
     style:
       width: 285
       height: 150
@@ -63,8 +76,10 @@ nodes:
       stroke: "#8193A5"
       font_size: 14
       rounded: true
+    source_files: ["docker/claude/command_mcp.py"]
+    graph_reference: "F"
   cli:
-    label_html: "<b>Claude native runtime</b><br/>claude executable<br/><br/>Native subscription session and telemetry. Controller shell/file tools are disabled."
+    label_html: "<b>[G] Claude native runtime</b><br/>claude executable<br/><br/>Native subscription session and telemetry. Controller shell/file tools are disabled."
     style:
       width: 285
       height: 150
@@ -72,8 +87,11 @@ nodes:
       stroke: "#8193A5"
       font_size: 14
       rounded: true
+    source_files: []
+    graph_reference: "G"
+    external_source: "Upstream native claude runtime installed in its Docker image."
   worker:
-    label_html: "<b>Credential-free command worker</b><br/>Separate Docker container<br/><br/>Admitted draft commands run without network or a credential mount."
+    label_html: "<b>[H] Credential-free command worker</b><br/>Separate Docker container<br/><br/>Admitted draft commands run without network or a credential mount."
     style:
       width: 285
       height: 150
@@ -81,6 +99,9 @@ nodes:
       stroke: "#8193A5"
       font_size: 14
       rounded: true
+    source_files: []
+    graph_reference: "H"
+    external_source: "Runtime command-worker container, not another provider source module."
 groups:
   col_0:
     title: "Host source / shared Docker"

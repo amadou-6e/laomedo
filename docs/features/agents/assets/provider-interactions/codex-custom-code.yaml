@@ -10,7 +10,7 @@ matrix:
   column_gaps: [110, 110, 110, 110]
 nodes:
   entry:
-    label_html: "<b>Application boundary + BaseAgent</b><br/>agents/interface/; agents/agents/base/agent.py<br/><br/>Public operations, run admission and records. Concrete providers implement the native execution hooks."
+    label_html: "<b>[A] Application boundary + BaseAgent</b><br/>agents/interface/; agents/agents/base/agent.py<br/><br/>Public operations, run admission and records. Concrete providers implement the native execution hooks."
     style:
       width: 285
       height: 150
@@ -18,8 +18,10 @@ nodes:
       stroke: "#8193A5"
       font_size: 14
       rounded: true
+    source_files: ["src/laomedo/agents/interface/bridge.py", "src/laomedo/agents/agents/base/agent.py"]
+    graph_reference: "A"
   policy:
-    label_html: "<b>Checked native launch policy</b><br/>codex/controller/models.py; resources/<br/><br/>CodexLaunch projects mounts/config. settings.py pins image/CLI and reviewed seccomp/config identities."
+    label_html: "<b>[B] Checked native launch policy</b><br/>codex/controller/models.py; resources/<br/><br/>CodexLaunch projects mounts/config. settings.py pins image/CLI and reviewed seccomp/config identities."
     style:
       width: 285
       height: 150
@@ -27,8 +29,10 @@ nodes:
       stroke: "#8193A5"
       font_size: 14
       rounded: true
+    source_files: ["src/laomedo/agents/agents/codex/controller/models.py", "src/laomedo/agents/agents/codex/settings.py", "src/laomedo/agents/agents/codex/resources/runner-config.toml", "src/laomedo/agents/agents/codex/resources/codex-seccomp.json"]
+    graph_reference: "B"
   agent:
-    label_html: "<b>CodexAgent : BaseAgent</b><br/>codex/agent.py<br/><br/>Bind the native session and runtime; validate output; coordinate execution and finalization."
+    label_html: "<b>[C] CodexAgent : BaseAgent</b><br/>codex/agent.py<br/><br/>Bind the native session and runtime; validate output; coordinate execution and finalization."
     style:
       width: 285
       height: 150
@@ -36,8 +40,10 @@ nodes:
       stroke: "#8193A5"
       font_size: 14
       rounded: true
+    source_files: ["src/laomedo/agents/agents/codex/agent.py"]
+    graph_reference: "C"
   runtime:
-    label_html: "<b>CodexController</b><br/>codex/controller/service.py<br/><br/>Own the ACP session, native callbacks, output precheck and exact controller lifetime."
+    label_html: "<b>[D] CodexController</b><br/>codex/controller/service.py<br/><br/>Own the ACP session, native callbacks, output precheck and exact controller lifetime."
     style:
       width: 285
       height: 150
@@ -45,8 +51,10 @@ nodes:
       stroke: "#8193A5"
       font_size: 14
       rounded: true
+    source_files: ["src/laomedo/agents/agents/codex/controller/service.py", "src/laomedo/agents/agents/codex/controller/models.py"]
+    graph_reference: "D"
   acp:
-    label_html: "<b>Shared ACP bridge + Python SDK</b><br/>agents/agents/base/acp/session.py; transport.py<br/><br/>AcpSession composes the upstream ACP SDK. DockerTransport carries its frames over attached stdin/stdout."
+    label_html: "<b>[E] Shared ACP bridge + Python SDK</b><br/>agents/agents/base/acp/session.py; transport.py<br/><br/>AcpSession composes the upstream ACP SDK. DockerTransport carries its frames over attached stdin/stdout."
     style:
       width: 285
       height: 150
@@ -54,8 +62,10 @@ nodes:
       stroke: "#8193A5"
       font_size: 14
       rounded: true
+    source_files: ["src/laomedo/agents/agents/base/acp/session.py", "src/laomedo/agents/agents/base/acp/transport.py"]
+    graph_reference: "E"
   docker:
-    label_html: "<b>Shared Docker mechanics</b><br/>py-docker -&gt; Docker SDK -&gt; Engine<br/><br/>Create/attach owned containers, execute jobs, retain receipts and reconcile cleanup."
+    label_html: "<b>[F] Shared Docker mechanics</b><br/>py-docker -&gt; Docker SDK -&gt; Engine<br/><br/>Create/attach owned containers, execute jobs, retain receipts and reconcile cleanup."
     style:
       width: 285
       height: 150
@@ -63,8 +73,11 @@ nodes:
       stroke: "#8193A5"
       font_size: 14
       rounded: true
+    source_files: []
+    graph_reference: "F"
+    external_source: "Separate dependencies: py-docker -> Docker SDK -> Docker Engine."
   adapter:
-    label_html: "<b>Patched upstream ACP adapter</b><br/>docker/codex-acp/Laomedo*.ts + patch<br/><br/>Custom extension preserves raw native events, policy and precheck; launch hook validates native argv."
+    label_html: "<b>[G] Patched upstream ACP adapter</b><br/>docker/codex-acp/Laomedo*.ts + patch<br/><br/>Custom extension preserves raw native events, policy and precheck; launch hook validates native argv."
     style:
       width: 285
       height: 150
@@ -72,8 +85,10 @@ nodes:
       stroke: "#8193A5"
       font_size: 14
       rounded: true
+    source_files: ["docker/codex-acp/LaomedoExtension.ts", "docker/codex-acp/LaomedoLaunch.ts", "docker/codex-acp/native-events.patch"]
+    graph_reference: "G"
   cli:
-    label_html: "<b>Codex native runtime</b><br/>codex app-server<br/><br/>Upstream native threads, reasoning, model requests and admitted tool execution."
+    label_html: "<b>[H] Codex native runtime</b><br/>codex app-server<br/><br/>Upstream native threads, reasoning, model requests and admitted tool execution."
     style:
       width: 285
       height: 150
@@ -81,8 +96,11 @@ nodes:
       stroke: "#8193A5"
       font_size: 14
       rounded: true
+    source_files: []
+    graph_reference: "H"
+    external_source: "Upstream native codex runtime installed in its Docker image."
   model:
-    label_html: "<b>External model service</b><br/>Outside local Docker<br/><br/>Native runtime performs authenticated model requests."
+    label_html: "<b>[I] External model service</b><br/>Outside local Docker<br/><br/>Native runtime performs authenticated model requests."
     style:
       width: 285
       height: 150
@@ -90,6 +108,9 @@ nodes:
       stroke: "#8193A5"
       font_size: 14
       rounded: true
+    source_files: []
+    graph_reference: "I"
+    external_source: "External model API; no repository source for the service."
 groups:
   col_0:
     title: "App contract / launch input"

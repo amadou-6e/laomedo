@@ -10,7 +10,7 @@ matrix:
   column_gaps: [110, 110, 110, 110]
 nodes:
   source:
-    label_html: "<b>Host ChatGPT connection</b><br/>host/credentials/siwc/<br/><br/>Optional app-owned login supplies the admitted access credential via CodexAgent; currently allowed only with Codex split mode."
+    label_html: "<b>[A] Host ChatGPT connection</b><br/>host/credentials/siwc/<br/><br/>Optional app-owned login supplies the admitted access credential via CodexAgent; currently allowed only with Codex split mode."
     style:
       width: 285
       height: 150
@@ -18,8 +18,10 @@ nodes:
       stroke: "#8193A5"
       font_size: 14
       rounded: true
+    source_files: ["src/laomedo/host/credentials/siwc/connection.py"]
+    graph_reference: "A"
   docker:
-    label_html: "<b>Shared Docker mechanics</b><br/>py-docker -&gt; Docker SDK -&gt; Engine<br/><br/>Create/attach owned containers, execute jobs, retain receipts and reconcile cleanup."
+    label_html: "<b>[B] Shared Docker mechanics</b><br/>py-docker -&gt; Docker SDK -&gt; Engine<br/><br/>Create/attach owned containers, execute jobs, retain receipts and reconcile cleanup."
     style:
       width: 285
       height: 150
@@ -27,8 +29,11 @@ nodes:
       stroke: "#8193A5"
       font_size: 14
       rounded: true
+    source_files: []
+    graph_reference: "B"
+    external_source: "Separate dependencies: py-docker -> Docker SDK -> Docker Engine."
   runtime:
-    label_html: "<b>CodexController</b><br/>codex/controller/service.py<br/><br/>Own the ACP session, native callbacks, output precheck and exact controller lifetime."
+    label_html: "<b>[C] CodexController</b><br/>codex/controller/service.py<br/><br/>Own the ACP session, native callbacks, output precheck and exact controller lifetime."
     style:
       width: 285
       height: 150
@@ -36,8 +41,10 @@ nodes:
       stroke: "#8193A5"
       font_size: 14
       rounded: true
+    source_files: ["src/laomedo/agents/agents/codex/controller/service.py", "src/laomedo/agents/agents/codex/controller/models.py"]
+    graph_reference: "C"
   executor:
-    label_html: "<b>Optional split executor</b><br/>codex/split/executor.py; models.py<br/><br/>Controller creates/registers this separate execution resource. Native isolation remains unverified."
+    label_html: "<b>[D] Optional split executor</b><br/>codex/split/executor.py; models.py<br/><br/>Controller creates/registers this separate execution resource. Native isolation remains unverified."
     style:
       width: 285
       height: 150
@@ -45,8 +52,10 @@ nodes:
       stroke: "#8193A5"
       font_size: 14
       rounded: true
+    source_files: ["src/laomedo/agents/agents/codex/split/executor.py", "src/laomedo/agents/agents/codex/split/models.py"]
+    graph_reference: "D"
   profile:
-    label_html: "<b>Controller credential/session binding</b><br/>SplitLaunch; profile / environment<br/><br/>Access may be launch-only. Bind native session state separately; no access credential reaches the executor."
+    label_html: "<b>[E] Controller credential/session binding</b><br/>SplitLaunch; profile / environment<br/><br/>Access may be launch-only. Bind native session state separately; no access credential reaches the executor."
     style:
       width: 285
       height: 150
@@ -54,8 +63,11 @@ nodes:
       stroke: "#8193A5"
       font_size: 14
       rounded: true
+    source_files: []
+    graph_reference: "E"
+    external_source: "Admitted private profile/config/session state. Never tracked as source."
   cli:
-    label_html: "<b>Codex native runtime</b><br/>codex app-server<br/><br/>Upstream native threads, reasoning, model requests and admitted tool execution."
+    label_html: "<b>[F] Codex native runtime</b><br/>codex app-server<br/><br/>Upstream native threads, reasoning, model requests and admitted tool execution."
     style:
       width: 285
       height: 150
@@ -63,8 +75,11 @@ nodes:
       stroke: "#8193A5"
       font_size: 14
       rounded: true
+    source_files: []
+    graph_reference: "F"
+    external_source: "Upstream native codex runtime installed in its Docker image."
   server:
-    label_html: "<b>Credential-free exec-server</b><br/>Separate codex exec-server container<br/><br/>Capability-authenticated WebSocket. Bridge networking; native sandbox isolation remains unverified."
+    label_html: "<b>[G] Credential-free exec-server</b><br/>Separate codex exec-server container<br/><br/>Capability-authenticated WebSocket. Bridge networking; native sandbox isolation remains unverified."
     style:
       width: 285
       height: 150
@@ -72,6 +87,9 @@ nodes:
       stroke: "#8193A5"
       font_size: 14
       rounded: true
+    source_files: []
+    graph_reference: "G"
+    external_source: "Upstream codex exec-server in a separate owned container."
 groups:
   col_0:
     title: "Optional host login / Docker"

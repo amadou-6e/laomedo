@@ -8,21 +8,22 @@ For an explanation of custom code, use the individual provider diagrams:
 | Claude | [Claude](claude-custom-code.drawio) | [PNG](claude-custom-code.png) | [PNG](claude-tools-auth.png) | [PNG](claude-evidence.png) |
 | OpenCode | [OpenCode](opencode-custom-code.drawio) | [PNG](opencode-custom-code.png) | [PNG](opencode-tools-auth.png) | [PNG](opencode-evidence.png) |
 
-Each provider file has four pages: run/session, tools/credentials,
-evidence-to-Activity and the tracked provider/Docker folder structure. The first
-three replace the detached supporting-code cards. Every
+Each provider file has three pages: run/session, tools/credentials and
+evidence-to-Activity. Every tab includes its own relevant code tree beside the
+graph. Matching `[A]`, `[B]`, etc. references connect graph nodes to their defining
+files; files shared by nodes show multiple references. Every
 implementation or resource card participates in its page's architecture; arrows
 identify its caller, native interface, credential consumer or evidence consumer.
-The pages are also collected in [one twelve-page file](provider-custom-code.drawio).
+The pages are also collected in [one nine-page file](provider-custom-code.drawio).
 
-Folder-page previews: [Codex](codex-folders.png), [Claude](claude-folders.png),
-[OpenCode](opencode-folders.png). Each tracked file has an ownership marker;
-custom implementation, package/test code and build/policy files are distinguished
-from generated locks, documentation and upstream licences. Codex's modified Moby
-seccomp profile is explicitly marked custom plus derived. RUN, TOOLS / AUTH and
-EVIDENCE connect the file inventory to the architecture tabs. The OpenCode page
-marks its absent Docker recipe as missing, not an implemented folder. Installed
-SDK/CLI/adapter source is identified as external to this tracked tree.
+There is no separate folder tab. Each inline tree includes only the tracked
+implementation/policy files relevant to that view and marks them `CUSTOM`.
+Codex's modified Moby seccomp profile is marked `CUSTOM + DERIVED`. The adjacent
+external/state list identifies every graph node implemented by an installed
+dependency, external service or private runtime state rather than repository
+source. SDK/CLI dependencies and credential/profile data are not presented as
+custom source files. The YAML graph nodes retain their `source_files` mapping
+and `graph_reference` so these associations are explicit in the authoring source.
 
 Blue cards identify shared Laomedo code; purple identifies provider-owned Python;
 orange identifies custom in-container code; green identifies upstream components
@@ -103,7 +104,11 @@ styled graph sources. They use the
 `my-skills/02-graphics/skill-drawio-creation` renderer. Rebuild each page with
 `03-scripts/render_grouped_erd.py`, then retain its editable `mxGraphModel` as a
 page in the combined file. Provider pages use their saved attachment ports and
-orthogonal waypoints. Rebuild all three provider pages before assembling each
+orthogonal waypoints. Each node's `source_files` and `graph_reference` define the
+inline tree: group tracked files by path, show the same reference on the graph
+node and tree leaf, and list `external_source` nodes separately. Preserve this
+editable sidebar when rebuilding the XML; the generic graph renderer alone
+does not append it. Rebuild all three provider pages before assembling each
 provider file and the nine-page collection. Manual layout corrections in the combined file must
 also be preserved when rebuilding. Export and inspect every final page with the
 draw.io desktop CLI; XML validity alone does not establish visual quality.

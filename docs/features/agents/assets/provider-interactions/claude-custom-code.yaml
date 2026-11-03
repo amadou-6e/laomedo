@@ -10,7 +10,7 @@ matrix:
   column_gaps: [110, 110, 110, 110]
 nodes:
   entry:
-    label_html: "<b>Application boundary + BaseAgent</b><br/>agents/interface/; agents/agents/base/agent.py<br/><br/>Public operations, run admission and records. Concrete providers implement the native execution hooks."
+    label_html: "<b>[A] Application boundary + BaseAgent</b><br/>agents/interface/; agents/agents/base/agent.py<br/><br/>Public operations, run admission and records. Concrete providers implement the native execution hooks."
     style:
       width: 285
       height: 150
@@ -18,8 +18,10 @@ nodes:
       stroke: "#8193A5"
       font_size: 14
       rounded: true
+    source_files: ["src/laomedo/agents/interface/bridge.py", "src/laomedo/agents/agents/base/agent.py"]
+    graph_reference: "A"
   agent:
-    label_html: "<b>ClaudeAgent : BaseAgent</b><br/>claude/agent.py<br/><br/>Own ACP communication and native result interpretation; coordinate skills, output validation and finalization."
+    label_html: "<b>[B] ClaudeAgent : BaseAgent</b><br/>claude/agent.py<br/><br/>Own ACP communication and native result interpretation; coordinate skills, output validation and finalization."
     style:
       width: 285
       height: 150
@@ -27,8 +29,10 @@ nodes:
       stroke: "#8193A5"
       font_size: 14
       rounded: true
+    source_files: ["src/laomedo/agents/agents/claude/agent.py"]
+    graph_reference: "B"
   runtime:
-    label_html: "<b>ClaudeContainer</b><br/>claude/container.py; models.py<br/><br/>Create supervised per-turn controller scopes with explicit mounts, deadline and cleanup policy."
+    label_html: "<b>[C] ClaudeContainer</b><br/>claude/container.py; models.py<br/><br/>Create supervised per-turn controller scopes with explicit mounts, deadline and cleanup policy."
     style:
       width: 285
       height: 150
@@ -36,8 +40,10 @@ nodes:
       stroke: "#8193A5"
       font_size: 14
       rounded: true
+    source_files: ["src/laomedo/agents/agents/claude/container.py", "src/laomedo/agents/agents/claude/models.py"]
+    graph_reference: "C"
   acp:
-    label_html: "<b>Shared ACP bridge + Python SDK</b><br/>agents/agents/base/acp/session.py; transport.py<br/><br/>AcpSession composes the upstream ACP SDK. DockerTransport carries its frames over attached stdin/stdout."
+    label_html: "<b>[D] Shared ACP bridge + Python SDK</b><br/>agents/agents/base/acp/session.py; transport.py<br/><br/>AcpSession composes the upstream ACP SDK. DockerTransport carries its frames over attached stdin/stdout."
     style:
       width: 285
       height: 150
@@ -45,8 +51,10 @@ nodes:
       stroke: "#8193A5"
       font_size: 14
       rounded: true
+    source_files: ["src/laomedo/agents/agents/base/acp/session.py", "src/laomedo/agents/agents/base/acp/transport.py"]
+    graph_reference: "D"
   docker:
-    label_html: "<b>Shared Docker mechanics</b><br/>py-docker -&gt; Docker SDK -&gt; Engine<br/><br/>Create/attach owned containers, execute jobs, retain receipts and reconcile cleanup."
+    label_html: "<b>[E] Shared Docker mechanics</b><br/>py-docker -&gt; Docker SDK -&gt; Engine<br/><br/>Create/attach owned containers, execute jobs, retain receipts and reconcile cleanup."
     style:
       width: 285
       height: 150
@@ -54,8 +62,11 @@ nodes:
       stroke: "#8193A5"
       font_size: 14
       rounded: true
+    source_files: []
+    graph_reference: "E"
+    external_source: "Separate dependencies: py-docker -> Docker SDK -> Docker Engine."
   adapter:
-    label_html: "<b>Packaged upstream ACP adapter</b><br/>claude-agent-acp<br/><br/>Translate ACP to native Claude execution; raw SDK messages return through the shared ACP connection."
+    label_html: "<b>[F] Packaged upstream ACP adapter</b><br/>claude-agent-acp<br/><br/>Translate ACP to native Claude execution; raw SDK messages return through the shared ACP connection."
     style:
       width: 285
       height: 150
@@ -63,8 +74,11 @@ nodes:
       stroke: "#8193A5"
       font_size: 14
       rounded: true
+    source_files: []
+    graph_reference: "F"
+    external_source: "Installed upstream claude-agent-acp package."
   cli:
-    label_html: "<b>Claude native runtime</b><br/>claude executable<br/><br/>Native subscription session and telemetry. Controller shell/file tools are disabled."
+    label_html: "<b>[G] Claude native runtime</b><br/>claude executable<br/><br/>Native subscription session and telemetry. Controller shell/file tools are disabled."
     style:
       width: 285
       height: 150
@@ -72,8 +86,11 @@ nodes:
       stroke: "#8193A5"
       font_size: 14
       rounded: true
+    source_files: []
+    graph_reference: "G"
+    external_source: "Upstream native claude runtime installed in its Docker image."
   model:
-    label_html: "<b>External model service</b><br/>Outside local Docker<br/><br/>Native Claude performs model requests."
+    label_html: "<b>[H] External model service</b><br/>Outside local Docker<br/><br/>Native Claude performs model requests."
     style:
       width: 285
       height: 150
@@ -81,6 +98,9 @@ nodes:
       stroke: "#8193A5"
       font_size: 14
       rounded: true
+    source_files: []
+    graph_reference: "H"
+    external_source: "External model API; no repository source for the service."
 groups:
   col_0:
     title: "App contract / launch input"
