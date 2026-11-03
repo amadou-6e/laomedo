@@ -105,15 +105,15 @@ ambient credentials.
 | --- | --- | --- |
 | Edit files in `/draft` | Default snapshot has no history; opt-in Git workspace has isolated history | `test_local_runner.py` |
 | Literal `git fetch` / `git push` | Scoped native remote helper; fetch requires explicit run/base reads, push requires verified exact commit | `test_native_commands.py`; S10 B local-provider and S12 B live scripted-container evidence |
-| Normalized host `git_push` | Active capture, independent credential-free verification and trusted exact-commit transport | `tests/test_host/test_publication/test_bundle/test_verifier.py`, `tests/test_host/test_publication/test_verified.py`, `tests/test_github/test_transport/test_git/test_delivery.py`; S12 B live scripted-container evidence, not production LocalRunner acceptance |
+| Normalized host `git_push` | Active capture, independent credential-free verification and trusted exact-commit transport | `tests/test_host/test_publication/test_bundle/test_verifier.py`, `tests/test_host/test_publication/test_verified.py`, `test_github_git_transport.py`; S12 B live scripted-container evidence, not production LocalRunner acceptance |
 | Literal `gh pr` / `gh run` | Supported partial create/view/edit and run-list forms; result JSON | `test_native_commands.py`; S10 B fake PR correction/readback and S12 B live PR create/readback |
-| Literal `gh issue` | Unsupported before mediation; no implicit run permission | `test_native_commands.py`, `tests/test_host/test_mediation/test_store.py` |
-| Normalized PR create/update | Granted branch/PR/base/marker checks, with provider target verification | `tests/test_host/test_mediation/test_store.py`, `tests/test_github/test_transport/test_rest/test_delivery.py` |
-| Bound PR readback | Granted PR number, repository, branch and base; title/body and actual head SHA returned | `tests/test_host/test_mediation/test_store.py`, `tests/test_github/test_transport/test_rest/test_delivery.py`; synthetic transport only |
-| Normalized Actions read | Granted repository target only | `tests/test_github/test_transport/test_rest/test_delivery.py`, no-model Docker client check |
-| Reviewed issue create | Broker requires a trusted reviewed-payload binding; not granted to this agent runner | `tests/test_host/test_mediation/test_store.py` |
-| General `gh api` REST/GraphQL | Arbitrary writes and GraphQL denied; same-repository REST GET is diagnostic-only | `tests/test_host/test_mediation/test_store.py`, `tests/test_github/test_transport/test_rest/test_delivery.py` |
-| Git timeout and late process | Host Git tree is bounded; uncertain push remains `unknown`; descendant cleanup has a synthetic control | `tests/test_github/test_transport/test_git/test_delivery.py` |
+| Literal `gh issue` | Unsupported before mediation; no implicit run permission | `test_native_commands.py`, `test_github_mediation.py` |
+| Normalized PR create/update | Granted branch/PR/base/marker checks, with provider target verification | `test_github_mediation.py`, `test_github_rest_transport.py` |
+| Bound PR readback | Granted PR number, repository, branch and base; title/body and actual head SHA returned | `test_github_mediation.py`, `test_github_rest_transport.py`; synthetic transport only |
+| Normalized Actions read | Granted repository target only | `test_github_rest_transport.py`, no-model Docker client check |
+| Reviewed issue create | Broker requires a trusted reviewed-payload binding; not granted to this agent runner | `test_github_mediation.py` |
+| General `gh api` REST/GraphQL | Arbitrary writes and GraphQL denied; same-repository REST GET is diagnostic-only | `test_github_mediation.py`, `test_github_rest_transport.py` |
+| Git timeout and late process | Host Git tree is bounded; uncertain push remains `unknown`; descendant cleanup has a synthetic control | `test_github_git_transport.py` |
 
 This is a coverage inventory, **not** a #100 parity pass. In particular, no
 literal `gh` or `git` command coverage can be inferred from the normalized

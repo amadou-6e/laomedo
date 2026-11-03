@@ -1,7 +1,7 @@
 import SkillActions from "./SkillActions";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
-export default function SkillSplitPane({ navigation, navigationActions, children }: { navigation: ReactNode; navigationActions?: ReactNode; children: ReactNode }) {
+export default function SkillSplitPane({ navigation, children }: { navigation: ReactNode; children: ReactNode }) {
   const container = useRef<HTMLDivElement>(null);
   const separator = useRef<HTMLDivElement>(null);
   const lastWidth = useRef(280);
@@ -29,7 +29,6 @@ export default function SkillSplitPane({ navigation, navigationActions, children
       <div className="flex h-8 shrink-0 items-center justify-between px-2 text-xs tracking-wide text-muted-foreground">
         <span>SKILL</span>
         <SkillActions label="Navigation actions">
-            {navigationActions}
             <button type="button" className="w-full px-2 py-1 text-left text-sm hover:bg-muted" onClick={collapse}>Hide navigation</button>
             <button type="button" className="w-full px-2 py-1 text-left text-sm hover:bg-muted" onClick={() => setWidth(clamp(280))}>Reset navigation width</button>
         </SkillActions>

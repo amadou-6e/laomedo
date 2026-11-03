@@ -102,7 +102,7 @@ def load_retained_shared(name):
                 for item in node.names:
                     target = (
                         module_paths.get(item.name, item.name)
-                        if item.name.startswith(("laomedo.skills.", "laomedo.github."))
+                        if item.name.startswith("laomedo.skills.")
                         else item.name
                     )
                     statements.append(
@@ -147,7 +147,7 @@ def load_retained_shared(name):
                         "from laomedo.http.redirect import NoRedirect as " + alias
                     )
                     changed = True
-                elif node.module.startswith(("laomedo.skills.", "laomedo.github.")):
+                elif node.module.startswith("laomedo.skills."):
                     full = node.module + "." + item.name
                     target = symbol_paths.get(
                         full,

@@ -1,0 +1,23 @@
+{
+  "date": "2026-10-15",
+  "pr_url": "https://github.com/ga84jog/laomedo-exp104-disposable-20261007/pull/22",
+  "agent_component": "LaomedoCodexAgent",
+  "runner": "LocalRunner",
+  "run_id": "3e48885f-424f-4416-9a7c-0cbee53f75f8",
+  "native_thread_id": "01a13f9b-8b77-75f0-af17-3a1a5cf8152b",
+  "native_turns": [
+    {
+      "id": "01a13f9b-8dd2-7840-8833-1c2576260864",
+      "status": "cancelled",
+      "native_completion_status": "interrupted",
+      "interrupt_acknowledged": true
+    }
+  ],
+  "status": "cancelled",
+  "cancel_requested": true,
+  "host_write_intents": 0,
+  "independent_github_unchanged": true,
+  "container_cleanup_verified": true,
+  "campaign_model_turns": 3,
+  "source_revision": "f624d0c82ce3d3122681572de03c145c249f3809"
+}

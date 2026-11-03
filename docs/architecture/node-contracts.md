@@ -12,7 +12,7 @@ settings. Component definitions live in [components/laomedo](../../components/la
 The PR feedback example routes PR context into an existing Agent and returns an
 operation to the same PR node. The host validates the operation and authorization
 before applying it; the Agent's proposal alone is not proof of a GitHub update.
-See the [PR workflow](../../examples/github/README.md) for the supported
+See the [PR workflow](../../examples/github-pr/README.md) for the supported
 feedback wiring and its limitations.
 
 Skill editing similarly separates a proposed file change from controlled revision

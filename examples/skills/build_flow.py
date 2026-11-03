@@ -11,7 +11,7 @@ from laomedo.agents.contracts.output import requirements
 
 ROOT = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location(
-    "skill_operation_builder", ROOT / "examples/graph.py"
+    "skill_operation_builder", Path(__file__).with_name("graph.py")
 )
 builder = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(builder)

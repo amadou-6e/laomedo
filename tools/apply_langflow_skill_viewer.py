@@ -37,11 +37,6 @@ def apply(checkout):
         ["git", "-C", str(checkout), "apply", "--check", str(patch)], check=True
     )
     subprocess.run(["git", "-C", str(checkout), "apply", str(patch)], check=True)
-    file_patch = overlay / "file-actions-dependencies.patch"
-    subprocess.run(
-        ["git", "-C", str(checkout), "apply", "--check", str(file_patch)], check=True
-    )
-    subprocess.run(["git", "-C", str(checkout), "apply", str(file_patch)], check=True)
     subprocess.run(
         ["git", "-C", str(checkout), "apply", "--check", str(models_patch)], check=True
     )
@@ -75,80 +70,6 @@ def apply(checkout):
         / "src/frontend/src/CustomNodes/GenericNode/components/RenderInputParameters"
     )
     shutil.copy2(overlay / "RenderAgentInputParameters.tsx", agent_target / "index.tsx")
-    for name in ("SkillNodeControls.ts", "SkillNodeControls.test.tsx"):
-        shutil.copy2(overlay / name, agent_target / name)
-    parameter = (
-        checkout / "src/frontend/src/components/core/parameterRenderComponent/index.tsx"
-    )
-    source = (
-        'import { skillChoicePlaceholder } from "@/CustomNodes/GenericNode/components/RenderInputParameters/SkillNodeControls";\n'
-        + parameter.read_text(encoding="utf-8")
-    )
-    source = replace_once(
-        source,
-        "      placeholder: placeholder || templateData?.placeholder,",
-        "      placeholder: skillChoicePlaceholder(useFlowStore.getState().nodes.find(node => node.id === nodeId)?.data, name, placeholder || templateData?.placeholder),",
-    )
-    parameter.write_text(source, encoding="utf-8")
-    edit_rows = checkout / "src/frontend/src/modals/editNodeModal/hooks/use-row-data.ts"
-    source = edit_rows.read_text(encoding="utf-8")
-    source = (
-        'import { isSkillControlHidden } from "@/CustomNodes/GenericNode/components/RenderInputParameters/SkillNodeControls";\n'
-        'import useFlowStore from "@/stores/flowStore";\n' + source
-    )
-    source = replace_once(
-        source,
-        "const useRowData = (nodeClass: APIClassType, open: boolean) => {\n",
-        "const useRowData = (nodeClass: APIClassType, open: boolean, nodeId?: string) => {\n"
-        "  const nodeType = useFlowStore(state => state.nodes.find(node => node.id === nodeId)?.data.type);\n",
-    )
-    source = replace_once(
-        source,
-        '          key.charAt(0) !== "_" &&\n',
-        '          key.charAt(0) !== "_" &&\n'
-        "          !isSkillControlHidden({ type: nodeType, node: nodeClass }, key) &&\n",
-    )
-    source = replace_once(
-        source, "  }, [open, nodeClass]);", "  }, [open, nodeClass, nodeType]);"
-    )
-    edit_rows.write_text(source, encoding="utf-8")
-    edit_component = (
-        checkout
-        / "src/frontend/src/modals/editNodeModal/components/editNodeComponent/index.tsx"
-    )
-    source = replace_once(
-        edit_component.read_text(encoding="utf-8"),
-        "  const rowData = useRowData(nodeClass, open);",
-        "  const rowData = useRowData(nodeClass, open, nodeId);",
-    )
-    edit_component.write_text(source, encoding="utf-8")
-    inspection_fields = (
-        checkout
-        / "src/frontend/src/pages/FlowPage/components/InspectionPanel/components/InspectionPanelFields.tsx"
-    )
-    source = (
-        'import { isSkillControlHidden } from "@/CustomNodes/GenericNode/components/RenderInputParameters/SkillNodeControls";\n'
-        + inspection_fields.read_text(encoding="utf-8")
-    )
-    source = replace_once(
-        source,
-        "      .filter((templateField) => {\n",
-        "      .filter((templateField) => {\n"
-        "        if (isSkillControlHidden(data, templateField)) return false;\n",
-    )
-    inspection_fields.write_text(source, encoding="utf-8")
-    generic_node = checkout / "src/frontend/src/CustomNodes/GenericNode/index.tsx"
-    source = generic_node.read_text(encoding="utf-8")
-    source = (
-        'import { skillNodeDescription } from "./components/RenderInputParameters/SkillNodeControls";\n'
-        + source
-    )
-    source = replace_once(
-        source,
-        "                description={data.node?.description}\n",
-        "                description={skillNodeDescription(data)}\n",
-    )
-    generic_node.write_text(source, encoding="utf-8")
     shutil.copy2(
         overlay / "AgentAdvancedControls.tsx",
         agent_target / "AgentAdvancedControls.tsx",
@@ -158,53 +79,10 @@ def apply(checkout):
         agent_target / "AgentAdvancedControls.test.tsx",
     )
     target.mkdir()
-    shutil.copy2(overlay / "SkillFilesModal.tsx", target / "SkillFilesModal.tsx")
-    (target / "index.tsx").write_text(
-        'export { SkillViewerRequest as default } from "./SkillViewer";\n',
-        encoding="utf-8",
-    )
-    for name in ("SkillViewer.tsx", "SkillViewer.test.tsx"):
-        shutil.copy2(overlay / name, target / name)
-    authenticated_page = (
-        checkout / "src/frontend/src/pages/AppAuthenticatedPage/index.tsx"
-    )
-    authenticated = authenticated_page.read_text(encoding="utf-8")
-    authenticated = replace_once(
-        authenticated,
-        'import { Outlet } from "react-router-dom";',
-        'import { Outlet } from "react-router-dom";\n'
-        'import SkillViewerProvider from "@/modals/skillFilesModal/SkillViewer";',
-    )
-    authenticated = replace_once(
-        authenticated, "    <>\n", "    <SkillViewerProvider>\n"
-    )
-    authenticated = replace_once(
-        authenticated, "    </>\n", "    </SkillViewerProvider>\n"
-    )
-    authenticated_page.write_text(authenticated, encoding="utf-8")
+    shutil.copy2(overlay / "SkillFilesModal.tsx", target / "index.tsx")
     shutil.copy2(overlay / "SkillActions.tsx", target / "SkillActions.tsx")
     shutil.copy2(overlay / "SkillActions.test.tsx", target / "SkillActions.test.tsx")
     shutil.copy2(overlay / "SkillNavigation.tsx", target / "SkillNavigation.tsx")
-    shutil.copy2(overlay / "SkillSearch.tsx", target / "SkillSearch.tsx")
-    shutil.copy2(overlay / "SkillSearch.test.tsx", target / "SkillSearch.test.tsx")
-    for name in (
-        "SkillIcons.tsx",
-        "SkillExplorer.tsx",
-        "SkillExplorer.test.tsx",
-        "SkillFileManager.tsx",
-        "SkillFileManager.test.tsx",
-        "SkillWorkingTree.ts",
-        "SkillWorkingTree.test.ts",
-        "SkillBinaryPreview.tsx",
-        "SkillBinaryPreview.test.tsx",
-        "SkillDiscardDialog.tsx",
-        "SkillDiscardDialog.test.tsx",
-        "SkillEditing.tsx",
-        "SkillEditing.test.tsx",
-        "SkillPublication.tsx",
-        "SkillPublication.test.tsx",
-    ):
-        shutil.copy2(overlay / name, target / name)
     shutil.copy2(
         overlay / "SkillNavigation.test.tsx", target / "SkillNavigation.test.tsx"
     )
@@ -222,14 +100,6 @@ def apply(checkout):
     shutil.copy2(
         overlay / "MONACO-LICENSE.txt",
         checkout / "src/frontend/public/monaco-LICENSE.txt",
-    )
-    shutil.copy2(
-        overlay / "skill-files-NOTICE.txt",
-        checkout / "src/frontend/public/skill-files-NOTICE.txt",
-    )
-    shutil.copy2(
-        overlay / "skill-icons-NOTICE.txt",
-        checkout / "src/frontend/public/skill-icons-NOTICE.txt",
     )
     issue_target = checkout / "src/frontend/src/modals/issueViewerModal"
     issue_target.mkdir()

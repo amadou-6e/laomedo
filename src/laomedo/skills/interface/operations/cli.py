@@ -15,7 +15,6 @@ def main():
     for field in ("registry", "database", "policies", "api-token-file"):
         parser.add_argument("--" + field, type=Path, required=True)
     parser.add_argument("--port", type=int, default=8787)
-    parser.add_argument("--manual-permissions", type=Path)
     args = parser.parse_args()
     operations = SkillOperations(
         SkillStore(args.registry),
@@ -23,14 +22,7 @@ def main():
         json.loads(args.policies.read_text(encoding="utf-8")),
     )
     SkillOperationServer(
-        operations,
-        args.api_token_file.read_text().strip(),
-        args.port,
-        manual_permissions=(
-            json.loads(args.manual_permissions.read_text(encoding="utf-8"))
-            if args.manual_permissions
-            else None
-        ),
+        operations, args.api_token_file.read_text().strip(), args.port
     ).serve_forever()
 
 

@@ -125,22 +125,5 @@ class NativeSkillSourceTests(unittest.TestCase):
         self.update("source", "")
         self.assertEqual(
             self.config["discovery_status"]["value"],
-            "Set Source to browse skills, or use a saved reference.",
+            "Supply a source to discover skills.",
         )
-
-    def test_compact_controls_keep_exact_revision_and_legacy_data(self):
-        self.assertTrue(self.config["revision_id"]["advanced"])
-        self.assertTrue(self.config["commit_id"]["advanced"])
-        self.assertFalse(self.config["edit_request"]["show"])
-        self.assertIn("never runs a Skill", self.config["discovery_status"]["info"])
-        self.update("source", str(self.source))
-        self.update("skill_id", "alpha | alpha")
-        self.assertEqual(
-            self.config["discovery_status"]["value"],
-            "Choose Revision in Advanced settings.",
-        )
-        revision = self.config["revision_id"]["options"][0]
-        self.update("revision_id", revision)
-        self.assertIn("Revision selected", self.config["discovery_status"]["value"])
-        self.update("source", str(self.source))
-        self.assertEqual(self.config["revision_id"]["value"], revision)

@@ -1,0 +1,82 @@
+{
+  "date": "2026-10-13",
+  "scope": "local credential-free candidate; unmerged and not activated",
+  "implementation_base": "c29c93f2af93dde0a57dcbb3d38f23336407f56c",
+  "python": "3.12.10",
+  "lfx": "1.12.3",
+  "node": "22.16.0",
+  "upstream_langflow": "fec71dca901949c09ed4d63315804337cd2eb13d",
+  "checks": {
+    "host_pr_tests": 12,
+    "native_pr_node_tests": 4,
+    "inspection_tests": 3,
+    "publisher_regression_tests": 8,
+    "mediator_regression_tests": 23,
+    "rest_transport_regression_tests": 14,
+    "issue_regression_tests": 17,
+    "react_viewer_tests": 5,
+    "production_build": "passed",
+    "overlay_application": "passed",
+    "typescript": {
+      "baseline_diagnostics": 253,
+      "candidate_diagnostics": 253,
+      "added": 0,
+      "removed": 0,
+      "comparison": "error messages normalized for line/column offsets; full typecheck remains red"
+    },
+    "edge": "actual isolated fixture dialog rendered; exact GitHub link checked; screenshot visually inspected"
+  },
+  "graph": {
+    "nodes": 4,
+    "edges": 3,
+    "graph_runs": 2,
+    "provider": "fake",
+    "fixture_mutations": 1,
+    "operation_status": "succeeded",
+    "model_turns": 0,
+    "live_writes": 0
+  },
+  "limits": [
+    "Windows local runtime, not the cached Linux deployment image",
+    "Jest needed a temporary pure Node resolver and a visible-path harness",
+    "Edge check used isolated entry and mocked read; full installed-app selection was not tested",
+    "No live PR service, publication, model turn, review or merge",
+    "Creation mode is a proposal; existing trusted publisher is preserved",
+    "Tracking/publication pending authorization after connector 403 and automatic review rejection"
+  ],
+  "source_hash_basis": "Raw Windows working-tree bytes tested; Git may normalize CRLF. Canonical staged Git blob hashes are listed separately.",
+  "source_sha256": {
+    "components/laomedo/github_pr.py": "27386941b5b9a685a6f2fd7453fc2ac6c8ae3476fd6a6bba51bfb6b9ca6d14ea",
+    "laomedo/github_pr_contract.py": "4a9027f47e51b51704c8f66a3b4ca5fd916dad1e862ed26f87054fceca48f28f",
+    "laomedo/github_pr_gateway.py": "2f7f4cd3bc90178add901a30d9a6ad5545f859a598e35c9810becac3246c0199",
+    "laomedo/github_pr_client.py": "3e30f1670e3a85be5edc12ef49e5a460154444b98835664a97d77ccdf8574e45",
+    "laomedo/github_pr_server.py": "20973938c87a88eecdaa2f1e31fdb6da1bcea015a97f46cf7aa267ba6f6b6771",
+    "laomedo/github_mediation.py": "0707e9c24c19173aa3fd72c0f1054bab4bbf63ce44f5f86b9b1adfb97626160b",
+    "laomedo/github_rest_transport.py": "f60facfc9b53ebb7fe7e6d1a7a93f9cfcc6f4293ab4c871386a0638a35a40073",
+    "laomedo/langflow_skill_viewer.py": "d3b679590337c644e0c3e62cb37d22a69777f88819729dbff4b553994024ebc4",
+    "frontend/langflow-skill-viewer/upstream.patch": "59a3bdcacfb455900edfc725ca690ea81382918bc30f64508ed636c78abb2af6",
+    "frontend/langflow-skill-viewer/PRViewerModal.tsx": "1806f8b473414a5223c9f83de4122c0ad877ac95bbf5b02af9135e565a7240e9",
+    "frontend/langflow-skill-viewer/PRViewerModal.test.tsx": "ed33cd8eeca93209737ec505ad31e8bd19f2cc986c3cebfc26ff2085d6270dff",
+    "tools/apply_langflow_skill_viewer.py": "5694d14b985a31c02d746102c0dedba310c2041bd5418cea017a1c787d6f0d21",
+    "examples/github-pr/flow.json": "8a6b2d2aab9b5cfa89ffb56c9007ffad862e50b464f5e68480e04f0d8577b5ab",
+    "examples/github-pr/build_flow.py": "a0f963a1d957ede8a3dd1061d0de484b87df74952f3811a2bfeed53fd08a2e95",
+    "examples/github-pr/run_fixture.py": "2c6c4872004f65e0097f9acda8bfd50de78c51fdb9abe4e6b21d70bbd35822f8"
+  },
+  "git_blob_sha256": {
+    "components/laomedo/github_pr.py": "a6f2c6229125e88550cdfa10e4fa0c6ee9918e3b33162d749ab2b86593322bf7",
+    "laomedo/github_pr_contract.py": "4a9027f47e51b51704c8f66a3b4ca5fd916dad1e862ed26f87054fceca48f28f",
+    "laomedo/github_pr_gateway.py": "5970cece0c3aa9bddd91ea3c02be8c43a8b282953897e4d629005d1eb1c763c2",
+    "laomedo/github_pr_client.py": "ce566c3689f04f51ecea99db9f580bb5a1f61d691b4aae920e427d2b5a810093",
+    "laomedo/github_pr_server.py": "5fe0f683c8378de131c3bb40be85d3b36d1f1fb3e12601d0623852879a0751e5",
+    "laomedo/github_mediation.py": "f23f46b7e57524dedb8ec653cf30eb076defe23d8d2801d6e0097b8aa98b3770",
+    "laomedo/github_rest_transport.py": "8c970d032e58abbb212983b09ea7882da1283d60beba697cf7da244ea6c3d7d6",
+    "laomedo/langflow_skill_viewer.py": "db939c84747468c060daddf62618ccb4c5314d4ec813a4fd4eb3d52e3d3cc8d3",
+    "frontend/langflow-skill-viewer/upstream.patch": "59a3bdcacfb455900edfc725ca690ea81382918bc30f64508ed636c78abb2af6",
+    "frontend/langflow-skill-viewer/PRViewerModal.tsx": "26a6ef11bb0abd70b4c93b45ff581e58c70b3df3b916f0eae5c1af681aeee326",
+    "frontend/langflow-skill-viewer/PRViewerModal.test.tsx": "ed33cd8eeca93209737ec505ad31e8bd19f2cc986c3cebfc26ff2085d6270dff",
+    "tools/apply_langflow_skill_viewer.py": "10b8fa2710f7fbb251cceb4a80c3fa7b14fe2a0d66938df092595ddf77e2afb8",
+    "examples/github-pr/flow.json": "da877c3c03d26bbe7e588208c83fecd7147014a9db6c7b328998b7de4a6f6b07",
+    "examples/github-pr/build_flow.py": "a0f963a1d957ede8a3dd1061d0de484b87df74952f3811a2bfeed53fd08a2e95",
+    "examples/github-pr/run_fixture.py": "2c6c4872004f65e0097f9acda8bfd50de78c51fdb9abe4e6b21d70bbd35822f8"
+  }
+}

@@ -12,7 +12,6 @@ from pydantic import SecretStr
 from laomedo.git.command import GitCommandRunner
 from laomedo.git.models import GitCredential, GitExecutionContext
 from laomedo.git.repository import GitRepository
-from laomedo.github.workflows.utils import touches_workflows
 from pathlib import Path
 import base64
 from laomedo.github.transport.git.settings import _REPOSITORY
@@ -126,7 +125,11 @@ class GitHubGitTransport:
             paths = repository.changed_paths(self.baseline, commit)
         except subprocess.TimeoutExpired:
             return None
-        return touches_workflows(paths) if paths is not None else None
+        return (
+            any(path.startswith(b".github/workflows/") for path in paths if path)
+            if paths is not None
+            else None
+        )
 
     def classify_workflow_diff(
         self, repository: str, branch: str, commit: str
@@ -387,3 +390,17 @@ class GitHubGitTransport:
                 "commit": payload["commit"],
                 "bundle": base64.b64encode(bundle.read_bytes()).decode("ascii"),
             }
+
+
+class GitHubMediatedTransport:
+    """Route Git pushes and supported REST calls through one selected identity."""
+
+    def __init__(self, git_transport: GitHubGitTransport, rest_transport):
+        if git_transport.repository != rest_transport.repository:
+            raise ValueError("repository_mismatch")
+        self.git = git_transport
+        self.rest = rest_transport
+
+    def __call__(self, repository: str, operation: str, payload: dict, **binding):
+        target = self.git if operation in {"git_push", "git_fetch"} else self.rest
+        return target(repository, operation, payload, **binding)

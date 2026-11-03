@@ -81,26 +81,6 @@ class SkillInspectionTests(unittest.TestCase):
         )
         self.assertNotIn("image_data_url", files["asset.bin"])
         self.assertNotIn("image_data_url", files["diagram.svg"])
-        self.assertTrue(all("binary_base64" not in file for file in result["files"]))
-        preview = inspect_skill(
-            self.store.root, "media", record["revision_id"], include_binary=True
-        )
-        assets = {file["path"]: file for file in preview["files"]}
-        self.assertEqual(
-            base64.b64decode(assets["asset.bin"]["binary_base64"]), b"\0\xff"
-        )
-        self.assertEqual(base64.b64decode(assets["pixel.png"]["binary_base64"]), image)
-        self.assertNotIn("binary_base64", assets["SKILL.md"])
-        combined = inspect_skill(
-            self.store.root,
-            "media",
-            record["revision_id"],
-            include_images=True,
-            include_binary=True,
-        )
-        raster = next(file for file in combined["files"] if file["path"] == "pixel.png")
-        self.assertIn("image_data_url", raster)
-        self.assertNotIn("binary_base64", raster)
         (
             self.store._revision_dir("media", record["revision_id"])
             / "bundle/pixel.png"
@@ -212,16 +192,7 @@ class SkillInspectionTests(unittest.TestCase):
             response = client.get(route, headers=auth)
             self.assertEqual(response.status_code, 200)
             self.assertEqual(response.headers["cache-control"], "no-store")
-            self.assertEqual(
-                response.json(),
-                inspect_skill(
-                    self.store.root,
-                    "sample",
-                    self.revision,
-                    include_images=True,
-                    include_binary=True,
-                ),
-            )
+            self.assertEqual(response.json(), self.read())
             self.assertEqual(client.post(route, headers=auth, json={}).status_code, 405)
             self.assertEqual(
                 client.get("/api/v1/laomedo/skills/sample/latest", headers=auth).json()[

@@ -11,7 +11,7 @@ original Codex Agent source. It does not invoke a model. Import that graph into
 Langflow after applying the frontend overlay.
 
 Run two independently supervised original Docker runners on ports 8765 and 8767,
-using the same real `examples/github` source workspace and skill registry.
+using the same real `examples/github-pr` source workspace and skill registry.
 The first needs two top-level turns, the second one. Configure the app's private
 activity DB and dedicated runner API token as described in
 [agent activity](../../docs/features/agents/activity.md). Enable local OTLP on both runners

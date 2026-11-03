@@ -5,31 +5,27 @@ migration, formatting and component-template controls. `test_skills/` owns the r
 sources, operations, inspection, authoring and workspace delivery. Graph cases
 live with their respective Skill concern. `test_host/test_publication/` owns
 ingestion, frozen-bundle staging/ownership/worker checks and verified snapshots;
-these concerns are not filename families at the test root. `test_github/` owns
-Issue/PR values, context, gateways, interfaces, transports and their graph/browser
-controls. GitHub mediation belongs in `test_host/test_mediation/`. Agent suites
+these concerns are not filename families at the test root. Agent/GitHub suites
 retain their separately scoped grouping and optional-runtime harness.
 
 Keep `tests/` as the discovery root. Every folder beneath it containing tests,
 directly or in nested concerns, starts with `test_`: for example,
 `test_skills/test_operations/`. Support-only and data-only folders (`support`,
 `fixtures`, `contracts`) keep their descriptive names. `test_skills/test_browser/`
-contains the Skill browser controls; `test_github/test_issues/test_browser/` owns GitHub
-controls. `test_langflow/` contains the remaining separately discovered runtime
+contains the Skill browser controls; `test_browser/` retains the deferred GitHub
+controls. `test_langflow/` contains the separately discovered runtime
 checks. Folder naming does not change their prerequisites or acceptance status.
 
 ## Deferred adjacent suites
 
 The existing root files `test_host_mediated_push.py`, `test_host_services.py` and
 `test_host_token_connection.py` cover deferred mediation, service composition
-and credentials. `test_publication_handoff.py` covers Agent publication
+and credentials. `test_publication_handoff.py` covers GitHub publication
 orchestration; `test_probe_stage_s7.py` retains an EXP-100 consumer control.
 They are explicit exclusions from the Shared/Skills organization pass, even
 where they use the same host publication package. Agent/provider, GitHub,
 Langflow join, runner and historical campaign families retain their separate
-migration scope. GitHub's selected suites are now in their owning packages;
-see [GitHub controls](test_github/README.md) for coverage and archival boundaries.
-Their presence is not permission to add new flat prefix
+migration scope. Their presence is not permission to add new flat prefix
 families: new coverage belongs in its concern package.
 
 ## Discovery
@@ -47,10 +43,9 @@ root. Focus an owning package using `-t tests`, for example:
 python -m unittest discover -s tests/test_skills -t tests -v
 python -m unittest discover -s tests/test_shared -t tests -v
 python -m unittest discover -s tests/test_host/test_publication -t tests -v
-python -m unittest discover -s tests/test_github -t tests -v
 ```
 
-The Skill and GitHub graph modules explicitly skip only when `lfx` is absent. With the
+The Skill graph modules explicitly skip only when `lfx` is absent. With the
 declared Langflow environment installed, the same discovery runs them. An import
 failure inside an installed runtime fails normally. Other `tests/test_langflow/`
 modules still use the existing separate optional-runtime harness; core discovery

@@ -79,7 +79,7 @@ Run the owning Issue node once. Check Operation Result, then independently read
 the issue in GitHub. Expect only the requested title to change; the operation
 does not request a body or label replacement. A failure is not success, and an
 unknown result needs reconciliation of its existing intent before another write.
-For close or body/label changes, use the [Issue operation reference](../../../../examples/github/README.md).
+For close or body/label changes, use the [Issue operation reference](../../../../examples/github-issue/README.md).
 
 ## Finish
 

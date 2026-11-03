@@ -13,8 +13,6 @@ steps state the additional host authorization required before any write.
   user stories and the proposed creation workflow.
 - [Shared architecture](architecture.md): host authority and transport ownership.
 - [User-story index](user-stories.md): navigation across both modules.
-- [Real workflow verification](verification/README.md): tested revisions, actual
-  selection/viewer and Agent feedback captures, cleanup and remaining gaps.
 
 Each module owns its documentation and visual assets. Existing examples remain
 the detailed setup guides; historical evidence is not acceptance of the current head.
