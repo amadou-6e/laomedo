@@ -1,3 +1,6 @@
+from test_agents.test_runtime.transport import FakeServer
+from test_agents.test_runtime.utils import prepare_runner
+
 from support.paths import repository_root
 
 """Credential-free runner and pinned-skill contract tests."""
@@ -63,118 +66,6 @@ def _serve_synthetic_host_services(state: str, token_file: str, checkout: str) -
             connection_id="synthetic",
             connection_generation=1,
         )
-
-
-class FakeServer:
-    @property
-    def streams_closed(self):
-        return (
-            getattr(self, "reader", None) is not None
-            and getattr(self, "stderr_reader", None) is not None
-            and not self.reader.is_alive()
-            and not self.stderr_reader.is_alive()
-        )
-
-    calls = []
-    turn_inputs = []
-
-    def _write(self, data):
-        self.process.stdin.write(data)
-        self.process.stdin.flush()
-
-    def __init__(self, command, evidence):
-        self.command = command
-        self.evidence = evidence
-        self.events = []
-        self.resume = False
-        self.log = (evidence / "raw-events.jsonl").open("a", encoding="utf-8")
-        self.log.write('{"method":"initialized"}\n')
-        self.log.flush()
-        self.calls.append(command)
-
-    def request(self, method, params, timeout=30):
-        if method == "initialize":
-            return {"result": {}}
-        if method == "model/list":
-            return {
-                "result": {
-                    "data": [{"id": "test-model", "supportedReasoningEfforts": ["low"]}]
-                }
-            }
-        if method == "thread/start":
-            return {"result": {"thread": {"id": "native-thread"}}}
-        if method == "thread/resume":
-            self.resume = True
-            assert params["threadId"] == "native-thread"
-            return {"result": {"thread": {"id": "native-thread"}}}
-        if method == "turn/start":
-            self.turn_inputs.append(params["input"][0]["text"])
-            return {"result": {"turn": {"id": "turn-2" if self.resume else "turn-1"}}}
-        raise AssertionError(method)
-
-    def notify(self, method, params):
-        pass
-
-    def wait_turn(self, turn_id, timeout, cancelled):
-        workspace = self.evidence / "workspace"
-        if self.resume:
-            assert (workspace / "agent.txt").read_text() == "from-first-turn"
-        else:
-            assert not (workspace / "agent.txt").exists()
-            (workspace / "agent.txt").write_text("from-first-turn")
-        self.events.append(
-            {
-                "method": "item/completed",
-                "params": {
-                    "item": {"type": "agentMessage", "text": "synthetic answer"}
-                },
-            }
-        )
-        self.log.write('{"method":"turn/completed"}\n')
-        self.log.flush()
-        return "completed", None
-
-    async def initialize(self):
-        self.request("initialize", {})
-
-    async def models(self):
-        reply = self.request("model/list", {})
-        return [
-            {"id": item["id"], "efforts": item["supportedReasoningEfforts"]}
-            for item in reply["result"]["data"]
-        ]
-
-    async def open(self, record, *, resume):
-        self.active_thread_id = "native-thread"
-        self.output_requirements = record.get("output_requirements")
-        self.precheck_call_count = 0
-        self.verified_precheck_calls = set()
-        params = {"threadId": "native-thread"} if resume else {}
-        if self.output_requirements:
-            from laomedo.agents.interface.output.utils import dynamic_tool
-
-            params["dynamicTools"] = [dynamic_tool(self.output_requirements)]
-        self.request("thread/resume" if resume else "thread/start", params)
-        return "native-thread"
-
-    def assert_controller_isolated(self):
-        pass
-
-    async def prompt(self, text, *, skills, seconds, cancelled):
-        # Fixture-only hooks preserve the existing domain test scenarios. No
-        # production component offers these retired native request/wait methods.
-        from laomedo.agents.agents.codex.controller.models import CodexTurn
-
-        sent = self.request(
-            "turn/start",
-            {"threadId": "native-thread", "input": [{"type": "text", "text": text}]},
-        )
-        identity = sent["result"]["turn"]["id"]
-        status, error = self.wait_turn(identity, seconds, cancelled)
-        return CodexTurn(turn_id=identity, status=status, error=error)
-
-    async def close(self):
-        self.log.close()
 
 
 class LocalRunnerTests(unittest.TestCase):
@@ -1122,51 +1013,10 @@ class LocalRunnerTests(unittest.TestCase):
         self.assertEqual(result["attempt_number"], 1)
 
     def setUp(self):
-        self.temp = tempfile.TemporaryDirectory()
-        self.addCleanup(self.temp.cleanup)
-        self.root = Path(self.temp.name)
-        self.source = self.root / "source"
-        self.source.mkdir()
-        (self.source / "task.txt").write_text("source input")
-        (self.root / ".git").mkdir()
-        self.skill_source = self.root / "skill-source"
-        self.skill_source.mkdir()
-        (self.skill_source / "SKILL.md").write_text(
-            "---\nname: sample\n---\nUse amber.\n"
-        )
-        store = SkillStore(self.root.parent / (self.root.name + "-skill-store"))
-        self.addCleanup(
-            lambda: __import__("shutil").rmtree(
-                store.root.parent / (self.root.name + "-skill-store"),
-                ignore_errors=True,
-            )
-        )
-        self.addCleanup(
-            lambda: __import__("shutil").rmtree(store.draft_root, ignore_errors=True)
-        )
-        self.revision = store.import_skill("sample", self.skill_source)
-        self.runner = LocalRunner(
-            self.root.parent / (self.root.name + "-state"),
-            store.root,
-            self.source,
-            transport=FakeServer,
-            check_docker=False,
-        )
-        self.addCleanup(
-            lambda: __import__("shutil").rmtree(self.runner.state, ignore_errors=True)
-        )
+        prepare_runner(self)
 
     def request(self):
-        return {
-            "task": "Use the sample skill",
-            "model": "test-model",
-            "effort": "low",
-            "skill_ref": {
-                "skill_id": "sample",
-                "revision_id": self.revision["revision_id"],
-                "tree_hash": self.revision["tree_hash"],
-            },
-        }
+        return self.case.request()
 
     def test_opt_in_git_workspace_preserves_agent_history_without_snapshotting_it(self):
         repository = self.root / "git-source"

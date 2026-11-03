@@ -1,3 +1,5 @@
+from test_agents.test_runtime.utils import prepare_runner
+
 """No credentials or model requests: verify OpenCode protocol and persistence."""
 
 import unittest
@@ -453,7 +455,7 @@ class OpenCodeTests(unittest.TestCase):
 
     def setUp(self):
         # Reuse only the fixture setup, not the Codex provider test cases.
-        fixtures.LocalRunnerTests.setUp(self)
+        prepare_runner(self)
         self.runner = OpenCodeAgent(
             self.root.parent / (self.root.name + "-runner"),
             self.root.parent / (self.root.name + "-skill-store"),

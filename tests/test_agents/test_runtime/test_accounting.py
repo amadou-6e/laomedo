@@ -1,3 +1,5 @@
+from test_agents.test_runtime.utils import prepare_runner
+
 """Internal accounting regressions, with no Docker or model requests."""
 
 import unittest
@@ -10,7 +12,7 @@ import test_agents.test_runtime.test_lifecycle as fixtures
 
 class NormalRunnerAccountingTests(unittest.TestCase):
     def setUp(self):
-        fixtures.LocalRunnerTests.setUp(self)
+        prepare_runner(self)
 
     def test_normal_codex_and_opencode_ignore_historical_experiment_allowances(self):
         for runner_type in (LocalRunner, OpenCodeAgent):

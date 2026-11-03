@@ -1,3 +1,5 @@
+from test_agents.test_runtime.models import RunnerCase
+
 import hashlib
 from pathlib import Path
 import unittest
@@ -11,11 +13,8 @@ import test_agents.test_runtime.test_lifecycle as fixtures
 
 class ArtifactTests(unittest.TestCase):
     def setUp(self):
-        self.fixture = fixtures.LocalRunnerTests(
-            "test_start_resume_and_fresh_workspace"
-        )
-        self.fixture.setUp()
-        self.addCleanup(self.fixture.doCleanups)
+        self.fixture = RunnerCase.create()
+        self.addCleanup(self.fixture.close)
         self.runner = self.fixture.runner
         self.first = self.runner.start(self.fixture.request())
         self.ref = {

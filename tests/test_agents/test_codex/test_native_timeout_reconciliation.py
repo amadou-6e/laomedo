@@ -278,14 +278,14 @@ class NativeTimeoutReconciliationTests(unittest.TestCase):
         self.assertNotIn("SECRET", str(result))
         self.assertEqual(self.store.get(self.run)["status"], "unknown")
 
-    def test_poll_timeout_maps_to_wait_expiry_only_when_deadline_passed(self):
+    def test_poll_timeout_preserves_uncertainty_before_and_after_deadline(self):
         handoff = envelope(
             None,
             {"provider": "codex", "model": "fixture", "effort": "low"},
             "task",
             skills=[{"skill_id": "fixture", "revision_id": "sha256:" + "a" * 64}],
         )
-        for poll_time, error in [(2.0, HandoffError), (0.5, TimeoutError)]:
+        for poll_time in (2.0, 0.5):
             with self.subTest(poll_time=poll_time):
                 now = [0.0]
 
@@ -314,13 +314,17 @@ class NativeTimeoutReconciliationTests(unittest.TestCase):
                         "laomedo.agents.interface.bridge.urlopen", side_effect=respond
                     ),
                 ):
-                    with self.assertRaises(error):
-                        self.adapter().dispatch(
+                    adapter = self.adapter()
+                    with self.assertRaisesRegex(HandoffError, "runner_result_pending"):
+                        adapter.dispatch(
                             handoff,
                             deadline=1.0,
                             cancelled=threading.Event(),
                             early_start=True,
                         )
+                    self.assertEqual(
+                        adapter.active[handoff["execution_id"]][1], self.native
+                    )
 
 
 if __name__ == "__main__":

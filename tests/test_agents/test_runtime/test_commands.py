@@ -4,14 +4,16 @@ import json
 import unittest
 
 from laomedo.agents.agents.codex.utils import _command_summary
-from laomedo.agents.providers.codex.servers import AppServer
-from laomedo.agents.providers.codex.servers import SplitAppServer
 from laomedo.agents.agents.codex.agent import CodexAgent as LocalRunner
 from laomedo.agents.errors import RunnerError
-import threading
-from types import SimpleNamespace
 from laomedo.agents.artifacts.errors import ArtifactError
-import test_agents.test_runtime.test_lifecycle as fixtures
+from test_agents.test_runtime.transport import FakeServer
+from test_agents.test_runtime.utils import prepare_runner
+from test_agents.test_runtime.commands import (
+    CommandTransport,
+    UncertainCleanupTransport,
+    ResumeCommandTransport,
+)
 
 
 def command(method, identity="exec-1", **fields):
@@ -25,23 +27,17 @@ def command(method, identity="exec-1", **fields):
 
 
 class ProjectionTests(unittest.TestCase):
-    def test_both_native_transports_complete_with_a_dangling_command(self):
-        for transport in (AppServer, SplitAppServer):
-            events = [
-                command("item/started"),
-                {
-                    "method": "turn/completed",
-                    "params": {"turn": {"id": "turn-1", "status": "completed"}},
-                },
-            ]
-            server = SimpleNamespace(events=events)
-            self.assertEqual(
-                transport.wait_turn(server, "turn-1", 1, threading.Event()),
-                ("completed", None),
-            )
-            self.assertEqual(
-                _command_summary(events, "turn-1")["outstanding_ids"], ["exec-1"]
-            )
+    def test_native_completion_does_not_close_a_dangling_command(self):
+        events = [
+            command("item/started"),
+            {
+                "method": "turn/completed",
+                "params": {"turn": {"id": "turn-1", "status": "completed"}},
+            },
+        ]
+        self.assertEqual(
+            _command_summary(events, "turn-1")["outstanding_ids"], ["exec-1"]
+        )
 
     def test_other_turn_and_partial_output(self):
         events = [
@@ -91,21 +87,14 @@ class ProjectionTests(unittest.TestCase):
 
 
 class RunnerTests(unittest.TestCase):
-    setUp = fixtures.LocalRunnerTests.setUp
-    tearDown = fixtures.LocalRunnerTests.tearDown
-    request = fixtures.LocalRunnerTests.request
+    def setUp(self):
+        prepare_runner(self)
+
+    def request(self):
+        return self.case.request()
 
     def run_commands(self, events, *, resume=False):
-        class Transport(fixtures.FakeServer):
-            def wait_turn(server, turn_id, timeout, cancelled):
-                status = super().wait_turn(turn_id, timeout, cancelled)
-                server.events.extend(events)
-                for event in events:
-                    server.log.write(json.dumps(event) + "\n")
-                server.log.flush()
-                return status
-
-        self.runner.transport = Transport
+        self.runner.transport = lambda *args: CommandTransport(*args, events=events)
         return self.runner.start(self.request())
 
     def test_dangling_command_blocks_artifacts_and_retains_evidence_after_restart(self):
@@ -126,7 +115,7 @@ class RunnerTests(unittest.TestCase):
             self.runner.state,
             self.runner.store.root,
             self.source,
-            transport=fixtures.FakeServer,
+            transport=FakeServer,
             check_docker=False,
         )
         self.assertEqual(
@@ -197,17 +186,7 @@ class RunnerTests(unittest.TestCase):
         self.assertFalse(result["snapshot_ready"])
 
     def test_cleanup_failure_does_not_turn_a_dangling_command_into_cancellation(self):
-        class Transport(fixtures.FakeServer):
-            def wait_turn(server, turn_id, timeout, cancelled):
-                super().wait_turn(turn_id, timeout, cancelled)
-                server.events.append(command("item/started"))
-                return "completed", None
-
-            def close(server):
-                super().close()
-                raise OSError("synthetic cleanup failure")
-
-        self.runner.transport = Transport
+        self.runner.transport = UncertainCleanupTransport
         result = self.runner.start(self.request())
         self.assertEqual(result["status"], "failed")
         self.assertEqual(result["error_category"], "container_termination_unverified")
@@ -218,15 +197,7 @@ class RunnerTests(unittest.TestCase):
     def test_resume_dangling_command_cannot_reuse_previous_artifact_identity(self):
         first = self.runner.start(self.request())
 
-        class Transport(fixtures.FakeServer):
-            def wait_turn(server, turn_id, timeout, cancelled):
-                super().wait_turn(turn_id, timeout, cancelled)
-                event = command("item/started")
-                event["params"]["turnId"] = turn_id
-                server.events.append(event)
-                return "completed", None
-
-        self.runner.transport = Transport
+        self.runner.transport = ResumeCommandTransport
         result = self.runner.resume(
             first["run_id"],
             "continue",

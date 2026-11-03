@@ -1,3 +1,5 @@
+from test_agents.test_runtime.utils import prepare_runner
+
 """Internal producer and finalization controls; no native or Docker dispatch."""
 
 from importlib.util import find_spec
@@ -161,10 +163,10 @@ class CodexFailureFinalizationTests(unittest.TestCase):
     """Exercise the actual agent's early returns and independent cleanup result."""
 
     def setUp(self):
-        fixtures.LocalRunnerTests.setUp(self)
+        prepare_runner(self)
 
     def request(self):
-        return fixtures.LocalRunnerTests.request(self)
+        return self.case.request()
 
     def make_lease(self):
         directory = self.runner.state / "internal-lease"
