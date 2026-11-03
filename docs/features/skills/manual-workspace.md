@@ -33,7 +33,8 @@ publication-review mode. Git publication remains deferred.
 
 **Discard** opens a centered popup. Keep editing, Escape or clicking outside
 closes only the popup and preserves working changes. Explicit Discard changes
-reloads the journal head. It never deletes saved history or changes registry current. Closing with
+reloads the journal head. It never deletes saved history or changes registry
+current. Closing with
 working changes also asks first. Uncertain writes retain their exact identity and
 require **Check result** before closing or starting another write.
 
@@ -52,7 +53,8 @@ Git publication and durable unsaved crash recovery remain unsupported.
 ## Preview and Discard popup: current verification
 
 Binary preview fills the available editor content area without a byte-count/hash
-row, padding or preview frame. Images scale to fit with their aspect ratio kept;
+row or preview frame. Images have no added padding and scale to fit with their
+aspect ratio kept;
 the existing Full page control enlarges the workspace. Other binary formats retain
 a scrolling paged byte view. The source bytes and preview safety rules are unchanged.
 
