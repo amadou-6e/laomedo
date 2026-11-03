@@ -1,0 +1,85 @@
+{
+  "import": {
+    "commit_id": "sha256:440cb8a4f88d33fa53faa1c674ffaf1e3c4aaa8dcf7e789a2b0c18e6f5cf5ae5",
+    "skill_id": "internal-test",
+    "revision_id": "sha256:9bc28aa48cce16a80d467f317ae12f1aa105c27e5ec7b1fcabeed79eb661eab5",
+    "parent_commit": null,
+    "created_at": "2026-10-30T00:00:00+00:00",
+    "message": "Import existing immutable skill",
+    "files": [],
+    "patch": "",
+    "editor": {
+      "kind": "import"
+    },
+    "nonce": "33333333333343338333333333333333"
+  },
+  "result": {
+    "status": "proposed",
+    "promotion_performed": false,
+    "commit": {
+      "commit_id": "sha256:24b72a8cff13c90f21a4f51e3327ff3141e5c69ab343c5da0cc065d6976947d3",
+      "skill_id": "internal-test",
+      "revision_id": "sha256:163e67ec748cd983e269c180fbf9884fba1a977669285ea28feadc95816e32ac",
+      "parent_commit": "sha256:440cb8a4f88d33fa53faa1c674ffaf1e3c4aaa8dcf7e789a2b0c18e6f5cf5ae5",
+      "created_at": "2026-10-30T00:00:00+00:00",
+      "message": "Change two files together",
+      "files": [
+        "SKILL.md",
+        "rules/one.md"
+      ],
+      "patch": "--- base/SKILL.md\n+++ draft/SKILL.md\n@@ -2,3 +2,5 @@\n name: internal-test\\n\n description: Internal unit fixture.\\n\n ---\\n\n+\\n\n+Updated.\\n\n--- base/rules/one.md\n+++ draft/rules/one.md\n@@ -1 +1 @@\n-original\\n\n+updated\\n\n",
+      "editor": {
+        "kind": "agent",
+        "run_id": "run-id",
+        "trace_ref": "trace-ref"
+      },
+      "draft_id": "44444444-4444-4444-8444-444444444444",
+      "policy_ref": {
+        "policy_id": "test-policy",
+        "revision_id": "1",
+        "hash": "sha256:32cf3a983e902fd4f5802aa4bec03ef4a9cddb2fba929f22e0c946c42ebf8301"
+      },
+      "nonce": "33333333333343338333333333333333"
+    },
+    "skill": {
+      "skill_id": "internal-test",
+      "revision_id": "sha256:163e67ec748cd983e269c180fbf9884fba1a977669285ea28feadc95816e32ac",
+      "tree_hash": "sha256:163e67ec748cd983e269c180fbf9884fba1a977669285ea28feadc95816e32ac"
+    }
+  },
+  "comparison": {
+    "skill_id": "internal-test",
+    "base_commit": {
+      "commit_id": "sha256:440cb8a4f88d33fa53faa1c674ffaf1e3c4aaa8dcf7e789a2b0c18e6f5cf5ae5",
+      "skill_id": "internal-test",
+      "revision_id": "sha256:9bc28aa48cce16a80d467f317ae12f1aa105c27e5ec7b1fcabeed79eb661eab5",
+      "parent_commit": null,
+      "created_at": "2026-10-30T00:00:00+00:00",
+      "message": "Import existing immutable skill",
+      "files": [],
+      "editor": {
+        "kind": "import"
+      },
+      "nonce": "33333333333343338333333333333333"
+    },
+    "base_revision": "sha256:9bc28aa48cce16a80d467f317ae12f1aa105c27e5ec7b1fcabeed79eb661eab5",
+    "current_revision": "sha256:163e67ec748cd983e269c180fbf9884fba1a977669285ea28feadc95816e32ac",
+    "files": [
+      {
+        "path": "SKILL.md",
+        "status": "modified",
+        "before_hash": "sha256:638263ac65008f64a4b2b7795d29b7cca2165026a23748a0aea9acce1b00bb5b",
+        "after_hash": "sha256:19e0290b2284da2e5a240f9e49f5c9536fabfdcc27f67b7f742c3697e68666bd",
+        "binary": false
+      },
+      {
+        "path": "rules/one.md",
+        "status": "modified",
+        "before_hash": "sha256:25718360e05d3c2d0963d1381e9dd4dae5fca789244ee4b9f861adcc0cc96218",
+        "after_hash": "sha256:e06f60fa8cf5bea891e59dc0ed5b7af55b8cccd081ba9cfbca0ff1acadd9a47f",
+        "binary": false
+      }
+    ],
+    "patch": "diff --git a/SKILL.md b/SKILL.md\n--- a/SKILL.md\n+++ b/SKILL.md\n@@ -2,3 +2,5 @@\n name: internal-test\n description: Internal unit fixture.\n ---\n+\n+Updated.\ndiff --git a/rules/one.md b/rules/one.md\n--- a/rules/one.md\n+++ b/rules/one.md\n@@ -1 +1 @@\n-original\n+updated\n"
+  }
+}

@@ -1,0 +1,32 @@
+[
+  {
+    "payload": {
+      "run_id": "run-id",
+      "attempt_id": "attempt-id",
+      "run_binding_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "repository": "owner/repo",
+      "branch": "branch-\u00e9",
+      "baseline": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "source_bundle_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "verified_bundle_sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+    },
+    "preimage": "{\"attempt_id\":\"attempt-id\",\"baseline\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"branch\":\"branch-\\u00e9\",\"commit\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"repository\":\"owner/repo\",\"run_binding_sha256\":\"1111111111111111111111111111111111111111111111111111111111111111\",\"run_id\":\"run-id\",\"source_bundle_sha256\":\"2222222222222222222222222222222222222222222222222222222222222222\",\"verified_bundle_sha256\":\"3333333333333333333333333333333333333333333333333333333333333333\"}",
+    "digest": "2b1f76941f54a702636980a70bad3a5e35fd407fc3c78a03c53487152461003d"
+  },
+  {
+    "payload": {
+      "run_id": "run-id",
+      "attempt_id": "attempt-id",
+      "run_record_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "repository": "owner/repo",
+      "branch": "branch-\u00e9",
+      "baseline": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "source_bundle_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "verified_bundle_sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+    },
+    "preimage": "{\"attempt_id\":\"attempt-id\",\"baseline\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"branch\":\"branch-\\u00e9\",\"commit\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"repository\":\"owner/repo\",\"run_id\":\"run-id\",\"run_record_sha256\":\"1111111111111111111111111111111111111111111111111111111111111111\",\"source_bundle_sha256\":\"2222222222222222222222222222222222222222222222222222222222222222\",\"verified_bundle_sha256\":\"3333333333333333333333333333333333333333333333333333333333333333\"}",
+    "digest": "bf2c71a96ccaeb807ff98aa703ae5bd60789609bd437a3374ef53e303a60a067"
+  }
+]

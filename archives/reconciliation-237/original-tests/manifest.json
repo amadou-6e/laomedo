@@ -1,0 +1,1313 @@
+{
+  "purpose": "Exact original regression/proof/campaign test history, plus later metadata control before consolidation. Archive preservation is not current coverage or live acceptance.",
+  "files": [
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/browser/canvas_refresh.cjs",
+      "source_git_blob": "451d215e82cd55e09e3166af26966754186509e5",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/browser/canvas_refresh.cjs"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/browser/github_issue.cjs",
+      "source_git_blob": "bbbb2284906a9810ab8cc2dc00b8aeec6694b257",
+      "archive_path": "tests/browser/github_issue.cjs"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/browser/github_issue_operation.cjs",
+      "source_git_blob": "800a95ed7962518852c1ad5680c21e219bf884ca",
+      "archive_path": "tests/browser/github_issue_operation.cjs"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/browser/github_issue_stale.cjs",
+      "source_git_blob": "fef89655dbfcf5442ac857dad32dad1822812b1f",
+      "archive_path": "tests/browser/github_issue_stale.cjs"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/browser/issue_viewer.cjs",
+      "source_git_blob": "586e36ced149b1ac3844d8dd585fddb6818452e9",
+      "archive_path": "tests/browser/issue_viewer.cjs"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/browser/prepare_github_issue_fixture.py",
+      "source_git_blob": "a3de827e4cb746a7722f701d62aac5ddaf563116",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/browser/prepare_github_issue_fixture.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/browser/serve_github_issue_fixture.py",
+      "source_git_blob": "4c27f5f32dde04aac5d20e2a5b1db99a03ffae89",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/browser/serve_github_issue_fixture.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/browser/skill_files.cjs",
+      "source_git_blob": "c395e88756ef9cfbc25631e71e5a6abca4abdcf8",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/browser/skill_files.cjs"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/browser/skill_sources.cjs",
+      "source_git_blob": "e64835ce6a5a9b4a0a85343c95b697e58e5bed7b",
+      "archive_path": "tests/browser/skill_sources.cjs"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/contracts/activity-projection-3508b7aee.json",
+      "source_git_blob": "8ebd7d6a7d322a9eecb7ab19a60068ad7bac10cb",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/contracts/activity-projection-3508b7aee.json"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/contracts/agent-records-a9317f6.json",
+      "source_git_blob": "aa5a11c90b264cd6c66e93cfabad3529121d39d6",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/contracts/agent-records-a9317f6.json"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/contracts/agent-skill-workspace-6656c1c.json",
+      "source_git_blob": "96df27df646962291f3aeddc69544b0194508b2f",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/contracts/agent-skill-workspace-6656c1c.json"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/contracts/claude-access-login-3299f8d.json",
+      "source_git_blob": "5dc75cb755bceef3bceddcfafdc633e541f2c7a1",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/contracts/claude-access-login-3299f8d.json"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/contracts/component-templates.json",
+      "source_git_blob": "52492500be60bc42079e8081ef03b06e9a191722",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/contracts/component-templates.json"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/contracts/node-http-error-boundaries.json",
+      "source_git_blob": "126931f0f125f0e945d5ae5b375befb4f3e8be10",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/contracts/node-http-error-boundaries.json"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/contracts/publication-ingestion-errors.json",
+      "source_git_blob": "2cf15a879f46ab7a907b99ebc225c7f8613f541a",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/contracts/publication-ingestion-errors.json"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/contracts/registry-error-boundaries.json",
+      "source_git_blob": "81b2a29b0a77aeb61056b3c71cceb6b38b57ed89",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/contracts/registry-error-boundaries.json"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/contracts/skill-commits-a9317f6.json",
+      "source_git_blob": "ffbea7ba4dfb202beed267ee95478e83a3a66710",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/contracts/skill-commits-a9317f6.json"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/contracts/skills-direct-import-errors.json",
+      "source_git_blob": "cb41887070722d6aa9d89a5e15e00066ddfe7ee4",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/contracts/skills-direct-import-errors.json"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/contracts/structured-data-a9317f6.json",
+      "source_git_blob": "9fb8ceb3ac7a600af8abcf47445bd38fae893190",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/contracts/structured-data-a9317f6.json"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/contracts/verified-stage-a9317f6.json",
+      "source_git_blob": "a53d1de27128b51ae6530d8b14dd8fc834a7269f",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/contracts/verified-stage-a9317f6.json"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/contracts/work-launch-a9317f6.json",
+      "source_git_blob": "fef40512f4f8e9cabb3291fe5d12a635c93c267c",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/contracts/work-launch-a9317f6.json"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/fixtures/module-refactor-stale-components.json",
+      "source_git_blob": "28eb8399b7798dd6c82095a092df87de5b694513",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/fixtures/module-refactor-stale-components.json"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/fixtures/native_command_fixture.mjs",
+      "source_git_blob": "384dda89b8135ee38c1dfc63f8e68b714cc8c454",
+      "archive_path": "tests/fixtures/native_command_fixture.mjs"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/fixtures/native_mediation_stub.mjs",
+      "source_git_blob": "3ce59fefa0aef9f6689d64a1449dbf839dfa35a7",
+      "archive_path": "tests/fixtures/native_mediation_stub.mjs"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/fixtures/pre-src-native-flow.README.md",
+      "source_git_blob": "e90a25a7f9d0a59b0b1cd5e85a446783c1dea935",
+      "archive_path": "tests/fixtures/pre-src-native-flow.README.md"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/fixtures/pre-src-native-flow.json",
+      "source_git_blob": "3e11f60bd28054399064daf08ea734aee0536922",
+      "archive_path": "tests/fixtures/pre-src-native-flow.json"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/fixtures/work-graph-pre-pydantic.json",
+      "source_git_blob": "d5fd6d911ac1d8d0f80b171b6bdb8c8afb5ceeb6",
+      "archive_path": "tests/fixtures/work-graph-pre-pydantic.json"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/git_process_control.py",
+      "source_git_blob": "6a063dbfd3639b46f2fc52878f6dd0f6a8adde6f",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/git_process_control.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/git_runner_controls.py",
+      "source_git_blob": "39451605ebd8de6660e34adc60500133d4c0f5a8",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/git_runner_controls.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/langflow/test_agent_activity.py",
+      "source_git_blob": "f943cee80d6eac62c09d211f0b414a4f21458a65",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/langflow/test_agent_activity.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/langflow/test_bounded_controller.py",
+      "source_git_blob": "01bd0876755de98ee13a400b464ccd33c39962eb",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/langflow/test_bounded_controller.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/langflow/test_claude_component.py",
+      "source_git_blob": "94c2d8c9e90835e3c883901d5dc7371d028c06aa",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/langflow/test_claude_component.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/langflow/test_codex_component.py",
+      "source_git_blob": "ae56b08c1d7a2faccead0a187e36fc16ea8e294c",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/langflow/test_codex_component.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/langflow/test_github_issue.py",
+      "source_git_blob": "6ab6099cd7c1b8bbe8d61584b130e04398a33418",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/langflow/test_github_issue.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/langflow/test_github_pr.py",
+      "source_git_blob": "02f6515227c9e0125cefb9b2c250e0c7c99d9565",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/langflow/test_github_pr.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/langflow/test_graph_agent_activity.py",
+      "source_git_blob": "6427e52799dd2c438e283e8ad6fa57f2b274bb60",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/langflow/test_graph_agent_activity.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/langflow/test_handoff_graph.py",
+      "source_git_blob": "72693d035b30fe4cb62d7ab0d841c4ad94aa7257",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/langflow/test_handoff_graph.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/langflow/test_integrated_contract.py",
+      "source_git_blob": "5bc5c1e086b37978f54c2ffe761301ea1b6384d1",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/langflow/test_integrated_contract.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/langflow/test_issue_inspection.py",
+      "source_git_blob": "3507cdbd0ba0c4fffca1bd98d259339b840e9035",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/langflow/test_issue_inspection.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/langflow/test_legacy_contract_migration.py",
+      "source_git_blob": "8ac34967e1e9e4aad22177bd0a8206c885077212",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/langflow/test_legacy_contract_migration.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/langflow/test_live_workgraph.py",
+      "source_git_blob": "229398bf9427a36bbfbcf8b4a3e14cfc55e459f2",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/langflow/test_live_workgraph.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/langflow/test_migration_targets.py",
+      "source_git_blob": "3541e0ba226fbc302dab37e4467b88e4bb770766",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/langflow/test_migration_targets.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/langflow/test_opencode_component.py",
+      "source_git_blob": "4a8707b06b8ddb2ccf0383cbc30ec0adf8cbc985",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/langflow/test_opencode_component.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/langflow/test_output_contract_component.py",
+      "source_git_blob": "098ce667697d16ab842c5a86d5546f4d4cd4fc74",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/langflow/test_output_contract_component.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/langflow/test_pr_agent_loop.py",
+      "source_git_blob": "edf97ef8adaa54a0b155944a9945e0be5ba88f6e",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/langflow/test_pr_agent_loop.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/langflow/test_pr_inspection.py",
+      "source_git_blob": "6d7284b303f242f05cc967812032a0d9041c6e0b",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/langflow/test_pr_inspection.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/langflow/test_pr_publisher_component.py",
+      "source_git_blob": "fae17a62c35118c1f975e3f0288e4ac20165e177",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/langflow/test_pr_publisher_component.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/langflow/test_skill_operations.py",
+      "source_git_blob": "e45798b6077c08a08dc8c02e198f9b721bb1ac06",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/langflow/test_skill_operations.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/langflow/test_skill_sources.py",
+      "source_git_blob": "097b2e9b06226c8c54b2df38c8a21a90b3e2111c",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/langflow/test_skill_sources.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/langflow/test_src_saved_flow.py",
+      "source_git_blob": "33e872f53c48598acfabcbdddfb20691fc1a107f",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/langflow/test_src_saved_flow.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/langflow/test_workgraph_demo.py",
+      "source_git_blob": "fc41992d45fed7a8c793c917fdc0e7cb8ea75e8b",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/langflow/test_workgraph_demo.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/lease_controls.py",
+      "source_git_blob": "4eec7e429e50083cf275ea0dff716d47b6ca59c5",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/lease_controls.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/retained_github.py",
+      "source_git_blob": "a02951f765ee9028d431325fe296d3f2186ec611",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/retained_github.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/retained_native_probe_loader.py",
+      "source_git_blob": "de6a94e3c5b08adf781decb7fda9b78525d168c4",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/retained_native_probe_loader.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_acp_boundaries.py",
+      "source_git_blob": "3db459a53db45ba9a158e7171c5d50de1309a502",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_acp_boundaries.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_acp_capture.py",
+      "source_git_blob": "535d5fa2c7ecbcb53c93a4f4a3378d242b4f239b",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_acp_capture.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_acp_provider_bindings.py",
+      "source_git_blob": "eff475d7812f78d92e9bf398c7330010a5451636",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_acp_provider_bindings.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_acp_session.py",
+      "source_git_blob": "3466c121ad6b67ea613e062f2bc24b6300083cb1",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_acp_session.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_active_delivery_probe.py",
+      "source_git_blob": "fe6ca28dc0881d82aae2db135424a673cfa1e603",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_active_delivery_probe.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_activity_projection_envelope.py",
+      "source_git_blob": "0bf18663c4c24bd41ff59492eeceb2f45bafac2e",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_activity_projection_envelope.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_agent_activity_package.py",
+      "source_git_blob": "ef71145639ecf0ead68ca9dd6bd981cdb6f3a39d",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_agent_activity_package.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_agent_gh.mjs",
+      "source_git_blob": "b20702ba9c132e673c9b4a6849bfaa54949c5cb6",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_agent_gh.mjs"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_agent_issue_operations_demo.py",
+      "source_git_blob": "45563681a739186dfdc003a2d65ca214244058d6",
+      "archive_path": "archives/agents-205/legacy-agent-callers/files/tests/test_agent_issue_operations_demo.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_agent_mediation_container.py",
+      "source_git_blob": "2b098ad33b030394a323a692c005a05740d559e8",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_agent_mediation_container.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_agent_module_structure.py",
+      "source_git_blob": "87e1b869335ec40f79f566a01e1ef9c20a7f593d",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_agent_module_structure.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_agent_skill_workspace_modules.py",
+      "source_git_blob": "331d007c72c09b528cb4036f3c568348c99d65ee",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_agent_skill_workspace_modules.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_artifact_handoffs.py",
+      "source_git_blob": "8cfd9efbbd3f72775a9fee20cd749dbbf3d92c2c",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_artifact_handoffs.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_bundle_ingest.py",
+      "source_git_blob": "ec3cf357b2f6d861675354682b7bda10aaa664b6",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_bundle_ingest.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_bundle_stage.py",
+      "source_git_blob": "22cf27e62f20fb9900e142729b873058f7461265",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_bundle_stage.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_bundle_stage_ownership.py",
+      "source_git_blob": "a5eb212909a4eb2e8007da6fdb48f0256803c529",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_bundle_stage_ownership.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_bundle_verifier.py",
+      "source_git_blob": "ccaceb2720818708a07ae99fc9a67c469c1591c1",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_bundle_verifier.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_claude_access_login_record.py",
+      "source_git_blob": "6d385e35f2a916eefe89f20eeffecc7c40f4f143",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_claude_access_login_record.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_claude_container_parity.py",
+      "source_git_blob": "ba4947fc312fa1f9f7b685c97ba759dc8478c861",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_claude_container_parity.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_claude_login.py",
+      "source_git_blob": "62c28ae250bfae128858f8403e67e6153c75cc40",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_claude_login.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_claude_login_session.py",
+      "source_git_blob": "e615ae6b2c6bd12c199e7ff4f052f8a1f649d110",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_claude_login_session.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_claude_models.py",
+      "source_git_blob": "fddf64568c20ccf292ba665ae031af8256fc3e1f",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_claude_models.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_claude_runner.py",
+      "source_git_blob": "68cbbdbc3dafee098148b09f2013fd3913ea11fc",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_claude_runner.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_claude_telemetry.py",
+      "source_git_blob": "f9fe75d7ee8bdfb5a34fbc4d44a0b72664a75a16",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_claude_telemetry.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_codex_acp_controller.py",
+      "source_git_blob": "cbc94979d1ce9c1797940bbae76cfa4e5375dca0",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_codex_acp_controller.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_codex_activity_parity.py",
+      "source_git_blob": "0676cdc04ab9077396cae34d5aa2170b319f2bbf",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_codex_activity_parity.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_codex_docker_preflight.py",
+      "source_git_blob": "788b83f6900b79d25628fab94e23a809b20d80b2",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_codex_docker_preflight.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_codex_native_session.py",
+      "source_git_blob": "e7f84ccafe365e1d2f532f91c971382cdb7c9e22",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_codex_native_session.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_cohesion_models.py",
+      "source_git_blob": "2144e33852fbc6767bd887b73b5ff059fc3b4dc6",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_cohesion_models.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_container_lease.py",
+      "source_git_blob": "18ac61505971520e3fa4d7ed060b1a8e711dacb8",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_container_lease.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_contract_graph.py",
+      "source_git_blob": "93694803e5e8743123f065e2a541de3759038b8d",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_contract_graph.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_defining_imports.py",
+      "source_git_blob": "4b8be0836fee733ef020977a9f530791a6e0b95c",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_defining_imports.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_dependency_pins.py",
+      "source_git_blob": "29afd200ae72ab35e08071083c85b8b05b10ae15",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_dependency_pins.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_docker_stage_control.py",
+      "source_git_blob": "2a4beb89ab8ca7f0aaeab241f7fa882b855ec99b",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_docker_stage_control.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_early_runner.py",
+      "source_git_blob": "b2b99d4ec651ccac01732402e8a4ce36b73c6b5d",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_early_runner.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_execution_evidence.py",
+      "source_git_blob": "d321dc64d23e9b2a5f3f422766c475842306514b",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_execution_evidence.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_exp07_lease.py",
+      "source_git_blob": "d23895e94bf1840d6542cb5a33c4303a96850b41",
+      "archive_path": "archives/reconciliation-237/followups/5f74c72bfac7/tests/test_exp07_lease.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_exp100_bundle_transfer.py",
+      "source_git_blob": "e12a13d530582dade06766bac5c67f9e7d65bca6",
+      "archive_path": "archives/agents-205/test-callers/files/tests/test_exp100_bundle_transfer.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_exp100_handoff_s3.py",
+      "source_git_blob": "694c48a0cf9f9f0575f398cacf1af132db3e3d37",
+      "archive_path": "archives/agents-205/legacy-agent-callers/files/tests/test_exp100_handoff_s3.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_exp100_probe_s2.py",
+      "source_git_blob": "1fba6a4e1c91e406b2e366888a847c50d4008284",
+      "archive_path": "archives/agents-205/test-callers/files/tests/test_exp100_probe_s2.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_exp100_probe_s4.py",
+      "source_git_blob": "2bc81fb4717e972c7ba4921ceeb47db9037e0d5a",
+      "archive_path": "archives/agents-205/test-callers/files/tests/test_exp100_probe_s4.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_exp100_probe_s4_bundle.py",
+      "source_git_blob": "f5418588a7017429fd4e7dc77eae480557a1daba",
+      "archive_path": "archives/agents-205/test-callers/files/tests/test_exp100_probe_s4_bundle.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_exp100_probe_s4_diag.py",
+      "source_git_blob": "af7b13e691415e89f42e84cd85c00b6305df0653",
+      "archive_path": "archives/agents-205/test-callers/files/tests/test_exp100_probe_s4_diag.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_exp104_live_config.py",
+      "source_git_blob": "8f6d5071277896acdadc31b793f3f59070f3ee8e",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_exp104_live_config.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_exp104_s11_probe.py",
+      "source_git_blob": "b671e9a957ba24117b8a7116aff0d586258446d4",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_exp104_s11_probe.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_exp108_ci.py",
+      "source_git_blob": "8e2e513505f7c99b0dc7bf7fb6132f2718c151ce",
+      "archive_path": "archives/github-244/files/tests/test_exp108_ci.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_exp19_live_e2e.py",
+      "source_git_blob": "f8ac0671b84c5ba71130834ae3aa7e902cc74027",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_exp19_live_e2e.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_exp19_probe.py",
+      "source_git_blob": "e45c1f3f209a67bf07f7e5b52b6d1bdf104fde91",
+      "archive_path": "archives/agents-205/test-callers/files/tests/test_exp19_probe.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_exp66_probe.py",
+      "source_git_blob": "0888600a6843a61605d4749ee4978a6d2542cab0",
+      "archive_path": "archives/agents-205/test-callers/files/tests/test_exp66_probe.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_exp93_probe.py",
+      "source_git_blob": "746f12007382d76860a030d0f9b5109aad20a7aa",
+      "archive_path": "archives/reconciliation-237/followups/5f74c72bfac7/tests/test_exp93_probe.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_exp94_observation.py",
+      "source_git_blob": "a4e6aa90597003d2319447b4f16a8c3d00e28069",
+      "archive_path": "archives/reconciliation-237/followups/5f74c72bfac7/tests/test_exp94_observation.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_formatting_policy.py",
+      "source_git_blob": "aeff78280ac553ff279b8ca6f9ea269b41c019a5",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_formatting_policy.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_git_workspace.py",
+      "source_git_blob": "726808db02991159ffee4519e192521cb9f079c9",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_git_workspace.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_github_git_transport.py",
+      "source_git_blob": "7e0560158edb459fe145b94d18d6a2850466616a",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_github_git_transport.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_github_mediation.py",
+      "source_git_blob": "af7be0c3d7dac5ef01a347e25ef05cc5b076d124",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_github_mediation.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_github_ownership.py",
+      "source_git_blob": "30dcefe24b32baf2ba4525bc246388e5a1dc237e",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_github_ownership.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_github_pr_http.py",
+      "source_git_blob": "fc6b17b0637c8af1f237a91405cdbbf251d8d7f0",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_github_pr_http.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_github_rest_transport.py",
+      "source_git_blob": "4eef0801b507215769daacba4c2be0140a8c7f32",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_github_rest_transport.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_handoff_http.py",
+      "source_git_blob": "0d29b805fb1140cf597ad3dfb15ece8c31479f4e",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_handoff_http.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_handoffs.py",
+      "source_git_blob": "897972679c0b9b910d913b5b840b6f70377a6290",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_handoffs.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_host_mediated_push.py",
+      "source_git_blob": "177377080868aad6cf8f8b65ffa6727f949d5dbf",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_host_mediated_push.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_host_services.py",
+      "source_git_blob": "a27cbbc321347a68ed50099686e742acd099c29f",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_host_services.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_host_token_connection.py",
+      "source_git_blob": "8d3fc0bc6881e6cb7cb786cd70730a0b4d8607f4",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_host_token_connection.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_http_handler_boundaries.py",
+      "source_git_blob": "28fe76244a85740232ab134d402583e2b53310b5",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_http_handler_boundaries.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_issue_context.py",
+      "source_git_blob": "629e5635e63e5746294b8dfc7784a1d14971ab10",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_issue_context.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_issue_publication_live_probe.py",
+      "source_git_blob": "f6e7d972a7d436f00d2aacc1fd8275e776f2f5d8",
+      "archive_path": "archives/github-244/files/tests/test_issue_publication_live_probe.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_issue_publication_probe.py",
+      "source_git_blob": "4ea796fad6d0907ad9010c4c2d9d042ada507934",
+      "archive_path": "archives/github-244/files/tests/test_issue_publication_probe.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_langflow_client_join.py",
+      "source_git_blob": "b3ae8d7b40be6076efaeb6a32a6805f06e42e0b6",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_langflow_client_join.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_langflow_join_controller.py",
+      "source_git_blob": "9d60fc04a00aad823e7922487d2f13587b203eb9",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_langflow_join_controller.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_langflow_join_http.py",
+      "source_git_blob": "6c282cf453028a113734d9c00dd3f74ba05ba469",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_langflow_join_http.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_langflow_join_service.py",
+      "source_git_blob": "6b2ab5b25e394f4d5730d8b75f2d9b73acf07ee7",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_langflow_join_service.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_langflow_local_auth.py",
+      "source_git_blob": "946442fb52b383ed60baf5133e877d2d47df43ab",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_langflow_local_auth.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_langflow_stage_adapter.py",
+      "source_git_blob": "a6167d4def784bf022485c19c44a71d05698bd5c",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_langflow_stage_adapter.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_lease_controls.py",
+      "source_git_blob": "61c43ac30aed8423ed2a12fd9e8442d0eff0a1a0",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_lease_controls.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_lease_http_handler.py",
+      "source_git_blob": "b032be55bd3b7d64fc82ef7c0d98ae90d5b69460",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_lease_http_handler.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_lease_service.py",
+      "source_git_blob": "8208ebe85bee679fdf15fd1a53e85d6210932656",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_lease_service.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_live_command_probe.py",
+      "source_git_blob": "346e27deebf82647c17eaa51f70c3c5197fc8410",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_live_command_probe.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_live_github_issue.py",
+      "source_git_blob": "ced08cce7b0f8b0de89df3abe795125d1e83cadf",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_live_github_issue.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_live_github_pr.py",
+      "source_git_blob": "85c239c97d7aadad074d75ca4b31259593360617",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_live_github_pr.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_live_workgraph_bindings.py",
+      "source_git_blob": "317fa03162bdcb2bedee814a87e69409849e8d33",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_live_workgraph_bindings.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_live_workgraph_budget.py",
+      "source_git_blob": "84b4ecdaff8f278e231d9631e7694e0dbafc9f6e",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_live_workgraph_budget.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_live_workgraph_host_git.py",
+      "source_git_blob": "b383525d57d5bc2af9d7a4a0b581af773e198e5c",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_live_workgraph_host_git.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_live_workgraph_observation.py",
+      "source_git_blob": "30006929703a66f7212510e3f52cfc23b16b438a",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_live_workgraph_observation.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_local_runner.py",
+      "source_git_blob": "5d6fec854a6930208eafdb57ff2c837c843997fa",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_local_runner.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_managed_service.py",
+      "source_git_blob": "a495e49d6e6a43a9741ff63afe9608325cf9cbcb",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_managed_service.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_managed_startup_probe.py",
+      "source_git_blob": "ab650fa6f9a04da51077cb609d88dbcdba292eeb",
+      "archive_path": "archives/agents-205/test-callers/files/tests/test_managed_startup_probe.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_mediated_lease.py",
+      "source_git_blob": "210648fa6b3df30f179b8849bc48bb6f56da9228",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_mediated_lease.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_mediation_service_startup.py",
+      "source_git_blob": "595c918e1ac862b28abeafd3650ff3323bcfbfe6",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_mediation_service_startup.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_model_catalog.py",
+      "source_git_blob": "316c8a5b32a1a67ff3022d2448e5df069be31c71",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_model_catalog.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_module_cohesion.py",
+      "source_git_blob": "4aa8b3a3a54fdbf4dc3016f42cead413ffb548d8",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_module_cohesion.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_module_path_migration.py",
+      "source_git_blob": "504d1768b26e999a862fe4a7385017b5d481047c",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_module_path_migration.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_module_path_migration_bytes.py",
+      "source_git_blob": "c2e9f931fb4089323ec42f028b3136cb394c143e",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_module_path_migration_bytes.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_native_capture.py",
+      "source_git_blob": "6b8d0cb39c94f040fcadb0e1ce2ed03af41e5a8f",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_native_capture.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_native_commands.py",
+      "source_git_blob": "eb74f61658b5f76e98a267abef08be8113b616f7",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_native_commands.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_native_flow.py",
+      "source_git_blob": "71ced6dca9fc85d0c2988f31bc696cd6850d18e6",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_native_flow.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_native_localrunner_evidence.py",
+      "source_git_blob": "04163dd5f9ec896c721e6cf927515f8fd9aeb157",
+      "archive_path": "archives/agents-205/test-callers/files/tests/test_native_localrunner_evidence.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_native_localrunner_probe.py",
+      "source_git_blob": "940a812b302a163b54ffddd7c99459845489802c",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_native_localrunner_probe.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_native_managed_checks.py",
+      "source_git_blob": "df591e0b5b6bc04523d2e43188fd0f3d4471fe74",
+      "archive_path": "archives/agents-205/test-callers/files/tests/test_native_managed_checks.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_native_managed_evidence.py",
+      "source_git_blob": "e823d8b2155230626e369182d88d7f5a7883cbfc",
+      "archive_path": "archives/agents-205/test-callers/files/tests/test_native_managed_evidence.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_native_managed_probe.py",
+      "source_git_blob": "253f999a79552d52cac1da94ac5cca6791f142ac",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_native_managed_probe.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_native_managed_tasks.py",
+      "source_git_blob": "fe921d7e6b4132e41f0095aa6dd2f751695234d6",
+      "archive_path": "archives/agents-205/test-callers/files/tests/test_native_managed_tasks.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_native_managed_worker.py",
+      "source_git_blob": "006b031c7c8682cbfc71390bb4b6578166a1bb95",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_native_managed_worker.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_native_timeout_reconciliation.py",
+      "source_git_blob": "a9700400984bd9f2a3fe4687c4a01c36f36c1825",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_native_timeout_reconciliation.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_node_error_catalog.py",
+      "source_git_blob": "b5726320b338bb87587d296493b4664a094b014f",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_node_error_catalog.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_normal_runner_accounting.py",
+      "source_git_blob": "2a96868ef074ba8b580792bbd1c23061a3c7d8d9",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_normal_runner_accounting.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_opencode_activity.py",
+      "source_git_blob": "f114d645d69f2025fd803bc09bb2b5f513702374",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_opencode_activity.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_opencode_auth.py",
+      "source_git_blob": "b87746699cfe2a47e79a8beb80255902f43e917f",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_opencode_auth.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_opencode_boundary.py",
+      "source_git_blob": "4a463c49aa730c557158c3b676655254173b9881",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_opencode_boundary.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_opencode_config.py",
+      "source_git_blob": "68d44190d6c03fc079ea0b4455656b367a7637fe",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_opencode_config.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_opencode_history.py",
+      "source_git_blob": "68567cec7b08e389b5dfdc552703d8ee10517eb4",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_opencode_history.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_opencode_runner.py",
+      "source_git_blob": "b34b9e0b2cfdae6f47fb63316db09e6687cac7ab",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_opencode_runner.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_opencode_telemetry.py",
+      "source_git_blob": "5280c4e429eb4583f33a55b3b44db10ad3440770",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_opencode_telemetry.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_output_contract.py",
+      "source_git_blob": "241f156faaa59a759ce24c41d027b4d0b4da74b3",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_output_contract.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_outstanding_commands.py",
+      "source_git_blob": "9436cd9969585aaaf6ef6036b7709fa55f31ffb1",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_outstanding_commands.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_package_layout.py",
+      "source_git_blob": "2fdccbd9dfeeb62c47873a77db130ac583e8c758",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_package_layout.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_paired_feasibility.py",
+      "source_git_blob": "d7e782588ff19c6f5d7b8bc722492fed12040f24",
+      "archive_path": "archives/agents-205/test-callers/files/tests/test_paired_feasibility.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_paired_probe.py",
+      "source_git_blob": "955aec482e00fa9c299631423deb42e218e24f18",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_paired_probe.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_persistent_demo.py",
+      "source_git_blob": "d33bdb15f32cd164204b3a5e6b9a50af7a5713f7",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_persistent_demo.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_pilot_flow.py",
+      "source_git_blob": "7f2080b4ecd89870318e3a8e759dbebc290d8382",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_pilot_flow.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_pr_feedback.py",
+      "source_git_blob": "fe31637840c370351d830d497e259c423575d23a",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_pr_feedback.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_private_state_permissions.py",
+      "source_git_blob": "e29aa01afc87145a6a0670405a1f2b59909ab8ce",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_private_state_permissions.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_probe_stage_s7.py",
+      "source_git_blob": "562a15bf0d65054939e0b7bcff1376d2368d773f",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_probe_stage_s7.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_provider_boundaries.py",
+      "source_git_blob": "076315256f90ff6d1d3917c5c36e2ef135b65992",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_provider_boundaries.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_provider_docker_recovery.py",
+      "source_git_blob": "16ed17f8025118322a9bf8eaef17dd781343ff0f",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_provider_docker_recovery.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_public_http_interfaces.py",
+      "source_git_blob": "94793aa21d60eba4ea6f2b9c101ee384f5fa7d06",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_public_http_interfaces.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_publication_handoff.py",
+      "source_git_blob": "85d4347f63f8bd7bbe206c4c41210e407323cb57",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_publication_handoff.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_publication_ingestion_boundary.py",
+      "source_git_blob": "79c51b048ba518f38a03b61aee20599494de3273",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_publication_ingestion_boundary.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_registry_modules.py",
+      "source_git_blob": "d38bd5ea4a5db1098d58b7d1899accde913f8674",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_registry_modules.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_reviewed_issue_cli.py",
+      "source_git_blob": "0e967fd16d11f4c84de6657753df0c38014eaaac",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_reviewed_issue_cli.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_rollout_export.py",
+      "source_git_blob": "889d20d14f5771e70e5f57e44a2b402eea827907",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_rollout_export.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_runner_prerequisites.py",
+      "source_git_blob": "7ecaf05dcc2b4b09f1a7d70b13e747a552d9e64f",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_runner_prerequisites.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_runner_sandbox_policy.py",
+      "source_git_blob": "3e61d6361a72d5ba8b5d42753a66582fefe3e2f2",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_runner_sandbox_policy.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_runner_service.py",
+      "source_git_blob": "1d6359ed60257a93dcff04497db66b56da01d6af",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_runner_service.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_runner_trace_join.py",
+      "source_git_blob": "38e3d1e6d5f12b2d97694494f9b1496feba59a06",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_runner_trace_join.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_runtime_failure_finalization.py",
+      "source_git_blob": "119e6e5d37bb88d7438b80f27a7aa79ba90bc622",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_runtime_failure_finalization.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_runtime_failure_observations.py",
+      "source_git_blob": "93f628e466e5faad35640e6eb94053b9371050c1",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_runtime_failure_observations.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_settings_contracts.py",
+      "source_git_blob": "cf45b39f8b2dcef7b93f511a2816a48b9e129980",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_settings_contracts.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_shared_git.py",
+      "source_git_blob": "dde9f7fed904e3d9f39bcc231a4387f924de1f59",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_shared_git.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_siwc_auth.py",
+      "source_git_blob": "aed232f7464c9ea3d774c9dcd9a2a45fe27efb97",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_siwc_auth.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_skill_inspection.py",
+      "source_git_blob": "d46288963092f5a49fa3640792b1dc4248105d14",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_skill_inspection.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_skill_inspection_error_catalog.py",
+      "source_git_blob": "02f23ee3c978984636207658e5af4b91f35d880f",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_skill_inspection_error_catalog.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_skill_operations.py",
+      "source_git_blob": "03829e5422d69ff26ba5d472e234b546a3f06360",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_skill_operations.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_skill_sources.py",
+      "source_git_blob": "563c01e846b7c5a2e3b1d249a45a576ae60da47d",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_skill_sources.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_skill_store.py",
+      "source_git_blob": "556e66eef2b3f9fa5def317fc9a720718d08247a",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_skill_store.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_skill_summary.py",
+      "source_git_blob": "0942d4eb19f35f86a648b364dc47d0c8aec623db",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_skill_summary.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_skills_direct_imports.py",
+      "source_git_blob": "080c9bdf8713f2f2d063abbaf60ff97c13afb909",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_skills_direct_imports.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_source_boundaries.py",
+      "source_git_blob": "0d7bee1eaa5896358189bc8fb267ef6d99e49c40",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_source_boundaries.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_structured_agent_records.py",
+      "source_git_blob": "d9d052869f92726b382a210544b4ee5fe96b73a2",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_structured_agent_records.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_structured_github_records.py",
+      "source_git_blob": "17b1c3dbf4264cb2113933cd59f072cba6fbf013",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_structured_github_records.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_structured_host_records.py",
+      "source_git_blob": "fc434812711f968ae10e5e2fa4d54658d76ae7c6",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_structured_host_records.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_structured_record_structure.py",
+      "source_git_blob": "8da9320014ac4dbd84c37654d74f3516f7dd08c9",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_structured_record_structure.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_structured_skill_records.py",
+      "source_git_blob": "5c674cef6735730730a23c1b175b8daa2eeef49b",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_structured_skill_records.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_systemd_probe.py",
+      "source_git_blob": "1ad98973373c7816dbcb710207fe7495463889a1",
+      "archive_path": "archives/agents-205/test-callers/files/tests/test_systemd_probe.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_timeout_trace.py",
+      "source_git_blob": "71ef6e43ca201e4119d50aa448fc16b59304bf0e",
+      "archive_path": "archives/reconciliation-237/followups/1139d2013288/tests/test_timeout_trace.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_verified_stage.py",
+      "source_git_blob": "2e4893a7ac5f30999454033156036e69aa2a93f5",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_verified_stage.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_windows_git_tree.py",
+      "source_git_blob": "a0cb446781f1b3ef1b1257b3786b0c05f2c0b393",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_windows_git_tree.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_work_graph.py",
+      "source_git_blob": "7bd29e23ce38b0937c6f48884b18d84dd15642d9",
+      "archive_path": "archives/agents-205/test-callers/files/tests/test_work_graph.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_work_graph_cli_summary.py",
+      "source_git_blob": "605dbbd860f9282ca826b2d997b348c850cd8d49",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_work_graph_cli_summary.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_work_graph_launch.py",
+      "source_git_blob": "8d65939615f9137f3509555937992eb53aca2b13",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_work_graph_launch.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_workflow_run_store.py",
+      "source_git_blob": "6a69dad49801e48bc3af0d348e8e4a679d5020b8",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_workflow_run_store.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/test_workspace_skill_git.py",
+      "source_git_blob": "88f6e681d24581c60b66bd43151d81db14af856a",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/test_workspace_skill_git.py"
+    },
+    {
+      "source_revision": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "original_path": "tests/verification_runner.py",
+      "source_git_blob": "36d8ec6fca00c2d10055069619794507d787b47e",
+      "archive_path": "archives/reconciliation-237/original-tests/8f7b184573cc/tests/verification_runner.py"
+    },
+    {
+      "source_revision": "7f0b2202f9a0ce9fc2278574781b64dbc23b3832",
+      "original_path": "tests/test_github/test_contracts/test_ownership.py",
+      "source_git_blob": "17abda0cf978c53c08ea195e909e6297beb7f5af",
+      "archive_path": "archives/reconciliation-237/original-tests/7f0b2202f9a0/tests/test_github/test_contracts/test_ownership.py"
+    }
+  ]
+}

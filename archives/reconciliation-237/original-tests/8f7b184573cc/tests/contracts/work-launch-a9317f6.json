@@ -1,0 +1,19 @@
+{
+  "work_snapshot": {
+    "key": "github:S-20",
+    "repository": "verify/exp16",
+    "number": 20,
+    "url": "https://github.com/verify/exp16/issues/20",
+    "updated_at": "2026-10-05T09:00:00Z",
+    "body_digest": "sha256:758bfad94702dc24be06e7e90d2342eea4d9107c0d156ffb5521d0be7e3e98fa"
+  },
+  "work_snapshot_id": "sha256:4d9134699460543cea4507ba87a689d3243e9bbf053997d50044e010506d2dcb",
+  "input_digest": "sha256:cdd589c5ef68465179c41fc2ee16e6aaa4475b38a13e3dbf4c34ebf15812d036",
+  "selected_graph_snapshot_id": "sha256:1ba21698697294a9fa288796696292d5b02c85f591ca764da96cc10091630d8c",
+  "authorization_graph_snapshot_id": "sha256:1ba21698697294a9fa288796696292d5b02c85f591ca764da96cc10091630d8c",
+  "selected_content_digest": "sha256:e6487dd8c93024f32afc73e4e028b3d89b64797c94c7575b6855802d53a81dd1",
+  "frozen_content_digest": "sha256:e6487dd8c93024f32afc73e4e028b3d89b64797c94c7575b6855802d53a81dd1",
+  "authorization_content_digest": "sha256:e6487dd8c93024f32afc73e4e028b3d89b64797c94c7575b6855802d53a81dd1",
+  "source_choice": "unchanged",
+  "override": null
+}
