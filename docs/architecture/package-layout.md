@@ -30,67 +30,37 @@ forwarding modules, import hooks or checkout bridge.
 
 ```text
 src/laomedo/
-|-- activity/
-|   |-- agent_activity/
-|   |-- claude/
-|   |-- opencode/
-|   `-- runner/
 |-- agents/
+|   |-- agents/{base,claude,codex,opencode}/
+|   |-- interface/{langflow,output}/
+|   |-- activity/
+|   |-- workspaces/skills/
 |   |-- artifacts/
-|   |-- contracts/
-|   |-- feedback/
-|   |-- handoffs/
-|   |-- runtime/
-|   |-- workflow/
-|   |-- workspace/
-|   |-- providers/
-|   |   |-- codex/
-|   |   |   `-- resources/
-|   |   |-- claude/
-|   |   `-- opencode/
-|   `-- resources/
-|-- skills/
-|   |-- authoring/
-|   |-- ingestion/
-|   |-- inspection/
-|   |-- operations/
-|   |-- registry/
-|   |-- sources/
-|   |-- workspace/
-|   `-- resources/
-|-- github/
-|   |-- issues/
-|   |-- pull_requests/
-|   `-- transport/
-|       |-- git/
-|       `-- rest/
+|   `-- orchestration/
+|-- git/{credentials,windows}/
+|-- http/
+|-- github/{issues,pull_requests,transport}/
+|-- skills/{authoring,inspection,operations,registry,sources,resources}/
+|   `-- interface/{sources,operations}/
 |-- host/
-|   |-- credentials/
-|   |   |-- codex/
-|   |   |   `-- resources/
-|   |   |-- claude/
-|   |   |-- opencode/
-|   |   |-- siwc/
-|   |   `-- token/
+|   |-- credentials/{siwc,token}/
+|   |-- private_state/
 |   |-- leases/
 |   |-- mediation/
 |   |-- runner/
-|   `-- publication/
-|       |-- bundle/
-|       |-- handoff/
-|       |-- verified/
-|       `-- resources/
-|-- integrations/
-|   `-- langflow/
-|       |-- agent/
-|       `-- join/
-`-- work_graph/
+|   `-- publication/{bundle,handoff,ingestion,verified,resources}/
+|-- integrations/langflow/
+|   |-- agent/
+|   |-- feedback/
+|   |-- join/                 # Server lifetime and module-level JoinRequestHandler
+|   `-- output/
+`-- work_graph/runs/          # Graph-side WorkflowRunStore
 ```
 
 Each implementation has one owner. The neutral lifecycle is
-`laomedo.agents.runtime.runner.Runner`; Codex execution is
-`laomedo.agents.providers.codex.runner.CodexRunner`. Use
-`laomedo.skills.registry.store` and `laomedo.activity.agent_activity.capture`.
+`laomedo.agents.agents.base.agent.BaseAgent`; Codex execution is
+`laomedo.agents.agents.codex.agent.CodexAgent`. Use
+`laomedo.skills.registry.store` and `laomedo.agents.activity.capture`.
 The activity package exports `ActivityStore`, `capture_for` and `now`;
 module patch targets live in their defining modules. Docker build definitions
 live in `docker/`; registry documentation is in [the Skills registry guide](../features/skills/registry.md).
@@ -98,8 +68,8 @@ live in `docker/`; registry documentation is in [the Skills registry guide](../f
 Launchers use canonical names:
 
 ```text
-python -m laomedo.agents.providers.codex.cli ...
-python -m laomedo.agents.providers.claude.cli ...
+python -m laomedo.agents.agents.codex.cli ...
+python -m laomedo.agents.agents.claude.cli ...
 python -m laomedo.host.leases.service_cli serve ...
 python -m laomedo.host.managed_service ...
 ```

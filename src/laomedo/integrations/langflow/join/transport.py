@@ -6,6 +6,7 @@ This module does not start a service or alter an existing Langflow installation.
 from __future__ import annotations
 
 from laomedo.http.redirect import NoRedirect
+
 from urllib import error
 from urllib import request
 from urllib.parse import urlsplit
