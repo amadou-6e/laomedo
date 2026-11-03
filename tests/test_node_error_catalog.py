@@ -770,7 +770,13 @@ class OpenCodeErrorCatalogueTests(unittest.TestCase):
             if isinstance(node, ast.FunctionDef)
             and node.name in {"_reserve_turn", "_turn_available"}
         }
-        self.assertEqual(set(methods), {"_reserve_turn", "_turn_available"})
+        self.assertEqual(set(methods), {"_reserve_turn"})
+        self.assertFalse(
+            any(
+                isinstance(node, ast.FunctionDef) and node.name == "_turn_available"
+                for node in runner.body
+            )
+        )
         for name, node in methods.items():
             self.assertEqual(
                 emitted_codes(ast.unparse(node)) - catalog.keys(), set(), name

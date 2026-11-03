@@ -152,6 +152,7 @@ class CommandBroker:
                                     command,
                                 ],
                                 user="10001:10001",
+                                network_mode="none",
                                 read_only=False,
                                 working_dir="/draft",
                                 mounts=[
@@ -562,6 +563,8 @@ class IsolatedOpenCode:
             )
             if observed != model:
                 raise RunnerError("opencode_model_not_connected")
+            if cancelled.is_set():
+                raise RunnerError("opencode_cancelled_before_dispatch")
             on_session(client.session_id)
             capture.begin(client.session_id, task)
             client.on_update = capture.update

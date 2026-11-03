@@ -101,10 +101,11 @@ class ProviderBindingTests(unittest.IsolatedAsyncioTestCase):
     async def test_opencode_refuses_runtime_and_model_mismatch_before_capture_or_prompt(
         self,
     ):
-        for version, observed, error in (
-            ("wrong", "provider/model", "opencode_runtime_pin_mismatch"),
-            (CLI_VERSION, "provider/other", "opencode_model_not_connected"),
-            (CLI_VERSION, "provider/model", None),
+        for version, observed, error, cancel_during_setup in (
+            ("wrong", "provider/model", "opencode_runtime_pin_mismatch", False),
+            (CLI_VERSION, "provider/other", "opencode_model_not_connected", False),
+            (CLI_VERSION, "provider/model", None, False),
+            (CLI_VERSION, "provider/model", "opencode_cancelled_before_dispatch", True),
         ):
             with self.subTest(version=version, observed=observed):
                 runner = IsolatedOpenCode.__new__(IsolatedOpenCode)
@@ -148,6 +149,18 @@ class ProviderBindingTests(unittest.IsolatedAsyncioTestCase):
                     return SimpleNamespace(stop_reason="end_turn", usage=None)
 
                 client.prompt.side_effect = prompt_after_binding
+                cancelled = threading.Event()
+                if cancel_during_setup:
+
+                    async def cancel_after_model_selection(*args, **kwargs):
+                        cancelled.set()
+                        return SimpleNamespace(
+                            config_options=[
+                                SimpleNamespace(id="model", current_value=observed)
+                            ]
+                        )
+
+                    client.configure.side_effect = cancel_after_model_selection
                 with patch(
                     "laomedo.agents.agents.base.acp.session.AcpSession",
                     return_value=client,
@@ -156,7 +169,7 @@ class ProviderBindingTests(unittest.IsolatedAsyncioTestCase):
                         "Internal task",
                         "provider/model",
                         None,
-                        threading.Event(),
+                        cancelled,
                         capture,
                         on_session,
                     )
