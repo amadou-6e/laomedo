@@ -10,6 +10,9 @@ and clearly labelled proposals.
 [Earlier navigation and three-entry history verification](navigation-verification.md)
 records the simplified menu, nested files and real per-file comparisons.
 
+[Imported Skill history](import-history.md) explains the initial revision and
+retains its historical service-recovery evidence under Skill ownership.
+
 [Workspace Find and full-page viewing](workspace-viewer.md) explains cross-file
 search, result navigation and the earlier real normal/recovery checks.
 
