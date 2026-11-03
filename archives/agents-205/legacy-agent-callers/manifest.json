@@ -1,0 +1,48 @@
+{
+  "source_revision": "b59e588638de7525dd737ed3f26c706e5667a92e",
+  "policy": "Exact original Git blobs. Historical Agent consumers; no live verification or approval of production retirement.",
+  "files": [
+    {
+      "path": "examples/github-issue/agent_operation_demo.py",
+      "archive_path": "files/examples/github-issue/agent_operation_demo.py",
+      "source_git_blob": "8ddfef7567d6b7e1d91c5796d91deee6ca4b7160",
+      "bytes": 9810,
+      "sha256": "0ab62c36a65f9782f3b3bccc2c70326b95a0c4312fa196fdaa46c2e4312b9e30"
+    },
+    {
+      "path": "tests/test_agent_issue_operations_demo.py",
+      "archive_path": "files/tests/test_agent_issue_operations_demo.py",
+      "source_git_blob": "45563681a739186dfdc003a2d65ca214244058d6",
+      "bytes": 5257,
+      "sha256": "577abaa3aac1208cb97da378660997d8e4d8a9318806f9206940795c6c37fcff"
+    },
+    {
+      "path": "tests/test_exp100_handoff_s3.py",
+      "archive_path": "files/tests/test_exp100_handoff_s3.py",
+      "source_git_blob": "694c48a0cf9f9f0575f398cacf1af132db3e3d37",
+      "bytes": 742,
+      "sha256": "2b6e7875c7968f4de154ffc92117bbd299c866180aa822a3594f8f536f8fb73a"
+    },
+    {
+      "path": "experiments/exp100/test_handoff_s3.py",
+      "archive_path": "files/experiments/exp100/test_handoff_s3.py",
+      "source_git_blob": "b4b16e3799aa31e7b982a58397630d225abacb36",
+      "bytes": 21157,
+      "sha256": "720448e97eebff827a5f9a7268dfc3a8ffb926fd8c82dab4a475dbb1c3b8b0b5"
+    },
+    {
+      "path": "experiments/exp100/probe_s3.py",
+      "archive_path": "files/experiments/exp100/probe_s3.py",
+      "source_git_blob": "dcddf21777bddfb03dd28463f7a3933bda5148fd",
+      "bytes": 8442,
+      "sha256": "b3b744eb08efc0d8aee4b4235a8bda1ea743487acfaacb0bceda8ef57197cdf5"
+    },
+    {
+      "path": "experiments/exp100/handoff_s3.py",
+      "archive_path": "files/experiments/exp100/handoff_s3.py",
+      "source_git_blob": "ae1795797a88e254426bd5f8b3b6eac0269ba57c",
+      "bytes": 10120,
+      "sha256": "b3b81daf4559abed333d38530c985ab5823839996b6127956d4a545f0775b7d2"
+    }
+  ]
+}
