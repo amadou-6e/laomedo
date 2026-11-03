@@ -20,7 +20,8 @@ const SkillFileManager = forwardRef<SkillFileManagerHandle, Props>(function Skil
   const live = useRef(true), reading = useRef(false), uploadFolder = useRef("");
   const latestManual = useRef(manual); latestManual.current = manual;
   const dragged = useRef<string | null>(null), formRef = useRef<Form | null>(null);
-  const cut = useRef<string | null>(null);
+  const [cut, setCut] = useState<string | null>(null);
+  useEffect(() => { setCut(null); }, [manual.state?.head_commit]);
   const [menu, setMenu] = useState<string | null>(null), [form, setForm] = useState<Form | null>(null);
   const [value, setValue] = useState(""), [dropFolder, setDropFolder] = useState<string | null>(null);
   useEffect(() => { live.current = true; return () => { live.current = false; }; }, []);
@@ -120,7 +121,7 @@ const SkillFileManager = forwardRef<SkillFileManagerHandle, Props>(function Skil
           if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); cancel(); } }} />
     </div>;
   const decorate = (entry: ExplorerEntry, row: ReactElement) => <Menu.Root key={entry.path} open={menu === entry.path} onOpenChange={(open) => { setMenu(open ? entry.path : null); }}>
-    <div className={`relative ${!entry.path ? "flex min-h-0 flex-1 flex-col" : ""} ${dropFolder === entry.path && entry.folder ? "bg-zinc-200 dark:bg-zinc-700" : ""}`} data-skill-file-path={entry.path} draggable={!disabledReason && !form && !!entry.path && entry.path !== "SKILL.md"}
+    <div className={`relative ${!entry.path ? "flex min-h-0 flex-1 flex-col" : ""} ${entry.path && cut && (entry.path === cut || entry.path.startsWith(cut + "/")) ? "opacity-50" : ""} ${dropFolder === entry.path && entry.folder ? "bg-zinc-200 dark:bg-zinc-700" : ""}`} data-skill-file-path={entry.path} draggable={!disabledReason && !form && !!entry.path && entry.path !== "SKILL.md"}
       data-drop-target={dropFolder === entry.path && entry.folder ? "true" : undefined}
       onContextMenu={(event) => { event.preventDefault(); event.stopPropagation(); setMenu(entry.path); }}
       onKeyDown={(event) => {
@@ -164,8 +165,8 @@ const SkillFileManager = forwardRef<SkillFileManagerHandle, Props>(function Skil
       const move = manual.undoFiles(key === "z" && !event.shiftKey); if (move) props.onRemap(move.source, move.destination); focus(path);
     } else if (modifier && (key === "x" || key === "v")) {
       event.preventDefault(); event.stopPropagation(); if (disabledReason || reading.current) return;
-      if (key === "x" && path && path !== "SKILL.md") cut.current = path;
-      if (key === "v" && cut.current) { commitMove(cut.current, joinPath(dropTarget(entry), baseName(cut.current))); cut.current = null; }
+      if (key === "x" && path && path !== "SKILL.md") setCut(path);
+      if (key === "v" && cut) { commitMove(cut, joinPath(dropTarget(entry), baseName(cut))); setCut(null); }
     } else if (event.key === "F2" || event.key === "Delete") {
       event.preventDefault(); event.stopPropagation(); if (event.key === "F2") rename(entry); else if (path) remove(path);
     }

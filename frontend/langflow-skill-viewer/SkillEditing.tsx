@@ -19,6 +19,13 @@ export function useSkillEditing(skillId: string, revision: string, snapshot: Sna
   const [buffers, setBuffers] = useState<FileBuffers>(new Map());
   const [folders, setFolders] = useState<string[]>([]);
   const undo = useRef<TreeChange[]>([]), redo = useRef<TreeChange[]>([]);
+  const treeIdentity = useRef(`${skillId}:${revision}`);
+  useEffect(() => {
+    const identity = `${skillId}:${revision}`;
+    if (treeIdentity.current !== identity) {
+      undo.current = []; redo.current = []; setFolders([]); setBuffers(new Map()); treeIdentity.current = identity;
+    }
+  }, [skillId, revision]);
   const [candidate, setCandidate] = useState<Candidate | null>(null);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
@@ -40,7 +47,7 @@ export function useSkillEditing(skillId: string, revision: string, snapshot: Sna
   const files = useMemo(() => workingFiles(snapshot?.files || [], buffers), [snapshot, buffers]);
   const tree: WorkingTree = { files, folders: folderPaths(files, folders) };
   const stage = (next: WorkingTree) => {
-    if (!snapshot || !state?.can_edit || busy || pending || submitting.current) return false;
+    if (!snapshot || snapshot.revision_id !== revision || treeIdentity.current !== `${skillId}:${revision}` || !state?.can_edit || busy || pending || submitting.current) return false;
     try { validateTree(snapshot.files, next); }
     catch (failure) { setError(failure instanceof Error && (fileActionErrors as readonly string[]).includes(failure.message) ? failure.message : "skill_manual_file_invalid"); return false; }
     const staged: FileBuffers = new Map(next.files.map((file) => [file.path, file]));
@@ -79,6 +86,9 @@ export function useSkillEditing(skillId: string, revision: string, snapshot: Sna
           const saved = data as SaveResult;
           if (saved.skill?.skill_id !== skillId || !saved.skill.revision_id || saved.skill.tree_hash !== saved.skill.revision_id || !saved.commit?.commit_id) throw Error();
           const next = { revision: saved.skill.revision_id, commit: saved.commit.commit_id };
+          // Our confirmed save keeps local empty folders; externally followed
+          // heads clear them and the action stacks in the identity effect.
+          treeIdentity.current = `${skillId}:${next.revision}`;
           setCandidate(next); setBuffers(new Map()); undo.current = []; redo.current = []; onSaved(next.revision);
           request = { action: "publish", expectedLatest: request.expectedLatest, body: {
             skill_id: skillId, revision_id: next.revision, commit_id: next.commit, expected_latest: request.expectedLatest,
@@ -120,7 +130,7 @@ export function useSkillEditing(skillId: string, revision: string, snapshot: Sna
       return change.move && (backwards ? { source: change.move.destination, destination: change.move.source } : change.move);
     },
     publish: () => {
-      if (!state?.can_publish || !state.can_edit || !dirty || busy || pending || importing) return;
+      if (!state?.can_publish || !state.can_edit || state.selected_revision !== revision || snapshot?.revision_id !== revision || treeIdentity.current !== `${skillId}:${revision}` || !dirty || busy || pending || importing) return;
       try { validateEditSize(changes); } catch { setError("skill_manual_file_limit"); return; }
       const expectedLatest = state.latest_revision;
       if (changes.length) void submit({ action: "save", expectedLatest, body: {

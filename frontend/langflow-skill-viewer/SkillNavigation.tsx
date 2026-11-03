@@ -1,13 +1,13 @@
 import { SkillChevron } from "./SkillIcons";
 import { useEffect, useState, type ReactNode } from "react";
 
-export function useSkillNavigation(identity: string, paths: string[]) {
+export function useSkillNavigation(identity: string, paths: string[], directories: string[] = []) {
   const [open, setOpen] = useState({ Find: false, Files: true, Commits: true });
   const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(new Set());
-  const fileFolders = [...new Set(paths.flatMap((path) => {
+  const fileFolders = [...new Set([...directories, ...paths.flatMap((path) => {
     const parts = path.split("/");
     return parts.slice(0, -1).map((_, index) => parts.slice(0, index + 1).join("/"));
-  }))];
+  })])];
   const folders = [...fileFolders, ...fileFolders.map((path) => `search:folder:${path}`), ...paths.map((path) => `search:file:${path}`)];
   useEffect(() => { setOpen({ Find: false, Files: true, Commits: true }); setCollapsedFolders(new Set()); }, [identity]);
   const allOpen = open.Find && open.Files && open.Commits && folders.every((path) => !collapsedFolders.has(path));

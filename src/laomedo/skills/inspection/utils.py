@@ -120,8 +120,6 @@ def inspect_skill(
                 "kind": "text" if text is not None else "binary",
                 "text": text,
             }
-            if include_binary and text is None:
-                item["binary_base64"] = base64.b64encode(data).decode("ascii")
             # Inline only inert raster image formats from the same verified snapshot.
             mime = (
                 "image/png"
@@ -144,6 +142,8 @@ def inspect_skill(
                 item["image_data_url"] = (
                     "data:" + mime + ";base64," + base64.b64encode(data).decode("ascii")
                 )
+            if include_binary and text is None and "image_data_url" not in item:
+                item["binary_base64"] = base64.b64encode(data).decode("ascii")
             files.append(item)
         return {
             "schema_version": "laomedo.skill-inspection.v1",

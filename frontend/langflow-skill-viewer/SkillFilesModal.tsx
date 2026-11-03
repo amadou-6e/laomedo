@@ -3,6 +3,9 @@ import SkillNavigation, { useSkillNavigation } from "./SkillNavigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import SkillSearch, { type SkillMatch } from "./SkillSearch";
 import * as monaco from "monaco-editor/editor";
+// JSON's worker manager imports these contributions lazily. Register their
+// services before the first standalone editor freezes its service collection.
+import "monaco-editor/internal/common/workers";
 import EditorWorker from "monaco-editor/editor/editor.worker?worker";
 import "monaco-editor/languages/definitions/markdown/register";
 import "monaco-editor/languages/definitions/python/register";
@@ -96,7 +99,7 @@ function SkillWorkspace({ skillId, initialRevision, setOpen }: { skillId: string
   const comparison = useRegistryComparison(skillId, manual.state?.latest_revision || "", manual.files);
   const [comparisonPath, setComparisonPath] = useState<string | null>(null);
   const navigationFiles = [...manual.files, ...historicalFiles.filter((old) => !manual.files.some((current) => current.path === old.path))];
-  const navigation = useSkillNavigation(`${skillId}:${revision}`, [...navigationFiles.map((file) => file.path), ...manual.tree.folders.map((folder) => folder + "/_")]);
+  const navigation = useSkillNavigation(`${skillId}:${revision}`, navigationFiles.map((file) => file.path), manual.tree.folders);
   useEffect(() => {
     if (selectedCommit || !snapshot || snapshot.revision_id !== revision) return;
     setTabs((current) => current.every((path) => manual.files.some((file) => file.path === path)) ? current : current.filter((path) => manual.files.some((file) => file.path === path)));

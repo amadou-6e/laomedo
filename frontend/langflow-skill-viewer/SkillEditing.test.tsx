@@ -11,6 +11,23 @@ const snapshot: Snapshot = { schema_version: "laomedo.skill-inspection.v1", skil
 const state = { skill_id: "unit", selected_revision: "old", head_revision: "old", head_commit: "commit", latest_revision: "canonical", can_edit: true, can_publish: true, edit_enabled: true };
 beforeEach(() => { post.mockReset(); post.mockResolvedValue({ data: state }); });
 
+test("following a new revision clears old tree redo rather than restoring stale bytes", async () => {
+  const saved = jest.fn();
+  post.mockImplementation((_url, body) => Promise.resolve({ data: { ...state, selected_revision: body.revision_id, head_revision: body.revision_id } }));
+  const { result, rerender } = renderHook(({ revision, value }) => useSkillEditing('unit', revision, value, saved), { initialProps: { revision: 'old', value: snapshot } });
+  await waitFor(() => expect(result.current.editing).toBe(true));
+  act(() => { result.current.replaceFiles(snapshot.files.map((file) => file.path === 'refs/a.md' ? { ...file, path: 'a.md' } : file), ['refs']); });
+  act(() => { result.current.undoFiles(); });
+  expect(result.current.dirty).toBe(false);
+  const newer: Snapshot = { ...snapshot, revision_id: 'new-head', tree_hash: 'new-head', files: snapshot.files.map((file) => ({ ...file, text: 'newer saved bytes' })) };
+  rerender({ revision: 'new-head', value: newer });
+  await waitFor(() => expect(result.current.state?.selected_revision).toBe('new-head'));
+  act(() => { expect(result.current.undoFiles(false)).toBe(false); });
+  expect(result.current.files.map((file) => file.text)).toEqual(['newer saved bytes', 'newer saved bytes']);
+  expect(result.current.files.map((file) => file.path)).toEqual(['SKILL.md', 'refs/a.md']);
+  expect(result.current.dirty).toBe(false);
+});
+
 test("editing is immediately enabled; one Publish saves the whole batch then promotes its exact commit", async () => {
   const saved = jest.fn();
   const { result } = renderHook(() => useSkillEditing("unit", "old", snapshot, saved));
