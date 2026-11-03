@@ -10,7 +10,10 @@ its relevant file tree beside each provider's graph.
 | Tools and credentials | [PNG](comparison-tools-auth.png) |
 | Evidence to Activity | [PNG](comparison-evidence.png) |
 
-Scroll vertically to compare providers within a concern. Matching `[A]`, `[B]`,
+Scroll vertically to compare providers within a concern. Card titles name the
+architectural role consistently; concrete classes, protocols and event formats
+appear underneath. Letter references are local to each provider row, not parity
+identifiers: absent or additional components retain their actual roles. Matching `[A]`, `[B]`,
 etc. references connect graph nodes to their defining files; files shared by
 nodes show multiple references. Arrows identify each component's caller, native
 interface, credential consumer or evidence consumer.

@@ -10,7 +10,7 @@ matrix:
   column_gaps: [110, 110, 110, 110]
 nodes:
   entry:
-    label_html: "<b>[A] Application boundary + BaseAgent</b><br/>agents/interface/; agents/agents/base/agent.py<br/><br/>Public operations, run admission and records. Concrete providers implement the native execution hooks."
+    label_html: "<b>[A] Application interface</b><br/>agents/interface/; agents/agents/base/agent.py<br/><br/>Public operations, run admission and records. Concrete providers implement the native execution hooks."
     style:
       width: 285
       height: 150
@@ -21,7 +21,7 @@ nodes:
     source_files: ["src/laomedo/agents/interface/bridge.py", "src/laomedo/agents/agents/base/agent.py"]
     graph_reference: "A"
   agent:
-    label_html: "<b>[B] OpenCodeAgent : BaseAgent</b><br/>opencode/agent.py<br/><br/>Require an injected transport, bind attempts and coordinate final snapshots/evidence. Deployment wiring remains incomplete."
+    label_html: "<b>[B] Provider agent</b><br/>OpenCodeAgent : BaseAgent<br/>opencode/agent.py<br/><br/>Require an injected transport, bind attempts and coordinate final snapshots/evidence. Deployment wiring remains incomplete."
     style:
       width: 285
       height: 150
@@ -32,7 +32,7 @@ nodes:
     source_files: ["src/laomedo/agents/agents/opencode/agent.py"]
     graph_reference: "B"
   runtime:
-    label_html: "<b>[C] IsolatedOpenCode</b><br/>opencode/boundary.py; models.py<br/><br/>Own controller setup, shared ACP session, native model selection, cancellation and exact resource closure."
+    label_html: "<b>[C] Controller lifecycle</b><br/>IsolatedOpenCode<br/>opencode/boundary.py; models.py<br/><br/>Own controller setup, shared ACP session, native model selection, cancellation and exact resource closure."
     style:
       width: 285
       height: 150
@@ -43,7 +43,7 @@ nodes:
     source_files: ["src/laomedo/agents/agents/opencode/boundary.py", "src/laomedo/agents/agents/opencode/models.py"]
     graph_reference: "C"
   acp:
-    label_html: "<b>[D] Shared ACP bridge + Python SDK</b><br/>agents/agents/base/acp/session.py; transport.py<br/><br/>AcpSession composes the upstream ACP SDK. DockerTransport carries its frames over attached stdin/stdout."
+    label_html: "<b>[D] ACP communication</b><br/>agents/agents/base/acp/session.py; transport.py<br/><br/>AcpSession composes the upstream ACP SDK. DockerTransport carries its frames over attached stdin/stdout."
     style:
       width: 285
       height: 150
@@ -54,7 +54,7 @@ nodes:
     source_files: ["src/laomedo/agents/agents/base/acp/session.py", "src/laomedo/agents/agents/base/acp/transport.py"]
     graph_reference: "D"
   docker:
-    label_html: "<b>[E] Shared Docker mechanics</b><br/>py-docker -&gt; Docker SDK -&gt; Engine<br/><br/>Create/attach owned containers, execute jobs, retain receipts and reconcile cleanup."
+    label_html: "<b>[E] Docker lifecycle</b><br/>py-docker -&gt; Docker SDK -&gt; Engine<br/><br/>Create/attach owned containers, execute jobs, retain receipts and reconcile cleanup."
     style:
       width: 285
       height: 150
@@ -66,7 +66,7 @@ nodes:
     graph_reference: "E"
     external_source: "Separate dependencies: py-docker -> Docker SDK -> Docker Engine."
   adapter:
-    label_html: "<b>[F] Native ACP endpoint</b><br/>opencode acp<br/><br/>Part of the same native OpenCode process; no custom in-container adapter."
+    label_html: "<b>[F] ACP endpoint</b><br/>opencode acp<br/><br/>Part of the same native OpenCode process; no custom in-container adapter."
     style:
       width: 285
       height: 150
@@ -78,7 +78,7 @@ nodes:
     graph_reference: "F"
     external_source: "Native opencode ACP implementation; no custom adapter files."
   cli:
-    label_html: "<b>[G] Native OpenCode ACP + Agent</b><br/>opencode acp<br/><br/>One upstream process supplies both ACP and native execution. No custom in-container ACP adapter."
+    label_html: "<b>[G] Native agent runtime</b><br/>opencode acp<br/><br/>One upstream process supplies both ACP and native execution. No custom in-container ACP adapter."
     style:
       width: 285
       height: 150
@@ -90,7 +90,7 @@ nodes:
     graph_reference: "G"
     external_source: "Upstream native opencode runtime installed in its Docker image."
   model:
-    label_html: "<b>[H] External model service</b><br/>Outside local Docker<br/><br/>Native OpenCode performs authenticated model requests."
+    label_html: "<b>[H] Model service</b><br/>Outside local Docker<br/><br/>Native OpenCode performs authenticated model requests."
     style:
       width: 285
       height: 150

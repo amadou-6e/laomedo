@@ -10,7 +10,7 @@ matrix:
   column_gaps: [110, 110, 110]
 nodes:
   source:
-    label_html: "<b>[A] Existing Console account</b><br/>Host-owned account source<br/><br/>Host setup selects approved access/routing data; no full profile or refresh ownership transfer."
+    label_html: "<b>[A] Host credential source</b><br/>Host-owned account source<br/><br/>Host setup selects approved access/routing data; no full profile or refresh ownership transfer."
     style:
       width: 285
       height: 150
@@ -22,7 +22,7 @@ nodes:
     graph_reference: "A"
     external_source: "Existing host login/account state, not repository files."
   docker:
-    label_html: "<b>[B] Shared Docker mechanics</b><br/>py-docker -&gt; Docker SDK -&gt; Engine<br/><br/>Create/attach owned containers, execute jobs, retain receipts and reconcile cleanup."
+    label_html: "<b>[B] Docker lifecycle</b><br/>py-docker -&gt; Docker SDK -&gt; Engine<br/><br/>Create/attach owned containers, execute jobs, retain receipts and reconcile cleanup."
     style:
       width: 285
       height: 150
@@ -34,7 +34,7 @@ nodes:
     graph_reference: "B"
     external_source: "Separate dependencies: py-docker -> Docker SDK -> Docker Engine."
   auth:
-    label_html: "<b>[C] Native auth adaptation</b><br/>opencode/auth/; utils.py<br/><br/>Host setup selects Console credential/routing. Runtime checks expiry and keyed credential binding."
+    label_html: "<b>[C] Credential provisioning</b><br/>Native auth adaptation<br/>opencode/auth/; utils.py<br/><br/>Host setup selects Console credential/routing. Runtime checks expiry and keyed credential binding."
     style:
       width: 285
       height: 150
@@ -45,7 +45,7 @@ nodes:
     source_files: ["src/laomedo/agents/agents/opencode/auth/utils.py", "src/laomedo/agents/agents/opencode/auth/transport.py", "src/laomedo/agents/agents/opencode/utils.py"]
     graph_reference: "C"
   broker:
-    label_html: "<b>[D] Host CommandBroker</b><br/>opencode/boundary.py; http/<br/><br/>Authenticated remote MCP receives native tool calls and admits credential-free Docker command jobs."
+    label_html: "<b>[D] Host command gateway</b><br/>Host CommandBroker<br/>opencode/boundary.py; http/<br/><br/>Authenticated remote MCP receives native tool calls and admits credential-free Docker command jobs."
     style:
       width: 285
       height: 150
@@ -56,7 +56,7 @@ nodes:
     source_files: ["src/laomedo/agents/agents/opencode/boundary.py", "src/laomedo/agents/agents/opencode/http/handler.py", "src/laomedo/agents/agents/opencode/http/server.py"]
     graph_reference: "D"
   profile:
-    label_html: "<b>[E] Restricted view + profile mounts</b><br/>Private generated config / auth / sessions<br/><br/>Only admitted skills/config and read-only auth reach the controller. Model-writable project config stays out."
+    label_html: "<b>[E] Controller credentials and state</b><br/>Private generated config / auth / sessions<br/><br/>Only admitted skills/config and read-only auth reach the controller. Model-writable project config stays out."
     style:
       width: 285
       height: 150
@@ -68,7 +68,7 @@ nodes:
     graph_reference: "E"
     external_source: "Admitted private profile/config/session state. Never tracked as source."
   bridge:
-    label_html: "<b>[F] Native remote MCP client</b><br/>Part of the opencode process<br/><br/>Calls host /mcp directly; this is not another custom adapter."
+    label_html: "<b>[F] Tool-call transport</b><br/>Part of the opencode process<br/><br/>Calls host /mcp directly; this is not another custom adapter."
     style:
       width: 285
       height: 150
@@ -80,7 +80,7 @@ nodes:
     graph_reference: "F"
     external_source: "Upstream component or runtime state; no custom source file in this repository."
   cli:
-    label_html: "<b>[G] Native OpenCode ACP + Agent</b><br/>opencode acp<br/><br/>One upstream process supplies both ACP and native execution. No custom in-container ACP adapter."
+    label_html: "<b>[G] Native agent runtime</b><br/>opencode acp<br/><br/>One upstream process supplies both ACP and native execution. No custom in-container ACP adapter."
     style:
       width: 285
       height: 150
@@ -92,7 +92,7 @@ nodes:
     graph_reference: "G"
     external_source: "Upstream native opencode runtime installed in its Docker image."
   worker:
-    label_html: "<b>[H] Credential-free command worker</b><br/>Separate Docker container<br/><br/>No network or credential mount. Current image comes from Codex; neutral packaging is still needed."
+    label_html: "<b>[H] Command worker</b><br/>Separate Docker container<br/><br/>No network or credential mount. Current image comes from Codex; neutral packaging is still needed."
     style:
       width: 285
       height: 150

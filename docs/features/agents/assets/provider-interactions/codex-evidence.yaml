@@ -10,7 +10,7 @@ matrix:
   column_gaps: [110, 110, 110, 110]
 nodes:
   source:
-    label_html: "<b>[A] Native Codex events</b><br/>Native runtime + patched ACP adapter<br/><br/>Custom extension preserves item/thread/terminal events and host policy."
+    label_html: "<b>[A] Evidence source</b><br/>Native runtime + patched ACP adapter<br/><br/>Custom extension preserves item/thread/terminal events and host policy."
     style:
       width: 285
       height: 150
@@ -21,7 +21,7 @@ nodes:
     source_files: ["docker/codex-acp/LaomedoExtension.ts", "docker/codex-acp/native-events.patch"]
     graph_reference: "A"
   rollout:
-    label_html: "<b>[B] Native rollout files</b><br/>Dedicated profile sessions/<br/><br/>Codex persists thread evidence. Export selects the exact bound thread."
+    label_html: "<b>[B] Native evidence storage</b><br/>Dedicated profile sessions/<br/><br/>Codex persists thread evidence. Export selects the exact bound thread."
     style:
       width: 285
       height: 150
@@ -33,7 +33,7 @@ nodes:
     graph_reference: "B"
     external_source: "Native thread rollout files in the dedicated profile."
   acp:
-    label_html: "<b>[C] Shared ACP bridge + Python SDK</b><br/>agents/agents/base/acp/session.py; transport.py<br/><br/>AcpSession composes the upstream ACP SDK. DockerTransport carries its frames over attached stdin/stdout."
+    label_html: "<b>[C] ACP event transport</b><br/>agents/agents/base/acp/session.py; transport.py<br/><br/>AcpSession composes the upstream ACP SDK. DockerTransport carries its frames over attached stdin/stdout."
     style:
       width: 285
       height: 150
@@ -44,7 +44,7 @@ nodes:
     source_files: ["src/laomedo/agents/agents/base/acp/session.py", "src/laomedo/agents/agents/base/acp/transport.py"]
     graph_reference: "C"
   export:
-    label_html: "<b>[D] Explicit rollout export command</b><br/>codex/activity/rollout_export.py<br/><br/>Standalone Docker CLI reads only the selected native thread. This is not automatic Activity ingestion."
+    label_html: "<b>[D] Historical evidence reader</b><br/>codex/activity/rollout_export.py<br/><br/>Standalone Docker CLI reads only the selected native thread. This is not automatic Activity ingestion."
     style:
       width: 285
       height: 150
@@ -55,7 +55,7 @@ nodes:
     source_files: ["src/laomedo/agents/agents/codex/activity/rollout_export.py"]
     graph_reference: "D"
   capture:
-    label_html: "<b>[E] Controller native callback</b><br/>controller/service.py:_native_event<br/><br/>Bind native identities/completion and retain safe raw/activity receipts."
+    label_html: "<b>[E] Live evidence capture</b><br/>Controller native callback<br/>controller/service.py:_native_event<br/><br/>Bind native identities/completion and retain safe raw/activity receipts."
     style:
       width: 285
       height: 150
@@ -66,7 +66,7 @@ nodes:
     source_files: ["src/laomedo/agents/agents/codex/controller/service.py"]
     graph_reference: "E"
   retained:
-    label_html: "<b>[F] Retained export artifact</b><br/>Explicitly selected output file<br/><br/>An evidence copy produced by the export command; separate from live Activity capture."
+    label_html: "<b>[F] Exported evidence artifact</b><br/>Explicitly selected output file<br/><br/>An evidence copy produced by the export command; separate from live Activity capture."
     style:
       width: 285
       height: 150
@@ -78,7 +78,7 @@ nodes:
     graph_reference: "F"
     external_source: "Caller-selected exported evidence file; not implementation source."
   activity:
-    label_html: "<b>[G] Shared Activity store / projection</b><br/>agents/activity/<br/><br/>Retain and project observed records for the wider app. Native interpretation is still partly shared."
+    label_html: "<b>[G] Activity storage and projection</b><br/>agents/activity/<br/><br/>Retain and project observed records for the wider app. Native interpretation is still partly shared."
     style:
       width: 285
       height: 150
@@ -89,7 +89,7 @@ nodes:
     source_files: ["src/laomedo/agents/activity/store.py", "src/laomedo/agents/activity/projection.py", "src/laomedo/agents/activity/routes.py"]
     graph_reference: "G"
   ui:
-    label_html: "<b>[H] Graph Activity viewer</b><br/>Application UI<br/><br/>Read retained evidence, usage and uncertainty; no new model request."
+    label_html: "<b>[H] Activity viewer</b><br/>Application UI<br/><br/>Read retained evidence, usage and uncertainty; no new model request."
     style:
       width: 285
       height: 150
