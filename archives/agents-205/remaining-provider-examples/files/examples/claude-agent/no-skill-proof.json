@@ -1,0 +1,98 @@
+{
+  "implementation_revision": "50925bb",
+  "native": {
+    "status": "passed",
+    "scope": "One real Claude Fresh graph run with no Skill References",
+    "run_id": "013f7eac-7fd8-481c-9493-394efdf01b08",
+    "native_session_id": "83bcbd9f-a3c4-40ee-97bd-43d33f534e11",
+    "answer": "Agent without skills works.",
+    "skills": [],
+    "pinned_prompt_skills": [],
+    "prompt_hash_matches_native_turn": true,
+    "completed_native_turns": 1,
+    "recorded_output_retries": 1,
+    "output_contract": null,
+    "output_corrections_used": 0,
+    "native_tools": [],
+    "source_and_store_unchanged": true,
+    "workspace_skill_directory_empty": true,
+    "workspace_unchanged": true,
+    "usage": {
+      "inputTokens": 776,
+      "cachedInputTokens": 0,
+      "cacheWriteInputTokens": 774,
+      "outputTokens": 10,
+      "totalTokens": 786,
+      "reasoningOutputTokens": 0
+    },
+    "ledger_before": 1,
+    "ledger_after": 2,
+    "ceiling": 2,
+    "attempt_number": 2,
+    "graph": "http://127.0.0.1:7898/flow/f053fa33-2420-47be-9c36-78007db5fdc1"
+  },
+  "browser": {
+    "graph": "http://127.0.0.1:7898/flow/f053fa33-2420-47be-9c36-78007db5fdc1",
+    "fresh_run_clicks": 1,
+    "node_completed": true,
+    "answer_visible_in_activity": true,
+    "answer": "Agent without skills works.",
+    "page_errors": [],
+    "model_retries": 0
+  },
+  "readonly_views": {
+    "graph": "http://127.0.0.1:7898/flow/f053fa33-2420-47be-9c36-78007db5fdc1",
+    "views": [
+      {
+        "theme": "light",
+        "width": 1600,
+        "height": 1050,
+        "recorded_answer_visible": true,
+        "run_clicks": 0
+      },
+      {
+        "theme": "dark",
+        "width": 1080,
+        "height": 800,
+        "recorded_answer_visible": true,
+        "run_clicks": 0
+      }
+    ],
+    "native_turns_added": 0
+  },
+  "invalid_reference_ui": {
+    "graph": "http://127.0.0.1:7898/flow/85ec3fe2-93f0-47e2-a303-49d8dd28401d",
+    "real_component_guard": true,
+    "presentation_location": "shared flow error panel",
+    "node_attribution": "Unavailable for pre-component failure in a two-node graph; no identity guessed",
+    "new_native_turns": 0,
+    "results": [
+      {
+        "theme": "light",
+        "width": 1600,
+        "height": 1050,
+        "explanation": true,
+        "original_code_preserved": true,
+        "technical_details": true,
+        "no_generic_retry": true,
+        "elapsed_ms": 2219,
+        "page_errors": []
+      },
+      {
+        "theme": "dark",
+        "width": 1080,
+        "height": 800,
+        "explanation": true,
+        "original_code_preserved": true,
+        "technical_details": true,
+        "no_generic_retry": true,
+        "elapsed_ms": 1549,
+        "page_errors": []
+      }
+    ]
+  },
+  "boundary": "One explicitly approved real Claude Fresh turn; no tools, edits or corrections. Internal Codex/OpenCode controls are separate from this live Claude acceptance.",
+  "retry_setting_note": "There is no output contract, so the recorded runner default retry setting1 is inactive; the actual correction count is0 and only one native turn was reserved.",
+  "negative_check_note": "An initial malformed unconnected Data value was ignored by Langflow and correctly reached the exhausted-cap error. The corrected negative graph connects the real completed Run Reference to Skill References; pre-component validation rejects it with invalid_skill_reference. No extra native turn was used.",
+  "coverage_guard_scope": "Literal Agent errors plus affected LocalRunner preparation/materialization, OpenCode skill verification, and workspace skill verification/install/exclusion methods. This does not claim a complete inventory of all delegated runner or mediation errors."
+}

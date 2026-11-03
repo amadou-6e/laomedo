@@ -1,0 +1,13 @@
+{
+  "catalog_nodes_verified": true,
+  "flow_id": "555409e7-acbb-4221-b98b-aee645b61482",
+  "run_id": "6af56062-03f7-43b1-9a50-7000d3269d98",
+  "thread_id": "01a0f962-6b8b-7a61-a162-761c9ca9e5fa",
+  "status": "completed",
+  "skill_revision": "sha256:a12c212a57a9bc8fa3f0ecd834c09f9576a37ee89e21c62a096b1213fcc2bef8",
+  "native_command_results": 1,
+  "ledger": {
+    "attempted_turns": 7,
+    "max_authorized_turns": 8
+  }
+}

@@ -25,3 +25,4 @@ examples/skill-operations/historical-flow-before-skill-input.json -text
 archives/agents-205/files/** -text
 archives/agents-205/test-callers/files/** -text
 archives/agents-205/retired-provider-guides/files/** -text
+archives/agents-205/remaining-provider-examples/files/** -text
