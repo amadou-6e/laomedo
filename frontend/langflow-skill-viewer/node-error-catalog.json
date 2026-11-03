@@ -1442,12 +1442,12 @@
   "discovered_revision_required": {
     "title": "Choose a discovered Skill revision",
     "description": "This source selection does not identify one of its discovered immutable revisions.",
-    "recovery": "Choose the Skill and its revision from the current source before running."
+    "recovery": "Choose Skill, then open Advanced settings and select Revision from the current source before running."
   },
   "immutable_skill_revision_required": {
     "title": "Choose an immutable Skill revision",
     "description": "The Skill needs an exact content-addressed revision before it can be read or edited.",
-    "recovery": "Select a discovered revision, or enter the exact registry revision when Source is empty."
+    "recovery": "Open Advanced settings and select Revision. When Source is empty, enter the exact saved registry revision there."
   },
   "skill_agent_provenance_required": {
     "title": "The Agent run reference is missing",
@@ -1460,9 +1460,9 @@
     "recovery": "Use the supported Codex Agent, connect Skill Task to Agent Task, and return Agent Answer to this Skill Operation."
   },
   "skill_feedback_request_required": {
-    "title": "Describe the requested Skill edits",
-    "description": "This Skill feedback loop has no edit request for the Agent to carry out.",
-    "recovery": "Fill in the Skill node Edit Request before running the graph."
+    "title": "Supply a Skill operation",
+    "description": "This feedback connection has no saved legacy edit request. No editing Agent was started.",
+    "recovery": "Remove the Skill Task-to-Agent Task feedback loop and supply file changes from an upstream node to Operation. For manual changes, open Skill files, edit the files and Publish."
   },
   "source_reference_invalid": {
     "title": "The source reference does not match",

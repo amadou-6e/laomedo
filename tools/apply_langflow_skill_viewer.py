@@ -75,6 +75,52 @@ def apply(checkout):
         / "src/frontend/src/CustomNodes/GenericNode/components/RenderInputParameters"
     )
     shutil.copy2(overlay / "RenderAgentInputParameters.tsx", agent_target / "index.tsx")
+    for name in ("SkillNodeControls.ts", "SkillNodeControls.test.tsx"):
+        shutil.copy2(overlay / name, agent_target / name)
+    edit_rows = checkout / "src/frontend/src/modals/editNodeModal/hooks/use-row-data.ts"
+    source = edit_rows.read_text(encoding="utf-8")
+    source = (
+        'import { isSkillControlHidden } from "@/CustomNodes/GenericNode/components/RenderInputParameters/SkillNodeControls";\n'
+        'import useFlowStore from "@/stores/flowStore";\n' + source
+    )
+    source = replace_once(
+        source,
+        "const useRowData = (nodeClass: APIClassType, open: boolean) => {\n",
+        "const useRowData = (nodeClass: APIClassType, open: boolean, nodeId?: string) => {\n"
+        "  const nodeType = useFlowStore(state => state.nodes.find(node => node.id === nodeId)?.data.type);\n",
+    )
+    source = replace_once(
+        source,
+        '          key.charAt(0) !== "_" &&\n',
+        '          key.charAt(0) !== "_" &&\n'
+        "          !isSkillControlHidden({ type: nodeType, node: nodeClass }, key) &&\n",
+    )
+    source = replace_once(
+        source, "  }, [open, nodeClass]);", "  }, [open, nodeClass, nodeType]);"
+    )
+    edit_rows.write_text(source, encoding="utf-8")
+    edit_component = (
+        checkout
+        / "src/frontend/src/modals/editNodeModal/components/editNodeComponent/index.tsx"
+    )
+    source = replace_once(
+        edit_component.read_text(encoding="utf-8"),
+        "  const rowData = useRowData(nodeClass, open);",
+        "  const rowData = useRowData(nodeClass, open, nodeId);",
+    )
+    edit_component.write_text(source, encoding="utf-8")
+    generic_node = checkout / "src/frontend/src/CustomNodes/GenericNode/index.tsx"
+    source = generic_node.read_text(encoding="utf-8")
+    source = (
+        'import { skillNodeDescription } from "./components/RenderInputParameters/SkillNodeControls";\n'
+        + source
+    )
+    source = replace_once(
+        source,
+        "                description={data.node?.description}\n",
+        "                description={skillNodeDescription(data)}\n",
+    )
+    generic_node.write_text(source, encoding="utf-8")
     shutil.copy2(
         overlay / "AgentAdvancedControls.tsx",
         agent_target / "AgentAdvancedControls.tsx",

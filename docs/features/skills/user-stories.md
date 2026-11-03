@@ -16,7 +16,9 @@ the earlier captures below retain their explicitly dated scope.
 As a workflow author, I want to select a Skill and revision from a source,
 so an Agent receives the intended instructions rather than an unspecified latest version.
 
-**Status: Implemented.** Source, Skill and Revision belong on the Skill node.
+**Status: Implemented.** Source and Skill are on the node; Revision is inside
+the initially collapsed Advanced settings section. Discovery explains scanning
+and directs selection there. Edit Request is not a node control.
 
 Acceptance criteria:
 
@@ -26,7 +28,8 @@ Acceptance criteria:
 
 ![Actual unconfigured Skill node with source, skill and revision controls](assets/skill-node.png)
 
-*Actual current component form, 2026-10-28. This documentation node has no source
+*Historical component form, 2026-10-28, before the compact Advanced settings layout.
+This documentation node has no source
 or selected revision; the image illustrates the controls, not successful discovery.*
 
 Guide: [source selection](../../../frontend/langflow-skill-viewer/README.md#linked-source-selector-157).

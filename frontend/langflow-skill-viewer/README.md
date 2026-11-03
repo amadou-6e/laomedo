@@ -187,6 +187,18 @@ superseded source/skill/revision are ignored. Discovery status is read-only.
 Skill files accepts the resolved tuple only while it matches the current controls.
 Source-empty old saved nodes retain their manual exact reference behavior.
 
+Skill nodes use a separate **Advanced settings** disclosure for Revision and Base
+Commit. It starts collapsed and keeps controls mounted. The node-type policy also
+applies to old saved field flags, hides Edit Request on canvas and in the settings
+dialog, and preserves saved values. Connected inputs retain their normal sockets.
+Discovery is read-only status; its help explains scanning without execution, and
+its next-step message points to Advanced settings when Revision is empty.
+New edits arrive through Operation or the Skill files editor/Publish. Hidden saved
+requests retain legacy feedback compatibility only. New feedback without a saved
+request fails before preparation/Agent dispatch with existing
+`skill_feedback_request_required`, whose recovery names Operation and the editor.
+See [source configuration](../../docs/features/skills/sources.md).
+
 The host source service is `python -m laomedo.skills.interface.sources.cli`: configure its
 registry, private state directory, allowed local roots and API token file. The
 Langflow backend uses `LAOMEDO_SKILL_SOURCE_URL` and

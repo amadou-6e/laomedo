@@ -12,6 +12,7 @@ import { scapedJSONStringfy } from "@/utils/reactflowUtils";
 import NodeInputField from "../NodeInputField";
 import { findPrimaryInput } from "./utils";
 import AgentAdvancedControls, { advancedAgentFields, isAgentControlHidden } from "./AgentAdvancedControls";
+import { advancedSkillFields, isConnectedSkillSetting, isSkillControlHidden, isSkillNode, skillFieldInfo } from "./SkillNodeControls";
 
 const RenderInputParameters = ({
   data,
@@ -25,7 +26,7 @@ const RenderInputParameters = ({
 
   const templateFields = useMemo(() => {
     return Object.keys(data.node?.template || {})
-      .filter((templateField) => !isInternalField(templateField) && !isAgentControlHidden(data, templateField))
+      .filter((templateField) => !isInternalField(templateField) && !isAgentControlHidden(data, templateField) && !isSkillControlHidden(data, templateField))
       .sort((a, b) =>
         sortToolModeFields(
           a,
@@ -37,14 +38,17 @@ const RenderInputParameters = ({
       );
   }, [data, data.node?.template, data.node?.field_order, isToolMode]);
 
-  const advancedFields = useMemo(() => advancedAgentFields(data, templateFields, edges, isToolMode),
+  const advancedFields = useMemo(() => isSkillNode(data)
+    ? advancedSkillFields(data, templateFields, edges, isToolMode)
+    : advancedAgentFields(data, templateFields, edges, isToolMode),
     [data, templateFields, edges, isToolMode]);
   const shownTemplateFields = useMemo(() => {
     return templateFields.filter((templateField) => {
       const template = data.node?.template[templateField];
-      return !advancedFields.includes(templateField) && isCanvasVisible(template, isToolMode);
+      return !advancedFields.includes(templateField) && (isCanvasVisible(template, isToolMode) ||
+        (template?.show && isConnectedSkillSetting(data, templateField, edges)));
     });
-  }, [templateFields, data.node?.template, isToolMode, advancedFields]);
+  }, [templateFields, data, isToolMode, advancedFields, edges]);
 
   const memoizedColors = useMemo(() => {
     const colorMap = new Map();
@@ -130,7 +134,7 @@ const RenderInputParameters = ({
           data={data}
           colors={memoizedColor.colors}
           title={getFieldTitle(data.node?.template!, templateField)}
-          info={template.info!}
+          info={skillFieldInfo(data, templateField)}
           name={templateField}
           tooltipTitle={template.input_types?.join("\n") ?? template.type}
           required={template.required}
@@ -174,7 +178,8 @@ const RenderInputParameters = ({
     <>
       {minimizedSpacer}
       {renderInputParameters(shownTemplateFields)}
-      {advancedFields.length > 0 && <AgentAdvancedControls nodeId={data.id} visible={showNode}>
+      {advancedFields.length > 0 && <AgentAdvancedControls nodeId={data.id} visible={showNode}
+        label={isSkillNode(data) ? "Advanced settings" : "Advanced controls"}>
         {renderInputParameters(advancedFields, true)}
       </AgentAdvancedControls>}
     </>
