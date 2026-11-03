@@ -14,6 +14,8 @@ activity. Domain operations remain with the Skills and GitHub features.
 ## Architecture and operation
 
 - [Architecture](architecture.md): component, runner, host and activity ownership.
+- [Provider interaction diagrams](assets/provider-interactions/README.md): editable
+  SDK, ACP and Docker paths, provider differences and a clearly labelled proposal.
 - [Agent activity](activity.md): graph execution navigation, retained messages,
   telemetry and provider-specific limitations.
 - [Local runner service](runner/local-service.md): host configuration and recovery.

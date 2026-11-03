@@ -1,0 +1,355 @@
+version: 1
+title: "2. Current provider differences"
+header: "Same ACP client, different native adapters and runtime ownership"
+note: "Current candidate, not complete provider parity. Vertical links show responsibility/delegation; the bottom cards record gaps, not execution steps."
+matrix:
+  rows: 1
+  columns: 3
+  cells: [["codex", "claude", "opencode"]]
+  origin: [30, 140]
+  column_gaps: [70, 70]
+nodes:
+  codex_0:
+    label: "CodexAgent"
+    detail: "Binding, execution and finalization"
+    style:
+      width: 320
+      height: 82
+      fill: "#FFFFFF"
+      stroke: "#8193A5"
+      font_size: 15
+      rounded: true
+  codex_1:
+    label: "CodexController"
+    detail: "controller/service.py; owns AcpSession"
+    style:
+      width: 320
+      height: 82
+      fill: "#FFFFFF"
+      stroke: "#8193A5"
+      font_size: 15
+      rounded: true
+  codex_2:
+    label: "Patched codex-acp adapter"
+    detail: "Custom native-event + host-policy extension"
+    style:
+      width: 320
+      height: 82
+      fill: "#FFFFFF"
+      stroke: "#8193A5"
+      font_size: 15
+      rounded: true
+  codex_3:
+    label: "Codex CLI"
+    detail: "Native thread, tools and provider requests"
+    style:
+      width: 320
+      height: 82
+      fill: "#FFFFFF"
+      stroke: "#8193A5"
+      font_size: 15
+      rounded: true
+  codex_4:
+    label: "Native executor policy"
+    detail: "Normal mode or optional split executor"
+    style:
+      width: 320
+      height: 82
+      fill: "#FFFFFF"
+      stroke: "#8193A5"
+      font_size: 15
+      rounded: true
+  codex_5:
+    label: "Current limitation"
+    detail: "Split native isolation still unverified"
+    style:
+      width: 320
+      height: 82
+      fill: "#FFF1DF"
+      stroke: "#8193A5"
+      font_size: 15
+      rounded: true
+  claude_0:
+    label: "ClaudeAgent"
+    detail: "Binding, execution and finalization"
+    style:
+      width: 320
+      height: 82
+      fill: "#FFFFFF"
+      stroke: "#8193A5"
+      font_size: 15
+      rounded: true
+  claude_1:
+    label: "ClaudeContainer + Agent"
+    detail: "Launch policy; Agent owns AcpSession"
+    style:
+      width: 320
+      height: 82
+      fill: "#FFFFFF"
+      stroke: "#8193A5"
+      font_size: 15
+      rounded: true
+  claude_2:
+    label: "Packaged Claude ACP adapter"
+    detail: "claude-agent-acp inside the image"
+    style:
+      width: 320
+      height: 82
+      fill: "#FFFFFF"
+      stroke: "#8193A5"
+      font_size: 15
+      rounded: true
+  claude_3:
+    label: "Claude CLI"
+    detail: "Native sessions + native OTLP telemetry"
+    style:
+      width: 320
+      height: 82
+      fill: "#FFFFFF"
+      stroke: "#8193A5"
+      font_size: 15
+      rounded: true
+  claude_4:
+    label: "MCP command bridge"
+    detail: "Private HTTP service -> credential-free worker"
+    style:
+      width: 320
+      height: 82
+      fill: "#FFFFFF"
+      stroke: "#8193A5"
+      font_size: 15
+      rounded: true
+  claude_5:
+    label: "Current limitation"
+    detail: "Per-turn lifetime; provider lifecycle duplicated"
+    style:
+      width: 320
+      height: 82
+      fill: "#FFF1DF"
+      stroke: "#8193A5"
+      font_size: 15
+      rounded: true
+  opencode_0:
+    label: "OpenCodeAgent"
+    detail: "Requires an injected transport factory"
+    style:
+      width: 320
+      height: 82
+      fill: "#FFFFFF"
+      stroke: "#8193A5"
+      font_size: 15
+      rounded: true
+  opencode_1:
+    label: "IsolatedOpenCode"
+    detail: "boundary.py; owns AcpSession"
+    style:
+      width: 320
+      height: 82
+      fill: "#FFFFFF"
+      stroke: "#8193A5"
+      font_size: 15
+      rounded: true
+  opencode_2:
+    label: "Native OpenCode ACP server"
+    detail: "opencode acp; no extra adapter package"
+    style:
+      width: 320
+      height: 82
+      fill: "#FFFFFF"
+      stroke: "#8193A5"
+      font_size: 15
+      rounded: true
+  opencode_3:
+    label: "OpenCode CLI"
+    detail: "Native session/history + model requests"
+    style:
+      width: 320
+      height: 82
+      fill: "#FFFFFF"
+      stroke: "#8193A5"
+      font_size: 15
+      rounded: true
+  opencode_4:
+    label: "Remote MCP command broker"
+    detail: "Credential-free worker uses Codex image"
+    style:
+      width: 320
+      height: 82
+      fill: "#FFFFFF"
+      stroke: "#8193A5"
+      font_size: 15
+      rounded: true
+  opencode_5:
+    label: "Current deployment gaps"
+    detail: "No maintained Docker recipe or CLI launcher"
+    style:
+      width: 320
+      height: 82
+      fill: "#FFF1DF"
+      stroke: "#8193A5"
+      font_size: 15
+      rounded: true
+groups:
+  codex:
+    title: "Codex provider"
+    layout: "column"
+    children: ["codex_0", "codex_1", "codex_2", "codex_3", "codex_4", "codex_5"]
+    gap: 32
+    style:
+      padding: [55, 20, 25, 20]
+      fill: "#F3F6FA"
+      font_size: 16
+  claude:
+    title: "Claude provider"
+    layout: "column"
+    children: ["claude_0", "claude_1", "claude_2", "claude_3", "claude_4", "claude_5"]
+    gap: 32
+    style:
+      padding: [55, 20, 25, 20]
+      fill: "#F3F6FA"
+      font_size: 16
+  opencode:
+    title: "OpenCode provider"
+    layout: "column"
+    children: ["opencode_0", "opencode_1", "opencode_2", "opencode_3", "opencode_4", "opencode_5"]
+    gap: 32
+    style:
+      padding: [55, 20, 25, 20]
+      fill: "#F3F6FA"
+      font_size: 16
+edges:
+  codex_edge_0:
+    from: "codex_0"
+    to: "codex_1"
+    label: ""
+    style:
+      stroke: "#218168"
+      width: 2
+      end_arrow: "classic"
+      dashed: false
+  codex_edge_1:
+    from: "codex_1"
+    to: "codex_2"
+    label: "ACP over Docker stdio"
+    style:
+      stroke: "#218168"
+      width: 2
+      end_arrow: "classic"
+      dashed: false
+  codex_edge_2:
+    from: "codex_2"
+    to: "codex_3"
+    label: ""
+    style:
+      stroke: "#218168"
+      width: 2
+      end_arrow: "classic"
+      dashed: false
+  codex_edge_3:
+    from: "codex_3"
+    to: "codex_4"
+    label: ""
+    style:
+      stroke: "#218168"
+      width: 2
+      end_arrow: "classic"
+      dashed: false
+  codex_gap:
+    from: "codex_4"
+    to: "codex_5"
+    label: ""
+    style:
+      stroke: "#BC783D"
+      width: 2
+      end_arrow: "classic"
+      dashed: true
+  claude_edge_0:
+    from: "claude_0"
+    to: "claude_1"
+    label: ""
+    style:
+      stroke: "#218168"
+      width: 2
+      end_arrow: "classic"
+      dashed: false
+  claude_edge_1:
+    from: "claude_1"
+    to: "claude_2"
+    label: "ACP over Docker stdio"
+    style:
+      stroke: "#218168"
+      width: 2
+      end_arrow: "classic"
+      dashed: false
+  claude_edge_2:
+    from: "claude_2"
+    to: "claude_3"
+    label: ""
+    style:
+      stroke: "#218168"
+      width: 2
+      end_arrow: "classic"
+      dashed: false
+  claude_edge_3:
+    from: "claude_3"
+    to: "claude_4"
+    label: ""
+    style:
+      stroke: "#218168"
+      width: 2
+      end_arrow: "classic"
+      dashed: false
+  claude_gap:
+    from: "claude_4"
+    to: "claude_5"
+    label: ""
+    style:
+      stroke: "#BC783D"
+      width: 2
+      end_arrow: "classic"
+      dashed: true
+  opencode_edge_0:
+    from: "opencode_0"
+    to: "opencode_1"
+    label: ""
+    style:
+      stroke: "#218168"
+      width: 2
+      end_arrow: "classic"
+      dashed: false
+  opencode_edge_1:
+    from: "opencode_1"
+    to: "opencode_2"
+    label: "ACP over Docker stdio"
+    style:
+      stroke: "#218168"
+      width: 2
+      end_arrow: "classic"
+      dashed: false
+  opencode_edge_2:
+    from: "opencode_2"
+    to: "opencode_3"
+    label: ""
+    style:
+      stroke: "#218168"
+      width: 2
+      end_arrow: "classic"
+      dashed: false
+  opencode_edge_3:
+    from: "opencode_3"
+    to: "opencode_4"
+    label: ""
+    style:
+      stroke: "#218168"
+      width: 2
+      end_arrow: "classic"
+      dashed: false
+  opencode_gap:
+    from: "opencode_4"
+    to: "opencode_5"
+    label: ""
+    style:
+      stroke: "#BC783D"
+      width: 2
+      end_arrow: "classic"
+      dashed: true
