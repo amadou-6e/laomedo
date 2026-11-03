@@ -938,7 +938,8 @@ class CodexAgent(BaseAgent):
             while record.get("output_requirements") and status == "completed":
                 try:
                     submission = json.loads(
-                        _answer(server.events[turn_event_offset:]) or "null"
+                        _answer(server.events[turn_event_offset:], record["thread_id"])
+                        or "null"
                     )
                 except (ValueError, TypeError):
                     submission = None
@@ -1017,7 +1018,7 @@ class CodexAgent(BaseAgent):
             record["precheck"]["call_count"] = getattr(server, "precheck_call_count", 0)
             record["command_summary"] = commands
             record["native_answer"] = (
-                _answer(server.events[turn_event_offset:])
+                _answer(server.events[turn_event_offset:], record["thread_id"])
                 if native_status == "completed"
                 else None
             )
@@ -1054,7 +1055,7 @@ class CodexAgent(BaseAgent):
                 record["cancel_requested"] = True
             record["native_error_summary"] = native_errors
             record["answer"] = (
-                _answer(server.events[turn_event_offset:])
+                _answer(server.events[turn_event_offset:], record["thread_id"])
                 if status == "completed"
                 else None
             )

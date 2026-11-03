@@ -248,6 +248,7 @@ class LocalRunnerTests(unittest.TestCase):
                         {
                             "method": "item/completed",
                             "params": {
+                                "threadId": "native-thread",
                                 "turnId": turn_id,
                                 "item": {
                                     "type": "agentMessage",

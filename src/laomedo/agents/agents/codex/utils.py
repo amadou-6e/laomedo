@@ -202,12 +202,15 @@ def _command_summary(events: list[dict], turn_id: str) -> dict:
     }
 
 
-def _answer(events: list[dict]) -> str | None:
+def _answer(events: list[dict], thread_id: str) -> str | None:
     answers = []
     for event in events:
         if event.get("method") != "item/completed":
             continue
-        item = event.get("params", {}).get("item") or {}
+        params = event.get("params", {})
+        if params.get("threadId") != thread_id:
+            continue
+        item = params.get("item") or {}
         if item.get("type") == "agentMessage" and isinstance(item.get("text"), str):
             answers.append(item["text"])
     return answers[-1] if answers else None

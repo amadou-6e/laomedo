@@ -62,7 +62,8 @@ class FakeServer:
             {
                 "method": "item/completed",
                 "params": {
-                    "item": {"type": "agentMessage", "text": "synthetic answer"}
+                    "threadId": "native-thread",
+                    "item": {"type": "agentMessage", "text": "synthetic answer"},
                 },
             }
         )
