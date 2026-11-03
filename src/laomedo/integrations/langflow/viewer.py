@@ -7,16 +7,16 @@ No runner/provider credentials are used by this route.
 from pathlib import Path
 from laomedo.skills.inspection.errors import InspectionError
 from laomedo.skills.inspection.utils import inspect_skill
-import laomedo.integrations.langflow.settings as _langflow_settings
+from laomedo.integrations.langflow.settings import Settings
 
 
 def install_routes(app, root: Path, authenticate):
-    import laomedo.agents.activity.routes as _agent_activity_routes
+    from laomedo.agents.activity.routes import install_activity_routes
 
-    _agent_activity_routes.install_activity_routes(app, authenticate)
-    import laomedo.host.runner.routes as _runner_routes
+    install_activity_routes(app, authenticate)
+    from laomedo.host.runner.routes import install_runner_service_routes
 
-    _runner_routes.install_runner_service_routes(app, authenticate)
+    install_runner_service_routes(app, authenticate)
     from fastapi import Depends
     from fastapi import HTTPException
     from fastapi.responses import JSONResponse
@@ -200,7 +200,7 @@ def create_app():
     from langflow.main import setup_static_files
     from langflow.services.auth.utils import get_current_active_user
 
-    settings = _langflow_settings.Settings()
+    settings = Settings()
     root = Path(settings.required_path("skill_store"))
     frontend = Path(settings.required_path("frontend"))
     app = upstream_app()

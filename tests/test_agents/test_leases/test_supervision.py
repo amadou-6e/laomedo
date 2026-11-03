@@ -86,12 +86,15 @@ class ContainerLeaseTests(unittest.TestCase):
                 client.return_value.__enter__.return_value.containers.watch.return_value
             )
             watch.cleanup.return_value.verified = False
-            watch.cleanup.return_value.detail = "never_observed"
-            self.assertEqual(
-                cleanup_after_loss(identity, watch_seconds=0.2),
-                (False, "never_observed"),
-            )
-            watch.cleanup.assert_called_once_with(watch_seconds=0.2)
+            for detail in ("never_observed", "late_owned", "unknown"):
+                with self.subTest(detail=detail):
+                    watch.cleanup.return_value.detail = detail
+                    self.assertEqual(
+                        cleanup_after_loss(identity, watch_seconds=0.2),
+                        (False, detail),
+                    )
+            self.assertEqual(watch.cleanup.call_count, 3)
+            watch.cleanup.assert_called_with(watch_seconds=0.2)
 
     def test_supervisor_is_detached_from_runner_group(self):
         options = _detached_process_options()

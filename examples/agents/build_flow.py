@@ -9,7 +9,7 @@ from lfx.graph.graph.base import Graph
 
 ROOT = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location(
-    "maintained_graph_ports", ROOT / "examples/skills/graph.py"
+    "maintained_graph_ports", ROOT / "examples/graph.py"
 )
 ports = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(ports)
@@ -89,7 +89,7 @@ def build(
             ports.edge(skill, "skill", agent, "skill_reference") for agent in agents
         )
     flow = {
-        "name": f"{provider.title()} Agent — {workflow}",
+        "name": f"{provider.title()} Agent â€” {workflow}",
         "description": "Current component graph. Building does not execute an Agent.",
         "flow_type": "workflow",
         "access_type": "PRIVATE",

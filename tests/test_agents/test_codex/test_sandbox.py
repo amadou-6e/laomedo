@@ -65,7 +65,7 @@ class RunnerSandboxPolicyTests(unittest.TestCase):
             runner = LocalRunner(
                 root / "state",
                 root / "skills",
-                repository_root() / "examples/github-pr",
+                repository_root() / "components",
                 split_executor=True,
                 check_docker=False,
             )
@@ -102,7 +102,7 @@ class RunnerSandboxPolicyTests(unittest.TestCase):
     def test_both_modes_use_one_preflight_before_profile_access(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
-            source = repository_root() / "examples/github-pr"
+            source = repository_root() / "components"
             selection = {"DOCKER_HOST": "unix:///selected.sock"}
             for split in (False, True):
                 with (
@@ -197,7 +197,7 @@ class RunnerSandboxPolicyTests(unittest.TestCase):
         approved = "sha256:" + "a" * 64
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
-            source = repository_root() / "examples/github-pr"
+            source = repository_root() / "components"
             commands = []
 
             class Capture:
@@ -236,7 +236,7 @@ class RunnerSandboxPolicyTests(unittest.TestCase):
     def test_wrong_cli_version_refuses_before_any_model_dispatch(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
-            source = repository_root() / "examples/github-pr"
+            source = repository_root() / "components"
             approved = "sha256:" + "a" * 64
             with (
                 patch(
@@ -257,7 +257,7 @@ class RunnerSandboxPolicyTests(unittest.TestCase):
     def test_local_image_override_rejects_tags_git_and_split_mode(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
-            source = repository_root() / "examples/github-pr"
+            source = repository_root() / "components"
             for image_id in ("latest", "sha256:bad", "sha256:" + "A" * 64):
                 with (
                     self.subTest(image_id=image_id),
