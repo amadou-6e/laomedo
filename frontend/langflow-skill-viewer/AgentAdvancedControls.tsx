@@ -34,7 +34,16 @@ export default function AgentAdvancedControls({ nodeId, visible, children, label
   const contentId = `agent-advanced-${nodeId}`;
   return <div hidden={!visible} className="nodrag nopan border-t" data-testid="agent-advanced-controls">
     <button type="button" className="flex w-full items-center gap-2 px-4 py-3 text-left text-xs font-medium hover:bg-muted"
-      aria-expanded={expanded} aria-controls={contentId} onClick={() => setExpanded((value) => !value)}>
+      aria-expanded={expanded} aria-controls={contentId} onClick={() => setExpanded((value) => !value)}
+      onKeyDown={(event) => {
+        if (event.key !== " " && event.key !== "Enter") return;
+        event.preventDefault(); event.stopPropagation();
+        if (!event.repeat) setExpanded((value) => !value);
+      }}
+      onKeyUp={(event) => {
+        if (event.key !== " " && event.key !== "Enter") return;
+        event.preventDefault(); event.stopPropagation();
+      }}>
       <span aria-hidden="true">{expanded ? "▾" : "▸"}</span>{label}
     </button>
     <div id={contentId} hidden={!expanded} className="nowheel">{children}</div>

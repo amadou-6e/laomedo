@@ -1,4 +1,5 @@
 import { render, screen, fireEvent } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import AgentAdvancedControls, { advancedAgentFields } from "./AgentAdvancedControls";
 const update = jest.fn();
 jest.mock("@xyflow/react", () => ({ useUpdateNodeInternals: () => update }));
@@ -29,6 +30,24 @@ test("starts collapsed and retains edited values through collapse and reopen", (
 test("the minimized node hides the entire disclosure", () => {
   render(<AgentAdvancedControls nodeId="a" visible={false}>Controls</AgentAdvancedControls>);
   expect(screen.queryByRole("button")).toBeNull();
+});
+
+test("keyboard activation stays on the disclosure instead of canvas shortcuts", async () => {
+  const user = userEvent.setup();
+  const canvasKey = jest.fn((event: KeyboardEvent) => event.preventDefault());
+  document.addEventListener("keydown", canvasKey);
+  try {
+    render(<AgentAdvancedControls nodeId="a" visible>Settings</AgentAdvancedControls>);
+    const toggle = screen.getByRole("button", { name: "Advanced controls" });
+    toggle.focus();
+    await user.keyboard(" ");
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    await user.keyboard("{Enter}");
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(canvasKey).not.toHaveBeenCalled();
+  } finally {
+    document.removeEventListener("keydown", canvasKey);
+  }
 });
 
 // Exercise the actual grouping renderer; only the individual field widgets are
