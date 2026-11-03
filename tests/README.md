@@ -28,6 +28,24 @@ Langflow join, runner and historical campaign families retain their separate
 migration scope. Their presence is not permission to add new flat prefix
 families: new coverage belongs in its concern package.
 
+## Agent campaign regression ownership
+
+Agent regressions run under `test_agents/`. Authorization, lease lifecycle and
+revocation composition run under `test_host/test_mediation`; publication state
+transitions run under `test_host/test_publication/test_handoff`. These checks use
+isolated local state and internal test transports. They do not establish Docker,
+provider, GitHub or browser acceptance.
+
+Twelve obsolete campaign-wrapper suites (68 cases) are preserved on `exp` at
+`f5735e845df8fdb790bf0789faf7daa79045dcf8` under
+`archives/agents-205/test-callers/files/tests/`. Their original Git blobs were
+compared directly with the committed archive blobs before removal. Production
+retains the applicable authority approval/binding/read/revocation, repeated
+revocation and fresh-run publication assertions in the owning suites above;
+prototype mailbox, budget and campaign receipt contracts remain historical.
+Production discovery neither imports those wrappers nor fetches the archive.
+The GitHub-owned EXP-100 CI dependency remains separately scoped.
+
 ## Discovery
 
 Run core discovery against an installed package, including outside this checkout:
