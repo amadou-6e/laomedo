@@ -7,10 +7,13 @@ import subprocess
 import tempfile
 import unittest
 
+from laomedo.agents.agents.codex.settings import MEDIATION_CLIENT
 from laomedo.host.mediation.store import MediationStore
 from laomedo.host.mediation.errors import MediationError
 from laomedo.host.mediation.authority import RunGrantAuthority
 from laomedo.github.transport.rest.transport import ISSUE_GRAPHQL_QUERY
+
+ADAPTER_URI = MEDIATION_CLIENT.with_name("agent_gh_adapter.mjs").resolve().as_uri()
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -78,7 +81,11 @@ class ReviewedIssueCliTests(unittest.TestCase):
             self.assertEqual(len(calls), 1)
 
     def test_graphql_query_is_identical_on_agent_and_host(self):
-        script = "import {ISSUE_GRAPHQL_QUERY} from './src/laomedo/host/mediation/resources/agent_gh_adapter.mjs'; console.log(ISSUE_GRAPHQL_QUERY);"
+        script = (
+            "import {ISSUE_GRAPHQL_QUERY} from "
+            + json.dumps(ADAPTER_URI)
+            + "; console.log(ISSUE_GRAPHQL_QUERY);"
+        )
         result = subprocess.run(
             ["node", "--input-type=module", "-e", script],
             cwd=ROOT,
@@ -89,10 +96,14 @@ class ReviewedIssueCliTests(unittest.TestCase):
         self.assertEqual(result.stdout.decode().strip(), ISSUE_GRAPHQL_QUERY)
 
     def request(self, body="marker reviewed body"):
-        script = """import {plan} from './src/laomedo/host/mediation/resources/agent_gh_adapter.mjs';
-        console.log(JSON.stringify(plan(['issue','create','--title','T','--body',process.argv[1]],
+        script = (
+            "import {plan} from "
+            + json.dumps(ADAPTER_URI)
+            + ";\n"
+            + """        console.log(JSON.stringify(plan(['issue','create','--title','T','--body',process.argv[1]],
           {repository:'example/disposable',effect:'issue-effect',marker:'marker',
            reviewedProposal:'review-1'}).request));"""
+        )
         result = subprocess.run(
             ["node", "--input-type=module", "-e", script, body],
             cwd=ROOT,
