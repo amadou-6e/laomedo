@@ -162,12 +162,6 @@
       "path": "experiments/exp100/probe_stage_s7.py",
       "sha256": "1046a41c3d5167fbf78beca93481b29a7b473e9c06bf0740c6ffa073cffab38d",
       "dependencies": []
-    },
-    {
-      "module": "experiments.turn_harness",
-      "path": "experiments/turn_harness.py",
-      "sha256": "2d00af106b66dc83a17da7e5dfa285185919d7a1544ab6b97c544ffd5a20103d",
-      "dependencies": []
     }
   ]
 }

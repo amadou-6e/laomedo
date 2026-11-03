@@ -131,8 +131,7 @@ def load_retained_shared(name):
                         "_run_bounded_tree",
                     }
                 ) or (
-                    node.module
-                    in {"laomedo.agents.workspace.git", "laomedo.agents.workspaces"}
+                    node.module == "laomedo.agents.workspaces"
                     and item.name in {"_git_environment", "_bounded_git"}
                 ):
                     replacements.append(
