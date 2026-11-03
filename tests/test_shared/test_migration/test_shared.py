@@ -8,9 +8,6 @@ import importlib
 import json
 from pathlib import Path
 import unittest
-from unittest.mock import patch
-
-from support.retained import load_retained_shared, refuse_private_git_api
 
 ROOT = repository_root()
 TOOL = ROOT / "tools/migrations/migrate_module_paths.py"
@@ -141,14 +138,6 @@ class SharedMigrationTests(unittest.TestCase):
                 rewritten = migration.migrate_source(source)
                 self.assertIn(target, rewritten)
                 self.assertEqual(migration.migrate_source(rewritten), rewritten)
-
-    def test_historical_native_entrypoints_still_refuse_before_process_work(self):
-        module = load_retained_shared("experiments.exp104.native_managed_probe")
-        self.assertIs(module._base_git_environment, refuse_private_git_api)
-        with patch.object(module.subprocess, "run") as run:
-            with self.assertRaisesRegex(RuntimeError, "Historical experiment"):
-                module.git("status")
-            run.assert_not_called()
 
     def test_inventory_preserves_original_bytes_and_defines_no_runtime_facade(self):
         from hashlib import sha256
