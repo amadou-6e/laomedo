@@ -47,18 +47,20 @@ Acceptance criteria:
 - File navigation and Source/Preview refer to the selected revision.
 - Browsing and resizing the split pane do not edit or execute the skill.
 - Files and Commits can be navigated separately; unavailable history remains explicit.
-+- Failed file, history and comparison reads show a shared plain-language explanation,
-+  safe Technical details and a subtle copy control. Unknown read failures can reload
-+  only the same selection; permanent unsafe, missing or oversized revisions offer
-+  no futile reload. Reading or recovering these views never starts an Agent.
-+- Printable editor keys do not activate canvas shortcuts or open Assistant. Find
-+  uses the workspace search; native text selection and navigation remain available.
-+- Background build-history refresh preserves the canvas, open Skill workspace and
-+  unsaved buffers. A new flow's initial history read still gates its initial canvas,
-+  including when previous-flow placeholder data is present.
-+- Closing or changing a selection aborts its old client reads. Late success or
-+  failure cannot overwrite the new selection or reopen dismissed content.
-+
+- Failed file, history and comparison reads show a shared plain-language explanation,
+  safe Technical details and a subtle copy control. Unknown read failures can reload
+  only the same selection; permanent unsafe, missing or oversized revisions offer
+  no futile reload. Reading or recovering these views never starts an Agent.
+- Printable editor keys do not activate canvas shortcuts or open Assistant. Find
+  uses the workspace search; native text selection and navigation remain available.
+- Background build-history refresh preserves the canvas, open Skill workspace and
+  unsaved buffers. A new flow's active initial history read still gates its initial canvas,
+  including when previous-flow placeholder data is present during fetching.
+  Switching flows while a read is paused offline can still show the canvas with
+  previous-flow history; this inherited constraint is not fresh-history acceptance.
+- Closing or changing a selection aborts its old client reads. Late success or
+  failure cannot overwrite the new selection or reopen dismissed content.
+
 
 ![Actual pinned skill opened read-only in the file viewer](assets/skill-files.png)
 
