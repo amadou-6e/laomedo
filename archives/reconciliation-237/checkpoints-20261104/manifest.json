@@ -1,0 +1,77 @@
+[
+  {
+    "path": ".gitattributes",
+    "sha256": "f06202a408fef9b9ea69bb6b1cb8160dbb0378c5bb67a444d510d231813824c8",
+    "bytes": 30
+  },
+  {
+    "path": "all-checkpoint-catalogue.json",
+    "sha256": "b6583b3147ccb5dc25f168da506506351b9d4c66fa35d0a1ae5b5b2ced5dd22b",
+    "bytes": 8276
+  },
+  {
+    "path": "binding-comparison-v2.json",
+    "sha256": "c240a66c0c61773c2a1572fa2e54ec19ae6048d414f1e8b334222d7eb13baa89",
+    "bytes": 386307
+  },
+  {
+    "path": "checkpoint-bundle-manifest.json",
+    "sha256": "ab54f556bff3a5648d1e56f7c8b3f02775081ed8fa2a574367433c15e7217c3b",
+    "bytes": 10339
+  },
+  {
+    "path": "checkpoint234-commits.json",
+    "sha256": "9c7ca01d2c22f2a978f5d5d060482f7bf83d39f2ba66689ce8e60d6db215ee28",
+    "bytes": 1738
+  },
+  {
+    "path": "fresh-bundle-verification.json",
+    "sha256": "eeb0bb3d4d0f31f80c37a24fdd34f9a7faf7c66c84d1b22623f59022a9e6462d",
+    "bytes": 721
+  },
+  {
+    "path": "initial-summary.json",
+    "sha256": "547b7d07f2163ee7ac5197306a63620c7d2fd1bc8b30df68b9256e8cdf781a2f",
+    "bytes": 665
+  },
+  {
+    "path": "old-refactor-checkpoints.bundle",
+    "sha256": "5c80d0a7d55347cceb4aff7d81a02de406173a8ac92938a92918e154e8434b2b",
+    "bytes": 2121329
+  },
+  {
+    "path": "pr-metadata.json",
+    "sha256": "63b30b2bab6ae9ca2fce05d3e8ac0233ee769a60899a05798ac0be79b04cf05b",
+    "bytes": 285921
+  },
+  {
+    "path": "README.md",
+    "sha256": "d5361c87a3c8413cc4b17604b293f29d99173d842c582788ce8a069850c269a6",
+    "bytes": 3746
+  },
+  {
+    "path": "recovery-commits.json",
+    "sha256": "53ed4570d2feabcee4ba24eeb011c815ac53f0c41c691ed072d606f6ed9cfe8e",
+    "bytes": 1823
+  },
+  {
+    "path": "restored-catalogue-entries.json",
+    "sha256": "20247a3572bb2ebed40142a0b48b9e59a9cfae417799330345295981ca1bb169",
+    "bytes": 14666
+  },
+  {
+    "path": "retirement-status.json",
+    "sha256": "689bb92adf944106717a9ceafde24eb187a686e50ac2c826fd858a2259af52aa",
+    "bytes": 14532
+  },
+  {
+    "path": "review-summary.json",
+    "sha256": "9355621f11e54ecb955110fe38dbdb5f10819477e101526d31b16ffd3b98102a",
+    "bytes": 729
+  },
+  {
+    "path": "second-recovery-commits.json",
+    "sha256": "4179d0f493c5900819e56ec57f21b15a744e02d047058e008311ea164475f0e8",
+    "bytes": 926
+  }
+]

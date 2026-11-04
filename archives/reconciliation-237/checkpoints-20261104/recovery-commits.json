@@ -1,0 +1,47 @@
+{
+  "commits": [
+    {
+      "branch": "fix/237",
+      "before": "939f1e08b2efe5602a9f08ec30186957f7ccb2a9",
+      "head": "652f3b9d67c1e1a4f68d079a12cc1f7eb3c542ca",
+      "paths": [
+        "tests/test_skills/test_interface/README.md",
+        "tests/test_skills/test_interface/models.py",
+        "tests/test_skills/test_interface/test_http.py",
+        "tests/test_skills/test_interface/utils.py"
+      ]
+    },
+    {
+      "branch": "refactor/205",
+      "before": "c1888eb5d6e13472a0ed5a45a1d25dec0f807b2a",
+      "head": "66e8f88ca33df0c497f092091e52423435cb404d",
+      "paths": [
+        "tests/support/README.md",
+        "tests/support/model_assertions.py",
+        "tests/test_agents/test_activity/README.md",
+        "tests/test_agents/test_activity/test_records.py",
+        "tests/test_agents/test_claude/README.md",
+        "tests/test_agents/test_claude/test_records.py",
+        "tests/test_agents/test_opencode/README.md",
+        "tests/test_agents/test_opencode/test_records.py",
+        "tests/test_host/test_leases/README.md",
+        "tests/test_host/test_leases/test_records.py",
+        "tests/test_host/test_leases/test_service.py"
+      ]
+    },
+    {
+      "branch": "refactor/245",
+      "before": "3dbdac97dc682709d6cdcb5511f2fafa49da6c94",
+      "head": "88b60465f74ccc371686d846c4195e289101f482",
+      "paths": [
+        "tests/test_github/README.md",
+        "tests/test_github/test_contracts/test_ownership.py",
+        "tests/test_github/test_contracts/test_values.py",
+        "tests/test_github/test_interface/test_bindings.py",
+        "tests/test_github/test_issues/test_context/README.md",
+        "tests/test_github/test_issues/test_context/test_cli.py"
+      ]
+    }
+  ],
+  "combined": "4da196c4fb84860d62bac5b82eb67ab785430e0f"
+}

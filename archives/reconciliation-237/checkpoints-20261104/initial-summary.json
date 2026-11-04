@@ -1,0 +1,19 @@
+{
+  "original": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+  "combined": "a500adf73d2a19e57d92f827dfc5d220e8942095",
+  "prs": 23,
+  "path_versions": 1686,
+  "path_dispositions": {
+    "changed_requires_review": 1045,
+    "deletion_requires_review": 38,
+    "exact_relocated": 63,
+    "exact_current": 452,
+    "ast_equal_current": 88
+  },
+  "changed_python_definitions": 2351,
+  "definition_dispositions": {
+    "changed_requires_review": 951,
+    "ast_equal_current": 1400
+  },
+  "scope": "Candidate generation only. Exact AST strips documentation only. Changed definitions/assertion-name matches and archive matches do not prove preservation or supersession."
+}

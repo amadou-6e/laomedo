@@ -1,0 +1,200 @@
+{
+  "bundle": "old-refactor-checkpoints.bundle",
+  "sha256": "5c80d0a7d55347cceb4aff7d81a02de406173a8ac92938a92918e154e8434b2b",
+  "bytes": 2121329,
+  "exp_prerequisite_owner": "e16401776a3874158a344575567622da086a73ab",
+  "prerequisites": [
+    "5ffab075bbab50e195a3c8a375a83dff55a70fea"
+  ],
+  "advertised_refs": {
+    "refs/archives/checkpoint-audit-20261104/pr-213-head": "e0fcaef16ea6d6bf8d661263c893cd2071a777d7",
+    "refs/archives/checkpoint-audit-20261104/pr-214-head": "8e2a2925c74748672f3028ba09359c49b13e1635",
+    "refs/archives/checkpoint-audit-20261104/pr-214-base": "e0fcaef16ea6d6bf8d661263c893cd2071a777d7",
+    "refs/archives/checkpoint-audit-20261104/pr-216-head": "a9317f61ce0376ead778802d3fd394fa127fe8a2",
+    "refs/archives/checkpoint-audit-20261104/pr-216-base": "8e2a2925c74748672f3028ba09359c49b13e1635",
+    "refs/archives/checkpoint-audit-20261104/pr-217-head": "3cf0d02b10a05cc643c9155c2bb075cee338bbda",
+    "refs/archives/checkpoint-audit-20261104/pr-217-base": "a9317f61ce0376ead778802d3fd394fa127fe8a2",
+    "refs/archives/checkpoint-audit-20261104/pr-218-head": "c741d4bcc104b8f7d0e0cc030ee3fa2ea7b6775b",
+    "refs/archives/checkpoint-audit-20261104/pr-218-base": "3cf0d02b10a05cc643c9155c2bb075cee338bbda",
+    "refs/archives/checkpoint-audit-20261104/pr-219-head": "4b46032a6af322ce006e6eb6c2c16f670d4374fb",
+    "refs/archives/checkpoint-audit-20261104/pr-219-base": "c741d4bcc104b8f7d0e0cc030ee3fa2ea7b6775b",
+    "refs/archives/checkpoint-audit-20261104/pr-220-head": "6c65b6d50db9a17da060a522598bb89212f9f8be",
+    "refs/archives/checkpoint-audit-20261104/pr-220-base": "4b46032a6af322ce006e6eb6c2c16f670d4374fb",
+    "refs/archives/checkpoint-audit-20261104/pr-221-head": "3299f8df976965b707e7c91d3309ea2e8e0aaadf",
+    "refs/archives/checkpoint-audit-20261104/pr-221-base": "6c65b6d50db9a17da060a522598bb89212f9f8be",
+    "refs/archives/checkpoint-audit-20261104/pr-222-head": "4551ce52524f6ec997f4df04a984f0c850170e55",
+    "refs/archives/checkpoint-audit-20261104/pr-222-base": "3299f8df976965b707e7c91d3309ea2e8e0aaadf",
+    "refs/archives/checkpoint-audit-20261104/pr-223-head": "23cb11505c46ab24715055ad2abc09f3b1565d4f",
+    "refs/archives/checkpoint-audit-20261104/pr-223-base": "4551ce52524f6ec997f4df04a984f0c850170e55",
+    "refs/archives/checkpoint-audit-20261104/pr-224-head": "61d8cb066bd6b49e2bd0d7ff1666b513135414ed",
+    "refs/archives/checkpoint-audit-20261104/pr-224-base": "23cb11505c46ab24715055ad2abc09f3b1565d4f",
+    "refs/archives/checkpoint-audit-20261104/pr-225-head": "a09231a343475af28b896b9214fe7f132c16336f",
+    "refs/archives/checkpoint-audit-20261104/pr-225-base": "3299f8df976965b707e7c91d3309ea2e8e0aaadf",
+    "refs/archives/checkpoint-audit-20261104/pr-226-head": "64ac5fe7082412abc01abb0dc67e575515ced4be",
+    "refs/archives/checkpoint-audit-20261104/pr-226-base": "61d8cb066bd6b49e2bd0d7ff1666b513135414ed",
+    "refs/archives/checkpoint-audit-20261104/pr-227-head": "baa2ec0627729fa115a2eba05c09d1e9deed2f35",
+    "refs/archives/checkpoint-audit-20261104/pr-227-base": "3299f8df976965b707e7c91d3309ea2e8e0aaadf",
+    "refs/archives/checkpoint-audit-20261104/pr-228-head": "bac1ab6334139e92b1cbec785f1f5341ffadecc8",
+    "refs/archives/checkpoint-audit-20261104/pr-228-base": "64ac5fe7082412abc01abb0dc67e575515ced4be",
+    "refs/archives/checkpoint-audit-20261104/pr-229-head": "8b92111efd2b452e6947a3fd81e0e13dff2f7903",
+    "refs/archives/checkpoint-audit-20261104/pr-229-base": "3508b7aee627053e21369cc08a16f15520345374",
+    "refs/archives/checkpoint-audit-20261104/pr-230-head": "5bb39f5c9abcf5e864edf6ddfd280b84fce78a39",
+    "refs/archives/checkpoint-audit-20261104/pr-230-base": "3508b7aee627053e21369cc08a16f15520345374",
+    "refs/archives/checkpoint-audit-20261104/pr-231-head": "bf1438d76ffb47105acf3abdce86f7deca358c45",
+    "refs/archives/checkpoint-audit-20261104/pr-231-base": "6656c1c0e13cb62b6c56443a6be7171b3c19d68d",
+    "refs/archives/checkpoint-audit-20261104/pr-232-head": "a55279d1d51b05a5df6faedab861b68766844de0",
+    "refs/archives/checkpoint-audit-20261104/pr-232-base": "6656c1c0e13cb62b6c56443a6be7171b3c19d68d",
+    "refs/archives/checkpoint-audit-20261104/pr-233-head": "822239cff8b82729d9f8c0b286ca2b266bcd874e",
+    "refs/archives/checkpoint-audit-20261104/pr-233-base": "3508b7aee627053e21369cc08a16f15520345374",
+    "refs/archives/checkpoint-audit-20261104/pr-234-head": "fe211cb0a496353b107b97e688fb5551ace30759",
+    "refs/archives/checkpoint-audit-20261104/pr-234-base": "276de9ab0c0c8982489a8425af82e68a61afaeda",
+    "refs/archives/checkpoint-audit-20261104/pr-236-head": "3ed8a69cb958e0c2591899353b9f5e8a8c8b91cb",
+    "refs/archives/checkpoint-audit-20261104/pr-236-base": "ca3f1e9e057648efc40042397f0bce80fbeca6b9",
+    "refs/archives/checkpoint-audit-20261104/pr-238-head": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+    "refs/archives/checkpoint-audit-20261104/pr-238-base": "ca3f1e9e057648efc40042397f0bce80fbeca6b9"
+  },
+  "endpoints_already_reachable_from_exp": {
+    "refs/archives/checkpoint-audit-20261104/pr-213-base": "5ffab075bbab50e195a3c8a375a83dff55a70fea"
+  },
+  "prs": [
+    {
+      "number": 213,
+      "head": "e0fcaef16ea6d6bf8d661263c893cd2071a777d7",
+      "base": "5ffab075bbab50e195a3c8a375a83dff55a70fea",
+      "merge_base": "5ffab075bbab50e195a3c8a375a83dff55a70fea"
+    },
+    {
+      "number": 214,
+      "head": "8e2a2925c74748672f3028ba09359c49b13e1635",
+      "base": "e0fcaef16ea6d6bf8d661263c893cd2071a777d7",
+      "merge_base": "e0fcaef16ea6d6bf8d661263c893cd2071a777d7"
+    },
+    {
+      "number": 216,
+      "head": "a9317f61ce0376ead778802d3fd394fa127fe8a2",
+      "base": "8e2a2925c74748672f3028ba09359c49b13e1635",
+      "merge_base": "8e2a2925c74748672f3028ba09359c49b13e1635"
+    },
+    {
+      "number": 217,
+      "head": "3cf0d02b10a05cc643c9155c2bb075cee338bbda",
+      "base": "a9317f61ce0376ead778802d3fd394fa127fe8a2",
+      "merge_base": "a9317f61ce0376ead778802d3fd394fa127fe8a2"
+    },
+    {
+      "number": 218,
+      "head": "c741d4bcc104b8f7d0e0cc030ee3fa2ea7b6775b",
+      "base": "3cf0d02b10a05cc643c9155c2bb075cee338bbda",
+      "merge_base": "3cf0d02b10a05cc643c9155c2bb075cee338bbda"
+    },
+    {
+      "number": 219,
+      "head": "4b46032a6af322ce006e6eb6c2c16f670d4374fb",
+      "base": "c741d4bcc104b8f7d0e0cc030ee3fa2ea7b6775b",
+      "merge_base": "c741d4bcc104b8f7d0e0cc030ee3fa2ea7b6775b"
+    },
+    {
+      "number": 220,
+      "head": "6c65b6d50db9a17da060a522598bb89212f9f8be",
+      "base": "4b46032a6af322ce006e6eb6c2c16f670d4374fb",
+      "merge_base": "4b46032a6af322ce006e6eb6c2c16f670d4374fb"
+    },
+    {
+      "number": 221,
+      "head": "3299f8df976965b707e7c91d3309ea2e8e0aaadf",
+      "base": "6c65b6d50db9a17da060a522598bb89212f9f8be",
+      "merge_base": "6c65b6d50db9a17da060a522598bb89212f9f8be"
+    },
+    {
+      "number": 222,
+      "head": "4551ce52524f6ec997f4df04a984f0c850170e55",
+      "base": "3299f8df976965b707e7c91d3309ea2e8e0aaadf",
+      "merge_base": "3299f8df976965b707e7c91d3309ea2e8e0aaadf"
+    },
+    {
+      "number": 223,
+      "head": "23cb11505c46ab24715055ad2abc09f3b1565d4f",
+      "base": "4551ce52524f6ec997f4df04a984f0c850170e55",
+      "merge_base": "4551ce52524f6ec997f4df04a984f0c850170e55"
+    },
+    {
+      "number": 224,
+      "head": "61d8cb066bd6b49e2bd0d7ff1666b513135414ed",
+      "base": "23cb11505c46ab24715055ad2abc09f3b1565d4f",
+      "merge_base": "23cb11505c46ab24715055ad2abc09f3b1565d4f"
+    },
+    {
+      "number": 225,
+      "head": "a09231a343475af28b896b9214fe7f132c16336f",
+      "base": "3299f8df976965b707e7c91d3309ea2e8e0aaadf",
+      "merge_base": "3299f8df976965b707e7c91d3309ea2e8e0aaadf"
+    },
+    {
+      "number": 226,
+      "head": "64ac5fe7082412abc01abb0dc67e575515ced4be",
+      "base": "61d8cb066bd6b49e2bd0d7ff1666b513135414ed",
+      "merge_base": "61d8cb066bd6b49e2bd0d7ff1666b513135414ed"
+    },
+    {
+      "number": 227,
+      "head": "baa2ec0627729fa115a2eba05c09d1e9deed2f35",
+      "base": "3299f8df976965b707e7c91d3309ea2e8e0aaadf",
+      "merge_base": "3299f8df976965b707e7c91d3309ea2e8e0aaadf"
+    },
+    {
+      "number": 228,
+      "head": "bac1ab6334139e92b1cbec785f1f5341ffadecc8",
+      "base": "64ac5fe7082412abc01abb0dc67e575515ced4be",
+      "merge_base": "64ac5fe7082412abc01abb0dc67e575515ced4be"
+    },
+    {
+      "number": 229,
+      "head": "8b92111efd2b452e6947a3fd81e0e13dff2f7903",
+      "base": "3508b7aee627053e21369cc08a16f15520345374",
+      "merge_base": "3508b7aee627053e21369cc08a16f15520345374"
+    },
+    {
+      "number": 230,
+      "head": "5bb39f5c9abcf5e864edf6ddfd280b84fce78a39",
+      "base": "3508b7aee627053e21369cc08a16f15520345374",
+      "merge_base": "3508b7aee627053e21369cc08a16f15520345374"
+    },
+    {
+      "number": 231,
+      "head": "bf1438d76ffb47105acf3abdce86f7deca358c45",
+      "base": "6656c1c0e13cb62b6c56443a6be7171b3c19d68d",
+      "merge_base": "6656c1c0e13cb62b6c56443a6be7171b3c19d68d"
+    },
+    {
+      "number": 232,
+      "head": "a55279d1d51b05a5df6faedab861b68766844de0",
+      "base": "6656c1c0e13cb62b6c56443a6be7171b3c19d68d",
+      "merge_base": "6656c1c0e13cb62b6c56443a6be7171b3c19d68d"
+    },
+    {
+      "number": 233,
+      "head": "822239cff8b82729d9f8c0b286ca2b266bcd874e",
+      "base": "3508b7aee627053e21369cc08a16f15520345374",
+      "merge_base": "3508b7aee627053e21369cc08a16f15520345374"
+    },
+    {
+      "number": 234,
+      "head": "fe211cb0a496353b107b97e688fb5551ace30759",
+      "base": "276de9ab0c0c8982489a8425af82e68a61afaeda",
+      "merge_base": "276de9ab0c0c8982489a8425af82e68a61afaeda"
+    },
+    {
+      "number": 236,
+      "head": "3ed8a69cb958e0c2591899353b9f5e8a8c8b91cb",
+      "base": "ca3f1e9e057648efc40042397f0bce80fbeca6b9",
+      "merge_base": "ca3f1e9e057648efc40042397f0bce80fbeca6b9"
+    },
+    {
+      "number": 238,
+      "head": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+      "base": "ca3f1e9e057648efc40042397f0bce80fbeca6b9",
+      "merge_base": "ca3f1e9e057648efc40042397f0bce80fbeca6b9"
+    }
+  ],
+  "scope": "Exact commit/tree/blob history preservation only. This is not active regression or feature acceptance."
+}

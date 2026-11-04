@@ -1,0 +1,37 @@
+{
+  "bundle_sha256": "5c80d0a7d55347cceb4aff7d81a02de406173a8ac92938a92918e154e8434b2b",
+  "input": "Only exp commit history and the verified archive bundle; no old remote branches or replacement branches fetched",
+  "verified_prs": [
+    213,
+    214,
+    216,
+    217,
+    218,
+    219,
+    220,
+    221,
+    222,
+    223,
+    224,
+    225,
+    226,
+    227,
+    228,
+    229,
+    230,
+    231,
+    232,
+    233,
+    234,
+    236,
+    238
+  ],
+  "checks": [
+    "bundle verify",
+    "all 69 endpoint tree identities",
+    "all 23 own-diff merge bases",
+    "full Git fsck"
+  ],
+  "fsck_output": "",
+  "scope": "Exact history conservation; no feature/behavior acceptance inferred"
+}

@@ -1,0 +1,321 @@
+[
+  {
+    "old_pr": 213,
+    "title": "Replace runner container lifecycles with py-docker",
+    "head": "e0fcaef16ea6d6bf8d661263c893cd2071a777d7",
+    "base": "5ffab075bbab50e195a3c8a375a83dff55a70fea",
+    "merge_base": "5ffab075bbab50e195a3c8a375a83dff55a70fea",
+    "replacement_prs": [
+      250
+    ],
+    "exact_history": "verified_from_exp_plus_bundle",
+    "retirement": "NOT_YET_VERIFIED",
+    "remaining_work": "Per-contract changed-row assessment, remaining checkpoint234 UI recovery and its acceptance. See binding-comparison-v2; this is initial triage, not an equivalence certificate."
+  },
+  {
+    "old_pr": 214,
+    "title": "Unify Docker agent communication with ACP",
+    "head": "8e2a2925c74748672f3028ba09359c49b13e1635",
+    "base": "e0fcaef16ea6d6bf8d661263c893cd2071a777d7",
+    "merge_base": "e0fcaef16ea6d6bf8d661263c893cd2071a777d7",
+    "replacement_prs": [
+      250
+    ],
+    "exact_history": "verified_from_exp_plus_bundle",
+    "retirement": "NOT_YET_VERIFIED",
+    "remaining_work": "Per-contract changed-row assessment, remaining checkpoint234 UI recovery and its acceptance. See binding-comparison-v2; this is initial triage, not an equivalence certificate."
+  },
+  {
+    "old_pr": 216,
+    "title": "Centralize Agent ownership and shared Git execution",
+    "head": "a9317f61ce0376ead778802d3fd394fa127fe8a2",
+    "base": "8e2a2925c74748672f3028ba09359c49b13e1635",
+    "merge_base": "8e2a2925c74748672f3028ba09359c49b13e1635",
+    "replacement_prs": [
+      255,
+      254,
+      249,
+      250
+    ],
+    "exact_history": "verified_from_exp_plus_bundle",
+    "retirement": "NOT_YET_VERIFIED",
+    "remaining_work": "Per-contract changed-row assessment, remaining checkpoint234 UI recovery and its acceptance. See binding-comparison-v2; this is initial triage, not an equivalence certificate."
+  },
+  {
+    "old_pr": 217,
+    "title": "Model normalized GitHub issue and pull request records",
+    "head": "3cf0d02b10a05cc643c9155c2bb075cee338bbda",
+    "base": "a9317f61ce0376ead778802d3fd394fa127fe8a2",
+    "merge_base": "a9317f61ce0376ead778802d3fd394fa127fe8a2",
+    "replacement_prs": [
+      249
+    ],
+    "exact_history": "verified_from_exp_plus_bundle",
+    "retirement": "NOT_YET_VERIFIED",
+    "remaining_work": "Per-contract changed-row assessment, remaining checkpoint234 UI recovery and its acceptance. See binding-comparison-v2; this is initial triage, not an equivalence certificate."
+  },
+  {
+    "old_pr": 218,
+    "title": "Model immutable skill revisions and traceable edit commits",
+    "head": "c741d4bcc104b8f7d0e0cc030ee3fa2ea7b6775b",
+    "base": "3cf0d02b10a05cc643c9155c2bb075cee338bbda",
+    "merge_base": "3cf0d02b10a05cc643c9155c2bb075cee338bbda",
+    "replacement_prs": [
+      254
+    ],
+    "exact_history": "verified_from_exp_plus_bundle",
+    "retirement": "NOT_YET_VERIFIED",
+    "remaining_work": "Per-contract changed-row assessment, remaining checkpoint234 UI recovery and its acceptance. See binding-comparison-v2; this is initial triage, not an equivalence certificate."
+  },
+  {
+    "old_pr": 219,
+    "title": "Model Agent preparation and preserve retained output contracts",
+    "head": "4b46032a6af322ce006e6eb6c2c16f670d4374fb",
+    "base": "c741d4bcc104b8f7d0e0cc030ee3fa2ea7b6775b",
+    "merge_base": "c741d4bcc104b8f7d0e0cc030ee3fa2ea7b6775b",
+    "replacement_prs": [
+      250
+    ],
+    "exact_history": "verified_from_exp_plus_bundle",
+    "retirement": "NOT_YET_VERIFIED",
+    "remaining_work": "Per-contract changed-row assessment, remaining checkpoint234 UI recovery and its acceptance. See binding-comparison-v2; this is initial triage, not an equivalence certificate."
+  },
+  {
+    "old_pr": 220,
+    "title": "Model host lifecycle records and preserve authorization boundaries",
+    "head": "6c65b6d50db9a17da060a522598bb89212f9f8be",
+    "base": "4b46032a6af322ce006e6eb6c2c16f670d4374fb",
+    "merge_base": "4b46032a6af322ce006e6eb6c2c16f670d4374fb",
+    "replacement_prs": [
+      255,
+      249,
+      250
+    ],
+    "exact_history": "verified_from_exp_plus_bundle",
+    "retirement": "NOT_YET_VERIFIED",
+    "remaining_work": "Per-contract changed-row assessment, remaining checkpoint234 UI recovery and its acceptance. See binding-comparison-v2; this is initial triage, not an equivalence certificate."
+  },
+  {
+    "old_pr": 221,
+    "title": "Enforce Black formatting across maintained Python",
+    "head": "3299f8df976965b707e7c91d3309ea2e8e0aaadf",
+    "base": "6c65b6d50db9a17da060a522598bb89212f9f8be",
+    "merge_base": "6c65b6d50db9a17da060a522598bb89212f9f8be",
+    "replacement_prs": [
+      250
+    ],
+    "exact_history": "verified_from_exp_plus_bundle",
+    "retirement": "NOT_YET_VERIFIED",
+    "remaining_work": "Per-contract changed-row assessment, remaining checkpoint234 UI recovery and its acceptance. See binding-comparison-v2; this is initial triage, not an equivalence certificate."
+  },
+  {
+    "old_pr": 222,
+    "title": "Extract node HTTP handlers and centralize redirect refusal",
+    "head": "4551ce52524f6ec997f4df04a984f0c850170e55",
+    "base": "3299f8df976965b707e7c91d3309ea2e8e0aaadf",
+    "merge_base": "3299f8df976965b707e7c91d3309ea2e8e0aaadf",
+    "replacement_prs": [
+      255,
+      254,
+      249
+    ],
+    "exact_history": "verified_from_exp_plus_bundle",
+    "retirement": "NOT_YET_VERIFIED",
+    "remaining_work": "Per-contract changed-row assessment, remaining checkpoint234 UI recovery and its acceptance. See binding-comparison-v2; this is initial triage, not an equivalence certificate."
+  },
+  {
+    "old_pr": 223,
+    "title": "Move bundle ingestion into host publication",
+    "head": "23cb11505c46ab24715055ad2abc09f3b1565d4f",
+    "base": "4551ce52524f6ec997f4df04a984f0c850170e55",
+    "merge_base": "4551ce52524f6ec997f4df04a984f0c850170e55",
+    "replacement_prs": [
+      255
+    ],
+    "exact_history": "verified_from_exp_plus_bundle",
+    "retirement": "NOT_YET_VERIFIED",
+    "remaining_work": "Per-contract changed-row assessment, remaining checkpoint234 UI recovery and its acceptance. See binding-comparison-v2; this is initial triage, not an equivalence certificate."
+  },
+  {
+    "old_pr": 224,
+    "title": "Place GitHub and Skill HTTP adapters in explicit interfaces",
+    "head": "61d8cb066bd6b49e2bd0d7ff1666b513135414ed",
+    "base": "23cb11505c46ab24715055ad2abc09f3b1565d4f",
+    "merge_base": "23cb11505c46ab24715055ad2abc09f3b1565d4f",
+    "replacement_prs": [
+      255,
+      254,
+      249
+    ],
+    "exact_history": "verified_from_exp_plus_bundle",
+    "retirement": "NOT_YET_VERIFIED",
+    "remaining_work": "Per-contract changed-row assessment, remaining checkpoint234 UI recovery and its acceptance. See binding-comparison-v2; this is initial triage, not an equivalence certificate."
+  },
+  {
+    "old_pr": 225,
+    "title": "Use owned sessions for local Claude login mirroring",
+    "head": "a09231a343475af28b896b9214fe7f132c16336f",
+    "base": "3299f8df976965b707e7c91d3309ea2e8e0aaadf",
+    "merge_base": "3299f8df976965b707e7c91d3309ea2e8e0aaadf",
+    "replacement_prs": [
+      250
+    ],
+    "exact_history": "verified_from_exp_plus_bundle",
+    "retirement": "NOT_YET_VERIFIED",
+    "remaining_work": "Per-contract changed-row assessment, remaining checkpoint234 UI recovery and its acceptance. See binding-comparison-v2; this is initial triage, not an equivalence certificate."
+  },
+  {
+    "old_pr": 226,
+    "title": "Separate Skill registry file, hash and edit policies",
+    "head": "64ac5fe7082412abc01abb0dc67e575515ced4be",
+    "base": "61d8cb066bd6b49e2bd0d7ff1666b513135414ed",
+    "merge_base": "61d8cb066bd6b49e2bd0d7ff1666b513135414ed",
+    "replacement_prs": [
+      255,
+      254
+    ],
+    "exact_history": "verified_from_exp_plus_bundle",
+    "retirement": "NOT_YET_VERIFIED",
+    "remaining_work": "Per-contract changed-row assessment, remaining checkpoint234 UI recovery and its acceptance. See binding-comparison-v2; this is initial triage, not an equivalence certificate."
+  },
+  {
+    "old_pr": 227,
+    "title": "Preserve runtime failure diagnostics and verify exact owned cleanup",
+    "head": "baa2ec0627729fa115a2eba05c09d1e9deed2f35",
+    "base": "3299f8df976965b707e7c91d3309ea2e8e0aaadf",
+    "merge_base": "3299f8df976965b707e7c91d3309ea2e8e0aaadf",
+    "replacement_prs": [
+      250
+    ],
+    "exact_history": "verified_from_exp_plus_bundle",
+    "retirement": "NOT_YET_VERIFIED",
+    "remaining_work": "Per-contract changed-row assessment, remaining checkpoint234 UI recovery and its acceptance. See binding-comparison-v2; this is initial triage, not an equivalence certificate."
+  },
+  {
+    "old_pr": 228,
+    "title": "Modularize skill sources and bound shared Git execution",
+    "head": "bac1ab6334139e92b1cbec785f1f5341ffadecc8",
+    "base": "64ac5fe7082412abc01abb0dc67e575515ced4be",
+    "merge_base": "64ac5fe7082412abc01abb0dc67e575515ced4be",
+    "replacement_prs": [
+      255,
+      254
+    ],
+    "exact_history": "verified_from_exp_plus_bundle",
+    "retirement": "NOT_YET_VERIFIED",
+    "remaining_work": "Per-contract changed-row assessment, remaining checkpoint234 UI recovery and its acceptance. See binding-comparison-v2; this is initial triage, not an equivalence certificate."
+  },
+  {
+    "old_pr": 229,
+    "title": "Move lease request handling to module scope",
+    "head": "8b92111efd2b452e6947a3fd81e0e13dff2f7903",
+    "base": "3508b7aee627053e21369cc08a16f15520345374",
+    "merge_base": "3508b7aee627053e21369cc08a16f15520345374",
+    "replacement_prs": [
+      250
+    ],
+    "exact_history": "verified_from_exp_plus_bundle",
+    "retirement": "NOT_YET_VERIFIED",
+    "remaining_work": "Per-contract changed-row assessment, remaining checkpoint234 UI recovery and its acceptance. See binding-comparison-v2; this is initial triage, not an equivalence certificate."
+  },
+  {
+    "old_pr": 230,
+    "title": "Import host and work graph objects from their defining modules",
+    "head": "5bb39f5c9abcf5e864edf6ddfd280b84fce78a39",
+    "base": "3508b7aee627053e21369cc08a16f15520345374",
+    "merge_base": "3508b7aee627053e21369cc08a16f15520345374",
+    "replacement_prs": [
+      255,
+      254,
+      249,
+      250
+    ],
+    "exact_history": "verified_from_exp_plus_bundle",
+    "retirement": "NOT_YET_VERIFIED",
+    "remaining_work": "Per-contract changed-row assessment, remaining checkpoint234 UI recovery and its acceptance. See binding-comparison-v2; this is initial triage, not an equivalence certificate."
+  },
+  {
+    "old_pr": 231,
+    "title": "Centralize GitHub contracts and delivery ownership",
+    "head": "bf1438d76ffb47105acf3abdce86f7deca358c45",
+    "base": "6656c1c0e13cb62b6c56443a6be7171b3c19d68d",
+    "merge_base": "6656c1c0e13cb62b6c56443a6be7171b3c19d68d",
+    "replacement_prs": [
+      249
+    ],
+    "exact_history": "verified_from_exp_plus_bundle",
+    "retirement": "NOT_YET_VERIFIED",
+    "remaining_work": "Per-contract changed-row assessment, remaining checkpoint234 UI recovery and its acceptance. See binding-comparison-v2; this is initial triage, not an equivalence certificate."
+  },
+  {
+    "old_pr": 232,
+    "title": "Move Agent skill installation into Agent workspace ownership",
+    "head": "a55279d1d51b05a5df6faedab861b68766844de0",
+    "base": "6656c1c0e13cb62b6c56443a6be7171b3c19d68d",
+    "merge_base": "6656c1c0e13cb62b6c56443a6be7171b3c19d68d",
+    "replacement_prs": [
+      255,
+      254,
+      250
+    ],
+    "exact_history": "verified_from_exp_plus_bundle",
+    "retirement": "NOT_YET_VERIFIED",
+    "remaining_work": "Per-contract changed-row assessment, remaining checkpoint234 UI recovery and its acceptance. See binding-comparison-v2; this is initial triage, not an equivalence certificate."
+  },
+  {
+    "old_pr": 233,
+    "title": "Model the shared Activity response envelope",
+    "head": "822239cff8b82729d9f8c0b286ca2b266bcd874e",
+    "base": "3508b7aee627053e21369cc08a16f15520345374",
+    "merge_base": "3508b7aee627053e21369cc08a16f15520345374",
+    "replacement_prs": [
+      250
+    ],
+    "exact_history": "verified_from_exp_plus_bundle",
+    "retirement": "NOT_YET_VERIFIED",
+    "remaining_work": "Per-contract changed-row assessment, remaining checkpoint234 UI recovery and its acceptance. See binding-comparison-v2; this is initial triage, not an equivalence certificate."
+  },
+  {
+    "old_pr": 234,
+    "title": "Use descriptive, safely copyable Skills inspection errors",
+    "head": "fe211cb0a496353b107b97e688fb5551ace30759",
+    "base": "276de9ab0c0c8982489a8425af82e68a61afaeda",
+    "merge_base": "276de9ab0c0c8982489a8425af82e68a61afaeda",
+    "replacement_prs": [
+      255,
+      254
+    ],
+    "exact_history": "verified_from_exp_plus_bundle",
+    "retirement": "NOT_YET_VERIFIED",
+    "remaining_work": "Per-contract changed-row assessment, remaining checkpoint234 UI recovery and its acceptance. See binding-comparison-v2; this is initial triage, not an equivalence certificate."
+  },
+  {
+    "old_pr": 236,
+    "title": "Apply canonical issue-number branch policy to implementation agents",
+    "head": "3ed8a69cb958e0c2591899353b9f5e8a8c8b91cb",
+    "base": "ca3f1e9e057648efc40042397f0bce80fbeca6b9",
+    "merge_base": "ca3f1e9e057648efc40042397f0bce80fbeca6b9",
+    "replacement_prs": [
+      240
+    ],
+    "exact_history": "verified_from_exp_plus_bundle",
+    "retirement": "NOT_YET_VERIFIED",
+    "remaining_work": "Per-contract changed-row assessment, remaining checkpoint234 UI recovery and its acceptance. See binding-comparison-v2; this is initial triage, not an equivalence certificate."
+  },
+  {
+    "old_pr": 238,
+    "title": "Audit Shared and Skills boundaries and remove obsolete migration proofs",
+    "head": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+    "base": "ca3f1e9e057648efc40042397f0bce80fbeca6b9",
+    "merge_base": "ca3f1e9e057648efc40042397f0bce80fbeca6b9",
+    "replacement_prs": [
+      255,
+      254,
+      249,
+      250
+    ],
+    "exact_history": "verified_from_exp_plus_bundle",
+    "retirement": "NOT_YET_VERIFIED",
+    "remaining_work": "Per-contract changed-row assessment, remaining checkpoint234 UI recovery and its acceptance. See binding-comparison-v2; this is initial triage, not an equivalence certificate."
+  }
+]

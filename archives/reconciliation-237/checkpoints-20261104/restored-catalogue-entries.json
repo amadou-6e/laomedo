@@ -1,0 +1,212 @@
+{
+  "invalid_controller_token": {
+    "title": "The Agent controller credential is invalid",
+    "description": "The local runner received an empty or unsupported credential for the Agent controller. The controller was not started.",
+    "recovery": "Check the local Agent account configuration before starting a run. Keep credentials out of the graph and its inputs."
+  },
+  "executor_selection_mismatch": {
+    "title": "The Agent selected a different tool environment",
+    "description": "The requested tool environment did not match the executor assigned to this run. The runner refused that selection.",
+    "recovery": "Check the existing run status and cleanup, then check the local runner configuration before starting new work."
+  },
+  "executor_registration_rejected": {
+    "title": "The Agent could not confirm its tool executor",
+    "description": "The controller did not confirm registration of the tool executor. Tool execution is not ready.",
+    "recovery": "Confirm the run status and container cleanup before starting new work. Check the local runner configuration if this persists."
+  },
+  "executor_not_registered": {
+    "title": "The Agent tool executor is not ready",
+    "description": "The runner requested a tool environment before its executor registration was confirmed.",
+    "recovery": "Check the existing run status and local runner configuration. Confirm cleanup before starting another run."
+  },
+  "request_timeout": {
+    "title": "The Agent did not respond in time",
+    "description": "The runner did not receive a response to an Agent request before its deadline. The request may still be active.",
+    "recovery": "If a run started, confirm its status and cleanup before starting another. For metadata-only requests, check the runner is ready before refreshing."
+  },
+  "absolute_local_source_required": {
+    "title": "The local source needs an absolute path",
+    "description": "A relative path cannot identify an admitted local skill source.",
+    "recovery": "Select an absolute local path within the configured allowed source roots."
+  },
+  "json_required": {
+    "title": "The source request format is invalid",
+    "description": "The local source endpoint requires a JSON request.",
+    "recovery": "Use the configured application client or send the supported JSON request format."
+  },
+  "local_source_invalid": {
+    "title": "The local source address is invalid",
+    "description": "The local source URI contains unsupported address parts.",
+    "recovery": "Use an absolute local directory path or a supported file URI."
+  },
+  "local_source_not_allowed": {
+    "title": "This local source is not allowed",
+    "description": "The selected directory is outside the configured source roots.",
+    "recovery": "Select a directory within an allowed root or update the local source service configuration."
+  },
+  "local_source_unavailable": {
+    "title": "The local skill source is unavailable",
+    "description": "The selected local directory could not be used as an admitted source.",
+    "recovery": "Check that the selected source directory exists and is accessible within an allowed root."
+  },
+  "local_source_unsafe": {
+    "title": "The local source could not be read safely",
+    "description": "The source contains a redirected path or does not meet the local source boundary.",
+    "recovery": "Select an allowed directory containing ordinary files and directories."
+  },
+  "skill_name_invalid": {
+    "title": "The skill name is invalid",
+    "description": "The skill's declared name cannot be used as a registry identity.",
+    "recovery": "Use the supported lowercase letters, digits, hyphens and underscores in the skill name."
+  },
+  "skill_operation_refused": {
+    "title": "The skill operation was refused",
+    "description": "The local service could not accept this Skill operation; private parser and authorization details were withheld.",
+    "recovery": "Inspect the selected revision and proposed edits. Confirm the existing operation outcome before submitting another change."
+  },
+  "skill_operation_service_not_configured": {
+    "title": "The skill operation service is not configured",
+    "description": "The local operation service address or requested action is invalid.",
+    "recovery": "Check the configured local Skill operation service before using editing or history actions."
+  },
+  "skill_operation_unavailable": {
+    "title": "The skill operation result is unavailable",
+    "description": "The application could not confirm a usable response from the local Skill operation service.",
+    "recovery": "Check local service availability and inspect the existing revision/history before submitting another edit."
+  },
+  "source_bundle_invalid": {
+    "title": "The skill bundle is incomplete or unsupported",
+    "description": "The selected bundle does not meet the supported Skill file structure and limits.",
+    "recovery": "Select a complete skill directory containing SKILL.md."
+  },
+  "source_required": {
+    "title": "Choose a skill source",
+    "description": "No usable skill source was supplied.",
+    "recovery": "Enter a supported repository URL or an allowed absolute local path on the Skill node."
+  },
+  "source_unavailable": {
+    "title": "The skill source could not be read",
+    "description": "The source service could not safely complete this request.",
+    "recovery": "Check the selected source and local source service availability before refreshing read-only choices."
+  },
+  "bundle_not_regular": {
+    "title": "The handoff bundle is not a regular file",
+    "description": "The local publication stage refused the run's fixed handoff file because it is missing, redirected or not a regular file.",
+    "recovery": "Check the existing run and publication attempt before starting new work. A refused capture does not authorize publishing or retrying an uncertain remote operation."
+  },
+  "bundle_size_or_type": {
+    "title": "The handoff bundle was refused",
+    "description": "The local publication stage refused the handoff file because its type, link count or size is outside the supported limits.",
+    "recovery": "Check the existing run and publication attempt before starting new work. A refused capture does not authorize publishing or retrying an uncertain remote operation."
+  },
+  "bundle_changed_or_oversized": {
+    "title": "The handoff bundle changed while being read",
+    "description": "The local publication stage could not retain stable, bounded bytes from the handoff file. This capture was refused.",
+    "recovery": "Check the existing run and publication attempt before starting new work. A refused capture does not authorize publishing or retrying an uncertain remote operation."
+  },
+  "bundle_unreadable": {
+    "title": "The handoff bundle could not be read",
+    "description": "The local publication stage encountered a filesystem error while reading the run's fixed handoff file. This capture was refused.",
+    "recovery": "Check the existing run and publication attempt before starting new work. A refused capture does not authorize publishing or retrying an uncertain remote operation."
+  },
+  "unsafe_relative_path": {
+    "title": "A skill file path is unsafe",
+    "description": "A skill file path is absolute, contains an unsupported separator or attempts to leave its skill folder. The registry refused that path.",
+    "recovery": "Use relative file paths inside the skill, then select or import a verified revision."
+  },
+  "invalid_tree_root": {
+    "title": "The skill folder is unavailable",
+    "description": "The registry could not use the expected skill folder as a regular directory. It may be missing or linked to another location.",
+    "recovery": "Check the selected skill source and registry files before selecting or importing a verified revision."
+  },
+  "linked_path": {
+    "title": "The skill contains a linked path",
+    "description": "The registry found a symbolic link, junction or reparse point inside the skill folder and refused to follow it.",
+    "recovery": "Use a skill revision containing regular files and folders without links."
+  },
+  "special_file": {
+    "title": "The skill contains an unsupported file",
+    "description": "The registry found a filesystem entry that is not a regular file or directory. It refused to include that entry in the skill.",
+    "recovery": "Remove unsupported filesystem entries from the source and import a verified skill revision."
+  },
+  "hardlinked_file": {
+    "title": "The skill contains a hard-linked file",
+    "description": "A skill file shares its filesystem contents with another path. The registry refused it because another path could change those bytes.",
+    "recovery": "Use independent regular files in the source and import a verified skill revision."
+  },
+  "missing_skill_file": {
+    "title": "The skill is missing SKILL.md",
+    "description": "The expected skill folder does not contain its required SKILL.md file. The registry could not verify a complete skill revision.",
+    "recovery": "Check the selected source or registry revision and use a skill with a SKILL.md file at its root."
+  },
+  "empty_directory": {
+    "title": "The skill contains an empty folder",
+    "description": "The registry found an empty folder that cannot be represented by the skill file inventory. It refused the tree.",
+    "recovery": "Remove empty folders from the source or add their intended files, then import a verified skill revision."
+  },
+  "invalid_revision_id": {
+    "title": "The skill revision reference is invalid",
+    "description": "The selected skill revision does not have the immutable hash format required by the registry. The runner refused to read that revision.",
+    "recovery": "Select an existing immutable revision on the Skill node before starting new work."
+  },
+  "latest_pointer_integrity_failure": {
+    "title": "The latest skill reference is inconsistent",
+    "description": "The registry latest pointer does not match its recorded tree identity. The runner refused to use that reference.",
+    "recovery": "Select a known immutable revision, or restore the registry from a trusted copy before starting new work."
+  },
+  "revision_integrity_failure": {
+    "title": "The skill revision failed its integrity check",
+    "description": "The selected revision metadata or file bytes no longer match its immutable identity. The runner refused to use those contents.",
+    "recovery": "Use a verified immutable revision or restore the registry from a trusted copy before starting new work."
+  },
+  "file_not_in_revision": {
+    "title": "The file is not part of the skill revision",
+    "description": "The requested file is not listed in the selected immutable skill revision. The registry refused the read.",
+    "recovery": "Check the selected skill revision and use its recorded files. Restore inconsistent registry metadata from a trusted copy before starting new work."
+  },
+  "skill_revision_unavailable": {
+    "title": "The selected skill revision is unavailable",
+    "description": "The registry could not provide a verified bundle for this exact revision. Its files may be absent or may not match the saved record.",
+    "recovery": "Close the file viewer and select an available revision in the Skill node. Keep the original reference if reporting the missing revision."
+  },
+  "skill_revision_unsafe": {
+    "title": "The skill revision cannot be safely displayed",
+    "description": "The file viewer refused linked or unsupported files in the selected bundle.",
+    "recovery": "Close the file viewer and select a verified revision. The viewer cannot repair this immutable bundle; do not bypass its file checks."
+  },
+  "skill_revision_too_large": {
+    "title": "The skill revision exceeds the viewer limits",
+    "description": "The selected bundle exceeds the file size, total size, count or nesting limits for inspection.",
+    "recovery": "Close the file viewer and select a smaller registered revision. Reloading this immutable bundle does not reduce its size."
+  },
+  "skill_inspection_unavailable": {
+    "title": "Skill files could not be loaded",
+    "description": "The file viewer did not receive a confirmed snapshot. The reason has not been established.",
+    "recovery": "Reload files repeats only the read of this selection. It does not edit the skill, rerun the graph or start an agent. You can also close the viewer."
+  },
+  "skill_history_unavailable": {
+    "title": "Skill history could not be loaded",
+    "description": "The viewer did not receive confirmed history for this selection. The reason has not been established; current files remain available.",
+    "recovery": "Reload history repeats only the history read. It does not submit an edit, rerun the graph or start an agent. You can continue viewing current files."
+  },
+  "skill_comparison_unavailable": {
+    "title": "The skill comparison could not be loaded",
+    "description": "The viewer could not confirm the selected revision comparison. The reason has not been established.",
+    "recovery": "Select Current source to return to the current files, or choose another revision in the history. Viewing a comparison does not edit the skill or run the graph."
+  },
+  "skill_summary_source_unavailable": {
+    "title": "The skill description source is unavailable",
+    "description": "The preparation step could not read SKILL.md as text, so it could not prepare description-authoring instructions.",
+    "recovery": "Select a registered revision with a readable text SKILL.md and inspect it before preparing an edit. This preparation failure does not publish a revision."
+  },
+  "skill_operation_invalid": {
+    "title": "The proposed skill edit is invalid",
+    "description": "The proposal did not meet the required modify action, explanation or file-edit format and limits. It was refused before application.",
+    "recovery": "Correct the proposed action, message and file edits before submitting again. Inspect existing history before repeating an earlier request whose outcome is uncertain."
+  },
+  "skill_editor_invalid": {
+    "title": "The skill edit attribution is invalid",
+    "description": "The host-supplied editing identity did not meet the supported provenance format or field limits.",
+    "recovery": "Keep the existing revision and report the safe technical details to the application maintainer. Do not invent attribution fields in the proposed edit."
+  }
+}
