@@ -79,6 +79,7 @@ test("online guidance is not repeated or conditional on a future reconnect", asy
   (api.get as jest.Mock).mockResolvedValue({data:{state:"ready",can_start:false}});
   render(<RecoveryPopup message="runner_transport_failed" context={{}} onDismiss={jest.fn()} />);
   expect(await screen.findByText("The local runner is online. Check the existing run before starting new work.")).toBeVisible();
+  expect(screen.getByRole("region", {name:"Local backend recovery"})).toHaveStyle({borderLeftColor:"#4ADE80"});
   expect(screen.queryByText(/Once reconnected/)).toBeNull();
   expect(screen.queryByText(/Starting the runner does not rerun/)).toBeNull();
 });

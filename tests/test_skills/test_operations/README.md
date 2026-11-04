@@ -21,3 +21,7 @@ raw so invalid payload controls exercise the production boundary unchanged.
 Pydantic copies their outer dictionaries during construction; changing a case's
 policy does not implicitly replace the service's policy. Tests explicitly assign
 the service policy when exercising a policy change.
+
+`test_preimages` checks immutable legacy-import and agent-edit commit IDs,
+serialized field order and persisted journal values against independent old-writer
+expectations. It does not derive expected identities from the current serializer.

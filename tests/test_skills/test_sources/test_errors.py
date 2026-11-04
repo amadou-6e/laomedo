@@ -8,6 +8,37 @@ from support.paths import repository_root
 
 
 class SourceErrorCatalogueTests(unittest.TestCase):
+    def test_local_and_repository_domain_codes_keep_descriptive_coverage(self):
+        root = repository_root()
+        catalogue = json.loads(
+            (root / "frontend/langflow-skill-viewer/node-error-catalog.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        producers = list((root / "src/laomedo/skills/sources").rglob("*.py"))
+        self.assertTrue(producers, "Scan the actual source-domain owners")
+        codes = set()
+        for path in producers:
+            for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+                if not (
+                    isinstance(node, ast.Call)
+                    and isinstance(node.func, ast.Name)
+                    and node.func.id == "SourceError"
+                    and node.args
+                ):
+                    continue
+                with self.subTest(producer=path.name, line=node.lineno):
+                    self.assertIsInstance(node.args[0], ast.Constant)
+                    self.assertIsInstance(node.args[0].value, str)
+                    codes.add(node.args[0].value)
+        self.assertIn("local_source_not_allowed", codes)
+        self.assertFalse(codes - catalogue.keys(), codes - catalogue.keys())
+        for code in codes:
+            with self.subTest(code=code):
+                for field in ("title", "description", "recovery"):
+                    self.assertIsInstance(catalogue[code][field], str)
+                    self.assertTrue(catalogue[code][field].strip())
+
     def test_repository_and_http_client_public_codes_have_recovery_entries(self):
         root = repository_root()
         catalog = json.loads(

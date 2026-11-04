@@ -35,7 +35,7 @@ export default function RecoveryPopup({ message, context, onDismiss }: {
     const close = async () => { if (!busy || await recovery.cancel()) dismissRef.current(); };
     const diagnostics = JSON.stringify({ ...failure.diagnostics,
       ...(PREREQUISITE_CODES.includes(recovery.reason ?? "") ? { recovery_code: recovery.reason } : {}) }, null, 2);
-    return <PopupFrame label="Local backend recovery" code={failure.diagnostics.code} nodeId={failure.diagnostics.node_id} operation={failure.diagnostics.operation} onClose={() => void close()}
+    return <PopupFrame label="Local backend recovery" code={failure.diagnostics.code} nodeId={failure.diagnostics.node_id} operation={failure.diagnostics.operation} onClose={() => void close()} recovered={recovery.state === "ready" && !catalogue}
       tools={!busy && <CopyIcon label="Copy diagnostics" text={diagnostics} />}
       heading={<><h3 className="text-sm font-bold">{recovery.title || failure.title}</h3><span className="min-w-0 break-words text-sm text-muted-foreground">{"\u00b7"} {name}{failure.diagnostics.operation ? ` / ${failure.diagnostics.operation}` : ""}</span></>}
       footer={<>
