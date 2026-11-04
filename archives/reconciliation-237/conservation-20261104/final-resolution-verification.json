@@ -1,0 +1,13 @@
+{
+  "combined_head": "1eb10a1fffca34fae8a6c92e8a55a8a5e445c3e1",
+  "fresh_repository": "C:\\CodeWorkspace\\laomedo\\.tools\\verify-conservation-resolution-_3nr0xxw",
+  "inputs": "exp f1973d0a history, four pushed owning heads, archived resolution bundle; no detached validation refs fetched",
+  "checks": [
+    "all exact archive file hashes",
+    "bundle prerequisites",
+    "exact candidate commit and tree",
+    "full Git fsck"
+  ],
+  "fsck": "",
+  "scope": "Recoverable history proof only; active behavioral gates remain separate"
+}

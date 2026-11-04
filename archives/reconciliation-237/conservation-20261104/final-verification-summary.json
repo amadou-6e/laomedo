@@ -1,0 +1,29 @@
+{
+  "installed_checks": {
+    "catalogue": 1,
+    "values": 5,
+    "intents": 1,
+    "feedback": 34,
+    "projectors": 6
+  },
+  "all_exit_codes_zero": true,
+  "installed_origin_asserted": true,
+  "source_fallback": false,
+  "packaged_files_byte_matched": 353,
+  "browser_source_head": "c8ccb5f81da30638239ac1519d9049f14b786bb4",
+  "later_cumulative_head": "1eb10a1fffca34fae8a6c92e8a55a8a5e445c3e1",
+  "frontend_jest_suites": 7,
+  "frontend_jest_cases": 604,
+  "current_hosted_checks": {
+    "count": 32,
+    "all_pass": true
+  },
+  "browser_model_requests": 0,
+  "route_interception": false,
+  "own_private_preview_cleanup": {
+    "all_service_threads_stopped": true,
+    "app_source_operation_ports_closed": true,
+    "unsafe_aliases_removed_and_original_bytes_restored": true
+  },
+  "acceptance": "Bounded conservation supporting evidence; no complete feature/owner acceptance or retirement verdict"
+}

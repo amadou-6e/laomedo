@@ -1,0 +1,1205 @@
+
+### PR 214 tests/test_codex_native_session.py::RetirementAndCatalogueTests.test_old_normal_cli_server_is_retired
+--- tests/test_codex_native_session.py::RetirementAndCatalogueTests.test_old_normal_cli_server_is_retired
++++ tests/test_agents/test_codex/test_native_session.py::RetirementAndCatalogueTests.test_old_normal_cli_server_is_retired
+@@ -1,6 +1,6 @@
+ def test_old_normal_cli_server_is_retired(self):
+-    root = pathlib.Path(__file__).resolve().parents[1]
+-    package = root.joinpath('src/laomedo/agents/providers/codex')
++    root = support.paths.repository_root()
++    package = root.joinpath('src/laomedo/agents/agents/codex')
+     self.assertFalse(package.joinpath('servers.py').exists())
+     self.assertFalse(package.joinpath('split/transport.py').exists())
+     self.assertNotIn('def _docker_prefix', package.joinpath('utils.py').read_text())
+
+
+### PR 214 tests/test_codex_native_session.py::RetirementAndCatalogueTests.test_new_native_transport_failures_are_catalogued
+--- tests/test_codex_native_session.py::RetirementAndCatalogueTests.test_new_native_transport_failures_are_catalogued
++++ tests/test_agents/test_codex/test_native_session.py::RetirementAndCatalogueTests.test_new_native_transport_failures_are_catalogued
+@@ -1,10 +1,10 @@
+ def test_new_native_transport_failures_are_catalogued(self):
+-    root = pathlib.Path(__file__).resolve().parents[1]
++    root = support.paths.repository_root()
+     catalogue = json.loads(root.joinpath('frontend/langflow-skill-viewer/node-error-catalog.json').read_text())
+     codes = set()
+-    producers = [root.joinpath('src/laomedo/agents/providers/codex/controller', module) for module in ('service.py', 'models.py', 'settings.py')]
+-    producers += [root.joinpath('src/laomedo/agents/providers/codex/split', module) for module in ('executor.py', 'models.py')]
+-    producers += [root.joinpath('src/laomedo/agents/providers', module) for module in ('claude/container.py', 'claude/runner.py', 'opencode/boundary.py', 'opencode/utils.py')]
++    producers = [root.joinpath('src/laomedo/agents/agents/codex/controller', module) for module in ('service.py', 'models.py', 'settings.py')]
++    producers += [root.joinpath('src/laomedo/agents/agents/codex/split', module) for module in ('executor.py', 'models.py')]
++    producers += [root.joinpath('src/laomedo/agents/agents', module) for module in ('claude/container.py', 'claude/agent.py', 'opencode/boundary.py', 'opencode/utils.py')]
+     for module in producers:
+         tree = ast.parse(module.read_text())
+         for node in ast.walk(tree):
+
+
+### PR 214 tests/test_live_workgraph_bindings.py::BindingTests.test_mailbox_only_replaces_trusted_mediator_mount_and_bootstrap
+ORIGINAL METHOD
+@unittest.skipUnless(find_spec('py_docker'), 'Requires the optional Docker runtime')
+def test_mailbox_only_replaces_trusted_mediator_mount_and_bootstrap(self):
+    with tempfile.TemporaryDirectory() as temp:
+        root = Path(temp)
+        launch = CodexLaunch(workspace=root, canonical=root, store_mount=root, image='sha256:' + 'a' * 64, capability=root.joinpath('capability'), mediator_url='http://127.0.0.1', mediator_instance='internal', run_id='run', launch_token='private-owner')
+        with patch.object(GitMetadataAppServer, '__init__', return_value=None) as parent:
+            MailboxAppServer(launch, root)
+        prepared = parent.call_args.args[0]
+        self.assertIsInstance(prepared, MailboxLaunch)
+        spec = prepared.to_container_spec()
+        self.assertEqual(spec.command[-2:], ['node', '/opt/acp/index.mjs'])
+        self.assertIn('node /run/laomedo/relay.mjs', spec.command[2])
+        self.assertEqual(spec.environment['GIT_EXEC_PATH'].get_secret_value(), '/run/laomedo/bin')
+        self.assertEqual(spec.image, launch.image)
+        self.assertEqual(prepared.launch_token, launch.launch_token)
+        mounts = {mount.target: mount for mount in spec.mounts}
+        self.assertTrue(mounts['/run/laomedo/mediate.mjs'].source.endswith('mailbox_client.mjs'))
+        self.assertTrue(mounts['/run/laomedo/mediate.mjs'].read_only)
+        self.assertTrue(mounts['/run/laomedo/relay.mjs'].read_only)
+        self.assertNotIn('auth.json', prepared.model_dump_json())
+
+
+### PR 214 tests/test_local_runner.py::LocalRunnerTests.test_snapshot_io_error_is_not_reported_as_container_cleanup_failure
+--- tests/test_local_runner.py::LocalRunnerTests.test_snapshot_io_error_is_not_reported_as_container_cleanup_failure
++++ tests/test_agents/test_runtime/test_lifecycle.py::LocalRunnerTests.test_snapshot_io_error_is_not_reported_as_container_cleanup_failure
+@@ -2,7 +2,7 @@
+     freeze = self.runner._freeze_workspace
+ 
+     def denied(root, record):
+-        with unittest.mock.patch('laomedo.agents.workspaces.utils._copy_tree', side_effect=PermissionError('private local path')):
++        with unittest.mock.patch('laomedo.agents.agents.base.agent._copy_tree', side_effect=PermissionError('private local path')):
+             return freeze(root, record)
+     with unittest.mock.patch.object(self.runner, '_freeze_workspace', side_effect=denied):
+         result = self.runner.start(self.request())
+
+
+### PR 214 tests/test_local_runner.py::LocalRunnerTests.test_opt_in_git_workspace_preserves_agent_history_without_snapshotting_it
+--- tests/test_local_runner.py::LocalRunnerTests.test_opt_in_git_workspace_preserves_agent_history_without_snapshotting_it
++++ tests/test_agents/test_runtime/test_lifecycle.py::LocalRunnerTests.test_opt_in_git_workspace_preserves_agent_history_without_snapshotting_it
+@@ -11,12 +11,12 @@
+     git('add', 'task.txt')
+     git('-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '-qm', 'baseline')
+     baseline = git('rev-parse', 'HEAD')
+-    runner = laomedo.agents.agents.codex.agent.CodexAgent(self.runner.state, self.runner.store.root, repository, transport=test_agents.test_runtime.test_lifecycle.FakeServer, check_docker=False, git_workspace=True)
++    runner = laomedo.agents.agents.codex.agent.CodexAgent(self.runner.state, self.runner.store.root, repository, transport=test_agents.test_runtime.transport.FakeServer, check_docker=False, git_workspace=True)
+     result = runner.start(self.request())
+     self.assertEqual(result['status'], 'completed')
+     self.assertEqual(result['workspace_mode'], 'git')
+     self.assertEqual(result['image'], 'laomedo-codex-acp:0.159.2-2.1.1')
+-    self.assertEqual(test_agents.test_runtime.test_lifecycle.FakeServer.calls[-1].image, __import__('laomedo.agents.agents.codex.settings', fromlist=['GIT_IMAGE_ID']).GIT_IMAGE_ID)
++    self.assertEqual(test_agents.test_runtime.transport.FakeServer.calls[-1].image, __import__('laomedo.agents.agents.codex.settings', fromlist=['GIT_IMAGE_ID']).GIT_IMAGE_ID)
+     self.assertEqual(result['git_baseline'], baseline)
+     self.assertTrue(result['skill_git_exclusion']['enabled'])
+     self.assertEqual(result['post_run_hash_scope'], 'working_files_only')
+@@ -35,7 +35,7 @@
+     self.assertTrue((run_dir / 'workspace' / '.git').is_dir())
+     authority = laomedo.host.mediation.authority.RunGrantAuthority(self.runner.state / 'git-authority.sqlite')
+     reference = authority.approve(invocation_id='approved-git', repository='example/disposable', branch='run-branch', operations={'git_push'}, reviewed_by='test-operator')
+-    mediated = laomedo.agents.agents.codex.agent.CodexAgent(self.runner.state, self.runner.store.root, repository, transport=test_agents.test_runtime.test_lifecycle.FakeServer, check_docker=False, git_workspace=True, supervise_containers=True, lease_service=self.runner.state / 'lease-state', github_authority=authority, mediator_state=self.runner.state / 'mediator-state')
++    mediated = laomedo.agents.agents.codex.agent.CodexAgent(self.runner.state, self.runner.store.root, repository, transport=test_agents.test_runtime.transport.FakeServer, check_docker=False, git_workspace=True, supervise_containers=True, lease_service=self.runner.state / 'lease-state', github_authority=authority, mediator_state=self.runner.state / 'mediator-state')
+     request = self.request()
+     request['github_authorization_ref'] = reference
+     prepared = mediated._prepare(request)
+@@ -45,7 +45,7 @@
+     private_lease.mkdir()
+     (private_lease / 'grant.secret').write_text('synthetic-capability', encoding='utf-8')
+     lease = types.SimpleNamespace(instance='fixture-instance', grant_id='fixture-grant', dir=private_lease, lost=threading.Event(), finish=unittest.mock.Mock())
+-    with unittest.mock.patch('laomedo.host.leases.client.LeaseClient', return_value=lease), unittest.mock.patch.object(mediated, '_mediator_route', return_value=('http://host.docker.internal:1234/v1/mediate', 'fixture-instance')), unittest.mock.patch('laomedo.host.leases.utils.cleanup_exact', return_value=(True, 'absent')):
++    with unittest.mock.patch('laomedo.agents.agents.codex.agent.LeaseClient', return_value=lease), unittest.mock.patch.object(mediated, '_mediator_route', return_value=('http://host.docker.internal:1234/v1/mediate', 'fixture-instance')), unittest.mock.patch('laomedo.agents.agents.codex.agent.cleanup_exact', return_value=(True, 'absent')):
+         completed = mediated._execute(prepared['run_id'], 'Synthetic task', resume=False)
+         self.assertEqual(completed['status'], 'completed', completed.get('error_category'))
+         exclusion = completed['skill_git_exclusion']
+
+
+### PR 214 tests/test_module_path_migration.py::ModuleMigrationTests.test_constants_generation_migrates_symbols_and_aliases_in_one_pass
+--- tests/test_module_path_migration.py::ModuleMigrationTests.test_constants_generation_migrates_symbols_and_aliases_in_one_pass
++++ tests/test_shared/test_migration/test_paths.py::ModuleMigrationTests.test_constants_generation_migrates_symbols_and_aliases_in_one_pass
+@@ -1,6 +1,7 @@
+ def test_constants_generation_migrates_symbols_and_aliases_in_one_pass(self):
+     renamed = {old: new for old, new in migration.MODULE_PATHS.items() if old.endswith('.constants')}
+     self.assertEqual(len(renamed), 21)
++    self.assertIn('laomedo.agents.agents.opencode.activity.constants', migration.MANUAL_SYMBOLS)
+     for old, new in renamed.items():
+         symbols = {key.rsplit('.', 1)[1]: value for key, value in migration.SYMBOL_PATHS.items() if key.rsplit('.', 1)[0] == old}
+         definitions = set()
+@@ -10,7 +11,7 @@
+                 if isinstance(node, (ast.Assign, ast.AnnAssign)):
+                     for assigned in node.targets if isinstance(node, ast.Assign) else [node.target]:
+                         definitions.update((item.id for item in ast.walk(assigned) if isinstance(item, ast.Name)))
+-        self.assertLessEqual(set(symbols), definitions, old)
++        self.assertLessEqual({target.rsplit('.', 1)[1] for target in symbols.values()}, definitions, old)
+         for name, target in symbols.items():
+             for source in (f'from {old} import {name}\nvalue = {name}\n', f'import {old} as settings\nvalue = settings.{name}\n'):
+                 with self.subTest(module=old, name=name, source=source):
+
+
+### PR 214 tests/test_native_localrunner_probe.py::LocalRunnerProbeTests.test_worker_uses_real_transport_inheritance_zero_cap_and_refuses_turn
+ORIGINAL METHOD
+def test_worker_uses_real_transport_inheritance_zero_cap_and_refuses_turn(self):
+    with tempfile.TemporaryDirectory() as temp:
+        root = Path(temp)
+        (root / 'deadline').write_text('999999999')
+        (root / 'start-gate').touch()
+        (root / 'a-authorization.json').write_text('"trusted-reference"')
+        (root / 'skill-reference.json').write_text('{"skill_id":"fixture"}')
+
+        class InspectRunner:
+
+            def __init__(self, state, skill_store, source, **kwargs):
+                self.test = test
+                self.test.assertNotIn('max_model_turns', kwargs)
+                self.test.assertTrue(kwargs['git_workspace'])
+                self.test.assertTrue(kwargs['supervise_containers'])
+                self.transport = kwargs['transport']
+                self.test.assertTrue(issubclass(self.transport, AppServer))
+                self.state = state
+
+            def _prepare(self, request):
+                self.test.assertEqual(request['github_authorization_ref'], 'trusted-reference')
+                return {'run_id': 'fixture-run'}
+
+            def _execute(self, run_id, task, *, resume):
+                server = self.transport.__new__(self.transport)
+                for method in ('prompt', 'open', 'models'):
+                    with self.test.assertRaisesRegex(RunnerError, 'fixture_forbids_model_or_thread_request'):
+                        asyncio.run(getattr(server, method)())
+                return {'run_id': run_id, 'status': 'failed', 'error_category': 'fixture_hold_finished_before_turn'}
+        test = self
+        with patch.object(worker, 'LocalRunner', InspectRunner), patch.object(worker, 'RunGrantAuthority'):
+            worker.run(root, 'a')
+        self.assertTrue(json.loads((root / 'a-initialized.json').read_bytes())['constructed'])
+        self.assertEqual(json.loads((root / 'a-finished.json').read_bytes())['model_turns'], 0)
+
+
+### PR 214 tests/test_node_error_catalog.py::NodeErrorCatalogueTests.test_shared_acp_timeout_methods_are_preserved_by_the_graph_boundary
+--- tests/test_node_error_catalog.py::NodeErrorCatalogueTests.test_shared_acp_timeout_methods_are_preserved_by_the_graph_boundary
++++ tests/test_shared/test_errors/test_catalogue.py::NodeErrorCatalogueTests.test_shared_acp_timeout_methods_are_preserved_by_the_graph_boundary
+@@ -1,7 +1,7 @@
+ def test_shared_acp_timeout_methods_are_preserved_by_the_graph_boundary(self):
+-    source = ast.parse((ROOT / 'src/laomedo/agents/protocol/acp/session.py').read_text())
++    source = ast.parse((ROOT / 'src/laomedo/agents/agents/base/acp/session.py').read_text())
+     methods = {node.args[1].value for node in ast.walk(source) if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and (node.func.attr == '_request') and (len(node.args) >= 2) and isinstance(node.args[1], ast.Constant) and isinstance(node.args[1].value, str)}
+-    tree = ast.parse((ROOT / 'src/laomedo/integrations/langflow/agent/component.py').read_text())
++    tree = ast.parse((ROOT / 'src/laomedo/agents/interface/langflow/component.py').read_text())
+     routed = next((ast.literal_eval(node.value) for node in tree.body if isinstance(node, ast.Assign) and any((isinstance(target, ast.Name) and target.id == '_ROUTABLE_ERRORS' for target in node.targets))))
+     self.assertTrue(methods)
+     self.assertFalse({'request_timeout:' + method for method in methods} - routed)
+
+### PR 214 tests/test_node_error_catalog.py::NodeErrorCatalogueTests.test_opencode_catalogue_codes_survive_the_graph_boundary
+--- tests/test_node_error_catalog.py::NodeErrorCatalogueTests.test_opencode_catalogue_codes_survive_the_graph_boundary
++++ tests/test_shared/test_errors/test_catalogue.py::NodeErrorCatalogueTests.test_opencode_catalogue_codes_survive_the_graph_boundary
+@@ -1,5 +1,5 @@
+ def test_opencode_catalogue_codes_survive_the_graph_boundary(self):
+     catalogue = json.loads((ROOT / 'frontend/langflow-skill-viewer/node-error-catalog.json').read_text())
+-    tree = ast.parse((ROOT / 'src/laomedo/integrations/langflow/agent/component.py').read_text())
++    tree = ast.parse((ROOT / 'src/laomedo/agents/interface/langflow/component.py').read_text())
+     routed = next((ast.literal_eval(node.value) for node in tree.body if isinstance(node, ast.Assign) and any((isinstance(target, ast.Name) and target.id == '_ROUTABLE_ERRORS' for target in node.targets))))
+     self.assertFalse({code for code in catalogue if code.startswith('opencode_')} - routed)
+
+### PR 214 tests/test_opencode_history.py::OpenCodeHistoryTests.test_unknown_credential_schema_and_host_size_budget_fail_closed
+--- tests/test_opencode_history.py::OpenCodeHistoryTests.test_unknown_credential_schema_and_host_size_budget_fail_closed
++++ tests/test_agents/test_opencode/test_history.py::OpenCodeHistoryTests.test_unknown_credential_schema_and_host_size_budget_fail_closed
+@@ -4,7 +4,7 @@
+         database.commit()
+     with self.assertRaisesRegex(ValueError, 'opencode_history_credentials_unverified'):
+         self.reader._copy_database(self.root / 'refused.db')
+-    with unittest.mock.patch('laomedo.agents.agents.opencode.history.reader.settings.Settings') as configured:
++    with unittest.mock.patch('laomedo.agents.agents.opencode.history.reader.Settings') as configured:
+         configured.return_value.max_database_bytes = 1
+         with self.assertRaisesRegex(ValueError, 'opencode_history_database_limit'):
+             self.reader._copy_database(self.root / 'too-large.db')
+
+### PR 214 tests/test_outstanding_commands.py::RunnerTests.test_cleanup_failure_does_not_turn_a_dangling_command_into_cancellation
+--- tests/test_outstanding_commands.py::RunnerTests.test_cleanup_failure_does_not_turn_a_dangling_command_into_cancellation
++++ tests/test_agents/test_runtime/test_commands.py::RunnerTests.test_cleanup_failure_does_not_turn_a_dangling_command_into_cancellation
+@@ -1,16 +1,5 @@
+ def test_cleanup_failure_does_not_turn_a_dangling_command_into_cancellation(self):
+-
+-    class Transport(test_agents.test_runtime.test_lifecycle.FakeServer):
+-
+-        def wait_turn(server, turn_id, timeout, cancelled):
+-            super().wait_turn(turn_id, timeout, cancelled)
+-            server.events.append(test_agents.test_runtime.test_commands.command('item/started'))
+-            return ('completed', None)
+-
+-        async def close(server):
+-            await super().close()
+-            raise OSError('synthetic cleanup failure')
+-    self.runner.transport = Transport
++    self.runner.transport = test_agents.test_runtime.commands.UncertainCleanupTransport
+     result = self.runner.start(self.request())
+     self.assertEqual(result['status'], 'failed')
+     self.assertEqual(result['error_category'], 'container_termination_unverified')
+
+
+### PR 214 tests/test_runner_sandbox_policy.py::RunnerSandboxPolicyTests.test_split_permission_checks_use_selected_endpoint
+--- tests/test_runner_sandbox_policy.py::RunnerSandboxPolicyTests.test_split_permission_checks_use_selected_endpoint
++++ tests/test_agents/test_codex/test_sandbox.py::RunnerSandboxPolicyTests.test_split_permission_checks_use_selected_endpoint
+@@ -1,7 +1,7 @@
+ def test_split_permission_checks_use_selected_endpoint(self):
+     with tempfile.TemporaryDirectory() as temp:
+         root = pathlib.Path(temp)
+-        runner = laomedo.agents.agents.codex.agent.CodexAgent(root / 'state', root / 'skills', pathlib.Path(__file__).resolve().parents[1] / 'examples/github-pr', split_executor=True, check_docker=False)
++        runner = laomedo.agents.agents.codex.agent.CodexAgent(root / 'state', root / 'skills', support.paths.repository_root() / 'components', split_executor=True, check_docker=False)
+         server = unittest.mock.MagicMock(initialize=unittest.mock.AsyncMock(), models=unittest.mock.AsyncMock(return_value=[]), preflight=unittest.mock.AsyncMock(return_value=1), close=unittest.mock.AsyncMock())
+         with unittest.mock.patch.object(runner, '_open_server', return_value=server):
+             with self.assertRaisesRegex(laomedo.agents.errors.RunnerError, 'permission_preflight_failed'):
+
+
+### PR 214 tests/test_settings_contracts.py::SettingsContractTests.test_flags_retain_exact_one_comparison_at_consumers
+--- tests/test_settings_contracts.py::SettingsContractTests.test_flags_retain_exact_one_comparison_at_consumers
++++ tests/test_shared/test_architecture/test_settings.py::SettingsContractTests.test_flags_retain_exact_one_comparison_at_consumers
+@@ -1,5 +1,5 @@
+ def test_flags_retain_exact_one_comparison_at_consumers(self):
+-    consumers = {'agents/providers/codex/controller/service.py': {'otel', 'multi_agent'}, 'agents/providers/claude/runner.py': {'mirror_host_login'}, 'activity/opencode/telemetry.py': {'otel'}}
++    consumers = {'agents/agents/codex/controller/service.py': {'otel', 'multi_agent'}, 'agents/agents/claude/agent.py': {'mirror_host_login'}, 'agents/agents/opencode/activity/telemetry.py': {'otel'}}
+     for relative, fields in consumers.items():
+         tree = ast.parse((SOURCE / relative).read_text())
+         compared = {node.left.attr for node in ast.walk(tree) if isinstance(node, ast.Compare) and isinstance(node.left, ast.Attribute) and (node.left.attr in fields) and (len(node.comparators) == 1) and isinstance(node.comparators[0], ast.Constant) and (node.comparators[0].value == '1') and isinstance(node.ops[0], (ast.Eq, ast.NotEq))}
+
+
+### PR 214 tests/test_settings_contracts.py::SettingsContractTests.test_native_stream_settings_validate_positive_numeric_environment
+ORIGINAL METHOD
+def test_native_stream_settings_validate_positive_numeric_environment(self):
+    from pydantic import ValidationError
+    from laomedo.agents.providers.codex.controller.settings import Settings
+    from laomedo.agents.runtime.errors import RunnerError
+    for field, alias in (('max_bytes', 'LAOMEDO_CODEX_STREAM_MAX_BYTES'), ('startup_margin', 'LAOMEDO_CODEX_STREAM_STARTUP_MARGIN')):
+        with self.subTest(field=field), patch.dict(os.environ, {}, clear=True):
+            os.environ[alias] = '1024'
+            self.assertEqual(getattr(Settings(), field), 1024)
+            for invalid in ('', '0', '-1', 'not-a-number'):
+                os.environ[alias] = invalid
+                with self.assertRaises(ValidationError):
+                    Settings()
+                with self.assertRaisesRegex(RunnerError, 'runner_transport_configuration_invalid'):
+                    Settings.load()
+    with patch.dict(os.environ, {'LAOMEDO_CODEX_STREAM_STARTUP_MARGIN': 'inf'}):
+        with self.assertRaisesRegex(RunnerError, 'runner_transport_configuration_invalid'):
+            Settings.load()
+
+
+### PR 214 tests/test_settings_contracts.py::SettingsContractTests.test_raw_environment_boundaries_stay_explicit
+--- tests/test_settings_contracts.py::SettingsContractTests.test_raw_environment_boundaries_stay_explicit
++++ tests/test_shared/test_architecture/test_settings.py::SettingsContractTests.test_raw_environment_boundaries_stay_explicit
+@@ -1,14 +1,8 @@
+ def test_raw_environment_boundaries_stay_explicit(self):
+-    protected = {'host/runner/utils.py': 'os.environ.items()', 'agents/workspace/git.py': 'os.environ.items()', 'github/transport/git/utils.py': 'os.environ.items()', 'host/credentials/claude/utils.py': 'os.environ if environment is None', 'skills/sources/service.py': 'os.environ.items()', 'host/publication/cli.py': 'key in os.environ', 'github/issues/cli.py': 'os.environ.get(args.github_token_env)', 'github/pull_requests/cli.py': 'os.environ.get(args.github_token_env)', 'agents/handoffs/transport.py': '"LAOMEDO_" + provider.upper()'}
++    protected = {'host/runner/utils.py': 'os.environ.items()', 'git/command.py': 'os.environ.items()', 'agents/agents/claude/container.py': 'env = dict(environment or {})', 'agents/agents/claude/auth/utils.py': 'os.environ if environment is None', 'agents/agents/codex/agent.py': 'ConnectionSettings.environment_snapshot(None)', 'host/publication/cli.py': 'key in os.environ', 'github/interface/issues/cli.py': 'os.environ.get(args.github_token_env)', 'github/interface/pull_requests/cli.py': 'os.environ.get(args.github_token_env)', 'agents/interface/bridge.py': '"LAOMEDO_" + provider.upper()'}
+     for relative, expression in protected.items():
+         self.assertIn(expression, (SOURCE / relative).read_text(), relative)
+-    claude = (SOURCE / 'agents/providers/claude/container.py').read_text(encoding='utf-8')
+-    self.assertNotIn('os.environ', claude)
+-    self.assertIn('environment={"DOCKER_HOST": self.docker_endpoint}', claude)
+-    split = (SOURCE / 'agents/providers/codex/split/executor.py').read_text()
+-    self.assertNotIn('os.environ', split)
+-    self.assertIn('environment=environment', split)
+-    helper = (SOURCE / 'host/credentials/git_credential_helper.py').read_text()
++    helper = (SOURCE / 'git/credentials/helper.py').read_text()
+     self.assertIn('os.environ.get("LAOMEDO_MEDIATED_GIT_TOKEN", "")', helper)
+     self.assertNotIn('pydantic', helper)
+     self.assertNotIn('import laomedo', helper)
+
+### PR 216 tests/test_acp_provider_bindings.py::ProviderBindingTests.test_opencode_refuses_runtime_and_model_mismatch_before_capture_or_prompt
+--- tests/test_acp_provider_bindings.py::ProviderBindingTests.test_opencode_refuses_runtime_and_model_mismatch_before_capture_or_prompt
++++ tests/test_agents/test_protocol/test_provider_bindings.py::ProviderBindingTests.test_opencode_refuses_runtime_and_model_mismatch_before_capture_or_prompt
+@@ -1,5 +1,5 @@
+ async def test_opencode_refuses_runtime_and_model_mismatch_before_capture_or_prompt(self):
+-    for version, observed, error in (('wrong', 'provider/model', 'opencode_runtime_pin_mismatch'), (laomedo.agents.agents.opencode.settings.CLI_VERSION, 'provider/other', 'opencode_model_not_connected'), (laomedo.agents.agents.opencode.settings.CLI_VERSION, 'provider/model', None)):
++    for version, observed, error, cancel_during_setup in (('wrong', 'provider/model', 'opencode_runtime_pin_mismatch', False), (laomedo.agents.agents.opencode.settings.CLI_VERSION, 'provider/other', 'opencode_model_not_connected', False), (laomedo.agents.agents.opencode.settings.CLI_VERSION, 'provider/model', None, False), (laomedo.agents.agents.opencode.settings.CLI_VERSION, 'provider/model', 'opencode_cancelled_before_dispatch', True)):
+         with self.subTest(version=version, observed=observed):
+             runner = laomedo.agents.agents.opencode.boundary.IsolatedOpenCode.__new__(laomedo.agents.agents.opencode.boundary.IsolatedOpenCode)
+             runner.session = unittest.mock.Mock()
+@@ -15,8 +15,15 @@
+                 self.assertEqual(client.on_update, capture.update)
+                 return types.SimpleNamespace(stop_reason='end_turn', usage=None)
+             client.prompt.side_effect = prompt_after_binding
++            cancelled = threading.Event()
++            if cancel_during_setup:
++
++                async def cancel_after_model_selection(*args, **kwargs):
++                    cancelled.set()
++                    return types.SimpleNamespace(config_options=[types.SimpleNamespace(id='model', current_value=observed)])
++                client.configure.side_effect = cancel_after_model_selection
+             with unittest.mock.patch('laomedo.agents.agents.base.acp.session.AcpSession', return_value=client):
+-                operation = runner._run_acp('Internal task', 'provider/model', None, threading.Event(), capture, on_session)
++                operation = runner._run_acp('Internal task', 'provider/model', None, cancelled, capture, on_session)
+                 if error:
+                     with self.assertRaisesRegex(laomedo.agents.errors.RunnerError, error):
+                         await operation
+
+
+### PR 216 tests/test_agent_module_structure.py::AgentModuleStructureTests.test_owned_agent_files_use_direct_symbols_and_module_level_classes
+--- tests/test_agent_module_structure.py::AgentModuleStructureTests.test_owned_agent_files_use_direct_symbols_and_module_level_classes
++++ tests/test_agents/test_architecture/test_interfaces.py::AgentModuleStructureTests.test_owned_agent_files_use_direct_symbols_and_module_level_classes
+@@ -1,5 +1,7 @@
+ def test_owned_agent_files_use_direct_symbols_and_module_level_classes(self):
+-    for path in (ROOT / 'agents').rglob('*.py'):
++    paths = list((ROOT / 'agents').rglob('*.py'))
++    self.assertTrue(paths, 'The real Agent owner must be scanned')
++    for path in paths:
+         tree = ast.parse(path.read_text(encoding='utf-8-sig'))
+         top_classes = {id(n) for n in tree.body if isinstance(n, ast.ClassDef)}
+         self.assertEqual(self.module_imports(path, tree), [], path)
+
+
+### PR 216 tests/test_agent_module_structure.py::AgentModuleStructureTests.test_public_contracts_and_base_do_not_import_concrete_agents
+ORIGINAL METHOD
+def test_public_contracts_and_base_do_not_import_concrete_agents(self):
+    for folder in ('agents/interface', 'agents/agents/base'):
+        for path in (ROOT / folder).rglob('*.py'):
+            for node in ast.walk(ast.parse(path.read_text())):
+                if not isinstance(node, ast.ImportFrom):
+                    continue
+                module = node.module or ''
+                self.assertFalse(any((module.startswith('laomedo.agents.agents.' + provider) for provider in ('codex', 'claude', 'opencode'))), (path, node.lineno))
+                if folder == 'agents/interface':
+                    self.assertFalse(module.startswith('laomedo.agents.agents.base'), (path, node.lineno))
+
+
+### PR 216 tests/test_agent_module_structure.py::AgentModuleStructureTests.test_class_owning_agent_leaves_have_an_interface_readme
+--- tests/test_agent_module_structure.py::AgentModuleStructureTests.test_class_owning_agent_leaves_have_an_interface_readme
++++ tests/test_agents/test_architecture/test_interfaces.py::AgentModuleStructureTests.test_class_owning_agent_leaves_have_an_interface_readme
+@@ -1,5 +1,7 @@
+ def test_class_owning_agent_leaves_have_an_interface_readme(self):
+-    for path in (ROOT / 'agents').rglob('*.py'):
++    paths = list((ROOT / 'agents').rglob('*.py'))
++    self.assertTrue(paths, 'The real Agent owner must be scanned')
++    for path in paths:
+         tree = ast.parse(path.read_text())
+         if any((isinstance(node, ast.ClassDef) for node in tree.body)):
+             self.assertTrue(path.with_name('README.md').is_file(), path)
+
+### PR 216 tests/test_agent_module_structure.py::AgentModuleStructureTests.test_retired_provider_and_graph_owners_do_not_return
+ORIGINAL METHOD
+def test_retired_provider_and_graph_owners_do_not_return(self):
+    for relative in ('agents/providers', 'agents/runtime', 'agents/protocol', 'agents/contracts', 'agents/workflow', 'agents/feedback', 'agents/handoffs', 'activity'):
+        self.assertEqual(list((ROOT / relative).rglob('*.py')), [], relative)
+    for provider in ('codex', 'claude', 'opencode'):
+        self.assertTrue((ROOT / 'agents/agents' / provider / 'agent.py').is_file())
+        self.assertTrue((ROOT / 'agents/agents' / provider / 'README.md').is_file())
+
+
+### PR 216 tests/test_claude_login.py::LoginMirrorTests.test_existing_refresh_capable_login_is_preserved
+--- tests/test_claude_login.py::LoginMirrorTests.test_existing_refresh_capable_login_is_preserved
++++ tests/test_agents/test_claude/test_login.py::LoginMirrorTests.test_existing_refresh_capable_login_is_preserved
+@@ -1,14 +1,9 @@
+ def test_existing_refresh_capable_login_is_preserved(self):
+-    with unittest.mock.patch('laomedo.agents.agents.claude.auth.utils.subprocess.run', side_effect=self.docker) as run:
+-        laomedo.agents.agents.claude.auth.utils.mirror_login('laomedo-claude-profile', IMAGE, source=self.source, environment={})
+-    call = run.call_args
+-    script = call.args[0][-1]
+     profile = pathlib.Path(self.temp.name) / 'profile'
+     profile.mkdir()
+     credentials = profile / '.credentials.json'
+     original = b'{"claudeAiOauth":{"refreshToken":"internal-existing-login"}}'
+     credentials.write_bytes(original)
+-    script = script.replace("p='/profile/config'", 'p=' + repr(str(profile)))
+-    result = subprocess.run([sys.executable, '-c', script], input=call.kwargs['input'], capture_output=True, timeout=10)
+-    self.assertNotEqual(result.returncode, 0)
++    with self.assertRaisesRegex(ValueError, 'login_write_refused'):
++        laomedo.agents.agents.claude.auth.resources.write_login.write_login(profile, 3, io.BytesIO(b'new'))
+     self.assertEqual(credentials.read_bytes(), original)
+
+### PR 216 tests/test_claude_login.py::LoginMirrorTests.test_mirror_copies_only_access_and_retains_host_refresh_ownership
+--- tests/test_claude_login.py::LoginMirrorTests.test_mirror_copies_only_access_and_retains_host_refresh_ownership
++++ tests/test_agents/test_claude/test_login.py::LoginMirrorTests.test_mirror_copies_only_access_and_retains_host_refresh_ownership
+@@ -1,15 +1,16 @@
+ def test_mirror_copies_only_access_and_retains_host_refresh_ownership(self):
+     with unittest.mock.patch('laomedo.agents.agents.claude.auth.utils.subprocess.run', side_effect=self.docker) as run:
+         laomedo.agents.agents.claude.auth.utils.mirror_login('laomedo-claude-profile', IMAGE, source=self.source, environment={'PATH': 'host', 'ANTHROPIC_API_KEY': 'excluded'})
+-    call = run.call_args
+-    payload = json.loads(call.kwargs['input'])
++    written = self.session.write.call_args.args[0]
++    payload = json.loads(written)
+     self.assertEqual(payload['claudeAiOauth']['accessToken'], 'internal-access')
+     self.assertEqual(payload['claudeAiOauth']['refreshToken'], '')
+-    self.assertNotIn('internal-refresh', call.kwargs['input'].decode())
+-    self.assertNotIn('private-profile', call.kwargs['input'].decode())
+-    self.assertNotIn('ANTHROPIC_API_KEY', call.kwargs['env'])
+-    self.assertIn('--network=none', call.args[0])
+-    self.assertEqual(call.args[0][1:3], ['--host', 'npipe:////./pipe/dockerDesktopLinuxEngine'])
+-    self.assertNotIn('DOCKER_CONTEXT', call.kwargs['env'])
+-    self.assertNotIn('DOCKER_HOST', call.kwargs['env'])
+-    self.assertEqual(call.kwargs['timeout'], 20)+    self.assertNotIn('internal-refresh', written.decode())
++    self.assertNotIn('private-profile', written.decode())
++    self.assertNotIn('ANTHROPIC_API_KEY', self.factory.call_args.kwargs['environment'])
++    self.assertEqual(self.client.sessions.open.call_args.args[0].spec.network_mode, 'none')
++    self.assertEqual(self.factory.call_args.args[0].endpoint, 'npipe:////./pipe/dockerDesktopLinuxEngine')
++    self.assertNotIn('DOCKER_CONTEXT', self.factory.call_args.kwargs['environment'])
++    self.assertNotIn('DOCKER_HOST', self.factory.call_args.kwargs['environment'])
++    self.assertEqual(run.call_args.args[0], ['docker', 'context', 'inspect'])
++    self.assertFalse(any(('run' in call.args[0] for call in run.call_args_list)))
+
+### PR 216 tests/test_claude_login.py::LoginMirrorTests.test_local_context_is_pinned_despite_remote_host_override
+--- tests/test_claude_login.py::LoginMirrorTests.test_local_context_is_pinned_despite_remote_host_override
++++ tests/test_agents/test_claude/test_login.py::LoginMirrorTests.test_local_context_is_pinned_despite_remote_host_override
+@@ -1,7 +1,8 @@
+ def test_local_context_is_pinned_despite_remote_host_override(self):
+     with unittest.mock.patch('laomedo.agents.agents.claude.auth.utils.subprocess.run', side_effect=self.docker) as run:
+         laomedo.agents.agents.claude.auth.utils.mirror_login('laomedo-claude-profile', IMAGE, source=self.source, environment={'DOCKER_CONTEXT': 'desktop-linux', 'DOCKER_HOST': 'tcp://remote:2375'})
+-    for call in run.call_args_list[1:]:
+-        self.assertEqual(call.args[0][1:3], ['--host', 'npipe:////./pipe/dockerDesktopLinuxEngine'])
+-        self.assertNotIn('DOCKER_CONTEXT', call.kwargs['env'])
+-        self.assertNotIn('DOCKER_HOST', call.kwargs['env'])+    self.assertEqual(run.call_count, 1)
++    self.assertEqual(run.call_args.args[0], ['docker', 'context', 'inspect'])
++    self.assertEqual(self.factory.call_args.args[0].endpoint, 'npipe:////./pipe/dockerDesktopLinuxEngine')
++    self.assertNotIn('DOCKER_CONTEXT', self.factory.call_args.kwargs['environment'])
++    self.assertNotIn('DOCKER_HOST', self.factory.call_args.kwargs['environment'])
+
+### PR 216 tests/test_claude_login.py::LoginMirrorTests.test_public_mirror_codes_have_catalogue_coverage
+--- tests/test_claude_login.py::LoginMirrorTests.test_public_mirror_codes_have_catalogue_coverage
++++ tests/test_agents/test_claude/test_login.py::LoginMirrorTests.test_public_mirror_codes_have_catalogue_coverage
+@@ -1,6 +1,6 @@
+ def test_public_mirror_codes_have_catalogue_coverage(self):
+-    tree = ast.parse(pathlib.Path(laomedo.agents.agents.claude.auth.utils.__file__).read_text(encoding='utf-8-sig'))
+-    emitted = {n.value for n in ast.walk(tree) if isinstance(n, ast.Constant) and isinstance(n.value, str) and n.value.startswith('claude_')}
++    trees = [ast.parse(path.read_text(encoding='utf-8-sig')) for path in (pathlib.Path(laomedo.agents.agents.claude.auth.utils.__file__), pathlib.Path(laomedo.agents.agents.claude.auth.utils.__file__).with_name('models.py'))]
++    emitted = {n.value for tree in trees for n in ast.walk(tree) if isinstance(n, ast.Constant) and isinstance(n.value, str) and n.value.startswith('claude_')}
+     self.assertEqual(emitted, laomedo.agents.agents.claude.auth.settings.CODES)
+-    catalogue = json.loads((pathlib.Path(__file__).resolve().parents[1] / 'frontend/langflow-skill-viewer/node-error-catalog.json').read_text())
++    catalogue = json.loads((support.paths.repository_root() / 'frontend/langflow-skill-viewer/node-error-catalog.json').read_text())
+     self.assertEqual(laomedo.agents.agents.claude.auth.settings.CODES - catalogue.keys(), set())
+
+### PR 216 tests/test_codex_native_session.py::RetirementAndCatalogueTests.test_old_normal_cli_server_is_retired
+--- tests/test_codex_native_session.py::RetirementAndCatalogueTests.test_old_normal_cli_server_is_retired
++++ tests/test_agents/test_codex/test_native_session.py::RetirementAndCatalogueTests.test_old_normal_cli_server_is_retired
+@@ -1,5 +1,5 @@
+ def test_old_normal_cli_server_is_retired(self):
+-    root = pathlib.Path(__file__).resolve().parents[1]
++    root = support.paths.repository_root()
+     package = root.joinpath('src/laomedo/agents/agents/codex')
+     self.assertFalse(package.joinpath('servers.py').exists())
+     self.assertFalse(package.joinpath('split/transport.py').exists())
+
+
+### PR 216 tests/test_codex_native_session.py::RetirementAndCatalogueTests.test_new_native_transport_failures_are_catalogued
+--- tests/test_codex_native_session.py::RetirementAndCatalogueTests.test_new_native_transport_failures_are_catalogued
++++ tests/test_agents/test_codex/test_native_session.py::RetirementAndCatalogueTests.test_new_native_transport_failures_are_catalogued
+@@ -1,5 +1,5 @@
+ def test_new_native_transport_failures_are_catalogued(self):
+-    root = pathlib.Path(__file__).resolve().parents[1]
++    root = support.paths.repository_root()
+     catalogue = json.loads(root.joinpath('frontend/langflow-skill-viewer/node-error-catalog.json').read_text())
+     codes = set()
+     producers = [root.joinpath('src/laomedo/agents/agents/codex/controller', module) for module in ('service.py', 'models.py', 'settings.py')]
+
+
+### PR 216 tests/test_codex_native_session.py::RetirementAndCatalogueTests.test_host_budgets_validate_before_launch_attempt_marker
+--- tests/test_codex_native_session.py::RetirementAndCatalogueTests.test_host_budgets_validate_before_launch_attempt_marker
++++ tests/test_agents/test_codex/test_native_session.py::RetirementAndCatalogueTests.test_host_budgets_validate_before_launch_attempt_marker
+@@ -1,4 +1,4 @@
+ def test_host_budgets_validate_before_launch_attempt_marker(self):
+-    root = pathlib.Path(__file__).resolve().parents[1]
++    root = support.paths.repository_root()
+     source = root.joinpath('src/laomedo/agents/agents/codex/agent.py').read_text()
+     self.assertLess(source.index('transport_settings = Settings.load()'), source.index('launch_attempted = True'))
+
+### PR 216 tests/test_execution_evidence.py::RunnerClosureTests.test_host_closes_and_reopens_exact_trace_after_verified_cleanup
+--- tests/test_execution_evidence.py::RunnerClosureTests.test_host_closes_and_reopens_exact_trace_after_verified_cleanup
++++ tests/test_agents/test_codex/test_evidence.py::RunnerClosureTests.test_host_closes_and_reopens_exact_trace_after_verified_cleanup
+@@ -1,25 +1,5 @@
+ def test_host_closes_and_reopens_exact_trace_after_verified_cleanup(self):
+-
+-    class ClosedServer(test_agents.test_runtime.test_lifecycle.FakeServer):
+-
+-        def __init__(server, *args):
+-            super().__init__(*args)
+-            server.reader = types.SimpleNamespace(is_alive=lambda: False)
+-            server.stderr_reader = types.SimpleNamespace(is_alive=lambda: False)
+-
+-        def wait_turn(server, turn_id, timeout, cancelled):
+-            (server.evidence / 'workspace' / 'agent.txt').write_text('from-first-turn')
+-            server.events = [test_agents.test_codex.test_evidence.item('item/started'), test_agents.test_codex.test_evidence.item('item/completed', text='done'), test_agents.test_codex.test_evidence.terminal()]
+-            for event in server.events:
+-                if event['method'] == 'turn/completed':
+-                    event['params']['turn']['id'] = turn_id
+-                else:
+-                    event['params']['turnId'] = turn_id
+-            for event in server.events:
+-                server.log.write(json.dumps(event) + '\n')
+-            server.log.flush()
+-            return ('completed', None)
+-    self.runner.transport = ClosedServer
++    self.runner.transport = test_agents.test_codex.test_evidence.ClosedServer
+     self.runner.supervise_containers = True
+     self.runner.lease_service = self.root / 'dummy-lease'
+     lease = types.SimpleNamespace(lost=threading.Event(), finish=lambda: None, instance='fixture-service', grant_id=None)
+
+
+### PR 216 tests/test_exp104_live_config.py::LiveProbeConfigurationTests.test_dry_run_uses_selected_helper_without_persisting_git_output
+ORIGINAL METHOD
+def test_dry_run_uses_selected_helper_without_persisting_git_output(self):
+    seen = []
+
+    def fake_run(args, **kwargs):
+        seen.append({'args': args, 'selected_token_present': kwargs['env'].get('LAOMEDO_MEDIATED_GIT_TOKEN') == 'secret', 'environment': kwargs['env']})
+        return subprocess.CompletedProcess(args, 1, b'[remote rejected] secret', b'secret')
+    result = live_probe._dry_run_preflight('secret', Path('synthetic-checkout'), 'a' * 40, 'exp104-s4-20261007-01-a', runner=CallbackGitRunner(fake_run))
+    self.assertEqual(result, {'exit_code': 1, 'category': 'remote_rejected'})
+    self.assertIn('--dry-run', seen[0]['args'])
+    self.assertNotIn('secret', ' '.join(seen[0]['args']))
+    self.assertTrue(seen[0]['selected_token_present'])
+    self.assertNotIn('LAOMEDO_MEDIATED_GIT_TOKEN', seen[0]['environment'])
+
+
+### PR 216 tests/test_exp104_s11_probe.py::S11ProbeTests.test_reviewed_source_refuses_uncommitted_change
+ORIGINAL METHOD
+def test_reviewed_source_refuses_uncommitted_change(self):
+    with patch.object(probe.GitRepository, 'run', return_value=subprocess.CompletedProcess([], 0, b' M experiments/exp104/s11_probe.py\n', b'')), self.assertRaisesRegex(RuntimeError, 'reviewed_source_not_clean'):
+        probe._require_clean_source(Path('synthetic'))
+    with patch.object(probe.GitRepository, 'run', return_value=subprocess.CompletedProcess([], 0, b'', b'')):
+        probe._require_clean_source(Path('synthetic'))
+
+
+### PR 216 tests/test_local_runner.py::LocalRunnerTests.test_production_runners_cannot_restore_a_verification_turn_cap
+--- tests/test_local_runner.py::LocalRunnerTests.test_production_runners_cannot_restore_a_verification_turn_cap
++++ tests/test_agents/test_runtime/test_lifecycle.py::LocalRunnerTests.test_production_runners_cannot_restore_a_verification_turn_cap
+@@ -2,7 +2,7 @@
+     for runner in (laomedo.agents.agents.codex.agent.CodexAgent, laomedo.agents.agents.claude.agent.ClaudeAgent, laomedo.agents.agents.opencode.agent.OpenCodeAgent):
+         self.assertNotIn('max_model_turns', inspect.signature(runner).parameters)
+     for name in ('local_runner.py', 'claude_runner.py', 'opencode_runner.py'):
+-        root = pathlib.Path(__file__).resolve().parents[1]
++        root = support.paths.repository_root()
+         layout = json.loads((root / 'tools/migrations/module-paths.json').read_text())
+         module = layout['laomedo.' + pathlib.Path(name).stem]
+         source = root.joinpath('src', *module.split('.')).with_suffix('.py').read_text()
+
+
+### PR 216 tests/test_mediation_service_startup.py::MediationServiceStartupTests.test_both_service_entries_use_their_host_store_for_prior_stage_confirmation
+--- tests/test_mediation_service_startup.py::MediationServiceStartupTests.test_both_service_entries_use_their_host_store_for_prior_stage_confirmation
++++ tests/test_host/test_mediation/test_startup.py::MediationServiceStartupTests.test_both_service_entries_use_their_host_store_for_prior_stage_confirmation
+@@ -17,7 +17,7 @@
+             def close(instance):
+                 instance.server.server_close()
+             state = self.state / entry.__name__.split('.')[-1]
+-            with unittest.mock.patch('laomedo.host.publication.verified.utils.make_grant_bundle_freezer', factory), unittest.mock.patch('laomedo.host.mediation.store.MediationStore', store_factory), unittest.mock.patch.object(entry, 'make_grant_bundle_freezer', factory) if entry is laomedo.host.mediation.cli else contextlib.nullcontext(), unittest.mock.patch.object(entry, 'MediationStore', store_factory) if entry is laomedo.host.mediation.cli else contextlib.nullcontext():
++            with unittest.mock.patch.object(entry, 'make_grant_bundle_freezer', factory), unittest.mock.patch.object(entry, 'MediationStore', store_factory):
+                 if entry is laomedo.host.host_services:
+                     lease, mediator = entry.build_services(state=state, repository='example/disposable', checkout=self.checkout, baseline='a' * 40, agent_mount=self.agent_mount, connection_id='selected', connection_generation=1, token_file=self.token_file, runner_state=self.path / 'runner', private_stage=self.path / 'stages')
+                     lease.server.server_close()
+
+
+### PR 216 tests/test_module_cohesion.py::ModuleCohesionTests.test_historical_execution_graph_blobs_are_preserved_beside_templates
+ORIGINAL METHOD
+def test_historical_execution_graph_blobs_are_preserved_beside_templates(self):
+    manifest = json.loads((ROOT / 'examples/agent-module-history.json').read_text(encoding='utf-8'))
+    self.assertEqual(manifest['baseline'], '8e2a2925c74748672f3028ba09359c49b13e1635')
+    self.assertEqual(len(manifest['files']), 7)
+    for record in manifest['files']:
+        original = ROOT / record['historical_original']
+        self.assertTrue(record['immutable'])
+        raw = original.read_bytes()
+        self.assertEqual(hashlib.sha256(raw).hexdigest(), record['sha256'])
+        header = b'blob ' + str(len(raw)).encode('ascii') + b'\x00'
+        self.assertEqual(hashlib.sha1(header + raw).hexdigest(), record['git_blob'])
+
+
+### PR 216 tests/test_module_path_migration.py::ModuleMigrationTests.test_reused_package_names_accept_flat_intermediate_and_current_inputs
+--- tests/test_module_path_migration.py::ModuleMigrationTests.test_reused_package_names_accept_flat_intermediate_and_current_inputs
++++ tests/test_shared/test_migration/test_paths.py::ModuleMigrationTests.test_reused_package_names_accept_flat_intermediate_and_current_inputs
+@@ -5,9 +5,9 @@
+             result = migration.migrate_source(f'from {old} import {symbol}\n')
+             self.assertIn(current, result)
+             self.assertEqual(migration.migrate_source(result), result)
+-            canonical_symbol = 'AgentHandoffController' if symbol == 'BoundedController' else symbol
+-            canonical = f'import {current}\nvalue = {current}.{canonical_symbol}\n'
++            current_symbol = 'AgentHandoffController' if symbol == 'BoundedController' else symbol
++            canonical = f'import {current}\nvalue = {current}.{current_symbol}\n'
+             self.assertEqual(migration.migrate_source(canonical), canonical)
+-    path = TOOL.parents[2] / 'examples/agent-handoffs/loop-flow.json'
++    path = TOOL.parents[2] / 'tests/test_agents/test_examples/data/controller.json'
+     result = subprocess.run([sys.executable, str(TOOL), str(path), '--check'], capture_output=True, text=True)
+     self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+### PR 216 tests/test_module_path_migration.py::ModuleMigrationTests.test_removed_procedural_git_apis_require_explicit_object_migration
+ORIGINAL METHOD
+def test_removed_procedural_git_apis_require_explicit_object_migration(self):
+    sources = ['from laomedo.git_workspace import prepare_git_workspace\n', 'from laomedo.agents.workspaces.git import _bounded_git\n', 'from laomedo.github.transport.git.utils import _credential_environment\n', 'import laomedo.github_git_transport as git\ngit._run_bounded_tree(args)\n', 'from laomedo.github.transport.git import utils as u\nu._run_bounded_tree(args)\n', 'from laomedo.github.transport import git as g\ng.utils._run_bounded_tree(args)\n', 'from laomedo.github_git_transport import GitHubGitTransport\nGitHubGitTransport(repo, path, sha, token, run=callback)\n', 'from laomedo.host.publication.verified.utils import stage_verified_git as stage\nstage(snapshot, run=callback)\n', 'import laomedo.github_git_transport as g\ng.GitHubGitTransport(repo, path, sha, token, run=callback)\n']
+    for source in sources:
+        with self.subTest(source=source), self.assertRaises(migration.ManualMigrationRequired):
+            migration.migrate_source(source)
+
+
+### PR 216 tests/test_module_path_migration_bytes.py::MigrationFileTests.test_cli_refuses_documented_historical_execution_paths_without_writing
+ORIGINAL METHOD
+def test_cli_refuses_documented_historical_execution_paths_without_writing(self):
+    path = TOOL.parents[2] / 'examples/claude-agent/executed-flow.json'
+    original = path.read_bytes()
+    result = subprocess.run([sys.executable, str(TOOL), '--apply', str(path)], capture_output=True, timeout=30)
+    self.assertEqual(result.returncode, 2)
+    self.assertIn(b'Historical execution evidence is immutable', result.stderr)
+    self.assertEqual(path.read_bytes(), original)
+    self.assertFalse(path.with_name(path.name + '.before-module-migration').exists())
+
+
+### PR 216 tests/test_module_path_migration_bytes.py::MigrationFileTests.test_actual_baseline_stale_components_are_refused_or_left_untouched
+ORIGINAL METHOD
+def test_actual_baseline_stale_components_are_refused_or_left_untouched(self):
+    path = Path(__file__).with_name('fixtures') / 'module-refactor-stale-components.json'
+    cases = json.loads(path.read_text(encoding='utf-8'))
+    self.assertTrue(cases)
+    for case in cases:
+        with self.subTest(source=case['source_file'], node=case['node_id']):
+            code, stored = (case['code'], case['code_hash'])
+            self.assertNotEqual(sha256(code.encode('utf-8')).hexdigest()[:12], stored)
+            self.assertEqual(migration.migrate_source(code) != code, case['requires_code_migration'])
+            graph = {'nodes': [{'data': {'node': {'metadata': {'code_hash': stored}, 'template': {'code': {'value': code}}}}}]}
+            if case['requires_code_migration']:
+                with self.assertRaisesRegex(migration.ManualMigrationRequired, 'does not match its original source'):
+                    migration.migrate_value(graph)
+            else:
+                self.assertEqual(migration.migrate_value(graph), graph)
+
+
+### PR 216 tests/test_native_managed_probe.py::HistoricalProbeRefusalTests.test_live_probe_environment_bindings_still_refuse_without_process_work
+ORIGINAL METHOD
+def test_live_probe_environment_bindings_still_refuse_without_process_work(self):
+    for module in (probe, native_managed_worker, probe_active_delivery):
+        with self.subTest(module=module.__name__):
+            self.assertIs(module._base_git_environment, refuse_private_git_api)
+            with self.assertRaisesRegex(RuntimeError, 'private Git process helpers were removed'):
+                module._base_git_environment()
+
+
+### PR 216 tests/test_native_managed_probe.py::HistoricalProbeRefusalTests.test_historical_git_entrypoint_refuses_before_starting_a_process
+ORIGINAL METHOD
+def test_historical_git_entrypoint_refuses_before_starting_a_process(self):
+    with patch.object(probe.subprocess, 'run') as process:
+        with self.assertRaisesRegex(RuntimeError, 'private Git process helpers were removed'):
+            probe.git('status')
+        process.assert_not_called()
+
+
+### PR 216 tests/test_native_managed_worker.py::NativeManagedWorkerTests.test_worker_saves_exact_owned_container_id_and_real_lease_scope
+ORIGINAL METHOD
+def test_worker_saves_exact_owned_container_id_and_real_lease_scope(self):
+    tmp_path = self.worker_root
+    selected = worker.identities('a')
+    record_dir = tmp_path / 'runner/runs' / selected['run_id']
+    record_dir.mkdir(parents=True)
+    mediator_dir = tmp_path / 'host/mediator'
+    mediator_dir.mkdir(parents=True)
+    mediator = {'repository': worker.REPOSITORY, 'connection_id': worker.IDENTITY + '-connection', 'generation': 1, 'port': 1234, 'instance': 'instance'}
+    (mediator_dir / 'mediator.json').write_text(json.dumps(mediator))
+    lease = SimpleNamespace(grant_id='exact-grant', lost=threading.Event(), finish=Mock(), dir=tmp_path / 'lease')
+    child = Mock()
+    child.poll.return_value = 0
+    with patch.object(worker, 'LeaseClient', return_value=lease) as registered, patch.object(worker, '_base_git_environment', return_value={}), patch.object(worker, 'command', return_value=['not-executed']), patch.object(worker.subprocess, 'Popen', return_value=child), patch.object(worker, 'inspect_exact', return_value=('owned', 'd' * 64)), patch.object(worker, 'cleanup_exact', return_value=(True, 'absent')):
+        worker.run(tmp_path, 'a', docker_endpoint='unix:///internal-worker-control.sock')
+    ready = json.loads((tmp_path / 'a-ready.json').read_bytes())
+    assert ready['container_id'] == 'd' * 64
+    assert ready['grant_id'] == 'exact-grant'
+    scope = registered.call_args.kwargs['mediation_request']
+    assert scope == {'invocation_id': selected['invocation_id'], 'repository': worker.REPOSITORY, 'branch': selected['branch'], 'base_branch': 'main'}
+    record = json.loads((record_dir / 'record.json').read_bytes())
+    assert record['status'] == 'completed'
+    assert record['container_ownership']['grant_id'] == 'exact-grant'
+    assert record['container_ownership']['cleanup_verified'] is True
+    lease.finish.assert_called_once()
+
+
+### PR 216 tests/test_native_timeout_reconciliation.py::NativeTimeoutReconciliationTests.test_poll_timeout_maps_to_wait_expiry_only_when_deadline_passed
+ORIGINAL METHOD
+def test_poll_timeout_maps_to_wait_expiry_only_when_deadline_passed(self):
+    handoff = envelope(None, {'provider': 'codex', 'model': 'fixture', 'effort': 'low'}, 'task', skills=[{'skill_id': 'fixture', 'revision_id': 'sha256:' + 'a' * 64}])
+    for poll_time, error in [(2.0, HandoffError), (0.5, TimeoutError)]:
+        with self.subTest(poll_time=poll_time):
+            now = [0.0]
+
+            def respond(req, **kwargs):
+                if req.get_method() == 'POST':
+                    body = json.loads(req.data)
+                    return io.BytesIO(json.dumps({'run_id': self.native, 'status': 'running', 'client_request_id': body['request_id'], 'raw_event_ref': f'laomedo:run:{self.native}:events'}).encode())
+                now[0] = poll_time
+                raise TimeoutError('fixture')
+            with patch('laomedo.agents.interface.bridge.time.monotonic', side_effect=lambda: now[0]), patch('laomedo.agents.interface.bridge.urlopen', side_effect=respond):
+                with self.assertRaises(error):
+                    self.adapter().dispatch(handoff, deadline=1.0, cancelled=threading.Event(), early_start=True)
+
+
+### PR 216 tests/test_node_error_catalog.py::NodeErrorCatalogueTests.test_reworked_working_state_and_git_producers_are_catalogued_and_routable
+--- tests/test_node_error_catalog.py::NodeErrorCatalogueTests.test_reworked_working_state_and_git_producers_are_catalogued_and_routable
++++ tests/test_shared/test_errors/test_catalogue.py::NodeErrorCatalogueTests.test_reworked_working_state_and_git_producers_are_catalogued_and_routable
+@@ -2,7 +2,7 @@
+     catalogue = json.loads((ROOT / 'frontend/langflow-skill-viewer/node-error-catalog.json').read_text())
+     component = ast.parse((ROOT / 'src/laomedo/agents/interface/langflow/component.py').read_text())
+     routed = next((ast.literal_eval(n.value) for n in component.body if isinstance(n, ast.Assign) and any((isinstance(t, ast.Name) and t.id == '_ROUTABLE_ERRORS' for t in n.targets))))
+-    paths = ('agents/workspaces/workspace.py', 'agents/workspaces/utils.py', 'skills/workspace/utils.py', 'git/worktree.py', 'host/mediation/agent_cli.py')
++    paths = ('agents/workspaces/workspace.py', 'agents/workspaces/utils.py', 'agents/workspaces/baseline.py', 'agents/workspaces/cleanup.py', 'agents/workspaces/skills/utils.py', 'git/worktree.py', 'host/mediation/agent_cli.py')
+     codes = {'git_timeout', 'git_timeout_cleanup_unverified'}
+     for relative in paths:
+         tree = ast.parse((ROOT / 'src/laomedo' / relative).read_text())
+
+
+### PR 216 tests/test_node_error_catalog.py::OpenCodeErrorCatalogueTests.test_changed_normal_accounting_methods_have_catalogue_coverage
+--- tests/test_node_error_catalog.py::OpenCodeErrorCatalogueTests.test_changed_normal_accounting_methods_have_catalogue_coverage
++++ tests/test_shared/test_errors/test_catalogue.py::OpenCodeErrorCatalogueTests.test_changed_normal_accounting_methods_have_catalogue_coverage
+@@ -3,6 +3,7 @@
+     tree = ast.parse((ROOT / 'src/laomedo/agents/agents/base/agent.py').read_text(encoding='utf-8'))
+     runner = next((node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == 'BaseAgent'))
+     methods = {node.name: node for node in runner.body if isinstance(node, ast.FunctionDef) and node.name in {'_reserve_turn', '_turn_available'}}
+-    self.assertEqual(set(methods), {'_reserve_turn', '_turn_available'})
++    self.assertEqual(set(methods), {'_reserve_turn'})
++    self.assertFalse(any((isinstance(node, ast.FunctionDef) and node.name == '_turn_available' for node in runner.body)))
+     for name, node in methods.items():
+         self.assertEqual(test_shared.test_errors.test_catalogue.emitted_codes(ast.unparse(node)) - catalog.keys(), set(), name)
+
+### PR 216 tests/test_normal_runner_accounting.py::NormalRunnerAccountingTests.test_normal_codex_and_opencode_ignore_historical_experiment_allowances
+ORIGINAL METHOD
+def test_normal_codex_and_opencode_ignore_historical_experiment_allowances(self):
+    for runner_type in (LocalRunner, OpenCodeAgent):
+        with self.subTest(provider=runner_type.__name__):
+            runner = runner_type(self.root.parent / (self.root.name + '-runner'), self.runner.store.root, self.source, **{'check_docker': False} if runner_type is LocalRunner else {})
+            self.addCleanup(shutil.rmtree, runner.state, ignore_errors=True)
+            historical = runner.state / 'turn-ledger.json'
+            for old in ({'attempted_turns': 100, 'max_authorized_turns': 0}, {'attempted_turns': 'invalid historic evidence'}):
+                _json(historical, old)
+                before = historical.read_bytes()
+                runner._turn_available()
+                previous = runner._reserve_turn()
+                self.assertGreater(runner._reserve_turn(), previous)
+                self.assertEqual(historical.read_bytes(), before)
+            self.assertFalse(hasattr(runner, 'max_model_turns'))
+            self.assertTrue((runner.state / 'attempt-count.json').exists())
+
+CURRENT CANDIDATE tests/test_agents/test_runtime/test_accounting.py::NormalRunnerAccountingTests.test_normal_codex_and_opencode_ignore_historical_experiment_allowances
+def test_normal_codex_and_opencode_ignore_historical_experiment_allowances(self):
+    for runner_type in (LocalRunner, OpenCodeAgent):
+        with self.subTest(provider=runner_type.__name__):
+            runner = runner_type(self.root.parent / (self.root.name + '-runner'), self.runner.store.root, self.source, **{'check_docker': False} if runner_type is LocalRunner else {})
+            self.addCleanup(shutil.rmtree, runner.state, ignore_errors=True)
+            historical = runner.state / 'turn-ledger.json'
+            for old in ({'attempted_turns': 100, 'max_authorized_turns': 0}, {'attempted_turns': 'invalid historic evidence'}):
+                _json(historical, old)
+                before = historical.read_bytes()
+                previous = runner._reserve_turn()
+                self.assertGreater(runner._reserve_turn(), previous)
+                self.assertEqual(historical.read_bytes(), before)
+            self.assertFalse(hasattr(runner, 'max_model_turns'))
+            self.assertTrue((runner.state / 'attempt-count.json').exists())
+
+
+### PR 216 tests/test_package_layout.py::PackageLayoutTests.test_retired_module_files_cannot_return_even_in_an_editable_checkout
+ORIGINAL METHOD
+def test_retired_module_files_cannot_return_even_in_an_editable_checkout(self):
+    retired = json.loads((ROOT / 'tools/migrations/module-paths.json').read_text())
+    self.assertTrue(retired)
+    for name in retired:
+        path = package_root().parent.joinpath(*name.split('.')).with_suffix('.py')
+        self.assertFalse(path.exists(), name)
+
+
+### PR 216 tests/test_package_layout.py::PackageLayoutTests.test_canonical_modules_import_without_forwarders
+--- tests/test_package_layout.py::PackageLayoutTests.test_canonical_modules_import_without_forwarders
++++ tests/test_shared/test_architecture/test_packages.py::PackageLayoutTests.test_canonical_modules_import_without_forwarders
+@@ -5,9 +5,7 @@
+             try:
+                 module = importlib.import_module(canonical)
+             except ModuleNotFoundError as error:
+-                if error.name == 'acp' and canonical in {'laomedo.agents.agents.base.acp.session', 'laomedo.agents.agents.base.acp.transport'}:
+-                    self.skipTest('Optional runner ACP dependency is not installed')
+-                if (error.name or '').split('.')[0] in {'fastapi', 'starlette', 'lfx', 'langflow'}:
++                if (error.name or '').split('.')[0] in {'acp', 'fastapi', 'starlette', 'lfx', 'langflow'}:
+                     self.skipTest('Optional app dependencies are not installed')
+                 raise
+             self.assertEqual(module.__name__, canonical)
+
+
+### PR 216 tests/test_persistent_demo.py::StandingBudgetTests.test_draft_budget_requires_pending_handoff_and_is_per_run
+ORIGINAL METHOD
+def test_draft_budget_requires_pending_handoff_and_is_per_run(self):
+    from laomedo.agents.interface.output.utils import requirements
+    for run_id in (str(uuid4()), str(uuid4())):
+        branch = 'laomedo-dev-' + run_id.replace('-', '')
+        grant, token = self.store.issue(run_id=run_id, invocation_id=run_id, repository=REPOSITORY, branch=branch, operations={'git_push', 'pr_create'}, ttl_seconds=30)
+        payload = {'head': branch, 'draft': True}
+        with self.assertRaisesRegex(KnownRejected, 'standing_publisher_lane_required'):
+            self.budget(REPOSITORY, 'pr_create', payload)
+        self.store.begin_publication_handoff(token=token, repository=REPOSITORY, requirements=requirements({'schema_version': 1, 'fields': []}), deadline=self.store.now() + 20, deadline_monotonic=self.store.monotonic() + 20)
+        with closing(self.store._connect()) as db, db:
+            db.execute("UPDATE publication_handoffs SET phase='publication_pending' WHERE grant_id=?", (grant,))
+        self.budget(REPOSITORY, 'pr_create', payload)
+        self.budget = PerRunWriteBudget(self.root / 'budget.db', self.send, self.store)
+        with self.assertRaisesRegex(KnownRejected, 'standing_run_write_budget_consumed'):
+            self.budget(REPOSITORY, 'pr_create', payload)
+    self.assertEqual(len(self.calls), 2)
+
+
+### PR 216 tests/test_persistent_demo.py::StandingBudgetTests.test_new_manual_requests_get_fresh_branches_and_host_tasks
+ORIGINAL METHOD
+def test_new_manual_requests_get_fresh_branches_and_host_tasks(self):
+    from laomedo.agents.agents.codex.agent import CodexAgent as LocalRunner
+    from laomedo.agents.interface.output.utils import requirements
+    save(self.root / 'standing-policy.json', {'repository': REPOSITORY, 'turns_per_run': 4, 'pushes_per_run': 1, 'draft_prs_per_run': 1, 'enabled': True})
+    (self.root / 'flow-input').mkdir()
+    form = {'schema_version': 1, 'fields': []}
+    save(self.root / 'flow-input/success.json', {'data': {'nodes': [{'id': 'contract', 'data': {'node': {'template': {'requirements_json': {'value': json.dumps(form)}}}}}]}})
+    skill = {'skill_id': 'fixture', 'revision_id': 'pin', 'tree_hash': 'pin'}
+    save(self.root / 'config.json', {'skill': skill})
+    node = PersistentRunner.__new__(PersistentRunner)
+    node.policy_root, node.state, node.lock = (self.root, self.root / 'runner', threading.Lock())
+    node.snapshot, node.report = ({'context': 'frozen'}, 'exact report\n')
+    branches, tasks = ([], [])
+
+    def authorize(branch):
+        branches.append(branch)
+        return 'host-only-reference'
+    node.authorization_factory = authorize
+
+    def prepare(_self, selected, **kwargs):
+        tasks.append(selected)
+        run_id = str(uuid4())
+        node._run_dir(run_id).mkdir(parents=True)
+        return {'run_id': run_id}
+    body = {'task': json.dumps({'task': 'Readable instructions', 'frozen_issue': node.snapshot}), 'model': 'gpt-6-luna', 'effort': 'low', 'skill_ref': skill, 'output_requirements': requirements(form), 'output_retries': 1}
+    with patch.object(LocalRunner, '_prepare', new=prepare):
+        node._prepare(body)
+        node._prepare(body)
+        with self.assertRaisesRegex(RunnerError, 'standing_pinned_inputs_required'):
+            node._prepare(body | {'model': 'other'})
+    self.assertEqual(len(set(branches)), 2)
+    for selected, branch in zip(tasks, branches):
+        self.assertIn(branch, json.loads(selected['task'])['task'])
+        self.assertIn('Readable instructions', json.loads(selected['task'])['task'])
+    self.assertNotIn('github_authorization_ref', body)
+
+
+### PR 216 tests/test_provider_boundaries.py::ProviderBoundaryTests.test_shared_runtime_never_imports_concrete_provider_or_credentials
+--- tests/test_provider_boundaries.py::ProviderBoundaryTests.test_shared_runtime_never_imports_concrete_provider_or_credentials
++++ tests/test_agents/test_architecture/test_boundaries.py::ProviderBoundaryTests.test_shared_runtime_never_imports_concrete_provider_or_credentials
+@@ -1,5 +1,7 @@
+ def test_shared_runtime_never_imports_concrete_provider_or_credentials(self):
+-    for path in (ROOT / 'src/laomedo/agents/agents/base').glob('*.py'):
++    paths = list((ROOT / 'src/laomedo/agents/agents/base').rglob('*.py'))
++    self.assertTrue(paths, 'Shared Agent source scan must not be empty')
++    for path in paths:
+         for node in ast.walk(ast.parse(path.read_text())):
+             names = [item.name for item in node.names] if isinstance(node, ast.Import) else [node.module or ''] if isinstance(node, ast.ImportFrom) else []
+             for name in names:
+
+
+### PR 216 tests/test_provider_boundaries.py::ProviderBoundaryTests.test_concrete_providers_never_import_a_sibling_provider
+--- tests/test_provider_boundaries.py::ProviderBoundaryTests.test_concrete_providers_never_import_a_sibling_provider
++++ tests/test_agents/test_architecture/test_boundaries.py::ProviderBoundaryTests.test_concrete_providers_never_import_a_sibling_provider
+@@ -1,5 +1,9 @@
+ def test_concrete_providers_never_import_a_sibling_provider(self):
+-    for path in (ROOT / 'src/laomedo/agents/agents').rglob('*.py'):
++    paths = list((ROOT / 'src/laomedo/agents/agents').rglob('*.py'))
++    self.assertTrue(paths, 'Provider source scan must not be empty')
++    for provider in ('codex', 'claude', 'opencode'):
++        self.assertTrue(any((path.is_relative_to(ROOT / 'src/laomedo/agents/agents' / provider) for path in paths)), 'Each provider source scan must not be empty: ' + provider)
++    for path in paths:
+         owner = path.relative_to(ROOT / 'src/laomedo/agents/agents').parts[0]
+         for node in ast.walk(ast.parse(path.read_text())):
+             names = [item.name for item in node.names] if isinstance(node, ast.Import) else [node.module or ''] if isinstance(node, ast.ImportFrom) else []
+
+
+### PR 216 tests/test_provider_docker_recovery.py::ProviderRecoveryTests.test_retired_cli_paths_and_dynamic_codes_are_guarded
+ORIGINAL METHOD
+def test_retired_cli_paths_and_dynamic_codes_are_guarded(self):
+    root = Path(__file__).resolve().parents[1]
+    for relative in ('claude/container.py', 'claude/agent.py', 'opencode/boundary.py', 'opencode/utils.py'):
+        tree = ast.parse(root.joinpath('src/laomedo/agents/agents', relative).read_text(encoding='utf-8'))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and isinstance(node.func.value, ast.Name):
+                self.assertNotIn((node.func.value.id, node.func.attr), {('subprocess', 'Popen'), ('subprocess', 'run')})
+    catalogue = json.loads(root.joinpath('frontend/langflow-skill-viewer/node-error-catalog.json').read_text(encoding='utf-8'))
+    for code in ('workspace_command_output_too_large', 'opencode_workspace_command_failed', 'opencode_command_service_closed', 'opencode_controller_output_failed'):
+        for field in ('title', 'description', 'recovery'):
+            self.assertTrue(catalogue[code][field].strip())
+    component = ast.parse(root.joinpath('src/laomedo/agents/interface/langflow/component.py').read_text(encoding='utf-8'))
+    routed = next((ast.literal_eval(n.value) for n in component.body if isinstance(n, ast.Assign) and any((isinstance(t, ast.Name) and t.id == '_ROUTABLE_ERRORS' for t in n.targets))))
+    self.assertTrue({'workspace_command_output_too_large', 'opencode_workspace_command_failed', 'opencode_command_service_closed', 'opencode_controller_output_failed'} <= routed)
+
+
+### PR 216 tests/test_reviewed_issue_cli.py::ReviewedIssueCliTests.test_graphql_query_is_identical_on_agent_and_host
+--- tests/test_reviewed_issue_cli.py::ReviewedIssueCliTests.test_graphql_query_is_identical_on_agent_and_host
++++ tests/test_github/test_interface/test_reviewed_cli.py::ReviewedIssueCliTests.test_graphql_query_is_identical_on_agent_and_host
+@@ -1,4 +1,4 @@
+ def test_graphql_query_is_identical_on_agent_and_host(self):
+-    script = "import {ISSUE_GRAPHQL_QUERY} from './src/laomedo/host/mediation/resources/agent_gh_adapter.mjs'; console.log(ISSUE_GRAPHQL_QUERY);"
++    script = 'import {ISSUE_GRAPHQL_QUERY} from ' + json.dumps(ADAPTER_URI) + '; console.log(ISSUE_GRAPHQL_QUERY);'
+     result = subprocess.run(['node', '--input-type=module', '-e', script], cwd=ROOT, check=True, capture_output=True, timeout=10)
+     self.assertEqual(result.stdout.decode().strip(), laomedo.github.transport.rest.transport.ISSUE_GRAPHQL_QUERY)
+
+### PR 216 tests/test_runner_sandbox_policy.py::RunnerSandboxPolicyTests.test_both_modes_use_one_preflight_before_profile_access
+--- tests/test_runner_sandbox_policy.py::RunnerSandboxPolicyTests.test_both_modes_use_one_preflight_before_profile_access
++++ tests/test_agents/test_codex/test_sandbox.py::RunnerSandboxPolicyTests.test_both_modes_use_one_preflight_before_profile_access
+@@ -1,7 +1,7 @@
+ def test_both_modes_use_one_preflight_before_profile_access(self):
+     with tempfile.TemporaryDirectory() as temp:
+         root = pathlib.Path(temp)
+-        source = pathlib.Path(__file__).resolve().parents[1] / 'examples/github-pr'
++        source = support.paths.repository_root() / 'components'
+         selection = {'DOCKER_HOST': 'unix:///selected.sock'}
+         for split in (False, True):
+             with unittest.mock.patch('laomedo.agents.agents.codex.agent.CodexAgent._check_container', return_value=selection) as checked, unittest.mock.patch('laomedo.agents.agents.codex.agent._ensure_split_profile') as profile, unittest.mock.patch('py_docker.Client') as client:
+
+
+### PR 216 tests/test_runner_sandbox_policy.py::RunnerSandboxPolicyTests.test_local_image_requires_exact_match_and_launches_by_digest
+--- tests/test_runner_sandbox_policy.py::RunnerSandboxPolicyTests.test_local_image_requires_exact_match_and_launches_by_digest
++++ tests/test_agents/test_codex/test_sandbox.py::RunnerSandboxPolicyTests.test_local_image_requires_exact_match_and_launches_by_digest
+@@ -2,7 +2,7 @@
+     approved = 'sha256:' + 'a' * 64
+     with tempfile.TemporaryDirectory() as temp:
+         root = pathlib.Path(temp)
+-        source = pathlib.Path(__file__).resolve().parents[1] / 'examples/github-pr'
++        source = support.paths.repository_root() / 'components'
+         commands = []
+ 
+         class Capture:
+
+
+### PR 216 tests/test_runner_sandbox_policy.py::RunnerSandboxPolicyTests.test_wrong_cli_version_refuses_before_any_model_dispatch
+--- tests/test_runner_sandbox_policy.py::RunnerSandboxPolicyTests.test_wrong_cli_version_refuses_before_any_model_dispatch
++++ tests/test_agents/test_codex/test_sandbox.py::RunnerSandboxPolicyTests.test_wrong_cli_version_refuses_before_any_model_dispatch
+@@ -1,7 +1,7 @@
+ def test_wrong_cli_version_refuses_before_any_model_dispatch(self):
+     with tempfile.TemporaryDirectory() as temp:
+         root = pathlib.Path(temp)
+-        source = pathlib.Path(__file__).resolve().parents[1] / 'examples/github-pr'
++        source = support.paths.repository_root() / 'components'
+         approved = 'sha256:' + 'a' * 64
+         with unittest.mock.patch('laomedo.agents.agents.codex.agent.CodexAgent._check_container', side_effect=laomedo.agents.errors.RunnerError('unsupported_codex_cli_version')), unittest.mock.patch('subprocess.run') as docker:
+             with self.assertRaisesRegex(laomedo.agents.errors.RunnerError, 'unsupported_codex_cli_version'):
+
+
+### PR 216 tests/test_settings_contracts.py::SettingsContractTests.test_native_stream_settings_validate_positive_numeric_environment
+ORIGINAL METHOD
+def test_native_stream_settings_validate_positive_numeric_environment(self):
+    from pydantic import ValidationError
+    from laomedo.agents.agents.codex.controller.settings import Settings
+    from laomedo.agents.errors import RunnerError
+    for field, alias in (('max_bytes', 'LAOMEDO_CODEX_STREAM_MAX_BYTES'), ('startup_margin', 'LAOMEDO_CODEX_STREAM_STARTUP_MARGIN')):
+        with self.subTest(field=field), patch.dict(os.environ, {}, clear=True):
+            os.environ[alias] = '1024'
+            self.assertEqual(getattr(Settings(), field), 1024)
+            for invalid in ('', '0', '-1', 'not-a-number'):
+                os.environ[alias] = invalid
+                with self.assertRaises(ValidationError):
+                    Settings()
+                with self.assertRaisesRegex(RunnerError, 'runner_transport_configuration_invalid'):
+                    Settings.load()
+    with patch.dict(os.environ, {'LAOMEDO_CODEX_STREAM_STARTUP_MARGIN': 'inf'}):
+        with self.assertRaisesRegex(RunnerError, 'runner_transport_configuration_invalid'):
+            Settings.load()
+
+
+### PR 216 tests/test_settings_contracts.py::SettingsContractTests.test_raw_environment_boundaries_stay_explicit
+--- tests/test_settings_contracts.py::SettingsContractTests.test_raw_environment_boundaries_stay_explicit
++++ tests/test_shared/test_architecture/test_settings.py::SettingsContractTests.test_raw_environment_boundaries_stay_explicit
+@@ -1,13 +1,7 @@
+ def test_raw_environment_boundaries_stay_explicit(self):
+-    protected = {'host/runner/utils.py': 'os.environ.items()', 'git/command.py': 'os.environ.items()', 'agents/agents/claude/auth/utils.py': 'os.environ if environment is None', 'skills/sources/service.py': 'os.environ.items()', 'host/publication/cli.py': 'key in os.environ', 'github/issues/cli.py': 'os.environ.get(args.github_token_env)', 'github/pull_requests/cli.py': 'os.environ.get(args.github_token_env)', 'agents/interface/bridge.py': '"LAOMEDO_" + provider.upper()'}
++    protected = {'host/runner/utils.py': 'os.environ.items()', 'git/command.py': 'os.environ.items()', 'agents/agents/claude/container.py': 'env = dict(environment or {})', 'agents/agents/claude/auth/utils.py': 'os.environ if environment is None', 'agents/agents/codex/agent.py': 'ConnectionSettings.environment_snapshot(None)', 'host/publication/cli.py': 'key in os.environ', 'github/interface/issues/cli.py': 'os.environ.get(args.github_token_env)', 'github/interface/pull_requests/cli.py': 'os.environ.get(args.github_token_env)', 'agents/interface/bridge.py': '"LAOMEDO_" + provider.upper()'}
+     for relative, expression in protected.items():
+         self.assertIn(expression, (SOURCE / relative).read_text(), relative)
+-    claude = (SOURCE / 'agents/agents/claude/container.py').read_text(encoding='utf-8')
+-    self.assertNotIn('os.environ', claude)
+-    self.assertIn('environment={"DOCKER_HOST": self.docker_endpoint}', claude)
+-    split = (SOURCE / 'agents/agents/codex/split/executor.py').read_text()
+-    self.assertNotIn('os.environ', split)
+-    self.assertIn('environment=environment', split)
+     helper = (SOURCE / 'git/credentials/helper.py').read_text()
+     self.assertIn('os.environ.get("LAOMEDO_MEDIATED_GIT_TOKEN", "")', helper)
+     self.assertNotIn('pydantic', helper)
+
+
+### PR 216 tests/test_settings_contracts.py::ErrorContractTests.test_each_domain_exception_has_a_documented_code_contract
+--- tests/test_settings_contracts.py::ErrorContractTests.test_each_domain_exception_has_a_documented_code_contract
++++ tests/test_shared/test_architecture/test_settings.py::ErrorContractTests.test_each_domain_exception_has_a_documented_code_contract
+@@ -13,14 +13,20 @@
+                     self.assertEqual(error.run_reference['run_id'], 'retained-run')
+                     continue
+                 if cls.__name__ == 'GitCommandTimeout':
+-                    error = cls(['git', '--version'], 0.5, False)
+-                    self.assertEqual(error.code, 'git_timeout_cleanup_unverified')
+-                    self.assertFalse(error.cleanup_verified)
+-                    restored = pickle.loads(pickle.dumps(error))
+-                    self.assertEqual(restored.__dict__, error.__dict__)
+-                    self.assertEqual(str(restored), str(error))
++                    for cleanup in (False, True):
++                        error = cls(['git'], 1, cleanup)
++                        self.assertIsInstance(error, subprocess.TimeoutExpired)
++                        self.assertEqual(error.cleanup_verified, cleanup)
++                        self.assertEqual(error.code, 'git_timeout' if cleanup else 'git_timeout_cleanup_unverified')
++                        restored = pickle.loads(pickle.dumps(error))
++                        self.assertEqual(type(restored), cls)
++                        self.assertEqual(restored.__dict__, error.__dict__)
++                        self.assertEqual(str(restored), str(error))
+                     continue
+-                if cls.__name__ == 'PushOutcomeUnknown':
++                if cls.__name__ in {'GitCommandLimitExceeded', 'GitCommandCleanupError'}:
++                    error = cls()
++                    code = 'git_command_limit_exceeded' if cls.__name__ == 'GitCommandLimitExceeded' else 'git_command_cleanup_unverified'
++                elif cls.__name__ == 'PushOutcomeUnknown':
+                     error = cls('timeout', None)
+                     code = 'push_outcome_unknown'
+                 else:
+
+
+### PR 216 tests/test_shared_git.py::SharedGitTests.test_profile_differences_and_private_credential_projection
+--- tests/test_shared_git.py::SharedGitTests.test_profile_differences_and_private_credential_projection
++++ tests/test_shared/test_git/test_command.py::SharedGitTests.test_profile_differences_and_private_credential_projection
+@@ -4,7 +4,7 @@
+     secret = 'internal-control-token'
+     credential = laomedo.git.models.GitCredential(token=pydantic.SecretStr(secret))
+     with unittest.mock.patch.dict(os.environ, {'GIT_CONFIG_COUNT': '9', 'GCM_TEST': 'x', 'GH_TOKEN': 'ambient', 'SSH_ASKPASS': 'x', 'HOMEDRIVE': 'X:', 'HOMEPATH': 'ambient', laomedo.git.settings.MEDIATED_TOKEN_ENV: 'unselected'}):
+-        for profile in laomedo.git.models.GitEnvironmentProfile:
++        for profile in (laomedo.git.models.GitEnvironmentProfile.WORKSPACE, laomedo.git.models.GitEnvironmentProfile.HOST_TRANSPORT):
+             command = laomedo.git.models.GitCommand(arguments=['--version'], context=laomedo.git.models.GitExecutionContext(profile=profile))
+             env = runner.environment(command, home)
+             for key in ('GIT_CONFIG_COUNT', 'GCM_TEST', 'GH_TOKEN', 'SSH_ASKPASS', 'HOMEDRIVE', 'HOMEPATH', laomedo.git.settings.MEDIATED_TOKEN_ENV):
+
+
+### PR 216 tests/test_shared_git.py::SharedGitTests.test_profiles_preserve_stdin_and_both_process_group_options
+--- tests/test_shared_git.py::SharedGitTests.test_profiles_preserve_stdin_and_both_process_group_options
++++ tests/test_shared/test_git/test_command.py::SharedGitTests.test_profiles_preserve_stdin_and_both_process_group_options
+@@ -1,7 +1,7 @@
+ def test_profiles_preserve_stdin_and_both_process_group_options(self):
+     home = pathlib.Path(tempfile.gettempdir())
+     for platform in ('nt', 'posix'):
+-        for profile in laomedo.git.models.GitEnvironmentProfile:
++        for profile in (laomedo.git.models.GitEnvironmentProfile.WORKSPACE, laomedo.git.models.GitEnvironmentProfile.HOST_TRANSPORT):
+             process = unittest.mock.MagicMock(returncode=0)
+             process.communicate.return_value = (b'git version', b'')
+             command = laomedo.git.models.GitCommand(arguments=['--version'], context=laomedo.git.models.GitExecutionContext(profile=profile, home=home))
+
+
+### PR 216 tests/test_shared_git.py::SharedGitTests.test_generic_git_has_no_feature_dependencies_and_old_runners_are_removed
+--- tests/test_shared_git.py::SharedGitTests.test_generic_git_has_no_feature_dependencies_and_old_runners_are_removed
++++ tests/test_shared/test_git/test_command.py::SharedGitTests.test_generic_git_has_no_feature_dependencies_and_old_runners_are_removed
+@@ -1,13 +1,12 @@
+ def test_generic_git_has_no_feature_dependencies_and_old_runners_are_removed(self):
+-    source = pathlib.Path(__file__).resolve().parents[1] / 'src/laomedo'
++    source = support.paths.repository_root() / 'src/laomedo'
+     for path in (source / 'git').rglob('*.py'):
+         tree = ast.parse(path.read_text())
+         for node in ast.walk(tree):
+             if isinstance(node, ast.ImportFrom) and (node.module or '').startswith('laomedo.'):
+                 self.assertTrue(node.module.startswith('laomedo.git'), (path, node.module))
+-    self.assertFalse((source / 'agents/workspaces/git.py').exists())
+     retired = {'_run_bounded_tree', '_bounded_git', '_base_git_environment', '_git_environment', '_credential_environment'}
+-    for relative in ('agents/workspaces', 'github/transport/git', 'host/publication/verified', 'skills/workspace', 'host/mediation'):
++    for relative in ('agents/workspace', 'github/transport/git', 'host/publication/verified', 'host/mediation'):
+         for path in (source / relative).rglob('*.py'):
+             tree = ast.parse(path.read_text())
+             self.assertFalse({n.name for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)} & retired, path)
+
+### PR 216 tests/test_verified_stage.py::VerifiedStageTests.test_snapshot_is_the_only_git_object_source
+--- tests/test_verified_stage.py::VerifiedStageTests.test_snapshot_is_the_only_git_object_source
++++ tests/test_host/test_publication/test_verified.py::VerifiedStageTests.test_snapshot_is_the_only_git_object_source
+@@ -4,7 +4,7 @@
+     (self.repo / 'change').write_text('changed by agent', encoding='ascii')
+     with laomedo.host.publication.verified.utils.stage_verified_git(snapshot) as staged:
+         self.assertFalse(staged.classify_workflow_change())
+-        self.assertEqual(staged.repository.run(['rev-parse', 'refs/stage/validated']).stdout.strip(), snapshot.commit.encode())
+-        self.assertEqual(staged.repository.run(['cat-file', '-t', snapshot.commit]).stdout.strip(), b'commit')
++        self.assertEqual(staged.repository.resolve('refs/stage/validated'), snapshot.commit.encode())
++        self.assertEqual(staged.repository.object_type(snapshot.commit), b'commit')
+         self.assertTrue(staged.bare.is_dir())
+     self.assertFalse(staged.bare.exists())
+
+### PR 216 tests/test_work_graph_launch.py::WorkGraphLaunchTests.test_host_grant_is_bound_private_and_one_use
+--- tests/test_work_graph_launch.py::WorkGraphLaunchTests.test_host_grant_is_bound_private_and_one_use
++++ tests/test_work_graph/test_launch.py::WorkGraphLaunchTests.test_host_grant_is_bound_private_and_one_use
+@@ -1,6 +1,6 @@
+ def test_host_grant_is_bound_private_and_one_use(self):
+     with self.assertRaisesRegex(laomedo.work_graph.runs.errors.LaunchError, 'grant_store_inside_git'):
+-        laomedo.work_graph.grants.LocalGrantAuthority(pathlib.Path(__file__).resolve().parents[1] / '.tools.local' / 'grants.sqlite')
++        laomedo.work_graph.grants.LocalGrantAuthority(support.paths.repository_root() / '.tools.local' / 'grants.sqlite')
+     temporary = tempfile.TemporaryDirectory()
+     self.addCleanup(temporary.cleanup)
+     authority = laomedo.work_graph.grants.LocalGrantAuthority(pathlib.Path(temporary.name) / 'grants.sqlite')
+
+
+### PR 216 tests/test_workspace_skill_git.py::WorkspaceSkillGitTests.test_linked_parent_refuses_before_any_skill_read
+ORIGINAL METHOD
+def test_linked_parent_refuses_before_any_skill_read(self):
+    runner = self.runner()
+    record = runner._prepare(self.request())
+    with patch('laomedo.skills.workspace.utils._is_link', side_effect=lambda path: path.name == '.agents'), patch('laomedo.skills.workspace.utils.inventory') as read, patch.object(runner, '_open_server') as server, patch('laomedo.agents.agents.base.agent.inventory') as baseline_read:
+        result = runner._execute(record['run_id'], 'fixture', resume=False)
+    read.assert_not_called()
+    baseline_read.assert_not_called()
+    server.assert_not_called()
+    self.assertEqual(result['error_category'], 'unsafe_materialized_skill_path')
+
+CURRENT CANDIDATE tests/test_agents/test_workspace/test_skill_exclusion.py::WorkspaceSkillGitTests.test_linked_parent_refuses_before_any_skill_read
+def test_linked_parent_refuses_before_any_skill_read(self):
+    runner = self.runner()
+    record = runner._prepare(self.request())
+    with patch('laomedo.agents.workspaces.skills.utils.is_link', side_effect=lambda path: path.name == '.agents'), patch('laomedo.agents.workspaces.skills.utils.inventory') as read, patch.object(runner, '_open_server') as server, patch('laomedo.agents.agents.base.agent.inventory') as baseline_read:
+        result = runner._execute(record['run_id'], 'fixture', resume=False)
+    read.assert_not_called()
+    baseline_read.assert_not_called()
+    server.assert_not_called()
+    self.assertEqual(result['error_category'], 'unsafe_materialized_skill_path')
+
+CURRENT CANDIDATE tests/test_skills/test_workspace/test_exclusion.py::WorkspaceSkillGitTests.test_linked_parent_refuses_before_any_skill_read
+def test_linked_parent_refuses_before_any_skill_read(self):
+    runner = self.runner()
+    record = runner._prepare(self.request())
+    with patch('laomedo.agents.workspaces.skills.utils.is_link', side_effect=lambda path: path.name == '.agents'), patch('laomedo.agents.workspaces.skills.utils.inventory') as read, patch.object(runner, '_open_server') as server:
+        result = runner._execute(record['run_id'], 'fixture', resume=False)
+    read.assert_not_called()
+    server.assert_not_called()
+    self.assertEqual(result['error_category'], 'unsafe_materialized_skill_path')
+
+
+### PR 216 tests/test_workspace_skill_git.py::WorkspaceSkillGitTests.test_git_initialization_failure_does_not_dispatch
+ORIGINAL METHOD
+def test_git_initialization_failure_does_not_dispatch(self):
+    runner = self.runner()
+    with patch('laomedo.skills.workspace.utils.GitCommandRunner.run', side_effect=FileNotFoundError), patch.object(runner, '_open_server') as server:
+        with self.assertRaisesRegex(ValueError, 'workspace_git_initialization_failed'):
+            runner.start(self.request())
+    server.assert_not_called()
+    self.assertEqual(list((runner.state / 'runs').iterdir()), [])
+
+CURRENT CANDIDATE tests/test_agents/test_workspace/test_skill_exclusion.py::WorkspaceSkillGitTests.test_git_initialization_failure_does_not_dispatch
+def test_git_initialization_failure_does_not_dispatch(self):
+    runner = self.runner()
+    with patch('laomedo.agents.workspaces.baseline.GitCommandRunner.run', side_effect=FileNotFoundError), patch.object(runner, '_open_server') as server:
+        with self.assertRaisesRegex(ValueError, 'workspace_git_initialization_failed'):
+            runner.start(self.request())
+    server.assert_not_called()
+    self.assertEqual(list((runner.state / 'runs').iterdir()), [])
+
+CURRENT CANDIDATE tests/test_skills/test_workspace/test_exclusion.py::WorkspaceSkillGitTests.test_git_initialization_failure_does_not_dispatch
+def test_git_initialization_failure_does_not_dispatch(self):
+    runner = self.runner()
+    with patch('laomedo.agents.workspaces.baseline.GitCommandRunner.run', side_effect=FileNotFoundError), patch.object(runner, '_open_server') as server:
+        with self.assertRaisesRegex(ValueError, 'workspace_git_initialization_failed'):
+            runner.start(self.request())
+    server.assert_not_called()
+    self.assertEqual(list((runner.state / 'runs').iterdir()), [])
+
+
+### PR 216 tests/test_workspace_skill_git.py::WorkspaceSkillGitTests.test_linked_git_root_refuses_without_reading_metadata
+ORIGINAL METHOD
+def test_linked_git_root_refuses_without_reading_metadata(self):
+    runner = self.runner()
+    record = runner._prepare(self.request())
+    with patch('laomedo.skills.workspace.utils._is_link', side_effect=lambda path: path.name == '.git'), patch.object(runner, '_open_server') as server:
+        result = runner._execute(record['run_id'], 'fixture', resume=False)
+    server.assert_not_called()
+    self.assertEqual(result['error_category'], 'external_git_directory_unsupported')
+
+CURRENT CANDIDATE tests/test_agents/test_workspace/test_skill_exclusion.py::WorkspaceSkillGitTests.test_linked_git_root_refuses_without_reading_metadata
+def test_linked_git_root_refuses_without_reading_metadata(self):
+    runner = self.runner()
+    record = runner._prepare(self.request())
+    with patch('laomedo.agents.workspaces.skills.utils.is_link', side_effect=lambda path: path.name == '.git'), patch.object(runner, '_open_server') as server:
+        result = runner._execute(record['run_id'], 'fixture', resume=False)
+    server.assert_not_called()
+    self.assertEqual(result['error_category'], 'external_git_directory_unsupported')
+
+CURRENT CANDIDATE tests/test_skills/test_workspace/test_exclusion.py::WorkspaceSkillGitTests.test_linked_git_root_refuses_without_reading_metadata
+def test_linked_git_root_refuses_without_reading_metadata(self):
+    runner = self.runner()
+    record = runner._prepare(self.request())
+    with patch('laomedo.agents.workspaces.skills.utils.is_link', side_effect=lambda path: path.name == '.git'), patch.object(runner, '_open_server') as server:
+        result = runner._execute(record['run_id'], 'fixture', resume=False)
+    server.assert_not_called()
+    self.assertEqual(result['error_category'], 'external_git_directory_unsupported')
+

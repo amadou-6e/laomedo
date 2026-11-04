@@ -1,0 +1,45 @@
+{
+  "head": "1eb10a1fffca34fae8a6c92e8a55a8a5e445c3e1",
+  "python": "C:\\Users\\Amadou\\AppData\\Local\\Temp\\lmi-be4oa1d0\\Scripts\\python.exe",
+  "production_origin": "C:\\Users\\Amadou\\AppData\\Local\\Temp\\lmi-be4oa1d0\\Lib\\site-packages\\laomedo",
+  "no_pythonpath": true,
+  "production_bytes_match_final_source": true,
+  "checks": [
+    {
+      "name": "catalogue",
+      "returncode": 0,
+      "seconds": 0.860000000015134,
+      "log": "C:\\CodeWorkspace\\laomedo\\claude-review.local\\github-consolidation\\checkpoint-audit-20261104\\final-installed-catalogue.log",
+      "sha256": "d552eb081a85d1c8e662973431d7297fdcffc406be8c860b69f8c4d4f7985f81"
+    },
+    {
+      "name": "values",
+      "returncode": 0,
+      "seconds": 2.625,
+      "log": "C:\\CodeWorkspace\\laomedo\\claude-review.local\\github-consolidation\\checkpoint-audit-20261104\\final-installed-values.log",
+      "sha256": "64456ef65080e7a16522af9424d22d0507a6acb0d1affaaf602507256111d818"
+    },
+    {
+      "name": "intents",
+      "returncode": 0,
+      "seconds": 2.7190000000118744,
+      "log": "C:\\CodeWorkspace\\laomedo\\claude-review.local\\github-consolidation\\checkpoint-audit-20261104\\final-installed-intents.log",
+      "sha256": "99a7dea06fdfbe6e055a2b9f5b2604756a13eb962a1fecd3db22747f07438838"
+    },
+    {
+      "name": "feedback",
+      "returncode": 0,
+      "seconds": 51.14000000001397,
+      "log": "C:\\CodeWorkspace\\laomedo\\claude-review.local\\github-consolidation\\checkpoint-audit-20261104\\final-installed-feedback.log",
+      "sha256": "d46089e699ddfae32ea9f13abbc9ee06b520b3c0cd150888169d257714898d5a"
+    },
+    {
+      "name": "projectors",
+      "returncode": 0,
+      "seconds": 8.84299999999348,
+      "log": "C:\\CodeWorkspace\\laomedo\\claude-review.local\\github-consolidation\\checkpoint-audit-20261104\\final-installed-projectors.log",
+      "sha256": "4c7180c31b374162229d61a2595af7725592440fa789b354f153c0d1991688db"
+    }
+  ],
+  "scope": "Internal installed regression contracts, no model/provider/browser acceptance inferred"
+}

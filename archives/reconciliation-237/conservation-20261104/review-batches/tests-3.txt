@@ -1,0 +1,1206 @@
+
+### PR 217 tests/test_structured_github_records.py::StructuredGitHubRecordsTests.test_pre_refactor_payloads_and_digest_preimages
+ORIGINAL METHOD
+def test_pre_refactor_payloads_and_digest_preimages(self):
+    cases = json.loads((Path(__file__).parent / 'contracts/structured-data-a9317f6.json').read_text(encoding='utf-8'))
+    for key, case in cases.items():
+        if not key.startswith(('issue:', 'pr:')):
+            continue
+        with self.subTest(case=key):
+            project = issue_value if key.startswith('issue:') else pr_value
+            result = project(case['raw'], 'owner/repo', 1)
+            self.assertEqual(result, case['normalized'])
+            self.assertEqual(list(result), list(case['normalized']))
+            self.assertEqual(issue_digest(result), case['digest'])
+            result['labels'].append('changed')
+            self.assertNotIn('changed', [v['name'] for v in case['raw']['labels']])
+
+
+### PR 217 tests/test_structured_github_records.py::StructuredGitHubRecordsTests.test_admission_preserves_public_errors_and_strict_internal_model
+ORIGINAL METHOD
+def test_admission_preserves_public_errors_and_strict_internal_model(self):
+    cases = json.loads((Path(__file__).parent / 'contracts/structured-data-a9317f6.json').read_text(encoding='utf-8'))
+    for prefix, project in (('issue', issue_value), ('pr', pr_value)):
+        case = cases[f'{prefix}:None']
+        for field, value in (('number', 2), ('title', []), ('state', 'unknown')):
+            raw = copy.deepcopy(case['raw'])
+            raw[field] = value
+            with self.assertRaisesRegex(ValueError, f'{prefix}_response_invalid'):
+                project(raw, 'owner/repo', 1)
+    with self.assertRaises(ValidationError) as caught:
+        GitHubIssue(**{**cases['issue:None']['normalized'], 'number': 'private-invalid-value'})
+    self.assertNotIn('private-invalid-value', str(caught.exception))
+
+
+### PR 218 tests/test_structured_skill_records.py::StructuredSkillRecordsTests.test_revision_draft_and_frozen_record_match_old_writers
+ORIGINAL METHOD
+def test_revision_draft_and_frozen_record_match_old_writers(self):
+    from test_skill_store import SkillStoreTests, POLICY, BASE
+    expected = json.loads((Path(__file__).parent / 'contracts/structured-data-a9317f6.json').read_text(encoding='utf-8'))['skill']
+    case = SkillStoreTests()
+    case.setUp()
+    self.addCleanup(case.doCleanups)
+    self.assertEqual(case.base, expected['revision'])
+    with patch('laomedo.skills.registry.store.uuid4', return_value=UUID('11111111-1111-4111-8111-111111111111')):
+        draft = case.store.create_draft('fixture-core', case.base['revision_id'], POLICY)
+    self.assertEqual(draft, expected['draft'])
+    (case.store.draft_workspace(draft['draft_id']) / 'SKILL.md').write_text(BASE + 'Example: amber.\n', encoding='utf-8')
+    frozen = case.store.freeze_draft(draft['draft_id'])
+    self.assertEqual(frozen, expected['frozen'])
+    self.assertEqual(list(frozen), list(expected['frozen']))
+    self.assertEqual(list(frozen['policy_ref']), list(expected['frozen']['policy_ref']))
+    self.assertEqual(SkillStore(case.store.root).revision('fixture-core'), expected['revision'])
+    path = case.store._revision_dir('fixture-core', case.base['revision_id']) / 'record.json'
+    path.write_text(json.dumps({**case.base, 'historical_extension': {'version': 2}}), encoding='utf-8')
+    self.assertEqual(case.store.revision('fixture-core')['historical_extension'], {'version': 2})
+
+CURRENT CANDIDATE tests/test_skills/test_registry/test_store.py::SkillStoreTests.test_revision_draft_and_frozen_record_match_old_writers
+def test_revision_draft_and_frozen_record_match_old_writers(self):
+    expected = {'revision': {'skill_id': 'fixture-core', 'revision_id': 'sha256:c56aa4bcb3bfa99849a584f69b28b60ad7344bbc221fc2ee5b8c5fe7a053ba22', 'tree_hash': 'sha256:c56aa4bcb3bfa99849a584f69b28b60ad7344bbc221fc2ee5b8c5fe7a053ba22', 'file_hashes': {'SKILL.md': 'sha256:9e89bbc96040ec252246792b64e75d91270b56da1de0babfcb1e95d7032f8465'}, 'parent_revision': None, 'draft_id': None}, 'draft': {'draft_id': '11111111-1111-4111-8111-111111111111', 'skill_id': 'fixture-core', 'base_revision': 'sha256:c56aa4bcb3bfa99849a584f69b28b60ad7344bbc221fc2ee5b8c5fe7a053ba22', 'base_tree_hash': 'sha256:c56aa4bcb3bfa99849a584f69b28b60ad7344bbc221fc2ee5b8c5fe7a053ba22', 'policy_ref': {'policy_id': 'fixture-core-policy', 'revision_id': '1', 'hash': 'sha256:c74a484aa3cb432e2d069a678ef8522603da6f63801014c91a2befb96e8b73a1'}, 'status': 'open'}, 'frozen': {'draft_id': '11111111-1111-4111-8111-111111111111', 'base_ref': {'revision_id': 'sha256:c56aa4bcb3bfa99849a584f69b28b60ad7344bbc221fc2ee5b8c5fe7a053ba22', 'tree_hash': 'sha256:c56aa4bcb3bfa99849a584f69b28b60ad7344bbc221fc2ee5b8c5fe7a053ba22'}, 'policy_ref': {'hash': 'sha256:c74a484aa3cb432e2d069a678ef8522603da6f63801014c91a2befb96e8b73a1', 'policy_id': 'fixture-core-policy', 'revision_id': '1'}, 'editor_kind': 'human', 'edit_run_id': None, 'trace_ref': None, 'observed_tree_hash': 'sha256:1f4b5755f0daf5a4d92bdac85389614d0cf4cabfb5ac86b2312ba0311b7fdb59', 'proposed_tree_hash': 'sha256:1f4b5755f0daf5a4d92bdac85389614d0cf4cabfb5ac86b2312ba0311b7fdb59', 'proposed_ref': {'tree_hash': 'sha256:1f4b5755f0daf5a4d92bdac85389614d0cf4cabfb5ac86b2312ba0311b7fdb59', 'file_hashes': {'SKILL.md': 'sha256:5f9d222dec63a88385064ec4f6067f7353cb0c619c704863072d1ac5b3450e05'}}, 'changed_paths': ['SKILL.md'], 'patch': '--- base/SKILL.md\n+++ draft/SKILL.md\n@@ -1,6 +1,7 @@\n----\\n\n-name: fixture-core\\n\n-description: Synthetic skill.\\n\n----\\n\n-\\n\n-Rule: answer amber.\\n\n+---\\r\\n\n+name: fixture-core\\r\\n\n+description: Synthetic skill.\\r\\n\n+---\\r\\n\n+\\r\\n\n+Rule: answer amber.\\r\\n\n+Example: amber.\\r\\n\n', 'validation_errors': [], 'validation_results': [{'validator': 'structural-v1', 'passed': True, 'errors': []}], 'evaluation_results': [], 'promotion_eligible': True, 'promotion_performed': False}}
+    self.assertEqual(self.base, expected['revision'])
+    with patch('laomedo.skills.registry.store.uuid4', return_value=UUID('11111111-1111-4111-8111-111111111111')):
+        draft = self.store.create_draft('fixture-core', self.base['revision_id'], POLICY)
+    self.assertEqual(draft, expected['draft'])
+    proposed = (BASE + 'Example: amber.\n').replace('\n', '\r\n').encode('utf-8')
+    (self.store.draft_workspace(draft['draft_id']) / 'SKILL.md').write_bytes(proposed)
+    frozen = self.store.freeze_draft(draft['draft_id'])
+    self.assertEqual(frozen, expected['frozen'])
+    self.assertEqual(list(frozen), list(expected['frozen']))
+    self.assertEqual(list(frozen['policy_ref']), list(expected['frozen']['policy_ref']))
+    self.assertEqual(SkillStore(self.store.root).revision('fixture-core'), expected['revision'])
+    path = self.store._revision_dir('fixture-core', self.base['revision_id']) / 'record.json'
+    path.write_text(json.dumps({**self.base, 'historical_extension': {'version': 2}}), encoding='utf-8')
+    self.assertEqual(self.store.revision('fixture-core')['historical_extension'], {'version': 2})
+
+
+### PR 218 tests/test_structured_skill_records.py::StructuredSkillRecordsTests.test_commit_id_preimages_and_comparison_match_old_writers
+ORIGINAL METHOD
+def test_commit_id_preimages_and_comparison_match_old_writers(self):
+    from test_skill_operations import SkillOperationTests
+    expected = json.loads((Path(__file__).parent / 'contracts/skill-commits-a9317f6.json').read_text(encoding='utf-8'))
+    case = SkillOperationTests()
+    case.setUp()
+    self.addCleanup(case.doCleanups)
+    clock = SimpleNamespace(now=lambda *_: datetime(2026, 10, 30, tzinfo=timezone.utc))
+    with patch('laomedo.skills.operations.service.datetime', clock), patch('laomedo.skills.operations.service.uuid4', return_value=UUID('33333333-3333-4333-8333-333333333333')):
+        reservation = case.prepare()
+        imported = case.service.diff('internal-test', reservation['base_commit'])
+        self.assertEqual(imported, expected['import'])
+        self.assertNotIn('draft_id', imported)
+        self.assertNotIn('policy_ref', imported)
+        with patch('laomedo.skills.registry.store.uuid4', return_value=UUID('44444444-4444-4444-8444-444444444444')):
+            result = case.service.apply(reservation['ticket'], case.operation, {'kind': 'agent', 'run_id': 'run-id', 'trace_ref': 'trace-ref'})
+    self.assertEqual(result, expected['result'])
+    self.assertEqual(case.service.apply(reservation['ticket'], case.operation), result)
+    self.assertEqual(list(result['commit']), list(expected['result']['commit']))
+    self.assertNotIn('thread_id', result['commit']['editor'])
+    self.assertEqual(case.service.compare('internal-test', imported['commit_id'], result['skill']['revision_id']), expected['comparison'])
+
+
+### PR 219 tests/test_structured_agent_records.py::StructuredAgentRecordsTests.test_preparation_bytes_and_existing_reader_match_baseline
+ORIGINAL METHOD
+def test_preparation_bytes_and_existing_reader_match_baseline(self):
+    from test_local_runner import LocalRunnerTests
+    cases = json.loads((Path(__file__).parent / 'contracts/agent-records-a9317f6.json').read_text(encoding='utf-8'))
+    for with_skill in (False, True):
+        with self.subTest(skill=with_skill):
+            case = LocalRunnerTests()
+            case.setUp()
+            try:
+                (case.skill_source / 'SKILL.md').write_bytes(b'---\nname: sample\n---\nUse amber.\n')
+                case.revision = case.runner.store._store_revision('sample', case.skill_source, None)
+                case.runner.instance_id = 'instance-id'
+                request = case.request()
+                if not with_skill:
+                    request.pop('skill_ref')
+                with patch('laomedo.agents.agents.base.agent.uuid4', return_value=UUID('55555555-5555-4555-8555-555555555555')):
+                    result = case.runner._prepare(request, client_request_id='request-id', request_hash='sha256:' + '1' * 64)
+                expected = dict(cases['prepared_skill' if with_skill else 'prepared_empty'])
+                expected['effective_hash'] = _hash_tree(case.runner._run_dir(result['run_id']) / 'workspace')
+                self.assertEqual(result, expected)
+                self.assertEqual(list(result), list(expected))
+                self.assertEqual(case.runner.status(result['run_id']), expected)
+                self.assertEqual(json.dumps(result, sort_keys=True, separators=(',', ':')), json.dumps(expected, sort_keys=True, separators=(',', ':')))
+            finally:
+                case.doCleanups()
+
+CURRENT CANDIDATE tests/test_agents/test_runtime/test_preparation_records.py::PreparationRecordTests.test_preparation_bytes_and_existing_reader_match_baseline
+def test_preparation_bytes_and_existing_reader_match_baseline(self):
+    cases = json.loads((Path(__file__).parent / 'data/prepared-records.json').read_text(encoding='utf-8'))
+    for with_skill in (False, True):
+        with self.subTest(skill=with_skill):
+            case = RunnerCase.create()
+            self.addCleanup(case.close)
+            (case.skill_source / 'SKILL.md').write_bytes(b'---\nname: sample\n---\nUse amber.\n')
+            case.revision = case.runner.store._store_revision('sample', case.skill_source, None)
+            case.runner.instance_id = 'instance-id'
+            request = case.request()
+            if not with_skill:
+                request.pop('skill_ref')
+            with patch('laomedo.agents.agents.base.agent.uuid4', return_value=UUID('55555555-5555-4555-8555-555555555555')):
+                result = case.runner._prepare(request, client_request_id='request-id', request_hash='sha256:' + '1' * 64)
+            expected = dict(cases['prepared_skill' if with_skill else 'prepared_empty'])
+            expected['effective_hash'] = _hash_tree(case.runner._run_dir(result['run_id']) / 'workspace')
+            self.assertEqual(result, expected)
+            self.assertEqual(list(result), list(expected))
+            self.assertEqual(case.runner.status(result['run_id']), expected)
+            self.assertEqual(json.dumps(result, sort_keys=True, separators=(',', ':')), json.dumps(expected, sort_keys=True, separators=(',', ':')))
+
+
+### PR 219 tests/test_structured_agent_records.py::StructuredAgentRecordsTests.test_unknown_evidence_and_join_shapes_match_old_presenters
+ORIGINAL METHOD
+def test_unknown_evidence_and_join_shapes_match_old_presenters(self):
+    cases = json.loads((Path(__file__).parent / 'contracts/agent-records-a9317f6.json').read_text(encoding='utf-8'))
+    for case in cases['references']:
+        result = AgentRunReference.from_runner_status(case['input'], provider='codex').to_payload()
+        self.assertEqual(result, case['expected'])
+        self.assertEqual(list(result), list(case['expected']))
+    result = RunnerStatusRecord.from_snapshot(cases['join']['input'], provider='codex').to_payload()
+    self.assertEqual(result, cases['join']['expected'])
+    self.assertEqual(list(result), list(cases['join']['expected']))
+    self.assertEqual(RunnerStatusRecord.from_snapshot(None, provider='codex').to_payload(), {'status': 'pending_start'})
+
+CURRENT CANDIDATE tests/test_agents/test_interface/test_records.py::AgentReferenceRecordTests.test_unknown_evidence_and_join_shapes_match_old_presenters
+def test_unknown_evidence_and_join_shapes_match_old_presenters(self):
+    cases = json.loads((Path(__file__).parent / 'data/status-records.json').read_text(encoding='utf-8'))
+    for case in cases['references']:
+        with self.subTest(status=case['input'].get('status')):
+            result = AgentRunReference.from_runner_status(case['input'], provider='codex').to_payload()
+            self.assertEqual(result, case['expected'])
+            self.assertEqual(list(result), list(case['expected']))
+    result = RunnerStatusRecord.from_snapshot(cases['join']['input'], provider='codex').to_payload()
+    self.assertEqual(result, cases['join']['expected'])
+    self.assertEqual(list(result), list(cases['join']['expected']))
+    self.assertEqual(RunnerStatusRecord.from_snapshot(None, provider='codex').to_payload(), {'status': 'pending_start'})
+
+
+### PR 219 tests/test_structured_agent_records.py::StructuredAgentRecordsTests.test_handoff_and_request_hash_preimages_match_baseline
+ORIGINAL METHOD
+def test_handoff_and_request_hash_preimages_match_baseline(self):
+    cases = json.loads((Path(__file__).parent / 'contracts/structured-data-a9317f6.json').read_text(encoding='utf-8'))
+    with patch('laomedo.agents.orchestration.utils.uuid4', return_value='22222222-2222-4222-8222-222222222222'):
+        result = envelope(None, {'provider': 'codex', 'model': 'model', 'effort': 'low'}, 'Read only.', skills=[])
+    self.assertEqual(result, cases['handoff'])
+    request, digest = HttpAgentBridge.fresh_request(result, 'request-id')
+    self.assertEqual(request, cases['request']['payload'])
+    self.assertEqual(digest, cases['request']['digest'])
+    self.assertEqual(json.dumps({k: v for k, v in request.items() if k != 'request_id'}, sort_keys=True, separators=(',', ':'), ensure_ascii=False), cases['request']['preimage'])
+
+CURRENT CANDIDATE tests/test_agents/test_orchestration/test_request_records.py::RequestRecordTests.test_handoff_and_request_hash_preimages_match_baseline
+def test_handoff_and_request_hash_preimages_match_baseline(self):
+    cases = json.loads((Path(__file__).parent / 'data/request-records.json').read_text(encoding='utf-8'))
+    with patch('laomedo.agents.orchestration.utils.uuid4', return_value='22222222-2222-4222-8222-222222222222'):
+        result = envelope(None, {'provider': 'codex', 'model': 'model', 'effort': 'low'}, 'Read only.', skills=[])
+    self.assertEqual(result, cases['handoff'])
+    request, digest = HttpAgentBridge.fresh_request(result, 'request-id')
+    self.assertEqual(request, cases['request']['payload'])
+    self.assertEqual(digest, cases['request']['digest'])
+    self.assertEqual(json.dumps({k: v for k, v in request.items() if k != 'request_id'}, sort_keys=True, separators=(',', ':'), ensure_ascii=False), cases['request']['preimage'])
+
+
+### PR 219 tests/test_structured_record_structure.py::StructuredRecordStructureTests.test_models_are_class_only_and_fields_are_described
+ORIGINAL METHOD
+def test_models_are_class_only_and_fields_are_described(self):
+    modules = ('github.issues.models', 'github.pull_requests.models', 'skills.registry.models', 'skills.operations.models', 'agents.artifacts.models', 'agents.orchestration.models', 'agents.agents.base.models', 'agents.interface.models')
+    for name in modules:
+        module = importlib.import_module('laomedo.' + name)
+        tree = ast.parse(Path(module.__file__).read_text(encoding='utf-8'))
+        with self.subTest(module=name):
+            self.assertFalse(any((isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) for node in tree.body)))
+            for value in vars(module).values():
+                if isinstance(value, type) and issubclass(value, BaseModel) and (value.__module__ == module.__name__):
+                    for field in value.model_fields.values():
+                        self.assertTrue(field.description, f'{value.__name__} has an undescribed field')
+
+
+### PR 219 tests/test_structured_record_structure.py::StructuredRecordStructureTests.test_interface_models_remain_a_dependency_leaf
+ORIGINAL METHOD
+def test_interface_models_remain_a_dependency_leaf(self):
+    from laomedo.agents.interface import models
+    tree = ast.parse(Path(models.__file__).read_text(encoding='utf-8'))
+    imports = [node.module or '' for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)]
+    self.assertFalse(any((name.startswith('laomedo.') for name in imports)))
+
+
+### PR 219 tests/test_structured_record_structure.py::StructuredRecordStructureTests.test_component_keeps_its_module_docstring
+ORIGINAL METHOD
+def test_component_keeps_its_module_docstring(self):
+    from laomedo.agents.agents.base import agent
+    source = Path(agent.__file__).parents[2] / 'interface/langflow/component.py'
+    self.assertIsNotNone(ast.get_docstring(ast.parse(source.read_text(encoding='utf-8'))))
+
+
+### PR 219 tests/test_structured_record_structure.py::StructuredRecordStructureTests.test_join_handler_is_module_level_and_old_giant_constructors_stay_removed
+ORIGINAL METHOD
+def test_join_handler_is_module_level_and_old_giant_constructors_stay_removed(self):
+    from laomedo.integrations.langflow.join import server
+    from laomedo.agents.agents.base import agent
+    from laomedo.agents.orchestration import utils
+    for module in (server, agent, utils):
+        tree = ast.parse(Path(module.__file__).read_text(encoding='utf-8'))
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                self.assertFalse(any((isinstance(child, ast.ClassDef) for child in ast.walk(node))))
+                if node.name in {'_prepare', 'envelope'}:
+                    self.assertFalse(any((isinstance(child, ast.Dict) and len(child.keys) >= 10 for child in ast.walk(node))))
+
+
+### PR 220 tests/test_lease_service.py::LeaseClientTests.test_client_registers_heartbeats_and_finishes_with_live_service
+--- tests/test_lease_service.py::LeaseClientTests.test_client_registers_heartbeats_and_finishes_with_live_service
++++ tests/test_host/test_leases/test_service.py::LeaseClientTests.test_client_registers_heartbeats_and_finishes_with_live_service
+@@ -6,7 +6,7 @@
+     self.wait_for_service()
+     cancelled = threading.Event()
+     with unittest.mock.patch('laomedo.host.leases.service.os.getpid', return_value=-2):
+-        client = laomedo.host.leases.client.LeaseClient(self.state, docker_endpoint='unix:///unit-test.sock', run_id='run-one', name='exact-name', token='token-one', cancelled=cancelled)
++        client = laomedo.host.leases.client.LeaseClient(self.state, run_id='run-one', name='exact-name', token='token-one', docker_endpoint='unix:///test-docker.sock', cancelled=cancelled)
+     self.assertTrue(client.grant_id.startswith('grant-'))
+     self.assertTrue(service.book.check(client.grant_secret())[0])
+     with unittest.mock.patch('laomedo.host.leases.service.inspect_exact', return_value=('absent', None)):
+
+
+### PR 220 tests/test_lease_service.py::LeaseClientTests.test_client_publishes_only_complete_registration
+--- tests/test_lease_service.py::LeaseClientTests.test_client_publishes_only_complete_registration
++++ tests/test_host/test_leases/test_service.py::LeaseClientTests.test_client_publishes_only_complete_registration
+@@ -18,8 +18,8 @@
+             service.tick()
+             saw_staged_registration.append(True)
+         original_write(path, value)
+-    with unittest.mock.patch('laomedo.host.leases.utils._write_json', side_effect=checked_write), unittest.mock.patch('laomedo.host.leases.service.os.getpid', return_value=-2):
+-        client = laomedo.host.leases.client.LeaseClient(self.state, docker_endpoint='unix:///unit-test.sock', run_id='run-race', name='exact-name', token='token-race', cancelled=threading.Event())
++    with unittest.mock.patch('laomedo.host.leases.client._write_json', side_effect=checked_write), unittest.mock.patch('laomedo.host.leases.service.os.getpid', return_value=-2):
++        client = laomedo.host.leases.client.LeaseClient(self.state, run_id='run-race', name='exact-name', token='token-race', docker_endpoint='unix:///test-docker.sock', cancelled=threading.Event())
+     self.assertEqual(saw_staged_registration, [True])
+     self.assertFalse((client.dir / 'result.json').exists())
+     self.assertTrue((client.dir / 'accepted.json').exists())
+
+
+### PR 220 tests/test_mediation_service_startup.py::MediationServiceStartupTests.test_both_service_entries_use_their_host_store_for_prior_stage_confirmation
+--- tests/test_mediation_service_startup.py::MediationServiceStartupTests.test_both_service_entries_use_their_host_store_for_prior_stage_confirmation
++++ tests/test_host/test_mediation/test_startup.py::MediationServiceStartupTests.test_both_service_entries_use_their_host_store_for_prior_stage_confirmation
+@@ -17,7 +17,7 @@
+             def close(instance):
+                 instance.server.server_close()
+             state = self.state / entry.__name__.split('.')[-1]
+-            with unittest.mock.patch('laomedo.host.publication.verified.utils.make_grant_bundle_freezer', factory), unittest.mock.patch('laomedo.host.mediation.store.MediationStore', store_factory), unittest.mock.patch.object(entry, 'make_grant_bundle_freezer', factory), unittest.mock.patch.object(entry, 'MediationStore', store_factory):
++            with unittest.mock.patch.object(entry, 'make_grant_bundle_freezer', factory), unittest.mock.patch.object(entry, 'MediationStore', store_factory):
+                 if entry is laomedo.host.host_services:
+                     lease, mediator = entry.build_services(state=state, repository='example/disposable', checkout=self.checkout, baseline='a' * 40, agent_mount=self.agent_mount, connection_id='selected', connection_generation=1, token_file=self.token_file, runner_state=self.path / 'runner', private_stage=self.path / 'stages')
+                     lease.server.server_close()
+
+
+### PR 220 tests/test_structured_host_records.py::StructuredHostRecordsTests.test_gateway_intent_hashes_preserve_request_identity_and_optional_changes
+ORIGINAL METHOD
+def test_gateway_intent_hashes_preserve_request_identity_and_optional_changes(self):
+    from test_live_github_issue import LiveGitHubIssueTests
+    from test_live_github_pr import LiveGitHubPRTests
+    for kind, case_type in (('issue', LiveGitHubIssueTests), ('pr', LiveGitHubPRTests)):
+        for action in ('modify', 'close'):
+            with self.subTest(kind=kind, action=action):
+                case = case_type()
+                case.setUp()
+                try:
+                    operation = dict(action=action, request_id='request_a', grant_ref='grant')
+                    if action == 'modify':
+                        operation['changes'] = {'title': 'Revue é', 'body': ''}
+                    case.gateway.execute(case.url, ['research', 'backend'], 'open', 1, operation)
+                    with closing(case.store._connect()) as db:
+                        authenticated = db.execute('SELECT grant_id,run_id FROM grants').fetchone()
+                        row = db.execute(f'SELECT input_hash FROM {kind}_node_intents WHERE grant_ref=? AND request_id=?', ('grant', 'request_a')).fetchone()
+                    expected = dict(repository='owner/repo', number=1, labels=['backend', 'research'], state='open', operation=operation, binding={'grant_id': authenticated['grant_id'], 'run_id': authenticated['run_id']})
+                    preimage = json.dumps(expected, sort_keys=True, separators=(',', ':'), ensure_ascii=False)
+                    self.assertEqual(row['input_hash'], 'sha256:' + hashlib.sha256(preimage.encode()).hexdigest())
+                    model = GitHubOperationIntent(**{**expected, 'binding': GitHubGrantBinding(**expected['binding'])})
+                    self.assertEqual(model.to_payload(), expected)
+                    self.assertEqual(set(model.to_payload()['operation']), {'action', 'request_id', 'grant_ref', 'changes'} if action == 'modify' else {'action', 'request_id', 'grant_ref'})
+                finally:
+                    case.doCleanups()
+
+CURRENT CANDIDATE tests/test_github/test_contracts/test_intents.py::IntentHashTests.test_gateway_intent_hashes_preserve_request_identity_and_optional_changes
+def test_gateway_intent_hashes_preserve_request_identity_and_optional_changes(self):
+    for kind, factory in (('issue', create_issue_case), ('pr', create_pr_case)):
+        for action in ('modify', 'close'):
+            with self.subTest(kind=kind, action=action), tempfile.TemporaryDirectory() as temporary:
+                case = factory(temporary)
+                operation = dict(action=action, request_id='request_a', grant_ref='grant')
+                if action == 'modify':
+                    operation['changes'] = {'title': 'Revue é', 'body': ''}
+                case.gateway.execute(case.url, ['research', 'backend'], 'open', 1, operation)
+                with closing(case.store._connect()) as db:
+                    authenticated = db.execute('SELECT grant_id,run_id FROM grants').fetchone()
+                    row = db.execute(f'SELECT input_hash FROM {kind}_node_intents WHERE grant_ref=? AND request_id=?', ('grant', 'request_a')).fetchone()
+                expected = dict(repository='owner/repo', number=1, labels=['backend', 'research'], state='open', operation=operation, binding={'grant_id': authenticated['grant_id'], 'run_id': authenticated['run_id']})
+                preimage = json.dumps(expected, sort_keys=True, separators=(',', ':'), ensure_ascii=False)
+                self.assertEqual(row['input_hash'], 'sha256:' + sha256(preimage.encode()).hexdigest())
+                model = GitHubOperationIntent(**{**expected, 'binding': GitHubGrantBinding(**expected['binding'])})
+                self.assertEqual(model.to_payload(), expected)
+                self.assertEqual(set(model.to_payload()['operation']), {'action', 'request_id', 'grant_ref', 'changes'} if action == 'modify' else {'action', 'request_id', 'grant_ref'})
+
+
+### PR 220 tests/test_structured_host_records.py::StructuredHostRecordsTests.test_feedback_snapshot_keeps_original_labels_extensions_and_deadlines
+ORIGINAL METHOD
+def test_feedback_snapshot_keeps_original_labels_extensions_and_deadlines(self):
+    from test_live_github_pr import LiveGitHubPRTests
+    case = LiveGitHubPRTests()
+    case.setUp()
+    try:
+        original = case.transport
+
+        def extended_transport(repository, operation, payload):
+            value = original(repository, operation, payload)
+            return {**value, 'provider_extension': {'nullable': None, 'checks': ['é', False]}} if operation == 'pr_node_read' else value
+        case.gateway.transports['owner/repo'] = extended_transport
+        case.gateway.feedback_grants = {'owner/repo#1': 'grant'}
+        labels = ['research', 'backend']
+        selected = case.gateway.execute(case.url, labels, 'open', 1)
+        issued = case.store.monotonic()
+        with patch.object(case.store, 'monotonic', return_value=issued):
+            ticket = case.gateway.prepare_feedback(case.url, labels, 'open', 1, selected['content_digest'])['ticket']
+        with closing(case.store._connect()) as db:
+            row = db.execute('SELECT * FROM pr_feedback_tickets WHERE ticket=?', (ticket,)).fetchone()
+        expected = dict(repository_url=case.url, labels=labels, state='open', pr_number=1, expected=selected['content_digest'], pr=selected['pr'], issued_monotonic=issued, expires_monotonic=issued + 300)
+        self.assertEqual(json.loads(row['context']), expected)
+        self.assertEqual(list(json.loads(row['context'])), list(expected))
+        self.assertEqual(row['expires'], 400)
+        self.assertEqual(row['grant_ref'], 'grant')
+        self.assertTrue(row['request_id'].startswith('pr-feedback-'))
+        for wall, monotonic in ((100, issued - 1), (100, issued + 300), (400, issued + 1)):
+            with self.subTest(wall=wall, monotonic=monotonic), patch.object(case.store, 'now', return_value=wall), patch.object(case.store, 'monotonic', return_value=monotonic):
+                with self.assertRaisesRegex(ValueError, '^pr_feedback_ticket_invalid$'):
+                    case.gateway.apply_feedback(ticket, {'action': 'close'})
+        self.assertEqual(case.fake.writes, [])
+    finally:
+        case.doCleanups()
+
+CURRENT CANDIDATE tests/test_github/test_pull_requests/test_feedback.py::FeedbackIdentityTests.test_feedback_snapshot_keeps_original_labels_extensions_and_deadlines
+def test_feedback_snapshot_keeps_original_labels_extensions_and_deadlines(self):
+    case = self.case
+    original = case.transport
+
+    def extended_transport(repository, operation, payload):
+        value = original(repository, operation, payload)
+        return {**value, 'provider_extension': {'nullable': None, 'checks': ['é', False]}} if operation == 'pr_node_read' else value
+    case.gateway.transports['owner/repo'] = extended_transport
+    case.gateway.feedback_grants = {'owner/repo#1': 'grant'}
+    labels = ['research', 'backend']
+    selected = case.gateway.execute(case.url, labels, 'open', 1)
+    issued = case.store.monotonic()
+    with patch.object(case.store, 'monotonic', return_value=issued):
+        ticket = case.gateway.prepare_feedback(case.url, labels, 'open', 1, selected['content_digest'])['ticket']
+    with closing(case.store._connect()) as db:
+        row = db.execute('SELECT * FROM pr_feedback_tickets WHERE ticket=?', (ticket,)).fetchone()
+    expected = dict(repository_url=case.url, labels=labels, state='open', pr_number=1, expected=selected['content_digest'], pr=selected['pr'], issued_monotonic=issued, expires_monotonic=issued + 300)
+    self.assertEqual(json.loads(row['context']), expected)
+    self.assertEqual(list(json.loads(row['context'])), list(expected))
+    self.assertEqual(row['expires'], 400)
+    self.assertEqual(row['grant_ref'], 'grant')
+    self.assertTrue(row['request_id'].startswith('pr-feedback-'))
+    for wall, monotonic in ((100, issued - 1), (100, issued + 300), (400, issued + 1)):
+        with self.subTest(wall=wall, monotonic=monotonic), patch.object(case.store, 'now', return_value=wall), patch.object(case.store, 'monotonic', return_value=monotonic):
+            with self.assertRaisesRegex(ValueError, '^pr_feedback_ticket_invalid$'):
+                case.gateway.apply_feedback(ticket, {'action': 'close'})
+    self.assertEqual(case.provider.writes, [])
+
+
+### PR 220 tests/test_structured_host_records.py::StructuredHostRecordsTests.test_work_grant_cli_flat_shape_and_redeemed_payload_match_old_writers
+ORIGINAL METHOD
+def test_work_grant_cli_flat_shape_and_redeemed_payload_match_old_writers(self):
+    from laomedo.work_graph.__main__ import main
+    from laomedo.work_graph.grants import LocalGrantAuthority
+    from laomedo.work_graph.runs.errors import LaunchError
+    from test_work_graph_launch import WorkGraphLaunchTests, WORK
+    case = WorkGraphLaunchTests()
+    case.setUp()
+    try:
+        with TemporaryDirectory() as temporary:
+            snapshot = case.frozen.save(Path(temporary) / 'snapshots')
+            path = Path(temporary) / 'grants.sqlite'
+            output = StringIO()
+            args = ['issue-grant', str(snapshot), '--work-key', WORK, '--grant-store', str(path), '--timeout-seconds', '30', '--max-turns', '0']
+            with patch('sys.stdin') as stdin, patch('builtins.input', return_value=WORK), redirect_stdout(output):
+                stdin.isatty.return_value = True
+                self.assertEqual(main(args), 0)
+            receipt = json.loads(output.getvalue())
+            self.assertEqual(set(receipt), {'grant_ref', 'work_key', 'graph_snapshot_id', 'content_digest', 'expires_at', 'timeout_seconds', 'max_turns'})
+            self.assertEqual((receipt['work_key'], receipt['timeout_seconds'], receipt['max_turns']), (WORK, 30, 0))
+            authority = LocalGrantAuthority(path)
+            binding = preflight(case.frozen, case.frozen, WORK)
+            redeemed = authority(receipt['grant_ref'], binding)
+            self.assertEqual(redeemed, dict(grant_id=receipt['grant_ref'], operator_authorized=True, work_key=WORK, graph_snapshot_id=receipt['graph_snapshot_id'], content_digest=receipt['content_digest'], runner='langflow-local', scope='stage-launch', expires_at=receipt['expires_at'], limits={'timeout_seconds': 30, 'max_turns': 0}))
+            self.assertNotIn('operator_id', redeemed)
+            with self.assertRaisesRegex(LaunchError, '^grant_invalid$'):
+                authority(receipt['grant_ref'], binding)
+            ref = authority.issue(work_key=WORK, graph_snapshot=case.frozen, expires_at=(datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat(), timeout_seconds=30, max_turns=0)
+            with closing(authority._connect()) as db, db:
+                db.execute('UPDATE grants SET expires_at=? WHERE grant_id=?', ('2000-01-01T00:00:00+00:00', ref))
+            with self.assertRaisesRegex(LaunchError, '^grant_expired$'):
+                authority(ref, binding)
+            with closing(authority._connect()) as db:
+                self.assertIsNone(db.execute('SELECT redeemed_at FROM grants WHERE grant_id=?', (ref,)).fetchone()[0])
+    finally:
+        case.doCleanups()
+
+CURRENT CANDIDATE tests/test_work_graph/test_records.py::WorkGraphRecordTests.test_work_grant_cli_flat_shape_and_redeemed_payload_match_old_writers
+def test_work_grant_cli_flat_shape_and_redeemed_payload_match_old_writers(self):
+    from laomedo.work_graph.__main__ import main
+    from laomedo.work_graph.grants import LocalGrantAuthority, LaunchError
+    from test_work_graph.utils import make_snapshot
+    WORK = 'github:S-20'
+    frozen = make_snapshot()
+    with TemporaryDirectory() as temporary:
+        snapshot = frozen.save(Path(temporary) / 'snapshots')
+        path = Path(temporary) / 'grants.sqlite'
+        output = StringIO()
+        args = ['issue-grant', str(snapshot), '--work-key', WORK, '--grant-store', str(path), '--timeout-seconds', '30', '--max-turns', '0']
+        with patch('sys.stdin') as stdin, patch('builtins.input', return_value=WORK), redirect_stdout(output):
+            stdin.isatty.return_value = True
+            self.assertEqual(main(args), 0)
+        receipt = json.loads(output.getvalue())
+        self.assertEqual(set(receipt), {'grant_ref', 'work_key', 'graph_snapshot_id', 'content_digest', 'expires_at', 'timeout_seconds', 'max_turns'})
+        self.assertEqual((receipt['work_key'], receipt['timeout_seconds'], receipt['max_turns']), (WORK, 30, 0))
+        authority = LocalGrantAuthority(path)
+        binding = preflight(frozen, frozen, WORK)
+        redeemed = authority(receipt['grant_ref'], binding)
+        self.assertEqual(redeemed, dict(grant_id=receipt['grant_ref'], operator_authorized=True, work_key=WORK, graph_snapshot_id=receipt['graph_snapshot_id'], content_digest=receipt['content_digest'], runner='langflow-local', scope='stage-launch', expires_at=receipt['expires_at'], limits={'timeout_seconds': 30, 'max_turns': 0}))
+        self.assertNotIn('operator_id', redeemed)
+        with self.assertRaisesRegex(LaunchError, '^grant_invalid$'):
+            authority(receipt['grant_ref'], binding)
+        ref = authority.issue(work_key=WORK, graph_snapshot=frozen, expires_at=(datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat(), timeout_seconds=30, max_turns=0)
+        with closing(authority._connect()) as db, db:
+            db.execute('UPDATE grants SET expires_at=? WHERE grant_id=?', ('2000-01-01T00:00:00+00:00', ref))
+        with self.assertRaisesRegex(LaunchError, '^grant_expired$'):
+            authority(ref, binding)
+        with closing(authority._connect()) as db:
+            self.assertIsNone(db.execute('SELECT redeemed_at FROM grants WHERE grant_id=?', (ref,)).fetchone()[0])
+
+
+### PR 220 tests/test_structured_host_records.py::StructuredHostRecordsTests.test_container_identity_only_unwraps_in_private_registration
+ORIGINAL METHOD
+def test_container_identity_only_unwraps_in_private_registration(self):
+    identity = ContainerIdentity(name='container', run_id='run', token='private-lease')
+    self.assert_secret_output_excluded(identity, ('private-lease',))
+    expected = dict(name='container', run_id='run', token='private-lease', runner_pid=123, created_at=4, mediation=None)
+    self.assertEqual(identity.registration(runner_pid=123, created_at=4, mediation=None), expected)
+    self.assertNotIn('docker_endpoint', expected)
+    restored = ContainerIdentity.from_registration(expected)
+    self.assertIsNone(restored.docker_endpoint)
+
+CURRENT CANDIDATE tests/test_host/test_leases/test_records.py::LeaseRecordTests.test_container_identity_only_unwraps_in_private_registration
+def test_container_identity_only_unwraps_in_private_registration(self):
+    identity = ContainerIdentity(name='container', run_id='run', token='private-lease')
+    assert_secrets_excluded(self, identity, ('private-lease',))
+    expected = dict(name='container', run_id='run', token='private-lease', runner_pid=123, created_at=4, mediation=None)
+    self.assertEqual(identity.registration(runner_pid=123, created_at=4, mediation=None), expected)
+    self.assertNotIn('docker_endpoint', expected)
+    restored = ContainerIdentity.from_registration(expected)
+    self.assertIsNone(restored.docker_endpoint)
+
+
+### PR 220 tests/test_structured_host_records.py::StructuredHostRecordsTests.test_lease_window_expiry_rollback_renewal_and_revocation
+ORIGINAL METHOD
+def test_lease_window_expiry_rollback_renewal_and_revocation(self):
+    window = GrantWindow(clock=LeaseClock(wall=100, monotonic=10), wall_deadline=120, monotonic_deadline=30)
+    grant = LeaseGrant.from_window('grant', 'private-lease', window)
+    self.assertEqual((grant.expires_at, grant.issued_monotonic, grant.expires_monotonic), (120, 10, 30))
+    self.assert_secret_output_excluded(grant, ('private-lease',))
+    self.assertTrue(grant.bound_to('private-lease'))
+    self.assertFalse(grant.bound_to('other'))
+    for wall, monotonic, accepted in ((119, 29, True), (120, 29, False), (119, 30, False), (90, 9, False), (90, 10, True)):
+        with self.subTest(wall=wall, monotonic=monotonic):
+            self.assertEqual(grant.accepts(LeaseClock(wall=wall, monotonic=monotonic)), accepted)
+    grant.renew(GrantWindow(clock=LeaseClock(wall=110, monotonic=20), wall_deadline=200, monotonic_deadline=200))
+    self.assertEqual((grant.expires_at, grant.issued_monotonic, grant.expires_monotonic), (160, 10, 70))
+    grant.revoke(115)
+    self.assertFalse(grant.accepts(LeaseClock(wall=116, monotonic=21)))
+
+CURRENT CANDIDATE tests/test_host/test_leases/test_records.py::LeaseRecordTests.test_lease_window_expiry_rollback_renewal_and_revocation
+def test_lease_window_expiry_rollback_renewal_and_revocation(self):
+    window = GrantWindow(clock=LeaseClock(wall=100, monotonic=10), wall_deadline=120, monotonic_deadline=30)
+    grant = LeaseGrant.from_window('grant', 'private-lease', window)
+    self.assertEqual((grant.expires_at, grant.issued_monotonic, grant.expires_monotonic), (120, 10, 30))
+    assert_secrets_excluded(self, grant, ('private-lease',))
+    self.assertTrue(grant.bound_to('private-lease'))
+    self.assertFalse(grant.bound_to('other'))
+    for wall, monotonic, accepted in ((119, 29, True), (120, 29, False), (119, 30, False), (90, 9, False), (90, 10, True)):
+        with self.subTest(wall=wall, monotonic=monotonic):
+            self.assertEqual(grant.accepts(LeaseClock(wall=wall, monotonic=monotonic)), accepted)
+    grant.renew(GrantWindow(clock=LeaseClock(wall=110, monotonic=20), wall_deadline=200, monotonic_deadline=200))
+    self.assertEqual((grant.expires_at, grant.issued_monotonic, grant.expires_monotonic), (160, 10, 70))
+    grant.revoke(115)
+    self.assertFalse(grant.accepts(LeaseClock(wall=116, monotonic=21)))
+
+
+### PR 220 tests/test_structured_host_records.py::StructuredHostRecordsTests.test_claude_telemetry_preserves_exact_privacy_environment
+ORIGINAL METHOD
+def test_claude_telemetry_preserves_exact_privacy_environment(self):
+    model = ClaudeTelemetryEnvironment(endpoint='http://127.0.0.1:8000', token='private-otel')
+    self.assert_secret_output_excluded(model, ('private-otel',))
+    self.assertEqual(model.to_environment(), {'CLAUDE_CODE_ENABLE_TELEMETRY': '1', 'CLAUDE_CODE_ENHANCED_TELEMETRY_BETA': '1', 'OTEL_EXPORTER_OTLP_PROTOCOL': 'http/protobuf', 'OTEL_EXPORTER_OTLP_ENDPOINT': 'http://127.0.0.1:8000', 'OTEL_EXPORTER_OTLP_HEADERS': 'Authorization=Bearer private-otel', 'OTEL_METRICS_EXPORTER': 'otlp', 'OTEL_LOGS_EXPORTER': 'otlp', 'OTEL_TRACES_EXPORTER': 'otlp', 'OTEL_METRIC_EXPORT_INTERVAL': '1000', 'OTEL_LOGS_EXPORT_INTERVAL': '1000', 'OTEL_TRACES_EXPORT_INTERVAL': '1000', 'OTEL_LOG_USER_PROMPTS': '0', 'OTEL_LOG_ASSISTANT_RESPONSES': '0', 'OTEL_LOG_TOOL_DETAILS': '0', 'OTEL_LOG_TOOL_CONTENT': '0', 'OTEL_METRICS_INCLUDE_ACCOUNT_UUID': 'false'})
+
+CURRENT CANDIDATE tests/test_agents/test_claude/test_records.py::ClaudeRecordTests.test_claude_telemetry_preserves_exact_privacy_environment
+def test_claude_telemetry_preserves_exact_privacy_environment(self):
+    model = ClaudeTelemetryEnvironment(endpoint='http://127.0.0.1:8000', token='private-otel')
+    assert_secrets_excluded(self, model, ('private-otel',))
+    self.assertEqual(model.to_environment(), {'CLAUDE_CODE_ENABLE_TELEMETRY': '1', 'CLAUDE_CODE_ENHANCED_TELEMETRY_BETA': '1', 'OTEL_EXPORTER_OTLP_PROTOCOL': 'http/protobuf', 'OTEL_EXPORTER_OTLP_ENDPOINT': 'http://127.0.0.1:8000', 'OTEL_EXPORTER_OTLP_HEADERS': 'Authorization=Bearer private-otel', 'OTEL_METRICS_EXPORTER': 'otlp', 'OTEL_LOGS_EXPORTER': 'otlp', 'OTEL_TRACES_EXPORTER': 'otlp', 'OTEL_METRIC_EXPORT_INTERVAL': '1000', 'OTEL_LOGS_EXPORT_INTERVAL': '1000', 'OTEL_TRACES_EXPORT_INTERVAL': '1000', 'OTEL_LOG_USER_PROMPTS': '0', 'OTEL_LOG_ASSISTANT_RESPONSES': '0', 'OTEL_LOG_TOOL_DETAILS': '0', 'OTEL_LOG_TOOL_CONTENT': '0', 'OTEL_METRICS_INCLUDE_ACCOUNT_UUID': 'false'})
+
+
+### PR 220 tests/test_structured_host_records.py::StructuredHostRecordsTests.test_work_launch_preimages_match_captured_old_writer
+ORIGINAL METHOD
+def test_work_launch_preimages_match_captured_old_writer(self):
+    repo = Path(__file__).resolve().parents[1]
+    corpus = json.loads((repo / 'experiments/exp16/corpus.json').read_text(encoding='utf-8'))
+    graph = import_pages('verify/exp16', corpus['base'], fetched_at='2026-10-05T10:00:00+00:00')
+    expected = json.loads((Path(__file__).parent / 'contracts/work-launch-a9317f6.json').read_text(encoding='utf-8'))
+    self.assertEqual(preflight(graph, graph, 'github:S-20'), expected)
+
+CURRENT CANDIDATE tests/test_work_graph/test_records.py::WorkGraphRecordTests.test_work_launch_preimages_match_captured_old_writer
+def test_work_launch_preimages_match_captured_old_writer(self):
+    repo = repository_root()
+    corpus = json.loads((repo / 'tests/test_work_graph/fixtures/corpus.json').read_text(encoding='utf-8'))
+    graph = import_pages('verify/exp16', corpus['base'], fetched_at='2026-10-05T10:00:00+00:00')
+    expected = json.loads((repository_root() / 'tests/test_work_graph/fixtures/launch-record.json').read_text(encoding='utf-8'))
+    self.assertEqual(preflight(graph, graph, 'github:S-20'), expected)
+
+
+### PR 220 tests/test_structured_host_records.py::StructuredHostRecordsTests.test_verified_stage_active_and_frozen_hash_preimages_match_old_writer
+ORIGINAL METHOD
+def test_verified_stage_active_and_frozen_hash_preimages_match_old_writer(self):
+    cases = json.loads((Path(__file__).parent / 'contracts/verified-stage-a9317f6.json').read_text(encoding='utf-8'))
+    for case in cases:
+        with self.subTest(binding='active' if 'run_binding_sha256' in case['payload'] else 'frozen'):
+            identity = VerifiedStageIdentity(**case['payload'])
+            self.assertEqual(identity.to_payload(), case['payload'])
+            self.assertEqual(json.dumps(identity.to_payload(), sort_keys=True, separators=(',', ':')), case['preimage'])
+            self.assertEqual(identity.digest(), case['digest'])
+            stage = VerifiedStage.from_identity(identity, b'bundle')
+            self.assertEqual(stage.stage_digest, case['digest'])
+            self.assertEqual(stage.bundle_sha256, case['payload']['verified_bundle_sha256'])
+            self.assertEqual(stage.bundle, b'bundle')
+
+CURRENT CANDIDATE tests/test_host/test_publication/test_records.py::PublicationRecordTests.test_verified_stage_active_and_frozen_hash_preimages_match_old_writer
+def test_verified_stage_active_and_frozen_hash_preimages_match_old_writer(self):
+    cases = json.loads((repository_root() / 'tests/test_host/test_publication/fixtures/verified-stage.json').read_text(encoding='utf-8'))
+    for case in cases:
+        with self.subTest(binding='active' if 'run_binding_sha256' in case['payload'] else 'frozen'):
+            identity = VerifiedStageIdentity(**case['payload'])
+            self.assertEqual(identity.to_payload(), case['payload'])
+            self.assertEqual(json.dumps(identity.to_payload(), sort_keys=True, separators=(',', ':')), case['preimage'])
+            self.assertEqual(identity.digest(), case['digest'])
+            stage = VerifiedStage.from_identity(identity, b'bundle')
+            self.assertEqual(stage.stage_digest, case['digest'])
+            self.assertEqual(stage.bundle_sha256, case['payload']['verified_bundle_sha256'])
+            self.assertEqual(stage.bundle, b'bundle')
+
+
+### PR 220 tests/test_structured_record_structure.py::StructuredRecordStructureTests.test_models_are_class_only_and_fields_are_described
+ORIGINAL METHOD
+def test_models_are_class_only_and_fields_are_described(self):
+    modules = ('github.issues.models', 'github.pull_requests.models', 'github.models', 'skills.registry.models', 'skills.operations.models', 'agents.artifacts.models', 'agents.orchestration.models', 'agents.agents.base.models', 'agents.interface.models', 'host.credentials.siwc.models', 'host.leases.models', 'host.mediation.models', 'host.publication.bundle.models', 'host.publication.handoff.models', 'host.publication.verified.models', 'agents.activity.models', 'agents.agents.claude.activity.models', 'agents.agents.opencode.activity.models', 'agents.agents.opencode.models')
+    for name in modules:
+        module = importlib.import_module('laomedo.' + name)
+        tree = ast.parse(Path(module.__file__).read_text(encoding='utf-8'))
+        with self.subTest(module=name):
+            self.assertFalse(any((isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) for node in tree.body)))
+            for value in vars(module).values():
+                if isinstance(value, type) and issubclass(value, BaseModel) and (value.__module__ == module.__name__):
+                    for field in value.model_fields.values():
+                        self.assertTrue(field.description, f'{value.__name__} has an undescribed field')
+
+
+### PR 220 tests/test_structured_record_structure.py::StructuredRecordStructureTests.test_new_work_graph_records_have_documented_fields
+ORIGINAL METHOD
+def test_new_work_graph_records_have_documented_fields(self):
+    from laomedo.work_graph.models import RelevantWorkContent, WorkSnapshot, WorkOverride, WorkLaunchBinding, WorkGrantLimits, WorkLaunchGrant, WorkGrantReference, WorkLaunchResult
+    for model in (RelevantWorkContent, WorkSnapshot, WorkOverride, WorkLaunchBinding, WorkGrantLimits, WorkLaunchGrant, WorkGrantReference, WorkLaunchResult):
+        with self.subTest(model=model.__name__):
+            for name, field in model.model_fields.items():
+                self.assertTrue(field.description, f'{model.__name__}.{name} has no description')
+
+
+### PR 220 tests/test_structured_skill_records.py::StructuredSkillRecordsTests.test_revision_draft_and_frozen_record_match_old_writers
+ORIGINAL METHOD
+def test_revision_draft_and_frozen_record_match_old_writers(self):
+    from test_skill_store import SkillStoreTests, POLICY, BASE
+    expected = json.loads((Path(__file__).parent / 'contracts/structured-data-a9317f6.json').read_text(encoding='utf-8'))['skill']
+    case = SkillStoreTests()
+    case.setUp()
+    self.addCleanup(case.doCleanups)
+    self.assertEqual(case.base, expected['revision'])
+    with patch('laomedo.skills.registry.store.uuid4', return_value=UUID('11111111-1111-4111-8111-111111111111')):
+        draft = case.store.create_draft('fixture-core', case.base['revision_id'], POLICY)
+    self.assertEqual(draft, expected['draft'])
+    proposed = (BASE + 'Example: amber.\n').replace('\n', '\r\n').encode('utf-8')
+    (case.store.draft_workspace(draft['draft_id']) / 'SKILL.md').write_bytes(proposed)
+    frozen = case.store.freeze_draft(draft['draft_id'])
+    self.assertEqual(frozen, expected['frozen'])
+    self.assertEqual(list(frozen), list(expected['frozen']))
+    self.assertEqual(list(frozen['policy_ref']), list(expected['frozen']['policy_ref']))
+    self.assertEqual(SkillStore(case.store.root).revision('fixture-core'), expected['revision'])
+    path = case.store._revision_dir('fixture-core', case.base['revision_id']) / 'record.json'
+    path.write_text(json.dumps({**case.base, 'historical_extension': {'version': 2}}), encoding='utf-8')
+    self.assertEqual(case.store.revision('fixture-core')['historical_extension'], {'version': 2})
+
+CURRENT CANDIDATE tests/test_skills/test_registry/test_store.py::SkillStoreTests.test_revision_draft_and_frozen_record_match_old_writers
+def test_revision_draft_and_frozen_record_match_old_writers(self):
+    expected = {'revision': {'skill_id': 'fixture-core', 'revision_id': 'sha256:c56aa4bcb3bfa99849a584f69b28b60ad7344bbc221fc2ee5b8c5fe7a053ba22', 'tree_hash': 'sha256:c56aa4bcb3bfa99849a584f69b28b60ad7344bbc221fc2ee5b8c5fe7a053ba22', 'file_hashes': {'SKILL.md': 'sha256:9e89bbc96040ec252246792b64e75d91270b56da1de0babfcb1e95d7032f8465'}, 'parent_revision': None, 'draft_id': None}, 'draft': {'draft_id': '11111111-1111-4111-8111-111111111111', 'skill_id': 'fixture-core', 'base_revision': 'sha256:c56aa4bcb3bfa99849a584f69b28b60ad7344bbc221fc2ee5b8c5fe7a053ba22', 'base_tree_hash': 'sha256:c56aa4bcb3bfa99849a584f69b28b60ad7344bbc221fc2ee5b8c5fe7a053ba22', 'policy_ref': {'policy_id': 'fixture-core-policy', 'revision_id': '1', 'hash': 'sha256:c74a484aa3cb432e2d069a678ef8522603da6f63801014c91a2befb96e8b73a1'}, 'status': 'open'}, 'frozen': {'draft_id': '11111111-1111-4111-8111-111111111111', 'base_ref': {'revision_id': 'sha256:c56aa4bcb3bfa99849a584f69b28b60ad7344bbc221fc2ee5b8c5fe7a053ba22', 'tree_hash': 'sha256:c56aa4bcb3bfa99849a584f69b28b60ad7344bbc221fc2ee5b8c5fe7a053ba22'}, 'policy_ref': {'hash': 'sha256:c74a484aa3cb432e2d069a678ef8522603da6f63801014c91a2befb96e8b73a1', 'policy_id': 'fixture-core-policy', 'revision_id': '1'}, 'editor_kind': 'human', 'edit_run_id': None, 'trace_ref': None, 'observed_tree_hash': 'sha256:1f4b5755f0daf5a4d92bdac85389614d0cf4cabfb5ac86b2312ba0311b7fdb59', 'proposed_tree_hash': 'sha256:1f4b5755f0daf5a4d92bdac85389614d0cf4cabfb5ac86b2312ba0311b7fdb59', 'proposed_ref': {'tree_hash': 'sha256:1f4b5755f0daf5a4d92bdac85389614d0cf4cabfb5ac86b2312ba0311b7fdb59', 'file_hashes': {'SKILL.md': 'sha256:5f9d222dec63a88385064ec4f6067f7353cb0c619c704863072d1ac5b3450e05'}}, 'changed_paths': ['SKILL.md'], 'patch': '--- base/SKILL.md\n+++ draft/SKILL.md\n@@ -1,6 +1,7 @@\n----\\n\n-name: fixture-core\\n\n-description: Synthetic skill.\\n\n----\\n\n-\\n\n-Rule: answer amber.\\n\n+---\\r\\n\n+name: fixture-core\\r\\n\n+description: Synthetic skill.\\r\\n\n+---\\r\\n\n+\\r\\n\n+Rule: answer amber.\\r\\n\n+Example: amber.\\r\\n\n', 'validation_errors': [], 'validation_results': [{'validator': 'structural-v1', 'passed': True, 'errors': []}], 'evaluation_results': [], 'promotion_eligible': True, 'promotion_performed': False}}
+    self.assertEqual(self.base, expected['revision'])
+    with patch('laomedo.skills.registry.store.uuid4', return_value=UUID('11111111-1111-4111-8111-111111111111')):
+        draft = self.store.create_draft('fixture-core', self.base['revision_id'], POLICY)
+    self.assertEqual(draft, expected['draft'])
+    proposed = (BASE + 'Example: amber.\n').replace('\n', '\r\n').encode('utf-8')
+    (self.store.draft_workspace(draft['draft_id']) / 'SKILL.md').write_bytes(proposed)
+    frozen = self.store.freeze_draft(draft['draft_id'])
+    self.assertEqual(frozen, expected['frozen'])
+    self.assertEqual(list(frozen), list(expected['frozen']))
+    self.assertEqual(list(frozen['policy_ref']), list(expected['frozen']['policy_ref']))
+    self.assertEqual(SkillStore(self.store.root).revision('fixture-core'), expected['revision'])
+    path = self.store._revision_dir('fixture-core', self.base['revision_id']) / 'record.json'
+    path.write_text(json.dumps({**self.base, 'historical_extension': {'version': 2}}), encoding='utf-8')
+    self.assertEqual(self.store.revision('fixture-core')['historical_extension'], {'version': 2})
+
+
+### PR 220 tests/test_structured_skill_records.py::StructuredSkillRecordsTests.test_explicit_lf_and_crlf_bytes_remain_distinct_skill_revisions
+ORIGINAL METHOD
+def test_explicit_lf_and_crlf_bytes_remain_distinct_skill_revisions(self):
+    from test_skill_store import SkillStoreTests, POLICY, BASE
+    observed = {}
+    for newline in ('\n', '\r\n'):
+        with self.subTest(newline=repr(newline)):
+            case = SkillStoreTests()
+            case.setUp()
+            try:
+                draft = case.store.create_draft('fixture-core', case.base['revision_id'], POLICY)
+                data = (BASE + 'Example: amber.\n').replace('\n', newline).encode('utf-8')
+                (case.store.draft_workspace(draft['draft_id']) / 'SKILL.md').write_bytes(data)
+                frozen = case.store.freeze_draft(draft['draft_id'])
+                name = b'SKILL.md'
+                preimage = len(name).to_bytes(8, 'big') + name + len(data).to_bytes(8, 'big') + data
+                expected_hash = 'sha256:' + sha256(preimage).hexdigest()
+                self.assertEqual(frozen['observed_tree_hash'], expected_hash)
+                self.assertEqual(frozen['proposed_tree_hash'], expected_hash)
+                self.assertEqual(frozen['proposed_ref'], {'tree_hash': expected_hash, 'file_hashes': {'SKILL.md': 'sha256:' + sha256(data).hexdigest()}})
+                self.assertTrue(frozen['promotion_eligible'])
+                self.assertEqual(frozen['changed_paths'], ['SKILL.md'])
+                retained = case.store._draft(draft['draft_id']) / 'frozen/SKILL.md'
+                self.assertEqual(retained.read_bytes(), data)
+                self.assertIn('+Example: amber.' + ('\\r\\n' if newline == '\r\n' else '\\n'), frozen['patch'])
+                observed[newline] = expected_hash
+            finally:
+                case.doCleanups()
+    self.assertNotEqual(observed['\n'], observed['\r\n'])
+
+CURRENT CANDIDATE tests/test_skills/test_registry/test_store.py::SkillStoreTests.test_explicit_lf_and_crlf_bytes_remain_distinct_skill_revisions
+def test_explicit_lf_and_crlf_bytes_remain_distinct_skill_revisions(self):
+    observed = {}
+    for newline in ('\n', '\r\n'):
+        with self.subTest(newline=repr(newline)):
+            draft = self.store.create_draft('fixture-core', self.base['revision_id'], POLICY)
+            data = (BASE + 'Example: amber.\n').replace('\n', newline).encode('utf-8')
+            (self.store.draft_workspace(draft['draft_id']) / 'SKILL.md').write_bytes(data)
+            frozen = self.store.freeze_draft(draft['draft_id'])
+            name = b'SKILL.md'
+            preimage = len(name).to_bytes(8, 'big') + name + len(data).to_bytes(8, 'big') + data
+            expected_hash = 'sha256:' + sha256(preimage).hexdigest()
+            self.assertEqual(frozen['observed_tree_hash'], expected_hash)
+            self.assertEqual(frozen['proposed_tree_hash'], expected_hash)
+            self.assertEqual(frozen['proposed_ref'], {'tree_hash': expected_hash, 'file_hashes': {'SKILL.md': 'sha256:' + sha256(data).hexdigest()}})
+            self.assertTrue(frozen['promotion_eligible'])
+            self.assertEqual(frozen['changed_paths'], ['SKILL.md'])
+            retained = self.store._draft(draft['draft_id']) / 'frozen/SKILL.md'
+            self.assertEqual(retained.read_bytes(), data)
+            self.assertIn('+Example: amber.' + ('\\r\\n' if newline == '\r\n' else '\\n'), frozen['patch'])
+            observed[newline] = expected_hash
+    self.assertNotEqual(observed['\n'], observed['\r\n'])
+
+
+### PR 221 tests/test_lease_controls.py::LeaseResultReaderTests.test_result_disappearing_before_open_is_retried
+ORIGINAL METHOD
+def test_result_disappearing_before_open_is_retried(self):
+    with patch.object(Path, 'read_text', side_effect=[FileNotFoundError(), '{"reason":"done"}']) as read:
+        self.assertEqual(result(Path('unused')), {'reason': 'done'})
+    self.assertEqual(read.call_count, 2)
+
+
+### PR 221 tests/test_lease_controls.py::LeaseResultReaderTests.test_transient_windows_read_lock_is_retried
+ORIGINAL METHOD
+def test_transient_windows_read_lock_is_retried(self):
+    with patch.object(Path, 'read_text', side_effect=[PermissionError(), '{"reason":"done"}']):
+        self.assertEqual(result(Path('unused')), {'reason': 'done'})
+
+
+### PR 221 tests/test_lease_controls.py::LeaseResultReaderTests.test_malformed_result_is_still_a_failure
+ORIGINAL METHOD
+def test_malformed_result_is_still_a_failure(self):
+    with patch.object(Path, 'read_text', return_value='not JSON'):
+        with self.assertRaises(json.JSONDecodeError):
+            result(Path('unused'))
+
+
+### PR 221 tests/test_mediated_lease.py::MediatedLeaseTests.test_scan_rechecks_time_after_an_earlier_lease_stalls
+--- tests/test_mediated_lease.py::MediatedLeaseTests.test_scan_rechecks_time_after_an_earlier_lease_stalls
++++ tests/test_mediated_lease.py::MediatedLeaseTests.test_scan_rechecks_time_after_an_earlier_lease_stalls
+@@ -1,7 +1,6 @@
+ def test_scan_rechecks_time_after_an_earlier_lease_stalls(self):
+     self.register('a', 'a-lease')
+     second, _, token_b = self.register('b', 'b-lease')
+-    self.service.loss_seconds = 0.5
+     original = self.service._tick_lease
+ 
+     def delayed_first(directory, now):
+@@ -11,6 +10,6 @@
+     self.service._tick_lease = delayed_first
+     (second / 'heartbeat').write_text(repr(time.time() - 0.1), encoding='utf-8')
+     self.service.tick()
+-    self.assertEqual(lease_controls.result(second)['reason'], 'heartbeat_lost')
++    self.assertEqual(test_mediated_lease._result(second)['reason'], 'heartbeat_lost')
+     with self.assertRaisesRegex(laomedo.host.mediation.errors.MediationError, 'grant_unavailable'):
+         self.read(token_b)
+
+### PR 222 tests/test_http_handler_boundaries.py::HandlerStructureTests.test_extracted_handler_control_flow_matches_the_formatted_baseline
+ORIGINAL METHOD
+def test_extracted_handler_control_flow_matches_the_formatted_baseline(self):
+    golden = json.loads((ROOT / 'tests/contracts/http-handlers-4228872.json').read_text())
+    self.assertEqual(golden['baseline'], '422887273038523ca6343234739775b1d218b673')
+    for relative, record in golden['handlers'].items():
+        self.assertEqual(CONTRACT_TOOLS['contract_for_source'](record['baseline_source'], record['service_binding']), record, relative)
+        folder = SOURCE / relative
+        tree = ast.parse((folder / 'handler.py').read_text())
+        handler = next((node for node in tree.body if isinstance(node, ast.ClassDef)))
+        handler.name = 'Handler'
+        if ast.get_docstring(handler):
+            handler.body.pop(0)
+        observed = CONTRACT_TOOLS['ast_digest'](handler)
+        self.assertEqual(observed, record['handler_ast_sha256'], relative)
+        server = ast.parse((folder / 'server.py').read_text())
+        owner = next((node for node in server.body if isinstance(node, ast.ClassDef)))
+        init = next((node for node in owner.body if isinstance(node, ast.FunctionDef)))
+        admission = next((node for node in init.body if isinstance(node, ast.If)))
+        self.assertEqual(CONTRACT_TOOLS['ast_digest'](admission), record['admission_ast_sha256'])
+        self.assertEqual(CONTRACT_TOOLS['ast_digest'](init.args), record['arguments_ast_sha256'])
+
+
+### PR 222 tests/test_http_handler_boundaries.py::HandlerStructureTests.test_reworked_modules_have_no_nested_classes_or_domain_module_aliases
+ORIGINAL METHOD
+def test_reworked_modules_have_no_nested_classes_or_domain_module_aliases(self):
+    paths = [SOURCE / relative / name for relative in HANDLERS for name in ('handler.py', 'server.py')]
+    paths += [SOURCE / path for path in ('github/issues/client.py', 'github/pull_requests/client.py', 'skills/sources/client.py', 'skills/operations/client.py', 'github/transport/rest/transport.py', 'integrations/langflow/join/transport.py', 'http/redirect.py')]
+    for path in paths:
+        tree = ast.parse(path.read_text())
+        top = {id(node) for node in tree.body}
+        self.assertFalse([node.name for node in ast.walk(tree) if isinstance(node, ast.ClassDef) and id(node) not in top], str(path))
+        self.assertFalse([alias.name for node in ast.walk(tree) if isinstance(node, ast.Import) for alias in node.names if alias.name.startswith('laomedo.')], str(path))
+
+
+### PR 222 tests/test_http_handler_boundaries.py::HandlerStructureTests.test_redirect_definitions_are_canonical_or_named_credential_component_exceptions
+ORIGINAL METHOD
+def test_redirect_definitions_are_canonical_or_named_credential_component_exceptions(self):
+    owners = set()
+    for path in [*SOURCE.rglob('*.py'), *(ROOT / 'components/laomedo').glob('*.py')]:
+        for node in ast.walk(ast.parse(path.read_text(encoding='utf-8-sig'))):
+            if isinstance(node, ast.ClassDef) and any((getattr(base, 'id', getattr(base, 'attr', '')) == 'HTTPRedirectHandler' for base in node.bases)):
+                owners.add(path.relative_to(ROOT).as_posix())
+    self.assertEqual(owners, {'src/laomedo/http/redirect.py', 'src/laomedo/agents/interface/langflow/component.py', 'components/laomedo/pr_publisher.py', 'src/laomedo/host/credentials/siwc/connection.py', 'src/laomedo/agents/agents/opencode/auth/transport.py'})
+
+
+### PR 222 tests/test_http_handler_boundaries.py::HandlerStructureTests.test_retired_redirect_targets_are_flat_and_no_active_import_remains
+ORIGINAL METHOD
+def test_retired_redirect_targets_are_flat_and_no_active_import_remains(self):
+    modules = json.loads((ROOT / 'tools/migrations/module-paths.json').read_text())
+    symbols = json.loads((ROOT / 'tools/migrations/symbol-paths.json').read_text())
+    retired = 'laomedo.skills.sources.transport'
+    self.assertFalse((SOURCE / 'skills/sources/transport.py').exists())
+    self.assertEqual(modules[retired], 'laomedo.http.redirect')
+    for old in (retired + '.NoRedirect', 'laomedo.github.transport.rest.transport._NoRedirect', 'laomedo.integrations.langflow.join.transport._NoRedirect'):
+        self.assertEqual(symbols[old], 'laomedo.http.redirect.NoRedirect')
+    self.assertFalse(any((value.startswith(retired) for value in [*modules.values(), *symbols.values()])))
+    tracked = subprocess.check_output(['git', '-c', f'safe.directory={ROOT.as_posix()}', 'ls-files', '-z', '*.py', 'examples/*.json'], cwd=ROOT).decode().split('\x00')
+    sealed = {record['path']: record['sha256'] for record in json.loads((ROOT / 'tools/formatting/historical-sources.json').read_text())}
+    sealed.update({record['historical_original']: record['sha256'] for record in json.loads((ROOT / 'examples/agent-module-history.json').read_text())['files']})
+    sealed.update({'examples/github-pr/original-agent/historical-flow-before-skill-input.json': '3584ef1108f5be5ddc5b0f7a6f583044fcf31f769874d5368ec86772c63b6b4f', 'examples/skill-operations/historical-flow-before-skill-input.json': '45ea8e14f22dc52e50e97d367812ad832deb048e1e31e9c58bff8b48c62879cf'})
+    retained_contract = json.loads((ROOT / 'tools/migrations/retained-http-callers.json').read_text())
+    retained = {record['path']: record['sha256'] for record in retained_contract['files']}
+    for relative in tracked:
+        if not relative:
+            continue
+        path = ROOT / relative
+        if relative in sealed:
+            self.assertEqual(hashlib.sha256(path.read_bytes()).hexdigest(), sealed[relative])
+            continue
+        if relative in retained:
+            self.assertEqual(hashlib.sha256(path.read_bytes()).hexdigest(), retained[relative])
+            continue
+        if path.suffix == '.py':
+            snippets = [path.read_text(encoding='utf-8-sig')]
+        else:
+            snippets = self.embedded_code(json.loads(path.read_text(encoding='utf-8-sig')))
+        for snippet in snippets:
+            if 'laomedo.' in snippet:
+                self.assertEqual(self.retired_bindings(ast.parse(snippet)), [], str(path))
+
+
+### PR 222 tests/test_http_handler_boundaries.py::HandlerStructureTests.test_retained_probe_import_is_only_an_identity_alias
+ORIGINAL METHOD
+def test_retained_probe_import_is_only_an_identity_alias(self):
+    module = importlib.import_module('laomedo.github.transport.rest.transport')
+    contract = json.loads((ROOT / 'tools/migrations/retained-http-callers.json').read_text())
+    self.assertIs(getattr(module, contract['compatibility_symbol'].rsplit('.', 1)[1]), NoRedirect)
+
+
+### PR 222 tests/test_http_handler_boundaries.py::HandlerStructureTests.test_retired_symbol_guard_covers_aliases_and_preserves_contract_strings
+ORIGINAL METHOD
+def test_retired_symbol_guard_covers_aliases_and_preserves_contract_strings(self):
+    for source in ('from laomedo.github.transport.rest.transport import _NoRedirect', 'import laomedo.github.transport.rest.transport as transport\nx = transport._NoRedirect', "from laomedo.github.transport.rest import transport\nx = getattr(transport, '_NoRedirect')", 'from laomedo.skills.sources.transport import NoRedirect'):
+        self.assertTrue(self.retired_bindings(ast.parse(source)), source)
+    self.assertEqual(self.retired_bindings(ast.parse("from laomedo.http.redirect import NoRedirect\nvalue = 'from laomedo.skills.sources.transport import NoRedirect'")), [])
+
+
+### PR 222 tests/test_http_handler_boundaries.py::HandlerStructureTests.test_canonical_ast_ignores_only_empty_version_metadata
+ORIGINAL METHOD
+def test_canonical_ast_ignores_only_empty_version_metadata(self):
+    tree = ast.parse('class Example:\n    pass\n')
+    original = CONTRACT_TOOLS['ast_digest'](tree)
+    owner = tree.body[0]
+    if 'type_params' not in owner._fields:
+        owner._fields = (*owner._fields, 'type_params')
+    owner.type_params = []
+    self.assertEqual(CONTRACT_TOOLS['ast_digest'](tree), original)
+    owner.type_params = [ast.Name(id='Meaningful', ctx=ast.Load())]
+    self.assertNotEqual(CONTRACT_TOOLS['ast_digest'](tree), original)
+    self.assertNotEqual(CONTRACT_TOOLS['ast_digest'](ast.parse('class Changed:\n    pass\n')), original)
+
+
+### PR 222 tests/test_http_handler_boundaries.py::HandlerStructureTests.test_skill_clients_stay_domain_leafs_and_use_this_worktree
+ORIGINAL METHOD
+def test_skill_clients_stay_domain_leafs_and_use_this_worktree(self):
+    script = "\nimport importlib, pathlib, sys\nroot = pathlib.Path(sys.argv[1]).resolve()\nsys.path.insert(0, str(root / 'src'))\nfor name in ('laomedo.skills.sources.client', 'laomedo.skills.operations.client', 'laomedo.http.redirect'):\n    module = importlib.import_module(name)\n    assert pathlib.Path(module.__file__).resolve().is_relative_to(root), module.__file__\nfor prefix in ('laomedo.host', 'laomedo.agents', 'laomedo.github', 'laomedo.work_graph', 'langflow', 'lfx'):\n    assert not any(name == prefix or name.startswith(prefix + '.') for name in sys.modules), prefix\n"
+    result = subprocess.run([sys.executable, '-c', script, str(ROOT)], capture_output=True, text=True, timeout=60)
+    self.assertEqual(result.returncode, 0, result.stderr)
+
+
+### PR 222 tests/test_http_handler_boundaries.py::HandlerSocketTests.test_all_four_servers_isolate_credentials_and_service_bindings
+ORIGINAL METHOD
+def test_all_four_servers_isolate_credentials_and_service_bindings(self):
+    for server_type, route, body, method in ((IssueServer, '/v1/github-issues/discover', {'repository_url': 'https://github.com/owner/repo', 'labels': [], 'state': 'open'}, 'discover'), (PullRequestServer, '/v1/github-prs/discover', {'repository_url': 'https://github.com/owner/repo', 'labels': [], 'state': 'open'}, 'discover'), (SkillSourceServer, '/v1/skill-sources/discover', {'source': 'source'}, 'discover'), (SkillOperationServer, '/v1/skill-operations/history', {'skill_id': 'skill', 'revision_id': 'revision', 'before': ''}, 'history')):
+        services = [Mock(), Mock()]
+        tokens = ['control-one-' + 'a' * 32, 'control-two-' + 'b' * 32]
+        for index, service in enumerate(services):
+            getattr(service, method).return_value = {'instance': index}
+        bases = [self.start(server_type(service, token, port=0)) for service, token in zip(services, tokens)]
+        for index, base in enumerate(bases):
+            refused = self.post(base, route, tokens[1 - index], body)
+            self.assertEqual(refused[:2], (401, {'error_category': 'unauthorized'}))
+            getattr(services[index], method).assert_not_called()
+            accepted = self.post(base, route, tokens[index], body)
+            self.assertEqual(accepted[:2], (200, {'instance': index}))
+            self.assertEqual(accepted[2]['Cache-Control'], 'no-store')
+            self.assertNotIn(tokens[index], json.dumps(accepted[1]))
+
+
+### PR 222 tests/test_http_handler_boundaries.py::HandlerSocketTests.test_redirect_is_refused_without_forwarding
+ORIGINAL METHOD
+def test_redirect_is_refused_without_forwarding(self):
+    server = ThreadingHTTPServer(('127.0.0.1', 0), RedirectControlHandler)
+    server.visits = []
+    base = self.start(server)
+    for handler in (NoRedirect, NoRedirect()):
+        with self.assertRaises(HTTPError) as error:
+            build_opener(handler).open(base + '/initial', timeout=5)
+        self.assertEqual(error.exception.code, 302)
+    self.assertEqual(server.visits, ['/initial', '/initial'])
+
+
+### PR 222 tests/test_http_handler_boundaries.py::HandlerSocketTests.test_unknown_failures_preserve_safe_fallback_and_uncertain_writes
+ORIGINAL METHOD
+def test_unknown_failures_preserve_safe_fallback_and_uncertain_writes(self):
+    for server_type, route, body, method, expected_status, expected_code in ((IssueServer, '/v1/github-issues/execute', {'repository_url': 'https://github.com/owner/repo', 'labels': [], 'state': 'open', 'issue_number': 1, 'operation': {'action': 'close'}}, 'execute', 503, 'issue_write_unknown'), (PullRequestServer, '/v1/github-prs/apply-feedback', {'ticket': 'private-ticket', 'operation': {'action': 'close'}}, 'apply_feedback', 503, 'pr_write_unknown'), (SkillSourceServer, '/v1/skill-sources/discover', {'source': 'source'}, 'discover', 400, 'source_unavailable'), (SkillOperationServer, '/v1/skill-operations/history', {'skill_id': 'skill', 'revision_id': 'revision', 'before': ''}, 'history', 400, 'skill_operation_refused')):
+        service = Mock()
+        getattr(service, method).side_effect = RuntimeError('private-payload private-token /private/path')
+        token = 'internal-control-' + 'x' * 32
+        base = self.start(server_type(service, token, port=0))
+        status, result, _ = self.post(base, route, token, body)
+        self.assertEqual((status, result), (expected_status, {'error_category': expected_code}))
+        self.assertNotIn('private', json.dumps(result))
+        getattr(service, method).assert_called_once()
+
+
+### PR 222 tests/test_http_handler_boundaries.py::HandlerSocketTests.test_source_domain_codes_are_preserved_without_exporting_unknown_errors
+ORIGINAL METHOD
+def test_source_domain_codes_are_preserved_without_exporting_unknown_errors(self):
+    service = Mock()
+    service.discover.side_effect = SourceError('local_source_not_allowed')
+    token = 'internal-control-' + 's' * 32
+    base = self.start(SkillSourceServer(service, token, port=0))
+    status, result, _ = self.post(base, '/v1/skill-sources/discover', token, {'source': 'source'})
+    self.assertEqual((status, result), (400, {'error_category': 'local_source_not_allowed'}))
+
+
+### PR 222 tests/test_http_handler_boundaries.py::HandlerSocketTests.test_skill_clients_keep_existing_http_to_node_error_projection
+ORIGINAL METHOD
+def test_skill_clients_keep_existing_http_to_node_error_projection(self):
+    for server_type, method, failure, client, arguments, prefix, expected in ((SkillSourceServer, 'discover', SourceError('local_source_not_allowed'), source_request, {'source': 'source'}, 'LAOMEDO_SKILL_SOURCE', 'source_discovery_failed'), (SkillOperationServer, 'history', RuntimeError('private-detail'), skill_request, {'skill_id': 'skill', 'revision_id': 'revision', 'before': ''}, 'LAOMEDO_SKILL_OPERATION', 'skill_operation_unavailable')):
+        service = Mock()
+        getattr(service, method).side_effect = failure
+        token = 'internal-client-' + 'k' * 32
+        base = self.start(server_type(service, token, port=0))
+        with tempfile.TemporaryDirectory() as temporary:
+            token_file = Path(temporary) / 'client-token'
+            token_file.write_text(token, encoding='utf-8')
+            with patch.dict(os.environ, {prefix + '_URL': base, prefix + '_TOKEN_FILE': str(token_file)}):
+                with self.assertRaisesRegex(ValueError, '^' + expected + '$'):
+                    client(method, **arguments)
+
+
+### PR 222 tests/test_http_handler_boundaries.py::HandlerCatalogueTests.test_classified_boundary_and_node_codes_have_descriptions_and_existing_recovery
+ORIGINAL METHOD
+def test_classified_boundary_and_node_codes_have_descriptions_and_existing_recovery(self):
+    manifest = json.loads((ROOT / 'tests/contracts/node-http-error-boundaries.json').read_text())
+    catalogue = json.loads((ROOT / 'frontend/langflow-skill-viewer/node-error-catalog.json').read_text())
+    for group, codes in {**manifest['http_boundary_codes'], **manifest['node_client_codes']}.items():
+        for code in codes:
+            self.assertIn(code, catalogue, (group, code))
+            for field in ('title', 'description', 'recovery'):
+                self.assertTrue(catalogue[code][field].strip(), (group, code, field))
+    for code in ('issue_write_unknown', 'pr_write_unknown', 'skill_operation_unavailable'):
+        self.assertIn('before', catalogue[code]['recovery'])
+    self.assertIn('Do not blindly repeat', catalogue['pr_write_unknown']['recovery'])
+
+
+### PR 222 tests/test_http_handler_boundaries.py::HandlerCatalogueTests.test_code_guard_tracks_actual_issue_and_pr_handler_contracts
+ORIGINAL METHOD
+def test_code_guard_tracks_actual_issue_and_pr_handler_contracts(self):
+    groups = json.loads((ROOT / 'tests/contracts/node-http-error-boundaries.json').read_text())['http_boundary_codes']
+    statuses = {'github_http_401', 'github_http_403', 'github_http_404', 'github_http_410'}
+    self.assertEqual(set(groups['issue_handler']), set(ISSUE_CODES) | statuses)
+    self.assertEqual(set(groups['pr_handler']), set(PR_CODES) | statuses)
+
+
+### PR 222 tests/test_http_handler_boundaries.py::HandlerCatalogueTests.test_manifest_distinguishes_actual_node_client_allowlists
+ORIGINAL METHOD
+def test_manifest_distinguishes_actual_node_client_allowlists(self):
+    manifest = json.loads((ROOT / 'tests/contracts/node-http-error-boundaries.json').read_text())
+    node = manifest['node_client_codes']
+    self.assertEqual(set(node['issue_client']), set(ISSUE_CODES))
+    self.assertEqual(set(node['pr_client']), set(PR_CODES))
+    self.assertIn('github_http_403', node['issue_client'])
+    self.assertNotIn('github_http_403', node['pr_client'])
+    self.assertNotIn('local_source_not_allowed', node['source_client'])
+    self.assertNotIn('skill_operation_refused', node['operation_client'])
+
+
+### PR 222 tests/test_http_handler_boundaries.py::HandlerCatalogueTests.test_source_guard_follows_domain_passthrough_and_safe_fallbacks
+ORIGINAL METHOD
+def test_source_guard_follows_domain_passthrough_and_safe_fallbacks(self):
+    manifest = json.loads((ROOT / 'tests/contracts/node-http-error-boundaries.json').read_text())
+    observed = {'unauthorized', 'source_unavailable'}
+    for path in (SOURCE / 'skills/sources').glob('*.py'):
+        for node in ast.walk(ast.parse(path.read_text())):
+            if not (isinstance(node, ast.Raise) and isinstance(node.exc, ast.Call) and node.exc.args):
+                continue
+            category = getattr(node.exc.func, 'id', getattr(node.exc.func, 'attr', ''))
+            argument = node.exc.args[0]
+            if category == 'SourceError':
+                self.assertIsInstance(argument, ast.Constant, str(path))
+                self.assertIsInstance(argument.value, str, str(path))
+            if category == 'SourceError' and isinstance(argument, ast.Constant) and isinstance(argument.value, str):
+                observed.add(argument.value)
+    self.assertEqual(observed, set(manifest['http_boundary_codes']['source_handler']))
+    self.assertEqual(manifest['internal_only']['operation_handler'], ['skill_request_invalid'])
+
+
+### PR 222 tests/test_http_handler_boundaries.py::HandlerCatalogueTests.test_handler_reply_literals_and_client_failures_cannot_escape_the_guard
+ORIGINAL METHOD
+def test_handler_reply_literals_and_client_failures_cannot_escape_the_guard(self):
+    manifest = json.loads((ROOT / 'tests/contracts/node-http-error-boundaries.json').read_text())
+    public = set().union(*map(set, {**manifest['http_boundary_codes'], **manifest['node_client_codes']}.values()))
+    for relative in HANDLERS:
+        path = SOURCE / relative / 'handler.py'
+        for node in ast.walk(ast.parse(path.read_text())):
+            if isinstance(node, ast.Dict):
+                for key, value in zip(node.keys, node.values):
+                    if isinstance(key, ast.Constant) and key.value == 'error_category' and isinstance(value, ast.Constant):
+                        self.assertIn(value.value, public, (relative, value.value))
+    for relative in ('skills/sources/client.py', 'skills/operations/client.py'):
+        for node in ast.walk(ast.parse((SOURCE / relative).read_text())):
+            if isinstance(node, ast.Raise) and isinstance(node.exc, ast.Call) and node.exc.args:
+                value = node.exc.args[0]
+                if isinstance(value, ast.Constant) and isinstance(value.value, str):
+                    self.assertIn(value.value, manifest['node_client_codes']['source_client' if relative.startswith('skills/sources') else 'operation_client'], (relative, value.value))
+
+
+### PR 223 tests/test_module_path_migration.py::ModuleMigrationTests.test_constants_generation_migrates_symbols_and_aliases_in_one_pass
+--- tests/test_module_path_migration.py::ModuleMigrationTests.test_constants_generation_migrates_symbols_and_aliases_in_one_pass
++++ tests/test_shared/test_migration/test_paths.py::ModuleMigrationTests.test_constants_generation_migrates_symbols_and_aliases_in_one_pass
+@@ -1,6 +1,7 @@
+ def test_constants_generation_migrates_symbols_and_aliases_in_one_pass(self):
+     renamed = {old: new for old, new in migration.MODULE_PATHS.items() if old.endswith('.constants')}
+     self.assertEqual(len(renamed), 21)
++    self.assertIn('laomedo.agents.agents.opencode.activity.constants', migration.MANUAL_SYMBOLS)
+     for old, new in renamed.items():
+         symbols = {key.rsplit('.', 1)[1]: value for key, value in migration.SYMBOL_PATHS.items() if key.rsplit('.', 1)[0] == old}
+         definitions = set()
+
+
+### PR 223 tests/test_publication_ingestion_boundary.py::PublicationIngestionBoundaryTests.test_ingestion_control_flow_and_serialization_are_an_exact_symbol_only_move
+ORIGINAL METHOD
+def test_ingestion_control_flow_and_serialization_are_an_exact_symbol_only_move(self):
+    contract = json.loads((ROOT / 'tests/contracts/publication-ingestion-4551ce5.json').read_text())
+    self.assertEqual(contract['baseline'], '4551ce52524f6ec997f4df04a984f0c850170e55')
+    raw = contract['baseline_source'].encode()
+    self.assertEqual(hashlib.sha256(raw).hexdigest(), contract['sha256'])
+    old = ast.parse(contract['baseline_source'])
+    old.body = [item for item in old.body if not isinstance(item, (ast.Import, ast.ImportFrom))]
+    new = ast.parse((ROOT / 'src/laomedo/host/publication/ingestion/utils.py').read_text())
+    new.body = [item for item in new.body if not isinstance(item, (ast.Import, ast.ImportFrom))]
+    self.assertEqual(CONTRACT_TOOLS['ast_digest'](self.normalized(old)), CONTRACT_TOOLS['ast_digest'](new))
+
+
+### PR 223 tests/test_publication_ingestion_boundary.py::PublicationIngestionBoundaryTests.test_ownership_symbols_and_all_prior_generations_are_flat
+ORIGINAL METHOD
+def test_ownership_symbols_and_all_prior_generations_are_flat(self):
+    self.assertFalse((ROOT / 'src/laomedo/skills/ingestion').exists())
+    mapping = MIGRATION['MODULE_PATHS']
+    symbols = MIGRATION['SYMBOL_PATHS']
+    self.assertEqual(mapping[RETIRED], OWNER)
+    self.assertFalse(set(mapping) & set(mapping.values()))
+    for value in [*mapping.values(), *symbols.values()]:
+        self.assertFalse(value == RETIRED or value.startswith(RETIRED + '.'), value)
+    for old, new in RENAMES.items():
+        leaf = 'settings' if old == '_IDENTITY' else 'utils'
+        self.assertEqual(symbols[f'{RETIRED}.{leaf}.{old}'], f'{OWNER}.{leaf}.{new}')
+        source = f'from {RETIRED}.{leaf} import {old}\nvalue = {old}\n'
+        migrated = MIGRATION['migrate_source'](source)
+        self.assertIn(f'from {OWNER}.{leaf} import {new} as {old}', migrated)
+        self.assertEqual(MIGRATION['migrate_source'](migrated), migrated)
+    module = importlib.import_module(OWNER + '.errors')
+    error = module.BundleIngestError('run_binding_invalid')
+    self.assertIsInstance(error, RuntimeError)
+    self.assertEqual((error.code, error.args), ('run_binding_invalid', ('run_binding_invalid',)))
+    self.assertEqual(module.__name__, OWNER + '.errors')
+    self.assertEqual(Path(module.__file__).read_bytes(), (ROOT / 'src/laomedo/host/publication/ingestion/errors.py').read_bytes())
+
+
+### PR 223 tests/test_publication_ingestion_boundary.py::PublicationIngestionBoundaryTests.test_tracked_callers_have_no_retired_ingestion_imports
+ORIGINAL METHOD
+def test_tracked_callers_have_no_retired_ingestion_imports(self):
+    records = json.loads((ROOT / 'tools/migrations/retained-ingestion-callers.json').read_text())['files']
+    preserved = {item['path']: item['sha256'] for item in records}
+    preserved.update({item['path']: item['sha256'] for item in json.loads((ROOT / 'tools/formatting/historical-sources.json').read_text())})
+    tracked = subprocess.check_output(['git', '-c', f'safe.directory={ROOT.as_posix()}', 'ls-files', '-z', '--', '*.py'], cwd=ROOT).decode().split('\x00')
+    for relative in filter(None, tracked):
+        path = ROOT / relative
+        if not path.exists():
+            continue
+        if relative in preserved:
+            self.assertEqual(hashlib.sha256(path.read_bytes()).hexdigest(), preserved[relative], relative)
+            continue
+        self.assertEqual(self.retired_imports(path.read_text(encoding='utf-8-sig')), [], relative)
+    for source in [f'from {RETIRED}.utils import *', f'import {RETIRED}.utils as ingress', f"importlib.import_module('{RETIRED}.utils')", f"__import__('{RETIRED}.utils')"]:
+        self.assertTrue(self.retired_imports(source), source)
+
+
+### PR 223 tests/test_publication_ingestion_boundary.py::PublicationIngestionBoundaryTests.test_maintained_example_code_has_no_retired_ingestion_imports
+ORIGINAL METHOD
+def test_maintained_example_code_has_no_retired_ingestion_imports(self):
+    from test_http_handler_boundaries import HandlerStructureTests
+    historical = {item['historical_original']: item['sha256'] for item in json.loads((ROOT / 'examples/agent-module-history.json').read_text())['files']}
+    historical.update({'examples/github-pr/original-agent/historical-flow-before-skill-input.json': '3584ef1108f5be5ddc5b0f7a6f583044fcf31f769874d5368ec86772c63b6b4f', 'examples/skill-operations/historical-flow-before-skill-input.json': '45ea8e14f22dc52e50e97d367812ad832deb048e1e31e9c58bff8b48c62879cf'})
+    tracked = subprocess.check_output(['git', '-c', f'safe.directory={ROOT.as_posix()}', 'ls-files', '-z', '--', 'examples/*.json'], cwd=ROOT).decode().split('\x00')
+    for relative in filter(None, tracked):
+        path = ROOT / relative
+        if relative in historical:
+            self.assertEqual(hashlib.sha256(path.read_bytes()).hexdigest(), historical[relative], relative)
+            continue
+        for source in HandlerStructureTests.embedded_code(json.loads(path.read_text(encoding='utf-8-sig'))):
+            if 'laomedo.' in source:
+                self.assertFalse(self.retired_imports(source), relative)
+
+
+### PR 223 tests/test_publication_ingestion_boundary.py::PublicationIngestionBoundaryTests.test_retained_probe_migration_changes_only_imports_and_leaves_bytes
+ORIGINAL METHOD
+def test_retained_probe_migration_changes_only_imports_and_leaves_bytes(self):
+    records = json.loads((ROOT / 'tools/migrations/retained-ingestion-callers.json').read_text())['files']
+    for item in records:
+        path = ROOT / item['path']
+        raw = path.read_bytes()
+        self.assertEqual(hashlib.sha256(raw).hexdigest(), item['sha256'])
+        source = raw.decode('utf-8')
+        migrated = MIGRATION['migrate_source'](source)
+        self.assertFalse(self.retired_imports(migrated))
+        old, new = (ast.parse(source), ast.parse(migrated))
+        for tree in (old, new):
+            tree.body = [node for node in tree.body if not isinstance(node, (ast.Import, ast.ImportFrom))]
+        self.assertEqual(ast.dump(old), ast.dump(new), path)
+        self.assertEqual(path.read_bytes(), raw)
+
+
+### PR 223 tests/test_publication_ingestion_boundary.py::PublicationIngestionBoundaryTests.test_helpers_have_no_domain_module_aliases_and_do_not_mix_objects
+ORIGINAL METHOD
+def test_helpers_have_no_domain_module_aliases_and_do_not_mix_objects(self):
+    for relative in ('ingestion/utils.py', 'ingestion/settings.py', 'ingestion/errors.py', 'verifier.py', 'bundle/stage.py', 'bundle/ownership.py', 'verified/utils.py'):
+        tree = ast.parse((ROOT / 'src/laomedo/host/publication' / relative).read_text())
+        self.assertFalse([item for item in tree.body if isinstance(item, ast.Import) and any((alias.name.startswith('laomedo.') for alias in item.names))], relative)
+        self.assertFalse(any((isinstance(item, ast.ClassDef) for item in ast.walk(tree))) and any((isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)) for item in tree.body)), relative)
+
+
+### PR 223 tests/test_publication_ingestion_boundary.py::PublicationIngestionBoundaryTests.test_ingestion_error_codes_follow_actual_host_and_mediation_boundaries
+ORIGINAL METHOD
+def test_ingestion_error_codes_follow_actual_host_and_mediation_boundaries(self):
+    manifest = json.loads((ROOT / 'tests/contracts/publication-ingestion-errors.json').read_text())
+    tree = ast.parse((ROOT / 'src/laomedo/host/publication/ingestion/utils.py').read_text())
+    observed = {node.exc.args[0].value for node in ast.walk(tree) if isinstance(node, ast.Raise) and isinstance(node.exc, ast.Call) and isinstance(node.exc.func, ast.Name) and (node.exc.func.id == 'BundleIngestError') and node.exc.args and isinstance(node.exc.args[0], ast.Constant)}
+    self.assertEqual(observed, set(manifest['ingestion_codes']))
+    exported = manifest['mediation_refusal_codes']
+    catalogue = json.loads((ROOT / 'frontend/langflow-skill-viewer/node-error-catalog.json').read_text())
+    self.assertFalse(set(exported) - catalogue.keys())
+    self.assertEqual(set(manifest['unknown_exception_codes']) | set(exported), observed)
+    for code in exported:
+        for field in ('title', 'description', 'recovery'):
+            self.assertTrue(catalogue[code][field].strip(), (code, field))
+    verified = ast.parse((ROOT / 'src/laomedo/host/publication/verified/utils.py').read_text())
+    extra = {node.exc.args[0].value for node in ast.walk(verified) if isinstance(node, ast.Raise) and isinstance(node.exc, ast.Call) and isinstance(node.exc.func, ast.Name) and (node.exc.func.id == 'BundleIngestError') and node.exc.args and isinstance(node.exc.args[0], ast.Constant)}
+    self.assertEqual(extra, set(manifest['additional_freezer_exception_codes']))
+
+
+### PR 223 tests/test_publication_ingestion_boundary.py::PublicationIngestionBoundaryTests.test_mediation_preserves_four_refusals_and_collapses_raised_diagnostics
+ORIGINAL METHOD
+def test_mediation_preserves_four_refusals_and_collapses_raised_diagnostics(self):
+    manifest = json.loads((ROOT / 'tests/contracts/publication-ingestion-errors.json').read_text())
+    with tempfile.TemporaryDirectory() as temporary:
+        freezer = Mock()
+        store = MediationStore(Path(temporary) / 'effects.sqlite', now=lambda: 1000, monotonic=lambda: 100, stage_freezer=freezer)
+        _, token = store.issue(run_id='run-a', invocation_id='inv-a', repository='example/disposable', branch='run-branch', operations={'git_push'}, ttl_seconds=60)
+        for code in manifest['mediation_refusal_codes']:
+            freezer.return_value = {'status': 'refused', 'reason': code}
+            result = store.invoke(token=token, repository='example/disposable', operation='bundle_freeze', payload={'attempt_id': 'attempt-a'}, effect_id=None, transport=Mock(side_effect=AssertionError('no provider dispatch')))
+            self.assertEqual(result, {'state': 'rejected', 'error': code})
+        for code in [*manifest['ingestion_codes'], *manifest['additional_freezer_exception_codes']]:
+            freezer.side_effect = BundleIngestError(code)
+            result = store.invoke(token=token, repository='example/disposable', operation='bundle_freeze', payload={'attempt_id': 'attempt-a'}, effect_id=None, transport=Mock(side_effect=AssertionError('no provider dispatch')))
+            self.assertEqual(result, {'state': 'unknown', 'resent': False})
+        freezer.side_effect = RuntimeError('secret-control-not-for-projection')
+        result = store.invoke(token=token, repository='example/disposable', operation='bundle_freeze', payload={'attempt_id': 'attempt-a'}, effect_id=None, transport=Mock(side_effect=AssertionError('no provider dispatch')))
+        self.assertNotIn('secret-control', json.dumps(result))
+
+
+### PR 224 tests/test_http_handler_boundaries.py::HandlerStructureTests.test_extracted_handler_control_flow_matches_the_formatted_baseline
+ORIGINAL METHOD
+def test_extracted_handler_control_flow_matches_the_formatted_baseline(self):
+    golden = json.loads((ROOT / 'tests/contracts/http-handlers-4228872.json').read_text())
+    self.assertEqual(golden['baseline'], '422887273038523ca6343234739775b1d218b673')
+    for relative, record in golden['handlers'].items():
+        self.assertEqual(CONTRACT_TOOLS['contract_for_source'](record['baseline_source'], record['service_binding']), record, relative)
+        folder = SOURCE / HTTP_OWNERS[relative]
+        tree = ast.parse((folder / 'handler.py').read_text())
+        handler = next((node for node in tree.body if isinstance(node, ast.ClassDef)))
+        handler.name = 'Handler'
+        if ast.get_docstring(handler):
+            handler.body.pop(0)
+        observed = CONTRACT_TOOLS['ast_digest'](handler)
+        self.assertEqual(observed, record['handler_ast_sha256'], relative)
+        server = ast.parse((folder / 'server.py').read_text())
+        owner = next((node for node in server.body if isinstance(node, ast.ClassDef)))
+        init = next((node for node in owner.body if isinstance(node, ast.FunctionDef)))
+        admission = next((node for node in init.body if isinstance(node, ast.If)))
+        self.assertEqual(CONTRACT_TOOLS['ast_digest'](admission), record['admission_ast_sha256'])
+        self.assertEqual(CONTRACT_TOOLS['ast_digest'](init.args), record['arguments_ast_sha256'])
+

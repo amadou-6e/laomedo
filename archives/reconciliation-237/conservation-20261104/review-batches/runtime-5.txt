@@ -1,0 +1,1183 @@
+
+### PR 216 src/laomedo/git/command.py :: GitCommandRunner.environment
+--- src/laomedo/git/command.py::GitCommandRunner.environment
++++ src/laomedo/git/command.py::GitCommandRunner.environment
+@@ -1,4 +1,8 @@
+ def environment(self, command: laomedo.git.models.GitCommand, home: pathlib.Path) -> dict[str, str]:
++    if command.context.profile in {laomedo.git.models.GitEnvironmentProfile.ISOLATED_HTTPS_READ_ONLY, laomedo.git.models.GitEnvironmentProfile.ISOLATED_FILE_READ_ONLY}:
++        environment = {key: value for key, value in os.environ.items() if key.upper() in {'PATH', 'SYSTEMROOT', 'WINDIR', 'SYSTEMDRIVE', 'COMSPEC', 'PATHEXT', 'TEMP', 'TMP'}}
++        environment.update(GIT_CONFIG_NOSYSTEM='1', GIT_CONFIG_GLOBAL=os.devnull, GIT_TERMINAL_PROMPT='0', GIT_ASKPASS='', SSH_ASKPASS='')
++        return environment
+     environment = {key: value for key, value in os.environ.items() if not key.startswith(('GIT_', 'GCM_')) and key not in {'GH', 'GH_TOKEN', 'GITHUB_TOKEN', 'SSH_ASKPASS', laomedo.git.settings.MEDIATED_TOKEN_ENV}}
+     environment.update(HOME=str(home), USERPROFILE=str(home), XDG_CONFIG_HOME=str(home), GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_SYSTEM=os.devnull, GIT_CONFIG_NOSYSTEM='1', GIT_TERMINAL_PROMPT='0', GIT_NO_REPLACE_OBJECTS='1')
+     if command.context.profile == laomedo.git.models.GitEnvironmentProfile.WORKSPACE:
+
+
+### PR 216 src/laomedo/git/command.py :: GitCommandRunner._arguments
+--- src/laomedo/git/command.py::GitCommandRunner._arguments
++++ src/laomedo/git/command.py::GitCommandRunner._arguments
+@@ -1,5 +1,13 @@
+ def _arguments(self, command: laomedo.git.models.GitCommand, home: pathlib.Path) -> list[str]:
+     arguments = ['git']
++    if command.context.profile in {laomedo.git.models.GitEnvironmentProfile.ISOLATED_HTTPS_READ_ONLY, laomedo.git.models.GitEnvironmentProfile.ISOLATED_FILE_READ_ONLY}:
++        if command.context.profile == laomedo.git.models.GitEnvironmentProfile.ISOLATED_FILE_READ_ONLY:
++            arguments.extend(['-c', 'protocol.file.allow=always'])
++        configuration = [('credential.helper', ''), ('core.hooksPath', str(command.context.hooks_path)), ('http.followRedirects', 'false'), ('protocol.allow', 'never'), ('protocol.https.allow', 'always')]
++        for key, value in configuration:
++            arguments.extend(['-c', key + '=' + value])
++        arguments.extend(command.arguments)
++        return arguments
+     configuration = list(command.configuration)
+     if command.context.hardened:
+         configuration = [('core.fsmonitor', 'false'), ('core.hooksPath', str(home)), *configuration]
+
+
+### PR 216 src/laomedo/git/command.py :: GitCommandRunner._execute
+--- src/laomedo/git/command.py::GitCommandRunner._execute
++++ src/laomedo/git/command.py::GitCommandRunner._execute
+@@ -1,15 +1,10 @@
+ def _execute(self, command: laomedo.git.models.GitCommand, home: pathlib.Path) -> subprocess.CompletedProcess:
+     environment = self.environment(command, home)
+     arguments = self._arguments(command, home)
+-    options = {'stdout': subprocess.PIPE, 'stderr': subprocess.PIPE, 'env': environment}
+-    if command.context.profile == laomedo.git.models.GitEnvironmentProfile.WORKSPACE:
+-        options['stdin'] = subprocess.DEVNULL
+-    if os.name == 'nt':
+-        options['creationflags'] = subprocess.CREATE_NEW_PROCESS_GROUP
+-    else:
+-        options['start_new_session'] = True
+     try:
+-        process = subprocess.Popen(arguments, **options)
++        if command.budget is not None:
++            return self._execute_budgeted(command, arguments, environment)
++        process = self._start_process(command, arguments, environment, subprocess.PIPE, subprocess.PIPE)
+         try:
+             stdout, stderr = process.communicate(timeout=command.context.timeout)
+         except subprocess.TimeoutExpired:
+
+
+### PR 216 src/laomedo/git/command.py :: GitCommandRunner._stop_tree
+--- src/laomedo/git/command.py::GitCommandRunner._stop_tree
++++ src/laomedo/git/command.py::GitCommandRunner._stop_tree
+@@ -1,8 +1,10 @@
+-def _stop_tree(self, process) -> bool:
++def _stop_tree(self, process, *, deadline=None, tree=None) -> bool:
+     cleanup_verified = False
+-    if os.name == 'nt':
++    if tree is not None:
++        cleanup_verified = tree.terminate(deadline)
++    elif os.name == 'nt':
+         try:
+-            killed = subprocess.run(['taskkill', '/PID', str(process.pid), '/T', '/F'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False, timeout=laomedo.git.settings.GIT_TREE_CLEANUP_SECONDS)
++            killed = subprocess.run(['taskkill', '/PID', str(process.pid), '/T', '/F'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False, timeout=self._cleanup_timeout(deadline))
+             cleanup_verified = killed.returncode == 0
+         except (OSError, subprocess.TimeoutExpired):
+             pass
+@@ -18,13 +20,13 @@
+         except ProcessLookupError:
+             pass
+     try:
+-        process.communicate(timeout=laomedo.git.settings.GIT_TREE_CLEANUP_SECONDS)
++        process.communicate(timeout=self._cleanup_timeout(deadline))
+     except subprocess.TimeoutExpired:
+         for pipe in (process.stdout, process.stderr):
+             if pipe is not None:
+                 pipe.close()
+         try:
+-            process.wait(timeout=laomedo.git.settings.GIT_TREE_CLEANUP_SECONDS)
++            process.wait(timeout=self._cleanup_timeout(deadline))
+         except subprocess.TimeoutExpired:
+             cleanup_verified = False
+     return cleanup_verified
+
+### PR 216 src/laomedo/git/models.py :: GitEnvironmentProfile
+--- src/laomedo/git/models.py::GitEnvironmentProfile
++++ src/laomedo/git/models.py::GitEnvironmentProfile
+@@ -1,3 +1,5 @@
+ class GitEnvironmentProfile(str, enum.Enum):
+     WORKSPACE = 'workspace'
+-    HOST_TRANSPORT = 'host_transport'+    HOST_TRANSPORT = 'host_transport'
++    ISOLATED_HTTPS_READ_ONLY = 'isolated_https_read_only'
++    ISOLATED_FILE_READ_ONLY = 'isolated_file_read_only'
+
+### PR 216 src/laomedo/git/models.py :: GitExecutionContext
+--- src/laomedo/git/models.py::GitExecutionContext
++++ src/laomedo/git/models.py::GitExecutionContext
+@@ -1,5 +1,6 @@
+ class GitExecutionContext(pydantic.BaseModel):
+     model_config = pydantic.ConfigDict(strict=True, frozen=True, extra='forbid', hide_input_in_errors=True)
++    hooks_path: pathlib.Path | None = pydantic.Field(default=None, repr=False, exclude=True, description='Caller-owned disabled-hooks path for the isolated read profiles.')
+     profile: laomedo.git.models.GitEnvironmentProfile = pydantic.Field(default=laomedo.git.models.GitEnvironmentProfile.HOST_TRANSPORT, description='Existing environment and stdin isolation profile.')
+     timeout: float = pydantic.Field(default=laomedo.git.settings.GIT_COMMAND_TIMEOUT_SECONDS, gt=0, allow_inf_nan=False, description='Per-command deadline in seconds, supplied by the caller.')
+     home: pathlib.Path | None = pydantic.Field(default=None, repr=False, exclude=True, description='Explicit sequence-owned private home; absent means per-command isolation.')
+
+
+### PR 216 src/laomedo/git/models.py :: GitCommand
+--- src/laomedo/git/models.py::GitCommand
++++ src/laomedo/git/models.py::GitCommand
+@@ -4,4 +4,23 @@
+     directory: pathlib.Path | None = pydantic.Field(default=None, repr=False, exclude=True, description='Working repository for -C; absent for operations such as clone.')
+     context: laomedo.git.models.GitExecutionContext = pydantic.Field(description='Admitted isolation profile and lifetime/deadline policy.')
+     configuration: list[tuple[str, str]] = pydantic.Field(default_factory=list, description='Ordered explicit native -c settings; private credential helper settings are runner-owned.')
+-    credential: laomedo.git.models.GitCredential | None = pydantic.Field(default=None, repr=False, exclude=True, description='Optional selected helper credential, excluded from normal serialization.')+    credential: laomedo.git.models.GitCredential | None = pydantic.Field(default=None, repr=False, exclude=True, description='Optional selected helper credential, excluded from normal serialization.')
++    cwd: pathlib.Path | None = pydantic.Field(default=None, repr=False, exclude=True, description='Native process cwd, distinct from the existing Git -C repository argument.')
++    budget: laomedo.git.models.GitExecutionBudget | None = pydantic.Field(default=None, exclude=True, description='Optional active spooled-output and caller accounting budget.')
++
++    @pydantic.model_validator(mode='after')
++    def validate_execution_profile(self) -> 'GitCommand':
++        isolated = self.context.profile in {laomedo.git.models.GitEnvironmentProfile.ISOLATED_HTTPS_READ_ONLY, laomedo.git.models.GitEnvironmentProfile.ISOLATED_FILE_READ_ONLY}
++        if not isolated:
++            if self.budget is not None or self.cwd is not None:
++                raise ValueError('git_read_profile_required')
++            return self
++        if self.credential is not None or self.configuration or self.context.extra_env or self.context.hardened or (self.context.home is not None) or (self.context.hooks_path is None) or (self.cwd is None) or (self.directory is not None) or (self.budget is None) or (not self.arguments) or (self.arguments[0] not in laomedo.git.settings.ISOLATED_READ_OPTIONS):
++            raise ValueError('git_read_profile_invalid')
++        options = laomedo.git.settings.ISOLATED_READ_OPTIONS[self.arguments[0]]
++        for argument in self.arguments[1:]:
++            if argument == '--':
++                break
++            if argument.startswith('-') and argument not in options:
++                raise ValueError('git_read_profile_invalid')
++        return self
+
+### PR 216 src/laomedo/host/mediation/authority.py :: RunGrantAuthority
+--- src/laomedo/host/mediation/authority.py::RunGrantAuthority
++++ src/laomedo/host/mediation/authority.py::RunGrantAuthority
+@@ -77,4 +77,4 @@
+             if request != expected:
+                 return None
+             db.execute('UPDATE authorizations SET lease_token=? WHERE run_id=?', (token, run_id))
+-            return {**expected, 'operations': set(json.loads(row['operations'])), 'approval_identity': row['reviewed_by'], 'connection_id': row['connection_id'], 'connection_generation': row['connection_generation'], 'target_prs': {int(number): base for number, base in json.loads(row['target_prs']).items()}}+            return laomedo.host.mediation.models.AuthorizedLeaseScope(**expected, operations=set(json.loads(row['operations'])), approval_identity=row['reviewed_by'], connection_id=row['connection_id'], connection_generation=row['connection_generation'], target_prs={int(number): base for number, base in json.loads(row['target_prs']).items()}).to_record()
+
+### PR 216 src/laomedo/host/mediation/cli.py :: main
+--- src/laomedo/host/mediation/cli.py::main
++++ src/laomedo/host/mediation/cli.py::main
+@@ -26,7 +26,7 @@
+     service = laomedo.host.mediation.service.MediationHTTPService(store, laomedo.host.mediation.service.JournaledTransport(transport, state / 'provider-attempts.jsonl', state / 'push-diagnostics.jsonl'))
+     status = state / 'mediator.json'
+     pending = status.with_suffix('.pending')
+-    pending.write_text(json.dumps({'pid': os.getpid(), 'port': service.port, 'instance': service.instance, 'started_at': time.time(), 'connection_id': args.connection_id, 'generation': args.connection_generation, 'repository': args.repository}) + '\n', encoding='utf-8')
++    pending.write_text(json.dumps(laomedo.host.mediation.models.MediationServiceRecord(pid=os.getpid(), port=service.port, instance=service.instance, started_at=time.time(), connection_id=args.connection_id, generation=args.connection_generation, repository=args.repository).to_record()) + '\n', encoding='utf-8')
+     os.replace(pending, status)
+     try:
+         service.serve()
+
+
+### PR 216 src/laomedo/host/publication/handoff/store.py :: HandoffStore
+--- src/laomedo/host/publication/handoff/store.py::HandoffStore
++++ src/laomedo/host/publication/handoff/store.py::HandoffStore
+@@ -51,7 +51,7 @@
+                 self._end_handoff(db, grant['grant_id'], 'unknown')
+                 return {'phase': 'unknown'}
+             marker = '<!-- laomedo-handoff:' + grant['grant_id'] + ' -->'
+-            request = {'head': grant['branch'], 'base': grant['base_branch'], 'title': title, 'body': body + '\n\n' + marker, 'marker': marker, 'draft': True}
++            request = laomedo.host.publication.handoff.models.PullRequestPublicationRequest(head=grant['branch'], base=grant['base_branch'], title=title, body=body + '\n\n' + marker, marker=marker, draft=True).to_payload()
+             db.execute("UPDATE publication_handoffs SET phase='validation_pending', artifact_digest=?,artifact_commit=?,request_json=?,effect_id=?,envelope_json=? WHERE grant_id=?", (artifact.stage_digest, artifact.commit, laomedo.host.publication.handoff.utils._json(request), 'handoff-pr:' + grant['grant_id'], frozen_envelope, grant['grant_id']))
+             return {'phase': 'validation_pending', 'handoff_id': grant['grant_id']}
+ 
+
+
+### PR 216 src/laomedo/host/publication/handoff/store.py :: HandoffStore.freeze_publication_handoff
+--- src/laomedo/host/publication/handoff/store.py::HandoffStore.freeze_publication_handoff
++++ src/laomedo/host/publication/handoff/store.py::HandoffStore.freeze_publication_handoff
+@@ -18,6 +18,6 @@
+             self._end_handoff(db, grant['grant_id'], 'unknown')
+             return {'phase': 'unknown'}
+         marker = '<!-- laomedo-handoff:' + grant['grant_id'] + ' -->'
+-        request = {'head': grant['branch'], 'base': grant['base_branch'], 'title': title, 'body': body + '\n\n' + marker, 'marker': marker, 'draft': True}
++        request = laomedo.host.publication.handoff.models.PullRequestPublicationRequest(head=grant['branch'], base=grant['base_branch'], title=title, body=body + '\n\n' + marker, marker=marker, draft=True).to_payload()
+         db.execute("UPDATE publication_handoffs SET phase='validation_pending', artifact_digest=?,artifact_commit=?,request_json=?,effect_id=?,envelope_json=? WHERE grant_id=?", (artifact.stage_digest, artifact.commit, laomedo.host.publication.handoff.utils._json(request), 'handoff-pr:' + grant['grant_id'], frozen_envelope, grant['grant_id']))
+         return {'phase': 'validation_pending', 'handoff_id': grant['grant_id']}
+
+### PR 216 src/laomedo/host/publication/verified/utils.py :: resolve_verified_stage
+--- src/laomedo/host/publication/verified/utils.py::resolve_verified_stage
++++ src/laomedo/host/publication/verified/utils.py::resolve_verified_stage
+@@ -32,6 +32,5 @@
+     if advertised != commit:
+         raise laomedo.host.publication.verified.errors.VerifiedStageError('stage_commit_mismatch')
+     binding_identity = {'run_binding_sha256': binding['run_binding_sha256']} if binding.get('binding_mode') == 'active' else {'run_record_sha256': binding['run_record_sha256']}
+-    identity = {'run_id': run_id, 'attempt_id': stage_attempt_id, **binding_identity, 'repository': repository, 'branch': branch, 'baseline': binding['baseline'], 'commit': commit, 'source_bundle_sha256': frozen['bundle_sha256'], 'verified_bundle_sha256': digest}
+-    stage_digest = hashlib.sha256(json.dumps(identity, sort_keys=True, separators=(',', ':')).encode('utf-8')).hexdigest()
+-    return laomedo.host.publication.verified.models.VerifiedStage(run_id=run_id, attempt_id=stage_attempt_id, repository=repository, branch=branch, baseline=binding['baseline'], commit=commit, bundle_sha256=digest, stage_digest=stage_digest, bundle=bundle)+    identity = laomedo.host.publication.verified.models.VerifiedStageIdentity(run_id=run_id, attempt_id=stage_attempt_id, **binding_identity, repository=repository, branch=branch, baseline=binding['baseline'], commit=commit, source_bundle_sha256=frozen['bundle_sha256'], verified_bundle_sha256=digest)
++    return laomedo.host.publication.verified.models.VerifiedStage.from_identity(identity, bundle)
+
+### PR 216 src/laomedo/integrations/langflow/join/server.py :: JoinServer
+--- src/laomedo/integrations/langflow/join/server.py::JoinServer
++++ src/laomedo/integrations/langflow/join/server.py::JoinServer
+@@ -5,96 +5,6 @@
+             raise ValueError('join_server_config_invalid')
+         if host != '127.0.0.1':
+             raise ValueError('join_server_must_bind_loopback')
+-
+-        class Handler(http.server.BaseHTTPRequestHandler):
+-
+-            def log_message(self, *_):
+-                return
+-
+-            def reply(self, code, value):
+-                data = json.dumps(value, sort_keys=True).encode('utf-8')
+-                self.send_response(code)
+-                self.send_header('Content-Type', 'application/json')
+-                self.send_header('Content-Length', str(len(data)))
+-                self.end_headers()
+-                self.wfile.write(data)
+-
+-            def authorized(self):
+-                received = self.headers.get('Authorization', '')
+-                if not hmac.compare_digest(received, 'Bearer ' + token):
+-                    self.reply(401, {'error_category': 'unauthorized'})
+-                    return False
+-                return True
+-
+-            @staticmethod
+-            def presented(snapshot):
+-                if snapshot is None:
+-                    return {'status': 'pending_start'}
+-                native = snapshot.get('native_record') or {}
+-                return {'client_request_id': snapshot['client_request_id'], 'request_hash': snapshot['runner_request_hash'], 'run_id': snapshot['runner_run_id'], 'laomedo_run_id': snapshot['run_id'], 'trace_id': snapshot['trace_id'], 'invocation_id': snapshot['invocation_id'], 'provider': snapshot['runner_provider'] or controller.provider, 'raw_event_ref': snapshot['runner_raw_event_ref'], 'status': 'incomplete' if snapshot.get('native_status') == 'cancelled' and snapshot.get('cancel_confirmed') is not True else snapshot.get('native_status') or snapshot['status'], 'native_status': snapshot.get('native_status'), 'cancel_requested': snapshot.get('cancel_requested', False), 'cancel_confirmed': snapshot.get('cancel_confirmed', False), 'executing_graph_verified': False, 'answer': native.get('answer'), 'activity_initial_attempt_id': native.get('activity_initial_attempt_id'), 'activity_attempt_id': native.get('activity_attempt_id'), 'attempt_finished': native.get('attempt_finished', False), 'snapshot_ready': native.get('snapshot_ready', False), 'thread_id': native.get('thread_id'), 'post_run_hash': native.get('post_run_hash'), 'requested_model': native.get('requested_model'), 'requested_effort': native.get('requested_effort'), 'skill': native.get('skill'), 'skills': native.get('skills'), 'output_ref': native.get('output_ref'), 'handoff': native.get('handoff'), 'imported_artifacts': native.get('imported_artifacts', []), 'usage': native.get('usage'), 'error_category': native.get('error_category')}
+-
+-            def execute(self, action):
+-                if not self.authorized():
+-                    return
+-                try:
+-                    action()
+-                except laomedo.work_graph.runs.errors.LaunchError as exc:
+-                    category = str(exc)
+-                    code = 409 if category in {'client_request_identity_conflict', 'client_request_binding_conflict', 'runner_ack_identity_mismatch', 'runner_binding_conflict', 'runner_lookup_mismatch'} else 502 if category in {'runner_start_unknown', 'runner_status_unknown', 'runner_lookup_unknown'} else 400
+-                    self.reply(code, {'error_category': category})
+-                except Exception:
+-                    self.reply(502, {'error_category': 'join_backend_unknown'})
+-
+-            def do_POST(self):
+-                path = urllib.parse.urlsplit(self.path)
+-                if path.query or path.fragment:
+-                    self.reply(404, {'error_category': 'unknown_route'})
+-                    return
+-
+-                def perform():
+-                    length = int(self.headers.get('Content-Length', '0'))
+-                    if not 0 < length <= 65536:
+-                        raise laomedo.work_graph.runs.errors.LaunchError('invalid_join_body')
+-                    try:
+-                        payload = json.loads(self.rfile.read(length))
+-                    except (ValueError, TypeError):
+-                        raise laomedo.work_graph.runs.errors.LaunchError('invalid_join_body') from None
+-                    if path.path == '/v1/invocations':
+-                        if not isinstance(payload, dict) or set(payload) != {'client_request_id', 'flow_id', 'graph_run_id', 'stage_id', 'runner_body'}:
+-                            raise laomedo.work_graph.runs.errors.LaunchError('invalid_join_body')
+-                        snapshot = controller.start(**payload)
+-                        self.reply(202, self.presented(snapshot))
+-                        return
+-                    parts = path.path.strip('/').split('/')
+-                    if len(parts) == 4 and parts[:2] == ['v1', 'requests'] and (parts[3] == 'cancel') and (payload == {}):
+-                        snapshot = controller.cancel(parts[2])
+-                        if snapshot.get('status') == 'pending_start':
+-                            self.reply(202, snapshot)
+-                        else:
+-                            self.reply(202, self.presented(controller.status(parts[2])))
+-                        return
+-                    self.reply(404, {'error_category': 'unknown_route'})
+-                self.execute(perform)
+-
+-            def do_GET(self):
+-                path = urllib.parse.urlsplit(self.path)
+-                if path.query or path.fragment:
+-                    self.reply(404, {'error_category': 'unknown_route'})
+-                    return
+-
+-                def perform():
+-                    parts = path.path.strip('/').split('/')
+-                    if len(parts) == 3 and parts[:2] == ['v1', 'requests']:
+-                        snapshot = controller.status(parts[2])
+-                        self.reply(200, self.presented(snapshot) if snapshot else {'client_request_id': parts[2], 'status': 'pending_start'})
+-                        return
+-                    if len(parts) == 3 and parts[:2] == ['v1', 'runs']:
+-                        binding = controller.store.langflow_runner_binding(parts[2], provider=controller.provider)
+-                        if binding is None:
+-                            self.reply(404, {'error_category': 'unknown_run'})
+-                            return
+-                        self.reply(200, self.presented(controller.status(binding['client_request_id'])))
+-                        return
+-                    self.reply(404, {'error_category': 'unknown_route'})
+-                self.execute(perform)
+-        super().__init__((host, port), Handler)+        self.controller = controller
++        self.token = token
++        super().__init__((host, port), laomedo.integrations.langflow.join.handler.JoinRequestHandler)
+
+### PR 216 src/laomedo/integrations/langflow/join/server.py :: JoinServer.__init__
+--- src/laomedo/integrations/langflow/join/server.py::JoinServer.__init__
++++ src/laomedo/integrations/langflow/join/server.py::JoinServer.__init__
+@@ -3,96 +3,6 @@
+         raise ValueError('join_server_config_invalid')
+     if host != '127.0.0.1':
+         raise ValueError('join_server_must_bind_loopback')
+-
+-    class Handler(http.server.BaseHTTPRequestHandler):
+-
+-        def log_message(self, *_):
+-            return
+-
+-        def reply(self, code, value):
+-            data = json.dumps(value, sort_keys=True).encode('utf-8')
+-            self.send_response(code)
+-            self.send_header('Content-Type', 'application/json')
+-            self.send_header('Content-Length', str(len(data)))
+-            self.end_headers()
+-            self.wfile.write(data)
+-
+-        def authorized(self):
+-            received = self.headers.get('Authorization', '')
+-            if not hmac.compare_digest(received, 'Bearer ' + token):
+-                self.reply(401, {'error_category': 'unauthorized'})
+-                return False
+-            return True
+-
+-        @staticmethod
+-        def presented(snapshot):
+-            if snapshot is None:
+-                return {'status': 'pending_start'}
+-            native = snapshot.get('native_record') or {}
+-            return {'client_request_id': snapshot['client_request_id'], 'request_hash': snapshot['runner_request_hash'], 'run_id': snapshot['runner_run_id'], 'laomedo_run_id': snapshot['run_id'], 'trace_id': snapshot['trace_id'], 'invocation_id': snapshot['invocation_id'], 'provider': snapshot['runner_provider'] or controller.provider, 'raw_event_ref': snapshot['runner_raw_event_ref'], 'status': 'incomplete' if snapshot.get('native_status') == 'cancelled' and snapshot.get('cancel_confirmed') is not True else snapshot.get('native_status') or snapshot['status'], 'native_status': snapshot.get('native_status'), 'cancel_requested': snapshot.get('cancel_requested', False), 'cancel_confirmed': snapshot.get('cancel_confirmed', False), 'executing_graph_verified': False, 'answer': native.get('answer'), 'activity_initial_attempt_id': native.get('activity_initial_attempt_id'), 'activity_attempt_id': native.get('activity_attempt_id'), 'attempt_finished': native.get('attempt_finished', False), 'snapshot_ready': native.get('snapshot_ready', False), 'thread_id': native.get('thread_id'), 'post_run_hash': native.get('post_run_hash'), 'requested_model': native.get('requested_model'), 'requested_effort': native.get('requested_effort'), 'skill': native.get('skill'), 'skills': native.get('skills'), 'output_ref': native.get('output_ref'), 'handoff': native.get('handoff'), 'imported_artifacts': native.get('imported_artifacts', []), 'usage': native.get('usage'), 'error_category': native.get('error_category')}
+-
+-        def execute(self, action):
+-            if not self.authorized():
+-                return
+-            try:
+-                action()
+-            except laomedo.work_graph.runs.errors.LaunchError as exc:
+-                category = str(exc)
+-                code = 409 if category in {'client_request_identity_conflict', 'client_request_binding_conflict', 'runner_ack_identity_mismatch', 'runner_binding_conflict', 'runner_lookup_mismatch'} else 502 if category in {'runner_start_unknown', 'runner_status_unknown', 'runner_lookup_unknown'} else 400
+-                self.reply(code, {'error_category': category})
+-            except Exception:
+-                self.reply(502, {'error_category': 'join_backend_unknown'})
+-
+-        def do_POST(self):
+-            path = urllib.parse.urlsplit(self.path)
+-            if path.query or path.fragment:
+-                self.reply(404, {'error_category': 'unknown_route'})
+-                return
+-
+-            def perform():
+-                length = int(self.headers.get('Content-Length', '0'))
+-                if not 0 < length <= 65536:
+-                    raise laomedo.work_graph.runs.errors.LaunchError('invalid_join_body')
+-                try:
+-                    payload = json.loads(self.rfile.read(length))
+-                except (ValueError, TypeError):
+-                    raise laomedo.work_graph.runs.errors.LaunchError('invalid_join_body') from None
+-                if path.path == '/v1/invocations':
+-                    if not isinstance(payload, dict) or set(payload) != {'client_request_id', 'flow_id', 'graph_run_id', 'stage_id', 'runner_body'}:
+-                        raise laomedo.work_graph.runs.errors.LaunchError('invalid_join_body')
+-                    snapshot = controller.start(**payload)
+-                    self.reply(202, self.presented(snapshot))
+-                    return
+-                parts = path.path.strip('/').split('/')
+-                if len(parts) == 4 and parts[:2] == ['v1', 'requests'] and (parts[3] == 'cancel') and (payload == {}):
+-                    snapshot = controller.cancel(parts[2])
+-                    if snapshot.get('status') == 'pending_start':
+-                        self.reply(202, snapshot)
+-                    else:
+-                        self.reply(202, self.presented(controller.status(parts[2])))
+-                    return
+-                self.reply(404, {'error_category': 'unknown_route'})
+-            self.execute(perform)
+-
+-        def do_GET(self):
+-            path = urllib.parse.urlsplit(self.path)
+-            if path.query or path.fragment:
+-                self.reply(404, {'error_category': 'unknown_route'})
+-                return
+-
+-            def perform():
+-                parts = path.path.strip('/').split('/')
+-                if len(parts) == 3 and parts[:2] == ['v1', 'requests']:
+-                    snapshot = controller.status(parts[2])
+-                    self.reply(200, self.presented(snapshot) if snapshot else {'client_request_id': parts[2], 'status': 'pending_start'})
+-                    return
+-                if len(parts) == 3 and parts[:2] == ['v1', 'runs']:
+-                    binding = controller.store.langflow_runner_binding(parts[2], provider=controller.provider)
+-                    if binding is None:
+-                        self.reply(404, {'error_category': 'unknown_run'})
+-                        return
+-                    self.reply(200, self.presented(controller.status(binding['client_request_id'])))
+-                    return
+-                self.reply(404, {'error_category': 'unknown_route'})
+-            self.execute(perform)
+-    super().__init__((host, port), Handler)+    self.controller = controller
++    self.token = token
++    super().__init__((host, port), laomedo.integrations.langflow.join.handler.JoinRequestHandler)
+
+### PR 216 src/laomedo/integrations/langflow/stage_adapter.py :: FrozenLangflowStage
+--- src/laomedo/integrations/langflow/stage_adapter.py::FrozenLangflowStage
++++ src/laomedo/integrations/langflow/stage_adapter.py::FrozenLangflowStage
+@@ -1,4 +1,25 @@
+ class FrozenLangflowStage:
++
++    @staticmethod
++    def _require_pinned_runtime():
++        found_app = False
++        missing_app = None
++        for distribution in ('langflow', 'langflow-base'):
++            try:
++                installed_version = importlib.metadata.version(distribution)
++            except importlib.metadata.PackageNotFoundError as exc:
++                missing_app = exc
++                continue
++            found_app = True
++            if installed_version != PINNED_LANGFLOW:
++                raise laomedo.work_graph.runs.errors.LaunchError('unsupported_langflow_revision')
++        if not found_app:
++            raise laomedo.work_graph.runs.errors.LaunchError('langflow_runtime_unavailable') from missing_app
++        try:
++            if importlib.metadata.version('lfx') != PINNED_LANGFLOW:
++                raise laomedo.work_graph.runs.errors.LaunchError('unsupported_langflow_revision')
++        except importlib.metadata.PackageNotFoundError as exc:
++            raise laomedo.work_graph.runs.errors.LaunchError('langflow_runtime_unavailable') from exc
+ 
+     @classmethod
+     def from_saved_flow(cls, flow_id, fetch_export):
+@@ -10,11 +31,7 @@
+         return cls(exported)
+ 
+     def __init__(self, exported_flow):
+-        try:
+-            if importlib.metadata.version('langflow') != PINNED_LANGFLOW or importlib.metadata.version('lfx') != PINNED_LANGFLOW:
+-                raise laomedo.work_graph.runs.errors.LaunchError('unsupported_langflow_revision')
+-        except importlib.metadata.PackageNotFoundError as exc:
+-            raise laomedo.work_graph.runs.errors.LaunchError('langflow_runtime_unavailable') from exc
++        self._require_pinned_runtime()
+         if not isinstance(exported_flow, dict):
+             raise laomedo.work_graph.runs.errors.LaunchError('unresolved_graph_identity')
+         self.export = copy.deepcopy(exported_flow)
+
+
+### PR 216 src/laomedo/integrations/langflow/stage_adapter.py :: FrozenLangflowStage.__init__
+--- src/laomedo/integrations/langflow/stage_adapter.py::FrozenLangflowStage.__init__
++++ src/laomedo/integrations/langflow/stage_adapter.py::FrozenLangflowStage.__init__
+@@ -1,9 +1,5 @@
+ def __init__(self, exported_flow):
+-    try:
+-        if importlib.metadata.version('langflow') != PINNED_LANGFLOW or importlib.metadata.version('lfx') != PINNED_LANGFLOW:
+-            raise laomedo.work_graph.runs.errors.LaunchError('unsupported_langflow_revision')
+-    except importlib.metadata.PackageNotFoundError as exc:
+-        raise laomedo.work_graph.runs.errors.LaunchError('langflow_runtime_unavailable') from exc
++    self._require_pinned_runtime()
+     if not isinstance(exported_flow, dict):
+         raise laomedo.work_graph.runs.errors.LaunchError('unresolved_graph_identity')
+     self.export = copy.deepcopy(exported_flow)
+
+
+### PR 216 src/laomedo/integrations/langflow/viewer.py :: install_routes
+--- src/laomedo/integrations/langflow/viewer.py::install_routes
++++ src/laomedo/integrations/langflow/viewer.py::install_routes
+@@ -1,4 +1,5 @@
+ def install_routes(app, root: pathlib.Path, authenticate):
++    laomedo.integrations.langflow.skill_editing.install_skill_editing_routes(app, authenticate)
+     laomedo.agents.activity.routes.install_activity_routes(app, authenticate)
+     laomedo.host.runner.routes.install_runner_service_routes(app, authenticate)
+ 
+@@ -32,7 +33,7 @@
+     @app.get('/api/v1/laomedo/skills/{skill_id}/{revision_id}', dependencies=[fastapi.Depends(authenticate)])
+     async def read_skill(skill_id: str, revision_id: str):
+         try:
+-            result = await starlette.concurrency.run_in_threadpool(laomedo.skills.inspection.utils.inspect_skill, root, skill_id, revision_id, include_images=True)
++            result = await starlette.concurrency.run_in_threadpool(laomedo.skills.inspection.utils.inspect_skill, root, skill_id, revision_id, include_images=True, include_binary=True)
+         except laomedo.skills.inspection.errors.InspectionError as exc:
+             code = str(exc)
+             status = 400 if code in {'invalid_skill_id', 'immutable_skill_revision_required'} else 404
+
+
+### PR 216 src/laomedo/work_graph/grants.py :: LocalGrantAuthority
+--- src/laomedo/work_graph/grants.py::LocalGrantAuthority
++++ src/laomedo/work_graph/grants.py::LocalGrantAuthority
+@@ -48,4 +48,4 @@
+             if datetime.datetime.fromisoformat(row['expires_at']) <= datetime.datetime.now(datetime.timezone.utc):
+                 raise laomedo.work_graph.runs.errors.LaunchError('grant_expired')
+             db.execute('UPDATE grants SET redeemed_at=? WHERE grant_id=? AND redeemed_at IS NULL', (datetime.datetime.now(datetime.timezone.utc).isoformat(), grant_id))
+-        return {'grant_id': grant_id, 'operator_authorized': True, 'work_key': row['work_key'], 'graph_snapshot_id': row['graph_snapshot_id'], 'content_digest': row['content_digest'], 'runner': row['runner'], 'scope': row['scope'], 'expires_at': row['expires_at'], 'limits': {'timeout_seconds': row['timeout_seconds'], 'max_turns': row['max_turns']}}+        return laomedo.work_graph.models.WorkLaunchGrant(grant_id=grant_id, operator_authorized=True, work_key=row['work_key'], graph_snapshot_id=row['graph_snapshot_id'], content_digest=row['content_digest'], runner=row['runner'], scope=row['scope'], expires_at=row['expires_at'], limits=laomedo.work_graph.models.WorkGrantLimits(timeout_seconds=row['timeout_seconds'], max_turns=row['max_turns'])).to_payload()
+
+### PR 216 src/laomedo/work_graph/grants.py :: LocalGrantAuthority.__call__
+--- src/laomedo/work_graph/grants.py::LocalGrantAuthority.__call__
++++ src/laomedo/work_graph/grants.py::LocalGrantAuthority.__call__
+@@ -13,4 +13,4 @@
+         if datetime.datetime.fromisoformat(row['expires_at']) <= datetime.datetime.now(datetime.timezone.utc):
+             raise laomedo.work_graph.runs.errors.LaunchError('grant_expired')
+         db.execute('UPDATE grants SET redeemed_at=? WHERE grant_id=? AND redeemed_at IS NULL', (datetime.datetime.now(datetime.timezone.utc).isoformat(), grant_id))
+-    return {'grant_id': grant_id, 'operator_authorized': True, 'work_key': row['work_key'], 'graph_snapshot_id': row['graph_snapshot_id'], 'content_digest': row['content_digest'], 'runner': row['runner'], 'scope': row['scope'], 'expires_at': row['expires_at'], 'limits': {'timeout_seconds': row['timeout_seconds'], 'max_turns': row['max_turns']}}+    return laomedo.work_graph.models.WorkLaunchGrant(grant_id=grant_id, operator_authorized=True, work_key=row['work_key'], graph_snapshot_id=row['graph_snapshot_id'], content_digest=row['content_digest'], runner=row['runner'], scope=row['scope'], expires_at=row['expires_at'], limits=laomedo.work_graph.models.WorkGrantLimits(timeout_seconds=row['timeout_seconds'], max_turns=row['max_turns'])).to_payload()
+
+### PR 216 src/laomedo/work_graph/launch.py :: relevant_content_digest
+--- src/laomedo/work_graph/launch.py::relevant_content_digest
++++ src/laomedo/work_graph/launch.py::relevant_content_digest
+@@ -12,5 +12,5 @@
+             continue
+         seen.add(key)
+         pending.extend((edge.prerequisite for edge in edges.get(key, ())))
+-    relevant_edges = sorted((edge.model_dump() for edge in graph.dependencies if edge.dependent in seen), key=lambda edge: json.dumps(edge, sort_keys=True, ensure_ascii=False))
+-    return laomedo.work_graph.launch._digest({'repository': graph.repository, 'schema_version': graph.schema_version, 'connector_version': graph.connector_version, 'source_complete': graph.source_complete, 'items': [items[key].model_dump() for key in sorted(seen) if key in items], 'unresolved_keys': sorted(seen - items.keys()), 'edges': relevant_edges})+    relevant_edges = sorted((edge for edge in graph.dependencies if edge.dependent in seen), key=lambda edge: json.dumps(edge.model_dump(), sort_keys=True, ensure_ascii=False))
++    return laomedo.work_graph.launch._digest(laomedo.work_graph.models.RelevantWorkContent(repository=graph.repository, schema_version=graph.schema_version, connector_version=graph.connector_version, source_complete=graph.source_complete, items=[items[key] for key in sorted(seen) if key in items], unresolved_keys=sorted(seen - items.keys()), edges=relevant_edges).to_payload())
+
+### PR 216 src/laomedo/work_graph/launch.py :: preflight
+--- src/laomedo/work_graph/launch.py::preflight
++++ src/laomedo/work_graph/launch.py::preflight
+@@ -31,5 +31,5 @@
+     bound_item = laomedo.work_graph.launch._item(bound, work_key)
+     if bound_item is None or bound_item.state != 'OPEN':
+         raise laomedo.work_graph.runs.errors.LaunchError('bound_item_unavailable')
+-    work = {'key': bound_item.key, 'repository': bound_item.repository, 'number': bound_item.number, 'url': bound_item.url, 'updated_at': bound_item.updated_at, 'body_digest': laomedo.work_graph.launch._digest(bound_item.body)}
+-    return {'work_snapshot': work, 'work_snapshot_id': laomedo.work_graph.launch._digest(work), 'input_digest': laomedo.work_graph.launch._digest({'work': work, 'body': bound_item.body, 'graph_snapshot_id': bound.snapshot_id}), 'selected_graph_snapshot_id': bound.snapshot_id, 'authorization_graph_snapshot_id': current.snapshot_id, 'selected_content_digest': current_content if choice == 'refreshed' else frozen_content, 'frozen_content_digest': frozen_content, 'authorization_content_digest': current_content, 'source_choice': choice or 'unchanged', 'override': override}+    work = laomedo.work_graph.models.WorkSnapshot(key=bound_item.key, repository=bound_item.repository, number=bound_item.number, url=bound_item.url, updated_at=bound_item.updated_at, body_digest=laomedo.work_graph.launch._digest(bound_item.body))
++    return laomedo.work_graph.models.WorkLaunchBinding(work_snapshot=work, work_snapshot_id=laomedo.work_graph.launch._digest(work.to_payload()), input_digest=laomedo.work_graph.launch._digest({'work': work.to_payload(), 'body': bound_item.body, 'graph_snapshot_id': bound.snapshot_id}), selected_graph_snapshot_id=bound.snapshot_id, authorization_graph_snapshot_id=current.snapshot_id, selected_content_digest=current_content if choice == 'refreshed' else frozen_content, frozen_content_digest=frozen_content, authorization_content_digest=current_content, source_choice=choice or 'unchanged', override=laomedo.work_graph.models.WorkOverride(**override) if override is not None else None).to_payload()
+
+### PR 216 src/laomedo/work_graph/local_launch.py :: launch_local_saved_flow
+--- src/laomedo/work_graph/local_launch.py::launch_local_saved_flow
++++ src/laomedo/work_graph/local_launch.py::launch_local_saved_flow
+@@ -7,4 +7,4 @@
+     store = laomedo.work_graph.runs.store.WorkflowRunStore(run_path)
+     client = laomedo.work_graph.client.LangflowLocalClient(langflow_base)
+     record, output = laomedo.work_graph.launch.launch_github_docker_saved_flow_stage(frozen=frozen, work_key=work_key, flow_id=flow_id, fetch_export=client.fetch, store=store, grant_ref=grant_ref, grant_authority=authority, resolved_config={'mode': 'zero-turn-local'}, choice=choice, inputs=[{'input_value': task}], types=['chat'], outputs=None, source_root=source_root)
+-    return {'run_id': record['run_id'], 'trace_id': record['trace_id'], 'status': record['status'], 'completion_basis': record['completion_basis'], 'evidence_complete': bool(record['evidence_complete']), 'dispatch_attempts': record['dispatch_attempts'], 'output_present': bool(output), 'graph_revision': record['graph_revision']}+    return laomedo.work_graph.models.WorkLaunchResult(run_id=record['run_id'], trace_id=record['trace_id'], status=record['status'], completion_basis=record['completion_basis'], evidence_complete=bool(record['evidence_complete']), dispatch_attempts=record['dispatch_attempts'], output_present=bool(output), graph_revision=record['graph_revision']).to_payload()
+
+### PR 218 src/laomedo/skills/operations/models.py :: FileEdit
+--- src/laomedo/skills/operations/models.py::FileEdit
++++ src/laomedo/skills/operations/models.py::FileEdit
+@@ -1,16 +1,64 @@
+ class FileEdit(pydantic.BaseModel):
+     model_config = pydantic.ConfigDict(strict=True, frozen=True, extra='forbid', hide_input_in_errors=True)
+     path: str = pydantic.Field(min_length=1, max_length=512, description='Admitted relative path in the editable skill bundle.')
+-    content: str | None = pydantic.Field(description='UTF-8 replacement text; null requests deletion.')
++    content: str | None = pydantic.Field(default=None, description='UTF-8 text, base64 bytes, or null for deletion.')
++    encoding: typing.Literal['utf-8', 'base64'] = 'utf-8'
++    source_path: str | None = pydantic.Field(default=None, description='Copy bytes from this file in the exact reserved base.')
+ 
+-    @pydantic.field_validator('path')
++    @pydantic.field_validator('path', 'source_path')
+     @classmethod
+     def validate_path(cls, value):
++        if value is None:
++            return value
++        if len(value) > 512:
++            raise laomedo.skills.registry.errors.SkillStoreError('skill_operation_invalid')
+         return laomedo.skills.registry.paths.validate_relative_path(value)
+ 
+-    @pydantic.field_validator('content')
++    @pydantic.model_validator(mode='after')
++    def validate_content(self):
++        if self.source_path is not None:
++            if 'content' in self.model_fields_set or 'encoding' in self.model_fields_set:
++                raise laomedo.skills.registry.errors.SkillStoreError('skill_operation_invalid')
++        elif 'content' not in self.model_fields_set:
++            raise laomedo.skills.registry.errors.SkillStoreError('skill_operation_invalid')
++        elif self.encoding == 'base64':
++            if self.content is None or len(self.content) > 4 * ((512 * 1024 + 2) // 3):
++                raise laomedo.skills.registry.errors.SkillStoreError('skill_operation_invalid')
++            try:
++                decoded = base64.b64decode(self.content, validate=True)
++            except (ValueError, binascii.Error):
++                raise laomedo.skills.registry.errors.SkillStoreError('skill_operation_invalid') from None
++            if len(decoded) > 512 * 1024 or base64.b64encode(decoded).decode('ascii') != self.content:
++                raise laomedo.skills.registry.errors.SkillStoreError('skill_operation_invalid')
++        elif self.content is not None and len(self.content.encode()) > 512 * 1024:
++            raise laomedo.skills.registry.errors.SkillStoreError('skill_operation_invalid')
++        return self
++
+     @classmethod
+-    def validate_content(cls, value):
+-        if value is not None and len(value.encode()) > 512 * 1024:
++    def from_payload(cls, value):
++        if not isinstance(value, dict) or not (set(value) == {'path', 'content'} or set(value) == {'path', 'source_path'} or (set(value) == {'path', 'content', 'encoding'} and value['encoding'] == 'base64')):
+             raise laomedo.skills.registry.errors.SkillStoreError('skill_operation_invalid')
+-        return value+        laomedo.skills.registry.paths.validate_relative_path(value['path'])
++        if 'source_path' in value:
++            laomedo.skills.registry.paths.validate_relative_path(value['source_path'])
++        try:
++            return cls(**value)
++        except (ValueError, TypeError):
++            raise laomedo.skills.registry.errors.SkillStoreError('skill_operation_invalid') from None
++
++    def to_payload(self):
++        if self.source_path is not None:
++            return {'path': self.path, 'source_path': self.source_path}
++        result = {'path': self.path, 'content': self.content}
++        if self.encoding == 'base64':
++            result['encoding'] = self.encoding
++        return result
++
++    def to_bytes(self, base: dict[str, bytes]) -> bytes | None:
++        if self.source_path is not None:
++            if self.source_path not in base:
++                raise laomedo.skills.registry.errors.SkillStoreError('skill_file_missing')
++            return base[self.source_path]
++        if self.content is None:
++            return None
++        return base64.b64decode(self.content) if self.encoding == 'base64' else self.content.encode()
+
+### PR 218 src/laomedo/skills/operations/models.py :: FileEdit.validate_path
+--- src/laomedo/skills/operations/models.py::FileEdit.validate_path
++++ src/laomedo/skills/operations/models.py::FileEdit.validate_path
+@@ -1,4 +1,8 @@
+-@pydantic.field_validator('path')
++@pydantic.field_validator('path', 'source_path')
+ @classmethod
+ def validate_path(cls, value):
++    if value is None:
++        return value
++    if len(value) > 512:
++        raise laomedo.skills.registry.errors.SkillStoreError('skill_operation_invalid')
+     return laomedo.skills.registry.paths.validate_relative_path(value)
+
+### PR 218 src/laomedo/skills/operations/models.py :: FileEdit.validate_content
+--- src/laomedo/skills/operations/models.py::FileEdit.validate_content
++++ src/laomedo/skills/operations/models.py::FileEdit.validate_content
+@@ -1,6 +1,19 @@
+-@pydantic.field_validator('content')
+-@classmethod
+-def validate_content(cls, value):
+-    if value is not None and len(value.encode()) > 512 * 1024:
++@pydantic.model_validator(mode='after')
++def validate_content(self):
++    if self.source_path is not None:
++        if 'content' in self.model_fields_set or 'encoding' in self.model_fields_set:
++            raise laomedo.skills.registry.errors.SkillStoreError('skill_operation_invalid')
++    elif 'content' not in self.model_fields_set:
+         raise laomedo.skills.registry.errors.SkillStoreError('skill_operation_invalid')
+-    return value+    elif self.encoding == 'base64':
++        if self.content is None or len(self.content) > 4 * ((512 * 1024 + 2) // 3):
++            raise laomedo.skills.registry.errors.SkillStoreError('skill_operation_invalid')
++        try:
++            decoded = base64.b64decode(self.content, validate=True)
++        except (ValueError, binascii.Error):
++            raise laomedo.skills.registry.errors.SkillStoreError('skill_operation_invalid') from None
++        if len(decoded) > 512 * 1024 or base64.b64encode(decoded).decode('ascii') != self.content:
++            raise laomedo.skills.registry.errors.SkillStoreError('skill_operation_invalid')
++    elif self.content is not None and len(self.content.encode()) > 512 * 1024:
++        raise laomedo.skills.registry.errors.SkillStoreError('skill_operation_invalid')
++    return self
+
+### PR 218 src/laomedo/skills/operations/models.py :: SkillProposal
+--- src/laomedo/skills/operations/models.py::SkillProposal
++++ src/laomedo/skills/operations/models.py::SkillProposal
+@@ -25,14 +25,13 @@
+         if not isinstance(value, dict) or set(value) != {'action', 'message', 'files'} or value['action'] != 'modify' or (not isinstance(value['message'], str)) or (not 1 <= len(value['message']) <= 2000) or (not isinstance(value['files'], list)) or (not 1 <= len(value['files']) <= 128):
+             raise laomedo.skills.registry.errors.SkillStoreError('skill_operation_invalid')
+         seen = set()
+-        for edit in value['files']:
+-            if not isinstance(edit, dict) or set(edit) != {'path', 'content'}:
+-                raise laomedo.skills.registry.errors.SkillStoreError('skill_operation_invalid')
+-            path = laomedo.skills.registry.paths.validate_relative_path(edit['path'])
+-            if path.casefold() in seen or len(path) > 512 or (edit['content'] is not None and (not isinstance(edit['content'], str) or len(edit['content'].encode()) > 512 * 1024)):
++        edits = tuple((laomedo.skills.operations.models.FileEdit.from_payload(edit) for edit in value['files']))
++        for edit in edits:
++            path = edit.path
++            if path.casefold() in seen:
+                 raise laomedo.skills.registry.errors.SkillStoreError('skill_operation_invalid')
+             seen.add(path.casefold())
+-        return cls(action=value['action'], message=value['message'], files=tuple((laomedo.skills.operations.models.FileEdit(**edit) for edit in value['files'])))
++        return cls(action=value['action'], message=value['message'], files=edits)
+ 
+     def to_payload(self):
+-        return {'action': self.action, 'message': self.message, 'files': [edit.model_dump() for edit in self.files]}+        return {'action': self.action, 'message': self.message, 'files': [edit.to_payload() for edit in self.files]}
+
+### PR 218 src/laomedo/skills/operations/models.py :: SkillProposal.from_payload
+--- src/laomedo/skills/operations/models.py::SkillProposal.from_payload
++++ src/laomedo/skills/operations/models.py::SkillProposal.from_payload
+@@ -13,11 +13,10 @@
+     if not isinstance(value, dict) or set(value) != {'action', 'message', 'files'} or value['action'] != 'modify' or (not isinstance(value['message'], str)) or (not 1 <= len(value['message']) <= 2000) or (not isinstance(value['files'], list)) or (not 1 <= len(value['files']) <= 128):
+         raise laomedo.skills.registry.errors.SkillStoreError('skill_operation_invalid')
+     seen = set()
+-    for edit in value['files']:
+-        if not isinstance(edit, dict) or set(edit) != {'path', 'content'}:
+-            raise laomedo.skills.registry.errors.SkillStoreError('skill_operation_invalid')
+-        path = laomedo.skills.registry.paths.validate_relative_path(edit['path'])
+-        if path.casefold() in seen or len(path) > 512 or (edit['content'] is not None and (not isinstance(edit['content'], str) or len(edit['content'].encode()) > 512 * 1024)):
++    edits = tuple((laomedo.skills.operations.models.FileEdit.from_payload(edit) for edit in value['files']))
++    for edit in edits:
++        path = edit.path
++        if path.casefold() in seen:
+             raise laomedo.skills.registry.errors.SkillStoreError('skill_operation_invalid')
+         seen.add(path.casefold())
+-    return cls(action=value['action'], message=value['message'], files=tuple((laomedo.skills.operations.models.FileEdit(**edit) for edit in value['files'])))+    return cls(action=value['action'], message=value['message'], files=edits)
+
+### PR 218 src/laomedo/skills/operations/models.py :: SkillCommit
+--- src/laomedo/skills/operations/models.py::SkillCommit
++++ src/laomedo/skills/operations/models.py::SkillCommit
+@@ -5,12 +5,20 @@
+     parent_commit: str | None = pydantic.Field(description='Previous history identity; explicitly null for the initial import.')
+     created_at: str = pydantic.Field(description='Existing host UTC timestamp string, preserved verbatim.')
+     message: str = pydantic.Field(description='Explanation of the import or admitted edit.')
+-    files: list[str] = pydantic.Field(description='Changed relative paths; empty for the initial import.')
++    files: list[str] = pydantic.Field(description='Changed relative paths; imports list all added files (legacy roots may be empty).')
+     patch: str = pydantic.Field(description='Exact existing unified patch bytes represented as text.')
+     editor: laomedo.skills.operations.models.EditorProvenance | laomedo.skills.operations.models.ImportedSkillEditor = pydantic.Field(description='Host provenance, independent of model-supplied content.')
+     draft_id: str | None = pydantic.Field(default=None, description='Originating edit draft; key omitted for initial import.')
+     policy_ref: laomedo.skills.registry.models.SkillPolicyReference | None = pydantic.Field(default=None, description='Admitted edit policy; key omitted for initial import.')
+     nonce: str = pydantic.Field(description='Existing random history salt; unchanged format and generation.')
++
++    @classmethod
++    def from_import(cls, imported: laomedo.skills.registry.models.SkillImportRecord, files: dict[str, bytes]):
++        return cls(skill_id=imported.skill_id, revision_id=imported.revision_id, parent_commit=None, created_at=imported.recorded_at, message='Initial import' if imported.origin == 'import' else 'Record existing import (original import time unknown)', files=sorted(files), patch=laomedo.skills.registry.diff.patch_for({}, files), editor=laomedo.skills.operations.models.ImportedSkillEditor(), nonce=imported.nonce)
++
++    @classmethod
++    def from_registered_revision(cls, reference: laomedo.skills.registry.models.SkillReference, parent_commit: str, before: dict[str, bytes], after: dict[str, bytes]):
++        return cls(skill_id=reference.skill_id, revision_id=reference.revision_id, parent_commit=parent_commit, created_at=datetime.datetime.now(datetime.timezone.utc).isoformat(), message='Record existing promoted revision (original edit time unknown)', files=sorted((path for path in before.keys() | after.keys() if before.get(path) != after.get(path))), patch=laomedo.skills.registry.diff.patch_for(before, after), editor=laomedo.skills.operations.models.ImportedSkillEditor(), nonce=uuid.uuid4().hex)
+ 
+     def to_record(self) -> dict:
+         value = self.model_dump()
+
+
+### PR 218 src/laomedo/skills/operations/service.py :: SkillOperations
+--- src/laomedo/skills/operations/service.py::SkillOperations
++++ src/laomedo/skills/operations/service.py::SkillOperations
+@@ -35,6 +35,23 @@
+             raise laomedo.skills.registry.errors.SkillStoreError('skill_history_integrity_failure')
+         return {'commit_id': identity, **record}
+ 
++    def _import_head(self, db, skill_id):
++        head = db.execute('SELECT id FROM heads WHERE skill=?', (skill_id,)).fetchone()
++        if head is not None:
++            return head['id']
++        imported = self.store.import_record(skill_id)
++        lineage = self.store.revision_lineage(skill_id)
++        if lineage[0]['revision_id'] != imported.revision_id:
++            raise laomedo.skills.registry.errors.SkillStoreError('revision_integrity_failure')
++        files = laomedo.skills.registry.files.inventory(self.store._revision_dir(skill_id, imported.revision_id) / 'bundle')
++        head_id = self._commit(db, laomedo.skills.operations.models.SkillCommit.from_import(imported, files)).commit_id
++        for revision in lineage[1:]:
++            after = laomedo.skills.registry.files.inventory(self.store._revision_dir(skill_id, revision['revision_id']) / 'bundle')
++            reference = laomedo.skills.registry.models.SkillReference(skill_id=skill_id, revision_id=revision['revision_id'], tree_hash=revision['tree_hash'])
++            head_id = self._commit(db, laomedo.skills.operations.models.SkillCommit.from_registered_revision(reference, head_id, files, after)).commit_id
++            files = after
++        return head_id
++
+     def prepare(self, skill_id, revision_id, commit_id=''):
+         policy = self.policies.get(skill_id)
+         if policy is None:
+@@ -43,17 +60,13 @@
+         authoring = laomedo.skills.authoring.summary.summary_authoring(snapshot)
+         with self.connect() as db:
+             db.execute('BEGIN IMMEDIATE')
+-            head = db.execute('SELECT id FROM heads WHERE skill=?', (skill_id,)).fetchone()
+-            if head is None:
+-                if commit_id or self.store.revision(skill_id)['revision_id'] != revision_id:
+-                    raise laomedo.skills.registry.errors.ConflictError('skill_base_changed')
+-                head = {'id': self._commit(db, laomedo.skills.operations.models.SkillCommit(skill_id=skill_id, revision_id=revision_id, parent_commit=None, created_at=datetime.datetime.now(datetime.timezone.utc).isoformat(), message='Import existing immutable skill', files=[], patch='', editor=laomedo.skills.operations.models.ImportedSkillEditor(), nonce=uuid.uuid4().hex)).commit_id}
+-            base = self._read(db, skill_id, head['id'])
+-            if base['revision_id'] != revision_id or (commit_id != head['id'] if commit_id else base['parent_commit'] is not None):
++            head_id = self._import_head(db, skill_id)
++            base = self._read(db, skill_id, head_id)
++            if base['revision_id'] != revision_id or (commit_id != head_id if commit_id else base['parent_commit'] is not None):
+                 raise laomedo.skills.registry.errors.ConflictError('skill_base_changed')
+             ticket = secrets.token_hex(32)
+-            db.execute('INSERT INTO requests(ticket,skill,base,policy,expires,monotonic) VALUES (?,?,?,?,?,?)', (ticket, skill_id, head['id'], json.dumps(policy), time.time() + 300, time.monotonic()))
+-        return {'ticket': ticket, 'base_commit': head['id'], 'snapshot': snapshot, 'policy': policy, **authoring}
++            db.execute('INSERT INTO requests(ticket,skill,base,policy,expires,monotonic) VALUES (?,?,?,?,?,?)', (ticket, skill_id, head_id, json.dumps(policy), time.time() + 300, time.monotonic()))
++        return {'ticket': ticket, 'base_commit': head_id, 'snapshot': snapshot, 'policy': policy, **authoring}
+ 
+     def apply(self, ticket, operation, editor=None):
+         operation = laomedo.skills.operations.models.SkillProposal.from_payload(operation)
+@@ -84,12 +97,13 @@
+             self.store.revision(row['skill'], base['revision_id'])
+             after = dict(before)
+             for edit in operation.files:
+-                if edit.content is None:
++                content = edit.to_bytes(before)
++                if content is None:
+                     if edit.path not in after:
+                         raise laomedo.skills.registry.errors.SkillStoreError('skill_file_missing')
+                     del after[edit.path]
+                 else:
+-                    after[edit.path] = edit.content.encode()
++                    after[edit.path] = content
+             if not laomedo.skills.authoring.summary.has_description(after.get('SKILL.md', b'').decode('utf-8-sig')):
+                 raise laomedo.skills.registry.errors.SkillStoreError('skill_summary_required')
+             laomedo.skills.sources.bundle.validate_bundle(after)
+@@ -123,7 +137,11 @@
+         with self.connect() as db:
+             head = db.execute('SELECT id FROM heads WHERE skill=?', (skill_id,)).fetchone()
+             items, visited = ([], set())
+-            current = before or (head['id'] if head else None)
++            if not before and head is None:
++                db.execute('BEGIN IMMEDIATE')
++                current = self._import_head(db, skill_id)
++            else:
++                current = before or head['id']
+             while current and len(items) < 100:
+                 if current in visited:
+                     raise laomedo.skills.registry.errors.SkillStoreError('skill_history_limit')
+@@ -140,7 +158,7 @@
+             snapshot = laomedo.skills.inspection.utils.inspect_skill(self.store.root, skill_id, record['revision_id'])
+             parent = self._read(db, skill_id, record['parent_commit']) if record['parent_commit'] else None
+             after = laomedo.skills.registry.files.inventory(self.store._revision_dir(skill_id, snapshot['revision_id']) / 'bundle')
+-            before = laomedo.skills.registry.files.inventory(self.store._revision_dir(skill_id, parent['revision_id']) / 'bundle') if parent else after
++            before = laomedo.skills.registry.files.inventory(self.store._revision_dir(skill_id, parent['revision_id']) / 'bundle') if parent else after if not record['files'] and (not record['patch']) else {}
+             if parent:
+                 laomedo.skills.inspection.utils.inspect_skill(self.store.root, skill_id, parent['revision_id'])
+             if laomedo.skills.registry.diff.patch_for(before, after) != record['patch']:
+
+
+### PR 218 src/laomedo/skills/operations/service.py :: SkillOperations.prepare
+--- src/laomedo/skills/operations/service.py::SkillOperations.prepare
++++ src/laomedo/skills/operations/service.py::SkillOperations.prepare
+@@ -6,14 +6,10 @@
+     authoring = laomedo.skills.authoring.summary.summary_authoring(snapshot)
+     with self.connect() as db:
+         db.execute('BEGIN IMMEDIATE')
+-        head = db.execute('SELECT id FROM heads WHERE skill=?', (skill_id,)).fetchone()
+-        if head is None:
+-            if commit_id or self.store.revision(skill_id)['revision_id'] != revision_id:
+-                raise laomedo.skills.registry.errors.ConflictError('skill_base_changed')
+-            head = {'id': self._commit(db, laomedo.skills.operations.models.SkillCommit(skill_id=skill_id, revision_id=revision_id, parent_commit=None, created_at=datetime.datetime.now(datetime.timezone.utc).isoformat(), message='Import existing immutable skill', files=[], patch='', editor=laomedo.skills.operations.models.ImportedSkillEditor(), nonce=uuid.uuid4().hex)).commit_id}
+-        base = self._read(db, skill_id, head['id'])
+-        if base['revision_id'] != revision_id or (commit_id != head['id'] if commit_id else base['parent_commit'] is not None):
++        head_id = self._import_head(db, skill_id)
++        base = self._read(db, skill_id, head_id)
++        if base['revision_id'] != revision_id or (commit_id != head_id if commit_id else base['parent_commit'] is not None):
+             raise laomedo.skills.registry.errors.ConflictError('skill_base_changed')
+         ticket = secrets.token_hex(32)
+-        db.execute('INSERT INTO requests(ticket,skill,base,policy,expires,monotonic) VALUES (?,?,?,?,?,?)', (ticket, skill_id, head['id'], json.dumps(policy), time.time() + 300, time.monotonic()))
+-    return {'ticket': ticket, 'base_commit': head['id'], 'snapshot': snapshot, 'policy': policy, **authoring}+        db.execute('INSERT INTO requests(ticket,skill,base,policy,expires,monotonic) VALUES (?,?,?,?,?,?)', (ticket, skill_id, head_id, json.dumps(policy), time.time() + 300, time.monotonic()))
++    return {'ticket': ticket, 'base_commit': head_id, 'snapshot': snapshot, 'policy': policy, **authoring}
+
+### PR 218 src/laomedo/skills/operations/service.py :: SkillOperations.apply
+--- src/laomedo/skills/operations/service.py::SkillOperations.apply
++++ src/laomedo/skills/operations/service.py::SkillOperations.apply
+@@ -27,12 +27,13 @@
+         self.store.revision(row['skill'], base['revision_id'])
+         after = dict(before)
+         for edit in operation.files:
+-            if edit.content is None:
++            content = edit.to_bytes(before)
++            if content is None:
+                 if edit.path not in after:
+                     raise laomedo.skills.registry.errors.SkillStoreError('skill_file_missing')
+                 del after[edit.path]
+             else:
+-                after[edit.path] = edit.content.encode()
++                after[edit.path] = content
+         if not laomedo.skills.authoring.summary.has_description(after.get('SKILL.md', b'').decode('utf-8-sig')):
+             raise laomedo.skills.registry.errors.SkillStoreError('skill_summary_required')
+         laomedo.skills.sources.bundle.validate_bundle(after)
+
+
+### PR 218 src/laomedo/skills/operations/service.py :: SkillOperations.history
+--- src/laomedo/skills/operations/service.py::SkillOperations.history
++++ src/laomedo/skills/operations/service.py::SkillOperations.history
+@@ -3,7 +3,11 @@
+     with self.connect() as db:
+         head = db.execute('SELECT id FROM heads WHERE skill=?', (skill_id,)).fetchone()
+         items, visited = ([], set())
+-        current = before or (head['id'] if head else None)
++        if not before and head is None:
++            db.execute('BEGIN IMMEDIATE')
++            current = self._import_head(db, skill_id)
++        else:
++            current = before or head['id']
+         while current and len(items) < 100:
+             if current in visited:
+                 raise laomedo.skills.registry.errors.SkillStoreError('skill_history_limit')
+
+
+### PR 218 src/laomedo/skills/operations/service.py :: SkillOperations.diff
+--- src/laomedo/skills/operations/service.py::SkillOperations.diff
++++ src/laomedo/skills/operations/service.py::SkillOperations.diff
+@@ -4,7 +4,7 @@
+         snapshot = laomedo.skills.inspection.utils.inspect_skill(self.store.root, skill_id, record['revision_id'])
+         parent = self._read(db, skill_id, record['parent_commit']) if record['parent_commit'] else None
+         after = laomedo.skills.registry.files.inventory(self.store._revision_dir(skill_id, snapshot['revision_id']) / 'bundle')
+-        before = laomedo.skills.registry.files.inventory(self.store._revision_dir(skill_id, parent['revision_id']) / 'bundle') if parent else after
++        before = laomedo.skills.registry.files.inventory(self.store._revision_dir(skill_id, parent['revision_id']) / 'bundle') if parent else after if not record['files'] and (not record['patch']) else {}
+         if parent:
+             laomedo.skills.inspection.utils.inspect_skill(self.store.root, skill_id, parent['revision_id'])
+         if laomedo.skills.registry.diff.patch_for(before, after) != record['patch']:
+
+
+### PR 218 src/laomedo/skills/registry/store.py :: SkillStore
+--- src/laomedo/skills/registry/store.py::SkillStore
++++ src/laomedo/skills/registry/store.py::SkillStore
+@@ -78,11 +78,66 @@
+             os.close(descriptor)
+             if (skill / 'latest.json').exists():
+                 raise laomedo.skills.registry.errors.ConflictError('skill_already_exists')
++            import_path = skill / 'import.json'
++            if import_path.exists():
++                imported = self._read_import(skill_id)
++                if laomedo.skills.registry.hashing.tree_hash(laomedo.skills.registry.files.inventory(source)) != imported.revision_id:
++                    raise laomedo.skills.registry.errors.ConflictError('skill_already_exists')
++            else:
++                imported = None
+             record = self._store_revision(skill_id, source, None)
++            if imported is not None:
++                if imported.revision_id != record['revision_id']:
++                    raise laomedo.skills.registry.errors.ConflictError('skill_already_exists')
++            else:
++                imported = laomedo.skills.registry.models.SkillImportRecord.create(skill_id, record['revision_id'])
++                laomedo.skills.registry.files.write_json(import_path, imported.model_dump())
+             laomedo.skills.registry.files.write_json(skill / 'latest.json', {'revision_id': record['revision_id'], 'tree_hash': record['tree_hash']})
+             return record
+         finally:
+             lock.unlink(missing_ok=True)
++
++    def _read_import(self, skill_id: str) -> laomedo.skills.registry.models.SkillImportRecord:
++        try:
++            imported = laomedo.skills.registry.models.SkillImportRecord(**laomedo.skills.registry.files.read_json(self._skill(skill_id) / 'import.json'))
++        except (pydantic.ValidationError, ValueError):
++            raise laomedo.skills.registry.errors.SkillStoreError('revision_integrity_failure') from None
++        root = self.revision(skill_id, imported.revision_id)
++        if imported.skill_id != skill_id or root['parent_revision'] is not None:
++            raise laomedo.skills.registry.errors.SkillStoreError('revision_integrity_failure')
++        return imported
++
++    def import_record(self, skill_id: str) -> laomedo.skills.registry.models.SkillImportRecord:
++        skill = self._skill(skill_id)
++        if (skill / 'import.json').exists():
++            return self._read_import(skill_id)
++        lock = skill / 'import.lock'
++        try:
++            descriptor = os.open(lock, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 384)
++        except FileExistsError:
++            raise laomedo.skills.registry.errors.ConflictError('import_busy') from None
++        try:
++            os.close(descriptor)
++            if (skill / 'import.json').exists():
++                return self._read_import(skill_id)
++            root = self.revision_lineage(skill_id)[0]
++            imported = laomedo.skills.registry.models.SkillImportRecord.create(skill_id, root['revision_id'], legacy=True)
++            laomedo.skills.registry.files.write_json(skill / 'import.json', imported.model_dump())
++            return imported
++        finally:
++            lock.unlink(missing_ok=True)
++
++    def revision_lineage(self, skill_id: str) -> list[dict]:
++        current = self.revision(skill_id)
++        revisions, visited = ([], set())
++        while True:
++            if current['revision_id'] in visited:
++                raise laomedo.skills.registry.errors.SkillStoreError('revision_integrity_failure')
++            visited.add(current['revision_id'])
++            revisions.append(current)
++            if current['parent_revision'] is None:
++                return list(reversed(revisions))
++            current = self.revision(skill_id, current['parent_revision'])
+ 
+     def revision(self, skill_id: str, revision_id: str | None=None) -> dict:
+         if revision_id is None:
+
+
+### PR 218 src/laomedo/skills/registry/store.py :: SkillStore.import_skill
+--- src/laomedo/skills/registry/store.py::SkillStore.import_skill
++++ src/laomedo/skills/registry/store.py::SkillStore.import_skill
+@@ -14,7 +14,20 @@
+         os.close(descriptor)
+         if (skill / 'latest.json').exists():
+             raise laomedo.skills.registry.errors.ConflictError('skill_already_exists')
++        import_path = skill / 'import.json'
++        if import_path.exists():
++            imported = self._read_import(skill_id)
++            if laomedo.skills.registry.hashing.tree_hash(laomedo.skills.registry.files.inventory(source)) != imported.revision_id:
++                raise laomedo.skills.registry.errors.ConflictError('skill_already_exists')
++        else:
++            imported = None
+         record = self._store_revision(skill_id, source, None)
++        if imported is not None:
++            if imported.revision_id != record['revision_id']:
++                raise laomedo.skills.registry.errors.ConflictError('skill_already_exists')
++        else:
++            imported = laomedo.skills.registry.models.SkillImportRecord.create(skill_id, record['revision_id'])
++            laomedo.skills.registry.files.write_json(import_path, imported.model_dump())
+         laomedo.skills.registry.files.write_json(skill / 'latest.json', {'revision_id': record['revision_id'], 'tree_hash': record['tree_hash']})
+         return record
+     finally:
+
+
+### PR 220 src/laomedo/agents/agents/opencode/activity/projection.py :: project
+--- src/laomedo/agents/agents/opencode/activity/projection.py::project
++++ src/laomedo/agents/agents/opencode/activity/projection.py::project
+@@ -186,4 +186,4 @@
+         turn_usage = {key: sum((value[key] for value in values)) for key in values[0]} if not export_incomplete and values and all((value is not None for value in values)) else None
+         turn_cost = laomedo.agents.agents.opencode.activity.projection.sum_costs(turn_costs.get((thread, turn_id), []), models.get(thread)) if turn_usage is not None else {'amount': None}
+         projected_turns.append({**lane, 'usage': turn_usage, 'cost': turn_cost})
+-    return {'turns': projected_turns, 'items': sorted(items, key=lambda item: item['started']), 'threads': [{'id': thread, 'parent': parent, **({'title': titles[thread]} if thread in titles else {})} for thread, parent in parents.items()], 'usage': usage, 'usage_by_thread': per_thread, 'usage_points': points, 'telemetry': telemetry, 'telemetry_coverage': 'observed adapter OTLP spans from native OpenCode records; completeness reported on invocation' if telemetry else 'not observed; historical/native OpenCode HTTP message snapshots may have no telemetry', 'uncorrelated_thread_count': 0, 'clock': 'native message timestamps; runner receipt fallback', 'cost': cost, 'cost_reason': cost.get('reason') or cost['basis']}+    return laomedo.agents.activity.models.ActivityProjection(turns=projected_turns, items=sorted(items, key=lambda item: item['started']), threads=[{'id': thread, 'parent': parent, **({'title': titles[thread]} if thread in titles else {})} for thread, parent in parents.items()], usage=usage, usage_by_thread=per_thread, usage_points=points, telemetry=telemetry, telemetry_coverage='observed adapter OTLP spans from native OpenCode records; completeness reported on invocation' if telemetry else 'not observed; historical/native OpenCode HTTP message snapshots may have no telemetry', uncorrelated_thread_count=0, clock='native message timestamps; runner receipt fallback', cost=cost, cost_reason=cost.get('reason') or cost['basis']).to_usage_first_payload()
+
+### PR 220 src/laomedo/github/issues/gateway.py :: GitHubIssueGateway
+--- src/laomedo/github/issues/gateway.py::GitHubIssueGateway
++++ src/laomedo/github/issues/gateway.py::GitHubIssueGateway
+@@ -69,7 +69,10 @@
+                     raise ValueError()
+             except Exception:
+                 raise ValueError('issue_grant_unavailable') from None
+-            input_hash = laomedo.github.contract.issue_digest(laomedo.github.models.GitHubOperationIntent(repository=repository, number=issue_number, labels=labels, state=state, operation=operation, binding=laomedo.github.models.GitHubGrantBinding(grant_id=authenticated['grant_id'], run_id=authenticated['run_id'])).to_payload())
++            try:
++                input_hash = laomedo.github.contract.issue_digest(laomedo.github.models.GitHubOperationIntent(repository=repository, number=issue_number, labels=labels, state=state, operation=operation, binding=laomedo.github.models.GitHubGrantBinding(grant_id=authenticated['grant_id'], run_id=authenticated['run_id'])).to_payload())
++            except ValueError:
++                raise ValueError('issue_grant_unavailable') from None
+             with contextlib.closing(self.mediation._connect()) as db, db:
+                 prior = db.execute('SELECT input_hash,payload,result FROM issue_node_intents WHERE grant_ref=? AND request_id=?', key).fetchone()
+             if prior:
+
+
+### PR 220 src/laomedo/github/issues/gateway.py :: GitHubIssueGateway.execute
+--- src/laomedo/github/issues/gateway.py::GitHubIssueGateway.execute
++++ src/laomedo/github/issues/gateway.py::GitHubIssueGateway.execute
+@@ -32,7 +32,10 @@
+                 raise ValueError()
+         except Exception:
+             raise ValueError('issue_grant_unavailable') from None
+-        input_hash = laomedo.github.contract.issue_digest(laomedo.github.models.GitHubOperationIntent(repository=repository, number=issue_number, labels=labels, state=state, operation=operation, binding=laomedo.github.models.GitHubGrantBinding(grant_id=authenticated['grant_id'], run_id=authenticated['run_id'])).to_payload())
++        try:
++            input_hash = laomedo.github.contract.issue_digest(laomedo.github.models.GitHubOperationIntent(repository=repository, number=issue_number, labels=labels, state=state, operation=operation, binding=laomedo.github.models.GitHubGrantBinding(grant_id=authenticated['grant_id'], run_id=authenticated['run_id'])).to_payload())
++        except ValueError:
++            raise ValueError('issue_grant_unavailable') from None
+         with contextlib.closing(self.mediation._connect()) as db, db:
+             prior = db.execute('SELECT input_hash,payload,result FROM issue_node_intents WHERE grant_ref=? AND request_id=?', key).fetchone()
+         if prior:
+
+
+### PR 220 src/laomedo/github/pull_requests/gateway.py :: GitHubPRGateway
+--- src/laomedo/github/pull_requests/gateway.py::GitHubPRGateway
++++ src/laomedo/github/pull_requests/gateway.py::GitHubPRGateway
+@@ -19,7 +19,7 @@
+                 target = db.execute('SELECT base FROM pr_targets WHERE grant_id=? AND number=?', (grant['grant_id'], pr['number'])).fetchone()
+             if binding['run_id'] != grant['run_id'] or target is None or target['base'] != pr['base'] or (grant['branch'] != pr['head']['branch']) or (pr['head']['repository'] != pr['repository']):
+                 raise ValueError()
+-            return laomedo.github.pull_requests.contract.pr_digest({'grant_id': grant['grant_id'], 'run_id': grant['run_id'], 'token_hash': hashlib.sha256(binding['token'].encode()).hexdigest()})
++            return laomedo.github.contract.issue_digest({'grant_id': grant['grant_id'], 'run_id': grant['run_id'], 'token_hash': hashlib.sha256(binding['token'].encode()).hexdigest()})
+         except Exception:
+             raise ValueError('pr_grant_unavailable') from None
+ 
+@@ -130,7 +130,10 @@
+                     raise ValueError()
+             except Exception:
+                 raise ValueError('pr_grant_unavailable') from None
+-            input_hash = laomedo.github.pull_requests.contract.pr_digest(laomedo.github.models.GitHubOperationIntent(repository=repository, number=pr_number, labels=labels, state=state, operation=operation, binding=laomedo.github.models.GitHubGrantBinding(grant_id=authenticated['grant_id'], run_id=authenticated['run_id'])).to_payload())
++            try:
++                input_hash = laomedo.github.contract.issue_digest(laomedo.github.models.GitHubOperationIntent(repository=repository, number=pr_number, labels=labels, state=state, operation=operation, binding=laomedo.github.models.GitHubGrantBinding(grant_id=authenticated['grant_id'], run_id=authenticated['run_id'])).to_payload())
++            except ValueError:
++                raise ValueError('pr_grant_unavailable') from None
+             with contextlib.closing(self.mediation._connect()) as db, db:
+                 prior = db.execute('SELECT input_hash,payload,result FROM pr_node_intents WHERE grant_ref=? AND request_id=?', key).fetchone()
+             if prior:
+@@ -148,9 +151,9 @@
+             raise ValueError('selected_pr_no_longer_matches')
+         if operation is None:
+             return self._result(pr, 'not_requested')
+-        if expected is not None and laomedo.github.pull_requests.contract.pr_digest(pr) != expected:
++        if expected is not None and laomedo.github.contract.issue_digest(pr) != expected:
+             raise ValueError('pr_changed_since_agent_read')
+-        payload = json.loads(prior[1]) if prior else {'number': pr_number, 'changes': changes, 'expected': laomedo.github.pull_requests.contract.pr_digest(pr), 'head': pr['head']['branch'], 'base': pr['base']}
++        payload = json.loads(prior[1]) if prior else {'number': pr_number, 'changes': changes, 'expected': laomedo.github.contract.issue_digest(pr), 'head': pr['head']['branch'], 'base': pr['base']}
+         if prior is None:
+             with contextlib.closing(self.mediation._connect()) as db, db:
+                 db.execute('BEGIN IMMEDIATE')
+@@ -185,4 +188,4 @@
+ 
+     @staticmethod
+     def _result(pr, status, category=None):
+-        return {'schema_version': 'laomedo.github-pr.v1', 'pr': pr, 'fetched_at': datetime.datetime.now(datetime.timezone.utc).isoformat(), 'content_digest': laomedo.github.pull_requests.contract.pr_digest(pr) if pr else None, 'operation': {'status': status, 'error_category': category}}+        return {'schema_version': 'laomedo.github-pr.v1', 'pr': pr, 'fetched_at': datetime.datetime.now(datetime.timezone.utc).isoformat(), 'content_digest': laomedo.github.contract.issue_digest(pr) if pr else None, 'operation': {'status': status, 'error_category': category}}
+
+### PR 220 src/laomedo/github/pull_requests/gateway.py :: GitHubPRGateway.execute
+--- src/laomedo/github/pull_requests/gateway.py::GitHubPRGateway.execute
++++ src/laomedo/github/pull_requests/gateway.py::GitHubPRGateway.execute
+@@ -34,7 +34,10 @@
+                 raise ValueError()
+         except Exception:
+             raise ValueError('pr_grant_unavailable') from None
+-        input_hash = laomedo.github.pull_requests.contract.pr_digest(laomedo.github.models.GitHubOperationIntent(repository=repository, number=pr_number, labels=labels, state=state, operation=operation, binding=laomedo.github.models.GitHubGrantBinding(grant_id=authenticated['grant_id'], run_id=authenticated['run_id'])).to_payload())
++        try:
++            input_hash = laomedo.github.contract.issue_digest(laomedo.github.models.GitHubOperationIntent(repository=repository, number=pr_number, labels=labels, state=state, operation=operation, binding=laomedo.github.models.GitHubGrantBinding(grant_id=authenticated['grant_id'], run_id=authenticated['run_id'])).to_payload())
++        except ValueError:
++            raise ValueError('pr_grant_unavailable') from None
+         with contextlib.closing(self.mediation._connect()) as db, db:
+             prior = db.execute('SELECT input_hash,payload,result FROM pr_node_intents WHERE grant_ref=? AND request_id=?', key).fetchone()
+         if prior:
+@@ -52,9 +55,9 @@
+         raise ValueError('selected_pr_no_longer_matches')
+     if operation is None:
+         return self._result(pr, 'not_requested')
+-    if expected is not None and laomedo.github.pull_requests.contract.pr_digest(pr) != expected:
++    if expected is not None and laomedo.github.contract.issue_digest(pr) != expected:
+         raise ValueError('pr_changed_since_agent_read')
+-    payload = json.loads(prior[1]) if prior else {'number': pr_number, 'changes': changes, 'expected': laomedo.github.pull_requests.contract.pr_digest(pr), 'head': pr['head']['branch'], 'base': pr['base']}
++    payload = json.loads(prior[1]) if prior else {'number': pr_number, 'changes': changes, 'expected': laomedo.github.contract.issue_digest(pr), 'head': pr['head']['branch'], 'base': pr['base']}
+     if prior is None:
+         with contextlib.closing(self.mediation._connect()) as db, db:
+             db.execute('BEGIN IMMEDIATE')
+
+
+### PR 220 src/laomedo/host/credentials/siwc/models.py :: OAuthAuthorizationRequest
+--- src/laomedo/host/credentials/siwc/models.py::OAuthAuthorizationRequest
++++ src/laomedo/host/credentials/siwc/models.py::OAuthAuthorizationRequest
+@@ -1,7 +1,7 @@
+ class OAuthAuthorizationRequest(pydantic.BaseModel):
+     model_config = pydantic.ConfigDict(strict=True, frozen=True, extra='forbid', hide_input_in_errors=True)
+     client_id: str = pydantic.Field(description='Existing dynamic or previously enrolled client identity.')
+-    ext_agent_host_id: str = pydantic.Field(description='Existing app-owned host identity.')
++    ext_agent_host_id: pydantic.JsonValue = pydantic.Field(repr=False, exclude=True, description='Existing private host.json identity; preserve legacy JSON reader values and explicit query encoding.')
+     redirect_uri: str = pydantic.Field(description='Previously admitted local callback URI.')
+     scope: str = pydantic.Field(description='Existing requested OAuth scope string.')
+     resource: str = pydantic.Field(description='Existing resource audience.')
+
+
+### PR 220 src/laomedo/host/credentials/siwc/models.py :: OAuthAccount
+--- src/laomedo/host/credentials/siwc/models.py::OAuthAccount
++++ src/laomedo/host/credentials/siwc/models.py::OAuthAccount
+@@ -4,7 +4,7 @@
+     subject: str = pydantic.Field(repr=False, exclude=True, description='Verified account subject; private store only.')
+     issuer: str = pydantic.Field(description='Verified ID-token issuer.')
+     email: pydantic.JsonValue = pydantic.Field(repr=False, exclude=True, description='Legacy optional provider email claim, without stronger admission.')
+-    ext_agent_host_id: str = pydantic.Field(description='Existing app-owned host identity.')
++    ext_agent_host_id: pydantic.JsonValue = pydantic.Field(repr=False, exclude=True, description='Existing private host.json identity; preserve legacy JSON reader values and explicit query encoding.')
+     id_token: pydantic.SecretStr = pydantic.Field(repr=False, exclude=True, description='Verified ID token; private account store only.')
+     access_token: pydantic.SecretStr = pydantic.Field(repr=False, exclude=True, description='Admitted access credential; never ordinary dumps.')
+     refresh_token: pydantic.SecretStr = pydantic.Field(repr=False, exclude=True, description='Rotating credential; retained only by the host private store.')
+
+
+### PR 220 src/laomedo/host/leases/service.py :: LeaseService._publish_heartbeat
+--- src/laomedo/host/leases/service.py::LeaseService._publish_heartbeat
++++ src/laomedo/host/leases/service.py::LeaseService._publish_heartbeat
+@@ -1,3 +1,9 @@
+ def _publish_heartbeat(self) -> None:
+-    laomedo.host.leases.utils._write_float(self.state / 'service.alive', time.time())
+-    laomedo.host.leases.utils._write_float(self.state / 'service.alive.monotonic', time.monotonic())+    stage = 'service_wall'
++    try:
++        laomedo.host.leases.utils._write_float(self.state / 'service.alive', time.time())
++        stage = 'service_monotonic'
++        laomedo.host.leases.utils._write_float(self.state / 'service.alive.monotonic', time.monotonic())
++    except OSError as error:
++        laomedo.host.leases.utils.log_heartbeat_failure(stage, error)
++        raise
+
+### PR 222 src/laomedo/skills/operations/client.py :: skill_request
+--- src/laomedo/skills/operations/client.py::skill_request
++++ src/laomedo/skills/interface/operations/client.py::skill_request
+@@ -2,7 +2,7 @@
+     settings = laomedo.skills.interface.operations.settings.Settings()
+     base = settings.url.rstrip('/')
+     parsed = urllib.parse.urlsplit(base)
+-    if parsed.scheme != 'http' or parsed.hostname not in {'127.0.0.1', 'localhost', 'host.docker.internal'} or parsed.username or parsed.password or parsed.path or parsed.query or parsed.fragment or (action not in {'prepare', 'apply', 'history', 'diff', 'compare'}):
++    if parsed.scheme != 'http' or parsed.hostname not in {'127.0.0.1', 'localhost', 'host.docker.internal'} or parsed.username or parsed.password or parsed.path or parsed.query or parsed.fragment or (action not in {'prepare', 'apply', 'history', 'diff', 'compare', 'editor', 'save', 'publish'}):
+         raise ValueError('skill_operation_service_not_configured')
+     try:
+         token = pathlib.Path(settings.token_file).read_text().strip()
+@@ -17,5 +17,16 @@
+         if not isinstance(result, dict):
+             raise ValueError()
+         return result
++    except urllib.error.HTTPError as exc:
++        if action in {'editor', 'save', 'publish'}:
++            try:
++                raw = exc.read(1024)
++                code = json.loads(raw).get('error_category')
++            except Exception:
++                code = None
++            raise ValueError(code if code in laomedo.skills.operations.contract.MANUAL_ERROR_CODES else 'skill_manual_unavailable') from None
++        raise ValueError('skill_operation_unavailable') from None
+     except Exception:
++        if action in {'editor', 'save', 'publish'}:
++            raise ValueError('skill_manual_unavailable') from None
+         raise ValueError('skill_operation_unavailable') from None
+
+### PR 222 src/laomedo/skills/operations/handler.py :: SkillOperationRequestHandler
+NO DIRECT NORMALIZED OWNER: inspect native ACP retirement or explicit manual migration owner.
+{"pr": 222, "path": "src/laomedo/skills/operations/handler.py", "name": "SkillOperationRequestHandler", "line": 8, "disposition": "requires_contract_review", "canonical_owner_matches": [], "manual_contracts": []}
+
+### PR 222 src/laomedo/skills/operations/handler.py :: SkillOperationRequestHandler.do_POST
+NO DIRECT NORMALIZED OWNER: inspect native ACP retirement or explicit manual migration owner.
+{"pr": 222, "path": "src/laomedo/skills/operations/handler.py", "name": "SkillOperationRequestHandler.do_POST", "line": 23, "disposition": "requires_contract_review", "canonical_owner_matches": [], "manual_contracts": []}

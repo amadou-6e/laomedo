@@ -1,0 +1,1203 @@
+
+### PR 224 tests/test_http_handler_boundaries.py::HandlerStructureTests.test_reworked_modules_have_no_nested_classes_or_domain_module_aliases
+ORIGINAL METHOD
+def test_reworked_modules_have_no_nested_classes_or_domain_module_aliases(self):
+    paths = [SOURCE / HTTP_OWNERS[relative] / name for relative in HANDLERS for name in ('handler.py', 'server.py')]
+    paths += [SOURCE / path for path in ('github/interface/issues/client.py', 'github/interface/pull_requests/client.py', 'skills/interface/sources/client.py', 'skills/interface/operations/client.py', 'github/transport/rest/transport.py', 'integrations/langflow/join/transport.py', 'http/redirect.py')]
+    for path in paths:
+        tree = ast.parse(path.read_text())
+        top = {id(node) for node in tree.body}
+        self.assertFalse([node.name for node in ast.walk(tree) if isinstance(node, ast.ClassDef) and id(node) not in top], str(path))
+        self.assertFalse([alias.name for node in ast.walk(tree) if isinstance(node, ast.Import) for alias in node.names if alias.name.startswith('laomedo.')], str(path))
+
+
+### PR 224 tests/test_http_handler_boundaries.py::HandlerStructureTests.test_skill_clients_stay_domain_leafs_and_use_this_worktree
+ORIGINAL METHOD
+def test_skill_clients_stay_domain_leafs_and_use_this_worktree(self):
+    script = "\nimport importlib, pathlib, sys\nroot = pathlib.Path(sys.argv[1]).resolve()\nsys.path.insert(0, str(root / 'src'))\nfor name in ('laomedo.skills.interface.sources.client', 'laomedo.skills.interface.operations.client', 'laomedo.http.redirect'):\n    module = importlib.import_module(name)\n    assert pathlib.Path(module.__file__).resolve().is_relative_to(root), module.__file__\nfor prefix in ('laomedo.host', 'laomedo.agents', 'laomedo.github', 'laomedo.work_graph', 'langflow', 'lfx'):\n    assert not any(name == prefix or name.startswith(prefix + '.') for name in sys.modules), prefix\n"
+    result = subprocess.run([sys.executable, '-c', script, str(ROOT)], capture_output=True, text=True, timeout=60)
+    self.assertEqual(result.returncode, 0, result.stderr)
+
+
+### PR 224 tests/test_http_handler_boundaries.py::HandlerCatalogueTests.test_source_guard_follows_domain_passthrough_and_safe_fallbacks
+ORIGINAL METHOD
+def test_source_guard_follows_domain_passthrough_and_safe_fallbacks(self):
+    manifest = json.loads((ROOT / 'tests/contracts/node-http-error-boundaries.json').read_text())
+    observed = {'unauthorized', 'source_unavailable'}
+    for path in [*(SOURCE / 'skills/sources').glob('*.py'), SOURCE / 'skills/interface/sources/handler.py']:
+        for node in ast.walk(ast.parse(path.read_text())):
+            if not (isinstance(node, ast.Raise) and isinstance(node.exc, ast.Call) and node.exc.args):
+                continue
+            category = getattr(node.exc.func, 'id', getattr(node.exc.func, 'attr', ''))
+            argument = node.exc.args[0]
+            if category == 'SourceError':
+                self.assertIsInstance(argument, ast.Constant, str(path))
+                self.assertIsInstance(argument.value, str, str(path))
+            if category == 'SourceError' and isinstance(argument, ast.Constant) and isinstance(argument.value, str):
+                observed.add(argument.value)
+    self.assertEqual(observed, set(manifest['http_boundary_codes']['source_handler']))
+    self.assertEqual(manifest['internal_only']['operation_handler'], ['skill_request_invalid'])
+
+
+### PR 224 tests/test_http_handler_boundaries.py::HandlerCatalogueTests.test_handler_reply_literals_and_client_failures_cannot_escape_the_guard
+ORIGINAL METHOD
+def test_handler_reply_literals_and_client_failures_cannot_escape_the_guard(self):
+    manifest = json.loads((ROOT / 'tests/contracts/node-http-error-boundaries.json').read_text())
+    public = set().union(*map(set, {**manifest['http_boundary_codes'], **manifest['node_client_codes']}.values()))
+    for relative in HANDLERS:
+        path = SOURCE / HTTP_OWNERS[relative] / 'handler.py'
+        for node in ast.walk(ast.parse(path.read_text())):
+            if isinstance(node, ast.Dict):
+                for key, value in zip(node.keys, node.values):
+                    if isinstance(key, ast.Constant) and key.value == 'error_category' and isinstance(value, ast.Constant):
+                        self.assertIn(value.value, public, (relative, value.value))
+    for relative in ('skills/interface/sources/client.py', 'skills/interface/operations/client.py'):
+        for node in ast.walk(ast.parse((SOURCE / relative).read_text())):
+            if isinstance(node, ast.Raise) and isinstance(node.exc, ast.Call) and node.exc.args:
+                value = node.exc.args[0]
+                if isinstance(value, ast.Constant) and isinstance(value.value, str):
+                    self.assertIn(value.value, manifest['node_client_codes']['source_client' if relative.startswith('skills/interface/sources') else 'operation_client'], (relative, value.value))
+
+
+### PR 224 tests/test_live_github_issue.py::LiveGitHubIssueTests.test_loopback_service_auth_and_error_redaction
+ORIGINAL METHOD
+def test_loopback_service_auth_and_error_redaction(self):
+    import threading
+    from urllib import request
+    from urllib import error
+    from laomedo.github.interface.issues.server import IssueServer as server
+    token = 'dummy-control-' + 'x' * 40
+    service = server(self.gateway, token, port=0)
+    thread = threading.Thread(target=service.serve_forever, daemon=True)
+    thread.start()
+    self.addCleanup(service.server_close)
+    self.addCleanup(service.shutdown)
+    url = f'http://127.0.0.1:{service.server_address[1]}/v1/github-issues/discover'
+    payload = json.dumps({'repository_url': self.url, 'labels': [], 'state': 'open'}).encode()
+    with self.assertRaises(error.HTTPError) as rejected:
+        request.urlopen(request.Request(url, data=payload, headers={'Content-Type': 'application/json'}))
+    self.assertEqual(rejected.exception.code, 401)
+    rejected.exception.close()
+    call = request.Request(url, data=payload, headers={'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token})
+    data = json.load(request.urlopen(call))
+    self.assertEqual(len(data['issues']), 3)
+    self.assertNotIn('DUMMY-PROVIDER', json.dumps(data))
+
+CURRENT CANDIDATE tests/test_github/test_interface/test_issues/test_http.py::IssueHTTPTests.test_loopback_service_auth_and_error_redaction
+def test_loopback_service_auth_and_error_redaction(self):
+    import threading
+    from urllib import request
+    from urllib import error
+    from laomedo.github.interface.issues.server import IssueServer as server
+    token = 'dummy-control-' + 'x' * 40
+    service = server(self.case.gateway, token, port=0)
+    thread = threading.Thread(target=service.serve_forever, daemon=True)
+    thread.start()
+    self.addCleanup(service.server_close)
+    self.addCleanup(service.shutdown)
+    url = f'http://127.0.0.1:{service.server_address[1]}/v1/github-issues/discover'
+    payload = json.dumps({'repository_url': self.case.url, 'labels': [], 'state': 'open'}).encode()
+    with self.assertRaises(error.HTTPError) as rejected:
+        request.urlopen(request.Request(url, data=payload, headers={'Content-Type': 'application/json'}))
+    self.assertEqual(rejected.exception.code, 401)
+    rejected.exception.close()
+    call = request.Request(url, data=payload, headers={'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token})
+    data = json.load(request.urlopen(call))
+    self.assertEqual(len(data['issues']), 3)
+    self.assertNotIn('DUMMY-PROVIDER', json.dumps(data))
+
+
+### PR 224 tests/test_live_github_issue.py::LiveGitHubIssueTests.test_client_uncertain_delivery_and_bad_responses_are_not_rejections
+ORIGINAL METHOD
+def test_client_uncertain_delivery_and_bad_responses_are_not_rejections(self):
+    import io
+    from unittest.mock import patch
+    from unittest.mock import MagicMock
+    from urllib.error import HTTPError
+    from laomedo.github.interface.issues.client import issue_request
+    token_file = Path(self.temp.name) / 'dummy-control-token'
+    token_file.write_text('x' * 40, encoding='utf-8')
+    env = {'LAOMEDO_GITHUB_ISSUE_URL': 'http://127.0.0.1:8783', 'LAOMEDO_GITHUB_ISSUE_TOKEN_FILE': str(token_file)}
+    payload = dict(repository_url=self.url, labels=[], state='open', issue_number=1, operation={'action': 'close', 'request_id': 'uncertain', 'grant_ref': 'grant'})
+    with patch.dict('os.environ', env), patch('laomedo.github.interface.issues.client.request.build_opener') as opener:
+        for failure in (TimeoutError('dummy-secret'), ConnectionResetError(), HTTPError('http://127.0.0.1', 503, 'dummy-secret', {}, io.BytesIO(b'{"error_category":"invalid_request"}'))):
+            opener.return_value.open.side_effect = failure
+            with self.assertRaisesRegex(ValueError, '^issue_write_unknown$'):
+                issue_request('execute', **payload)
+        opener.return_value.open.side_effect = None
+        response = MagicMock()
+        response.__enter__.return_value.read.return_value = b'[]'
+        opener.return_value.open.return_value = response
+        with self.assertRaisesRegex(ValueError, '^issue_write_unknown$'):
+            issue_request('execute', **payload)
+        opener.return_value.open.side_effect = HTTPError('http://127.0.0.1', 400, '', {}, io.BytesIO(b'{"error_category":"issue_grant_unavailable"}'))
+        with self.assertRaisesRegex(ValueError, '^issue_grant_unavailable$'):
+            issue_request('execute', **payload)
+
+CURRENT CANDIDATE tests/test_github/test_interface/test_issues/test_http.py::IssueHTTPTests.test_client_uncertain_delivery_and_bad_responses_are_not_rejections
+def test_client_uncertain_delivery_and_bad_responses_are_not_rejections(self):
+    import io
+    from unittest.mock import patch
+    from unittest.mock import MagicMock
+    from urllib.error import HTTPError
+    from laomedo.github.interface.issues.client import issue_request
+    token_file = Path(self.temp.name) / 'dummy-control-token'
+    token_file.write_text('x' * 40, encoding='utf-8')
+    env = {'LAOMEDO_GITHUB_ISSUE_URL': 'http://127.0.0.1:8783', 'LAOMEDO_GITHUB_ISSUE_TOKEN_FILE': str(token_file)}
+    payload = dict(repository_url=self.case.url, labels=[], state='open', issue_number=1, operation={'action': 'close', 'request_id': 'uncertain', 'grant_ref': 'grant'})
+    with patch.dict('os.environ', env), patch('laomedo.github.interface.issues.client.request.build_opener') as opener:
+        for failure in (TimeoutError('dummy-secret'), ConnectionResetError(), HTTPError('http://127.0.0.1', 503, 'dummy-secret', {}, io.BytesIO(b'{"error_category":"invalid_request"}'))):
+            opener.return_value.open.side_effect = failure
+            with self.assertRaisesRegex(ValueError, '^issue_write_unknown$'):
+                issue_request('execute', **payload)
+        opener.return_value.open.side_effect = None
+        response = MagicMock()
+        response.__enter__.return_value.read.return_value = b'[]'
+        opener.return_value.open.return_value = response
+        with self.assertRaisesRegex(ValueError, '^issue_write_unknown$'):
+            issue_request('execute', **payload)
+        opener.return_value.open.side_effect = HTTPError('http://127.0.0.1', 400, '', {}, io.BytesIO(b'{"error_category":"issue_grant_unavailable"}'))
+        with self.assertRaisesRegex(ValueError, '^issue_grant_unavailable$'):
+            issue_request('execute', **payload)
+
+
+### PR 224 tests/test_live_github_issue.py::LiveGitHubIssueTests.test_server_unexpected_write_exception_is_unknown_not_rejected
+ORIGINAL METHOD
+def test_server_unexpected_write_exception_is_unknown_not_rejected(self):
+    import threading
+    from urllib import request
+    from urllib import error
+    from unittest.mock import patch
+    from laomedo.github.interface.issues.server import IssueServer as server
+    token = 'x' * 40
+    service = server(self.gateway, token, port=0)
+    threading.Thread(target=service.serve_forever, daemon=True).start()
+    self.addCleanup(service.server_close)
+    self.addCleanup(service.shutdown)
+    body = dict(repository_url=self.url, labels=[], state='open', issue_number=1, operation={'action': 'close', 'request_id': 'server-error', 'grant_ref': 'grant'})
+    call = request.Request(f'http://127.0.0.1:{service.server_address[1]}/v1/github-issues/execute', data=json.dumps(body).encode(), headers={'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token})
+    with patch.object(self.gateway, 'execute', side_effect=RuntimeError('dummy-secret')):
+        with self.assertRaises(error.HTTPError) as caught:
+            request.urlopen(call)
+        self.assertEqual(caught.exception.code, 503)
+        self.assertEqual(json.load(caught.exception), {'error_category': 'issue_write_unknown'})
+
+CURRENT CANDIDATE tests/test_github/test_interface/test_issues/test_http.py::IssueHTTPTests.test_server_unexpected_write_exception_is_unknown_not_rejected
+def test_server_unexpected_write_exception_is_unknown_not_rejected(self):
+    import threading
+    from urllib import request
+    from urllib import error
+    from unittest.mock import patch
+    from laomedo.github.interface.issues.server import IssueServer as server
+    token = 'x' * 40
+    service = server(self.case.gateway, token, port=0)
+    threading.Thread(target=service.serve_forever, daemon=True).start()
+    self.addCleanup(service.server_close)
+    self.addCleanup(service.shutdown)
+    body = dict(repository_url=self.case.url, labels=[], state='open', issue_number=1, operation={'action': 'close', 'request_id': 'server-error', 'grant_ref': 'grant'})
+    call = request.Request(f'http://127.0.0.1:{service.server_address[1]}/v1/github-issues/execute', data=json.dumps(body).encode(), headers={'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token})
+    with patch.object(self.case.gateway, 'execute', side_effect=RuntimeError('dummy-secret')):
+        with self.assertRaises(error.HTTPError) as caught:
+            request.urlopen(call)
+        self.assertEqual(caught.exception.code, 503)
+        self.assertEqual(json.load(caught.exception), {'error_category': 'issue_write_unknown'})
+
+
+### PR 224 tests/test_module_path_migration_bytes.py::MigrationFileTests.test_actual_baseline_stale_components_are_refused_or_left_untouched
+ORIGINAL METHOD
+def test_actual_baseline_stale_components_are_refused_or_left_untouched(self):
+    path = Path(__file__).with_name('fixtures') / 'module-refactor-stale-components.json'
+    cases = json.loads(path.read_text(encoding='utf-8'))
+    self.assertTrue(cases)
+    for case in cases:
+        with self.subTest(source=case['source_file'], node=case['node_id']):
+            code, stored = (case['code'], case['code_hash'])
+            imported = {name for node in ast.walk(ast.parse(code)) for name in ([node.module or ''] if isinstance(node, ast.ImportFrom) else [item.name for item in node.names] if isinstance(node, ast.Import) else [])}
+            requires_migration = case['requires_code_migration'] or any((module in imported and '.interface.' in target for module, target in migration.MODULE_PATHS.items()))
+            self.assertNotEqual(sha256(code.encode('utf-8')).hexdigest()[:12], stored)
+            self.assertEqual(migration.migrate_source(code) != code, requires_migration)
+            graph = {'nodes': [{'data': {'node': {'metadata': {'code_hash': stored}, 'template': {'code': {'value': code}}}}}]}
+            if requires_migration:
+                with self.assertRaisesRegex(migration.ManualMigrationRequired, 'does not match its original source'):
+                    migration.migrate_value(graph)
+            else:
+                self.assertEqual(migration.migrate_value(graph), graph)
+
+
+### PR 224 tests/test_public_http_interfaces.py::PublicHttpInterfaceTests.test_moved_bodies_and_source_policy_preserve_the_exact_baseline
+ORIGINAL METHOD
+def test_moved_bodies_and_source_policy_preserve_the_exact_baseline(self):
+    manifest = json.loads((ROOT / 'tests/contracts/interfaces-23cb115.json').read_text())
+    self.assertEqual(manifest['baseline'], '23cb11505c46ab24715055ad2abc09f3b1565d4f')
+    self.assertEqual(len(manifest['modules']), 21)
+    for record in manifest['modules']:
+        path = ROOT.joinpath('src', *record['new_module'].split('.')).with_suffix('.py')
+        self.assertEqual(CONTRACTS['source_digest'](path.read_text(), selection=record['selection']), record['body_sha256'], record['new_module'])
+
+
+### PR 224 tests/test_public_http_interfaces.py::PublicHttpInterfaceTests.test_maps_end_at_defining_interfaces_and_cli_commands_not_server_classes
+ORIGINAL METHOD
+def test_maps_end_at_defining_interfaces_and_cli_commands_not_server_classes(self):
+    self.assertFalse(set(MIGRATION['MODULE_PATHS']) & set(MIGRATION['MODULE_PATHS'].values()))
+    for old, new in CONTRACTS['module_pairs']():
+        if old == 'laomedo.skills.sources.settings':
+            self.assertNotIn(old, MIGRATION['MODULE_PATHS'])
+            self.assertEqual(MIGRATION['SYMBOL_PATHS'][old + '.Settings'], new + '.Settings')
+            self.assertFalse(hasattr(importlib.import_module(old), 'Settings'))
+        else:
+            self.assertEqual(MIGRATION['MODULE_PATHS'][old], new)
+            self.assertFalse(ROOT.joinpath('src', *old.split('.')).with_suffix('.py').exists())
+            self.assertFalse(any((value == old or value.startswith(old + '.') for value in MIGRATION['MODULE_PATHS'].values())))
+    for group in ('github.issues', 'github.pull_requests', 'skills.sources', 'skills.operations'):
+        owner, feature = group.split('.')
+        old = f'laomedo.{group}.server'
+        server = f'laomedo.{owner}.interface.{feature}.server'
+        cli = f'laomedo.{owner}.interface.{feature}.cli'
+        self.assertEqual(MIGRATION['MODULE_PATHS'][old], server)
+        self.assertEqual(MIGRATION['CLI_PATHS'][old], cli)
+        self.assertIn('-m ' + cli, MIGRATION['migrate_source']('python -m ' + old))
+
+
+### PR 224 tests/test_public_http_interfaces.py::PublicHttpInterfaceTests.test_example_patch_targets_and_viewer_commands_use_current_interfaces
+ORIGINAL METHOD
+def test_example_patch_targets_and_viewer_commands_use_current_interfaces(self):
+    for path in ROOT.joinpath('examples').rglob('*.py'):
+        for node in ast.walk(ast.parse(path.read_text(encoding='utf-8-sig'))):
+            if not isinstance(node, ast.Call) or not node.args:
+                continue
+            if not isinstance(node.func, ast.Name) or node.func.id != 'patch':
+                continue
+            target = node.args[0]
+            if not isinstance(target, ast.Constant) or not isinstance(target.value, str):
+                continue
+            for retired in MIGRATION['MODULE_PATHS']:
+                self.assertFalse(target.value.startswith(retired + '.'), (path, target.value))
+    current = 'laomedo.skills.interface.sources.cli'
+    for relative in ('frontend/langflow-skill-viewer/SOURCE-DEPLOYMENT.md', 'frontend/langflow-skill-viewer/README.md'):
+        text = ROOT.joinpath(relative).read_text()
+        self.assertIn(current, text, relative)
+        self.assertNotIn('laomedo.skills.sources.cli', text, relative)
+    target = 'laomedo.github.interface.pull_requests.client.pr_request'
+    with patch(target) as request:
+        from laomedo.github.interface.pull_requests.client import pr_request
+        self.assertIs(pr_request, request)
+
+
+### PR 224 tests/test_public_http_interfaces.py::PublicHttpInterfaceTests.test_partial_source_settings_migration_is_symbol_specific_and_fail_closed
+ORIGINAL METHOD
+def test_partial_source_settings_migration_is_symbol_specific_and_fail_closed(self):
+    old = 'laomedo.skills.sources.settings'
+    new = 'laomedo.skills.interface.sources.settings'
+    for source in (f'from {old} import Settings\nvalue = Settings()\n', f'import {old} as settings\nvalue = settings.Settings()\n', 'from laomedo.skills.sources import settings\nvalue = settings.Settings()\n'):
+        migrated = MIGRATION['migrate_source'](source)
+        self.assertIn(new, migrated)
+        self.assertEqual(MIGRATION['migrate_source'](migrated), migrated)
+    for source in (f'from {old} import *\n', f"import {old} as settings\nvalue = getattr(settings, 'Settings')\n", f'import {old} as settings\nvalue = getattr(settings, selected)\n', f'import {old}\nvalue = {old}.Settings()\n'):
+        with self.assertRaises(MIGRATION['ManualMigrationRequired']):
+            MIGRATION['migrate_source'](source)
+    for source in (f'from {old} import SKIP\nvalue = SKIP\n', f'import {old} as settings\nvalue = settings.MAX_ENTRIES\n', f"import {old} as settings\nvalue = getattr(settings, 'SKIP')\n"):
+        self.assertEqual(MIGRATION['migrate_source'](source), source)
+
+
+### PR 224 tests/test_public_http_interfaces.py::PublicHttpInterfaceTests.test_client_imports_are_leafs_and_cli_help_never_starts_a_service
+ORIGINAL METHOD
+def test_client_imports_are_leafs_and_cli_help_never_starts_a_service(self):
+    script = "import importlib, pathlib, sys\nroot = pathlib.Path(sys.argv[1])\nsys.path.insert(0, str(root / 'src'))\nfor group in ('github.interface.issues', 'github.interface.pull_requests', 'skills.interface.sources', 'skills.interface.operations'):\n    module = importlib.import_module('laomedo.' + group + '.client')\n    if not pathlib.Path(module.__file__).resolve().is_relative_to(root):\n        raise AssertionError(module.__file__)\nfor prefix in ('laomedo.host', 'laomedo.agents', 'langflow', 'lfx'):\n    if any(name == prefix or name.startswith(prefix + '.') for name in sys.modules):\n        raise AssertionError(prefix)\n"
+    completed = subprocess.run([sys.executable, '-c', script, str(ROOT)], capture_output=True, text=True, timeout=60)
+    self.assertEqual(completed.returncode, 0, completed.stderr)
+    environment = dict(os.environ, PYTHONPATH=str(ROOT / 'src'))
+    for group in ('github.interface.issues', 'github.interface.pull_requests', 'skills.interface.sources', 'skills.interface.operations'):
+        completed = subprocess.run([sys.executable, '-m', 'laomedo.' + group + '.cli', '--help'], capture_output=True, text=True, timeout=60, env=environment)
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertIn('--api-token-file', completed.stdout)
+
+
+### PR 224 tests/test_public_http_interfaces.py::PublicHttpInterfaceTests.test_changed_modules_use_direct_symbols_without_new_nested_classes
+ORIGINAL METHOD
+def test_changed_modules_use_direct_symbols_without_new_nested_classes(self):
+    paths = [ROOT.joinpath('src', *new.split('.')).with_suffix('.py') for _, new in CONTRACTS['module_pairs']()]
+    paths.append(ROOT / 'tools/capture_interface_contracts.py')
+    for path in paths:
+        tree = ast.parse(path.read_text())
+        self.assertFalse([node for node in ast.walk(tree) if isinstance(node, ast.Import) and any((item.name.startswith('laomedo.') and item.asname for item in node.names))], path)
+        top = {id(node) for node in tree.body}
+        self.assertFalse([node.name for node in ast.walk(tree) if isinstance(node, ast.ClassDef) and id(node) not in top], path)
+        self.assertFalse(any((isinstance(node, ast.ClassDef) for node in ast.walk(tree))) and any((isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) for node in tree.body)), path)
+
+
+### PR 224 tests/test_public_http_interfaces.py::PublicHttpInterfaceTests.test_maintained_graph_tokens_migrate_without_altering_other_values
+ORIGINAL METHOD
+def test_maintained_graph_tokens_migrate_without_altering_other_values(self):
+    history = json.loads((ROOT / 'examples/agent-module-history.json').read_text())
+    immutable = {record['historical_original'] for record in history['files']}
+    immutable.update({'examples/github-pr/original-agent/historical-flow-before-skill-input.json', 'examples/skill-operations/historical-flow-before-skill-input.json'})
+    for path in (ROOT / 'examples').rglob('*.json'):
+        if path.relative_to(ROOT).as_posix() in immutable:
+            continue
+        source = path.read_text(encoding='utf-8-sig')
+        self.assertEqual(MIGRATION['migrate_json_source'](source), source, path)
+
+
+### PR 224 tests/test_public_http_interfaces.py::PublicHttpInterfaceTests.test_template_revisions_preserve_every_other_graph_value_and_component_body
+ORIGINAL METHOD
+def test_template_revisions_preserve_every_other_graph_value_and_component_body(self):
+    manifest = json.loads((ROOT / 'tests/contracts/interface-template-revisions-23cb115.json').read_text())
+    self.assertEqual(len(manifest['files']), 11)
+    self.assertEqual(sum((len(item['nodes']) for item in manifest['files'])), 14)
+    for record in manifest['files']:
+        graph = json.loads((ROOT / record['path']).read_text())
+        nodes = graph.get('nodes', graph.get('data', {}).get('nodes', []))
+        for revision in record['nodes']:
+            node = nodes[revision['index']]
+            self.assertEqual(node.get('id'), revision['node_id'])
+            definition = node['data']['node']
+            code = definition['template']['code']['value']
+            self.assertEqual(hashlib.sha256(code.encode()).hexdigest(), revision['source_after_sha256'])
+            self.assertEqual(CONTRACTS['source_digest'](code), revision['body_sha256'])
+            if revision['had_code_hash']:
+                self.assertEqual(definition['metadata']['code_hash'], revision['source_after_sha256'][:12])
+                definition['metadata']['code_hash'] = 'C3_RELOCATED_COMPONENT_HASH'
+            definition['template']['code']['value'] = 'C3_RELOCATED_COMPONENT_SOURCE'
+        encoded = json.dumps(graph, sort_keys=True, separators=(',', ':'), ensure_ascii=False).encode()
+        self.assertEqual(hashlib.sha256(encoded).hexdigest(), record['unchanged_graph_values_sha256'], record['path'])
+
+
+### PR 224 tests/test_public_http_interfaces.py::PublicHttpInterfaceTests.test_defining_error_guard_follows_current_interface_sources
+ORIGINAL METHOD
+def test_defining_error_guard_follows_current_interface_sources(self):
+    source = (ROOT / 'tests/test_http_handler_boundaries.py').read_text()
+    for group in ('github', 'skills'):
+        self.assertIn(group + '/interface/', source)
+    self.assertIn('SOURCE / "skills/interface/sources/handler.py"', source)
+    source_policy = importlib.import_module('laomedo.skills.sources.settings')
+    self.assertEqual(source_policy.MAX_ENTRIES, 4096)
+    self.assertIn('.git', source_policy.SKIP)
+    self.assertIn('.env', source_policy.SECRET)
+
+
+### PR 224 tests/test_settings_contracts.py::SettingsContractTests.test_raw_environment_boundaries_stay_explicit
+--- tests/test_settings_contracts.py::SettingsContractTests.test_raw_environment_boundaries_stay_explicit
++++ tests/test_shared/test_architecture/test_settings.py::SettingsContractTests.test_raw_environment_boundaries_stay_explicit
+@@ -1,13 +1,7 @@
+ def test_raw_environment_boundaries_stay_explicit(self):
+-    protected = {'host/runner/utils.py': 'os.environ.items()', 'git/command.py': 'os.environ.items()', 'agents/agents/claude/auth/utils.py': 'os.environ if environment is None', 'skills/sources/service.py': 'os.environ.items()', 'host/publication/cli.py': 'key in os.environ', 'github/interface/issues/cli.py': 'os.environ.get(args.github_token_env)', 'github/interface/pull_requests/cli.py': 'os.environ.get(args.github_token_env)', 'agents/interface/bridge.py': '"LAOMEDO_" + provider.upper()'}
++    protected = {'host/runner/utils.py': 'os.environ.items()', 'git/command.py': 'os.environ.items()', 'agents/agents/claude/container.py': 'env = dict(environment or {})', 'agents/agents/claude/auth/utils.py': 'os.environ if environment is None', 'agents/agents/codex/agent.py': 'ConnectionSettings.environment_snapshot(None)', 'host/publication/cli.py': 'key in os.environ', 'github/interface/issues/cli.py': 'os.environ.get(args.github_token_env)', 'github/interface/pull_requests/cli.py': 'os.environ.get(args.github_token_env)', 'agents/interface/bridge.py': '"LAOMEDO_" + provider.upper()'}
+     for relative, expression in protected.items():
+         self.assertIn(expression, (SOURCE / relative).read_text(), relative)
+-    claude = (SOURCE / 'agents/agents/claude/container.py').read_text(encoding='utf-8')
+-    self.assertNotIn('os.environ', claude)
+-    self.assertIn('environment={"DOCKER_HOST": self.docker_endpoint}', claude)
+-    split = (SOURCE / 'agents/agents/codex/split/executor.py').read_text()
+-    self.assertNotIn('os.environ', split)
+-    self.assertIn('environment=environment', split)
+     helper = (SOURCE / 'git/credentials/helper.py').read_text()
+     self.assertIn('os.environ.get("LAOMEDO_MEDIATED_GIT_TOKEN", "")', helper)
+     self.assertNotIn('pydantic', helper)
+
+
+### PR 225 tests/test_claude_access_login_record.py::ClaudeAccessLoginRecordTests.test_exact_pinned_old_writer_bytes
+--- tests/test_claude_access_login_record.py::ClaudeAccessLoginRecordTests.test_exact_pinned_old_writer_bytes
++++ tests/test_agents/test_claude/test_access_login_record.py::ClaudeAccessLoginRecordTests.test_exact_pinned_old_writer_bytes
+@@ -1,5 +1,5 @@
+ def test_exact_pinned_old_writer_bytes(self):
+-    oracle = json.loads(pathlib.Path(__file__).with_name('contracts').joinpath('claude-access-login-3299f8d.json').read_text(encoding='utf-8'))
++    oracle = json.loads(pathlib.Path(__file__).with_name('data').joinpath('access-login.json').read_text(encoding='utf-8'))
+     self.assertEqual(oracle['revision'], '3299f8df976965b707e7c91d3309ea2e8e0aaadf')
+     self.assertEqual(len(oracle['cases']), 96)
+     for case in oracle['cases']:
+
+
+### PR 225 tests/test_claude_login.py::LoginMirrorTests.test_public_mirror_codes_have_catalogue_coverage
+--- tests/test_claude_login.py::LoginMirrorTests.test_public_mirror_codes_have_catalogue_coverage
++++ tests/test_agents/test_claude/test_login.py::LoginMirrorTests.test_public_mirror_codes_have_catalogue_coverage
+@@ -2,5 +2,5 @@
+     trees = [ast.parse(path.read_text(encoding='utf-8-sig')) for path in (pathlib.Path(laomedo.agents.agents.claude.auth.utils.__file__), pathlib.Path(laomedo.agents.agents.claude.auth.utils.__file__).with_name('models.py'))]
+     emitted = {n.value for tree in trees for n in ast.walk(tree) if isinstance(n, ast.Constant) and isinstance(n.value, str) and n.value.startswith('claude_')}
+     self.assertEqual(emitted, laomedo.agents.agents.claude.auth.settings.CODES)
+-    catalogue = json.loads((pathlib.Path(__file__).resolve().parents[1] / 'frontend/langflow-skill-viewer/node-error-catalog.json').read_text())
++    catalogue = json.loads((support.paths.repository_root() / 'frontend/langflow-skill-viewer/node-error-catalog.json').read_text())
+     self.assertEqual(laomedo.agents.agents.claude.auth.settings.CODES - catalogue.keys(), set())
+
+### PR 225 tests/test_settings_contracts.py::SettingsContractTests.test_raw_environment_boundaries_stay_explicit
+--- tests/test_settings_contracts.py::SettingsContractTests.test_raw_environment_boundaries_stay_explicit
++++ tests/test_shared/test_architecture/test_settings.py::SettingsContractTests.test_raw_environment_boundaries_stay_explicit
+@@ -1,13 +1,7 @@
+ def test_raw_environment_boundaries_stay_explicit(self):
+-    protected = {'host/runner/utils.py': 'os.environ.items()', 'git/command.py': 'os.environ.items()', 'agents/agents/claude/auth/utils.py': 'os.environ if environment is None', 'skills/sources/service.py': 'os.environ.items()', 'host/publication/cli.py': 'key in os.environ', 'github/issues/cli.py': 'os.environ.get(args.github_token_env)', 'github/pull_requests/cli.py': 'os.environ.get(args.github_token_env)', 'agents/interface/bridge.py': '"LAOMEDO_" + provider.upper()'}
++    protected = {'host/runner/utils.py': 'os.environ.items()', 'git/command.py': 'os.environ.items()', 'agents/agents/claude/container.py': 'env = dict(environment or {})', 'agents/agents/claude/auth/utils.py': 'os.environ if environment is None', 'agents/agents/codex/agent.py': 'ConnectionSettings.environment_snapshot(None)', 'host/publication/cli.py': 'key in os.environ', 'github/interface/issues/cli.py': 'os.environ.get(args.github_token_env)', 'github/interface/pull_requests/cli.py': 'os.environ.get(args.github_token_env)', 'agents/interface/bridge.py': '"LAOMEDO_" + provider.upper()'}
+     for relative, expression in protected.items():
+         self.assertIn(expression, (SOURCE / relative).read_text(), relative)
+-    claude = (SOURCE / 'agents/agents/claude/container.py').read_text(encoding='utf-8')
+-    self.assertNotIn('os.environ', claude)
+-    self.assertIn('"DOCKER_HOST": self.docker_endpoint', claude)
+-    split = (SOURCE / 'agents/agents/codex/split/executor.py').read_text()
+-    self.assertNotIn('os.environ', split)
+-    self.assertIn('environment=environment', split)
+     helper = (SOURCE / 'git/credentials/helper.py').read_text()
+     self.assertIn('os.environ.get("LAOMEDO_MEDIATED_GIT_TOKEN", "")', helper)
+     self.assertNotIn('pydantic', helper)
+
+
+### PR 225 tests/test_structured_record_structure.py::StructuredRecordStructureTests.test_models_are_class_only_and_fields_are_described
+ORIGINAL METHOD
+def test_models_are_class_only_and_fields_are_described(self):
+    modules = ('github.issues.models', 'github.pull_requests.models', 'github.models', 'skills.registry.models', 'skills.operations.models', 'agents.artifacts.models', 'agents.orchestration.models', 'agents.agents.base.models', 'agents.interface.models', 'host.credentials.siwc.models', 'host.leases.models', 'host.mediation.models', 'host.publication.bundle.models', 'host.publication.handoff.models', 'host.publication.verified.models', 'agents.activity.models', 'agents.agents.claude.activity.models', 'agents.agents.claude.auth.models', 'host.private_state.models', 'agents.agents.opencode.activity.models', 'agents.agents.opencode.models')
+    for name in modules:
+        module = importlib.import_module('laomedo.' + name)
+        tree = ast.parse(Path(module.__file__).read_text(encoding='utf-8'))
+        with self.subTest(module=name):
+            self.assertFalse(any((isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) for node in tree.body)))
+            for value in vars(module).values():
+                if isinstance(value, type) and issubclass(value, BaseModel) and (value.__module__ == module.__name__):
+                    for field in value.model_fields.values():
+                        self.assertTrue(field.description, f'{value.__name__} has an undescribed field')
+
+
+### PR 226 tests/test_public_http_interfaces.py::PublicHttpInterfaceTests.test_example_patch_targets_and_viewer_commands_use_current_interfaces
+ORIGINAL METHOD
+def test_example_patch_targets_and_viewer_commands_use_current_interfaces(self):
+    """Cover bare literal patch calls and the source-service command in two viewer docs."""
+    for path in ROOT.joinpath('examples').rglob('*.py'):
+        for node in ast.walk(ast.parse(path.read_text(encoding='utf-8-sig'))):
+            if not isinstance(node, ast.Call) or not node.args:
+                continue
+            if not isinstance(node.func, ast.Name) or node.func.id != 'patch':
+                continue
+            target = node.args[0]
+            if not isinstance(target, ast.Constant) or not isinstance(target.value, str):
+                continue
+            for retired in MIGRATION['MODULE_PATHS']:
+                self.assertFalse(target.value.startswith(retired + '.'), (path, target.value))
+    current = 'laomedo.skills.interface.sources.cli'
+    for relative in ('frontend/langflow-skill-viewer/SOURCE-DEPLOYMENT.md', 'frontend/langflow-skill-viewer/README.md'):
+        text = ROOT.joinpath(relative).read_text(encoding='utf-8')
+        self.assertIn(current, text, relative)
+        self.assertNotIn('laomedo.skills.sources.cli', text, relative)
+    target = 'laomedo.github.interface.pull_requests.client.pr_request'
+    with patch(target) as request:
+        from laomedo.github.interface.pull_requests.client import pr_request
+        self.assertIs(pr_request, request)
+
+
+### PR 226 tests/test_public_http_interfaces.py::PublicHttpInterfaceTests.test_partial_source_settings_migration_is_symbol_specific_and_fail_closed
+ORIGINAL METHOD
+def test_partial_source_settings_migration_is_symbol_specific_and_fail_closed(self):
+    old = 'laomedo.skills.sources.settings'
+    new = 'laomedo.skills.interface.sources.settings'
+    for source in (f'from {old} import Settings\nvalue = Settings()\n', f'import {old} as settings\nvalue = settings.Settings()\n', 'from laomedo.skills.sources import settings\nvalue = settings.Settings()\n', f'from {old} import Settings, SKIP\nvalue = (Settings(), SKIP)\n'):
+        migrated = MIGRATION['migrate_source'](source)
+        self.assertIn(new, migrated)
+        self.assertEqual(MIGRATION['migrate_source'](migrated), migrated)
+        if 'Settings, SKIP' in source:
+            self.assertIn(f'from {old} import SKIP', migrated)
+            self.assertIn(f'from {new} import Settings', migrated)
+    for source in (f'from {old} import *\n', f"import {old} as settings\nvalue = getattr(settings, 'Settings')\n", f'import {old} as settings\nvalue = getattr(settings, selected)\n', f'import {old}\nvalue = {old}.Settings()\n'):
+        with self.assertRaises(MIGRATION['ManualMigrationRequired']):
+            MIGRATION['migrate_source'](source)
+    for source in (f'from {old} import SKIP\nvalue = SKIP\n', f'import {old} as settings\nvalue = settings.MAX_ENTRIES\n', f"import {old} as settings\nvalue = getattr(settings, 'SKIP')\n"):
+        self.assertEqual(MIGRATION['migrate_source'](source), source)
+
+
+### PR 226 tests/test_registry_modules.py::RegistryModuleTests.test_all_thirteen_function_bodies_preserve_the_baseline
+ORIGINAL METHOD
+def test_all_thirteen_function_bodies_preserve_the_baseline(self):
+    record = json.loads(Path(ROOT, 'tests/contracts/registry-utils-61d8cb0.json').read_text(encoding='utf-8'))
+    self.assertEqual(hashlib.sha256(record['baseline_source'].encode()).hexdigest(), record['source_sha256'])
+    original = {node.name: node for node in ast.parse(record['baseline_source']).body if isinstance(node, ast.FunctionDef)}
+    self.assertEqual(len(original), 13)
+    names = {old.rsplit('.', 1)[1]: new.rsplit('.', 1)[1] for old, new in record['symbols'].items()}
+    for old, target in record['symbols'].items():
+        module, name = target.rsplit('.', 1)
+        source = Path(ROOT, 'src', *module.split('.')).with_suffix('.py')
+        actual = next((node for node in ast.parse(source.read_text(encoding='utf-8')).body if isinstance(node, ast.FunctionDef) and node.name == name))
+        expected = self.canonical(original[old.rsplit('.', 1)[1]], names)
+        self.assertEqual(ast.dump(actual), ast.dump(expected), old)
+        self.assertEqual(MIGRATION['SYMBOL_PATHS'][old], target)
+        self.assertTrue(callable(getattr(importlib.import_module(module), name)))
+
+
+### PR 226 tests/test_registry_modules.py::RegistryModuleTests.test_split_module_migration_supports_known_symbols_and_refuses_ambiguity
+ORIGINAL METHOD
+def test_split_module_migration_supports_known_symbols_and_refuses_ambiguity(self):
+    self.assertFalse(Path(ROOT, 'src/laomedo/skills/registry/utils.py').exists())
+    source = f'from {RETIRED} import inventory, tree_hash\nresult=tree_hash(inventory(root))\n'
+    migrated = MIGRATION['migrate_source'](source)
+    self.assertIn('from laomedo.skills.registry.files import inventory', migrated)
+    self.assertIn('from laomedo.skills.registry.hashing import tree_hash', migrated)
+    self.assertEqual(MIGRATION['migrate_source'](migrated), migrated)
+    for source in (f'from {RETIRED} import *\n', f'from {RETIRED} import unknown\n', f'import {RETIRED}\n', f'import {RETIRED} as old\nvalue=old.unknown(root)\n', f"import {RETIRED} as old\nvalue=getattr(old, 'inventory')(root)\n", f'import {RETIRED} as old\nvalue=old\n'):
+        with self.assertRaises(MIGRATION['ManualMigrationRequired'], msg=source):
+            MIGRATION['migrate_source'](source)
+    for source in (f'import {RETIRED} as old\nvalue=old.inventory(root)\n', 'from laomedo.skills.registry import utils as old\nvalue=old.tree_hash(files)\n'):
+        migrated = MIGRATION['migrate_source'](source)
+        self.assertNotIn(RETIRED, migrated)
+        compile(migrated, '<migrated>', 'exec')
+
+
+### PR 226 tests/test_registry_modules.py::RegistryModuleTests.test_maintained_callers_have_no_retired_registry_imports
+ORIGINAL METHOD
+def test_maintained_callers_have_no_retired_registry_imports(self):
+    retained = json.loads(Path(ROOT, 'tools/migrations/retained-registry-callers.json').read_text())['files']
+    preserved = {item['path']: item['sha256'] for item in retained}
+    tracked = subprocess.check_output(['git', '-c', 'safe.directory=' + str(ROOT), 'ls-files', '-z', '--', '*.py'], cwd=ROOT).decode().split('\x00')
+    for relative in filter(None, tracked):
+        path = Path(ROOT, relative)
+        if not path.exists():
+            continue
+        if relative in preserved:
+            self.assertEqual(hashlib.sha256(path.read_bytes()).hexdigest(), preserved[relative])
+            continue
+        for node in ast.walk(ast.parse(path.read_text(encoding='utf-8-sig'))):
+            if isinstance(node, ast.ImportFrom):
+                self.assertNotEqual(node.module, RETIRED, (relative, node.lineno))
+                if node.module == 'laomedo.skills.registry':
+                    self.assertNotIn('utils', {item.name for item in node.names}, relative)
+                if node.module == 'laomedo.skills.workspace.utils':
+                    self.assertNotIn('_is_link', {item.name for item in node.names}, relative)
+            elif isinstance(node, ast.Import):
+                self.assertNotIn(RETIRED, {item.name for item in node.names}, relative)
+            elif isinstance(node, ast.Call) and node.args and isinstance(node.args[0], ast.Constant) and isinstance(node.args[0].value, str):
+                name = node.func.id if isinstance(node.func, ast.Name) else node.func.attr if isinstance(node.func, ast.Attribute) else ''
+                if name in {'import_module', '__import__', 'patch'}:
+                    self.assertNotEqual(node.args[0].value, 'laomedo.skills.workspace.utils._is_link', (relative, node.lineno))
+                    self.assertFalse(node.args[0].value == RETIRED or node.args[0].value.startswith(RETIRED + '.'), (relative, node.lineno))
+    for item in retained:
+        raw = Path(ROOT, item['path']).read_bytes()
+        self.assertEqual(hashlib.sha256(raw).hexdigest(), item['sha256'])
+    ci = Path(ROOT, '.github/workflows/work-graph.yml').read_text()
+    self.assertIn('python tools/run_retained_exp08.py test', ci)
+    self.assertIn('python tools/run_retained_exp08.py probe', ci)
+
+
+### PR 226 tests/test_registry_modules.py::RegistryModuleTests.test_function_leaves_and_models_have_distinct_owners
+ORIGINAL METHOD
+def test_function_leaves_and_models_have_distinct_owners(self):
+    for name in ('paths', 'files', 'hashing', 'policy', 'diff'):
+        path = Path(ROOT, 'src/laomedo/skills/registry', name + '.py')
+        tree = ast.parse(path.read_text())
+        self.assertFalse(any((isinstance(node, ast.ClassDef) for node in ast.walk(tree))), name)
+        self.assertFalse(any((isinstance(node, ast.Import) and any((item.name.startswith('laomedo.') for item in node.names)) for node in ast.walk(tree))), name)
+    for name in ('store', 'models', 'errors'):
+        tree = ast.parse(Path(ROOT, 'src/laomedo/skills/registry', name + '.py').read_text())
+        self.assertFalse(any((isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) for node in tree.body)), name)
+    tool = ast.parse(Path(ROOT, 'tools/run_retained_exp08.py').read_text(encoding='utf-8-sig'))
+    self.assertFalse(any((isinstance(node, ast.ClassDef) for node in ast.walk(tool))))
+
+
+### PR 226 tests/test_registry_modules.py::RegistryModuleTests.test_policy_canonicalization_and_tree_hashes_keep_exact_bytes
+ORIGINAL METHOD
+def test_policy_canonicalization_and_tree_hashes_keep_exact_bytes(self):
+    value = {'unicode': 'é', 'flag': False, 'extra': [1, None]}
+    self.assertEqual(canonical_json(value), b'{"extra":[1,null],"flag":false,"unicode":"\\u00e9"}')
+    revisions = {tree_hash({'SKILL.md': data}) for data in (b'one\n', b'one\r\n', b'one')}
+    self.assertEqual(len(revisions), 3)
+    with self.assertRaises(SkillStoreError) as raised:
+        validate_relative_path('../SKILL.md')
+    self.assertEqual(raised.exception.code, 'unsafe_relative_path')
+    self.assertEqual(raised.exception.args, ('unsafe_relative_path',))
+    with tempfile.TemporaryDirectory() as directory:
+        root = Path(directory)
+        with self.assertRaisesRegex(SkillStoreError, 'missing_skill_file'):
+            inventory(root)
+        path = Path(root, 'record.json')
+        write_json(path, {'z': 1, 'a': None})
+        self.assertEqual(path.read_bytes(), b'{\n  "a": null,\n  "z": 1\n}\n')
+        self.assertEqual(read_json(path), {'a': None, 'z': 1})
+        path.write_text('[]', encoding='utf-8')
+        with self.assertRaisesRegex(SkillStoreError, 'invalid_record'):
+            read_json(path)
+
+
+### PR 226 tests/test_registry_modules.py::RegistryModuleTests.test_changed_error_producers_follow_actual_public_boundaries
+ORIGINAL METHOD
+def test_changed_error_producers_follow_actual_public_boundaries(self):
+    manifest = json.loads(Path(ROOT, 'tests/contracts/registry-error-boundaries.json').read_text())
+    raised, listed = (set(), set())
+    for name in ('paths', 'files', 'policy'):
+        tree = ast.parse(Path(ROOT, 'src/laomedo/skills/registry', name + '.py').read_text())
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and (node.func.id == 'SkillStoreError') and node.args and isinstance(node.args[0], ast.Constant):
+                raised.add(node.args[0].value)
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and isinstance(node.func.value, ast.Name) and (node.func.value.id == 'errors') and (node.func.attr == 'append') and node.args and isinstance(node.args[0], ast.Constant):
+                listed.add(node.args[0].value)
+    public = set(manifest['runner_error_categories'])
+    self.assertEqual(raised, public | set(manifest['policy_refusals_collapsed_by_skill_http']))
+    self.assertEqual(listed, set(manifest['draft_validation_record_codes']))
+    store = ast.parse(Path(ROOT, 'src/laomedo/skills/registry/store.py').read_text(encoding='utf-8'))
+    store_codes = {node.args[0].value for node in ast.walk(store) if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and (node.func.id in {'SkillStoreError', 'ConflictError'}) and node.args and isinstance(node.args[0], ast.Constant)}
+    reader_codes = set(manifest['unchanged_store_runner_error_categories'])
+    self.assertEqual(store_codes, reader_codes | set(manifest['other_store_codes_requiring_separate_surface_analysis']))
+    public |= reader_codes
+    catalogue = json.loads(Path(ROOT, 'frontend/langflow-skill-viewer/node-error-catalog.json').read_text(encoding='utf-8'))
+    self.assertFalse(public - catalogue.keys())
+    for code in public:
+        self.assertTrue(all((catalogue[code][field].strip() for field in ('title', 'description', 'recovery'))), code)
+    runner = Path(ROOT, 'src/laomedo/host/runner/http/handler.py').read_text()
+    self.assertIn('"error_category": str(exc)', runner)
+    source = Path(ROOT, 'src/laomedo/skills/interface/operations/handler.py').read_text()
+    self.assertIn('"error_category": "skill_operation_refused"', source)
+
+
+### PR 226 tests/test_workspace_skill_git.py::WorkspaceSkillGitTests.test_linked_parent_refuses_before_any_skill_read
+ORIGINAL METHOD
+def test_linked_parent_refuses_before_any_skill_read(self):
+    runner = self.runner()
+    record = runner._prepare(self.request())
+    with patch('laomedo.skills.workspace.utils.is_link', side_effect=lambda path: path.name == '.agents'), patch('laomedo.skills.workspace.utils.inventory') as read, patch.object(runner, '_open_server') as server, patch('laomedo.agents.agents.base.agent.inventory') as baseline_read:
+        result = runner._execute(record['run_id'], 'fixture', resume=False)
+    read.assert_not_called()
+    baseline_read.assert_not_called()
+    server.assert_not_called()
+    self.assertEqual(result['error_category'], 'unsafe_materialized_skill_path')
+
+CURRENT CANDIDATE tests/test_agents/test_workspace/test_skill_exclusion.py::WorkspaceSkillGitTests.test_linked_parent_refuses_before_any_skill_read
+def test_linked_parent_refuses_before_any_skill_read(self):
+    runner = self.runner()
+    record = runner._prepare(self.request())
+    with patch('laomedo.agents.workspaces.skills.utils.is_link', side_effect=lambda path: path.name == '.agents'), patch('laomedo.agents.workspaces.skills.utils.inventory') as read, patch.object(runner, '_open_server') as server, patch('laomedo.agents.agents.base.agent.inventory') as baseline_read:
+        result = runner._execute(record['run_id'], 'fixture', resume=False)
+    read.assert_not_called()
+    baseline_read.assert_not_called()
+    server.assert_not_called()
+    self.assertEqual(result['error_category'], 'unsafe_materialized_skill_path')
+
+CURRENT CANDIDATE tests/test_skills/test_workspace/test_exclusion.py::WorkspaceSkillGitTests.test_linked_parent_refuses_before_any_skill_read
+def test_linked_parent_refuses_before_any_skill_read(self):
+    runner = self.runner()
+    record = runner._prepare(self.request())
+    with patch('laomedo.agents.workspaces.skills.utils.is_link', side_effect=lambda path: path.name == '.agents'), patch('laomedo.agents.workspaces.skills.utils.inventory') as read, patch.object(runner, '_open_server') as server:
+        result = runner._execute(record['run_id'], 'fixture', resume=False)
+    read.assert_not_called()
+    server.assert_not_called()
+    self.assertEqual(result['error_category'], 'unsafe_materialized_skill_path')
+
+
+### PR 226 tests/test_workspace_skill_git.py::WorkspaceSkillGitTests.test_linked_git_root_refuses_without_reading_metadata
+ORIGINAL METHOD
+def test_linked_git_root_refuses_without_reading_metadata(self):
+    runner = self.runner()
+    record = runner._prepare(self.request())
+    with patch('laomedo.skills.workspace.utils.is_link', side_effect=lambda path: path.name == '.git'), patch.object(runner, '_open_server') as server:
+        result = runner._execute(record['run_id'], 'fixture', resume=False)
+    server.assert_not_called()
+    self.assertEqual(result['error_category'], 'external_git_directory_unsupported')
+
+CURRENT CANDIDATE tests/test_agents/test_workspace/test_skill_exclusion.py::WorkspaceSkillGitTests.test_linked_git_root_refuses_without_reading_metadata
+def test_linked_git_root_refuses_without_reading_metadata(self):
+    runner = self.runner()
+    record = runner._prepare(self.request())
+    with patch('laomedo.agents.workspaces.skills.utils.is_link', side_effect=lambda path: path.name == '.git'), patch.object(runner, '_open_server') as server:
+        result = runner._execute(record['run_id'], 'fixture', resume=False)
+    server.assert_not_called()
+    self.assertEqual(result['error_category'], 'external_git_directory_unsupported')
+
+CURRENT CANDIDATE tests/test_skills/test_workspace/test_exclusion.py::WorkspaceSkillGitTests.test_linked_git_root_refuses_without_reading_metadata
+def test_linked_git_root_refuses_without_reading_metadata(self):
+    runner = self.runner()
+    record = runner._prepare(self.request())
+    with patch('laomedo.agents.workspaces.skills.utils.is_link', side_effect=lambda path: path.name == '.git'), patch.object(runner, '_open_server') as server:
+        result = runner._execute(record['run_id'], 'fixture', resume=False)
+    server.assert_not_called()
+    self.assertEqual(result['error_category'], 'external_git_directory_unsupported')
+
+
+### PR 227 tests/test_runtime_failure_observations.py::RuntimeFailureObservationTests.test_fixed_path_codes_are_not_dropped
+--- tests/test_runtime_failure_observations.py::RuntimeFailureObservationTests.test_fixed_path_codes_are_not_dropped
++++ tests/test_agents/test_runtime/test_failure_observations.py::RuntimeFailureObservationTests.test_fixed_path_codes_are_not_dropped
+@@ -3,7 +3,7 @@
+     for code, owner in owners.items():
+         with self.subTest(code=code):
+             self.assertEqual(laomedo.agents.agents.base.utils.failure_observation(code=code).code, code)
+-            source = pathlib.Path(__file__).resolve().parents[1] / 'src/laomedo' / owner
++            source = support.paths.repository_root() / 'src/laomedo' / owner
+             values = {node.value for node in ast.walk(ast.parse(source.read_text(encoding='utf-8'))) if isinstance(node, ast.Constant) and isinstance(node.value, str)}
+             self.assertIn(code, values)
+     self.assertIsNone(laomedo.agents.agents.base.utils.failure_observation(code='codex_arbitrary_native_error').code)
+
+### PR 227 tests/test_runtime_failure_observations.py::LeaseLossObservationTests.test_events_precede_model_construction_and_first_loss_is_not_relabelled
+--- tests/test_runtime_failure_observations.py::LeaseLossObservationTests.test_events_precede_model_construction_and_first_loss_is_not_relabelled
++++ tests/test_agents/test_runtime/test_failure_observations.py::LeaseLossObservationTests.test_events_precede_model_construction_and_first_loss_is_not_relabelled
+@@ -7,7 +7,7 @@
+             self.assertTrue(client.lost.is_set())
+             self.assertTrue(cancelled.is_set())
+             raise ValueError('diagnostic validation failed')
+-        with unittest.mock.patch('laomedo.host.leases.client._leases_utils._read_float', return_value=None), unittest.mock.patch('laomedo.host.leases.client._leases_utils._read_json', return_value=None), unittest.mock.patch('laomedo.host.leases.client.LeaseLossObservation', side_effect=reject_model) as construct:
++        with unittest.mock.patch('laomedo.host.leases.client._read_float', return_value=None), unittest.mock.patch('laomedo.host.leases.client._read_json', return_value=None), unittest.mock.patch('laomedo.host.leases.client.LeaseLossObservation', side_effect=reject_model) as construct:
+             client._check_service(cancelled)
+             client._check_service(cancelled)
+             self.assertEqual(construct.call_count, 1)
+
+
+### PR 227 tests/test_runtime_failure_observations.py::LeaseLossObservationTests.test_each_existing_health_predicate_retains_only_its_first_reason
+--- tests/test_runtime_failure_observations.py::LeaseLossObservationTests.test_each_existing_health_predicate_retains_only_its_first_reason
++++ tests/test_agents/test_runtime/test_failure_observations.py::LeaseLossObservationTests.test_each_existing_health_predicate_retains_only_its_first_reason
+@@ -4,7 +4,7 @@
+         with self.subTest(reason=reason), tempfile.TemporaryDirectory() as directory:
+             client = self.make_client(directory)
+             cancelled = threading.Event()
+-            with unittest.mock.patch('laomedo.host.leases.client._leases_utils._read_float', side_effect=[wall, monotonic]), unittest.mock.patch('laomedo.host.leases.client._leases_utils._read_json', return_value=record), unittest.mock.patch('laomedo.host.leases.client.time.monotonic', return_value=100.0), unittest.mock.patch('laomedo.host.leases.client.time.time', return_value=100.0):
++            with unittest.mock.patch('laomedo.host.leases.client._read_float', side_effect=[wall, monotonic]), unittest.mock.patch('laomedo.host.leases.client._read_json', return_value=record), unittest.mock.patch('laomedo.host.leases.client.time.monotonic', return_value=100.0), unittest.mock.patch('laomedo.host.leases.client.time.time', return_value=100.0):
+                 client._check_service(cancelled)
+             self.assertTrue(client.lost.is_set())
+             self.assertTrue(cancelled.is_set())
+
+
+### PR 227 tests/test_runtime_failure_observations.py::LeaseLossObservationTests.test_finish_keeps_verified_result_before_loss_rejection
+--- tests/test_runtime_failure_observations.py::LeaseLossObservationTests.test_finish_keeps_verified_result_before_loss_rejection
++++ tests/test_agents/test_runtime/test_failure_observations.py::LeaseLossObservationTests.test_finish_keeps_verified_result_before_loss_rejection
+@@ -4,7 +4,7 @@
+         client.stop_heartbeats = unittest.mock.Mock()
+         client.lost.set()
+         result = {'reason': 'done', 'state': 'absent', 'cleanup_verified': True}
+-        with unittest.mock.patch('laomedo.host.leases.client._leases_utils._read_json', return_value=result):
++        with unittest.mock.patch('laomedo.host.leases.client._read_json', return_value=result):
+             with self.assertRaisesRegex(RuntimeError, 'lease_service_unverified'):
+                 client.finish()
+         self.assertIs(client.result, result)
+
+
+### PR 228 tests/test_public_http_interfaces.py::PublicHttpInterfaceTests.test_moved_bodies_and_source_policy_preserve_the_exact_baseline
+ORIGINAL METHOD
+def test_moved_bodies_and_source_policy_preserve_the_exact_baseline(self):
+    manifest = json.loads((ROOT / 'tests/contracts/interfaces-23cb115.json').read_text())
+    self.assertEqual(manifest['baseline'], '23cb11505c46ab24715055ad2abc09f3b1565d4f')
+    self.assertEqual(len(manifest['modules']), 21)
+    revision = json.loads((ROOT / 'tests/contracts/source-client-d2.json').read_text(encoding='utf-8'))
+    self.assertEqual(CONTRACTS['source_digest'](revision['baseline_source']), revision['baseline_body_sha256'])
+    for record in manifest['modules']:
+        expected = record['body_sha256']
+        if record['new_module'] == revision['module']:
+            self.assertEqual(expected, revision['baseline_body_sha256'])
+            expected = revision['body_sha256']
+        path = ROOT.joinpath('src', *record['new_module'].split('.')).with_suffix('.py')
+        self.assertEqual(CONTRACTS['source_digest'](path.read_text(), selection=record['selection']), expected, record['new_module'])
+
+
+### PR 228 tests/test_settings_contracts.py::SettingsContractTests.test_raw_environment_boundaries_stay_explicit
+--- tests/test_settings_contracts.py::SettingsContractTests.test_raw_environment_boundaries_stay_explicit
++++ tests/test_shared/test_architecture/test_settings.py::SettingsContractTests.test_raw_environment_boundaries_stay_explicit
+@@ -1,15 +1,7 @@
+ def test_raw_environment_boundaries_stay_explicit(self):
+-    protected = {'host/runner/utils.py': 'os.environ.items()', 'git/command.py': 'os.environ.items()', 'agents/agents/claude/auth/utils.py': 'os.environ if environment is None', 'host/publication/cli.py': 'key in os.environ', 'github/interface/issues/cli.py': 'os.environ.get(args.github_token_env)', 'github/interface/pull_requests/cli.py': 'os.environ.get(args.github_token_env)', 'agents/interface/bridge.py': '"LAOMEDO_" + provider.upper()'}
++    protected = {'host/runner/utils.py': 'os.environ.items()', 'git/command.py': 'os.environ.items()', 'agents/agents/claude/container.py': 'env = dict(environment or {})', 'agents/agents/claude/auth/utils.py': 'os.environ if environment is None', 'agents/agents/codex/agent.py': 'ConnectionSettings.environment_snapshot(None)', 'host/publication/cli.py': 'key in os.environ', 'github/interface/issues/cli.py': 'os.environ.get(args.github_token_env)', 'github/interface/pull_requests/cli.py': 'os.environ.get(args.github_token_env)', 'agents/interface/bridge.py': '"LAOMEDO_" + provider.upper()'}
+     for relative, expression in protected.items():
+         self.assertIn(expression, (SOURCE / relative).read_text(), relative)
+-    for path in (SOURCE / 'skills/sources').glob('*.py'):
+-        self.assertNotIn('os.environ', path.read_text(encoding='utf-8'), str(path))
+-    claude = (SOURCE / 'agents/agents/claude/container.py').read_text(encoding='utf-8')
+-    self.assertNotIn('os.environ', claude)
+-    self.assertIn('environment={"DOCKER_HOST": self.docker_endpoint}', claude)
+-    split = (SOURCE / 'agents/agents/codex/split/executor.py').read_text()
+-    self.assertNotIn('os.environ', split)
+-    self.assertIn('environment=environment', split)
+     helper = (SOURCE / 'git/credentials/helper.py').read_text()
+     self.assertIn('os.environ.get("LAOMEDO_MEDIATED_GIT_TOKEN", "")', helper)
+     self.assertNotIn('pydantic', helper)
+
+
+### PR 228 tests/test_settings_contracts.py::ErrorContractTests.test_each_domain_exception_has_a_documented_code_contract
+--- tests/test_settings_contracts.py::ErrorContractTests.test_each_domain_exception_has_a_documented_code_contract
++++ tests/test_shared/test_architecture/test_settings.py::ErrorContractTests.test_each_domain_exception_has_a_documented_code_contract
+@@ -13,20 +13,22 @@
+                     self.assertEqual(error.run_reference['run_id'], 'retained-run')
+                     continue
+                 if cls.__name__ == 'GitCommandTimeout':
+-                    error = cls(['git', '--version'], 0.5, False)
+-                    self.assertEqual(error.code, 'git_timeout_cleanup_unverified')
+-                    self.assertFalse(error.cleanup_verified)
+-                    restored = pickle.loads(pickle.dumps(error))
+-                    self.assertEqual(restored.__dict__, error.__dict__)
+-                    self.assertEqual(str(restored), str(error))
++                    for cleanup in (False, True):
++                        error = cls(['git'], 1, cleanup)
++                        self.assertIsInstance(error, subprocess.TimeoutExpired)
++                        self.assertEqual(error.cleanup_verified, cleanup)
++                        self.assertEqual(error.code, 'git_timeout' if cleanup else 'git_timeout_cleanup_unverified')
++                        restored = pickle.loads(pickle.dumps(error))
++                        self.assertEqual(type(restored), cls)
++                        self.assertEqual(restored.__dict__, error.__dict__)
++                        self.assertEqual(str(restored), str(error))
+                     continue
+-                if cls.__name__ == 'PushOutcomeUnknown':
++                if cls.__name__ in {'GitCommandLimitExceeded', 'GitCommandCleanupError'}:
++                    error = cls()
++                    code = 'git_command_limit_exceeded' if cls.__name__ == 'GitCommandLimitExceeded' else 'git_command_cleanup_unverified'
++                elif cls.__name__ == 'PushOutcomeUnknown':
+                     error = cls('timeout', None)
+                     code = 'push_outcome_unknown'
+-                elif cls.__name__ in {'GitCommandLimitExceeded', 'GitCommandCleanupError'}:
+-                    error = cls()
+-                    code = {'GitCommandLimitExceeded': 'git_command_limit_exceeded', 'GitCommandCleanupError': 'git_command_cleanup_unverified'}[cls.__name__]
+-                    self.assertFalse(error.cleanup_verified)
+                 else:
+                     code = 'existing_category'
+                     error = cls(code)
+
+
+### PR 228 tests/test_source_boundaries.py::SourceBoundaryTests.test_read_profile_rejects_overrides_and_revalidates_mutable_values
+--- tests/test_source_boundaries.py::SourceBoundaryTests.test_read_profile_rejects_overrides_and_revalidates_mutable_values
++++ tests/test_shared/test_git/test_read_budgets.py::SourceBoundaryTests.test_read_profile_rejects_overrides_and_revalidates_mutable_values
+@@ -1,6 +1,6 @@
+ def test_read_profile_rejects_overrides_and_revalidates_mutable_values(self):
+     context = self.command().context
+-    for changes in ({'configuration': [('protocol.file.allow', 'always')]}, {'directory': self.root}, {'cwd': None}, {'budget': None}, {'credential': laomedo.git.models.GitCredential(token=pydantic.SecretStr('internal-token'))}, {'context': context.model_copy(update={'extra_env': {'HOME': 'private'}})}, {'context': context.model_copy(update={'home': self.root})}, {'arguments': ['push', 'origin', 'HEAD']}, {'arguments': ['fetch', '--upload-pack=unsafe', 'origin']}, {'arguments': ['-c', 'protocol.file.allow=always', 'clone']}):
++    for changes in ({'configuration': [('protocol.file.allow', 'always')]}, {'directory': self.root}, {'cwd': None}, {'budget': None}, {'credential': laomedo.git.models.GitCredential(token=pydantic.SecretStr('internal-token'))}, {'context': context.model_copy(update={'extra_env': {'HOME': 'private'}})}, {'context': context.model_copy(update={'home': self.root})}, {'arguments': ['push', 'origin', 'HEAD']}, {'arguments': ['clone', '-u', 'unsafe', 'source', 'target']}, {'arguments': ['clone', '-uunsafe', 'source', 'target']}, {'arguments': ['clone', '--template=unsafe', 'source', 'target']}, {'arguments': ['clone', '--separate-git-dir=unsafe', 'source', 'target']}, {'arguments': ['fetch', '--upload-pack=unsafe', 'origin']}, {'arguments': ['-c', 'protocol.file.allow=always', 'clone']}):
+         with self.subTest(changes=list(changes)), self.assertRaises(pydantic.ValidationError):
+             self.command(**changes)
+     command = self.command()
+
+
+### PR 228 tests/test_source_boundaries.py::SourceBoundaryTests.test_active_native_process_limits_and_exit_between_polls_preserve_categories
+--- tests/test_source_boundaries.py::SourceBoundaryTests.test_active_native_process_limits_and_exit_between_polls_preserve_categories
++++ tests/test_shared/test_git/test_read_budgets.py::SourceBoundaryTests.test_active_native_process_limits_and_exit_between_polls_preserve_categories
+@@ -6,7 +6,7 @@
+         def launch(arguments, **options):
+             if arguments[0] != 'git':
+                 return original(arguments, **options)
+-            process = original([sys.executable, str(ROOT / 'tests/git_process_control.py'), *mode], **options)
++            process = original([sys.executable, str(ROOT / 'tests/test_shared/test_git/process_control.py'), *mode], **options)
+             processes.append(process)
+             return process
+         source = laomedo.skills.sources.repository.GitSkillSource(self.root)
+
+
+### PR 228 tests/test_source_boundaries.py::SourceBoundaryTests.test_client_only_forwards_bounded_exact_cleanup_category_and_closes_errors
+--- tests/test_source_boundaries.py::SourceBoundaryTests.test_client_only_forwards_bounded_exact_cleanup_category_and_closes_errors
++++ tests/test_shared/test_git/test_read_budgets.py::SourceBoundaryTests.test_client_only_forwards_bounded_exact_cleanup_category_and_closes_errors
+@@ -2,14 +2,14 @@
+     token = pathlib.Path(self.root, 'token')
+     token.write_text('internal-test-token-' + 'x' * 32, encoding='utf-8')
+     settings = unittest.mock.MagicMock(url='http://127.0.0.1:8000', token_file=str(token))
+-    inventory = json.loads(ROOT.joinpath('tests/contracts/node-http-error-boundaries.json').read_text(encoding='utf-8'))
+-    known = [(json.dumps({'error_category': code}).encode(), code if code == 'repository_cleanup_unverified' else 'source_discovery_failed') for code in inventory['http_boundary_codes']['source_handler']]
++    categories = ('unauthorized', 'invalid_source_operation', 'source_bundle_unsafe', 'repository_access_unavailable', 'repository_limit_exceeded', 'repository_cleanup_unverified', 'source_revision_unavailable')
++    known = [(json.dumps({'error_category': code}).encode(), code if code == 'repository_cleanup_unverified' else 'source_discovery_failed') for code in categories]
+     for body, expected in [*known, *((b'{"error_category":"repository_cleanup_unverified","message":"PRIVATE"}', 'repository_cleanup_unverified'), (b'{"error_category":"repository_access_unavailable"}', 'source_discovery_failed'), (b'{"error_category":"PRIVATE"}', 'source_discovery_failed'), (b'{"error_category":["repository_cleanup_unverified"]}', 'source_discovery_failed'), (b'[]', 'source_discovery_failed'), (b'invalid PRIVATE', 'source_discovery_failed'), (b' ' * 16385, 'source_discovery_failed'))]:
+         response = io.BytesIO(body)
+         error = urllib.error.HTTPError('http://127.0.0.1', 400, 'PRIVATE', {}, response)
+         opener = unittest.mock.MagicMock()
+         opener.open.side_effect = error
+-        with self.subTest(expected=expected, body_size=len(body)), unittest.mock.patch('laomedo.skills.interface.sources.client.Settings', return_value=settings), unittest.mock.patch('laomedo.skills.interface.sources.client.urllib.request.build_opener', return_value=opener), self.assertRaises(ValueError) as raised:
++        with self.subTest(expected=expected, body_size=len(body)), unittest.mock.patch('laomedo.skills.interface.sources.client.SkillSourceSettings', return_value=settings), unittest.mock.patch('laomedo.skills.interface.sources.client.urllib.request.build_opener', return_value=opener), self.assertRaises(ValueError) as raised:
+             laomedo.skills.interface.sources.client.source_request('discover', source='test')
+         self.assertEqual(str(raised.exception), expected)
+         self.assertNotIn('PRIVATE', str(raised.exception))
+@@ -19,7 +19,7 @@
+     error = urllib.error.HTTPError('http://127.0.0.1', 400, 'PRIVATE', {}, response)
+     opener = unittest.mock.MagicMock()
+     opener.open.side_effect = error
+-    with unittest.mock.patch('laomedo.skills.interface.sources.client.Settings', return_value=settings), unittest.mock.patch('laomedo.skills.interface.sources.client.urllib.request.build_opener', return_value=opener), self.assertRaisesRegex(ValueError, 'source_discovery_failed'):
++    with unittest.mock.patch('laomedo.skills.interface.sources.client.SkillSourceSettings', return_value=settings), unittest.mock.patch('laomedo.skills.interface.sources.client.urllib.request.build_opener', return_value=opener), self.assertRaisesRegex(ValueError, 'source_discovery_failed'):
+         laomedo.skills.interface.sources.client.source_request('discover', source='test')
+     response.read.assert_called_once_with(16385)
+     response.close.assert_called_once()
+@@ -28,6 +28,6 @@
+     response.close.side_effect = OSError('PRIVATE')
+     error = urllib.error.HTTPError('http://127.0.0.1', 400, 'PRIVATE', {}, response)
+     opener.open.side_effect = error
+-    with unittest.mock.patch('laomedo.skills.interface.sources.client.Settings', return_value=settings), unittest.mock.patch('laomedo.skills.interface.sources.client.urllib.request.build_opener', return_value=opener), self.assertRaisesRegex(ValueError, 'source_discovery_failed'):
++    with unittest.mock.patch('laomedo.skills.interface.sources.client.SkillSourceSettings', return_value=settings), unittest.mock.patch('laomedo.skills.interface.sources.client.urllib.request.build_opener', return_value=opener), self.assertRaisesRegex(ValueError, 'source_discovery_failed'):
+         laomedo.skills.interface.sources.client.source_request('discover', source='test')
+     response.close.assert_called_once()
+
+### PR 228 tests/test_source_boundaries.py::SourceBoundaryTests.test_independent_utility_bodies_preserve_original_literals_and_control_flow
+ORIGINAL METHOD
+def test_independent_utility_bodies_preserve_original_literals_and_control_flow(self):
+    record = json.loads(ROOT.joinpath('tests/contracts/skill-sources-64ac5fe.json').read_text(encoding='utf-8'))
+    with patch.object(sys, 'path', [str(ROOT / 'tools'), *sys.path]):
+        contracts = runpy.run_path(str(ROOT / 'tools/capture_interface_contracts.py'))
+    aliases = {'_excluded': 'excluded_parts', '_name': 'skill_name', '_bundle': 'validate_bundle', '_bundle_path': 'validate_bundle_path'}
+    baseline = ast.parse(record['utils_source'])
+    module_aliases = {alias.asname for node in ast.walk(baseline) if isinstance(node, ast.Import) for alias in node.names if alias.asname and alias.name.startswith('laomedo.')}
+    for node in baseline.body:
+        if not isinstance(node, ast.FunctionDef) or node.name not in aliases:
+            continue
+        old_name = node.name
+        node.name = aliases[node.name]
+        node = contracts['normalize_body'](node, module_aliases)
+        for item in ast.walk(node):
+            if isinstance(item, ast.Name):
+                item.id = aliases.get(item.id, item.id)
+        owner = 'bundle' if old_name.startswith('_bundle') else 'utils'
+        current = ast.parse(ROOT.joinpath('src/laomedo/skills/sources', owner + '.py').read_text(encoding='utf-8'))
+        actual = next((item for item in current.body if isinstance(item, ast.FunctionDef) and item.name == node.name))
+        self.assertEqual(contracts['canonical_ast'](actual), contracts['canonical_ast'](node), old_name)
+
+
+### PR 228 tests/test_windows_git_tree.py::WindowsGitTreeTests.test_job_accounts_for_all_descendants_after_active_limit_and_root_success
+--- tests/test_windows_git_tree.py::WindowsGitTreeTests.test_job_accounts_for_all_descendants_after_active_limit_and_root_success
++++ tests/test_shared/test_git/test_windows.py::WindowsGitTreeTests.test_job_accounts_for_all_descendants_after_active_limit_and_root_success
+@@ -9,7 +9,7 @@
+ 
+         def launch(arguments, **options):
+             self.assertEqual(options['creationflags'], subprocess.CREATE_NEW_PROCESS_GROUP | 4)
+-            process = original_launch([sys.executable, str(ROOT / 'tests/git_process_control.py'), mode, str(marker)], **options)
++            process = original_launch([sys.executable, str(ROOT / 'tests/test_shared/test_git/process_control.py'), mode, str(marker)], **options)
+             roots.append(process)
+             return process
+ 
+
+
+### PR 228 tests/test_windows_git_tree.py::WindowsGitTreeTests.test_failed_assignment_never_executes_the_suspended_root
+--- tests/test_windows_git_tree.py::WindowsGitTreeTests.test_failed_assignment_never_executes_the_suspended_root
++++ tests/test_shared/test_git/test_windows.py::WindowsGitTreeTests.test_failed_assignment_never_executes_the_suspended_root
+@@ -3,7 +3,7 @@
+     processes = []
+ 
+     def launch(arguments, **options):
+-        process = original([sys.executable, str(ROOT / 'tests/git_process_control.py'), 'emit', '32', '0'], **options)
++        process = original([sys.executable, str(ROOT / 'tests/test_shared/test_git/process_control.py'), 'emit', '32', '0'], **options)
+         processes.append(process)
+         return process
+     with unittest.mock.patch('subprocess.Popen', new=launch), unittest.mock.patch.object(laomedo.git.windows.tree.WindowsProcessTree, 'attach', side_effect=PermissionError('internal assignment refusal')), unittest.mock.patch.object(laomedo.git.windows.tree.WindowsProcessTree, 'resume') as resume, self.assertRaises(PermissionError):
+
+
+### PR 228 tests/test_windows_git_tree.py::WindowsGitTreeTests.test_nested_job_admission_and_termination_leave_other_owned_process_untouched
+--- tests/test_windows_git_tree.py::WindowsGitTreeTests.test_nested_job_admission_and_termination_leave_other_owned_process_untouched
++++ tests/test_shared/test_git/test_windows.py::WindowsGitTreeTests.test_nested_job_admission_and_termination_leave_other_owned_process_untouched
+@@ -7,10 +7,10 @@
+     self.assertEqual(prefix, base_prefix, 'The control must use a direct base interpreter')
+     outer, inner = (laomedo.git.windows.tree.WindowsProcessTree(), laomedo.git.windows.tree.WindowsProcessTree())
+     root = None
+-    unrelated = subprocess.Popen([str(base), '-I', '-S', str(ROOT / 'tests/git_process_control.py'), 'wait', '30'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
++    unrelated = subprocess.Popen([str(base), '-I', '-S', str(ROOT / 'tests/test_shared/test_git/process_control.py'), 'wait', '30'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+     try:
+         self.assertEqual(self.descendants(unrelated.pid), set())
+-        root = subprocess.Popen([sys.executable, str(ROOT / 'tests/git_process_control.py'), 'wait', '30'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=subprocess.CREATE_NEW_PROCESS_GROUP | 4)
++        root = subprocess.Popen([sys.executable, str(ROOT / 'tests/test_shared/test_git/process_control.py'), 'wait', '30'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=subprocess.CREATE_NEW_PROCESS_GROUP | 4)
+         outer.attach(root)
+         inner.attach(root)
+         inner.resume(root.pid)
+
+
+### PR 229 tests/test_lease_http_handler.py::LeaseHTTPHandlerTests.test_dependencies_exist_before_framework_initialization
+--- tests/test_lease_http_handler.py::LeaseHTTPHandlerTests.test_dependencies_exist_before_framework_initialization
++++ tests/test_host/test_leases/test_http.py::LeaseHTTPHandlerTests.test_dependencies_exist_before_framework_initialization
+@@ -1,5 +1,5 @@
+ def test_dependencies_exist_before_framework_initialization(self):
+-    book, mediator, transport = (test_host.test_leases.test_http.RecordingGrantBook(), test_host.test_leases.test_http.RecordingMediator(), object())
++    book, mediator, transport = (test_host.test_leases.collaborators.RecordingGrantBook(), test_host.test_leases.collaborators.RecordingMediator(), object())
+     with unittest.mock.patch.object(http.server.ThreadingHTTPServer, '__init__', autospec=True) as initialize:
+         initialize.side_effect = self._observe_initialization
+         self.expected = (book, mediator, transport, 'instance')
+
+
+### PR 229 tests/test_lease_http_handler.py::LeaseHTTPHandlerTests.test_health_requires_all_existing_non_none_dependencies
+--- tests/test_lease_http_handler.py::LeaseHTTPHandlerTests.test_health_requires_all_existing_non_none_dependencies
++++ tests/test_host/test_leases/test_http.py::LeaseHTTPHandlerTests.test_health_requires_all_existing_non_none_dependencies
+@@ -1,5 +1,5 @@
+ def test_health_requires_all_existing_non_none_dependencies(self):
+-    mediator, transport = (test_host.test_leases.test_http.RecordingMediator(), object())
++    mediator, transport = (test_host.test_leases.collaborators.RecordingMediator(), object())
+     for selected, expected in (((None, transport, 'instance'), (404, b'{"error": "not_found"}')), ((mediator, None, 'instance'), (404, b'{"error": "not_found"}')), ((mediator, transport, None), (404, b'{"error": "not_found"}')), ((mediator, transport, ''), (200, b'{"status": "ready", "instance": ""}'))):
+         with self.subTest(instance=selected[2], available=selected[0] is not None):
+             server = self._server(mediator=selected[0], transport=selected[1], instance=selected[2])
+
+
+### PR 229 tests/test_lease_http_handler.py::LeaseHTTPHandlerTests.test_lease_write_path_and_mediator_precedence_are_unchanged
+--- tests/test_lease_http_handler.py::LeaseHTTPHandlerTests.test_lease_write_path_and_mediator_precedence_are_unchanged
++++ tests/test_host/test_leases/test_http.py::LeaseHTTPHandlerTests.test_lease_write_path_and_mediator_precedence_are_unchanged
+@@ -1,11 +1,11 @@
+ def test_lease_write_path_and_mediator_precedence_are_unchanged(self):
+-    book = test_host.test_leases.test_http.RecordingGrantBook()
++    book = test_host.test_leases.collaborators.RecordingGrantBook()
+     server = self._server(book=book)
+     for path, authorization, status, accepted in (('/write', 'Bearer approved', 200, True), ('/write', 'Bearer refused', 403, False), ('/write', 'bearer approved', 403, False), ('/unknown', 'Bearer approved', 403, False)):
+         with self.subTest(path=path, authorization=authorization):
+             self.assertEqual(self._request(server, 'POST', path, headers={'Authorization': authorization}), (status, b'{"accepted": true}' if accepted else b'{"accepted": false}'))
+     self.assertEqual(book.calls, ['approved', 'refused'])
+     self.assertEqual(self._post(server, b'not-json'), (503, b'{"error": "mediator_unavailable"}'))
+-    mediated = self._server(book=book, mediator=test_host.test_leases.test_http.RecordingMediator(), transport=object())
++    mediated = self._server(book=book, mediator=test_host.test_leases.collaborators.RecordingMediator(), transport=object())
+     self.assertEqual(self._post(mediated, b'', path='/write', headers={'Authorization': 'Bearer approved'}), (403, b'{"accepted": false}'))
+     self.assertEqual(book.calls, ['approved', 'refused'])
+
+### PR 229 tests/test_lease_http_handler.py::LeaseHTTPHandlerTests.test_instance_refusal_precedes_bad_body_and_authorization
+--- tests/test_lease_http_handler.py::LeaseHTTPHandlerTests.test_instance_refusal_precedes_bad_body_and_authorization
++++ tests/test_host/test_leases/test_http.py::LeaseHTTPHandlerTests.test_instance_refusal_precedes_bad_body_and_authorization
+@@ -1,5 +1,5 @@
+ def test_instance_refusal_precedes_bad_body_and_authorization(self):
+-    mediator = test_host.test_leases.test_http.RecordingMediator()
++    mediator = test_host.test_leases.collaborators.RecordingMediator()
+     server = self._server(mediator=mediator, transport=object(), instance='instance')
+     self.assertEqual(self._post(server, b'bad-json', headers={'Content-Length': 'invalid', 'Authorization': 'Basic internal'}), (403, b'{"error": "mediator_instance_mismatch"}'))
+     self.assertEqual(mediator.calls, [])
+
+### PR 229 tests/test_lease_http_handler.py::LeaseHTTPHandlerTests.test_length_prefix_json_and_exception_categories_are_preserved
+--- tests/test_lease_http_handler.py::LeaseHTTPHandlerTests.test_length_prefix_json_and_exception_categories_are_preserved
++++ tests/test_host/test_leases/test_http.py::LeaseHTTPHandlerTests.test_length_prefix_json_and_exception_categories_are_preserved
+@@ -1,5 +1,5 @@
+ def test_length_prefix_json_and_exception_categories_are_preserved(self):
+-    mediator = test_host.test_leases.test_http.RecordingMediator()
++    mediator = test_host.test_leases.collaborators.RecordingMediator()
+     server = self._server(mediator=mediator, transport=object())
+     for length in (None, 'invalid', '0', '-1', str(1024 * 1024 + 1)):
+         with self.subTest(length=length):
+
+
+### PR 229 tests/test_lease_http_handler.py::LeaseHTTPHandlerTests.test_maximum_body_exact_forwarding_bytes_and_log_suppression
+--- tests/test_lease_http_handler.py::LeaseHTTPHandlerTests.test_maximum_body_exact_forwarding_bytes_and_log_suppression
++++ tests/test_host/test_leases/test_http.py::LeaseHTTPHandlerTests.test_maximum_body_exact_forwarding_bytes_and_log_suppression
+@@ -1,5 +1,5 @@
+ def test_maximum_body_exact_forwarding_bytes_and_log_suppression(self):
+-    mediator, transport = (test_host.test_leases.test_http.RecordingMediator(), object())
++    mediator, transport = (test_host.test_leases.collaborators.RecordingMediator(), object())
+     server = self._server(mediator=mediator, transport=transport)
+     body = json.dumps({'repository': 'example/disposable', 'operation': 'git_fetch', 'payload': {'branch': 'main'}, 'effect_id': 'effect'}).encode()
+     body += b' ' * (1024 * 1024 - len(body))
+
+
+### PR 229 tests/test_module_cohesion.py::ModuleCohesionTests.test_production_classes_are_not_declared_inside_functions
+ORIGINAL METHOD
+def test_production_classes_are_not_declared_inside_functions(self):
+    """Guard maintained implementation directories, not historical probes.
+
+        Experiments, retained probes and inherited test/example doubles are
+        deliberately outside this production guard; no historical-clean claim.
+        """
+    nested = []
+    for directory in (ROOT / 'src', ROOT / 'components', ROOT / 'tools'):
+        for path in directory.rglob('*.py'):
+            tree = ast.parse(path.read_text(encoding='utf-8-sig'))
+            parents = {child: node for node in ast.walk(tree) for child in ast.iter_child_nodes(node)}
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.ClassDef):
+                    continue
+                ancestor = parents.get(node)
+                while ancestor is not None:
+                    if isinstance(ancestor, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                        nested.append(f'{path.relative_to(ROOT).as_posix()}:{node.lineno}:{node.name}')
+                        break
+                    ancestor = parents.get(ancestor)
+    self.assertEqual(nested, [], 'Move implementation classes to module scope')
+
+
+### PR 230 tests/test_defining_imports.py::DefiningImportTests.test_migrated_callers_do_not_reintroduce_feature_module_prefixes
+ORIGINAL METHOD
+def test_migrated_callers_do_not_reintroduce_feature_module_prefixes(self):
+    source = Path(__file__).resolve().parents[1] / 'src/laomedo'
+    paths = ('host/credentials/siwc/browser.py', 'host/credentials/siwc/cli.py', 'host/credentials/siwc/utils.py', 'host/leases/client.py', 'host/leases/models.py', 'host/leases/process.py', 'host/leases/process_cli.py', 'host/leases/service_cli.py', 'host/leases/utils.py', 'host/managed_service.py', 'host/publication/bundle/settings.py', 'host/publication/cli.py', 'host/publication/controller.py', 'host/publication/handoff/utils.py', 'host/runner/routes.py', 'host/runner/service.py', 'host/runner/utils.py', 'work_graph/stage_worker.py')
+    for relative in paths:
+        with self.subTest(module=relative):
+            tree = ast.parse((source / relative).read_text(encoding='utf-8-sig'))
+            offenders = [(node.lineno, item.name) for node in ast.walk(tree) if isinstance(node, ast.Import) for item in node.names if item.name.startswith('laomedo.')]
+            self.assertEqual(offenders, [], 'Import the defining object directly')
+
+
+### PR 230 tests/test_defining_imports.py::DefiningImportTests.test_lazy_composition_imports_are_not_lifted_to_module_scope
+ORIGINAL METHOD
+def test_lazy_composition_imports_are_not_lifted_to_module_scope(self):
+    source = Path(__file__).resolve().parents[1] / 'src/laomedo'
+    sites = (('host/credentials/siwc/browser.py', 'browser_connect', 'laomedo.host.credentials.siwc.connection'), ('host/credentials/siwc/cli.py', 'main', 'laomedo.host.credentials.siwc.connection'), ('host/credentials/siwc/utils.py', '_https_json', 'laomedo.host.credentials.siwc.connection'), ('host/credentials/siwc/utils.py', '_revoke', 'laomedo.host.credentials.siwc.connection'), ('host/runner/routes.py', 'install_runner_service_routes', 'laomedo.host.runner.service'), ('host/managed_service.py', 'main', 'laomedo.host.host_services'), ('host/managed_service.py', 'main', 'laomedo.host.publication.cli'))
+    for relative, function, module in sites:
+        with self.subTest(module=relative, function=function, dependency=module):
+            tree = ast.parse((source / relative).read_text(encoding='utf-8-sig'))
+            owner = next((node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == function))
+            self.assertTrue(any((isinstance(node, ast.ImportFrom) and node.module == module for node in ast.walk(owner))))
+            self.assertFalse(any((isinstance(node, ast.ImportFrom) and node.module == module for node in tree.body)))
+
+
+### PR 230 tests/test_lease_service.py::LeaseClientTests.test_client_publishes_only_complete_registration
+--- tests/test_lease_service.py::LeaseClientTests.test_client_publishes_only_complete_registration
++++ tests/test_host/test_leases/test_service.py::LeaseClientTests.test_client_publishes_only_complete_registration
+@@ -19,7 +19,7 @@
+             saw_staged_registration.append(True)
+         original_write(path, value)
+     with unittest.mock.patch('laomedo.host.leases.client._write_json', side_effect=checked_write), unittest.mock.patch('laomedo.host.leases.service.os.getpid', return_value=-2):
+-        client = laomedo.host.leases.client.LeaseClient(self.state, docker_endpoint='unix:///unit-test.sock', run_id='run-race', name='exact-name', token='token-race', cancelled=threading.Event())
++        client = laomedo.host.leases.client.LeaseClient(self.state, run_id='run-race', name='exact-name', token='token-race', docker_endpoint='unix:///test-docker.sock', cancelled=threading.Event())
+     self.assertEqual(saw_staged_registration, [True])
+     self.assertFalse((client.dir / 'result.json').exists())
+     self.assertTrue((client.dir / 'accepted.json').exists())
+
+
+### PR 230 tests/test_package_layout.py::PackageLayoutTests.test_package_root_has_only_shared_infrastructure
+--- tests/test_package_layout.py::PackageLayoutTests.test_package_root_has_only_shared_infrastructure
++++ tests/test_shared/test_architecture/test_packages.py::PackageLayoutTests.test_package_root_has_only_shared_infrastructure
+@@ -1,3 +1,2 @@
+ def test_package_root_has_only_shared_infrastructure(self):
+-    self.assertEqual({p.name for p in laomedo._paths.package_root().iterdir() if p.is_file()} - {'README.md'}, {'__init__.py', '_paths.py'})
+-    self.assertTrue((ROOT / 'src/laomedo/README.md').is_file())+    self.assertEqual({p.name for p in laomedo._paths.package_root().iterdir() if p.is_file()} - {'README.md'}, {'__init__.py', '_paths.py'})
+
+### PR 231 tests/test_bundle_stage.py::BundleStageTests.test_exp139_verifier_reads_commit_from_real_frozen_bundle
+ORIGINAL METHOD
+def test_exp139_verifier_reads_commit_from_real_frozen_bundle(self):
+    sys.path.append(str(Path(__file__).resolve().parents[1]))
+    from retained_github import load_retained_github
+    load_retained_github('experiments.exp139.runtime')
+    from experiments.exp139.runtime import verify_attempt
+    self.assertNotIn('advertised_commit', self.frozen)
+    config = {'baseline_sha256': self.baseline_hash}
+    campaign = self.root
+    self.runner.rename(campaign / 'runner')
+    with patch('experiments.exp139.runtime.verify_frozen_bundle', return_value={'status': 'verified'}) as verifier:
+        self.assertEqual(verify_attempt(campaign, config, 'run-a', 'attempt-1'), {'status': 'verified'})
+        self.assertEqual(verifier.call_args.kwargs['commit'], self.commit)
+    bundle = campaign / 'private-stage/run-a/attempt-1/input.bundle'
+    bundle.write_bytes(bundle.read_bytes() + b'TAMPER')
+    with patch('experiments.exp139.runtime.verify_frozen_bundle') as verifier:
+        with self.assertRaises(BundleStageError):
+            verify_attempt(campaign, config, 'run-a', 'attempt-1')
+        verifier.assert_not_called()
+
+
+### PR 231 tests/test_github_ownership.py::GitHubOwnershipTests.test_shared_admission_keeps_distinct_case_and_error_contracts
+ORIGINAL METHOD
+def test_shared_admission_keeps_distinct_case_and_error_contracts(self):
+    self.assertEqual(validate_repository('Owner/RePo'), ('Owner', 'RePo'))
+    self.assertEqual(repository_from_url('https://github.com/Owner/RePo/'), 'owner/repo')
+    with self.assertRaisesRegex(ValueError, '^Repository must be owner/name$'):
+        validate_repository('owner/../repo')
+    for value in (None, 'http://github.com/o/r', 'https://github.com/o/r?q=1'):
+        with self.subTest(value=value), self.assertRaisesRegex(ValueError, '^repository_url_invalid$'):
+            repository_from_url(value)
+    labels = ['z', 'é']
+    self.assertEqual(labels_value(labels), ['z', 'é'])
+    self.assertEqual(labels, ['z', 'é'])
+    for value in (['a', 'a'], [''], 'label'):
+        with self.assertRaisesRegex(ValueError, '^labels_invalid$'):
+            labels_value(value)
+
+
+### PR 231 tests/test_github_ownership.py::GitHubOwnershipTests.test_pr_digest_is_the_canonical_function_and_unicode_preimage
+ORIGINAL METHOD
+def test_pr_digest_is_the_canonical_function_and_unicode_preimage(self):
+    contract = importlib.import_module('laomedo.github.pull_requests.contract')
+    self.assertIs(pr_digest, issue_digest)
+    self.assertIs(contract.pr_digest, issue_digest)
+    value = {'title': 'λ é', 'labels': ['café'], 'body': None}
+    expected = 'sha256:' + sha256('{"body":null,"labels":["café"],"title":"λ é"}'.encode()).hexdigest()
+    self.assertEqual(pr_digest(value), expected)
+    self.assertEqual(MIGRATION['SYMBOL_PATHS']['laomedo.github.pull_requests.contract.pr_digest'], 'laomedo.github.contract.issue_digest')
+
+
+### PR 231 tests/test_github_ownership.py::GitHubOwnershipTests.test_dispatcher_forwards_exact_objects_and_preserves_outcomes
+ORIGINAL METHOD
+def test_dispatcher_forwards_exact_objects_and_preserves_outcomes(self):
+    git, rest = (Mock(repository='owner/repo'), Mock(repository='owner/repo'))
+    transport = GitHubMediatedTransport(git, rest)
+    payload, binding = ({'a': 1}, object())
+    for operation, target in (('git_push', git), ('git_fetch', git), ('create_pr', rest), ('unknown', rest)):
+        self.assertIs(transport('owner/repo', operation, payload, verified_stage=binding), target.return_value)
+        target.assert_called_with('owner/repo', operation, payload, verified_stage=binding)
+    failure = RuntimeError('uncertain')
+    rest.side_effect = failure
+    with self.assertRaises(RuntimeError) as caught:
+        transport('owner/repo', 'create_pr', payload)
+    self.assertIs(caught.exception, failure)
+    with self.assertRaisesRegex(ValueError, '^repository_mismatch$'):
+        GitHubMediatedTransport(git, Mock(repository='other/repo'))
+
+
+### PR 231 tests/test_github_ownership.py::GitHubOwnershipTests.test_migration_preserves_aliases_and_refuses_unknown_split_members
+ORIGINAL METHOD
+def test_migration_preserves_aliases_and_refuses_unknown_split_members(self):
+    cases = {'from laomedo.github.issues.utils import fetch_context as read\nx=read(repo,7)\n': 'from laomedo.github.issues.context_reader import fetch_context as read', 'from laomedo.github.issues.utils import main\nx=main()\n': 'from laomedo.github.issues.context import main', 'import laomedo.github.issues.utils as old\nx=old.fetch_context(repo,7)\n': 'laomedo.github.issues.context_reader', 'from laomedo.github.transport.git.transport import GitHubMediatedTransport\n': 'from laomedo.github.transport.mediated import GitHubMediatedTransport', 'from laomedo.work_graph.github import validate_repository\n': 'from laomedo.github.contract import validate_repository'}
+    for source, expected in cases.items():
+        migrated = MIGRATION['migrate_source'](source)
+        self.assertIn(expected, migrated)
+        self.assertEqual(MIGRATION['migrate_source'](migrated), migrated)
+    for source in ('from laomedo.github.issues.utils import *\n', 'import laomedo.github.issues.utils as old\nx=getattr(old,name)\n'):
+        with self.assertRaises(MIGRATION['ManualMigrationRequired']):
+            MIGRATION['migrate_source'](source)
+

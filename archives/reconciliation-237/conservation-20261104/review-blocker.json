@@ -1,0 +1,27 @@
+{
+  "category": "external_dependency",
+  "action_owner": "external",
+  "reason": "The required independent reviewer reached its five-hour subscription limit during runtime batch4; the partial request has no final verdict.",
+  "reported_reset": "2026-11-04 15:10 Europe/Berlin",
+  "completed_batches": [
+    "runtime-1",
+    "runtime-2",
+    "runtime-3"
+  ],
+  "partial_batch": "runtime-4: text confirms ranges1-600 read, no final verdict; resume/review the whole batch",
+  "remaining_batches": [
+    "runtime-4",
+    "runtime-5",
+    "runtime-6",
+    "tests-1",
+    "tests-2",
+    "tests-3",
+    "tests-4",
+    "tests-5"
+  ],
+  "required_action": "After actual reviewer availability returns, resolve the inspected pending digest in the same local reviewer session and resume the prepared bounded audit. Recheck restored217/233 assertions, inspect remaining non-Python paths, then decide each retirement.",
+  "attempted_resolution": "Three bounded complete runtime responses obtained. Wrapper stopped on native error; inspected only new dedicated-reviewer transcript bytes and identified rate_limit with reset time. No blind retry, new reviewer session or merge.",
+  "why_no_safe_alternative": "Self-review, archived bytes, green CI and scoped earlier approvals cannot replace the required independent conservation verdict. Available restorations, affected checks, artifact recovery, PR evidence updates and private-runtime cleanup are complete for this checkpoint.",
+  "independent_work_remaining": false,
+  "scope": "Selected old-PR retirement audit only. Replacement feature/provider/owner acceptance remains incomplete; original locked package-publication task is retained separately."
+}

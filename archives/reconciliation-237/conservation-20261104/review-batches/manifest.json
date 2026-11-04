@@ -1,0 +1,79 @@
+[
+  {
+    "name": "runtime-1",
+    "source": "C:\\CodeWorkspace\\laomedo\\claude-review.local\\github-consolidation\\checkpoint-audit-20261104\\review-batches\\runtime-1.txt",
+    "lines": 1179,
+    "prompt": "C:\\CodeWorkspace\\laomedo\\claude-review.local\\github-consolidation\\checkpoint-audit-20261104\\review-batches\\runtime-1-prompt.txt",
+    "output": "C:\\CodeWorkspace\\laomedo\\claude-review.local\\github-consolidation\\checkpoint-audit-20261104\\review-batches\\runtime-1-result.log"
+  },
+  {
+    "name": "runtime-2",
+    "source": "C:\\CodeWorkspace\\laomedo\\claude-review.local\\github-consolidation\\checkpoint-audit-20261104\\review-batches\\runtime-2.txt",
+    "lines": 1150,
+    "prompt": "C:\\CodeWorkspace\\laomedo\\claude-review.local\\github-consolidation\\checkpoint-audit-20261104\\review-batches\\runtime-2-prompt.txt",
+    "output": "C:\\CodeWorkspace\\laomedo\\claude-review.local\\github-consolidation\\checkpoint-audit-20261104\\review-batches\\runtime-2-result.log"
+  },
+  {
+    "name": "runtime-3",
+    "source": "C:\\CodeWorkspace\\laomedo\\claude-review.local\\github-consolidation\\checkpoint-audit-20261104\\review-batches\\runtime-3.txt",
+    "lines": 1152,
+    "prompt": "C:\\CodeWorkspace\\laomedo\\claude-review.local\\github-consolidation\\checkpoint-audit-20261104\\review-batches\\runtime-3-prompt.txt",
+    "output": "C:\\CodeWorkspace\\laomedo\\claude-review.local\\github-consolidation\\checkpoint-audit-20261104\\review-batches\\runtime-3-result.log"
+  },
+  {
+    "name": "runtime-4",
+    "source": "C:\\CodeWorkspace\\laomedo\\claude-review.local\\github-consolidation\\checkpoint-audit-20261104\\review-batches\\runtime-4.txt",
+    "lines": 1171,
+    "prompt": "C:\\CodeWorkspace\\laomedo\\claude-review.local\\github-consolidation\\checkpoint-audit-20261104\\review-batches\\runtime-4-prompt.txt",
+    "output": "C:\\CodeWorkspace\\laomedo\\claude-review.local\\github-consolidation\\checkpoint-audit-20261104\\review-batches\\runtime-4-result.log"
+  },
+  {
+    "name": "runtime-5",
+    "source": "C:\\CodeWorkspace\\laomedo\\claude-review.local\\github-consolidation\\checkpoint-audit-20261104\\review-batches\\runtime-5.txt",
+    "lines": 1183,
+    "prompt": "C:\\CodeWorkspace\\laomedo\\claude-review.local\\github-consolidation\\checkpoint-audit-20261104\\review-batches\\runtime-5-prompt.txt",
+    "output": "C:\\CodeWorkspace\\laomedo\\claude-review.local\\github-consolidation\\checkpoint-audit-20261104\\review-batches\\runtime-5-result.log"
+  },
+  {
+    "name": "runtime-6",
+    "source": "C:\\CodeWorkspace\\laomedo\\claude-review.local\\github-consolidation\\checkpoint-audit-20261104\\review-batches\\runtime-6.txt",
+    "lines": 731,
+    "prompt": "C:\\CodeWorkspace\\laomedo\\claude-review.local\\github-consolidation\\checkpoint-audit-20261104\\review-batches\\runtime-6-prompt.txt",
+    "output": "C:\\CodeWorkspace\\laomedo\\claude-review.local\\github-consolidation\\checkpoint-audit-20261104\\review-batches\\runtime-6-result.log"
+  },
+  {
+    "name": "tests-1",
+    "source": "C:\\CodeWorkspace\\laomedo\\claude-review.local\\github-consolidation\\checkpoint-audit-20261104\\review-batches\\tests-1.txt",
+    "lines": 1209,
+    "prompt": "C:\\CodeWorkspace\\laomedo\\claude-review.local\\github-consolidation\\checkpoint-audit-20261104\\review-batches\\tests-1-prompt.txt",
+    "output": "C:\\CodeWorkspace\\laomedo\\claude-review.local\\github-consolidation\\checkpoint-audit-20261104\\review-batches\\tests-1-result.log"
+  },
+  {
+    "name": "tests-2",
+    "source": "C:\\CodeWorkspace\\laomedo\\claude-review.local\\github-consolidation\\checkpoint-audit-20261104\\review-batches\\tests-2.txt",
+    "lines": 1205,
+    "prompt": "C:\\CodeWorkspace\\laomedo\\claude-review.local\\github-consolidation\\checkpoint-audit-20261104\\review-batches\\tests-2-prompt.txt",
+    "output": "C:\\CodeWorkspace\\laomedo\\claude-review.local\\github-consolidation\\checkpoint-audit-20261104\\review-batches\\tests-2-result.log"
+  },
+  {
+    "name": "tests-3",
+    "source": "C:\\CodeWorkspace\\laomedo\\claude-review.local\\github-consolidation\\checkpoint-audit-20261104\\review-batches\\tests-3.txt",
+    "lines": 1206,
+    "prompt": "C:\\CodeWorkspace\\laomedo\\claude-review.local\\github-consolidation\\checkpoint-audit-20261104\\review-batches\\tests-3-prompt.txt",
+    "output": "C:\\CodeWorkspace\\laomedo\\claude-review.local\\github-consolidation\\checkpoint-audit-20261104\\review-batches\\tests-3-result.log"
+  },
+  {
+    "name": "tests-4",
+    "source": "C:\\CodeWorkspace\\laomedo\\claude-review.local\\github-consolidation\\checkpoint-audit-20261104\\review-batches\\tests-4.txt",
+    "lines": 1203,
+    "prompt": "C:\\CodeWorkspace\\laomedo\\claude-review.local\\github-consolidation\\checkpoint-audit-20261104\\review-batches\\tests-4-prompt.txt",
+    "output": "C:\\CodeWorkspace\\laomedo\\claude-review.local\\github-consolidation\\checkpoint-audit-20261104\\review-batches\\tests-4-result.log"
+  },
+  {
+    "name": "tests-5",
+    "source": "C:\\CodeWorkspace\\laomedo\\claude-review.local\\github-consolidation\\checkpoint-audit-20261104\\review-batches\\tests-5.txt",
+    "lines": 516,
+    "prompt": "C:\\CodeWorkspace\\laomedo\\claude-review.local\\github-consolidation\\checkpoint-audit-20261104\\review-batches\\tests-5-prompt.txt",
+    "output": "C:\\CodeWorkspace\\laomedo\\claude-review.local\\github-consolidation\\checkpoint-audit-20261104\\review-batches\\tests-5-result.log"
+  }
+]

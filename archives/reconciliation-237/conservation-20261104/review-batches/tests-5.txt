@@ -1,0 +1,516 @@
+
+### PR 231 tests/test_github_ownership.py::GitHubOwnershipTests.test_retained_probe_bytes_and_loader_scope_are_explicit
+ORIGINAL METHOD
+def test_retained_probe_bytes_and_loader_scope_are_explicit(self):
+    manifest = json.loads(Path(ROOT, 'tools/migrations/retained-github-callers.json').read_text())
+    self.assertEqual(len(manifest['files']), 6)
+    for record in manifest['files']:
+        self.assertEqual(sha256(Path(ROOT, record['path']).read_bytes()).hexdigest(), record['sha256'])
+    with self.assertRaisesRegex(ValueError, 'not an explicitly retained'):
+        load_retained_github('laomedo.github.issues.context_reader')
+    module = load_retained_github('experiments.exp100.probe_native_capture')
+    self.assertIs(module.GitHubMediatedTransport, GitHubMediatedTransport)
+
+
+### PR 231 tests/test_github_ownership.py::GitHubOwnershipTests.test_retained_run_injection_requires_manual_full_source_migration
+ORIGINAL METHOD
+def test_retained_run_injection_requires_manual_full_source_migration(self):
+    """Import-only controls cannot silently bless retired full probe calls."""
+    paths = ('experiments/exp100/probe_native_capture.py', 'experiments/exp100/probe_paired.py', 'experiments/exp104/probe_active_delivery.py')
+    for relative in paths:
+        with self.subTest(path=relative):
+            source = Path(ROOT, relative).read_text(encoding='utf-8')
+            self.assertTrue(any((isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and (node.func.id == 'GitHubGitTransport') and any((keyword.arg == 'run' for keyword in node.keywords)) for node in ast.walk(ast.parse(source)))))
+            with self.assertRaises(MIGRATION['ManualMigrationRequired']):
+                MIGRATION['migrate_source'](source)
+
+
+### PR 231 tests/test_github_ownership.py::GitHubOwnershipTests.test_current_producers_keep_catalogue_and_cli_only_errors_distinct
+ORIGINAL METHOD
+def test_current_producers_keep_catalogue_and_cli_only_errors_distinct(self):
+    catalogue = json.loads(Path(ROOT, 'frontend/langflow-skill-viewer/node-error-catalog.json').read_text())
+    entries = catalogue.get('errors', catalogue)
+    self.assertTrue({'repository_url_invalid', 'labels_invalid'} <= set(entries))
+    self.assertNotIn('Repository must be owner/name', entries)
+
+
+### PR 231 tests/test_github_ownership.py::GitHubOwnershipTests.test_retired_context_file_and_core_dependency_cannot_return
+ORIGINAL METHOD
+def test_retired_context_file_and_core_dependency_cannot_return(self):
+    self.assertFalse(Path(ROOT, 'src/laomedo/github/issues/utils.py').exists())
+    shared = Path(ROOT, 'src/laomedo/github/contract.py').read_text()
+    reader = Path(ROOT, 'src/laomedo/github/issues/context_reader.py').read_text()
+    self.assertNotIn('laomedo.work_graph', shared + reader)
+    self.assertNotIn('lfx', shared + reader)
+    self.assertNotIn('class GitHubMediatedTransport', Path(ROOT, 'src/laomedo/github/transport/git/transport.py').read_text())
+    paths = [*Path(ROOT, 'src/laomedo/github').rglob('*.py'), Path(ROOT, 'src/laomedo/integrations/langflow/viewer.py')]
+    for path in paths:
+        for node in ast.walk(ast.parse(path.read_text(encoding='utf-8-sig'))):
+            if isinstance(node, ast.Import):
+                self.assertFalse(any((alias.name.startswith('laomedo.') for alias in node.names)), str(path))
+
+
+### PR 231 tests/test_github_ownership.py::GitHubOwnershipTests.test_maintained_executable_imports_use_current_definitions
+ORIGINAL METHOD
+def test_maintained_executable_imports_use_current_definitions(self):
+    tracked = subprocess.check_output(['git', '-c', 'safe.directory=' + ROOT.as_posix(), '-C', str(ROOT), 'ls-files', '-z', '--', '*.py']).decode().split('\x00')
+    retired_symbols = {'laomedo.github.issues.contract': {'repository_from_url', 'labels_value', 'issue_digest'}, 'laomedo.github.transport.git.transport': {'GitHubMediatedTransport'}, 'laomedo.work_graph.github': {'validate_repository'}}
+    for relative in filter(None, tracked):
+        path = Path(ROOT, relative)
+        if not path.exists() or relative.startswith('experiments/'):
+            continue
+        for node in ast.walk(ast.parse(path.read_text(encoding='utf-8-sig'))):
+            if isinstance(node, ast.ImportFrom):
+                self.assertNotEqual(node.module, 'laomedo.github.issues.utils', relative)
+                self.assertFalse({alias.name for alias in node.names} & retired_symbols.get(node.module, set()), relative)
+
+
+### PR 231 tests/test_public_http_interfaces.py::PublicHttpInterfaceTests.test_template_revisions_preserve_every_other_graph_value_and_component_body
+ORIGINAL METHOD
+def test_template_revisions_preserve_every_other_graph_value_and_component_body(self):
+    manifest = json.loads((ROOT / 'tests/contracts/interface-template-revisions-23cb115.json').read_text())
+    self.assertEqual(len(manifest['files']), 11)
+    self.assertEqual(sum((len(item['nodes']) for item in manifest['files'])), 14)
+    followup = json.loads((ROOT / 'tests/contracts/github-template-revisions-6656c1c.json').read_text())
+    encoded_parent = json.dumps(manifest, sort_keys=True, separators=(',', ':'), ensure_ascii=False).encode()
+    self.assertEqual(hashlib.sha256(encoded_parent).hexdigest(), followup['parent_manifest_value_sha256'])
+    replacements = {record['path']: record for record in followup['files']}
+    self.assertEqual(len(replacements), 5)
+    for record in manifest['files']:
+        if record['path'] in replacements:
+            latest = replacements[record['path']]
+            self.assertEqual(latest['parent_graph_values_sha256'], record['unchanged_graph_values_sha256'])
+            record.update(latest)
+    self.assertEqual(sum((len(item['nodes']) for item in manifest['files'])), 16)
+    for record in manifest['files']:
+        graph = json.loads((ROOT / record['path']).read_text())
+        nodes = graph.get('nodes', graph.get('data', {}).get('nodes', []))
+        for revision in record['nodes']:
+            node = nodes[revision['index']]
+            self.assertEqual(node.get('id'), revision['node_id'])
+            definition = node['data']['node']
+            code = definition['template']['code']['value']
+            self.assertEqual(hashlib.sha256(code.encode()).hexdigest(), revision['source_after_sha256'])
+            self.assertEqual(CONTRACTS['source_digest'](code), revision['body_sha256'])
+            if revision['had_code_hash']:
+                self.assertEqual(definition['metadata']['code_hash'], revision['source_after_sha256'][:12])
+                definition['metadata']['code_hash'] = 'C3_RELOCATED_COMPONENT_HASH'
+            definition['template']['code']['value'] = 'C3_RELOCATED_COMPONENT_SOURCE'
+        encoded = json.dumps(graph, sort_keys=True, separators=(',', ':'), ensure_ascii=False).encode()
+        self.assertEqual(hashlib.sha256(encoded).hexdigest(), record['unchanged_graph_values_sha256'], record['path'])
+
+
+### PR 232 tests/test_agent_skill_workspace_modules.py::AgentSkillWorkspaceModuleTests.test_all_five_function_bodies_and_signatures_are_unchanged
+ORIGINAL METHOD
+def test_all_five_function_bodies_and_signatures_are_unchanged(self):
+    original = RECORD['baseline_source']
+    self.assertEqual(hashlib.sha256(original.encode()).hexdigest(), RECORD['source_sha256'])
+    raw = original.encode()
+    self.assertEqual(hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\x00' + raw).hexdigest(), RECORD['baseline_git_blob'])
+    original_nodes = {node.name: node for node in ast.parse(original).body if isinstance(node, ast.FunctionDef)}
+    self.assertEqual(len(original_nodes), 5)
+    for old, target in RECORD['symbols'].items():
+        module, name = target.rsplit('.', 1)
+        path = ROOT.joinpath('src', *module.split('.')).with_suffix('.py')
+        current = next((node for node in ast.parse(path.read_text(encoding='utf-8')).body if isinstance(node, ast.FunctionDef) and node.name == name))
+        self.assertEqual(ast.dump(original_nodes[name]), ast.dump(current), name)
+        self.assertEqual(MIGRATION['SYMBOL_PATHS'][old], target)
+        loaded = importlib.import_module(module)
+        self.assertEqual(loaded.__name__, module)
+        self.assertEqual(Path(loaded.__file__).read_bytes(), path.read_bytes())
+        self.assertTrue(callable(getattr(loaded, name)))
+
+
+### PR 232 tests/test_agent_skill_workspace_modules.py::AgentSkillWorkspaceModuleTests.test_exception_code_arguments_and_inheritance_are_preserved
+ORIGINAL METHOD
+def test_exception_code_arguments_and_inheritance_are_preserved(self):
+    module = importlib.import_module('laomedo.agents.workspaces.skills.errors')
+    original = next((node for node in ast.parse(RECORD['error_source']).body if isinstance(node, ast.ClassDef)))
+    current = next((node for node in ast.parse(Path(module.__file__).read_text(encoding='utf-8')).body if isinstance(node, ast.ClassDef)))
+    self.assertEqual(ast.dump(original), ast.dump(current))
+    error = module.WorkspaceSkillError('materialized_skill_mismatch')
+    self.assertIsInstance(error, ValueError)
+    self.assertEqual(error.args, ('materialized_skill_mismatch',))
+    self.assertEqual(error.code, 'materialized_skill_mismatch')
+
+
+### PR 232 tests/test_agent_skill_workspace_modules.py::AgentSkillWorkspaceModuleTests.test_known_split_symbols_migrate_and_ambiguous_namespaces_fail_closed
+ORIGINAL METHOD
+def test_known_split_symbols_migrate_and_ambiguous_namespaces_fail_closed(self):
+    retired = ('laomedo.skills.workspace.utils', 'laomedo.skills.workspace_skills', 'laomedo.workspace_skills')
+    for old in retired:
+        for source in (f'from {old} import initialize, remove_owned_tree, verify\n', f'import {old} as old\nold.verify(workspace, skills, evidence)\n'):
+            migrated = MIGRATION['migrate_source'](source)
+            self.assertNotIn(old, migrated)
+            compile(migrated, '<internal-import-migration>', 'exec')
+            self.assertEqual(MIGRATION['migrate_source'](migrated), migrated)
+        for source in (f'from {old} import *\n', f'from {old} import unknown\n', f'import {old} as old\nvalue=old\n', f"import {old} as old\ngetattr(old, 'verify')(w,s,e)\n"):
+            with self.assertRaises(MIGRATION['ManualMigrationRequired'], msg=source):
+                MIGRATION['migrate_source'](source)
+    with self.assertRaises(MIGRATION['ManualMigrationRequired']):
+        MIGRATION['migrate_source']('from laomedo.local_runner import workspace_skills\n')
+    with self.assertRaises(MIGRATION['ManualMigrationRequired']):
+        MIGRATION['migrate_source']('import laomedo.skills.workspace\n')
+
+
+### PR 232 tests/test_agent_skill_workspace_modules.py::AgentSkillWorkspaceModuleTests.test_preserved_exp104_sources_allow_only_explicit_import_migration
+ORIGINAL METHOD
+def test_preserved_exp104_sources_allow_only_explicit_import_migration(self):
+    for item in RECORD['retained_files']:
+        path = ROOT / item['path']
+        raw = path.read_bytes()
+        self.assertEqual(hashlib.sha256(raw).hexdigest(), item['sha256'])
+        original = raw.decode('utf-8-sig')
+        migrated = MIGRATION['migrate_source'](original)
+        self.assertNotIn('import laomedo.skills.workspace.utils', migrated)
+        self.assertIn('laomedo.agents.workspaces.skills.utils', migrated)
+        compile(migrated, str(path) + '<internal-migration-only>', 'exec')
+        self.assertEqual(MIGRATION['migrate_source'](migrated), migrated)
+        self.assertEqual(path.read_bytes(), raw)
+        before = [ast.dump(ast.Call(func=ast.Name(id='verify', ctx=ast.Load()), args=node.args, keywords=node.keywords)) for node in ast.walk(ast.parse(original)) if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and isinstance(node.func.value, ast.Name) and (node.func.value.id == 'workspace_skills') and (node.func.attr == 'verify')]
+        after = [ast.dump(ast.Call(func=ast.Name(id='verify', ctx=ast.Load()), args=node.args, keywords=node.keywords)) for node in ast.walk(ast.parse(migrated)) if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and (node.func.id == '_migrated_workspace_skills_verify')]
+        self.assertEqual(len(before), 1, item['path'])
+        self.assertEqual(before, after, item['path'])
+
+
+### PR 232 tests/test_agent_skill_workspace_modules.py::AgentSkillWorkspaceModuleTests.test_maintained_imports_patch_targets_and_dependency_direction
+ORIGINAL METHOD
+def test_maintained_imports_patch_targets_and_dependency_direction(self):
+    """Guard static imports and bare literal patch calls, not dynamic Python."""
+    self.assertFalse((ROOT / 'src/laomedo/skills/workspace/utils.py').exists())
+    self.assertFalse((ROOT / 'src/laomedo/skills/workspace/errors.py').exists())
+    preserved = {item['path'] for item in RECORD['retained_files']}
+    retired = 'laomedo.skills.workspace'
+    paths = subprocess.check_output(['git', '-c', 'safe.directory=' + str(ROOT), 'ls-files', '-z', '--', '*.py'], cwd=ROOT).decode().split('\x00')
+    for relative in filter(None, paths):
+        path = ROOT / relative
+        if relative in preserved or not path.is_file():
+            continue
+        tree = ast.parse(path.read_text(encoding='utf-8-sig'))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom):
+                self.assertFalse((node.module or '').startswith(retired), relative)
+            if isinstance(node, ast.Import):
+                self.assertFalse(any((item.name.startswith(retired) for item in node.names)), relative)
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and (node.func.id == 'patch') and node.args and isinstance(node.args[0], ast.Constant) and isinstance(node.args[0].value, str):
+                self.assertFalse(node.args[0].value.startswith(retired), relative)
+    for path in (ROOT / 'src/laomedo/skills').rglob('*.py'):
+        for node in ast.walk(ast.parse(path.read_text(encoding='utf-8'))):
+            if isinstance(node, ast.ImportFrom):
+                self.assertFalse((node.module or '').startswith('laomedo.agents'), path)
+    for relative in ('baseline.py', 'cleanup.py', 'skills/utils.py'):
+        tree = ast.parse((ROOT / 'src/laomedo/agents/workspaces' / relative).read_text(encoding='utf-8'))
+        self.assertFalse(any((isinstance(node, ast.ClassDef) for node in ast.walk(tree))))
+        self.assertTrue(any((isinstance(node, ast.ImportFrom) and node.module == '__future__' and any((item.name == 'annotations' for item in node.names)) for node in tree.body)))
+
+
+### PR 232 tests/test_registry_modules.py::RegistryModuleTests.test_maintained_callers_have_no_retired_registry_imports
+ORIGINAL METHOD
+def test_maintained_callers_have_no_retired_registry_imports(self):
+    retained = json.loads(Path(ROOT, 'tools/migrations/retained-registry-callers.json').read_text())['files']
+    preserved = {item['path']: item['sha256'] for item in retained}
+    tracked = subprocess.check_output(['git', '-c', 'safe.directory=' + str(ROOT), 'ls-files', '-z', '--', '*.py'], cwd=ROOT).decode().split('\x00')
+    for relative in filter(None, tracked):
+        path = Path(ROOT, relative)
+        if not path.exists():
+            continue
+        if relative in preserved:
+            self.assertEqual(hashlib.sha256(path.read_bytes()).hexdigest(), preserved[relative])
+            continue
+        for node in ast.walk(ast.parse(path.read_text(encoding='utf-8-sig'))):
+            if isinstance(node, ast.ImportFrom):
+                self.assertNotEqual(node.module, RETIRED, (relative, node.lineno))
+                if node.module == 'laomedo.skills.registry':
+                    self.assertNotIn('utils', {item.name for item in node.names}, relative)
+                if node.module in {'laomedo.skills.workspace.utils', 'laomedo.agents.workspaces.skills.utils'}:
+                    self.assertNotIn('_is_link', {item.name for item in node.names}, relative)
+            elif isinstance(node, ast.Import):
+                self.assertNotIn(RETIRED, {item.name for item in node.names}, relative)
+            elif isinstance(node, ast.Call) and node.args and isinstance(node.args[0], ast.Constant) and isinstance(node.args[0].value, str):
+                name = node.func.id if isinstance(node.func, ast.Name) else node.func.attr if isinstance(node.func, ast.Attribute) else ''
+                if name in {'import_module', '__import__', 'patch'}:
+                    self.assertNotEqual(node.args[0].value, 'laomedo.skills.workspace.utils._is_link', (relative, node.lineno))
+                    self.assertNotEqual(node.args[0].value, 'laomedo.agents.workspaces.skills.utils._is_link', (relative, node.lineno))
+                    self.assertFalse(node.args[0].value == RETIRED or node.args[0].value.startswith(RETIRED + '.'), (relative, node.lineno))
+    for item in retained:
+        raw = Path(ROOT, item['path']).read_bytes()
+        self.assertEqual(hashlib.sha256(raw).hexdigest(), item['sha256'])
+    ci = Path(ROOT, '.github/workflows/work-graph.yml').read_text()
+    self.assertIn('python tools/run_retained_exp08.py test', ci)
+    self.assertIn('python tools/run_retained_exp08.py probe', ci)
+
+
+### PR 232 tests/test_shared_git.py::SharedGitTests.test_generic_git_has_no_feature_dependencies_and_old_runners_are_removed
+--- tests/test_shared_git.py::SharedGitTests.test_generic_git_has_no_feature_dependencies_and_old_runners_are_removed
++++ tests/test_shared/test_git/test_command.py::SharedGitTests.test_generic_git_has_no_feature_dependencies_and_old_runners_are_removed
+@@ -1,13 +1,12 @@
+ def test_generic_git_has_no_feature_dependencies_and_old_runners_are_removed(self):
+-    source = pathlib.Path(__file__).resolve().parents[1] / 'src/laomedo'
++    source = support.paths.repository_root() / 'src/laomedo'
+     for path in (source / 'git').rglob('*.py'):
+         tree = ast.parse(path.read_text())
+         for node in ast.walk(tree):
+             if isinstance(node, ast.ImportFrom) and (node.module or '').startswith('laomedo.'):
+                 self.assertTrue(node.module.startswith('laomedo.git'), (path, node.module))
+-    self.assertFalse((source / 'agents/workspaces/git.py').exists())
+     retired = {'_run_bounded_tree', '_bounded_git', '_base_git_environment', '_git_environment', '_credential_environment'}
+-    for relative in ('agents/workspaces', 'github/transport/git', 'host/publication/verified', 'host/mediation'):
++    for relative in ('agents/workspace', 'github/transport/git', 'host/publication/verified', 'host/mediation'):
+         for path in (source / relative).rglob('*.py'):
+             tree = ast.parse(path.read_text())
+             self.assertFalse({n.name for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)} & retired, path)
+
+### PR 232 tests/test_skills_direct_imports.py::SkillsDirectImportTests.test_five_function_bodies_preserve_operations_after_direct_imports
+ORIGINAL METHOD
+def test_five_function_bodies_preserve_operations_after_direct_imports(self):
+    record = json.loads((ROOT / 'tests/contracts/skills-direct-imports-b614cf3.json').read_text(encoding='utf-8'))
+    functions = 0
+    aliases_seen = 0
+    for item in record['files']:
+        old = item['source']
+        self.assertEqual(hashlib.sha256(old.encode()).hexdigest(), item['source_sha256'])
+        raw = old.encode()
+        self.assertEqual(hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\x00' + raw).hexdigest(), item['git_blob'])
+        old_tree = ast.parse(old)
+        aliases = {imported.asname for node in old_tree.body if isinstance(node, ast.Import) for imported in node.names if imported.name.startswith('laomedo.')}
+        aliases_seen += len(aliases)
+        original = [node for node in old_tree.body if isinstance(node, ast.FunctionDef)]
+        current = [node for node in ast.parse((ROOT / item['path']).read_text(encoding='utf-8')).body if isinstance(node, ast.FunctionDef)]
+        self.assertEqual(len(original), len(current))
+        for before, after in zip(original, current):
+            self.assertEqual(ast.dump(self.unqualify(copy.deepcopy(before), aliases)), ast.dump(after), (item['path'], before.name))
+            functions += 1
+    self.assertEqual(functions, 5)
+    self.assertEqual(aliases_seen, 7)
+
+
+### PR 232 tests/test_skills_direct_imports.py::SkillsDirectImportTests.test_skills_owned_files_have_no_module_prefix_imports
+ORIGINAL METHOD
+def test_skills_owned_files_have_no_module_prefix_imports(self):
+    for path in (ROOT / 'src/laomedo/skills').rglob('*.py'):
+        for node in ast.walk(ast.parse(path.read_text(encoding='utf-8'))):
+            if isinstance(node, ast.Import):
+                self.assertFalse(any((item.name.startswith('laomedo.') for item in node.names)), (path, node.lineno))
+
+
+### PR 232 tests/test_skills_direct_imports.py::SkillsDirectImportTests.test_affected_error_producers_have_explicit_surface_and_gap_inventory
+ORIGINAL METHOD
+def test_affected_error_producers_have_explicit_surface_and_gap_inventory(self):
+    """Guard new gaps without presenting pre-existing raw-code UI as repaired."""
+    catalogue = json.loads((ROOT / 'frontend/langflow-skill-viewer/node-error-catalog.json').read_text(encoding='utf-8'))
+    producers = ('skills/inspection/utils.py', 'skills/authoring/summary.py')
+    codes = set()
+    for relative in producers:
+        tree = ast.parse((ROOT / 'src/laomedo' / relative).read_text(encoding='utf-8'))
+        codes.update((node.args[0].value for node in ast.walk(tree) if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and (node.func.id in {'InspectionError', 'SkillStoreError'}) and node.args and isinstance(node.args[0], ast.Constant) and isinstance(node.args[0].value, str)))
+    models = ast.parse((ROOT / 'src/laomedo/skills/operations/models.py').read_text(encoding='utf-8'))
+    for owner in models.body:
+        if isinstance(owner, ast.ClassDef) and owner.name in {'FileEdit', 'SkillProposal'}:
+            codes.update((node.args[0].value for node in ast.walk(owner) if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and (node.func.id == 'SkillStoreError') and node.args and isinstance(node.args[0], ast.Constant)))
+    self.assertTrue(codes)
+    inventory = json.loads((ROOT / 'tests/contracts/skills-direct-import-errors.json').read_text(encoding='utf-8'))
+    classified = set(inventory['catalogued_codes']) | set(inventory['existing_viewer_catalogue_gaps']) | set(inventory['operation_http_collapsed_codes'])
+    self.assertEqual(codes, classified)
+    self.assertFalse(codes - catalogue.keys() - set(inventory['known_missing_entries']))
+    for code in inventory['catalogued_codes']:
+        for field in ('title', 'description', 'recovery'):
+            self.assertTrue(catalogue[code][field].strip(), (code, field))
+    handler = (ROOT / 'src/laomedo/skills/interface/operations/handler.py').read_text(encoding='utf-8')
+    self.assertIn('"error_category": "skill_operation_refused"', handler)
+
+
+### PR 233 tests/test_activity_projection_envelope.py::ActivityProjectionEnvelopeTests.test_projectors_match_frozen_old_writer_bytes
+ORIGINAL METHOD
+def test_projectors_match_frozen_old_writer_bytes(self):
+    """Require exact keys, omission, Unicode escaping and nested JSON bytes."""
+    self.assertEqual(self.contract['base'], '3508b7aee627053e21369cc08a16f15520345374')
+    self.assertIn('not_live_acceptance', self.contract['evidence_kind'])
+    self.assertEqual(len(self.contract['sources']), 5)
+    for case in self.contract['cases']:
+        with self.subTest(case=case['name']):
+            writer = project if case['projector'] == 'shared' else project_opencode
+            actual = writer(case['events'], **case['kwargs'])
+            expected = base64.b64decode(case['json_base64'])
+            self.assertEqual(hashlib.sha256(expected).hexdigest(), case['sha256'])
+            self.assertEqual(list(actual), case['keys'])
+            self.assertEqual(json.dumps(actual).encode('utf-8'), expected)
+
+
+### PR 234 tests/test_skill_inspection_error_catalog.py::SkillInspectionErrorCatalogueTests.test_affected_producer_codes_have_descriptive_catalogue_entries
+ORIGINAL METHOD
+def test_affected_producer_codes_have_descriptive_catalogue_entries(self):
+    """Read actual literal producers rather than just a new expected list."""
+    root = Path(__file__).resolve().parents[1]
+    catalogue = json.loads((root / 'frontend/langflow-skill-viewer/node-error-catalog.json').read_text(encoding='utf-8'))
+    codes = set()
+    for relative in ('skills/inspection/utils.py', 'skills/operations/models.py', 'skills/authoring/summary.py'):
+        tree = ast.parse((root / 'src/laomedo' / relative).read_text(encoding='utf-8'))
+        codes.update((node.exc.args[0].value for node in ast.walk(tree) if isinstance(node, ast.Raise) and isinstance(node.exc, ast.Call) and node.exc.args and isinstance(node.exc.args[0], ast.Constant) and isinstance(node.exc.args[0].value, str)))
+    self.assertTrue({'immutable_skill_revision_required', 'skill_revision_unavailable', 'skill_revision_unsafe', 'skill_revision_too_large', 'skill_operation_invalid', 'skill_summary_source_unavailable'} <= codes)
+    self.assertFalse(codes - catalogue.keys())
+    for code in codes | {'skill_inspection_unavailable', 'skill_history_unavailable', 'skill_comparison_unavailable'}:
+        with self.subTest(code=code):
+            entry = catalogue[code]
+            self.assertEqual(set(entry), {'title', 'description', 'recovery'})
+            self.assertTrue(all((type(value) is str and value.strip() for value in entry.values())))
+            self.assertNotRegex(' '.join(entry.values()).lower(), '\\boperator\\b|\\brestart\\b')
+
+CURRENT CANDIDATE tests/test_skills/test_inspection/test_errors.py::SkillInspectionErrorCatalogueTests.test_affected_producer_codes_have_descriptive_catalogue_entries
+def test_affected_producer_codes_have_descriptive_catalogue_entries(self):
+    """Read actual literal producers rather than just a new expected list."""
+    root = repository_root()
+    catalogue = json.loads((root / 'frontend/langflow-skill-viewer/node-error-catalog.json').read_text(encoding='utf-8'))
+    codes = set()
+    for relative in ('skills/inspection/utils.py', 'skills/operations/models.py', 'skills/authoring/summary.py'):
+        tree = ast.parse((root / 'src/laomedo' / relative).read_text(encoding='utf-8'))
+        codes.update((node.exc.args[0].value for node in ast.walk(tree) if isinstance(node, ast.Raise) and isinstance(node.exc, ast.Call) and node.exc.args and isinstance(node.exc.args[0], ast.Constant) and isinstance(node.exc.args[0].value, str)))
+    self.assertTrue({'immutable_skill_revision_required', 'skill_revision_unavailable', 'skill_revision_unsafe', 'skill_revision_too_large', 'skill_operation_invalid', 'skill_summary_source_unavailable'} <= codes)
+    self.assertFalse(codes - catalogue.keys() - {'skill_file_missing'})
+    for code in codes | {'skill_inspection_unavailable', 'skill_history_unavailable', 'skill_comparison_unavailable'}:
+        with self.subTest(code=code):
+            entry = catalogue[code]
+            self.assertEqual(set(entry), {'title', 'description', 'recovery'})
+            self.assertTrue(all((type(value) is str and value.strip() for value in entry.values())))
+            self.assertNotRegex(' '.join(entry.values()).lower(), '\\boperator\\b|\\brestart\\b')
+
+
+### PR 234 tests/test_skill_inspection_error_catalog.py::SkillInspectionErrorCatalogueTests.test_inline_viewers_share_presenter_and_installer_owns_new_files
+ORIGINAL METHOD
+def test_inline_viewers_share_presenter_and_installer_owns_new_files(self):
+    """Guard actual presentation/packaging boundaries without claiming UI use."""
+    root = Path(__file__).resolve().parents[1]
+    overlay = root / 'frontend/langflow-skill-viewer'
+    for name in ('SkillFilesModal.tsx', 'SkillHistory.tsx'):
+        text = (overlay / name).read_text(encoding='utf-8')
+        self.assertIn('<SkillInspectionError', text)
+        self.assertIn('describeInspectionFailure', text)
+        self.assertNotIn('>Retry<', text)
+        self.assertNotIn('<ErrorPopup', text)
+        self.assertIn('controller.signal.aborted', text)
+    inline = (overlay / 'SkillInspectionError.tsx').read_text(encoding='utf-8')
+    self.assertIn('describeNodeFailure', inline)
+    self.assertIn('<ErrorExplanation', inline)
+    self.assertIn('<CopyIcon', inline)
+    self.assertNotIn('PopupFrame', inline)
+    popup = (overlay / 'ErrorPopup.tsx').read_text(encoding='utf-8')
+    self.assertIn('<ErrorExplanation', popup)
+    self.assertIn('formatErrorCopy(failure)', popup)
+    installer = (root / 'tools/apply_langflow_skill_viewer.py').read_text(encoding='utf-8')
+    for name in ('SkillInspectionError.tsx', 'SkillInspectionError.test.tsx', 'SkillFilesModal.test.tsx', 'ErrorExplanation.tsx'):
+        self.assertIn('"' + name + '"', installer)
+
+
+### PR 238 tests/test_http_handler_boundaries.py::HandlerStructureTests.test_private_redirect_alias_is_absent
+ORIGINAL METHOD
+def test_private_redirect_alias_is_absent(self):
+    module = importlib.import_module('laomedo.github.transport.rest.transport')
+    self.assertFalse(hasattr(module, '_NoRedirect'))
+
+
+### PR 238 tests/test_public_http_interfaces.py::PublicHttpInterfaceTests.test_maps_end_at_defining_interfaces_and_cli_commands_not_server_classes
+ORIGINAL METHOD
+def test_maps_end_at_defining_interfaces_and_cli_commands_not_server_classes(self):
+    self.assertFalse(set(MIGRATION['MODULE_PATHS']) & set(MIGRATION['MODULE_PATHS'].values()))
+    for old, new in INTERFACE_MODULE_PAIRS:
+        if old == 'laomedo.skills.sources.settings':
+            self.assertNotIn(old, MIGRATION['MODULE_PATHS'])
+            self.assertEqual(MIGRATION['SYMBOL_PATHS'][old + '.Settings'], new + '.Settings')
+            self.assertFalse(hasattr(importlib.import_module(old), 'Settings'))
+        else:
+            self.assertEqual(MIGRATION['MODULE_PATHS'][old], new)
+            self.assertFalse(ROOT.joinpath('src', *old.split('.')).with_suffix('.py').exists())
+            self.assertFalse(any((value == old or value.startswith(old + '.') for value in MIGRATION['MODULE_PATHS'].values())))
+    for group in ('github.issues', 'github.pull_requests', 'skills.sources', 'skills.operations'):
+        owner, feature = group.split('.')
+        old = f'laomedo.{group}.server'
+        server = f'laomedo.{owner}.interface.{feature}.server'
+        cli = f'laomedo.{owner}.interface.{feature}.cli'
+        self.assertEqual(MIGRATION['MODULE_PATHS'][old], server)
+        self.assertEqual(MIGRATION['CLI_PATHS'][old], cli)
+        self.assertIn('-m ' + cli, MIGRATION['migrate_source']('python -m ' + old))
+
+
+### PR 238 tests/test_public_http_interfaces.py::PublicHttpInterfaceTests.test_changed_modules_use_direct_symbols_without_new_nested_classes
+ORIGINAL METHOD
+def test_changed_modules_use_direct_symbols_without_new_nested_classes(self):
+    paths = [ROOT.joinpath('src', *new.split('.')).with_suffix('.py') for _, new in INTERFACE_MODULE_PAIRS]
+    for path in paths:
+        tree = ast.parse(path.read_text())
+        self.assertFalse([node for node in ast.walk(tree) if isinstance(node, ast.Import) and any((item.name.startswith('laomedo.') and item.asname for item in node.names))], path)
+        top = {id(node) for node in tree.body}
+        self.assertFalse([node.name for node in ast.walk(tree) if isinstance(node, ast.ClassDef) and id(node) not in top], path)
+        self.assertFalse(any((isinstance(node, ast.ClassDef) for node in ast.walk(tree))) and any((isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) for node in tree.body)), path)
+
+
+### PR 238 tests/test_public_http_interfaces.py::PublicHttpInterfaceTests.test_component_templates_follow_canonical_source_and_keep_graph_values
+ORIGINAL METHOD
+def test_component_templates_follow_canonical_source_and_keep_graph_values(self):
+    contract = json.loads((ROOT / 'tests/contracts/component-templates.json').read_text(encoding='utf-8'))
+    self.assertTrue(contract['files'])
+    for record in contract['files']:
+        graph = json.loads((ROOT / record['path']).read_text(encoding='utf-8'))
+        nodes = graph.get('nodes', graph.get('data', {}).get('nodes', []))
+        for selected in record['nodes']:
+            matches = [node for node in nodes if node.get('id') == selected['node_id']]
+            self.assertEqual(len(matches), 1, (record['path'], selected['node_id']))
+            definition = matches[0]['data']['node']
+            canonical = (ROOT / selected['component']).read_text(encoding='utf-8')
+            self.assertEqual(definition['template']['code']['value'], canonical, record['path'])
+            if selected['has_code_hash']:
+                self.assertEqual(definition['metadata']['code_hash'], hashlib.sha256(canonical.encode()).hexdigest()[:12])
+                definition['metadata']['code_hash'] = 'CANONICAL_COMPONENT_HASH'
+            definition['template']['code']['value'] = 'CANONICAL_COMPONENT_SOURCE'
+        encoded = json.dumps(graph, sort_keys=True, separators=(',', ':'), ensure_ascii=False).encode()
+        self.assertEqual(hashlib.sha256(encoded).hexdigest(), record['graph_values_sha256'], record['path'])
+
+
+### PR 238 tests/test_public_http_interfaces.py::PublicHttpInterfaceTests.test_defining_error_guard_follows_current_interface_sources
+ORIGINAL METHOD
+def test_defining_error_guard_follows_current_interface_sources(self):
+    source = (ROOT / 'tests/test_http_handler_boundaries.py').read_text()
+    for group in ('github', 'skills'):
+        self.assertIn(group + '/interface/', source)
+    self.assertIn('SOURCE / "skills/interface/sources/handler.py"', source)
+    source_policy = importlib.import_module('laomedo.skills.sources.settings')
+    self.assertEqual(source_policy.MAX_ENTRIES, 4096)
+    self.assertEqual(source_policy.SKIP, {'.git', 'node_modules', '__pycache__', '.venv', 'venv'})
+    self.assertEqual(source_policy.SECRET, {'auth.json', 'credentials.json', 'credentials', '.env', '.netrc'})
+
+
+### PR 238 tests/test_registry_modules.py::RegistryModuleTests.test_registry_symbol_map_targets_are_callable
+ORIGINAL METHOD
+def test_registry_symbol_map_targets_are_callable(self):
+    """Saved consumers resolve each supported registry helper to its owner."""
+    expected = {'_safe_name': 'laomedo.skills.registry.paths.validate_name', '_safe_relative': 'laomedo.skills.registry.paths.validate_relative_path', '_is_link': 'laomedo.skills.registry.files.is_link', 'inventory': 'laomedo.skills.registry.files.inventory', '_write_json': 'laomedo.skills.registry.files.write_json', '_read_json': 'laomedo.skills.registry.files.read_json', '_hash': 'laomedo.skills.registry.hashing.hash_bytes', '_canonical_json': 'laomedo.skills.registry.hashing.canonical_json', 'tree_hash': 'laomedo.skills.registry.hashing.tree_hash', 'file_hashes': 'laomedo.skills.registry.hashing.file_hashes', 'validate_policy': 'laomedo.skills.registry.policy.validate_policy', 'validate_draft': 'laomedo.skills.registry.policy.validate_draft', 'patch_for': 'laomedo.skills.registry.diff.patch_for'}
+    for name, target in expected.items():
+        self.assertEqual(MIGRATION['SYMBOL_PATHS'][RETIRED + '.' + name], target)
+        module, symbol = target.rsplit('.', 1)
+        self.assertTrue(callable(getattr(importlib.import_module(module), symbol)))
+
+
+### PR 238 tests/test_skills_direct_imports.py::SkillsDirectImportTests.test_affected_error_producers_have_explicit_surface_and_gap_inventory
+ORIGINAL METHOD
+def test_affected_error_producers_have_explicit_surface_and_gap_inventory(self):
+    """Require descriptive entries for actual current error producers."""
+    catalogue = json.loads((ROOT / 'frontend/langflow-skill-viewer/node-error-catalog.json').read_text(encoding='utf-8'))
+    producers = ('skills/inspection/utils.py', 'skills/authoring/summary.py')
+    codes = set()
+    for relative in producers:
+        tree = ast.parse((ROOT / 'src/laomedo' / relative).read_text(encoding='utf-8'))
+        codes.update((node.args[0].value for node in ast.walk(tree) if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and (node.func.id in {'InspectionError', 'SkillStoreError'}) and node.args and isinstance(node.args[0], ast.Constant) and isinstance(node.args[0].value, str)))
+    models = ast.parse((ROOT / 'src/laomedo/skills/operations/models.py').read_text(encoding='utf-8'))
+    for owner in models.body:
+        if isinstance(owner, ast.ClassDef) and owner.name in {'FileEdit', 'SkillProposal'}:
+            codes.update((node.args[0].value for node in ast.walk(owner) if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and (node.func.id == 'SkillStoreError') and node.args and isinstance(node.args[0], ast.Constant)))
+    self.assertTrue(codes)
+    inventory = json.loads((ROOT / 'tests/contracts/skills-direct-import-errors.json').read_text(encoding='utf-8'))
+    classified = set(inventory['catalogued_codes']) | set(inventory['existing_viewer_catalogue_gaps']) | set(inventory['operation_http_collapsed_codes'])
+    self.assertEqual(codes, classified)
+    self.assertFalse(codes - catalogue.keys())
+    self.assertEqual(inventory['known_missing_entries'], [])
+    self.assertEqual(inventory['existing_viewer_catalogue_gaps'], [])
+    for code in inventory['catalogued_codes']:
+        for field in ('title', 'description', 'recovery'):
+            self.assertTrue(catalogue[code][field].strip(), (code, field))
+    handler = (ROOT / 'src/laomedo/skills/interface/operations/handler.py').read_text(encoding='utf-8')
+    self.assertIn('"error_category": "skill_operation_refused"', handler)

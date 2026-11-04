@@ -1,0 +1,731 @@
+
+### PR 222 src/laomedo/skills/operations/server.py :: SkillOperationServer
+--- src/laomedo/skills/operations/server.py::SkillOperationServer
++++ src/laomedo/skills/interface/operations/server.py::SkillOperationServer
+@@ -1,8 +1,9 @@
+ class SkillOperationServer(http.server.ThreadingHTTPServer):
+ 
+-    def __init__(self, operations, token, port=8787):
++    def __init__(self, operations, token, port=8787, manual_permissions=None):
+         if not isinstance(token, str) or not 32 <= len(token) <= 512:
+             raise ValueError('private_skill_service_required')
+         self.operations = operations
++        self.manual = laomedo.skills.operations.manual.ManualSkillEditor(operations, manual_permissions)
+         self._token = token
+-        super().__init__(('127.0.0.1', port), laomedo.skills.operations.handler.SkillOperationRequestHandler)+        super().__init__(('127.0.0.1', port), laomedo.skills.interface.operations.handler.SkillOperationRequestHandler)
+
+### PR 222 src/laomedo/skills/operations/server.py :: SkillOperationServer.__init__
+--- src/laomedo/skills/operations/server.py::SkillOperationServer.__init__
++++ src/laomedo/skills/interface/operations/server.py::SkillOperationServer.__init__
+@@ -1,6 +1,7 @@
+-def __init__(self, operations, token, port=8787):
++def __init__(self, operations, token, port=8787, manual_permissions=None):
+     if not isinstance(token, str) or not 32 <= len(token) <= 512:
+         raise ValueError('private_skill_service_required')
+     self.operations = operations
++    self.manual = laomedo.skills.operations.manual.ManualSkillEditor(operations, manual_permissions)
+     self._token = token
+-    super().__init__(('127.0.0.1', port), laomedo.skills.operations.handler.SkillOperationRequestHandler)+    super().__init__(('127.0.0.1', port), laomedo.skills.interface.operations.handler.SkillOperationRequestHandler)
+
+### PR 222 src/laomedo/skills/sources/client.py :: source_request
+--- src/laomedo/skills/sources/client.py::source_request
++++ src/laomedo/skills/interface/sources/client.py::source_request
+@@ -17,7 +17,21 @@
+         if len(data) > 1024 * 1024:
+             raise ValueError()
+         return json.loads(data)
+-    except urllib.error.HTTPError:
+-        raise ValueError('source_discovery_failed') from None
++    except urllib.error.HTTPError as error:
++        category = 'source_discovery_failed'
++        try:
++            data = error.read(16385)
++            if len(data) <= 16384:
++                value = json.loads(data)
++                if isinstance(value, dict) and value.get('error_category') == 'repository_cleanup_unverified':
++                    category = 'repository_cleanup_unverified'
++        except Exception:
++            pass
++        finally:
++            try:
++                error.close()
++            except Exception:
++                category = 'source_discovery_failed'
++        raise ValueError(category) from None
+     except Exception:
+         raise ValueError('source_service_unavailable') from None
+
+### PR 224 src/laomedo/skills/interface/operations/cli.py :: main
+--- src/laomedo/skills/interface/operations/cli.py::main
++++ src/laomedo/skills/interface/operations/cli.py::main
+@@ -3,6 +3,7 @@
+     for field in ('registry', 'database', 'policies', 'api-token-file'):
+         parser.add_argument('--' + field, type=pathlib.Path, required=True)
+     parser.add_argument('--port', type=int, default=8787)
++    parser.add_argument('--manual-permissions', type=pathlib.Path)
+     args = parser.parse_args()
+     operations = laomedo.skills.operations.service.SkillOperations(laomedo.skills.registry.store.SkillStore(args.registry), args.database, json.loads(args.policies.read_text(encoding='utf-8')))
+-    laomedo.skills.interface.operations.server.SkillOperationServer(operations, args.api_token_file.read_text().strip(), args.port).serve_forever()+    laomedo.skills.interface.operations.server.SkillOperationServer(operations, args.api_token_file.read_text().strip(), args.port, manual_permissions=json.loads(args.manual_permissions.read_text(encoding='utf-8')) if args.manual_permissions else None).serve_forever()
+
+### PR 224 src/laomedo/skills/interface/sources/settings.py :: Settings
+--- src/laomedo/skills/interface/sources/settings.py::Settings
++++ src/laomedo/skills/interface/sources/settings.py::Settings
+@@ -4,5 +4,5 @@
+     @classmethod
+     def settings_customise_sources(cls, settings_cls, init_settings, env_settings, dotenv_settings, file_secret_settings):
+         return (init_settings, env_settings)
+-    url: str = pydantic.Field(default='', validation_alias='LAOMEDO_SKILL_SOURCE_URL', repr=False, exclude=True)
+-    token_file: str = pydantic.Field(default='/run/secrets/laomedo-runner-token', validation_alias='LAOMEDO_SKILL_SOURCE_TOKEN_FILE', repr=False, exclude=True)+    url: str = pydantic.Field(default='', description='Loopback endpoint used for admitted Skill source discovery and resolution.', validation_alias='LAOMEDO_SKILL_SOURCE_URL', repr=False, exclude=True)
++    token_file: str = pydantic.Field(default='/run/secrets/laomedo-runner-token', description='Local secret file containing the Skill source service bearer token.', validation_alias='LAOMEDO_SKILL_SOURCE_TOKEN_FILE', repr=False, exclude=True)
+
+### PR 226 src/laomedo/skills/inspection/utils.py :: inspect_skill
+--- src/laomedo/skills/inspection/utils.py::inspect_skill
++++ src/laomedo/skills/inspection/utils.py::inspect_skill
+@@ -1,4 +1,4 @@
+-def inspect_skill(root: pathlib.Path, skill_id: str, revision_id: str, *, include_images: bool=False) -> dict:
++def inspect_skill(root: pathlib.Path, skill_id: str, revision_id: str, *, include_images: bool=False, include_binary: bool=False) -> dict:
+     if not isinstance(skill_id, str) or not laomedo.skills.registry.settings.NAME.fullmatch(skill_id):
+         raise laomedo.skills.inspection.errors.InspectionError('invalid_skill_id')
+     if not isinstance(revision_id, str) or not laomedo.skills.registry.settings.HASH.fullmatch(revision_id):
+@@ -47,6 +47,8 @@
+             mime = 'image/png' if data.startswith(b'\x89PNG\r\n\x1a\n') else 'image/jpeg' if data.startswith(b'\xff\xd8\xff') else 'image/gif' if data.startswith((b'GIF87a', b'GIF89a')) else 'image/webp' if data.startswith(b'RIFF') and data[8:12] == b'WEBP' else None
+             if include_images and mime:
+                 item['image_data_url'] = 'data:' + mime + ';base64,' + base64.b64encode(data).decode('ascii')
++            if include_binary and text is None and ('image_data_url' not in item):
++                item['binary_base64'] = base64.b64encode(data).decode('ascii')
+             files.append(item)
+         return {'schema_version': 'laomedo.skill-inspection.v1', 'skill_id': skill_id, 'revision_id': revision_id, 'tree_hash': revision_id, 'files': files}
+     except laomedo.skills.inspection.errors.InspectionError:
+
+
+### PR 226 src/laomedo/skills/registry/policy.py :: validate_policy
+--- src/laomedo/skills/registry/policy.py::validate_policy
++++ src/laomedo/skills/registry/policy.py::validate_policy
+@@ -19,7 +19,7 @@
+         if not isinstance(policy[key], bool):
+             raise laomedo.skills.registry.errors.SkillStoreError('invalid_policy_boolean')
+     safe_documents = {'.md', '.txt', '.json', '.yaml', '.yml'}
+-    safe_assets = {'.png', '.jpg', '.jpeg', '.gif', '.webp', '.ico', '.pdf'}
++    safe_assets = laomedo.skills.registry.settings.ASSET_SUFFIXES
+     script_suffixes = {'.py', '.js', '.mjs', '.cjs', '.ts', '.tsx', '.sh', '.ps1', '.bat', '.cmd', '.rb', '.pl', '.php'}
+     if not policy['allow_scripts'] and any(('scripts' in pathlib.PurePosixPath(path).parts or pathlib.PurePosixPath(path).suffix.lower() not in safe_documents | (safe_assets if policy['allow_assets'] else set()) for path in paths)):
+         raise laomedo.skills.registry.errors.SkillStoreError('policy_grants_disallowed_scripts')
+
+
+### PR 226 src/laomedo/skills/sources/service.py :: SkillSources
+--- src/laomedo/skills/sources/service.py::SkillSources
++++ src/laomedo/skills/sources/service.py::SkillSources
+@@ -4,10 +4,9 @@
+         self.store = laomedo.skills.registry.store.SkillStore(pathlib.Path(registry))
+         self.state = pathlib.Path(state).absolute()
+         self.state.mkdir(parents=True, exist_ok=True)
+-        self.allowed_roots = [pathlib.Path(p).absolute() for p in allowed_roots]
+-        self.repository_provider = repository_provider
++        self.local_source = laomedo.skills.sources.local.LocalSkillSource(allowed_roots)
++        self.repository_source = laomedo.skills.sources.repository.GitSkillSource(self.state, repository_provider=repository_provider)
+         self.lock = threading.RLock()
+-        self.deadline = float('inf')
+         self.index_path = self.state / 'index.json'
+         self.index = json.loads(self.index_path.read_text(encoding='utf-8')) if self.index_path.exists() else {}
+ 
+@@ -25,7 +24,7 @@
+             if parsed.hostname not in {'github.com', 'gitlab.com'} or parsed.username or parsed.password or parsed.port or parsed.query or parsed.fragment or (not re.fullmatch('/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(?:\\.git)?/?', parsed.path)):
+                 raise laomedo.skills.sources.errors.SourceError('repository_url_invalid')
+             normalized = 'https://' + parsed.hostname + parsed.path.rstrip('/').removesuffix('.git') + '.git'
+-            return ('repository', normalized)
++            return laomedo.skills.sources.models.AdmittedSkillSource(kind='repository', location=normalized)
+         if parsed.scheme == 'file':
+             if parsed.netloc not in {'', 'localhost'} or parsed.query or parsed.fragment:
+                 raise laomedo.skills.sources.errors.SourceError('local_source_invalid')
+@@ -40,150 +39,40 @@
+         if path.name == 'SKILL.md':
+             path = path.parent
+         if path == self.store.root:
+-            return ('registry', str(path))
+-        permitted = next((p for p in self.allowed_roots if path == p or path.is_relative_to(p)), None)
+-        if permitted is None:
+-            raise laomedo.skills.sources.errors.SourceError('local_source_not_allowed')
+-        for component in [path, *path.parents]:
+-            if laomedo.skills.registry.files.is_link(component):
+-                raise laomedo.skills.sources.errors.SourceError('local_source_unsafe')
+-        if require_exists and (not path.is_dir()) or not path.resolve().is_relative_to(permitted.resolve()):
+-            raise laomedo.skills.sources.errors.SourceError('local_source_unavailable')
+-        return ('local', str(path))
+-
+-    def _git(self, cwd, args, limit=4 * 1024 * 1024):
+-        env = {k: v for k, v in os.environ.items() if k.upper() in {'PATH', 'SYSTEMROOT', 'WINDIR', 'SYSTEMDRIVE', 'COMSPEC', 'PATHEXT', 'TEMP', 'TMP'}}
+-        env.update(GIT_CONFIG_NOSYSTEM='1', GIT_CONFIG_GLOBAL=os.devnull, GIT_TERMINAL_PROMPT='0', GIT_ASKPASS='', SSH_ASKPASS='')
+-        command = ['git', '-c', 'credential.helper=', '-c', 'core.hooksPath=' + str(self.state / 'no-hooks'), '-c', 'http.followRedirects=false', '-c', 'protocol.allow=never', '-c', 'protocol.https.allow=always', *args]
+-        if self.repository_provider:
+-            command[1:1] = ['-c', 'protocol.file.allow=always']
+-        with tempfile.TemporaryFile() as output:
+-            process = subprocess.Popen(command, cwd=cwd, env=env, stdout=output, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL, start_new_session=os.name != 'nt', creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == 'nt' else 0)
+-            deadline = min(time.monotonic() + 45, self.deadline)
+-            try:
+-                while process.poll() is None:
+-                    if output.tell() > limit or time.monotonic() > deadline:
+-                        raise laomedo.skills.sources.errors.SourceError('repository_limit_exceeded')
+-                    if sum((p.stat().st_size for p in self.state.rglob('*') if p.is_file())) > 128 * 1024 * 1024:
+-                        raise laomedo.skills.sources.errors.SourceError('repository_limit_exceeded')
+-                    time.sleep(0.05)
+-                output.seek(0)
+-                data = output.read(limit + 1)
+-                if process.returncode or len(data) > limit:
+-                    raise laomedo.skills.sources.errors.SourceError('repository_access_unavailable')
+-                return data
+-            finally:
+-                if process.poll() is None:
+-                    if os.name == 'nt':
+-                        subprocess.run(['taskkill', '/PID', str(process.pid), '/T', '/F'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+-                    else:
+-                        os.killpg(process.pid, signal.SIGKILL)
+-                    if process.poll() is None:
+-                        process.kill()
+-                process.wait()
+-
+-    def _repository(self, source, refresh=False):
+-        folder = self.state / hashlib.sha256(source.encode()).hexdigest()
+-        transport = str(self.repository_provider(source)) if self.repository_provider else source
+-        if not folder.exists():
+-            with tempfile.TemporaryDirectory(dir=self.state, prefix='clone-') as temporary:
+-                pending = pathlib.Path(temporary) / 'repository'
+-                self._git(self.state, ['clone', '--bare', '--depth=1', '--no-single-branch', '--', transport, str(pending)])
+-                pending.rename(folder)
+-        elif refresh:
+-            self._git(folder, ['fetch', '--prune', '--depth=1', '--tags', 'origin', '+refs/heads/*:refs/heads/*'])
+-        refs = self._git(folder, ['for-each-ref', '--format=%(refname)', 'refs/heads', 'refs/tags'], 64 * 1024).decode().splitlines()
+-        if len(refs) > 32:
+-            raise laomedo.skills.sources.errors.SourceError('repository_limit_exceeded')
+-        result = []
+-        for ref in refs:
+-            commit = self._git(folder, ['rev-parse', '--verify', ref + '^{commit}'], 1024).decode().strip()
+-            result.append((ref.removeprefix('refs/'), commit))
+-        if not result:
+-            raise laomedo.skills.sources.errors.SourceError('repository_revision_unavailable')
+-        return (folder, result)
+-
+-    def _entries(self, repo, commit):
+-        raw = self._git(repo, ['ls-tree', '-rz', '--full-tree', commit], 2 * 1024 * 1024)
+-        result = {}
+-        for entry in raw.split(b'\x00'):
+-            if not entry:
+-                continue
+-            header, path = entry.split(b'\t', 1)
+-            mode, kind, oid = header.decode().split()
+-            path = path.decode('utf-8')
+-            try:
+-                laomedo.skills.registry.paths.validate_relative_path(path)
+-            except laomedo.skills.registry.errors.SkillStoreError:
+-                raise laomedo.skills.sources.errors.SourceError('source_bundle_unsafe') from None
+-            if any((ord(c) < 32 for c in path)):
+-                raise laomedo.skills.sources.errors.SourceError('source_bundle_unsafe')
+-            if not laomedo.skills.sources.utils.excluded_parts(pathlib.PurePosixPath(path).parts[:-1]):
+-                if path in result:
+-                    raise laomedo.skills.sources.errors.SourceError('source_bundle_unsafe')
+-                result[path] = (mode, kind, oid)
+-            if len(result) > laomedo.skills.sources.settings.MAX_ENTRIES:
+-                raise laomedo.skills.sources.errors.SourceError('source_limit_exceeded')
+-        return result
+-
+-    def _blob(self, repo, entry):
+-        mode, kind, oid = entry
+-        if mode not in {'100644', '100755'} or kind != 'blob':
+-            raise laomedo.skills.sources.errors.SourceError('source_bundle_unsafe')
+-        if int(self._git(repo, ['cat-file', '-s', oid], 128)) > laomedo.skills.inspection.settings.MAX_FILE_BYTES:
+-            raise laomedo.skills.sources.errors.SourceError('source_limit_exceeded')
+-        return self._git(repo, ['cat-file', 'blob', oid], laomedo.skills.inspection.settings.MAX_FILE_BYTES)
+-
+-    def _local_skills(self, root):
+-        result = []
+-        count = 0
+-        for parent, dirs, files in os.walk(root, followlinks=False):
+-            if time.monotonic() > self.deadline:
+-                raise laomedo.skills.sources.errors.SourceError('source_limit_exceeded')
+-            dirs[:] = [d for d in dirs if not laomedo.skills.sources.utils.excluded_parts((d,))]
+-            count += len(dirs) + len(files)
+-            if count > laomedo.skills.sources.settings.MAX_ENTRIES or len(pathlib.Path(parent).relative_to(root).parts) > 16:
+-                raise laomedo.skills.sources.errors.SourceError('source_limit_exceeded')
+-            if any((laomedo.skills.registry.files.is_link(pathlib.Path(parent) / d) for d in dirs)):
+-                raise laomedo.skills.sources.errors.SourceError('local_source_unsafe')
+-            if 'SKILL.md' in files:
+-                relative = pathlib.Path(parent).relative_to(root).as_posix()
+-                name = laomedo.skills.sources.utils.skill_name(laomedo.skills.inspection.utils._read_regular(pathlib.Path(parent) / 'SKILL.md', laomedo.skills.inspection.settings.MAX_FILE_BYTES), pathlib.Path(parent).name)
+-                result.append({'choice': name + ' | ' + relative, 'name': name, 'path': relative})
+-                if len(result) > 128:
+-                    raise laomedo.skills.sources.errors.SourceError('source_limit_exceeded')
+-        return result
++            return laomedo.skills.sources.models.AdmittedSkillSource(kind='registry', location=str(path))
++        self.local_source.admit(path, require_exists=require_exists)
++        return laomedo.skills.sources.models.AdmittedSkillSource(kind='local', location=str(path))
+ 
+     def discover(self, source):
+         with self.lock:
+-            self.deadline = time.monotonic() + 60
+-            kind, location = self._source(source)
+-            if kind == 'registry':
+-                skills = [{'choice': p.name, 'name': p.name, 'path': 'skills/' + p.name} for p in sorted((self.store.root / 'skills').iterdir()) if p.is_dir() and (not laomedo.skills.registry.files.is_link(p))]
+-            elif kind == 'local':
+-                skills = self._local_skills(pathlib.Path(location))
++            deadline = time.monotonic() + 60
++            admitted = self._source(source)
++            if admitted.kind == 'registry':
++                skills = [laomedo.skills.sources.models.SkillSourceChoice.for_registry(path.name).to_record() for path in sorted((self.store.root / 'skills').iterdir()) if path.is_dir() and (not laomedo.skills.registry.files.is_link(path))]
++            elif admitted.kind == 'local':
++                skills = [item.to_record() for item in self.local_source.discover(pathlib.Path(admitted.location), deadline)]
+             else:
+-                repo, refs = self._repository(location, refresh=True)
++                repository = self.repository_source.repository(admitted.location, refresh=True, deadline=deadline)
+                 discovered = {}
+-                for _, commit in refs:
+-                    entries = self._entries(repo, commit)
++                for revision in repository.refs:
++                    entries = self.repository_source.entries(repository.directory, revision.commit, deadline)
+                     for path, entry in entries.items():
+                         if pathlib.PurePosixPath(path).name == 'SKILL.md':
+                             folder = str(pathlib.PurePosixPath(path).parent)
+-                            name = laomedo.skills.sources.utils.skill_name(self._blob(repo, entry), pathlib.PurePosixPath(folder).name or 'skill')
+-                            choice = name + ' | ' + folder
+-                            discovered[choice] = {'choice': choice, 'name': name, 'path': folder}
++                            name = laomedo.skills.sources.utils.skill_name(self.repository_source.read_blob(repository.directory, entry, deadline), pathlib.PurePosixPath(folder).name or 'skill')
++                            item = laomedo.skills.sources.models.SkillSourceChoice.for_folder(name, folder)
++                            discovered[item.choice] = item.to_record()
+                             if len(discovered) > 128:
+                                 raise laomedo.skills.sources.errors.SourceError('source_limit_exceeded')
+                 skills = list(discovered.values())
+-            cached = self.index.setdefault(location, {})
++            cached = self.index.setdefault(admitted.location, {})
+             known = dict(cached.get('skills', {}))
+-            known.update({s['choice']: s for s in skills})
++            known.update({item['choice']: item for item in skills})
+             if len(known) > 128:
+                 raise laomedo.skills.sources.errors.SourceError('source_limit_exceeded')
+             cached['skills'] = known
+             self._save()
+-            return {'kind': kind, 'skills': sorted(known.values(), key=lambda s: s['choice'])}
++            return {'kind': admitted.kind, 'skills': sorted(known.values(), key=lambda item: item['choice'])}
+ 
+     def _register(self, name, files, origin):
+         laomedo.skills.sources.bundle.validate_bundle(files)
+@@ -207,13 +96,13 @@
+         temporary = provenance.with_suffix('.pending')
+         temporary.write_text(json.dumps(origins, sort_keys=True), encoding='utf-8')
+         temporary.replace(provenance)
+-        return {k: record[k] for k in ('skill_id', 'revision_id', 'tree_hash')}
++        return laomedo.skills.registry.models.SkillReference(skill_id=record['skill_id'], revision_id=record['revision_id'], tree_hash=record['tree_hash']).to_reference_payload()
+ 
+     def revisions(self, source, choice):
+         with self.lock:
+-            self.deadline = time.monotonic() + 60
+-            kind, location = self._source(source)
+-            cached = self.index.get(location, {})
++            deadline = time.monotonic() + 60
++            admitted = self._source(source)
++            cached = self.index.get(admitted.location, {})
+             skill = cached.get('skills', {}).get(choice)
+             if skill is None:
+                 raise laomedo.skills.sources.errors.SourceError('discovered_skill_required')
+@@ -228,56 +117,37 @@
+             def offer(files, label, origin):
+                 laomedo.skills.sources.bundle.validate_bundle(files)
+                 revision = laomedo.skills.registry.hashing.tree_hash(files)
+-                reference = {'skill_id': skill['name'], 'revision_id': revision, 'tree_hash': revision}
++                reference = laomedo.skills.registry.models.SkillReference(skill_id=skill['name'], revision_id=revision, tree_hash=revision).to_reference_payload()
+                 options[label(revision)] = reference
+-                pending.append((files, origin))
+-            if kind == 'registry':
++                pending.append(laomedo.skills.sources.models.PendingSkillImport(files=files, origin=origin))
++            if admitted.kind == 'registry':
+                 for folder in sorted((self.store._skill(skill['name']) / 'revisions').iterdir()):
+-                    reference = {'skill_id': skill['name'], 'revision_id': 'sha256:' + folder.name, 'tree_hash': 'sha256:' + folder.name}
++                    reference = laomedo.skills.registry.models.SkillReference(skill_id=skill['name'], revision_id='sha256:' + folder.name, tree_hash='sha256:' + folder.name).to_reference_payload()
+                     laomedo.skills.inspection.utils.inspect_skill(self.store.root, reference['skill_id'], reference['revision_id'])
+                     provenance = self.store.root / 'source-origins.json'
+                     origins = json.loads(provenance.read_text(encoding='utf-8')) if provenance.exists() else {}
+                     values = origins.get(skill['name'] + ':' + reference['revision_id'], [])
+                     description = ' ; '.join(values) if values else 'registry (origin unrecorded)'
+                     options[description + ' | ' + reference['revision_id']] = reference
+-            elif kind == 'local':
+-                folder = pathlib.Path(location) / skill['path']
+-                if any((laomedo.skills.registry.files.is_link(p) for p in [folder, *folder.parents])):
+-                    raise laomedo.skills.sources.errors.SourceError('local_source_unsafe')
+-                if not (folder / 'SKILL.md').exists():
+-                    return {'revisions': [{'choice': k, **v} for k, v in sorted(options.items(), reverse=True)]}
+-                files = {}
+-                count = 0
+-                total = 0
+-                for parent, dirs, names in os.walk(folder, followlinks=False):
+-                    if time.monotonic() > self.deadline:
+-                        raise laomedo.skills.sources.errors.SourceError('source_limit_exceeded')
+-                    dirs[:] = [d for d in dirs if not laomedo.skills.sources.utils.excluded_parts((d,))]
+-                    count += len(dirs)
+-                    if count > 128 or any((laomedo.skills.registry.files.is_link(pathlib.Path(parent) / d) for d in dirs)):
+-                        raise laomedo.skills.sources.errors.SourceError('local_source_unsafe')
+-                    for name in names:
+-                        if len(files) >= laomedo.skills.inspection.settings.MAX_FILES:
+-                            raise laomedo.skills.sources.errors.SourceError('source_limit_exceeded')
+-                        path = pathlib.Path(parent) / name
+-                        laomedo.skills.sources.bundle.validate_bundle_path(path.relative_to(folder).as_posix())
+-                        files[path.relative_to(folder).as_posix()] = laomedo.skills.inspection.utils._read_regular(path, laomedo.skills.inspection.settings.MAX_FILE_BYTES)
+-                        total += len(files[path.relative_to(folder).as_posix()])
+-                        if total > laomedo.skills.inspection.settings.MAX_BUNDLE_BYTES:
+-                            raise laomedo.skills.sources.errors.SourceError('source_limit_exceeded')
++            elif admitted.kind == 'local':
++                folder = pathlib.Path(admitted.location) / skill['path']
++                files = self.local_source.read(folder, deadline)
++                if files is None:
++                    return {'revisions': [{'choice': key, **value} for key, value in sorted(options.items(), reverse=True)]}
+                 if laomedo.skills.sources.utils.skill_name(files['SKILL.md'], folder.name) == skill['name']:
+                     revision = laomedo.skills.registry.hashing.tree_hash(laomedo.skills.sources.bundle.validate_bundle(files))
+-                    if not any((v['revision_id'] == revision for v in options.values())):
++                    if not any((value['revision_id'] == revision for value in options.values())):
+                         timestamp = datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')
+-                        offer(files, lambda revision: timestamp + ' | ' + revision, 'local: ' + location + ' / ' + skill['path'])
++                        offer(files, lambda revision: timestamp + ' | ' + revision, 'local: ' + admitted.location + ' / ' + skill['path'])
+             else:
+-                repo, refs = self._repository(location)
++                repository = self.repository_source.repository(admitted.location, deadline=deadline)
+                 prefix = '' if skill['path'] == '.' else skill['path'] + '/'
+-                for label, commit in refs:
+-                    entries = self._entries(repo, commit)
++                for revision in repository.refs:
++                    label, commit = (revision.label, revision.commit)
++                    entries = self.repository_source.entries(repository.directory, commit, deadline)
+                     if prefix + 'SKILL.md' not in entries:
+                         continue
+-                    if laomedo.skills.sources.utils.skill_name(self._blob(repo, entries[prefix + 'SKILL.md']), pathlib.PurePosixPath(skill['path']).name or 'skill') != skill['name']:
++                    if laomedo.skills.sources.utils.skill_name(self.repository_source.read_blob(repository.directory, entries[prefix + 'SKILL.md'], deadline), pathlib.PurePosixPath(skill['path']).name or 'skill') != skill['name']:
+                         continue
+                     files = {}
+                     total = 0
+@@ -286,24 +156,24 @@
+                             laomedo.skills.sources.bundle.validate_bundle_path(path[len(prefix):])
+                             if len(files) >= laomedo.skills.inspection.settings.MAX_FILES:
+                                 raise laomedo.skills.sources.errors.SourceError('source_limit_exceeded')
+-                            content = self._blob(repo, entry)
++                            content = self.repository_source.read_blob(repository.directory, entry, deadline)
+                             total += len(content)
+                             if total > laomedo.skills.inspection.settings.MAX_BUNDLE_BYTES:
+                                 raise laomedo.skills.sources.errors.SourceError('source_limit_exceeded')
+                             files[path[len(prefix):]] = content
+-                    offer(files, lambda revision, label=label, commit=commit: label + ' @ ' + commit + ' | ' + revision, location + ' / ' + skill['path'] + ' @ ' + label + ' ' + commit)
++                    offer(files, lambda revision, label=label, commit=commit: label + ' @ ' + commit + ' | ' + revision, admitted.location + ' / ' + skill['path'] + ' @ ' + label + ' ' + commit)
+             if len(options) > 64:
+                 raise laomedo.skills.sources.errors.SourceError('source_limit_exceeded')
+-            for files, origin in pending:
+-                self._register(skill['name'], files, origin)
++            for candidate in pending:
++                self._register(skill['name'], candidate.files, candidate.origin)
+             cached.setdefault('revisions', {})[choice] = options
+             self._save()
+-            return {'revisions': [{'choice': k, **v} for k, v in sorted(options.items(), reverse=True)]}
++            return {'revisions': [{'choice': key, **value} for key, value in sorted(options.items(), reverse=True)]}
+ 
+     def resolve(self, source, choice, revision):
+         with self.lock:
+-            _, location = self._source(source, require_exists=False)
+-            reference = self.index.get(location, {}).get('revisions', {}).get(choice, {}).get(revision)
++            admitted = self._source(source, require_exists=False)
++            reference = self.index.get(admitted.location, {}).get('revisions', {}).get(choice, {}).get(revision)
+             if reference is None:
+                 raise laomedo.skills.sources.errors.SourceError('discovered_revision_required')
+             label_hash = revision.rsplit(' | ', 1)[-1]
+
+
+### PR 226 src/laomedo/skills/sources/service.py :: SkillSources._source
+--- src/laomedo/skills/sources/service.py::SkillSources._source
++++ src/laomedo/skills/sources/service.py::SkillSources._source
+@@ -7,7 +7,7 @@
+         if parsed.hostname not in {'github.com', 'gitlab.com'} or parsed.username or parsed.password or parsed.port or parsed.query or parsed.fragment or (not re.fullmatch('/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(?:\\.git)?/?', parsed.path)):
+             raise laomedo.skills.sources.errors.SourceError('repository_url_invalid')
+         normalized = 'https://' + parsed.hostname + parsed.path.rstrip('/').removesuffix('.git') + '.git'
+-        return ('repository', normalized)
++        return laomedo.skills.sources.models.AdmittedSkillSource(kind='repository', location=normalized)
+     if parsed.scheme == 'file':
+         if parsed.netloc not in {'', 'localhost'} or parsed.query or parsed.fragment:
+             raise laomedo.skills.sources.errors.SourceError('local_source_invalid')
+@@ -22,13 +22,6 @@
+     if path.name == 'SKILL.md':
+         path = path.parent
+     if path == self.store.root:
+-        return ('registry', str(path))
+-    permitted = next((p for p in self.allowed_roots if path == p or path.is_relative_to(p)), None)
+-    if permitted is None:
+-        raise laomedo.skills.sources.errors.SourceError('local_source_not_allowed')
+-    for component in [path, *path.parents]:
+-        if laomedo.skills.registry.files.is_link(component):
+-            raise laomedo.skills.sources.errors.SourceError('local_source_unsafe')
+-    if require_exists and (not path.is_dir()) or not path.resolve().is_relative_to(permitted.resolve()):
+-        raise laomedo.skills.sources.errors.SourceError('local_source_unavailable')
+-    return ('local', str(path))+        return laomedo.skills.sources.models.AdmittedSkillSource(kind='registry', location=str(path))
++    self.local_source.admit(path, require_exists=require_exists)
++    return laomedo.skills.sources.models.AdmittedSkillSource(kind='local', location=str(path))
+
+### PR 226 src/laomedo/skills/sources/service.py :: SkillSources._entries
+NO DIRECT NORMALIZED OWNER: inspect native ACP retirement or explicit manual migration owner.
+{"pr": 226, "path": "src/laomedo/skills/sources/service.py", "name": "SkillSources._entries", "line": 262, "disposition": "requires_contract_review", "canonical_owner_matches": [], "manual_contracts": ["laomedo.skills.sources.service.SkillSources._entries"]}
+
+### PR 226 src/laomedo/skills/sources/service.py :: SkillSources._local_skills
+NO DIRECT NORMALIZED OWNER: inspect native ACP retirement or explicit manual migration owner.
+{"pr": 226, "path": "src/laomedo/skills/sources/service.py", "name": "SkillSources._local_skills", "line": 300, "disposition": "requires_contract_review", "canonical_owner_matches": [], "manual_contracts": ["laomedo.skills.sources.service.SkillSources._local_skills"]}
+
+### PR 226 src/laomedo/skills/sources/service.py :: SkillSources.discover
+--- src/laomedo/skills/sources/service.py::SkillSources.discover
++++ src/laomedo/skills/sources/service.py::SkillSources.discover
+@@ -1,30 +1,30 @@
+ def discover(self, source):
+     with self.lock:
+-        self.deadline = time.monotonic() + 60
+-        kind, location = self._source(source)
+-        if kind == 'registry':
+-            skills = [{'choice': p.name, 'name': p.name, 'path': 'skills/' + p.name} for p in sorted((self.store.root / 'skills').iterdir()) if p.is_dir() and (not laomedo.skills.registry.files.is_link(p))]
+-        elif kind == 'local':
+-            skills = self._local_skills(pathlib.Path(location))
++        deadline = time.monotonic() + 60
++        admitted = self._source(source)
++        if admitted.kind == 'registry':
++            skills = [laomedo.skills.sources.models.SkillSourceChoice.for_registry(path.name).to_record() for path in sorted((self.store.root / 'skills').iterdir()) if path.is_dir() and (not laomedo.skills.registry.files.is_link(path))]
++        elif admitted.kind == 'local':
++            skills = [item.to_record() for item in self.local_source.discover(pathlib.Path(admitted.location), deadline)]
+         else:
+-            repo, refs = self._repository(location, refresh=True)
++            repository = self.repository_source.repository(admitted.location, refresh=True, deadline=deadline)
+             discovered = {}
+-            for _, commit in refs:
+-                entries = self._entries(repo, commit)
++            for revision in repository.refs:
++                entries = self.repository_source.entries(repository.directory, revision.commit, deadline)
+                 for path, entry in entries.items():
+                     if pathlib.PurePosixPath(path).name == 'SKILL.md':
+                         folder = str(pathlib.PurePosixPath(path).parent)
+-                        name = laomedo.skills.sources.utils.skill_name(self._blob(repo, entry), pathlib.PurePosixPath(folder).name or 'skill')
+-                        choice = name + ' | ' + folder
+-                        discovered[choice] = {'choice': choice, 'name': name, 'path': folder}
++                        name = laomedo.skills.sources.utils.skill_name(self.repository_source.read_blob(repository.directory, entry, deadline), pathlib.PurePosixPath(folder).name or 'skill')
++                        item = laomedo.skills.sources.models.SkillSourceChoice.for_folder(name, folder)
++                        discovered[item.choice] = item.to_record()
+                         if len(discovered) > 128:
+                             raise laomedo.skills.sources.errors.SourceError('source_limit_exceeded')
+             skills = list(discovered.values())
+-        cached = self.index.setdefault(location, {})
++        cached = self.index.setdefault(admitted.location, {})
+         known = dict(cached.get('skills', {}))
+-        known.update({s['choice']: s for s in skills})
++        known.update({item['choice']: item for item in skills})
+         if len(known) > 128:
+             raise laomedo.skills.sources.errors.SourceError('source_limit_exceeded')
+         cached['skills'] = known
+         self._save()
+-        return {'kind': kind, 'skills': sorted(known.values(), key=lambda s: s['choice'])}+        return {'kind': admitted.kind, 'skills': sorted(known.values(), key=lambda item: item['choice'])}
+
+### PR 226 src/laomedo/skills/sources/service.py :: SkillSources.revisions
+--- src/laomedo/skills/sources/service.py::SkillSources.revisions
++++ src/laomedo/skills/sources/service.py::SkillSources.revisions
+@@ -1,8 +1,8 @@
+ def revisions(self, source, choice):
+     with self.lock:
+-        self.deadline = time.monotonic() + 60
+-        kind, location = self._source(source)
+-        cached = self.index.get(location, {})
++        deadline = time.monotonic() + 60
++        admitted = self._source(source)
++        cached = self.index.get(admitted.location, {})
+         skill = cached.get('skills', {}).get(choice)
+         if skill is None:
+             raise laomedo.skills.sources.errors.SourceError('discovered_skill_required')
+@@ -17,56 +17,37 @@
+         def offer(files, label, origin):
+             laomedo.skills.sources.bundle.validate_bundle(files)
+             revision = laomedo.skills.registry.hashing.tree_hash(files)
+-            reference = {'skill_id': skill['name'], 'revision_id': revision, 'tree_hash': revision}
++            reference = laomedo.skills.registry.models.SkillReference(skill_id=skill['name'], revision_id=revision, tree_hash=revision).to_reference_payload()
+             options[label(revision)] = reference
+-            pending.append((files, origin))
+-        if kind == 'registry':
++            pending.append(laomedo.skills.sources.models.PendingSkillImport(files=files, origin=origin))
++        if admitted.kind == 'registry':
+             for folder in sorted((self.store._skill(skill['name']) / 'revisions').iterdir()):
+-                reference = {'skill_id': skill['name'], 'revision_id': 'sha256:' + folder.name, 'tree_hash': 'sha256:' + folder.name}
++                reference = laomedo.skills.registry.models.SkillReference(skill_id=skill['name'], revision_id='sha256:' + folder.name, tree_hash='sha256:' + folder.name).to_reference_payload()
+                 laomedo.skills.inspection.utils.inspect_skill(self.store.root, reference['skill_id'], reference['revision_id'])
+                 provenance = self.store.root / 'source-origins.json'
+                 origins = json.loads(provenance.read_text(encoding='utf-8')) if provenance.exists() else {}
+                 values = origins.get(skill['name'] + ':' + reference['revision_id'], [])
+                 description = ' ; '.join(values) if values else 'registry (origin unrecorded)'
+                 options[description + ' | ' + reference['revision_id']] = reference
+-        elif kind == 'local':
+-            folder = pathlib.Path(location) / skill['path']
+-            if any((laomedo.skills.registry.files.is_link(p) for p in [folder, *folder.parents])):
+-                raise laomedo.skills.sources.errors.SourceError('local_source_unsafe')
+-            if not (folder / 'SKILL.md').exists():
+-                return {'revisions': [{'choice': k, **v} for k, v in sorted(options.items(), reverse=True)]}
+-            files = {}
+-            count = 0
+-            total = 0
+-            for parent, dirs, names in os.walk(folder, followlinks=False):
+-                if time.monotonic() > self.deadline:
+-                    raise laomedo.skills.sources.errors.SourceError('source_limit_exceeded')
+-                dirs[:] = [d for d in dirs if not laomedo.skills.sources.utils.excluded_parts((d,))]
+-                count += len(dirs)
+-                if count > 128 or any((laomedo.skills.registry.files.is_link(pathlib.Path(parent) / d) for d in dirs)):
+-                    raise laomedo.skills.sources.errors.SourceError('local_source_unsafe')
+-                for name in names:
+-                    if len(files) >= laomedo.skills.inspection.settings.MAX_FILES:
+-                        raise laomedo.skills.sources.errors.SourceError('source_limit_exceeded')
+-                    path = pathlib.Path(parent) / name
+-                    laomedo.skills.sources.bundle.validate_bundle_path(path.relative_to(folder).as_posix())
+-                    files[path.relative_to(folder).as_posix()] = laomedo.skills.inspection.utils._read_regular(path, laomedo.skills.inspection.settings.MAX_FILE_BYTES)
+-                    total += len(files[path.relative_to(folder).as_posix()])
+-                    if total > laomedo.skills.inspection.settings.MAX_BUNDLE_BYTES:
+-                        raise laomedo.skills.sources.errors.SourceError('source_limit_exceeded')
++        elif admitted.kind == 'local':
++            folder = pathlib.Path(admitted.location) / skill['path']
++            files = self.local_source.read(folder, deadline)
++            if files is None:
++                return {'revisions': [{'choice': key, **value} for key, value in sorted(options.items(), reverse=True)]}
+             if laomedo.skills.sources.utils.skill_name(files['SKILL.md'], folder.name) == skill['name']:
+                 revision = laomedo.skills.registry.hashing.tree_hash(laomedo.skills.sources.bundle.validate_bundle(files))
+-                if not any((v['revision_id'] == revision for v in options.values())):
++                if not any((value['revision_id'] == revision for value in options.values())):
+                     timestamp = datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')
+-                    offer(files, lambda revision: timestamp + ' | ' + revision, 'local: ' + location + ' / ' + skill['path'])
++                    offer(files, lambda revision: timestamp + ' | ' + revision, 'local: ' + admitted.location + ' / ' + skill['path'])
+         else:
+-            repo, refs = self._repository(location)
++            repository = self.repository_source.repository(admitted.location, deadline=deadline)
+             prefix = '' if skill['path'] == '.' else skill['path'] + '/'
+-            for label, commit in refs:
+-                entries = self._entries(repo, commit)
++            for revision in repository.refs:
++                label, commit = (revision.label, revision.commit)
++                entries = self.repository_source.entries(repository.directory, commit, deadline)
+                 if prefix + 'SKILL.md' not in entries:
+                     continue
+-                if laomedo.skills.sources.utils.skill_name(self._blob(repo, entries[prefix + 'SKILL.md']), pathlib.PurePosixPath(skill['path']).name or 'skill') != skill['name']:
++                if laomedo.skills.sources.utils.skill_name(self.repository_source.read_blob(repository.directory, entries[prefix + 'SKILL.md'], deadline), pathlib.PurePosixPath(skill['path']).name or 'skill') != skill['name']:
+                     continue
+                 files = {}
+                 total = 0
+@@ -75,16 +56,16 @@
+                         laomedo.skills.sources.bundle.validate_bundle_path(path[len(prefix):])
+                         if len(files) >= laomedo.skills.inspection.settings.MAX_FILES:
+                             raise laomedo.skills.sources.errors.SourceError('source_limit_exceeded')
+-                        content = self._blob(repo, entry)
++                        content = self.repository_source.read_blob(repository.directory, entry, deadline)
+                         total += len(content)
+                         if total > laomedo.skills.inspection.settings.MAX_BUNDLE_BYTES:
+                             raise laomedo.skills.sources.errors.SourceError('source_limit_exceeded')
+                         files[path[len(prefix):]] = content
+-                offer(files, lambda revision, label=label, commit=commit: label + ' @ ' + commit + ' | ' + revision, location + ' / ' + skill['path'] + ' @ ' + label + ' ' + commit)
++                offer(files, lambda revision, label=label, commit=commit: label + ' @ ' + commit + ' | ' + revision, admitted.location + ' / ' + skill['path'] + ' @ ' + label + ' ' + commit)
+         if len(options) > 64:
+             raise laomedo.skills.sources.errors.SourceError('source_limit_exceeded')
+-        for files, origin in pending:
+-            self._register(skill['name'], files, origin)
++        for candidate in pending:
++            self._register(skill['name'], candidate.files, candidate.origin)
+         cached.setdefault('revisions', {})[choice] = options
+         self._save()
+-        return {'revisions': [{'choice': k, **v} for k, v in sorted(options.items(), reverse=True)]}+        return {'revisions': [{'choice': key, **value} for key, value in sorted(options.items(), reverse=True)]}
+
+### PR 226 src/laomedo/skills/sources/utils.py :: _bundle_path
+NO DIRECT NORMALIZED OWNER: inspect native ACP retirement or explicit manual migration owner.
+{"pr": 226, "path": "src/laomedo/skills/sources/utils.py", "name": "_bundle_path", "line": 76, "disposition": "requires_contract_review", "canonical_owner_matches": [], "manual_contracts": []}
+
+### PR 228 src/laomedo/git/models.py :: GitTreeEntry
+NO DIRECT NORMALIZED OWNER: inspect native ACP retirement or explicit manual migration owner.
+{"pr": 228, "path": "src/laomedo/git/models.py", "name": "GitTreeEntry", "line": 65, "disposition": "requires_contract_review", "canonical_owner_matches": [], "manual_contracts": []}
+
+### PR 228 src/laomedo/git/models.py :: GitCommand.validate_execution_profile
+--- src/laomedo/git/models.py::GitCommand.validate_execution_profile
++++ src/laomedo/git/models.py::GitCommand.validate_execution_profile
+@@ -5,6 +5,12 @@
+         if self.budget is not None or self.cwd is not None:
+             raise ValueError('git_read_profile_required')
+         return self
+-    if self.credential is not None or self.configuration or self.context.extra_env or self.context.hardened or (self.context.home is not None) or (self.context.hooks_path is None) or (self.cwd is None) or (self.directory is not None) or (self.budget is None) or (not self.arguments) or (self.arguments[0] not in {'--version', 'clone', 'fetch', 'for-each-ref', 'rev-parse', 'ls-tree', 'cat-file'}) or any((value.startswith(('-c', '-C', '--config', '--upload-pack', '--exec-path')) for value in self.arguments)):
++    if self.credential is not None or self.configuration or self.context.extra_env or self.context.hardened or (self.context.home is not None) or (self.context.hooks_path is None) or (self.cwd is None) or (self.directory is not None) or (self.budget is None) or (not self.arguments) or (self.arguments[0] not in laomedo.git.settings.ISOLATED_READ_OPTIONS):
+         raise ValueError('git_read_profile_invalid')
++    options = laomedo.git.settings.ISOLATED_READ_OPTIONS[self.arguments[0]]
++    for argument in self.arguments[1:]:
++        if argument == '--':
++            break
++        if argument.startswith('-') and argument not in options:
++            raise ValueError('git_read_profile_invalid')
+     return self
+
+### PR 228 src/laomedo/skills/interface/sources/client.py :: source_request
+--- src/laomedo/skills/interface/sources/client.py::source_request
++++ src/laomedo/skills/interface/sources/client.py::source_request
+@@ -20,10 +20,10 @@
+     except urllib.error.HTTPError as error:
+         category = 'source_discovery_failed'
+         try:
+-            data = error.read(16 * 1024 + 1)
+-            if len(data) <= 16 * 1024:
+-                payload = json.loads(data)
+-                if isinstance(payload, dict) and payload.get('error_category') == 'repository_cleanup_unverified':
++            data = error.read(16385)
++            if len(data) <= 16384:
++                value = json.loads(data)
++                if isinstance(value, dict) and value.get('error_category') == 'repository_cleanup_unverified':
+                     category = 'repository_cleanup_unverified'
+         except Exception:
+             pass
+
+
+### PR 228 src/laomedo/skills/sources/repository.py :: GitSkillSource
+--- src/laomedo/skills/sources/repository.py::GitSkillSource
++++ src/laomedo/skills/sources/repository.py::GitSkillSource
+@@ -5,8 +5,19 @@
+         self.repository_provider = repository_provider
+         self.runner = runner if runner is not None else laomedo.git.command.GitCommandRunner()
+ 
++    def _cache_bytes(self):
++        total = 0
++        for path in self.state.rglob('*'):
++            try:
++                observed = path.stat()
++            except FileNotFoundError:
++                continue
++            if stat.S_ISREG(observed.st_mode):
++                total += observed.st_size
++        return total
++
+     def _check_cache_budget(self):
+-        if sum((path.stat().st_size for path in self.state.rglob('*') if path.is_file())) > 128 * 1024 * 1024:
++        if self._cache_bytes() > 128 * 1024 * 1024:
+             raise laomedo.skills.sources.errors.SourceError('repository_limit_exceeded')
+ 
+     def _run(self, cwd, args, limit=4 * 1024 * 1024, *, deadline=float('inf')):
+@@ -67,7 +78,7 @@
+             if not laomedo.skills.sources.utils.excluded_parts(pathlib.PurePosixPath(path).parts[:-1]):
+                 if path in result:
+                     raise laomedo.skills.sources.errors.SourceError('source_bundle_unsafe')
+-                result[path] = laomedo.git.models.GitTreeEntry(mode=mode, kind=kind, object_id=oid)
++                result[path] = laomedo.skills.sources.models.SkillRepositoryEntry(mode=mode, kind=kind, object_id=oid)
+             if len(result) > laomedo.skills.sources.settings.MAX_ENTRIES:
+                 raise laomedo.skills.sources.errors.SourceError('source_limit_exceeded')
+         return result
+
+
+### PR 228 src/laomedo/skills/sources/repository.py :: GitSkillSource._check_cache_budget
+--- src/laomedo/skills/sources/repository.py::GitSkillSource._check_cache_budget
++++ src/laomedo/skills/sources/repository.py::GitSkillSource._check_cache_budget
+@@ -1,3 +1,3 @@
+ def _check_cache_budget(self):
+-    if sum((path.stat().st_size for path in self.state.rglob('*') if path.is_file())) > 128 * 1024 * 1024:
++    if self._cache_bytes() > 128 * 1024 * 1024:
+         raise laomedo.skills.sources.errors.SourceError('repository_limit_exceeded')
+
+### PR 228 src/laomedo/skills/sources/repository.py :: GitSkillSource.entries
+--- src/laomedo/skills/sources/repository.py::GitSkillSource.entries
++++ src/laomedo/skills/sources/repository.py::GitSkillSource.entries
+@@ -16,7 +16,7 @@
+         if not laomedo.skills.sources.utils.excluded_parts(pathlib.PurePosixPath(path).parts[:-1]):
+             if path in result:
+                 raise laomedo.skills.sources.errors.SourceError('source_bundle_unsafe')
+-            result[path] = laomedo.git.models.GitTreeEntry(mode=mode, kind=kind, object_id=oid)
++            result[path] = laomedo.skills.sources.models.SkillRepositoryEntry(mode=mode, kind=kind, object_id=oid)
+         if len(result) > laomedo.skills.sources.settings.MAX_ENTRIES:
+             raise laomedo.skills.sources.errors.SourceError('source_limit_exceeded')
+     return result

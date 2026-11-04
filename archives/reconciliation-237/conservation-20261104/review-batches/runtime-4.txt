@@ -1,0 +1,1171 @@
+
+### PR 216 src/laomedo/agents/agents/codex/agent.py :: CodexAgent._execute_acp
+--- src/laomedo/agents/agents/codex/agent.py::CodexAgent._execute_acp
++++ src/laomedo/agents/agents/codex/agent.py::CodexAgent._execute_acp
+@@ -10,6 +10,7 @@
+     launch_attempted = False
+     activity_start = None
+     activity_attempt = None
++    primary_failure = cleanup_failure = None
+     try:
+         run_dir = self._run_dir(run_id)
+         with self.control_lock:
+@@ -28,7 +29,7 @@
+             attempts.mkdir(exist_ok=True)
+             if (attempts / (attempt_id + '.json')).exists():
+                 raise laomedo.agents.errors.RunnerError('activity_attempt_already_exists')
+-            activity_attempt = {'id': attempt_id, 'native_start': activity_start[0], 'otel_start': activity_start[1], 'native_end': None, 'otel_end': None, 'fresh_thread': not resume, 'usage_baseline': laomedo.agents.activity.runner.feed.read_feed(run_dir / 'activity-events.jsonl', tail=True)['usage_baseline'], 'status': 'running', 'ended_at': None}
++            activity_attempt = laomedo.agents.activity.models.ActivityAttemptRecord(id=attempt_id, native_start=activity_start[0], otel_start=activity_start[1], native_end=None, otel_end=None, fresh_thread=not resume, usage_baseline=laomedo.agents.activity.runner.feed.read_feed(run_dir / 'activity-events.jsonl', tail=True)['usage_baseline'], status='running', ended_at=None).to_record()
+             laomedo.agents.agents.base.utils._json(attempts / (attempt_id + '.json'), activity_attempt)
+             record['activity_attempt_id'] = attempt_id
+             record.update(evidence_complete='unknown', completion_basis=None)
+@@ -91,7 +92,6 @@
+         if cancelled.is_set():
+             record.update(status='cancelled', error_category='cancelled_before_turn', cancel_requested=True)
+             return record
+-        self._turn_available()
+         native_id = await server.open(record, resume=resume)
+         record['thread_id'] = native_id
+         record['precheck']['installed'] = bool(record.get('output_requirements'))
+@@ -151,7 +151,7 @@
+         correction_count = 0
+         while record.get('output_requirements') and status == 'completed':
+             try:
+-                submission = json.loads(laomedo.agents.agents.codex.utils._answer(server.events[turn_event_offset:]) or 'null')
++                submission = json.loads(laomedo.agents.agents.codex.utils._answer(server.events[turn_event_offset:], record['thread_id']) or 'null')
+             except (ValueError, TypeError):
+                 submission = None
+             validation = laomedo.agents.interface.output.utils.evaluate(record['output_requirements'], submission)
+@@ -192,7 +192,7 @@
+         record['native_turn_status'] = native_status
+         record['precheck']['call_count'] = getattr(server, 'precheck_call_count', 0)
+         record['command_summary'] = commands
+-        record['native_answer'] = laomedo.agents.agents.codex.utils._answer(server.events[turn_event_offset:]) if native_status == 'completed' else None
++        record['native_answer'] = laomedo.agents.agents.codex.utils._answer(server.events[turn_event_offset:], record['thread_id']) if native_status == 'completed' else None
+         if status == 'completed' and (commands['outstanding_ids'] or commands['identity_incomplete']):
+             status, error = ('unknown', 'outstanding_command_completion_unknown')
+         if self.auth and error == 'auth_revoked_during_turn':
+@@ -207,13 +207,14 @@
+         if status == 'cancelled':
+             record['cancel_requested'] = True
+         record['native_error_summary'] = native_errors
+-        record['answer'] = laomedo.agents.agents.codex.utils._answer(server.events[turn_event_offset:]) if status == 'completed' else None
++        record['answer'] = laomedo.agents.agents.codex.utils._answer(server.events[turn_event_offset:], record['thread_id']) if status == 'completed' else None
+         if status == 'completed' and (not record['answer']):
+             raise laomedo.agents.errors.RunnerError('completed_without_agent_message')
+         self._verify_protected_mounts(run_dir, record)
+         if lease is not None and lease.lost.is_set():
+             raise laomedo.agents.errors.RunnerError('lease_service_lost')
+     except Exception as exc:
++        primary_failure = primary_failure or laomedo.agents.agents.base.utils.failure_observation(exc, stage='execution')
+         if record is None:
+             raise
+         if record['status'] not in {'interrupted', 'cancelled'}:
+@@ -226,6 +227,8 @@
+             else:
+                 record['error_category'] = str(exc) if isinstance(exc, laomedo.agents.errors.RunnerError) else type(exc).__name__
+     finally:
++        if record is not None and record.get('status') != 'completed' and (primary_failure is None):
++            primary_failure = laomedo.agents.agents.base.utils.failure_observation(stage='terminal', code='lease_service_lost' if lease is not None and lease.lost.is_set() else record.get('error_category'))
+         close_error = False
+         try:
+             if server is not None:
+@@ -241,6 +244,8 @@
+                 if record is not None and record.get('status') == 'cancelled':
+                     record['cancel_confirmed'] = True
+         except Exception as close_failure:
++            cleanup_failure = cleanup_failure or laomedo.agents.agents.base.utils.failure_observation(close_failure, stage='cleanup')
++            primary_failure = primary_failure or cleanup_failure
+             close_error = True
+             if record is not None:
+                 record.update(status='failed', error_category=close_failure.code if isinstance(close_failure, laomedo.agents.errors.RunnerError) and close_failure.code in {'executor_termination_unverified', 'container_termination_unverified', 'runner_transport_failed'} else 'container_termination_unverified')
+@@ -252,6 +257,7 @@
+                     record['output_ref'] = f'laomedo:run:{run_id}:workspace'
+                     record['snapshot_ready'] = True
+                 except Exception as snapshot_failure:
++                    primary_failure = primary_failure or laomedo.agents.agents.base.utils.failure_observation(snapshot_failure, stage='snapshot', code=None if isinstance(snapshot_failure, laomedo.agents.errors.RunnerError) else 'workspace_copy_mismatch')
+                     record.update(status='failed', answer=None, error_category=snapshot_failure.code if isinstance(snapshot_failure, laomedo.agents.errors.RunnerError) else 'workspace_copy_mismatch')
+         finally:
+             try:
+@@ -262,7 +268,8 @@
+                     if lease is not None:
+                         try:
+                             lease.finish()
+-                        except Exception:
++                        except Exception as finish_failure:
++                            cleanup_failure = cleanup_failure or laomedo.agents.agents.base.utils.failure_observation(finish_failure, stage='lease_finish', code='lease_service_unverified')
+                             verified, detail = (False, 'lease_service_unverified')
+                     record['container_ownership']['cleanup_verified'] = verified
+                     record['container_ownership']['cleanup_detail'] = detail
+@@ -278,7 +285,8 @@
+                         if not retained:
+                             try:
+                                 lease.finish()
+-                            except Exception:
++                            except Exception as finish_failure:
++                                cleanup_failure = cleanup_failure or laomedo.agents.agents.base.utils.failure_observation(finish_failure, stage='lease_finish', code='lease_service_unverified')
+                                 verified = False
+                                 detail = 'lease_service_unverified'
+                     record['container_ownership']['cleanup_verified'] = verified
+@@ -303,7 +311,19 @@
+                             except OSError:
+                                 pass
+                         laomedo.agents.agents.base.utils._json(run_dir / 'record.json', record)
++            finally:
++                try:
++                    if record is not None and activity_attempt is not None and (record.get('status') != 'completed'):
++                        primary_failure = primary_failure or laomedo.agents.agents.base.utils.failure_observation(sys.exc_info()[1], stage='terminal', code='lease_service_lost' if lease is not None and lease.lost.is_set() else record.get('error_category'))
++                        source = verified_cleanup = None
++                        result = getattr(lease, 'result', None)
++                        if type(result) is dict:
++                            observed = laomedo.host.leases.models.LeaseCleanupObservation.from_result(result.get('cleanup_verified'), result.get('state'))
++                            source, verified_cleanup = ('lease_result', observed.verified)
++                        self._retain_attempt_failure(run_dir, record, activity_attempt, primary_failure, cleanup_failure, cleanup_source=source, cleanup_verified=verified_cleanup)
++                except Exception:
++                    pass
++                finally:
+                     self.cancel_flags.pop(run_id, None)
+-            finally:
+-                self.lock.release()
++                    self.lock.release()
+     return record
+
+### PR 216 src/laomedo/agents/agents/codex/controller/service.py :: CodexController
+--- src/laomedo/agents/agents/codex/controller/service.py::CodexController
++++ src/laomedo/agents/agents/codex/controller/service.py::CodexController
+@@ -40,13 +40,14 @@
+             self.logs.append(self.activity_log)
+             self.session = self.client.sessions.open(py_docker.sessions.models.ContainerSession(spec=spec, limits=py_docker.streams.models.StreamLimits(seconds=lifetime_seconds, max_bytes=laomedo.agents.agents.codex.controller.settings.Settings.load().max_bytes), receipt_path=receipt_path or evidence / laomedo.agents.agents.codex.settings.NATIVE_RECEIPT_FILENAME))
+         except Exception as primary:
++            observation = laomedo.agents.agents.base.utils.failure_observation(primary, stage='startup', code='runner_transport_failed')
+             try:
+                 self._close_resources()
+-            except laomedo.agents.errors.RunnerError:
+-                raise
++            except laomedo.agents.errors.RunnerError as cleanup:
++                raise laomedo.agents.errors.RunnerError(cleanup.code, observation=observation or cleanup.observation) from None
+             if isinstance(primary, laomedo.agents.errors.RunnerError):
+                 raise primary
+-            raise laomedo.agents.errors.RunnerError('container_termination_unverified' if isinstance(primary, py_docker.errors.CleanupUnconfirmedError) else 'runner_transport_failed') from None
++            raise laomedo.agents.errors.RunnerError('container_termination_unverified' if isinstance(primary, py_docker.errors.CleanupUnconfirmedError) else 'runner_transport_failed', observation=observation) from None
+ 
+     async def initialize(self):
+         self.acp = laomedo.agents.agents.base.acp.session.AcpSession(self.session, on_extension=self._native_event, on_precheck=self._precheck)
+@@ -93,8 +94,9 @@
+     async def prompt(self, text, *, skills, cancelled, seconds):
+         offset = len(self.events)
+         failure = None
+-        try:
+-            await self.acp.prompt(text, cancelled=cancelled, seconds=seconds, metadata={'laomedo': {'skills': [{'type': 'skill', 'name': item['skill_id'], 'path': '/draft/.agents/skills/' + item['skill_id'] + '/SKILL.md'} for item in skills]}}, check_health=self.check_health)
++        response = None
++        try:
++            response = await self.acp.prompt(text, cancelled=cancelled, seconds=seconds, metadata={'laomedo': {'skills': [{'type': 'skill', 'name': item['skill_id'], 'path': '/draft/.agents/skills/' + item['skill_id'] + '/SKILL.md'} for item in skills]}}, check_health=self.check_health)
+         except laomedo.agents.errors.RunnerError as exc:
+             failure = exc.code
+         terminal = [event['params']['turn'] for event in self.events[offset:] if event.get('method') == 'turn/completed' and event.get('params', {}).get('threadId') == self.active_thread_id]
+@@ -111,6 +113,8 @@
+             return laomedo.agents.agents.codex.controller.models.CodexTurn(turn_id=turn['id'], status='timeout' if failure == 'turn_timeout' else 'unknown', error=failure)
+         status = self.native_completion_status
+         error = None
++        if status == 'completed' and (response is None or response.stop_reason != 'end_turn'):
++            return laomedo.agents.agents.codex.controller.models.CodexTurn(turn_id=turn['id'], status='unknown', error='runner_runtime_unknown')
+         if cancelled.is_set() and status == 'interrupted':
+             status, error = ('cancelled', 'cancelled_by_user')
+         elif cancelled.is_set() and status != 'completed':
+@@ -174,12 +178,12 @@
+             if self.acp is not None:
+                 await self.acp.close()
+                 self.streams_closed = True
+-        except Exception:
+-            error = laomedo.agents.errors.RunnerError('container_termination_unverified')
++        except Exception as failure:
++            error = laomedo.agents.errors.RunnerError('container_termination_unverified', observation=laomedo.agents.agents.base.utils.failure_observation(failure, stage='cleanup', code='container_termination_unverified'))
+         try:
+             self._close_resources()
+         except laomedo.agents.errors.RunnerError as failure:
+-            error = failure
++            error = laomedo.agents.errors.RunnerError(failure.code, observation=(error.observation if error else None) or failure.observation)
+         self._closed = True
+         if error:
+             raise error
+@@ -190,13 +194,13 @@
+             if self.session is not None:
+                 self.session.close()
+                 self.cleanup_confirmed = True
+-        except Exception:
+-            error = laomedo.agents.errors.RunnerError('container_termination_unverified')
++        except Exception as failure:
++            error = laomedo.agents.errors.RunnerError('container_termination_unverified', observation=laomedo.agents.agents.base.utils.failure_observation(failure, stage='cleanup', code='container_termination_unverified'))
+         try:
+             if self.executor is not None:
+                 self.executor.close()
+         except laomedo.agents.errors.RunnerError as failure:
+-            error = failure
++            error = laomedo.agents.errors.RunnerError(failure.code, observation=(error.observation if error else None) or failure.observation)
+         for resource in (*self.logs, self.telemetry, self.client):
+             if resource is not None:
+                 try:
+
+
+### PR 216 src/laomedo/agents/agents/codex/controller/service.py :: CodexController.__init__
+--- src/laomedo/agents/agents/codex/controller/service.py::CodexController.__init__
++++ src/laomedo/agents/agents/codex/controller/service.py::CodexController.__init__
+@@ -38,10 +38,11 @@
+         self.logs.append(self.activity_log)
+         self.session = self.client.sessions.open(py_docker.sessions.models.ContainerSession(spec=spec, limits=py_docker.streams.models.StreamLimits(seconds=lifetime_seconds, max_bytes=laomedo.agents.agents.codex.controller.settings.Settings.load().max_bytes), receipt_path=receipt_path or evidence / laomedo.agents.agents.codex.settings.NATIVE_RECEIPT_FILENAME))
+     except Exception as primary:
++        observation = laomedo.agents.agents.base.utils.failure_observation(primary, stage='startup', code='runner_transport_failed')
+         try:
+             self._close_resources()
+-        except laomedo.agents.errors.RunnerError:
+-            raise
++        except laomedo.agents.errors.RunnerError as cleanup:
++            raise laomedo.agents.errors.RunnerError(cleanup.code, observation=observation or cleanup.observation) from None
+         if isinstance(primary, laomedo.agents.errors.RunnerError):
+             raise primary
+-        raise laomedo.agents.errors.RunnerError('container_termination_unverified' if isinstance(primary, py_docker.errors.CleanupUnconfirmedError) else 'runner_transport_failed') from None+        raise laomedo.agents.errors.RunnerError('container_termination_unverified' if isinstance(primary, py_docker.errors.CleanupUnconfirmedError) else 'runner_transport_failed', observation=observation) from None
+
+### PR 216 src/laomedo/agents/agents/opencode/agent.py :: OpenCodeAgent
+--- src/laomedo/agents/agents/opencode/agent.py::OpenCodeAgent
++++ src/laomedo/agents/agents/opencode/agent.py::OpenCodeAgent
+@@ -42,6 +42,7 @@
+                 raise laomedo.agents.errors.RunnerError('runner_busy')
+             root = self.state / 'catalog' / str(uuid.uuid4())
+             backend = None
++            primary = None
+             try:
+                 for name in ('workspace', 'canonical', 'store'):
+                     (root / name).mkdir(parents=True)
+@@ -53,10 +54,16 @@
+                 if not models:
+                     raise laomedo.agents.errors.RunnerError('opencode_model_not_connected')
+                 result = {'models': models, 'submitted_turns': 0}
++            except Exception as error:
++                primary = laomedo.agents.agents.base.utils.failure_observation(error, stage='startup')
++                raise
+             finally:
+                 try:
+                     if backend is not None:
+-                        backend.close()
++                        try:
++                            backend.close()
++                        except laomedo.agents.errors.RunnerError as cleanup:
++                            raise laomedo.agents.errors.RunnerError(cleanup.code, observation=primary or cleanup.observation) from None
+                 finally:
+                     try:
+                         if root.exists() and (not list(root.joinpath('docker-receipts').glob('*.json'))):
+@@ -145,6 +152,7 @@
+         reader = capture = baseline = None
+         baseline_available = True
+         metadata_cleanup_unverified = False
++        primary_failure = cleanup_failure = None
+         catalog = []
+         launch_attempted = False
+         try:
+@@ -155,14 +163,13 @@
+                     return record
+                 if record['status'] != ('completed' if resume else 'prepared'):
+                     raise laomedo.agents.errors.RunnerError('run_not_dispatchable')
+-                self._turn_available()
+                 attempt_id = (activity_attempt_id if resume else record.get('activity_initial_attempt_id')) or str(uuid.uuid4())
+                 laomedo.agents.agents.base.utils._id(attempt_id)
+                 attempts = root / 'activity-attempts'
+                 attempts.mkdir(exist_ok=True)
+                 if (attempts / (attempt_id + '.json')).exists():
+                     raise laomedo.agents.errors.RunnerError('activity_attempt_already_exists')
+-                attempt = {'id': attempt_id, 'native_start': laomedo.agents.activity.runner.feed.line_count(root / 'activity-events.jsonl'), 'otel_start': laomedo.agents.activity.runner.feed.line_count(root / 'otel-events.jsonl'), 'native_end': None, 'otel_end': None, 'usage_baseline': {}, 'status': 'running', 'ended_at': None}
++                attempt = laomedo.agents.activity.models.ActivityAttemptRecord(id=attempt_id, native_start=laomedo.agents.activity.runner.feed.line_count(root / 'activity-events.jsonl'), otel_start=laomedo.agents.activity.runner.feed.line_count(root / 'otel-events.jsonl'), native_end=None, otel_end=None, usage_baseline={}, status='running', ended_at=None).to_record()
+                 laomedo.agents.agents.base.utils._json(attempts / (attempt_id + '.json'), attempt)
+                 flag = threading.Event()
+                 self.cancel_flags[run_id] = flag
+@@ -225,6 +232,7 @@
+             record['turns'].append({'turn_id': attempt_id, 'identity_source': 'host_attempt', 'status': record['status'], 'input_hash': 'sha256:' + hashlib.sha256(task.encode()).hexdigest()})
+             self._verify_protected_mounts(root, record)
+         except Exception as exc:
++            primary_failure = laomedo.agents.agents.base.utils.failure_observation(exc, stage='execution')
+             if record is None or attempt is None:
+                 raise
+             record.update(status='cancelled' if flag is not None and flag.is_set() else 'failed', error_category=None if flag is not None and flag.is_set() else str(exc) if isinstance(exc, laomedo.agents.errors.RunnerError) else type(exc).__name__)
+@@ -280,6 +288,8 @@
+                     if record.get('status') == 'cancelled':
+                         record['cancel_confirmed'] = not launch_attempted or (backend is not None and getattr(backend, 'termination_verified', False))
+             except Exception as error:
++                cleanup_failure = laomedo.agents.agents.base.utils.failure_observation(error, stage='cleanup', code='opencode_transport_cleanup_failed' if not isinstance(error, laomedo.agents.errors.RunnerError) else None)
++                primary_failure = primary_failure or cleanup_failure
+                 if record is not None:
+                     verified = backend is not None and getattr(backend, 'termination_verified', False)
+                     record.update(status='failed', error_category=str(error) if isinstance(error, laomedo.agents.errors.RunnerError) else 'opencode_transport_cleanup_failed', controller_cleanup='confirmed' if verified else 'unverified', cancel_confirmed=False)
+@@ -295,9 +305,18 @@
+                             laomedo.agents.agents.base.utils._json(root / 'activity-attempts' / (attempt['id'] + '.json'), attempt)
+                             laomedo.agents.agents.base.utils._json(root / 'record.json', record)
+                 finally:
+-                    self.active_backends.pop(run_id, None)
+-                    self.cancel_flags.pop(run_id, None)
+-                    self.lock.release()
++                    try:
++                        observed = getattr(backend, 'cleanup_observed', None)
++                        if metadata_cleanup_unverified:
++                            observed = False
++                        source = 'opencode_owned_resources' if type(observed) is bool else None
++                        self._retain_attempt_failure(root, record, attempt, primary_failure, cleanup_failure, cleanup_source=source, cleanup_verified=observed if source else None)
++                    except Exception:
++                        pass
++                    finally:
++                        self.active_backends.pop(run_id, None)
++                        self.cancel_flags.pop(run_id, None)
++                        self.lock.release()
+         return record
+ 
+     def cancel(self, run_id):
+
+
+### PR 216 src/laomedo/agents/agents/opencode/agent.py :: OpenCodeAgent.model_catalog
+--- src/laomedo/agents/agents/opencode/agent.py::OpenCodeAgent.model_catalog
++++ src/laomedo/agents/agents/opencode/agent.py::OpenCodeAgent.model_catalog
+@@ -10,6 +10,7 @@
+             raise laomedo.agents.errors.RunnerError('runner_busy')
+         root = self.state / 'catalog' / str(uuid.uuid4())
+         backend = None
++        primary = None
+         try:
+             for name in ('workspace', 'canonical', 'store'):
+                 (root / name).mkdir(parents=True)
+@@ -21,10 +22,16 @@
+             if not models:
+                 raise laomedo.agents.errors.RunnerError('opencode_model_not_connected')
+             result = {'models': models, 'submitted_turns': 0}
++        except Exception as error:
++            primary = laomedo.agents.agents.base.utils.failure_observation(error, stage='startup')
++            raise
+         finally:
+             try:
+                 if backend is not None:
+-                    backend.close()
++                    try:
++                        backend.close()
++                    except laomedo.agents.errors.RunnerError as cleanup:
++                        raise laomedo.agents.errors.RunnerError(cleanup.code, observation=primary or cleanup.observation) from None
+             finally:
+                 try:
+                     if root.exists() and (not list(root.joinpath('docker-receipts').glob('*.json'))):
+
+
+### PR 216 src/laomedo/agents/agents/opencode/agent.py :: OpenCodeAgent._execute
+--- src/laomedo/agents/agents/opencode/agent.py::OpenCodeAgent._execute
++++ src/laomedo/agents/agents/opencode/agent.py::OpenCodeAgent._execute
+@@ -11,6 +11,7 @@
+     reader = capture = baseline = None
+     baseline_available = True
+     metadata_cleanup_unverified = False
++    primary_failure = cleanup_failure = None
+     catalog = []
+     launch_attempted = False
+     try:
+@@ -21,14 +22,13 @@
+                 return record
+             if record['status'] != ('completed' if resume else 'prepared'):
+                 raise laomedo.agents.errors.RunnerError('run_not_dispatchable')
+-            self._turn_available()
+             attempt_id = (activity_attempt_id if resume else record.get('activity_initial_attempt_id')) or str(uuid.uuid4())
+             laomedo.agents.agents.base.utils._id(attempt_id)
+             attempts = root / 'activity-attempts'
+             attempts.mkdir(exist_ok=True)
+             if (attempts / (attempt_id + '.json')).exists():
+                 raise laomedo.agents.errors.RunnerError('activity_attempt_already_exists')
+-            attempt = {'id': attempt_id, 'native_start': laomedo.agents.activity.runner.feed.line_count(root / 'activity-events.jsonl'), 'otel_start': laomedo.agents.activity.runner.feed.line_count(root / 'otel-events.jsonl'), 'native_end': None, 'otel_end': None, 'usage_baseline': {}, 'status': 'running', 'ended_at': None}
++            attempt = laomedo.agents.activity.models.ActivityAttemptRecord(id=attempt_id, native_start=laomedo.agents.activity.runner.feed.line_count(root / 'activity-events.jsonl'), otel_start=laomedo.agents.activity.runner.feed.line_count(root / 'otel-events.jsonl'), native_end=None, otel_end=None, usage_baseline={}, status='running', ended_at=None).to_record()
+             laomedo.agents.agents.base.utils._json(attempts / (attempt_id + '.json'), attempt)
+             flag = threading.Event()
+             self.cancel_flags[run_id] = flag
+@@ -91,6 +91,7 @@
+         record['turns'].append({'turn_id': attempt_id, 'identity_source': 'host_attempt', 'status': record['status'], 'input_hash': 'sha256:' + hashlib.sha256(task.encode()).hexdigest()})
+         self._verify_protected_mounts(root, record)
+     except Exception as exc:
++        primary_failure = laomedo.agents.agents.base.utils.failure_observation(exc, stage='execution')
+         if record is None or attempt is None:
+             raise
+         record.update(status='cancelled' if flag is not None and flag.is_set() else 'failed', error_category=None if flag is not None and flag.is_set() else str(exc) if isinstance(exc, laomedo.agents.errors.RunnerError) else type(exc).__name__)
+@@ -146,6 +147,8 @@
+                 if record.get('status') == 'cancelled':
+                     record['cancel_confirmed'] = not launch_attempted or (backend is not None and getattr(backend, 'termination_verified', False))
+         except Exception as error:
++            cleanup_failure = laomedo.agents.agents.base.utils.failure_observation(error, stage='cleanup', code='opencode_transport_cleanup_failed' if not isinstance(error, laomedo.agents.errors.RunnerError) else None)
++            primary_failure = primary_failure or cleanup_failure
+             if record is not None:
+                 verified = backend is not None and getattr(backend, 'termination_verified', False)
+                 record.update(status='failed', error_category=str(error) if isinstance(error, laomedo.agents.errors.RunnerError) else 'opencode_transport_cleanup_failed', controller_cleanup='confirmed' if verified else 'unverified', cancel_confirmed=False)
+@@ -161,7 +164,16 @@
+                         laomedo.agents.agents.base.utils._json(root / 'activity-attempts' / (attempt['id'] + '.json'), attempt)
+                         laomedo.agents.agents.base.utils._json(root / 'record.json', record)
+             finally:
+-                self.active_backends.pop(run_id, None)
+-                self.cancel_flags.pop(run_id, None)
+-                self.lock.release()
++                try:
++                    observed = getattr(backend, 'cleanup_observed', None)
++                    if metadata_cleanup_unverified:
++                        observed = False
++                    source = 'opencode_owned_resources' if type(observed) is bool else None
++                    self._retain_attempt_failure(root, record, attempt, primary_failure, cleanup_failure, cleanup_source=source, cleanup_verified=observed if source else None)
++                except Exception:
++                    pass
++                finally:
++                    self.active_backends.pop(run_id, None)
++                    self.cancel_flags.pop(run_id, None)
++                    self.lock.release()
+     return record
+
+### PR 216 src/laomedo/agents/agents/opencode/boundary.py :: CommandBroker
+--- src/laomedo/agents/agents/opencode/boundary.py::CommandBroker
++++ src/laomedo/agents/agents/opencode/boundary.py::CommandBroker
+@@ -12,6 +12,8 @@
+         self.receipts = pathlib.Path(receipt_directory) if receipt_directory is not None else evidence.joinpath('docker-receipts')
+         self.receipts.mkdir(mode=448, parents=True, exist_ok=True)
+         self.lock = threading.Lock()
++        self.allocated_receipts = set()
++        self.drained = False
+         self.capacity = threading.BoundedSemaphore(1)
+         self.server = laomedo.agents.agents.opencode.http.server.BrokerHttpServer(self, ('0.0.0.0', 0))
+         self.server.daemon_threads = True
+@@ -45,13 +47,16 @@
+                 if self.closed:
+                     raise laomedo.agents.errors.RunnerError('opencode_command_service_closed')
+             name = 'laomedo-oc-worker-' + uuid.uuid4().hex
++            receipt_path = self.receipts.joinpath(name + '.json')
++            with self.lock:
++                self.allocated_receipts.add(receipt_path)
+             try:
+                 with py_docker.Client(environment={'DOCKER_HOST': self.docker_endpoint}) as docker:
+-                    result = docker.jobs.run(py_docker.jobs.models.ContainerJob(spec=py_docker.containers.models.ContainerSpec(image=self.worker_image_id, name=name, entrypoint=['timeout'], command=['--signal=TERM', '--kill-after=5s', '60', 'sh', '-c', command], user='10001:10001', read_only=False, working_dir='/draft', mounts=[py_docker.containers.models.Mount(type='bind', source=str(source), target=target, read_only=readonly) for source, target, readonly in ((self.workspace, '/draft', False), (self.canonical, '/canonical', True), (self.store, '/store', True))]), limits=py_docker.streams.models.StreamLimits(seconds=70, max_bytes=1024 * 1024), wait_timeout_seconds=10.0, receipt_path=self.receipts.joinpath(name + '.json')), cancelled=self.stopping)
++                    result = docker.jobs.run(py_docker.jobs.models.ContainerJob(spec=py_docker.containers.models.ContainerSpec(image=self.worker_image_id, name=name, entrypoint=['timeout'], command=['--signal=TERM', '--kill-after=5s', '60', 'sh', '-c', command], user='10001:10001', network_mode='none', read_only=False, working_dir='/draft', mounts=[py_docker.containers.models.Mount(type='bind', source=str(source), target=target, read_only=readonly) for source, target, readonly in ((self.workspace, '/draft', False), (self.canonical, '/canonical', True), (self.store, '/store', True))]), limits=py_docker.streams.models.StreamLimits(seconds=70, max_bytes=1024 * 1024), wait_timeout_seconds=10.0, receipt_path=receipt_path), cancelled=self.stopping)
+                 value = {'exit_code': result.exit_code, 'stdout': result.stdout.decode('utf-8', errors='replace')[:32768], 'stderr': result.stderr.decode('utf-8', errors='replace')[:32768]}
+-            except py_docker.errors.CleanupUnconfirmedError:
++            except py_docker.errors.CleanupUnconfirmedError as error:
+                 self.cleanup_failed = True
+-                raise laomedo.agents.errors.RunnerError('opencode_container_cleanup_unverified') from None
++                raise laomedo.agents.errors.RunnerError('opencode_container_cleanup_unverified', observation=laomedo.agents.agents.base.utils.failure_observation(error, stage='cleanup', code='opencode_container_cleanup_unverified')) from None
+             except py_docker.errors.JobCancelledError:
+                 value = {'exit_code': 130, 'stdout': '', 'stderr': 'worker_cancelled'}
+             except py_docker.errors.DeadlineError:
+@@ -81,5 +86,6 @@
+         acquired = self.capacity.acquire(timeout=180)
+         if acquired:
+             self.capacity.release()
++        self.drained = acquired and (not self.thread.is_alive())
+         if not acquired or self.cleanup_failed or self.thread.is_alive():
+             raise laomedo.agents.errors.RunnerError('opencode_container_cleanup_unverified')
+
+### PR 216 src/laomedo/agents/agents/opencode/boundary.py :: CommandBroker.__init__
+--- src/laomedo/agents/agents/opencode/boundary.py::CommandBroker.__init__
++++ src/laomedo/agents/agents/opencode/boundary.py::CommandBroker.__init__
+@@ -10,6 +10,8 @@
+     self.receipts = pathlib.Path(receipt_directory) if receipt_directory is not None else evidence.joinpath('docker-receipts')
+     self.receipts.mkdir(mode=448, parents=True, exist_ok=True)
+     self.lock = threading.Lock()
++    self.allocated_receipts = set()
++    self.drained = False
+     self.capacity = threading.BoundedSemaphore(1)
+     self.server = laomedo.agents.agents.opencode.http.server.BrokerHttpServer(self, ('0.0.0.0', 0))
+     self.server.daemon_threads = True
+
+
+### PR 216 src/laomedo/agents/agents/opencode/boundary.py :: CommandBroker.execute
+--- src/laomedo/agents/agents/opencode/boundary.py::CommandBroker.execute
++++ src/laomedo/agents/agents/opencode/boundary.py::CommandBroker.execute
+@@ -6,13 +6,16 @@
+             if self.closed:
+                 raise laomedo.agents.errors.RunnerError('opencode_command_service_closed')
+         name = 'laomedo-oc-worker-' + uuid.uuid4().hex
++        receipt_path = self.receipts.joinpath(name + '.json')
++        with self.lock:
++            self.allocated_receipts.add(receipt_path)
+         try:
+             with py_docker.Client(environment={'DOCKER_HOST': self.docker_endpoint}) as docker:
+-                result = docker.jobs.run(py_docker.jobs.models.ContainerJob(spec=py_docker.containers.models.ContainerSpec(image=self.worker_image_id, name=name, entrypoint=['timeout'], command=['--signal=TERM', '--kill-after=5s', '60', 'sh', '-c', command], user='10001:10001', read_only=False, working_dir='/draft', mounts=[py_docker.containers.models.Mount(type='bind', source=str(source), target=target, read_only=readonly) for source, target, readonly in ((self.workspace, '/draft', False), (self.canonical, '/canonical', True), (self.store, '/store', True))]), limits=py_docker.streams.models.StreamLimits(seconds=70, max_bytes=1024 * 1024), wait_timeout_seconds=10.0, receipt_path=self.receipts.joinpath(name + '.json')), cancelled=self.stopping)
++                result = docker.jobs.run(py_docker.jobs.models.ContainerJob(spec=py_docker.containers.models.ContainerSpec(image=self.worker_image_id, name=name, entrypoint=['timeout'], command=['--signal=TERM', '--kill-after=5s', '60', 'sh', '-c', command], user='10001:10001', network_mode='none', read_only=False, working_dir='/draft', mounts=[py_docker.containers.models.Mount(type='bind', source=str(source), target=target, read_only=readonly) for source, target, readonly in ((self.workspace, '/draft', False), (self.canonical, '/canonical', True), (self.store, '/store', True))]), limits=py_docker.streams.models.StreamLimits(seconds=70, max_bytes=1024 * 1024), wait_timeout_seconds=10.0, receipt_path=receipt_path), cancelled=self.stopping)
+             value = {'exit_code': result.exit_code, 'stdout': result.stdout.decode('utf-8', errors='replace')[:32768], 'stderr': result.stderr.decode('utf-8', errors='replace')[:32768]}
+-        except py_docker.errors.CleanupUnconfirmedError:
++        except py_docker.errors.CleanupUnconfirmedError as error:
+             self.cleanup_failed = True
+-            raise laomedo.agents.errors.RunnerError('opencode_container_cleanup_unverified') from None
++            raise laomedo.agents.errors.RunnerError('opencode_container_cleanup_unverified', observation=laomedo.agents.agents.base.utils.failure_observation(error, stage='cleanup', code='opencode_container_cleanup_unverified')) from None
+         except py_docker.errors.JobCancelledError:
+             value = {'exit_code': 130, 'stdout': '', 'stderr': 'worker_cancelled'}
+         except py_docker.errors.DeadlineError:
+
+
+### PR 216 src/laomedo/agents/agents/opencode/boundary.py :: CommandBroker.close
+--- src/laomedo/agents/agents/opencode/boundary.py::CommandBroker.close
++++ src/laomedo/agents/agents/opencode/boundary.py::CommandBroker.close
+@@ -6,5 +6,6 @@
+     acquired = self.capacity.acquire(timeout=180)
+     if acquired:
+         self.capacity.release()
++    self.drained = acquired and (not self.thread.is_alive())
+     if not acquired or self.cleanup_failed or self.thread.is_alive():
+         raise laomedo.agents.errors.RunnerError('opencode_container_cleanup_unverified')
+
+### PR 216 src/laomedo/agents/agents/opencode/boundary.py :: IsolatedOpenCode
+--- src/laomedo/agents/agents/opencode/boundary.py::IsolatedOpenCode
++++ src/laomedo/agents/agents/opencode/boundary.py::IsolatedOpenCode
+@@ -1,7 +1,16 @@
+ class IsolatedOpenCode:
++
++    @property
++    def runtime_identity(self):
++        return self.identity.to_payload()
+ 
+     def __init__(self, workspace, evidence, *, profile, image, image_id, worker_image_id=None, configure_agents=None, receipt_directory=None):
+         self.termination_verified = False
++        self.cleanup_observed = None
++        self.broker = self.session = self.docker = None
++        self.receipts = None
++        self.allocated_receipts = set()
++        self.closing = False
+         selected_worker_id = worker_image_id or laomedo.agents.agents.opencode.settings.WORKER_IMAGE_ID
+         self.profile = laomedo.agents.agents.base.utils._private(pathlib.Path(profile))
+         if not (self.profile / 'auth.json').is_file():
+@@ -10,7 +19,7 @@
+         identity_path = self.profile / 'identity.json'
+         if not identity_path.exists():
+             laomedo.agents.agents.base.utils._json(identity_path, {'profile_id': str(uuid.uuid4())})
+-        self.runtime_identity = {'provider': 'opencode', 'runtime_version': laomedo.agents.agents.opencode.settings.CLI_VERSION, 'image': image, 'image_id': image_id, 'profile_id': json.loads(identity_path.read_text())['profile_id'], 'worker_image': laomedo.agents.agents.opencode.settings.WORKER_IMAGE, 'worker_image_id': selected_worker_id, 'credential_binding': laomedo.agents.agents.opencode.utils._credential_binding(self.profile)}
++        self.identity = laomedo.agents.agents.opencode.models.OpenCodeRuntimeIdentity(runtime_version=laomedo.agents.agents.opencode.settings.CLI_VERSION, image=image, image_id=image_id, profile_id=json.loads(identity_path.read_text())['profile_id'], worker_image=laomedo.agents.agents.opencode.settings.WORKER_IMAGE, worker_image_id=selected_worker_id, credential_binding=laomedo.agents.agents.opencode.utils._credential_binding(self.profile))
+         try:
+         except ImportError:
+             raise laomedo.agents.errors.RunnerError('opencode_controller_startup_failed') from None
+@@ -21,6 +30,7 @@
+                 docker.images.resolve(laomedo.agents.agents.opencode.settings.WORKER_IMAGE, expected_id=selected_worker_id)
+                 receipts = pathlib.Path(receipt_directory) if receipt_directory is not None else evidence.joinpath('docker-receipts')
+                 receipts.mkdir(mode=448, parents=True, exist_ok=True)
++                self.receipts = receipts
+                 for receipt in receipts.glob('*.json'):
+                     docker.sessions.recover(receipt)
+         except py_docker.errors.OwnershipConflictError:
+@@ -70,27 +80,37 @@
+         self.spec = py_docker.containers.models.ContainerSpec(image=image_id, name=self.name, entrypoint=['timeout'], command=['--signal=TERM', '--kill-after=5s', str(laomedo.agents.agents.opencode.settings.CONTROLLER_LIFETIME_SECONDS), 'opencode', 'acp'], user='10001:10001', read_only=False, network_mode='bridge', working_dir='/draft', stdin_open=True, extra_hosts={'host.docker.internal': 'host-gateway'}, environment={'OPENCODE_CONFIG': '/controller-config.json', 'OPENCODE_DISABLE_PROJECT_CONFIG': 'true', 'HOME': '/home/runner', 'XDG_STATE_HOME': '/tmp/opencode-state', 'XDG_CACHE_HOME': '/tmp/opencode-cache', 'XDG_CONFIG_HOME': '/tmp/opencode-config'}, mounts=[py_docker.containers.models.Mount(type='bind', source=str(source), target=target, read_only=readonly) for source, target, readonly in ((view, '/draft', True), (root.joinpath('config.json'), '/controller-config.json', True), (self.profile.joinpath('sessions'), '/home/runner/.local/share/opencode', False), (self.profile.joinpath('auth.json'), '/home/runner/.local/share/opencode/auth.json', True))])
+         try:
+             self.docker = py_docker.Client(environment={'DOCKER_HOST': self.docker_endpoint})
+-        except Exception:
+-            self.close()
+-            raise laomedo.agents.errors.RunnerError('opencode_controller_startup_failed') from None
++        except Exception as error:
++            observation = laomedo.agents.agents.base.utils.failure_observation(error, stage='startup', code='opencode_controller_startup_failed')
++            try:
++                self.close()
++            except laomedo.agents.errors.RunnerError as cleanup:
++                raise laomedo.agents.errors.RunnerError(cleanup.code, observation=observation or cleanup.observation) from None
++            raise laomedo.agents.errors.RunnerError('opencode_controller_startup_failed', observation=observation) from None
+ 
+     def models(self):
+         name = 'laomedo-oc-catalog-' + uuid.uuid4().hex
+         self.check_auth_fresh()
+-        try:
+-            result = self.docker.jobs.run(py_docker.jobs.models.ContainerJob(spec=self.spec.model_copy(update={'name': name, 'stdin_open': False, 'command': ['--signal=TERM', '--kill-after=5s', '60', 'opencode', 'models', '--verbose']}), limits=py_docker.streams.models.StreamLimits(seconds=70, max_bytes=8 * 1024 * 1024), wait_timeout_seconds=10.0, receipt_path=self.receipts.joinpath(name + '.json')))
++        receipt_path = self.receipts.joinpath(name + '.json')
++        self.allocated_receipts.add(receipt_path)
++        try:
++            result = self.docker.jobs.run(py_docker.jobs.models.ContainerJob(spec=self.spec.model_copy(update={'name': name, 'stdin_open': False, 'command': ['--signal=TERM', '--kill-after=5s', '60', 'opencode', 'models', '--verbose']}), limits=py_docker.streams.models.StreamLimits(seconds=70, max_bytes=8 * 1024 * 1024), wait_timeout_seconds=10.0, receipt_path=receipt_path))
+             if result.exit_code:
+                 raise laomedo.agents.errors.RunnerError('opencode_model_not_connected')
+             return laomedo.agents.agents.opencode.utils.model_metadata(result.stdout.decode('utf-8'))
+-        except py_docker.errors.DockerOperationError:
+-            raise laomedo.agents.errors.RunnerError('opencode_controller_startup_failed') from None
++        except py_docker.errors.CleanupUnconfirmedError as error:
++            raise laomedo.agents.errors.RunnerError('opencode_container_cleanup_unverified', observation=laomedo.agents.agents.base.utils.failure_observation(error, stage='cleanup', code='opencode_container_cleanup_unverified')) from None
++        except py_docker.errors.DockerOperationError as error:
++            raise laomedo.agents.errors.RunnerError('opencode_controller_startup_failed', observation=laomedo.agents.agents.base.utils.failure_observation(error, stage='startup', code='opencode_controller_startup_failed')) from None
+ 
+     def history_reader(self):
+-        return laomedo.agents.agents.opencode.history.reader.HistoryReader(laomedo.agents.agents.opencode.history.models.HistorySource(store=self.profile / 'sessions', image_id=self.runtime_identity['image_id'], endpoint=self.docker_endpoint, receipts=self.receipts), self.evidence)
++        return laomedo.agents.agents.opencode.history.reader.HistoryReader(laomedo.agents.agents.opencode.history.models.HistorySource(store=self.profile / 'sessions', image_id=self.identity.image_id, endpoint=self.docker_endpoint, receipts=self.receipts), self.evidence)
+ 
+     def run(self, task, *, model, session_id, cancelled, capture, on_session):
+         self.check_auth_fresh()
+-        self.session = self.docker.sessions.open(py_docker.sessions.models.ContainerSession(spec=self.spec, limits=py_docker.streams.models.StreamLimits(seconds=laomedo.agents.agents.opencode.settings.CONTROLLER_LIFETIME_SECONDS + 10, max_bytes=36 * 1024 * 1024), receipt_path=self.receipts.joinpath(self.name + '.json')))
++        receipt_path = self.receipts.joinpath(self.name + '.json')
++        self.allocated_receipts.add(receipt_path)
++        self.session = self.docker.sessions.open(py_docker.sessions.models.ContainerSession(spec=self.spec, limits=py_docker.streams.models.StreamLimits(seconds=laomedo.agents.agents.opencode.settings.CONTROLLER_LIFETIME_SECONDS + 10, max_bytes=36 * 1024 * 1024), receipt_path=receipt_path))
+         return asyncio.run(self._run_acp(task, model, session_id, cancelled, capture, on_session))
+ 
+     async def _run_acp(self, task, model, session_id, cancelled, capture, on_session):
+@@ -108,6 +128,8 @@
+             observed = next((option.current_value for option in configured.config_options if option.id == picker.id), None)
+             if observed != model:
+                 raise laomedo.agents.errors.RunnerError('opencode_model_not_connected')
++            if cancelled.is_set():
++                raise laomedo.agents.errors.RunnerError('opencode_cancelled_before_dispatch')
+             on_session(client.session_id)
+             capture.begin(client.session_id, task)
+             client.on_update = capture.update
+@@ -131,22 +153,58 @@
+             raise laomedo.agents.errors.RunnerError(self.broker.error_code)
+ 
+     def close(self):
++        if self.closing:
++            if not self.termination_verified:
++                raise laomedo.agents.errors.RunnerError('opencode_container_cleanup_unverified')
++            return
++        self.closing = True
+         failed = False
++        observation = None
++        drained = self.broker is None
++        recovered = True
++        try:
++            if self.broker is not None:
++                self.broker.stop()
++        except Exception as error:
++            failed = True
++            observation = laomedo.agents.agents.base.utils.failure_observation(error, stage='cleanup', code='opencode_container_cleanup_unverified')
+         try:
+             if self.session is not None:
+                 self.session.close()
+-        except Exception:
++        except Exception as error:
+             failed = True
++            observation = observation or laomedo.agents.agents.base.utils.failure_observation(error, stage='cleanup', code='opencode_container_cleanup_unverified')
+         try:
+             if self.broker is not None:
+                 self.broker.close()
+-        except Exception:
++            drained = True
++        except Exception as error:
+             failed = True
++            drained = self.broker is not None and self.broker.drained is True
++            observation = observation or laomedo.agents.agents.base.utils.failure_observation(error, stage='cleanup', code='opencode_container_cleanup_unverified')
+         finally:
++            paths = set(self.allocated_receipts)
++            if self.broker is not None:
++                with self.broker.lock:
++                    paths.update(self.broker.allocated_receipts)
++            if paths and (not drained or self.docker is None):
++                failed, recovered = (True, False)
++            elif paths:
++                for receipt in paths:
++                    try:
++                        self.docker.sessions.recover(receipt)
++                    except Exception as error:
++                        failed, recovered = (True, False)
++                        observation = observation or laomedo.agents.agents.base.utils.failure_observation(error, stage='cleanup', code='opencode_container_cleanup_unverified')
++            self.cleanup_observed = drained and recovered
+             if self.docker is not None:
+-                self.docker.close()
++                try:
++                    self.docker.close()
++                except Exception as error:
++                    failed = True
++                    observation = observation or laomedo.agents.agents.base.utils.failure_observation(error, stage='cleanup', code='opencode_container_cleanup_unverified')
+         if failed:
+-            raise laomedo.agents.errors.RunnerError('opencode_container_cleanup_unverified') from None
++            raise laomedo.agents.errors.RunnerError('opencode_container_cleanup_unverified', observation=observation) from None
+         self.termination_verified = True
+ 
+     def check_auth_fresh(self):
+
+
+### PR 216 src/laomedo/agents/agents/opencode/boundary.py :: IsolatedOpenCode.__init__
+--- src/laomedo/agents/agents/opencode/boundary.py::IsolatedOpenCode.__init__
++++ src/laomedo/agents/agents/opencode/boundary.py::IsolatedOpenCode.__init__
+@@ -1,5 +1,10 @@
+ def __init__(self, workspace, evidence, *, profile, image, image_id, worker_image_id=None, configure_agents=None, receipt_directory=None):
+     self.termination_verified = False
++    self.cleanup_observed = None
++    self.broker = self.session = self.docker = None
++    self.receipts = None
++    self.allocated_receipts = set()
++    self.closing = False
+     selected_worker_id = worker_image_id or laomedo.agents.agents.opencode.settings.WORKER_IMAGE_ID
+     self.profile = laomedo.agents.agents.base.utils._private(pathlib.Path(profile))
+     if not (self.profile / 'auth.json').is_file():
+@@ -8,7 +13,7 @@
+     identity_path = self.profile / 'identity.json'
+     if not identity_path.exists():
+         laomedo.agents.agents.base.utils._json(identity_path, {'profile_id': str(uuid.uuid4())})
+-    self.runtime_identity = {'provider': 'opencode', 'runtime_version': laomedo.agents.agents.opencode.settings.CLI_VERSION, 'image': image, 'image_id': image_id, 'profile_id': json.loads(identity_path.read_text())['profile_id'], 'worker_image': laomedo.agents.agents.opencode.settings.WORKER_IMAGE, 'worker_image_id': selected_worker_id, 'credential_binding': laomedo.agents.agents.opencode.utils._credential_binding(self.profile)}
++    self.identity = laomedo.agents.agents.opencode.models.OpenCodeRuntimeIdentity(runtime_version=laomedo.agents.agents.opencode.settings.CLI_VERSION, image=image, image_id=image_id, profile_id=json.loads(identity_path.read_text())['profile_id'], worker_image=laomedo.agents.agents.opencode.settings.WORKER_IMAGE, worker_image_id=selected_worker_id, credential_binding=laomedo.agents.agents.opencode.utils._credential_binding(self.profile))
+     try:
+     except ImportError:
+         raise laomedo.agents.errors.RunnerError('opencode_controller_startup_failed') from None
+@@ -19,6 +24,7 @@
+             docker.images.resolve(laomedo.agents.agents.opencode.settings.WORKER_IMAGE, expected_id=selected_worker_id)
+             receipts = pathlib.Path(receipt_directory) if receipt_directory is not None else evidence.joinpath('docker-receipts')
+             receipts.mkdir(mode=448, parents=True, exist_ok=True)
++            self.receipts = receipts
+             for receipt in receipts.glob('*.json'):
+                 docker.sessions.recover(receipt)
+     except py_docker.errors.OwnershipConflictError:
+@@ -68,6 +74,10 @@
+     self.spec = py_docker.containers.models.ContainerSpec(image=image_id, name=self.name, entrypoint=['timeout'], command=['--signal=TERM', '--kill-after=5s', str(laomedo.agents.agents.opencode.settings.CONTROLLER_LIFETIME_SECONDS), 'opencode', 'acp'], user='10001:10001', read_only=False, network_mode='bridge', working_dir='/draft', stdin_open=True, extra_hosts={'host.docker.internal': 'host-gateway'}, environment={'OPENCODE_CONFIG': '/controller-config.json', 'OPENCODE_DISABLE_PROJECT_CONFIG': 'true', 'HOME': '/home/runner', 'XDG_STATE_HOME': '/tmp/opencode-state', 'XDG_CACHE_HOME': '/tmp/opencode-cache', 'XDG_CONFIG_HOME': '/tmp/opencode-config'}, mounts=[py_docker.containers.models.Mount(type='bind', source=str(source), target=target, read_only=readonly) for source, target, readonly in ((view, '/draft', True), (root.joinpath('config.json'), '/controller-config.json', True), (self.profile.joinpath('sessions'), '/home/runner/.local/share/opencode', False), (self.profile.joinpath('auth.json'), '/home/runner/.local/share/opencode/auth.json', True))])
+     try:
+         self.docker = py_docker.Client(environment={'DOCKER_HOST': self.docker_endpoint})
+-    except Exception:
+-        self.close()
+-        raise laomedo.agents.errors.RunnerError('opencode_controller_startup_failed') from None+    except Exception as error:
++        observation = laomedo.agents.agents.base.utils.failure_observation(error, stage='startup', code='opencode_controller_startup_failed')
++        try:
++            self.close()
++        except laomedo.agents.errors.RunnerError as cleanup:
++            raise laomedo.agents.errors.RunnerError(cleanup.code, observation=observation or cleanup.observation) from None
++        raise laomedo.agents.errors.RunnerError('opencode_controller_startup_failed', observation=observation) from None
+
+### PR 216 src/laomedo/agents/agents/opencode/boundary.py :: IsolatedOpenCode.models
+--- src/laomedo/agents/agents/opencode/boundary.py::IsolatedOpenCode.models
++++ src/laomedo/agents/agents/opencode/boundary.py::IsolatedOpenCode.models
+@@ -1,10 +1,14 @@
+ def models(self):
+     name = 'laomedo-oc-catalog-' + uuid.uuid4().hex
+     self.check_auth_fresh()
++    receipt_path = self.receipts.joinpath(name + '.json')
++    self.allocated_receipts.add(receipt_path)
+     try:
+-        result = self.docker.jobs.run(py_docker.jobs.models.ContainerJob(spec=self.spec.model_copy(update={'name': name, 'stdin_open': False, 'command': ['--signal=TERM', '--kill-after=5s', '60', 'opencode', 'models', '--verbose']}), limits=py_docker.streams.models.StreamLimits(seconds=70, max_bytes=8 * 1024 * 1024), wait_timeout_seconds=10.0, receipt_path=self.receipts.joinpath(name + '.json')))
++        result = self.docker.jobs.run(py_docker.jobs.models.ContainerJob(spec=self.spec.model_copy(update={'name': name, 'stdin_open': False, 'command': ['--signal=TERM', '--kill-after=5s', '60', 'opencode', 'models', '--verbose']}), limits=py_docker.streams.models.StreamLimits(seconds=70, max_bytes=8 * 1024 * 1024), wait_timeout_seconds=10.0, receipt_path=receipt_path))
+         if result.exit_code:
+             raise laomedo.agents.errors.RunnerError('opencode_model_not_connected')
+         return laomedo.agents.agents.opencode.utils.model_metadata(result.stdout.decode('utf-8'))
+-    except py_docker.errors.DockerOperationError:
+-        raise laomedo.agents.errors.RunnerError('opencode_controller_startup_failed') from None+    except py_docker.errors.CleanupUnconfirmedError as error:
++        raise laomedo.agents.errors.RunnerError('opencode_container_cleanup_unverified', observation=laomedo.agents.agents.base.utils.failure_observation(error, stage='cleanup', code='opencode_container_cleanup_unverified')) from None
++    except py_docker.errors.DockerOperationError as error:
++        raise laomedo.agents.errors.RunnerError('opencode_controller_startup_failed', observation=laomedo.agents.agents.base.utils.failure_observation(error, stage='startup', code='opencode_controller_startup_failed')) from None
+
+### PR 216 src/laomedo/agents/agents/opencode/boundary.py :: IsolatedOpenCode.history_reader
+--- src/laomedo/agents/agents/opencode/boundary.py::IsolatedOpenCode.history_reader
++++ src/laomedo/agents/agents/opencode/boundary.py::IsolatedOpenCode.history_reader
+@@ -1,2 +1,2 @@
+ def history_reader(self):
+-    return laomedo.agents.agents.opencode.history.reader.HistoryReader(laomedo.agents.agents.opencode.history.models.HistorySource(store=self.profile / 'sessions', image_id=self.runtime_identity['image_id'], endpoint=self.docker_endpoint, receipts=self.receipts), self.evidence)+    return laomedo.agents.agents.opencode.history.reader.HistoryReader(laomedo.agents.agents.opencode.history.models.HistorySource(store=self.profile / 'sessions', image_id=self.identity.image_id, endpoint=self.docker_endpoint, receipts=self.receipts), self.evidence)
+
+### PR 216 src/laomedo/agents/agents/opencode/boundary.py :: IsolatedOpenCode.run
+--- src/laomedo/agents/agents/opencode/boundary.py::IsolatedOpenCode.run
++++ src/laomedo/agents/agents/opencode/boundary.py::IsolatedOpenCode.run
+@@ -1,4 +1,6 @@
+ def run(self, task, *, model, session_id, cancelled, capture, on_session):
+     self.check_auth_fresh()
+-    self.session = self.docker.sessions.open(py_docker.sessions.models.ContainerSession(spec=self.spec, limits=py_docker.streams.models.StreamLimits(seconds=laomedo.agents.agents.opencode.settings.CONTROLLER_LIFETIME_SECONDS + 10, max_bytes=36 * 1024 * 1024), receipt_path=self.receipts.joinpath(self.name + '.json')))
++    receipt_path = self.receipts.joinpath(self.name + '.json')
++    self.allocated_receipts.add(receipt_path)
++    self.session = self.docker.sessions.open(py_docker.sessions.models.ContainerSession(spec=self.spec, limits=py_docker.streams.models.StreamLimits(seconds=laomedo.agents.agents.opencode.settings.CONTROLLER_LIFETIME_SECONDS + 10, max_bytes=36 * 1024 * 1024), receipt_path=receipt_path))
+     return asyncio.run(self._run_acp(task, model, session_id, cancelled, capture, on_session))
+
+### PR 216 src/laomedo/agents/agents/opencode/boundary.py :: IsolatedOpenCode._run_acp
+--- src/laomedo/agents/agents/opencode/boundary.py::IsolatedOpenCode._run_acp
++++ src/laomedo/agents/agents/opencode/boundary.py::IsolatedOpenCode._run_acp
+@@ -13,6 +13,8 @@
+         observed = next((option.current_value for option in configured.config_options if option.id == picker.id), None)
+         if observed != model:
+             raise laomedo.agents.errors.RunnerError('opencode_model_not_connected')
++        if cancelled.is_set():
++            raise laomedo.agents.errors.RunnerError('opencode_cancelled_before_dispatch')
+         on_session(client.session_id)
+         capture.begin(client.session_id, task)
+         client.on_update = capture.update
+
+
+### PR 216 src/laomedo/agents/agents/opencode/boundary.py :: IsolatedOpenCode.close
+--- src/laomedo/agents/agents/opencode/boundary.py::IsolatedOpenCode.close
++++ src/laomedo/agents/agents/opencode/boundary.py::IsolatedOpenCode.close
+@@ -1,18 +1,54 @@
+ def close(self):
++    if self.closing:
++        if not self.termination_verified:
++            raise laomedo.agents.errors.RunnerError('opencode_container_cleanup_unverified')
++        return
++    self.closing = True
+     failed = False
++    observation = None
++    drained = self.broker is None
++    recovered = True
++    try:
++        if self.broker is not None:
++            self.broker.stop()
++    except Exception as error:
++        failed = True
++        observation = laomedo.agents.agents.base.utils.failure_observation(error, stage='cleanup', code='opencode_container_cleanup_unverified')
+     try:
+         if self.session is not None:
+             self.session.close()
+-    except Exception:
++    except Exception as error:
+         failed = True
++        observation = observation or laomedo.agents.agents.base.utils.failure_observation(error, stage='cleanup', code='opencode_container_cleanup_unverified')
+     try:
+         if self.broker is not None:
+             self.broker.close()
+-    except Exception:
++        drained = True
++    except Exception as error:
+         failed = True
++        drained = self.broker is not None and self.broker.drained is True
++        observation = observation or laomedo.agents.agents.base.utils.failure_observation(error, stage='cleanup', code='opencode_container_cleanup_unverified')
+     finally:
++        paths = set(self.allocated_receipts)
++        if self.broker is not None:
++            with self.broker.lock:
++                paths.update(self.broker.allocated_receipts)
++        if paths and (not drained or self.docker is None):
++            failed, recovered = (True, False)
++        elif paths:
++            for receipt in paths:
++                try:
++                    self.docker.sessions.recover(receipt)
++                except Exception as error:
++                    failed, recovered = (True, False)
++                    observation = observation or laomedo.agents.agents.base.utils.failure_observation(error, stage='cleanup', code='opencode_container_cleanup_unverified')
++        self.cleanup_observed = drained and recovered
+         if self.docker is not None:
+-            self.docker.close()
++            try:
++                self.docker.close()
++            except Exception as error:
++                failed = True
++                observation = observation or laomedo.agents.agents.base.utils.failure_observation(error, stage='cleanup', code='opencode_container_cleanup_unverified')
+     if failed:
+-        raise laomedo.agents.errors.RunnerError('opencode_container_cleanup_unverified') from None
++        raise laomedo.agents.errors.RunnerError('opencode_container_cleanup_unverified', observation=observation) from None
+     self.termination_verified = True
+
+### PR 216 src/laomedo/agents/interface/bridge.py :: HttpAgentBridge
+--- src/laomedo/agents/interface/bridge.py::HttpAgentBridge
++++ src/laomedo/agents/interface/bridge.py::HttpAgentBridge
+@@ -82,7 +82,12 @@
+         except urllib.error.HTTPError as exc:
+             status_code = exc.code
+             with exc:
+-                raw = json.load(exc)
++                try:
++                    raw = json.load(exc)
++                except (ValueError, OSError):
++                    raise laomedo.agents.orchestration.errors.HandoffError('runner_result_pending') from None
++        except (urllib.error.URLError, OSError, ValueError):
++            raise laomedo.agents.orchestration.errors.HandoffError('runner_result_pending') from None
+         if status_code == 409:
+             raise laomedo.agents.orchestration.errors.HandoffError('runner_request_conflict')
+         if status_code in {400, 401, 403, 404, 422} and isinstance(raw, dict) and (not raw.get('run_id')):
+@@ -107,15 +112,13 @@
+                 try:
+                     with urllib.request.urlopen(poll, timeout=max(0.001, min(5, deadline - time.monotonic()))) as response:
+                         raw = json.load(response)
+-                except TimeoutError as exc:
+-                    if time.monotonic() >= deadline:
+-                        raise laomedo.agents.orchestration.errors.HandoffError('runner_result_pending') from exc
+-                    raise
++                except (urllib.error.URLError, OSError, ValueError):
++                    raise laomedo.agents.orchestration.errors.HandoffError('runner_result_pending') from None
+                 if not isinstance(raw, dict) or raw.get('run_id') != self.active[handoff['execution_id']][1]:
+                     raise laomedo.agents.orchestration.errors.HandoffError('runner_poll_identity_mismatch')
+                 if raw.get('status') in {'prepared', 'running'}:
+                     time.sleep(min(0.05, max(0, deadline - time.monotonic())))
+-        return {'provider': provider, 'run_id': raw['run_id'], 'thread_id': raw.get('thread_id'), 'status': raw.get('status'), 'answer': raw.get('answer'), 'post_run_hash': raw.get('post_run_hash'), 'model': raw.get('requested_model'), 'effort': raw.get('requested_effort'), 'skills': raw.get('skills'), 'error_category': raw.get('error_category')}
++        return laomedo.agents.interface.models.AgentDispatchResult.from_result(raw, provider=provider).to_payload()
+ 
+     def status(self, provider, run_id):
+         try:
+
+
+### PR 216 src/laomedo/agents/interface/bridge.py :: HttpAgentBridge.dispatch
+--- src/laomedo/agents/interface/bridge.py::HttpAgentBridge.dispatch
++++ src/laomedo/agents/interface/bridge.py::HttpAgentBridge.dispatch
+@@ -36,7 +36,12 @@
+     except urllib.error.HTTPError as exc:
+         status_code = exc.code
+         with exc:
+-            raw = json.load(exc)
++            try:
++                raw = json.load(exc)
++            except (ValueError, OSError):
++                raise laomedo.agents.orchestration.errors.HandoffError('runner_result_pending') from None
++    except (urllib.error.URLError, OSError, ValueError):
++        raise laomedo.agents.orchestration.errors.HandoffError('runner_result_pending') from None
+     if status_code == 409:
+         raise laomedo.agents.orchestration.errors.HandoffError('runner_request_conflict')
+     if status_code in {400, 401, 403, 404, 422} and isinstance(raw, dict) and (not raw.get('run_id')):
+@@ -61,12 +66,10 @@
+             try:
+                 with urllib.request.urlopen(poll, timeout=max(0.001, min(5, deadline - time.monotonic()))) as response:
+                     raw = json.load(response)
+-            except TimeoutError as exc:
+-                if time.monotonic() >= deadline:
+-                    raise laomedo.agents.orchestration.errors.HandoffError('runner_result_pending') from exc
+-                raise
++            except (urllib.error.URLError, OSError, ValueError):
++                raise laomedo.agents.orchestration.errors.HandoffError('runner_result_pending') from None
+             if not isinstance(raw, dict) or raw.get('run_id') != self.active[handoff['execution_id']][1]:
+                 raise laomedo.agents.orchestration.errors.HandoffError('runner_poll_identity_mismatch')
+             if raw.get('status') in {'prepared', 'running'}:
+                 time.sleep(min(0.05, max(0, deadline - time.monotonic())))
+-    return {'provider': provider, 'run_id': raw['run_id'], 'thread_id': raw.get('thread_id'), 'status': raw.get('status'), 'answer': raw.get('answer'), 'post_run_hash': raw.get('post_run_hash'), 'model': raw.get('requested_model'), 'effort': raw.get('requested_effort'), 'skills': raw.get('skills'), 'error_category': raw.get('error_category')}+    return laomedo.agents.interface.models.AgentDispatchResult.from_result(raw, provider=provider).to_payload()
+
+### PR 216 src/laomedo/agents/interface/langflow/component.py :: AgentComponent
+--- src/laomedo/agents/interface/langflow/component.py::AgentComponent
++++ src/laomedo/agents/interface/langflow/component.py::AgentComponent
+@@ -454,9 +454,7 @@
+         return self._run_reference(result)
+ 
+     def _run_reference(self, result):
+-        skill = result.get('skill') or {}
+-        skills = result.get('skills') or ([skill] if skill else [])
+-        return {'answer': result.get('answer'), 'run_id': result['run_id'], 'request_id': result.get('client_request_id'), 'invocation_id': result.get('invocation_id'), 'laomedo_run_id': result.get('laomedo_run_id'), 'trace_id': result.get('trace_id'), 'evidence_complete': result.get('evidence_complete') if type(result.get('evidence_complete')) is bool else 'unknown', 'completion_basis': result.get('completion_basis'), 'requirements_revision': result.get('requirements_revision'), 'precheck': {key: result.get('precheck', {}).get(key) if isinstance(result.get('precheck'), dict) and (type(result['precheck'].get(key)) is bool if key != 'call_count' else type(result['precheck'].get(key)) is int and result['precheck'][key] >= 0) else 'unknown' for key in ('installed', 'call_count')}, 'provider': result.get('provider') or self.provider_id, 'handoff': result.get('handoff'), 'imported_artifacts': result.get('imported_artifacts', []), 'thread_id': result.get('thread_id'), 'status': result.get('status'), 'post_run_hash': result.get('post_run_hash'), 'model': result.get('requested_model'), 'effort': result.get('requested_effort'), 'skill_revision': skill.get('revision_id'), 'skill_use_evidence': skill.get('use_evidence', 'unknown'), 'skills': skills, 'artifact_ref': result.get('output_ref'), 'trace_ref': result.get('raw_event_ref'), 'error_category': result.get('error_category'), 'attempt_finished': result.get('attempt_finished', False), 'snapshot_ready': result.get('snapshot_ready', False), 'cancel_requested': result.get('cancel_requested', False), 'usage': result.get('usage') if isinstance(result.get('usage'), dict) else 'unknown'}
++        return laomedo.agents.interface.models.AgentRunReference.from_runner_status(result, provider=self.provider_id).to_payload()
+ 
+     async def _result(self):
+         if getattr(self, '_dispatch_task', None) is None:
+@@ -531,7 +529,7 @@
+         outcome = reported if isinstance(reported, str) and reported in {'success', 'failure'} else 'unknown'
+         if outcome == 'success' and reference.get('status') != 'completed':
+             outcome = 'unknown'
+-        value = {'schema_version': 'laomedo.agent-submission.v1', 'submission': submission, 'answer': answer, 'requirements_revision': reference.get('requirements_revision'), 'precheck': reference.get('precheck', {'installed': 'unknown', 'call_count': 'unknown'}), 'task_outcome': outcome, 'executor_status': reference.get('status') or 'unknown', 'evidence_complete': reference.get('evidence_complete', 'unknown'), 'run_reference': reference, 'error_category': reference.get('error_category')}
++        value = laomedo.agents.interface.models.AgentSubmission(submission=submission, answer=answer, requirements_revision=reference.get('requirements_revision'), precheck=reference.get('precheck', {'installed': 'unknown', 'call_count': 'unknown'}), task_outcome=outcome, executor_status=reference.get('status') or 'unknown', evidence_complete=reference.get('evidence_complete', 'unknown'), run_reference=reference, error_category=reference.get('error_category')).to_payload()
+         self._contract_submission = copy.deepcopy(value)
+         self.status = 'Laomedo outcome: ' + value['executor_status']
+         return lfx.schema.Data(data=value)
+
+### PR 216 src/laomedo/agents/interface/langflow/component.py :: AgentComponent._run_reference
+--- src/laomedo/agents/interface/langflow/component.py::AgentComponent._run_reference
++++ src/laomedo/agents/interface/langflow/component.py::AgentComponent._run_reference
+@@ -1,4 +1,2 @@
+ def _run_reference(self, result):
+-    skill = result.get('skill') or {}
+-    skills = result.get('skills') or ([skill] if skill else [])
+-    return {'answer': result.get('answer'), 'run_id': result['run_id'], 'request_id': result.get('client_request_id'), 'invocation_id': result.get('invocation_id'), 'laomedo_run_id': result.get('laomedo_run_id'), 'trace_id': result.get('trace_id'), 'evidence_complete': result.get('evidence_complete') if type(result.get('evidence_complete')) is bool else 'unknown', 'completion_basis': result.get('completion_basis'), 'requirements_revision': result.get('requirements_revision'), 'precheck': {key: result.get('precheck', {}).get(key) if isinstance(result.get('precheck'), dict) and (type(result['precheck'].get(key)) is bool if key != 'call_count' else type(result['precheck'].get(key)) is int and result['precheck'][key] >= 0) else 'unknown' for key in ('installed', 'call_count')}, 'provider': result.get('provider') or self.provider_id, 'handoff': result.get('handoff'), 'imported_artifacts': result.get('imported_artifacts', []), 'thread_id': result.get('thread_id'), 'status': result.get('status'), 'post_run_hash': result.get('post_run_hash'), 'model': result.get('requested_model'), 'effort': result.get('requested_effort'), 'skill_revision': skill.get('revision_id'), 'skill_use_evidence': skill.get('use_evidence', 'unknown'), 'skills': skills, 'artifact_ref': result.get('output_ref'), 'trace_ref': result.get('raw_event_ref'), 'error_category': result.get('error_category'), 'attempt_finished': result.get('attempt_finished', False), 'snapshot_ready': result.get('snapshot_ready', False), 'cancel_requested': result.get('cancel_requested', False), 'usage': result.get('usage') if isinstance(result.get('usage'), dict) else 'unknown'}+    return laomedo.agents.interface.models.AgentRunReference.from_runner_status(result, provider=self.provider_id).to_payload()
+
+### PR 216 src/laomedo/agents/interface/langflow/component.py :: AgentComponent.submission_output
+--- src/laomedo/agents/interface/langflow/component.py::AgentComponent.submission_output
++++ src/laomedo/agents/interface/langflow/component.py::AgentComponent.submission_output
+@@ -33,7 +33,7 @@
+     outcome = reported if isinstance(reported, str) and reported in {'success', 'failure'} else 'unknown'
+     if outcome == 'success' and reference.get('status') != 'completed':
+         outcome = 'unknown'
+-    value = {'schema_version': 'laomedo.agent-submission.v1', 'submission': submission, 'answer': answer, 'requirements_revision': reference.get('requirements_revision'), 'precheck': reference.get('precheck', {'installed': 'unknown', 'call_count': 'unknown'}), 'task_outcome': outcome, 'executor_status': reference.get('status') or 'unknown', 'evidence_complete': reference.get('evidence_complete', 'unknown'), 'run_reference': reference, 'error_category': reference.get('error_category')}
++    value = laomedo.agents.interface.models.AgentSubmission(submission=submission, answer=answer, requirements_revision=reference.get('requirements_revision'), precheck=reference.get('precheck', {'installed': 'unknown', 'call_count': 'unknown'}), task_outcome=outcome, executor_status=reference.get('status') or 'unknown', evidence_complete=reference.get('evidence_complete', 'unknown'), run_reference=reference, error_category=reference.get('error_category')).to_payload()
+     self._contract_submission = copy.deepcopy(value)
+     self.status = 'Laomedo outcome: ' + value['executor_status']
+     return lfx.schema.Data(data=value)
+
+### PR 216 src/laomedo/agents/orchestration/controller.py :: AgentHandoffController
+--- src/laomedo/agents/orchestration/controller.py::AgentHandoffController
++++ src/laomedo/agents/orchestration/controller.py::AgentHandoffController
+@@ -84,6 +84,8 @@
+                     return self._finish('cancelled')
+                 if self.clock() >= self.deadline:
+                     return self._finish('deadline')
++                if result.get('status') in {'unknown', 'interrupted', 'prepared', 'running'}:
++                    return self._finish('dispatch_uncertain')
+                 if result.get('status') != 'completed':
+                     return self._finish('agent_failed')
+                 try:
+
+
+### PR 216 src/laomedo/agents/orchestration/controller.py :: AgentHandoffController.run
+--- src/laomedo/agents/orchestration/controller.py::AgentHandoffController.run
++++ src/laomedo/agents/orchestration/controller.py::AgentHandoffController.run
+@@ -46,6 +46,8 @@
+                 return self._finish('cancelled')
+             if self.clock() >= self.deadline:
+                 return self._finish('deadline')
++            if result.get('status') in {'unknown', 'interrupted', 'prepared', 'running'}:
++                return self._finish('dispatch_uncertain')
+             if result.get('status') != 'completed':
+                 return self._finish('agent_failed')
+             try:
+
+
+### PR 216 src/laomedo/agents/orchestration/utils.py :: envelope
+--- src/laomedo/agents/orchestration/utils.py::envelope
++++ src/laomedo/agents/orchestration/utils.py::envelope
+@@ -29,4 +29,4 @@
+         prior_skills = source.get('skills')
+         if not isinstance(prior_skills, list) or [(s.get('skill_id'), s.get('revision_id')) for s in prior_skills] != [(s['skill_id'], s['revision_id']) for s in clean_skills]:
+             raise laomedo.agents.orchestration.errors.HandoffError('resume_skill_binding_mismatch')
+-    return {'schema_version': 1, 'execution_id': execution_id or str(uuid.uuid4()), 'step': step, 'source': None if source is None else {'provider': source.get('provider'), 'run_id': source.get('run_id')}, 'target': copy.deepcopy(target), 'task': task, 'skill_refs': clean_skills, 'workspace_policy': 'resume_bound' if operation == 'resume' else 'independent', 'operation': operation, 'artifacts': selected, 'prior': None if operation == 'fresh' else {k: source[k] for k in ('provider', 'run_id', 'thread_id', 'post_run_hash', 'model', 'effort')}}+    return laomedo.agents.orchestration.models.AgentHandoff(execution_id=execution_id or str(uuid.uuid4()), step=step, source=None if source is None else laomedo.agents.orchestration.models.HandoffSource(provider=source.get('provider'), run_id=source.get('run_id')), target=laomedo.agents.orchestration.models.HandoffTarget(**target), task=task, skill_refs=[laomedo.agents.orchestration.models.HandoffSkillReference(**skill) for skill in clean_skills], workspace_policy='resume_bound' if operation == 'resume' else 'independent', operation=operation, artifacts=[laomedo.agents.artifacts.utils.models.ArtifactReference(**artifact) for artifact in selected], prior=None if operation == 'fresh' else laomedo.agents.orchestration.models.HandoffPrior(**{k: source[k] for k in ('provider', 'run_id', 'thread_id', 'post_run_hash', 'model', 'effort')})).to_payload()
+
+### PR 216 src/laomedo/git/command.py :: GitCommandRunner
+--- src/laomedo/git/command.py::GitCommandRunner
++++ src/laomedo/git/command.py::GitCommandRunner
+@@ -7,12 +7,19 @@
+             yield pathlib.Path(home)
+ 
+     def run(self, command: laomedo.git.models.GitCommand) -> subprocess.CompletedProcess:
++        command.validate_execution_profile()
++        if command.context.profile in {laomedo.git.models.GitEnvironmentProfile.ISOLATED_HTTPS_READ_ONLY, laomedo.git.models.GitEnvironmentProfile.ISOLATED_FILE_READ_ONLY}:
++            return self._execute(command, command.context.hooks_path)
+         if command.context.home is not None:
+             return self._execute(command, command.context.home)
+         with self.isolated_home(command.context.profile, ignore_cleanup_errors=command.context.ignore_home_cleanup_errors) as home:
+             return self._execute(command, home)
+ 
+     def environment(self, command: laomedo.git.models.GitCommand, home: pathlib.Path) -> dict[str, str]:
++        if command.context.profile in {laomedo.git.models.GitEnvironmentProfile.ISOLATED_HTTPS_READ_ONLY, laomedo.git.models.GitEnvironmentProfile.ISOLATED_FILE_READ_ONLY}:
++            environment = {key: value for key, value in os.environ.items() if key.upper() in {'PATH', 'SYSTEMROOT', 'WINDIR', 'SYSTEMDRIVE', 'COMSPEC', 'PATHEXT', 'TEMP', 'TMP'}}
++            environment.update(GIT_CONFIG_NOSYSTEM='1', GIT_CONFIG_GLOBAL=os.devnull, GIT_TERMINAL_PROMPT='0', GIT_ASKPASS='', SSH_ASKPASS='')
++            return environment
+         environment = {key: value for key, value in os.environ.items() if not key.startswith(('GIT_', 'GCM_')) and key not in {'GH', 'GH_TOKEN', 'GITHUB_TOKEN', 'SSH_ASKPASS', laomedo.git.settings.MEDIATED_TOKEN_ENV}}
+         environment.update(HOME=str(home), USERPROFILE=str(home), XDG_CONFIG_HOME=str(home), GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_SYSTEM=os.devnull, GIT_CONFIG_NOSYSTEM='1', GIT_TERMINAL_PROMPT='0', GIT_NO_REPLACE_OBJECTS='1')
+         if command.context.profile == laomedo.git.models.GitEnvironmentProfile.WORKSPACE:
+@@ -28,6 +35,14 @@
+ 
+     def _arguments(self, command: laomedo.git.models.GitCommand, home: pathlib.Path) -> list[str]:
+         arguments = ['git']
++        if command.context.profile in {laomedo.git.models.GitEnvironmentProfile.ISOLATED_HTTPS_READ_ONLY, laomedo.git.models.GitEnvironmentProfile.ISOLATED_FILE_READ_ONLY}:
++            if command.context.profile == laomedo.git.models.GitEnvironmentProfile.ISOLATED_FILE_READ_ONLY:
++                arguments.extend(['-c', 'protocol.file.allow=always'])
++            configuration = [('credential.helper', ''), ('core.hooksPath', str(command.context.hooks_path)), ('http.followRedirects', 'false'), ('protocol.allow', 'never'), ('protocol.https.allow', 'always')]
++            for key, value in configuration:
++                arguments.extend(['-c', key + '=' + value])
++            arguments.extend(command.arguments)
++            return arguments
+         configuration = list(command.configuration)
+         if command.context.hardened:
+             configuration = [('core.fsmonitor', 'false'), ('core.hooksPath', str(home)), *configuration]
+@@ -45,15 +60,10 @@
+     def _execute(self, command: laomedo.git.models.GitCommand, home: pathlib.Path) -> subprocess.CompletedProcess:
+         environment = self.environment(command, home)
+         arguments = self._arguments(command, home)
+-        options = {'stdout': subprocess.PIPE, 'stderr': subprocess.PIPE, 'env': environment}
+-        if command.context.profile == laomedo.git.models.GitEnvironmentProfile.WORKSPACE:
+-            options['stdin'] = subprocess.DEVNULL
+-        if os.name == 'nt':
+-            options['creationflags'] = subprocess.CREATE_NEW_PROCESS_GROUP
+-        else:
+-            options['start_new_session'] = True
+         try:
+-            process = subprocess.Popen(arguments, **options)
++            if command.budget is not None:
++                return self._execute_budgeted(command, arguments, environment)
++            process = self._start_process(command, arguments, environment, subprocess.PIPE, subprocess.PIPE)
+             try:
+                 stdout, stderr = process.communicate(timeout=command.context.timeout)
+             except subprocess.TimeoutExpired:
+@@ -63,11 +73,96 @@
+         finally:
+             environment.pop(laomedo.git.settings.MEDIATED_TOKEN_ENV, None)
+ 
+-    def _stop_tree(self, process) -> bool:
++    def _start_process(self, command, arguments, environment, stdout, stderr, *, tree=None):
++        options = {'stdout': stdout, 'stderr': stderr, 'env': environment}
++        if command.context.profile == laomedo.git.models.GitEnvironmentProfile.WORKSPACE or command.budget is not None:
++            options['stdin'] = subprocess.DEVNULL
++        if command.cwd is not None:
++            options['cwd'] = command.cwd
++        if command.budget is not None:
++            options['start_new_session'] = os.name != 'nt'
++            options['creationflags'] = subprocess.CREATE_NEW_PROCESS_GROUP if os.name == 'nt' else 0
++        elif os.name == 'nt':
++            options['creationflags'] = subprocess.CREATE_NEW_PROCESS_GROUP
++        else:
++            options['start_new_session'] = True
++        if tree is not None:
++            options['creationflags'] |= laomedo.git.windows.settings.CREATE_SUSPENDED
++        process = subprocess.Popen(arguments, **options)
++        if tree is not None:
++            try:
++                tree.attach(process)
++                tree.resume(process.pid)
++            except BaseException as error:
++                try:
++                    cleanup = self._stop_tree(process, deadline=time.monotonic() + laomedo.git.settings.GIT_TREE_CLEANUP_SECONDS, tree=tree)
++                except (OSError, subprocess.TimeoutExpired):
++                    cleanup = False
++                if not isinstance(error, Exception):
++                    error.cleanup_verified = cleanup
++                    raise
++                if not cleanup:
++                    raise laomedo.git.errors.GitCommandCleanupError() from None
++                raise
++        return process
++
++    @contextlib.contextmanager
++    def _read_process_tree(self):
++        tree = None
++        if os.name == 'nt':
++            tree = laomedo.git.windows.tree.WindowsProcessTree()
++        try:
++            yield tree
++        finally:
++            if tree is not None and (not tree.close()):
++                error = sys.exc_info()[1]
++                if error is not None and (not isinstance(error, Exception)):
++                    error.cleanup_verified = False
++                else:
++                    raise laomedo.git.errors.GitCommandCleanupError() from None
++
++    def _execute_budgeted(self, command, arguments, environment):
++        budget = command.budget
++        with tempfile.TemporaryFile() as output, self._read_process_tree() as tree:
++            process = self._start_process(command, arguments, environment, output, subprocess.DEVNULL, tree=tree)
++            deadline = min(time.monotonic() + command.context.timeout, budget.operation_deadline)
++            cleanup_verified = None
++            try:
++                while process.poll() is None:
++                    if output.tell() > budget.stdout_limit or time.monotonic() > deadline:
++                        raise laomedo.git.errors.GitCommandLimitExceeded()
++                    if budget.check_budget is not None:
++                        budget.check_budget()
++                    time.sleep(budget.poll_seconds)
++                if tree is not None:
++                    cleanup_verified = self._stop_tree(process, deadline=time.monotonic() + laomedo.git.settings.GIT_TREE_CLEANUP_SECONDS, tree=tree)
++                    if not cleanup_verified:
++                        raise laomedo.git.errors.GitCommandCleanupError()
++                output.seek(0)
++                data = output.read(budget.stdout_limit + 1)
++                return subprocess.CompletedProcess(arguments, process.returncode, data, b'')
++            except BaseException as error:
++                if cleanup_verified is None:
++                    try:
++                        cleanup_verified = self._stop_tree(process, deadline=time.monotonic() + laomedo.git.settings.GIT_TREE_CLEANUP_SECONDS, tree=tree)
++                    except (OSError, subprocess.TimeoutExpired):
++                        cleanup_verified = False
++                if not isinstance(error, Exception):
++                    error.cleanup_verified = cleanup_verified
++                    raise
++                if not cleanup_verified:
++                    raise laomedo.git.errors.GitCommandCleanupError() from None
++                if isinstance(error, laomedo.git.errors.GitCommandLimitExceeded):
++                    error.cleanup_verified = True
++                raise
++
++    def _stop_tree(self, process, *, deadline=None, tree=None) -> bool:
+         cleanup_verified = False
+-        if os.name == 'nt':
++        if tree is not None:
++            cleanup_verified = tree.terminate(deadline)
++        elif os.name == 'nt':
+             try:
+-                killed = subprocess.run(['taskkill', '/PID', str(process.pid), '/T', '/F'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False, timeout=laomedo.git.settings.GIT_TREE_CLEANUP_SECONDS)
++                killed = subprocess.run(['taskkill', '/PID', str(process.pid), '/T', '/F'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False, timeout=self._cleanup_timeout(deadline))
+                 cleanup_verified = killed.returncode == 0
+             except (OSError, subprocess.TimeoutExpired):
+                 pass
+@@ -83,13 +178,17 @@
+             except ProcessLookupError:
+                 pass
+         try:
+-            process.communicate(timeout=laomedo.git.settings.GIT_TREE_CLEANUP_SECONDS)
++            process.communicate(timeout=self._cleanup_timeout(deadline))
+         except subprocess.TimeoutExpired:
+             for pipe in (process.stdout, process.stderr):
+                 if pipe is not None:
+                     pipe.close()
+             try:
+-                process.wait(timeout=laomedo.git.settings.GIT_TREE_CLEANUP_SECONDS)
++                process.wait(timeout=self._cleanup_timeout(deadline))
+             except subprocess.TimeoutExpired:
+                 cleanup_verified = False
+-        return cleanup_verified+        return cleanup_verified
++
++    @staticmethod
++    def _cleanup_timeout(deadline):
++        return laomedo.git.settings.GIT_TREE_CLEANUP_SECONDS if deadline is None else max(0.0, deadline - time.monotonic())
+
+### PR 216 src/laomedo/git/command.py :: GitCommandRunner.run
+--- src/laomedo/git/command.py::GitCommandRunner.run
++++ src/laomedo/git/command.py::GitCommandRunner.run
+@@ -1,4 +1,7 @@
+ def run(self, command: laomedo.git.models.GitCommand) -> subprocess.CompletedProcess:
++    command.validate_execution_profile()
++    if command.context.profile in {laomedo.git.models.GitEnvironmentProfile.ISOLATED_HTTPS_READ_ONLY, laomedo.git.models.GitEnvironmentProfile.ISOLATED_FILE_READ_ONLY}:
++        return self._execute(command, command.context.hooks_path)
+     if command.context.home is not None:
+         return self._execute(command, command.context.home)
+     with self.isolated_home(command.context.profile, ignore_cleanup_errors=command.context.ignore_home_cleanup_errors) as home:
+

@@ -47,3 +47,6 @@ Accepted240 experiment removal stays; selected later campaigns are archived befo
 removal. Unselected Agent/GitHub legacy campaign dependencies remain deferred.
 PR252's separate Agent dependency document remains outside replacement250 and
 must not be closed as part of these23. No existing issue body/state was changed.
+
+Current continuation status: [HANDOFF.md](HANDOFF.md). The independent review
+reached its actual limit; all23 old PRs remain HOLD, not certified superseded.
