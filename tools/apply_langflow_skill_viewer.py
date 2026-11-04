@@ -164,6 +164,7 @@ def apply(checkout):
     )
     target.mkdir()
     shutil.copy2(overlay / "SkillFilesModal.tsx", target / "SkillFilesModal.tsx")
+    shutil.copy2(overlay / "SkillFilesModal.test.tsx", target / "SkillFilesModal.test.tsx")
     (target / "index.tsx").write_text(
         'export { SkillViewerRequest as default } from "./SkillViewer";\n',
         encoding="utf-8",
