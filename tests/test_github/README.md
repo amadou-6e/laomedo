@@ -1,5 +1,13 @@
 # GitHub controls
 
+Contract values include a literal Unicode digest preimage and invalid repository
+admission. Dispatcher controls preserve exact payload/binding objects through
+both known and unknown operation routing. `test_issues/test_context/test_cli.py`
+checks the actual module entrypoint's argument forwarding, JSON output and exit
+status with internal reader outcomes; it performs no GitHub request.
+`test_interface/test_bindings.py` runs paired Issue/PR listeners to ensure each
+uses only its own token and gateway, and returns no-store responses.
+
 `test_issues` and `test_pull_requests` own normalization, selection, operations,
 feedback and context. Their `test_graph` packages exercise actual components and
 the supported bounded feedback scheduler with internal provider doubles.

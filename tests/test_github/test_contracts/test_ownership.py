@@ -84,11 +84,13 @@ class GitHubOwnershipTests(unittest.TestCase):
     def test_dispatcher_preserves_exact_payload_binding_and_uncertain_exception(self):
         git, rest = Mock(repository="owner/repo"), Mock(repository="owner/repo")
         transport = GitHubMediatedTransport(git, rest)
-        payload, binding = {}, object()
+        payload, binding = {"a": 1}, object()
         for operation, target in (
             ("git_push", git),
             ("git_fetch", git),
             ("pr_node_read", rest),
+            ("create_pr", rest),
+            ("unknown", rest),
         ):
             self.assertIs(
                 transport("owner/repo", operation, payload, verified_stage=binding),
@@ -97,6 +99,8 @@ class GitHubOwnershipTests(unittest.TestCase):
             target.assert_called_with(
                 "owner/repo", operation, payload, verified_stage=binding
             )
+            self.assertIs(target.call_args.args[2], payload)
+            self.assertIs(target.call_args.kwargs["verified_stage"], binding)
         uncertain = RuntimeError("outcome unknown")
         rest.side_effect = uncertain
         with self.assertRaises(RuntimeError) as caught:

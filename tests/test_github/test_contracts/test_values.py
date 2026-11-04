@@ -80,6 +80,17 @@ class GitHubValueTests(unittest.TestCase):
                 self.assertEqual(raw["labels"], [{"name": "backend"}])
         self.assertIs(pr_digest, issue_digest)
 
+    def test_pr_digest_keeps_the_literal_unicode_preimage(self):
+        value = {"title": "\u03bb \u00e9", "labels": ["caf\u00e9"], "body": None}
+        expected = (
+            "sha256:"
+            + sha256(
+                '{"body":null,"labels":["caf\u00e9"],"title":"\u03bb \u00e9"}'.encode()
+            ).hexdigest()
+        )
+        self.assertIs(pr_digest, issue_digest)
+        self.assertEqual(pr_digest(value), expected)
+
     def test_all_six_intent_inputs_keep_the_exact_existing_hash_preimage(self):
         for operation in (
             {"action": "close", "request_id": "r", "grant_ref": "g"},
@@ -111,6 +122,8 @@ class GitHubValueTests(unittest.TestCase):
         self.assertEqual(
             repository_from_url("https://github.com/Owner/RePo/"), "owner/repo"
         )
+        with self.assertRaisesRegex(ValueError, "^Repository must be owner/name$"):
+            validate_repository("owner/../repo")
         for value in (None, "http://github.com/o/r", "https://github.com/o/r?q=1"):
             with self.assertRaisesRegex(ValueError, "^repository_url_invalid$"):
                 repository_from_url(value)
