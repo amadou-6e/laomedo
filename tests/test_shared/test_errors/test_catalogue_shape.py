@@ -18,6 +18,6 @@ class CatalogueShapeTests(unittest.TestCase):
             (
                 repository_root()
                 / "frontend/langflow-skill-viewer/node-error-catalog.json"
-            ).read_text(),
+            ).read_text(encoding="utf-8"),
             object_pairs_hook=unique,
         )
