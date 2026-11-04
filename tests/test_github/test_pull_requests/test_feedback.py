@@ -219,9 +219,11 @@ class FeedbackIdentityTests(unittest.TestCase):
             (100, issued + 300),
             (400, issued + 1),
         ):
-            with self.subTest(wall=wall, monotonic=monotonic), patch.object(
-                case.store, "now", return_value=wall
-            ), patch.object(case.store, "monotonic", return_value=monotonic):
+            with (
+                self.subTest(wall=wall, monotonic=monotonic),
+                patch.object(case.store, "now", return_value=wall),
+                patch.object(case.store, "monotonic", return_value=monotonic),
+            ):
                 with self.assertRaisesRegex(ValueError, "^pr_feedback_ticket_invalid$"):
                     case.gateway.apply_feedback(ticket, {"action": "close"})
         self.assertEqual(case.provider.writes, [])

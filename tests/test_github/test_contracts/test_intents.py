@@ -14,9 +14,10 @@ class IntentHashTests(unittest.TestCase):
     def test_gateway_intent_hashes_preserve_request_identity_and_optional_changes(self):
         for kind, factory in (("issue", create_issue_case), ("pr", create_pr_case)):
             for action in ("modify", "close"):
-                with self.subTest(
-                    kind=kind, action=action
-                ), tempfile.TemporaryDirectory() as temporary:
+                with (
+                    self.subTest(kind=kind, action=action),
+                    tempfile.TemporaryDirectory() as temporary,
+                ):
                     case = factory(temporary)
                     operation = dict(
                         action=action, request_id="request_a", grant_ref="grant"
