@@ -16,3 +16,5 @@ redaction, cleanup uncertainty and stale-snapshot assertions across the ACP move
 
 Run `python -m unittest discover -s tests/test_agents -t tests -v` with the declared
 runner dependencies. No campaign, model turn or experiment checkout is required.
+
+Preparation/status compatibility uses data/prepared-records.json and the existing owned RunnerCase; only a random private Git hooksPath hash is recomputed. These are internal compatibility fixtures, not real provider acceptance.

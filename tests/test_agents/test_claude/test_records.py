@@ -1,6 +1,8 @@
 """Independent record projections and boundary values; internal regressions."""
 
 import unittest
+import json
+from laomedo.agents.activity.models import ActivityAttemptRecord
 from laomedo.agents.agents.claude.activity.models import ClaudeTelemetryEnvironment
 from support.model_assertions import assert_secrets_excluded
 
@@ -34,3 +36,33 @@ class ClaudeRecordTests(unittest.TestCase):
                 "OTEL_METRICS_INCLUDE_ACCOUNT_UUID": "false",
             },
         )
+
+    def test_claude_attempt_preserves_original_serialized_field_order(self):
+        expected = dict(
+            id="attempt",
+            native_start=2,
+            otel_start=3,
+            usage_baseline={"thread": {"native_extension": None}},
+            native_end=None,
+            fresh_thread=False,
+            otel_end=None,
+            status="running",
+            ended_at=None,
+        )
+        record = ActivityAttemptRecord(**expected).to_claude_record()
+        self.assertEqual(record, expected)
+        self.assertEqual(
+            list(record),
+            [
+                "id",
+                "native_start",
+                "otel_start",
+                "usage_baseline",
+                "native_end",
+                "fresh_thread",
+                "otel_end",
+                "status",
+                "ended_at",
+            ],
+        )
+        self.assertEqual(json.dumps(record), json.dumps(expected))

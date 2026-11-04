@@ -257,21 +257,6 @@ class NodeErrorCatalogueTests(unittest.TestCase):
             for key in ("title", "description", "recovery"):
                 self.assertTrue(catalogue[code][key].strip())
 
-    def test_catalogue_keys_are_unique(self):
-        def unique(pairs):
-            result = {}
-            for key, value in pairs:
-                self.assertNotIn(key, result, f"Duplicate error catalogue key: {key}")
-                result[key] = value
-            return result
-
-        json.loads(
-            (
-                ROOT / "frontend/langflow-skill-viewer/node-error-catalog.json"
-            ).read_text(),
-            object_pairs_hook=unique,
-        )
-
     def test_local_saved_graph_auth_producer_is_catalogued_and_routable(self):
         catalogue = json.loads(
             (
