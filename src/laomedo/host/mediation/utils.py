@@ -156,7 +156,7 @@ def _validate_effect(
 
 def _validate_read(operation: str, payload: dict, repository: str, grant, db) -> None:
     if operation in {"label_list", "issue_query", "issue_read"}:
-        from laomedo.github.issues.contract import labels_value
+        from laomedo.github.contract import labels_value
 
         try:
             if operation == "label_list" and payload != {}:

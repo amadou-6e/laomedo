@@ -8,6 +8,9 @@ import tempfile
 import unittest
 from contextlib import closing
 from unittest.mock import patch
+from retained_github import load_retained_github
+
+load_retained_github("experiments.exp139.runtime")
 from experiments.exp139.observe_recovery import observe
 from laomedo.agents.interface.output.utils import requirements
 

@@ -13,6 +13,9 @@ from experiments.exp100.paired_cases import REFUSALS
 from experiments.exp100.paired_cases import check
 from hashlib import sha256
 from experiments.exp100.paired_provider import Provider
+from retained_github import load_retained_github
+
+load_retained_github("experiments.exp100.probe_paired")
 from experiments.exp100.probe_paired import isolated_environment
 from experiments.exp100.probe_paired import install_direct_journal
 from experiments.exp100.probe_paired import received_updates

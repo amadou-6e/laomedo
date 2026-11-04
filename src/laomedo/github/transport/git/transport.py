@@ -387,17 +387,3 @@ class GitHubGitTransport:
                 "commit": payload["commit"],
                 "bundle": base64.b64encode(bundle.read_bytes()).decode("ascii"),
             }
-
-
-class GitHubMediatedTransport:
-    """Route Git pushes and supported REST calls through one selected identity."""
-
-    def __init__(self, git_transport: GitHubGitTransport, rest_transport):
-        if git_transport.repository != rest_transport.repository:
-            raise ValueError("repository_mismatch")
-        self.git = git_transport
-        self.rest = rest_transport
-
-    def __call__(self, repository: str, operation: str, payload: dict, **binding):
-        target = self.git if operation in {"git_push", "git_fetch"} else self.rest
-        return target(repository, operation, payload, **binding)

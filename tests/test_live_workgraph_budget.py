@@ -10,6 +10,9 @@ import tempfile
 import unittest
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
+from retained_github import load_retained_github
+
+load_retained_github("experiments.exp139.runtime")
 from experiments.exp139.prepare import BRANCH
 from experiments.exp139.prepare import REPOSITORY
 from experiments.exp139.prepare import report_task

@@ -1,4 +1,4 @@
-"""Implementation owned by github / issues / utils."""
+"""Read-only issue context and timeline candidates through the existing gh login."""
 
 from __future__ import annotations
 
@@ -6,13 +6,14 @@ from datetime import datetime
 from datetime import timezone
 from typing import Callable
 import json
-import laomedo.github.issues.errors as _issues_errors
-import laomedo.work_graph.github as _work_graph_github
+from laomedo.github.issues.errors import IssueContextError
+from laomedo.github.contract import validate_repository
 import re
 import subprocess
 
 
 def _gh_json(path: str) -> object:
+    """Read one API path with gh and retain safe categories instead of raw stderr."""
     try:
         result = subprocess.run(
             ["gh", "api", path],
@@ -23,7 +24,7 @@ def _gh_json(path: str) -> object:
             check=False,
         )
     except (OSError, subprocess.TimeoutExpired) as error:
-        raise _issues_errors.IssueContextError("github_unavailable") from error
+        raise IssueContextError("github_unavailable") from error
     if result.returncode:
         # GitHub deliberately conflates inaccessible and nonexistent resources.
         code = "github_unavailable"
@@ -37,23 +38,24 @@ def _gh_json(path: str) -> object:
             if re.search(rf"HTTP {status}\b", result.stderr):
                 code = category
                 break
-        raise _issues_errors.IssueContextError(code)
+        raise IssueContextError(code)
     try:
         return json.loads(result.stdout)
     except json.JSONDecodeError as error:
-        raise _issues_errors.IssueContextError("invalid_github_response") from error
+        raise IssueContextError("invalid_github_response") from error
 
 
 def _issue(payload: object, repository: str, number: int) -> dict:
+    """Admit the historical context shape without applying the node value schema."""
     if not isinstance(payload, dict):
-        raise _issues_errors.IssueContextError("invalid_issue_response")
+        raise IssueContextError("invalid_issue_response")
     expected = f"https://api.github.com/repos/{repository}"
     if payload.get("repository_url", "").lower() != expected.lower():
-        raise _issues_errors.IssueContextError("issue_moved_or_mismatched")
+        raise IssueContextError("issue_moved_or_mismatched")
     if payload.get("number") != number or "pull_request" in payload:
-        raise _issues_errors.IssueContextError("not_selected_issue")
+        raise IssueContextError("not_selected_issue")
     if not payload.get("node_id") or not payload.get("updated_at"):
-        raise _issues_errors.IssueContextError("incomplete_issue_identity")
+        raise IssueContextError("incomplete_issue_identity")
     return {
         "repository": repository,
         "number": number,
@@ -67,6 +69,7 @@ def _issue(payload: object, repository: str, number: int) -> dict:
 
 
 def _pr_candidates(events: list[dict]) -> list[dict]:
+    """Select open timeline PR references as candidates, never update authority."""
     candidates: dict[tuple[str, int], dict] = {}
     for event in events:
         if event.get("event") != "cross-referenced":
@@ -87,7 +90,7 @@ def _pr_candidates(events: list[dict]) -> list[dict]:
             or not url
             or not source.get("node_id")
         ):
-            raise _issues_errors.IssueContextError("incomplete_pr_reference")
+            raise IssueContextError("incomplete_pr_reference")
         candidates[(repository.lower(), number)] = {
             "repository": repository,
             "number": number,
@@ -112,7 +115,7 @@ def fetch_context(
     A missing timeline never becomes a confirmed empty candidate list. A changed
     issue during this non-atomic read is rejected rather than called a snapshot.
     """
-    _work_graph_github.validate_repository(repository)
+    validate_repository(repository)
     if not isinstance(number, int) or isinstance(number, bool) or number < 1:
         raise ValueError("Issue number must be positive")
     if supplied_target_pr is not None and (
@@ -130,7 +133,7 @@ def fetch_context(
     for page in range(1, max_timeline_pages + 1):
         try:
             batch = request(f"{issue_path}/timeline?per_page=100&page={page}")
-        except _issues_errors.IssueContextError:
+        except IssueContextError:
             complete, warning = False, "timeline_unavailable"
             break
         if not isinstance(batch, list) or any(
@@ -146,7 +149,7 @@ def fetch_context(
     # Current issue text and the PR timeline are not an atomic GitHub snapshot.
     confirmed = _issue(request(issue_path), repository, number)
     if confirmed != issue:
-        raise _issues_errors.IssueContextError("issue_changed_during_fetch")
+        raise IssueContextError("issue_changed_during_fetch")
     candidates = _pr_candidates(events)
     return {
         "issue": issue,
@@ -165,22 +168,3 @@ def fetch_context(
             else None
         ),
     }
-
-
-def main() -> int:
-    import argparse
-
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("repository", help="owner/repo")
-    parser.add_argument("issue", type=int)
-    parser.add_argument("--target-pr", type=int, default=None)
-    args = parser.parse_args()
-    try:
-        result = fetch_context(
-            args.repository, args.issue, supplied_target_pr=args.target_pr
-        )
-    except _issues_errors.IssueContextError as error:
-        print(json.dumps({"error": error.code}))
-        return 2
-    print(json.dumps(result, indent=2))
-    return 0

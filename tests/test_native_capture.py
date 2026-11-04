@@ -2,17 +2,14 @@
 
 import copy
 import hashlib
-import importlib.util
 import json
 from pathlib import Path
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-spec = importlib.util.spec_from_file_location(
-    "native_capture", ROOT / "experiments/exp100/probe_native_capture.py"
-)
-capture = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(capture)
+from retained_github import load_retained_github
+
+capture = load_retained_github("experiments.exp100.probe_native_capture")
 
 
 class NativeCaptureChecks(unittest.TestCase):

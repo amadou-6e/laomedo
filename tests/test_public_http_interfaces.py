@@ -248,6 +248,29 @@ for prefix in ('laomedo.host', 'laomedo.agents', 'langflow', 'lfx'):
         )
         self.assertEqual(len(manifest["files"]), 11)
         self.assertEqual(sum(len(item["nodes"]) for item in manifest["files"]), 14)
+        followup = json.loads(
+            (
+                ROOT / "tests/contracts/github-template-revisions-6656c1c.json"
+            ).read_text()
+        )
+        encoded_parent = json.dumps(
+            manifest, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+        ).encode()
+        self.assertEqual(
+            hashlib.sha256(encoded_parent).hexdigest(),
+            followup["parent_manifest_value_sha256"],
+        )
+        replacements = {record["path"]: record for record in followup["files"]}
+        self.assertEqual(len(replacements), 5)
+        for record in manifest["files"]:
+            if record["path"] in replacements:
+                latest = replacements[record["path"]]
+                self.assertEqual(
+                    latest["parent_graph_values_sha256"],
+                    record["unchanged_graph_values_sha256"],
+                )
+                record.update(latest)
+        self.assertEqual(sum(len(item["nodes"]) for item in manifest["files"]), 16)
         for record in manifest["files"]:
             graph = json.loads((ROOT / record["path"]).read_text())
             nodes = graph.get("nodes", graph.get("data", {}).get("nodes", []))

@@ -13,7 +13,7 @@ from laomedo.agents.agents.codex.agent import CodexAgent as LocalRunner
 from laomedo.agents.agents.base.utils import _private
 from experiments.turn_harness import VerificationLocalRunner as LocalRunner
 from laomedo.github.issues.gateway import GitHubIssueGateway
-from laomedo.github.issues.contract import issue_digest
+from laomedo.github.contract import issue_digest
 from laomedo.host.mediation.store import MediationStore
 from laomedo.host.mediation.errors import KnownRejected
 from laomedo.github.transport.rest.transport import GitHubRestTransport
