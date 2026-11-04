@@ -186,3 +186,35 @@ test.each(["sk_", "ghp_", "gho_", "ghu_", "ghs_", "ghr_", "github_pat_"]
   expect(failure.diagnostics.node_id).toBeUndefined();
   expect(JSON.stringify(failure)).not.toContain(nodeId);
  });
+
+test("native request timeout keeps its safe method code and descriptive recovery", () => {
+ const code="request_timeout:model/list";
+ const failure=describeNodeFailure(`Laomedo run 11111111-1111-4111-8111-111111111111 failed: ${code}`,undefined,{nodeId:"agent"});
+ expect(failure.title).toBe("The Agent did not respond in time");
+ expect(failure.diagnostics.code).toBe(code);
+ expect(failure.recovery).toContain("If a run started");
+ expect(failure.recovery).toContain("metadata-only");
+ expect(isKnownNodeError(code,true)).toBe(true);
+});
+
+test("native timeout parsing rejects arbitrary method payloads", () => {
+ const failure=describeNodeFailure("request_timeout:https://private-token.example/secret",undefined,{nodeId:"agent"});
+ expect(failure.title).toBe("The node could not confirm completion");
+ expect(JSON.stringify(failure)).not.toContain("private-token");
+});
+
+test.each(["new", "load", "set_config_option", "cancel"])("ACP %s timeout preserves its code and existing descriptive recovery", method => {
+ const code=`request_timeout:session/${method}`;
+ const failure=describeNodeFailure(code,undefined,{nodeId:"agent"});
+ expect(failure.title).toBe("The Agent did not respond in time");
+ expect(failure.diagnostics.code).toBe(code);
+ expect(failure.recovery).toContain("If a run started");
+});
+
+test("ACP timeout method allowlist excludes execution tunnels and payload suffixes", () => {
+ for (const code of ["request_timeout:session/exec", "request_timeout:session/new?secret=private"]) {
+  const failure=describeNodeFailure(code,undefined,{nodeId:"agent"});
+  expect(failure.title).toBe("The node could not confirm completion");
+  expect(JSON.stringify(failure)).not.toContain("private");
+ }
+});
