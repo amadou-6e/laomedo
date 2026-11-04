@@ -1,6 +1,7 @@
 """Internal controls for host-owned feedback identities; no live provider calls."""
 
 import tempfile
+import json
 
 
 import unittest
@@ -169,3 +170,58 @@ class FeedbackIdentityTests(unittest.TestCase):
                 self.case.url, [], "open", 2, current["content_digest"]
             )
         self.assertEqual(len(self.case.provider.writes), 0)
+
+    def test_feedback_snapshot_keeps_original_labels_extensions_and_deadlines(self):
+        case = self.case
+        original = case.transport
+
+        def extended_transport(repository, operation, payload):
+            value = original(repository, operation, payload)
+            return (
+                {
+                    **value,
+                    "provider_extension": {"nullable": None, "checks": ["é", False]},
+                }
+                if operation == "pr_node_read"
+                else value
+            )
+
+        case.gateway.transports["owner/repo"] = extended_transport
+        case.gateway.feedback_grants = {"owner/repo#1": "grant"}
+        labels = ["research", "backend"]
+        selected = case.gateway.execute(case.url, labels, "open", 1)
+        issued = case.store.monotonic()
+        with patch.object(case.store, "monotonic", return_value=issued):
+            ticket = case.gateway.prepare_feedback(
+                case.url, labels, "open", 1, selected["content_digest"]
+            )["ticket"]
+        with closing(case.store._connect()) as db:
+            row = db.execute(
+                "SELECT * FROM pr_feedback_tickets WHERE ticket=?", (ticket,)
+            ).fetchone()
+        expected = dict(
+            repository_url=case.url,
+            labels=labels,
+            state="open",
+            pr_number=1,
+            expected=selected["content_digest"],
+            pr=selected["pr"],
+            issued_monotonic=issued,
+            expires_monotonic=issued + 300,
+        )
+        self.assertEqual(json.loads(row["context"]), expected)
+        self.assertEqual(list(json.loads(row["context"])), list(expected))
+        self.assertEqual(row["expires"], 400)
+        self.assertEqual(row["grant_ref"], "grant")
+        self.assertTrue(row["request_id"].startswith("pr-feedback-"))
+        for wall, monotonic in (
+            (100, issued - 1),
+            (100, issued + 300),
+            (400, issued + 1),
+        ):
+            with self.subTest(wall=wall, monotonic=monotonic), patch.object(
+                case.store, "now", return_value=wall
+            ), patch.object(case.store, "monotonic", return_value=monotonic):
+                with self.assertRaisesRegex(ValueError, "^pr_feedback_ticket_invalid$"):
+                    case.gateway.apply_feedback(ticket, {"action": "close"})
+        self.assertEqual(case.provider.writes, [])

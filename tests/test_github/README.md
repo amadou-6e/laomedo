@@ -66,3 +66,7 @@ Historical campaign-import identity checks are archival evidence on `exp`
 (`archives/reconciliation-237/original-tests/manifest.json`). Production Reader,
 CLI, gateway and HTTP controls exercise current contracts directly. They do not
 require retired Agent campaign entrypoints to become compatible again.
+
+`test_contracts/test_intents` checks the actual gateway journal preimages for
+Issue/PR modify/close requests. Feedback controls preserve selected label order,
+provider extensions and wall/monotonic expiry boundaries in retained tickets.
