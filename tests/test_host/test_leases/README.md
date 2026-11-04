@@ -13,3 +13,5 @@ bodies, safe errors, forwarding and suppressed access logs. Its recording grant
 book and mediator live in `collaborators.py`; `RunningHTTPServer` owns each
 ephemeral listener and thread. These are internal wire regressions, not live
 Agent or GitHub acceptance.
+
+`test_records.py` protects private registration, wall/monotonic grant boundaries, parent scope, expiry non-revival and omitted/null revocation fields. Cleanup callback cases in `test_service.py` require a safe final journal even for malformed or raising collaborators.

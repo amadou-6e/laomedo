@@ -18,3 +18,5 @@ prototype. No experiment checkout is required for this suite.
 
 Run `python -m unittest discover -s tests/test_agents/test_activity -t tests -v`.
 Internal controls do not establish real provider or browser acceptance.
+
+`test_records.py` preserves native attempt fields and the distinction between omitted and explicit provider freshness.

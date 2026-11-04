@@ -18,3 +18,5 @@ Git runner objects are class-only support; the retained loader is function-only
 support. Their consumers span Shared, host publication and deferred Agent/GitHub
 controls. The loader is not a production compatibility facade. Historical code,
 the declared dependency inventory and its refusal behavior are not reorganized.
+
+`assert_secrets_excluded(testcase, model, secrets)` in `model_assertions.py` checks ordinary repr, string, dump and JSON forms. Callers supply only test secrets; expected domain payloads remain independent in their owning tests.
