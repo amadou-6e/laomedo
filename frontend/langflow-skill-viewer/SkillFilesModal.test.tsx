@@ -26,7 +26,7 @@ jest.mock("./SkillNavigation", () => ({ __esModule: true, default: () => null,
 jest.mock("./SkillFileManager", () => ({ __esModule: true, default: () => null }));
 jest.mock("./SkillEditing", () => ({ useSkillEditing: (_skill: string, _revision: string, snapshot: any) => ({
   files: snapshot?.files ?? [], tree: { folders: [] }, editing: true, busy: false,
-  pending: null, error: "", dirty: false, message: "", state: null, update: jest.fn(),
+  pending: null, error: "", dirty: false, changes: [], message: "", state: null, update: jest.fn(),
   refresh: jest.fn(), setMessage: jest.fn(), dismissError: jest.fn() }) }));
 jest.mock("./SkillPublication", () => ({ useRegistryComparison: () => ({
   base: null, paths: [], failed: false, showError: false, retry: jest.fn(), dismissError: jest.fn() }) }));
@@ -106,11 +106,16 @@ test("source keys reach Monaco but not canvas keydown or keyup shortcuts", async
   context.focus(); expect(document.activeElement).toBe(context);
   expect((editor.create as jest.Mock).mock.calls.at(-1)[1]).toMatchObject({ readOnly: false, domReadOnly: false });
   for (const event of [{ key: "a", code: "KeyA" }, { key: "o", code: "KeyO" },
-    { key: "ArrowLeft", code: "ArrowLeft" }, { key: "f", code: "KeyF", ctrlKey: true }]) {
+    { key: "ArrowLeft", code: "ArrowLeft" }]) {
     expect(fireEvent.keyDown(context, event)).toBe(true);
     expect(fireEvent.keyUp(context, event)).toBe(true);
   }
-  expect(targetDown).toHaveBeenCalledTimes(4); expect(targetUp).toHaveBeenCalledTimes(4);
+  expect(targetDown).toHaveBeenCalledTimes(3); expect(targetUp).toHaveBeenCalledTimes(3);
+  // Find moved to the workspace sidebar; it deliberately claims Ctrl+F before
+  // Monaco, while ordinary text and navigation above keep native handling.
+  expect(fireEvent.keyDown(context, { key: "f", code: "KeyF", ctrlKey: true })).toBe(false);
+  expect(fireEvent.keyUp(context, { key: "f", code: "KeyF", ctrlKey: true })).toBe(true);
+  expect(targetDown).toHaveBeenCalledTimes(3); expect(targetUp).toHaveBeenCalledTimes(4);
   expect(canvasDown).not.toHaveBeenCalled(); expect(canvasUp).not.toHaveBeenCalled();
   expect(mockShowFind).toHaveBeenCalledTimes(1);
   fireEvent.keyDown(context, { key: "Escape", code: "Escape" });
