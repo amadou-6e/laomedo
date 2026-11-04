@@ -157,6 +157,11 @@ def apply(checkout):
         overlay / "AgentAdvancedControls.test.tsx",
         agent_target / "AgentAdvancedControls.test.tsx",
     )
+    shutil.copy2(
+        overlay / "CanvasQueryState.test.ts",
+        checkout
+        / "src/frontend/src/pages/FlowPage/components/PageComponent/__tests__/CanvasQueryState.test.ts",
+    )
     target.mkdir()
     shutil.copy2(overlay / "SkillFilesModal.tsx", target / "SkillFilesModal.tsx")
     (target / "index.tsx").write_text(
@@ -214,6 +219,13 @@ def apply(checkout):
     shutil.copy2(overlay / "SkillFileDiff.test.tsx", target / "SkillFileDiff.test.tsx")
     shutil.copy2(overlay / "SkillHistory.tsx", target / "SkillHistory.tsx")
     shutil.copy2(overlay / "SkillHistory.test.tsx", target / "SkillHistory.test.tsx")
+    shutil.copy2(
+        overlay / "SkillInspectionError.tsx", target / "SkillInspectionError.tsx"
+    )
+    shutil.copy2(
+        overlay / "SkillInspectionError.test.tsx",
+        target / "SkillInspectionError.test.tsx",
+    )
     shutil.copy2(overlay / "SkillSplitPane.tsx", target / "SkillSplitPane.tsx")
     shutil.copy2(
         overlay / "SkillSplitPane.test.tsx", target / "SkillSplitPane.test.tsx"

@@ -240,3 +240,11 @@ open workspace unchanged. Its own close/Keep editing/Check result controls own
 dismissal. Leaving the authenticated application releases this in-memory state;
 browser reload/crash restoration is unsupported. No state is stored in graph pins,
 local storage or a new global provider profile.
+
+## Inspection failures and background reads
+
+File, history and comparison reads use `SkillInspectionError` with the shared
+explanation and copy format. Permanent admission refusals offer no futile reload;
+unknown read outcomes offer a read-only reload of the same selection. Aborted
+reads cannot replace a new selection. Background build-history refresh preserves
+the canvas while the first admitted history read still gates a new flow.

@@ -29,6 +29,8 @@ import { useSkillEditing } from "./SkillEditing";
 import { useRegistryComparison } from "./SkillPublication";
 import SkillFileDiff from "./SkillFileDiff";
 import ErrorPopup from "@/components/laomedoErrors/ErrorPopup";
+import SkillInspectionError, { describeInspectionFailure } from "./SkillInspectionError";
+import { describeNodeFailure, type NodeFailure } from "@/components/laomedoErrors/nodeErrors";
 
 // Bundle the editor and worker locally. No Monaco CDN or remote file loader.
 (self as typeof self & { MonacoEnvironment?: object }).MonacoEnvironment = {
@@ -63,11 +65,10 @@ function Source({ file, match, editable = false, onChange }: { file: SkillFile; 
     editor.current.focus();
   }, [file.path, dark, match, editable]);
   return <div className="flex min-h-0 flex-1 flex-col">
-    <div ref={container} className="min-h-0 flex-1" data-testid="skill-file-source" aria-label={`${editable ? "Editable" : "Read-only"} source: ${file.path}`} />
+    <div ref={container} onKeyDown={(event) => { if (event.key !== "Escape") event.stopPropagation(); }} onKeyUp={(event) => { if (event.key !== "Escape") event.stopPropagation(); }} className="min-h-0 flex-1" data-testid="skill-file-source" aria-label={`${editable ? "Editable" : "Read-only"} source: ${file.path}`} />
   </div>;
 }
 
-const ERROR_CODES = new Set(["invalid_skill_id", "immutable_skill_revision_required", "skill_revision_unavailable", "skill_revision_unsafe", "skill_revision_too_large"]);
 
 export default function SkillFilesModal({ skillId, revision, open, setOpen }: {
   skillId: string; revision: string; open: boolean; setOpen: (value: boolean) => void;
@@ -84,7 +85,7 @@ function SkillWorkspace({ skillId, initialRevision, setOpen }: { skillId: string
   const [fullPage, setFullPage] = useState(false);
   const [match, setMatch] = useState<(SkillMatch & { selection: number }) | null>(null);
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<NodeFailure | null>(null);
   const [loading, setLoading] = useState(true);
   const [reload, setReload] = useState(0);
   const [tabs, setTabs] = useState<string[]>([]);
@@ -109,10 +110,10 @@ function SkillWorkspace({ skillId, initialRevision, setOpen }: { skillId: string
   }, [manual.files, selectedCommit, snapshot, revision]);
   useEffect(() => {
     const controller = new AbortController();
-    setSnapshot(null); setTabs([]); setActive(""); setError(""); setLoading(true); setPreview(false); setSelectedCommit(null); setHistoricalFiles([]); setMatch(null);
+    setSnapshot(null); setTabs([]); setActive(""); setError(null); setLoading(true); setPreview(false); setSelectedCommit(null); setHistoricalFiles([]); setMatch(null);
     if (!open) { setLoading(false); return () => controller.abort(); }
     if (!skillId || !revision) {
-      setError("Select a skill and revision first."); setLoading(false);
+      setError(describeNodeFailure(!skillId ? "invalid_skill_id" : "immutable_skill_revision_required", undefined)); setLoading(false);
       return () => controller.abort();
     }
     const url = `${getBaseUrl()}laomedo/skills/${encodeURIComponent(skillId)}/${encodeURIComponent(revision)}`;
@@ -124,8 +125,7 @@ function SkillWorkspace({ skillId, initialRevision, setOpen }: { skillId: string
       setTabs(first ? [first] : []); setActive(first);
     }).catch((failure) => {
       if (controller.signal.aborted) return;
-      const code = failure.response?.data?.detail?.code;
-      setError(ERROR_CODES.has(code) ? code : "skill_inspection_unavailable");
+      setError(describeInspectionFailure(failure));
     }).finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
   }, [open, skillId, revision, reload]);
@@ -187,8 +187,7 @@ function SkillWorkspace({ skillId, initialRevision, setOpen }: { skillId: string
       {fileImporting && <p role="status" className="mb-2 inline-flex shrink-0 items-center gap-1 text-sm"><VscLoading aria-hidden="true" className="animate-spin" />Importing local files...</p>}
       {manual.status && <p role="status" className="mb-2 shrink-0 text-sm">{manual.status}</p>}
       {loading && <p role="status">Loading selected skill revision…</p>}
-      {error && <div role="alert"><p>Skill files unavailable: {error}</p>
-        <button type="button" className="mt-2 rounded border px-3 py-1" onClick={() => setReload(reload + 1)}>Retry</button></div>}
+      {error && <SkillInspectionError failure={error} onReload={() => setReload((value) => value + 1)} reloadLabel="Reload files" />}
       {snapshot && snapshot.skill_id === skillId && snapshot.revision_id === revision &&
         <SkillOverview key={`${skillId}:${revision}`} snapshot={snapshot} />}
       {snapshot && snapshot.skill_id === skillId && snapshot.revision_id === revision && <SkillSplitPane navigationActions={
