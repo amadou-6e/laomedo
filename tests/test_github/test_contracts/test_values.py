@@ -1,6 +1,7 @@
 """Wire/hash compatibility at the explicit strict model boundary."""
 
 from hashlib import sha256
+from copy import deepcopy
 import json
 import unittest
 
@@ -12,6 +13,7 @@ from laomedo.github.contract import (
     validate_repository,
 )
 from laomedo.github.issues.contract import issue_value
+from laomedo.github.issues.models import GitHubIssue
 from laomedo.github.models import GitHubGrantBinding, GitHubOperationIntent
 from laomedo.github.pull_requests.contract import pr_digest, pr_value
 from test_github.test_issues.utils import raw_issue
@@ -19,6 +21,24 @@ from test_github.test_pull_requests.utils import raw_pr
 
 
 class GitHubValueTests(unittest.TestCase):
+    def test_response_admission_keeps_public_codes_and_private_values_redacted(self):
+        for prefix, project, raw in (
+            ("issue", issue_value, raw_issue(1, ["backend"])),
+            ("pr", pr_value, raw_pr(1, ["backend"])),
+        ):
+            for field, value in (("number", 2), ("title", []), ("state", "unknown")):
+                with self.subTest(prefix=prefix, field=field):
+                    invalid = deepcopy(raw)
+                    invalid[field] = value
+                    with self.assertRaisesRegex(
+                        ValueError, f"^{prefix}_response_invalid$"
+                    ):
+                        project(invalid, "owner/repo", 1)
+        normalized = issue_value(raw_issue(1, ["backend"]), "owner/repo", 1)
+        with self.assertRaises(ValidationError) as caught:
+            GitHubIssue(**{**normalized, "number": "private-invalid-value"})
+        self.assertNotIn("private-invalid-value", str(caught.exception))
+
     def test_normalized_payload_order_and_unicode_hash_are_preserved(self):
         for project, raw, expected in (
             (
