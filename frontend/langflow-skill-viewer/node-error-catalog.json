@@ -1533,5 +1533,695 @@
     "title": "The Skill source could not be loaded",
     "description": "The application could not load skills or revisions from Source. The cause has not been confirmed. No Agent was started.",
     "recovery": "Check that the repository is public, or use a local checkout allowed by the host source service. Check the source service connection, then refresh the Skill list."
+  },
+  "invalid_controller_token": {
+    "title": "The Agent controller credential is invalid",
+    "description": "The local runner received an empty or unsupported credential for the Agent controller. The controller was not started.",
+    "recovery": "Check the local Agent account configuration before starting a run. Keep credentials out of the graph and its inputs."
+  },
+  "controller_listener_gate_failed": {
+    "title": "The Agent controller failed an isolation check",
+    "description": "The controller opened a listening socket outside the supported execution boundary. The runner refused to use it.",
+    "recovery": "Check the local runner configuration and confirm existing containers have stopped before starting new work."
+  },
+  "executor_selection_mismatch": {
+    "title": "The Agent selected a different tool environment",
+    "description": "The requested tool environment did not match the executor assigned to this run. The runner refused that selection.",
+    "recovery": "Check the existing run status and cleanup, then check the local runner configuration before starting new work."
+  },
+  "executor_registration_rejected": {
+    "title": "The Agent could not confirm its tool executor",
+    "description": "The controller did not confirm registration of the tool executor. Tool execution is not ready.",
+    "recovery": "Confirm the run status and container cleanup before starting new work. Check the local runner configuration if this persists."
+  },
+  "executor_not_registered": {
+    "title": "The Agent tool executor is not ready",
+    "description": "The runner requested a tool environment before its executor registration was confirmed.",
+    "recovery": "Check the existing run status and local runner configuration. Confirm cleanup before starting another run."
+  },
+  "runner_transport_configuration_invalid": {
+    "title": "The local Agent transport settings are invalid",
+    "description": "The local runner could not validate its stream limits. The Agent was not started.",
+    "recovery": "Check the local runner stream byte limit and startup margin. Both must be positive, finite numbers, and the byte limit must be a whole number."
+  },
+  "request_timeout": {
+    "title": "The Agent did not respond in time",
+    "description": "The runner did not receive a response to an Agent request before its deadline. The request may still be active.",
+    "recovery": "If a run started, confirm its status and cleanup before starting another. For metadata-only requests, check the runner is ready before refreshing."
+  },
+  "incomplete_mediator_mount": {
+    "title": "The GitHub connection setup is incomplete",
+    "description": "A required part of the runner connection for GitHub operations is missing. The Agent was not started.",
+    "recovery": "Check the local runner GitHub connection and run configuration. Complete the missing setup before starting a new run."
+  },
+  "incomplete_command_mount": {
+    "title": "The GitHub command setup is incomplete",
+    "description": "The runner could not prepare a complete authorized GitHub command environment. The Agent was not started.",
+    "recovery": "Check the local runner GitHub connection, repository and branch configuration before starting a new run."
+  },
+  "workspace_command_output_too_large": {
+    "title": "The workspace command returned too much output",
+    "description": "The isolated command exceeded its output limit. The runner stopped it and confirmed container cleanup before reporting this failure.",
+    "recovery": "Check the current workspace changes before deciding whether to run another command. Limit the command output; the original command may already have changed files."
+  },
+  "opencode_command_service_closed": {
+    "title": "The workspace command service has stopped",
+    "description": "This run no longer accepts workspace commands because its command service is closing or closed.",
+    "recovery": "Check the existing run status and workspace before deciding whether to start new work."
+  },
+  "opencode_workspace_command_failed": {
+    "title": "The isolated workspace command could not finish",
+    "description": "The runner could not confirm the workspace command result. Its container was cleaned up before this failure was reported.",
+    "recovery": "Inspect the existing run and workspace changes. The command may already have changed files; do not repeat it automatically."
+  },
+  "opencode_controller_output_failed": {
+    "title": "The Agent output could not be captured",
+    "description": "The runner lost the controller output stream or its output exceeded the allowed limit. A completed Agent response could not be confirmed.",
+    "recovery": "Check the existing run status and workspace changes before starting new work. Check Technical details for the stable error code."
+  },
+  "opencode_container_configuration_invalid": {
+    "title": "The local OpenCode Docker connection is invalid",
+    "description": "The runner could not use its Docker connection settings. The configuration is ambiguous or unsupported, so no controller was launched.",
+    "recovery": "Check the local runner configuration and select a supported local Docker connection. Graph inputs cannot change that connection."
+  },
+  "opencode_controller_image_unavailable": {
+    "title": "The OpenCode images could not be confirmed",
+    "description": "The runner could not confirm the configured local controller and worker images. No controller was launched.",
+    "recovery": "Check Docker is running and the approved images are available on the configured local connection. Then check the local runner configuration."
+  },
+  "turn_timeout": {
+    "title": "The Agent did not finish before its deadline",
+    "description": "The runner reached the turn deadline and requested cancellation. A terminal Agent result was not confirmed in time.",
+    "recovery": "Check the existing run status and its cleanup result before starting another request. Do not assume the deadline means remote work stopped."
+  },
+  "cancel_native_unconfirmed": {
+    "title": "The Agent's cancellation is not confirmed",
+    "description": "The runner requested cancellation but did not receive a matching native interruption result before its deadline.",
+    "recovery": "Check the existing run and its owned-container cleanup result. Missing interruption evidence does not authorize repeating work that may already have taken effect."
+  },
+  "executor_lost": {
+    "title": "The isolated tool runner stopped",
+    "description": "The Agent lost its separate tool container while the request was active. The work outcome is not confirmed.",
+    "recovery": "Check the existing run and workspace changes before starting new work. Do not repeat the original request automatically; a tool may already have changed files."
+  },
+  "auth_revoked_during_turn": {
+    "title": "The Agent connection is no longer authorized",
+    "description": "The host detected that the account authorization changed while the Agent was working and requested cancellation. The remote work outcome may be unconfirmed.",
+    "recovery": "Check the existing run and its changes. Reconnect the intended account through the local account setup before starting new work; do not repeat an uncertain request automatically."
+  },
+  "permission_preflight_failed": {
+    "title": "The local runner sandbox could not be verified",
+    "description": "The runner could not confirm the required workspace access and protected-file restrictions. No model request was submitted by this preflight check.",
+    "recovery": "Check the configured runner image and its reviewed sandbox configuration. Keep execution disabled until the local runner preflight succeeds."
+  },
+  "opencode_history_credentials_present": {
+    "title": "Native history export was stopped to protect account data",
+    "description": "The dedicated OpenCode history store contains account or credential records. The runner refused to pass a database copy to the offline export container. Activity evidence is incomplete.",
+    "recovery": "Keep the current run and its history. Check the dedicated local OpenCode profile configuration and use a separate session-only store; do not repeat the Agent task to repair history capture."
+  },
+  "opencode_history_credentials_unverified": {
+    "title": "The native history store could not be verified",
+    "description": "The history database schema did not match the expected credential-store checks. No database copy was passed to the export container. Activity evidence is incomplete.",
+    "recovery": "Check that the configured OpenCode image and dedicated session store match the supported runtime. Preserve the existing history and do not rerun the task just to repair capture."
+  },
+  "opencode_history_database_limit": {
+    "title": "The native history store exceeds its capture limit",
+    "description": "The dedicated OpenCode session database is larger than the configured host memory budget, so native history export was refused. Existing history is preserved and activity evidence is incomplete.",
+    "recovery": "The local user can raise LAOMEDO_OPENCODE_HISTORY_MAX_DATABASE_BYTES within the supported 512 MiB limit in runner startup configuration. For larger stores, preserve an archive and configure a separate dedicated session store for new work. Do not delete active history or replay the Agent request."
+  },
+  "opencode_auth_redirect_rejected": {
+    "title": "OpenCode account configuration redirected unexpectedly",
+    "description": "The account configuration request redirected to another address. The local authentication adapter refused to forward the credential.",
+    "recovery": "Check the locally configured OpenCode Console address and resolve the unexpected redirect before loading account configuration again."
+  },
+  "opencode_active_console_account_required": {
+    "title": "No active OpenCode account is selected",
+    "description": "The local OpenCode Console account store has no active account with an organization selected.",
+    "recovery": "Check the active account and organization in OpenCode Console, then refresh the local runner account configuration."
+  },
+  "opencode_console_models_required": {
+    "title": "OpenCode returned an unusable model catalogue",
+    "description": "The selected Console provider configuration contained no models or unsupported model identifiers.",
+    "recovery": "Check the selected account and its provider model configuration before refreshing the catalogue. Do not substitute an unverified model identifier."
+  },
+  "opencode_console_origin_not_allowed": {
+    "title": "The OpenCode Console address is not supported",
+    "description": "The locally selected account points to a Console address outside the supported HTTPS service boundary.",
+    "recovery": "Correct the local account configuration to use the supported OpenCode Console service. Keep credentials out of graph inputs."
+  },
+  "opencode_model_endpoint_not_allowed": {
+    "title": "An OpenCode model uses an unsupported endpoint",
+    "description": "A model in the Console configuration selected an endpoint outside the permitted OpenCode inference boundary.",
+    "recovery": "Check the local provider model configuration and its inference endpoint before loading it again. Do not bypass endpoint validation."
+  },
+  "opencode_model_sdk_not_allowed": {
+    "title": "An OpenCode model uses an unsupported SDK",
+    "description": "A model in the Console configuration requested a provider SDK that this local adapter does not support.",
+    "recovery": "Use a supported SDK in the local provider model configuration or update the adapter through a reviewed change."
+  },
+  "opencode_organization_context_mismatch": {
+    "title": "The OpenCode organizations do not match",
+    "description": "The returned provider configuration belongs to a different organization from the locally selected Console account.",
+    "recovery": "Check the active account and organization in OpenCode Console before refreshing the local runner account configuration."
+  },
+  "opencode_real_credential_required": {
+    "title": "The OpenCode account credential is missing or invalid",
+    "description": "The authentication adapter received an empty credential or a placeholder instead of a usable account credential.",
+    "recovery": "Sign in through the supported OpenCode account flow and refresh the local runner account configuration. Do not paste credentials into the graph."
+  },
+  "git_workspace_path_invalid": {
+    "title": "The run workspace path is unavailable",
+    "description": "Git preparation needs a new run-owned directory, but the destination already exists or is a link.",
+    "recovery": "Check the configured source and run-state paths. Preserve unrelated files; use a new run directory after confirming existing work is stopped."
+  },
+  "git_repository_root_required": {
+    "title": "The source is not a supported Git repository",
+    "description": "Git workspace mode requires a repository root with its own real .git directory; linked worktrees are unsupported.",
+    "recovery": "Choose a normal local repository root in the runner configuration, or use directory workspace mode."
+  },
+  "source_commit_invalid": {
+    "title": "The source has no usable commit",
+    "description": "The runner could not resolve a valid source HEAD before preparing the workspace.",
+    "recovery": "Check that the source repository has a valid committed HEAD before starting new work."
+  },
+  "source_index_invalid": {
+    "title": "The source index could not be read",
+    "description": "The runner could not inspect tracked files safely before cloning the source.",
+    "recovery": "Check the source repository with Git and resolve index errors before starting a run."
+  },
+  "source_not_clean": {
+    "title": "The source has uncommitted changes",
+    "description": "The source contains tracked or untracked changes, so the runner refused to treat it as a pinned Git baseline.",
+    "recovery": "Commit, stash or otherwise preserve your source changes, then start a fresh run from a clean repository."
+  },
+  "submodule_source_unsupported": {
+    "title": "The source contains a submodule",
+    "description": "This workspace mode cannot safely prepare a source index containing Git submodules.",
+    "recovery": "Use a source without submodules or directory workspace mode with the required regular files."
+  },
+  "symlink_source_unsupported": {
+    "title": "The source contains a tracked link",
+    "description": "This workspace mode refuses tracked symbolic links before cloning.",
+    "recovery": "Use a source with regular files in place of links, or select a supported source."
+  },
+  "tracked_skill_path_unsupported": {
+    "title": "The source tracks the reserved skills directory",
+    "description": "The source tracks .agents/skills, which the runner reserves for pinned skill materialization.",
+    "recovery": "Remove that path from the source index while preserving any files you need, then commit a clean baseline."
+  },
+  "sparse_source_unsupported": {
+    "title": "The source uses a sparse checkout",
+    "description": "Git workspace mode requires the full source checkout and refuses enabled sparse-checkout configuration.",
+    "recovery": "Use a full clean checkout before starting new work."
+  },
+  "git_clone_failed": {
+    "title": "The run repository could not be cloned",
+    "description": "Git did not create an independent clone of the selected source. No prepared workspace was returned.",
+    "recovery": "Check local Git availability and source access. Confirm failed-run cleanup before starting new work."
+  },
+  "git_checkout_failed": {
+    "title": "The run baseline could not be checked out",
+    "description": "The cloned repository could not check out the source commit observed during admission.",
+    "recovery": "Check the source repository and local filesystem access. Confirm cleanup before preparing another run."
+  },
+  "git_remote_removal_failed": {
+    "title": "The run remote could not be removed",
+    "description": "The runner could not remove the clone remote, so it refused the workspace before dispatch.",
+    "recovery": "Check local Git and filesystem access. Confirm failed-run cleanup before starting new work."
+  },
+  "git_clone_verification_failed": {
+    "title": "The run repository did not match its baseline",
+    "description": "The final checkout commit or remote list did not match the isolated workspace requirements.",
+    "recovery": "Check the source repository and any local process modifying it. Confirm cleanup before starting a new run."
+  },
+  "git_workspace_cleanup_unverified": {
+    "title": "Workspace cleanup could not be confirmed",
+    "description": "Preparation failed and the runner could not remove its partial workspace. The workspace is not admitted for execution.",
+    "recovery": "Check the failed run directory and any process holding its files before starting new work. Preserve unrelated directories."
+  },
+  "git_workspace_snapshot_limit": {
+    "title": "The source is too large to snapshot safely",
+    "description": "The Git workspace exceeded the supported snapshot byte or entry limit before a verified snapshot was produced.",
+    "recovery": "Reduce the selected source to the files needed for this run; do not bypass the snapshot limits."
+  },
+  "invalid_workspace": {
+    "title": "The workspace is unavailable",
+    "description": "The selected working-state path is missing, is not a directory or is a symbolic link.",
+    "recovery": "Check the configured source and retained run directory before continuing."
+  },
+  "unsafe_workspace_entry": {
+    "title": "The workspace contains an unsupported file entry",
+    "description": "Snapshot verification found a link, shared hardlinked file or other unsupported filesystem entry.",
+    "recovery": "Use regular private files and directories for the source. Check retained run state before continuing."
+  },
+  "workspace_copy_mismatch": {
+    "title": "The copied workspace did not match the source",
+    "description": "The copied file tree failed its hash check. The runner did not accept that snapshot.",
+    "recovery": "Check for concurrent source changes or filesystem errors before starting new work."
+  },
+  "workspace_git_initialization_failed": {
+    "title": "The workspace baseline could not be created",
+    "description": "Local Git could not initialize or commit the private file baseline required for this run.",
+    "recovery": "Check that Git is installed and can write to the runner state directory before starting new work."
+  },
+  "workspace_git_metadata_conflict": {
+    "title": "The copied workspace already contains Git metadata",
+    "description": "Baseline initialization found an existing .git path and refused to replace it.",
+    "recovery": "Check the configured workspace mode and source. Use Git workspace mode for a supported full repository."
+  },
+  "cleanup_path_outside_run_state": {
+    "title": "The cleanup path is outside this run",
+    "description": "The requested cleanup location overlaps or escapes the run state boundary, so nothing was removed there.",
+    "recovery": "Check the runner state configuration and retained run paths. Do not remove unrelated files to work around this refusal."
+  },
+  "mediated_remote_changed": {
+    "title": "The run remote no longer matches its authorized repository",
+    "description": "The fixed origin URL or push URL changed from the host-configured mediated remote.",
+    "recovery": "Check the existing run state and repository binding before continuing. Do not replace it with a credential-bearing URL."
+  },
+  "mediated_remote_install_failed": {
+    "title": "The mediated run remote could not be installed",
+    "description": "Local Git could not add the fixed remote required by the authorized run.",
+    "recovery": "Check the run repository and local filesystem access before continuing."
+  },
+  "mediated_remote_invalid": {
+    "title": "The mediated run remote could not be inspected",
+    "description": "Local Git could not read the fixed origin configuration safely.",
+    "recovery": "Check the run repository configuration before continuing. Keep provider credentials out of remotes and graph inputs."
+  },
+  "git_exclude_invalid": {
+    "title": "The run exclusion file is unavailable",
+    "description": "The runner expected a regular private Git exclusion file but found a missing or linked path.",
+    "recovery": "Check the retained run repository and filesystem access before continuing."
+  },
+  "command_directory_invalid": {
+    "title": "The run command directory changed",
+    "description": "The command-wrapper directory contains unsupported entries or is a link. The runner refused to install wrappers there.",
+    "recovery": "Check the retained run directory before starting new work; preserve unrelated files and keep wrappers run-local."
+  },
+  "command_wrapper_changed": {
+    "title": "A run command wrapper changed",
+    "description": "An existing command wrapper no longer matches the trusted host-generated contents.",
+    "recovery": "Check the retained run directory before continuing. Do not replace trusted wrappers with Agent-generated commands."
+  },
+  "repository_invalid": {
+    "title": "The repository identifier is invalid",
+    "description": "The configured repository does not use the supported owner/name format.",
+    "recovery": "Correct the repository identifier in the local configuration before starting new work."
+  },
+  "branch_invalid": {
+    "title": "The branch name is invalid",
+    "description": "The configured branch name contains unsupported characters or path segments.",
+    "recovery": "Choose a supported branch name in the local configuration before starting new work."
+  },
+  "git_timeout": {
+    "title": "A local Git operation timed out",
+    "description": "The Git command exceeded its deadline and process-tree cleanup was confirmed. If it contacted a remote, that operation may still have completed.",
+    "recovery": "Check the existing run and any remote result before starting new work. Do not blindly repeat a push."
+  },
+  "git_timeout_cleanup_unverified": {
+    "title": "A local Git operation timed out and cleanup is uncertain",
+    "description": "The Git command exceeded its deadline, and the runner could not confirm all related processes stopped. If it contacted a remote, that operation may still be active or completed.",
+    "recovery": "Check the existing run, local Git processes and any remote result before continuing. Do not retry a push while its outcome is uncertain."
+  },
+  "invalid_join_body": {
+    "title": "The graph request could not be read",
+    "description": "The local graph bridge rejected a missing, oversized or malformed request before dispatching this request.",
+    "recovery": "Reopen the graph and check its Agent configuration. If this was a status or cancellation request, check the existing run before starting a replacement; rejecting this request does not stop earlier work."
+  },
+  "absolute_local_source_required": {
+    "title": "The local source needs an absolute path",
+    "description": "A relative path cannot identify an admitted local skill source.",
+    "recovery": "Select an absolute local path within the configured allowed source roots."
+  },
+  "github_discovery_incomplete": {
+    "title": "GitHub returned an incomplete list",
+    "description": "The application could not establish a complete list of matching resources.",
+    "recovery": "Check GitHub connectivity and refresh the read-only selection before choosing a resource."
+  },
+  "github_http_401": {
+    "title": "GitHub authentication was refused",
+    "description": "The configured connection was not accepted by GitHub.",
+    "recovery": "Check the resource on GitHub and the configured connection's repository access before another operation."
+  },
+  "github_http_403": {
+    "title": "GitHub access was refused",
+    "description": "GitHub did not permit this request for the configured connection.",
+    "recovery": "Check the resource on GitHub and the configured connection's repository access before another operation."
+  },
+  "github_http_404": {
+    "title": "The GitHub resource is unavailable",
+    "description": "GitHub could not provide the selected resource; it may be missing or inaccessible.",
+    "recovery": "Check the resource on GitHub and the configured connection's repository access before another operation."
+  },
+  "github_http_410": {
+    "title": "The GitHub resource is no longer available",
+    "description": "GitHub reports that the selected resource is no longer available.",
+    "recovery": "Check the resource on GitHub and the configured connection's repository access before another operation."
+  },
+  "github_issue_unavailable": {
+    "title": "The issue could not be read",
+    "description": "The application could not confirm a usable response from the configured service or GitHub.",
+    "recovery": "Check service availability and inspect the resource on GitHub. Confirm any existing write outcome before another operation."
+  },
+  "github_pr_unavailable": {
+    "title": "The pull request could not be read",
+    "description": "The application could not confirm a usable response from the configured service or GitHub.",
+    "recovery": "Check service availability and inspect the resource on GitHub. Confirm any existing write outcome before another operation."
+  },
+  "issue_grant_unavailable": {
+    "title": "Operation authorization is unavailable",
+    "description": "The host could not confirm authorization for this issue operation.",
+    "recovery": "Check the configured repository connection and operation authorization; keep credentials out of the graph."
+  },
+  "issue_operation_conflict": {
+    "title": "The operation identity conflicts with an earlier request",
+    "description": "This request identity was already used with different operation inputs.",
+    "recovery": "Inspect the earlier request and its outcome. Keep one stable request identity for each intended change."
+  },
+  "issue_operation_invalid": {
+    "title": "The issue operation is invalid",
+    "description": "The operation payload does not match a supported action or identity contract.",
+    "recovery": "Check the Operation input and its supported action fields before submitting a change."
+  },
+  "issue_patch_invalid": {
+    "title": "The issue change is invalid",
+    "description": "The proposed changes contain unsupported fields or values.",
+    "recovery": "Use supported title, body, labels or close changes and inspect the proposal before submission."
+  },
+  "issue_reference_mismatch": {
+    "title": "The issue reference does not match",
+    "description": "The supplied reference differs from the selected resource.",
+    "recovery": "Inspect the intended resource and make the node selection and operation reference agree."
+  },
+  "issue_response_invalid": {
+    "title": "The issue response could not be verified",
+    "description": "The returned resource did not match the expected identity or response contract.",
+    "recovery": "Inspect the resource on GitHub and the existing operation outcome before submitting another operation."
+  },
+  "issue_service_not_configured": {
+    "title": "The local issue service is not configured",
+    "description": "The local service address or credential-file configuration is invalid.",
+    "recovery": "Check the local service configuration before using this node; keep credential contents out of graph inputs."
+  },
+  "issue_state_invalid": {
+    "title": "The selection state is invalid",
+    "description": "The requested state is unsupported.",
+    "recovery": "Choose a supported state on the node."
+  },
+  "issue_write_unknown": {
+    "title": "The issue change is not confirmed",
+    "description": "The request may have reached GitHub, but its final outcome could not be confirmed.",
+    "recovery": "Inspect the resource on GitHub and the existing operation result before submitting another change. Do not blindly repeat the write."
+  },
+  "json_required": {
+    "title": "The source request format is invalid",
+    "description": "The local source endpoint requires a JSON request.",
+    "recovery": "Use the configured application client or send the supported JSON request format."
+  },
+  "labels_invalid": {
+    "title": "The selected labels are invalid",
+    "description": "The label selection contains unsupported or repeated values.",
+    "recovery": "Select valid labels on the node and inspect the selection before running an operation."
+  },
+  "local_source_invalid": {
+    "title": "The local source address is invalid",
+    "description": "The local source URI contains unsupported address parts.",
+    "recovery": "Use an absolute local directory path or a supported file URI."
+  },
+  "local_source_not_allowed": {
+    "title": "This local source is not allowed",
+    "description": "The selected directory is outside the configured source roots.",
+    "recovery": "Select a directory within an allowed root or update the local source service configuration."
+  },
+  "local_source_unavailable": {
+    "title": "The local skill source is unavailable",
+    "description": "The selected local directory could not be used as an admitted source.",
+    "recovery": "Check that the selected source directory exists and is accessible within an allowed root."
+  },
+  "local_source_unsafe": {
+    "title": "The local source could not be read safely",
+    "description": "The source contains a redirected path or does not meet the local source boundary.",
+    "recovery": "Select an allowed directory containing ordinary files and directories."
+  },
+  "pr_agent_cancelled": {
+    "title": "The PR proposal was cancelled",
+    "description": "The Agent proposal was cancelled before feedback could proceed.",
+    "recovery": "Inspect the existing Agent run and PR; a cancelled proposal does not establish a successful PR change."
+  },
+  "pr_changed_since_agent_read": {
+    "title": "The PR changed after the Agent read it",
+    "description": "The current PR no longer matches the snapshot used for the Agent's proposal.",
+    "recovery": "Read the current PR and review a new proposal against that state before applying a change."
+  },
+  "pr_feedback_not_configured": {
+    "title": "PR feedback is not configured",
+    "description": "The local PR service does not provide the authorization needed for Agent feedback.",
+    "recovery": "Check the local PR feedback configuration and inspect the existing PR before another operation."
+  },
+  "pr_feedback_ticket_invalid": {
+    "title": "PR feedback authorization is invalid",
+    "description": "The supplied feedback ticket could not be accepted for this operation.",
+    "recovery": "Inspect the existing operation outcome and current PR before requesting new feedback authorization."
+  },
+  "pr_grant_unavailable": {
+    "title": "Operation authorization is unavailable",
+    "description": "The host could not confirm authorization for this pull request operation.",
+    "recovery": "Check the configured repository connection and operation authorization; keep credentials out of the graph."
+  },
+  "pr_operation_conflict": {
+    "title": "The operation identity conflicts with an earlier request",
+    "description": "This request identity was already used with different operation inputs.",
+    "recovery": "Inspect the earlier request and its outcome. Keep one stable request identity for each intended change."
+  },
+  "pr_patch_invalid": {
+    "title": "The pull request change is invalid",
+    "description": "The proposed changes contain unsupported fields or values.",
+    "recovery": "Use supported title, body, labels or close changes and inspect the proposal before submission."
+  },
+  "pr_reference_mismatch": {
+    "title": "The pull request reference does not match",
+    "description": "The supplied reference differs from the selected resource.",
+    "recovery": "Inspect the intended resource and make the node selection and operation reference agree."
+  },
+  "pr_response_invalid": {
+    "title": "The pull request response could not be verified",
+    "description": "The returned resource did not match the expected identity or response contract.",
+    "recovery": "Inspect the resource on GitHub and the existing operation outcome before submitting another operation."
+  },
+  "pr_service_not_configured": {
+    "title": "The local pull request service is not configured",
+    "description": "The local service address or credential-file configuration is invalid.",
+    "recovery": "Check the local service configuration before using this node; keep credential contents out of graph inputs."
+  },
+  "pr_state_invalid": {
+    "title": "The selection state is invalid",
+    "description": "The requested state is unsupported.",
+    "recovery": "Choose a supported state on the node."
+  },
+  "pr_write_unknown": {
+    "title": "The pull request change is not confirmed",
+    "description": "The request may have reached GitHub, but its final outcome could not be confirmed.",
+    "recovery": "Inspect the resource on GitHub and the existing operation result before submitting another change. Do not blindly repeat the write."
+  },
+  "repository_connection_unavailable": {
+    "title": "The repository connection is unavailable",
+    "description": "The configured GitHub connection does not provide access to this repository.",
+    "recovery": "Check the configured GitHub connection and select a repository it can access."
+  },
+  "repository_url_invalid": {
+    "title": "The repository URL is invalid",
+    "description": "The selected source has an unsupported or malformed repository URL.",
+    "recovery": "Enter an HTTPS repository URL supported by this node."
+  },
+  "selected_issue_invalid": {
+    "title": "The selected issue is invalid",
+    "description": "The selected issue number cannot be used.",
+    "recovery": "Select an available issue from the configured repository."
+  },
+  "selected_issue_no_longer_matches": {
+    "title": "The issue no longer matches the selection",
+    "description": "The current resource no longer matches the node's labels or state filter.",
+    "recovery": "Read the current issue and update the selection before proposing another change."
+  },
+  "selected_issue_required": {
+    "title": "Select an issue",
+    "description": "This operation needs a selected issue.",
+    "recovery": "Choose the intended issue on the node before running the operation."
+  },
+  "selected_label_unavailable": {
+    "title": "A selected label is no longer available",
+    "description": "A selected label is missing from the repository's current labels.",
+    "recovery": "Update the node's label selection using the repository's current labels."
+  },
+  "selected_pr_invalid": {
+    "title": "The selected pull request is invalid",
+    "description": "The selected pull request number cannot be used.",
+    "recovery": "Select an available pull request from the configured repository."
+  },
+  "selected_pr_no_longer_matches": {
+    "title": "The pull request no longer matches the selection",
+    "description": "The current resource no longer matches the node's labels or state filter.",
+    "recovery": "Read the current pull request and update the selection before proposing another change."
+  },
+  "selected_pr_required": {
+    "title": "Select a pull request",
+    "description": "This operation needs a selected pull request.",
+    "recovery": "Choose the intended pull request on the node before running the operation."
+  },
+  "skill_name_invalid": {
+    "title": "The skill name is invalid",
+    "description": "The skill's declared name cannot be used as a registry identity.",
+    "recovery": "Use the supported lowercase letters, digits, hyphens and underscores in the skill name."
+  },
+  "skill_operation_refused": {
+    "title": "The skill operation was refused",
+    "description": "The local service could not accept this Skill operation; private parser and authorization details were withheld.",
+    "recovery": "Inspect the selected revision and proposed edits. Confirm the existing operation outcome before submitting another change."
+  },
+  "skill_operation_service_not_configured": {
+    "title": "The skill operation service is not configured",
+    "description": "The local operation service address or requested action is invalid.",
+    "recovery": "Check the configured local Skill operation service before using editing or history actions."
+  },
+  "skill_operation_unavailable": {
+    "title": "The skill operation result is unavailable",
+    "description": "The application could not confirm a usable response from the local Skill operation service.",
+    "recovery": "Check local service availability and inspect the existing revision/history before submitting another edit."
+  },
+  "source_bundle_invalid": {
+    "title": "The skill bundle is incomplete or unsupported",
+    "description": "The selected bundle does not meet the supported Skill file structure and limits.",
+    "recovery": "Select a complete skill directory containing SKILL.md."
+  },
+  "source_required": {
+    "title": "Choose a skill source",
+    "description": "No usable skill source was supplied.",
+    "recovery": "Enter a supported repository URL or an allowed absolute local path on the Skill node."
+  },
+  "source_unavailable": {
+    "title": "The skill source could not be read",
+    "description": "The source service could not safely complete this request.",
+    "recovery": "Check the selected source and local source service availability before refreshing read-only choices."
+  },
+  "bundle_not_regular": {
+    "title": "The handoff bundle is not a regular file",
+    "description": "The local publication stage refused the run's fixed handoff file because it is missing, redirected or not a regular file.",
+    "recovery": "Check the existing run and publication attempt before starting new work. A refused capture does not authorize publishing or retrying an uncertain remote operation."
+  },
+  "bundle_size_or_type": {
+    "title": "The handoff bundle was refused",
+    "description": "The local publication stage refused the handoff file because its type, link count or size is outside the supported limits.",
+    "recovery": "Check the existing run and publication attempt before starting new work. A refused capture does not authorize publishing or retrying an uncertain remote operation."
+  },
+  "bundle_changed_or_oversized": {
+    "title": "The handoff bundle changed while being read",
+    "description": "The local publication stage could not retain stable, bounded bytes from the handoff file. This capture was refused.",
+    "recovery": "Check the existing run and publication attempt before starting new work. A refused capture does not authorize publishing or retrying an uncertain remote operation."
+  },
+  "bundle_unreadable": {
+    "title": "The handoff bundle could not be read",
+    "description": "The local publication stage encountered a filesystem error while reading the run's fixed handoff file. This capture was refused.",
+    "recovery": "Check the existing run and publication attempt before starting new work. A refused capture does not authorize publishing or retrying an uncertain remote operation."
+  },
+  "unsafe_relative_path": {
+    "title": "A skill file path is unsafe",
+    "description": "A skill file path is absolute, contains an unsupported separator or attempts to leave its skill folder. The registry refused that path.",
+    "recovery": "Use relative file paths inside the skill, then select or import a verified revision."
+  },
+  "invalid_tree_root": {
+    "title": "The skill folder is unavailable",
+    "description": "The registry could not use the expected skill folder as a regular directory. It may be missing or linked to another location.",
+    "recovery": "Check the selected skill source and registry files before selecting or importing a verified revision."
+  },
+  "linked_path": {
+    "title": "The skill contains a linked path",
+    "description": "The registry found a symbolic link, junction or reparse point inside the skill folder and refused to follow it.",
+    "recovery": "Use a skill revision containing regular files and folders without links."
+  },
+  "special_file": {
+    "title": "The skill contains an unsupported file",
+    "description": "The registry found a filesystem entry that is not a regular file or directory. It refused to include that entry in the skill.",
+    "recovery": "Remove unsupported filesystem entries from the source and import a verified skill revision."
+  },
+  "hardlinked_file": {
+    "title": "The skill contains a hard-linked file",
+    "description": "A skill file shares its filesystem contents with another path. The registry refused it because another path could change those bytes.",
+    "recovery": "Use independent regular files in the source and import a verified skill revision."
+  },
+  "missing_skill_file": {
+    "title": "The skill is missing SKILL.md",
+    "description": "The expected skill folder does not contain its required SKILL.md file. The registry could not verify a complete skill revision.",
+    "recovery": "Check the selected source or registry revision and use a skill with a SKILL.md file at its root."
+  },
+  "empty_directory": {
+    "title": "The skill contains an empty folder",
+    "description": "The registry found an empty folder that cannot be represented by the skill file inventory. It refused the tree.",
+    "recovery": "Remove empty folders from the source or add their intended files, then import a verified skill revision."
+  },
+  "invalid_revision_id": {
+    "title": "The skill revision reference is invalid",
+    "description": "The selected skill revision does not have the immutable hash format required by the registry. The runner refused to read that revision.",
+    "recovery": "Select an existing immutable revision on the Skill node before starting new work."
+  },
+  "latest_pointer_integrity_failure": {
+    "title": "The latest skill reference is inconsistent",
+    "description": "The registry latest pointer does not match its recorded tree identity. The runner refused to use that reference.",
+    "recovery": "Select a known immutable revision, or restore the registry from a trusted copy before starting new work."
+  },
+  "revision_integrity_failure": {
+    "title": "The skill revision failed its integrity check",
+    "description": "The selected revision metadata or file bytes no longer match its immutable identity. The runner refused to use those contents.",
+    "recovery": "Use a verified immutable revision or restore the registry from a trusted copy before starting new work."
+  },
+  "file_not_in_revision": {
+    "title": "The file is not part of the skill revision",
+    "description": "The requested file is not listed in the selected immutable skill revision. The registry refused the read.",
+    "recovery": "Check the selected skill revision and use its recorded files. Restore inconsistent registry metadata from a trusted copy before starting new work."
+  },
+  "skill_revision_unavailable": {
+    "title": "The selected skill revision is unavailable",
+    "description": "The registry could not provide a verified bundle for this exact revision. Its files may be absent or may not match the saved record.",
+    "recovery": "Close the file viewer and select an available revision in the Skill node. Keep the original reference if reporting the missing revision."
+  },
+  "skill_revision_unsafe": {
+    "title": "The skill revision cannot be safely displayed",
+    "description": "The file viewer refused linked or unsupported files in the selected bundle.",
+    "recovery": "Close the file viewer and select a verified revision. The viewer cannot repair this immutable bundle; do not bypass its file checks."
+  },
+  "skill_revision_too_large": {
+    "title": "The skill revision exceeds the viewer limits",
+    "description": "The selected bundle exceeds the file size, total size, count or nesting limits for inspection.",
+    "recovery": "Close the file viewer and select a smaller registered revision. Reloading this immutable bundle does not reduce its size."
+  },
+  "skill_inspection_unavailable": {
+    "title": "Skill files could not be loaded",
+    "description": "The file viewer did not receive a confirmed snapshot. The reason has not been established.",
+    "recovery": "Reload files repeats only the read of this selection. It does not edit the skill, rerun the graph or start an agent. You can also close the viewer."
+  },
+  "skill_history_unavailable": {
+    "title": "Skill history could not be loaded",
+    "description": "The viewer did not receive confirmed history for this selection. The reason has not been established; current files remain available.",
+    "recovery": "Reload history repeats only the history read. It does not submit an edit, rerun the graph or start an agent. You can continue viewing current files."
+  },
+  "skill_comparison_unavailable": {
+    "title": "The skill comparison could not be loaded",
+    "description": "The viewer could not confirm the selected revision comparison. The reason has not been established.",
+    "recovery": "Select Current source to return to the current files, or choose another revision in the history. Viewing a comparison does not edit the skill or run the graph."
+  },
+  "skill_summary_source_unavailable": {
+    "title": "The skill description source is unavailable",
+    "description": "The preparation step could not read SKILL.md as text, so it could not prepare description-authoring instructions.",
+    "recovery": "Select a registered revision with a readable text SKILL.md and inspect it before preparing an edit. This preparation failure does not publish a revision."
+  },
+  "skill_operation_invalid": {
+    "title": "The proposed skill edit is invalid",
+    "description": "The proposal did not meet the required modify action, explanation or file-edit format and limits. It was refused before application.",
+    "recovery": "Correct the proposed action, message and file edits before submitting again. Inspect existing history before repeating an earlier request whose outcome is uncertain."
+  },
+  "skill_editor_invalid": {
+    "title": "The skill edit attribution is invalid",
+    "description": "The host-supplied editing identity did not meet the supported provenance format or field limits.",
+    "recovery": "Keep the existing revision and report the safe technical details to the application maintainer. Do not invent attribution fields in the proposed edit."
   }
 }

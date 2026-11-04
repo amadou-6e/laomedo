@@ -162,6 +162,7 @@ def apply(checkout):
         "nodeErrors.test.ts",
         "NodeErrorNotice.test.tsx",
         "ErrorPopup.tsx",
+        "ErrorExplanation.tsx",
         "ErrorPopup.test.tsx",
         "ErrorAlertMigration.test.tsx",
         "ApplicationErrorPopup.tsx",

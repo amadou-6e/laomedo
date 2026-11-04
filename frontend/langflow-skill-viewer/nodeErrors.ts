@@ -10,6 +10,9 @@ export type ErrorContext = {
 };
 export type NodeFailure = Description & { diagnostics: Record<string, string> };
 const entries: Record<string, Description> = catalog;
+const nativeTimeout = /^request_timeout:(?:initialize|model\/list|thread\/(?:start|resume)|turn\/(?:start|interrupt)|command\/exec|environment\/(?:add|status)|session\/(?:new|load|set_config_option|cancel))$/;
+const catalogCode = (code: string) => nativeTimeout.test(code) ? "request_timeout" : code;
+const credentialPrefix = /^(?:sk_|gh[pousr]_|github_pat_)/i;
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const operations = new Set(["fresh", "start", "resume", "status", "cancel", "modify", "close"]);
 const fallback: Description = {
@@ -22,6 +25,8 @@ const fallback: Description = {
 function safeCode(value: unknown): string | undefined {
   if (typeof value !== "string") return;
   if (Object.prototype.hasOwnProperty.call(entries, value)) return value;
+  if (nativeTimeout.test(value)) return value;
+  if (credentialPrefix.test(value)) return;
   if (/^[a-z][a-z0-9]*(?:_[a-z0-9]+){1,15}$/.test(value) && value.length <= 80 &&
       !/(?:secret|password|credential|bearer|token|api_key)/.test(value)) return value;
 }
@@ -31,7 +36,7 @@ function codeFromMessage(raw: unknown): string | undefined {
   // Native Langflow wraps a component error; only inspect the final message,
   // not arbitrary substrings in a response, URL, JSON payload or traceback.
   const message = raw.replace(/^Error building Component[^\r\n]*:\s*\r?\n\s*/, "").trim();
-  const failure = message.match(/^Laomedo run [0-9a-f-]{36} failed: ([a-z0-9_]+)$/i);
+  const failure = message.match(/^Laomedo run [0-9a-f-]{36} failed: (\S+)$/i);
   if (failure) return safeCode(failure[1]);
   return safeCode(message.split(";", 1)[0].trim());
 }
@@ -60,7 +65,7 @@ function outputFailure(status: any): Record<string, unknown> | undefined {
 
 export function isKnownNodeError(raw: unknown, laomedoContext = false): boolean {
   const code = codeFromMessage(raw);
-  return laomedoContext && Boolean(code && Object.prototype.hasOwnProperty.call(entries, code)) || typeof raw === "string" && /^Error building Component Laomedo[^\r\n]*:/i.test(raw);
+  return laomedoContext && Boolean(code && Object.prototype.hasOwnProperty.call(entries, catalogCode(code))) || typeof raw === "string" && /^Error building Component Laomedo[^\r\n]*:/i.test(raw);
 }
 
 export function hasLaomedoFailure(status: unknown): boolean {
@@ -90,7 +95,7 @@ export function describeNodeFailure(raw: unknown, status: any, context: ErrorCon
   const code = safeCode(reference?.error_category) ?? codeFromMessage(raw) ?? "unrecognized_error";
   const diagnostics: Record<string, string> = { code };
   if (typeof context.nodeId === "string" && /^[a-z][a-z0-9_-]{0,127}$/i.test(context.nodeId) &&
-      !/^(sk_|gh[pousr]_)/i.test(context.nodeId)) diagnostics.node_id = context.nodeId;
+      !credentialPrefix.test(context.nodeId)) diagnostics.node_id = context.nodeId;
   if (typeof context.operation === "string" && operations.has(context.operation)) diagnostics.operation = context.operation;
   if (typeof status?.run_id === "string" && uuid.test(status.run_id)) diagnostics.graph_execution_id = status.run_id;
   for (const key of ["run_id", "request_id", "thread_id", "invocation_id"]) {
@@ -104,7 +109,7 @@ export function describeNodeFailure(raw: unknown, status: any, context: ErrorCon
     if (run && uuid.test(run)) diagnostics.run_id ??= run;
     if (request && uuid.test(request)) diagnostics.request_id ??= request;
   }
-  let description = entries[code] ?? fallback;
+  let description = entries[catalogCode(code)] ?? fallback;
   if (code === "prior_run_required") {
     const state = referenceState(context.savedReferences);
     if (state) {
