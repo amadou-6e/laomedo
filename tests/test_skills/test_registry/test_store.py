@@ -1,4 +1,5 @@
 import json
+from hashlib import sha256
 import os
 from pathlib import Path
 import shutil
@@ -463,6 +464,50 @@ class SkillStoreTests(unittest.TestCase):
             self.assertIsNone(result["proposed_ref"])
         finally:
             junction.rmdir()
+
+    def test_explicit_lf_and_crlf_bytes_remain_distinct_skill_revisions(self):
+        observed = {}
+        for newline in ("\n", "\r\n"):
+            with self.subTest(newline=repr(newline)):
+                draft = self.store.create_draft(
+                    "fixture-core", self.base["revision_id"], POLICY
+                )
+                data = (
+                    (BASE + "Example: amber.\n").replace("\n", newline).encode("utf-8")
+                )
+                (
+                    self.store.draft_workspace(draft["draft_id"]) / "SKILL.md"
+                ).write_bytes(data)
+                frozen = self.store.freeze_draft(draft["draft_id"])
+                name = b"SKILL.md"
+                preimage = (
+                    len(name).to_bytes(8, "big")
+                    + name
+                    + len(data).to_bytes(8, "big")
+                    + data
+                )
+                expected_hash = "sha256:" + sha256(preimage).hexdigest()
+                self.assertEqual(frozen["observed_tree_hash"], expected_hash)
+                self.assertEqual(frozen["proposed_tree_hash"], expected_hash)
+                self.assertEqual(
+                    frozen["proposed_ref"],
+                    {
+                        "tree_hash": expected_hash,
+                        "file_hashes": {
+                            "SKILL.md": "sha256:" + sha256(data).hexdigest()
+                        },
+                    },
+                )
+                self.assertTrue(frozen["promotion_eligible"])
+                self.assertEqual(frozen["changed_paths"], ["SKILL.md"])
+                retained = self.store._draft(draft["draft_id"]) / "frozen/SKILL.md"
+                self.assertEqual(retained.read_bytes(), data)
+                self.assertIn(
+                    "+Example: amber." + (r"\r\n" if newline == "\r\n" else r"\n"),
+                    frozen["patch"],
+                )
+                observed[newline] = expected_hash
+        self.assertNotEqual(observed["\n"], observed["\r\n"])
 
 
 if __name__ == "__main__":
