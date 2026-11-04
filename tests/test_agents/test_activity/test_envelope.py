@@ -1,6 +1,8 @@
 """Preserve native observation identity, omissions and strict application metadata."""
 
 import subprocess
+import json
+from pathlib import Path
 import sys
 import unittest
 
@@ -15,6 +17,19 @@ from laomedo.agents.agents.opencode.activity.projection import (
 
 class ActivityProjectionEnvelopeTests(unittest.TestCase):
     """Native payloads retain their shape without extending application admission."""
+
+    def test_projectors_preserve_original_wire_order_omissions_and_json(self):
+        cases = json.loads(
+            (Path(__file__).parent / "data/projector-records.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        for case in cases:
+            with self.subTest(case=case["name"]):
+                writer = project if case["projector"] == "shared" else project_opencode
+                actual = writer(case["events"], **case["kwargs"])
+                self.assertEqual(list(actual), case["keys"])
+                self.assertEqual(json.dumps(actual), case["expected_json"])
 
     def test_observations_keep_identity_and_partial_unknown_values(self):
         """Do not copy, coerce or validate existing external native snapshots."""

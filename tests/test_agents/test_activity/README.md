@@ -20,3 +20,8 @@ Run `python -m unittest discover -s tests/test_agents/test_activity -t tests -v`
 Internal controls do not establish real provider or browser acceptance.
 
 `test_records.py` preserves native attempt fields and the distinction between omitted and explicit provider freshness.
+
+`test_envelope.py` runs both actual projectors against eight independent event
+and JSON output cases in `data/projector-records.json`. These preserve field
+order, omissions, Unicode escaping and nested values from the existing writers.
+The cases contain no source-body digests and require no historical checkout.
