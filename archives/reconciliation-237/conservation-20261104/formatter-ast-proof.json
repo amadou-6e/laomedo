@@ -1,0 +1,17 @@
+[
+  {
+    "worktree": "github-restored-245",
+    "path": "tests/test_github/test_contracts/test_intents.py",
+    "identical_ast": true
+  },
+  {
+    "worktree": "github-restored-245",
+    "path": "tests/test_github/test_pull_requests/test_feedback.py",
+    "identical_ast": true
+  },
+  {
+    "worktree": "skills-followup-206",
+    "path": "tools/apply_langflow_skill_viewer.py",
+    "identical_ast": true
+  }
+]

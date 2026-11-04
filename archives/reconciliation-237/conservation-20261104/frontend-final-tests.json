@@ -1,0 +1,18 @@
+{
+  "source_head": "c8ccb5f81da30638239ac1519d9049f14b786bb4",
+  "checkout": "C:\\Users\\Amadou\\AppData\\Local\\Temp\\lfui-dsby42ay\\lf\\src\\frontend",
+  "tests": [
+    "src/components/laomedoRecovery/RecoveryPopup.test.tsx",
+    "src/components/laomedoErrors/nodeErrors.test.ts",
+    "src/components/laomedoErrors/ErrorPopup.test.tsx",
+    "src/modals/skillFilesModal/SkillInspectionError.test.tsx",
+    "src/modals/skillFilesModal/SkillHistory.test.tsx",
+    "src/modals/skillFilesModal/SkillFilesModal.test.tsx",
+    "src/pages/FlowPage/components/PageComponent/__tests__/CanvasQueryState.test.ts"
+  ],
+  "returncode": 0,
+  "elapsed": 105.20300000000861,
+  "log": "C:\\CodeWorkspace\\laomedo\\claude-review.local\\github-consolidation\\checkpoint-audit-20261104\\frontend-final-tests.log",
+  "log_sha256": "c6668e5abe825b2bad95185005eee11cf3241a932508aea7bc1a8dd26cf14acc",
+  "scope": "Internal UI regressions only; no live browser, network or provider acceptance."
+}

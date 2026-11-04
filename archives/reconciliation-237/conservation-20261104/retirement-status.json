@@ -1,0 +1,209 @@
+[
+  {
+    "old_pr": 213,
+    "head": "e0fcaef16ea6d6bf8d661263c893cd2071a777d7",
+    "base": "5ffab075bbab50e195a3c8a375a83dff55a70fea",
+    "merge_base": "5ffab075bbab50e195a3c8a375a83dff55a70fea",
+    "exact_history": "verified from exp history plus checkpoints-20261104 bundle in fresh repository",
+    "retirement": "HOLD",
+    "reason": "Initial review found omissions, recovered and pushed. Complete bounded semantic-conservation batches remain in progress; do not retire from archive/ancestry alone."
+  },
+  {
+    "old_pr": 214,
+    "head": "8e2a2925c74748672f3028ba09359c49b13e1635",
+    "base": "e0fcaef16ea6d6bf8d661263c893cd2071a777d7",
+    "merge_base": "e0fcaef16ea6d6bf8d661263c893cd2071a777d7",
+    "exact_history": "verified from exp history plus checkpoints-20261104 bundle in fresh repository",
+    "retirement": "HOLD",
+    "reason": "Initial review found omissions, recovered and pushed. Complete bounded semantic-conservation batches remain in progress; do not retire from archive/ancestry alone."
+  },
+  {
+    "old_pr": 216,
+    "head": "a9317f61ce0376ead778802d3fd394fa127fe8a2",
+    "base": "8e2a2925c74748672f3028ba09359c49b13e1635",
+    "merge_base": "8e2a2925c74748672f3028ba09359c49b13e1635",
+    "exact_history": "verified from exp history plus checkpoints-20261104 bundle in fresh repository",
+    "retirement": "HOLD",
+    "reason": "Initial review found omissions, recovered and pushed. Complete bounded semantic-conservation batches remain in progress; do not retire from archive/ancestry alone."
+  },
+  {
+    "old_pr": 217,
+    "head": "3cf0d02b10a05cc643c9155c2bb075cee338bbda",
+    "base": "a9317f61ce0376ead778802d3fd394fa127fe8a2",
+    "merge_base": "a9317f61ce0376ead778802d3fd394fa127fe8a2",
+    "exact_history": "verified from exp history plus checkpoints-20261104 bundle in fresh repository",
+    "retirement": "HOLD",
+    "reason": "Initial review found omissions, recovered and pushed. Complete bounded semantic-conservation batches remain in progress; do not retire from archive/ancestry alone."
+  },
+  {
+    "old_pr": 218,
+    "head": "c741d4bcc104b8f7d0e0cc030ee3fa2ea7b6775b",
+    "base": "3cf0d02b10a05cc643c9155c2bb075cee338bbda",
+    "merge_base": "3cf0d02b10a05cc643c9155c2bb075cee338bbda",
+    "exact_history": "verified from exp history plus checkpoints-20261104 bundle in fresh repository",
+    "retirement": "HOLD",
+    "reason": "Initial review found omissions, recovered and pushed. Complete bounded semantic-conservation batches remain in progress; do not retire from archive/ancestry alone."
+  },
+  {
+    "old_pr": 219,
+    "head": "4b46032a6af322ce006e6eb6c2c16f670d4374fb",
+    "base": "c741d4bcc104b8f7d0e0cc030ee3fa2ea7b6775b",
+    "merge_base": "c741d4bcc104b8f7d0e0cc030ee3fa2ea7b6775b",
+    "exact_history": "verified from exp history plus checkpoints-20261104 bundle in fresh repository",
+    "retirement": "HOLD",
+    "reason": "Initial review found omissions, recovered and pushed. Complete bounded semantic-conservation batches remain in progress; do not retire from archive/ancestry alone."
+  },
+  {
+    "old_pr": 220,
+    "head": "6c65b6d50db9a17da060a522598bb89212f9f8be",
+    "base": "4b46032a6af322ce006e6eb6c2c16f670d4374fb",
+    "merge_base": "4b46032a6af322ce006e6eb6c2c16f670d4374fb",
+    "exact_history": "verified from exp history plus checkpoints-20261104 bundle in fresh repository",
+    "retirement": "HOLD",
+    "reason": "Initial review found omissions, recovered and pushed. Complete bounded semantic-conservation batches remain in progress; do not retire from archive/ancestry alone."
+  },
+  {
+    "old_pr": 221,
+    "head": "3299f8df976965b707e7c91d3309ea2e8e0aaadf",
+    "base": "6c65b6d50db9a17da060a522598bb89212f9f8be",
+    "merge_base": "6c65b6d50db9a17da060a522598bb89212f9f8be",
+    "exact_history": "verified from exp history plus checkpoints-20261104 bundle in fresh repository",
+    "retirement": "HOLD",
+    "reason": "Initial review found omissions, recovered and pushed. Complete bounded semantic-conservation batches remain in progress; do not retire from archive/ancestry alone."
+  },
+  {
+    "old_pr": 222,
+    "head": "4551ce52524f6ec997f4df04a984f0c850170e55",
+    "base": "3299f8df976965b707e7c91d3309ea2e8e0aaadf",
+    "merge_base": "3299f8df976965b707e7c91d3309ea2e8e0aaadf",
+    "exact_history": "verified from exp history plus checkpoints-20261104 bundle in fresh repository",
+    "retirement": "HOLD",
+    "reason": "Initial review found omissions, recovered and pushed. Complete bounded semantic-conservation batches remain in progress; do not retire from archive/ancestry alone."
+  },
+  {
+    "old_pr": 223,
+    "head": "23cb11505c46ab24715055ad2abc09f3b1565d4f",
+    "base": "4551ce52524f6ec997f4df04a984f0c850170e55",
+    "merge_base": "4551ce52524f6ec997f4df04a984f0c850170e55",
+    "exact_history": "verified from exp history plus checkpoints-20261104 bundle in fresh repository",
+    "retirement": "HOLD",
+    "reason": "Initial review found omissions, recovered and pushed. Complete bounded semantic-conservation batches remain in progress; do not retire from archive/ancestry alone."
+  },
+  {
+    "old_pr": 224,
+    "head": "61d8cb066bd6b49e2bd0d7ff1666b513135414ed",
+    "base": "23cb11505c46ab24715055ad2abc09f3b1565d4f",
+    "merge_base": "23cb11505c46ab24715055ad2abc09f3b1565d4f",
+    "exact_history": "verified from exp history plus checkpoints-20261104 bundle in fresh repository",
+    "retirement": "HOLD",
+    "reason": "Initial review found omissions, recovered and pushed. Complete bounded semantic-conservation batches remain in progress; do not retire from archive/ancestry alone."
+  },
+  {
+    "old_pr": 225,
+    "head": "a09231a343475af28b896b9214fe7f132c16336f",
+    "base": "3299f8df976965b707e7c91d3309ea2e8e0aaadf",
+    "merge_base": "3299f8df976965b707e7c91d3309ea2e8e0aaadf",
+    "exact_history": "verified from exp history plus checkpoints-20261104 bundle in fresh repository",
+    "retirement": "HOLD",
+    "reason": "Initial review found omissions, recovered and pushed. Complete bounded semantic-conservation batches remain in progress; do not retire from archive/ancestry alone."
+  },
+  {
+    "old_pr": 226,
+    "head": "64ac5fe7082412abc01abb0dc67e575515ced4be",
+    "base": "61d8cb066bd6b49e2bd0d7ff1666b513135414ed",
+    "merge_base": "61d8cb066bd6b49e2bd0d7ff1666b513135414ed",
+    "exact_history": "verified from exp history plus checkpoints-20261104 bundle in fresh repository",
+    "retirement": "HOLD",
+    "reason": "Initial review found omissions, recovered and pushed. Complete bounded semantic-conservation batches remain in progress; do not retire from archive/ancestry alone."
+  },
+  {
+    "old_pr": 227,
+    "head": "baa2ec0627729fa115a2eba05c09d1e9deed2f35",
+    "base": "3299f8df976965b707e7c91d3309ea2e8e0aaadf",
+    "merge_base": "3299f8df976965b707e7c91d3309ea2e8e0aaadf",
+    "exact_history": "verified from exp history plus checkpoints-20261104 bundle in fresh repository",
+    "retirement": "HOLD",
+    "reason": "Initial review found omissions, recovered and pushed. Complete bounded semantic-conservation batches remain in progress; do not retire from archive/ancestry alone."
+  },
+  {
+    "old_pr": 228,
+    "head": "bac1ab6334139e92b1cbec785f1f5341ffadecc8",
+    "base": "64ac5fe7082412abc01abb0dc67e575515ced4be",
+    "merge_base": "64ac5fe7082412abc01abb0dc67e575515ced4be",
+    "exact_history": "verified from exp history plus checkpoints-20261104 bundle in fresh repository",
+    "retirement": "HOLD",
+    "reason": "Initial review found omissions, recovered and pushed. Complete bounded semantic-conservation batches remain in progress; do not retire from archive/ancestry alone."
+  },
+  {
+    "old_pr": 229,
+    "head": "8b92111efd2b452e6947a3fd81e0e13dff2f7903",
+    "base": "3508b7aee627053e21369cc08a16f15520345374",
+    "merge_base": "3508b7aee627053e21369cc08a16f15520345374",
+    "exact_history": "verified from exp history plus checkpoints-20261104 bundle in fresh repository",
+    "retirement": "HOLD",
+    "reason": "Initial review found omissions, recovered and pushed. Complete bounded semantic-conservation batches remain in progress; do not retire from archive/ancestry alone."
+  },
+  {
+    "old_pr": 230,
+    "head": "5bb39f5c9abcf5e864edf6ddfd280b84fce78a39",
+    "base": "3508b7aee627053e21369cc08a16f15520345374",
+    "merge_base": "3508b7aee627053e21369cc08a16f15520345374",
+    "exact_history": "verified from exp history plus checkpoints-20261104 bundle in fresh repository",
+    "retirement": "HOLD",
+    "reason": "Initial review found omissions, recovered and pushed. Complete bounded semantic-conservation batches remain in progress; do not retire from archive/ancestry alone."
+  },
+  {
+    "old_pr": 231,
+    "head": "bf1438d76ffb47105acf3abdce86f7deca358c45",
+    "base": "6656c1c0e13cb62b6c56443a6be7171b3c19d68d",
+    "merge_base": "6656c1c0e13cb62b6c56443a6be7171b3c19d68d",
+    "exact_history": "verified from exp history plus checkpoints-20261104 bundle in fresh repository",
+    "retirement": "HOLD",
+    "reason": "Initial review found omissions, recovered and pushed. Complete bounded semantic-conservation batches remain in progress; do not retire from archive/ancestry alone."
+  },
+  {
+    "old_pr": 232,
+    "head": "a55279d1d51b05a5df6faedab861b68766844de0",
+    "base": "6656c1c0e13cb62b6c56443a6be7171b3c19d68d",
+    "merge_base": "6656c1c0e13cb62b6c56443a6be7171b3c19d68d",
+    "exact_history": "verified from exp history plus checkpoints-20261104 bundle in fresh repository",
+    "retirement": "HOLD",
+    "reason": "Initial review found omissions, recovered and pushed. Complete bounded semantic-conservation batches remain in progress; do not retire from archive/ancestry alone."
+  },
+  {
+    "old_pr": 233,
+    "head": "822239cff8b82729d9f8c0b286ca2b266bcd874e",
+    "base": "3508b7aee627053e21369cc08a16f15520345374",
+    "merge_base": "3508b7aee627053e21369cc08a16f15520345374",
+    "exact_history": "verified from exp history plus checkpoints-20261104 bundle in fresh repository",
+    "retirement": "HOLD",
+    "reason": "Initial review found omissions, recovered and pushed. Complete bounded semantic-conservation batches remain in progress; do not retire from archive/ancestry alone."
+  },
+  {
+    "old_pr": 234,
+    "head": "fe211cb0a496353b107b97e688fb5551ace30759",
+    "base": "276de9ab0c0c8982489a8425af82e68a61afaeda",
+    "merge_base": "276de9ab0c0c8982489a8425af82e68a61afaeda",
+    "exact_history": "verified from exp history plus checkpoints-20261104 bundle in fresh repository",
+    "retirement": "HOLD",
+    "reason": "Initial review found omissions, recovered and pushed. Complete bounded semantic-conservation batches remain in progress; do not retire from archive/ancestry alone."
+  },
+  {
+    "old_pr": 236,
+    "head": "3ed8a69cb958e0c2591899353b9f5e8a8c8b91cb",
+    "base": "ca3f1e9e057648efc40042397f0bce80fbeca6b9",
+    "merge_base": "ca3f1e9e057648efc40042397f0bce80fbeca6b9",
+    "exact_history": "verified from exp history plus checkpoints-20261104 bundle in fresh repository",
+    "retirement": "HOLD",
+    "reason": "Initial review found omissions, recovered and pushed. Complete bounded semantic-conservation batches remain in progress; do not retire from archive/ancestry alone."
+  },
+  {
+    "old_pr": 238,
+    "head": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+    "base": "ca3f1e9e057648efc40042397f0bce80fbeca6b9",
+    "merge_base": "ca3f1e9e057648efc40042397f0bce80fbeca6b9",
+    "exact_history": "verified from exp history plus checkpoints-20261104 bundle in fresh repository",
+    "retirement": "HOLD",
+    "reason": "Initial review found omissions, recovered and pushed. Complete bounded semantic-conservation batches remain in progress; do not retire from archive/ancestry alone."
+  }
+]

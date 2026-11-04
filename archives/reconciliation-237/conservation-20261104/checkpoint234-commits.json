@@ -1,0 +1,40 @@
+{
+  "commits": [
+    {
+      "branch": "fix/237",
+      "before": "0090266144fb1f59237d9108e7038c786c622030",
+      "head": "1fa9b288baddb7748359ffb7ba6a9859638744e9",
+      "paths": [
+        "frontend/langflow-skill-viewer/ErrorPopup.test.tsx",
+        "frontend/langflow-skill-viewer/ErrorPopup.tsx",
+        "frontend/langflow-skill-viewer/ErrorExplanation.tsx",
+        "frontend/langflow-skill-viewer/README.md",
+        "frontend/langflow-skill-viewer/node-error-catalog.json",
+        "frontend/langflow-skill-viewer/nodeErrors.test.ts",
+        "frontend/langflow-skill-viewer/nodeErrors.ts",
+        "tools/apply_langflow_skill_viewer.py",
+        "tests/test_skills/test_inspection/README.md",
+        "tests/test_skills/test_inspection/test_errors.py"
+      ]
+    },
+    {
+      "branch": "refactor/206",
+      "before": "1c949341da6b49c0c85f5462a585cac270599d83",
+      "head": "57da9d79285643b7567b7860b55ab5fa620f35a6",
+      "paths": [
+        "frontend/langflow-skill-viewer/README.md",
+        "frontend/langflow-skill-viewer/SkillFilesModal.tsx",
+        "frontend/langflow-skill-viewer/SkillHistory.test.tsx",
+        "frontend/langflow-skill-viewer/SkillHistory.tsx",
+        "frontend/langflow-skill-viewer/SkillInspectionError.tsx",
+        "frontend/langflow-skill-viewer/SkillInspectionError.test.tsx",
+        "frontend/langflow-skill-viewer/CanvasQueryState.test.ts",
+        "frontend/langflow-skill-viewer/upstream.patch",
+        "tools/apply_langflow_skill_viewer.py",
+        "tests/test_skills/test_inspection/test_viewer.py"
+      ]
+    }
+  ],
+  "combined": "431bf6a801d66eb0235eb0bf474e80ad707f1f55",
+  "status": "in_progress_not_browser_validated_or_reviewed"
+}

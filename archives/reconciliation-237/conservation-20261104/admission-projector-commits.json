@@ -1,0 +1,25 @@
+[
+  {
+    "folder": "github-restored-245",
+    "remote": "refactor/245",
+    "before": "8797cb141fc84ebc15dbb263cb7ad3945be43d73",
+    "head": "3dce778b4660da198d2130e2876b19d744531444",
+    "paths": [
+      "tests/test_github/test_contracts/test_values.py",
+      "tests/test_github/test_contracts/README.md"
+    ],
+    "push": "succeeded"
+  },
+  {
+    "folder": "agent-refactor-205",
+    "remote": "refactor/205",
+    "before": "6278d5b3c4925440a7667cbf0325be9ae56d1774",
+    "head": "a29ce61bd26812fab821d22024370bd41ac6faf9",
+    "paths": [
+      "tests/test_agents/test_activity/test_envelope.py",
+      "tests/test_agents/test_activity/data/projector-records.json",
+      "tests/test_agents/test_activity/README.md"
+    ],
+    "push": "succeeded"
+  }
+]

@@ -1,0 +1,25 @@
+{
+  "combined_head": "1eb10a1fffca34fae8a6c92e8a55a8a5e445c3e1",
+  "browser_tested_head": "c8ccb5f81da30638239ac1519d9049f14b786bb4",
+  "owner_refs": {
+    "shared": {
+      "branch": "fix/237",
+      "head": "570cac84f15765f762fba7000b200bdb43b2bb5d"
+    },
+    "skills": {
+      "branch": "refactor/206",
+      "head": "4dee127db66e2e1a28ec093830cde1d53afdb98d"
+    },
+    "github": {
+      "branch": "refactor/245",
+      "head": "3dce778b4660da198d2130e2876b19d744531444"
+    },
+    "agents": {
+      "branch": "refactor/205",
+      "head": "a29ce61bd26812fab821d22024370bd41ac6faf9"
+    }
+  },
+  "bundle_sha256": "e2db80a5d341799b8c4353056523c50d74c0064ee0ede49ea5199086e259d3e5",
+  "bundle_bytes": 135335,
+  "scope": "Tracked resolution/code/test history only. Browser state, credentials, logs and screenshots excluded. Archive is not active behavior acceptance or merge approval."
+}

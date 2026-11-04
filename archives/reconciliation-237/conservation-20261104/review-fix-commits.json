@@ -1,0 +1,58 @@
+{
+  "commits": [
+    {
+      "branch": "fix/237",
+      "before": "efe3d6c556a8db7d44c4d66d6be63032c250fe75",
+      "head": "408b94e1382fcbe034989793d3be192fe4ea3902",
+      "paths": [
+        "frontend/langflow-skill-viewer/nodeErrors.test.ts",
+        "tests/test_shared/test_errors/__init__.py",
+        "tests/test_shared/test_errors/README.md",
+        "tests/test_shared/test_errors/test_catalogue_shape.py",
+        "tests/test_skills/test_registry/test_store.py"
+      ],
+      "push": "succeeded"
+    },
+    {
+      "branch": "refactor/206",
+      "before": "3a2d0a8c35d8b615becd67c24b8099bece482618",
+      "head": "adc61e0c3c4f501f963994e866b7dce77c051889",
+      "paths": [
+        "docs/features/skills/user-stories.md"
+      ],
+      "push": "succeeded"
+    },
+    {
+      "branch": "refactor/245",
+      "before": "88b60465f74ccc371686d846c4195e289101f482",
+      "head": "94702f97eb53bae82bb199835d8c72ced8f89e36",
+      "paths": [
+        "tests/test_github/README.md",
+        "tests/test_github/test_pull_requests/test_feedback.py",
+        "tests/test_github/test_contracts/test_intents.py"
+      ],
+      "push": "succeeded"
+    },
+    {
+      "branch": "refactor/205",
+      "before": "85bfb64111b16db4cc0140db5e65b99bbaa05e50",
+      "head": "6278d5b3c4925440a7667cbf0325be9ae56d1774",
+      "paths": [
+        "tests/test_shared/test_errors/test_catalogue.py",
+        "tests/test_agents/test_claude/test_records.py",
+        "tests/test_agents/test_interface/README.md",
+        "tests/test_agents/test_interface/data/status-records.json",
+        "tests/test_agents/test_interface/test_records.py",
+        "tests/test_agents/test_runtime/README.md",
+        "tests/test_agents/test_runtime/data/prepared-records.json",
+        "tests/test_agents/test_runtime/test_preparation_records.py",
+        "tests/test_agents/test_orchestration/README.md",
+        "tests/test_agents/test_orchestration/data/request-records.json",
+        "tests/test_agents/test_orchestration/test_request_records.py"
+      ],
+      "push": "succeeded"
+    }
+  ],
+  "combined": "c8ccb5f81da30638239ac1519d9049f14b786bb4",
+  "scope": "Test/docs only; all runtime and frontend implementation inputs unchanged from698f33d8."
+}

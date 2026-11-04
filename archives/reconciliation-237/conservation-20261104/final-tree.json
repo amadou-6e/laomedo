@@ -1,0 +1,74 @@
+{
+  "browser_tested_head": "c8ccb5f81da30638239ac1519d9049f14b786bb4",
+  "combined_head": "1eb10a1fffca34fae8a6c92e8a55a8a5e445c3e1",
+  "worktree": "C:\\CodeWorkspace\\laomedo\\.tools\\checkpoint-conservation-final-worktree",
+  "later_commits": [
+    {
+      "folder": "shared-reconciliation-237",
+      "remote": "fix/237",
+      "before": "408b94e1382fcbe034989793d3be192fe4ea3902",
+      "head": "570cac84f15765f762fba7000b200bdb43b2bb5d",
+      "paths": [
+        "tests/test_shared/test_errors/test_catalogue_shape.py"
+      ],
+      "push": "succeeded"
+    },
+    {
+      "folder": "skills-followup-206",
+      "remote": "refactor/206",
+      "before": "adc61e0c3c4f501f963994e866b7dce77c051889",
+      "head": "4dee127db66e2e1a28ec093830cde1d53afdb98d",
+      "paths": [
+        "tools/apply_langflow_skill_viewer.py"
+      ],
+      "push": "succeeded"
+    },
+    {
+      "folder": "github-restored-245",
+      "remote": "refactor/245",
+      "before": "94702f97eb53bae82bb199835d8c72ced8f89e36",
+      "head": "8797cb141fc84ebc15dbb263cb7ad3945be43d73",
+      "paths": [
+        "tests/test_github/test_contracts/test_intents.py",
+        "tests/test_github/test_pull_requests/test_feedback.py"
+      ],
+      "push": "succeeded"
+    },
+    {
+      "folder": "github-restored-245",
+      "remote": "refactor/245",
+      "before": "8797cb141fc84ebc15dbb263cb7ad3945be43d73",
+      "head": "3dce778b4660da198d2130e2876b19d744531444",
+      "paths": [
+        "tests/test_github/test_contracts/test_values.py",
+        "tests/test_github/test_contracts/README.md"
+      ],
+      "push": "succeeded"
+    },
+    {
+      "folder": "agent-refactor-205",
+      "remote": "refactor/205",
+      "before": "6278d5b3c4925440a7667cbf0325be9ae56d1774",
+      "head": "a29ce61bd26812fab821d22024370bd41ac6faf9",
+      "paths": [
+        "tests/test_agents/test_activity/test_envelope.py",
+        "tests/test_agents/test_activity/data/projector-records.json",
+        "tests/test_agents/test_activity/README.md"
+      ],
+      "push": "succeeded"
+    }
+  ],
+  "changed_paths": [
+    "tests/test_agents/test_activity/README.md",
+    "tests/test_agents/test_activity/data/projector-records.json",
+    "tests/test_agents/test_activity/test_envelope.py",
+    "tests/test_github/test_contracts/README.md",
+    "tests/test_github/test_contracts/test_intents.py",
+    "tests/test_github/test_contracts/test_values.py",
+    "tests/test_github/test_pull_requests/test_feedback.py",
+    "tests/test_shared/test_errors/test_catalogue_shape.py",
+    "tools/apply_langflow_skill_viewer.py"
+  ],
+  "runtime_frontend_components_and_package_inputs": "identical Git blobs to browser-tested c8; installer formatting has separately identical AST",
+  "status": "assembled_pending_final_conservation_verdict_not_merge_approval"
+}
