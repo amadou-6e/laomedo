@@ -88,3 +88,7 @@ user edits in specs were preserved. Credentials/private runtime are not in Git.
 This is an external-review blocker, not an acceptance or completion statement.
 The older locked package publication/adoption objective is retained in the local
 validation record and has not been narrowed, cancelled or claimed achieved.
+
+The complete non-Python own-diff path-version candidates are in
+`nonpython-review-index.json`; this includes unchanged-byte candidates and
+explicit remaining review, never an automatic behavior-equivalence verdict.

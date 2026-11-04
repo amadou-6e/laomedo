@@ -76,8 +76,13 @@
   },
   {
     "path": "HANDOFF.md",
-    "bytes": 4790,
-    "sha256": "b733a6ac00ab8970e79d31f70320de0b80502cc491a64aae58a9856f81e157ae"
+    "bytes": 5010,
+    "sha256": "8a627270fb34caff0f702279a80ffc6db31b4a405bf3011bf653f2fdad9f0faf"
+  },
+  {
+    "path": "nonpython-review-index.json",
+    "bytes": 204804,
+    "sha256": "0031a7ed32a49a816ed86c29b08c1ca4bd90a97b6bc89567be5b01b78f3922d4"
   },
   {
     "path": "published-pr-evidence.json",
