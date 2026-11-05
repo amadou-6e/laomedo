@@ -67,3 +67,17 @@ request explicitly, recheck the batch, then resume tests2-5 and non-Python revie
 with the updated Agent head. All23old PRs remainOPEN/HOLD. No issue changed, no
 Laomedo PR merged, no new model/provider/browser run or credential copy occurred.
 The only merge authorized/executed in this continuation was my-skills36b1495917.
+
+Follow-up Agent head is a848583311c7a3ccc80076cb09b0310bf228201b.
+It adds2scan paths to the existing Git ownership tests so the canonical Agent
+workspaces package remains protected alongside generic workspace.7additional
+internal tests pass,0skips; all six earlier test files retain exact tested bytes.
+This implements observationT2-I1, not a completed independent Test2 review.
+Exact-head CI is pending after the follow-up;244c0c74 had all8checks green.
+The private focused recheck request/diff now covers the full125net-line test delta
+since a29ce61b. No runtime source changed; all23remainHOLD.
+
+Final checkpoint: all8configured hosted checks pass on a8485833; see
+hosted-checks.json. Local pinnedBlack covers all7changed files. All93affected
+internal tests pass with0skips. Independent review and product acceptance
+remain incomplete. No further source changes were made.

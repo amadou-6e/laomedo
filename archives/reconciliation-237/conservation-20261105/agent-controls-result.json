@@ -17,7 +17,7 @@
   "seconds": 18.077999999994063,
   "installed_artifact": "Existing isolated installed wheel for final1eb10a1f; exact Agent source equality verified against owner checkout before tests",
   "test_source_status": "Committed and pushed to refactor/205, draft PR250",
-  "owner_head": "244c0c74da716d7c36ba7c826565ac5df7e9c506",
+  "owner_head": "a848583311c7a3ccc80076cb09b0310bf228201b",
   "test_sources_sha256": {
     "tests/test_agents/test_codex/test_acp_controller.py": "406e86ad5e9da4f4882ebf79c91d6f3b21cc1b3c81ab808c2aa54137ad4de282",
     "tests/test_agents/test_codex/test_settings.py": "f25b7a64c10dea8629d830fbb8531fcc36eb08ef0d10b5172428f53a2714b6be",
@@ -28,7 +28,18 @@
   },
   "formatting": {
     "affected_files": "Pinned Black26.10.1;6files unchanged;localcheck passed",
-    "project_wide": "Both configured hosted Black checks passed on244c0c74. Local whole-project formatter was interrupted after prolonged CPU use; no whole-project local pass claimed. It had formatted only3 changed test files before the86-test run.",
+    "project_wide": "All8configured hosted checks pass on finala8485833,including both full projectBlack jobs. Local pinnedBlack checks cover all7changed files. Local whole-project attempt was interrupted; not claimed as passed.",
     "whitespace": "git diff --check passed;worktree clean"
+  },
+  "test_execution_head": "244c0c74; all six test files are byte-identical at a8485833",
+  "additional_git_guard_controls": {
+    "tests": 7,
+    "failures": 0,
+    "errors": 0,
+    "skips": 0,
+    "seconds": 0.139,
+    "head": "a848583311c7a3ccc80076cb09b0310bf228201b",
+    "scope": "Two existing scans now include both generic agents/workspace and Agent-specific agents/workspaces; no runtime change",
+    "test_source_sha256": "cedf1c7e1342d5c02437eb9b64450a633fb70be2fe370a4217dfca067e723961"
   }
 }
