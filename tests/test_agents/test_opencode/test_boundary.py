@@ -28,6 +28,14 @@ ENDPOINT = "npipe:////./pipe/dockerDesktopLinuxEngine"
 
 
 class BoundaryTests(unittest.TestCase):
+    def test_cancel_stops_owned_broker_without_claiming_termination(self):
+        boundary = IsolatedOpenCode.__new__(IsolatedOpenCode)
+        boundary.broker = None
+        self.assertIsNone(boundary.cancel())
+        boundary.broker = Mock()
+        self.assertIsNone(boundary.cancel())
+        boundary.broker.stop.assert_called_once_with()
+
     @staticmethod
     def fixture(root, *, mode="console_token", expiry=None):
         profile = root / "profile"

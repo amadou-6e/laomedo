@@ -28,6 +28,12 @@ FORM = {
 
 
 class OutputContractTests(unittest.TestCase):
+    def test_dynamic_precheck_tool_matches_the_strict_adapter_schema(self):
+        tool = dynamic_tool(requirements(FORM))
+        self.assertEqual(set(tool), {"type", "name", "description", "inputSchema"})
+        self.assertEqual(tool["type"], "function")
+        self.assertEqual(tool["name"], "laomedo_output_precheck")
+
     def test_pin_is_canonical_and_changed_requirements_change_revision(self):
         pin = requirements(FORM)
         self.assertEqual(

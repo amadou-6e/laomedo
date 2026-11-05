@@ -417,10 +417,15 @@ class OpenCodeTests(unittest.TestCase):
     def test_native_abort_unblocking_incomplete_response_preserves_cancelled_status(
         self,
     ):
-        entered, released = threading.Event(), threading.Event()
+        entered, released, cancelled = (
+            threading.Event(),
+            threading.Event(),
+            threading.Event(),
+        )
 
         class AbortedBackend(Backend):
             def run(self, task, *, model, session_id, cancelled, capture, on_session):
+                on_session("ses_cancelled")
                 entered.set()
                 if not released.wait(30):
                     raise TimeoutError()
@@ -432,6 +437,7 @@ class OpenCodeTests(unittest.TestCase):
                 )
 
             def cancel(self):
+                cancelled.set()
                 released.set()
 
         self.runner.transport_factory = AbortedBackend
@@ -445,6 +451,12 @@ class OpenCodeTests(unittest.TestCase):
             run_id = next(iter(self.runner.cancel_flags))
             ack = self.runner.cancel(run_id)
             self.assertFalse(ack["cancel_acknowledged"])
+            self.assertFalse(ack["termination_verified"])
+            self.assertTrue(cancelled.is_set())
+            thread.join(5)
+            self.assertFalse(
+                thread.is_alive(), "Backend cancellation must unblock the run"
+            )
         finally:
             released.set()
             thread.join(20)

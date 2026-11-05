@@ -223,6 +223,38 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.controller.precheck_call_count, 1)
         self.assertEqual(self.controller.verified_precheck_calls, {"call"})
 
+    async def test_split_preflight_uses_only_fixed_probe_argv(self):
+        self.controller.executor = Mock()
+        self.controller.executor.exec_probe.return_value = SimpleNamespace(exit_code=17)
+        for check, argv in (
+            ("workspace_write", ["sh", "-c", "printf CANARY > /draft/canary.txt"]),
+            (
+                "canonical_write",
+                ["sh", "-c", "printf FORBIDDEN > /canonical/sentinel.txt"],
+            ),
+            ("store_write", ["sh", "-c", "printf FORBIDDEN > /store/sentinel.txt"]),
+            ("auth_read", ["sh", "-c", "cat /home/runner/.codex/auth.json >/dev/null"]),
+            ("git_binary", ["git", "--version"]),
+        ):
+            with self.subTest(check=check):
+                self.assertEqual(await self.controller.preflight(check), 17)
+                self.controller.executor.exec_probe.assert_called_once_with(argv)
+                self.controller.executor.exec_probe.reset_mock()
+        with self.assertRaisesRegex(RunnerError, "^permission_preflight_failed$"):
+            await self.controller.preflight("sh -c arbitrary-command")
+        self.controller.executor.exec_probe.assert_not_called()
+
+    async def test_unsplit_preflight_uses_the_named_adapter_extension(self):
+        self.controller.extension = AsyncMock(return_value={"exitCode": 23})
+        self.assertEqual(await self.controller.preflight("workspace_write"), 23)
+        self.controller.extension.assert_awaited_once_with(
+            "laomedo/preflight", {"check": "workspace_write"}
+        )
+        self.controller.extension.reset_mock()
+        with self.assertRaisesRegex(RunnerError, "^permission_preflight_failed$"):
+            await self.controller.preflight("arbitrary-command")
+        self.controller.extension.assert_not_called()
+
     async def test_unconfirmed_cleanup_cannot_pass(self):
         self.controller.acp.close.side_effect = RuntimeError(
             "private cleanup diagnostic"

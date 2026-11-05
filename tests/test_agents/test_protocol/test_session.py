@@ -161,6 +161,40 @@ class AcpSessionTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(self.client.cancel_sent)
         self.connection.cancel.assert_awaited_once_with(session_id="native-session")
 
+    async def test_missing_terminal_response_after_cancel_keeps_safe_failure(self):
+        from laomedo.agents.errors import RunnerError
+
+        await self.client.initialize()
+        await self.client.open()
+        for user_cancel, code in (
+            (True, "cancel_native_unconfirmed"),
+            (False, "turn_timeout"),
+        ):
+            with self.subTest(user_cancel=user_cancel):
+                stopped = asyncio.Event()
+
+                async def pending(**kwargs):
+                    try:
+                        await asyncio.Event().wait()
+                    finally:
+                        stopped.set()
+
+                self.connection.prompt = AsyncMock(side_effect=pending)
+                self.connection.cancel.reset_mock()
+                cancelled = threading.Event()
+                if user_cancel:
+                    cancelled.set()
+                # Replace only the module's clock, not asyncio's global clock.
+                clock = SimpleNamespace(monotonic=Mock(side_effect=range(0, 100, 10)))
+                with patch("laomedo.agents.agents.base.acp.session.time", clock):
+                    with self.assertRaisesRegex(RunnerError, "^" + code + "$"):
+                        await self.client.prompt("task", cancelled=cancelled, seconds=1)
+                self.connection.cancel.assert_awaited_once_with(
+                    session_id="native-session"
+                )
+                self.assertTrue(stopped.is_set(), "Pending prompt must be collected")
+                self.container.close.assert_not_called()
+
     async def test_answer_contains_only_current_agent_text(self):
         await self.client.initialize()
         await self.client.open()
