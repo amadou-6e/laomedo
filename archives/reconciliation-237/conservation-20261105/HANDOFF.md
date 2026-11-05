@@ -46,3 +46,24 @@ installed-package/current-source guard is present in Shared255 and final1eb10a1f
 It was executed against the actual installed wheel, isolated mode, and passed
 without skips. The reviewer missed its renamed method; no duplicate test is added.
 Tests2-5 and non-Python coverage remain in progress; all23 remain HOLD.
+
+Agent250 is now244c0c74da716d7c36ba7c826565ac5df7e9c506, pushed and draft.
+All five confirmed Test1 gaps were restored in six test files:124lines added,
+1removed. No runtime source changed. All86affected internal controls pass with
+zero skips; all128installed Agent Python modules matched owning source.
+The stale-wheel guard already existed and passed from the installed artifact.
+Affected pinnedBlack passes; both hosted project-wide Black checks pass.
+Local whole-project Black was interrupted after prolonged CPU use; no local
+whole-project pass is claimed. See hosted-checks.json for exact latest CI state.
+
+Claude Test2 stopped at the five-hour limit, reported reset02:40 Europe/Berlin.
+The dedicated transcript was inspected only after its pending offset; it contains
+a rate-limit refusal and no completed review. The pending digest/configuration
+and decision are preserved in finding-ledger.json. Do not retry blindly or start
+a fresh reviewer conversation. The prepared first focused recheck for the five
+restored controls is private under resume-20261105/agent-controls-recheck-request.md
+and its exact diff. After availability returns, inspect/resolve that pending
+request explicitly, recheck the batch, then resume tests2-5 and non-Python review
+with the updated Agent head. All23old PRs remainOPEN/HOLD. No issue changed, no
+Laomedo PR merged, no new model/provider/browser run or credential copy occurred.
+The only merge authorized/executed in this continuation was my-skills36b1495917.

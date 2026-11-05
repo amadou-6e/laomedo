@@ -8,28 +8,38 @@
   "findings": [
     {
       "id": "T1-D1",
-      "status": "confirmed_regression_coverage_gap_pending_batched_restore",
-      "owner": "Agent250"
+      "status": "restored_internal_controls_pass_focused_recheck_blocked_by_reviewer_limit",
+      "owner": "Agent250",
+      "evidence": "Six affected modules:86 tests,0failures,0errors,0skips,18.08seconds. Actual installed Agent Python sources match all128 owning-worktree modules. Tests only; production runtime unchanged.",
+      "restoration_head": "244c0c74da716d7c36ba7c826565ac5df7e9c506"
     },
     {
       "id": "T1-D2",
-      "status": "confirmed_regression_coverage_gap_pending_batched_restore",
-      "owner": "Agent250"
+      "status": "restored_internal_controls_pass_focused_recheck_blocked_by_reviewer_limit",
+      "owner": "Agent250",
+      "evidence": "Six affected modules:86 tests,0failures,0errors,0skips,18.08seconds. Actual installed Agent Python sources match all128 owning-worktree modules. Tests only; production runtime unchanged.",
+      "restoration_head": "244c0c74da716d7c36ba7c826565ac5df7e9c506"
     },
     {
       "id": "T1-D3",
-      "status": "confirmed_regression_coverage_gap_pending_batched_restore",
-      "owner": "Agent250"
+      "status": "restored_internal_controls_pass_focused_recheck_blocked_by_reviewer_limit",
+      "owner": "Agent250",
+      "evidence": "Six affected modules:86 tests,0failures,0errors,0skips,18.08seconds. Actual installed Agent Python sources match all128 owning-worktree modules. Tests only; production runtime unchanged.",
+      "restoration_head": "244c0c74da716d7c36ba7c826565ac5df7e9c506"
     },
     {
       "id": "T1-D5",
-      "status": "confirmed_regression_coverage_gap_pending_batched_restore",
-      "owner": "Agent250"
+      "status": "restored_internal_controls_pass_focused_recheck_blocked_by_reviewer_limit",
+      "owner": "Agent250",
+      "evidence": "Six affected modules:86 tests,0failures,0errors,0skips,18.08seconds. Actual installed Agent Python sources match all128 owning-worktree modules. Tests only; production runtime unchanged.",
+      "restoration_head": "244c0c74da716d7c36ba7c826565ac5df7e9c506"
     },
     {
       "id": "T1-D6",
-      "status": "confirmed_regression_coverage_gap_pending_batched_restore",
-      "owner": "Agent250"
+      "status": "restored_internal_controls_pass_focused_recheck_blocked_by_reviewer_limit",
+      "owner": "Agent250",
+      "evidence": "Six affected modules:86 tests,0failures,0errors,0skips,18.08seconds. Actual installed Agent Python sources match all128 owning-worktree modules. Tests only; production runtime unchanged.",
+      "restoration_head": "244c0c74da716d7c36ba7c826565ac5df7e9c506"
     },
     {
       "id": "T1-D4",
@@ -38,5 +48,18 @@
       "evidence": "tests/test_shared/test_architecture/test_packages.py:22-59 has test_installed_package_matches_current_source_files; checks all artifacts have current source, Python content equality and complete module set. Same guard in final combined1eb10a1f. Executed from actual installed wheel in isolated Python mode:1test,0skip,pass. Private log installed-stale-guard.log; no production source changed."
     }
   ],
-  "other_findings": "T1-S1..S3 remain nonblocking suggestions. Findings217/233 retain earlier dispositions. All23 old PRs HOLD."
+  "other_findings": "T1-S1..S3 remain nonblocking suggestions. Findings217/233 retain earlier dispositions. All23 old PRs HOLD.",
+  "reviewer_blocker": {
+    "packet": "tests-2",
+    "pending_digest": "83740bc34a7a4e686906b14a6a8487821ff7bfbe14d1c204308cee415c10e842",
+    "offset": 287201459,
+    "effort": "high",
+    "timeout_seconds": 480,
+    "cli_version": "2.1.318",
+    "started_at_utc": "2026-11-05T21:07:04.8100343Z",
+    "outcome": "native_error; dedicated transcript inspected after pending offset; rate_limit at2026-11-05T21:09:05.012Z, no completed review",
+    "reported_reset": "02:40 Europe/Berlin",
+    "decision": "No duplicate request; keep pending until explicit transcript-informed resolution. Tests2-5 and non-Python review not completed."
+  },
+  "restoration_head": "244c0c74da716d7c36ba7c826565ac5df7e9c506"
 }

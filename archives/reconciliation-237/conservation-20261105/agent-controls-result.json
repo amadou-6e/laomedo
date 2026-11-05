@@ -1,0 +1,34 @@
+{
+  "scope": "Internal regression controls only; no live provider, model or browser acceptance",
+  "agent_production_matches_owner_source": true,
+  "production_module_count": 128,
+  "test_modules": [
+    "test_agents.test_codex.test_acp_controller",
+    "test_agents.test_codex.test_settings",
+    "test_agents.test_interface.test_output",
+    "test_agents.test_opencode.test_boundary",
+    "test_agents.test_opencode.test_runner",
+    "test_agents.test_protocol.test_session"
+  ],
+  "tests_run": 86,
+  "failures": 0,
+  "errors": 0,
+  "skips": [],
+  "seconds": 18.077999999994063,
+  "installed_artifact": "Existing isolated installed wheel for final1eb10a1f; exact Agent source equality verified against owner checkout before tests",
+  "test_source_status": "Committed and pushed to refactor/205, draft PR250",
+  "owner_head": "244c0c74da716d7c36ba7c826565ac5df7e9c506",
+  "test_sources_sha256": {
+    "tests/test_agents/test_codex/test_acp_controller.py": "406e86ad5e9da4f4882ebf79c91d6f3b21cc1b3c81ab808c2aa54137ad4de282",
+    "tests/test_agents/test_codex/test_settings.py": "f25b7a64c10dea8629d830fbb8531fcc36eb08ef0d10b5172428f53a2714b6be",
+    "tests/test_agents/test_interface/test_output.py": "d9d7aa78048fb07f8c4e52a057ce16b373b90a590abf33164a8d4a482cf23f72",
+    "tests/test_agents/test_opencode/test_boundary.py": "f5141c1cb78adf89d6fe72694d1b0b0a6eb17d0e17952d2495925ebc50dc1f3c",
+    "tests/test_agents/test_opencode/test_runner.py": "8043f29ee442ee25aa6779199f63c9d85d166f282833d448fe2e82b6fa9382c8",
+    "tests/test_agents/test_protocol/test_session.py": "771bc09495f43388238d2a7a98d4f4a8ce340beb86042a101fa8b6f5075d00d1"
+  },
+  "formatting": {
+    "affected_files": "Pinned Black26.10.1;6files unchanged;localcheck passed",
+    "project_wide": "Both configured hosted Black checks passed on244c0c74. Local whole-project formatter was interrupted after prolonged CPU use; no whole-project local pass claimed. It had formatted only3 changed test files before the86-test run.",
+    "whitespace": "git diff --check passed;worktree clean"
+  }
+}
