@@ -1,0 +1,66 @@
+{
+  "scope": "Internal original-capture/literal fidelity only; actual projector regression logs are separate. No provider or browser acceptance.",
+  "agent_head": "a29ce61bd26812fab821d22024370bd41ac6faf9",
+  "original_source_metadata": {
+    "evidence_kind": "internal_synthetic_compatibility_only_not_live_acceptance",
+    "base": "3508b7aee627053e21369cc08a16f15520345374"
+  },
+  "cases": [
+    {
+      "name": "shared-empty",
+      "input_kwargs_and_key_order_equal": true,
+      "captured_original_json_equals_restored_literal": true,
+      "sha256": "31c17d21ce3dccc0d18190a416a448ceafee08ae592164acdf90fc6ef7e4926f",
+      "bytes": 662
+    },
+    {
+      "name": "shared-root-empty",
+      "input_kwargs_and_key_order_equal": true,
+      "captured_original_json_equals_restored_literal": true,
+      "sha256": "8dc7f0edcc35d3ebb7e504f902fa37658d6555fcefd84f8c9afebdf824133baf",
+      "bytes": 980
+    },
+    {
+      "name": "shared-partial-native",
+      "input_kwargs_and_key_order_equal": true,
+      "captured_original_json_equals_restored_literal": true,
+      "sha256": "0feb4c1f23e754b099d93532225a5a45c5216cd3ea923502ebb00d466a56d297",
+      "bytes": 2794
+    },
+    {
+      "name": "shared-unknown-usage",
+      "input_kwargs_and_key_order_equal": true,
+      "captured_original_json_equals_restored_literal": true,
+      "sha256": "7a3f701534a4e57cb4a989264725c55c24bcaf025c34a15e9cc4f1c64d099ce4",
+      "bytes": 2766
+    },
+    {
+      "name": "opencode-empty",
+      "input_kwargs_and_key_order_equal": true,
+      "captured_original_json_equals_restored_literal": true,
+      "sha256": "401764662d54453d0a65bdf8182b86d8cc16dfacce585e3c832ac34bd633f9ee",
+      "bytes": 731
+    },
+    {
+      "name": "opencode-native",
+      "input_kwargs_and_key_order_equal": true,
+      "captured_original_json_equals_restored_literal": true,
+      "sha256": "b4cbce64b46feb4c7767c69fd262f15add4d92ed1df406ae5618bd0c5b51719b",
+      "bytes": 3893
+    },
+    {
+      "name": "opencode-unknown",
+      "input_kwargs_and_key_order_equal": true,
+      "captured_original_json_equals_restored_literal": true,
+      "sha256": "04ae1cd34e9d1e1b0164bef39af2defe9f768dca9882dbb720ba91adf65c8bbc",
+      "bytes": 1140
+    },
+    {
+      "name": "shared-opencode-dispatch",
+      "input_kwargs_and_key_order_equal": true,
+      "captured_original_json_equals_restored_literal": true,
+      "sha256": "b4cbce64b46feb4c7767c69fd262f15add4d92ed1df406ae5618bd0c5b51719b",
+      "bytes": 3893
+    }
+  ]
+}
