@@ -1,0 +1,42 @@
+{
+  "reviewed_owner_heads": {
+    "Shared255": "570cac84",
+    "Agent250": "a29ce61b"
+  },
+  "packet": "tests-1",
+  "scope": "Assertion conservation, not product or provider acceptance",
+  "findings": [
+    {
+      "id": "T1-D1",
+      "status": "confirmed_regression_coverage_gap_pending_batched_restore",
+      "owner": "Agent250"
+    },
+    {
+      "id": "T1-D2",
+      "status": "confirmed_regression_coverage_gap_pending_batched_restore",
+      "owner": "Agent250"
+    },
+    {
+      "id": "T1-D3",
+      "status": "confirmed_regression_coverage_gap_pending_batched_restore",
+      "owner": "Agent250"
+    },
+    {
+      "id": "T1-D5",
+      "status": "confirmed_regression_coverage_gap_pending_batched_restore",
+      "owner": "Agent250"
+    },
+    {
+      "id": "T1-D6",
+      "status": "confirmed_regression_coverage_gap_pending_batched_restore",
+      "owner": "Agent250"
+    },
+    {
+      "id": "T1-D4",
+      "status": "rejected_existing_stronger_guard",
+      "owner": "Shared255",
+      "evidence": "tests/test_shared/test_architecture/test_packages.py:22-59 has test_installed_package_matches_current_source_files; checks all artifacts have current source, Python content equality and complete module set. Same guard in final combined1eb10a1f. Executed from actual installed wheel in isolated Python mode:1test,0skip,pass. Private log installed-stale-guard.log; no production source changed."
+    }
+  ],
+  "other_findings": "T1-S1..S3 remain nonblocking suggestions. Findings217/233 retain earlier dispositions. All23 old PRs HOLD."
+}

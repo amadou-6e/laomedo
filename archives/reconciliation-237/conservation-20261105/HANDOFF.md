@@ -39,3 +39,10 @@ The 4 November archive and its exact historical bundles remain authoritative for
 prior evidence and recovery. No credentials, runtime profiles or raw private
 review transcripts are included here. The visible implementation stays on clean
 develop; unrelated worktrees and user changes in specs are preserved.
+
+Test packet1 is complete (56 headers). Five Agent-owned regression gaps are
+confirmed for batched restoration. T1-D4 is rejected: the existing stronger
+installed-package/current-source guard is present in Shared255 and final1eb10a1f.
+It was executed against the actual installed wheel, isolated mode, and passed
+without skips. The reviewer missed its renamed method; no duplicate test is added.
+Tests2-5 and non-Python coverage remain in progress; all23 remain HOLD.
