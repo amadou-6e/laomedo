@@ -4,9 +4,13 @@ import ast
 import unittest
 
 from support.paths import repository_root
+from support.model_contracts import assert_described_models
 
 
 class SkillOwnershipTests(unittest.TestCase):
+    def test_skill_record_fields_keep_their_descriptions(self):
+        assert_described_models("skills.registry.models", "skills.operations.models")
+
     def test_skill_domain_uses_defining_symbols_and_keeps_its_boundary(self):
         root = repository_root() / "src/laomedo/skills"
         for path in root.rglob("*.py"):

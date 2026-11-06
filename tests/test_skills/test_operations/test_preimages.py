@@ -1,13 +1,55 @@
-"""Independent old-writer journal identities; no store or model dispatch."""
+"""Independent old-writer journal and comparison contracts; no model dispatch."""
 
 import json
 import sqlite3
 import unittest
+from datetime import datetime, timezone
+from pathlib import Path
+import tempfile
+from types import SimpleNamespace
+from unittest.mock import patch
+from uuid import UUID
 from laomedo.skills.operations.models import SkillCommit
 from laomedo.skills.operations.service import SkillOperations
+from test_skills.test_operations.utils import make_operation_case
 
 
 class SkillCommitPreimageTests(unittest.TestCase):
+    def test_comparison_matches_the_original_public_payload_and_key_order(self):
+        expected = json.loads(
+            (Path(__file__).parent / "data/comparison.json").read_text(encoding="utf-8")
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            case = make_operation_case(Path(directory))
+            clock = SimpleNamespace(
+                now=lambda *_: datetime(2026, 10, 30, tzinfo=timezone.utc)
+            )
+            with (
+                patch("laomedo.skills.operations.service.datetime", clock),
+                patch(
+                    "laomedo.skills.operations.service.uuid4",
+                    return_value=UUID("33333333-3333-4333-8333-333333333333"),
+                ),
+            ):
+                reservation = case.prepare()
+                with patch(
+                    "laomedo.skills.registry.store.uuid4",
+                    return_value=UUID("44444444-4444-4444-8444-444444444444"),
+                ):
+                    result = case.service.apply(
+                        reservation["ticket"],
+                        case.operation,
+                        {"kind": "agent", "run_id": "run-id", "trace_ref": "trace-ref"},
+                    )
+            actual = case.service.compare(
+                "internal-test",
+                reservation["base_commit"],
+                result["skill"]["revision_id"],
+            )
+        self.assertEqual(actual, expected)
+        self.assertEqual(json.dumps(actual), json.dumps(expected))
+        self.assertNotIn("patch", actual["base_commit"])
+
     def test_legacy_import_and_agent_edit_keep_exact_writer_ids_and_field_order(self):
         cases = [
             (

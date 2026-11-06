@@ -18,6 +18,78 @@ migration = load_migration()
 
 
 class SharedMigrationTests(unittest.TestCase):
+    def test_registry_split_symbols_and_ambiguous_module_values(self):
+        old = "laomedo.skills.registry.utils"
+        for source in (
+            f"from {old} import inventory, tree_hash\nvalue = tree_hash(inventory(root))\n",
+            f"import {old} as old\nvalue = old.inventory(root)\n",
+            "from laomedo.skills.registry import utils as old\nvalue = old.tree_hash(files)\n",
+        ):
+            rewritten = migration.migrate_source(source)
+            self.assertNotIn(old, rewritten)
+            compile(rewritten, "<registry-migration>", "exec")
+            self.assertEqual(migration.migrate_source(rewritten), rewritten)
+        for source in (
+            f"from {old} import *\n",
+            f"from {old} import unknown\n",
+            f"import {old}\n",
+            f"import {old} as old\nvalue = old.unknown(root)\n",
+            f"import {old} as old\nvalue = getattr(old, 'inventory')(root)\n",
+            f"import {old} as old\nvalue = old\n",
+        ):
+            with (
+                self.subTest(source=source),
+                self.assertRaises(migration.ManualMigrationRequired),
+            ):
+                migration.migrate_source(source)
+
+    def test_partial_source_settings_keep_constants_and_move_only_settings(self):
+        old = "laomedo.skills.sources.settings"
+        new = "laomedo.skills.interface.sources.settings"
+        for source in (
+            f"from {old} import Settings\nvalue = Settings()\n",
+            f"import {old} as settings\nvalue = settings.Settings()\n",
+            "from laomedo.skills.sources import settings\nvalue = settings.Settings()\n",
+            f"from {old} import Settings, SKIP\nvalue = (Settings(), SKIP)\n",
+        ):
+            rewritten = migration.migrate_source(source)
+            self.assertIn(new, rewritten)
+            self.assertEqual(migration.migrate_source(rewritten), rewritten)
+            if "Settings, SKIP" in source:
+                self.assertIn(f"from {old} import SKIP", rewritten)
+                self.assertIn(f"from {new} import Settings", rewritten)
+        for source in (
+            f"from {old} import *\n",
+            f"import {old} as settings\nvalue = getattr(settings, 'Settings')\n",
+            f"import {old} as settings\nvalue = getattr(settings, selected)\n",
+            f"import {old}\nvalue = {old}.Settings()\n",
+        ):
+            with (
+                self.subTest(source=source),
+                self.assertRaises(migration.ManualMigrationRequired),
+            ):
+                migration.migrate_source(source)
+        for source in (
+            f"from {old} import SKIP\nvalue = SKIP\n",
+            f"import {old} as settings\nvalue = settings.MAX_ENTRIES\n",
+            f"import {old} as settings\nvalue = getattr(settings, 'SKIP')\n",
+        ):
+            self.assertEqual(migration.migrate_source(source), source)
+
+    def test_server_import_paths_and_launch_commands_have_distinct_owners(self):
+        for owner, feature in (
+            ("skills", "sources"),
+            ("skills", "operations"),
+        ):
+            old = f"laomedo.{owner}.{feature}.server"
+            server = f"laomedo.{owner}.interface.{feature}.server"
+            cli = f"laomedo.{owner}.interface.{feature}.cli"
+            self.assertEqual(migration.MODULE_PATHS[old], server)
+            self.assertEqual(migration.CLI_PATHS[old], cli)
+            rewritten = migration.migrate_source("python -m " + old + " --help")
+            self.assertIn("-m " + cli + " --help", rewritten)
+            self.assertEqual(migration.migrate_source(rewritten), rewritten)
+
     def test_skill_relocation_targets_resolve_to_declared_definitions(self):
         targets = {
             target

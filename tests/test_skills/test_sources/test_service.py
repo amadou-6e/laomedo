@@ -112,6 +112,38 @@ class SkillSourceTests(unittest.TestCase):
         with self.assertRaisesRegex(SourceError, "discovered_revision_required"):
             self.resolver.resolve(str(self.source), "alpha", "latest")
 
+    def test_each_secret_file_name_is_refused_from_the_bundle(self):
+        choice = self.resolver.discover(str(self.source))["skills"][0]["choice"]
+        for name in (
+            "auth.json",
+            "credentials.json",
+            "credentials",
+            ".env",
+            ".netrc",
+            ".env.local",
+            ".env.production",
+        ):
+            path = self.source / "alpha" / name
+            path.write_bytes(b"internal-control-not-for-import")
+            try:
+                with (
+                    self.subTest(name=name),
+                    self.assertRaisesRegex(SourceError, "^source_bundle_unsafe$"),
+                ):
+                    self.resolver.revisions(str(self.source), choice)
+            finally:
+                path.unlink()
+
+    def test_source_entry_limit_and_git_exclusion_stay_explicit(self):
+        from laomedo.skills.sources.settings import MAX_ENTRIES, SKIP
+        from unittest.mock import patch
+
+        self.assertEqual(MAX_ENTRIES, 4096)
+        self.assertIn(".git", SKIP)
+        with patch("laomedo.skills.sources.local.MAX_ENTRIES", 1):
+            with self.assertRaisesRegex(SourceError, "^source_limit_exceeded$"):
+                self.resolver.discover(str(self.source))
+
     def test_secrets_links_and_script_execution(self):
         choice = self.resolver.discover(str(self.source))["skills"][0]["choice"]
         (self.source / "alpha/script.py").write_text(
