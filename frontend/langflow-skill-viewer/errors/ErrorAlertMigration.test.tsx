@@ -21,7 +21,8 @@ test("model discovery errors retain their code and offer real managed recovery",
  (api.get as jest.Mock).mockResolvedValue({data:{state:"offline",can_start:true,reason:"runner_local_offline"}});
  act(()=>useAlertStore.getState().setErrorData({title:"Failed",list:["runner_model_catalog_unavailable_check_runner_connection"]}));
  const item=useAlertStore.getState().tempNotificationList[0];
- render(<ErrorAlert {...item} removeAlert={()=>{}}/>);
+ expect(item.type).toBe("error");
+ render(<ErrorAlert {...item} list={item.list} removeAlert={()=>{}}/>);
  await screen.findByRole("button",{name:"Start local runner"});
  expect(item.failure?.diagnostics.code).toBe("runner_model_catalog_unavailable_check_runner_connection");
  expect(document.body.textContent).not.toContain("previous run's outcome is unconfirmed");
@@ -31,7 +32,8 @@ test("an independent error still produces a persistent copyable card",()=>{
  mockFlow.buildInfo={error:["prior_run_required"]};
  act(()=>useAlertStore.getState().setErrorData({title:"Failed",list:["invalid_skill_reference; bearer secret-payload"]}));
  const item=useAlertStore.getState().tempNotificationList[0],dismiss=jest.fn();
- render(<ErrorAlert {...item} removeAlert={dismiss}/>);
+ expect(item.type).toBe("error");
+ render(<ErrorAlert {...item} list={item.list} removeAlert={dismiss}/>);
  expect(screen.getByRole("button",{name:"Copy error"})).toBeEnabled();
  expect(document.body.textContent).not.toContain("secret-payload");
  fireEvent.click(screen.getByRole("button",{name:"Dismiss"}));expect(dismiss).toHaveBeenCalledWith(item.id);
@@ -42,7 +44,8 @@ test("native application errors retain every message without Agent advice",async
  act(()=>useAlertStore.getState().setErrorData({title:"Flow save failed",list:["Choose a folder.","The flow name is already in use."]}));
  const item=useAlertStore.getState().tempNotificationList[0];
  const writeText=jest.fn().mockResolvedValue(undefined);Object.defineProperty(navigator,"clipboard",{configurable:true,value:{writeText}});
- render(<ErrorAlert {...item} removeAlert={()=>{}}/>);
+ expect(item.type).toBe("error");
+ render(<ErrorAlert {...item} list={item.list} removeAlert={()=>{}}/>);
  expect(screen.getByRole("heading",{name:"Flow save failed"})).toBeVisible();
  expect(screen.getByText("Choose a folder.")).toBeVisible();expect(screen.getByText("The flow name is already in use.")).toBeVisible();
  expect(document.body.textContent).not.toMatch(/runner|existing run|unrecognized_error/);

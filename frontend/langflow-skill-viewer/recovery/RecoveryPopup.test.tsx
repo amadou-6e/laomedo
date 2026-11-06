@@ -159,7 +159,7 @@ test("unconfirmed cancellation ends the spinner and stays visible without operat
    .mockResolvedValueOnce({data:{state:"starting",can_start:false,startup_id:"attempt-one",reason:"runner_start_cancel_unconfirmed"}});
  render(<RecoveryPopup message="runner_transport_failed" context={{}} onDismiss={jest.fn()} />);
  fireEvent.click(await screen.findByRole("button",{name:"Start local runner"}));
- fireEvent.click(await screen.findByRole("button",{name:"Cancel",exact:true}));
+ fireEvent.click(await screen.findByRole("button",{name:"Cancel"}));
  await screen.findByText("The local backend has not confirmed that startup stopped.");
  expect(screen.getByRole("status")).toHaveAttribute("aria-busy","false");
  expect(screen.queryByText(/operator/)).toBeNull();
@@ -173,10 +173,10 @@ test("an unrelated startup crash is not presented as a successful cancel", async
   .mockResolvedValueOnce({data:{state:"offline",can_start:true,reason:"runner_start_failed"}});
  render(<RecoveryPopup message="runner_transport_failed" context={{}} onDismiss={dismissed} />);
  fireEvent.click(await screen.findByRole("button",{name:"Start local runner"}));
- fireEvent.click(await screen.findByRole("button",{name:"Cancel",exact:true}));
+ fireEvent.click(await screen.findByRole("button",{name:"Cancel"}));
  await screen.findByText("The local backend has not confirmed that startup stopped.");
  expect(dismissed).not.toHaveBeenCalled();
- expect(screen.getByRole("button",{name:"Dismiss",exact:true})).toBeEnabled();
+ expect(screen.getByRole("button",{name:"Dismiss"})).toBeEnabled();
 });
 
 
