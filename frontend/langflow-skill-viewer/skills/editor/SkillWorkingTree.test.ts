@@ -82,7 +82,7 @@ test("case/file-folder collisions and oversize files refuse without overwriting;
 });
 
 test("every literal file-action error producer is descriptively catalogued", () => {
-  const codes = new Set(["SkillWorkingTree.ts", "SkillFileManager.tsx"].flatMap((name) => [...readFileSync(join(__dirname, name), "utf8").matchAll(/"(skill_manual_[a-z_]+)"/g)].map((match) => match[1])));
+  const codes = new Set(["SkillWorkingTree.ts", "../explorer/SkillFileManager.tsx"].flatMap((name) => [...readFileSync(join(__dirname, name), "utf8").matchAll(/"(skill_manual_[a-z_]+)"/g)].map((match) => match[1])));
   expect(codes.size).toBeGreaterThanOrEqual(5);
   for (const code of codes) for (const field of ["title", "description", "recovery"]) expect((catalog as Record<string, Record<string, string>>)[code][field].trim()).not.toBe("");
 });

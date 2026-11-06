@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "@/controllers/API/api";
 import { getBaseUrl } from "@/customization/utils/urls";
-import type { SkillFile, Snapshot } from "./SkillHistory";
+import type { SkillFile, Snapshot } from "../models";
 
 // Disclose the whole working tree, including saved unpublished commits, without
 // introducing a second publication mode.

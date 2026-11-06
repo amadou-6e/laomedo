@@ -276,7 +276,7 @@ index fa16114..eb5a2a6 100644
 @@ -1,4 +1,9 @@
 -import { memo } from "react";
 +import { nodeKind } from "@/modals/issueViewerModal";
-+import { inspectionSelection } from "@/modals/skillFilesModal/selection";
++import { inspectionSelection } from "@/modals/skillFilesModal/interface/selection";
 +import { lazy, memo, Suspense } from "react";
 +const PRViewerModal = lazy(() => import("@/modals/prViewerModal"));
 +const IssueViewerModal = lazy(() => import("@/modals/issueViewerModal"));

@@ -2,7 +2,7 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { useState } from "react";
 import SkillExplorer from "./SkillExplorer";
 import { SkillFileIcon } from "./SkillIcons";
-import type { SkillFile } from "./SkillHistory";
+import type { SkillFile } from "../models";
 
 const file = (path: string): SkillFile => ({ path, kind: "text", text: "", bytes: 0, file_hash: "unit-only" });
 

@@ -23,15 +23,15 @@ const mockShowFind = jest.fn();
 jest.mock("./SkillNavigation", () => ({ __esModule: true, default: () => null,
   useSkillNavigation: () => ({ open: {}, collapsedFolders: new Set(), allOpen: false,
     showFind: mockShowFind, hideFind: jest.fn(), toggleAll: jest.fn(), toggleFolder: jest.fn(), toggleSection: jest.fn() }) }));
-jest.mock("./SkillFileManager", () => ({ __esModule: true, default: () => null }));
-jest.mock("./SkillEditing", () => ({ useSkillEditing: (_skill: string, _revision: string, snapshot: any) => ({
+jest.mock("../explorer/SkillFileManager", () => ({ __esModule: true, default: () => null }));
+jest.mock("../editor/SkillEditing", () => ({ useSkillEditing: (_skill: string, _revision: string, snapshot: any) => ({
   files: snapshot?.files ?? [], tree: { folders: [] }, editing: true, busy: false,
   pending: null, error: "", dirty: false, changes: [], message: "", state: null, update: jest.fn(),
   refresh: jest.fn(), setMessage: jest.fn(), dismissError: jest.fn() }) }));
-jest.mock("./SkillPublication", () => ({ useRegistryComparison: () => ({
+jest.mock("../editor/SkillPublication", () => ({ useRegistryComparison: () => ({
   base: null, paths: [], failed: false, showError: false, retry: jest.fn(), dismissError: jest.fn() }) }));
 jest.mock("./SkillSplitPane", () => ({ __esModule: true, default: ({ children }: any) => <>{children}</> }));
-jest.mock("./SkillHistory", () => ({ __esModule: true, default: () => null, RevisionDiff: () => null }));
+jest.mock("../history/SkillHistory", () => ({ __esModule: true, default: () => null, RevisionDiff: () => null }));
 jest.mock("react-markdown", () => ({ __esModule: true, default: () => null }));
 jest.mock("monaco-editor/editor", () => ({ editor: {
   createModel: jest.fn(() => ({ dispose: jest.fn(), getValue: () => "Editable source", onDidChangeContent: () => ({ dispose: jest.fn() }) })),

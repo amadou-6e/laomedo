@@ -1,4 +1,4 @@
-import { SkillChevron } from "./SkillIcons";
+import { SkillChevron } from "../explorer/SkillIcons";
 import { useEffect, useState, type ReactNode } from "react";
 
 export function useSkillNavigation(identity: string, paths: string[], directories: string[] = []) {

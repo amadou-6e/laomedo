@@ -1,4 +1,11 @@
-# Langflow Skill files overlay
+# Laomedo Langflow overlay
+
+Feature packages own rendering, wire contracts and colocated tests; the pinned
+installer binds them to upstream entry points. Discover the owned packages here:
+
+- [Skills](skills/README.md)
+- [Upstream integration patches](integration/README.md)
+
 
 ## Skill workspace controls
 
@@ -19,13 +26,13 @@ to source.
 
 | Concern | Owner | Interface |
 | --- | --- | --- |
-| Working files and exact save/publication stages | `SkillEditing.tsx` | `update`, `replaceFiles`, `discard`, `publish`, `reconcile`; retain uncertain request identity |
-| Portable paths, byte admission and patch projection | `SkillWorkingTree.ts` | `validateFilePath`, `readLocalFiles`, `moveFiles`, `deleteFiles`, `validateWorkingOperation`, `fileEdits` |
-| Explorer menus, forms, clipboard and drag/drop | `SkillFileManager.tsx` | `SkillFileManager`; `dismiss` closes only its transient menu/form and restores focus |
-| File-tree rows and disclosure | `SkillExplorer.tsx` | `SkillExplorer`; optional row decoration leaves ordinary selection/disclosure reusable |
-| Inert image and paged byte display | `SkillBinaryPreview.tsx` | `SkillBinaryPreview`; fills the editor pane without byte/hash metadata |
-| Working-copy discard confirmation | `SkillDiscardDialog.tsx` | `SkillDiscardDialog`; modal cancel/confirm and focus lifecycle, no persistence responsibility |
-| Full cumulative registry comparison | `SkillPublication.tsx` | `useRegistryComparison`; all changed paths, including saved unpublished commits |
+| Working files and exact save/publication stages | `skills/editor/SkillEditing.tsx` | `update`, `replaceFiles`, `discard`, `publish`, `reconcile`; retain uncertain request identity |
+| Portable paths, byte admission and patch projection | `skills/editor/SkillWorkingTree.ts` | `validateFilePath`, `readLocalFiles`, `moveFiles`, `deleteFiles`, `validateWorkingOperation`, `fileEdits` |
+| Explorer menus, forms, clipboard and drag/drop | `skills/explorer/SkillFileManager.tsx` | `SkillFileManager`; `dismiss` closes only its transient menu/form and restores focus |
+| File-tree rows and disclosure | `skills/explorer/SkillExplorer.tsx` | `SkillExplorer`; optional row decoration leaves ordinary selection/disclosure reusable |
+| Inert image and paged byte display | `skills/editor/SkillBinaryPreview.tsx` | `SkillBinaryPreview`; fills the editor pane without byte/hash metadata |
+| Working-copy discard confirmation | `skills/editor/SkillDiscardDialog.tsx` | `SkillDiscardDialog`; modal cancel/confirm and focus lifecycle, no persistence responsibility |
+| Full cumulative registry comparison | `skills/editor/SkillPublication.tsx` | `useRegistryComparison`; all changed paths, including saved unpublished commits |
 
 Authorised text is editable immediately. Right-click a file, folder or explorer
 background, or press Shift+F10/ContextMenu on the focused target, for Upload files,
@@ -107,7 +114,7 @@ checkout of that exact revision. Use Node >=20.19 (tested with Node 22), then
 `npm ci` and `npm run build` under upstream `src/frontend`. The overlay pins
 Monaco 0.57.0 in the upstream package and lock file. It reuses Langflow's React,
 Markdown and dialog packages. Monaco and workers are bundled locally, without
-a CDN. Retain [Monaco's MIT license](MONACO-LICENSE.txt) with distributed builds;
+a CDN. Retain [Monaco's MIT license](skills/assets/MONACO-LICENSE.txt) with distributed builds;
 the upstream Langflow license also applies to its patched files.
 
 The selected LaomedoSkill node exposes Skill files instead of primary Code.

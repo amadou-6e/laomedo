@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import SkillViewerProvider, { SkillViewerRequest } from "./SkillViewer";
 
-jest.mock("./SkillFilesModal", () => ({ __esModule: true, default: ({ skillId, revision, setOpen }: any) => {
+jest.mock("../workspace/SkillFilesModal", () => ({ __esModule: true, default: ({ skillId, revision, setOpen }: any) => {
   const [text, setText] = require("react").useState("");
   return <div role="dialog" aria-label={`${skillId}:${revision}`}>
     <input aria-label="Working text" value={text} onChange={(event) => setText(event.target.value)} />

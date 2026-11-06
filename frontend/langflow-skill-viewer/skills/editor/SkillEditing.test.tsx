@@ -1,7 +1,7 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { api } from "@/controllers/API/api";
 import { useSkillEditing } from "./SkillEditing";
-import type { Snapshot } from "./SkillHistory";
+import type { Snapshot } from "../models";
 
 jest.mock("@/controllers/API/api", () => ({ api: { post: jest.fn() } }));
 jest.mock("@/customization/utils/urls", () => ({ getBaseUrl: () => "/api/v1/" }));

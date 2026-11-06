@@ -1,6 +1,6 @@
 import { useDeferredValue, useMemo, useState } from "react";
-import type { SkillFile } from "./SkillHistory";
-import { SkillChevron, SkillFileIcon } from "./SkillIcons";
+import type { SkillFile } from "../models";
+import { SkillChevron, SkillFileIcon } from "../explorer/SkillIcons";
 
 export type SkillMatch = { path: string; line: number; column: number; length: number; text: string };
 

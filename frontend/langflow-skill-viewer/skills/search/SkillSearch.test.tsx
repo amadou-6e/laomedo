@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import SkillSearch, { searchSkill } from "./SkillSearch";
-import type { SkillFile } from "./SkillHistory";
+import type { SkillFile } from "../models";
 
 const file = (path: string, text: string | null): SkillFile => ({ path, text, kind: text == null ? "binary" : "text", bytes: text?.length || 0, file_hash: "test-only" });
 

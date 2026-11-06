@@ -767,7 +767,7 @@
   "invalid_skill_id": {
     "title": "A connected skill has an invalid identifier",
     "description": "A supplied skill identifier does not match the supported registry format.",
-    "recovery": "Select the skill through a Skill node, or disconnect the optional Skill Reference."
+    "recovery": "Select a valid skill through the Skill node. Close the file viewer to change the selection."
   },
   "skill_git_exclusion_changed": {
     "title": "The protected skill Git exclusions changed",

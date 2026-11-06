@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { v4 as uuid } from "uuid";
 import { api } from "@/controllers/API/api";
 import { getBaseUrl } from "@/customization/utils/urls";
-import type { Snapshot } from "./SkillHistory";
+import type { Snapshot } from "../models";
 import { fileActionErrors, fileEdits, folderPaths, replayTreeChange, validateEditSize, validateTree, workingFiles, type FileBuffers, type WorkingFile, type WorkingTree, type TreeChange } from "./SkillWorkingTree";
 
 export type SkillEditorState = { skill_id: string; selected_revision: string; head_revision: string; head_commit: string;

@@ -2,14 +2,10 @@ import { useEffect, useState } from "react";
 import { api } from "@/controllers/API/api";
 import { getBaseUrl } from "@/customization/utils/urls";
 import SkillFileDiff from "./SkillFileDiff";
-import SkillInspectionError, { describeInspectionFailure } from "./SkillInspectionError";
+import SkillInspectionError, { describeInspectionFailure } from "../interface/SkillInspectionError";
 import type { NodeFailure } from "@/components/laomedoErrors/nodeErrors";
 
-export type Commit = { commit_id: string; parent_commit: string | null; revision_id: string;
-  message: string; created_at: string; editor: Record<string, string>; policy_ref?: Record<string, string> };
-type History = { skill_id: string; selected_revision: string; commits: Commit[]; next: string | null };
-export type SkillFile = { path: string; bytes: number; file_hash: string; kind: "text" | "binary"; text: string | null; image_data_url?: string; binary_base64?: string };
-export type Snapshot = { schema_version: string; skill_id: string; revision_id: string; tree_hash: string; files: SkillFile[] };
+import type { Commit, History, SkillFile, Snapshot } from "../models";
 const short = (identity: string) => identity.replace(/^sha256:/, "").slice(0, 8);
 
 export default function CommitTree({ skillId, revision, selected, onSelect }: {

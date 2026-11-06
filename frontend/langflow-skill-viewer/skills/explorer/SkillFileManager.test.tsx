@@ -2,8 +2,8 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "@/controllers/API/api";
 import SkillFileManager, { type SkillFileManagerHandle } from "./SkillFileManager";
-import { useSkillEditing } from "./SkillEditing";
-import type { Snapshot } from "./SkillHistory";
+import { useSkillEditing } from "../editor/SkillEditing";
+import type { Snapshot } from "../models";
 import { TextDecoder, TextEncoder } from "util";
 Object.assign(global, { TextDecoder, TextEncoder });
 

@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import SkillOverview, { bundlePath, skillDescription } from "./SkillOverview";
-import type { Snapshot } from "./SkillHistory";
+import type { Snapshot } from "../models";
 jest.unmock("react-markdown");
 const textFile = (path: string, text: string) => ({ path, text, kind: "text" as const, bytes: text.length, file_hash: path });
 const snapshot: Snapshot = { schema_version: "laomedo.skill-inspection.v1", skill_id: "real-contract", revision_id: "pinned", tree_hash: "pinned", files: [

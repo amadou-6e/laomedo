@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import DOMPurify from "dompurify";
-import type { Snapshot } from "./SkillHistory";
+import type { Snapshot } from "../models";
 
 export function skillDescription(text: string): { summary: string; body: string } {
   const normalized = text.replace(/\r\n?/g, "\n");

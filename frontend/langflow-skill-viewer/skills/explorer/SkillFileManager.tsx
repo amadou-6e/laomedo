@@ -2,8 +2,8 @@ import * as Menu from "@radix-ui/react-dropdown-menu";
 import { Children, forwardRef, useEffect, useImperativeHandle, useRef, useState, type DragEvent, type ReactElement, type ReactNode } from "react";
 import { VscCloudUpload, VscCopy, VscEdit, VscTrash } from "react-icons/vsc";
 import SkillExplorer, { type ExplorerEntry } from "./SkillExplorer";
-import type { SkillEditing } from "./SkillEditing";
-import { baseName, deleteTree, fileActionErrors, joinPath, moveTree, parentPath, readLocalFiles, validateFilePath } from "./SkillWorkingTree";
+import type { SkillEditing } from "../editor/SkillEditing";
+import { baseName, deleteTree, fileActionErrors, joinPath, moveTree, parentPath, readLocalFiles, validateFilePath } from "../editor/SkillWorkingTree";
 
 type Form = { kind: "rename" | "copy"; path: string; folder: boolean };
 export type SkillFileManagerHandle = { dismiss: () => boolean };

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import * as monaco from "monaco-editor/editor";
 import { useDarkStore } from "@/stores/darkStore";
-import type { SkillFile } from "./SkillHistory";
+import type { SkillFile } from "../models";
 
 export type DiffRow = { kind: "context" | "added" | "deleted"; old: number | null; current: number | null; text: string };
 export function diffRows(before: string[], after: string[], changes: monaco.editor.ILineChange[]): DiffRow[] {

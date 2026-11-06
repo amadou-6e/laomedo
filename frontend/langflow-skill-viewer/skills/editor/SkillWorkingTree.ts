@@ -1,6 +1,6 @@
 ﻿import { sha256 } from "js-sha256";
 import { fromByteArray } from "base64-js";
-import type { SkillFile } from "./SkillHistory";
+import type { SkillFile } from "../models";
 
 export type WorkingFile = SkillFile & { contentBase64?: string; sourcePath?: string };
 export type FileEdit = { path: string; content: string | null; encoding?: "base64" } | { path: string; source_path: string };

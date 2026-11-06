@@ -1,4 +1,4 @@
-import type { SkillFile } from "./SkillHistory";
+import type { SkillFile } from "../models";
 import { SkillChevron, SkillFileIcon } from "./SkillIcons";
 import type { ReactElement, ReactNode } from "react";
 

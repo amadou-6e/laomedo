@@ -1,6 +1,6 @@
 import { createContext, lazy, Suspense, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 
-const SkillFilesModal = lazy(() => import("./SkillFilesModal"));
+const SkillFilesModal = lazy(() => import("../workspace/SkillFilesModal"));
 type Selection = { skillId: string; revision: string };
 const SkillViewerContext = createContext<((selection: Selection) => void) | null>(null);
 
