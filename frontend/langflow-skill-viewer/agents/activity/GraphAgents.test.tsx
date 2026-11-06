@@ -14,7 +14,7 @@ const clearTarget=jest.fn(()=>{activityTarget=null});
 jest.mock("@/stores/agentActivityStore",()=>({useAgentActivityStore:Object.assign((select:any)=>select({target:activityTarget}),{getState:()=>({clearTarget})})}));
 jest.mock("@/stores/flowStore",()=>({__esModule:true,default:(select:(state:unknown)=>unknown)=>select({nodes:canvasNodes})}));
 const run=(id:string,execution:string)=>({id,node:`node-${id}`,execution,started:"2026-10-15T10:00:00Z",ended:"2026-10-15T10:00:02Z",status:"completed",stream_state:"complete",event_count:2,native_session:id,model:"gpt-6-luna"});
-const projection={turns:[],items:[],threads:[],usage:null,usage_points:[],cost:{amount:null},cost_reason:"Unknown model",telemetry:[],telemetry_coverage:"not observed"};
+const projection={turns:[],items:[],threads:[],usage:null,usage_points:[],clock:"unknown",cost:{amount:null,currency:"USD",basis:"unknown",catalog_date:"",source:null},cost_reason:"Unknown model",telemetry:[],telemetry_coverage:"not observed"};
 jest.unmock("react-markdown");
 jest.mock("@/components/ui/button",()=>({Button:jest.requireActual("react").forwardRef(({variant,size,ignoreTitleCase,...props}:any,ref:any)=><button ref={ref} {...props}/>)}));
 jest.mock("@/components/ui/popover",()=>{const primitive=jest.requireActual("@radix-ui/react-popover");return {Popover:primitive.Root,PopoverTrigger:primitive.Trigger,PopoverContent:primitive.Content};});
@@ -23,6 +23,12 @@ jest.mock("@/components/ui/badge",()=>({Badge:({variant,size,...props}:any)=><sp
 jest.mock("@/components/common/genericIconComponent",()=>({__esModule:true,default:()=> <svg/>}));
 jest.mock("@/components/core/codeTabsComponent",()=>({__esModule:true,default:({code}:{code:string})=> <pre><span>{code}</span></pre>}));
 beforeEach(()=>{jest.clearAllMocks();canvasNodes=[];activityTarget=null});
+
+test("an absent graph and empty activity target render without dispatch",()=>{
+  render(<GraphAgents/>);
+  expect(screen.getByText("No captured agent runs yet.")).toBeVisible();
+  expect(api.get).not.toHaveBeenCalled();
+});
 
 test("native Codex tools use readable names without dropping source metadata",()=>{
   expect(activityTitle({type:"mcpToolCall",server:"github",tool:"get_pull_request"})).toBe("github · get_pull_request");
@@ -80,7 +86,7 @@ test("conversation search has clear and empty states, and switching scope resets
   const search=await screen.findByRole("textbox",{name:"Search conversation"});
   fireEvent.change(search,{target:{value:"Garnet"}});expect(screen.getByText("Garnet main answer")).toBeInTheDocument();
   fireEvent.change(search,{target:{value:"zzzzzzzzzz"}});expect(screen.getByText("No matching messages or tools.")).toBeInTheDocument();expect(screen.getByRole("button",{name:"Export conversation"})).toBeDisabled();
-  fireEvent.click(screen.getByRole("button",{name:"Clear",exact:true}));
+  fireEvent.click(screen.getByRole("button",{name:"Clear"}));
   expect(search).toHaveValue("");expect(screen.getByText("Garnet main answer")).toBeInTheDocument();
   fireEvent.change(search,{target:{value:"Garnet"}});
   fireEvent.click(screen.getByRole("button",{name:/^Child reviewer.*0 turns/}));
@@ -151,7 +157,7 @@ test("conversation follows diagnostics, roles differ and command evidence starts
  const {container}=render(<GraphAgents flowId="flow"/>);
  fireEvent.click(await screen.findByRole("button",{name:"node-one · completed"}));
  await screen.findByRole("navigation",{name:"Activity selection"});
- fireEvent.click(screen.getByRole("button",{name:"All activity",exact:true}));
+ fireEvent.click(screen.getByRole("button",{name:"All activity"}));
  const conversation=await screen.findByRole("region",{name:"Conversation messages and tools"});
  expect(screen.getByRole("region",{name:"Usage and diagnostics"}).compareDocumentPosition(conversation)&Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
  expect(conversation).toHaveAttribute("tabindex","0");
@@ -284,7 +290,7 @@ test("Gantt scopes messages to child and turn, breadcrumbs restore ancestors and
     items:[lane("a","parent","t1","Parent answer"),lane("b","child","c1","First child answer"),lane("c","child","c2","Second child answer")]};
   (api.get as jest.Mock).mockImplementation((url:string)=>Promise.resolve({data:url.endsWith("/flow")?{runs:[first,old]}:{run:url.endsWith("/old")?old:first,projection:p,truncated:false}}));
   render(<GraphAgents flowId="flow"/>);
-  fireEvent.click(await screen.findByRole("button",{name:/Review changes.*2 turns.*completed$/,exact:false}));
+  fireEvent.click(await screen.findByRole("button",{name:/Review changes.*2 turns.*completed$/}));
   expect(await screen.findByText("First child answer")).toBeInTheDocument();expect(screen.queryByText("Parent answer")).toBeNull();
   fireEvent.click(screen.getByRole("button",{name:/^Turn 1.*Review changes.*completed, /}));
   expect(screen.queryByText("Second child answer")).toBeNull();

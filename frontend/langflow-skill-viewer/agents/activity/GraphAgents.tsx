@@ -18,7 +18,7 @@ import { RuntimeRecords } from "./telemetry";
 export default function GraphAgents({flowId}:{flowId?:string}) {
   const nodes=useFlowStore(state=>state.nodes);
   const target=useAgentActivityStore(state=>state.target);
-  const targetNode=target?.flowId===flowId?target.nodeId:undefined;
+  const targetNode=target&&target.flowId===flowId?target.nodeId:undefined;
   useEffect(()=>()=>useAgentActivityStore.getState().clearTarget(),[]);
   useEffect(()=>{setExecution("");setSelected("")},[targetNode]);
   const label=(run:Run)=>run.node_label?.trim()||nodes.find(node=>node.id===run.node)?.data.node?.display_name||run.node;
