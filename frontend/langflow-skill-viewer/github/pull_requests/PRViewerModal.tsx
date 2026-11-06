@@ -1,3 +1,5 @@
+import GitHubInspectionError, { describeGitHubInspectionFailure } from "../interface/InspectionError";
+import { describeNodeFailure, type NodeFailure } from "@/components/laomedoErrors/nodeErrors";
 import { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { api } from "@/controllers/API/api";
@@ -9,17 +11,17 @@ import { prSelection, safeLink } from "./selection";
 
 export default function PRViewerModal({ template, open, setOpen }: { template: Template; open: boolean; setOpen: (open:boolean)=>void }) {
   const selection = prSelection(template);const key=JSON.stringify(selection);
-  const [snapshot,setSnapshot]=useState<Snapshot|null>(null);const [loading,setLoading]=useState(false);const [error,setError]=useState("");const [reload,setReload]=useState(0);
+  const [snapshot,setSnapshot]=useState<Snapshot|null>(null);const [loading,setLoading]=useState(false);const [error,setError]=useState<NodeFailure|null>(null);const [reload,setReload]=useState(0);
   useEffect(()=>{
-    const controller=new AbortController();setSnapshot(null);setError("");setLoading(false);
+    const controller=new AbortController();setSnapshot(null);setError(null);setLoading(false);
     if(!open)return()=>controller.abort();
-    if(!selection.url){setError("Select a PR first.");return()=>controller.abort();}
+    if(!selection.url){setError(describeNodeFailure("selected_pr_required", undefined));return()=>controller.abort();}
     setLoading(true);
     api.post<Snapshot>(`${getBaseUrl()}laomedo/github-prs/inspect`,{repository_url:selection.repository_url,pr_number:selection.pr_number,labels:selection.labels,state:selection.state},{signal:controller.signal}).then(({data})=>{
       if(controller.signal.aborted)return;
       if(data.schema_version!=="laomedo.pr-inspection.v1" || data.pr.number!==selection.pr_number || data.pr.url.toLowerCase()!==selection.url.toLowerCase())throw Error("identity mismatch");
       setSnapshot(data);
-    }).catch(()=>{if(!controller.signal.aborted)setError("PR unavailable. Check the current selection and connection.");}).finally(()=>{if(!controller.signal.aborted)setLoading(false);});
+    }).catch((failure)=>{if(!controller.signal.aborted)setError(describeGitHubInspectionFailure(failure,"pr"));}).finally(()=>{if(!controller.signal.aborted)setLoading(false);});
     return()=>controller.abort();
   },[open,key,reload]);
   return <BaseModal open={open} setOpen={setOpen} size="large">
@@ -30,7 +32,7 @@ export default function PRViewerModal({ template, open, setOpen }: { template: T
         {selection.url ? <a href={selection.url} target="_blank" rel="noopener noreferrer" className="rounded border px-3 py-2" data-testid="pr-open-browser">Open in GitHub</a> : <span aria-disabled="true" className="px-3 py-2">Open in GitHub</span>}
       </nav>
       {loading && <p role="status">Loading current PR...</p>}
-      {error && <div role="alert">{error}</div>}
+      {error && <GitHubInspectionError failure={error} />}
       {snapshot && <article data-testid="pr-viewer-content" className="break-words">
         <h2 className="mb-3 text-xl font-semibold">#{snapshot.pr.number} {snapshot.pr.title}</h2>
         <p className="mb-2">State: {snapshot.pr.state} | Labels: {snapshot.pr.labels.join(", ") || "None"}</p>

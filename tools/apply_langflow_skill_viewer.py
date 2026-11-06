@@ -278,21 +278,10 @@ def apply(checkout):
         overlay / "skills/assets/skill-icons-NOTICE.txt",
         checkout / "src/frontend/public/skill-icons-NOTICE.txt",
     )
-    issue_target = checkout / "src/frontend/src/modals/github/issues"
     shutil.copytree(
-        overlay / "github/issues",
-        issue_target,
+        overlay / "github",
+        checkout / "src/frontend/src/modals/github",
         ignore=shutil.ignore_patterns("README.md"),
-    )
-    pr_target = checkout / "src/frontend/src/modals/github/pull_requests"
-    shutil.copytree(
-        overlay / "github/pull_requests",
-        pr_target,
-        ignore=shutil.ignore_patterns("README.md"),
-    )
-    shutil.copy2(
-        overlay / "github/models.ts",
-        checkout / "src/frontend/src/modals/github/models.ts",
     )
     activity_target = checkout / "src/frontend/src/modals/agentActivity"
     activity_target.mkdir()

@@ -38,6 +38,8 @@ Acceptance criteria:
 - Opening the viewer fetches scoped content without executing an operation or model call.
 - Open in GitHub targets the exact selected repository and PR number.
 - Loading, unavailable content and no selection remain distinguishable.
+- Read failures retain a safe machine code, shared explanation and subtle diagnostic copy icon.
+  Refresh repeats only the selected read; it cannot edit GitHub, run the graph or start an Agent.
 
 ![Actual PR viewer with no PR selected](assets/pr-viewer-empty.png)
 

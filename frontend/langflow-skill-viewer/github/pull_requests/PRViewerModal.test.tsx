@@ -63,7 +63,7 @@ test("late responses from an old selection cannot replace current content", asyn
 
 test("missing picker identity has no read and no external link", () => {
   render(<PRViewerModal template={{}} open setOpen={() => {}} />);
-  expect(screen.getByText("Select a PR first.")).toBeTruthy();
+  expect(screen.getByText("Select a GitHub PR")).toBeTruthy();
   expect(screen.queryByTestId("pr-open-browser")).toBeNull();
   expect(post).not.toHaveBeenCalled();
 });

@@ -1818,5 +1818,15 @@
     "title": "The selected PR no longer matches",
     "description": "The resource no longer satisfies the selected labels or state filter.",
     "recovery": "Refresh discovery and review the filters and current selection. The node will not silently choose another resource."
+  },
+  "github_issue_inspection_unavailable": {
+    "title": "The selected issue could not be loaded",
+    "description": "The viewer could not confirm the current issue content. The cause has not been established.",
+    "recovery": "Refresh issue repeats only this read. It does not edit GitHub, run the graph or start an Agent. Check the current selection and local GitHub connection if the read still fails."
+  },
+  "github_pr_inspection_unavailable": {
+    "title": "The selected pull request could not be loaded",
+    "description": "The viewer could not confirm the current pull request content. The cause has not been established.",
+    "recovery": "Refresh PR repeats only this read. It does not edit GitHub, run the graph or start an Agent. Check the current selection and local GitHub connection if the read still fails."
   }
 }

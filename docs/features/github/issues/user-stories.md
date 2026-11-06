@@ -39,6 +39,8 @@ Acceptance criteria:
 - Opening the viewer fetches scoped content without executing an operation or model call.
 - Open in GitHub targets the exact selected repository and issue number.
 - Loading, unavailable content and no selection remain distinguishable.
+- Read failures retain a safe machine code, shared explanation and subtle diagnostic copy icon.
+  Refresh repeats only the selected read; it cannot edit GitHub, run the graph or start an Agent.
 
 ![Actual Issue viewer with no issue selected](assets/issue-viewer-empty.png)
 
