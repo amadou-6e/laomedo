@@ -260,3 +260,36 @@ class SharedMigrationTests(unittest.TestCase):
         source = ROOT / "src/laomedo"
         for path in (source / "git").rglob("*.py"):
             self.assertNotIn("retained_shared", path.read_text(encoding="utf-8"))
+
+    def test_partial_source_settings_keep_constants_and_move_only_settings(self):
+        old = "laomedo.skills.sources.settings"
+        new = "laomedo.skills.interface.sources.settings"
+        for source in (
+            f"from {old} import Settings\nvalue = Settings()\n",
+            f"import {old} as settings\nvalue = settings.Settings()\n",
+            "from laomedo.skills.sources import settings\nvalue = settings.Settings()\n",
+            f"from {old} import Settings, SKIP\nvalue = (Settings(), SKIP)\n",
+        ):
+            rewritten = migration.migrate_source(source)
+            self.assertIn(new, rewritten)
+            self.assertEqual(migration.migrate_source(rewritten), rewritten)
+            if "Settings, SKIP" in source:
+                self.assertIn(f"from {old} import SKIP", rewritten)
+                self.assertIn(f"from {new} import Settings", rewritten)
+        for source in (
+            f"from {old} import *\n",
+            f"import {old} as settings\nvalue = getattr(settings, 'Settings')\n",
+            f"import {old} as settings\nvalue = getattr(settings, selected)\n",
+            f"import {old}\nvalue = {old}.Settings()\n",
+        ):
+            with (
+                self.subTest(source=source),
+                self.assertRaises(migration.ManualMigrationRequired),
+            ):
+                migration.migrate_source(source)
+        for source in (
+            f"from {old} import SKIP\nvalue = SKIP\n",
+            f"import {old} as settings\nvalue = settings.MAX_ENTRIES\n",
+            f"import {old} as settings\nvalue = getattr(settings, 'SKIP')\n",
+        ):
+            self.assertEqual(migration.migrate_source(source), source)

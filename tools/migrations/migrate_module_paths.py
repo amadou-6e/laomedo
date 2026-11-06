@@ -77,7 +77,9 @@ RETIRED_SPLIT_MODULES = SPLIT_MODULES - FINAL_FILE_MODULES
 OPAQUE_SPLIT_MODULES = RETIRED_SPLIT_MODULES | {
     old
     for old, target in MODULE_PATHS.items()
-    if any(
+    if old not in FINAL_FILE_MODULES
+    and old not in FINAL_PACKAGES
+    and any(
         symbol.startswith(old + ".") and not moved.startswith(target + ".")
         for symbol, moved in SYMBOL_PATHS.items()
     )
@@ -169,6 +171,38 @@ def check_manual_git_calls(source: str, tree) -> None:
             and reference(node.args[0])
             in {"laomedo.skills.sources.utils", "laomedo.skills.sources.settings"}
         ):
+            if (
+                reference(node.args[0]) == "laomedo.skills.sources.settings"
+                and len(node.args) == 2
+                and not node.keywords
+                and isinstance(node.args[1], ast.Constant)
+                and isinstance(node.args[1].value, str)
+            ):
+                # Retained constants are current definitions, not ambiguous lookups.
+                try:
+                    body = ast.parse(
+                        (SOURCE_ROOT / "laomedo/skills/sources/settings.py").read_text(
+                            encoding="utf-8-sig"
+                        )
+                    ).body
+                except (OSError, SyntaxError, UnicodeError):
+                    body = []
+                retained = {
+                    target.id
+                    for statement in body
+                    for target in (
+                        statement.targets
+                        if isinstance(statement, ast.Assign)
+                        else (
+                            [statement.target]
+                            if isinstance(statement, ast.AnnAssign)
+                            else []
+                        )
+                    )
+                    if isinstance(target, ast.Name)
+                }
+                if node.args[1].value in retained:
+                    continue
             raise ManualMigrationRequired(
                 "Dynamic access to a split Skill module requires explicit defining symbols"
             )
