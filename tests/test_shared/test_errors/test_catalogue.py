@@ -636,7 +636,6 @@ OPENCODE_ERROR_PRODUCERS = tuple(
 )
 
 
-
 class OpenCodeErrorCatalogueTests(unittest.TestCase):
     def test_opencode_runner_boundary_and_capture_codes_have_explanations(self):
         catalog = json.loads(
