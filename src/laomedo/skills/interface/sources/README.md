@@ -17,3 +17,18 @@ revisions and resolve retain their exact field sets and payload shapes. Limits,
 authentication failures and descriptive client fallbacks retain their contracts.
 No HTTP option enables the repository_provider test capability. Core source and
 registry modules do not import this transport or an optional graph framework.
+
+The handler admits at most 16 KiB of request-body bytes. The client retains its
+bounded response read and safe source-error projection. An uncertain response
+after possible dispatch does not establish that resending is safe. This boundary
+never executes a Skill or Agent.
+
+Settings use explicit construction arguments or the declared environment fields;
+there is no dotenv or secret-store lookup. Credential values remain in token files,
+not serialized settings. Start the service with
+`python -m laomedo.skills.interface.sources.cli --help`; callers import
+`source_request` from `laomedo.skills.interface.sources.client`.
+
+The checkout-owned offline migrator handles explicitly selected source paths.
+Immutable historical exports remain byte-preserved on `exp`, independently of
+current module migration and without any historical execution acceptance claim.

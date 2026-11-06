@@ -1,4 +1,12 @@
-# Langflow Skill files overlay
+# Laomedo Langflow overlay
+
+Feature packages own rendering, wire contracts and colocated tests; the pinned
+installer binds them to upstream entry points. Discover the owned packages here:
+
+- [Errors](errors/README.md)
+- [Local runner recovery](recovery/README.md)
+- [Upstream integration patches](integration/README.md)
+
 
 ## Agent activity appearance and node names
 
@@ -144,3 +152,10 @@ The original Codex agent node offers Activity in place of Code. It opens the gra
 The overlay applicator installs AgentActivityNavigation.ts at src/frontend/src/stores/agentActivityStore.ts. The node entry point uses an explicit transient target scoped to the graph, clears it when leaving Activity, and does not change canvas selection or save graph data. Opening Agents directly from the sidebar does not infer a target from selected canvas nodes.
 
 OpenCode agent nodes use the same Activity entry point. Provider-qualified message snapshots, capture limits and usage semantics are documented in [the OpenCode node guide](../../examples/opencode-node/README.md).
+
+## Shared failure explanations
+
+`ErrorExplanation` owns the selectable explanation, recovery and safe technical
+details used by popup and inline presenters. `formatErrorCopy` produces the same
+plain text for the subtle copy control. The shared catalogue retains stable codes
+from earlier supported error producers as well as current failures.

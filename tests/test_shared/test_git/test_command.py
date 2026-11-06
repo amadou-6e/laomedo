@@ -205,7 +205,7 @@ class SharedGitTests(unittest.TestCase):
                     path,
                 )
 
-    def test_git_process_owners_keep_only_the_explicit_source_read_exception(self):
+    def test_git_process_execution_has_one_shared_owner(self):
         source = repository_root() / "src/laomedo"
         owners = set()
         for relative in (
@@ -228,8 +228,6 @@ class SharedGitTests(unittest.TestCase):
             owners,
             {
                 "git/command.py",
-                # Source discovery owns its existing active spool/cache policy.
-                "skills/sources/repository.py",
             },
         )
 

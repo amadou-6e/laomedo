@@ -80,7 +80,7 @@ assert 'docker' not in sys.modules
         """Require catalogue coverage for every literal public code in this feature."""
         catalogue = json.loads(
             ROOT.joinpath(
-                "frontend/langflow-skill-viewer/node-error-catalog.json"
+                "frontend/langflow-skill-viewer/errors/node-error-catalog.json"
             ).read_text()
         )
         source = ROOT.joinpath(

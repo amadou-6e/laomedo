@@ -31,7 +31,7 @@ the receipt before leaving the page: output inspectors are transient, while the
 registry history persists. An uncertain apply reply needs history reconciliation,
 not blind graph retry.
 
-`build_flow.py` constructs the workflow. `graph.py` owns only `node()` and `edge()`:
+`build_flow.py` constructs the workflow. [`../graph.py`](../graph.py) owns only `node()` and `edge()`:
 they read actual component metadata and construct native graph handles without
 loading an experimental provider or running a campaign. The caller supplies
 component paths, values and connections; graph identity and port semantics remain

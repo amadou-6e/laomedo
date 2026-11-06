@@ -1,11 +1,20 @@
 """Canonical private inputs to the shared host Git command boundary."""
 
 from enum import Enum
+from math import isnan
 from pathlib import Path
+from typing import Callable
 
-from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    SecretStr,
+    field_validator,
+    model_validator,
+)
 
-from .settings import GIT_COMMAND_TIMEOUT_SECONDS
+from .settings import GIT_COMMAND_TIMEOUT_SECONDS, ISOLATED_READ_OPTIONS
 
 
 class GitEnvironmentProfile(str, Enum):
@@ -13,6 +22,44 @@ class GitEnvironmentProfile(str, Enum):
 
     WORKSPACE = "workspace"
     HOST_TRANSPORT = "host_transport"
+    ISOLATED_HTTPS_READ_ONLY = "isolated_https_read_only"
+    ISOLATED_FILE_READ_ONLY = "isolated_file_read_only"
+
+
+class GitExecutionBudget(BaseModel):
+    """Active output and operation budget; feature accounting stays with its caller."""
+
+    model_config = ConfigDict(
+        strict=True, frozen=True, extra="forbid", hide_input_in_errors=True
+    )
+    stdout_limit: int = Field(
+        ge=0, description="Maximum spooled stdout bytes; equality remains allowed."
+    )
+    operation_deadline: float = Field(
+        default=float("inf"),
+        allow_inf_nan=True,
+        description="Caller-owned absolute monotonic deadline, including an already expired value.",
+    )
+    poll_seconds: float = Field(
+        default=0.05,
+        gt=0,
+        allow_inf_nan=False,
+        description="Existing source polling interval in seconds.",
+    )
+    check_budget: Callable[[], None] | None = Field(
+        default=None,
+        repr=False,
+        exclude=True,
+        description="Optional caller-owned accounting check; its refusal propagates after cleanup.",
+    )
+
+    @field_validator("operation_deadline")
+    @classmethod
+    def validate_deadline(cls, value: float) -> float:
+        """Allow an unbounded or expired deadline; NaN cannot disable comparisons."""
+        if isnan(value):
+            raise ValueError("git_read_deadline_invalid")
+        return value
 
 
 class GitCredential(BaseModel):
@@ -42,6 +89,12 @@ class GitExecutionContext(BaseModel):
 
     model_config = ConfigDict(
         strict=True, frozen=True, extra="forbid", hide_input_in_errors=True
+    )
+    hooks_path: Path | None = Field(
+        default=None,
+        repr=False,
+        exclude=True,
+        description="Caller-owned disabled-hooks path for the isolated read profiles.",
     )
     profile: GitEnvironmentProfile = Field(
         default=GitEnvironmentProfile.HOST_TRANSPORT,
@@ -103,3 +156,48 @@ class GitCommand(BaseModel):
         exclude=True,
         description="Optional selected helper credential, excluded from normal serialization.",
     )
+
+    cwd: Path | None = Field(
+        default=None,
+        repr=False,
+        exclude=True,
+        description="Native process cwd, distinct from the existing Git -C repository argument.",
+    )
+    budget: GitExecutionBudget | None = Field(
+        default=None,
+        exclude=True,
+        description="Optional active spooled-output and caller accounting budget.",
+    )
+
+    @model_validator(mode="after")
+    def validate_execution_profile(self) -> "GitCommand":
+        """Reject attempts to weaken an isolated read profile, including mutable inputs."""
+        isolated = self.context.profile in {
+            GitEnvironmentProfile.ISOLATED_HTTPS_READ_ONLY,
+            GitEnvironmentProfile.ISOLATED_FILE_READ_ONLY,
+        }
+        if not isolated:
+            if self.budget is not None or self.cwd is not None:
+                raise ValueError("git_read_profile_required")
+            return self
+        if (
+            self.credential is not None
+            or self.configuration
+            or self.context.extra_env
+            or self.context.hardened
+            or self.context.home is not None
+            or self.context.hooks_path is None
+            or self.cwd is None
+            or self.directory is not None
+            or self.budget is None
+            or not self.arguments
+            or self.arguments[0] not in ISOLATED_READ_OPTIONS
+        ):
+            raise ValueError("git_read_profile_invalid")
+        options = ISOLATED_READ_OPTIONS[self.arguments[0]]
+        for argument in self.arguments[1:]:
+            if argument == "--":
+                break  # Subsequent values are operands, never options.
+            if argument.startswith("-") and argument not in options:
+                raise ValueError("git_read_profile_invalid")
+        return self

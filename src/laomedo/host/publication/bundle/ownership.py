@@ -3,8 +3,8 @@
 from contextlib import contextmanager
 from pathlib import Path
 import json
-from laomedo.host.publication.ingestion.utils import is_redirected_path
 from laomedo.host.publication.ingestion.utils import write_durable_json
+from laomedo.host.publication.ingestion.utils import is_redirected_path
 import os
 import re
 import subprocess

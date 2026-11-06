@@ -1,65 +1,103 @@
 # Skill source discovery
 
-Sources discovers admitted local or public HTTPS repository sources, retains
-choices and imports exact immutable Skill bytes. Reading does not execute Skill
-content, advance an established canonical latest pointer or grant editing authority.
+This feature discovers admitted local or HTTPS repository sources, caches choices
+and imports exact immutable skill bytes. Source reads do not execute skill content,
+advance canonical latest or grant editing authority.
 
-## Ownership and object nomenclature
+## Concerns and object nomenclature
 
-| Concern | Defining module | Object or function vocabulary |
+| Concern | Owner | Interface vocabulary |
 | --- | --- | --- |
-| Choice coordination, index and registry import | service.py | SkillSources: discover, revisions, resolve |
-| Repository cache, refs, entries and blobs | repository.py | GitSkillSource: repository, entries, read_blob |
-| Local root admission and reading | local.py | LocalSkillSource: admit, discover, read |
-| Bundle byte and path admission | bundle.py | validate_bundle, validate_bundle_path |
-| Names and exclusions | utils.py | skill_name, excluded_parts |
-| Admitted structured values | models.py | AdmittedSkillSource, SkillSourceChoice, SkillRepositoryRef, SkillRepositoryEntry, SkillRepositoryState, PendingSkillImport |
-| Source policy | settings.py | Fixed exclusions and entry limits |
-| App transport | ../interface/sources/ | Client, server, request handler, Settings and explicit CLI startup |
+| Discovery, cached choices and registry imports | `service.py` | `SkillSources`: discover, revisions, resolve |
+| Git cache, refs and blobs | `repository.py` | `GitSkillSource`: repository, entries, read_blob |
+| Uncertain clone staging lifetime | `staging.py` | `SkillSourceStagingDirectory`: preserve, cleanup |
+| Allowed local roots and file reads | `local.py` | `LocalSkillSource`: admit, discover, read |
+| Bundle byte/path admission | `bundle.py` | validate_bundle, validate_bundle_path |
+| Naming and excluded paths | `utils.py` | skill_name, excluded_parts |
+| Canonical admitted values | `models.py` | AdmittedSkillSource, SkillSourceChoice, SkillRepositoryRef, SkillRepositoryState, PendingSkillImport |
+| Fixed exclusions and limits | `settings.py` | Source policy; no environment or HTTP flag weakens it |
+| Stable failure category | `errors.py` | SourceError; public codes exclude credentials, paths, parser text and Git stderr |
+| Application transport | [../interface/sources/](../interface/sources/README.md) | Client, handler, server, settings and explicit startup |
 
-Source identifies an admitted read capability. Choice identifies a selectable
-Skill folder. Ref binds a named revision to a Git commit; Entry records Git mode,
-kind and object identity; State groups the cache directory and captured refs.
-Import groups candidate bytes and provenance before validation. Their Pydantic
-models keep exact wire projections; dynamic persisted index keys remain maps.
+Source denotes an admitted read capability. Sources coordinates choices from
+those capabilities. Ref identifies a named Git revision and its commit; State
+groups a cache directory and refs; Choice carries display/name/path fields;
+Import groups collected bytes and provenance awaiting validation. Services compose
+the registry and shared Git runner. Independent helpers use function-only modules.
 
 ## Method vocabulary
 
-`SkillSources.discover(source)` merges admitted choices and atomically replaces
-the index. `revisions(source, choice)` validates bounded candidate bundles before
-registry writes. `resolve(source, choice, revision)` verifies a previously offered
-immutable reference. `_source`, `_register` and `_save` own admission, publication
-and index replacement respectively.
+| Object / method | Responsibility |
+| --- | --- |
+| `SkillSources.discover(source)` | Admit a source, merge bounded discovered choices and atomically replace the index |
+| `SkillSources.revisions(source, choice)` | Collect exact bytes, enforce option limits before registry effects and cache immutable choices |
+| `SkillSources.resolve(source, choice, revision)` | Resolve a previously offered immutable reference and verify registry bytes |
+| `SkillSources._source`, `_register`, `_save` | Admit source kind, publish verified bytes/provenance and replace index state |
+| `GitSkillSource.repository(source, refresh=False, *, deadline)` | Clone/fetch owned cache and capture bounded refs through GitCommandRunner |
+| `GitSkillSource.entries(repository, commit, deadline)` | Decode tree metadata and apply path/entry exclusions |
+| `GitSkillSource.read_blob(repository, entry, deadline)` | Admit blob mode and enforce byte limits before reading |
+| `GitSkillSource._run`, `_check_cache_budget` | Translate process observations and enforce cache accounting |
+| `LocalSkillSource.admit(path, require_exists=True)` | Enforce allowed roots, link/reparse policy and post-admission path resolution |
+| `LocalSkillSource.discover(root, deadline)` | Find bounded skill roots without executing content or reading unrelated files |
+| `LocalSkillSource.read(folder, deadline)` | Return a verified byte inventory, or the missing-SKILL.md outcome |
+| `SkillSourceChoice.for_folder`, `for_registry`, `to_record` | Construct and project the choice's wire fields |
+| `SkillSourceStagingDirectory.preserve`, `cleanup` | Retain staging on cleanup uncertainty; otherwise use TemporaryDirectory cleanup |
 
-`GitSkillSource.repository(source, refresh=False, *, deadline)` captures an owned
-bare repository and its refs. `entries(repository, commit, deadline)` admits tree
-metadata; `read_blob(repository, entry, deadline)` checks mode and size before
-reading. `_run` owns the source read process; `_cache_bytes` counts one observed
-stat sample per regular file, ignoring vanished entries but propagating other
-inspection failures.
+Other models carry admitted values through Pydantic construction. Persisted cache
+dictionaries have independent readers; they are not coerced into a new-write schema.
+Registry owns immutable content. Shared Git owns native execution, environment,
+protocol and process cleanup. Source paths, admission, labels, cache accounting and
+index/provenance writes belong here. Callers import defining symbols directly.
 
-`LocalSkillSource.admit` validates allowed roots and link/reparse boundaries;
-`discover(root, deadline)` finds bounded Skill folders; `read(folder, deadline)`
-returns admitted bytes or the missing-SKILL.md result. Model constructors and
-`to_record` projections keep display labels and wire shapes explicit.
+## Execution and persistence
 
-## Execution policy and constraints
+Production uses ISOLATED_HTTPS_READ_ONLY. Its environment allowlist is PATH,
+SYSTEMROOT, WINDIR, SYSTEMDRIVE, COMSPEC, PATHEXT, TEMP and TMP, preserving key
+spelling. It disables system/global Git config, interactive prompts and askpass,
+clears credential helpers, refuses redirects and permits only HTTPS. Host HOME,
+credential, proxy and provider variables are excluded. Tokens never enter argv
+or configuration. Native cwd is distinct from the `-C` repository argument.
 
-HTTPS Git reads exclude host credentials and interactive prompts, disable global
-Git configuration and hooks, refuse redirects and allow only HTTPS. The trusted
-constructor-only repository_provider capability enables isolated file reads for
-internal tests; HTTP cannot enable it. Source content is never executed.
+The trusted constructor-only `repository_provider` test capability selects an
+isolated file-read profile. HTTP cannot enable it. Production rejects credentials,
+extra environment/configuration and protocol/hook overrides.
 
-The source-owned process loop spools output, checks its output/cache bounds every
-50 ms and uses a 45-second command limit within one 60-second operation deadline.
-The cache bound remains 128 MiB. Ref, entry, file, bundle, depth and option caps
-remain enforced before publication. This loop is the explicit source-policy
-exception to the general GitCommandRunner; this module does not claim a single
-shared native execution path.
+Git stdout is spooled. Active output/time/cache breaches produce
+`repository_limit_exceeded`; a nonzero exit or oversized final output produces
+`repository_access_unavailable`. Commands have a 45-second timeout within one
+60-second discovery/revisions deadline, polled every 50ms. That operation deadline
+is passed across reads rather than reset per command. Cache budget is 128 MiB;
+ref, entry, file, bundle, depth and option caps are enforced before publication.
 
-Termination retains the existing process-group policy and final process wait.
-That final wait is not bounded and process-tree cleanup is not independently
-confirmed. Shared-runner adoption, verified Windows containment and a new public
-cleanup-uncertainty outcome require separate hardening and acceptance; none is
-implied by this structural boundary. Existing public errors and discovery fallback
-remain unchanged. Internal controls do not establish real browser acceptance.
+Source cleanup shares one five-second deadline across tree termination, pipe
+draining and final wait. Budgeted Windows reads launch suspended into an owned
+Job Object before resuming; job accounting must confirm zero active processes,
+including after root success. WORKSPACE/HOST_TRANSPORT use separate launch and
+per-substep cleanup policies. OS overhead means these are not hard real-time bounds.
+
+Unconfirmed termination retains owned clone staging and produces
+`repository_cleanup_unverified`. Do not infer the process stopped or advise an
+immediate repeat. Retained `clone-*` directories count toward the cache budget and
+are not automatically evicted. Removal requires confirming the owned process tree
+stopped; the UI provides no staging reconciliation/removal button. Interrupts keep
+their identity and arguments plus the cleanup observation, and retain uncertain
+staging too. Internal process controls do not establish real browser acceptance.
+
+Index/origin records carry retained choices, labels, sort order and source
+provenance. LF/CRLF file bytes have distinct immutable identities. Importing a
+source revision does not advance an established canonical latest pointer.
+
+## Application failures
+
+The HTTP client forwards only the exact `repository_cleanup_unverified` category
+from an error body of at most 16 KiB. Other categories, malformed/oversized bodies
+and read failures map to `source_discovery_failed`. HTTPError responses are always
+closed; remote messages and raw payloads are not presented.
+
+`LaomedoSkill.update_build_config` owns discovery-dependent form selections.
+Confirmed cleanup uncertainty propagates as its exact safe code to the shared
+error catalogue, without generic refresh advice or a successful form response.
+A failed form update supplies no replacement template: earlier browser choices
+may remain visible. Local clearing alone does not prove a browser transition.
+The real cleanup-uncertainty story requires separate acceptance evidence; an
+ordinary outage or synthetic error code cannot establish it.

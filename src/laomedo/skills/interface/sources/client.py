@@ -52,7 +52,24 @@ def source_request(action, **body):
         if len(data) > 1024 * 1024:
             raise ValueError()
         return json.loads(data)
-    except urllib.error.HTTPError:
-        raise ValueError("source_discovery_failed") from None
+    except urllib.error.HTTPError as error:
+        category = "source_discovery_failed"
+        try:
+            data = error.read(16385)
+            if len(data) <= 16384:
+                value = json.loads(data)
+                if (
+                    isinstance(value, dict)
+                    and value.get("error_category") == "repository_cleanup_unverified"
+                ):
+                    category = "repository_cleanup_unverified"
+        except Exception:
+            pass
+        finally:
+            try:
+                error.close()
+            except Exception:
+                category = "source_discovery_failed"
+        raise ValueError(category) from None
     except Exception:
         raise ValueError("source_service_unavailable") from None

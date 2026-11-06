@@ -18,9 +18,9 @@ checks. Folder naming does not change their prerequisites or acceptance status.
 
 ## Deferred adjacent suites
 
-The existing root files `test_host_mediated_push.py`, `test_host_services.py` and
-`test_host_token_connection.py` cover deferred mediation, service composition
-and credentials. `test_publication_handoff.py` covers GitHub publication
+The existing root file `test_host_mediated_push.py` covers the separately owned
+GitHub mediation workstream. Service composition and token connection regressions
+live under `test_host/test_startup.py` and `test_host/test_credentials/test_token/`. `test_publication_handoff.py` covers GitHub publication
 orchestration; `test_probe_stage_s7.py` retains an EXP-100 consumer control.
 They are explicit exclusions from the Shared/Skills organization pass, even
 where they use the same host publication package. Agent/provider, GitHub,
@@ -83,3 +83,15 @@ invocation. No archived script or model turn is needed.
 Keep helpers small and concern-owned. Consolidate repeated setup, not distinct
 error, authorization, wire-format, path, history or cleanup assertions. Compare
 test size including support code; moving a file does not reduce it.
+
+## Shared records and bounded execution
+
+`test_work_graph/` owns snapshot, launch/grant, CLI and hash-preimage checks.
+`test_host/test_credentials/test_siwc/` owns OAuth private projections;
+`test_host/test_mediation/` owns admitted host scope and metadata;
+`test_host/test_publication/test_records.py` owns publication journal and digest
+projections. These are supporting contract checks, never live sign-in or remote
+publication evidence. Shared Git tests cover narrow credential-free read profiles,
+active budgets, uncertain cleanup and actual owned Windows child-process trees.
+Their process helper lives beside that suite, not in an experiment or test-root
+filename family. Existing transport/workspace regression behavior remains covered.

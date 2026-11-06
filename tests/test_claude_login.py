@@ -265,7 +265,7 @@ class LoginMirrorTests(TestCase):
         catalogue = json.loads(
             (
                 Path(__file__).resolve().parents[1]
-                / "frontend/langflow-skill-viewer/node-error-catalog.json"
+                / "frontend/langflow-skill-viewer/errors/node-error-catalog.json"
             ).read_text()
         )
         self.assertEqual(CODES - catalogue.keys(), set())

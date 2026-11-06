@@ -10,13 +10,13 @@ from __future__ import annotations
 from pathlib import Path
 import hashlib
 import json
+from laomedo.host.publication.ingestion.settings import HANDOFF_NAME
+from laomedo.host.publication.ingestion.settings import MAX_BUNDLE_BYTES
 from laomedo.host.publication.ingestion.settings import MAX_RECORD_BYTES
-from laomedo.host.publication.ingestion.settings import RUN_IDENTITY
 from laomedo.host.publication.ingestion.settings import _BRANCH
+from laomedo.host.publication.ingestion.settings import RUN_IDENTITY
 from laomedo.host.publication.ingestion.settings import _REPOSITORY
 from laomedo.host.publication.ingestion.settings import _SHA
-from laomedo.host.publication.ingestion.settings import MAX_BUNDLE_BYTES
-from laomedo.host.publication.ingestion.settings import HANDOFF_NAME
 from laomedo.host.publication.ingestion.errors import BundleIngestError
 import os
 import stat

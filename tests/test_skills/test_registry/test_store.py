@@ -1,4 +1,5 @@
 import json
+from hashlib import sha256
 import os
 from pathlib import Path
 import shutil
@@ -6,6 +7,8 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
+from uuid import UUID
 
 from laomedo.skills.registry.errors import ConflictError
 from laomedo.skills.registry.store import SkillStore
@@ -463,6 +466,161 @@ class SkillStoreTests(unittest.TestCase):
             self.assertIsNone(result["proposed_ref"])
         finally:
             junction.rmdir()
+
+    def test_explicit_lf_and_crlf_bytes_remain_distinct_skill_revisions(self):
+        observed = {}
+        for newline in ("\n", "\r\n"):
+            with self.subTest(newline=repr(newline)):
+                draft = self.store.create_draft(
+                    "fixture-core", self.base["revision_id"], POLICY
+                )
+                data = (
+                    (BASE + "Example: amber.\n").replace("\n", newline).encode("utf-8")
+                )
+                (
+                    self.store.draft_workspace(draft["draft_id"]) / "SKILL.md"
+                ).write_bytes(data)
+                frozen = self.store.freeze_draft(draft["draft_id"])
+                name = b"SKILL.md"
+                preimage = (
+                    len(name).to_bytes(8, "big")
+                    + name
+                    + len(data).to_bytes(8, "big")
+                    + data
+                )
+                expected_hash = "sha256:" + sha256(preimage).hexdigest()
+                self.assertEqual(frozen["observed_tree_hash"], expected_hash)
+                self.assertEqual(frozen["proposed_tree_hash"], expected_hash)
+                self.assertEqual(
+                    frozen["proposed_ref"],
+                    {
+                        "tree_hash": expected_hash,
+                        "file_hashes": {
+                            "SKILL.md": "sha256:" + sha256(data).hexdigest()
+                        },
+                    },
+                )
+                self.assertTrue(frozen["promotion_eligible"])
+                self.assertEqual(frozen["changed_paths"], ["SKILL.md"])
+                retained = self.store._draft(draft["draft_id"]) / "frozen/SKILL.md"
+                self.assertEqual(retained.read_bytes(), data)
+                self.assertIn(
+                    "+Example: amber." + (r"\r\n" if newline == "\r\n" else r"\n"),
+                    frozen["patch"],
+                )
+                observed[newline] = expected_hash
+        self.assertNotEqual(observed["\n"], observed["\r\n"])
+
+    def test_revision_draft_and_frozen_record_match_old_writers(self):
+        expected = {
+            "revision": {
+                "skill_id": "fixture-core",
+                "revision_id": "sha256:c56aa4bcb3bfa99849a584f69b28b60ad7344bbc221fc2ee5b8c5fe7a053ba22",
+                "tree_hash": "sha256:c56aa4bcb3bfa99849a584f69b28b60ad7344bbc221fc2ee5b8c5fe7a053ba22",
+                "file_hashes": {
+                    "SKILL.md": "sha256:9e89bbc96040ec252246792b64e75d91270b56da1de0babfcb1e95d7032f8465"
+                },
+                "parent_revision": None,
+                "draft_id": None,
+            },
+            "draft": {
+                "draft_id": "11111111-1111-4111-8111-111111111111",
+                "skill_id": "fixture-core",
+                "base_revision": "sha256:c56aa4bcb3bfa99849a584f69b28b60ad7344bbc221fc2ee5b8c5fe7a053ba22",
+                "base_tree_hash": "sha256:c56aa4bcb3bfa99849a584f69b28b60ad7344bbc221fc2ee5b8c5fe7a053ba22",
+                "policy_ref": {
+                    "policy_id": "fixture-core-policy",
+                    "revision_id": "1",
+                    "hash": "sha256:c74a484aa3cb432e2d069a678ef8522603da6f63801014c91a2befb96e8b73a1",
+                },
+                "status": "open",
+            },
+            "frozen": {
+                "draft_id": "11111111-1111-4111-8111-111111111111",
+                "base_ref": {
+                    "revision_id": "sha256:c56aa4bcb3bfa99849a584f69b28b60ad7344bbc221fc2ee5b8c5fe7a053ba22",
+                    "tree_hash": "sha256:c56aa4bcb3bfa99849a584f69b28b60ad7344bbc221fc2ee5b8c5fe7a053ba22",
+                },
+                "policy_ref": {
+                    "hash": "sha256:c74a484aa3cb432e2d069a678ef8522603da6f63801014c91a2befb96e8b73a1",
+                    "policy_id": "fixture-core-policy",
+                    "revision_id": "1",
+                },
+                "editor_kind": "human",
+                "edit_run_id": None,
+                "trace_ref": None,
+                "observed_tree_hash": "sha256:1f4b5755f0daf5a4d92bdac85389614d0cf4cabfb5ac86b2312ba0311b7fdb59",
+                "proposed_tree_hash": "sha256:1f4b5755f0daf5a4d92bdac85389614d0cf4cabfb5ac86b2312ba0311b7fdb59",
+                "proposed_ref": {
+                    "tree_hash": "sha256:1f4b5755f0daf5a4d92bdac85389614d0cf4cabfb5ac86b2312ba0311b7fdb59",
+                    "file_hashes": {
+                        "SKILL.md": "sha256:5f9d222dec63a88385064ec4f6067f7353cb0c619c704863072d1ac5b3450e05"
+                    },
+                },
+                "changed_paths": ["SKILL.md"],
+                "patch": "--- base/SKILL.md\n"
+                "+++ draft/SKILL.md\n"
+                "@@ -1,6 +1,7 @@\n"
+                "----\\n\n"
+                "-name: fixture-core\\n\n"
+                "-description: Synthetic skill.\\n\n"
+                "----\\n\n"
+                "-\\n\n"
+                "-Rule: answer amber.\\n\n"
+                "+---\\r\\n\n"
+                "+name: fixture-core\\r\\n\n"
+                "+description: Synthetic skill.\\r\\n\n"
+                "+---\\r\\n\n"
+                "+\\r\\n\n"
+                "+Rule: answer amber.\\r\\n\n"
+                "+Example: amber.\\r\\n\n",
+                "validation_errors": [],
+                "validation_results": [
+                    {"validator": "structural-v1", "passed": True, "errors": []}
+                ],
+                "evaluation_results": [],
+                "promotion_eligible": True,
+                "promotion_performed": False,
+            },
+        }
+        self.assertEqual(self.base, expected["revision"])
+        with patch(
+            "laomedo.skills.registry.store.uuid4",
+            return_value=UUID("11111111-1111-4111-8111-111111111111"),
+        ):
+            draft = self.store.create_draft(
+                "fixture-core", self.base["revision_id"], POLICY
+            )
+        self.assertEqual(draft, expected["draft"])
+        # The original writer used explicit LF base bytes and CRLF proposed bytes:
+        # LF base bytes, then CRLF proposed bytes. Pin those inputs explicitly
+        # so Linux compares the same byte identities rather than normalizing
+        # away a meaningful skill revision change.
+        proposed = (BASE + "Example: amber.\n").replace("\n", "\r\n").encode("utf-8")
+        (self.store.draft_workspace(draft["draft_id"]) / "SKILL.md").write_bytes(
+            proposed
+        )
+        frozen = self.store.freeze_draft(draft["draft_id"])
+        self.assertEqual(frozen, expected["frozen"])
+        self.assertEqual(list(frozen), list(expected["frozen"]))
+        self.assertEqual(
+            list(frozen["policy_ref"]), list(expected["frozen"]["policy_ref"])
+        )
+        self.assertEqual(
+            SkillStore(self.store.root).revision("fixture-core"), expected["revision"]
+        )
+        # Existing readers continue tolerating historical extension fields.
+        path = (
+            self.store._revision_dir("fixture-core", self.base["revision_id"])
+            / "record.json"
+        )
+        path.write_text(
+            json.dumps({**self.base, "historical_extension": {"version": 2}}),
+            encoding="utf-8",
+        )
+        self.assertEqual(
+            self.store.revision("fixture-core")["historical_extension"], {"version": 2}
+        )
 
 
 if __name__ == "__main__":

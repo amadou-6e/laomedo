@@ -146,7 +146,6 @@ class SettingsContractTests(unittest.TestCase):
             "git/command.py": "os.environ.items()",
             "agents/providers/claude/utils.py": "os.environ.items()",
             "host/credentials/claude/utils.py": "os.environ if environment is None",
-            "skills/sources/repository.py": "os.environ.items()",
             "agents/providers/codex/servers.py": "os.environ if docker_environment is None else docker_environment",
             "host/publication/cli.py": "key in os.environ",
             "github/issues/cli.py": "os.environ.get(args.github_token_env)",
@@ -201,7 +200,17 @@ class ErrorContractTests(unittest.TestCase):
                             self.assertEqual(restored.__dict__, error.__dict__)
                             self.assertEqual(str(restored), str(error))
                         continue  # Native timeout protocol differs from scalar domain errors.
-                    if cls.__name__ == "PushOutcomeUnknown":
+                    if cls.__name__ in {
+                        "GitCommandLimitExceeded",
+                        "GitCommandCleanupError",
+                    }:
+                        error = cls()
+                        code = (
+                            "git_command_limit_exceeded"
+                            if cls.__name__ == "GitCommandLimitExceeded"
+                            else "git_command_cleanup_unverified"
+                        )
+                    elif cls.__name__ == "PushOutcomeUnknown":
                         error = cls("timeout", None)
                         code = "push_outcome_unknown"
                     else:

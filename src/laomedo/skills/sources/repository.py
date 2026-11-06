@@ -1,13 +1,16 @@
-"""Read admitted repositories with the source-owned spool, time and cache policy."""
+"""Read admitted source repositories through the shared bounded Git boundary."""
 
 from pathlib import Path, PurePosixPath
 import hashlib
-import os
-import signal
 from stat import S_ISREG
-import subprocess
-import tempfile
-import time
+from laomedo.git.command import GitCommandRunner
+from laomedo.git.errors import GitCommandLimitExceeded, GitCommandCleanupError
+from laomedo.git.models import (
+    GitCommand,
+    GitExecutionContext,
+    GitExecutionBudget,
+    GitEnvironmentProfile,
+)
 from laomedo.skills.inspection.settings import MAX_FILE_BYTES
 from laomedo.skills.registry.errors import SkillStoreError
 from laomedo.skills.registry.paths import validate_relative_path
@@ -18,97 +21,18 @@ from laomedo.skills.sources.models import (
     SkillRepositoryEntry,
 )
 from laomedo.skills.sources.settings import MAX_ENTRIES
+from laomedo.skills.sources.staging import SkillSourceStagingDirectory
 from laomedo.skills.sources.utils import excluded_parts
 
 
 class GitSkillSource:
-    """Own admitted repository reads, source cache accounting and isolated Git execution."""
+    """Own source cache semantics; generic process policy stays in GitCommandRunner."""
 
-    def __init__(self, state: Path, *, repository_provider=None):
-        """Bind one source cache and optional trusted file-source test capability."""
+    def __init__(self, state: Path, *, repository_provider=None, runner=None):
+        """Bind the owned source cache, optional trusted file adapter and shared native runner."""
         self.state = state
         self.repository_provider = repository_provider
-
-    def _run(self, cwd, args, limit=4 * 1024 * 1024, *, deadline=float("inf")):
-        """Run an isolated source read with its existing spool, time and cache checks."""
-        env = {
-            k: v
-            for k, v in os.environ.items()
-            if k.upper()
-            in {
-                "PATH",
-                "SYSTEMROOT",
-                "WINDIR",
-                "SYSTEMDRIVE",
-                "COMSPEC",
-                "PATHEXT",
-                "TEMP",
-                "TMP",
-            }
-        }
-        env.update(
-            GIT_CONFIG_NOSYSTEM="1",
-            GIT_CONFIG_GLOBAL=os.devnull,
-            GIT_TERMINAL_PROMPT="0",
-            GIT_ASKPASS="",
-            SSH_ASKPASS="",
-        )
-        command = [
-            "git",
-            "-c",
-            "credential.helper=",
-            "-c",
-            "core.hooksPath=" + str(self.state / "no-hooks"),
-            "-c",
-            "http.followRedirects=false",
-            "-c",
-            "protocol.allow=never",
-            "-c",
-            "protocol.https.allow=always",
-            *args,
-        ]
-        # A trusted fixture adapter may use file transport; it is not exposed by the service.
-        if self.repository_provider:
-            command[1:1] = ["-c", "protocol.file.allow=always"]
-        with tempfile.TemporaryFile() as output:
-            process = subprocess.Popen(
-                command,
-                cwd=cwd,
-                env=env,
-                stdout=output,
-                stderr=subprocess.DEVNULL,
-                stdin=subprocess.DEVNULL,
-                start_new_session=os.name != "nt",
-                creationflags=(
-                    subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0
-                ),
-            )
-            deadline = min(time.monotonic() + 45, deadline)
-            try:
-                while process.poll() is None:
-                    if output.tell() > limit or time.monotonic() > deadline:
-                        raise SourceError("repository_limit_exceeded")
-                    if self._cache_bytes() > 128 * 1024 * 1024:
-                        raise SourceError("repository_limit_exceeded")
-                    time.sleep(0.05)
-                output.seek(0)
-                data = output.read(limit + 1)
-                if process.returncode or len(data) > limit:
-                    raise SourceError("repository_access_unavailable")
-                return data
-            finally:
-                if process.poll() is None:
-                    if os.name == "nt":
-                        subprocess.run(
-                            ["taskkill", "/PID", str(process.pid), "/T", "/F"],
-                            stdout=subprocess.DEVNULL,
-                            stderr=subprocess.DEVNULL,
-                        )
-                    else:
-                        os.killpg(process.pid, signal.SIGKILL)
-                    if process.poll() is None:
-                        process.kill()
-                process.wait()
+        self.runner = runner if runner is not None else GitCommandRunner()
 
     def _cache_bytes(self):
         """Count observed regular-file bytes while Git may remove temporary locks.
@@ -126,8 +50,42 @@ class GitSkillSource:
                 total += observed.st_size
         return total
 
+    def _check_cache_budget(self):
+        """Refuse a cache above 128 MiB, including retained uncertain clones; ignore only vanished locks."""
+        if self._cache_bytes() > 128 * 1024 * 1024:
+            raise SourceError("repository_limit_exceeded")
+
+    def _run(self, cwd, args, limit=4 * 1024 * 1024, *, deadline=float("inf")):
+        """Execute a credential-free bounded read and translate confirmed limit or uncertain cleanup observations."""
+        profile = (
+            GitEnvironmentProfile.ISOLATED_FILE_READ_ONLY
+            if self.repository_provider
+            else GitEnvironmentProfile.ISOLATED_HTTPS_READ_ONLY
+        )
+        command = GitCommand(
+            arguments=args,
+            cwd=cwd,
+            context=GitExecutionContext(
+                profile=profile, timeout=45.0, hooks_path=Path(self.state, "no-hooks")
+            ),
+            budget=GitExecutionBudget(
+                stdout_limit=limit,
+                operation_deadline=deadline,
+                check_budget=self._check_cache_budget,
+            ),
+        )
+        try:
+            result = self.runner.run(command)
+        except GitCommandLimitExceeded:
+            raise SourceError("repository_limit_exceeded") from None
+        except GitCommandCleanupError:
+            raise SourceError("repository_cleanup_unverified") from None
+        if result.returncode or len(result.stdout) > limit:
+            raise SourceError("repository_access_unavailable")
+        return result.stdout
+
     def repository(self, source, refresh=False, *, deadline):
-        """Clone or refresh the owned bare cache and capture bounded refs within the supplied deadline."""
+        """Clone or refresh one admitted bare cache, retaining partial staging when termination is unconfirmed."""
         folder = self.state / hashlib.sha256(source.encode()).hexdigest()
         transport = (
             str(self.repository_provider(source))
@@ -135,23 +93,30 @@ class GitSkillSource:
             else source
         )
         if not folder.exists():
-            with tempfile.TemporaryDirectory(
-                dir=self.state, prefix="clone-"
-            ) as temporary:
+            staging = SkillSourceStagingDirectory(dir=self.state)
+            with staging as temporary:
                 pending = Path(temporary) / "repository"
-                self._run(
-                    self.state,
-                    [
-                        "clone",
-                        "--bare",
-                        "--depth=1",
-                        "--no-single-branch",
-                        "--",
-                        transport,
-                        str(pending),
-                    ],
-                    deadline=deadline,
-                )
+                try:
+                    self._run(
+                        self.state,
+                        [
+                            "clone",
+                            "--bare",
+                            "--depth=1",
+                            "--no-single-branch",
+                            "--",
+                            transport,
+                            str(pending),
+                        ],
+                        deadline=deadline,
+                    )
+                except BaseException as error:
+                    if (
+                        getattr(error, "code", None) == "repository_cleanup_unverified"
+                        or getattr(error, "cleanup_verified", None) is False
+                    ):
+                        staging.preserve()
+                    raise
                 pending.rename(folder)
         elif refresh:
             self._run(
@@ -198,7 +163,7 @@ class GitSkillSource:
         return SkillRepositoryState(directory=folder, refs=result)
 
     def entries(self, repo, commit, deadline):
-        """Decode and admit bounded Git tree metadata before reading any blob content."""
+        """Admit bounded native tree metadata and source-relative regular-file entries before reading bytes."""
         raw = self._run(
             repo,
             ["ls-tree", "-rz", "--full-tree", commit],
@@ -227,7 +192,7 @@ class GitSkillSource:
         return result
 
     def read_blob(self, repo, entry, deadline):
-        """Check a tree entry mode and byte size before returning its exact Git blob bytes."""
+        """Check the admitted blob mode and byte size, then return exact bytes under the shared operation deadline."""
         if entry.mode not in {"100644", "100755"} or entry.kind != "blob":
             raise SourceError("source_bundle_unsafe")
         if (

@@ -4,13 +4,16 @@ None of these methods is an agent HTTP operation. A graph's validation result
 is a request to the controller, never authority or proof of a valid artifact."""
 
 from __future__ import annotations
+from laomedo.host.publication.handoff.models import PullRequestPublicationRequest
 
 from contextlib import closing
 from hashlib import sha256
 import json
-import laomedo.agents.contracts.output as _contracts_output
-import laomedo.host.publication.handoff.settings as _handoff_settings
-import laomedo.host.publication.handoff.utils as _handoff_utils
+from laomedo.agents.contracts.output import evaluate_envelope
+from laomedo.agents.contracts.output import verify_requirements
+from laomedo.host.publication.handoff.settings import TERMINAL
+from laomedo.host.publication.handoff.utils import _deny
+from laomedo.host.publication.handoff.utils import _json
 import math
 import re
 
@@ -24,48 +27,48 @@ class HandoffStore:
         ).fetchone()
         if row is None:
             if handoff_id is not None:
-                _handoff_utils._deny("handoff_unavailable")
+                _deny("handoff_unavailable")
             return
         if (
             self.now() >= row["deadline"]
             or self.monotonic() >= row["deadline_monotonic"]
         ):
-            _handoff_utils._deny("handoff_expired")
-        if row["phase"] in _handoff_settings.TERMINAL:
-            _handoff_utils._deny("handoff_terminal")
+            _deny("handoff_expired")
+        if row["phase"] in TERMINAL:
+            _deny("handoff_terminal")
         if handoff_id is None:
             if row["phase"] != "agent_active":
                 # Freeze/status also touch the private bundle state. Deny all
                 # old agent bearer operations after execution, including reads.
-                _handoff_utils._deny("agent_handoff_ended")
+                _deny("agent_handoff_ended")
         elif (
             handoff_id != grant["grant_id"]
             or row["phase"] != "publication_pending"
             or operation != "pr_create"
-            or _handoff_utils._json(payload) != row["request_json"]
+            or _json(payload) != row["request_json"]
         ):
-            _handoff_utils._deny("publisher_binding_mismatch")
+            _deny("publisher_binding_mismatch")
 
     def begin_publication_handoff(
         self, *, token, repository, requirements, deadline, deadline_monotonic
     ):
         """Called by the host before dispatch, while the original lease is live."""
-        reference = _contracts_output.verify_requirements(requirements)
+        reference = verify_requirements(requirements)
         if any(
             type(v) not in {int, float} or not math.isfinite(v)
             for v in (deadline, deadline_monotonic)
         ):
-            _handoff_utils._deny("handoff_deadline_required")
+            _deny("handoff_deadline_required")
         with closing(self._connect()) as db, db:
             db.execute("BEGIN IMMEDIATE")
             grant = self._grant(db, token, repository, "pr_create")
             if deadline <= self.now() or deadline_monotonic <= self.monotonic():
-                _handoff_utils._deny("handoff_expired")
+                _deny("handoff_expired")
             if db.execute(
                 "SELECT 1 FROM publication_handoffs WHERE grant_id=?",
                 (grant["grant_id"],),
             ).fetchone():
-                _handoff_utils._deny("handoff_already_registered")
+                _deny("handoff_already_registered")
             db.execute(
                 "INSERT INTO publication_handoffs "
                 "(grant_id,run_id,phase,deadline,deadline_monotonic,requirements_json) "
@@ -75,7 +78,7 @@ class HandoffStore:
                     grant["run_id"],
                     deadline,
                     deadline_monotonic,
-                    _handoff_utils._json(reference),
+                    _json(reference),
                 ),
             )
             db.execute(
@@ -94,18 +97,18 @@ class HandoffStore:
         graph data. Its exact digest must already have a confirmed push receipt
         under this grant. Arbitrary caller paths or claimed graph hashes fail.
         """
-        import laomedo.host.publication.verified.models as _verified_models
+        from laomedo.host.publication.verified.models import VerifiedStage
 
         if (
-            not isinstance(artifact, _verified_models.VerifiedStage)
+            not isinstance(artifact, VerifiedStage)
             or sha256(artifact.bundle).hexdigest() != artifact.bundle_sha256
             or not re.fullmatch(r"[0-9a-f]{40}", artifact.commit)
             or not all(isinstance(x, str) and x for x in (title, body))
         ):
-            _handoff_utils._deny("publication_artifact_unverified")
-        frozen_envelope = _handoff_utils._json(envelope)
+            _deny("publication_artifact_unverified")
+        frozen_envelope = _json(envelope)
         if len(frozen_envelope.encode()) > 512 * 1024:
-            _handoff_utils._deny("publication_output_too_large")
+            _deny("publication_output_too_large")
         with closing(self._connect()) as db, db:
             db.execute("BEGIN IMMEDIATE")
             grant = self._grant(db, token, repository, "pr_create")
@@ -114,13 +117,13 @@ class HandoffStore:
                 (grant["grant_id"],),
             ).fetchone()
             if row is None or row["phase"] != "agent_active":
-                _handoff_utils._deny("handoff_unavailable")
+                _deny("handoff_unavailable")
             if (
                 artifact.run_id != grant["run_id"]
                 or artifact.repository != repository
                 or artifact.branch != grant["branch"]
             ):
-                _handoff_utils._deny("publication_artifact_mismatch")
+                _deny("publication_artifact_mismatch")
             if (
                 db.execute(
                     "SELECT 1 FROM effects WHERE run_id=? AND grant_id=? "
@@ -129,7 +132,7 @@ class HandoffStore:
                 ).fetchone()
                 is None
             ):
-                _handoff_utils._deny("publication_push_unconfirmed")
+                _deny("publication_push_unconfirmed")
             # Serialize phase transition against new effect reservations.
             # An in-flight write already has an unknown intent. Refuse the
             # handoff rather than let a late agent effect race publication.
@@ -140,21 +143,21 @@ class HandoffStore:
                 self._end_handoff(db, grant["grant_id"], "unknown")
                 return {"phase": "unknown"}
             marker = "<!-- laomedo-handoff:" + grant["grant_id"] + " -->"
-            request = {
-                "head": grant["branch"],
-                "base": grant["base_branch"],
-                "title": title,
-                "body": body + "\n\n" + marker,
-                "marker": marker,
-                "draft": True,
-            }
+            request = PullRequestPublicationRequest(
+                head=grant["branch"],
+                base=grant["base_branch"],
+                title=title,
+                body=body + "\n\n" + marker,
+                marker=marker,
+                draft=True,
+            ).to_payload()
             db.execute(
                 "UPDATE publication_handoffs SET phase='validation_pending', "
                 "artifact_digest=?,artifact_commit=?,request_json=?,effect_id=?,envelope_json=? WHERE grant_id=?",
                 (
                     artifact.stage_digest,
                     artifact.commit,
-                    _handoff_utils._json(request),
+                    _json(request),
                     "handoff-pr:" + grant["grant_id"],
                     frozen_envelope,
                     grant["grant_id"],
@@ -174,8 +177,8 @@ class HandoffStore:
         )
 
     def end_publication_handoff(self, handoff_id, phase="cancelled"):
-        if phase not in _handoff_settings.TERMINAL:
-            _handoff_utils._deny("handoff_terminal_required")
+        if phase not in TERMINAL:
+            _deny("handoff_terminal_required")
         with closing(self._connect()) as db, db:
             db.execute("BEGIN IMMEDIATE")
             self._end_handoff(db, handoff_id, phase)
@@ -195,7 +198,7 @@ class HandoffStore:
         `readback` is an injected host provider read, not a caller's claimed
         receipt. Unknown outcomes revoke the capability and are not resent.
         """
-        import laomedo.host.mediation.errors as _mediation_errors
+        from laomedo.host.mediation.errors import MediationError
 
         with closing(self._connect()) as db, db:
             db.execute("BEGIN IMMEDIATE")
@@ -203,7 +206,7 @@ class HandoffStore:
                 "SELECT * FROM publication_handoffs WHERE grant_id=?", (handoff_id,)
             ).fetchone()
             if row is None or row["phase"] != "validation_pending":
-                _handoff_utils._deny("handoff_not_ready")
+                _deny("handoff_not_ready")
             # The old agent lane is closed. Check the same grant's remaining
             # lifetime and connection without pretending to be an agent call.
             grant = db.execute(
@@ -213,7 +216,7 @@ class HandoffStore:
                 grant and sha256(token.encode()).hexdigest() == grant["token_hash"]
             )
             if not valid_token or grant["repository"] != repository:
-                _handoff_utils._deny("publisher_binding_mismatch")
+                _deny("publisher_binding_mismatch")
             if (
                 grant["revoked_at"] is not None
                 or grant["expires_at"] <= self.now()
@@ -226,7 +229,7 @@ class HandoffStore:
                 self._end_handoff(db, handoff_id, "expired")
                 return {"phase": "expired"}
             envelope = json.loads(row["envelope_json"])
-            validation = _contracts_output.evaluate_envelope(
+            validation = evaluate_envelope(
                 json.loads(row["requirements_json"]), envelope
             )
             if (
@@ -272,7 +275,7 @@ class HandoffStore:
                 phase = "completed"
             else:
                 phase = "failed" if result["state"] == "rejected" else "unknown"
-        except _mediation_errors.MediationError:
+        except MediationError:
             # Exception classes cannot prove that the provider made no write.
             # An intent or confirmed receipt survives even if a later local
             # check fails. Only no intent or a complete rejection is failed.

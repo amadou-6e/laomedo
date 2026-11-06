@@ -7,8 +7,9 @@ environments, repository and working-tree mechanics. Feature owners retain
 admission, credential selection, authorization, refs and error translation.
 [HTTP](../../src/laomedo/http/README.md) owns neutral redirect refusal. Credential
 handlers keep their distinct errors; self-contained components retain their
-standard-library copies. Source discovery's separate read-budget process path is
-owned by Skills and is outside the shared workspace/transport Git profiles.
+standard-library copies. Credential-free source discovery uses the shared bounded-read profile. Skills
+retains source admission, cache accounting and translation of cleanup uncertainty;
+the Git owner retains native process isolation and termination.
 
 GitHubGitTransport, VerifiedGitStage and stage_verified_git accept a
 GitCommandRunner through `runner=`. Their previous subprocess-shaped `run=`
@@ -51,12 +52,13 @@ src/laomedo/
 |   `-- resources/
 |-- skills/
 |   |-- authoring/
-|   |-- ingestion/
 |   |-- inspection/
 |   |-- operations/
 |   |-- registry/
 |   |-- sources/
-|   |-- workspace/
+|   |-- interface/
+|   |   |-- sources/
+|   |   `-- operations/
 |   `-- resources/
 |-- github/
 |   |-- issues/
@@ -78,6 +80,7 @@ src/laomedo/
 |   `-- publication/
 |       |-- bundle/
 |       |-- handoff/
+|       |-- ingestion/
 |       |-- verified/
 |       `-- resources/
 |-- integrations/
@@ -128,8 +131,10 @@ one-time migration data, not runtime compatibility code.
 
 File migration splices changed JSON strings, preserving unrelated bytes,
 formatting, duplicate keys, Unicode, number spelling, BOM and line endings.
-Graph migration selects template code. It preserves `metadata.code_hash` and
-stored dependency metadata; it does not regenerate component-cache metadata.
+Graph migration selects template code, including nested groups and wrapped flow
+bundles. For changed source, it validates the existing twelve-hex SHA-256
+`metadata.code_hash` before refreshing that derived key. Stale or unknown hashes
+require manual migration. Stored dependency metadata is preserved.
 Generate current component templates/exports through Langflow or the graph's
 builder when refreshed metadata is required. Import migration alone does not
 certify those fields. Launcher fields are selected only at
@@ -152,7 +157,8 @@ tests do not establish a live workflow.
 Package boundaries follow a feature's responsibilities and dependencies, with no
 fixed nesting depth. Repeated filename prefixes trigger an ownership review.
 Implementation files introduce classes or standalone functions, never both.
-Request-handler classes may be nested in their owning server constructor.
+Request-handler classes are defined at module scope in their owning package;
+server lifetime and request handling have separate discoverable owners.
 Exceptions live in class-only `errors.py`. Helpers that belong to an object become
 methods; independent helpers stay in that feature's function-only `utils.py` or a
 focused module such as `serialization.py`. `settings.py` owns genuinely shared
@@ -187,6 +193,10 @@ Recurring values travel as canonical Pydantic models in the feature's `models.py
 | work_graph | WorkItem, Dependency and GraphSnapshot retain immutable source identity, ordering and snapshot hashes |
 | skills/operations | FileEdit, SkillProposal and EditorProvenance carry a multi-file edit and authenticated editor context |
 | host/publication/verified | VerifiedStage carries the immutable verified bundle and its provenance |
+| host/credentials/siwc | OAuthAuthorizationRequest, OAuthAttempt, OAuthCodeExchange and OAuthAccount preserve private authorization projections |
+| host/mediation | MediationServiceRecord and AuthorizedLeaseScope bind service metadata and admitted capabilities |
+| host/publication/{bundle,handoff,verified} | ContainerStageRecord, BundleVerificationRecord, PullRequestPublicationRequest and VerifiedStageIdentity preserve journal and digest projections |
+| work_graph | RelevantWorkContent, WorkSnapshot, WorkOverride, WorkLaunchBinding, WorkGrantLimits, WorkLaunchGrant, WorkGrantReference and WorkLaunchResult preserve launch hashes, grants and receipts |
 | host/leases | ContainerIdentity carries exact name, run ID and a secret launch token |
 | activity/agent_activity | CaptureIdentity carries graph provenance; ActivityInvocation replaces the anonymous store/invocation tuple |
 
@@ -252,7 +262,7 @@ needed. Current source templates are distinct from historical execution evidence
 
 Issue #205 covers this boundary. General helper decomposition, cross-feature HTTP/
 Git ownership, mediation server extraction and frontend feature directories remain
-separate follow-ups (#206?#210).
+separate concerns owned by issues #206 and #210.
 
 Concrete Codex components reject stale subclass inheritance before model discovery,
 bridge selection or dispatch with `agent_component_migration_required`. The shared
@@ -260,3 +270,28 @@ error catalogue explains updating the node or explicitly migrating saved source;
 unmigrated Claude/OpenCode code cannot silently route through Codex configuration.
 OpenCode owns its worker image pin independently in its settings. It initially uses
 the same reviewed sandbox bytes as Codex, without importing Codex configuration.
+
+## Object vocabulary and typed boundaries
+
+Use `Base` for an abstract contract and a qualifier only when multiple concrete
+implementations require it. References identify existing immutable state; records
+describe persisted observations; proposals request change and grant no authority.
+Constructors use `from_*`; projections use `to_*`, including `to_config()` for
+configuration. Put repeated mappings on the canonical feature-owned model.
+
+Module READMEs describe responsibilities, dependency direction and mandatory object
+nomenclature before implementation. Leaf READMEs describe object methods and outcome
+guarantees. Discoverable interface/base packages expose extension points without
+requiring readers to study an unrelated concrete provider. Unwrap Pydantic secrets
+only at a named private projection into the authorized consumer, never through
+general serialization or logging.
+
+## Node HTTP admission
+
+Request-body limits belong to the defining handlers: GitHub Issue and PR each
+admit 1 MiB, Skill sources 16 KiB and Skill operations 4 MiB. These limits are
+independent of file/bundle and response-read limits. Transport failures preserve
+uncertainty after possible dispatch rather than inviting blind resend. Issue and
+PR public-code allowlists are intentionally different: a PR client cannot project
+an issue-only `github_http_*` category. Catalogue entries and tests belong to the
+relevant producer and presenter; an Agent-only guard is not universal coverage.
