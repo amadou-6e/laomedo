@@ -1497,7 +1497,7 @@
   "skill_manual_stale": {
     "title": "The Skill changed while you were reviewing it",
     "description": "The selected commit or registry current revision no longer matches this request. Nothing was silently rebased.",
-    "recovery": "Your working copy is preserved. Use Discard and confirm Discard changes to reload saved files, or close and reopen if there are no changes. If only registry current changed, inspect the refreshed diff and explicitly choose Publish again."
+    "recovery": "Your working copy is preserved. Use Discard and confirm Discard changes to reload saved files, or close and reopen if there are no changes. If the registry was published outside this history, this candidate cannot overwrite it. Keep the edited files separately and contact the application maintainer; automatic history reconciliation is not supported."
   },
   "skill_manual_invalid": {
     "title": "The Skill change could not be accepted",
@@ -1563,5 +1563,70 @@
     "title": "The relative path could not be copied",
     "description": "The browser did not permit automatic clipboard access. Your files are unchanged.",
     "recovery": "Dismiss this message, select the Relative path field in the explorer and copy it manually, or allow browser clipboard access and choose Copy relative path again."
+  },
+  "skill_name_invalid": {
+    "title": "The skill name is invalid",
+    "description": "The skill's declared name cannot be used as a registry identity.",
+    "recovery": "Use the supported lowercase letters, digits, hyphens and underscores in the skill name."
+  },
+  "skill_operation_refused": {
+    "title": "The skill operation was refused",
+    "description": "The local service could not accept this Skill operation; private parser and authorization details were withheld.",
+    "recovery": "Inspect the selected revision and proposed edits. Confirm the existing operation outcome before submitting another change."
+  },
+  "skill_operation_service_not_configured": {
+    "title": "The skill operation service is not configured",
+    "description": "The local operation service address or requested action is invalid.",
+    "recovery": "Check the configured local Skill operation service before using editing or history actions."
+  },
+  "skill_operation_unavailable": {
+    "title": "The skill operation result is unavailable",
+    "description": "The application could not confirm a usable response from the local Skill operation service.",
+    "recovery": "Check local service availability and inspect the existing revision/history before submitting another edit."
+  },
+  "skill_revision_unavailable": {
+    "title": "The selected skill revision is unavailable",
+    "description": "The registry could not provide a verified bundle for this exact revision. Its files may be absent or may not match the saved record.",
+    "recovery": "Close the file viewer and select an available revision in the Skill node. Keep the original reference if reporting the missing revision."
+  },
+  "skill_revision_unsafe": {
+    "title": "The skill revision cannot be safely displayed",
+    "description": "The file viewer refused linked or unsupported files in the selected bundle.",
+    "recovery": "Close the file viewer and select a verified revision. The viewer cannot repair this immutable bundle; do not bypass its file checks."
+  },
+  "skill_revision_too_large": {
+    "title": "The skill revision exceeds the viewer limits",
+    "description": "The selected bundle exceeds the file size, total size, count or nesting limits for inspection.",
+    "recovery": "Close the file viewer and select a smaller registered revision. Reloading this immutable bundle does not reduce its size."
+  },
+  "skill_inspection_unavailable": {
+    "title": "Skill files could not be loaded",
+    "description": "The file viewer did not receive a confirmed snapshot. The reason has not been established.",
+    "recovery": "Reload files repeats only the read of this selection. It does not edit the skill, rerun the graph or start an agent. You can also close the viewer."
+  },
+  "skill_history_unavailable": {
+    "title": "Skill history could not be loaded",
+    "description": "The viewer did not receive confirmed history for this selection. The reason has not been established; current files remain available.",
+    "recovery": "Reload history repeats only the history read. It does not submit an edit, rerun the graph or start an agent. You can continue viewing current files."
+  },
+  "skill_comparison_unavailable": {
+    "title": "The skill comparison could not be loaded",
+    "description": "The viewer could not confirm the selected revision comparison. The reason has not been established.",
+    "recovery": "Select Current source to return to the current files, or choose another revision in the history. Viewing a comparison does not edit the skill or run the graph."
+  },
+  "skill_summary_source_unavailable": {
+    "title": "The skill description source is unavailable",
+    "description": "The preparation step could not read SKILL.md as text, so it could not prepare description-authoring instructions.",
+    "recovery": "Select a registered revision with a readable text SKILL.md and inspect it before preparing an edit. This preparation failure does not publish a revision."
+  },
+  "skill_operation_invalid": {
+    "title": "The proposed skill edit is invalid",
+    "description": "The proposal did not meet the required modify action, explanation or file-edit format and limits. It was refused before application.",
+    "recovery": "Correct the proposed action, message and file edits before submitting again. Inspect existing history before repeating an earlier request whose outcome is uncertain."
+  },
+  "skill_editor_invalid": {
+    "title": "The skill edit attribution is invalid",
+    "description": "The host-supplied editing identity did not meet the supported provenance format or field limits.",
+    "recovery": "Keep the existing revision and report the safe technical details to the application maintainer. Do not invent attribution fields in the proposed edit."
   }
 }

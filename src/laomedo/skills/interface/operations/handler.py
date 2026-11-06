@@ -80,7 +80,6 @@ class SkillOperationRequestHandler(BaseHTTPRequestHandler):
                     if code in {
                         "skill_base_changed",
                         "base_revision_changed",
-                        "promotion_busy",
                         "reviewed_ref_mismatch",
                     }:
                         code = "skill_manual_stale"

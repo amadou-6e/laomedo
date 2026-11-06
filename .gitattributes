@@ -11,7 +11,6 @@ experiments/exp104/S11-PROVIDER-ATTEMPTS.jsonl -text whitespace=cr-at-eol
 experiments/exp104/native-managed-s12-b-provider-attempts.jsonl -text whitespace=cr-at-eol
 experiments/exp104/native-localrunner-s13-a-provider-attempts.jsonl -text whitespace=cr-at-eol
 frontend/langflow-skill-viewer/integration/upstream.patch text eol=lf whitespace=-blank-at-eol
-examples/skill-files-viewer/skill/** text eol=lf
 frontend/langflow-skill-viewer/agents.patch text eol=lf whitespace=-blank-at-eol
 frontend/langflow-skill-viewer/claude-models.patch text eol=lf whitespace=-blank-at-eol
 examples/skills/** text eol=lf

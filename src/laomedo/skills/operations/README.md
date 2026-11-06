@@ -112,3 +112,33 @@ suffix from registry settings; script/dependency restrictions remain intact.
 Changed NUL-containing files use the same binary admission as non-UTF-8 bytes;
 text-path policies refuse them unless they are explicitly permitted inert assets.
 Valid UTF-8 without NUL remains text regardless of filename suffix.
+
+## Registry and journal ownership
+
+A writable registry is paired with one durable operation journal. Keep both in
+backups. Commit identifiers belong to that retained journal; rebuilding it from
+bundle bytes records new events and does not restore lost commit references.
+The import root remains stable through its retained import record.
+
+Publication requires the registry's current revision to be an ancestor of the
+candidate in this journal. A promotion made outside the journal cannot be
+silently replaced, even after the viewer refreshes its current revision. The
+request returns `skill_manual_stale`, preserves the candidate and newer registry
+bytes, and requires maintainer-led reconciliation. Automatic merging, branching
+and reconstruction of another journal's edit provenance are unsupported.
+
+For graph operations after initial history has been backfilled, use the current
+history head as Base Commit in the Skill node's Advanced settings. An empty Base
+Commit admits only the initial import, preventing an accidental edit of a newer
+head. The hidden Edit Request reader supports previously saved feedback graphs;
+new nodes expose no such field and receive edits through Operation or the manual
+editor. This is saved-graph compatibility, not a new authoring control.
+
+Registry `import.lock` and `promotion.lock` exclude simultaneous filesystem writes.
+They have no automatic expiry: a reader cannot distinguish a crashed writer from
+a slow active writer. A blocked promotion is reported as an unconfirmed service
+result, not a changed base. Check result retains the same publication identity.
+If a lock persists after a crash, a maintainer must stop all writers to that
+registry, verify that no write is active, back up registry and journal, and only
+then remove the abandoned lock before restarting the service and checking the
+same request. The UI does not delete locks or offer automatic lock repair.

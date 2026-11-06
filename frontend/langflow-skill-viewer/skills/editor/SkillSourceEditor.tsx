@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { applySourceChanges } from "./sourceChanges";
 import type { SkillFile } from "../models";
 import type { SkillMatch } from "../search/SkillSearch";
 import * as monaco from "monaco-editor/editor";
@@ -26,7 +27,8 @@ export default function SkillSourceEditor({ file, match, editable = false, onCha
   useEffect(() => {
     const extension = file.path.split(".").pop()?.toLowerCase();
     const language = ({ md: "markdown", py: "python", js: "javascript", mjs: "javascript", json: "json", sh: "shell" } as Record<string, string>)[extension || ""] || "plaintext";
-    const model = monaco.editor.createModel(file.text || "", language);
+    let source = file.text || "";
+    const model = monaco.editor.createModel(source, language);
     const instance = monaco.editor.create(container.current!, { model, readOnly: !editable, domReadOnly: !editable,
       // Langflow exempts textareas from canvas shortcuts. Chrome's experimental
       // EditContext uses a non-editable div, so ordinary letters trigger them.
@@ -34,7 +36,10 @@ export default function SkillSourceEditor({ file, match, editable = false, onCha
       automaticLayout: true, minimap: { enabled: false }, scrollBeyondLastLine: false,
       theme: dark ? "vs-dark" : "vs", fontSize: 14, fontFamily: "'JetBrains Mono', monospace" });
     editor.current = instance;
-    const listener = model.onDidChangeContent(() => { if (editable) change.current?.(file.path, model.getValue()); });
+    const listener = model.onDidChangeContent((event) => {
+      source = applySourceChanges(source, event.changes);
+      if (editable) change.current?.(file.path, source);
+    });
     return () => { editor.current = null; listener.dispose(); instance.dispose(); model.dispose(); };
   }, [file.path, file.file_hash, dark, editable]);
   useEffect(() => {

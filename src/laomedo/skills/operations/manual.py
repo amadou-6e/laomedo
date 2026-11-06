@@ -119,6 +119,20 @@ class ManualSkillEditor:
             return json.loads(applied["result"])
         return None
 
+    def _require_publication_base(self, db, publication, commit):
+        """Refuse a divergent registry head rather than overwrite an external promotion."""
+        visited = set()
+        while commit["commit_id"] not in visited:
+            if commit["revision_id"] == publication.expected_latest:
+                return
+            visited.add(commit["commit_id"])
+            if commit["parent_commit"] is None:
+                break
+            commit = self.operations._read(
+                db, publication.skill_id, commit["parent_commit"]
+            )
+        raise ConflictError("skill_manual_stale")
+
     def _publication_draft(self, publication, policy):
         """Freeze the cumulative canonical-to-candidate diff under the current policy."""
         store = self.operations.store
@@ -211,6 +225,7 @@ class ManualSkillEditor:
             ):
                 raise ConflictError("skill_manual_stale")
             if row is None:
+                self._require_publication_base(db, publication, commit)
                 policy = self._policy(publication.skill_id, "publish")
                 policy_hash = validate_policy(policy)["hash"]
                 draft = self._publication_draft(publication, policy)

@@ -7,9 +7,7 @@ Implemented stories use actual app screenshots; the deferred Git publishing stor
 uses an explicitly labelled mockup. Status distinguishes implementation from live
 acceptance. See [visual provenance](assets/README.md).
 
-The [2026-11-02 navigation record](navigation-verification.md) adds current real
-verification of the single SKILL menu, nested files and three-entry history;
-the earlier captures below retain their explicitly dated scope.
+The [navigation guide](navigation-verification.md) describes the sidebar and per-file history. Current acceptance remains separate from dated captures.
 
 ## SK-01 — Select an exact skill revision
 
@@ -91,7 +89,7 @@ Those records establish their named runs and revisions, not a fresh test of this
 ## SK-04 — Compare a file across revisions
 
 As a skill author, I want to select a commit beneath the file tree and see the
-selected file's cumulative diff to the current pinned revision, so I can understand
+selected file's cumulative diff to the current saved working head, so I can understand
 its evolution without reading a combined patch for every file.
 
 **Status: Implemented.** The viewer has a commit tree, file-specific comparison,
@@ -99,7 +97,7 @@ Current source action and a draggable split pane.
 
 Acceptance criteria:
 
-- Selecting a commit keeps the file context and compares it with the current pinned state.
+- Selecting a commit keeps the file context and compares it with the current saved working head.
 - Selecting another file shows that file's diff for the same comparison.
 - Added and deleted lines are visualized without exposing raw `diff --git` commands.
 
@@ -160,13 +158,13 @@ Acceptance criteria:
 
 - Right-click and keyboard menus provide the same target-specific actions.
 - Picker/drop import is atomic; collisions, invalid paths and limits preserve work.
-- Rename/move preserve bytes and buffers; Delete confirms; Discard restores saved files.
+- Rename/move preserve bytes and buffers; Delete is immediate with Ctrl+Z/Ctrl+Y undo/redo; Discard confirms before restoring saved files.
 - Read-only and pending states block mutations while keeping inspection/copy available.
 - Publish saves the complete batch and promotes the exact candidate; history retains
   changed paths, text differences and binary size/hash evidence.
 
 Owner validation of the final workflow remains pending. Binary content editing,
-directory uploads, empty folders and Git publication are outside this story.
+directory uploads and Git publication are outside this story.
 
 
 ### SK09 — Work with files using editor conventions

@@ -1,38 +1,20 @@
 # Skills
 
-Start with [select, inspect and revise a Skill](walkthrough.md). It imports real
-instruction files, configures discovery/history, and walks through a two-file
-candidate edit and per-file comparison. A proposal stays separate from promotion.
-
-[User stories and visuals](user-stories.md) describe the implemented experience
-and clearly labelled proposals.
-
-[Earlier navigation and three-entry history verification](navigation-verification.md)
-records the simplified menu, nested files and real per-file comparisons.
-
-[Imported Skill history](import-history.md) explains the initial revision and
-retains its historical service-recovery evidence under Skill ownership.
-
-[Workspace Find and full-page viewing](workspace-viewer.md) explains cross-file
-search, result navigation and the earlier real normal/recovery checks.
-
 Skills provide versioned instruction files and controlled multi-file editing.
+The registry owns immutable bundles; the operation journal owns commits and edit
+provenance. Publication advances the registry without changing existing graph pins.
 
-[Configure a source](sources.md) explains local folders, public repositories,
-source errors and choosing an exact Revision in Advanced settings.
+- [Architecture](architecture.md): package boundaries and interfaces.
+- [Sources](sources.md): local folders, public repositories and selection.
+- [Registry](registry.md): policies, drafts and immutable revisions.
+- [Imported history](import-history.md): initial entries and legacy registration.
+- [Manual workspace](manual-workspace.md): editing and registry publication.
+- [Navigation](navigation-verification.md): explorer, commits and per-file diffs.
+- [Search and full-page viewing](workspace-viewer.md).
+- [File actions](explorer.md): uploads, rename, move, undo and preview.
+- [User stories](user-stories.md): observable acceptance criteria.
+- [Service walkthrough](walkthrough.md): local setup and operation graphs.
 
-- [Architecture](architecture.md): component and package ownership.
-- [Registry and drafts](registry.md): immutable revisions, exact file hashes,
-  editing policies, draft workspaces and reviewed promotion.
-- [Skill-agent pilot](../../../examples/skill-agent-pilot/README.md): existing
-  integration instructions and bounded evidence.
-
-The [canonical skill-registry specifications](https://github.com/amadou-6e/specs/tree/main/projects/laomedo/subsystems/skill-registry)
-own requirements. The registry guide retains its historical scope statements;
-they should not be read as proof of current end-to-end acceptance.
-
-[Explorer icons and chevrons](explorer.md) documents the earlier rows and their
-real navigation/theme verification.
-
-[Manual workspace and registry publication](manual-workspace.md) explains editing,
-commit history, per-file publication review and the current real recovery checks.
+Canonical requirements live in the [skill-registry specifications](https://github.com/amadou-6e/specs/tree/main/projects/laomedo/subsystems/skill-registry).
+Dated verification records are preserved on [exp](https://github.com/amadou-6e/laomedo/tree/d056ff3d/archives/skills-254/20261106/documentation).
+They establish only their recorded revisions, not acceptance of the current code.

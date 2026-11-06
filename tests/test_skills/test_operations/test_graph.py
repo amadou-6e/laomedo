@@ -7,6 +7,9 @@ if find_spec("lfx") is None:
     raise SkipTest("Install the declared Langflow runtime to run Skill graph controls")
 
 
+# Initialize Langflow's compatibility aliases before importing lfx submodules.
+import langflow
+
 from support.paths import repository_root
 
 import asyncio

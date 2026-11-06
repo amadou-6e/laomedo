@@ -38,7 +38,7 @@ test("grouped results select a line repeatedly, support case and no-match recove
   fireEvent.change(input, { target: { value: "absent" } });
   expect(screen.getByRole("status")).toHaveTextContent("No matches");
   fireEvent.change(input, { target: { value: "" } });
-  expect(screen.getByRole("status")).toHaveTextContent("Search pinned current text files");
+  expect(screen.getByRole("status")).toHaveTextContent("Search working text files");
 });
 
 test("search folders and files disclose independently and preserve collapse through query changes", () => {

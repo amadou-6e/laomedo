@@ -156,6 +156,38 @@ class ManualSkillEditorTests(unittest.TestCase):
             frozen["proposed_tree_hash"],
         )
 
+    def test_refreshed_latest_cannot_publish_a_divergent_candidate(self):
+        _, saved = self.save()
+        draft = self.case.store.create_draft(
+            "internal-test", self.case.initial["revision_id"], self.case.policy
+        )
+        (
+            self.case.store.draft_workspace(draft["draft_id"]) / "rules/one.md"
+        ).write_bytes(b"external publication\n")
+        frozen = self.case.store.freeze_draft(draft["draft_id"])
+        self.case.store.promote_draft(
+            draft["draft_id"],
+            expected_base_revision=self.case.initial["revision_id"],
+            reviewed_draft_hash=frozen["proposed_tree_hash"],
+            expected_policy_hash=frozen["policy_ref"]["hash"],
+        )
+        payload = self.publication(saved)
+        payload["expected_latest"] = self.editor.editor(
+            "internal-test", saved["skill"]["revision_id"]
+        )["latest_revision"]
+        with self.assertRaisesRegex(ValueError, "skill_manual_stale"):
+            self.editor.publish(**payload)
+        self.assertEqual(
+            self.case.store.revision("internal-test")["revision_id"],
+            frozen["proposed_tree_hash"],
+        )
+        self.assertEqual(
+            self.case.service.history("internal-test", saved["skill"]["revision_id"])[
+                "commits"
+            ][0]["commit_id"],
+            saved["commit"]["commit_id"],
+        )
+
     def test_lost_save_and_publication_responses_reconcile_existing_effects(self):
         real_apply = self.case.service.apply
 
@@ -271,6 +303,52 @@ class ManualSkillEditorTests(unittest.TestCase):
                     )
                 self.assertEqual(failure.exception.code, expected)
                 self.assertNotIn(str(self.case.root), failure.exception.read().decode())
+
+    def test_busy_publication_reconciles_same_request_without_claiming_stale(self):
+        from urllib.request import Request, urlopen
+        from urllib.error import HTTPError
+        from laomedo.skills.registry.errors import ConflictError
+
+        _, saved = self.save()
+        payload = self.publication(saved)
+        with RunningHTTPServer(
+            SkillOperationServer(
+                self.case.service,
+                "x" * 32,
+                0,
+                manual_permissions={"internal-test": {"edit": True, "publish": True}},
+            )
+        ) as running:
+            request = Request(
+                f"http://127.0.0.1:{running.server_port}/v1/skill-operations/publish",
+                data=json.dumps(payload).encode(),
+                headers={
+                    "Content-Type": "application/json",
+                    "Authorization": "Bearer " + "x" * 32,
+                },
+            )
+            with (
+                patch.object(
+                    self.case.store,
+                    "promote_draft",
+                    side_effect=ConflictError("promotion_busy"),
+                ),
+                self.assertRaises(HTTPError) as failure,
+            ):
+                urlopen(request, timeout=5)
+            with failure.exception as response:
+                self.assertEqual(
+                    json.load(response), {"error_category": "skill_manual_unavailable"}
+                )
+            self.assertEqual(
+                self.case.store.revision("internal-test"), self.case.initial
+            )
+            with urlopen(request, timeout=5) as response:
+                self.assertTrue(json.load(response)["promotion_performed"])
+            self.assertEqual(
+                self.case.store.revision("internal-test")["revision_id"],
+                saved["skill"]["revision_id"],
+            )
 
     def test_missing_copy_source_is_projected_as_manual_invalid(self):
         from urllib.request import Request, urlopen

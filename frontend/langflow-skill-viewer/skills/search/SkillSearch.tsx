@@ -78,7 +78,7 @@ export default function SkillSearch({ files, onSelect, collapsed: supplied, onTo
   const result = useMemo(() => searchSkill(files, deferred, matchCase), [files, deferred, matchCase]);
   const groups = new Map<string, SkillMatch[]>();
   for (const match of result.matches) groups.set(match.path, [...(groups.get(match.path) || []), match]);
-  return <div className="flex min-h-0 flex-1 flex-col" aria-label="Search pinned current Skill files">
+  return <div className="flex min-h-0 flex-1 flex-col" aria-label="Search working Skill files">
     <div className="flex shrink-0 gap-1 p-2">
       <input type="search" aria-label="Search all Skill files" placeholder="Search all text files…"
         className="min-w-0 flex-1 rounded border bg-background px-2 py-1 text-sm" value={query}
@@ -87,8 +87,8 @@ export default function SkillSearch({ files, onSelect, collapsed: supplied, onTo
         className={`rounded border px-2 text-sm ${matchCase ? "bg-muted" : ""}`} onClick={() => setMatchCase(!matchCase)}>Aa</button>
     </div>
     <p role="status" className="shrink-0 px-2 pb-1 text-xs">
-      {query !== deferred ? "Searching…" : !query ? "Search pinned current text files." : !result.matches.length ?
-        "No matches in pinned current files." : result.truncated ? "First 500 matching lines shown. Refine search." :
+      {query !== deferred ? "Searching…" : !query ? "Search working text files." : !result.matches.length ?
+        "No matches in working files." : result.truncated ? "First 500 matching lines shown. Refine search." :
         `${result.matches.length} matching ${result.matches.length === 1 ? "line" : "lines"} in ${groups.size} ${groups.size === 1 ? "file" : "files"}.`}
     </p>
     <div className="min-h-0 flex-1 overflow-auto" aria-label="Skill search results" aria-busy={query !== deferred}>

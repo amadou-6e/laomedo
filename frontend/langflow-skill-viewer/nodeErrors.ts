@@ -10,6 +10,7 @@ export type ErrorContext = {
 };
 export type NodeFailure = Description & { diagnostics: Record<string, string> };
 const entries: Record<string, Description> = catalog;
+const credentialPrefix = /^(?:sk_|gh[pousr]_|github_pat_)/i;
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const operations = new Set(["fresh", "start", "resume", "status", "cancel", "modify", "close", "save", "publish"]);
 const fallback: Description = {
@@ -22,6 +23,7 @@ const fallback: Description = {
 function safeCode(value: unknown): string | undefined {
   if (typeof value !== "string") return;
   if (Object.prototype.hasOwnProperty.call(entries, value)) return value;
+  if (credentialPrefix.test(value)) return;
   if (/^[a-z][a-z0-9]*(?:_[a-z0-9]+){1,15}$/.test(value) && value.length <= 80 &&
       !/(?:secret|password|credential|bearer|token|api_key)/.test(value)) return value;
 }
@@ -90,7 +92,7 @@ export function describeNodeFailure(raw: unknown, status: any, context: ErrorCon
   const code = safeCode(reference?.error_category) ?? codeFromMessage(raw) ?? "unrecognized_error";
   const diagnostics: Record<string, string> = { code };
   if (typeof context.nodeId === "string" && /^[a-z][a-z0-9_-]{0,127}$/i.test(context.nodeId) &&
-      !/^(sk_|gh[pousr]_)/i.test(context.nodeId)) diagnostics.node_id = context.nodeId;
+      !credentialPrefix.test(context.nodeId)) diagnostics.node_id = context.nodeId;
   if (typeof context.operation === "string" && operations.has(context.operation)) diagnostics.operation = context.operation;
   if (typeof status?.run_id === "string" && uuid.test(status.run_id)) diagnostics.graph_execution_id = status.run_id;
   for (const key of ["run_id", "request_id", "thread_id", "invocation_id"]) {

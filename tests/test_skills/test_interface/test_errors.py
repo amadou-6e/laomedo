@@ -53,3 +53,23 @@ class ErrorCatalogueTests(unittest.TestCase):
                     for field in ("title", "description", "recovery"):
                         self.assertIsInstance(catalog[code][field], str)
                         self.assertTrue(catalog[code][field].strip())
+
+    def test_viewer_read_failures_have_specific_catalogue_entries(self):
+        root = repository_root()
+        catalog = json.loads(
+            (root / "frontend/langflow-skill-viewer/node-error-catalog.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        codes = {
+            "skill_inspection_unavailable",
+            "skill_history_unavailable",
+            "skill_comparison_unavailable",
+            "skill_revision_unavailable",
+            "skill_revision_unsafe",
+            "skill_revision_too_large",
+        }
+        self.assertFalse(codes - catalog.keys())
+        for code in codes:
+            for field in ("title", "description", "recovery"):
+                self.assertTrue(catalog[code][field].strip(), (code, field))
