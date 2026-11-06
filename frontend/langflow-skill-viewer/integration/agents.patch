@@ -84,13 +84,11 @@
                      }
 --- a/src/frontend/src/pages/FlowPage/components/nodeToolbarComponent/index.tsx
 +++ b/src/frontend/src/pages/FlowPage/components/nodeToolbarComponent/index.tsx
-@@ -1,3 +1,7 @@
+@@ -3,1 +3,5 @@
 +import { useAgentActivityStore } from "@/stores/agentActivityStore";
 +import { useSidebar } from "@/components/ui/sidebar";
 +import { usePlaygroundStore } from "@/stores/playgroundStore";
 +import { ENABLE_NEW_SIDEBAR } from "@/customization/feature-flags";
- import { prSelection } from "@/modals/prViewerModal";
- import { issueSelection, nodeKind } from "@/modals/issueViewerModal";
  import { useUpdateNodeInternals } from "@xyflow/react";
 @@ -54,6 +58,8 @@
      openDropdownOnRightClick?: boolean;
