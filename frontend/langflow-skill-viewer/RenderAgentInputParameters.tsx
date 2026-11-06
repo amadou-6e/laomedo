@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { Fragment, useMemo } from "react";
 import { getNodeInputColors } from "@/CustomNodes/helpers/get-node-input-colors";
 import { getNodeInputColorsName } from "@/CustomNodes/helpers/get-node-input-colors-name";
 import {
@@ -12,6 +12,8 @@ import { scapedJSONStringfy } from "@/utils/reactflowUtils";
 import NodeInputField from "../NodeInputField";
 import { findPrimaryInput } from "./utils";
 import AgentAdvancedControls, { advancedAgentFields, isAgentControlHidden } from "./AgentAdvancedControls";
+import { advancedSkillFields, isConnectedSkillSetting, isSkillControlHidden, isSkillNode, skillFieldInfo, skillSourceError, SKILL_SOURCE_ERROR_CODE } from "./SkillNodeControls";
+import NodeErrorNotice from "@/components/laomedoErrors/NodeErrorNotice";
 
 const RenderInputParameters = ({
   data,
@@ -25,7 +27,7 @@ const RenderInputParameters = ({
 
   const templateFields = useMemo(() => {
     return Object.keys(data.node?.template || {})
-      .filter((templateField) => !isInternalField(templateField) && !isAgentControlHidden(data, templateField))
+      .filter((templateField) => !isInternalField(templateField) && !isAgentControlHidden(data, templateField) && !isSkillControlHidden(data, templateField))
       .sort((a, b) =>
         sortToolModeFields(
           a,
@@ -37,14 +39,17 @@ const RenderInputParameters = ({
       );
   }, [data, data.node?.template, data.node?.field_order, isToolMode]);
 
-  const advancedFields = useMemo(() => advancedAgentFields(data, templateFields, edges, isToolMode),
+  const advancedFields = useMemo(() => isSkillNode(data)
+    ? advancedSkillFields(data, templateFields, edges, isToolMode)
+    : advancedAgentFields(data, templateFields, edges, isToolMode),
     [data, templateFields, edges, isToolMode]);
   const shownTemplateFields = useMemo(() => {
     return templateFields.filter((templateField) => {
       const template = data.node?.template[templateField];
-      return !advancedFields.includes(templateField) && isCanvasVisible(template, isToolMode);
+      return !advancedFields.includes(templateField) && (isCanvasVisible(template, isToolMode) ||
+        (template?.show && isConnectedSkillSetting(data, templateField, edges)));
     });
-  }, [templateFields, data.node?.template, isToolMode, advancedFields]);
+  }, [templateFields, data, isToolMode, advancedFields, edges]);
 
   const memoizedColors = useMemo(() => {
     const colorMap = new Map();
@@ -121,6 +126,7 @@ const RenderInputParameters = ({
       const handleIdx = handleFields.indexOf(templateField);
 
       return (
+        <Fragment key={memoizedKey}>
         <NodeInputField
           lastInput={
             !(shownOutputs.length > 0 || showHiddenOutputs || (!advanced && advancedFields.length > 0)) &&
@@ -130,7 +136,7 @@ const RenderInputParameters = ({
           data={data}
           colors={memoizedColor.colors}
           title={getFieldTitle(data.node?.template!, templateField)}
-          info={template.info!}
+          info={skillFieldInfo(data, templateField)}
           name={templateField}
           tooltipTitle={template.input_types?.join("\n") ?? template.type}
           required={template.required}
@@ -154,6 +160,13 @@ const RenderInputParameters = ({
               : `${(((handleIdx + 1) / (handleFields.length + 1)) * 100).toFixed(2)}%`
           }
         />
+        {showNode && templateField === "source" && skillSourceError(data) && (
+          <div role="alert" data-testid="skill-source-error" className="px-5 pb-2 text-sm text-destructive">
+            <NodeErrorNotice message={SKILL_SOURCE_ERROR_CODE} label={skillSourceError(data)}
+              context={{ nodeId: data.id, nodeType: "LaomedoSkill" }} />
+          </div>
+        )}
+        </Fragment>
       );
     },
   );
@@ -174,7 +187,8 @@ const RenderInputParameters = ({
     <>
       {minimizedSpacer}
       {renderInputParameters(shownTemplateFields)}
-      {advancedFields.length > 0 && <AgentAdvancedControls nodeId={data.id} visible={showNode}>
+      {advancedFields.length > 0 && <AgentAdvancedControls nodeId={data.id} visible={showNode}
+        label={isSkillNode(data) ? "Advanced settings" : "Advanced controls"}>
         {renderInputParameters(advancedFields, true)}
       </AgentAdvancedControls>}
     </>

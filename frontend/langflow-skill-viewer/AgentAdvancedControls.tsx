@@ -22,8 +22,8 @@ export function advancedAgentFields(data: any, fields: string[], edges: any[], t
   });
 }
 
-export default function AgentAdvancedControls({ nodeId, visible, children }: {
-  nodeId: string; visible: boolean; children: ReactNode;
+export default function AgentAdvancedControls({ nodeId, visible, children, label = "Advanced controls" }: {
+  nodeId: string; visible: boolean; children: ReactNode; label?: string;
 }) {
   const [expanded, setExpanded] = useState(false);
   const updateNodeInternals = useUpdateNodeInternals();
@@ -34,8 +34,17 @@ export default function AgentAdvancedControls({ nodeId, visible, children }: {
   const contentId = `agent-advanced-${nodeId}`;
   return <div hidden={!visible} className="nodrag nopan border-t" data-testid="agent-advanced-controls">
     <button type="button" className="flex w-full items-center gap-2 px-4 py-3 text-left text-xs font-medium hover:bg-muted"
-      aria-expanded={expanded} aria-controls={contentId} onClick={() => setExpanded((value) => !value)}>
-      <span aria-hidden="true">{expanded ? "▾" : "▸"}</span>Advanced controls
+      aria-expanded={expanded} aria-controls={contentId} onClick={() => setExpanded((value) => !value)}
+      onKeyDown={(event) => {
+        if (event.key !== " " && event.key !== "Enter") return;
+        event.preventDefault(); event.stopPropagation();
+        if (!event.repeat) setExpanded((value) => !value);
+      }}
+      onKeyUp={(event) => {
+        if (event.key !== " " && event.key !== "Enter") return;
+        event.preventDefault(); event.stopPropagation();
+      }}>
+      <span aria-hidden="true">{expanded ? "▾" : "▸"}</span>{label}
     </button>
     <div id={contentId} hidden={!expanded} className="nowheel">{children}</div>
   </div>;

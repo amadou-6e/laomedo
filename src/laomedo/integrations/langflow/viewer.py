@@ -11,6 +11,9 @@ from laomedo.integrations.langflow.settings import Settings
 
 
 def install_routes(app, root: Path, authenticate):
+    from laomedo.integrations.langflow.skill_editing import install_skill_editing_routes
+
+    install_skill_editing_routes(app, authenticate)
     from laomedo.activity.agent_activity.routes import install_activity_routes
 
     install_activity_routes(app, authenticate)
@@ -99,6 +102,7 @@ def install_routes(app, root: Path, authenticate):
                 skill_id,
                 revision_id,
                 include_images=True,
+                include_binary=True,
             )
         except InspectionError as exc:
             code = str(exc)

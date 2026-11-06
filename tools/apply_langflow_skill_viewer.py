@@ -24,7 +24,7 @@ def apply(checkout):
         raise SystemExit("pinned_langflow_checkout_required")
     overlay = ROOT / "frontend/langflow-skill-viewer"
     models_patch = overlay / "claude-models.patch"
-    patch = overlay / "upstream.patch"
+    patch = overlay / "integration/upstream.patch"
     target = checkout / "src/frontend/src/modals/skillFilesModal"
     if (
         target.exists()
@@ -34,27 +34,108 @@ def apply(checkout):
     ):
         raise SystemExit("clean_upstream_checkout_required")
     subprocess.run(
-        ["git", "-C", str(checkout), "apply", "--check", str(patch)], check=True
-    )
-    subprocess.run(["git", "-C", str(checkout), "apply", str(patch)], check=True)
-    subprocess.run(
-        ["git", "-C", str(checkout), "apply", "--check", str(models_patch)], check=True
-    )
-    subprocess.run(["git", "-C", str(checkout), "apply", str(models_patch)], check=True)
-    selection_patch = overlay / "claude-selection.patch"
-    subprocess.run(
-        ["git", "-C", str(checkout), "apply", "--check", str(selection_patch)],
+        [
+            "git",
+            "-C",
+            str(checkout),
+            "apply",
+            "--ignore-space-change",
+            "--check",
+            str(patch),
+        ],
         check=True,
     )
     subprocess.run(
-        ["git", "-C", str(checkout), "apply", str(selection_patch)], check=True
+        ["git", "-C", str(checkout), "apply", "--ignore-space-change", str(patch)],
+        check=True,
+    )
+    file_patch = overlay / "integration/file-actions-dependencies.patch"
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(checkout),
+            "apply",
+            "--ignore-space-change",
+            "--check",
+            str(file_patch),
+        ],
+        check=True,
+    )
+    subprocess.run(
+        ["git", "-C", str(checkout), "apply", "--ignore-space-change", str(file_patch)],
+        check=True,
+    )
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(checkout),
+            "apply",
+            "--ignore-space-change",
+            "--check",
+            str(models_patch),
+        ],
+        check=True,
+    )
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(checkout),
+            "apply",
+            "--ignore-space-change",
+            str(models_patch),
+        ],
+        check=True,
+    )
+    selection_patch = overlay / "claude-selection.patch"
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(checkout),
+            "apply",
+            "--ignore-space-change",
+            "--check",
+            str(selection_patch),
+        ],
+        check=True,
+    )
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(checkout),
+            "apply",
+            "--ignore-space-change",
+            str(selection_patch),
+        ],
+        check=True,
     )
     catalog_patch = overlay / "catalog-recovery.patch"
     subprocess.run(
-        ["git", "-C", str(checkout), "apply", "--check", str(catalog_patch)], check=True
+        [
+            "git",
+            "-C",
+            str(checkout),
+            "apply",
+            "--ignore-space-change",
+            "--check",
+            str(catalog_patch),
+        ],
+        check=True,
     )
     subprocess.run(
-        ["git", "-C", str(checkout), "apply", str(catalog_patch)], check=True
+        [
+            "git",
+            "-C",
+            str(checkout),
+            "apply",
+            "--ignore-space-change",
+            str(catalog_patch),
+        ],
+        check=True,
     )
     shutil.copy2(
         overlay / "AgentModelSelection.test.ts",
@@ -70,6 +151,80 @@ def apply(checkout):
         / "src/frontend/src/CustomNodes/GenericNode/components/RenderInputParameters"
     )
     shutil.copy2(overlay / "RenderAgentInputParameters.tsx", agent_target / "index.tsx")
+    for name in ("SkillNodeControls.ts", "SkillNodeControls.test.tsx"):
+        shutil.copy2(overlay / "skills/node" / name, agent_target / name)
+    parameter = (
+        checkout / "src/frontend/src/components/core/parameterRenderComponent/index.tsx"
+    )
+    source = (
+        'import { skillChoicePlaceholder } from "@/CustomNodes/GenericNode/components/RenderInputParameters/SkillNodeControls";\n'
+        + parameter.read_text(encoding="utf-8")
+    )
+    source = replace_once(
+        source,
+        "      placeholder: placeholder || templateData?.placeholder,",
+        "      placeholder: skillChoicePlaceholder(useFlowStore.getState().nodes.find(node => node.id === nodeId)?.data, name, placeholder || templateData?.placeholder),",
+    )
+    parameter.write_text(source, encoding="utf-8")
+    edit_rows = checkout / "src/frontend/src/modals/editNodeModal/hooks/use-row-data.ts"
+    source = edit_rows.read_text(encoding="utf-8")
+    source = (
+        'import { isSkillControlHidden } from "@/CustomNodes/GenericNode/components/RenderInputParameters/SkillNodeControls";\n'
+        'import useFlowStore from "@/stores/flowStore";\n' + source
+    )
+    source = replace_once(
+        source,
+        "const useRowData = (nodeClass: APIClassType, open: boolean) => {\n",
+        "const useRowData = (nodeClass: APIClassType, open: boolean, nodeId?: string) => {\n"
+        "  const nodeType = useFlowStore(state => state.nodes.find(node => node.id === nodeId)?.data.type);\n",
+    )
+    source = replace_once(
+        source,
+        '          key.charAt(0) !== "_" &&\n',
+        '          key.charAt(0) !== "_" &&\n'
+        "          !isSkillControlHidden({ type: nodeType, node: nodeClass }, key) &&\n",
+    )
+    source = replace_once(
+        source, "  }, [open, nodeClass]);", "  }, [open, nodeClass, nodeType]);"
+    )
+    edit_rows.write_text(source, encoding="utf-8")
+    edit_component = (
+        checkout
+        / "src/frontend/src/modals/editNodeModal/components/editNodeComponent/index.tsx"
+    )
+    source = replace_once(
+        edit_component.read_text(encoding="utf-8"),
+        "  const rowData = useRowData(nodeClass, open);",
+        "  const rowData = useRowData(nodeClass, open, nodeId);",
+    )
+    edit_component.write_text(source, encoding="utf-8")
+    inspection_fields = (
+        checkout
+        / "src/frontend/src/pages/FlowPage/components/InspectionPanel/components/InspectionPanelFields.tsx"
+    )
+    source = (
+        'import { isSkillControlHidden } from "@/CustomNodes/GenericNode/components/RenderInputParameters/SkillNodeControls";\n'
+        + inspection_fields.read_text(encoding="utf-8")
+    )
+    source = replace_once(
+        source,
+        "      .filter((templateField) => {\n",
+        "      .filter((templateField) => {\n"
+        "        if (isSkillControlHidden(data, templateField)) return false;\n",
+    )
+    inspection_fields.write_text(source, encoding="utf-8")
+    generic_node = checkout / "src/frontend/src/CustomNodes/GenericNode/index.tsx"
+    source = generic_node.read_text(encoding="utf-8")
+    source = (
+        'import { skillNodeDescription } from "./components/RenderInputParameters/SkillNodeControls";\n'
+        + source
+    )
+    source = replace_once(
+        source,
+        "                description={data.node?.description}\n",
+        "                description={skillNodeDescription(data)}\n",
+    )
+    generic_node.write_text(source, encoding="utf-8")
     shutil.copy2(
         overlay / "AgentAdvancedControls.tsx",
         agent_target / "AgentAdvancedControls.tsx",
@@ -78,28 +233,50 @@ def apply(checkout):
         overlay / "AgentAdvancedControls.test.tsx",
         agent_target / "AgentAdvancedControls.test.tsx",
     )
-    target.mkdir()
-    shutil.copy2(overlay / "SkillFilesModal.tsx", target / "index.tsx")
-    shutil.copy2(overlay / "SkillActions.tsx", target / "SkillActions.tsx")
-    shutil.copy2(overlay / "SkillActions.test.tsx", target / "SkillActions.test.tsx")
-    shutil.copy2(overlay / "SkillNavigation.tsx", target / "SkillNavigation.tsx")
     shutil.copy2(
-        overlay / "SkillNavigation.test.tsx", target / "SkillNavigation.test.tsx"
+        overlay / "skills/interface/CanvasQueryState.test.ts",
+        checkout
+        / "src/frontend/src/pages/FlowPage/components/PageComponent/__tests__/CanvasQueryState.test.ts",
     )
-    shutil.copy2(overlay / "SkillOverview.tsx", target / "SkillOverview.tsx")
-    shutil.copy2(overlay / "SkillOverview.test.tsx", target / "SkillOverview.test.tsx")
-    shutil.copy2(overlay / "SkillFileDiff.tsx", target / "SkillFileDiff.tsx")
-    shutil.copy2(overlay / "SkillFileDiff.test.tsx", target / "SkillFileDiff.test.tsx")
-    shutil.copy2(overlay / "SkillHistory.tsx", target / "SkillHistory.tsx")
-    shutil.copy2(overlay / "SkillHistory.test.tsx", target / "SkillHistory.test.tsx")
-    shutil.copy2(overlay / "SkillSplitPane.tsx", target / "SkillSplitPane.tsx")
-    shutil.copy2(
-        overlay / "SkillSplitPane.test.tsx", target / "SkillSplitPane.test.tsx"
+    shutil.copytree(
+        overlay / "skills",
+        target,
+        ignore=shutil.ignore_patterns(
+            "README.md", "node", "assets", "CanvasQueryState.test.ts"
+        ),
     )
-    shutil.copy2(overlay / "selection.ts", target / "selection.ts")
+    (target / "index.tsx").write_text(
+        'export { SkillViewerRequest as default } from "./interface/SkillViewer";\n',
+        encoding="utf-8",
+    )
+    authenticated_page = (
+        checkout / "src/frontend/src/pages/AppAuthenticatedPage/index.tsx"
+    )
+    authenticated = authenticated_page.read_text(encoding="utf-8")
+    authenticated = replace_once(
+        authenticated,
+        'import { Outlet } from "react-router-dom";',
+        'import { Outlet } from "react-router-dom";\n'
+        'import SkillViewerProvider from "@/modals/skillFilesModal/interface/SkillViewer";',
+    )
+    authenticated = replace_once(
+        authenticated, "    <>\n", "    <SkillViewerProvider>\n"
+    )
+    authenticated = replace_once(
+        authenticated, "    </>\n", "    </SkillViewerProvider>\n"
+    )
+    authenticated_page.write_text(authenticated, encoding="utf-8")
     shutil.copy2(
-        overlay / "MONACO-LICENSE.txt",
+        overlay / "skills/assets/MONACO-LICENSE.txt",
         checkout / "src/frontend/public/monaco-LICENSE.txt",
+    )
+    shutil.copy2(
+        overlay / "skills/assets/skill-files-NOTICE.txt",
+        checkout / "src/frontend/public/skill-files-NOTICE.txt",
+    )
+    shutil.copy2(
+        overlay / "skills/assets/skill-icons-NOTICE.txt",
+        checkout / "src/frontend/public/skill-icons-NOTICE.txt",
     )
     issue_target = checkout / "src/frontend/src/modals/github/issues"
     shutil.copytree(
@@ -176,6 +353,7 @@ def apply(checkout):
         "ErrorAlertMigration.test.tsx",
         "ApplicationErrorPopup.tsx",
         "CopyIcon.tsx",
+        "ErrorExplanation.tsx",
     ):
         shutil.copy2(overlay / name, error_target / name)
     shutil.copy2(
