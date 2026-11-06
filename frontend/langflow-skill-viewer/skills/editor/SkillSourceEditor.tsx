@@ -48,5 +48,3 @@ export default function SkillSourceEditor({ file, match, editable = false, onCha
     <div ref={container} onKeyDown={(event) => { if (event.key !== "Escape") event.stopPropagation(); }} onKeyUp={(event) => { if (event.key !== "Escape") event.stopPropagation(); }} className="min-h-0 flex-1" data-testid="skill-file-source" aria-label={`${editable ? "Editable" : "Read-only"} source: ${file.path}`} />
   </div>;
 }
-
-
