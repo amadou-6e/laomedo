@@ -1,4 +1,4 @@
-from support.paths import repository_root
+from support.paths import repository_root, error_catalogue_path
 
 """Internal SDK-boundary controls; no model or live integration acceptance."""
 
@@ -114,11 +114,7 @@ class RetirementAndCatalogueTests(unittest.TestCase):
 
     def test_new_native_transport_failures_are_catalogued(self):
         root = repository_root()
-        catalogue = json.loads(
-            root.joinpath(
-                "frontend/langflow-skill-viewer/node-error-catalog.json"
-            ).read_text()
-        )
+        catalogue = json.loads(error_catalogue_path().read_text())
         codes = set()
         producers = [
             root.joinpath("src/laomedo/agents/agents/codex/controller", module)

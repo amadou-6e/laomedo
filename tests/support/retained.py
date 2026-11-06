@@ -147,7 +147,14 @@ def load_retained_shared(name):
                         "from laomedo.http.redirect import NoRedirect as " + alias
                     )
                     changed = True
-                elif node.module.startswith("laomedo.skills."):
+                elif node.module.startswith(
+                    (
+                        "laomedo.skills.",
+                        "laomedo.github.",
+                        "laomedo.agents.",
+                        "laomedo.activity.",
+                    )
+                ):
                     full = node.module + "." + item.name
                     target = symbol_paths.get(
                         full,

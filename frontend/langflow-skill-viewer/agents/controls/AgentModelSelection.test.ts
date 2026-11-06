@@ -5,7 +5,6 @@ let mockNodeId = 'agent-selection';
 let mockCounter = 0;
 let mockType = "LaomedoClaudeAgent";
 jest.mock("@/stores/flowStore", () => ({__esModule:true,default:{getState:()=>({nodes:[{id:mockNodeId,data:{type:mockType,node:{template:mockTemplate}}}]})}}));
-jest.mock("@/modals/issueViewerModal",()=>({nodeKind:(value:string)=>value}));
 jest.mock("../../i18n",()=>({__esModule:true,default:{t:(value:string)=>value}}));
 jest.mock("./update-hidden-outputs",()=>({updateHiddenOutputs:(_:unknown,value:unknown)=>value}));
 const template=(model='fable',effort='low')=>({code:{value:'source'},model:{value:model},runner_url:{value:'http://localhost:8769'},effort:{value:effort,options:['low','max']}});
