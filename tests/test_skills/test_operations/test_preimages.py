@@ -21,6 +21,21 @@ class SkillCommitPreimageTests(unittest.TestCase):
         )
         with tempfile.TemporaryDirectory() as directory:
             case = make_operation_case(Path(directory))
+            # Retain an independently specified legacy journal root. New imports
+            # now have their own file-bearing initial commit; this assertion
+            # protects the persisted old comparison contract rather than replacing
+            # its golden record with a newly generated import.
+            legacy = dict(expected["base_commit"])
+            legacy_id = legacy.pop("commit_id")
+            legacy["patch"] = ""
+            with case.service.connect() as db:
+                db.execute(
+                    "INSERT INTO commits VALUES (?,?,?)",
+                    (legacy_id, "internal-test", json.dumps(legacy)),
+                )
+                db.execute(
+                    "INSERT INTO heads VALUES (?,?)", ("internal-test", legacy_id)
+                )
             clock = SimpleNamespace(
                 now=lambda *_: datetime(2026, 10, 30, tzinfo=timezone.utc)
             )

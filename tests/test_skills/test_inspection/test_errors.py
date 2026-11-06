@@ -47,7 +47,7 @@ class SkillInspectionErrorCatalogueTests(unittest.TestCase):
         # Binary edit references can fail inside the private proposal model. The
         # manual HTTP boundary projects this code to skill_manual_invalid.
         self.assertFalse(codes - catalogue.keys() - {"skill_file_missing"})
-        for code in codes | {
+        for code in (codes - {"skill_file_missing"}) | {
             "skill_inspection_unavailable",
             "skill_history_unavailable",
             "skill_comparison_unavailable",
