@@ -49,7 +49,10 @@ class FileEdit(BaseModel):
     content: str | None = Field(
         default=None, description="UTF-8 text, base64 bytes, or null for deletion."
     )
-    encoding: Literal["utf-8", "base64"] = "utf-8"
+    encoding: Literal["utf-8", "base64"] = Field(
+        default="utf-8",
+        description="Wire representation of content; omitted text edits retain UTF-8.",
+    )
     source_path: str | None = Field(
         default=None,
         description="Copy bytes from this file in the exact reserved base.",
@@ -470,22 +473,34 @@ class ManualSkillPermissions(BaseModel):
     """Host-only grants; neither authentication nor an edit policy grants publication."""
 
     model_config = ConfigDict(strict=True, frozen=True, extra="forbid")
-    edit: bool = False
-    publish: bool = False
+    edit: bool = Field(
+        default=False, description="Whether the host grants manual candidate creation."
+    )
+    publish: bool = Field(
+        default=False, description="Whether the host grants registry promotion."
+    )
 
 
 class ManualSkillState(BaseModel):
     """Read-only editor bindings, without policies or backend capabilities."""
 
     model_config = ConfigDict(strict=True, frozen=True, extra="forbid")
-    skill_id: str
-    selected_revision: str
-    head_revision: str
-    head_commit: str
-    latest_revision: str
-    can_edit: bool
-    can_publish: bool
-    edit_enabled: bool
+    skill_id: str = Field(description="Registry identity of the selected skill.")
+    selected_revision: str = Field(
+        description="Immutable revision currently displayed by the editor."
+    )
+    head_revision: str = Field(description="Byte revision at the current history head.")
+    head_commit: str = Field(description="Commit identity at the current history head.")
+    latest_revision: str = Field(description="Currently published registry revision.")
+    can_edit: bool = Field(
+        description="Whether this selected revision admits manual editing."
+    )
+    can_publish: bool = Field(
+        description="Whether this candidate admits registry promotion."
+    )
+    edit_enabled: bool = Field(
+        description="Whether manual editing is configured by the host."
+    )
 
 
 class ManualSkillSave(BaseModel):
@@ -494,11 +509,15 @@ class ManualSkillSave(BaseModel):
     model_config = ConfigDict(
         strict=True, frozen=True, extra="forbid", hide_input_in_errors=True
     )
-    request_id: str
-    skill_id: str
-    revision_id: str
-    commit_id: str
-    operation: SkillProposal
+    request_id: str = Field(
+        description="Canonical random UUID identifying one durable save request."
+    )
+    skill_id: str = Field(description="Registry identity of the selected skill.")
+    revision_id: str = Field(description="Exact immutable candidate byte revision.")
+    commit_id: str = Field(description="Exact retained commit identity.")
+    operation: SkillProposal = Field(
+        description="Validated atomic file changes for this save."
+    )
 
     @field_validator("operation", mode="before")
     @classmethod
@@ -531,19 +550,27 @@ class ManualSkillPublication(BaseModel):
     model_config = ConfigDict(
         strict=True, frozen=True, extra="forbid", hide_input_in_errors=True
     )
-    skill_id: str
-    revision_id: str
-    commit_id: str
-    expected_latest: str
+    skill_id: str = Field(description="Registry identity of the selected skill.")
+    revision_id: str = Field(description="Exact immutable candidate byte revision.")
+    commit_id: str = Field(description="Exact retained commit identity.")
+    expected_latest: str = Field(
+        description="Published revision used as the promotion compare-and-swap base."
+    )
 
 
 class ManualPublicationReceipt(BaseModel):
     """Durable confirmation of the exact registry promotion, independent of graph pins."""
 
     model_config = ConfigDict(strict=True, frozen=True, extra="forbid")
-    skill_id: str
-    revision_id: str
-    commit_id: str
-    previous_revision: str
-    confirmed_at: str
-    promotion_performed: Literal[True] = True
+    skill_id: str = Field(description="Registry identity of the selected skill.")
+    revision_id: str = Field(description="Exact immutable candidate byte revision.")
+    commit_id: str = Field(description="Exact retained commit identity.")
+    previous_revision: str = Field(
+        description="Published revision replaced by the confirmed promotion."
+    )
+    confirmed_at: str = Field(
+        description="Timestamp of durable registry promotion confirmation."
+    )
+    promotion_performed: Literal[True] = Field(
+        default=True, description="True only when registry promotion is confirmed."
+    )
