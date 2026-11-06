@@ -7,6 +7,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 from uuid import uuid4
+from support.paths import error_catalogue_path
 
 from laomedo.skills.operations.manual import ManualSkillEditor
 from laomedo.skills.interface.operations.server import SkillOperationServer
@@ -196,12 +197,7 @@ class ManualSkillEditorTests(unittest.TestCase):
     def test_manual_catalogue_covers_the_closed_public_failure_set(self):
         from laomedo.skills.operations.contract import MANUAL_ERROR_CODES
 
-        catalog = json.loads(
-            (
-                Path(__file__).resolve().parents[3]
-                / "frontend/langflow-skill-viewer/node-error-catalog.json"
-            ).read_text(encoding="utf-8")
-        )
+        catalog = json.loads(error_catalogue_path().read_text(encoding="utf-8"))
         for code in MANUAL_ERROR_CODES:
             self.assertTrue(
                 all(
