@@ -4,7 +4,7 @@ import ast
 import json
 import unittest
 
-from support.paths import repository_root
+from support.paths import repository_root, error_catalogue_path
 from laomedo.github.issues.contract import ERROR_CODES as ISSUE_CODES
 from laomedo.github.pull_requests.contract import ERROR_CODES as PR_CODES
 
@@ -12,11 +12,7 @@ from laomedo.github.pull_requests.contract import ERROR_CODES as PR_CODES
 class GitHubErrorCatalogueTests(unittest.TestCase):
     def test_literal_handler_failures_are_catalogued(self):
         root = repository_root()
-        catalogue = json.loads(
-            (root / "frontend/langflow-skill-viewer/node-error-catalog.json").read_text(
-                encoding="utf-8"
-            )
-        )
+        catalogue = json.loads((error_catalogue_path()).read_text(encoding="utf-8"))
         for feature in ("issues", "pull_requests"):
             path = root / "src/laomedo/github/interface" / feature / "handler.py"
             tree = ast.parse(path.read_text(encoding="utf-8"))
@@ -40,11 +36,7 @@ class GitHubErrorCatalogueTests(unittest.TestCase):
         self,
     ):
         root = repository_root()
-        catalogue = json.loads(
-            (
-                root / "frontend/langflow-skill-viewer/node-error-catalog.json"
-            ).read_text()
-        )
+        catalogue = json.loads((error_catalogue_path()).read_text())
         codes = set(ISSUE_CODES | PR_CODES)
         for feature in ("github_issue", "github_pr"):
             tree = ast.parse(
