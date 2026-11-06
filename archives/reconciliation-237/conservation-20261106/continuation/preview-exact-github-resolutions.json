@@ -1,0 +1,145 @@
+[
+  [
+    "AGENTS.md",
+    "retain composed ownership; targeted GitHub import and repository-root updates"
+  ],
+  [
+    "CONTRIBUTING.md",
+    "retain composed ownership; targeted GitHub import and repository-root updates"
+  ],
+  [
+    "examples/README.md",
+    "retain composed ownership; targeted GitHub import and repository-root updates"
+  ],
+  [
+    "examples/skills/README.md",
+    "retain composed ownership; targeted GitHub import and repository-root updates"
+  ],
+  [
+    "frontend/langflow-skill-viewer/README.md",
+    "retain composed ownership; targeted GitHub import and repository-root updates"
+  ],
+  [
+    "frontend/langflow-skill-viewer/errors/node-error-catalog.json",
+    "union keys; current GitHub owner for GitHub catalogue, composed Agent/Skill wording otherwise",
+    [
+      "claude_local_login_copy_failed",
+      "container_termination_unverified",
+      "discovered_revision_required",
+      "executor_termination_unverified",
+      "fresh_codex_request_required",
+      "github_discovery_incomplete",
+      "github_http_401",
+      "github_http_403",
+      "github_http_404",
+      "github_http_410",
+      "github_issue_unavailable",
+      "github_pr_unavailable",
+      "immutable_skill_revision_required",
+      "invalid_request",
+      "invalid_skill_id",
+      "issue_grant_unavailable",
+      "issue_operation_conflict",
+      "issue_operation_invalid",
+      "issue_patch_invalid",
+      "issue_reference_mismatch",
+      "issue_response_invalid",
+      "issue_service_not_configured",
+      "issue_state_invalid",
+      "issue_write_unknown",
+      "labels_invalid",
+      "lease_service_lost",
+      "lease_service_unavailable",
+      "opencode_container_cleanup_unverified",
+      "opencode_controller_startup_failed",
+      "opencode_model_discovery_in_progress",
+      "opencode_transport_cleanup_failed",
+      "pr_agent_cancelled",
+      "pr_changed_since_agent_read",
+      "pr_feedback_not_configured",
+      "pr_feedback_ticket_invalid",
+      "pr_grant_unavailable",
+      "pr_operation_conflict",
+      "pr_patch_invalid",
+      "pr_reference_mismatch",
+      "pr_response_invalid",
+      "pr_service_not_configured",
+      "pr_state_invalid",
+      "pr_write_unknown",
+      "protected_mount_changed",
+      "repository_connection_unavailable",
+      "repository_url_invalid",
+      "run_preparation_cleanup_unverified",
+      "runner_model_catalog_unavailable_check_runner_connection",
+      "selected_issue_invalid",
+      "selected_issue_no_longer_matches",
+      "selected_issue_required",
+      "selected_label_unavailable",
+      "selected_pr_invalid",
+      "selected_pr_no_longer_matches",
+      "selected_pr_required",
+      "skill_feedback_request_required",
+      "unauthorized"
+    ]
+  ],
+  [
+    "frontend/langflow-skill-viewer/integration/upstream.patch",
+    "retain composed ownership; targeted GitHub import and repository-root updates"
+  ],
+  [
+    "src/laomedo/host/host_services.py",
+    "prior combined runtime, exact owner runtime equality established"
+  ],
+  [
+    "src/laomedo/host/mediation/cli.py",
+    "prior combined runtime, exact owner runtime equality established"
+  ],
+  [
+    "src/laomedo/host/mediation/utils.py",
+    "prior combined runtime, exact owner runtime equality established"
+  ],
+  [
+    "src/laomedo/integrations/langflow/viewer.py",
+    "prior combined runtime, exact owner runtime equality established"
+  ],
+  [
+    "src/laomedo/work_graph/github.py",
+    "prior combined runtime, exact owner runtime equality established"
+  ],
+  [
+    "tests/README.md",
+    "retain composed ownership; targeted GitHub import and repository-root updates"
+  ],
+  [
+    "tests/test_exp19_live_e2e.py",
+    "retain selected owner retirement; maintained GitHub builder replaces old flow"
+  ],
+  [
+    "tests/test_github/test_interface/test_reviewed_cli.py",
+    "retain composed ownership; targeted GitHub import and repository-root updates"
+  ],
+  [
+    "tests/test_github/test_pull_requests/test_graph/test_feedback.py",
+    "retain composed ownership; targeted GitHub import and repository-root updates"
+  ],
+  [
+    "tests/test_runner_sandbox_policy.py",
+    "retain selected owner retirement; maintained GitHub builder replaces old flow"
+  ],
+  [
+    "tests/test_shared/test_architecture/test_settings.py",
+    "retain composed ownership; targeted GitHub import and repository-root updates"
+  ],
+  [
+    "tools/apply_langflow_skill_viewer.py",
+    "retain composed installer; replace only old GitHub deployment with concern tree"
+  ],
+  [
+    "tools/migrations/module-paths.json",
+    "preserve Agent/Shared/Skill mapping; update GitHub-owned defining targets"
+  ],
+  [
+    "tools/migrations/symbol-paths.json",
+    "preserve Agent/Shared/Skill mapping; update GitHub-owned defining targets"
+  ]
+]

@@ -1,0 +1,8 @@
+{
+  "installed": "C:\\Users\\Amadou\\AppData\\Local\\Temp\\laomedo-combined-wheel-xfj3bpe5\\site-packages",
+  "source": "C:\\CodeWorkspace\\laomedo\\.tools\\modular-integration-validation\\src\\laomedo",
+  "files": 353,
+  "all_production_bytes_match": true,
+  "source_only": "67 architecture README.md files are source documentation, outside the declared wheel data inventory",
+  "wheel_sha256": "5b5e7582fd19617320d45f822918abc300ab24467237a6cc3aec487d1ff3acf8"
+}

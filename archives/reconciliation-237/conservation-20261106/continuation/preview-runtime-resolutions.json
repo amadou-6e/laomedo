@@ -1,0 +1,62 @@
+[
+  {
+    "path": "src/laomedo/host/credentials/siwc/utils.py",
+    "source": "1eb10a1f",
+    "sha256": "7b30f29ee9b80c54bd50d5368ad1605cbab9d23b799a8167b19ad23efe4321f7",
+    "reason": "Prior combined defining imports and typed implementation; all4current owner runtime Python trees verified unchanged since their frozen heads"
+  },
+  {
+    "path": "src/laomedo/host/publication/controller.py",
+    "source": "1eb10a1f",
+    "sha256": "9c94edad53987a90642f009edeaf8397ac4f6410c7d88c3300399ef41cdb5ee8",
+    "reason": "Prior combined defining imports and typed implementation; all4current owner runtime Python trees verified unchanged since their frozen heads"
+  },
+  {
+    "path": "src/laomedo/host/publication/handoff/store.py",
+    "source": "1eb10a1f",
+    "sha256": "39a9764abd99815848d9aa027eb693a7d87d1f4ea4d3bc014383017d77b3b14a",
+    "reason": "Prior combined defining imports and typed implementation; all4current owner runtime Python trees verified unchanged since their frozen heads"
+  },
+  {
+    "path": "src/laomedo/integrations/langflow/viewer.py",
+    "source": "1eb10a1f",
+    "sha256": "d9ad8dab48fef44d2cbf230fb56e3f868aaf97f45f3656064ea8de77cb549a2e",
+    "reason": "Prior combined defining imports and typed implementation; all4current owner runtime Python trees verified unchanged since their frozen heads"
+  },
+  {
+    "path": "src/laomedo/work_graph/client.py",
+    "source": "1eb10a1f",
+    "sha256": "99a10fcc6f5433806916603f4d36814f6da02378d07a421e7a8c48b4e1c53737",
+    "reason": "Prior combined defining imports and typed implementation; all4current owner runtime Python trees verified unchanged since their frozen heads"
+  },
+  {
+    "path": "src/laomedo/work_graph/docker_stage.py",
+    "source": "1eb10a1f",
+    "sha256": "7e0d022f16620f335c8e8e108bee1b73348bd586a2b389d8d951e92cbb41dad7",
+    "reason": "Prior combined defining imports and typed implementation; all4current owner runtime Python trees verified unchanged since their frozen heads"
+  },
+  {
+    "path": "src/laomedo/work_graph/grant_utils.py",
+    "source": "1eb10a1f",
+    "sha256": "44629fa68b8a47fd0adf7c8aa38e9050102b2fc5a0f5001819d818a064d787ae",
+    "reason": "Prior combined defining imports and typed implementation; all4current owner runtime Python trees verified unchanged since their frozen heads"
+  },
+  {
+    "path": "src/laomedo/work_graph/grants.py",
+    "source": "1eb10a1f",
+    "sha256": "d35c1becdf00a5dc664d36900c1bd68135c266622dfa11f78fc72eb3063a05bd",
+    "reason": "Prior combined defining imports and typed implementation; all4current owner runtime Python trees verified unchanged since their frozen heads"
+  },
+  {
+    "path": "src/laomedo/work_graph/launch.py",
+    "source": "1eb10a1f",
+    "sha256": "f0ad0d1f1e61dc384e9830ca9772b9a9f9ee8be9d9db5636d1d9d9bcf59300a7",
+    "reason": "Prior combined defining imports and typed implementation; all4current owner runtime Python trees verified unchanged since their frozen heads"
+  },
+  {
+    "path": "src/laomedo/work_graph/local_launch.py",
+    "source": "1eb10a1f",
+    "sha256": "f4242896357f0cb7de4d2cc5cee384c0c036dc5f6be768a7df52a7765c14aeac",
+    "reason": "Prior combined defining imports and typed implementation; all4current owner runtime Python trees verified unchanged since their frozen heads"
+  }
+]

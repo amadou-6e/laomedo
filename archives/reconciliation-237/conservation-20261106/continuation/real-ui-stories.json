@@ -1,0 +1,16 @@
+{
+  "scope": "Actual local Skill registry and UI; no fixtures, provider dispatch or external writes",
+  "stories": [
+    "Import a real Skill graph and view its actual files and first history commit",
+    "Open search and a result; collapse it again",
+    "Toggle full-page and restore viewer; inspect current-file historical diff",
+    "Edit a private registry copy; verify publish/discard controls and actual history",
+    "Verify copyable descriptive errors remain inside viewport and dismiss safely"
+  ],
+  "unverified": [
+    "Real provider execution and Agent activity",
+    "Authenticated GitHub operations",
+    "Session management, expiry, crash recovery and concurrent profile behavior",
+    "Final owner validation"
+  ]
+}

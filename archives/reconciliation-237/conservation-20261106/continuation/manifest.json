@@ -1,0 +1,16 @@
+{
+  "candidate_commit": "fb29d621e3755a7b895f10a1b0d45a0366ff32c9",
+  "candidate_tree": "27fd1105e7e5df6882e1b42b1ec672201fff2807",
+  "base_commit": "37dc9aa9f37304bc8b2c8e8e33b70e356b771764",
+  "owners": {
+    "shared": "50b3911d76c194dbf4a47da6fe948e523370f8a3",
+    "skills": "267df25ee74e4b0697bb9f3a8a7b3a6f56e57294",
+    "github": "4d59e9d90555982a5f8930c3d5fd1e7f90137fac",
+    "agents": "2a3d30ed31949b9a517eac2047455e8d38f1c18c"
+  },
+  "patch_sha256": "5b545554c127fa57c9591278d6e5f2b98fbfe689e59d1df950089693ade0cedd",
+  "reconstruction": "Applied binary patch to a separate index initialized from the develop base; resulting tree exactly equals candidate tree. This is preservation, not acceptance.",
+  "review": "Remaining non-Python test-data packet and focused correction/modularity/integration rechecks incomplete; existing Claude session rate-limited until 2026-11-06 16:30 Europe/Berlin. All 23 old PRs remain OPEN/HOLD.",
+  "verification": "1014 combined source tests, no failures/errors,17 initial skips. Six Node checks, four formatting-policy checks and three installed-wheel checks subsequently pass without skips. Four symlink and two opt-in Docker checks remain unverified. 353 production wheel files match source;67 source README files are intentionally outside wheel data. 243 frontend cases across26suites pass; actual combined overlay installed; actual build passes (final catalogue rebuild separately pending). Browser evidence is scoped to private Skill app only. No provider/GitHub or owner acceptance.",
+  "private_state": "No credentials, browser storage state, runtime databases, service logs or private API-token files are archived."
+}

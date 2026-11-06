@@ -1,0 +1,142 @@
+[
+  {
+    "path": "examples/README.md",
+    "reason": "Canonical consolidated maintained examples from prior combined cut; current component runtime sources are unchanged",
+    "sha256": "c5f05ed16f3d19488ddfbfe226edad9558ebd82f64ae4124f6ea5dbf2f7a1939"
+  },
+  {
+    "path": "examples/langflow-contract-routing/flow.json",
+    "reason": "Canonical consolidated maintained examples from prior combined cut; current component runtime sources are unchanged",
+    "sha256": "8e8cc13bc3cf754eee0066d8bd657f450064bb4434d6573baaad7a06ff8a0134"
+  },
+  {
+    "path": "examples/langflow-workgraph-demo/flow.json",
+    "reason": "Canonical consolidated maintained examples from prior combined cut; current component runtime sources are unchanged",
+    "sha256": "a61f4023c67207a1b43e5d93468c3d83093c8ed0397be86ac6c01bc524b0efcc"
+  },
+  {
+    "path": "tests/README.md",
+    "reason": "Canonical combined concern-owned test/layout; no post-frozen owner changes to this test body",
+    "sha256": "65904f1b1920e35080c86a35b0e759bb14b4bb7d7d39fb667c5e16a39dac4a59"
+  },
+  {
+    "path": "tests/test_agents/test_claude/test_login.py",
+    "reason": "Canonical combined concern-owned test/layout; no post-frozen owner changes to this test body",
+    "sha256": "c91fbf2867c9313c91ef0ae0cdde89890867922d72654a6c3c264e138b69075c"
+  },
+  {
+    "path": "tests/test_agents/test_examples/data/claude.json",
+    "reason": "Canonical combined concern-owned test/layout; no post-frozen owner changes to this test body",
+    "sha256": "88cfb6f4e74f772c8f2e7571001e5db5e5fe21849c8f33e3abcb9271e03e51bb"
+  },
+  {
+    "path": "tests/test_agents/test_examples/data/codex.json",
+    "reason": "Canonical combined concern-owned test/layout; no post-frozen owner changes to this test body",
+    "sha256": "358fda0e5d636fe53011047cc8301d3be5f6588122a97c016c1cf382791d8c9d"
+  },
+  {
+    "path": "tests/test_agents/test_examples/data/opencode.json",
+    "reason": "Canonical combined concern-owned test/layout; no post-frozen owner changes to this test body",
+    "sha256": "37608f6c0dd92a104883d82c3f2336d9b9ec99c7864050a77bbf39e9bf604bb8"
+  },
+  {
+    "path": "tests/test_agents/test_runtime/test_prerequisites.py",
+    "reason": "Canonical combined concern-owned test/layout; no post-frozen owner changes to this test body",
+    "sha256": "db3534806fc25fac0cf72c93dff1d2b0e9b1228198d073efec3bc3018b8bc3ca"
+  },
+  {
+    "path": "tests/test_container_lease.py",
+    "reason": "Retired flat duplicate; canonical concern tests are retained in reference1eb10a1f"
+  },
+  {
+    "path": "tests/test_host/test_mediation/README.md",
+    "reason": "Canonical combined concern-owned test/layout; no post-frozen owner changes to this test body",
+    "sha256": "c48b9f04bced61aac301d89e15873023d174b8a43fd6f7175722336c38309cfa"
+  },
+  {
+    "path": "tests/test_shared/test_architecture/test_settings.py",
+    "reason": "Canonical combined concern-owned test/layout; no post-frozen owner changes to this test body",
+    "sha256": "d5b1f56705cd33ab5263cc7ddd5521893fdcdffd71393ab3d1b3e5a8b59417cd"
+  },
+  {
+    "path": "tests/test_shared/test_errors/README.md",
+    "reason": "Canonical combined concern-owned test/layout; no post-frozen owner changes to this test body",
+    "sha256": "297e5879332626ed0a8702a8bafee620c25212634997a68a9c2ae6b0753459e9"
+  },
+  {
+    "path": "tests/test_shared/test_migration/test_bytes.py",
+    "reason": "Canonical combined concern-owned test/layout; no post-frozen owner changes to this test body",
+    "sha256": "d3756207679fc11e1bfa9546f6e851efea769e2c5770ea9bb28f04b0e836f252"
+  },
+  {
+    "path": "tests/test_work_graph.py",
+    "reason": "Retired flat duplicate; canonical concern tests are retained in reference1eb10a1f"
+  },
+  {
+    "path": "tests/test_work_graph/README.md",
+    "reason": "Canonical combined concern-owned test/layout; no post-frozen owner changes to this test body",
+    "sha256": "7ddec29c0c6124498ed6157f706a78ead3ce221eccaeec0132b23e03ef4211cc"
+  },
+  {
+    "path": "tests/test_work_graph/test_cli.py",
+    "reason": "Canonical combined concern-owned test/layout; no post-frozen owner changes to this test body",
+    "sha256": "274ae38e765023da77378d9d63d5e1a256d835af9ea8b7e7f3e2d2f0e6d8ba8d"
+  },
+  {
+    "path": "tests/test_work_graph/test_cli_summary.py",
+    "reason": "Retired flat duplicate; canonical concern tests are retained in reference1eb10a1f"
+  },
+  {
+    "path": "tests/test_work_graph/test_import.py",
+    "reason": "Retired flat duplicate; canonical concern tests are retained in reference1eb10a1f"
+  },
+  {
+    "path": "tests/test_work_graph/test_snapshots.py",
+    "reason": "Canonical combined concern-owned test/layout; no post-frozen owner changes to this test body",
+    "sha256": "392a435e6ec55c4eb391dafa1e9485ed41a73bd512080de1558ba4b1de07d627"
+  },
+  {
+    "path": "tests/test_work_graph_cli_summary.py",
+    "reason": "Retired flat duplicate; canonical concern tests are retained in reference1eb10a1f"
+  },
+  {
+    "path": "tests/test_shared/test_errors/test_catalogue.py",
+    "reason": "Current Agent catalogue suite retains all21reference methods unchanged, plus restored-recovery regression; scanner helpers/settings separated",
+    "sha256": "df2066aaa1922631bb10d9c3229a25cd14c9718babf1f88fe8cb53971b69adae"
+  },
+  {
+    "path": "tests/test_shared/test_migration/test_shared.py",
+    "reason": "Current Agent suite preserves all9reference methods and adds fail-closed/workspace controls; union missing Shared methods: test_registry_split_symbols_and_ambiguous_module_values,test_server_import_paths_and_launch_commands_have_distinct_owners,test_historical_native_entrypoints_still_refuse_before_process_work",
+    "sha256": "4635b238f90f4431c43da1eebda723559abf94ae45ff3509db03a39a2f49f36e"
+  },
+  {
+    "path": "tools/migrations/migrate_module_paths.py",
+    "reason": "Latest Agent offline tool includes both Shared static-settings guard and Agent opaque-module refusal; JSON maps remain separately merged",
+    "sha256": "da5d78568fa69dcd05e08b0a58034050c53b3f0301c47048f07842aa3f838180"
+  },
+  {
+    "path": "tools/migrations/manual-symbols.json",
+    "reason": "Per-key refusal union; provider explanation wins only for same-key manual refusals: ",
+    "sha256": "3776fa45557e7617be7e232541ec180c9000b3cf8b5aa42b88c2d7cda907d18e"
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/errors/node-error-catalog.json",
+    "reason": "Per-key catalogue union; recorded Agent lifecycle wording for overlapping producer-owned keys: ",
+    "sha256": "bd2cbf59457a259d1a175f4999441ba99b76fc9c367a2cc5cacdccef36b21230"
+  },
+  {
+    "path": "docs/architecture/package-layout.md",
+    "reason": "Current Agent architecture plus Shared mandatory vocabulary, private projection and HTTP admission contracts",
+    "sha256": "480e726633d638f9032791f185642e8c045f0312cdfeba871710cb5487e7c9cf"
+  },
+  {
+    "path": "src/laomedo/README.md",
+    "reason": "Prior combined declarative module ownership and nomenclature",
+    "sha256": "fd8a7375e5105fd2cfbdc2a3b539da0c96f31298b1f118aa1f3646082c45b5c2"
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/README.md",
+    "reason": "Combined declarative architecture index; each feature keeps its own contract and asset links",
+    "sha256": "870dfab7e03585122327910b0452446dc36980efe6ab09443792f3bf80168825"
+  }
+]

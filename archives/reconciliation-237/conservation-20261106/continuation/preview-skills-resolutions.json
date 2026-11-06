@@ -1,0 +1,27 @@
+[
+  {
+    "path": "frontend/langflow-skill-viewer/errors/node-error-catalog.json",
+    "resolution": "Per-key three-way merge; zero overlapping contradictory edits; retain every independently added/changed key",
+    "sha256": "9016690085aa47c954cfd104eea45865636725a7ba32036a6b99f6a690df6244"
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/recovery/PopupFrame.tsx",
+    "resolution": "Retain Skills dialog-aware anchor and Escape handling plus Shared short-screen spacing and focusable scroll body",
+    "sha256": "6295a5609fc74efbde27ad4fa6e91c88647ac90b2fc4ff009e3118a13aeb7697"
+  },
+  {
+    "path": "src/laomedo/integrations/langflow/viewer.py",
+    "resolution": "Keep manual editor route installation alongside existing activity and runner routes",
+    "sha256": "c66023ea2efcb8afc591a3f0d83ec2671ca802422775a8ea8dde8edfbb408b97"
+  },
+  {
+    "path": "tests/test_skills/test_interface/test_errors.py",
+    "resolution": "Keep both methods: handler catalogue guard and actual operation/editor recovery controls; migrate catalogue path",
+    "sha256": "073cdfb6b136f26316ea706a3064724d65b367cc25adac35b56da30152ee64a8"
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/README.md",
+    "resolution": "Current Skills behavior documentation plus discoverable Shared presentation/recovery package links",
+    "sha256": "3c0a23f2470d691e5c5ac08f8176d99f99a9907a52be8789a12298a2b0add038"
+  }
+]

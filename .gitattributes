@@ -29,3 +29,6 @@ archives/agents-205/remaining-provider-examples/files/** -text
 archives/agents-205/retired-agent-probes/files/** -text
 archives/agents-205/shared-native-entrypoint/files/** -text
 archives/agents-205/component-cache-inputs/files/** -text
+
+# Exact reconstructable candidate patch; preserve hunk context bytes.
+archives/reconciliation-237/conservation-20261106/continuation/combined-candidate.patch -text -diff
