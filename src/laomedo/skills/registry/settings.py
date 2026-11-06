@@ -8,3 +8,5 @@ NAME = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
 
 
 HASH = re.compile(r"^sha256:[0-9a-f]{64}$")
+
+ASSET_SUFFIXES = frozenset({".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico", ".pdf"})

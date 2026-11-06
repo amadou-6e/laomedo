@@ -8,6 +8,22 @@ from support.paths import repository_root
 
 
 class ErrorCatalogueTests(unittest.TestCase):
+    def test_removed_request_recovery_names_the_available_controls(self):
+        root = repository_root()
+        catalog = json.loads(
+            (root / "frontend/langflow-skill-viewer/node-error-catalog.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        recovery = catalog["skill_feedback_request_required"]["recovery"]
+        self.assertNotIn("Edit Request", recovery)
+        for control in ("Operation", "Skill files", "Publish"):
+            self.assertIn(control, recovery)
+        self.assertIn(
+            "Advanced settings",
+            catalog["immutable_skill_revision_required"]["recovery"],
+        )
+
     def test_skill_and_feedback_producers_have_descriptive_entries(self):
         root = repository_root()
         catalog = json.loads(
@@ -37,3 +53,23 @@ class ErrorCatalogueTests(unittest.TestCase):
                     for field in ("title", "description", "recovery"):
                         self.assertIsInstance(catalog[code][field], str)
                         self.assertTrue(catalog[code][field].strip())
+
+    def test_viewer_read_failures_have_specific_catalogue_entries(self):
+        root = repository_root()
+        catalog = json.loads(
+            (root / "frontend/langflow-skill-viewer/node-error-catalog.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        codes = {
+            "skill_inspection_unavailable",
+            "skill_history_unavailable",
+            "skill_comparison_unavailable",
+            "skill_revision_unavailable",
+            "skill_revision_unsafe",
+            "skill_revision_too_large",
+        }
+        self.assertFalse(codes - catalog.keys())
+        for code in codes:
+            for field in ("title", "description", "recovery"):
+                self.assertTrue(catalog[code][field].strip(), (code, field))
