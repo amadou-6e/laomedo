@@ -28,7 +28,7 @@ const SkillFileManager = forwardRef<SkillFileManagerHandle, Props>(function Skil
   const showForm = (next: Form | null) => { formRef.current = next; setForm(next); };
   const focus = (path: string) => requestAnimationFrame(() => {
     const input = root.current?.querySelector<HTMLInputElement | HTMLSelectElement>("[data-file-form]");
-    if (input) { input.focus(); if (input instanceof HTMLInputElement) {
+    if (input) { const newlyFocused = document.activeElement !== input; input.focus(); if (newlyFocused && input instanceof HTMLInputElement) {
       const dot = input.value.lastIndexOf("."); input.setSelectionRange(0, formRef.current?.kind === "rename" && !formRef.current.folder && dot > 0 ? dot : input.value.length);
     } return; }
     const target = [...(root.current?.querySelectorAll<HTMLElement>("[data-skill-file-path]") || [])].find((element) => element.dataset.skillFilePath === path);

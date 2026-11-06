@@ -1,4 +1,4 @@
-﻿import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+﻿import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { useEffect, useRef, useState } from "react";
 import { api } from "@/controllers/API/api";
 import SkillFileManager, { type SkillFileManagerHandle } from "./SkillFileManager";
@@ -106,4 +106,26 @@ test("a grant revoked while a local file is being read cannot stage that file th
   expect(await screen.findByRole("alert")).toHaveTextContent("skill_manual_not_authorized");
   expect(screen.queryByRole("button", { name: "new.md", exact: true })).toBeNull();
   expect(post.mock.calls.every(([url]) => url.endsWith("/editor"))).toBe(true);
+});
+
+
+test("late rename focus callbacks preserve the replacement selection", async () => {
+  const pending: FrameRequestCallback[] = [];
+  const frame = jest.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => { pending.push(callback); return pending.length; });
+  try {
+    render(<Example />); await screen.findByText("Ready");
+    fireEvent.contextMenu(screen.getByRole("button", { name: "a.md", exact: true }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Rename..." }));
+    const input = await screen.findByRole("textbox", { name: "Rename refs/a.md" }) as HTMLInputElement;
+    input.focus();
+    fireEvent.change(input, { target: { value: "replacement.md" } });
+    input.setSelectionRange(0, input.value.length);
+    expect(pending.length).toBeGreaterThan(0);
+    act(() => { for (const callback of pending.splice(0)) callback(0); });
+    expect(input.selectionStart).toBe(0);
+    expect(input.selectionEnd).toBe("replacement.md".length);
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(await screen.findByRole("button", { name: "replacement.md", exact: true })).toBeVisible();
+    expect(screen.queryByRole("button", { name: "replacement.md.md", exact: true })).toBeNull();
+  } finally { frame.mockRestore(); }
 });
