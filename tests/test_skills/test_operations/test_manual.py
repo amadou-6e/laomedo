@@ -275,3 +275,44 @@ class ManualSkillEditorTests(unittest.TestCase):
                     )
                 self.assertEqual(failure.exception.code, expected)
                 self.assertNotIn(str(self.case.root), failure.exception.read().decode())
+
+    def test_missing_copy_source_is_projected_as_manual_invalid(self):
+        from urllib.request import Request, urlopen
+        from urllib.error import HTTPError
+
+        state = self.editor.editor("internal-test", self.case.initial["revision_id"])
+        body = {
+            "request_id": str(uuid4()),
+            "skill_id": "internal-test",
+            "revision_id": state["head_revision"],
+            "commit_id": state["head_commit"],
+            "operation": {
+                "action": "modify",
+                "message": "Copy an absent source",
+                "files": [{"path": "rules/two.md", "source_path": "absent.md"}],
+            },
+        }
+        with RunningHTTPServer(
+            SkillOperationServer(
+                self.case.service,
+                "x" * 32,
+                0,
+                manual_permissions={"internal-test": {"edit": True, "publish": True}},
+            )
+        ) as running:
+            request = Request(
+                f"http://127.0.0.1:{running.server_port}/v1/skill-operations/save",
+                data=json.dumps(body).encode(),
+                headers={
+                    "Content-Type": "application/json",
+                    "Authorization": "Bearer " + "x" * 32,
+                },
+            )
+            with self.assertRaises(HTTPError) as failure:
+                urlopen(request, timeout=5)
+            with failure.exception as response:
+                self.assertEqual(response.code, 400)
+                self.assertEqual(
+                    json.load(response), {"error_category": "skill_manual_invalid"}
+                )
+        self.assertEqual(self.case.store.revision("internal-test"), self.case.initial)
