@@ -163,6 +163,76 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(self.controller.interrupt_acknowledged)
         self.assertEqual(self.controller.native_completion_status, "interrupted")
 
+    async def test_unconfirmed_terminal_response_preserves_started_turn_and_failure(
+        self,
+    ):
+        for user_cancel, code, status in (
+            (True, "cancel_native_unconfirmed", "cancelled"),
+            (False, "turn_timeout", "timeout"),
+        ):
+            with self.subTest(user_cancel=user_cancel):
+                cancelled = threading.Event()
+                if user_cancel:
+                    cancelled.set()
+                self.controller.acp.cancel_sent = True
+                self.controller.acp.prompt.reset_mock()
+
+                async def fail(*args, **kwargs):
+                    self.controller.events.append(
+                        {
+                            "method": "turn/started",
+                            "params": {
+                                "threadId": "native-thread",
+                                "turn": {"id": "started-turn"},
+                            },
+                        }
+                    )
+                    raise RunnerError(code)
+
+                self.controller.acp.prompt.side_effect = fail
+                turn = await self.controller.prompt(
+                    "task", skills=[], cancelled=cancelled, seconds=1
+                )
+                self.assertEqual(
+                    (turn.turn_id, turn.status, turn.error),
+                    ("started-turn", status, code),
+                )
+                self.assertFalse(self.controller.interrupt_acknowledged)
+                self.assertIsNone(self.controller.native_completion_status)
+                self.controller.acp.prompt.assert_awaited_once()
+
+    async def test_cancel_without_interrupted_completion_stays_unconfirmed(self):
+        cancelled = threading.Event()
+        cancelled.set()
+        self.controller.acp.cancel_sent = True
+        for native_status in ("failed", "unknown"):
+            with self.subTest(native_status=native_status):
+
+                async def finish(*args, **kwargs):
+                    self.controller.events.append(
+                        {
+                            "method": "turn/completed",
+                            "params": {
+                                "threadId": "native-thread",
+                                "turn": {"id": "turn", "status": native_status},
+                            },
+                        }
+                    )
+                    return SimpleNamespace(stop_reason="cancelled")
+
+                self.controller.acp.prompt.side_effect = finish
+                turn = await self.controller.prompt(
+                    "task", skills=[], cancelled=cancelled, seconds=1
+                )
+                self.assertEqual(
+                    (turn.turn_id, turn.status, turn.error),
+                    ("turn", "cancelled", "cancel_native_unconfirmed"),
+                )
+                self.assertEqual(
+                    self.controller.native_completion_status, native_status
+                )
+                self.assertFalse(self.controller.interrupt_acknowledged)
+
     async def test_revocation_and_executor_health_use_shared_prompt_guard(self):
         self.controller.authorization_probe = lambda: False
         with self.assertRaisesRegex(RunnerError, "auth_revoked_during_turn"):
