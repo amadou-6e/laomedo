@@ -23,7 +23,7 @@ def apply(checkout):
     if revision != UPSTREAM:
         raise SystemExit("pinned_langflow_checkout_required")
     overlay = ROOT / "frontend/langflow-skill-viewer"
-    models_patch = overlay / "claude-models.patch"
+    models_patch = overlay / "integration/claude-models.patch"
     patch = overlay / "upstream.patch"
     target = checkout / "src/frontend/src/modals/skillFilesModal"
     if (
@@ -41,7 +41,7 @@ def apply(checkout):
         ["git", "-C", str(checkout), "apply", "--check", str(models_patch)], check=True
     )
     subprocess.run(["git", "-C", str(checkout), "apply", str(models_patch)], check=True)
-    selection_patch = overlay / "claude-selection.patch"
+    selection_patch = overlay / "integration/claude-selection.patch"
     subprocess.run(
         ["git", "-C", str(checkout), "apply", "--check", str(selection_patch)],
         check=True,
@@ -57,11 +57,11 @@ def apply(checkout):
         ["git", "-C", str(checkout), "apply", str(catalog_patch)], check=True
     )
     shutil.copy2(
-        overlay / "AgentModelSelection.test.ts",
+        overlay / "agents/controls/AgentModelSelection.test.ts",
         checkout / "src/frontend/src/CustomNodes/helpers/AgentModelSelection.test.ts",
     )
     shutil.copy2(
-        overlay / "ClaudeModelDropdown.test.tsx",
+        overlay / "agents/controls/ClaudeModelDropdown.test.tsx",
         checkout
         / "src/frontend/src/components/core/dropdownComponent/ClaudeModelDropdown.test.tsx",
     )
@@ -69,13 +69,16 @@ def apply(checkout):
         checkout
         / "src/frontend/src/CustomNodes/GenericNode/components/RenderInputParameters"
     )
-    shutil.copy2(overlay / "RenderAgentInputParameters.tsx", agent_target / "index.tsx")
     shutil.copy2(
-        overlay / "AgentAdvancedControls.tsx",
+        overlay / "agents/controls/RenderAgentInputParameters.tsx",
+        agent_target / "index.tsx",
+    )
+    shutil.copy2(
+        overlay / "agents/controls/AgentAdvancedControls.tsx",
         agent_target / "AgentAdvancedControls.tsx",
     )
     shutil.copy2(
-        overlay / "AgentAdvancedControls.test.tsx",
+        overlay / "agents/controls/AgentAdvancedControls.test.tsx",
         agent_target / "AgentAdvancedControls.test.tsx",
     )
     target.mkdir()
@@ -109,8 +112,10 @@ def apply(checkout):
     shutil.copy2(overlay / "PRViewerModal.tsx", pr_target / "index.tsx")
     activity_target = checkout / "src/frontend/src/modals/agentActivity"
     activity_target.mkdir()
-    shutil.copy2(overlay / "AgentActivity.tsx", activity_target / "index.tsx")
-    agents_patch = overlay / "agents.patch"
+    shutil.copy2(
+        overlay / "agents/activity/AgentActivity.tsx", activity_target / "index.tsx"
+    )
+    agents_patch = overlay / "integration/agents.patch"
     # HEAD stays pinned; patch context tolerates whitespace differences, including Windows CRLF.
     subprocess.run(
         [
@@ -138,11 +143,19 @@ def apply(checkout):
     agents_target = checkout / "src/frontend/src/modals/graphAgents"
     agents_target.mkdir()
     shutil.copy2(
-        overlay / "AgentActivityNavigation.ts",
+        overlay / "agents/activity/AgentActivityNavigation.ts",
         checkout / "src/frontend/src/stores/agentActivityStore.ts",
     )
-    shutil.copy2(overlay / "GraphAgents.tsx", agents_target / "index.tsx")
-    shutil.copy2(overlay / "GraphAgents.test.tsx", agents_target / "index.test.tsx")
+    for asset in (overlay / "agents/activity").iterdir():
+        if asset.suffix in {".ts", ".tsx"} and asset.name not in {
+            "AgentActivity.tsx",
+            "AgentActivity.test.tsx",
+            "AgentActivityNavigation.ts",
+        }:
+            shutil.copy2(asset, agents_target / asset.name)
+    (agents_target / "index.tsx").write_text(
+        'export { default } from "./GraphAgents";\n', encoding="utf-8"
+    )
     recovery_target = checkout / "src/frontend/src/components/laomedoRecovery"
     recovery_target.mkdir()
     for name in (

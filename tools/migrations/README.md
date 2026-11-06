@@ -9,7 +9,6 @@ installed.
 | `module-paths.json` | Retired module names to final defining modules |
 | `symbol-paths.json` | Published symbols to their final defining modules |
 | `cli-paths.json` | Supported launcher-module replacements |
-| `agent-history.json` | Immutable historical Agent graph paths and original source provenance; migration refuses overwriting those originals |
 | `manual-symbols.json` | Retired procedural APIs whose arguments, authorization or outcomes require manual review |
 | `retained-shared-callers.json` | Exact source bytes and dependencies admitted by explicit internal historical-probe controls |
 

@@ -1,7 +1,7 @@
 # Codex ACP runtime
 
-Status: selected by the production runner on draft PR #214; unreleased and not
-accepted for merge. Final graph and provider-policy acceptance remain pending.
+This image adapts the Codex app server to the shared ACP runner interface.
+The native-event extension preserves raw receipts and host-owned policy.
 
 Build from this directory with `docker build -t laomedo-codex-acp:0.159.2-2.1.1 .`.
 Record the resulting immutable image ID before testing or configuring a runner.
@@ -32,21 +32,11 @@ closed for malformed data or a missing explicit Linux Codex executable. This
 preserves deferred-executor, telemetry and trusted provider routing configuration.
 It is not a model- or graph-supplied command interface.
 
-Bounded real probes established normal-mode permission preflight, pinned skill
-use, rejected-then-corrected prechecks, native-thread resume across the old Python
-wire and ACP, and cancellation with a raw native interrupted completion. The split
-prototype established executor registration, command execution in the observed
-credential-free executor, no controller listeners, executor-loss detection and
-cleanup. The executor required the existing checksum-verified Codex seccomp policy
-for Bubblewrap's namespace creation; Docker's default policy refused it. No host
-kernel setting or unconfined container was used. These prototype checks do not
-establish final graph acceptance. After the cutover, a separate production-runner
-check observed Fresh and Resume on one native thread, accepted prechecks, local
-OTLP receipt and confirmed cleanup on image
-`sha256:d3f53de292540a8e412aa34a43a975b467df2d21aa6bba290cee11956edc03aa`.
-The model/effort record is host-requested and adapter-asserted configuration;
-it is not an independent native report of effective selection.
-Split production, app-owned OAuth, mediation and graph checks remain pending.
+Container namespace support depends on the checksum-verified Codex seccomp
+policy. The runner keeps exact image and policy bindings, and refuses unknown
+cleanup or unsupported host-policy capabilities. Historical probe observations
+are retained on `exp`; they do not establish current graph, provider or policy
+acceptance. App-owned OAuth, split execution and mediation have separate checks.
 
 Saved runs retain exact image, policy and execution-mode bindings. Pre-ACP runs
 with different bindings fail with `resume_binding_mismatch`; they are not silently

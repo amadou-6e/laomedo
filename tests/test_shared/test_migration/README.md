@@ -6,8 +6,8 @@ exclusive backups. `utils.load_migration()` loads the checkout-owned tool while
 restoring temporary import paths. Other files protect component revision hashes,
 immutable history and the inventoried retained callers under their own boundaries.
 
-`agent-history.json` belongs to `tools/migrations`, where the offline CLI consumes
-it. It identifies immutable historical paths, not runnable examples. Current
+`protected-graphs.json` is the offline CLI's explicit immutable-path refusal list.
+Historical source provenance is archived on `exp`, not consumed as a runtime manifest. Current
 module imports must remain current, including GitHub utilities retained in this
 independent Agent cut. Twenty-one automatically mapped constants modules plus the
 explicitly manual retired OpenCode parser cover the twenty-two original inputs.

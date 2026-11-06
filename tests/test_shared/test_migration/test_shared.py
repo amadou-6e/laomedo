@@ -15,6 +15,29 @@ migration = load_migration()
 
 
 class SharedMigrationTests(unittest.TestCase):
+    def test_native_server_aliases_require_manual_protocol_migration(self):
+        for source in (
+            "from laomedo.agents.runtime.servers import AppServer\n",
+            "from laomedo.agents.runtime.servers import AppServer as Server\n",
+            "import laomedo.agents.runtime.servers as servers\nserver = servers.AppServer()\n",
+        ):
+            with (
+                self.subTest(source=source),
+                self.assertRaises(migration.ManualMigrationRequired),
+            ):
+                migration.migrate_source(source)
+
+    def test_retired_package_imports_reach_the_current_package(self):
+        for old, new in (
+            ("laomedo.agents.feedback", "laomedo.integrations.langflow.feedback"),
+            ("laomedo.agents.workflow", "laomedo.work_graph.runs"),
+        ):
+            for source in (f"import {old}\n", f"import {old} as package\n"):
+                with self.subTest(source=source):
+                    migrated = migration.migrate_source(source)
+                    self.assertIn(new, migrated)
+                    self.assertEqual(migration.migrate_source(migrated), migrated)
+
     def test_workspace_split_symbols_and_ambiguous_namespaces(self):
         for old in (
             "laomedo.skills.workspace.utils",

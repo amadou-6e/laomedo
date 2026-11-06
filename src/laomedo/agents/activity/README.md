@@ -66,7 +66,7 @@ scalar metadata remains strict. An omitted diagnostics field stays omitted;
 explicit empty diagnostics remain present. A frozen envelope does not freeze its
 nested observations. Neither method mutates state or performs I/O.
 
-The retained `tests/contracts/activity-projection-3508b7aee.json` records old
-projector bytes and Git blob provenance captured before implementation. These
-are synthetic internal compatibility controls, not a working graph demonstration
-or live provider acceptance.
+Literal projector input/output cases live in
+`tests/test_agents/test_activity/data/projector-records.json`; the envelope tests
+check their exact projections and serialization. These are internal compatibility
+controls, not a working graph demonstration or live provider acceptance.

@@ -1,4 +1,12 @@
-# Langflow Skill files overlay
+# Laomedo Langflow overlay
+
+Feature packages own rendering, wire contracts and colocated tests; the pinned
+installer binds them to upstream entry points. Discover the owned packages here:
+
+- [Agent activity](agents/activity/README.md)
+- [Agent controls](agents/controls/README.md)
+- [Upstream integration patches](integration/README.md)
+
 
 ## Agent activity appearance and node names
 

@@ -78,6 +78,12 @@ assert 'docker' not in sys.modules
             "src/laomedo/agents/agents/codex/resources/codex-seccomp.json text eol=lf",
             attributes,
         )
+        for rule in (
+            "docker/codex-acp/** text eol=lf",
+            "native-events.patch whitespace=-blank-at-eol",
+            "examples/skill-summary/executed-flow.json -text",
+        ):
+            self.assertIn(rule, attributes)
 
     def test_every_new_preflight_error_producer_has_descriptive_catalogue_coverage(
         self,

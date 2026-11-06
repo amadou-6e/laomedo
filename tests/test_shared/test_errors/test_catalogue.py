@@ -7,52 +7,36 @@ from pathlib import Path
 import unittest
 
 from support.paths import repository_root
+from test_shared.test_errors.utils import producer_paths, producer_path, emitted_codes
 
 ROOT = repository_root()
 
 
-def producer_paths(filename):
-    if "/" in filename:
-        path = ROOT / "src/laomedo" / filename
-        if not path.is_file():
-            raise AssertionError("Missing defining error producer: " + filename)
-        return [path]
-    module = "laomedo." + Path(filename).stem
-    mapping = json.loads((ROOT / "tools/migrations/module-paths.json").read_text())
-    symbols = json.loads((ROOT / "tools/migrations/symbol-paths.json").read_text())
-    prefix = mapping[module].rsplit(".", 1)[0] + "."
-    owners = {mapping[module]} | {
-        value.rsplit(".", 1)[0]
-        for key, value in symbols.items()
-        if key.startswith(module + ".")
-        and value.startswith(prefix)
-        and not value in mapping.values()
-    }
-    owners.update(
-        ".".join(path.relative_to(ROOT / "src").with_suffix("").parts)
-        for path in ROOT.joinpath("src", *mapping[module].split(".")[:-1]).glob("*.py")
-        if path.name != "__init__.py"
-    )
-    if filename == "local_runner.py":
-        owners.update(
-            {"laomedo.agents.agents.base.agent", "laomedo.agents.agents.base.utils"}
-        )
-    paths = sorted(
-        ROOT.joinpath("src", *owner.split(".")).with_suffix(".py") for owner in owners
-    )
-    if not paths or any(not path.is_file() for path in paths):
-        raise AssertionError("Missing defining error producer: " + module)
-    return paths
-
-
-def producer_path(filename):
-    module = json.loads((ROOT / "tools/migrations/module-paths.json").read_text())[
-        "laomedo." + Path(filename).stem
-    ]
-    return ROOT.joinpath("src", *module.split(".")).with_suffix(".py")
-
-
 class NodeErrorCatalogueTests(unittest.TestCase):
+    def test_restored_recovery_text_preserves_local_ownership_and_pending_copy(self):
+        catalogue = json.loads(
+            (ROOT / "frontend/langflow-skill-viewer/node-error-catalog.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        for code in (
+            "protected_mount_changed",
+            "executor_termination_unverified",
+            "run_preparation_cleanup_unverified",
+            "opencode_transport_cleanup_failed",
+        ):
+            self.assertNotIn("operator", catalogue[code]["recovery"].lower())
+            self.assertIn("run status", catalogue[code]["recovery"])
+        discovery = catalogue[
+            "runner_model_catalog_unavailable_check_runner_connection"
+        ]["recovery"]
+        self.assertIn("may still be active", discovery)
+        self.assertIn("avoid repeated Refresh", discovery)
+        self.assertIn("no discovery-progress or discovery-cancel control", discovery)
+        copy = catalogue["claude_local_login_copy_failed"]["recovery"]
+        self.assertIn("current-user ownership", copy)
+        self.assertIn("do not delete a pending receipt", copy)
+
     def test_affected_runtime_failures_have_neutral_recovery_and_producer_coverage(
         self,
     ):
@@ -651,72 +635,6 @@ OPENCODE_ERROR_PRODUCERS = tuple(
     )
 )
 
-_ERROR_FIELDS = {"error", "error_category", "capture_error", "reason"}
-
-
-def emitted_codes(source):
-    """Inspect public literals, not every underscore-containing data-field name.
-
-    Dynamic external failures use the presenter's safe fallback; they are not
-    assumed covered by this literal guard.
-    """
-    tree = ast.parse(source)
-    candidates = []
-    for node in ast.walk(tree):
-        if (
-            isinstance(node, ast.Raise)
-            and isinstance(node.exc, ast.Call)
-            and node.exc.args
-        ):
-            candidates.append(node.exc.args[0])
-        if isinstance(node, ast.Call):
-            candidates.extend(
-                keyword.value
-                for keyword in node.keywords
-                if keyword.arg in _ERROR_FIELDS
-            )
-            if (
-                isinstance(node.func, ast.Attribute)
-                and node.func.attr == "setdefault"
-                and len(node.args) >= 2
-                and isinstance(node.args[0], ast.Constant)
-                and node.args[0].value in _ERROR_FIELDS
-            ):
-                candidates.append(node.args[1])
-        if isinstance(node, ast.Assign):
-            for target in node.targets:
-                if isinstance(target, ast.Attribute) and target.attr in _ERROR_FIELDS:
-                    candidates.append(node.value)
-                elif (
-                    isinstance(target, ast.Subscript)
-                    and isinstance(target.slice, ast.Constant)
-                    and target.slice.value in _ERROR_FIELDS
-                ):
-                    candidates.append(node.value)
-        if isinstance(node, ast.Dict):
-            candidates.extend(
-                value
-                for key, value in zip(node.keys, node.values)
-                if isinstance(key, ast.Constant) and key.value in _ERROR_FIELDS
-            )
-
-    def literals(node):
-        if isinstance(node, ast.Constant):
-            yield node.value
-        elif isinstance(node, ast.IfExp):
-            yield from literals(node.body)
-            yield from literals(node.orelse)
-        elif isinstance(node, ast.BoolOp):
-            for value in node.values:
-                yield from literals(value)
-
-    return {
-        value
-        for candidate in candidates
-        for value in literals(candidate)
-        if isinstance(value, str)
-        and re.fullmatch(r"[a-z][a-z0-9]*(?:_[a-z0-9]+)+", value)
-    }
 
 
 class OpenCodeErrorCatalogueTests(unittest.TestCase):

@@ -35,6 +35,8 @@
   "laomedo.agents.providers.opencode_runner.normalize_message": "Retired native OpenCode transport/event helper; manually adapt to the provider ACP/history contract. There is no safe automatic replacement.",
   "laomedo.agents.providers.opencode_runner.turn_parts": "Retired native OpenCode transport/event helper; manually adapt to the provider ACP/history contract. There is no safe automatic replacement.",
   "laomedo.agents.providers.opencode_runner.workspace_skills": "The combined workspace helper namespace was split; import each defining function from agents.workspaces.baseline, cleanup or skills.utils explicitly.",
+  "laomedo.agents.runtime.servers": "Retired native controller module; constructor/protocol changed to ACP. No safe automatic module mapping. Manually migrate launch policy and raw evidence.",
+  "laomedo.agents.runtime.servers.AppServer": "Native controller constructor/protocol changed to CodexController with CodexLaunch. Manually preserve launch policy, binding and raw evidence; an import rename is insufficient.",
   "laomedo.agents.runtime.servers.SplitAppServer": "Native controller constructor/protocol changed to CodexController with CodexLaunch. Manually preserve launch policy, binding and raw evidence; an import rename is insufficient.",
   "laomedo.agents.runtime.utils._advertised_models": "Retired provider launch or workspace helper. Manually adapt to the configured Agent workspace/runtime objects and py-docker Client, preserving isolation, endpoint and cleanup policy.",
   "laomedo.agents.runtime.utils._docker_checked": "Retired provider launch or workspace helper. Manually adapt to the configured Agent workspace/runtime objects and py-docker Client, preserving isolation, endpoint and cleanup policy.",

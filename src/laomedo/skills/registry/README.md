@@ -70,6 +70,6 @@ this is atomic replacement without an fsync durability guarantee. Inventory
 rejects links/reparse points, hard links, special files and empty directories;
 it does not itself enforce byte/count limits. Those limits remain caller-owned.
 
-Archived EXP-08 controls run through an explicit temporary import-only migration.
-Their original sources and observations remain byte-preserved. They supplement
-current registry behavior tests; they do not establish live graph acceptance.
+EXP-08 sources and observations are archived on `exp`; production discovery
+uses the concern-owned registry and `tests/test_skills/test_workspace` controls.
+Those internal controls do not import the archive or establish live acceptance.

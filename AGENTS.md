@@ -72,6 +72,13 @@
   regression checks so mixed class/function files and retired imports cannot
   quietly return.
 
+- Import objects directly from their defining modules; avoid module-prefix aliases throughout callers.
+- Model large owned configuration records with typed Pydantic objects and explicit `to_config()` projections.
+- Define classes at module scope in their owning files; never nest handlers or construct class definitions inside functions.
+- Apply these rules to owned/reworked code while preserving standard-library boundaries and immutable historical sources.
+- Document module structure and mandatory object nomenclature in its README before implementation; describe leaf object methods and outcomes.
+- Group frontend code, tests and assets by concern, separate wire types from rendering, and update deployment/discovery with moves.
+
 ## Settings and exception contracts
 
 - Name feature configuration modules `settings.py`, never `constants.py`.
@@ -98,3 +105,12 @@
   and it does not authorize merging.
 - Stage only changes owned by the task. Preserve unrelated edits; never commit
   credentials, private runtime state, generated caches or verification tooling.
+
+## Issue and branch ownership
+
+Follow the canonical [specs GitHub workflow](https://github.com/amadou-6e/specs/blob/main/AGENTS.md).
+Identify or create the owning issue before branching; use exactly `<type>/<issue-number>`
+with `feat`, `fix`, `docs`, `chore` or `refactor`. Link each PR to its owning issue.
+Existing issue title/body/label/state edits and closure require explicit approval.
+Do not add closing keywords without that approval. Push coherent blocks to the
+owning issue branch, keep its draft PR current and preserve review/evidence limits.
