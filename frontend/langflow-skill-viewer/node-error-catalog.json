@@ -75,9 +75,9 @@
     "recovery": "Ask the deployment owner to check runner authentication and the configured runner address. Credentials belong in backend configuration, never in the graph."
   },
   "unauthorized": {
-    "title": "The local service connection is not authorized",
-    "description": "The local service did not accept the application’s authentication.",
-    "recovery": "Check the application’s configured service address and matching API token file. Keep credentials outside the graph."
+    "title": "The runner connection is not authorized",
+    "description": "Backend authentication for the configured runner is missing or was rejected.",
+    "recovery": "Ask the deployment owner to check runner authentication and the configured runner address. Credentials belong in backend configuration, never in the graph."
   },
   "invalid_runner_api_token": {
     "title": "The runner connection is not authorized",
@@ -705,9 +705,9 @@
     "recovery": "Use only the Agent Skill References input, or leave it disconnected. Share Technical details with the maintainer if this persists."
   },
   "invalid_request": {
-    "title": "The local service could not accept this request",
-    "description": "The request does not match the supported local service format.",
-    "recovery": "Check the node settings and use matching application and local service versions. For an attempted update, inspect the existing operation result before submitting another operation."
+    "title": "The runner request was not accepted",
+    "description": "The request did not match the runner operation format; no specific cause is established here.",
+    "recovery": "Ask the operator to inspect the local runner configuration and service log. Do not change credentials or runtime identifiers in the graph, or start another request until any existing execution is accounted for."
   },
   "materialized_skill_mismatch": {
     "title": "A pinned skill changed in the workspace",

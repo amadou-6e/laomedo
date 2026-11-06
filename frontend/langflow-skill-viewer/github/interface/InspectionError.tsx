@@ -7,7 +7,7 @@ export function describeGitHubInspectionFailure(raw: unknown, kind: "issue" | "p
   const code = data?.code ?? data?.detail?.code;
   const failure = describeNodeFailure(code, undefined);
   const fallback = describeNodeFailure(kind === "issue" ? "github_issue_inspection_unavailable" : "github_pr_inspection_unavailable", undefined);
-  if (isKnownNodeError(code, true) && code !== "github_issue_unavailable" && code !== "github_pr_unavailable") return failure;
+  if (isKnownNodeError(code, true) && code !== "github_issue_unavailable" && code !== "github_pr_unavailable" && code !== "unauthorized" && code !== "invalid_request") return failure;
   return { ...fallback, diagnostics: code === undefined ? fallback.diagnostics : failure.diagnostics };
 }
 

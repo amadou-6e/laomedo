@@ -59,3 +59,14 @@ test.each(["sk_", "ghp_", "gho_", "ghu_", "ghs_", "ghr_", "github_pat_"])("crede
   expect(screen.getByRole("alert")).not.toHaveTextContent(secret);
   expect(JSON.stringify(failure)).not.toContain(secret);
 });
+
+// Shared runner descriptions stay unchanged; ambiguous service codes are contextualized here.
+test.each(cases)("$kind authentication and admission failures keep read recovery and original codes", ({ kind }) => {
+  for (const code of ["unauthorized", "invalid_request"]) {
+    const failure = describeGitHubInspectionFailure({ response: { data: { code } } }, kind);
+    expect(failure.title).toContain("could not be loaded");
+    expect(failure.recovery).toContain("repeats only this read");
+    expect(failure.diagnostics.code).toBe(code);
+    expect(failure.recovery).not.toContain("runner");
+  }
+});
