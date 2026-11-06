@@ -36,7 +36,7 @@ class GitHubErrorCatalogueTests(unittest.TestCase):
         self,
     ):
         root = repository_root()
-        catalogue = json.loads((error_catalogue_path()).read_text())
+        catalogue = json.loads((error_catalogue_path()).read_text(encoding="utf-8"))
         codes = set(ISSUE_CODES | PR_CODES)
         for feature in ("github_issue", "github_pr"):
             tree = ast.parse(
@@ -57,9 +57,26 @@ class GitHubErrorCatalogueTests(unittest.TestCase):
                 for field in ("title", "description", "recovery"):
                     self.assertTrue(catalogue[code][field].strip())
                 self.assertNotEqual(catalogue[code]["title"], code)
-                self.assertNotIn("operator", catalogue[code]["recovery"].lower())
-        for code in ("unauthorized", "invalid_request"):
+                # Ambiguous service codes keep their existing runner contract.
+                # The viewers contextualize these codes locally; JSX controls
+                # verify both the read-only recovery and original diagnostics.
+                if code not in {"unauthorized", "invalid_request"}:
+                    self.assertNotIn("operator", catalogue[code]["recovery"].lower())
+        for code in (
+            "github_issue_inspection_unavailable",
+            "github_pr_inspection_unavailable",
+        ):
             self.assertNotIn("runner", json.dumps(catalogue[code]).lower())
+            self.assertNotIn("operator", catalogue[code]["recovery"].lower())
+            self.assertIn("repeats only this read", catalogue[code]["recovery"])
         for code in ("issue_write_unknown", "pr_write_unknown"):
             self.assertIn("before authorizing another", catalogue[code]["recovery"])
             self.assertNotIn("operator", catalogue[code]["recovery"].lower())
+
+    def test_shared_runner_codes_preserve_authentication_and_uncertainty_guidance(self):
+        catalogue = json.loads(error_catalogue_path().read_text(encoding="utf-8"))
+        self.assertIn("runner authentication", catalogue["unauthorized"]["recovery"])
+        self.assertIn(
+            "until any existing execution is accounted for",
+            catalogue["invalid_request"]["recovery"],
+        )
