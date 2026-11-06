@@ -1,0 +1,56 @@
+[
+  {
+    "source_revision": "8cf9e69d0c806c3351bb22214a708963bdac3284",
+    "path": "experiments/feasibility/107/README.md",
+    "sha256": "1af2f22039623bf85fefaa4a69f23bbeac08dbdcf8a1d50e35a9b56f6b187114",
+    "archive": "archives/reconciliation-237/conservation-20261106/retired-assets/experiments/feasibility/107/README.md"
+  },
+  {
+    "source_revision": "8cf9e69d0c806c3351bb22214a708963bdac3284",
+    "path": "experiments/feasibility/107/live-route-observation.json",
+    "sha256": "0551bf7436b0504c752719c96379f51745e63f355f1ce933588f296fc89311d8",
+    "archive": "archives/reconciliation-237/conservation-20261106/retired-assets/experiments/feasibility/107/live-route-observation.json"
+  },
+  {
+    "source_revision": "8cf9e69d0c806c3351bb22214a708963bdac3284",
+    "path": "experiments/feasibility/107/probe_controller_env.py",
+    "sha256": "3182f844de9e3576ce88c68f9cdc9a569d4f539069e8fdeb8951af30ed4ce0cd",
+    "archive": "archives/reconciliation-237/conservation-20261106/retired-assets/experiments/feasibility/107/probe_controller_env.py"
+  },
+  {
+    "source_revision": "8cf9e69d0c806c3351bb22214a708963bdac3284",
+    "path": "experiments/feasibility/107/probe_mock_responses.py",
+    "sha256": "beb997d7e5925379db45cb08434933810b79d17837548fa46ecff19f62bf928a",
+    "archive": "archives/reconciliation-237/conservation-20261106/retired-assets/experiments/feasibility/107/probe_mock_responses.py"
+  },
+  {
+    "source_revision": "8cf9e69d0c806c3351bb22214a708963bdac3284",
+    "path": "experiments/feasibility/107/probe_patch_hook.py",
+    "sha256": "de701e1773921c4c244bc8474eaaecd482bba490b237f145d8f47675564bf2d1",
+    "archive": "archives/reconciliation-237/conservation-20261106/retired-assets/experiments/feasibility/107/probe_patch_hook.py"
+  },
+  {
+    "source_revision": "8cf9e69d0c806c3351bb22214a708963bdac3284",
+    "path": "experiments/feasibility/107/probe_patch_route.py",
+    "sha256": "36524720415f87c0f1365ded0736f15a9083bde50208cce891028c5b9ed1cfc5",
+    "archive": "archives/reconciliation-237/conservation-20261106/retired-assets/experiments/feasibility/107/probe_patch_route.py"
+  },
+  {
+    "source_revision": "8cf9e69d0c806c3351bb22214a708963bdac3284",
+    "path": "experiments/feasibility/107/probe_remote_executor.py",
+    "sha256": "269e04a66d1db3badb5cdd44e14bddfe9fbf933d52412e0a5fcd6411169b42a6",
+    "archive": "archives/reconciliation-237/conservation-20261106/retired-assets/experiments/feasibility/107/probe_remote_executor.py"
+  },
+  {
+    "source_revision": "8cf9e69d0c806c3351bb22214a708963bdac3284",
+    "path": "experiments/feasibility/107/probe_runner_split.py",
+    "sha256": "4d39b7f4ac906bf514a551d479f82a03356e0a7848650d81130771dc8921e706",
+    "archive": "archives/reconciliation-237/conservation-20261106/retired-assets/experiments/feasibility/107/probe_runner_split.py"
+  },
+  {
+    "source_revision": "8cf9e69d0c806c3351bb22214a708963bdac3284",
+    "path": "tools/migrations/agent-history.json",
+    "sha256": "5572160405197d3ee76148dd05cf297c85401036a2e99efc859be13d3f9bcab9",
+    "archive": "archives/reconciliation-237/conservation-20261106/retired-assets/tools/migrations/agent-history.json"
+  }
+]
