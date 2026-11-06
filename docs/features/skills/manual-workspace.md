@@ -12,7 +12,8 @@ provide the keyboard equivalent without a Move to menu. Drop local files into Fi
 targets its parent, and empty space targets the Skill root.
 
 F2 or Rename edits the filename in place with a blue border. Enter or blur
-commits, Escape cancels. Renames and moves retain working text and binary bytes.
+commits, Escape cancels. Delayed focus restoration keeps an active filename
+selection intact. Renames and moves retain working text and binary bytes.
 Delete removes files immediately; Files-focused Ctrl+Z restores them and Ctrl+Y
 or Ctrl+Shift+Z reapplies. Deleting a subtree and undoing restores its dirty text.
 Editor/input shortcuts remain native. Undoing an upload removes that file, including
@@ -281,8 +282,10 @@ revoked-policy reconciliation have internal regression coverage, not a new live
 fault demonstration. The native browser-close warning was also observed with actual unsaved text;
 cancelling close kept the text, then explicit discard left the registry unchanged.
 Unsaved buffers have no durable browser reload/crash recovery.
-Manual creation/deletion/binary editing, per-user ACL and Git publishing are
-unsupported. Claude approved code at `fbd3bd9`, specification at `32bc8e6`, and
+At that earlier revision, manual creation/deletion, binary editing, per-user ACL
+and Git publishing were unsupported. Current upload, rename, delete and move
+behavior is described above; in-place binary editing remains unsupported.
+Claude approved code at `fbd3bd9`, specification at `32bc8e6`, and
 the actual rendered UI at `be7d83c`; later wording fixes address its nonblocking
 notes. The reviewer assessed installer wiring and live evidence; its file tool
 could not open two frozen frontend files outside the workspace. Both PRs remain
