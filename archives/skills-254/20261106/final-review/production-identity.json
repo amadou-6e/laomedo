@@ -1,0 +1,15 @@
+{
+  "reviewed_head": "82fbda3c92c9731cc4fcfd371550b95d0d3d671c",
+  "current_head": "f3a5b0aa9135fb8d8fb194b46000154e1002a3fe",
+  "changed_paths": [
+    "docs/features/skills/manual-workspace.md",
+    "docs/features/skills/navigation-verification.md",
+    "docs/features/skills/user-stories.md",
+    "docs/features/skills/walkthrough.md",
+    "src/laomedo/skills/operations/README.md",
+    "tests/test_skills/test_operations/test_graph.py",
+    "tests/test_skills/test_sources/test_graph.py"
+  ],
+  "production_code_and_frontend_unchanged": true,
+  "checks": "16real-runtime graph controls,4dependency-absence guards,Black,diffcheck,relative file links pass"
+}

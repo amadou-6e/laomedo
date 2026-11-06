@@ -1,0 +1,13 @@
+{
+  "verification-summary-final.json": "c98e98daf71ee89731a92e185040fc2b5d375051f7a8092ccd4de48330de5a77",
+  "finding-ledger-final.md": "02b5ffbe190bfcd307915b705713d67366a91c44eb1b3af659b23b51c41a90e6",
+  "HANDOFF-final.md": "2040c99adf72aa84ff2f2f40281925dae85a103b8c526f170807e9e1f5dfa0b7",
+  "source-manifest-final.json": "f88ef2fa6c375df1e1626d8959b68efa613c21b1d6f6837ed6ff607b024ecc6b",
+  "recheck-low-result.md": "a7a280c2f51688648767c2a075ccfe5ae9e8cfcf339288bc156b8c1f4c6e63d4",
+  "visual-recheck-result.md": "4c4fc432dff84e38c53406caa52bfdcb944d38452430ab58138167914460b19e",
+  "production-identity.json": "1b30ec69b6173477f34157d4a0a0704136e31ba33a352e9c1c5e0191b69d852d",
+  "post-review-delta.diff": "70e83899a9eb4b58884b3045909f0027a8f6f5af44c80e049bb0c860c6329af5",
+  "settled-visuals.json": "376d3beb3d6bd957e1a5ac63da232853ebdaef790a35489cd085bf8c825d4df8",
+  "settled-fullpage.png": "0b9316ddfcec6572540d48ec2aeb62d776bef2ae6cabf2c469ffa938ddffdc9a",
+  "settled-source-empty.png": "1340c4644ddd6c86ade37bdd184d6b58198a0c8624cc8ba711f9196c4e8d5449"
+}

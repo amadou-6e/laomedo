@@ -1,0 +1,25 @@
+{
+  "head": "82fbda3c",
+  "viewport": {
+    "width": 1440,
+    "height": 960
+  },
+  "full_page_bounds": {
+    "x": 0,
+    "y": 0,
+    "width": 1440,
+    "height": 960
+  },
+  "restored_bounds": {
+    "x": 86.6875,
+    "y": 77.0625,
+    "width": 1266.609375,
+    "height": 805.875
+  },
+  "full_page_settled_ms": 284,
+  "empty_source_url": "http://127.0.0.1:17861/flow/363154a1-c29e-41c9-8b03-243ebdd1dea9",
+  "loaded_icons": true,
+  "dropdown_closed": true,
+  "errors": [],
+  "scope": "Real standalone app and Edge; no provider/model/GitHub actions or performance acceptance thresholds"
+}

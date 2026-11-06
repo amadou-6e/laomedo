@@ -1,0 +1,109 @@
+{
+  "head": "f3a5b0aa9135fb8d8fb194b46000154e1002a3fe",
+  "base": "37dc9aa9f37304bc8b2c8e8e33b70e356b771764",
+  "scope": "Skills PR254 only; other production PRs unchanged",
+  "python": {
+    "tests": 127,
+    "failures": 0,
+    "errors": 0,
+    "skips": 3,
+    "limit": "Windows symlink permissions; actual isolated source and declared Langflow environment"
+  },
+  "frontend": {
+    "tests": 516,
+    "suites": 23,
+    "failures": 0,
+    "limit": "Internal controls, not real-browser acceptance; final82 change is a recovery-copy/README clarification after this516-case run"
+  },
+  "typecheck": {
+    "diagnostics": 265,
+    "skill_source_diagnostics": 0,
+    "limit": "Full upstream/legacy-overlay typecheck not green; six presenter/recovery test diagnostics are in source files unchanged from develop"
+  },
+  "wheel": {
+    "head": "82fbda3c",
+    "production_files": 277,
+    "all_bytes_match": true,
+    "isolated_skill_imports": true,
+    "scope": "Artifact/source and import checks only, not browser acceptance"
+  },
+  "hosted_checks": [
+    {
+      "name": "black",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS"
+    },
+    {
+      "name": "black",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS"
+    },
+    {
+      "name": "docker-runtime-controls",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS"
+    },
+    {
+      "name": "docker-runtime-controls",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS"
+    },
+    {
+      "name": "package-and-test (3.10)",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS"
+    },
+    {
+      "name": "package-and-test (3.10)",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS"
+    },
+    {
+      "name": "package-and-test (3.13)",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS"
+    },
+    {
+      "name": "package-and-test (3.13)",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS"
+    }
+  ],
+  "real_workflow": {
+    "preview": "http://127.0.0.1:17861/flow/227d781f-b23e-48e7-b6cb-1189fa4f48c0",
+    "final_index_and_skill_bundle_match": true,
+    "normal_stories": "real-skill-stories-result.json",
+    "file_actions": "real-skill-files-result.json",
+    "source": "real-skill-source-result.json",
+    "service_recovery": "real-skill-recovery-result.json",
+    "constraints": "No provider/model/GitHub run; no account session-management or performance-threshold acceptance; auto-login local app"
+  },
+  "review": {
+    "implementation": "APPROVE at82fbda3c; unchanged production code to f3a5b0aa",
+    "specification": "APPROVE with nonblocking docs corrected atf3a5b0aa and accepted in visual recheck",
+    "visual": "APPROVE from actual standalone settled captures",
+    "evidence": [
+      "recheck-low-result.md",
+      "visual-recheck-result.md",
+      "production-identity.json",
+      "settled-visuals.json"
+    ],
+    "requested_effort": "low",
+    "same_session_reused": true,
+    "limits": "Reviewer distinguishes implementer-observed tests and metadata from its own source/image inspection"
+  },
+  "owner_validation": "pending final workflow inspection",
+  "merge": "Skills not merged",
+  "postreview_checks": {
+    "native_graph_tests": 16,
+    "optional_dependency_absence_cases": 4,
+    "black": "pass",
+    "diff_check": "pass",
+    "relative_file_links": "pass"
+  },
+  "reviewer_policy": {
+    "pr": 37,
+    "merged_commit": "90ba3e50eaa6972ef3baf9ebb680279ca965a74e",
+    "required_effort": "low"
+  }
+}
