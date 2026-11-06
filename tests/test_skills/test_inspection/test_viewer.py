@@ -109,3 +109,39 @@ class SkillViewerBoundaryTests(unittest.TestCase):
         models = (skills / "models.ts").read_text(encoding="utf-8")
         for name in ("Commit", "History", "SkillFile", "Snapshot"):
             self.assertIn("export type " + name + " =", models)
+
+    def test_shared_presenter_imports_are_deployed_by_this_checkout(self):
+        import re
+
+        overlay = repository_root() / "frontend/langflow-skill-viewer"
+        installer = ast.parse(
+            (repository_root() / "tools/apply_langflow_skill_viewer.py").read_text(
+                encoding="utf-8"
+            )
+        )
+        deployed = set()
+        for node in ast.walk(installer):
+            if not isinstance(node, ast.For) or not isinstance(node.iter, ast.Tuple):
+                continue
+            if any(
+                isinstance(child, ast.Name) and child.id == "error_target"
+                for child in ast.walk(node)
+            ):
+                deployed.update(
+                    item.value
+                    for item in node.iter.elts
+                    if isinstance(item, ast.Constant) and isinstance(item.value, str)
+                )
+        self.assertTrue(deployed, "Installer must explicitly deploy shared presenters")
+        for path in (overlay / "skills").rglob("*.tsx"):
+            for name in re.findall(
+                r"""from ["']@/components/laomedoErrors/([^"']+)["']""",
+                path.read_text(encoding="utf-8"),
+            ):
+                matches = [
+                    name + suffix
+                    for suffix in (".ts", ".tsx", ".json")
+                    if (overlay / (name + suffix)).is_file()
+                ]
+                self.assertEqual(len(matches), 1, (path, name))
+                self.assertIn(matches[0], deployed, (path, name))

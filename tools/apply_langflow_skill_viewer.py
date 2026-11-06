@@ -343,6 +343,7 @@ def apply(checkout):
         "ErrorAlertMigration.test.tsx",
         "ApplicationErrorPopup.tsx",
         "CopyIcon.tsx",
+        "ErrorExplanation.tsx",
     ):
         shutil.copy2(overlay / name, error_target / name)
     shutil.copy2(
