@@ -19,3 +19,5 @@ frontend/langflow-skill-viewer/claude-selection.patch text eol=lf whitespace=-bl
 
 # Historical graph evidence retains exact original bytes.
 examples/github-pr/original-agent/historical-flow-before-skill-input.json -text
+
+frontend/langflow-skill-viewer/**/*.patch text eol=lf whitespace=-blank-at-eol

@@ -3,24 +3,10 @@ import ReactMarkdown from "react-markdown";
 import { api } from "@/controllers/API/api";
 import { getBaseUrl } from "@/customization/utils/urls";
 import BaseModal from "@/modals/baseModal";
+import type { NodeTemplate as Template } from "../models";
+import type { Snapshot } from "./models";
+import { prSelection, safeLink } from "./selection";
 
-export function nodeKind(type: string) { return type.match(/^ext:[^:]+:([^@]+)@.+$/)?.[1] ?? type; }
-
-type Template = Record<string, { value?: unknown }> | undefined;
-export function prSelection(template: Template) {
-  const repository = typeof template?.repository_url?.value === "string" ? template.repository_url.value : "";
-  const selected = typeof template?.pr_choice?.value === "string" ? template.pr_choice.value : "";
-  const match = selected.match(/^#([1-9][0-9]*) /);
-  const number = match ? Number(match[1]) : 0;
-  const valid = /^https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/?$/.test(repository) && Number.isSafeInteger(number) && number > 0;
-  return { repository_url: repository, pr_number: valid ? number : 0,
-    labels: Array.isArray(template?.labels?.value) ? template.labels.value : [],
-    state: typeof template?.state?.value === "string" ? template.state.value : "open",
-    url: valid ? repository.replace(/\/$/, "") + "/pull/" + number : "" };
-}
-type PR = { repository: string; number: number; url: string; title: string; body: string; state: string; labels: string[]; updated_at: string; draft: boolean; merged: boolean; head: {branch: string; sha: string}; base: string };
-type Snapshot = { schema_version: string; pr: PR; fetched_at: string };
-const safeLink = (href: string | undefined) => href && /^https?:\/\//i.test(href) ? href : undefined;
 export default function PRViewerModal({ template, open, setOpen }: { template: Template; open: boolean; setOpen: (open:boolean)=>void }) {
   const selection = prSelection(template);const key=JSON.stringify(selection);
   const [snapshot,setSnapshot]=useState<Snapshot|null>(null);const [loading,setLoading]=useState(false);const [error,setError]=useState("");const [reload,setReload]=useState(0);

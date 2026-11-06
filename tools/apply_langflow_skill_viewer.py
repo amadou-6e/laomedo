@@ -101,12 +101,22 @@ def apply(checkout):
         overlay / "MONACO-LICENSE.txt",
         checkout / "src/frontend/public/monaco-LICENSE.txt",
     )
-    issue_target = checkout / "src/frontend/src/modals/issueViewerModal"
-    issue_target.mkdir()
-    shutil.copy2(overlay / "IssueViewerModal.tsx", issue_target / "index.tsx")
-    pr_target = checkout / "src/frontend/src/modals/prViewerModal"
-    pr_target.mkdir()
-    shutil.copy2(overlay / "PRViewerModal.tsx", pr_target / "index.tsx")
+    issue_target = checkout / "src/frontend/src/modals/github/issues"
+    shutil.copytree(
+        overlay / "github/issues",
+        issue_target,
+        ignore=shutil.ignore_patterns("README.md"),
+    )
+    pr_target = checkout / "src/frontend/src/modals/github/pull_requests"
+    shutil.copytree(
+        overlay / "github/pull_requests",
+        pr_target,
+        ignore=shutil.ignore_patterns("README.md"),
+    )
+    shutil.copy2(
+        overlay / "github/models.ts",
+        checkout / "src/frontend/src/modals/github/models.ts",
+    )
     activity_target = checkout / "src/frontend/src/modals/agentActivity"
     activity_target.mkdir()
     shutil.copy2(overlay / "AgentActivity.tsx", activity_target / "index.tsx")

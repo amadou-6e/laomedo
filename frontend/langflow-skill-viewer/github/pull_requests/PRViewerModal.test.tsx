@@ -1,6 +1,7 @@
 import React from "react";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import PRViewerModal, { prSelection } from "./index";
+import PRViewerModal from "./PRViewerModal";
+import { prSelection } from "./selection";
 import { api } from "@/controllers/API/api";
 
 jest.unmock("react-markdown");

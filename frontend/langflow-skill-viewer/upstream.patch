@@ -75,7 +75,7 @@ index 65f806c..d612348 100644
 --- a/src/frontend/src/CustomNodes/helpers/mutate-template.ts
 +++ b/src/frontend/src/CustomNodes/helpers/mutate-template.ts
 @@ -1,3 +1,4 @@
-+import { nodeKind } from "@/modals/issueViewerModal";
++import { nodeKind } from "@/modals/github/issues";
  import type { UseMutationResult } from "@tanstack/react-query";
  import { cloneDeep, debounce, isEqual } from "lodash";
  import { SAVE_DEBOUNCE_TIME } from "@/constants/constants";
@@ -123,7 +123,7 @@ index b410b4b..f68f79d 100644
 --- a/src/frontend/src/CustomNodes/hooks/use-handle-new-value.ts
 +++ b/src/frontend/src/CustomNodes/hooks/use-handle-new-value.ts
 @@ -1,3 +1,4 @@
-+import { nodeKind } from "@/modals/issueViewerModal";
++import { nodeKind } from "@/modals/github/issues";
  import { useUpdateNodeInternals } from "@xyflow/react";
  import { cloneDeep, debounce } from "lodash";
  import { useCallback, useMemo, useRef } from "react";
@@ -162,7 +162,7 @@ index 419a1a2..65d4aae 100644
 --- a/src/frontend/src/components/core/parameterRenderComponent/index.tsx
 +++ b/src/frontend/src/components/core/parameterRenderComponent/index.tsx
 @@ -1,3 +1,5 @@
-+import { nodeKind } from "@/modals/issueViewerModal";
++import { nodeKind } from "@/modals/github/issues";
 +import useFlowStore from "@/stores/flowStore";
  import { useTranslation } from "react-i18next";
  import type { handleOnNewValueType } from "@/CustomNodes/hooks/use-handle-new-value";
@@ -275,11 +275,11 @@ index fa16114..eb5a2a6 100644
 +++ b/src/frontend/src/pages/FlowPage/components/nodeToolbarComponent/components/toolbar-modals.tsx
 @@ -1,4 +1,9 @@
 -import { memo } from "react";
-+import { nodeKind } from "@/modals/issueViewerModal";
++import { nodeKind } from "@/modals/github/issues";
 +import { inspectionSelection } from "@/modals/skillFilesModal/selection";
 +import { lazy, memo, Suspense } from "react";
-+const PRViewerModal = lazy(() => import("@/modals/prViewerModal"));
-+const IssueViewerModal = lazy(() => import("@/modals/issueViewerModal"));
++const PRViewerModal = lazy(() => import("@/modals/github/pull_requests"));
++const IssueViewerModal = lazy(() => import("@/modals/github/issues"));
 +const SkillFilesModal = lazy(() => import("@/modals/skillFilesModal"));
  import { useTranslation } from "react-i18next";
  import CodeAreaModal from "@/modals/codeAreaModal";
@@ -324,8 +324,8 @@ index 4069ff6..0edaa72 100644
 --- a/src/frontend/src/pages/FlowPage/components/nodeToolbarComponent/index.tsx
 +++ b/src/frontend/src/pages/FlowPage/components/nodeToolbarComponent/index.tsx
 @@ -1,3 +1,5 @@
-+import { prSelection } from "@/modals/prViewerModal";
-+import { issueSelection, nodeKind } from "@/modals/issueViewerModal";
++import { prSelection } from "@/modals/github/pull_requests";
++import { issueSelection, nodeKind } from "@/modals/github/issues";
  import { useUpdateNodeInternals } from "@xyflow/react";
  import _, { cloneDeep } from "lodash";
  import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
