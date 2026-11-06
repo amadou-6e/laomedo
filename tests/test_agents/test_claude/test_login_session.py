@@ -11,6 +11,7 @@ from unittest.mock import MagicMock, patch
 
 from laomedo.agents.agents.claude.auth.errors import LocalClaudeLoginError
 from laomedo.agents.agents.claude.auth.resources.write_login import write_login
+from laomedo.agents.agents.claude.auth.settings import COPY_SECONDS
 from laomedo.agents.agents.claude.auth.utils import _local_endpoint, mirror_login
 
 try:
@@ -132,6 +133,10 @@ class AccessLoginSessionTests(unittest.TestCase):
         with (
             patch("py_docker.Client", return_value=client) as factory,
             patch(
+                "laomedo.agents.agents.claude.auth.utils.time.monotonic",
+                return_value=100.0,
+            ),
+            patch(
                 "laomedo.agents.agents.claude.auth.utils._private_directory",
                 return_value=Path(tempfile.gettempdir()),
             ) as directory,
@@ -151,6 +156,14 @@ class AccessLoginSessionTests(unittest.TestCase):
         self.assertNotIn("UNRELATED_SECRET", factory.call_args.kwargs["environment"])
         self.assertNotIn("DOCKER_HOST", factory.call_args.kwargs["environment"])
         request = client.sessions.open.call_args.args[0]
+        self.assertGreater(request.limits.seconds, 0)
+        self.assertLessEqual(request.limits.seconds, COPY_SECONDS)
+        self.assertGreater(client.sessions.open.call_args.kwargs["deadline"], 100.0)
+        self.assertLessEqual(
+            client.sessions.open.call_args.kwargs["deadline"], 100.0 + COPY_SECONDS
+        )
+        self.assertLessEqual(factory.call_args.args[0].timeout_seconds, 20.0)
+        self.assertLessEqual(session.wait.call_args.kwargs["timeout"], 20.0)
         written = session.write.call_args.args[0]
         self.assertEqual(json.loads(written)["claudeAiOauth"]["refreshToken"], "")
         self.assertNotIn(b"must-never-copy", written)
@@ -164,6 +177,32 @@ class AccessLoginSessionTests(unittest.TestCase):
         self.assertGreater(client.sessions.open.call_args.kwargs["cleanup_seconds"], 0)
         client.sessions.open.return_value.__exit__.assert_called_once()
         client.close.assert_called_once()
+
+    def test_expired_copy_deadline_refuses_before_reading_source(self):
+        source = MagicMock()
+        with (
+            patch("py_docker.Client") as client,
+            patch(
+                "laomedo.agents.agents.claude.auth.utils._private_directory",
+                return_value=Path(tempfile.gettempdir()),
+            ),
+            patch(
+                "laomedo.agents.agents.claude.auth.utils.time.monotonic",
+                return_value=100.0,
+            ),
+            self.assertRaisesRegex(
+                LocalClaudeLoginError, "^claude_local_login_copy_failed$"
+            ),
+        ):
+            mirror_login(
+                "laomedo-claude-control",
+                "sha256:" + "1" * 64,
+                source=source,
+                environment={"DOCKER_HOST": "npipe:////./pipe/docker_engine"},
+                deadline=99.0,
+            )
+        source.read_text.assert_not_called()
+        client.assert_not_called()
 
     def test_volume_refusal_never_reads_source_or_opens_session(self):
         source, client = MagicMock(), MagicMock()

@@ -15,6 +15,43 @@ migration = load_migration()
 
 
 class SharedMigrationTests(unittest.TestCase):
+    def test_workspace_split_symbols_and_ambiguous_namespaces(self):
+        for old in (
+            "laomedo.skills.workspace.utils",
+            "laomedo.skills.workspace_skills",
+            "laomedo.workspace_skills",
+        ):
+            for source in (
+                f"from {old} import initialize, remove_owned_tree, verify\n",
+                f"import {old} as old\nold.verify(workspace, skills, evidence)\n",
+            ):
+                rewritten = migration.migrate_source(source)
+                self.assertNotIn(old, rewritten)
+                compile(rewritten, "<workspace-migration>", "exec")
+                self.assertEqual(migration.migrate_source(rewritten), rewritten)
+            for source in (
+                f"from {old} import *\n",
+                f"from {old} import unknown\n",
+                f"import {old} as old\nvalue = old\n",
+                f"import {old} as old\ngetattr(old, 'verify')(w, s, e)\n",
+            ):
+                with (
+                    self.subTest(source=source),
+                    self.assertRaises(migration.ManualMigrationRequired),
+                ):
+                    migration.migrate_source(source)
+        for source in (
+            "from laomedo.local_runner import workspace_skills\n",
+            "import laomedo.skills.workspace\n",
+        ):
+            with (
+                self.subTest(source=source),
+                self.assertRaises(migration.ManualMigrationRequired),
+            ):
+                migration.migrate_source(source)
+        current = "import laomedo.agents.workspaces.skills\n"
+        self.assertEqual(migration.migrate_source(current), current)
+
     def test_automatic_targets_have_current_owners_and_no_manual_contract(self):
         self.assertTrue(migration.MODULE_PATHS)
         self.assertTrue(migration.SYMBOL_PATHS)
@@ -157,12 +194,18 @@ class SharedMigrationTests(unittest.TestCase):
     def test_retired_helpers_refuse_direct_and_aliased_source(self):
         for source in (
             "from laomedo.agents.workspace.git import _bounded_git as execute\n",
+            "from laomedo.git_workspace import prepare_git_workspace\n",
+            "from laomedo.agents.workspaces.git import _bounded_git\n",
+            "import laomedo.github_git_transport as git\ngit._run_bounded_tree(args)\n",
+            "from laomedo.github.transport.git import utils as u\nu._run_bounded_tree(args)\n",
+            "from laomedo.github.transport import git as g\ng.utils._run_bounded_tree(args)\n",
             "import laomedo.github.transport.git.utils as native\nnative._base_git_environment()\n",
             "from laomedo.github_git_transport import _credential_environment\n",
         ):
             with self.subTest(source=source):
                 with self.assertRaisesRegex(
-                    migration.ManualMigrationRequired, "manual migration|manual|Use Git"
+                    migration.ManualMigrationRequired,
+                    "manual migration|manual|Use (?:Git|AgentWorkspace)",
                 ):
                     migration.migrate_source(source)
 

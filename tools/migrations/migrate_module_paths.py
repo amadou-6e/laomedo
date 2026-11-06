@@ -72,6 +72,16 @@ FINAL_PACKAGES = {
 
 
 RETIRED_SPLIT_MODULES = SPLIT_MODULES - FINAL_FILE_MODULES
+# Known attributes can still be rewritten through their defining symbol maps.
+# Passing an entire mixed-owner module cannot preserve its old namespace.
+OPAQUE_SPLIT_MODULES = RETIRED_SPLIT_MODULES | {
+    old
+    for old, target in MODULE_PATHS.items()
+    if any(
+        symbol.startswith(old + ".") and not moved.startswith(target + ".")
+        for symbol, moved in SYMBOL_PATHS.items()
+    )
+}
 
 
 def _is_retired_dotted_reference(reference):
@@ -130,6 +140,10 @@ def check_manual_git_calls(source: str, tree) -> None:
                 bindings[item.asname or item.name] = full
         elif isinstance(node, ast.Import):
             for item in node.names:
+                if item.name == "laomedo.skills.workspace":
+                    raise ManualMigrationRequired(
+                        "The combined Skill workspace namespace was split; import each defining symbol explicitly"
+                    )
                 if item.asname:
                     bindings[item.asname] = item.name
 
@@ -642,7 +656,7 @@ def migrate_source(source: str) -> str:
             if (
                 isinstance(node, ast.Name)
                 and isinstance(node.ctx, ast.Load)
-                and aliases.get(node.id) in RETIRED_SPLIT_MODULES
+                and aliases.get(node.id) in OPAQUE_SPLIT_MODULES
                 and not (
                     isinstance(parents.get(node), ast.Attribute)
                     and parents[node].value is node
