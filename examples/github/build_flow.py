@@ -6,6 +6,9 @@ import json
 from pathlib import Path
 from uuid import NAMESPACE_URL, uuid5
 
+# Initialize the declared Langflow runtime before its LFX compatibility aliases.
+import langflow
+
 from lfx.graph.graph.base import Graph
 from lfx.services.deps import get_settings_service
 from laomedo.github.contract import validate_repository

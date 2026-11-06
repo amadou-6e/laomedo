@@ -2,7 +2,7 @@
 
 Private loopback API for the corresponding GitHub resource.
 This leaf adapts local HTTP to `GitHubIssueGateway` in `github/issues`. It owns no duplicate
-domain records or authority. `GitHubIssue` remain canonical under the domain owner.
+domain records or authority. `GitHubIssue` remains canonical under the domain owner.
 
 | Symbol | Supported interface vocabulary | Effects and failures |
 | --- | --- | --- |

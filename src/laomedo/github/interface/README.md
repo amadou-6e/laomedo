@@ -1,4 +1,4 @@
-# Github application interface
+# GitHub application interface
 
 This is the discoverable boundary used by components, the viewer and local
 service startup. HTTP clients, handlers, servers and startup CLIs live here.
