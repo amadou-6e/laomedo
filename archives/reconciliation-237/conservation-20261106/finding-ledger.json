@@ -1,0 +1,20 @@
+{
+  "owner_heads": {
+    "Shared255": "570cac84",
+    "Skills254": "4dee127d",
+    "GitHub249": "3dce778b",
+    "Agent250": "a79e3a8ded6ae91f3f2c667da8642ebb2f36cc68"
+  },
+  "reviewed_test_restoration_head": "a8485833",
+  "findings": {
+    "T1-D1": "settled",
+    "T1-D3": "settled",
+    "T1-D5": "settled",
+    "T1-D6": "settled",
+    "T1-D4": "withdrawn by reviewer; renamed stronger installed-artifact guard exists",
+    "T1-D2R": "corrected in a79e3a8d; new controller-layer tests; awaiting integrated Test2 recheck",
+    "T2-I1": "approved; actual tracked singular package has noPython modules in Agent250; empty/cache directories do not establish package existence",
+    "T2-I1-Q1": "answered by tracked source layout; canonical Agent plural workspaces owns11modules; generic singular exists only in Shared cut"
+  },
+  "coverage": "Runtime1-6 complete; Test1 complete; Test2 partially inspected without verdict, resuming; Test3-5 and non-Python remain incomplete. All23 oldPRs HOLD. No merge authorization."
+}

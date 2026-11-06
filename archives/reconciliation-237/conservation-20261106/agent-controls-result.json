@@ -1,0 +1,21 @@
+{
+  "scope": "Internal regression controls only; no live provider, model or browser acceptance",
+  "agent_production_matches_owner_source": true,
+  "production_module_count": 128,
+  "test_modules": [
+    "test_agents.test_codex.test_acp_controller",
+    "test_agents.test_codex.test_settings",
+    "test_agents.test_interface.test_output",
+    "test_agents.test_opencode.test_boundary",
+    "test_agents.test_opencode.test_runner",
+    "test_agents.test_protocol.test_session",
+    "test_shared.test_git.test_command"
+  ],
+  "tests_run": 95,
+  "failures": 0,
+  "errors": 0,
+  "skips": [],
+  "seconds": 18.51600000000326,
+  "head": "a79e3a8ded6ae91f3f2c667da8642ebb2f36cc68",
+  "controller_test_sha256": "6c99b6d1389710779b640123e9b77eaa3e960d74631c52ad731e91cdb503d096"
+}
