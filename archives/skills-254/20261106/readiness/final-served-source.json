@@ -1,0 +1,14 @@
+{
+  "head": "82fbda3c",
+  "url": "http://127.0.0.1:17861/flow/227d781f-b23e-48e7-b6cb-1189fa4f48c0",
+  "index_matches_final_build": true,
+  "assets": [
+    {
+      "filename": "SkillFilesModal-CWrcL3V2.js",
+      "sha256": "b3f363ab9f811ac224f5c97c6a6dedbd25647ae72fab6c832befb6daf846eda6",
+      "matches_build": true
+    }
+  ],
+  "errors": [],
+  "scope": "Actual standalone Skills UI; no account session-management acceptance"
+}

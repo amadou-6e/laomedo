@@ -1,0 +1,13 @@
+{
+  "url": "http://127.0.0.1:17861/flow/227d781f-b23e-48e7-b6cb-1189fa4f48c0",
+  "results": [
+    "A fresh Edge context reopened the actual local app; real Skill files and initial import visible",
+    "Workspace search returned real file/line results and collapsed again",
+    "Full-page viewer restored",
+    "Typing revealed controls; discard confirmation could be cancelled and confirmed",
+    "Actual edited bytes saved and promoted in the private registry with a new visible commit",
+    "Historical revision shows the selected-file comparison without raw diff headers"
+  ],
+  "errors": [],
+  "scope": "Actual local Skill app, browser, registry and operation service; no model/provider/GitHub acceptance"
+}

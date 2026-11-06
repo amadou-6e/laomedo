@@ -1,0 +1,98 @@
+{
+  "head": "82fbda3c92c9731cc4fcfd371550b95d0d3d671c",
+  "base": "37dc9aa9f37304bc8b2c8e8e33b70e356b771764",
+  "scope": "Skills PR254 only; other production PRs unchanged",
+  "python": {
+    "tests": 127,
+    "failures": 0,
+    "errors": 0,
+    "skips": 3,
+    "limit": "Windows symlink permissions; actual isolated source and declared Langflow environment"
+  },
+  "frontend": {
+    "tests": 516,
+    "suites": 23,
+    "failures": 0,
+    "limit": "Internal controls, not real-browser acceptance; final82 change is a recovery-copy/README clarification after this516-case run"
+  },
+  "typecheck": {
+    "diagnostics": 265,
+    "skill_source_diagnostics": 0,
+    "limit": "Full upstream/legacy-overlay typecheck not green; six presenter/recovery test diagnostics are in source files unchanged from develop"
+  },
+  "wheel": {
+    "head": "82fbda3c",
+    "production_files": 277,
+    "all_bytes_match": true,
+    "isolated_skill_imports": true,
+    "scope": "Artifact/source and import checks only, not browser acceptance"
+  },
+  "hosted_checks": [
+    {
+      "name": "black",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS"
+    },
+    {
+      "name": "black",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS"
+    },
+    {
+      "name": "docker-runtime-controls",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS"
+    },
+    {
+      "name": "docker-runtime-controls",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS"
+    },
+    {
+      "name": "package-and-test (3.10)",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS"
+    },
+    {
+      "name": "package-and-test (3.10)",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS"
+    },
+    {
+      "name": "package-and-test (3.13)",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS"
+    },
+    {
+      "name": "package-and-test (3.13)",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS"
+    }
+  ],
+  "real_workflow": {
+    "preview": "http://127.0.0.1:17861/flow/227d781f-b23e-48e7-b6cb-1189fa4f48c0",
+    "final_index_and_skill_bundle_match": true,
+    "normal_stories": "real-skill-stories-result.json",
+    "file_actions": "real-skill-files-result.json",
+    "source": "real-skill-source-result.json",
+    "service_recovery": "real-skill-recovery-result.json",
+    "constraints": "No provider/model/GitHub run; no account session-management or performance-threshold acceptance; auto-login local app"
+  },
+  "review": {
+    "backend": "completed INCOMPLETE at97268834",
+    "frontend": "completed REVISE/visual INCOMPLETE at8938f9d4",
+    "focused_recheck": "native quota refusal, no verdict",
+    "native_errors": [
+      {
+        "timestamp": "2026-11-06T16:22:45.132Z",
+        "error": "rate_limit",
+        "content": [
+          "You've hit your 5-hour limit \u00b7 resets 9:50pm (Europe/Berlin)"
+        ]
+      }
+    ],
+    "pending_digest": "2256a918a376004eaaa1279b0f5232906d7c4d4b83585b5c7058c423ec256055"
+  },
+  "owner_validation": "pending",
+  "merge": "not performed"
+}

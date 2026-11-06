@@ -1,0 +1,7 @@
+{
+  "head": "82fbda3c",
+  "production_files": 277,
+  "all_bytes_match": true,
+  "isolated_skill_imports": true,
+  "scope": "Artifact/source and import checks only, not browser acceptance"
+}

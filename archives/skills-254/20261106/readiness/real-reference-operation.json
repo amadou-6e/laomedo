@@ -1,0 +1,11 @@
+{
+  "scope": "Actual manual operation through authenticated local service, not a provider fixture",
+  "result": {
+    "skill_id": "pr-feedback-title",
+    "revision_id": "sha256:33c0a643d98e1fda3b987cc81f080545d625b3dad883b7132bd6e7ea8d08282b",
+    "commit_id": "sha256:13b06136a17dc22c4ed1e1fc2caf8e8a2ce9f776cd8588fb76c64d6397c3e9cd",
+    "previous_revision": "sha256:bcd3df4a4ae4fb3986b58c436a0d004dcd4d54554fa0477cbe6076234a9cf4e0",
+    "confirmed_at": "2026-11-06T16:17:16.477949+00:00",
+    "promotion_performed": true
+  }
+}

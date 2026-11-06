@@ -1,0 +1,73 @@
+[
+  {
+    "path": "examples/skill-files-viewer/README.md",
+    "source_blob": "7c392bbbbe67d23912d83711a5b30c56e5f9fd8e",
+    "exact_exp_locations": [
+      "examples/skill-files-viewer/README.md"
+    ]
+  },
+  {
+    "path": "examples/skill-files-viewer/skill/SKILL.md",
+    "source_blob": "ef3804c1b35fb3bb5ae1d5455e60be41371300bf",
+    "exact_exp_locations": [
+      "examples/langflow-workgraph-live/skill/SKILL.md",
+      "examples/skill-files-viewer/skill/SKILL.md"
+    ]
+  },
+  {
+    "path": "examples/skill-files-viewer/skill/references/folder-demo.md",
+    "source_blob": "51981a17c0dc0b797b0594fc45e856101070b738",
+    "exact_exp_locations": [
+      "examples/skill-files-viewer/skill/references/folder-demo.md"
+    ]
+  },
+  {
+    "path": "examples/skill-summary/PROTOCOL.md",
+    "source_blob": "064cdc9ab4443aebd779c36b4e8414f3cae57bf3",
+    "exact_exp_locations": [
+      "examples/skill-summary/PROTOCOL.md"
+    ]
+  },
+  {
+    "path": "examples/skill-summary/README.md",
+    "source_blob": "4db8a9fba5237449a06aeab6323107ef09a0c89f",
+    "exact_exp_locations": [
+      "examples/skill-summary/README.md"
+    ]
+  },
+  {
+    "path": "examples/skill-summary/evidence.json",
+    "source_blob": "f9fef0488015eacf59a09f9ba361aefee05228d3",
+    "exact_exp_locations": [
+      "examples/skill-summary/evidence.json"
+    ]
+  },
+  {
+    "path": "examples/skill-summary/executed-flow.json",
+    "source_blob": "851dd443bf73957da2d022d6c0a81f1db2059307",
+    "exact_exp_locations": [
+      "examples/skill-summary/executed-flow.json"
+    ]
+  },
+  {
+    "path": "examples/skill-summary/flow.json",
+    "source_blob": "74a1250b2db82f58748c0b9b5394aeba9c3ba92f",
+    "exact_exp_locations": [
+      "examples/skill-summary/flow.json"
+    ]
+  },
+  {
+    "path": "examples/skill-summary/generated-skill/SKILL.md",
+    "source_blob": "894b3fbb96031490f760d33daedcdeaa767fb28d",
+    "exact_exp_locations": [
+      "examples/skill-summary/generated-skill/SKILL.md"
+    ]
+  },
+  {
+    "path": "examples/skill-summary/source-skill/SKILL.md",
+    "source_blob": "659feb764457cdcd330d2174789029345d3178d3",
+    "exact_exp_locations": [
+      "examples/skill-summary/source-skill/SKILL.md"
+    ]
+  }
+]

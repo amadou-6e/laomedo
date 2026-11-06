@@ -1,0 +1,692 @@
+[
+  {
+    "path": ".gitattributes",
+    "sha256": "62603c2bcf8e6746003291d97bfb55d9512dc6db95c7f2ac0259a070668123c1",
+    "deleted": false
+  },
+  {
+    "path": "components/laomedo/skill.py",
+    "sha256": "84bd86e182b3e5fa9ccdd461f6772f1eceeb7ddd47ca02a2832533de5910f2e2",
+    "deleted": false
+  },
+  {
+    "path": "docs/features/skills/README.md",
+    "sha256": "396040460116323185fd09ac8736fdfd5eff5199c218ed8c3e8355a181b8d288",
+    "deleted": false
+  },
+  {
+    "path": "docs/features/skills/assets/README.md",
+    "sha256": "bab71ddf0466f44713184a6e52c81345390bbd6cfaeb24cb0a33ef2b3d20951b",
+    "deleted": false
+  },
+  {
+    "path": "docs/features/skills/explorer.md",
+    "sha256": "2a64ccf795b7299686458f6254436975ca25531946a8974f6f6fc10fffb74cf1",
+    "deleted": false
+  },
+  {
+    "path": "docs/features/skills/import-history.md",
+    "sha256": "3fffe252c804d03dd5381bf12af3ecb505e90a19bc9482cf11dbd79eb2dfb182",
+    "deleted": false
+  },
+  {
+    "path": "docs/features/skills/manual-workspace.md",
+    "sha256": "9719151863af93cb905d4a55b2dffaae4ec7bf507807c6f4e58c9aea0ca8a494",
+    "deleted": false
+  },
+  {
+    "path": "docs/features/skills/navigation-verification.md",
+    "sha256": "29fe9010e80e5f53e223cd3fceae3e1bcc5439f3fdf7df1edb66114a8ee4c6fc",
+    "deleted": false
+  },
+  {
+    "path": "docs/features/skills/sources.md",
+    "sha256": "cc191b9bc102a4143de11baf26e39f9a5e6be6969cf733f658dd58d4eb25ac92",
+    "deleted": false
+  },
+  {
+    "path": "docs/features/skills/user-stories.md",
+    "sha256": "56198867472c45fe3fb654cd3306f0e2ca19645d0760fd4af30f1aefcdb12a1d",
+    "deleted": false
+  },
+  {
+    "path": "docs/features/skills/walkthrough.md",
+    "sha256": "7b2b3b3f1239a5b8a7e5e5f277e26d69d9f0e700afae6b596c7a5ceea73d0618",
+    "deleted": false
+  },
+  {
+    "path": "docs/features/skills/workspace-viewer.md",
+    "sha256": "4a3acf46d373409f778f9a47b029abdfc681538ccf81ffe60ee8dcbe4b875a72",
+    "deleted": false
+  },
+  {
+    "path": "examples/README.md",
+    "sha256": "b5b3edd946c65adf2be6980f65a9fa28ca62281c01a07bc4f5ce7eb3d10f1ef5",
+    "deleted": false
+  },
+  {
+    "path": "examples/claude-agent/flow.json",
+    "sha256": "d5a048dfb9becde3c18a6f447113f4de3d7428249706985dd5222637f1afd9a3",
+    "deleted": false
+  },
+  {
+    "path": "examples/graph.py",
+    "sha256": "89e1991eddebcc1ffedd551b16f0396f9d6f2d6ee7d8d592265caea88c9bfcaa",
+    "deleted": false
+  },
+  {
+    "path": "examples/langflow-contract-routing/flow.json",
+    "sha256": "ae08a1c45792e26a39d903f04375a71058dd96078d23410d71e2f7a60caf17e8",
+    "deleted": false
+  },
+  {
+    "path": "examples/langflow-workgraph-demo/flow.json",
+    "sha256": "78e929dcf380fee168a1e5e049f4b71c6945c1616f45ff7a40831bb264f7e127",
+    "deleted": false
+  },
+  {
+    "path": "examples/native-codex-node/flow.json",
+    "sha256": "f20784a3ba8009606c8b0dd3a2b8eb9011d7f2860cc30257a5924d7c6cd4445e",
+    "deleted": false
+  },
+  {
+    "path": "examples/opencode-node/flow.json",
+    "sha256": "a15c59134a5bfc34871a4014f71768b08676dc674439b0460651ccd53dfed86a",
+    "deleted": false
+  },
+  {
+    "path": "examples/skill-files-viewer/README.md",
+    "sha256": null,
+    "deleted": true
+  },
+  {
+    "path": "examples/skill-files-viewer/skill/SKILL.md",
+    "sha256": null,
+    "deleted": true
+  },
+  {
+    "path": "examples/skill-files-viewer/skill/references/folder-demo.md",
+    "sha256": null,
+    "deleted": true
+  },
+  {
+    "path": "examples/skill-summary/PROTOCOL.md",
+    "sha256": null,
+    "deleted": true
+  },
+  {
+    "path": "examples/skill-summary/README.md",
+    "sha256": null,
+    "deleted": true
+  },
+  {
+    "path": "examples/skill-summary/evidence.json",
+    "sha256": null,
+    "deleted": true
+  },
+  {
+    "path": "examples/skill-summary/executed-flow.json",
+    "sha256": null,
+    "deleted": true
+  },
+  {
+    "path": "examples/skill-summary/flow.json",
+    "sha256": null,
+    "deleted": true
+  },
+  {
+    "path": "examples/skill-summary/generated-skill/SKILL.md",
+    "sha256": null,
+    "deleted": true
+  },
+  {
+    "path": "examples/skill-summary/source-skill/SKILL.md",
+    "sha256": null,
+    "deleted": true
+  },
+  {
+    "path": "examples/skills/README.md",
+    "sha256": "4cfe0cda07093a5722929731a2c4cb032fa8aef0830d8914784078b7c829541c",
+    "deleted": false
+  },
+  {
+    "path": "examples/skills/build_flow.py",
+    "sha256": "6cf2581ff923f8f1fb6dded570f1c404993c0a94baed234b3b527bcc25fa7093",
+    "deleted": false
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/AgentAdvancedControls.test.tsx",
+    "sha256": "29727b2878b9aa2add8003ac2f8b7b2c0ae490fc94e8310610d595bb059011ac",
+    "deleted": false
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/AgentAdvancedControls.tsx",
+    "sha256": "3e3279c9afab4ff89589fd21ac3d3da4d35852de50874a8b7e493504de7a7e1f",
+    "deleted": false
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/ErrorExplanation.tsx",
+    "sha256": "fc40df860ff00e9be0e06338719645af456185929d4024b7c9da6e177fcde427",
+    "deleted": false
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/ErrorPopup.test.tsx",
+    "sha256": "97e4426b8aecf70eb40fa5f73b7b272dbdc870332b15b95cd9177224396b95fd",
+    "deleted": false
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/NodeErrorNotice.test.tsx",
+    "sha256": "8259a99c9b34a0f5af2d59201fa0aad0bdfefd28231416359cf269b243292bfd",
+    "deleted": false
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/NodeErrorNotice.tsx",
+    "sha256": "92e97b69b602493860f522a5e06c397bb361bfcdd22eb4def2f221bdcb1756cc",
+    "deleted": false
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/PopupFrame.tsx",
+    "sha256": "6295a5609fc74efbde27ad4fa6e91c88647ac90b2fc4ff009e3118a13aeb7697",
+    "deleted": false
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/README.md",
+    "sha256": "adb63f0bb1231993d4e8e02a8aece0199ad472392db63f060d579f7be6896420",
+    "deleted": false
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/RenderAgentInputParameters.tsx",
+    "sha256": "351333563a422b469aa0659d2cfb8d83704d5ba8ea48b606b5f1bdd3c912f8f1",
+    "deleted": false
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/SkillFilesModal.tsx",
+    "sha256": null,
+    "deleted": true
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/SkillHistory.test.tsx",
+    "sha256": null,
+    "deleted": true
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/SkillNavigation.test.tsx",
+    "sha256": null,
+    "deleted": true
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/SkillNavigation.tsx",
+    "sha256": null,
+    "deleted": true
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/integration/README.md",
+    "sha256": "bbe19428200392bad5d98fcd526f2137473229e304f0b72d3803ee885c1202cb",
+    "deleted": false
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/integration/file-actions-dependencies.patch",
+    "sha256": "1d3f9e9ac633513f18c54910725c14b52b0b0d53e3b9e711c851e4e6e70d5b00",
+    "deleted": false
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/integration/upstream.patch",
+    "sha256": "2d0008c39d08641dcd5d7bf20f1dbc9acef26a26f6cbb33ece973a4a73e1b5e1",
+    "deleted": false
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/node-error-catalog.json",
+    "sha256": "b667305f2ead19f8cd71a385c45057d2cecc91fea334db25fc29a32f2f7e6d64",
+    "deleted": false
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/nodeErrors.ts",
+    "sha256": "62122615b04015c5feee8d87f816598876fb70b858d8f7e8a21a2024970889fd",
+    "deleted": false
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/skills/README.md",
+    "sha256": "b7c020a07634e1a83a82599c519a7a6087d44b26cfa205c782b819599f9db05d",
+    "deleted": false
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/skills/assets/MONACO-LICENSE.txt",
+    "sha256": "813dd0008df5aa1991954cffcdbc17a0de4ca016621739ae7a44b0a9590ef5a2",
+    "deleted": false
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/skills/assets/README.md",
+    "sha256": "eb37f3fbb4de432a2deacbce8fac65886b7283598d5b8ac11ff8a54603ac5774",
+    "deleted": false
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/skills/assets/skill-files-NOTICE.txt",
+    "sha256": "c6c88997f980c1b57c4f14ff844386cabcc9c99b3fce4a983feff33ff3d37044",
+    "deleted": false
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/skills/assets/skill-icons-NOTICE.txt",
+    "sha256": "1b65f0e4f6a390b8ad7d446ca9817adec0356317bd29cd9a2bce97cedfbdf7d5",
+    "deleted": false
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/skills/editor/README.md",
+    "sha256": "8eb9d991f19419460343144dd4f3d4fdd86128f5850822001cb1d4691891cc8d",
+    "deleted": false
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/skills/editor/SkillBinaryPreview.test.tsx",
+    "sha256": "18d8ca66ecf09d8765fdb0d35041cd6e3e0d165f9bd7becde8ba1e27364ccf87",
+    "deleted": false
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/skills/editor/SkillBinaryPreview.tsx",
+    "sha256": "29310b8e8efb1a330d249ce2e1768f3ea83786900a5d4a6a5c92ab97e859dcf1",
+    "deleted": false
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/skills/editor/SkillDiscardDialog.test.tsx",
+    "sha256": "2ca73b79fe440945caf5cd5af27e926bee116b933a2a827ec25a8aa867d2e60c",
+    "deleted": false
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/skills/editor/SkillDiscardDialog.tsx",
+    "sha256": "2d035f1beeb6db45fb3d0aa2c01a43b9ae01e84586fe8a7cabb40f7d58ba31a7",
+    "deleted": false
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/skills/editor/SkillEditing.test.tsx",
+    "sha256": "73aa089ff70f6d8d4bef9bcb7e3ed69023a9a89a09e707ed73663531b8b243d0",
+    "deleted": false
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/skills/editor/SkillEditing.tsx",
+    "sha256": "9ca55f472ea7ea2c7030f62650a8ded1757f41d6d351c234c572a85645296893",
+    "deleted": false
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/skills/editor/SkillPublication.test.tsx",
+    "sha256": "cb4d4b6f26ee4bf25e98fa597c48bba21484898c3fde2ca4e11d1df36e2db0dc",
+    "deleted": false
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/skills/editor/SkillPublication.tsx",
+    "sha256": "1579c778ade081887e198673c36d754befe9e61be472e317ed51af51d4574f6c",
+    "deleted": false
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/skills/editor/SkillSourceEditor.tsx",
+    "sha256": "d4c5214d2f9e71e3dee95d7a05dbfde6aaf24f2286a598a75be328b6ca227da5",
+    "deleted": false
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/skills/editor/SkillWorkingTree.test.ts",
+    "sha256": "3891c2d83080a9297469fb34664b0c3df459a21742a075dbbe037c385fd0caab",
+    "deleted": false
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/skills/editor/SkillWorkingTree.ts",
+    "sha256": "7da542e7d7c28613ee2bb955ced0816433faf16a6b2a2d33994d02e3a92d154e",
+    "deleted": false
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/skills/editor/sourceChanges.test.ts",
+    "sha256": "049f8857a8c05aff5930e19538862911a5ed4b5d22de8492431b9d68246a6e26",
+    "deleted": false
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/skills/editor/sourceChanges.ts",
+    "sha256": "9621c6ef3cd2d707002a8307e9648fcba1a32e1f97848dd00da5039cf889beaf",
+    "deleted": false
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/skills/explorer/README.md",
+    "sha256": "061737ca4b04a1e960b69130c55d28e41d4978231c1c85adc77dc319350809d7",
+    "deleted": false
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/skills/explorer/SkillExplorer.test.tsx",
+    "sha256": "0497367609ae1680019705270963355cfccac54a897f5f5c1f7e0b5ae004689e",
+    "deleted": false
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/skills/explorer/SkillExplorer.tsx",
+    "sha256": "be54ede8708a05bb492d12dff90dd54b8879786808e5c49bd23299f991b9d417",
+    "deleted": false
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/skills/explorer/SkillFileManager.test.tsx",
+    "sha256": "d41c3d92d22ead03862e2881f88f6b67b789819e1baf8be7aaa6b19dcc44d93d",
+    "deleted": false
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/skills/explorer/SkillFileManager.tsx",
+    "sha256": "355a043cc708ab6efd244cd587d7481b2af871d1741be81bcd4d660e52992767",
+    "deleted": false
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/skills/explorer/SkillIcons.tsx",
+    "sha256": "4b7962e422fb12becdeb7d51cc6b688a8a5bd2ae50e80de424b1e6d86e57f941",
+    "deleted": false
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/skills/history/README.md",
+    "sha256": "b8edd8cdf96522696fcc8bef24350c735b848b9d4487504a5ac5428bc1ce638c",
+    "deleted": false
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/skills/history/SkillFileDiff.test.tsx",
+    "sha256": "f171a3547ad077eaed5dc27f202ddc5fc9142b89e90290046a95f17005ff0e88",
+    "deleted": false
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/skills/history/SkillFileDiff.tsx",
+    "sha256": "4884dafa97de37e95c1f4a7b0ed7adb81f46cad05a6a8c65be98137b002c70e1",
+    "deleted": false
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/skills/history/SkillHistory.test.tsx",
+    "sha256": "250581411154374549601fe7b9e34c6a8733402fb4e63a41166de78832f57bf1",
+    "deleted": false
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/skills/history/SkillHistory.tsx",
+    "sha256": "65d371595aa11e0ce47f70c70a30137fd7d9bc08a16a631087a94d0f6273efd7",
+    "deleted": false
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/skills/interface/CanvasQueryState.test.ts",
+    "sha256": "5dbcc9a2604f830d4e1ce4ef1ee0240823cb8761304e0c38e549dd330f3a5eff",
+    "deleted": false
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/skills/interface/README.md",
+    "sha256": "5c5993845815a13285663356fbb6956ca56a1ea290e310e3b5b0795e2c6acf4e",
+    "deleted": false
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/skills/interface/SkillInspectionError.test.tsx",
+    "sha256": "65f3cc46b93f0d820df51aa5f8a14604b9ef622ca32bd3c8347123929acead9e",
+    "deleted": false
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/skills/interface/SkillInspectionError.tsx",
+    "sha256": "a4d1d3be81d78d123aea2935d5d58a56d562aea1787779633a2eda569742791c",
+    "deleted": false
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/skills/interface/SkillViewer.test.tsx",
+    "sha256": "1cdbde80d743e26e9c781d596eb20ddd0715c84f7a912fd5f27a74ae9f9e5311",
+    "deleted": false
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/skills/interface/SkillViewer.tsx",
+    "sha256": "a3a29b959220a6bc789142f91f71bad4c1a6452b8663bf22692227b43ac8b2f5",
+    "deleted": false
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/skills/interface/selection.ts",
+    "sha256": "7f02e097ebcb64664f4aede7fbcce84788bf59f92aea9fc20f36321368e78a97",
+    "deleted": false
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/skills/models.ts",
+    "sha256": "b59ef88dc9cef72a1e8dd90a3175aff034276db7ded8304f3e6d312b9decd7b6",
+    "deleted": false
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/skills/node/README.md",
+    "sha256": "5b1496f359f964c74a44c4e47ab2a06f4590d8638f903fe0f42093cbe184ba36",
+    "deleted": false
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/skills/node/SkillNodeControls.test.tsx",
+    "sha256": "53dfb147027f8c1d6b9561333b76dad6d11637bb694142a99f3ddec4bccae9c7",
+    "deleted": false
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/skills/node/SkillNodeControls.ts",
+    "sha256": "100f587f5c000f1b1281f9d0deeec4a89c63b7d90cfffbfff33964496a9a8161",
+    "deleted": false
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/skills/search/README.md",
+    "sha256": "5172896baecb91bdf3b32bba29efbe40fe3898a790f26541080b7dc57a718257",
+    "deleted": false
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/skills/search/SkillSearch.test.tsx",
+    "sha256": "1bcfb7b8a87c09311238f2000b62a50d552d61aab4d009041890d63b03eff2ac",
+    "deleted": false
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/skills/search/SkillSearch.tsx",
+    "sha256": "d4cc4fefe50c854540855de9b42b9f176d392e0689106135cc931ea0345ec599",
+    "deleted": false
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/skills/workspace/README.md",
+    "sha256": "bbfddaf43f6109a071d39caa9254687163593b1ad7247a3a9b714692b102d3bf",
+    "deleted": false
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/skills/workspace/SkillActions.test.tsx",
+    "sha256": "3ece46b6994ebb0f4e4e44c11dc96d687bf46becf97345a4326b2d73f35fb051",
+    "deleted": false
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/skills/workspace/SkillActions.tsx",
+    "sha256": "d0048cf65476e8a8539da498215b7ca8eebf1f7336e7bd84d994924463b9a88f",
+    "deleted": false
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/skills/workspace/SkillFilesModal.test.tsx",
+    "sha256": "2a5675106676ade89b4f73c0805b554ee76f121b05733eff2af061a2f21c0ecb",
+    "deleted": false
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/skills/workspace/SkillFilesModal.tsx",
+    "sha256": "ba920ed0b052c25ecb8b9273e21cf7febc8506431362bbb1b649192ef98be36b",
+    "deleted": false
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/skills/workspace/SkillNavigation.test.tsx",
+    "sha256": "04141a40996b3a0a2b0f37cd41f366a6dfdb58f1484cc6360cd6da5661a4c567",
+    "deleted": false
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/skills/workspace/SkillNavigation.tsx",
+    "sha256": "6981a91019589aa456978415dde6e707e549d830fcf01046f35f44ff15828adc",
+    "deleted": false
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/skills/workspace/SkillOverview.test.tsx",
+    "sha256": "cbdd92d37a16a134e7a4830ea43d7cdc9e57642bd8294a573cfe6b8cfe8c9390",
+    "deleted": false
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/skills/workspace/SkillOverview.tsx",
+    "sha256": "0a723fe74ec5caf213bf028d7e50d1e217eb4d8fc7aad057ef6db82f6ac4e429",
+    "deleted": false
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/skills/workspace/SkillSplitPane.test.tsx",
+    "sha256": "e40cd30e0416d0a9c42bcc28050f949b8e72c4911abb2d98e91537b0ed84d1db",
+    "deleted": false
+  },
+  {
+    "path": "frontend/langflow-skill-viewer/skills/workspace/SkillSplitPane.tsx",
+    "sha256": "17c2db1e5c24ae03e5bf908cc44a31482075c891b8020402f62d10613c7b2e69",
+    "deleted": false
+  },
+  {
+    "path": "src/laomedo/integrations/langflow/skill_editing.py",
+    "sha256": "249fbe6a9c300c95e3bd1d8061ec3daa4db98f973aca995858b947467878e4fc",
+    "deleted": false
+  },
+  {
+    "path": "src/laomedo/integrations/langflow/viewer.py",
+    "sha256": "864f96c11648d486e20de2a0db7f0b065f1d31cd9cdba0aa5664a6030ccd1a87",
+    "deleted": false
+  },
+  {
+    "path": "src/laomedo/skills/inspection/utils.py",
+    "sha256": "793a9cb9b8599191039cd58e0892c1e1614103d9c5632cc56e034276c45acf5e",
+    "deleted": false
+  },
+  {
+    "path": "src/laomedo/skills/interface/operations/README.md",
+    "sha256": "e1d979e2d2be83b4f756d2b8fe09cee7ebeca6a9f7704cff381d212a472c646c",
+    "deleted": false
+  },
+  {
+    "path": "src/laomedo/skills/interface/operations/cli.py",
+    "sha256": "cbce7304d9b87ff3b6c979b57d6f51f22a67703f266aec8d114e263ec76cad29",
+    "deleted": false
+  },
+  {
+    "path": "src/laomedo/skills/interface/operations/client.py",
+    "sha256": "213508497a7af1a996f51592158ed361486cf59f807bad95275cf4d69fd97d16",
+    "deleted": false
+  },
+  {
+    "path": "src/laomedo/skills/interface/operations/handler.py",
+    "sha256": "57a817085fb313d9673805c8ab19a8ad8f494ba6f71c016eadb8032b0d220279",
+    "deleted": false
+  },
+  {
+    "path": "src/laomedo/skills/interface/operations/server.py",
+    "sha256": "2f9db53c09f04fd722516ecf1eb97c801ee29d104050150df976d53f5092ae74",
+    "deleted": false
+  },
+  {
+    "path": "src/laomedo/skills/operations/README.md",
+    "sha256": "39a03f4eac01229f3c7dc3e856a7142b0fa03fed0d974b187b3411d6eaee465c",
+    "deleted": false
+  },
+  {
+    "path": "src/laomedo/skills/operations/contract.py",
+    "sha256": "d092520fb84692ae85222368065e944cea36394d72a91d081a9d718344bf9230",
+    "deleted": false
+  },
+  {
+    "path": "src/laomedo/skills/operations/manual.py",
+    "sha256": "8a4c9712d7bd0bd858024dc5a3ecdff6d71261707c9090b8ba1467d73c4aa19e",
+    "deleted": false
+  },
+  {
+    "path": "src/laomedo/skills/operations/models.py",
+    "sha256": "9ccc7a3fb2a8edaf27e78f50a63a949f99fe79d9f14c76138471049d2182c342",
+    "deleted": false
+  },
+  {
+    "path": "src/laomedo/skills/operations/service.py",
+    "sha256": "75cc1b7c6dd60e25a10ab94b4097327b7a4ad4838590686429a1e6cddfbf3848",
+    "deleted": false
+  },
+  {
+    "path": "src/laomedo/skills/registry/README.md",
+    "sha256": "50cceac1c19b752eeaf6d3507c876483819c9eccad1ed7eaba3b19797fa8b7ab",
+    "deleted": false
+  },
+  {
+    "path": "src/laomedo/skills/registry/models.py",
+    "sha256": "e84dbdd8ce9e10ba21808af63adde21d78f617e5f74be34601a898ae6df651b9",
+    "deleted": false
+  },
+  {
+    "path": "src/laomedo/skills/registry/policy.py",
+    "sha256": "c57ffad579151cbeb5decc3d79d9dfa2264fe6a5ce1fb725fba58d008843baac",
+    "deleted": false
+  },
+  {
+    "path": "src/laomedo/skills/registry/settings.py",
+    "sha256": "98e362a9ee3ba77c2a88918136753a53d18abce3821f6ac8e1ae689a86c78669",
+    "deleted": false
+  },
+  {
+    "path": "src/laomedo/skills/registry/store.py",
+    "sha256": "5c8ac7949ae452078a8b54abf5cac3d597a067be050b22c03de90172e6dc1245",
+    "deleted": false
+  },
+  {
+    "path": "tests/support/paths.py",
+    "sha256": "f15cc92479074c15812528fae752edfe4526e898970f17a7866402a36022f3bd",
+    "deleted": false
+  },
+  {
+    "path": "tests/test_skills/test_browser/README.md",
+    "sha256": "17e8c7dfb61fdf52e1ea92dcae6d1b993054a69ff8570be6f072347cffc1dc56",
+    "deleted": false
+  },
+  {
+    "path": "tests/test_skills/test_browser/canvas_refresh.cjs",
+    "sha256": "36dc75171b963436192bba475a431dc388080095ee7d0585c8d1703bbdfa7150",
+    "deleted": false
+  },
+  {
+    "path": "tests/test_skills/test_browser/files.cjs",
+    "sha256": "083b7b05266a1648b526090eec20d888a3af1c63693cabaed63183d3fb52a3e3",
+    "deleted": false
+  },
+  {
+    "path": "tests/test_skills/test_browser/sources.cjs",
+    "sha256": "08313cec2f444a05485412a49ce1d394263fc268fe5cc9931fe407f88ce11079",
+    "deleted": false
+  },
+  {
+    "path": "tests/test_skills/test_inspection/test_bundle.py",
+    "sha256": "2fe9f532fe72256c805d38411a03a9af1bde3ce04988ddbe97cfa5217803001e",
+    "deleted": false
+  },
+  {
+    "path": "tests/test_skills/test_inspection/test_viewer.py",
+    "sha256": "43410fe5ca0a03bf4da43c3854ebff03e96c27baa358642f400cacfd0a3bce26",
+    "deleted": false
+  },
+  {
+    "path": "tests/test_skills/test_interface/test_errors.py",
+    "sha256": "5e1dc58c68e0f705f319e29c9e641b939155b3527ca991515c8401b396fad657",
+    "deleted": false
+  },
+  {
+    "path": "tests/test_skills/test_operations/README.md",
+    "sha256": "efa0248847194dc744ea0a5c7ce2c5b7c189c7c3c96633185f4ceefb541d1c60",
+    "deleted": false
+  },
+  {
+    "path": "tests/test_skills/test_operations/test_binary.py",
+    "sha256": "1828643e157d5c6ea39b29e6a6c5a8e6edcea830c8d2f5d9b7e054c07417a999",
+    "deleted": false
+  },
+  {
+    "path": "tests/test_skills/test_operations/test_graph.py",
+    "sha256": "8e555e10154f4f73df0719e1ebeecba3f0ffacdf9864c2de9fbdcab7228dc331",
+    "deleted": false
+  },
+  {
+    "path": "tests/test_skills/test_operations/test_import_history.py",
+    "sha256": "6e8723b44467aee1fc3ee2ddabd99b206c6abc3e755f5bf7b3d59937e03b08b2",
+    "deleted": false
+  },
+  {
+    "path": "tests/test_skills/test_operations/test_manual.py",
+    "sha256": "9dc1b599ef605ead0293f724b33bf706ec19702cf2e5801986b3306554f7745a",
+    "deleted": false
+  },
+  {
+    "path": "tests/test_skills/test_operations/test_manual_routes.py",
+    "sha256": "ab60c161e78f1008714b9baf08bd4125d7f65a68fa1c36e7c0b82c4c8be3560d",
+    "deleted": false
+  },
+  {
+    "path": "tests/test_skills/test_sources/test_graph.py",
+    "sha256": "2a286d21c8f85f7070b8f9ded394bf63b03ac91b1ac969880cdaf3c02f841512",
+    "deleted": false
+  },
+  {
+    "path": "tools/apply_langflow_skill_viewer.py",
+    "sha256": "cb63f578d6ae4da334d056d2aa421cb08f702e9160388671380620759b244756",
+    "deleted": false
+  }
+]
