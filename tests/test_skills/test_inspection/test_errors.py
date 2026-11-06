@@ -11,9 +11,9 @@ class SkillInspectionErrorCatalogueTests(unittest.TestCase):
         """Read actual literal producers rather than just a new expected list."""
         root = repository_root()
         catalogue = json.loads(
-            (root / "frontend/langflow-skill-viewer/node-error-catalog.json").read_text(
-                encoding="utf-8"
-            )
+            (
+                root / "frontend/langflow-skill-viewer/errors/node-error-catalog.json"
+            ).read_text(encoding="utf-8")
         )
         codes = set()
         for relative in (

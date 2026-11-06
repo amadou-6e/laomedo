@@ -27,12 +27,12 @@ Public shared helper names replace accidental cross-module private imports.
 Historical module/symbol migration maps point directly here, with no Skills
 facade and no chain. Private same-module helpers stay private. Ingestion has no
 graph node or browser endpoint: raw refusal codes are host publication boundary
-diagnostics, and callers preserve their current projections. The C2 error guard
+diagnostics, and callers preserve their current projections. The publication error guard
 records each boundary explicitly rather than assuming every diagnostic is a
 node-visible error.
 
 Retained experiment callers are hash-pinned in
-`tools/migrations/retained-ingestion-callers.json`; current-file historical seal
+`tools/migrations/retained-shared-callers.json`; current-file historical seal
 validity is not inferred. Direct execution of these old sources against the
 current package is unsupported until an explicitly selected copy is migrated.
 The existing internal S7 control applies the repository's published import-only

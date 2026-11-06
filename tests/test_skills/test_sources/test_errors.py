@@ -11,9 +11,9 @@ class SourceErrorCatalogueTests(unittest.TestCase):
     def test_local_and_repository_domain_codes_keep_descriptive_coverage(self):
         root = repository_root()
         catalogue = json.loads(
-            (root / "frontend/langflow-skill-viewer/node-error-catalog.json").read_text(
-                encoding="utf-8"
-            )
+            (
+                root / "frontend/langflow-skill-viewer/errors/node-error-catalog.json"
+            ).read_text(encoding="utf-8")
         )
         producers = list((root / "src/laomedo/skills/sources").rglob("*.py"))
         self.assertTrue(producers, "Scan the actual source-domain owners")
@@ -42,9 +42,9 @@ class SourceErrorCatalogueTests(unittest.TestCase):
     def test_repository_and_http_client_public_codes_have_recovery_entries(self):
         root = repository_root()
         catalog = json.loads(
-            (root / "frontend/langflow-skill-viewer/node-error-catalog.json").read_text(
-                encoding="utf-8"
-            )
+            (
+                root / "frontend/langflow-skill-viewer/errors/node-error-catalog.json"
+            ).read_text(encoding="utf-8")
         )
         for relative in (
             "src/laomedo/skills/sources/repository.py",

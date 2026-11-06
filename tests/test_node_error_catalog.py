@@ -47,7 +47,7 @@ class NodeErrorCatalogueTests(unittest.TestCase):
     def test_handoff_selection_producer_has_catalogue_coverage(self):
         catalogue = json.loads(
             (
-                ROOT / "frontend/langflow-skill-viewer/node-error-catalog.json"
+                ROOT / "frontend/langflow-skill-viewer/errors/node-error-catalog.json"
             ).read_text()
         )
         source = ast.parse((ROOT / "components/laomedo/handoff.py").read_text())
@@ -75,7 +75,7 @@ class NodeErrorCatalogueTests(unittest.TestCase):
 
         json.loads(
             (
-                ROOT / "frontend/langflow-skill-viewer/node-error-catalog.json"
+                ROOT / "frontend/langflow-skill-viewer/errors/node-error-catalog.json"
             ).read_text(),
             object_pairs_hook=unique,
         )
@@ -83,7 +83,7 @@ class NodeErrorCatalogueTests(unittest.TestCase):
     def test_local_saved_graph_auth_producer_is_catalogued_and_routable(self):
         catalogue = json.loads(
             (
-                ROOT / "frontend/langflow-skill-viewer/node-error-catalog.json"
+                ROOT / "frontend/langflow-skill-viewer/errors/node-error-catalog.json"
             ).read_text()
         )
         source = ast.parse(
@@ -119,7 +119,7 @@ class NodeErrorCatalogueTests(unittest.TestCase):
     def test_catalogued_claude_codes_survive_component_routing(self):
         catalogue = json.loads(
             (
-                ROOT / "frontend/langflow-skill-viewer/node-error-catalog.json"
+                ROOT / "frontend/langflow-skill-viewer/errors/node-error-catalog.json"
             ).read_text()
         )
         tree = ast.parse(
@@ -146,7 +146,7 @@ class NodeErrorCatalogueTests(unittest.TestCase):
     ):
         catalogue = json.loads(
             (
-                ROOT / "frontend/langflow-skill-viewer/node-error-catalog.json"
+                ROOT / "frontend/langflow-skill-viewer/errors/node-error-catalog.json"
             ).read_text()
         )
         tree = ast.parse(
@@ -198,7 +198,7 @@ class NodeErrorCatalogueTests(unittest.TestCase):
     def test_claude_container_and_join_public_codes_have_explanations(self):
         catalogue = json.loads(
             (
-                ROOT / "frontend/langflow-skill-viewer/node-error-catalog.json"
+                ROOT / "frontend/langflow-skill-viewer/errors/node-error-catalog.json"
             ).read_text()
         )
         for filename in (
@@ -254,7 +254,7 @@ class NodeErrorCatalogueTests(unittest.TestCase):
     ):
         catalogue = json.loads(
             (
-                ROOT / "frontend/langflow-skill-viewer/node-error-catalog.json"
+                ROOT / "frontend/langflow-skill-viewer/errors/node-error-catalog.json"
             ).read_text()
         )
         producers = {
@@ -302,7 +302,7 @@ class NodeErrorCatalogueTests(unittest.TestCase):
     def test_normal_attempt_accounting_codes_have_catalogue_coverage(self):
         catalogue = json.loads(
             (
-                ROOT / "frontend/langflow-skill-viewer/node-error-catalog.json"
+                ROOT / "frontend/langflow-skill-viewer/errors/node-error-catalog.json"
             ).read_text()
         )
         source = ast.parse(
@@ -327,7 +327,7 @@ class NodeErrorCatalogueTests(unittest.TestCase):
     def test_literal_agent_failures_have_descriptive_catalogue_entries(self):
         catalogue = json.loads(
             (
-                ROOT / "frontend/langflow-skill-viewer/node-error-catalog.json"
+                ROOT / "frontend/langflow-skill-viewer/errors/node-error-catalog.json"
             ).read_text()
         )
         missing = []
@@ -365,7 +365,7 @@ class NodeErrorCatalogueTests(unittest.TestCase):
     def test_claude_literal_failures_are_covered_when_provider_is_installed(self):
         catalogue = json.loads(
             (
-                ROOT / "frontend/langflow-skill-viewer/node-error-catalog.json"
+                ROOT / "frontend/langflow-skill-viewer/errors/node-error-catalog.json"
             ).read_text()
         )
         sources = [
@@ -406,7 +406,7 @@ class NodeErrorCatalogueTests(unittest.TestCase):
     def test_claude_stored_capture_codes_are_catalogued(self):
         catalogue = json.loads(
             (
-                ROOT / "frontend/langflow-skill-viewer/node-error-catalog.json"
+                ROOT / "frontend/langflow-skill-viewer/errors/node-error-catalog.json"
             ).read_text()
         )
         codes = set()
@@ -424,7 +424,7 @@ class NodeErrorCatalogueTests(unittest.TestCase):
     def test_runner_service_public_codes_have_catalogue_coverage(self):
         catalogue = json.loads(
             (
-                ROOT / "frontend/langflow-skill-viewer/node-error-catalog.json"
+                ROOT / "frontend/langflow-skill-viewer/errors/node-error-catalog.json"
             ).read_text()
         )
         source = ast.parse((ROOT / "src/laomedo/host/runner/service.py").read_text())
@@ -533,9 +533,9 @@ def emitted_codes(source):
 class OpenCodeErrorCatalogueTests(unittest.TestCase):
     def test_opencode_runner_boundary_and_capture_codes_have_explanations(self):
         catalog = json.loads(
-            (ROOT / "frontend/langflow-skill-viewer/node-error-catalog.json").read_text(
-                encoding="utf-8"
-            )
+            (
+                ROOT / "frontend/langflow-skill-viewer/errors/node-error-catalog.json"
+            ).read_text(encoding="utf-8")
         )
         missing = {
             path: sorted(
@@ -548,9 +548,9 @@ class OpenCodeErrorCatalogueTests(unittest.TestCase):
 
     def test_changed_normal_accounting_methods_have_catalogue_coverage(self):
         catalog = json.loads(
-            (ROOT / "frontend/langflow-skill-viewer/node-error-catalog.json").read_text(
-                encoding="utf-8"
-            )
+            (
+                ROOT / "frontend/langflow-skill-viewer/errors/node-error-catalog.json"
+            ).read_text(encoding="utf-8")
         )
         tree = ast.parse(
             (ROOT / "src/laomedo/agents/runtime/runner.py").read_text(encoding="utf-8")

@@ -58,9 +58,9 @@ class RegistryErrorContractTests(unittest.TestCase):
             | set(contract["store_review_validation_codes"]),
         )
         catalogue = json.loads(
-            (root / "frontend/langflow-skill-viewer/node-error-catalog.json").read_text(
-                encoding="utf-8"
-            )
+            (
+                root / "frontend/langflow-skill-viewer/errors/node-error-catalog.json"
+            ).read_text(encoding="utf-8")
         )
         self.assertFalse(public - catalogue.keys())
         for code in public:

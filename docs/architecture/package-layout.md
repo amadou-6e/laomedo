@@ -270,3 +270,28 @@ error catalogue explains updating the node or explicitly migrating saved source;
 unmigrated Claude/OpenCode code cannot silently route through Codex configuration.
 OpenCode owns its worker image pin independently in its settings. It initially uses
 the same reviewed sandbox bytes as Codex, without importing Codex configuration.
+
+## Object vocabulary and typed boundaries
+
+Use `Base` for an abstract contract and a qualifier only when multiple concrete
+implementations require it. References identify existing immutable state; records
+describe persisted observations; proposals request change and grant no authority.
+Constructors use `from_*`; projections use `to_*`, including `to_config()` for
+configuration. Put repeated mappings on the canonical feature-owned model.
+
+Module READMEs describe responsibilities, dependency direction and mandatory object
+nomenclature before implementation. Leaf READMEs describe object methods and outcome
+guarantees. Discoverable interface/base packages expose extension points without
+requiring readers to study an unrelated concrete provider. Unwrap Pydantic secrets
+only at a named private projection into the authorized consumer, never through
+general serialization or logging.
+
+## Node HTTP admission
+
+Request-body limits belong to the defining handlers: GitHub Issue and PR each
+admit 1 MiB, Skill sources 16 KiB and Skill operations 4 MiB. These limits are
+independent of file/bundle and response-read limits. Transport failures preserve
+uncertainty after possible dispatch rather than inviting blind resend. Issue and
+PR public-code allowlists are intentionally different: a PR client cannot project
+an issue-only `github_http_*` category. Catalogue entries and tests belong to the
+relevant producer and presenter; an Agent-only guard is not universal coverage.

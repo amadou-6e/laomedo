@@ -7,6 +7,7 @@ application integration.
 
 - [Package layout and migration](package-layout.md): source ownership, canonical
   entrypoints, typed internal data and migration from retired module paths.
+- [Python formatting](python-formatting.md): pinned Black and historical-source policy.
 - [Node boundaries](node-contracts.md): responsibilities and operation exchange.
 - [Work Graph foundation](work-graph.md): imported work, immutable snapshots and
   dependency readiness; distinct from the Langflow execution graph.

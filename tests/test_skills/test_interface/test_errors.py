@@ -11,9 +11,9 @@ class ErrorCatalogueTests(unittest.TestCase):
     def test_operation_and_handler_codes_have_safe_descriptive_entries(self):
         root = repository_root()
         catalogue = json.loads(
-            (root / "frontend/langflow-skill-viewer/node-error-catalog.json").read_text(
-                encoding="utf-8"
-            )
+            (
+                root / "frontend/langflow-skill-viewer/errors/node-error-catalog.json"
+            ).read_text(encoding="utf-8")
         )
         codes = {
             "skill_operation_unavailable",
@@ -47,9 +47,9 @@ class ErrorCatalogueTests(unittest.TestCase):
     def test_skill_and_feedback_producers_have_descriptive_entries(self):
         root = repository_root()
         catalog = json.loads(
-            (root / "frontend/langflow-skill-viewer/node-error-catalog.json").read_text(
-                encoding="utf-8"
-            )
+            (
+                root / "frontend/langflow-skill-viewer/errors/node-error-catalog.json"
+            ).read_text(encoding="utf-8")
         )
         for relative in (
             "components/laomedo/skill.py",

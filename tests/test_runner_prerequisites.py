@@ -114,7 +114,7 @@ class DockerPrerequisiteTests(TestCase):
         catalogue = json.loads(
             (
                 Path(__file__).resolve().parents[1]
-                / "frontend/langflow-skill-viewer/node-error-catalog.json"
+                / "frontend/langflow-skill-viewer/errors/node-error-catalog.json"
             ).read_text(encoding="utf-8")
         )
         self.assertEqual(ERROR_CODES - catalogue.keys(), set())

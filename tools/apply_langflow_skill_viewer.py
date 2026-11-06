@@ -49,7 +49,7 @@ def apply(checkout):
     subprocess.run(
         ["git", "-C", str(checkout), "apply", str(selection_patch)], check=True
     )
-    catalog_patch = overlay / "catalog-recovery.patch"
+    catalog_patch = overlay / "integration/catalog-recovery.patch"
     subprocess.run(
         ["git", "-C", str(checkout), "apply", "--check", str(catalog_patch)], check=True
     )
@@ -152,7 +152,7 @@ def apply(checkout):
         "RecoveryPopup.test.tsx",
         "PopupFrame.tsx",
     ):
-        shutil.copy2(overlay / name, recovery_target / name)
+        shutil.copy2(overlay / "recovery" / name, recovery_target / name)
     error_target = checkout / "src/frontend/src/components/laomedoErrors"
     error_target.mkdir()
     for name in (
@@ -168,9 +168,10 @@ def apply(checkout):
         "ApplicationErrorPopup.tsx",
         "CopyIcon.tsx",
     ):
-        shutil.copy2(overlay / name, error_target / name)
+        shutil.copy2(overlay / "errors" / name, error_target / name)
     shutil.copy2(
-        overlay / "ErrorAlert.tsx", checkout / "src/frontend/src/alerts/error/index.tsx"
+        overlay / "errors/ErrorAlert.tsx",
+        checkout / "src/frontend/src/alerts/error/index.tsx",
     )
     status_path = (
         checkout
@@ -333,7 +334,7 @@ def apply(checkout):
         '  if (!isBuilding && descriptiveError && !dismissed) {\n    return <FlowErrorPopup message={descriptiveError} laomedo={Boolean(affectedNode) || isKnownNodeError(descriptiveError, graphNodes.some(node => node.data.type?.startsWith("Laomedo")))} onDismiss={() => { setBuildInfo(null); setDismissed(false); }} context={{\n      nodeId: affectedNode?.id, nodeType: affectedNode?.data.type, nodeLabel: affectedNode?.data.node?.display_name,\n      operation: affectedNode?.data.node?.template?.operation?.value,\n      savedReferences: [affectedNode?.data.node?.template?.run_reference?.value, affectedNode?.data.node?.template?.run_reference_json?.value],\n    }} />;\n  }\n  return (\n    <AnimatePresence mode="wait">',
     )
     flow_error_path.write_text(flow_error, encoding="utf-8")
-    outcome_patch = overlay / "runner-outcomes.patch"
+    outcome_patch = overlay / "integration/runner-outcomes.patch"
     subprocess.run(
         [
             "git",

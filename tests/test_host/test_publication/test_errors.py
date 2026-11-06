@@ -84,9 +84,9 @@ class PublicationErrorBoundaryTests(unittest.TestCase):
     def test_exported_refusals_are_descriptively_catalogued(self):
         root = repository_root()
         catalogue = json.loads(
-            (root / "frontend/langflow-skill-viewer/node-error-catalog.json").read_text(
-                encoding="utf-8"
-            )
+            (
+                root / "frontend/langflow-skill-viewer/errors/node-error-catalog.json"
+            ).read_text(encoding="utf-8")
         )
         for code in self.REFUSALS:
             for field in ("title", "description", "recovery"):
