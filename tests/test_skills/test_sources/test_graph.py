@@ -1,7 +1,7 @@
 from importlib.util import find_spec
 from unittest import SkipTest
 
-if find_spec("lfx") is None:
+if find_spec("lfx") is None or find_spec("langflow") is None:
     raise SkipTest("Install the declared Langflow runtime to run Skill graph controls")
 
 

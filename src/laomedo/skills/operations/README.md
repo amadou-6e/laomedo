@@ -142,3 +142,27 @@ If a lock persists after a crash, a maintainer must stop all writers to that
 registry, verify that no write is active, back up registry and journal, and only
 then remove the abandoned lock before restarting the service and checking the
 same request. The UI does not delete locks or offer automatic lock repair.
+
+### Pending writes and divergent-history maintenance
+
+The viewer retains an unconfirmed request in memory and refuses Close/Discard
+while it is pending. Check result reconciles that identity. Reloading the page
+loses the browser's pending state; it does not cancel or reverse the durable
+service request. A persistent lock therefore blocks closing through the viewer
+until the write can be reconciled. This is a current usability constraint, not
+an implemented cancel or automatic lock-recovery feature.
+
+There is no self-service journal reconciliation command. Maintenance requires
+explicit owner review of both the newer canonical files and retained candidate,
+a backup of registry and journal, and stopping competing writers. Use the
+[registry draft and reviewed-promotion API](../../../../docs/features/skills/registry.md)
+to prepare the chosen merged tree against the exact canonical latest, inspect
+its complete diff, freeze it under the existing policy and explicitly promote
+that exact draft. This does not waive policy or compare-and-swap checks.
+
+If the reviewed result equals the retained journal head, canonical and journal
+are aligned again. Otherwise retain the original journal as a read-only history
+archive and configure a new journal for the verified canonical lineage; its
+registered entries do not invent the old edit provenance. Preserve old immutable
+revision references, and select new Base Commit references explicitly. Do not
+delete or rewrite the old journal, or present this maintenance as a UI merge.

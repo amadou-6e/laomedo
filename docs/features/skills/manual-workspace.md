@@ -36,7 +36,7 @@ remain visible after their last file moves or is deleted. They stay local: the
 registry and commit diff describe files, not empty directories.
 
 The [commit tree](navigation-verification.md) compares the selected file with the
-current saved working head. The graph's original pin remains separately labelled.
+current working buffer, including unsaved text. The graph's original pin remains separately labelled.
 [Find](workspace-viewer.md) searches working text, including unsaved edits.
 
 ## Limits

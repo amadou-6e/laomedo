@@ -108,7 +108,7 @@ $env:LAOMEDO_SKILL_OPERATION_TOKEN_FILE = "$runtimeRoot/runner/api-token"
 2. Set Source to the full path of `$runtimeRoot/registry` and refresh discovery.
 3. Choose `pr-feedback-title`, expand **Advanced settings**, then choose the exact imported revision printed
    in step 1. Do not assume a revision labelled latest is the one you reviewed.
-4. Open **Skill files** and read `SKILL.md`. File browsing is read-only.
+4. Open **Skill files** and read `SKILL.md`. Browsing does not execute the graph. With local edit permission, text is editable and Publish/Discard appear after changes.
 
 ![Actual Skill file viewer](assets/skill-files.png)
 

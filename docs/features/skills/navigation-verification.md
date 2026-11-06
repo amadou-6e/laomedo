@@ -6,7 +6,7 @@ Files and Commits have no redundant settings menus.
 
 Files retain folder disclosure and open editor tabs. Drag the separator between
 the sidebar and editor to change their widths. Selecting a commit beneath the
-file tree shows the selected file's cumulative diff to the current saved head.
+file tree shows the selected file's cumulative diff to the current working buffer, including unsaved text.
 Selecting another file keeps that comparison. Added/deleted lines use the normal
 visual diff, without raw diff commands or a combined all-file patch.
 

@@ -89,7 +89,7 @@ Those records establish their named runs and revisions, not a fresh test of this
 ## SK-04 — Compare a file across revisions
 
 As a skill author, I want to select a commit beneath the file tree and see the
-selected file's cumulative diff to the current saved working head, so I can understand
+selected file's cumulative diff to the current working buffer, including unsaved text, so I can understand
 its evolution without reading a combined patch for every file.
 
 **Status: Implemented.** The viewer has a commit tree, file-specific comparison,
@@ -97,7 +97,7 @@ Current source action and a draggable split pane.
 
 Acceptance criteria:
 
-- Selecting a commit keeps the file context and compares it with the current saved working head.
+- Selecting a commit keeps the file context and compares it with the current working buffer, including unsaved text.
 - Selecting another file shows that file's diff for the same comparison.
 - Added and deleted lines are visualized without exposing raw `diff --git` commands.
 
@@ -134,8 +134,7 @@ This exploration does not replace canonical UI design specifications.
 As a Skill author, I want existing text files to be editable immediately, with
 Publish and Discard shown after an edit. Publish records the whole file batch in
 one traceable commit and promotes it, retaining work on refusals and reconnect. Implemented;
-[revision-specific real normal/recovery verification](manual-workspace.md) is
-recorded separately from final owner acceptance.
+The [manual workspace guide](manual-workspace.md) describes the controls; final owner acceptance is recorded separately.
 
 ## SK-07 - Inspect cumulative changes and publish explicitly
 
@@ -143,7 +142,7 @@ As a Skill author, I want the footer to disclose cumulative per-file changes
 against registry current and let me inspect a selected diff before choosing
 Publish, without a separate review mode. Publication refuses stale
 heads/bases without changing graph pins or Git. Implemented; see the same
-[real publication and replay record](manual-workspace.md). Git publishing in
+[publication and replay guide](manual-workspace.md). Git publishing in
 SK-05 remains proposed. Final owner acceptance is pending.
 
 
@@ -151,8 +150,7 @@ SK-05 remains proposed. Final owner acceptance is pending.
 
 As a Skill author, I want to upload text and binary files, rename, move, delete
 and copy relative paths from the explorer, so I can publish a complete traceable
-revision without leaving the viewer. Implemented; see [actual workflows and
-revision-specific evidence](manual-workspace.md).
+revision without leaving the viewer. Implemented; see [manual workspace guide](manual-workspace.md).
 
 Acceptance criteria:
 
@@ -169,9 +167,9 @@ directory uploads and Git publication are outside this story.
 
 ### SK09 — Work with files using editor conventions
 
-The owner retains empty working folders, renames directly in the filename row, deletes without a confirmation card and restores/reapplies Files actions with Ctrl+Z/Ctrl+Y. Drag targets have grey highlighting; Ctrl+X/V is the keyboard move path with no Move to menu. JSON has braces and binary files have inert raster or paged-byte previews. Publication keeps local empty folders but registry history remains file-only. Actual final evidence and constraints are in manual-workspace.md; owner validation is pending.
+The owner retains empty working folders, renames directly in the filename row, deletes without a confirmation card and restores/reapplies Files actions with Ctrl+Z/Ctrl+Y. Drag targets have grey highlighting; Ctrl+X/V is the keyboard move path with no Move to menu. JSON has braces and binary files have inert raster or paged-byte previews. Publication keeps local empty folders but registry history remains file-only. The manual workspace guide describes the behavior and constraints; owner validation is pending.
 
 
 ### SK10 — Preview and safely discard working files
 
-The owner views binaries across the available editor pane without a byte/hash row, and returns from inline rename without a black filename outline. Discard opens a focus-trapped popup. Cancelling preserves exact buffers; confirming restores saved files/history. Dirty workspace dismissal shares this popup and closes only on explicit confirmation. Actual normal, full-page, small and Dark/Light evidence is in manual-workspace.md; owner validation remains pending.
+The owner views binaries across the available editor pane without a byte/hash row, and returns from inline rename without a black filename outline. Discard opens a focus-trapped popup. Cancelling preserves exact buffers; confirming restores saved files/history. Dirty workspace dismissal shares this popup and closes only on explicit confirmation. The manual workspace guide describes these controls; owner validation remains pending.
