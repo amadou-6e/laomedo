@@ -10,6 +10,32 @@ from laomedo.github.pull_requests.contract import ERROR_CODES as PR_CODES
 
 
 class GitHubErrorCatalogueTests(unittest.TestCase):
+    def test_literal_handler_failures_are_catalogued(self):
+        root = repository_root()
+        catalogue = json.loads(
+            (root / "frontend/langflow-skill-viewer/node-error-catalog.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        for feature in ("issues", "pull_requests"):
+            path = root / "src/laomedo/github/interface" / feature / "handler.py"
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            codes = {
+                value.value
+                for node in ast.walk(tree)
+                if isinstance(node, ast.Dict)
+                for key, value in zip(node.keys, node.values)
+                if isinstance(key, ast.Constant)
+                and key.value == "error_category"
+                and isinstance(value, ast.Constant)
+                and isinstance(value.value, str)
+            }
+            self.assertTrue(codes, path)
+            self.assertFalse(codes - catalogue.keys(), (path, codes - catalogue.keys()))
+            for code in codes:
+                for field in ("title", "description", "recovery"):
+                    self.assertTrue(catalogue[code][field].strip(), (code, field))
+
     def test_public_contract_and_component_codes_have_descriptive_catalogue_entries(
         self,
     ):
