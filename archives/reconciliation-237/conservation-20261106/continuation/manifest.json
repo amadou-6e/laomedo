@@ -1,16 +1,16 @@
 {
-  "candidate_commit": "7411c84e37d9b413901cb562e7cb00899f6a391c",
-  "candidate_tree": "1926c54e83b81e2ff22f3a162be0ade0363f1884",
+  "candidate_commit": "42a16c392f8b7ee2d1ad8d31f1f23f98f7b64de5",
+  "candidate_tree": "37f7efaa8a626e5eb5c0b3c137999529374a0045",
   "base_commit": "37dc9aa9f37304bc8b2c8e8e33b70e356b771764",
   "owners": {
-    "shared": "36e1781131c1a4e18af0a5191d249c645e84b673",
-    "skills": "29408aa7cfb79b0d8feb40282a6bf14836685cc5",
+    "shared": "1db2a234408345e3751fe63f6a02d5b5fc5e197c",
+    "skills": "972688347cd2c774e2f8096800987c9fe515cb33",
     "github": "4d59e9d90555982a5f8930c3d5fd1e7f90137fac",
-    "agents": "2a3d30ed31949b9a517eac2047455e8d38f1c18c"
+    "agents": "e61f5ae3282f3f2bae37ba879ac748ecf6b99362"
   },
-  "patch_sha256": "efa778d684bd46d37f4e01e2cc887971f803af3f2d66c1bd961ff8162c9fa93a",
+  "patch_sha256": "d200616ed7e1be149b1c2ca6365209665c3e34521a1bcb8e834adad1c749601b",
   "reconstruction": "Applied binary patch to a separate index initialized from the develop base; resulting tree exactly equals candidate tree. This is preservation, not acceptance. Candidate merge commits are local; this patch preserves the complete tree without creating a fifth production PR.",
   "review": "Remaining non-Python test-data packet and focused correction/modularity/integration rechecks incomplete; existing Claude session rate-limited until its reported 2026-11-06 16:30 Europe/Berlin reset. All 23 old PRs remain OPEN/HOLD.",
-  "verification": "1014 combined source tests, no failures/errors,17 initial skips. Six Node checks, four formatting-policy checks, three installed-wheel checks and two no-model Docker controls subsequently pass without skips. Four Windows symlink cases remain unverified locally. 353 production wheel files match source;67 source README files are intentionally outside wheel data. 810 frontend cases across32suites pass. Actual combined overlay installation and final production build pass. Browser evidence is scoped to the actual private Skill app, including file actions, byte-exact binary/JSON publication and real discovery/service failure recovery. No fresh provider/GitHub or owner acceptance.",
+  "verification": "1014 combined source tests, no failures/errors,17 initial skips. Six Node checks, four formatting-policy checks, three installed-wheel checks and two no-model Docker controls subsequently pass without skips. Four Windows symlink cases remain unverified locally. 353 production wheel files match source;67 source README files are intentionally outside wheel data. 811 frontend cases across32suites pass. Actual combined overlay installation and final production build pass. Browser evidence is scoped to the actual private Skill app, including file actions, byte-exact binary/JSON publication and real discovery/service failure recovery. No fresh provider/GitHub or owner acceptance. Full TypeScript retains the same253 clean-upstream diagnostics with no additional errors; it is not claimed green. All298 checked relative file links resolve and all344 production Python modules have no class inside a function or method. Activity-before-first-capture failure/Refresh only was exercised; normal captured Activity remains unverified.",
   "private_state": "No credentials, browser storage state, runtime databases, service logs or private API-token files are archived."
 }

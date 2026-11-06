@@ -1,0 +1,190 @@
+{
+  "data": {
+    "repository": {
+      "p213": {
+        "number": 213,
+        "state": "OPEN",
+        "isDraft": true,
+        "headRefOid": "e0fcaef16ea6d6bf8d661263c893cd2071a777d7",
+        "baseRefName": "develop",
+        "url": "https://github.com/amadou-6e/laomedo/pull/213"
+      },
+      "p214": {
+        "number": 214,
+        "state": "OPEN",
+        "isDraft": true,
+        "headRefOid": "8e2a2925c74748672f3028ba09359c49b13e1635",
+        "baseRefName": "feat/codex-docker-lifecycle",
+        "url": "https://github.com/amadou-6e/laomedo/pull/214"
+      },
+      "p216": {
+        "number": 216,
+        "state": "OPEN",
+        "isDraft": true,
+        "headRefOid": "a9317f61ce0376ead778802d3fd394fa127fe8a2",
+        "baseRefName": "feat/shared-acp-agent-protocol",
+        "url": "https://github.com/amadou-6e/laomedo/pull/216"
+      },
+      "p217": {
+        "number": 217,
+        "state": "OPEN",
+        "isDraft": true,
+        "headRefOid": "3cf0d02b10a05cc643c9155c2bb075cee338bbda",
+        "baseRefName": "feat/agent-module-ownership",
+        "url": "https://github.com/amadou-6e/laomedo/pull/217"
+      },
+      "p218": {
+        "number": 218,
+        "state": "OPEN",
+        "isDraft": true,
+        "headRefOid": "c741d4bcc104b8f7d0e0cc030ee3fa2ea7b6775b",
+        "baseRefName": "refactor/typed-feature-records",
+        "url": "https://github.com/amadou-6e/laomedo/pull/218"
+      },
+      "p219": {
+        "number": 219,
+        "state": "OPEN",
+        "isDraft": true,
+        "headRefOid": "4b46032a6af322ce006e6eb6c2c16f670d4374fb",
+        "baseRefName": "refactor/typed-skill-records",
+        "url": "https://github.com/amadou-6e/laomedo/pull/219"
+      },
+      "p220": {
+        "number": 220,
+        "state": "OPEN",
+        "isDraft": true,
+        "headRefOid": "6c65b6d50db9a17da060a522598bb89212f9f8be",
+        "baseRefName": "refactor/typed-agent-records",
+        "url": "https://github.com/amadou-6e/laomedo/pull/220"
+      },
+      "p221": {
+        "number": 221,
+        "state": "OPEN",
+        "isDraft": true,
+        "headRefOid": "3299f8df976965b707e7c91d3309ea2e8e0aaadf",
+        "baseRefName": "refactor/typed-host-records",
+        "url": "https://github.com/amadou-6e/laomedo/pull/221"
+      },
+      "p222": {
+        "number": 222,
+        "state": "OPEN",
+        "isDraft": true,
+        "headRefOid": "4551ce52524f6ec997f4df04a984f0c850170e55",
+        "baseRefName": "chore/black-project",
+        "url": "https://github.com/amadou-6e/laomedo/pull/222"
+      },
+      "p223": {
+        "number": 223,
+        "state": "OPEN",
+        "isDraft": true,
+        "headRefOid": "23cb11505c46ab24715055ad2abc09f3b1565d4f",
+        "baseRefName": "refactor/github-skills-handlers",
+        "url": "https://github.com/amadou-6e/laomedo/pull/223"
+      },
+      "p224": {
+        "number": 224,
+        "state": "OPEN",
+        "isDraft": true,
+        "headRefOid": "61d8cb066bd6b49e2bd0d7ff1666b513135414ed",
+        "baseRefName": "refactor/publication-ingestion",
+        "url": "https://github.com/amadou-6e/laomedo/pull/224"
+      },
+      "p225": {
+        "number": 225,
+        "state": "OPEN",
+        "isDraft": true,
+        "headRefOid": "a09231a343475af28b896b9214fe7f132c16336f",
+        "baseRefName": "chore/black-project",
+        "url": "https://github.com/amadou-6e/laomedo/pull/225"
+      },
+      "p226": {
+        "number": 226,
+        "state": "OPEN",
+        "isDraft": true,
+        "headRefOid": "64ac5fe7082412abc01abb0dc67e575515ced4be",
+        "baseRefName": "refactor/github-skills-interface",
+        "url": "https://github.com/amadou-6e/laomedo/pull/226"
+      },
+      "p227": {
+        "number": 227,
+        "state": "OPEN",
+        "isDraft": true,
+        "headRefOid": "baa2ec0627729fa115a2eba05c09d1e9deed2f35",
+        "baseRefName": "chore/black-project",
+        "url": "https://github.com/amadou-6e/laomedo/pull/227"
+      },
+      "p228": {
+        "number": 228,
+        "state": "OPEN",
+        "isDraft": true,
+        "headRefOid": "bac1ab6334139e92b1cbec785f1f5341ffadecc8",
+        "baseRefName": "refactor/skill-registry-modules",
+        "url": "https://github.com/amadou-6e/laomedo/pull/228"
+      },
+      "p229": {
+        "number": 229,
+        "state": "OPEN",
+        "isDraft": true,
+        "headRefOid": "8b92111efd2b452e6947a3fd81e0e13dff2f7903",
+        "baseRefName": "refactor/typed-record-integration",
+        "url": "https://github.com/amadou-6e/laomedo/pull/229"
+      },
+      "p230": {
+        "number": 230,
+        "state": "OPEN",
+        "isDraft": true,
+        "headRefOid": "5bb39f5c9abcf5e864edf6ddfd280b84fce78a39",
+        "baseRefName": "refactor/typed-record-integration",
+        "url": "https://github.com/amadou-6e/laomedo/pull/230"
+      },
+      "p231": {
+        "number": 231,
+        "state": "OPEN",
+        "isDraft": true,
+        "headRefOid": "bf1438d76ffb47105acf3abdce86f7deca358c45",
+        "baseRefName": "refactor/skill-source-git",
+        "url": "https://github.com/amadou-6e/laomedo/pull/231"
+      },
+      "p232": {
+        "number": 232,
+        "state": "OPEN",
+        "isDraft": true,
+        "headRefOid": "a55279d1d51b05a5df6faedab861b68766844de0",
+        "baseRefName": "refactor/skill-source-git",
+        "url": "https://github.com/amadou-6e/laomedo/pull/232"
+      },
+      "p233": {
+        "number": 233,
+        "state": "OPEN",
+        "isDraft": true,
+        "headRefOid": "822239cff8b82729d9f8c0b286ca2b266bcd874e",
+        "baseRefName": "refactor/typed-record-integration",
+        "url": "https://github.com/amadou-6e/laomedo/pull/233"
+      },
+      "p234": {
+        "number": 234,
+        "state": "OPEN",
+        "isDraft": true,
+        "headRefOid": "fe211cb0a496353b107b97e688fb5551ace30759",
+        "baseRefName": "checkpoint/typed-record-candidate-276",
+        "url": "https://github.com/amadou-6e/laomedo/pull/234"
+      },
+      "p236": {
+        "number": 236,
+        "state": "OPEN",
+        "isDraft": true,
+        "headRefOid": "3ed8a69cb958e0c2591899353b9f5e8a8c8b91cb",
+        "baseRefName": "validation/typed-record-candidate",
+        "url": "https://github.com/amadou-6e/laomedo/pull/236"
+      },
+      "p238": {
+        "number": 238,
+        "state": "OPEN",
+        "isDraft": true,
+        "headRefOid": "8f7b184573cc0d6655d3b61a59f550d84e67253e",
+        "baseRefName": "validation/typed-record-candidate",
+        "url": "https://github.com/amadou-6e/laomedo/pull/238"
+      }
+    }
+  }
+}

@@ -149,10 +149,90 @@ index 3ef1cb5d7e86204e7ef0b950d86b1dab1ef549d6..f0dae6cb14f63fd0ace70849e53aabb3
 +activation drafts and campaign evidence are preserved on `exp`; internal
 +browser/native controls live in the owning tests.
 diff --git a/components/README.md b/components/README.md
-index 5c7a4026776f137038d66814ad300509ff19e4ba..c3c7240d13e9993af18b5ad69e1a0135786daa5a 100644
+index 5c7a4026776f137038d66814ad300509ff19e4ba..2f541b599252ae772f4549fb2cafaa1a7577cae8 100644
 --- a/components/README.md
 +++ b/components/README.md
-@@ -197,10 +197,10 @@ and selected artifact manifests persist in the downstream runner record.
+@@ -1,6 +1,6 @@
+ # Laomedo Codex Agent for Langflow
+ 
+-Operator-installed custom component for pinned Langflow 1.12.3. This wraps the
++Locally installed custom component for pinned Langflow 1.12.3. This wraps the
+ existing local Docker Codex runner; it does not replace Langflow's built-in Agent
+ or implement its tool interface. The `LaomedoRunner` embedded in
+ `examples/skill-agent-pilot/pilot-flow.json` now uses the same private runner
+@@ -12,7 +12,7 @@ API token; its historical model-turn evidence predates that change.
+ Data ports. The separate `LaomedoOutputContractLegacy` retains explicit
+ Precheck Requirements and Validation Outcome ports. Install this repository's Laomedo package in the Langflow
+ runtime before loading it: the node and Codex requirements input import the
+-same `laomedo.agents.contracts.output` evaluator used by the host runner. Mounting only
++same `laomedo.agents.interface.output.utils` evaluator used by the host runner. Mounting only
+ component files is insufficient for this component. A missing package fails
+ visibly at import rather than falling back to a different validator.
+ 
+@@ -53,7 +53,7 @@ after code updates; inspect its component catalog for `LaomedoCodexAgent` before
+ importing a flow. The runtime must have the existing local runner reachable at
+ `http://host.docker.internal:8765`; native local installations use localhost.
+ 
+-This is a proposed deployment configuration until the operator approves startup.
++This deployment example requires its own runtime checks before acceptance.
+ Keep the existing server and its data volume separate from the acceptance server.
+ Do not mount Codex credentials, native sessions, the Docker socket or private runner
+ state into Langflow. Mount only the private `api-token` file read-only and set
+@@ -66,20 +66,18 @@ Connect Laomedo Skill's Skill Reference output to the agent's Skill Reference
+ input. The Skill node takes an existing Skill ID and exact SHA-256 revision and
+ emits a structured reference; it does not load credentials, expose host paths or
+ claim that a revision exists. The runner resolves and verifies the immutable
+-whole bundle before a model turn. Inline advanced skill fields remain compatible
+-with older flows; conflicting wired and inline references fail explicitly.
+-When connecting a Skill node to an older saved flow, clear advanced Skill ID and
+-Skill Revision values if they conflict. Each bundle's `SKILL.md` frontmatter
++whole bundle before a model turn. Legacy inline bindings remain readable in serialized flows; conflicting wired
++and inline references fail explicitly. New graphs configure Skills on the Skill
++node. Migrate conflicting legacy bindings in the saved flow before connecting it. Each bundle's `SKILL.md` frontmatter
+ `name` must equal its pinned skill ID to avoid ambiguous Codex discovery.
+ 
+-Fresh: supply task, immutable whole-skill ID/revision, model and effort.
+-Resume: set operation to resume and supply the prior structured Run Reference;
+-its completed status, thread, model/effort and exact post-run hash are required.
+-Connect Data to Prior Run, or paste its serialized object into advanced Prior Run
+-JSON for a manual/API invocation. Data handle inputs are not persisted inline by
+-Langflow's saved-flow builder; the JSON input is the explicit persisted alternative.
+-Status/cancel: supply a prior run reference containing its run ID; these submit
+-no model turns. Cancel requests retain the runner's status and evidence.
++Fresh takes a task, with optional pinned Skill references. Model and effort
++choices come from runner discovery. Request identity is assigned automatically.
++Resume requires a completed prior structured Run Reference with its thread,
++model/effort and exact post-run hash. Status/cancel need a known run ID and spend
++no model turn. Existing serialized flows and API requests can carry this reference;
++the current node hides those legacy input controls and has no run selector.
++The node does not automatically reconstruct a missing reference.
+ 
+ Answer is a Langflow Message; Run Reference is Data containing answer, run/thread
+ IDs, state, post-run hash, model/effort, skill revision/use evidence, artifact/trace
+@@ -141,10 +139,9 @@ interruption alone; the runner's exact terminal evidence is required.
+ 
+ ## Opt-in Playground join prototype
+ 
+-The optional advanced Join Bridge URL routes a fresh/start component call
+-through a host-owned [join service](../laomedo/langflow_join_service.py). The
+-checked-in sample flow leaves this field unset, so its current runner route is
+-unchanged. The bridge takes a separate read-only token file in Langflow at
++Fresh/start calls can use a host-owned [join service](../src/laomedo/integrations/langflow/join/service.py).
++Its address comes from provider host configuration (`LAOMEDO_BRIDGE_URL` for
++Codex), rather than a visible Join Bridge URL control on the node. The bridge takes a separate read-only token file in Langflow at
+ `/run/secrets/laomedo-bridge-token`; the host service reads its own copy, a
+ runner API token file and a private run store outside Git. The host independently
+ hashes the saved-flow export, reserves the run before its native POST, and binds
+@@ -155,7 +152,7 @@ been activated for the existing server. While a Stop intent is pending, a
+ bridge status GET may reconcile the exact native request and send its cancel;
+ it never starts another native request.
+ 
+-The [develop-based checks](../experiments/exp117/RESULTS.md) compose visible
++The [historical prepared/active checks](https://github.com/amadou-6e/laomedo/blob/exp/archives/agents-205/retired-agent-probes/files/experiments/exp117/RESULTS.md) compose visible
+ Stop with the durable host/native/Langflow join at both prepared and active
+ points, including a disposable SQLite restart with no redispatch. The active
+ probe retains an inconclusive classifier result plus a separately reviewed
+@@ -197,10 +194,10 @@ and selected artifact manifests persist in the downstream runner record.
  `LaomedoBoundedController` implements bounded scheduling without cyclic visual
  edges, persists turn reservations and partial outcomes, and exposes exact stop
  reason/cancellation evidence. It requires the Laomedo runtime package on Langflow's
@@ -178153,7 +178233,7 @@ HcmV?d00001
 
 diff --git a/docs/features/skills/explorer.md b/docs/features/skills/explorer.md
 new file mode 100644
-index 0000000000000000000000000000000000000000..d3f4ad8684eb85e0957df0573095549dc68e6fcf
+index 0000000000000000000000000000000000000000..2ba1f54dcc38a48e7fc7575bc5be8d4376b58f29
 --- /dev/null
 +++ b/docs/features/skills/explorer.md
 @@ -0,0 +1,63 @@
@@ -178207,7 +178287,7 @@ index 0000000000000000000000000000000000000000..d3f4ad8684eb85e0957df0573095549d
 +
 +Icons use the existing react-icons dependency: Simple Icons and Microsoft
 +Codicons. No new package, CDN or remote icon request is introduced. The build
-+ships [icon attribution](../../../frontend/langflow-skill-viewer/skill-icons-NOTICE.txt)
++ships [icon attribution](../../../frontend/langflow-skill-viewer/skills/assets/skill-icons-NOTICE.txt)
 +as `/skill-icons-NOTICE.txt`.
 +
 +The real keyboard check initially found that the canvas consumed Space on a
@@ -206115,10 +206195,10 @@ similarity index 100%
 rename from frontend/langflow-skill-viewer/AgentActivityNavigation.ts
 rename to frontend/langflow-skill-viewer/agents/activity/AgentActivityNavigation.ts
 diff --git a/frontend/langflow-skill-viewer/GraphAgents.test.tsx b/frontend/langflow-skill-viewer/agents/activity/GraphAgents.test.tsx
-similarity index 98%
+similarity index 97%
 rename from frontend/langflow-skill-viewer/GraphAgents.test.tsx
 rename to frontend/langflow-skill-viewer/agents/activity/GraphAgents.test.tsx
-index f46c0450176250b342e443d12258864c1502d5e9..b51521bff65b43b72478a9deeb41a2fb6b806632 100644
+index f46c0450176250b342e443d12258864c1502d5e9..948447b0cf1fbd883223045d83da76f16cf55294 100644
 --- a/frontend/langflow-skill-viewer/GraphAgents.test.tsx
 +++ b/frontend/langflow-skill-viewer/agents/activity/GraphAgents.test.tsx
 @@ -1,5 +1,9 @@
@@ -206132,9 +206212,58 @@ index f46c0450176250b342e443d12258864c1502d5e9..b51521bff65b43b72478a9deeb41a2fb
  import { api } from "@/controllers/API/api";
  jest.mock("react-syntax-highlighter",()=>({Prism:({children}:{children:string})=><pre><span>{children}</span></pre>}));
  jest.mock("@/controllers/API/api",()=>({api:{get:jest.fn(),post:jest.fn()}}));
+@@ -10,7 +14,7 @@ const clearTarget=jest.fn(()=>{activityTarget=null});
+ jest.mock("@/stores/agentActivityStore",()=>({useAgentActivityStore:Object.assign((select:any)=>select({target:activityTarget}),{getState:()=>({clearTarget})})}));
+ jest.mock("@/stores/flowStore",()=>({__esModule:true,default:(select:(state:unknown)=>unknown)=>select({nodes:canvasNodes})}));
+ const run=(id:string,execution:string)=>({id,node:`node-${id}`,execution,started:"2026-10-15T10:00:00Z",ended:"2026-10-15T10:00:02Z",status:"completed",stream_state:"complete",event_count:2,native_session:id,model:"gpt-6-luna"});
+-const projection={turns:[],items:[],threads:[],usage:null,usage_points:[],cost:{amount:null},cost_reason:"Unknown model",telemetry:[],telemetry_coverage:"not observed"};
++const projection={turns:[],items:[],threads:[],usage:null,usage_points:[],clock:"unknown",cost:{amount:null,currency:"USD",basis:"unknown",catalog_date:"",source:null},cost_reason:"Unknown model",telemetry:[],telemetry_coverage:"not observed"};
+ jest.unmock("react-markdown");
+ jest.mock("@/components/ui/button",()=>({Button:jest.requireActual("react").forwardRef(({variant,size,ignoreTitleCase,...props}:any,ref:any)=><button ref={ref} {...props}/>)}));
+ jest.mock("@/components/ui/popover",()=>{const primitive=jest.requireActual("@radix-ui/react-popover");return {Popover:primitive.Root,PopoverTrigger:primitive.Trigger,PopoverContent:primitive.Content};});
+@@ -20,6 +24,12 @@ jest.mock("@/components/common/genericIconComponent",()=>({__esModule:true,defau
+ jest.mock("@/components/core/codeTabsComponent",()=>({__esModule:true,default:({code}:{code:string})=> <pre><span>{code}</span></pre>}));
+ beforeEach(()=>{jest.clearAllMocks();canvasNodes=[];activityTarget=null});
+ 
++test("an absent graph and empty activity target render without dispatch",()=>{
++  render(<GraphAgents/>);
++  expect(screen.getByText("No captured agent runs yet.")).toBeVisible();
++  expect(api.get).not.toHaveBeenCalled();
++});
++
+ test("native Codex tools use readable names without dropping source metadata",()=>{
+   expect(activityTitle({type:"mcpToolCall",server:"github",tool:"get_pull_request"})).toBe("github · get_pull_request");
+   expect(activityTitle({type:"dynamicToolCall",tool:"laomedo_output_precheck"})).toBe("laomedo_output_precheck");
+@@ -76,7 +86,7 @@ test("conversation search has clear and empty states, and switching scope resets
+   const search=await screen.findByRole("textbox",{name:"Search conversation"});
+   fireEvent.change(search,{target:{value:"Garnet"}});expect(screen.getByText("Garnet main answer")).toBeInTheDocument();
+   fireEvent.change(search,{target:{value:"zzzzzzzzzz"}});expect(screen.getByText("No matching messages or tools.")).toBeInTheDocument();expect(screen.getByRole("button",{name:"Export conversation"})).toBeDisabled();
+-  fireEvent.click(screen.getByRole("button",{name:"Clear",exact:true}));
++  fireEvent.click(screen.getByRole("button",{name:"Clear"}));
+   expect(search).toHaveValue("");expect(screen.getByText("Garnet main answer")).toBeInTheDocument();
+   fireEvent.change(search,{target:{value:"Garnet"}});
+   fireEvent.click(screen.getByRole("button",{name:/^Child reviewer.*0 turns/}));
+@@ -147,7 +157,7 @@ test("conversation follows diagnostics, roles differ and command evidence starts
+  const {container}=render(<GraphAgents flowId="flow"/>);
+  fireEvent.click(await screen.findByRole("button",{name:"node-one · completed"}));
+  await screen.findByRole("navigation",{name:"Activity selection"});
+- fireEvent.click(screen.getByRole("button",{name:"All activity",exact:true}));
++ fireEvent.click(screen.getByRole("button",{name:"All activity"}));
+  const conversation=await screen.findByRole("region",{name:"Conversation messages and tools"});
+  expect(screen.getByRole("region",{name:"Usage and diagnostics"}).compareDocumentPosition(conversation)&Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(conversation).toHaveAttribute("tabindex","0");
+@@ -280,7 +290,7 @@ test("Gantt scopes messages to child and turn, breadcrumbs restore ancestors and
+     items:[lane("a","parent","t1","Parent answer"),lane("b","child","c1","First child answer"),lane("c","child","c2","Second child answer")]};
+   (api.get as jest.Mock).mockImplementation((url:string)=>Promise.resolve({data:url.endsWith("/flow")?{runs:[first,old]}:{run:url.endsWith("/old")?old:first,projection:p,truncated:false}}));
+   render(<GraphAgents flowId="flow"/>);
+-  fireEvent.click(await screen.findByRole("button",{name:/Review changes.*2 turns.*completed$/,exact:false}));
++  fireEvent.click(await screen.findByRole("button",{name:/Review changes.*2 turns.*completed$/}));
+   expect(await screen.findByText("First child answer")).toBeInTheDocument();expect(screen.queryByText("Parent answer")).toBeNull();
+   fireEvent.click(screen.getByRole("button",{name:/^Turn 1.*Review changes.*completed, /}));
+   expect(screen.queryByText("Second child answer")).toBeNull();
 diff --git a/frontend/langflow-skill-viewer/agents/activity/GraphAgents.tsx b/frontend/langflow-skill-viewer/agents/activity/GraphAgents.tsx
 new file mode 100644
-index 0000000000000000000000000000000000000000..1b4390d70260fc6e536a7001ddceb378cc55c966
+index 0000000000000000000000000000000000000000..6c5a7a7da0d41b6878dc22515ef116c8034a04ac
 --- /dev/null
 +++ b/frontend/langflow-skill-viewer/agents/activity/GraphAgents.tsx
 @@ -0,0 +1,160 @@
@@ -206158,7 +206287,7 @@ index 0000000000000000000000000000000000000000..1b4390d70260fc6e536a7001ddceb378
 +export default function GraphAgents({flowId}:{flowId?:string}) {
 +  const nodes=useFlowStore(state=>state.nodes);
 +  const target=useAgentActivityStore(state=>state.target);
-+  const targetNode=target?.flowId===flowId?target.nodeId:undefined;
++  const targetNode=target&&target.flowId===flowId?target.nodeId:undefined;
 +  useEffect(()=>()=>useAgentActivityStore.getState().clearTarget(),[]);
 +  useEffect(()=>{setExecution("");setSelected("")},[targetNode]);
 +  const label=(run:Run)=>run.node_label?.trim()||nodes.find(node=>node.id===run.node)?.data.node?.display_name||run.node;
@@ -206883,9 +207012,42 @@ similarity index 100%
 rename from frontend/langflow-skill-viewer/ErrorAlert.tsx
 rename to frontend/langflow-skill-viewer/errors/ErrorAlert.tsx
 diff --git a/frontend/langflow-skill-viewer/ErrorAlertMigration.test.tsx b/frontend/langflow-skill-viewer/errors/ErrorAlertMigration.test.tsx
-similarity index 100%
+similarity index 91%
 rename from frontend/langflow-skill-viewer/ErrorAlertMigration.test.tsx
 rename to frontend/langflow-skill-viewer/errors/ErrorAlertMigration.test.tsx
+index f3f333f8db635922c5f5398bd3afe2fb160edb78..3bb94b0984f8a4a4734742eae0d4d2a11c6c1529 100644
+--- a/frontend/langflow-skill-viewer/ErrorAlertMigration.test.tsx
++++ b/frontend/langflow-skill-viewer/errors/ErrorAlertMigration.test.tsx
+@@ -21,7 +21,8 @@ test("model discovery errors retain their code and offer real managed recovery",
+  (api.get as jest.Mock).mockResolvedValue({data:{state:"offline",can_start:true,reason:"runner_local_offline"}});
+  act(()=>useAlertStore.getState().setErrorData({title:"Failed",list:["runner_model_catalog_unavailable_check_runner_connection"]}));
+  const item=useAlertStore.getState().tempNotificationList[0];
+- render(<ErrorAlert {...item} removeAlert={()=>{}}/>);
++ expect(item.type).toBe("error");
++ render(<ErrorAlert {...item} list={item.list} removeAlert={()=>{}}/>);
+  await screen.findByRole("button",{name:"Start local runner"});
+  expect(item.failure?.diagnostics.code).toBe("runner_model_catalog_unavailable_check_runner_connection");
+  expect(document.body.textContent).not.toContain("previous run's outcome is unconfirmed");
+@@ -31,7 +32,8 @@ test("an independent error still produces a persistent copyable card",()=>{
+  mockFlow.buildInfo={error:["prior_run_required"]};
+  act(()=>useAlertStore.getState().setErrorData({title:"Failed",list:["invalid_skill_reference; bearer secret-payload"]}));
+  const item=useAlertStore.getState().tempNotificationList[0],dismiss=jest.fn();
+- render(<ErrorAlert {...item} removeAlert={dismiss}/>);
++ expect(item.type).toBe("error");
++ render(<ErrorAlert {...item} list={item.list} removeAlert={dismiss}/>);
+  expect(screen.getByRole("button",{name:"Copy error"})).toBeEnabled();
+  expect(document.body.textContent).not.toContain("secret-payload");
+  fireEvent.click(screen.getByRole("button",{name:"Dismiss"}));expect(dismiss).toHaveBeenCalledWith(item.id);
+@@ -42,7 +44,8 @@ test("native application errors retain every message without Agent advice",async
+  act(()=>useAlertStore.getState().setErrorData({title:"Flow save failed",list:["Choose a folder.","The flow name is already in use."]}));
+  const item=useAlertStore.getState().tempNotificationList[0];
+  const writeText=jest.fn().mockResolvedValue(undefined);Object.defineProperty(navigator,"clipboard",{configurable:true,value:{writeText}});
+- render(<ErrorAlert {...item} removeAlert={()=>{}}/>);
++ expect(item.type).toBe("error");
++ render(<ErrorAlert {...item} list={item.list} removeAlert={()=>{}}/>);
+  expect(screen.getByRole("heading",{name:"Flow save failed"})).toBeVisible();
+  expect(screen.getByText("Choose a folder.")).toBeVisible();expect(screen.getByText("The flow name is already in use.")).toBeVisible();
+  expect(document.body.textContent).not.toMatch(/runner|existing run|unrecognized_error/);
 diff --git a/frontend/langflow-skill-viewer/errors/ErrorExplanation.tsx b/frontend/langflow-skill-viewer/errors/ErrorExplanation.tsx
 new file mode 100644
 index 0000000000000000000000000000000000000000..25a04a1290b102fed39b895c48cfadef78f2a8d0
@@ -208760,10 +208922,10 @@ index 0000000000000000000000000000000000000000..f4a2339a14fbdd7e14683bb702fd86e4
 +
 +`RunnerRecovery` owns checking/start/cancel transitions for the local runner. `RecoveryPopup` presents those states; `PopupFrame` owns the viewport-bound notification stack and focus lifecycle. These controls do not rerun a graph or send a model request. The installer deploys this package to components/laomedoRecovery.
 diff --git a/frontend/langflow-skill-viewer/RecoveryPopup.test.tsx b/frontend/langflow-skill-viewer/recovery/RecoveryPopup.test.tsx
-similarity index 99%
+similarity index 98%
 rename from frontend/langflow-skill-viewer/RecoveryPopup.test.tsx
 rename to frontend/langflow-skill-viewer/recovery/RecoveryPopup.test.tsx
-index 7ea07041c7e565282e9dbb899b71273f0c9f8266..568b55852e835d0881da8b614905920e010870dc 100644
+index 7ea07041c7e565282e9dbb899b71273f0c9f8266..a01a7e4c1b3709f5fda8f057bc6dcc9fe9ce2f8b 100644
 --- a/frontend/langflow-skill-viewer/RecoveryPopup.test.tsx
 +++ b/frontend/langflow-skill-viewer/recovery/RecoveryPopup.test.tsx
 @@ -79,6 +79,7 @@ test("online guidance is not repeated or conditional on a future reconnect", asy
@@ -208774,6 +208936,28 @@ index 7ea07041c7e565282e9dbb899b71273f0c9f8266..568b55852e835d0881da8b614905920e
    expect(screen.queryByText(/Once reconnected/)).toBeNull();
    expect(screen.queryByText(/Starting the runner does not rerun/)).toBeNull();
  });
+@@ -158,7 +159,7 @@ test("unconfirmed cancellation ends the spinner and stays visible without operat
+    .mockResolvedValueOnce({data:{state:"starting",can_start:false,startup_id:"attempt-one",reason:"runner_start_cancel_unconfirmed"}});
+  render(<RecoveryPopup message="runner_transport_failed" context={{}} onDismiss={jest.fn()} />);
+  fireEvent.click(await screen.findByRole("button",{name:"Start local runner"}));
+- fireEvent.click(await screen.findByRole("button",{name:"Cancel",exact:true}));
++ fireEvent.click(await screen.findByRole("button",{name:"Cancel"}));
+  await screen.findByText("The local backend has not confirmed that startup stopped.");
+  expect(screen.getByRole("status")).toHaveAttribute("aria-busy","false");
+  expect(screen.queryByText(/operator/)).toBeNull();
+@@ -172,10 +173,10 @@ test("an unrelated startup crash is not presented as a successful cancel", async
+   .mockResolvedValueOnce({data:{state:"offline",can_start:true,reason:"runner_start_failed"}});
+  render(<RecoveryPopup message="runner_transport_failed" context={{}} onDismiss={dismissed} />);
+  fireEvent.click(await screen.findByRole("button",{name:"Start local runner"}));
+- fireEvent.click(await screen.findByRole("button",{name:"Cancel",exact:true}));
++ fireEvent.click(await screen.findByRole("button",{name:"Cancel"}));
+  await screen.findByText("The local backend has not confirmed that startup stopped.");
+  expect(dismissed).not.toHaveBeenCalled();
+- expect(screen.getByRole("button",{name:"Dismiss",exact:true})).toBeEnabled();
++ expect(screen.getByRole("button",{name:"Dismiss"})).toBeEnabled();
+ });
+ 
+ 
 diff --git a/frontend/langflow-skill-viewer/RecoveryPopup.tsx b/frontend/langflow-skill-viewer/recovery/RecoveryPopup.tsx
 similarity index 98%
 rename from frontend/langflow-skill-viewer/RecoveryPopup.tsx
@@ -209004,7 +209188,7 @@ index 0000000000000000000000000000000000000000..0a93887e69b63145b7a5404a7649ccfc
 +}
 diff --git a/frontend/langflow-skill-viewer/skills/editor/SkillDiscardDialog.test.tsx b/frontend/langflow-skill-viewer/skills/editor/SkillDiscardDialog.test.tsx
 new file mode 100644
-index 0000000000000000000000000000000000000000..aef0258b7eddd507770d014c31d0c8b04feec073
+index 0000000000000000000000000000000000000000..67a21b49e505ad120723f404baea96310943139e
 --- /dev/null
 +++ b/frontend/langflow-skill-viewer/skills/editor/SkillDiscardDialog.test.tsx
 @@ -0,0 +1,33 @@
@@ -209020,14 +209204,14 @@ index 0000000000000000000000000000000000000000..aef0258b7eddd507770d014c31d0c8b0
 +      <SkillDiscardDialog open={open} disabled={false} cancel={() => setOpen(false)} confirm={confirm} restoreFocus={restored} /></>;
 +  }
 +  render(<Example />);
-+  fireEvent.click(screen.getByRole('button', { name: 'Discard', exact: true }));
++  fireEvent.click(screen.getByRole('button', { name: 'Discard' }));
 +  const popup = await screen.findByRole('alertdialog', { name: 'Discard changes?' });
 +  expect(popup.parentElement).toBe(document.body);
 +  await waitFor(() => expect(screen.getByRole('button', { name: 'Keep editing' })).toHaveFocus());
 +  fireEvent.keyDown(popup, { key: 'Escape' });
 +  await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
 +  expect(confirm).not.toHaveBeenCalled(); expect(restored).toHaveBeenCalled();
-+  fireEvent.click(screen.getByRole('button', { name: 'Discard', exact: true }));
++  fireEvent.click(screen.getByRole('button', { name: 'Discard' }));
 +  fireEvent.click(await screen.findByRole('button', { name: 'Keep editing' }));
 +  expect(confirm).not.toHaveBeenCalled();
 +});
@@ -209036,7 +209220,7 @@ index 0000000000000000000000000000000000000000..aef0258b7eddd507770d014c31d0c8b0
 +  const confirm = jest.fn();
 +  const props = { open: true, disabled: true, cancel: jest.fn(), confirm, restoreFocus: jest.fn() };
 +  const { rerender } = render(<SkillDiscardDialog {...props} />);
-+  const action = await screen.findByRole('button', { name: 'Discard changes', exact: true });
++  const action = await screen.findByRole('button', { name: 'Discard changes' });
 +  fireEvent.click(action); expect(confirm).not.toHaveBeenCalled();
 +  rerender(<SkillDiscardDialog {...props} disabled={false} />);
 +  fireEvent.click(action); expect(confirm).toHaveBeenCalledTimes(1);
@@ -209505,7 +209689,7 @@ index 0000000000000000000000000000000000000000..c59086b6af579e73a8ff0868dfd3b3f2
 +}
 diff --git a/frontend/langflow-skill-viewer/skills/editor/SkillWorkingTree.test.ts b/frontend/langflow-skill-viewer/skills/editor/SkillWorkingTree.test.ts
 new file mode 100644
-index 0000000000000000000000000000000000000000..8a028ca9014d5f3e0876d4ec9e74614d177bb973
+index 0000000000000000000000000000000000000000..ffb60f1229666f80334a8561373d957d4cdda387
 --- /dev/null
 +++ b/frontend/langflow-skill-viewer/skills/editor/SkillWorkingTree.test.ts
 @@ -0,0 +1,88 @@
@@ -209536,7 +209720,7 @@ index 0000000000000000000000000000000000000000..8a028ca9014d5f3e0876d4ec9e74614d
 +  expect(() => validateTree(base, moveTree(moved, 'refs', 'one.md/child'))).toThrow('skill_manual_file_conflict');
 +});
 +function local(name: string, bytes: Uint8Array) {
-+  const value = new File([bytes], name);
++  const value = new File([Uint8Array.from(bytes).buffer], name);
 +  Object.defineProperty(value, "arrayBuffer", { value: async () => bytes.slice().buffer });
 +  return value;
 +}
@@ -209769,7 +209953,7 @@ index 0000000000000000000000000000000000000000..070210ee4caf669eaff79d1fefa5ecb4
 +`SkillFileManager` translates menu, keyboard, upload and drag/drop input into working-tree operations. `SkillExplorer` owns rows/disclosure and `SkillIcons` owns presentation. Saving and publishing remain editor responsibilities.
 diff --git a/frontend/langflow-skill-viewer/skills/explorer/SkillExplorer.test.tsx b/frontend/langflow-skill-viewer/skills/explorer/SkillExplorer.test.tsx
 new file mode 100644
-index 0000000000000000000000000000000000000000..6bbe9c4211d120c618a6e0418bc84f57c0fc46f8
+index 0000000000000000000000000000000000000000..8bdfbe0b08933f01cbb2cfd4cd5ec65cc36bcb1e
 --- /dev/null
 +++ b/frontend/langflow-skill-viewer/skills/explorer/SkillExplorer.test.tsx
 @@ -0,0 +1,53 @@
@@ -209791,9 +209975,9 @@ index 0000000000000000000000000000000000000000..6bbe9c4211d120c618a6e0418bc84f57
 +
 +test("file logos are decorative and folder chevrons follow disclosure without changing file selection", () => {
 +  render(<ExplorerExample />);
-+  const root = screen.getByRole("button", { name: "SKILL.md", exact: true });
-+  const folder = screen.getByRole("button", { name: "references", exact: true });
-+  const child = screen.getByRole("button", { name: "rules.md", exact: true });
++  const root = screen.getByRole("button", { name: "SKILL.md" });
++  const folder = screen.getByRole("button", { name: "references" });
++  const child = screen.getByRole("button", { name: "rules.md" });
 +  expect(root.querySelector('[data-file-type="markdown"]')).toHaveAttribute("aria-hidden", "true");
 +  expect(root).not.toHaveAttribute("aria-expanded");
 +  expect(child).toHaveAttribute("title", "references/rules.md");
@@ -209884,7 +210068,7 @@ index 0000000000000000000000000000000000000000..177e428c7faa6a52d2a9e430762cc9f8
 +}
 diff --git a/frontend/langflow-skill-viewer/skills/explorer/SkillFileManager.test.tsx b/frontend/langflow-skill-viewer/skills/explorer/SkillFileManager.test.tsx
 new file mode 100644
-index 0000000000000000000000000000000000000000..293c6d2e86beb0cb332d500756832c8590a531ba
+index 0000000000000000000000000000000000000000..7fe681fcba3ead3e8d027de5258a332818aa78bb
 --- /dev/null
 +++ b/frontend/langflow-skill-viewer/skills/explorer/SkillFileManager.test.tsx
 @@ -0,0 +1,131 @@
@@ -209926,12 +210110,12 @@ index 0000000000000000000000000000000000000000..293c6d2e86beb0cb332d500756832c85
 +
 +test("keyboard context menu stays inside the dialog, core entrypoint is protected and Escape keeps the workspace", async () => {
 +  render(<Example />); await screen.findByText("Ready");
-+  const file = screen.getByRole("button", { name: "SKILL.md", exact: true });
++  const file = screen.getByRole("button", { name: "SKILL.md" });
 +  fireEvent.keyDown(file, { key: "F10", shiftKey: true });
 +  const menu = await screen.findByRole("menu", { name: "File actions: SKILL.md" });
 +  expect(menu.closest('[role="dialog"]')).toBe(screen.getByRole("dialog"));
 +  expect(within(menu).getByRole("menuitem", { name: "Rename..." })).toHaveAttribute("data-disabled");
-+  expect(within(menu).getByRole("menuitem", { name: "Delete", exact: true })).toHaveAttribute("data-disabled");
++  expect(within(menu).getByRole("menuitem", { name: "Delete" })).toHaveAttribute("data-disabled");
 +  expect(within(menu).getByRole("menuitem", { name: "Copy relative path" })).not.toHaveAttribute("data-disabled");
 +  fireEvent.contextMenu(within(menu).getByRole("menuitem", { name: "Copy relative path" }), { clientX: 10, clientY: 10 });
 +  expect(screen.getByRole("menu")).toHaveAttribute("aria-label", "File actions: SKILL.md");
@@ -209942,29 +210126,29 @@ index 0000000000000000000000000000000000000000..293c6d2e86beb0cb332d500756832c85
 +
 +test("inline rename and immediate deletion undo/redo stay local and preserve an empty folder", async () => {
 +  render(<Example />); await screen.findByText("Ready");
-+  fireEvent.contextMenu(screen.getByRole("button", { name: "a.md", exact: true }), { clientX: 10, clientY: 10 });
++  fireEvent.contextMenu(screen.getByRole("button", { name: "a.md" }), { clientX: 10, clientY: 10 });
 +  fireEvent.click(await screen.findByRole("menuitem", { name: "Rename..." }));
 +  const input = await screen.findByRole("textbox", { name: "Rename refs/a.md" });
 +  expect(screen.queryByText("Name")).toBeNull();
 +  expect(input.closest('[data-skill-file-path]')).toHaveAttribute('data-skill-file-path', 'refs/a.md');
 +  fireEvent.change(input, { target: { value: "renamed.md" } });
 +  fireEvent.keyDown(input, { key: "Enter" });
-+  const renamed = await screen.findByRole("button", { name: "renamed.md", exact: true });
-+  expect(screen.queryByRole("button", { name: "a.md", exact: true })).toBeNull();
-+  fireEvent.contextMenu(renamed, { clientX: 10, clientY: 10 });fireEvent.click(await screen.findByRole("menuitem", { name: "Delete", exact: true }));
-+  expect(screen.queryByRole("button", { name: "renamed.md", exact: true })).toBeNull();
++  const renamed = await screen.findByRole("button", { name: "renamed.md" });
++  expect(screen.queryByRole("button", { name: "a.md" })).toBeNull();
++  fireEvent.contextMenu(renamed, { clientX: 10, clientY: 10 });fireEvent.click(await screen.findByRole("menuitem", { name: "Delete" }));
++  expect(screen.queryByRole("button", { name: "renamed.md" })).toBeNull();
 +  expect(screen.getByText('(empty · not saved)')).toBeVisible();
 +  const tree = screen.getByLabelText('Skill files area');
 +  fireEvent.keyDown(tree, { key: 'z', ctrlKey: true });
-+  expect(await screen.findByRole('button', { name: 'renamed.md', exact: true })).toBeVisible();
++  expect(await screen.findByRole('button', { name: 'renamed.md' })).toBeVisible();
 +  fireEvent.keyDown(tree, { key: 'y', ctrlKey: true });
-+  expect(screen.queryByRole('button', { name: 'renamed.md', exact: true })).toBeNull();
++  expect(screen.queryByRole('button', { name: 'renamed.md' })).toBeNull();
 +  fireEvent.keyDown(tree, { key: 'z', ctrlKey: true });
-+  fireEvent.keyDown(await screen.findByRole('button', { name: 'renamed.md', exact: true }), { key: 'x', ctrlKey: true });
++  fireEvent.keyDown(await screen.findByRole('button', { name: 'renamed.md' }), { key: 'x', ctrlKey: true });
 +  fireEvent.keyDown(screen.getByRole('group', { name: 'Skill file actions' }), { key: 'v', ctrlKey: true });
-+  expect(await screen.findByRole('button', { name: 'renamed.md', exact: true })).toHaveAttribute('title', 'renamed.md');
++  expect(await screen.findByRole('button', { name: 'renamed.md' })).toHaveAttribute('title', 'renamed.md');
 +  expect(screen.getByText('(empty · not saved)')).toBeVisible();
-+  fireEvent.contextMenu(screen.getByRole('button', { name: 'renamed.md', exact: true }));
++  fireEvent.contextMenu(screen.getByRole('button', { name: 'renamed.md' }));
 +  expect(within(await screen.findByRole('menu')).queryByRole('menuitem', { name: 'Move to...' })).toBeNull();
 +  expect(post.mock.calls.every(([url]) => url.endsWith("/editor"))).toBe(true);
 +});
@@ -209972,7 +210156,7 @@ index 0000000000000000000000000000000000000000..293c6d2e86beb0cb332d500756832c85
 +test("readonly mutations show the reason; denied clipboard exposes only the relative path for manual copying", async () => {
 +  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: jest.fn().mockRejectedValue(Error("private failure")) } });
 +  render(<Example reason="Historical comparison is read only." />); await screen.findByText("Ready");
-+  fireEvent.contextMenu(screen.getByRole("button", { name: "a.md", exact: true }), { clientX: 10, clientY: 10 });
++  fireEvent.contextMenu(screen.getByRole("button", { name: "a.md" }), { clientX: 10, clientY: 10 });
 +  const menu = await screen.findByRole("menu");
 +  expect(within(menu).getByText("Historical comparison is read only.")).toBeInTheDocument();
 +  expect(within(menu).getByRole("menuitem", { name: "Upload files..." })).toHaveAttribute("data-disabled");
@@ -209994,7 +210178,7 @@ index 0000000000000000000000000000000000000000..293c6d2e86beb0cb332d500756832c85
 +  await waitFor(() => expect(screen.getByTestId("edit-grant")).toHaveTextContent("false"));
 +  resolve(new Uint8Array([65]).buffer);
 +  expect(await screen.findByRole("alert")).toHaveTextContent("skill_manual_not_authorized");
-+  expect(screen.queryByRole("button", { name: "new.md", exact: true })).toBeNull();
++  expect(screen.queryByRole("button", { name: "new.md" })).toBeNull();
 +  expect(post.mock.calls.every(([url]) => url.endsWith("/editor"))).toBe(true);
 +});
 +
@@ -210004,7 +210188,7 @@ index 0000000000000000000000000000000000000000..293c6d2e86beb0cb332d500756832c85
 +  const frame = jest.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => { pending.push(callback); return pending.length; });
 +  try {
 +    render(<Example />); await screen.findByText("Ready");
-+    fireEvent.contextMenu(screen.getByRole("button", { name: "a.md", exact: true }));
++    fireEvent.contextMenu(screen.getByRole("button", { name: "a.md" }));
 +    fireEvent.click(await screen.findByRole("menuitem", { name: "Rename..." }));
 +    const input = await screen.findByRole("textbox", { name: "Rename refs/a.md" }) as HTMLInputElement;
 +    input.focus();
@@ -210015,8 +210199,8 @@ index 0000000000000000000000000000000000000000..293c6d2e86beb0cb332d500756832c85
 +    expect(input.selectionStart).toBe(0);
 +    expect(input.selectionEnd).toBe("replacement.md".length);
 +    fireEvent.keyDown(input, { key: "Enter" });
-+    expect(await screen.findByRole("button", { name: "replacement.md", exact: true })).toBeVisible();
-+    expect(screen.queryByRole("button", { name: "replacement.md.md", exact: true })).toBeNull();
++    expect(await screen.findByRole("button", { name: "replacement.md" })).toBeVisible();
++    expect(screen.queryByRole("button", { name: "replacement.md.md" })).toBeNull();
 +  } finally { frame.mockRestore(); }
 +});
 diff --git a/frontend/langflow-skill-viewer/skills/explorer/SkillFileManager.tsx b/frontend/langflow-skill-viewer/skills/explorer/SkillFileManager.tsx
@@ -210274,9 +210458,30 @@ index 0000000000000000000000000000000000000000..ab9e2845f066ccc90ab57bbd8af5efc4
 +
 +`CommitTree` reads paged commits and selects one. `RevisionDiff` loads that immutable revision and compares the selected file to the current working file. `SkillFileDiff` renders the comparison without mutating either revision.
 diff --git a/frontend/langflow-skill-viewer/SkillFileDiff.test.tsx b/frontend/langflow-skill-viewer/skills/history/SkillFileDiff.test.tsx
-similarity index 100%
+similarity index 96%
 rename from frontend/langflow-skill-viewer/SkillFileDiff.test.tsx
 rename to frontend/langflow-skill-viewer/skills/history/SkillFileDiff.test.tsx
+index 14353893afcea4e822cf3d530857253096923085..e8d627e793630c0a72090de0dff4a102f433139f 100644
+--- a/frontend/langflow-skill-viewer/SkillFileDiff.test.tsx
++++ b/frontend/langflow-skill-viewer/skills/history/SkillFileDiff.test.tsx
+@@ -38,7 +38,7 @@ test("deleted file has an old index, absent current index and readable minus", (
+   expect(screen.getAllByLabelText("Deleted")[0]).toHaveTextContent("−");
+ });
+ test("replacement preserves old/new indexes and shifted unchanged lines", () => {
+-  const changes = [{ originalStartLineNumber: 2, originalEndLineNumber: 2, modifiedStartLineNumber: 2, modifiedEndLineNumber: 3 }];
++  const changes = [{ originalStartLineNumber: 2, originalEndLineNumber: 2, modifiedStartLineNumber: 2, modifiedEndLineNumber: 3, charChanges: undefined }];
+   const rows = diffRows(["a", "old", "tail"], ["a", "new", "extra", "tail"], changes);
+   expect(rows.map(({ kind, old, current, text }) => [kind, old, current, text])).toEqual([
+     ["context", 1, 1, "a"], ["deleted", 2, null, "old"], ["added", null, 2, "new"],
+@@ -46,7 +46,7 @@ test("replacement preserves old/new indexes and shifted unchanged lines", () =>
+   ]);
+ });
+ test("pure deletion at start does not lose following context", () => {
+-  expect(diffRows(["old", "keep"], ["keep"], [{ originalStartLineNumber: 1, originalEndLineNumber: 1, modifiedStartLineNumber: 0, modifiedEndLineNumber: 0 }]).map((row) => row.kind)).toEqual(["deleted", "context"]);
++  expect(diffRows(["old", "keep"], ["keep"], [{ originalStartLineNumber: 1, originalEndLineNumber: 1, modifiedStartLineNumber: 0, modifiedEndLineNumber: 0, charChanges: undefined }]).map((row) => row.kind)).toEqual(["deleted", "context"]);
+ });
+ test("large files render a bounded visible window", () => {
+   const text = Array.from({ length: 10000 }, (_, index) => `line ${index}`).join("\n");
 diff --git a/frontend/langflow-skill-viewer/SkillFileDiff.tsx b/frontend/langflow-skill-viewer/skills/history/SkillFileDiff.tsx
 similarity index 99%
 rename from frontend/langflow-skill-viewer/SkillFileDiff.tsx
@@ -210295,7 +210500,7 @@ index 4077b95b9794526246102f5f4cfdb2413377b9c5..69ee13ab20382fb7cd438629c2408b28
  export function diffRows(before: string[], after: string[], changes: monaco.editor.ILineChange[]): DiffRow[] {
 diff --git a/frontend/langflow-skill-viewer/skills/history/SkillHistory.test.tsx b/frontend/langflow-skill-viewer/skills/history/SkillHistory.test.tsx
 new file mode 100644
-index 0000000000000000000000000000000000000000..b82f79d6835b6a62d01976556dc6f30980de5a37
+index 0000000000000000000000000000000000000000..93577ea2c4f4a494140a70fac96b232c9065b169
 --- /dev/null
 +++ b/frontend/langflow-skill-viewer/skills/history/SkillHistory.test.tsx
 @@ -0,0 +1,129 @@
@@ -210322,7 +210527,7 @@ index 0000000000000000000000000000000000000000..b82f79d6835b6a62d01976556dc6f309
 +  fireEvent.click(await screen.findByRole("button", { name: "Compare revision: Clarify two files" }));
 +  expect(select).toHaveBeenCalledWith(commit);
 +  expect(api.get).toHaveBeenCalledTimes(1);
-+  expect(screen.queryByRole("button", { name: "History", exact: true })).toBeNull();
++  expect(screen.queryByRole("button", { name: "History" })).toBeNull();
 +});
 +
 +test("comparison pins direction, labels provenance and renders hostile diff as text", async () => {
@@ -211601,7 +211806,7 @@ index 0000000000000000000000000000000000000000..eb01187359b16970b85af46681d1cec2
 +}
 diff --git a/frontend/langflow-skill-viewer/skills/workspace/SkillNavigation.test.tsx b/frontend/langflow-skill-viewer/skills/workspace/SkillNavigation.test.tsx
 new file mode 100644
-index 0000000000000000000000000000000000000000..6fc01e1721dd710201bed3b4fe9c00f34dfce267
+index 0000000000000000000000000000000000000000..2ad603d220d1fd0ec6fcef44d7fa6894a0e54d74
 --- /dev/null
 +++ b/frontend/langflow-skill-viewer/skills/workspace/SkillNavigation.test.tsx
 @@ -0,0 +1,61 @@
@@ -211623,7 +211828,7 @@ index 0000000000000000000000000000000000000000..6fc01e1721dd710201bed3b4fe9c00f3
 +  expect(screen.queryByLabelText("Commits actions")).not.toBeInTheDocument();
 +  const file = screen.getByRole("textbox", { name: "Selected file" });
 +  fireEvent.change(file, { target: { value: "references/nested/rules.md" } });
-+  fireEvent.click(screen.getByRole("button", { name: "Files", exact: true }));
++  fireEvent.click(screen.getByRole("button", { name: "Files" }));
 +  expect(file).not.toBeVisible();
 +  expect(screen.getByText("Selected commit")).toBeVisible();
 +  fireEvent.click(screen.getByRole("button", { name: "Open all" }));

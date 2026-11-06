@@ -1,5 +1,5 @@
 {
-  "candidate": "7411c84e37d9b413901cb562e7cb00899f6a391c",
+  "candidate": "42a16c392f8b7ee2d1ad8d31f1f23f98f7b64de5",
   "runtime_and_wheel_binding": "All src bytes unchanged from fb29d621; installed wheel verification and1014 source tests reuse exactly those runtime bytes. Later deltas are frontend/tests/docs.",
   "python": {
     "tests": 1014,
@@ -11,88 +11,81 @@
   },
   "frontend": {
     "suites": 32,
-    "tests": 810,
+    "tests": 811,
     "failed": 0,
-    "production_build": "passed;3m7s after rename fix",
+    "production_build": "passed;2m32s after nullable Activity target correction",
     "served_assets_match_build": [
       {
         "path": "index.html",
-        "sha256": "24aba2fcfc7a2a80b072cfbc3d440a1279400d6a5864b0dbaf650788d8d2c9a7"
+        "sha256": "407f63b00b7ebbc6549014494ab86b38d4d50e1ef9c65c7abcdeebf2ae249444"
       },
       {
-        "path": "assets/SkillFilesModal-DDyQyUd4.js",
-        "sha256": "5244f57f34145dfc34ffcb71c0fda237feeb4c1b8da0f3df054b0594284bda5e"
+        "path": "assets/SkillFilesModal-BaUwkJWF.js",
+        "sha256": "733ee8d7462e7d577089ab47783eff13ccde0dd41a311ddb93752eeacc320c83"
+      },
+      {
+        "path": "assets/index-CVQQfdq4.js",
+        "sha256": "86f61b755c87956de603c24987f69f6a595c1db8a004cddbc67f2f6c5572e01d"
       }
     ],
-    "rename_regression": "Old behavior fails the new regression; corrected file-manager suite passes5tests; real filename editing also passes"
+    "rename_regression": "Old behavior fails the new regression; corrected file-manager suite passes5tests; real filename editing also passes",
+    "focused_recheck": {
+      "tests": 39,
+      "failures": 0,
+      "reason": "Final alert prop/query typing corrections"
+    },
+    "typescript": {
+      "upstream_revision": "fec71dca901949c09ed4d63315804337cd2eb13d",
+      "same_dependency_tree": true,
+      "upstream_errors": 253,
+      "combined_errors": 253,
+      "new_errors": [],
+      "removed_errors": [],
+      "normalization": [
+        "Ignore diagnostic source line/column shifts",
+        "Replace only the two exact checkout roots with <frontend>",
+        "Canonicalize the equivalent button/reset/submit literal union order",
+        "Strip trailing CR from Windows log lines"
+      ],
+      "log_sha256": {
+        "upstream-typecheck-baseline.log": "e0a8878761aa44ee1be2c85df3f3b8f0738222789198f0b260523d5b0d9c7ccc",
+        "combined-typecheck3.log": "4634e3e41b355100df54efacd7e3169e4983282571c6a132f001a4fe6377e813"
+      },
+      "verdict": "No additional TypeScript diagnostics; full upstream check remains failing and is not claimed green."
+    }
   },
   "real_browser_evidence": [
     "real-skill-stories-result.json",
     "real-skill-history-settled.json",
     "real-skill-recovery-result.json",
     "real-skill-files-result.json",
-    "real-skill-source-result.json"
+    "real-skill-source-result.json",
+    "real-activity-unstarted-result.json"
   ],
   "hosted": {
     "249": {
       "head": "4d59e9d90555982a5f8930c3d5fd1e7f90137fac",
       "draft": true,
       "base": "develop",
-      "conclusions": [
-        "SUCCESS",
-        "SUCCESS",
-        "SUCCESS",
-        "SUCCESS",
-        "SUCCESS",
-        "SUCCESS",
-        "SUCCESS",
-        "SUCCESS"
-      ]
+      "checks_passed": 8
     },
     "250": {
-      "head": "2a3d30ed31949b9a517eac2047455e8d38f1c18c",
+      "head": "e61f5ae3282f3f2bae37ba879ac748ecf6b99362",
       "draft": true,
       "base": "develop",
-      "conclusions": [
-        "SUCCESS",
-        "SUCCESS",
-        "SUCCESS",
-        "SUCCESS",
-        "SUCCESS",
-        "SUCCESS",
-        "SUCCESS",
-        "SUCCESS"
-      ]
+      "checks_passed": 8
     },
     "254": {
-      "head": "29408aa7cfb79b0d8feb40282a6bf14836685cc5",
+      "head": "972688347cd2c774e2f8096800987c9fe515cb33",
       "draft": true,
       "base": "develop",
-      "conclusions": [
-        "SUCCESS",
-        "SUCCESS",
-        "SUCCESS",
-        "SUCCESS",
-        "SUCCESS",
-        "SUCCESS",
-        "SUCCESS",
-        "SUCCESS"
-      ]
+      "checks_passed": 8
     },
     "255": {
-      "head": "36e1781131c1a4e18af0a5191d249c645e84b673",
+      "head": "1db2a234408345e3751fe63f6a02d5b5fc5e197c",
       "draft": true,
       "base": "develop",
-      "conclusions": [
-        "SUCCESS",
-        "SUCCESS",
-        "SUCCESS",
-        "SUCCESS",
-        "SUCCESS",
-        "SUCCESS",
-        "SUCCESS",
-        "SUCCESS"
-      ]
+      "checks_passed": 8
     }
   },
   "limits": [
@@ -101,5 +94,15 @@
     "Not requesting-owner validation",
     "No merge or retirement of old PRs"
   ],
-  "environment": "Windows,headless Edge,pinned Langflow fec71dca,Node22.16.0,Docker29.8.2; actual private registry and loopback services"
+  "environment": "Windows,headless Edge,pinned Langflow fec71dca,Node22.16.0,Docker29.8.2; actual private registry and loopback services",
+  "documentation": {
+    "checked": 298,
+    "broken": []
+  },
+  "python_module_nesting": {
+    "python_files": 344,
+    "classes_inside_functions_or_methods": []
+  },
+  "activity": "Actual capture-not-started failure and Refresh checked with no page errors or graph dispatch. Normal captured Activity/provider paths remain unverified.",
+  "authentication_limit": "The private app uses single-user auto-login. Reopening with private browser state established app access, not cookie identity continuity, expired-login handling or profile restoration."
 }

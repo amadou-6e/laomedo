@@ -5,13 +5,13 @@ checkout remains clean on develop at 37dc9aa9. No old PR has been retired or mer
 
 | Concern | PR | Pushed head | Worktree |
 | --- | --- | --- | --- |
-| Shared | #255 | 36e1781131c1a4e18af0a5191d249c645e84b673 | shared-reconciliation-237 |
-| Skills | #254 | 29408aa7cfb79b0d8feb40282a6bf14836685cc5 | skills-followup-206 |
+| Shared | #255 | 1db2a234408345e3751fe63f6a02d5b5fc5e197c | shared-reconciliation-237 |
+| Skills | #254 | 972688347cd2c774e2f8096800987c9fe515cb33 | skills-followup-206 |
 | GitHub | #249 | 4d59e9d90555982a5f8930c3d5fd1e7f90137fac | github-restored-245 |
-| Agents | #250 | 2a3d30ed31949b9a517eac2047455e8d38f1c18c | agent-refactor-205 |
+| Agents | #250 | e61f5ae3282f3f2bae37ba879ac748ecf6b99362 | agent-refactor-205 |
 
-The detached integration candidate is 7411c84e37d9b413901cb562e7cb00899f6a391c,
-tree 1926c54e83b81e2ff22f3a162be0ade0363f1884. Its complete binary patch from
+The detached integration candidate is 42a16c392f8b7ee2d1ad8d31f1f23f98f7b64de5,
+tree 37f7efaa8a626e5eb5c0b3c137999529374a0045. Its complete binary patch from
 develop is preserved here. Applying the patch to a separate index initialized
 from 37dc9aa9 produced exactly that tree. This preserves local merge resolutions
 without a fifth production PR or wholesale experiment merge. The local candidate
@@ -38,7 +38,7 @@ wire/preimage contracts, retained dependency admission and historical wording.
 - Wheel: all 353 declared production files match source exactly; imports were
   validated under isolated Python against that wheel. The 67 architecture README
   files are source documentation, outside the declared wheel data inventory.
-- Frontend: all 810 cases in 32 affected suites pass, including Shared error and
+- Frontend: all 811 cases in 32 affected suites pass, including Shared error and
   recovery. The production build passes after the rename correction. Actual
   served index and Skill viewer bundle bytes match that build.
 - Actual headless Edge: real local Skill import/history, search/collapse,
@@ -96,3 +96,18 @@ Private API tokens, browser storage state, runtime databases and service logs ar
 not archived. The local runtime-path record identifies task-owned cleanup targets;
 preserve the preview while the owner is inspecting it. Do not stop unrelated
 services, browsers, profiles or containers.
+
+## Final type and link checks
+
+All 811 affected frontend tests pass; the final 39-case focused recheck also passes.
+The nullable Activity target is guarded and has a no-dispatch regression. Full
+TypeScript still reports 253 diagnostics, identical to clean pinned upstream with
+the same dependencies after explicitly documented path/union-order normalization.
+No additional diagnostic is suppressed or excluded. All 298 checked relative file
+links resolve. All 344 production Python files have no class inside a function or
+method. The actual unstarted Activity failure and same-read Refresh were observed;
+normal captured Activity/provider rendering remains unverified. Auto-login browser
+access does not establish cookie identity continuity or profile/expiry recovery.
+
+Private service PID files are hints only. Before cleanup, verify the executable,
+command/runtime path and current port ownership; never stop a reused stale PID.

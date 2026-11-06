@@ -1,0 +1,7 @@
+{
+  "actual_api_failure_code": "agent_activity_capture_not_started",
+  "refresh_repeated_same_read": true,
+  "page_errors": [],
+  "graph_dispatches": 0,
+  "scope": "Actual Activity-before-first-capture failure and same-read refresh only. This is not an empty-store or populated Activity acceptance result. No provider was invoked; normal retained-run rendering, ingestion and telemetry remain unverified."
+}

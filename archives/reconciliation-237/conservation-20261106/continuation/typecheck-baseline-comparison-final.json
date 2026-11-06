@@ -1,0 +1,19 @@
+{
+  "upstream_revision": "fec71dca901949c09ed4d63315804337cd2eb13d",
+  "same_dependency_tree": true,
+  "upstream_errors": 253,
+  "combined_errors": 253,
+  "new_errors": [],
+  "removed_errors": [],
+  "normalization": [
+    "Ignore diagnostic source line/column shifts",
+    "Replace only the two exact checkout roots with <frontend>",
+    "Canonicalize the equivalent button/reset/submit literal union order",
+    "Strip trailing CR from Windows log lines"
+  ],
+  "log_sha256": {
+    "upstream-typecheck-baseline.log": "e0a8878761aa44ee1be2c85df3f3b8f0738222789198f0b260523d5b0d9c7ccc",
+    "combined-typecheck3.log": "4634e3e41b355100df54efacd7e3169e4983282571c6a132f001a4fe6377e813"
+  },
+  "verdict": "No additional TypeScript diagnostics; full upstream check remains failing and is not claimed green."
+}

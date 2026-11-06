@@ -1,7 +1,7 @@
 {
   "url": "http://127.0.0.1:17860/flow/c6a92f33-32e8-486e-8d2a-a611df6b6fe1",
   "results": [
-    "Browser restart retained authenticated access; real Skill files and initial import visible",
+    "A fresh Edge context reopened the actual local app; real Skill files and initial import were visible",
     "Workspace search returned real file/line results and collapsed again",
     "Full-page viewer restored",
     "Typing revealed controls; discard confirmation could be cancelled and confirmed",
@@ -9,5 +9,6 @@
     "Historical revision shows the selected-file comparison without raw diff headers"
   ],
   "errors": [],
-  "scope": "Actual local Skill app, browser, registry and operation service; no model/provider/GitHub acceptance"
+  "scope": "Actual local Skill app, browser, registry and operation service; no model/provider/GitHub acceptance",
+  "authentication_limit": "The private app uses single-user auto-login. Reopening with private browser state established app access, not cookie identity continuity, expired-login handling or profile restoration."
 }

@@ -12,7 +12,7 @@ let browser,page;const results=[];
  await page.locator('.monaco-editor .view-lines').waitFor({state:'visible',timeout:45000});
  await expect(page.getByText('Manual editing is disabled for this Skill in local configuration.')).toHaveCount(0);
  await expect(page.getByRole('button',{name:'Compare revision: Initial import',exact:true})).toBeVisible();
- results.push('Browser restart retained authenticated access; real Skill files and initial import visible');
+ results.push('A fresh Edge context reopened the actual local app; real Skill files and initial import visible');
  await page.getByRole('button',{name:'Find',exact:true}).click();await page.getByLabel('Search all Skill files',{exact:true}).fill('proposal');
  await expect(page.getByLabel('Skill search results').getByRole('button',{name:/SKILL.md, line/}).first()).toBeVisible();
  await page.getByLabel('Skill search results').getByRole('button',{name:/SKILL.md, line/}).first().click();
