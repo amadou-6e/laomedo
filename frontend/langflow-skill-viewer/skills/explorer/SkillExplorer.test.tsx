@@ -16,9 +16,9 @@ function ExplorerExample() {
 
 test("file logos are decorative and folder chevrons follow disclosure without changing file selection", () => {
   render(<ExplorerExample />);
-  const root = screen.getByRole("button", { name: "SKILL.md", exact: true });
-  const folder = screen.getByRole("button", { name: "references", exact: true });
-  const child = screen.getByRole("button", { name: "rules.md", exact: true });
+  const root = screen.getByRole("button", { name: "SKILL.md" });
+  const folder = screen.getByRole("button", { name: "references" });
+  const child = screen.getByRole("button", { name: "rules.md" });
   expect(root.querySelector('[data-file-type="markdown"]')).toHaveAttribute("aria-hidden", "true");
   expect(root).not.toHaveAttribute("aria-expanded");
   expect(child).toHaveAttribute("title", "references/rules.md");

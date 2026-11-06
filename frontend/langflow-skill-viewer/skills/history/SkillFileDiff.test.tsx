@@ -38,7 +38,7 @@ test("deleted file has an old index, absent current index and readable minus", (
   expect(screen.getAllByLabelText("Deleted")[0]).toHaveTextContent("−");
 });
 test("replacement preserves old/new indexes and shifted unchanged lines", () => {
-  const changes = [{ originalStartLineNumber: 2, originalEndLineNumber: 2, modifiedStartLineNumber: 2, modifiedEndLineNumber: 3 }];
+  const changes = [{ originalStartLineNumber: 2, originalEndLineNumber: 2, modifiedStartLineNumber: 2, modifiedEndLineNumber: 3, charChanges: undefined }];
   const rows = diffRows(["a", "old", "tail"], ["a", "new", "extra", "tail"], changes);
   expect(rows.map(({ kind, old, current, text }) => [kind, old, current, text])).toEqual([
     ["context", 1, 1, "a"], ["deleted", 2, null, "old"], ["added", null, 2, "new"],
@@ -46,7 +46,7 @@ test("replacement preserves old/new indexes and shifted unchanged lines", () => 
   ]);
 });
 test("pure deletion at start does not lose following context", () => {
-  expect(diffRows(["old", "keep"], ["keep"], [{ originalStartLineNumber: 1, originalEndLineNumber: 1, modifiedStartLineNumber: 0, modifiedEndLineNumber: 0 }]).map((row) => row.kind)).toEqual(["deleted", "context"]);
+  expect(diffRows(["old", "keep"], ["keep"], [{ originalStartLineNumber: 1, originalEndLineNumber: 1, modifiedStartLineNumber: 0, modifiedEndLineNumber: 0, charChanges: undefined }]).map((row) => row.kind)).toEqual(["deleted", "context"]);
 });
 test("large files render a bounded visible window", () => {
   const text = Array.from({ length: 10000 }, (_, index) => `line ${index}`).join("\n");

@@ -25,7 +25,7 @@ test("moving a last child retains its empty parent; folder actions and delta und
   expect(() => validateTree(base, moveTree(moved, 'refs', 'one.md/child'))).toThrow('skill_manual_file_conflict');
 });
 function local(name: string, bytes: Uint8Array) {
-  const value = new File([bytes], name);
+  const value = new File([Uint8Array.from(bytes).buffer], name);
   Object.defineProperty(value, "arrayBuffer", { value: async () => bytes.slice().buffer });
   return value;
 }

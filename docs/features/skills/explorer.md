@@ -48,7 +48,7 @@ Agent execution or GitHub-operation acceptance.
 
 Icons use the existing react-icons dependency: Simple Icons and Microsoft
 Codicons. No new package, CDN or remote icon request is introduced. The build
-ships [icon attribution](../../../frontend/langflow-skill-viewer/skill-icons-NOTICE.txt)
+ships [icon attribution](../../../frontend/langflow-skill-viewer/skills/assets/skill-icons-NOTICE.txt)
 as `/skill-icons-NOTICE.txt`.
 
 The real keyboard check initially found that the canvas consumed Space on a

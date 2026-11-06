@@ -21,7 +21,7 @@ test("commit graph selects revision without requesting the old per-commit patch"
   fireEvent.click(await screen.findByRole("button", { name: "Compare revision: Clarify two files" }));
   expect(select).toHaveBeenCalledWith(commit);
   expect(api.get).toHaveBeenCalledTimes(1);
-  expect(screen.queryByRole("button", { name: "History", exact: true })).toBeNull();
+  expect(screen.queryByRole("button", { name: "History" })).toBeNull();
 });
 
 test("comparison pins direction, labels provenance and renders hostile diff as text", async () => {

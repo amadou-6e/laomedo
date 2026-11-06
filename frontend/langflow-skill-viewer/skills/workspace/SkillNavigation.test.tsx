@@ -16,7 +16,7 @@ test("individual chevrons preserve selected content without redundant section me
   expect(screen.queryByLabelText("Commits actions")).not.toBeInTheDocument();
   const file = screen.getByRole("textbox", { name: "Selected file" });
   fireEvent.change(file, { target: { value: "references/nested/rules.md" } });
-  fireEvent.click(screen.getByRole("button", { name: "Files", exact: true }));
+  fireEvent.click(screen.getByRole("button", { name: "Files" }));
   expect(file).not.toBeVisible();
   expect(screen.getByText("Selected commit")).toBeVisible();
   fireEvent.click(screen.getByRole("button", { name: "Open all" }));

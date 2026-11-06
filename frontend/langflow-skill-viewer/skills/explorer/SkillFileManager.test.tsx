@@ -36,12 +36,12 @@ beforeEach(() => { post.mockReset(); post.mockResolvedValue({ data: state }); })
 
 test("keyboard context menu stays inside the dialog, core entrypoint is protected and Escape keeps the workspace", async () => {
   render(<Example />); await screen.findByText("Ready");
-  const file = screen.getByRole("button", { name: "SKILL.md", exact: true });
+  const file = screen.getByRole("button", { name: "SKILL.md" });
   fireEvent.keyDown(file, { key: "F10", shiftKey: true });
   const menu = await screen.findByRole("menu", { name: "File actions: SKILL.md" });
   expect(menu.closest('[role="dialog"]')).toBe(screen.getByRole("dialog"));
   expect(within(menu).getByRole("menuitem", { name: "Rename..." })).toHaveAttribute("data-disabled");
-  expect(within(menu).getByRole("menuitem", { name: "Delete", exact: true })).toHaveAttribute("data-disabled");
+  expect(within(menu).getByRole("menuitem", { name: "Delete" })).toHaveAttribute("data-disabled");
   expect(within(menu).getByRole("menuitem", { name: "Copy relative path" })).not.toHaveAttribute("data-disabled");
   fireEvent.contextMenu(within(menu).getByRole("menuitem", { name: "Copy relative path" }), { clientX: 10, clientY: 10 });
   expect(screen.getByRole("menu")).toHaveAttribute("aria-label", "File actions: SKILL.md");
@@ -52,29 +52,29 @@ test("keyboard context menu stays inside the dialog, core entrypoint is protecte
 
 test("inline rename and immediate deletion undo/redo stay local and preserve an empty folder", async () => {
   render(<Example />); await screen.findByText("Ready");
-  fireEvent.contextMenu(screen.getByRole("button", { name: "a.md", exact: true }), { clientX: 10, clientY: 10 });
+  fireEvent.contextMenu(screen.getByRole("button", { name: "a.md" }), { clientX: 10, clientY: 10 });
   fireEvent.click(await screen.findByRole("menuitem", { name: "Rename..." }));
   const input = await screen.findByRole("textbox", { name: "Rename refs/a.md" });
   expect(screen.queryByText("Name")).toBeNull();
   expect(input.closest('[data-skill-file-path]')).toHaveAttribute('data-skill-file-path', 'refs/a.md');
   fireEvent.change(input, { target: { value: "renamed.md" } });
   fireEvent.keyDown(input, { key: "Enter" });
-  const renamed = await screen.findByRole("button", { name: "renamed.md", exact: true });
-  expect(screen.queryByRole("button", { name: "a.md", exact: true })).toBeNull();
-  fireEvent.contextMenu(renamed, { clientX: 10, clientY: 10 });fireEvent.click(await screen.findByRole("menuitem", { name: "Delete", exact: true }));
-  expect(screen.queryByRole("button", { name: "renamed.md", exact: true })).toBeNull();
+  const renamed = await screen.findByRole("button", { name: "renamed.md" });
+  expect(screen.queryByRole("button", { name: "a.md" })).toBeNull();
+  fireEvent.contextMenu(renamed, { clientX: 10, clientY: 10 });fireEvent.click(await screen.findByRole("menuitem", { name: "Delete" }));
+  expect(screen.queryByRole("button", { name: "renamed.md" })).toBeNull();
   expect(screen.getByText('(empty · not saved)')).toBeVisible();
   const tree = screen.getByLabelText('Skill files area');
   fireEvent.keyDown(tree, { key: 'z', ctrlKey: true });
-  expect(await screen.findByRole('button', { name: 'renamed.md', exact: true })).toBeVisible();
+  expect(await screen.findByRole('button', { name: 'renamed.md' })).toBeVisible();
   fireEvent.keyDown(tree, { key: 'y', ctrlKey: true });
-  expect(screen.queryByRole('button', { name: 'renamed.md', exact: true })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'renamed.md' })).toBeNull();
   fireEvent.keyDown(tree, { key: 'z', ctrlKey: true });
-  fireEvent.keyDown(await screen.findByRole('button', { name: 'renamed.md', exact: true }), { key: 'x', ctrlKey: true });
+  fireEvent.keyDown(await screen.findByRole('button', { name: 'renamed.md' }), { key: 'x', ctrlKey: true });
   fireEvent.keyDown(screen.getByRole('group', { name: 'Skill file actions' }), { key: 'v', ctrlKey: true });
-  expect(await screen.findByRole('button', { name: 'renamed.md', exact: true })).toHaveAttribute('title', 'renamed.md');
+  expect(await screen.findByRole('button', { name: 'renamed.md' })).toHaveAttribute('title', 'renamed.md');
   expect(screen.getByText('(empty · not saved)')).toBeVisible();
-  fireEvent.contextMenu(screen.getByRole('button', { name: 'renamed.md', exact: true }));
+  fireEvent.contextMenu(screen.getByRole('button', { name: 'renamed.md' }));
   expect(within(await screen.findByRole('menu')).queryByRole('menuitem', { name: 'Move to...' })).toBeNull();
   expect(post.mock.calls.every(([url]) => url.endsWith("/editor"))).toBe(true);
 });
@@ -82,7 +82,7 @@ test("inline rename and immediate deletion undo/redo stay local and preserve an 
 test("readonly mutations show the reason; denied clipboard exposes only the relative path for manual copying", async () => {
   Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: jest.fn().mockRejectedValue(Error("private failure")) } });
   render(<Example reason="Historical comparison is read only." />); await screen.findByText("Ready");
-  fireEvent.contextMenu(screen.getByRole("button", { name: "a.md", exact: true }), { clientX: 10, clientY: 10 });
+  fireEvent.contextMenu(screen.getByRole("button", { name: "a.md" }), { clientX: 10, clientY: 10 });
   const menu = await screen.findByRole("menu");
   expect(within(menu).getByText("Historical comparison is read only.")).toBeInTheDocument();
   expect(within(menu).getByRole("menuitem", { name: "Upload files..." })).toHaveAttribute("data-disabled");
@@ -104,7 +104,7 @@ test("a grant revoked while a local file is being read cannot stage that file th
   await waitFor(() => expect(screen.getByTestId("edit-grant")).toHaveTextContent("false"));
   resolve(new Uint8Array([65]).buffer);
   expect(await screen.findByRole("alert")).toHaveTextContent("skill_manual_not_authorized");
-  expect(screen.queryByRole("button", { name: "new.md", exact: true })).toBeNull();
+  expect(screen.queryByRole("button", { name: "new.md" })).toBeNull();
   expect(post.mock.calls.every(([url]) => url.endsWith("/editor"))).toBe(true);
 });
 
@@ -114,7 +114,7 @@ test("late rename focus callbacks preserve the replacement selection", async () 
   const frame = jest.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => { pending.push(callback); return pending.length; });
   try {
     render(<Example />); await screen.findByText("Ready");
-    fireEvent.contextMenu(screen.getByRole("button", { name: "a.md", exact: true }));
+    fireEvent.contextMenu(screen.getByRole("button", { name: "a.md" }));
     fireEvent.click(await screen.findByRole("menuitem", { name: "Rename..." }));
     const input = await screen.findByRole("textbox", { name: "Rename refs/a.md" }) as HTMLInputElement;
     input.focus();
@@ -125,7 +125,7 @@ test("late rename focus callbacks preserve the replacement selection", async () 
     expect(input.selectionStart).toBe(0);
     expect(input.selectionEnd).toBe("replacement.md".length);
     fireEvent.keyDown(input, { key: "Enter" });
-    expect(await screen.findByRole("button", { name: "replacement.md", exact: true })).toBeVisible();
-    expect(screen.queryByRole("button", { name: "replacement.md.md", exact: true })).toBeNull();
+    expect(await screen.findByRole("button", { name: "replacement.md" })).toBeVisible();
+    expect(screen.queryByRole("button", { name: "replacement.md.md" })).toBeNull();
   } finally { frame.mockRestore(); }
 });
