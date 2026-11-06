@@ -1572,7 +1572,7 @@
   "skill_operation_refused": {
     "title": "The skill operation was refused",
     "description": "The local service could not accept this Skill operation; private parser and authorization details were withheld.",
-    "recovery": "Inspect the selected revision and proposed edits. Confirm the existing operation outcome before submitting another change."
+    "recovery": "Inspect the selected revision and proposed edits. For a newer history head, use its Base Commit in Advanced settings. Confirm the existing operation outcome before submitting another change."
   },
   "skill_operation_service_not_configured": {
     "title": "The skill operation service is not configured",
