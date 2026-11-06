@@ -1,0 +1,10 @@
+{
+  "results": [
+    "Blank Source shows No source found, without a Discovery heading or failure notice",
+    "A genuinely unavailable local source shows its failure directly below Source",
+    "Real registry discovery recovered, and selecting its published immutable revision opened the actual retained history"
+  ],
+  "url": "http://127.0.0.1:17860/flow/71f83a82-6f9d-4ea1-92a2-b54077c412de",
+  "revision_id": "sha256:8465e8ae61a24b91aba9fdd4142605980694245de9cdafbdd6999bbf773c4ff3",
+  "scope": "Actual local registry discovery/failure/recovery; remote Git authentication remains outside this test"
+}

@@ -178263,10 +178263,10 @@ index 0000000000000000000000000000000000000000..3c94cef4258a4085f9df0cbef4972784
 +operation or the current extraction's browser acceptance.
 diff --git a/docs/features/skills/manual-workspace.md b/docs/features/skills/manual-workspace.md
 new file mode 100644
-index 0000000000000000000000000000000000000000..6d1a522639998246ea0c7ca4c09707fe7dd90b39
+index 0000000000000000000000000000000000000000..d0b08d46086446fd7db718a6ed49366d9cd93b0e
 --- /dev/null
 +++ b/docs/features/skills/manual-workspace.md
-@@ -0,0 +1,290 @@
+@@ -0,0 +1,293 @@
 +# Skill workspace
 +
 +Open Skill files from the Skill node. Authorised text files are immediately
@@ -178281,7 +178281,8 @@ index 0000000000000000000000000000000000000000..6d1a522639998246ea0c7ca4c09707fe
 +targets its parent, and empty space targets the Skill root.
 +
 +F2 or Rename edits the filename in place with a blue border. Enter or blur
-+commits, Escape cancels. Renames and moves retain working text and binary bytes.
++commits, Escape cancels. Delayed focus restoration keeps an active filename
++selection intact. Renames and moves retain working text and binary bytes.
 +Delete removes files immediately; Files-focused Ctrl+Z restores them and Ctrl+Y
 +or Ctrl+Shift+Z reapplies. Deleting a subtree and undoing restores its dirty text.
 +Editor/input shortcuts remain native. Undoing an upload removes that file, including
@@ -178550,8 +178551,10 @@ index 0000000000000000000000000000000000000000..6d1a522639998246ea0c7ca4c09707fe
 +fault demonstration. The native browser-close warning was also observed with actual unsaved text;
 +cancelling close kept the text, then explicit discard left the registry unchanged.
 +Unsaved buffers have no durable browser reload/crash recovery.
-+Manual creation/deletion/binary editing, per-user ACL and Git publishing are
-+unsupported. Claude approved code at `fbd3bd9`, specification at `32bc8e6`, and
++At that earlier revision, manual creation/deletion, binary editing, per-user ACL
++and Git publishing were unsupported. Current upload, rename, delete and move
++behavior is described above; in-place binary editing remains unsupported.
++Claude approved code at `fbd3bd9`, specification at `32bc8e6`, and
 +the actual rendered UI at `be7d83c`; later wording fixes address its nonblocking
 +notes. The reviewer assessed installer wiring and live evidence; its file tool
 +could not open two frozen frontend files outside the workspace. Both PRs remain
@@ -208075,9 +208078,18 @@ diff --git a/frontend/langflow-skill-viewer/nodeErrors.test.ts b/frontend/langfl
 similarity index 63%
 rename from frontend/langflow-skill-viewer/nodeErrors.test.ts
 rename to frontend/langflow-skill-viewer/errors/nodeErrors.test.ts
-index 602330e577ac98f0dccc635de424e5cd1f6b7c01..fac27188f5186618de5678eb5e656dd262d05346 100644
+index 602330e577ac98f0dccc635de424e5cd1f6b7c01..2e9d574edcc4cb7a92cdaf527cc078ef5f4d7856 100644
 --- a/frontend/langflow-skill-viewer/nodeErrors.test.ts
 +++ b/frontend/langflow-skill-viewer/errors/nodeErrors.test.ts
+@@ -18,7 +18,7 @@ test("Claude model failures retain their code and redact native payload details"
+ test("a model-refresh alert attaches actionable recovery for its real error-details control",()=>{
+  const value=describeLaomedoAlert({title:'Refresh failed',list:['runner_model_catalog_unavailable_check_runner_connection']},true);
+  expect(value.title).toBe('The model list could not be loaded');
+- expect(value.failure?.recovery).toContain('Refresh control');
++ expect(value.failure?.recovery).toMatch(/\bRefresh\b/);
+  expect(value.list?.join(' ')).toContain('Open Error details');
+  expect(value.list?.join(' ')).not.toContain(value.failure?.recovery);
+  expect(value.diagnosticCode).toBe('runner_model_catalog_unavailable_check_runner_connection');
 @@ -78,6 +78,51 @@ test("unknown errors are useful without exposing raw exception data", () => {
    expect(describeNodeFailure("my_secret_password", undefined).diagnostics.code).toBe("unrecognized_error");
  });
@@ -209872,11 +209884,11 @@ index 0000000000000000000000000000000000000000..177e428c7faa6a52d2a9e430762cc9f8
 +}
 diff --git a/frontend/langflow-skill-viewer/skills/explorer/SkillFileManager.test.tsx b/frontend/langflow-skill-viewer/skills/explorer/SkillFileManager.test.tsx
 new file mode 100644
-index 0000000000000000000000000000000000000000..da89c76cea7fc6c3490676997fb697373ef7a589
+index 0000000000000000000000000000000000000000..293c6d2e86beb0cb332d500756832c8590a531ba
 --- /dev/null
 +++ b/frontend/langflow-skill-viewer/skills/explorer/SkillFileManager.test.tsx
-@@ -0,0 +1,109 @@
-+﻿import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+@@ -0,0 +1,131 @@
++﻿import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 +import { useEffect, useRef, useState } from "react";
 +import { api } from "@/controllers/API/api";
 +import SkillFileManager, { type SkillFileManagerHandle } from "./SkillFileManager";
@@ -209985,9 +209997,31 @@ index 0000000000000000000000000000000000000000..da89c76cea7fc6c3490676997fb69737
 +  expect(screen.queryByRole("button", { name: "new.md", exact: true })).toBeNull();
 +  expect(post.mock.calls.every(([url]) => url.endsWith("/editor"))).toBe(true);
 +});
++
++
++test("late rename focus callbacks preserve the replacement selection", async () => {
++  const pending: FrameRequestCallback[] = [];
++  const frame = jest.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => { pending.push(callback); return pending.length; });
++  try {
++    render(<Example />); await screen.findByText("Ready");
++    fireEvent.contextMenu(screen.getByRole("button", { name: "a.md", exact: true }));
++    fireEvent.click(await screen.findByRole("menuitem", { name: "Rename..." }));
++    const input = await screen.findByRole("textbox", { name: "Rename refs/a.md" }) as HTMLInputElement;
++    input.focus();
++    fireEvent.change(input, { target: { value: "replacement.md" } });
++    input.setSelectionRange(0, input.value.length);
++    expect(pending.length).toBeGreaterThan(0);
++    act(() => { for (const callback of pending.splice(0)) callback(0); });
++    expect(input.selectionStart).toBe(0);
++    expect(input.selectionEnd).toBe("replacement.md".length);
++    fireEvent.keyDown(input, { key: "Enter" });
++    expect(await screen.findByRole("button", { name: "replacement.md", exact: true })).toBeVisible();
++    expect(screen.queryByRole("button", { name: "replacement.md.md", exact: true })).toBeNull();
++  } finally { frame.mockRestore(); }
++});
 diff --git a/frontend/langflow-skill-viewer/skills/explorer/SkillFileManager.tsx b/frontend/langflow-skill-viewer/skills/explorer/SkillFileManager.tsx
 new file mode 100644
-index 0000000000000000000000000000000000000000..7ceebed0064e5f73ed4a828adad952ce277f0125
+index 0000000000000000000000000000000000000000..f01c67b026be3b4e3ef277aa9d71de9a6ab192da
 --- /dev/null
 +++ b/frontend/langflow-skill-viewer/skills/explorer/SkillFileManager.tsx
 @@ -0,0 +1,180 @@
@@ -210021,7 +210055,7 @@ index 0000000000000000000000000000000000000000..7ceebed0064e5f73ed4a828adad952ce
 +  const showForm = (next: Form | null) => { formRef.current = next; setForm(next); };
 +  const focus = (path: string) => requestAnimationFrame(() => {
 +    const input = root.current?.querySelector<HTMLInputElement | HTMLSelectElement>("[data-file-form]");
-+    if (input) { input.focus(); if (input instanceof HTMLInputElement) {
++    if (input) { const newlyFocused = document.activeElement !== input; input.focus(); if (newlyFocused && input instanceof HTMLInputElement) {
 +      const dot = input.value.lastIndexOf("."); input.setSelectionRange(0, formRef.current?.kind === "rename" && !formRef.current.folder && dot > 0 ? dot : input.value.length);
 +    } return; }
 +    const target = [...(root.current?.querySelectorAll<HTMLElement>("[data-skill-file-path]") || [])].find((element) => element.dataset.skillFilePath === path);

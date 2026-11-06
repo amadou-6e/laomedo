@@ -1,0 +1,27 @@
+const fs=require('fs'),path=require('path');
+const {chromium,expect}=require('C:/Users/Amadou/AppData/Local/Temp/lfui-dsby42ay/lf/src/frontend/node_modules/@playwright/test');
+let browser,page;const results=[];
+(async()=>{
+ const state=JSON.parse(fs.readFileSync(path.join(__dirname,'real-skill-runtime-path.json'),'utf8')).path;
+ const initial=JSON.parse(fs.readFileSync(path.join(__dirname,'real-skill-initial.json'),'utf8'));
+ browser=await chromium.launch({channel:'msedge',headless:true});
+ const context=await browser.newContext({storageState:path.join(state,'browser-state.json'),viewport:{width:1440,height:960}});
+ page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.goto(initial.url,{waitUntil:'domcontentloaded'});
+ const node=page.locator('.react-flow__node[data-id="skill"]');await node.waitFor({state:'visible',timeout:90000});await node.click();await page.getByTestId('skill-files-button').click();
+ await page.locator('.monaco-editor .view-lines').waitFor({state:'visible',timeout:45000});
+ await expect(page.getByText('Manual editing is disabled for this Skill in local configuration.')).toHaveCount(0);
+ await expect(page.getByRole('button',{name:'Compare revision: Initial import',exact:true})).toBeVisible();
+ results.push('Browser restart retained authenticated access; real Skill files and initial import visible');
+ await page.getByRole('button',{name:'Find',exact:true}).click();await page.getByLabel('Search all Skill files',{exact:true}).fill('proposal');
+ await expect(page.getByLabel('Skill search results').getByRole('button',{name:/SKILL.md, line/}).first()).toBeVisible();
+ await page.getByLabel('Skill search results').getByRole('button',{name:/SKILL.md, line/}).first().click();
+ await page.getByRole('button',{name:'Find',exact:true}).click();await expect(page.getByLabel('Search all Skill files',{exact:true})).toBeHidden();results.push('Workspace search returned real file/line results and collapsed again');
+ await page.getByRole('button',{name:'Full page',exact:true}).click();await expect(page.getByRole('button',{name:'Restore window',exact:true})).toBeVisible();await page.getByRole('button',{name:'Restore window',exact:true}).click();results.push('Full-page viewer restored');
+ const type=async text=>{await page.locator('.monaco-editor .view-lines').click();await page.keyboard.press('Control+End');await page.keyboard.press('Enter');await page.keyboard.type(text);await expect(page.getByRole('button',{name:'Publish',exact:true})).toBeVisible();};
+ await type('Unsaved private inspection note.');await page.getByRole('button',{name:'Discard',exact:true}).click();await expect(page.getByRole('alertdialog')).toBeVisible();await page.getByRole('button',{name:'Keep editing',exact:true}).click();await expect(page.getByRole('alertdialog')).toHaveCount(0);await expect(page.getByRole('button',{name:'Publish',exact:true})).toBeVisible();await page.getByRole('button',{name:'Discard',exact:true}).click();await page.getByRole('button',{name:'Discard changes',exact:true}).click();await expect(page.getByRole('button',{name:'Publish',exact:true})).toHaveCount(0);results.push('Typing revealed controls; discard confirmation could be cancelled and confirmed');
+ await type('Keep publication proposals bound to their selected PR.');await page.getByLabel('Commit message',{exact:true}).fill('Clarify the selected PR binding');await expect(page.getByRole('button',{name:'Publish',exact:true})).toBeEnabled();await page.getByRole('button',{name:'Publish',exact:true}).click();await expect(page.getByRole('button',{name:'Compare revision: Clarify the selected PR binding',exact:true})).toBeVisible({timeout:45000});await expect(page.getByRole('button',{name:'Publish',exact:true})).toHaveCount(0);results.push('Actual edited bytes saved and promoted in the private registry with a new visible commit');
+ await page.getByRole('button',{name:'Compare revision: Initial import',exact:true}).click();await expect(page.getByLabel('Revision comparison',{exact:true})).toBeVisible();await expect(page.getByLabel('Revision comparison',{exact:true})).toContainText('SKILL.md');await expect(page.getByLabel('Revision comparison',{exact:true})).not.toContainText('diff --git');results.push('Historical revision shows the selected-file comparison without raw diff headers');
+ await page.screenshot({path:path.join(__dirname,'real-skill-history.png')});
+ fs.writeFileSync(path.join(__dirname,'real-skill-stories-result.json'),JSON.stringify({url:initial.url,results,errors,scope:'Actual local Skill app, browser, registry and operation service; no model/provider/GitHub acceptance'},null,2));console.log(JSON.stringify({results,errors}));
+})().catch(async e=>{if(page){await page.screenshot({path:path.join(__dirname,'real-skill-stories-failure.png')}).catch(()=>{});console.error((await page.locator('body').innerText()).slice(-2200));}console.error(e.message);console.log(JSON.stringify({completed:results}));process.exitCode=1;}).finally(async()=>{if(browser)await browser.close();});

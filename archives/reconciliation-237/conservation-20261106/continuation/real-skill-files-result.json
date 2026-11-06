@@ -1,0 +1,12 @@
+{
+  "results": [
+    "Context-menu upload rendered actual PNG bytes in the binary preview",
+    "Inline rename and actual tree drag moved files out while retaining the empty folder",
+    "Delete was immediate; tree Ctrl+Z and Ctrl+Y restored and removed it",
+    "Copied the exact relative file path",
+    "One actual registry publication retained binary and JSON files together with exact PNG bytes and a third visible history entry"
+  ],
+  "revision_id": "sha256:8465e8ae61a24b91aba9fdd4142605980694245de9cdafbdd6999bbf773c4ff3",
+  "asset_sha256": "72bc62911c9df5e4c5fa5bfd27b72d83c3e2b6ee861ba3a11d0fb156bf740ba8",
+  "scope": "Actual private registry and browser file operations; no provider or Git publication"
+}

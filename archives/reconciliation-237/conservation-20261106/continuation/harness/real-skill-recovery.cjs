@@ -1,0 +1,21 @@
+const fs=require('fs'),path=require('path'),{spawn,execFileSync}=require('child_process');
+const {chromium,expect}=require('C:/Users/Amadou/AppData/Local/Temp/lfui-dsby42ay/lf/src/frontend/node_modules/@playwright/test');
+let browser,page,stopped=false,restored=false;const results=[];
+const state=JSON.parse(fs.readFileSync(path.join(__dirname,'real-skill-runtime-path.json'),'utf8')).path;
+function restore(){
+ const log=fs.openSync(path.join(state,'operations-recovery.log'),'a');
+ const p=spawn('C:/Users/Amadou/AppData/Local/Temp/lmi-be4oa1d0/Scripts/python.exe',['-m','laomedo.skills.interface.operations.cli','--registry',path.join(state,'registry'),'--database',path.join(state,'operations.db'),'--policies',path.join(state,'policies.json'),'--manual-permissions',path.join(state,'permissions.json'),'--api-token-file',path.join(state,'api-token'),'--port','18787'],{cwd:'C:/CodeWorkspace/laomedo/.tools/modular-integration-validation',env:{...process.env,PYTHONPATH:'C:/CodeWorkspace/laomedo/.tools/modular-integration-validation/src'},windowsHide:true,detached:true,stdio:['ignore',log,log]});
+ fs.closeSync(log);fs.writeFileSync(path.join(state,'operations-recovery.pid'),String(p.pid));p.unref();restored=true;
+}
+(async()=>{
+ const pid=Number(fs.readFileSync(path.join(state,fs.existsSync(path.join(state,'operations-recovery.pid'))?'operations-recovery.pid':'operations3.pid'),'utf8').trim());execFileSync('taskkill',['/PID',String(pid),'/T','/F'],{windowsHide:true,stdio:'ignore'});stopped=true;
+ browser=await chromium.launch({channel:'msedge',headless:true});const context=await browser.newContext({storageState:path.join(state,'browser-state.json'),viewport:{width:1024,height:720},permissions:['clipboard-read','clipboard-write']});page=await context.newPage();
+ const initial=JSON.parse(fs.readFileSync(path.join(__dirname,'real-skill-initial.json'),'utf8'));await page.goto(initial.url,{waitUntil:'domcontentloaded'});const node=page.locator('.react-flow__node[data-id="skill"]');await node.waitFor({timeout:90000});await node.click();await page.getByTestId('skill-files-button').click();
+ const popup=page.getByRole('region',{name:'Error details',exact:true});await expect(popup).toBeVisible({timeout:30000});const box=await popup.boundingBox();if(!box||box.x<0||box.y<0||box.x+box.width>1025||box.y+box.height>721)throw Error('actual_popup_outside_viewport');
+ await expect(popup).not.toContainText(/ask the operator/i);await popup.getByRole('button',{name:'Copy error',exact:true}).click();const copied=await page.evaluate(()=>navigator.clipboard.readText());if(!copied.includes('skill_manual_controls_unavailable'))throw Error('safe_machine_code_not_copied');
+ await page.screenshot({path:path.join(__dirname,'real-skill-outage.png')});await popup.getByRole('button',{name:'Dismiss',exact:true}).click();await expect(popup).toHaveCount(0);await expect(page.getByRole('dialog').first()).toBeVisible();results.push('Actual operation-service outage produced copyable descriptive in-viewport error; Dismiss kept the workspace open');
+ restore();
+ await expect.poll(async()=>{try{return (await page.request.get('http://127.0.0.1:18787/')).status()}catch{return 0}},{timeout:30000}).not.toBe(0);
+ await page.getByRole('button',{name:'Reload history',exact:true}).click();await expect(page.getByRole('button',{name:'Compare revision: Clarify the selected PR binding',exact:true})).toBeVisible({timeout:30000});results.push('Actual service restoration plus Reload history recovered the retained commit list without rerunning a graph');
+ fs.writeFileSync(path.join(__dirname,'real-skill-recovery-result.json'),JSON.stringify({results,popup_bounds:box,viewport:{width:1024,height:720},copied_machine_code:true,scope:'Real task-private Skill service outage and read recovery; no runner restart or provider acceptance'},null,2));console.log(JSON.stringify({results}));
+})().catch(async e=>{if(page){await page.screenshot({path:path.join(__dirname,'real-skill-outage-failure.png')}).catch(()=>{});console.error((await page.locator('body').innerText()).slice(-2000));}console.error(e.message);process.exitCode=1;}).finally(async()=>{if(stopped&&!restored)restore();if(browser)await browser.close();});
