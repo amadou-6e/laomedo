@@ -1,8 +1,12 @@
-# Independent GitHub integration verification
+# Historical independent GitHub integration verification, 2026-11-02
 
-The GitHub increment is independently based on `develop`
-`20df788fe776fc0bc0d7576a5f0774880aa9e89d`. Its production source is
-`eb3edeb4bd51d2aaacb225b0fb54e5debc37bec3`; this record changes documentation only.
+This page preserves the 2026-11-02 cut and its later dated checkpoints. Its
+revisions and remaining-gate lists are historical, not the current PR249 status.
+Current review/evidence is recorded in the [PR249 handoff](https://github.com/amadou-6e/laomedo/pull/249).
+
+That GitHub increment was independently based on `develop`
+`20df788fe776fc0bc0d7576a5f0774880aa9e89d`. Its production source was
+`eb3edeb4bd51d2aaacb225b0fb54e5debc37bec3`; that checkpoint changed documentation only.
 Related workstreams are issues #244 (ownership), #245 (tests), #246 (examples)
 and #247 (archives). The later Skill history and viewer polishing in PR #248
 is excluded. Its checkout, uncommitted edits and preview remain separate.
