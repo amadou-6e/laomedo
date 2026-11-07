@@ -52,15 +52,15 @@ to the Agent adapter for saved components. Python symbol names do not rename
 persisted runner fields, stable machine codes or immutable history. Unknown saved
 source revisions require explicit inspection and migration, never silent dispatch.
 
-## Verification boundaries
+## Capability and evidence boundaries
 
-The source includes existing ACP integration. Matching provider folders do not
-prove capability parity or native-event completeness. Draft specs #403 and the
-unmerged ACP #214 evidence remain explicit dependencies of this assembled draft.
-Source tests, installed-package checks and actual provider/graph acceptance are
-separate evidence. The current assembly is not approved for merge or deployment.
+Provider folders share the lifecycle contract, not necessarily every native
+capability. Provider-specific READMEs describe supported behavior and constraints.
+Source tests, installed-package checks and actual provider/graph validation are
+separate evidence; current revision status lives in the
+[integration record](../../../docs/architecture/agent-assembly.md).
 
-Historical campaigns belong to permanent `exp`; production tests must not fetch
-that branch. Example consolidation and retirement of legacy campaign dependencies
-are tracked separately until exact archival and useful regression coverage are
-verified. See [the integration record](../../../docs/architecture/agent-assembly.md).
+Historical campaigns belong to permanent `exp`; production tests never fetch it.
+The maintained [Agent builder](../../../examples/agents/README.md) exports current
+component definitions with caller-supplied inputs. Compatibility data belongs to
+the owning tests and is not a runnable example or new execution evidence.

@@ -9,21 +9,13 @@ rotating refresh credentials, sessions or settings.
 `LocalClaudeLoginError` preserves stable public outcome codes. No README, repr,
 dump, graph or validation evidence may contain credential values.
 
-## Mirror repair — implemented draft, live validation pending
+## Access-only mirror lifecycle
 
-The existing CLI copy has no durable ownership receipt. A failed actual graph
-stopped before a native turn; its original low-level cause is unknown. The repair
-now consumes py-docker's owned Session lifecycle instead of adding another Docker
-worker or transport. The SDK deadline contract remains request admission and
-socket inactivity control, not a hard wall-time guarantee.
-
-The design has received read-only Claude review. The final repair preserves the
-existing Resume admission copy: removing it could consume a completed run's
-resumability before authentication succeeds. Catalog/caching redesign is excluded
-from this increment; explicit Refresh continues to request fresh discovery, and
-its existing authentication path also uses the changed mirror policy below.
-This README describes a draft implementation, not evidence
-of successful copying, authentication or graph execution.
+The mirror uses py-docker's owned Session lifecycle with a durable private
+ownership receipt. Resume performs its existing admission copy before consuming
+the retained run's resumability. Explicit model Refresh requests fresh discovery
+and follows the same authentication policy. The SDK deadline controls request
+admission and socket inactivity; it is not a hard wall-time guarantee.
 
 | Concern | Owner / name | Interface and effects |
 | --- | --- | --- |
@@ -34,8 +26,8 @@ of successful copying, authentication or graph execution.
 | Container-side write protocol | `resources/write_login.py`: `write_login` | Read the declared bytes without waiting for pipe EOF; preserve refresh-capable logins; replace the access-only file atomically. |
 
 Names follow responsibility: `Record` is a value with an explicit private
-projection; `Settings` owns host configuration. No new abstract base, auth cache,
-diagnostic Store or independent receipt model is planned. Classes and standalone
+projection; `Settings` owns host configuration. The adapter has no separate abstract base, auth cache or diagnostic Store;
+py-docker owns its durable receipt model. Classes and standalone
 functions remain in separate implementation files.
 
 The copy preserves selected-key order, omitted versus explicit null,
@@ -49,10 +41,8 @@ claimed 30-second completion guarantee.
 
 ### Access credential record
 
-`ClaudeAccessLoginRecord` is now implemented and has internal compatibility
-controls against 96 frozen old-writer outputs. The existing mirror coordinator
-now uses that model; no new Docker copy, authentication or native turn has run.
-The record keeps each named optional field as already parsed JSON with
+`ClaudeAccessLoginRecord` has internal compatibility controls against 96 frozen
+old-writer outputs. The mirror coordinator uses this record, which keeps each named optional field as already parsed JSON with
 `SkipValidation[JsonValue]`, preserving the old writer's opaque native values and
 recursion behavior. This exception is an explicit external-format boundary,
 not an untyped application payload. Every field is excluded from ordinary dumps.
@@ -71,17 +61,15 @@ Git. `LAOMEDO_CLAUDE_LOGIN_STATE_DIR` is a trusted host-only absolute override.
 Existing leaves must already have verified private permissions; their ACLs are
 not rewritten. The receipt name is stable per dedicated profile, allowing the
 SDK to reconcile prior intent under its existing receipt lock before dispatch.
-The optional runner dependency pins reviewed, unpublished py-docker commit
-`49652f4`; its explicit log-driver extension passed focused code/spec review. The mirror
-requires `log_driver="none"`; real copying is blocked until this request and its
-readback are validated against the real engine. This is not a claim that the SDK
-is merged or published.
+The runner dependency pins py-docker commit `49652f4`. The mirror requires
+`log_driver="none"`; launch and readback must preserve this no-log policy. The
+pin is a source dependency, not a claim of PyPI publication. Revision-specific
+copy, authentication and provider validation results belong in the integration
+record rather than this module contract.
 
 During an actual attempt, the native authentication stage recalculates remaining
 time after copying and receives the same absolute attempt deadline. Resume's
-pre-admission copy and explicit catalog Refresh semantics are unchanged. The
-earlier failed graph remains historical failure evidence until a new real run
-validates this exact source revision.
+pre-admission copy and explicit catalog Refresh semantics are unchanged. Historical graph outcomes do not validate later source revisions.
 
 Resume's admission copy can occupy the HTTP request through the normal
 90-second copy policy and separate 20-second cleanup reserve. This is longer

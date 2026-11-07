@@ -5,6 +5,9 @@ import importlib.util
 import json
 from pathlib import Path
 
+# Initialize Langflow before its LFX compatibility modules.
+import langflow
+
 from lfx.graph.graph.base import Graph
 
 ROOT = Path(__file__).resolve().parents[2]

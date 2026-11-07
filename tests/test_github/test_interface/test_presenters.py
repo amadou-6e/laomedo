@@ -54,6 +54,10 @@ class GitHubInspectionPresenterTests(unittest.TestCase):
             source = patch.read_text(encoding="utf-8")
             self.assertNotIn("@/modals/issueViewerModal", source, patch)
             self.assertNotIn("@/modals/prViewerModal", source, patch)
-        agent_patch = (overlay / "agents.patch").read_text(encoding="utf-8")
+        viewer_patch = (overlay / "integration/upstream.patch").read_text(
+            encoding="utf-8"
+        )
         for owner in ("issues", "pull_requests"):
-            self.assertIn("@/modals/github/" + owner, agent_patch)
+            self.assertIn("@/modals/github/" + owner, viewer_patch)
+        agent_patch = (overlay / "integration/agents.patch").read_text(encoding="utf-8")
+        self.assertNotIn("@/modals/github/", agent_patch)

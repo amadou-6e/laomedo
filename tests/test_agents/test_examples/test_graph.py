@@ -3,7 +3,11 @@
 import importlib.util
 import json
 from hashlib import sha256
+import subprocess
+import sys
+import tempfile
 import unittest
+from pathlib import Path
 
 from support.paths import repository_root
 
@@ -12,6 +16,40 @@ from support.paths import repository_root
     importlib.util.find_spec("lfx"), "Requires the declared Langflow runtime"
 )
 class GraphBuilderTests(unittest.TestCase):
+    def test_cli_bootstraps_runtime_in_a_fresh_interpreter(self):
+        root = repository_root()
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "graph.json"
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(root / "examples/agents/build_flow.py"),
+                    "--provider",
+                    "codex",
+                    "--model",
+                    "internal-structure-check",
+                    "--effort",
+                    "default",
+                    "--runner-url",
+                    "http://127.0.0.1:8765",
+                    "--task",
+                    "Internal construction only; never execute.",
+                    "--output",
+                    str(target),
+                ],
+                cwd=root,
+                capture_output=True,
+                text=True,
+                timeout=90,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            flow = json.loads(target.read_text(encoding="utf-8"))
+            self.assertEqual(len(flow["data"]["nodes"]), 1)
+            self.assertEqual(
+                flow["data"]["nodes"][0]["data"]["type"], "LaomedoCodexAgent"
+            )
+            self.assertEqual(flow["data"]["edges"], [])
+
     @classmethod
     def setUpClass(cls):
         spec = importlib.util.spec_from_file_location(
