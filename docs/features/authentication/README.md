@@ -1,5 +1,11 @@
 # Local application sign-in
 
+**Approach under revision:** the owner clarified that these are local setup
+profiles, not separate web accounts. The [local profile approach](local-profiles.md)
+records the Claude consultation. The administrator/Bootstrap procedure below is
+an unfinished checkpoint, not the proposed user setup; its manual handoff is on
+hold. No real account has been created or accepted.
+
 The native Windows application reuses Langflow's login page, user database,
 password verification and access/refresh cookies. `tools/start_normal_login.ps1`
 prepares an isolated normal-login deployment; it does not replace authentication
