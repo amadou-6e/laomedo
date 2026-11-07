@@ -3,7 +3,12 @@ import ErrorExplanation from "@/components/laomedoErrors/ErrorExplanation";
 import { describeNodeFailure } from "@/components/laomedoErrors/nodeErrors";
 import { Button } from "@/components/ui/button";
 import ProfileEntry from "./ProfileEntry";
-import { listProfiles, profileMode, type ProfileIndex } from "./api";
+import {
+	listProfiles,
+	profileMode,
+	ProfileFailure,
+	type ProfileIndex,
+} from "./api";
 
 export default function ProfileEntryGate({
 	children,
@@ -13,7 +18,7 @@ export default function ProfileEntryGate({
 	const [state, setState] = useState<{
 		enabled?: boolean;
 		index?: ProfileIndex;
-		failed?: boolean;
+		failed?: string;
 	}>({});
 	const [attempt, setAttempt] = useState(0);
 	useEffect(() => {
@@ -26,12 +31,23 @@ export default function ProfileEntryGate({
 					? await listProfiles(controller.signal)
 					: undefined;
 				if (!controller.signal.aborted) setState({ enabled, index });
-			} catch {
-				if (!controller.signal.aborted) setState({ failed: true });
+			} catch (caught) {
+				if (!controller.signal.aborted)
+					setState({
+						failed:
+							caught instanceof ProfileFailure
+								? caught.code
+								: "profile_list_unavailable",
+					});
 			}
 		})();
 		return () => controller.abort();
 	}, [attempt]);
+	const failure = describeNodeFailure(
+		state.failed || "profile_list_unavailable",
+		undefined,
+		{ operation: "load profiles" },
+	);
 	if (state.enabled === false) return <>{children}</>;
 	if (state.index) return <ProfileEntry initial={state.index} />;
 	return (
@@ -39,17 +55,9 @@ export default function ProfileEntryGate({
 			<section className="w-full max-w-md rounded-xl border p-6">
 				{state.failed ? (
 					<>
-						<h1 className="text-xl font-semibold">
-							Profiles could not be loaded
-						</h1>
+						<h1 className="text-xl font-semibold">{failure.title}</h1>
 						<div className="mt-4 text-sm">
-							<ErrorExplanation
-								failure={describeNodeFailure(
-									"profile_list_unavailable",
-									undefined,
-									{ operation: "load profiles" },
-								)}
-							/>
+							<ErrorExplanation failure={failure} />
 						</div>
 						<Button
 							className="mt-4"

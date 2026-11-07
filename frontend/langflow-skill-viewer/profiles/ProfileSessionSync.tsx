@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+﻿import { useEffect } from "react";
 import { profileMode } from "./api";
 
 const channelName = "laomedo-local-profile-context";
@@ -14,34 +14,33 @@ export function announceProfileChange() {
 	channel.close();
 }
 
-/** One browser context has one cookie session; discard old documents on change. */
+/** A new document prevents old requests from filling another profile's stores. */
 export default function ProfileSessionSync() {
 	useEffect(() => {
-		let disposed = false;
-		let channel: BroadcastChannel | undefined;
-		profileMode()
-			.then((enabled) => {
-				if (!enabled || disposed) return;
-				channel = new BroadcastChannel(channelName);
-				channel.onmessage = (event) => {
-					if (
-						event.data?.type === "profile-context-changed" &&
-						event.data?.source !== sourceId()
-					) {
-						window.location.replace("/login");
-					}
-				};
-			})
-			.catch(() => {
-				/* Entry handles unavailable setup; no identity is inferred. */
-			});
-		const restore = (event: PageTransitionEvent) => {
-			if (event.persisted && channel) window.location.reload();
+		// Subscribe before entry, not after a separate capability request that could
+		// fail while the entry page's own request succeeds. Normal previews do not
+		// emit these events; receiving one never authenticates or selects a profile.
+		if (typeof BroadcastChannel !== "function") return;
+		const channel = new BroadcastChannel(channelName);
+		channel.onmessage = (event) => {
+			if (
+				event.data?.type === "profile-context-changed" &&
+				event.data?.source !== sourceId()
+			) {
+				window.location.replace("/login");
+			}
+		};
+		const restore = async (event: PageTransitionEvent) => {
+			if (!event.persisted) return;
+			try {
+				if (await profileMode()) window.location.reload();
+			} catch {
+				window.location.reload();
+			}
 		};
 		window.addEventListener("pageshow", restore);
 		return () => {
-			disposed = true;
-			channel?.close();
+			channel.close();
 			window.removeEventListener("pageshow", restore);
 		};
 	}, []);

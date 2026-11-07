@@ -63,6 +63,13 @@ export async function profileMode(signal?: AbortSignal): Promise<boolean> {
 	const body = await readJson(response, "profile_list_unavailable");
 	if (typeof body?.enabled !== "boolean")
 		throw new ProfileFailure("profile_list_unavailable");
+	if (
+		body.enabled &&
+		(typeof BroadcastChannel !== "function" ||
+			typeof crypto.randomUUID !== "function")
+	) {
+		throw new ProfileFailure("profile_browser_unsupported");
+	}
 	return body.enabled;
 }
 

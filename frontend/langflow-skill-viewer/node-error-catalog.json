@@ -1878,5 +1878,10 @@
     "title": "Sign-out could not be confirmed",
     "description": "The app could not confirm sign-out. It has not switched profiles.",
     "recovery": "Retry sign-out or check the current profile. Your saved profiles and workspace have not been deleted."
+  },
+  "profile_browser_unsupported": {
+    "title": "This browser cannot manage local profiles",
+    "description": "Required local profile coordination features are unavailable in this browser context.",
+    "recovery": "Use a supported local browser setup. Existing profiles and their data have not been deleted."
   }
 }
