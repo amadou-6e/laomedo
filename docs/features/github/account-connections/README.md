@@ -2,7 +2,9 @@
 
 Status: PROPOSED, NOT IMPLEMENTED. Owner: [issue #251](https://github.com/amadou-6e/laomedo/issues/251).
 Baseline: develop `bb25013523e37fbb108b51638be171e879eb3883`.
-This approach brief precedes the canonical contract and editable UI design review.
+This approach brief accompanies [canonical spec PR #411](https://github.com/amadou-6e/specs/pull/411)
+and its editable UI proposal; implementation waits for the design review. See the
+[one-time app setup design](setup.md).
 It grants no credential access or repository write permission.
 
 ## Outcome and boundaries
@@ -13,8 +15,9 @@ the host broker. Anonymous public URLs and admitted local folders keep working.
 No ambient gh/GCM/environment credential fallback, Agent turn, repository write,
 Git publishing or claim of hosted multi-user support is included.
 
-Proposed first deployment: one Windows user, loopback-only local services and one
-explicitly authenticated Laomedo owner. Owner confirmation is requested. The
+Owner-selected first deployment: one Windows user and loopback-only local services.
+The explicit local-owner/session mechanism remains a proposal. The owner corrected
+the app-registration answer: no app exists; include one-time setup instructions. The
 existing auto-login preview is not accepted as a private-connection user boundary.
 Do not retrofit the shared source-service bearer token as user authentication.
 
@@ -52,8 +55,8 @@ No production dependency is selected until compatibility and behavior are review
 
 GitHub's documented web exchange requires a client secret even with PKCE.
 Therefore a locally operated app registration must supply its secret through the
-host vault; never embed a shared developer secret in the package. The user has
-been asked whether a registration exists. If self-registration is unacceptable,
+host vault; never embed a shared developer secret in the package. The user confirmed that no registration exists; prepare setup instructions and
+a reviewable registration configuration without creating it automatically. If self-registration is unacceptable,
 return that deployment decision to the owner rather than silently using device flow.
 
 ## Proposed contracts to resolve before implementation
@@ -242,8 +245,18 @@ the ignored review evidence, not represented as reviewed.
   provenance never grants access to public callers, and a missing public pin must
   not reveal whether an inaccessible private copy exists.
 
-Canonical authoring is currently blocked: Git refused switching the visible specs
-checkout because unrelated authentication/Claude changes would be overwritten.
-No stash, overwrite, reset or branch change occurred. Permission to preserve those
-edits and restore them after the task is pending. Source-read and UI requirements
+Canonical authoring continues in the owner-requested separate specs worktree
+on feat/410. The dirty visible specs checkout remains unchanged; no stash or
+overwrite occurred. Source-read and UI requirements
 remain owned by [specs #410](https://github.com/amadou-6e/specs/issues/410).
+
+## Owner corrections and canonical checkpoint, 2026-11-07
+
+The owner selected local Windows first and explicitly authorized a separate specs
+worktree, overriding that checkout policy for this task. Then the owner corrected
+the app registration answer: there is no app. Do not assume existing credentials;
+prepare one-time setup without registering or modifying GitHub automatically.
+The canonical draft is specs #411 at `c119de7`, with SC01-SC10 and four editable
+UI pages. All pages were rendered/inspected; the validator passed with zero errors
+and one unrelated existing diagram-size warning. Independent full canonical and
+visual review is running; no runtime acceptance follows from a design render.
