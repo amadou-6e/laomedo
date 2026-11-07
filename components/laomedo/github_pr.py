@@ -193,7 +193,7 @@ class LaomedoGitHubPR(Component):
                     incoming.text if isinstance(incoming, Message) else incoming
                 )
                 if isinstance(context.operation, PRContextOperation):
-                    operation = context.operation.model_dump(exclude_none=True)
+                    operation = context.operation.model_dump(exclude_unset=True)
             repository = repository_from_url(self.repository_url)
             selected = str(getattr(self, "pr_choice", "") or "")
             match = re.match(r"^#([1-9][0-9]*) ", selected)
@@ -216,7 +216,7 @@ class LaomedoGitHubPR(Component):
                 operation=operation or None,
                 **(
                     {"expected": context.content_digest}
-                    if operation and context and context.content_digest
+                    if operation and context and context.content_digest is not None
                     else {}
                 ),
             )

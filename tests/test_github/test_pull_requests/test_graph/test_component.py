@@ -127,6 +127,22 @@ class NativeGitHubPRTests(unittest.TestCase):
             )
         self.mock.assert_not_called()
 
+    def test_malformed_explicit_operation_fields_are_not_dropped_to_allow_a_write(self):
+        operation = {
+            "action": "close",
+            "request_id": "invalid-fields",
+            "grant_ref": "grant",
+        }
+        for value in (
+            {"operation": {**operation, "changes": None}},
+            {"operation": operation, "content_digest": ""},
+        ):
+            self.component.set(pr_context=Data(data=value))
+            self.component._pre_run_setup()
+            result = asyncio.run(self.component.context_output()).data
+            self.assertEqual(result["operation"]["status"], "failed")
+            self.assertEqual(self.case.provider.writes, [])
+
     def test_filters_clear_selection_and_refresh_preserves_number(self):
         config = {item.name: item.to_dict() for item in self.component.inputs}
         config = asyncio.run(
