@@ -12,6 +12,8 @@ from laomedo.http.redirect import NoRedirect
 import json
 from laomedo._paths import import_root
 from laomedo.host.runner.prerequisites import check_docker
+from laomedo.host.runner.models import DockerReadiness
+from laomedo.host.runner.settings import DOCKER_CHECK_TIMEOUT_SECONDS
 from laomedo.host.runner.startup import startup_gate
 from laomedo.host.runner.utils import service_environment
 import socket
@@ -33,8 +35,7 @@ class RunnerService:
         self.cancel_requested = False
         self.opener = build_opener(ProxyHandler({}), NoRedirect())
         self.docker_lock = threading.Lock()
-        self.docker_checked_at = None
-        self.docker_reason = None
+        self.docker_observation = None
 
     def config(self, url=None):
         if self.config_path is None:
@@ -167,30 +168,45 @@ class RunnerService:
     def _with_docker(self, state, *, refresh=False):
         if state["state"] not in {"ready", "offline"}:
             return state
+        observation = self.docker_observation
         if (
             refresh
-            or self.docker_checked_at is None
-            or time.monotonic() - self.docker_checked_at >= 2
+            or observation is None
+            or time.monotonic() - observation.checked_at >= 2
         ):
-            # Do not queue overlapping checks behind a slow CLI and exceed the
-            # request deadline. Unknown prerequisites never permit a new spawn.
-            if not self.docker_lock.acquire(blocking=False):
-                return {
-                    "state": "prerequisite",
-                    "can_start": False,
-                    "reason": "runner_docker_check_unconfirmed",
-                    "runner_state": state["state"],
-                }
-            try:
-                self.docker_reason = check_docker(service_environment("codex"))
-                self.docker_checked_at = time.monotonic()
-            finally:
-                self.docker_lock.release()
-        if self.docker_reason is not None:
+            unconfirmed = {
+                "state": "prerequisite",
+                "can_start": False,
+                "reason": "runner_docker_check_unconfirmed",
+                "runner_state": state["state"],
+            }
+            if self.docker_lock.acquire(blocking=False):
+                try:
+                    reason = check_docker(service_environment("codex"))
+                    observation = DockerReadiness(
+                        reason=reason, checked_at=time.monotonic()
+                    )
+                    self.docker_observation = observation
+                finally:
+                    self.docker_lock.release()
+            elif refresh and self.docker_lock.acquire(
+                timeout=DOCKER_CHECK_TIMEOUT_SECONDS
+            ):
+                try:
+                    # Start joins the in-flight check. Only a newly completed
+                    # observation may admit it; never reuse the old healthy poll.
+                    if self.docker_observation is observation:
+                        return unconfirmed
+                    observation = self.docker_observation
+                finally:
+                    self.docker_lock.release()
+            else:
+                return unconfirmed
+        if observation.reason is not None:
             value = {
                 "state": "prerequisite",
                 "can_start": False,
-                "reason": self.docker_reason,
+                "reason": observation.reason,
                 "runner_state": state["state"],
             }
             if state.get("reason") == "runner_start_cancelled":

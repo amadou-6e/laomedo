@@ -8,6 +8,7 @@ from types import SimpleNamespace
 import tempfile
 import threading
 import unittest
+import time
 from unittest.mock import patch
 from unittest.mock import Mock
 from urllib.error import URLError
@@ -23,6 +24,22 @@ try:
     from fastapi.testclient import TestClient
 except ImportError:
     TestClient = None
+
+
+class SignallingLock:
+    """Observe a real lock wait without changing its synchronization behavior."""
+
+    def __init__(self):
+        self.lock = threading.Lock()
+        self.waiting = threading.Event()
+
+    def acquire(self, *args, **kwargs):
+        if "timeout" in kwargs:
+            self.waiting.set()
+        return self.lock.acquire(*args, **kwargs)
+
+    def release(self):
+        self.lock.release()
 
 
 class RunnerServiceTests(unittest.TestCase):
@@ -712,6 +729,71 @@ class RunnerServiceTests(unittest.TestCase):
                 spawn.assert_not_called()
         finally:
             self.service.docker_lock.release()
+
+    def _start_during_docker_check(self, reason):
+        from laomedo.host.runner.models import DockerReadiness
+
+        entered, release = threading.Event(), threading.Event()
+        results, failures = {}, []
+        self.service.docker_lock = lock = SignallingLock()
+        self.service.docker_observation = DockerReadiness(
+            reason=None, checked_at=time.monotonic() - 10
+        )
+
+        def check(_environment):
+            entered.set()
+            if not release.wait(3):
+                raise AssertionError("Docker check was not released")
+            return reason
+
+        def call(key, action):
+            try:
+                results[key] = action()
+            except BaseException as error:
+                failures.append(error)
+
+        self.docker.side_effect = check
+        observer = threading.Thread(target=call, args=("status", self.service.status))
+        starter = threading.Thread(target=call, args=("start", self.service.start))
+        with (
+            patch.object(self.service.opener, "open", side_effect=URLError("offline")),
+            patch("laomedo.host.runner.service.subprocess.Popen") as spawn,
+        ):
+            spawn.return_value.poll.return_value = None
+            try:
+                observer.start()
+                self.assertTrue(entered.wait(2))
+                starter.start()
+                self.assertTrue(lock.waiting.wait(2))
+                spawn.assert_not_called()
+            finally:
+                release.set()
+                observer.join(3)
+                if starter.ident is not None:
+                    starter.join(3)
+            self.assertFalse(observer.is_alive())
+            self.assertFalse(starter.is_alive())
+            self.assertEqual(failures, [])
+            self.assertEqual(self.docker.call_count, 1)
+            self.assertEqual(spawn.call_count, 1 if reason is None else 0)
+        return results["start"]
+
+    def test_start_joins_inflight_healthy_check_without_running_another(self):
+        self.assertEqual(self._start_during_docker_check(None)["state"], "starting")
+
+    def test_start_does_not_reuse_stale_health_when_inflight_check_fails(self):
+        self.assertEqual(
+            self._start_during_docker_check("runner_docker_unavailable")["reason"],
+            "runner_docker_unavailable",
+        )
+
+    def test_start_stays_unconfirmed_when_inflight_check_is_unconfirmed(self):
+        self.assertEqual(
+            self._start_during_docker_check("runner_docker_check_unconfirmed")[
+                "reason"
+            ],
+            "runner_docker_check_unconfirmed",
+        )
 
     def test_running_api_does_not_imply_docker_is_ready(self):
         from io import BytesIO
