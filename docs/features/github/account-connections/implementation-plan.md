@@ -76,7 +76,9 @@ rewrite the upstream login response. Integration failure leaves private access
 unavailable and reports that separately; a successful public login is not false
 private success.
 
-Revoke the current private lease before the upstream logout response completes;
+Revoke the current private lease before forwarding to upstream logout. If
+revocation fails, return a safe C14 error and do not call upstream logout or claim
+success. On confirmed logout, explicitly delete the private lease cookie too;
 private access stays refused if cookie removal or later response delivery fails.
 The private dependency requires BOTH upstream authentication and the lease, with
 matching owner. Expiry/revocation and current user activity are checked on every
@@ -114,10 +116,16 @@ authentication and matching owner; 200 alone is insufficient. Refresh extends
 only its existing live lease after the same validation. No token logging or
 manual JWT decoding. Logout revokes its incoming lease before passing through.
 All lease updates/releases recheck revocation so a late refresh cannot reopen it.
+Refuse refresh carrying a known revoked lease before upstream cookie issuance.
+Test the in-flight refresh/logout race and prevent a stale refresh response from
+reissuing authentication cookies after logout; private admission stays refused
+regardless. The concrete response-start cancellation behavior remains an explicit
+middleware compatibility/implementation check, not a demonstrated capability.
 
 If a normal upstream login survives but the private lease is missing, expired
 or inconsistent, show C13 Sign in again for private access. On deliberate action,
-perform upstream logout (revoking any current private lease), then open the
+use the existing frontend logout mutation (clearing auth stores and query
+caches as well as revoking any current private lease), then open the
 existing login page. Failed/unconfirmed logout stays locked with retry (C14);
 never claim sign-out or redirect as though it succeeded. This exceptional
 recovery does not shorten the selected normal login lifetime or disconnect GitHub.
@@ -251,13 +259,28 @@ be derived safely from current JWT claims; do not add a second JWT validator.
 
 | ID | Correction / evidence | Status |
 | --- | --- | --- |
-| 251-P1 | Cookie Path=/, current browser lease revoked at upstream logout | Corrected; focused recheck pending |
-| 251-P2 | Owner chose normal-login lifetime; persistent lease tracks valid refresh, no resurrection; C13/C14 exceptional recovery | Corrected; focused recheck pending |
-| 251-P3 | Existing login/logout/refresh Origin/Host checks; token-based CSRF confined to new owned controls | Corrected; focused recheck pending |
-| 251-P4 | Exact routes, response-start middleware, validated outgoing cookie; no body consumption; status/error/factory sources inspected | Investigated; focused recheck pending |
-| 251-P5 | Require matching upstream principal plus lease, not blanket rejection of Authorization header | Corrected; focused recheck pending |
+| 251-P1 | Cookie Path=/, current browser lease revoked at upstream logout | Reviewer-verified fixed in plan at e84cd4dd |
+| 251-P2 | Owner chose normal-login lifetime; persistent lease tracks valid refresh, no resurrection; C13/C14 exceptional recovery | Reviewer-verified fixed in plan at e84cd4dd |
+| 251-P3 | Existing login/logout/refresh Origin/Host checks; token-based CSRF confined to new owned controls | Reviewer-verified fixed in plan at e84cd4dd |
+| 251-P4 | Exact routes, response-start middleware, validated outgoing cookie; no body consumption; status/error/factory sources inspected | Resolved for planning at e84cd4dd; effective middleware check still required |
+| 251-P5 | Require matching upstream principal plus lease, not blanket rejection of Authorization header | Reviewer-verified fixed in plan at e84cd4dd |
 | 251-P6/P7 | One table/middleware/dependency, startup-only deployment checks; bootstrap preserves non-default owner | Addressed suggestions |
 
-Readiness is pending the focused approach recheck. The new C13/C14 recovery states
-need canonical visual review as well; earlier visual approval does not cover them.
-No runtime change or live acceptance is claimed.
+First focused recheck at implementation `e84cd4dd` / specs `2db2845`: Approach
+PROCEED, Specification APPROVE, Visual APPROVE (new pages 8/9). P1-P5 resolved.
+The reviewer read both correction diffs and token/refresh source; router/main,
+API client and exact factory details remain implementer-inspected evidence rather
+than independent source coverage. No runtime capability or user acceptance follows.
+
+| Follow-up | Implementation obligation |
+| --- | --- |
+| 251-P8 | Verify refresh racing with logout; block known revoked leases and prevent late auth-cookie restoration without weakening private admission. |
+| 251-P9 | Revocation failure returns safe error before upstream logout; confirmed logout explicitly deletes the private cookie. |
+| 251-P10 | Recovery uses the existing frontend logout mutation, clearing context/query caches. |
+| 251-P11 | Optional visual consistency refinement for C14; not a design blocker. |
+
+C13's entry trigger is now owned by N20: an otherwise authenticated private
+request with missing/expired/inconsistent private session opens recovery and
+clears private buffers; an invalid upstream login uses normal login recovery.
+P8/P9 need implementation and real logout/concurrency evidence, not another plan
+review turn. No runtime change or live acceptance is claimed.
