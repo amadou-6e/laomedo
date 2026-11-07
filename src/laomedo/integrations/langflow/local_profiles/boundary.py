@@ -1,6 +1,5 @@
 """Same-origin browser boundaries for local profile entry and registration."""
 
-import re
 from starlette.responses import JSONResponse
 
 
@@ -25,7 +24,7 @@ class LocalProfileBoundary:
             path.startswith("/api/v1/laomedo/profiles")
             or path
             in {"/api/v1/login", "/api/v1/logout", "/api/v1/refresh", "/api/v1/users"}
-            or bool(re.fullmatch(r"/api/v1/users/[^/]+", path))
+            or path.startswith("/api/v1/users/")
         )
         if protected:
             headers = {}
@@ -51,11 +50,9 @@ class LocalProfileBoundary:
             ):
                 return await self._refuse(scope, receive, send)
             # First profile slice has no rename, password/role change or deletion.
-            if path.startswith("/api/v1/users/") and method in {
-                "PATCH",
-                "DELETE",
-                "PUT",
-            }:
+            if (
+                path == "/api/v1/users" or path.startswith("/api/v1/users/")
+            ) and method not in {"GET", "HEAD", "OPTIONS"}:
                 return await self._refuse(scope, receive, send)
         return await self.app(scope, receive, send)
 

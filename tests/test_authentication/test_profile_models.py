@@ -67,3 +67,9 @@ class ProfileBoundaryTests(unittest.TestCase):
         self.assertEqual(
             ProfileIndex().model_dump(mode="json"), {"profiles": [], "pin_digits": 6}
         )
+
+    def test_name_limit_is_applied_after_trimming(self):
+        request = ProfileCreateRequest(
+            name="  " + "x" * 40 + "  ", pin="001234", confirmation="001234"
+        )
+        self.assertEqual(request.name, "x" * 40)

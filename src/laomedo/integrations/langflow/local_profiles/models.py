@@ -29,9 +29,11 @@ class ProfileCreateRequest(BaseModel):
     pin: SecretStr = Field(exclude=True, repr=False)
     confirmation: SecretStr = Field(exclude=True, repr=False)
 
-    @field_validator("name")
+    @field_validator("name", mode="before")
     @classmethod
     def validate_name(cls, value: str) -> str:
+        if not isinstance(value, str):
+            raise ValueError("profile_name_invalid")
         name = value.strip()
         if not name or name.casefold() == SYSTEM_PROFILE_NAME.casefold():
             raise ValueError("profile_name_invalid")

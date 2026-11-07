@@ -51,3 +51,12 @@ registration, switching, restoration or recovery user stories.
 
 Forgotten-PIN recovery is intentionally deferred by the owner: entry is blocked,
 but profile data remains preserved. No reset/deletion recovery is offered.
+
+The credential invariant is that the app never mints an access/refresh JWT for
+the internal actor. Fresh provisioning occurs before requests are accepted;
+password login, refresh and token creation refuse that actor, and existing owned
+state cannot contain internal API keys. The inspected upstream auth utilities
+delegate WebSocket/SSE/MCP identity to the configured service; service-method
+checks do not establish real transport acceptance. A local OS user directly
+editing the database or signing credentials is outside this convenience-lock
+trust boundary.

@@ -87,3 +87,22 @@ class ProfileBrowserBoundaryTests(unittest.IsolatedAsyncioTestCase):
             )
             self.assertEqual(response.status_code, 403)
             self.assertEqual(response.json(), {"code": "profile_request_refused"})
+
+    async def test_every_upstream_user_mutation_route_is_refused(self):
+        import re
+        from langflow.api.v1.users import router as upstream_users
+
+        exercised = set()
+        for route in upstream_users.routes:
+            path = "/api/v1" + re.sub(r"\{[^}]+\}", "any-id", route.path)
+            for method in route.methods - {"GET", "HEAD", "OPTIONS"}:
+                with self.subTest(path=path, method=method):
+                    response = await self.client.request(
+                        method, path, headers={"Origin": "http://127.0.0.1:17866"}
+                    )
+                    self.assertEqual(response.status_code, 403)
+                    self.assertEqual(
+                        response.json(), {"code": "profile_request_refused"}
+                    )
+                    exercised.add((method, path))
+        self.assertIn(("PATCH", "/api/v1/users/any-id/reset-password"), exercised)
