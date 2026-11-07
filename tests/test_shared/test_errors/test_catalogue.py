@@ -13,6 +13,21 @@ ROOT = repository_root()
 
 
 class NodeErrorCatalogueTests(unittest.TestCase):
+    def test_catalogue_keys_are_unique(self):
+        def unique(pairs):
+            result = {}
+            for key, value in pairs:
+                self.assertNotIn(key, result, f"Duplicate error catalogue key: {key}")
+                result[key] = value
+            return result
+
+        json.loads(
+            (ROOT / "frontend/langflow-skill-viewer/node-error-catalog.json").read_text(
+                encoding="utf-8"
+            ),
+            object_pairs_hook=unique,
+        )
+
     def test_restored_recovery_text_preserves_local_ownership_and_pending_copy(self):
         catalogue = json.loads(
             (ROOT / "frontend/langflow-skill-viewer/node-error-catalog.json").read_text(
