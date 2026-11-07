@@ -17,6 +17,13 @@ codes and safe identities; an acknowledged request is not a completed execution.
 Known embedded source revisions need backed-up migration; unknown consumers are
 not declared compatible merely because this entrypoint exists.
 
+The prior-run compatibility input stays present in server templates so Langflow
+can preserve existing resume/status/cancel connections across loading and template
+refresh. The canvas shows that port only when it has an incoming connection.
+Disconnected nodes have no Prior Run setting or run selector; the adapter refuses
+operations without an actual supplied reference. It does not infer one from
+Activity or silently choose a previous execution.
+
 `errors.py` defines `RunnerResultError`: an invocation failure retaining the safe
 run reference for recovery. The established graph-side error import re-exports
 that same class. The adapter explicitly calls the graph-owned

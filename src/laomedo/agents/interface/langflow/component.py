@@ -324,7 +324,8 @@ class AgentComponent(Component):
         DataInput(
             name="run_reference",
             display_name="Prior Run",
-            show=False,
+            # Langflow drops edges to hidden fields during template refresh.
+            # The canvas renders this compatibility port only when connected.
             info="Run Reference from an earlier execution. Used by resume/status/cancel; fresh/start creates a new execution.",
         ),
         StrInput(

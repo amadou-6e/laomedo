@@ -6,8 +6,10 @@ import { useUpdateNodeInternals } from "@xyflow/react";
 const CONTROLS = new Set([
   "output_retries", "timeout_seconds", "run_timeout_seconds", "runner_url",
 ]);
-export function isAgentControlHidden(data: any, name: string): boolean {
+export function isAgentControlHidden(data: any, name: string, edges: any[] = []): boolean {
   const kind = data.node?.name || data.type;
+  if (name === "run_reference" && edges.some(edge => edge.target === data.id &&
+      edge.data?.targetHandle?.fieldName === name)) return false;
   return ["LaomedoCodexAgent", "LaomedoClaudeAgent", "LaomedoOpenCodeAgent"].includes(kind) &&
     ["request_id", "skill_id", "revision_id", "output_requirements", "output_requirements_json", "run_reference", "run_reference_json", "bridge_url"].includes(name);
 }

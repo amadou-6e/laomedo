@@ -91,6 +91,10 @@ class GraphBuilderTests(unittest.TestCase):
                             sha256(source.encode()).hexdigest()[:12],
                         )
                         self.assertFalse(fields["skill_reference"]["required"])
+                        # Upstream drops connections to show=False inputs when
+                        # loading or refreshing templates. Canvas policy hides
+                        # this compatibility input unless actually connected.
+                        self.assertTrue(fields["run_reference"]["show"])
                     if workflow == "resume":
                         edge = flow["data"]["edges"][0]
                         self.assertEqual(

@@ -27,7 +27,7 @@ const RenderInputParameters = ({
 
   const templateFields = useMemo(() => {
     return Object.keys(data.node?.template || {})
-      .filter((templateField) => !isInternalField(templateField) && !isAgentControlHidden(data, templateField) && !isSkillControlHidden(data, templateField))
+      .filter((templateField) => !isInternalField(templateField) && !isAgentControlHidden(data, templateField, edges) && !isSkillControlHidden(data, templateField))
       .sort((a, b) =>
         sortToolModeFields(
           a,
@@ -37,7 +37,7 @@ const RenderInputParameters = ({
           isToolMode,
         ),
       );
-  }, [data, data.node?.template, data.node?.field_order, isToolMode]);
+  }, [data, data.node?.template, data.node?.field_order, isToolMode, edges]);
 
   const advancedFields = useMemo(() => isSkillNode(data)
     ? advancedSkillFields(data, templateFields, edges, isToolMode)

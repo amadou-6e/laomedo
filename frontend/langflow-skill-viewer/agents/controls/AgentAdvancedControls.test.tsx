@@ -1,6 +1,6 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import AgentAdvancedControls, { advancedAgentFields } from "./AgentAdvancedControls";
+import AgentAdvancedControls, { advancedAgentFields, isAgentControlHidden } from "./AgentAdvancedControls";
 const update = jest.fn();
 jest.mock("@xyflow/react", () => ({ useUpdateNodeInternals: () => update }));
 const field = { show: true, type: "str", advanced: true };
@@ -53,13 +53,15 @@ test("keyboard activation stays on the disclosure instead of canvas shortcuts", 
 // Exercise the actual grouping renderer; only the individual field widgets are
 // replaced here. Real widget/store behavior is checked in the browser.
 import RenderInputParameters from "./index";
-jest.mock("@/stores/flowStore", () => ({ __esModule: true, default: (select: any) => select({ edges: [] }) }));
+let mockEdges: any[] = [];
+beforeEach(() => { mockEdges = []; });
+jest.mock("@/stores/flowStore", () => ({ __esModule: true, default: (select: any) => select({ edges: mockEdges }) }));
 jest.mock("@/CustomNodes/helpers/get-node-input-colors", () => ({ getNodeInputColors: () => [] }));
 jest.mock("@/CustomNodes/helpers/get-node-input-colors-name", () => ({ getNodeInputColorsName: () => [] }));
 jest.mock("@/CustomNodes/helpers/sort-tool-mode-field", () => ({ sortToolModeFields: () => 0 }));
 jest.mock("@/CustomNodes/utils/get-field-title", () => ({ __esModule: true, default: (_: any, name: string) => name }));
 jest.mock("@/utils/reactflowUtils", () => ({ scapedJSONStringfy: JSON.stringify }));
-jest.mock("./utils", () => ({ findPrimaryInput: (fields: string[]) => ({ displayHandleMap: new Map(fields.map(name => [name, name === "skill_reference"])), primaryInputFieldName: "skill_reference" }) }));
+jest.mock("./utils", () => ({ findPrimaryInput: (fields: string[]) => ({ displayHandleMap: new Map(fields.map(name => [name, name === "skill_reference" || name === "run_reference"])), primaryInputFieldName: "skill_reference" }) }));
 jest.mock("../NodeInputField", () => ({ __esModule: true, default: (props: any) => <input aria-label={props.name} data-handle={String(props.displayHandle)} defaultValue={props.data.node.template[props.name].value || ""} /> }));
 test("renderer puts each field in exactly one group and preserves ordinary ports", () => {
  const normal = { ...data, node: { template: { ...data.node.template, model: { ...field, advanced: false }, skill_reference: { ...field, type: "other", advanced: false } } } };
@@ -84,6 +86,29 @@ test("obsolete connection and bridge controls stay hidden in legacy Agent templa
  const legacy = { ...data, node: { template: { ...data.node.template, ...Object.fromEntries(names.map(name => [name, { ...field, advanced: false }])) } } };
  render(<RenderInputParameters data={legacy} types={{}} isToolMode={false} showNode shownOutputs={[]} showHiddenOutputs={false} />);
  for (const name of names) expect(screen.queryByRole("textbox", { name })).toBeNull();
+});
+
+test("only an exact incoming Prior Run connection exposes the compatibility port", () => {
+ const incoming = { target: "agent", data: { targetHandle: { fieldName: "run_reference" } } };
+ for (const type of ["LaomedoCodexAgent", "LaomedoClaudeAgent", "LaomedoOpenCodeAgent"]) {
+  const node = { ...data, type };
+  expect(isAgentControlHidden(node, "run_reference", [])).toBe(true);
+  expect(isAgentControlHidden(node, "run_reference", [incoming])).toBe(false);
+  expect(isAgentControlHidden(node, "run_reference", [{ ...incoming, target: "other" }])).toBe(true);
+  expect(isAgentControlHidden(node, "run_reference", [{ target: "agent", data: { targetHandle: { fieldName: "task" } } }])).toBe(true);
+  expect(isAgentControlHidden(node, "run_reference_json", [incoming])).toBe(true);
+ }
+});
+
+test("renderer keeps a connected Prior Run on the canvas and hides it after disconnect", () => {
+ const node = { ...data, node: { template: { ...data.node.template,
+  run_reference: { show: true, type: "other", advanced: false } } } };
+ mockEdges = [{ target: "agent", data: { targetHandle: { fieldName: "run_reference" } } }];
+ const view = render(<RenderInputParameters data={node} types={{}} isToolMode={false} showNode shownOutputs={[]} showHiddenOutputs={false} />);
+ expect(screen.getByRole("textbox", { name: "run_reference" })).toHaveAttribute("data-handle", "true");
+ mockEdges = [];
+ view.rerender(<RenderInputParameters data={node} types={{}} isToolMode={false} showNode shownOutputs={[]} showHiddenOutputs={false} />);
+ expect(screen.queryByRole("textbox", { name: "run_reference" })).toBeNull();
 });
 
 test("Claude uses the shared collapsed controls and hides legacy internal fields", () => {
