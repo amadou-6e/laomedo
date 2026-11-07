@@ -1,8 +1,13 @@
 """Explicit saved-graph migration controls; never executes the graph."""
 
+import unittest
+from importlib.util import find_spec
+
+if find_spec("lfx") is None:
+    raise unittest.SkipTest("Optional lfx runtime is not installed")
+
 import copy
 import json
-import unittest
 from laomedo.integrations.langflow.pr_context.migration import migrate_pr_graph
 from test_github.test_pull_requests.test_graph import builder
 

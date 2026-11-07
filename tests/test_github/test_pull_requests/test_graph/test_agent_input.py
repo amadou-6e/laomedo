@@ -1,7 +1,12 @@
 """Actual Agent adapter preparation with internal PR snapshots, no runner calls."""
 
-import tempfile
 import unittest
+from importlib.util import find_spec
+
+if find_spec("lfx") is None:
+    raise unittest.SkipTest("Optional lfx runtime is not installed")
+
+import tempfile
 from unittest.mock import patch
 from lfx.schema import Data, Message
 from test_langflow.test_codex_component import component

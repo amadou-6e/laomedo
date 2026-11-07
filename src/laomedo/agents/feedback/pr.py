@@ -120,7 +120,8 @@ def feedback_edge(component):
     if vertex is None:
         return None
     if component.name == "LaomedoGitHubPR" and any(
-        name in vertex.full_data["data"]["node"]["template"] for name in ("operation", "pr_reference")
+        name in vertex.full_data["data"]["node"]["template"]
+        for name in ("operation", "pr_reference")
     ):
         raise ValueError("pr_context_migration_required")
     legacy = [
