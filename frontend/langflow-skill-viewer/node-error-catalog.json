@@ -1828,5 +1828,65 @@
     "title": "The selected pull request could not be loaded",
     "description": "The viewer could not confirm the current pull request content. The cause has not been established.",
     "recovery": "Refresh PR repeats only this read. It does not edit GitHub, run the graph or start an Agent. Check the current selection and local GitHub connection if the read still fails."
+  },
+  "profile_setup_unavailable": {
+    "title": "The local profile setup could not be verified",
+    "description": "The app refused to start or change profile state because its local configuration or stored identity could not be verified. Your existing data has not been reset.",
+    "recovery": "Preserve the runtime folder and check the local startup log. Do not delete profiles or enable automatic login to bypass this check."
+  },
+  "profile_list_unavailable": {
+    "title": "Profiles could not be loaded",
+    "description": "The app could not read the profiles saved in this local setup.",
+    "recovery": "Check that the local app is running, then reload the profile list. Saved profiles have not been deleted."
+  },
+  "profile_name_unavailable": {
+    "title": "Choose another profile name",
+    "description": "This name is already in use or reserved for the app.",
+    "recovery": "Use a different profile name, or go back and select the existing profile."
+  },
+  "profile_input_invalid": {
+    "title": "Check the profile name and PIN",
+    "description": "The profile details are incomplete or do not match the local profile format.",
+    "recovery": "Use a name of up to 40 characters and enter the same six-digit PIN in both fields. Leading zeroes are allowed."
+  },
+  "profile_creation_unconfirmed": {
+    "title": "The profile save could not be confirmed",
+    "description": "The app could not confirm whether the new profile was saved.",
+    "recovery": "Check the profile list before trying to create it again. If the profile is listed, select it and enter its PIN."
+  },
+  "profile_request_refused": {
+    "title": "This profile request was refused",
+    "description": "The request did not match the local profile entry route or tried to change profile details outside the supported controls.",
+    "recovery": "Open the configured local app address and use its profile controls. This release does not support renaming profiles, changing PINs or deleting profiles."
+  },
+  "profile_entry_unconfirmed": {
+    "title": "Profile sign-in could not be confirmed",
+    "description": "The app could not confirm an authenticated session for the selected profile.",
+    "recovery": "Check that the local app is running, then select the profile and enter its PIN again. A saved profile does not need to be created again."
+  },
+  "profile_pin_rejected": {
+    "title": "The profile could not be opened",
+    "description": "The app did not accept this profile and PIN.",
+    "recovery": "Check the selected profile and enter its PIN again. Forgotten-PIN recovery is not available in this release; saved data is preserved."
+  },
+  "profile_rate_limited": {
+    "title": "Wait before trying the PIN again",
+    "description": "The local app temporarily limited sign-in attempts.",
+    "recovery": "Wait for the displayed server-provided delay, if available, before trying again."
+  },
+  "app_signout_unconfirmed": {
+    "title": "Sign-out could not be confirmed",
+    "description": "The app could not confirm sign-out. It has not switched profiles.",
+    "recovery": "Retry sign-out or check the current profile. Your saved profiles and workspace have not been deleted."
+  },
+  "profile_browser_unsupported": {
+    "title": "This browser cannot manage local profiles",
+    "description": "Required local profile coordination features are unavailable in this browser context.",
+    "recovery": "Use a supported local browser setup. Existing profiles and their data have not been deleted."
+  },
+  "profile_pin_invalid": {
+    "title": "Use a six-digit PIN",
+    "description": "This profile uses a PIN of exactly six digits.",
+    "recovery": "Enter all six digits. Leading zeroes are allowed."
   }
 }
