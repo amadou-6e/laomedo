@@ -7,7 +7,8 @@ from urllib import error
 from urllib import parse
 from urllib import request
 import json
-import laomedo.work_graph.runs.errors as _workflow_errors
+from laomedo.work_graph.runs.errors import LaunchError
+from laomedo.http.redirect import NoRedirect
 
 
 class LangflowLocalClient:
@@ -22,28 +23,27 @@ class LangflowLocalClient:
             or parsed.query
             or parsed.fragment
         ):
-            raise _workflow_errors.LaunchError("langflow_loopback_required")
+            raise LaunchError("langflow_loopback_required")
         self.base_url = base_url.rstrip("/")
+        self.opener = request.build_opener(request.ProxyHandler({}), NoRedirect())
         self._token_lock = Lock()
         self._token = self._login()
 
     def _login(self):
         try:
-            with request.urlopen(
+            with self.opener.open(
                 self.base_url + "/api/v1/auto_login", timeout=15
             ) as response:
                 token = json.load(response)["access_token"]
         except (OSError, ValueError, KeyError):
-            raise _workflow_errors.LaunchError(
-                "langflow_local_login_unavailable"
-            ) from None
+            raise LaunchError("langflow_local_login_unavailable") from None
         if not isinstance(token, str) or not token:
-            raise _workflow_errors.LaunchError("langflow_local_login_unavailable")
+            raise LaunchError("langflow_local_login_unavailable")
         return token
 
     def fetch(self, flow_id):
         if not isinstance(flow_id, str) or not flow_id or "/" in flow_id:
-            raise _workflow_errors.LaunchError("saved_flow_identity_unavailable")
+            raise LaunchError("saved_flow_identity_unavailable")
         for attempt in range(2):
             token = self._token
             req = request.Request(
@@ -54,7 +54,7 @@ class LangflowLocalClient:
                 },
             )
             try:
-                with request.urlopen(req, timeout=30) as response:
+                with self.opener.open(req, timeout=30) as response:
                     return json.load(response)
             except error.HTTPError as exc:
                 exc.close()
@@ -65,6 +65,6 @@ class LangflowLocalClient:
                         if self._token == token:
                             self._token = self._login()
                     continue
-                raise _workflow_errors.LaunchError("saved_flow_fetch_failed") from None
+                raise LaunchError("saved_flow_fetch_failed") from None
             except (OSError, ValueError):
-                raise _workflow_errors.LaunchError("saved_flow_fetch_failed") from None
+                raise LaunchError("saved_flow_fetch_failed") from None

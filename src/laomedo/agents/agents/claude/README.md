@@ -1,8 +1,8 @@
 # Claude Agent
 
 `ClaudeAgent` is the provider-qualified concrete Agent. It inherits the [abstract lifecycle](../base/README.md).
-The implementation is in `agent.py`; folder and object renaming do not
-remove its whole-pipeline overrides.
+`agent.py` owns Claude preparation, execution and finalization alongside the
+inherited lifecycle hooks.
 
 A container opens and closes per turn. Output correction resumes the native session in a new turn scope with correction tools disabled.
 
@@ -32,3 +32,19 @@ report unsupported capabilities and preserve unknown usage or partial evidence.
 Successful execution, capture completeness and cleanup confirmation remain
 separate facts. Existing stable error codes and persisted records do not change
 with the Python object name.
+
+## Workspace command boundary
+
+`CommandService` in `container.py` owns admitted local commands and host-mediated
+operations. Its methods keep execution, mediation and cleanup distinct:
+
+| Method | Contract |
+| --- | --- |
+| `execute(value)` | Run an admitted workspace command under the turn's policy and deadline. |
+| `mediate(value)` | Forward one scoped operation directly to the host mediator, bypassing proxies and refusing redirects. |
+| `close()` | Stop owned command jobs and confirm their journal cleanup before releasing the workspace. |
+
+An authoritative HTTP refusal remains a refusal. Redirects, server failures and
+transport interruptions leave mediation unconfirmed and stop further commands;
+the service never resends an operation. This transport policy does not establish
+end-to-end native GitHub mediation readiness.

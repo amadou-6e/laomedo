@@ -1,7 +1,7 @@
 """Local socket controls for bridge credentials; not provider acceptance."""
 
-import json
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import ThreadingHTTPServer
+from contextlib import ExitStack
 from pathlib import Path
 import tempfile
 import unittest
@@ -11,41 +11,24 @@ from uuid import uuid4
 
 from laomedo.agents.interface.bridge import HttpAgentBridge
 from laomedo.integrations.langflow.join.transport import RunnerHTTPTransport
-from support.http_server import RunningHTTPServer
-
-
-class BridgeRequestHandler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        self.server.requests.append((self.command, self.path))
-        if self.server.redirect:
-            self.send_response(302)
-            self.send_header("Location", self.server.redirect)
-            self.end_headers()
-            return
-        self.send_response(200)
-        self.send_header("Content-Type", "application/json")
-        self.end_headers()
-        self.wfile.write(json.dumps(self.server.payload).encode())
-
-    do_POST = do_GET
-
-    def log_message(self, *_):
-        pass
+from support.http_server import RecordingJSONHandler, RunningHTTPServer
 
 
 class BridgeTransportTests(unittest.TestCase):
     def setUp(self):
         private = tempfile.TemporaryDirectory()
         self.addCleanup(private.cleanup)
+        self.servers = ExitStack()
+        self.addCleanup(self.servers.close)
         self.token = Path(private.name) / "token"
         self.token.write_text("a" * 64, encoding="utf-8")
 
     def server(self):
-        server = ThreadingHTTPServer(("127.0.0.1", 0), BridgeRequestHandler)
+        server = ThreadingHTTPServer(("127.0.0.1", 0), RecordingJSONHandler)
         server.requests = []
         server.redirect = None
         server.payload = {"run_id": str(uuid4()), "status": "completed"}
-        return self.enterContext(RunningHTTPServer(server))
+        return self.servers.enter_context(RunningHTTPServer(server))
 
     def bridge(self, server):
         return HttpAgentBridge(

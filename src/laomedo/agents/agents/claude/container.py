@@ -403,7 +403,8 @@ class CommandService:
 
     def mediate(self, value):
         from urllib.request import Request
-        from urllib.request import urlopen
+        from urllib.request import ProxyHandler, build_opener
+        from laomedo.http.redirect import NoRedirect
         from urllib.error import HTTPError
 
         if self.mediation is None or self.closed or self.cancelled.is_set():
@@ -427,15 +428,20 @@ class CommandService:
             },
         )
         try:
-            with urlopen(request, timeout=20) as response:
+            with build_opener(ProxyHandler({}), NoRedirect()).open(
+                request, timeout=20
+            ) as response:
                 return json.load(response)
-        except HTTPError:
-            # A known refusal is terminal for this request and contains no raw response.
-            return {"error": "mediation_request_refused"}
+        except HTTPError as exc:
+            if exc.code in {400, 401, 403, 404, 409, 422}:
+                # An authoritative refusal contains no raw response. A redirect
+                # or server failure does not establish whether an effect ran.
+                return {"error": "mediation_request_refused"}
         except Exception:
-            self.record["mediation_outcome"] = "unknown"
-            self.cancelled.set()
-            raise RunnerError("claude_mediation_outcome_unknown") from None
+            pass
+        self.record["mediation_outcome"] = "unknown"
+        self.cancelled.set()
+        raise RunnerError("claude_mediation_outcome_unknown") from None
 
     def close(self):
         """Cancel the owned job and await its journal cleanup before freezing files."""

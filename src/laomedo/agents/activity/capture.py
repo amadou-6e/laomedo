@@ -6,6 +6,7 @@ from pathlib import Path
 from urllib.request import ProxyHandler
 from urllib.request import Request
 from urllib.request import build_opener
+from laomedo.http.redirect import NoRedirect
 from uuid import UUID
 import json
 from laomedo.agents.activity.utils import capture_for
@@ -25,7 +26,7 @@ class ActivityCapture:
         self.component = component
         self.base = str(component.runner_url).rstrip("/")
         self.timeout = max(30, int(component.timeout_seconds) + 30)
-        self.opener = build_opener(ProxyHandler({}))
+        self.opener = build_opener(ProxyHandler({}), NoRedirect())
         if self.capture:
             try:
                 path = component._runner_token_file_path()

@@ -8,7 +8,8 @@ from laomedo.skills.registry.hashing import tree_hash
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from urllib.request import urlopen
+from urllib.request import ProxyHandler, build_opener
+from laomedo.http.redirect import NoRedirect
 from uuid import uuid4
 import hashlib
 import json
@@ -717,7 +718,9 @@ class BaseAgent(ABC):
                 or not re.fullmatch(r"[0-9a-f]{32}", instance)
             ):
                 raise ValueError("invalid_mediator_status")
-            with urlopen(f"http://127.0.0.1:{port}/v1/health", timeout=2) as response:
+            with build_opener(ProxyHandler({}), NoRedirect()).open(
+                f"http://127.0.0.1:{port}/v1/health", timeout=2
+            ) as response:
                 health = json.load(response)
             if health != {"status": "ready", "instance": instance}:
                 raise ValueError("mediator_instance_mismatch")

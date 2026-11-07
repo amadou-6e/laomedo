@@ -8,6 +8,7 @@ from urllib.error import URLError
 from urllib.request import ProxyHandler
 from urllib.request import Request
 from urllib.request import build_opener
+from laomedo.http.redirect import NoRedirect
 import json
 from laomedo._paths import import_root
 from laomedo.host.runner.prerequisites import check_docker
@@ -30,7 +31,7 @@ class RunnerService:
         self.startup_id = None
         self.startup_gate_path = None
         self.cancel_requested = False
-        self.opener = build_opener(ProxyHandler({}))
+        self.opener = build_opener(ProxyHandler({}), NoRedirect())
         self.docker_lock = threading.Lock()
         self.docker_checked_at = None
         self.docker_reason = None
