@@ -176,8 +176,8 @@ class SettingsContractTests(unittest.TestCase):
             "skills/sources/repository.py": "os.environ.items()",
             "agents/agents/codex/agent.py": "ConnectionSettings.environment_snapshot(None)",
             "host/publication/cli.py": "key in os.environ",
-            "github/issues/cli.py": "os.environ.get(args.github_token_env)",
-            "github/pull_requests/cli.py": "os.environ.get(args.github_token_env)",
+            "github/interface/issues/cli.py": "os.environ.get(args.github_token_env)",
+            "github/interface/pull_requests/cli.py": "os.environ.get(args.github_token_env)",
             "agents/interface/bridge.py": '"LAOMEDO_" + provider.upper()',
         }
         for relative, expression in protected.items():

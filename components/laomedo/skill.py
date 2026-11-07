@@ -21,9 +21,7 @@ from laomedo.integrations.langflow.feedback.pr import agent_operation
 
 class LaomedoSkill(Component):
     display_name = "Laomedo Skill"
-    description = (
-        "Read an immutable skill or propose a traceable, atomic multi-file revision."
-    )
+    description = "Use and edit versioned skill files."
     icon = "BookOpen"
     name = "LaomedoSkill"
     inputs = [
@@ -33,7 +31,7 @@ class LaomedoSkill(Component):
             value="",
             real_time_refresh=True,
             track_in_telemetry=False,
-            info="Repository URL or allowed local folder. Leave empty for an existing pinned registry reference.",
+            info="Public HTTPS GitHub/GitLab repository URL, or a local folder allowed by the host source service. Leave empty to use a saved registry reference.",
         ),
         DropdownInput(
             name="skill_id",
@@ -49,22 +47,24 @@ class LaomedoSkill(Component):
             name="revision_id",
             display_name="Revision",
             required=True,
+            advanced=True,
             options=[],
             combobox=True,
             real_time_refresh=True,
             refresh_button=True,
-            info="Type in the dropdown to filter discovered revisions.",
+            info="The exact file version to use. Choose a discovered revision; refreshing never selects a newer version.",
         ),
         StrInput(
             name="discovery_status",
             display_name="Discovery",
-            value="Supply a source to discover skills.",
+            value="Set Source to browse skills, or use a saved reference.",
+            info="Scans Source and lists available skills and revisions. Reads and imports files; never runs a Skill or changes the selected revision.",
         ),
         DataInput(
             name="operation",
             display_name="Operation",
             input_types=["Data", "Message"],
-            info="Modify several files atomically; creates a reviewed proposal, never promotes automatically. Accepts ordinary or Agent feedback input.",
+            info="Receive file changes from another node. Creates one revision for the batch; publish it in Skill files when ready.",
         ),
         StrInput(
             name="commit_id",
@@ -77,7 +77,8 @@ class LaomedoSkill(Component):
             name="edit_request",
             display_name="Edit Request",
             value="",
-            info="What the connected Agent should change in the selected skill.",
+            show=False,
+            info="Legacy saved feedback request. New edits use Operation or the Skill files editor.",
         ),
         StrInput(
             name="resolved_skill_id",
@@ -133,20 +134,33 @@ class LaomedoSkill(Component):
         self._skill_apply_started = False
         self._skill_base_reference = None
 
+    def _legacy_edit_request(self):
+        """Read saved compatibility data that Langflow omits from hidden inputs."""
+        vertex = getattr(self, "_vertex", None)
+        if vertex is not None:
+            value = (
+                vertex.full_data["data"]["node"]["template"]
+                .get("edit_request", {})
+                .get("value", "")
+            )
+        else:
+            value = getattr(self, "edit_request", "")
+        return value if isinstance(value, str) else ""
+
     async def _operate(self):
         reference = self.skill_output().data
-        self._skill_base_reference = reference
         feedback = feedback_edge(self)
         operation = getattr(self, "operation", None)
         if feedback is None and operation in (None, ""):
             return {"status": "not_requested", "skill": reference}
         if feedback is not None:
+            edit_request = self._legacy_edit_request()
             raw = (
                 self._vertex.full_data["data"]["node"]["template"]
                 .get("operation", {})
                 .get("value")
             )
-            if raw or not str(getattr(self, "edit_request", "")).strip():
+            if raw or not edit_request.strip():
                 raise ValueError("skill_feedback_request_required")
             source = self.graph.get_vertex(feedback.source_id)
             if (
@@ -158,6 +172,7 @@ class LaomedoSkill(Component):
             # feedback_edge already validates the Task and independent read-only
             # Skill references; those references must reach the isolated Agent.
 
+        self._skill_base_reference = reference
         prepared = await asyncio.to_thread(
             skill_request,
             "prepare",
@@ -178,7 +193,7 @@ class LaomedoSkill(Component):
                     + prepared.get("authoring_instructions", "")
                     + "\n</skill-authoring>\n"
                     "Edit request: "
-                    + str(self.edit_request)
+                    + edit_request
                     + "\n"
                     + json.dumps(
                         {"snapshot": prepared["snapshot"], "policy": prepared["policy"]}
@@ -313,9 +328,12 @@ class LaomedoSkill(Component):
         if not source:
             for key in ("skill_id", "revision_id"):
                 build_config[key]["combobox"] = True
-            build_config["discovery_status"][
-                "value"
-            ] = "Supply a source to discover skills."
+            build_config["discovery_status"]["value"] = (
+                "Using saved revision. Set Source to browse skills."
+                if build_config["skill_id"].get("value")
+                and build_config["revision_id"].get("value")
+                else "Set Source to browse skills, or use a saved reference."
+            )
             return build_config
         for item in self.inputs:
             if item.name in {"skill_id", "revision_id"}:
@@ -343,7 +361,7 @@ class LaomedoSkill(Component):
             build_config["skill_id"]["options"] = choices
             if not skill:
                 build_config["discovery_status"]["value"] = (
-                    f"{len(choices)} skills discovered."
+                    f"{len(choices)} skill{'s' if len(choices) != 1 else ''} found. Choose a Skill."
                     if choices
                     else "No skills found in this source."
                 )
@@ -370,9 +388,15 @@ class LaomedoSkill(Component):
                 build_config["resolved_selection"]["value"] = json.dumps(
                     [source, skill, revision]
                 )
-            build_config["discovery_status"][
-                "value"
-            ] = f"{len(options)} revisions discovered."
+            build_config["discovery_status"]["value"] = (
+                f"Revision selected. {len(options)} revision{'s' if len(options) != 1 else ''} available."
+                if revision
+                else (
+                    "Choose Revision in Advanced settings."
+                    if options
+                    else "No revisions found for this Skill."
+                )
+            )
         except ValueError:
             build_config["discovery_status"][
                 "value"

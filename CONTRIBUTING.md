@@ -37,6 +37,13 @@ projection controls run in the concern-owned production test suite; CI does not
 execute the historical EXP-05 or EXP-09 prototypes. Their presence is not permission to
 add new experiments to production.
 
+GitHub's earlier Issue/PR examples and EXP32/44/45/108 are preserved with exact
+source revision and SHA256 provenance at `exp` revision `714db418`, under
+`archives/github-244`. Current GitHub entrypoints live in `examples/github`;
+production regressions live in `tests/test_github` and host mediation tests.
+Prototype account OAuth and IF12 Issue-publication controls remain historical,
+not a claim that those proposed features are implemented.
+
 ## Test ownership and shared setup
 
 Group tests by concern, such as `tests/test_shared/test_git` and `tests/test_skills/test_operations`.

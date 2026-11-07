@@ -2,6 +2,8 @@
 
 `test_service.py` protects the real registry/service boundary: atomic multi-file
 edits, conflicts, authorization, immutable history, comparisons and HTTP admission.
+`test_import_history.py` protects imports before any edit, concurrent reads,
+restart stability, first-edit ancestry, legacy migration and unchanged old hashes.
 `test_graph.py` protects scheduling and error propagation with internal stubs;
 it does not establish real-agent or browser acceptance.
 

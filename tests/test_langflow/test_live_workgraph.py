@@ -12,7 +12,7 @@ import unittest
 from unittest.mock import patch
 
 from lfx.graph.graph.base import Graph
-from laomedo.github.issues.utils import fetch_context
+from laomedo.github.issues.context_reader import fetch_context
 from experiments.exp139.run_flow import outcomes
 
 ROOT = Path(__file__).resolve().parents[2]

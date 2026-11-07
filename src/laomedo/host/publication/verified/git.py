@@ -5,6 +5,7 @@ Nothing here reads an agent checkout, provider credential, or remote."""
 
 from __future__ import annotations
 
+from laomedo.github.workflows.utils import touches_workflows
 from pathlib import Path
 from laomedo.git.command import GitCommandRunner
 from laomedo.git.models import GitExecutionContext
@@ -47,4 +48,4 @@ class VerifiedGitStage:
                 raise VerifiedGitStageError("stage_diff_invalid")
         except (OSError, subprocess.TimeoutExpired) as error:
             raise VerifiedGitStageError("stage_git_unavailable") from error
-        return any(path.startswith(b".github/workflows/") for path in paths if path)
+        return touches_workflows(paths)

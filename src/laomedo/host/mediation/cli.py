@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from laomedo.github.transport.mediated import GitHubMediatedTransport
 from pathlib import Path
 import argparse
 import json
@@ -99,7 +100,7 @@ def main() -> None:
         ),
         connection_is_current=connection.current,
     )
-    transport = _git_transport.GitHubMediatedTransport(git_transport, rest_transport)
+    transport = GitHubMediatedTransport(git_transport, rest_transport)
     service = _mediation_service.MediationHTTPService(
         store,
         _mediation_service.JournaledTransport(

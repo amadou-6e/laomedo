@@ -39,7 +39,7 @@ repo = Path(os.environ["LAOMEDO_GUIDE_REPO"])
 state = Path(os.environ["LAOMEDO_GUIDE_STATE"])
 store = SkillStore(state / "registry")
 for skill_id, source in [
-    ("pr-feedback-title", repo / "examples/github-pr/original-agent/title-skill"),
+    ("pr-feedback-title", repo / "examples/github/title-skill"),
     ("skill-operation-editor", repo / "examples/skills/editor-skill"),
 ]:
     revision = store.import_skill(skill_id, source)
@@ -106,9 +106,9 @@ $env:LAOMEDO_SKILL_OPERATION_TOKEN_FILE = "$runtimeRoot/runner/api-token"
 
 1. Create a flow and add a **Laomedo Skill** node, named **Skill to edit**.
 2. Set Source to the full path of `$runtimeRoot/registry` and refresh discovery.
-3. Choose `pr-feedback-title`, then choose the exact imported revision printed
+3. Choose `pr-feedback-title`, expand **Advanced settings**, then choose the exact imported revision printed
    in step 1. Do not assume a revision labelled latest is the one you reviewed.
-4. Open **Skill files** and read `SKILL.md`. File browsing is read-only.
+4. Open **Skill files** and read `SKILL.md`. Browsing does not execute the graph. With local edit permission, text is editable and Publish/Discard appear after changes.
 
 ![Actual Skill file viewer](assets/skill-files.png)
 
@@ -119,14 +119,19 @@ that connection limitation; the picture is not a fresh test of these steps.*
 The selected skill instructs a proposal-only PR title change. Merely selecting
 or inspecting it neither starts an Agent nor changes GitHub.
 
-## 4. Request a two-file improvement
+## 4. Existing feedback graph compatibility
 
-Add a **Laomedo Claude Agent**, configure its host Runner URL/model/effort as in
-the Agent walkthrough, and leave Operation on Fresh. Add another Skill node named
-**Editor instructions**, selecting the imported `skill-operation-editor` revision.
-Leave that editor Skill's Edit Request and Operation empty.
+For new edits, supply file changes through **Operation**, or use the
+[manual editor and Publish](manual-workspace.md). Source configuration and the
+compact node controls are explained in [Configure a source](sources.md).
 
-Wire the named ports:
+The following section documents already-saved feedback graphs. Their hidden
+saved request is retained for compatibility; there is no Edit Request control in
+the node or settings, and a new feedback connection without a saved request
+refuses before dispatch. It is not the setup path for new edits.
+
+An existing graph has a configured Claude Agent and an independent read-only
+**Editor instructions** Skill. Its named ports are:
 
 ```text
 Skill to edit.Task ----------> Claude Agent.Task
@@ -138,7 +143,7 @@ The editor Skill is an independent, read-only instruction dependency. Do not wir
 the editing controller's own Skill Reference to the Agent in this feedback graph;
 the controller supplies its target snapshot through the task already.
 
-On **Skill to edit**, enter this Edit Request:
+An example request retained in such a saved graph is:
 
 ```text
 Preserve the existing title instruction and frontmatter. Append a reference to
@@ -147,7 +152,7 @@ Agent proposes only a title update, the host applies it after authorization,
 and selecting this skill alone does not update GitHub. Change only those two files.
 ```
 
-Base Commit is in the Skill node's advanced settings. For the first imported
+Base Commit is in the Skill node's Advanced settings. For the first imported
 revision leave it empty. Run the **Skill to edit**
 controller once. It reserves the edit, invokes the existing Agent, validates the
 returned files and records a candidate. Do not separately run the Agent and then

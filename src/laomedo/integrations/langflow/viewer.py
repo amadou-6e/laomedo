@@ -11,6 +11,9 @@ from laomedo.integrations.langflow.settings import Settings
 
 
 def install_routes(app, root: Path, authenticate):
+    from laomedo.integrations.langflow.skill_editing import install_skill_editing_routes
+
+    install_skill_editing_routes(app, authenticate)
     from laomedo.agents.activity.routes import install_activity_routes
 
     install_activity_routes(app, authenticate)
@@ -99,6 +102,7 @@ def install_routes(app, root: Path, authenticate):
                 skill_id,
                 revision_id,
                 include_images=True,
+                include_binary=True,
             )
         except InspectionError as exc:
             code = str(exc)
@@ -117,14 +121,15 @@ def install_routes(app, root: Path, authenticate):
         "/api/v1/laomedo/github-issues/inspect", dependencies=[Depends(authenticate)]
     )
     async def read_issue(payload: dict):
-        import laomedo.github.issues.client as _issues_client
-        import laomedo.github.issues.contract as _issues_contract
+        from laomedo.github.interface.issues.client import issue_request
+        from laomedo.github.contract import repository_from_url, labels_value
+        from laomedo.github.issues.contract import ERROR_CODES as ISSUE_ERROR_CODES
 
         try:
             if set(payload) != {"repository_url", "issue_number", "labels", "state"}:
                 raise ValueError("invalid_request")
-            _issues_contract.repository_from_url(payload["repository_url"])
-            _issues_contract.labels_value(payload["labels"])
+            repository_from_url(payload["repository_url"])
+            labels_value(payload["labels"])
             if (
                 type(payload["issue_number"]) is not int
                 or not 0 < payload["issue_number"] <= 2**53 - 1
@@ -132,7 +137,7 @@ def install_routes(app, root: Path, authenticate):
             ):
                 raise ValueError("selected_issue_invalid")
             result = await run_in_threadpool(
-                _issues_client.issue_request, "execute", **payload, operation=None
+                issue_request, "execute", **payload, operation=None
             )
             issue = result.get("issue")
             if not issue or result["operation"]["status"] != "not_requested":
@@ -140,7 +145,7 @@ def install_routes(app, root: Path, authenticate):
         except Exception as exc:
             code = (
                 str(exc)
-                if str(exc) in _issues_contract.ERROR_CODES
+                if str(exc) in ISSUE_ERROR_CODES
                 else "github_issue_unavailable"
             )
             raise HTTPException(status_code=400, detail={"code": code}) from None
@@ -157,15 +162,16 @@ def install_routes(app, root: Path, authenticate):
         "/api/v1/laomedo/github-prs/inspect", dependencies=[Depends(authenticate)]
     )
     async def read_pr(payload: dict):
-        import laomedo.github.pull_requests.client as _pull_requests_client
-        import laomedo.github.issues.contract as _issues_contract
-        import laomedo.github.pull_requests.contract as _pull_requests_contract
+        from laomedo.github.interface.pull_requests.client import pr_request
+        from laomedo.github.contract import repository_from_url, labels_value
+        from laomedo.github.issues.contract import ERROR_CODES as ISSUE_ERROR_CODES
+        from laomedo.github.pull_requests.contract import ERROR_CODES as PR_ERROR_CODES
 
         try:
             if set(payload) != {"repository_url", "pr_number", "labels", "state"}:
                 raise ValueError("invalid_request")
-            _issues_contract.repository_from_url(payload["repository_url"])
-            _issues_contract.labels_value(payload["labels"])
+            repository_from_url(payload["repository_url"])
+            labels_value(payload["labels"])
             if (
                 type(payload["pr_number"]) is not int
                 or not 0 < payload["pr_number"] <= 2**53 - 1
@@ -173,17 +179,13 @@ def install_routes(app, root: Path, authenticate):
             ):
                 raise ValueError("selected_pr_invalid")
             result = await run_in_threadpool(
-                _pull_requests_client.pr_request, "execute", **payload, operation=None
+                pr_request, "execute", **payload, operation=None
             )
             pr = result.get("pr")
             if not pr or result["operation"]["status"] != "not_requested":
                 raise ValueError("github_pr_unavailable")
         except Exception as exc:
-            code = (
-                str(exc)
-                if str(exc) in _pull_requests_contract.ERROR_CODES
-                else "github_pr_unavailable"
-            )
+            code = str(exc) if str(exc) in PR_ERROR_CODES else "github_pr_unavailable"
             raise HTTPException(status_code=400, detail={"code": code}) from None
         return JSONResponse(
             {

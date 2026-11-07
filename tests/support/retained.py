@@ -102,7 +102,7 @@ def load_retained_shared(name):
                 for item in node.names:
                     target = (
                         module_paths.get(item.name, item.name)
-                        if item.name.startswith("laomedo.skills.")
+                        if item.name.startswith(("laomedo.skills.", "laomedo.github."))
                         else item.name
                     )
                     statements.append(

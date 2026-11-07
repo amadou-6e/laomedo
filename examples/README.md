@@ -1,22 +1,15 @@
-# Examples
+# Maintained examples
 
-Start with [Skills](skills/README.md) for selecting and inspecting immutable
-instructions and building an atomic-edit graph with the existing Agent.
-The [Skill walkthrough](../docs/features/skills/walkthrough.md) gives complete
-local service setup and describes the optional real execution.
+Use the smallest entrypoint for the supported concern:
 
-The maintained Skill entrypoint contains one builder and its real editor skill.
-Historical executed exports and campaign variants are preserved on `exp`, with
-original revisions and byte provenance; they are not current setup instructions.
+- [Skills](skills/README.md): source discovery, pinned inspection and versioned operations.
+- [GitHub](github/README.md): selected Issue/PR inspection and PR feedback through a real Agent.
+- [Agents](agents/README.md): fresh/resume graphs for each provider and explicit provenance handoffs where supported.
 
-The [Agent builder](agents/README.md) exports current fresh/resume graphs for all
-three providers and provenance handoffs where the component exposes that input.
-Its structural checks do not establish live execution acceptance. Historical provider campaigns and execution evidence are preserved on `exp`.
-Saved graph compatibility assets belong to concern-owned tests rather than
-additional setup entrypoints.
-
-Other folders own GitHub graph workflows.
-`skill-agent-pilot` retains the historical Agent runner prototype and its Agent
-test assets. `skill-files-viewer` and `skill-summary` retain the files and evidence
-of their named campaigns; the Skill walkthrough documents current setup and
-behavior. The maintained Skill builder does not import these campaign scripts.
+`graph.py` constructs native node metadata and connections without dispatching work.
+Exporting or validating a graph does not establish real provider execution.
+Use real references and the prerequisites in each guide; no login material belongs
+in an exported graph. Historical campaigns and executed exports are preserved on
+`exp` with exact revisions and hashes, rather than additional setup entrypoints.
+Saved compatibility inputs belong to concern-owned tests. Remaining Shared/GitHub
+campaign consumers retain their separately documented migration boundaries.

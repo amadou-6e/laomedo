@@ -767,7 +767,7 @@
   "invalid_skill_id": {
     "title": "A connected skill has an invalid identifier",
     "description": "A supplied skill identifier does not match the supported registry format.",
-    "recovery": "Select the skill through a Skill node, or disconnect the optional Skill Reference."
+    "recovery": "Select a valid skill through the Skill node. Close the file viewer to change the selection."
   },
   "skill_git_exclusion_changed": {
     "title": "The protected skill Git exclusions changed",
@@ -1442,12 +1442,12 @@
   "discovered_revision_required": {
     "title": "Choose a discovered Skill revision",
     "description": "This source selection does not identify one of its discovered immutable revisions.",
-    "recovery": "Choose the Skill and its revision from the current source before running."
+    "recovery": "Choose Skill, then open Advanced settings and select Revision from the current source before running."
   },
   "immutable_skill_revision_required": {
     "title": "Choose an immutable Skill revision",
     "description": "The Skill needs an exact content-addressed revision before it can be read or edited.",
-    "recovery": "Select a discovered revision, or enter the exact registry revision when Source is empty."
+    "recovery": "Open Advanced settings and select Revision. When Source is empty, enter the exact saved registry revision there."
   },
   "skill_agent_provenance_required": {
     "title": "The Agent run reference is missing",
@@ -1460,9 +1460,9 @@
     "recovery": "Use the supported Codex Agent, connect Skill Task to Agent Task, and return Agent Answer to this Skill Operation."
   },
   "skill_feedback_request_required": {
-    "title": "Describe the requested Skill edits",
-    "description": "This Skill feedback loop has no edit request for the Agent to carry out.",
-    "recovery": "Fill in the Skill node Edit Request before running the graph."
+    "title": "Supply a Skill operation",
+    "description": "New edits belong in Operation or the Skill files editor. No editing Agent was started.",
+    "recovery": "Remove the Skill Task-to-Agent Task feedback loop and supply file changes from an upstream node to Operation. For manual changes, open Skill files, edit the files and Publish."
   },
   "source_reference_invalid": {
     "title": "The source reference does not match",
@@ -1773,5 +1773,350 @@
     "title": "The copied workspace already contains Git metadata",
     "description": "Baseline initialization found an existing .git path and refused to replace it.",
     "recovery": "Check the configured workspace mode and source. Use Git workspace mode for a supported full repository."
+  },
+  "source_discovery_failed": {
+    "title": "The Skill source could not be loaded",
+    "description": "The application could not load skills or revisions from Source. The cause has not been confirmed. No Agent was started.",
+    "recovery": "Check that the repository is public, or use a local checkout allowed by the host source service. Check the source service connection, then refresh the Skill list."
+  },
+  "skill_manual_not_authorized": {
+    "title": "Manual changes are not enabled",
+    "description": "This Skill does not currently have the local permission required for this action.",
+    "recovery": "Your working text is preserved. Check the local Skill edit and publication permissions. After restoring permission, use Retry edit controls or reopen the viewer."
+  },
+  "skill_manual_stale": {
+    "title": "The Skill changed while you were reviewing it",
+    "description": "The selected commit or registry current revision no longer matches this request. Nothing was silently rebased.",
+    "recovery": "Your working copy is preserved. Use Discard and confirm Discard changes to reload saved files, or close and reopen if there are no changes. If the registry was published outside this history, this candidate cannot overwrite it. Keep the edited files separately and contact the application maintainer; automatic history reconciliation is not supported."
+  },
+  "skill_manual_invalid": {
+    "title": "The Skill change could not be accepted",
+    "description": "The manual request is malformed or does not describe a valid Skill bundle.",
+    "recovery": "Check the commit message, file paths, size limits and required SKILL.md content. Your working copy remains available."
+  },
+  "skill_manual_request_conflict": {
+    "title": "This save identity already belongs to another change",
+    "description": "The retained save request has different content from this attempt. It cannot be reused to replace the earlier change.",
+    "recovery": "Check the existing commit history before making a new save. Your working text has been preserved."
+  },
+  "skill_manual_policy_denied": {
+    "title": "The change does not meet the Skill editing rules",
+    "description": "At least one file or required Skill field failed the configured editing policy. The batch was not accepted.",
+    "recovery": "Keep your working copy and correct the changed files or required description, then choose Publish again."
+  },
+  "skill_manual_unavailable": {
+    "title": "The Skill change is not yet confirmed",
+    "description": "The application could not confirm the local Skill service response. A save or publication may already have completed.",
+    "recovery": "Use Check result to reconcile the same request. Do not create another save or publish against a different base until its result is known."
+  },
+  "skill_manual_nothing_to_publish": {
+    "title": "This revision is already current",
+    "description": "The candidate has the same contents as registry current.",
+    "recovery": "No publication is needed. Use Discard to clear the working state; saved history is retained."
+  },
+  "skill_manual_save_expired": {
+    "title": "The save window expired",
+    "description": "This save was not applied before its short-lived edit permission expired. Your working text is still available.",
+    "recovery": "Your edits are retained. Inspect the current commit history, then choose Publish again. Use Discard only after copying text you want to keep."
+  },
+  "skill_manual_controls_unavailable": {
+    "title": "Skill edit controls are unavailable",
+    "description": "The application could not load the current editing permissions and revision bindings. No edit was requested.",
+    "recovery": "Use Retry edit controls to reconnect. You can continue inspecting the selected files."
+  },
+  "skill_manual_comparison_unavailable": {
+    "title": "The publication comparison is unavailable",
+    "description": "The exact registry current revision could not be loaded for review. Nothing was published.",
+    "recovery": "Use Retry comparison in the bottom publication bar. Publish stays disabled until the exact registry comparison is available."
+  },
+  "skill_manual_file_invalid": {
+    "title": "This file action is not allowed",
+    "description": "The name or destination is unsafe, the required SKILL.md would be removed, or a directory was selected for import. No part of the file action was applied.",
+    "recovery": "Use a portable file name inside the Skill. Keep SKILL.md at the root and select individual files rather than directories."
+  },
+  "skill_manual_file_conflict": {
+    "title": "A file or folder already uses that path",
+    "description": "The destination conflicts with an existing working file, folder or case variant. Nothing was overwritten.",
+    "recovery": "Choose a different name or destination, or explicitly delete the conflicting working entry first. Existing edits are preserved."
+  },
+  "skill_manual_file_limit": {
+    "title": "These files exceed the editing limits",
+    "description": "The file count, individual size, total bundle or encoded request is too large. The file action was refused as a whole.",
+    "recovery": "Choose fewer or smaller files. Limits are 128 files, 512 KiB per file and 4 MiB per bundle; base64 and JSON reduce what fits in one 4 MiB request. Existing working changes remain available."
+  },
+  "skill_manual_file_read_failed": {
+    "title": "The local files could not be imported",
+    "description": "The browser could not read every selected file. No partial import was applied.",
+    "recovery": "Select accessible local files again. Your existing working copy is unchanged."
+  },
+  "skill_manual_clipboard_unavailable": {
+    "title": "The relative path could not be copied",
+    "description": "The browser did not permit automatic clipboard access. Your files are unchanged.",
+    "recovery": "Dismiss this message, select the Relative path field in the explorer and copy it manually, or allow browser clipboard access and choose Copy relative path again."
+  },
+  "skill_name_invalid": {
+    "title": "The skill name is invalid",
+    "description": "The skill's declared name cannot be used as a registry identity.",
+    "recovery": "Use the supported lowercase letters, digits, hyphens and underscores in the skill name."
+  },
+  "skill_operation_refused": {
+    "title": "The skill operation was refused",
+    "description": "The local service could not accept this Skill operation; private parser and authorization details were withheld.",
+    "recovery": "Inspect the selected revision and proposed edits. For a newer history head, use its Base Commit in Advanced settings. Confirm the existing operation outcome before submitting another change."
+  },
+  "skill_operation_service_not_configured": {
+    "title": "The skill operation service is not configured",
+    "description": "The local operation service address or requested action is invalid.",
+    "recovery": "Check the configured local Skill operation service before using editing or history actions."
+  },
+  "skill_operation_unavailable": {
+    "title": "The skill operation result is unavailable",
+    "description": "The application could not confirm a usable response from the local Skill operation service.",
+    "recovery": "Check local service availability and inspect the existing revision/history before submitting another edit."
+  },
+  "skill_revision_unavailable": {
+    "title": "The selected skill revision is unavailable",
+    "description": "The registry could not provide a verified bundle for this exact revision. Its files may be absent or may not match the saved record.",
+    "recovery": "Close the file viewer and select an available revision in the Skill node. Keep the original reference if reporting the missing revision."
+  },
+  "skill_revision_unsafe": {
+    "title": "The skill revision cannot be safely displayed",
+    "description": "The file viewer refused linked or unsupported files in the selected bundle.",
+    "recovery": "Close the file viewer and select a verified revision. The viewer cannot repair this immutable bundle; do not bypass its file checks."
+  },
+  "skill_revision_too_large": {
+    "title": "The skill revision exceeds the viewer limits",
+    "description": "The selected bundle exceeds the file size, total size, count or nesting limits for inspection.",
+    "recovery": "Close the file viewer and select a smaller registered revision. Reloading this immutable bundle does not reduce its size."
+  },
+  "skill_inspection_unavailable": {
+    "title": "Skill files could not be loaded",
+    "description": "The file viewer did not receive a confirmed snapshot. The reason has not been established.",
+    "recovery": "Reload files repeats only the read of this selection. It does not edit the skill, rerun the graph or start an agent. You can also close the viewer."
+  },
+  "skill_history_unavailable": {
+    "title": "Skill history could not be loaded",
+    "description": "The viewer did not receive confirmed history for this selection. The reason has not been established; current files remain available.",
+    "recovery": "Reload history repeats only the history read. It does not submit an edit, rerun the graph or start an agent. You can continue viewing current files."
+  },
+  "skill_comparison_unavailable": {
+    "title": "The skill comparison could not be loaded",
+    "description": "The viewer could not confirm the selected revision comparison. The reason has not been established.",
+    "recovery": "Select Current source to return to the current files, or choose another revision in the history. Viewing a comparison does not edit the skill or run the graph."
+  },
+  "skill_summary_source_unavailable": {
+    "title": "The skill description source is unavailable",
+    "description": "The preparation step could not read SKILL.md as text, so it could not prepare description-authoring instructions.",
+    "recovery": "Select a registered revision with a readable text SKILL.md and inspect it before preparing an edit. This preparation failure does not publish a revision."
+  },
+  "skill_operation_invalid": {
+    "title": "The proposed skill edit is invalid",
+    "description": "The proposal did not meet the required modify action, explanation or file-edit format and limits. It was refused before application.",
+    "recovery": "Correct the proposed action, message and file edits before submitting again. Inspect existing history before repeating an earlier request whose outcome is uncertain."
+  },
+  "skill_editor_invalid": {
+    "title": "The skill edit attribution is invalid",
+    "description": "The host-supplied editing identity did not meet the supported provenance format or field limits.",
+    "recovery": "Keep the existing revision and report the safe technical details to the application maintainer. Do not invent attribution fields in the proposed edit."
+  },
+  "repository_url_invalid": {
+    "title": "The GitHub repository URL is invalid",
+    "description": "The node needs a GitHub repository URL in the form https://github.com/owner/repository.",
+    "recovery": "Correct Repository URL on the node, then refresh discovery."
+  },
+  "repository_connection_unavailable": {
+    "title": "This repository has no host connection",
+    "description": "The local GitHub service has no configured connection for the selected repository.",
+    "recovery": "Configure the host GitHub connection for this repository before refreshing discovery. Never paste a token into the graph."
+  },
+  "labels_invalid": {
+    "title": "The selected labels are invalid",
+    "description": "Labels must be distinct, nonempty names within the supported limits.",
+    "recovery": "Refresh Labels and select the desired names from the list."
+  },
+  "selected_label_unavailable": {
+    "title": "A selected label is no longer available",
+    "description": "The repository does not currently advertise every selected label.",
+    "recovery": "Refresh Labels and remove or replace unavailable selections."
+  },
+  "github_discovery_incomplete": {
+    "title": "The complete GitHub selection could not be loaded",
+    "description": "Discovery reached its response, page or time limit and cannot safely present a complete list.",
+    "recovery": "Narrow the label or state filters and refresh discovery."
+  },
+  "github_http_401": {
+    "title": "GitHub did not accept the connection",
+    "description": "GitHub rejected authentication for this request.",
+    "recovery": "Check the host GitHub connection and its login. Keep credentials out of the graph."
+  },
+  "github_http_403": {
+    "title": "GitHub refused this request",
+    "description": "The request was forbidden; this response alone does not establish which permission or service restriction caused it.",
+    "recovery": "Check repository access and the host connection permissions. For an operation, inspect the existing result before submitting a new request."
+  },
+  "github_http_404": {
+    "title": "The GitHub resource is unavailable",
+    "description": "GitHub could not find the resource or did not allow this connection to see it.",
+    "recovery": "Check the selected repository and resource in GitHub, and confirm the host connection has access."
+  },
+  "github_http_410": {
+    "title": "The GitHub resource is no longer available",
+    "description": "GitHub reports that the requested resource is gone.",
+    "recovery": "Refresh discovery and select an available resource."
+  },
+  "pr_agent_cancelled": {
+    "title": "The PR proposal was cancelled",
+    "description": "The Agent proposal stopped before a host update was dispatched.",
+    "recovery": "Check the existing Agent run and Operation Result before deciding whether to start a new operation."
+  },
+  "pr_changed_since_agent_read": {
+    "title": "The PR changed while the Agent was working",
+    "description": "The current PR no longer matches the snapshot used for the proposal, so the host refused that update.",
+    "recovery": "Read the current PR and review the proposed change before requesting a new operation."
+  },
+  "pr_feedback_not_configured": {
+    "title": "PR feedback is not configured",
+    "description": "The host has no feedback grant bound to this selected PR.",
+    "recovery": "Configure a host-owned grant for this repository, PR and permitted operation before running the feedback graph."
+  },
+  "pr_feedback_ticket_invalid": {
+    "title": "This PR feedback reservation is unavailable",
+    "description": "The host could not use the supplied reservation; it may be missing, expired or already bound to another operation.",
+    "recovery": "Preserve the existing run and operation result. Check its outcome before preparing another operation."
+  },
+  "github_issue_unavailable": {
+    "title": "The GitHub Issue request could not be completed",
+    "description": "The local service could not obtain a usable result. This message does not establish the remote outcome.",
+    "recovery": "Check the host GitHub service and existing Operation Result. For an attempted update, inspect the remote resource before submitting another operation."
+  },
+  "issue_service_not_configured": {
+    "title": "The local GitHub Issue service is not configured",
+    "description": "The application is missing the private service address or authentication configuration.",
+    "recovery": "Configure the local GitHub service and application connection, then refresh discovery. Keep service tokens outside the graph."
+  },
+  "issue_grant_unavailable": {
+    "title": "This Issue operation is not authorized",
+    "description": "The host could not authenticate a grant bound to this repository and run.",
+    "recovery": "Check the host grant and its repository, run and selected-resource scope. Selecting a resource does not authorize an update."
+  },
+  "issue_operation_conflict": {
+    "title": "This Issue operation conflicts with an earlier request",
+    "description": "The operation identity is already bound to different input or authority. It cannot be reused for this request.",
+    "recovery": "Preserve the existing operation record and inspect its outcome before creating a separately authorized operation."
+  },
+  "issue_operation_invalid": {
+    "title": "The Issue operation payload is invalid",
+    "description": "The incoming operation does not match the supported close or modify format.",
+    "recovery": "Use the documented Operation format. Agent feedback supplies content only; the host supplies identity and authorization."
+  },
+  "issue_patch_invalid": {
+    "title": "The requested Issue changes are invalid",
+    "description": "The proposed fields or values do not match the supported update format.",
+    "recovery": "Review the proposed title, body and labels against the operation contract. Closing uses the supported close operation."
+  },
+  "issue_reference_mismatch": {
+    "title": "The Issue reference does not match this selection",
+    "description": "The connected reference disagrees with the selected repository or resource.",
+    "recovery": "Select the matching repository and resource, or reconnect the intended reference."
+  },
+  "issue_response_invalid": {
+    "title": "The GitHub Issue response could not be verified",
+    "description": "The response did not contain a valid record for the selected resource.",
+    "recovery": "Check the resource in GitHub and the host service. For an attempted update, inspect the existing remote outcome before another operation."
+  },
+  "issue_state_invalid": {
+    "title": "The Issue state filter is invalid",
+    "description": "The saved state value is not one of the supported filters.",
+    "recovery": "Choose Open, Closed or All in the node’s State control and refresh discovery."
+  },
+  "issue_write_unknown": {
+    "title": "The Issue update outcome is not confirmed",
+    "description": "The update may have reached GitHub, but the application could not confirm its final result.",
+    "recovery": "Keep the existing run and operation record. Read the selected resource in GitHub before authorizing another operation; do not blindly rerun the graph."
+  },
+  "selected_issue_invalid": {
+    "title": "The selected Issue is invalid",
+    "description": "The node could not resolve a valid resource number from the current selection.",
+    "recovery": "Refresh discovery and select an existing resource."
+  },
+  "selected_issue_required": {
+    "title": "Select a GitHub Issue",
+    "description": "No existing resource is selected or supplied through a matching reference.",
+    "recovery": "Refresh discovery and choose a resource, or connect its matching reference before running the node."
+  },
+  "selected_issue_no_longer_matches": {
+    "title": "The selected Issue no longer matches",
+    "description": "The resource no longer satisfies the selected labels or state filter.",
+    "recovery": "Refresh discovery and review the filters and current selection. The node will not silently choose another resource."
+  },
+  "github_pr_unavailable": {
+    "title": "The GitHub PR request could not be completed",
+    "description": "The local service could not obtain a usable result. This message does not establish the remote outcome.",
+    "recovery": "Check the host GitHub service and existing Operation Result. For an attempted update, inspect the remote resource before submitting another operation."
+  },
+  "pr_service_not_configured": {
+    "title": "The local GitHub PR service is not configured",
+    "description": "The application is missing the private service address or authentication configuration.",
+    "recovery": "Configure the local GitHub service and application connection, then refresh discovery. Keep service tokens outside the graph."
+  },
+  "pr_grant_unavailable": {
+    "title": "This PR operation is not authorized",
+    "description": "The host could not authenticate a grant bound to this repository and run.",
+    "recovery": "Check the host grant and its repository, run and selected-resource scope. Selecting a resource does not authorize an update."
+  },
+  "pr_operation_conflict": {
+    "title": "This PR operation conflicts with an earlier request",
+    "description": "The operation identity is already bound to different input or authority. It cannot be reused for this request.",
+    "recovery": "Preserve the existing operation record and inspect its outcome before creating a separately authorized operation."
+  },
+  "pr_patch_invalid": {
+    "title": "The requested PR changes are invalid",
+    "description": "The proposed fields or values do not match the supported update format.",
+    "recovery": "Review the proposed title, body and labels against the operation contract. Closing uses the supported close operation."
+  },
+  "pr_reference_mismatch": {
+    "title": "The PR reference does not match this selection",
+    "description": "The connected reference disagrees with the selected repository or resource.",
+    "recovery": "Select the matching repository and resource, or reconnect the intended reference."
+  },
+  "pr_response_invalid": {
+    "title": "The GitHub PR response could not be verified",
+    "description": "The response did not contain a valid record for the selected resource.",
+    "recovery": "Check the resource in GitHub and the host service. For an attempted update, inspect the existing remote outcome before another operation."
+  },
+  "pr_state_invalid": {
+    "title": "The PR state filter is invalid",
+    "description": "The saved state value is not one of the supported filters.",
+    "recovery": "Choose Open, Closed or All in the node’s State control and refresh discovery."
+  },
+  "pr_write_unknown": {
+    "title": "The PR update outcome is not confirmed",
+    "description": "The update may have reached GitHub, but the application could not confirm its final result.",
+    "recovery": "Keep the existing run and operation record. Read the selected resource in GitHub before authorizing another operation; do not blindly rerun the graph."
+  },
+  "selected_pr_invalid": {
+    "title": "The selected PR is invalid",
+    "description": "The node could not resolve a valid resource number from the current selection.",
+    "recovery": "Refresh discovery and select an existing resource."
+  },
+  "selected_pr_required": {
+    "title": "Select a GitHub PR",
+    "description": "No existing resource is selected or supplied through a matching reference.",
+    "recovery": "Refresh discovery and choose a resource, or connect its matching reference before running the node."
+  },
+  "selected_pr_no_longer_matches": {
+    "title": "The selected PR no longer matches",
+    "description": "The resource no longer satisfies the selected labels or state filter.",
+    "recovery": "Refresh discovery and review the filters and current selection. The node will not silently choose another resource."
+  },
+  "github_issue_inspection_unavailable": {
+    "title": "The selected issue could not be loaded",
+    "description": "The viewer could not confirm the current issue content. The cause has not been established.",
+    "recovery": "Refresh issue repeats only this read. It does not edit GitHub, run the graph or start an Agent. Check the current selection and local GitHub connection if the read still fails."
+  },
+  "github_pr_inspection_unavailable": {
+    "title": "The selected pull request could not be loaded",
+    "description": "The viewer could not confirm the current pull request content. The cause has not been established.",
+    "recovery": "Refresh PR repeats only this read. It does not edit GitHub, run the graph or start an Agent. Check the current selection and local GitHub connection if the read still fails."
   }
 }

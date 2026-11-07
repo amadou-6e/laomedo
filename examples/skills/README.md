@@ -1,5 +1,12 @@
 # Skills
 
+For new edits use the Skill node's Operation input or the
+[manual editor and Publish](../../docs/features/skills/manual-workspace.md).
+Revision and Base Commit are under Advanced settings; Edit Request is no longer
+a node control. The builder below preserves the legacy saved-feedback export
+format, including its hidden request, for existing integrations. It is not a new
+on-node authoring workflow. No fresh model run is claimed for this control change.
+
 Select and inspect an immutable Skill, then build one graph where the existing
 Agent proposes an atomic multi-file edit. The host validates the proposal and
 records a candidate revision with parent history and per-file comparisons.

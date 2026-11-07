@@ -10,8 +10,9 @@ export type ErrorContext = {
 };
 export type NodeFailure = Description & { diagnostics: Record<string, string> };
 const entries: Record<string, Description> = catalog;
+const credentialPrefix = /^(?:sk_|gh[pousr]_|github_pat_)/i;
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const operations = new Set(["fresh", "start", "resume", "status", "cancel", "modify", "close"]);
+const operations = new Set(["fresh", "start", "resume", "status", "cancel", "modify", "close", "save", "publish"]);
 const fallback: Description = {
   title: "The node could not confirm completion",
   description: "An unrecognized failure prevented a confirmed result. Its cause has not been established.",
@@ -22,6 +23,7 @@ const fallback: Description = {
 function safeCode(value: unknown): string | undefined {
   if (typeof value !== "string") return;
   if (Object.prototype.hasOwnProperty.call(entries, value)) return value;
+  if (credentialPrefix.test(value)) return;
   if (/^[a-z][a-z0-9]*(?:_[a-z0-9]+){1,15}$/.test(value) && value.length <= 80 &&
       !/(?:secret|password|credential|bearer|token|api_key)/.test(value)) return value;
 }
@@ -37,8 +39,26 @@ function codeFromMessage(raw: unknown): string | undefined {
 }
 
 function structuredFailure(value: unknown, depth = 0): Record<string, unknown> | undefined {
-  if (!value || typeof value !== "object" || depth > 5 || Array.isArray(value)) return;
+  if (depth > 5) return;
+  // Feedback Task outputs serialize the same GitHub operation envelope as JSON.
+  // Admit only its versioned schema; ordinary text and embedded PR bodies are data.
+  // The 256 KiB body contract can expand sixfold under JSON ASCII escaping.
+  if (typeof value === "string" && value.length <= 2 * 1024 * 1024 && value.trimStart().startsWith("{")) {
+    try {
+      const parsed = JSON.parse(value);
+      if (parsed?.schema_version === "laomedo.github-pr.v1" || parsed?.schema_version === "laomedo.github-issue.v1") value = parsed;
+    } catch { /* An ordinary message is not a structured failure. */ }
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) return;
   const item = value as Record<string, unknown>;
+  if (item.schema_version === "laomedo.github-pr.v1" || item.schema_version === "laomedo.github-issue.v1") {
+    const operation = item.operation;
+    if (operation && typeof operation === "object" && !Array.isArray(operation)) {
+      const result = operation as Record<string, unknown>;
+      if (["failed", "unknown"].includes(String(result.status)) && typeof result.error_category === "string") return result;
+    }
+    return;
+  }
   if (typeof item.error_category === "string" && item.status !== "completed") return item;
   if (["failed", "unknown", "timeout", "interrupted"].includes(String(item.status)) &&
       typeof item.run_id === "string" && uuid.test(item.run_id)) return item;
@@ -90,7 +110,7 @@ export function describeNodeFailure(raw: unknown, status: any, context: ErrorCon
   const code = safeCode(reference?.error_category) ?? codeFromMessage(raw) ?? "unrecognized_error";
   const diagnostics: Record<string, string> = { code };
   if (typeof context.nodeId === "string" && /^[a-z][a-z0-9_-]{0,127}$/i.test(context.nodeId) &&
-      !/^(sk_|gh[pousr]_)/i.test(context.nodeId)) diagnostics.node_id = context.nodeId;
+      !credentialPrefix.test(context.nodeId)) diagnostics.node_id = context.nodeId;
   if (typeof context.operation === "string" && operations.has(context.operation)) diagnostics.operation = context.operation;
   if (typeof status?.run_id === "string" && uuid.test(status.run_id)) diagnostics.graph_execution_id = status.run_id;
   for (const key of ["run_id", "request_id", "thread_id", "invocation_id"]) {
