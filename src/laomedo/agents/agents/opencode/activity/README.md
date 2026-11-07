@@ -12,6 +12,11 @@ canonical records; it must not reproduce these native parsers.
 `OpenCodeTokenUsage` in `models.py` groups the five already validated native
 counters. `to_activity_usage()` derives the shared `TokenUsage` object; its
 `to_payload()` preserves the six existing normalized fields and arithmetic.
+`from_native()` validates the closed set of required counters; `plus()` adds
+disjoint message counters; `to_native_payload()` preserves the runner's native
+wire shape. Root run usage sums every completed assistant step in the current
+attempt, excluding the Resume baseline. Child and inclusive totals remain in
+Activity. Any missing or invalid step makes the root attempt total unknown.
 The projection retains native admission and incomplete-usage handling. These
 objects introduce no new model, price, version or provider capability assumptions.
 

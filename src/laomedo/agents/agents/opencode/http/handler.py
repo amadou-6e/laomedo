@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from http.server import BaseHTTPRequestHandler
 import json
+import secrets
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -26,9 +27,9 @@ class BrokerRequestHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         """Authenticate and handle the existing request protocol, preserving wire errors."""
-        if (
-            self.path != "/mcp"
-            or self.headers.get("Authorization") != "Bearer " + self.server.broker.token
+        if self.path != "/mcp" or not secrets.compare_digest(
+            self.headers.get("Authorization", "").encode("utf-8"),
+            ("Bearer " + self.server.broker.token).encode("utf-8"),
         ):
             self.send_error(403)
             return

@@ -5,6 +5,7 @@ import re
 from datetime import datetime, timezone
 
 from pydantic import BaseModel, ConfigDict, Field
+from laomedo.agents.agents.opencode.activity.models import OpenCodeTokenUsage
 
 
 class HistorySource(BaseModel):
@@ -165,7 +166,9 @@ class NativeHistory(BaseModel):
         )
         if message is not None:
             terminal = message["info"]
-            fields.update(native_turn_id=terminal["id"], usage=terminal.get("tokens"))
+            fields.update(
+                native_turn_id=terminal["id"], usage=self.attempt_usage(baseline)
+            )
             fields["answer"] = (
                 "\n".join(
                     part["text"]
@@ -181,6 +184,22 @@ class NativeHistory(BaseModel):
                     terminal["providerID"] + "/" + terminal["modelID"]
                 )
         return fields
+
+    def attempt_usage(self, baseline: "NativeHistory | None") -> dict | None:
+        """Sum this root attempt's completed steps; children have separate totals."""
+        total = None
+        for message in self.attempt_messages(self.root_id, baseline):
+            info = message["info"]
+            if info.get("role") != "assistant":
+                continue
+            if info.get("error") or not info.get("time", {}).get("completed"):
+                return None
+            try:
+                usage = OpenCodeTokenUsage.from_native(info.get("tokens"))
+            except ValueError:
+                return None
+            total = usage if total is None else total.plus(usage)
+        return total.to_native_payload() if total is not None else None
 
     def attempt_sessions(self, baseline: "NativeHistory | None") -> set[str]:
         """Exclude unchanged historical children while retaining observed ancestry."""

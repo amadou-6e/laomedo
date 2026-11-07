@@ -20,6 +20,11 @@ class CommandRequestHandler(BaseHTTPRequestHandler):
         """Suppress default HTTP logging without emitting capability-bearing requests."""
         pass
 
+    def setup(self):
+        """Bound abandoned local command uploads like the other provider handlers."""
+        super().setup()
+        self.connection.settimeout(5)
+
     def do_POST(self):
         """Authenticate and handle the existing request protocol, preserving wire errors."""
         if self.path != "/command" or not secrets.compare_digest(

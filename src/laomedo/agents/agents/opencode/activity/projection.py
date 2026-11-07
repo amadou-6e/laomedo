@@ -63,10 +63,22 @@ def project(events, *, root_thread=None, model=None):
         if not changed:
             break
     messages = {}
+    uncorrelated = set()
     checkpoints = []
     for native, received in native_events:
         method = native.get("method")
         params = _object(native.get("params"))
+        session = (
+            _object(params.get("attributes")).get("conversation.id")
+            if method == "otel/record"
+            else (
+                params.get("sessionID")
+                if method in {"opencode/event", "opencode/messageSnapshot"}
+                else None
+            )
+        )
+        if isinstance(session, str) and session and session not in parents:
+            uncorrelated.add(session)
         if method == "opencode/exportStarted":
             exports_started.add(params.get("snapshot_sha256"))
         if method == "opencode/exportCompleted":
@@ -130,6 +142,9 @@ def project(events, *, root_thread=None, model=None):
             if not isinstance(message, dict):
                 continue
             info = _object(message.get("info"))
+            session = info.get("sessionID")
+            if isinstance(session, str) and session and session not in parents:
+                uncorrelated.add(session)
             if info.get("sessionID") == params["sessionID"] and isinstance(
                 info.get("id"), str
             ):
@@ -262,34 +277,14 @@ def project(events, *, root_thread=None, model=None):
                 thread_totals.setdefault(thread, []).append(None)
                 turn_totals.setdefault((thread, turn_id), []).append(None)
                 continue
-            tokens = info.get("tokens")
-            cache = _object(tokens.get("cache")) if isinstance(tokens, dict) else {}
-            values = (
-                [tokens.get(key) for key in ("input", "output", "reasoning")]
-                if isinstance(tokens, dict)
-                else []
-            )
-            values.extend(cache.get(key) for key in ("read", "write"))
-            if len(values) != 5 or any(
-                type(value) is not int or value < 0 for value in values
-            ):
+            try:
+                native_usage = OpenCodeTokenUsage.from_native(info.get("tokens"))
+            except ValueError:
                 totals.append(None)
                 thread_totals.setdefault(thread, []).append(None)
                 turn_totals.setdefault((thread, turn_id), []).append(None)
                 continue
-            fresh, output, reasoning, read, write = values
-            # OpenCode stores non-cached input and non-reasoning output separately.
-            usage = (
-                OpenCodeTokenUsage(
-                    non_cached_input=fresh,
-                    non_reasoning_output=output,
-                    reasoning=reasoning,
-                    cache_read=read,
-                    cache_write=write,
-                )
-                .to_activity_usage()
-                .to_payload()
-            )
+            usage = native_usage.to_activity_usage().to_payload()
             totals.append(usage)
             thread_totals.setdefault(thread, []).append(usage)
             turn_totals.setdefault((thread, turn_id), []).append(usage)
@@ -407,7 +402,7 @@ def project(events, *, root_thread=None, model=None):
             if telemetry
             else "not observed; historical/native OpenCode HTTP message snapshots may have no telemetry"
         ),
-        uncorrelated_thread_count=0,
+        uncorrelated_thread_count=len(uncorrelated),
         clock="native message timestamps; runner receipt fallback",
         cost=cost,
         cost_reason=cost.get("reason") or cost["basis"],

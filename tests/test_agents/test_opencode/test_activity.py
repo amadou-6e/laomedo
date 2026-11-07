@@ -299,6 +299,24 @@ class OpenCodeActivityTests(unittest.TestCase):
         self.assertIsNone(value["usage"])
         self.assertEqual(len(value["items"]), 1)
         self.assertNotIn("Unrelated", str(value))
+        self.assertEqual(value["uncorrelated_thread_count"], 1)
+
+    def test_unknown_native_and_telemetry_sessions_are_counted_once(self):
+        records = [
+            {
+                "received_at": "2026-10-19T10:00:00+00:00",
+                "raw": {"method": method, "params": params},
+            }
+            for method, params in (
+                ("opencode/event", {"sessionID": "ses_other", "event": {}}),
+                ("otel/record", {"attributes": {"conversation.id": "ses_other"}}),
+                ("otel/record", {"attributes": {"conversation.id": "ses_third"}}),
+            )
+        ]
+        value = project(records, root_thread="ses_root")
+        self.assertEqual(value["uncorrelated_thread_count"], 2)
+        self.assertEqual(value["items"], [])
+        self.assertEqual(value["telemetry"], [])
 
     def test_command_tool_is_readable_and_preserves_native_metadata(self):
         answer = message("answer", "assistant", "Done", parentID="user")

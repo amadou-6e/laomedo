@@ -200,6 +200,48 @@ class OpenCodeHistoryTests(unittest.TestCase):
         self.assertEqual(fields["native_turn_id"], "final")
         self.assertEqual(fields["tools"][0]["tool"], "skill")
         self.assertEqual(fields["tools"][0]["output"], "native skill content")
+        self.assertEqual(
+            fields["usage"],
+            {
+                "input": 4,
+                "output": 6,
+                "reasoning": 2,
+                "cache": {"read": 10, "write": 14},
+            },
+        )
+        baseline = NativeHistory(root_id="ses_root", sessions={"ses_root": first})
+        self.assertEqual(
+            history.record_fields(baseline)["usage"],
+            last.messages[-1]["info"]["tokens"],
+        )
+
+    def test_attempt_usage_stays_unknown_if_any_assistant_step_is_incomplete(self):
+        for invalid in ("missing", "boolean", "error", "unfinished"):
+            with self.subTest(invalid=invalid):
+                first = self.exported(message="first")
+                last = self.exported(message="last")
+                info = first.messages[0]["info"]
+                if invalid == "missing":
+                    info.pop("tokens")
+                elif invalid == "boolean":
+                    info["tokens"]["input"] = True
+                elif invalid == "error":
+                    info["error"] = {"name": "aborted"}
+                else:
+                    info["time"].pop("completed")
+                last.messages.insert(0, first.messages[0])
+                history = NativeHistory(root_id="ses_root", sessions={"ses_root": last})
+                self.assertIsNone(history.record_fields(None)["usage"])
+
+    def test_attempt_usage_preserves_observed_native_total_without_inventing_one(self):
+        first, last = self.exported(message="first"), self.exported(message="last")
+        for export in (first, last):
+            export.messages[0]["info"]["tokens"]["total"] = 18
+        last.messages.insert(0, first.messages[0])
+        history = NativeHistory(root_id="ses_root", sessions={"ses_root": last})
+        self.assertEqual(history.record_fields(None)["usage"]["total"], 36)
+        first.messages[0]["info"]["tokens"].pop("total")
+        self.assertNotIn("total", history.record_fields(None)["usage"])
 
     def test_unchanged_previous_child_is_excluded_from_resume_scope(self):
         old = self.exported(message="old")

@@ -427,6 +427,14 @@ class BoundaryTests(unittest.TestCase):
             with self.assertRaises(error.HTTPError) as failure:
                 request.urlopen(request.Request(url, data=payload))
             self.assertEqual(failure.exception.code, 403)
+            for invalid in ("Bearer wrong", "Bearer \u00e9"):
+                with self.assertRaises(error.HTTPError) as denied:
+                    request.urlopen(
+                        request.Request(
+                            url, data=payload, headers={"Authorization": invalid}
+                        )
+                    )
+                self.assertEqual(denied.exception.code, 403)
             headers = {
                 "Authorization": "Bearer " + broker.token,
                 "Content-Type": "application/json",
