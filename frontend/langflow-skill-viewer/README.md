@@ -9,6 +9,13 @@ installer binds them to upstream entry points. Discover the owned packages here:
 - [Agent controls](agents/controls/README.md)
 - [Upstream integration patches](integration/README.md)
 
+Shared error cards use `PopupFrame` for a viewport-bound stack and keep actions
+separate from explanatory text. A real modal owns its own cards and hides the
+background stack; a nonmodal Popper tooltip does not hide recovery controls.
+Confirmed backend reconnection turns its connection bar green without rerunning
+the graph or confirming the previous task. A model-list error stays red until
+model discovery actually succeeds.
+
 ## Skill workspace controls
 
 The viewer opens exact immutable revisions. Maximize/restore are icon buttons with

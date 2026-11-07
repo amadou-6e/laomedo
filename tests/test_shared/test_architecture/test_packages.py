@@ -61,6 +61,16 @@ class PackageLayoutTests(unittest.TestCase):
         for canonical in mapping.values():
             with self.subTest(module=canonical):
                 try:
+                    if canonical.startswith(
+                        (
+                            "laomedo.integrations.langflow.",
+                            "laomedo.agents.interface.langflow.",
+                        )
+                    ):
+                        # Bootstrap the installed compatibility shim before its
+                        # LFX plugins, as the real app and graph CLI do. Core
+                        # modules do not acquire a framework dependency.
+                        importlib.import_module("langflow")
                     module = importlib.import_module(canonical)
                 except ModuleNotFoundError as error:
                     if (error.name or "").split(".")[0] in {
