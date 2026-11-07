@@ -35,7 +35,12 @@ class ProfileCatalogueTests(unittest.TestCase):
                     }:
                         codes.add(node.value)
         for path in (repo / "frontend/langflow-skill-viewer/profiles").glob("*.ts*"):
-            codes.update(re.findall(r'["\'](profile_[a-z_]+)["\']', path.read_text(encoding="utf-8-sig")))
+            codes.update(
+                re.findall(
+                    r'["\']((?:profile_[a-z_]+)|app_signout_unconfirmed)["\']',
+                    path.read_text(encoding="utf-8-sig"),
+                )
+            )
         self.assertIn("profile_creation_unconfirmed", codes)
         for code in codes:
             with self.subTest(code=code):

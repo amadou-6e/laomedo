@@ -2,7 +2,12 @@
 
 from types import SimpleNamespace
 import unittest
+from importlib.util import find_spec
+
 from unittest.mock import AsyncMock
+
+if find_spec("langflow") is None:
+    raise unittest.SkipTest("Optional Langflow runtime is not installed")
 
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient

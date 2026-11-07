@@ -7,7 +7,12 @@ import sqlite3
 import tempfile
 from types import SimpleNamespace
 import unittest
+from importlib.util import find_spec
+
 from unittest.mock import Mock, patch
+
+if find_spec("langflow") is None:
+    raise unittest.SkipTest("Optional Langflow runtime is not installed")
 
 from laomedo.integrations.langflow.local_profiles.admission import (
     ProfileRuntimeAdmission,

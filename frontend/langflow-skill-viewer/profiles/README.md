@@ -1,0 +1,16 @@
+﻿# Local profile entry
+
+`ProfileEntryGate` selects the profile UI only when the backend explicitly enables
+it. The existing login/signup remain available unchanged in ordinary previews.
+`ProfileEntry` owns picker, creation, PIN entry and uncertain-result states from
+the canonical local-profiles Draw.io. `api.ts` calls existing upstream login and
+checks the authenticated identity before handing control to AuthContext. It does
+not store PINs, mint tokens or introduce another authentication protocol.
+
+Failures use the shared catalogue and ErrorExplanation. Unknown save outcomes
+require checking the list; they never automatically retry creation. A forgotten
+PIN blocks that profile; the first release has no PIN recovery or deletion.
+Private-session revocation remains a dependency on #259 before private access.
+
+The overlay is source code, not evidence that the real user stories work. Build,
+unit checks, real browser paths and final owner inspection remain separate gates.

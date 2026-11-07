@@ -119,11 +119,11 @@ from laomedo.integrations.langflow.local_profiles.settings import LocalProfileSe
 from laomedo.integrations.langflow.local_profiles.runtime import LocalProfileRuntime
 from laomedo.integrations.langflow.viewer import create_app
 app = create_app(profile_runtime=LocalProfileRuntime(LocalProfileSettings().runtime_root))
-uvicorn.run(app, host='127.0.0.1', port=int(os.environ['LAOMEDO_LOCAL_PROFILE_PORT']), access_log=False)
+uvicorn.run(app, host='127.0.0.1', port=int(os.environ['LAOMEDO_LOCAL_PROFILE_PORT']), access_log=False, workers=1)
 "@
         }
         $bootstrap | & $pythonPath -
-    if ($LASTEXITCODE -ne 0) { throw 'Upstream normal-login command failed. No success is claimed.' }
+    if ($LASTEXITCODE -ne 0) { throw 'Local-profile startup failed. No success is claimed.' }
 } finally {
     Set-Location -LiteralPath $originalLocation.Path
     foreach ($name in $config.Keys) { [Environment]::SetEnvironmentVariable($name, $null, 'Process') }

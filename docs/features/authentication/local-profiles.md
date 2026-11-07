@@ -111,3 +111,19 @@ fell back to direct writes; this unrelated warning is not resolved here.
 
 The owner explicitly deferred forgotten-PIN recovery: entry to that profile is
 blocked while data is preserved. LP-R8 is resolved as an accepted constraint.
+
+## Review and frontend checkpoint
+
+Claude approved the backend packet at `ad30ec7`, after fixing the previously
+missed nested reset-password route. The regression enumerates all upstream user
+mutation routes. The inherited auth utility source trace resolved LP-I2. This is
+a backend-only verdict, not approval of the UI or release.
+
+The profile React overlay now includes entry, registration, PIN confirmation,
+uncertain-save reconciliation and profile switching. It has not passed live
+browser stories or visual implementation review. The first Vite production
+build passed (4m41s). Whole-upstream TypeScript checking reported 652 diagnostic
+lines outside the profile/menu/route files; a clean-baseline comparison has not
+been made, so this is a failed check, not a passed type check. A final synchronized
+build is pending. Browser-control inventory currently reports its host unavailable.
+No account or PIN was created on behalf of the owner.

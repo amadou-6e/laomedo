@@ -1873,5 +1873,10 @@
     "title": "Wait before trying the PIN again",
     "description": "The local app temporarily limited sign-in attempts.",
     "recovery": "Wait for the displayed server-provided delay, if available, before trying again."
+  },
+  "app_signout_unconfirmed": {
+    "title": "Sign-out could not be confirmed",
+    "description": "The app could not confirm sign-out. It has not switched profiles.",
+    "recovery": "Retry sign-out or check the current profile. Your saved profiles and workspace have not been deleted."
   }
 }

@@ -1,9 +1,14 @@
 """Internal auth-adapter regressions; no browser/profile acceptance claim."""
 
 import unittest
+from importlib.util import find_spec
+
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 from uuid import uuid4
+
+if find_spec("langflow") is None:
+    raise unittest.SkipTest("Optional Langflow runtime is not installed")
 
 from fastapi import HTTPException
 from langflow.services.auth.exceptions import (
