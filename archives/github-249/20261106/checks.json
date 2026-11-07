@@ -1,0 +1,20 @@
+{
+  "frontend-jest.json": {
+    "numPassedTests": 572,
+    "numFailedTests": 0,
+    "numPassedTestSuites": 23,
+    "numFailedTestSuites": 0,
+    "success": true
+  },
+  "catalogue-fix-jest.json": {
+    "numPassedTests": 407,
+    "numFailedTests": 0,
+    "numPassedTestSuites": 2,
+    "numFailedTestSuites": 0,
+    "success": true
+  },
+  "current_head": "daf0ebd0f82611fe60722a7bfa2aa2d1b9f4f977",
+  "tested_runtime_head": "d6721aa1885c2b3f80710fc7834901451fc3ad03",
+  "final_change": "Documentation-only nonblocking reviewer corrections; runtime/frontend unchanged.",
+  "ci": "Exact previous runtime head1119tests failed the unchanged test_container_lease.test_delayed_container_creation_is_removed, observed late_owned versus removed_after_loss; same failure after one rerun. Current documentation head CI pending. No runtime change or CI bypass."
+}

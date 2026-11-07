@@ -1,0 +1,11 @@
+{
+  "head": "d6721aa1885c2b3f80710fc7834901451fc3ad03",
+  "wheel_sha256": "ce18c11ac83d3db489c384286c97ee853f4baa2aed72070f0cb43c6f5e5a97b2",
+  "package_files": 289,
+  "all_package_bytes_match_source": true,
+  "isolated_imports": {
+    "imports": 8,
+    "wheel_only": true
+  },
+  "scope": "Built wheel, extracted distribution outside checkout, isolated installed-path imports; not real provider or operation acceptance"
+}

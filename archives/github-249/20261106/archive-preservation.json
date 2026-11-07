@@ -1,0 +1,299 @@
+{
+  "source_revision": "20df788fe776fc0bc0d7576a5f0774880aa9e89d",
+  "entries": [
+    {
+      "path": "examples/github-issue/DEPLOYMENT.md",
+      "sha256_match": true,
+      "byte_count_match": true,
+      "original_git_blob_match": true
+    },
+    {
+      "path": "examples/github-issue/ISSUE-VIEWER-DEPLOYMENT.md",
+      "sha256_match": true,
+      "byte_count_match": true,
+      "original_git_blob_match": true
+    },
+    {
+      "path": "examples/github-issue/OPERATION-DEMO-RESULT.md",
+      "sha256_match": true,
+      "byte_count_match": true,
+      "original_git_blob_match": true
+    },
+    {
+      "path": "examples/github-issue/OPERATION-DEMO.md",
+      "sha256_match": true,
+      "byte_count_match": true,
+      "original_git_blob_match": true
+    },
+    {
+      "path": "examples/github-issue/README.md",
+      "sha256_match": true,
+      "byte_count_match": true,
+      "original_git_blob_match": true
+    },
+    {
+      "path": "examples/github-issue/agent_operation_demo.py",
+      "sha256_match": true,
+      "byte_count_match": true,
+      "original_git_blob_match": true
+    },
+    {
+      "path": "examples/github-issue/demo-workspace/README.md",
+      "sha256_match": true,
+      "byte_count_match": true,
+      "original_git_blob_match": true
+    },
+    {
+      "path": "examples/github-issue/operation-demo-result.json",
+      "sha256_match": true,
+      "byte_count_match": true,
+      "original_git_blob_match": true
+    },
+    {
+      "path": "examples/github-pr/README.md",
+      "sha256_match": true,
+      "byte_count_match": true,
+      "original_git_blob_match": true
+    },
+    {
+      "path": "examples/github-pr/agent.py",
+      "sha256_match": true,
+      "byte_count_match": true,
+      "original_git_blob_match": true
+    },
+    {
+      "path": "examples/github-pr/build_flow.py",
+      "sha256_match": true,
+      "byte_count_match": true,
+      "original_git_blob_match": true
+    },
+    {
+      "path": "examples/github-pr/evidence.json",
+      "sha256_match": true,
+      "byte_count_match": true,
+      "original_git_blob_match": true
+    },
+    {
+      "path": "examples/github-pr/flow.json",
+      "sha256_match": true,
+      "byte_count_match": true,
+      "original_git_blob_match": true
+    },
+    {
+      "path": "examples/github-pr/four-node-flow.json",
+      "sha256_match": true,
+      "byte_count_match": true,
+      "original_git_blob_match": true
+    },
+    {
+      "path": "examples/github-pr/loop-evidence.json",
+      "sha256_match": true,
+      "byte_count_match": true,
+      "original_git_blob_match": true
+    },
+    {
+      "path": "examples/github-pr/operation-feedback-evidence.json",
+      "sha256_match": true,
+      "byte_count_match": true,
+      "original_git_blob_match": true
+    },
+    {
+      "path": "examples/github-pr/operation.py",
+      "sha256_match": true,
+      "byte_count_match": true,
+      "original_git_blob_match": true
+    },
+    {
+      "path": "examples/github-pr/original-agent/PROTOCOL.md",
+      "sha256_match": true,
+      "byte_count_match": true,
+      "original_git_blob_match": true
+    },
+    {
+      "path": "examples/github-pr/original-agent/README.md",
+      "sha256_match": true,
+      "byte_count_match": true,
+      "original_git_blob_match": true
+    },
+    {
+      "path": "examples/github-pr/original-agent/build_flow.py",
+      "sha256_match": true,
+      "byte_count_match": true,
+      "original_git_blob_match": true
+    },
+    {
+      "path": "examples/github-pr/original-agent/cancellation-evidence.json",
+      "sha256_match": true,
+      "byte_count_match": true,
+      "original_git_blob_match": true
+    },
+    {
+      "path": "examples/github-pr/original-agent/evidence.json",
+      "sha256_match": true,
+      "byte_count_match": true,
+      "original_git_blob_match": true
+    },
+    {
+      "path": "examples/github-pr/original-agent/flow.json",
+      "sha256_match": true,
+      "byte_count_match": true,
+      "original_git_blob_match": true
+    },
+    {
+      "path": "examples/github-pr/original-agent/historical-flow-before-skill-input.json",
+      "sha256_match": true,
+      "byte_count_match": true,
+      "original_git_blob_match": true
+    },
+    {
+      "path": "examples/github-pr/original-agent/skill/SKILL.md",
+      "sha256_match": true,
+      "byte_count_match": true,
+      "original_git_blob_match": true
+    },
+    {
+      "path": "examples/github-pr/original-agent/title-skill/SKILL.md",
+      "sha256_match": true,
+      "byte_count_match": true,
+      "original_git_blob_match": true
+    },
+    {
+      "path": "examples/github-pr/real-evidence.json",
+      "sha256_match": true,
+      "byte_count_match": true,
+      "original_git_blob_match": true
+    },
+    {
+      "path": "examples/github-pr/result.py",
+      "sha256_match": true,
+      "byte_count_match": true,
+      "original_git_blob_match": true
+    },
+    {
+      "path": "examples/github-pr/run_fixture.py",
+      "sha256_match": true,
+      "byte_count_match": true,
+      "original_git_blob_match": true
+    },
+    {
+      "path": "experiments/exp108/AMENDMENT-01.md",
+      "sha256_match": true,
+      "byte_count_match": true,
+      "original_git_blob_match": true
+    },
+    {
+      "path": "experiments/exp108/AMENDMENT-02.md",
+      "sha256_match": true,
+      "byte_count_match": true,
+      "original_git_blob_match": true
+    },
+    {
+      "path": "experiments/exp108/PROTOCOL.md",
+      "sha256_match": true,
+      "byte_count_match": true,
+      "original_git_blob_match": true
+    },
+    {
+      "path": "experiments/exp108/README.md",
+      "sha256_match": true,
+      "byte_count_match": true,
+      "original_git_blob_match": true
+    },
+    {
+      "path": "experiments/exp108/connection.py",
+      "sha256_match": true,
+      "byte_count_match": true,
+      "original_git_blob_match": true
+    },
+    {
+      "path": "experiments/exp108/fake_provider.py",
+      "sha256_match": true,
+      "byte_count_match": true,
+      "original_git_blob_match": true
+    },
+    {
+      "path": "experiments/exp108/observation-v2.json",
+      "sha256_match": true,
+      "byte_count_match": true,
+      "original_git_blob_match": true
+    },
+    {
+      "path": "experiments/exp108/observation.json",
+      "sha256_match": true,
+      "byte_count_match": true,
+      "original_git_blob_match": true
+    },
+    {
+      "path": "experiments/exp108/probe.py",
+      "sha256_match": true,
+      "byte_count_match": true,
+      "original_git_blob_match": true
+    },
+    {
+      "path": "experiments/exp108/test_probe.py",
+      "sha256_match": true,
+      "byte_count_match": true,
+      "original_git_blob_match": true
+    },
+    {
+      "path": "experiments/issue-integration/32/README.md",
+      "sha256_match": true,
+      "byte_count_match": true,
+      "original_git_blob_match": true
+    },
+    {
+      "path": "experiments/issue-integration/44/README.md",
+      "sha256_match": true,
+      "byte_count_match": true,
+      "original_git_blob_match": true
+    },
+    {
+      "path": "experiments/issue-integration/44/probe.py",
+      "sha256_match": true,
+      "byte_count_match": true,
+      "original_git_blob_match": true
+    },
+    {
+      "path": "experiments/issue-integration/45/README.md",
+      "sha256_match": true,
+      "byte_count_match": true,
+      "original_git_blob_match": true
+    },
+    {
+      "path": "experiments/issue-integration/45/evidence.json",
+      "sha256_match": true,
+      "byte_count_match": true,
+      "original_git_blob_match": true
+    },
+    {
+      "path": "experiments/issue-integration/45/live_probe.py",
+      "sha256_match": true,
+      "byte_count_match": true,
+      "original_git_blob_match": true
+    },
+    {
+      "path": "tests/test_agent_issue_operations_demo.py",
+      "sha256_match": true,
+      "byte_count_match": true,
+      "original_git_blob_match": true
+    },
+    {
+      "path": "tests/test_exp108_ci.py",
+      "sha256_match": true,
+      "byte_count_match": true,
+      "original_git_blob_match": true
+    },
+    {
+      "path": "tests/test_issue_publication_live_probe.py",
+      "sha256_match": true,
+      "byte_count_match": true,
+      "original_git_blob_match": true
+    },
+    {
+      "path": "tests/test_issue_publication_probe.py",
+      "sha256_match": true,
+      "byte_count_match": true,
+      "original_git_blob_match": true
+    }
+  ]
+}

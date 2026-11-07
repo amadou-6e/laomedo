@@ -1,0 +1,30 @@
+{
+  "head": "9a741243",
+  "graphs": {
+    "issue": {
+      "id": "7f11c274-dd81-5949-9e99-58055446c8a7",
+      "url": "http://127.0.0.1:17862/flow/7f11c274-dd81-5949-9e99-58055446c8a7"
+    },
+    "pr": {
+      "id": "fa72b424-1bd7-593f-bbf3-a9d9dad1059f",
+      "url": "http://127.0.0.1:17862/flow/fa72b424-1bd7-593f-bbf3-a9d9dad1059f"
+    }
+  },
+  "results": [
+    {
+      "kind": "issue",
+      "selected_resource": 23,
+      "content_loaded": true,
+      "exact_link": "https://github.com/ga84jog/laomedo-exp104-disposable-20261007/issues/23"
+    },
+    {
+      "kind": "pr",
+      "selected_resource": 24,
+      "content_loaded": true,
+      "exact_link": "https://github.com/ga84jog/laomedo-exp104-disposable-20261007/pull/24"
+    }
+  ],
+  "errors": [],
+  "graph_dispatches": [],
+  "scope": "Actual standalone app, GitHub services and live repository; no route interception, model calls or remote writes"
+}
