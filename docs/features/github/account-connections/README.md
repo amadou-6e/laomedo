@@ -59,9 +59,11 @@ return that deployment decision to the owner rather than silently using device f
 ## Proposed contracts to resolve before implementation
 
 1. **Owner/session:** obtain the principal from the actual authenticated Langflow
-   dependency, not request JSON. Require an explicitly signed-in session and a
-   trusted one-owner deployment binding; reject auto-login-only, remote or
-   unrecognized-owner private connection requests. Validate actual persistence,
+   dependency, not request JSON. Require trusted startup with AUTO_LOGIN disabled, reject a default auto-login
+   principal, and bind a non-default owner UUID explicitly. The request-local
+   auth method alone is insufficient: an auto-login-issued cookie is subsequently
+   classified as JWT. Reject unsupported auth modes and unknown owner/session
+   contexts; do not change existing service settings automatically. Validate actual persistence,
    logout/expiry and browser restart; never claim session guarantees from cookies
    merely existing. Keep public/local paths available without private admission.
 2. **Connection:** non-secret owner, verified GitHub principal, connection ID,
@@ -76,8 +78,9 @@ return that deployment decision to the owner rather than silently using device f
    mediated run grant. Bind every discovery/revision/resolve/view/history read to
    owner, connection generation, repository and immutable bundle provenance.
    A connection alone does not authorize arbitrary repositories or Agent writes.
-5. **Cache:** isolate private index/object cache and registry/journal by owner and
-   connection generation. A shared hash can identify identical bytes but is not
+5. **Private registry authorization:** isolate private index/object cache and
+   registry/journal by owner and connection generation, outside every existing
+   shared registry root. This is a store access boundary, not merely caching. A shared hash can identify identical bytes but is not
    permission to read them. Gate all private inspection, history, binary and
    operation routes. Fail closed offline; no stale authorization from warm cache.
 6. **Revalidation:** propose provider verification before each private user read,
@@ -96,12 +99,18 @@ return that deployment decision to the owner rather than silently using device f
    Verify principal and selected repository content reads; document which scope
    and expiry facts the actual API proves. Never claim the token is globally
    read-only merely because our adapter performs only reads. No static refresh.
-9. **Git delivery:** assess an ephemeral loopback credential broker or constrained
-   askpass bridge with one-use opaque capability, exact admitted repository and
-   pipe-delivered secret. Token must not enter URL, argv, persisted Git config,
-   ordinary child environment, cache or stderr. Preserve redirect, hook,
-   submodule, filesystem and byte/deadline guards. This feasibility question must
-   be settled before selecting the bridge; do not restore ambient helpers.
+9. **Private repository reads:** prefer a GitHub REST object reader after
+   canonical review: matching refs, exact commits, trees and blobs provide the
+   shallow head/tag snapshots used by the current source service. No requirement
+   for arbitrary Git history was found: current Git clone depth is one, while
+   edit lineage belongs to the local registry journal. Ref pagination, a maximum
+   of 32 heads/tags, exact commit binding, recursive-tree truncation refusal,
+   git object modes (refuse links/submodules), blob size/hash verification and
+   existing cumulative/deadline limits must remain explicit. Provider tokens
+   remain in-process HTTP authorization headers. Public Git/local readers stay
+   unchanged. This is an explicit proposed private transport extension, not a
+   silent replacement of Git semantics. Do not implement an askpass/broker bridge
+   without a demonstrated missing API capability.
 10. **Errors:** catalogue-backed Connect/Reconnect/select-repository recovery;
     ambiguous 404 says access could not be confirmed. Never infer privacy or
     existence. Preserve Source text and exact pins; refresh is read-only.
@@ -161,6 +170,49 @@ pasted into chat. Final requesting-owner workflow validation gates merge.
 - [Repository contents and fine-grained access](https://docs.github.com/en/rest/repos/contents#get-repository-content).
 - [System keyring backends](https://keyring.readthedocs.io/en/latest/).
 
-Checked 2026-11-07 against upstream documentation. GitHub permission metadata,
-Authlib compatibility and the Git credential-delivery bridge still need focused
-validation. No live account connection, credential copy or new runtime is claimed.
+Checked 2026-11-07 against upstream documentation. GitHub permission metadata and Authlib compatibility still need focused
+validation. The object-reader option has documented APIs but no live proof yet. No live account connection, credential copy or new runtime is claimed.
+
+## Caller inventory and required private-store disposition
+
+Source scan at baseline includes direct construction, inspection and transport
+callers, not just the HTTP entrypoint. Ordinary trusted same-OS-user filesystem
+access is outside the isolation claim; there is no protection from a malicious
+local process with the user's vault/filesystem privileges.
+
+| Existing caller | Current admission | Required disposition for private data |
+| --- | --- | --- |
+| Source service discover/revisions/resolve | Service bearer, source string | Add broker-verified owner/session, connection/generation and repository context; choose private store server-side |
+| Viewer read including binary/images | Authenticated user discarded, root + IDs | Receive principal, authorize provenance before bytes and before releasing response; never search public root for private data |
+| Viewer history/diff/compare | Same IDs sent to operations service | Route through authorized private journal; shared operations cannot reach it |
+| Manual editor/save/publish | Service capability and policy, no owner | Authorize private context; prohibit publishing private-origin data into shared registry |
+| Skill feedback prepare/apply | Ticket and existing edit policy | Private context must be independently admitted; never let a public ticket import private bytes |
+| Graph Skill resolver | Exact public SkillReference | Carry non-secret connection reference in saved configuration; do not treat a graph-supplied owner as authority |
+| Runner materialization | Shared SkillStore root and exact refs | Cannot read private root. Private Skill use needs a separately authorized materialization path; absent admission must fail descriptively, never copy into public root |
+| Source and operation CLIs | Trusted registry paths plus service token | Existing defaults remain public-only; no automatic private-root selection or ambient account reuse |
+| Registry origins/index and journal | Flat private host files, not authorization | Retain provenance in private store; identity/hash alone never authorizes access |
+
+Private browsing delivery does not imply that a selected private Skill already
+works in every existing Agent path. The public descriptor stays compatible;
+private materialization admission must be designed explicitly and tested before
+claiming that capability. No Agent model run is required to verify denial.
+
+## Approach review record
+
+Review at `1a887193`, Claude model reported by CLI `claude-opus-5-5`, effort low,
+300-second bound: REVISE; specification INCOMPLETE, implementation/visual not
+applicable. No real workflow was reviewed. Reviewer did not read all requested
+instructions/callers, so its first packet is partial coverage, not full approval.
+
+| ID | Disposition after source investigation | Remaining condition |
+| --- | --- | --- |
+| 251-A1 | Proposal corrected: private registry/journal isolation and caller inventory, not cache-only partition | Focused review and canonical contract |
+| 251-A2 | Confirmed: current source/operation request schemas carry no owner; runner accepts exact refs from its shared store | Implement explicit private admission; no public-store import |
+| 251-A3 | Pinned upstream auth inspected: auto-login can issue JWTs; reject AUTO_LOGIN deployment rather than trusting method=jwt | Owner accepts explicit local sign-in; real browser validation |
+| 251-A4 | API refs/tree/blob option compared against depth-one snapshots; custom credential bridge removed from preferred approach | Canonical transport review and bounded real API proof |
+| 251-A5 | Owner question pending: local app registration versus alternate deployment/protocol | Owner choice; no embedded client secret |
+| 251-A6 | Source-read consent amendment is explicitly required | Reviewed canonical spec and Draw.io before implementation |
+| 251-A7 | Per-request verification latency/rate-limit tradeoff retained as a proposal | Owner accepts policy; measure real read latency |
+
+No finding is marked reviewer-verified-fixed yet. The corrected proposal and
+caller coverage require focused recheck; missing real stories remain unverified.
