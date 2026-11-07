@@ -1,0 +1,47 @@
+{
+  "scope": "Exact modify/delete inputs before Agents integration retirement.",
+  "files": [
+    {
+      "path": "archives/agents-205/develop-integration-20261107/files/develop/examples/agent-activity/README.md",
+      "source_ref": "bb250135",
+      "source_path": "examples/agent-activity/README.md",
+      "sha256": "400d679b1df867efec656ea29384b476618e1e284c7011e9564cdb4b8dc29017",
+      "bytes": 1402
+    },
+    {
+      "path": "archives/agents-205/develop-integration-20261107/files/develop/examples/opencode-node/README.md",
+      "source_ref": "bb250135",
+      "source_path": "examples/opencode-node/README.md",
+      "sha256": "360f738a22f2cd19fbc76afed99b8dfcbd389e65f34e1f670069fd3a32ef81bb",
+      "bytes": 6756
+    },
+    {
+      "path": "archives/agents-205/develop-integration-20261107/files/agent-head/examples/github-pr/flow.json",
+      "source_ref": "e61f5ae3",
+      "source_path": "examples/github-pr/flow.json",
+      "sha256": "cf9ac5005899d382247808a3ac99fb2f51a47bdc9eb84d8b0d397503f9fe99a6",
+      "bytes": 33194
+    },
+    {
+      "path": "archives/agents-205/develop-integration-20261107/files/develop/tests/test_container_lease.py",
+      "source_ref": "bb250135",
+      "source_path": "tests/test_container_lease.py",
+      "sha256": "089bcd92cffaade56793f5d671adaded38d066086b60b8e071493b065e6fab80",
+      "bytes": 11291
+    },
+    {
+      "path": "archives/agents-205/develop-integration-20261107/files/develop/tests/test_exp19_live_e2e.py",
+      "source_ref": "bb250135",
+      "source_path": "tests/test_exp19_live_e2e.py",
+      "sha256": "b49e44bd0c40a0ca229dbdaca87f199cb0e228eaa2b8c40d478e87cca80cc957",
+      "bytes": 4386
+    },
+    {
+      "path": "archives/agents-205/develop-integration-20261107/files/develop/tests/test_runner_sandbox_policy.py",
+      "source_ref": "bb250135",
+      "source_path": "tests/test_runner_sandbox_policy.py",
+      "sha256": "e67b9661158b8eca978239d881e0552e651b53a1335271e53fccb1006514a5a3",
+      "bytes": 13396
+    }
+  ]
+}
