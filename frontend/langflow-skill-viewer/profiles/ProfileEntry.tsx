@@ -152,9 +152,9 @@ export default function ProfileEntry({
 	}
 
 	return (
-		<main className="flex min-h-svh items-center justify-center bg-background px-6 py-10">
+		<main className="fixed inset-0 z-50 flex flex-col overflow-y-auto bg-background p-6">
 			<section
-				className="w-full max-w-md rounded-xl border bg-background p-6 shadow-sm"
+				className="mx-auto my-auto w-full max-w-md shrink-0 rounded-xl border bg-background p-6 shadow-sm"
 				aria-labelledby="profile-title"
 			>
 				<h1 id="profile-title" className="text-xl font-semibold">

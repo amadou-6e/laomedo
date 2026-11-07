@@ -51,7 +51,9 @@ async function request(
 	const signal = options.signal
 		? AbortSignal.any([options.signal, timeout])
 		: timeout;
-	return fetch(url, { ...options, signal });
+	// The pinned app fetch interceptor writes its locale headers in place.
+	const headers = Object.fromEntries(new Headers(options.headers).entries());
+	return fetch(url, { ...options, headers, signal });
 }
 
 export async function profileMode(signal?: AbortSignal): Promise<boolean> {
@@ -155,4 +157,24 @@ export async function enterProfile(profile: ProfileSummary, pin: string) {
 		throw new ProfileFailure("profile_entry_unconfirmed");
 	}
 	return tokens;
+}
+
+export async function readProfileSession(): Promise<{
+	authenticated: boolean;
+	profileId?: string;
+}> {
+	const response = await request("/api/v1/session", {
+		credentials: "same-origin",
+		cache: "no-store",
+	});
+	const body = await readJson(response, "app_signout_unconfirmed");
+	if (
+		typeof body?.authenticated !== "boolean" ||
+		(body.authenticated && typeof body.user?.id !== "string")
+	)
+		throw new ProfileFailure("app_signout_unconfirmed");
+	return {
+		authenticated: body.authenticated,
+		profileId: body.authenticated ? body.user.id : undefined,
+	};
 }

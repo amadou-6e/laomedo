@@ -57,8 +57,8 @@ export default function ProfileEntryGate({
 			/>
 		);
 	return (
-		<main className="flex min-h-svh items-center justify-center p-6">
-			<section className="w-full max-w-md rounded-xl border p-6">
+		<main className="fixed inset-0 z-50 flex flex-col overflow-y-auto bg-background p-6">
+			<section className="mx-auto my-auto w-full max-w-md shrink-0 rounded-xl border p-6">
 				{state.failed ? (
 					<>
 						<h1 className="text-xl font-semibold">{failure.title}</h1>

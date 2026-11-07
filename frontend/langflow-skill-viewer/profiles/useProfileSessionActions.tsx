@@ -10,7 +10,7 @@ import ErrorExplanation, {
 } from "@/components/laomedoErrors/ErrorExplanation";
 import CopyIcon from "@/components/laomedoErrors/CopyIcon";
 import { describeNodeFailure } from "@/components/laomedoErrors/nodeErrors";
-import { profileMode } from "./api";
+import { profileMode, readProfileSession } from "./api";
 
 import { announceProfileChange } from "./ProfileSessionSync";
 
@@ -51,18 +51,12 @@ export default function useProfileSessionActions() {
 	async function check() {
 		setChecking(true);
 		try {
-			const response = await fetch("/api/v1/session", {
-				credentials: "same-origin",
-				cache: "no-store",
-				signal: AbortSignal.timeout(15000),
-			});
-			if (!response.ok) return;
-			const session = await response.json();
+			const session = await readProfileSession();
 			if (session.authenticated === false) {
 				useAuthStore.getState().logout();
 				finish();
 			} else if (session.authenticated === true) {
-				if (session.user?.id === userData?.id) setOpen(false);
+				if (session.profileId === userData?.id) setOpen(false);
 				else window.location.replace("/login");
 			}
 		} catch {
