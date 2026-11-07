@@ -13,8 +13,9 @@ implemented package boundaries and object vocabulary.
 The cut includes Agent providers, their shared lifecycle and public interface,
 provider Activity and authentication, workspaces, artifacts, orchestration, host
 runner HTTP, daemon-bound leases, graph run records and packaged resources.
-GitHub and Skill domain implementations remain independently owned. Skill polish
-and GitHub PR #249 are separate changes; the integrated source branch is preserved.
+GitHub and Skill domain implementations remain independently owned. Their accepted
+changes are included through `develop` merge `bb250135`; the earlier integrated
+source branch remains preserved.
 The original assembly matched 162 selected source-branch Python ASTs. That was a
 historical relocation check, not an equivalence claim for subsequent bug fixes.
 
@@ -59,7 +60,7 @@ stale answer/snapshot fields on failure and excludes receipts replayed during a
 resumed session load from the current attempt. Native notification ordering still
 requires real adapter evidence. Normal runners have no experimental turn cap.
 
-## Verification and limitations
+## Historical verification checkpoints
 
 The runtime requires the declared py-docker revision `49652f4` and ACP SDK `0.12.1`.
 Installed-wheel checks assert the package import origin outside the source tree.
@@ -75,22 +76,59 @@ trace/export 13; Claude uncertainty/replay 23; leases 19; organized boundary,
 credential and graph-summary controls 35; publication ports 56 with three explicit
 platform skips. These are internal controls, not real provider or browser stories.
 
-Claude has approved focused worker/poll, ACP, OpenCode cancellation, migration and
-provider corrections at their recorded revisions. The latest async terminal-marker
-and publication-port recheck did not complete: the retained reviewer reached its
-five-hour limit, reporting reset at 13:00 Europe/Berlin. Full substantive PR review
-is incomplete. The split Codex executor's native sandbox/network isolation remains
+Claude approved focused worker/poll, ACP, OpenCode cancellation, migration and
+provider corrections at their recorded revisions. An earlier async terminal-marker
+and publication-port recheck stopped at the reviewer's quota limit; that checkpoint
+did not establish full substantive PR approval. The split Codex executor's native sandbox/network isolation remains
 unverified; direct Docker probe results do not establish that guarantee.
 
 ACP spec PR #403 and implementation PR #214 remain open draft dependencies.
-Canonical protocol drift and integration must be resolved before merge. Docker is healthy and the three existing provider images are present. A real
-read-only provider audit is awaiting explicit approval for exporting its three
-tracked README inputs: automatic approval review rejected that file transfer.
-No model request or credential copy was performed in this continuation.
-Hosted CI, actual provider/user-story evidence, requesting-owner inspection and
-explicit final validation remain acceptance requirements. PR #250 stays draft
-and unmerged.
+Canonical protocol drift and integration must be resolved before merge. An earlier
+read-only provider audit was blocked by file-transfer approval and submitted no
+model request at that checkpoint. The later real runs below supersede that live
+validation gap without changing the earlier record. Final owner validation and
+full review coverage remain independent requirements; PR #250 stays draft.
 
 The original assembly increased src Python/MJS physical lines from 32,288 to
 36,747 (+4,459), including pre-existing ACP and typed-record work absent from its
 base. This historical comparison is not a current reduction or parity claim.
+
+## Current validation checkpoint: 7 November 2026
+
+At `fdf761ba`, the real production-built Langflow app ran Codex, Claude and
+OpenCode against the tracked repository README without a connected Skill. Each
+returned its actual first heading and a useful repository summary. Browser
+Activity displayed the retained native conversation, completed turn and observed
+usage. Codex/OpenCode controller cleanup was confirmed; Claude descendant cleanup
+was verified. Claude execution evidence remains `unknown` where its record says
+so; captured-stream completeness does not establish task correctness.
+
+Fresh-to-Resume graphs then completed two native turns on each provider, retaining
+the same native session and distinct Activity attempt identities. The imported
+connection survived browser reload. Disconnected Prior Run settings remain hidden;
+an explicitly connected compatibility port is visible. The server template keeps
+that target available so Langflow does not discard the edge on refresh. No run
+selector or automatic selection from Activity is implemented.
+
+One Claude attempt failed before model dispatch with
+`claude_local_login_copy_failed`. A later access-only handoff and the real retry
+succeeded; the transient failure's cause is not established. The original failed
+record is retained, rather than counted as a successful run. OpenCode used the
+selected Go API login in a dedicated private profile; no Console account database,
+refresh token or personal session copy was required for those runs.
+
+The complete Agent concern ran 572 cases at `fdf761ba`: no failures, four explicit
+skips. Two were missing-Node controls; rerunning their concern with the installed
+Node binary passed, leaving its opt-in Docker development control skipped. The
+other Docker/host-mediation control remains outside these live graphs. These are
+supporting controls, not browser acceptance. The installed wheel matched all 339
+Python source files and imported its providers and graph adapter outside the
+checkout. All eight hosted checks passed at that revision.
+
+Full frontend TypeScript remains red on inherited diagnostics: 259 candidate
+versus 265 accepted-base diagnostics, with no added normalized diagnostic. The
+production build and affected frontend checks passed; this is not a green full
+typecheck. Real cancellation, recovery, complete prior-review/conservation
+coverage, the ACP specification dependency and final owner approval remain
+separate gates. Later recovery corrections are recorded by their own reviewed
+revision and evidence; the runs above do not validate those later changes.

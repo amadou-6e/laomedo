@@ -172,6 +172,7 @@ def apply(checkout):
     edit_rows = checkout / "src/frontend/src/modals/editNodeModal/hooks/use-row-data.ts"
     source = edit_rows.read_text(encoding="utf-8")
     source = (
+        'import { isAgentControlHidden } from "@/CustomNodes/GenericNode/components/RenderInputParameters/AgentAdvancedControls";\n'
         'import { isSkillControlHidden } from "@/CustomNodes/GenericNode/components/RenderInputParameters/SkillNodeControls";\n'
         'import useFlowStore from "@/stores/flowStore";\n' + source
     )
@@ -185,6 +186,7 @@ def apply(checkout):
         source,
         '          key.charAt(0) !== "_" &&\n',
         '          key.charAt(0) !== "_" &&\n'
+        "          !isAgentControlHidden({ type: nodeType, node: nodeClass }, key) &&\n"
         "          !isSkillControlHidden({ type: nodeType, node: nodeClass }, key) &&\n",
     )
     source = replace_once(
@@ -206,6 +208,7 @@ def apply(checkout):
         / "src/frontend/src/pages/FlowPage/components/InspectionPanel/components/InspectionPanelFields.tsx"
     )
     source = (
+        'import { isAgentControlHidden } from "@/CustomNodes/GenericNode/components/RenderInputParameters/AgentAdvancedControls";\n'
         'import { isSkillControlHidden } from "@/CustomNodes/GenericNode/components/RenderInputParameters/SkillNodeControls";\n'
         + inspection_fields.read_text(encoding="utf-8")
     )
@@ -213,6 +216,7 @@ def apply(checkout):
         source,
         "      .filter((templateField) => {\n",
         "      .filter((templateField) => {\n"
+        "        if (isAgentControlHidden(data, templateField)) return false;\n"
         "        if (isSkillControlHidden(data, templateField)) return false;\n",
     )
     inspection_fields.write_text(source, encoding="utf-8")
