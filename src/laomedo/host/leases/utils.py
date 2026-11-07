@@ -110,13 +110,12 @@ def cleanup_after_loss(
             result = client.containers.watch(identity.reservation()).cleanup(
                 watch_seconds=watch_seconds
             )
-            detail = (
-                "late_owned"
-                if watch_seconds > 0
-                and not result.verified
-                and result.detail == "owned"
-                else result.detail
-            )
+            detail = result.detail
+            if not result.verified:
+                if detail.startswith("removed"):
+                    detail = "late_unknown" if watch_seconds > 0 else "unknown"
+                elif watch_seconds > 0 and detail == "owned":
+                    detail = "late_owned"
             return result.verified, detail
     except (ImportError, OSError, ValueError, RuntimeError):
         return False, "unknown"

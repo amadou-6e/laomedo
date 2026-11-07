@@ -64,6 +64,22 @@ class LeaseCleanupTests(unittest.TestCase):
         self.assertEqual(result, (True, "absent"))
         containers.remove.assert_not_called()
 
+    def test_unconfirmed_final_inspection_never_reports_removed(self):
+        from py_docker.errors import DockerOperationError, OwnershipConflictError
+
+        for final in (
+            self.observed,
+            DockerOperationError("unavailable"),
+            OwnershipConflictError("foreign"),
+        ):
+            for duration, expected in ((0, "unknown"), (0.01, "late_unknown")):
+                with self.subTest(final=type(final).__name__, duration=duration):
+                    result, containers = self.cleanup(
+                        [self.observed, final], [0, 0.02], duration
+                    )
+                    self.assertEqual(result, (False, expected))
+                    containers.remove.assert_called_once_with(self.observed, force=True)
+
     def test_uncertain_or_foreign_resource_is_never_removed(self):
         from py_docker.errors import DockerOperationError, OwnershipConflictError
 
