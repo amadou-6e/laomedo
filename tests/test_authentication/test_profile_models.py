@@ -1,4 +1,4 @@
-﻿"""Internal regression checks; not browser or real-profile acceptance evidence."""
+"""Internal regression checks; not browser or real-profile acceptance evidence."""
 
 import unittest
 from uuid import uuid4

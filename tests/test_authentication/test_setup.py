@@ -12,7 +12,7 @@ from uuid import uuid4
 
 
 @unittest.skipUnless(sys.platform == "win32", "Native Windows launcher")
-class NormalLoginSetupTests(unittest.TestCase):
+class LocalProfileSetupTests(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory(prefix="laomedo-login-admission-")
         self.addCleanup(self.temporary.cleanup)
@@ -21,7 +21,7 @@ class NormalLoginSetupTests(unittest.TestCase):
         self.frontend.mkdir()
         (self.frontend / "index.html").write_text("internal admission fixture")
         self.repo = Path(__file__).resolve().parents[2]
-        self.launcher = self.repo / "tools/start_normal_login.ps1"
+        self.launcher = self.repo / "tools/start_local_profiles.ps1"
         self.powershell = shutil.which("powershell.exe")
 
     def prepare(self, runtime, port=17864, mode="Prepare"):
@@ -53,13 +53,13 @@ class NormalLoginSetupTests(unittest.TestCase):
         runtime = self.root / "runtime"
         first = self.prepare(runtime)
         self.assertEqual(first.returncode, 0, first.stderr)
-        marker = (runtime / "normal-login.json").read_bytes()
+        marker = (runtime / "local-profiles.json").read_bytes()
         second = self.prepare(runtime)
         self.assertEqual(second.returncode, 0, second.stderr)
-        self.assertEqual(marker, (runtime / "normal-login.json").read_bytes())
+        self.assertEqual(marker, (runtime / "local-profiles.json").read_bytes())
         self.assertEqual(
             set(p.name for p in runtime.iterdir()),
-            {"normal-login.json", "langflow", "registry"},
+            {"local-profiles.json", "langflow", "registry"},
         )
         self.assertFalse(list((runtime / "langflow").iterdir()))
         self.assertEqual(json.loads(marker.decode("utf-8-sig"))["port"], 17864)
@@ -84,11 +84,11 @@ class NormalLoginSetupTests(unittest.TestCase):
     def test_refuses_origin_change_for_existing_runtime(self):
         runtime = self.root / "runtime"
         self.assertEqual(self.prepare(runtime).returncode, 0)
-        marker = (runtime / "normal-login.json").read_bytes()
+        marker = (runtime / "local-profiles.json").read_bytes()
         result = self.prepare(runtime, port=17865)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("fixed origin does not match", result.stderr)
-        self.assertEqual(marker, (runtime / "normal-login.json").read_bytes())
+        self.assertEqual(marker, (runtime / "local-profiles.json").read_bytes())
 
     def test_refuses_relative_runtime(self):
         result = self.prepare("relative-runtime")

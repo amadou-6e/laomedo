@@ -12,10 +12,11 @@ validation errors and return catalogue codes, never Pydantic input payloads.
 `settings.py` owns fixed local-profile policy, including the reserved system name.
 `auth.py` owns `LocalProfileAuthService`, the narrow authentication adapter.
 
-The planned startup adapter admits owned state before migrations and verifies the
+The startup adapter admits owned state before migrations and verifies the
 internal actor before serving. Profile creation delegates to upstream user
 creation; login, hashing and token validation stay upstream-owned. The authentication adapter refuses the internal actor without replacing ordinary
-profile authentication. Routes and UI are not implemented at this checkpoint.
+profile authentication. `runtime.py` composes these adaptations around the upstream
+lifespan only for the opt-in local profile app. The React entry UI is unfinished.
 
 ## Object interfaces
 
@@ -36,3 +37,17 @@ profile authentication. Routes and UI are not implemented at this checkpoint.
 
 These boundary models and internal tests alone do not implement or validate the
 registration, switching, restoration or recovery user stories.
+
+- `ProfileRuntimeAdmission.verify_settings` verifies the effective database/auth
+  policy; `verify_database` classifies state read-only; `prepare` sets the
+  ephemeral in-process startup value after admission.
+- `LocalProfileRuntime.configure` installs routes before the SPA fallback;
+  `lifespan` verifies the initialized database and effective auth adapter before
+  the application accepts requests.
+- `LocalProfileRegistry.list_profiles` projects safe identities; `create_profile`
+  serializes local registration and delegates the upstream committed transaction.
+- `LocalProfileBoundary` validates exact browser entry origin/host and refuses
+  unsupported direct identity mutations. `routes.py` is function-only composition.
+
+Forgotten-PIN recovery is intentionally deferred by the owner: entry is blocked,
+but profile data remains preserved. No reset/deletion recovery is offered.

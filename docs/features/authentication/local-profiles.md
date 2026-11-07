@@ -89,3 +89,25 @@ only safe boundary models and the auth adapter; it is not wired into serving yet
 Ten internal model/auth tests pass. Registration, startup integration, UI, actual
 session persistence and real-browser acceptance remain unfinished. The old manual
 bootstrap path must be removed in this PR before delivery, not retained in parallel.
+
+## Backend implementation progress
+
+The manual Bootstrap module and launcher mode have been removed. The opt-in
+launcher is now `tools/start_local_profiles.ps1`; the existing preview factory
+continues to run without profile mode. Profile creation uses a validated
+registration request and the upstream user transaction. Browser entry is bound
+to the configured origin. Unsupported direct identity mutations are refused.
+Each public profile code has a descriptive shared-catalogue entry and an owned
+coverage check. The UI still needs to consume these entries.
+
+Real supporting backend checks on 2026-11-07: a new isolated database migrated and
+started on 127.0.0.1:17867; the empty picker excluded the internal actor, absent
+origin metadata was refused, and internal-actor login issued no tokens. After
+an abrupt exit of only the task-owned server, the same database started again
+and still returned the empty ordinary picker. These checks used the existing
+frontend build, so they do not verify the new profile UI or any user profile's
+session restoration. Upstream telemetry-writer startup reported WinError 87 and
+fell back to direct writes; this unrelated warning is not resolved here.
+
+The owner explicitly deferred forgotten-PIN recovery: entry to that profile is
+blocked while data is preserved. LP-R8 is resolved as an accepted constraint.

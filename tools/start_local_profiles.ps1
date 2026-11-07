@@ -1,7 +1,7 @@
-# Native, isolated Langflow login setup. Never accepts or prints credentials.
+# Native isolated local profiles. PIN entry happens only in the browser.
 [CmdletBinding()]
 param(
-    [ValidateSet('Prepare', 'Check', 'Bootstrap', 'Serve')]
+    [ValidateSet('Prepare', 'Check', 'Serve')]
     [string]$Mode = 'Check',
     [Parameter(Mandatory=$true)][string]$PythonExe,
     [Parameter(Mandatory=$true)][string]$FrontendPath,
@@ -34,21 +34,21 @@ while ($ancestor) {
     if ($null -eq $parent) { break }
     $ancestor = $parent.FullName
 }
-$marker = Join-Path $runtime 'normal-login.json'
+$marker = Join-Path $runtime 'local-profiles.json'
 if (Test-Path -LiteralPath $runtime) {
     if (-not (Test-Path -LiteralPath $marker) -and
         @(Get-ChildItem -LiteralPath $runtime -Force).Count -gt 0) {
-        throw 'Refusing an existing non-empty runtime without a normal-login marker.'
+        throw 'Refusing an existing non-empty runtime without a local-profile marker.'
     }
 }
 if (Test-Path -LiteralPath $marker) {
     $existing = Get-Content -LiteralPath $marker -Raw | ConvertFrom-Json
-    if ($existing.purpose -ne 'laomedo-normal-login' -or $existing.version -ne 1 -or
+    if ($existing.purpose -ne 'laomedo-local-profiles' -or $existing.version -ne 1 -or
         $existing.port -ne $Port) { throw 'Runtime marker or fixed origin does not match.' }
 }
 New-Item -ItemType Directory -Force -Path $runtime | Out-Null
 if (-not (Test-Path -LiteralPath $marker)) {
-    @{purpose='laomedo-normal-login';version=1;port=$Port} |
+    @{purpose='laomedo-local-profiles';version=1;port=$Port} |
         ConvertTo-Json | Set-Content -LiteralPath $marker -Encoding UTF8
 }
 foreach ($folder in @('langflow','registry')) {
@@ -75,8 +75,10 @@ $config = @{
     LANGFLOW_AUTO_LOGIN='false'
     LANGFLOW_SKIP_AUTH_AUTO_LOGIN='false'
     LANGFLOW_ENABLE_SIGNUP='false'
-    LANGFLOW_NEW_USER_IS_ACTIVE='false'
-    LANGFLOW_ENABLE_SUPERUSER_CLI=([string]($Mode -eq 'Bootstrap')).ToLowerInvariant()
+    LANGFLOW_NEW_USER_IS_ACTIVE='true'
+    LANGFLOW_ENABLE_SUPERUSER_CLI='false'
+    LANGFLOW_API_KEY_SOURCE='db'
+    LANGFLOW_EXTERNAL_AUTH_ENABLED='false'
     LANGFLOW_FRONTEND_PATH=$frontend
     LANGFLOW_COMPONENTS_PATH=(Join-Path $repoRoot 'components')
     LAOMEDO_COMPONENT_DIR=(Join-Path $repoRoot 'components/laomedo')
@@ -85,8 +87,8 @@ $config = @{
     LANGFLOW_DO_NOT_TRACK='true'
     LANGFLOW_CORS_ORIGINS=('["http://127.0.0.1:' + $Port + '"]')
     LANGFLOW_CORS_ALLOW_CREDENTIALS='true'
-    LAOMEDO_NORMAL_LOGIN_PORT=[string]$Port
-    LAOMEDO_NORMAL_LOGIN_RUNTIME=$runtime
+    LAOMEDO_LOCAL_PROFILE_PORT=[string]$Port
+    LAOMEDO_LOCAL_PROFILE_RUNTIME=$runtime
     PYTHONPATH=(Join-Path $repoRoot 'src')
 }
 $originalLocation = Get-Location
@@ -96,21 +98,16 @@ try {
     }
     # Avoid loading an unrelated checkout's .env through upstream startup.
     Set-Location -LiteralPath $runtime
-    if ($Mode -eq 'Bootstrap') {
-        Write-Output 'Create the initial local administrator using the hidden password prompt.'
-        $adminName = Read-Host 'Administrator name (not langflow)'
-        if (-not $adminName -or $adminName -eq 'langflow') { throw 'Choose a non-default administrator name.' }
-        & $pythonPath -m langflow superuser --username $adminName
-        if ($LASTEXITCODE -ne 0) { throw 'Administrator bootstrap failed.' }
-        & $pythonPath -m laomedo.integrations.langflow.normal_login $adminName
-    } else {
         $bootstrap = @"
 import os
 from langflow.services.deps import get_settings_service
 settings = get_settings_service().auth_settings
 if settings.AUTO_LOGIN or settings.skip_auth_auto_login or settings.ENABLE_SIGNUP:
     raise SystemExit('Normal login requires auto-login, bypass and public signup disabled.')
-print('Effective settings: normal login required; public signup disabled.', flush=True)
+from laomedo.integrations.langflow.local_profiles.admission import ProfileRuntimeAdmission
+from laomedo.integrations.langflow.local_profiles.settings import LocalProfileSettings
+ProfileRuntimeAdmission(LocalProfileSettings().runtime_root).verify_settings(get_settings_service())
+print('Effective settings: local profiles require PIN login; generic signup disabled.', flush=True)
 "@
         if ($Mode -eq 'Serve') {
             $bootstrap += @"
@@ -118,17 +115,14 @@ print('Effective settings: normal login required; public signup disabled.', flus
 import laomedo
 import uvicorn
 laomedo.__path__.append(os.environ['LAOMEDO_COMPONENT_DIR'])
-from laomedo.integrations.langflow.normal_login.settings import NormalLoginSettings
-from laomedo.integrations.langflow.normal_login.startup import NormalLoginStartup
-from lfx.services.settings.constants import DEFAULT_SUPERUSER, LEGACY_DEFAULT_SUPERUSER_PASSWORD
-NormalLoginStartup(NormalLoginSettings().runtime_root).prepare(get_settings_service(), DEFAULT_SUPERUSER, LEGACY_DEFAULT_SUPERUSER_PASSWORD.get_secret_value())
+from laomedo.integrations.langflow.local_profiles.settings import LocalProfileSettings
+from laomedo.integrations.langflow.local_profiles.runtime import LocalProfileRuntime
 from laomedo.integrations.langflow.viewer import create_app
-app = create_app()
-uvicorn.run(app, host='127.0.0.1', port=int(os.environ['LAOMEDO_NORMAL_LOGIN_PORT']), access_log=False)
+app = create_app(profile_runtime=LocalProfileRuntime(LocalProfileSettings().runtime_root))
+uvicorn.run(app, host='127.0.0.1', port=int(os.environ['LAOMEDO_LOCAL_PROFILE_PORT']), access_log=False)
 "@
         }
         $bootstrap | & $pythonPath -
-    }
     if ($LASTEXITCODE -ne 0) { throw 'Upstream normal-login command failed. No success is claimed.' }
 } finally {
     Set-Location -LiteralPath $originalLocation.Path

@@ -1,1 +1,1 @@
-﻿"""Local profile integration, with upstream-owned identity and authentication."""
+"""Local profile integration, with upstream-owned identity and authentication."""

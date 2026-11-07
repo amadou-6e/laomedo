@@ -1,4 +1,4 @@
-﻿"""Refuse the internal startup actor while preserving upstream profile auth."""
+"""Refuse the internal startup actor while preserving upstream profile auth."""
 
 from uuid import UUID
 

@@ -1,4 +1,4 @@
-﻿"""Safe local profile boundary models, independent of upstream user payloads."""
+"""Safe local profile boundary models, independent of upstream user payloads."""
 
 from hmac import compare_digest
 from typing import Literal
@@ -72,3 +72,13 @@ class ProfileIndex(BaseModel):
 
     profiles: tuple[ProfileSummary, ...] = ()
     pin_digits: Literal[6] = PIN_DIGITS
+
+
+class ProfileRuntimeMarker(BaseModel):
+    """Explicit ownership of a fresh, isolated loopback profile installation."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True, hide_input_in_errors=True)
+
+    purpose: Literal["laomedo-local-profiles"]
+    version: Literal[1]
+    port: int = Field(ge=1024, le=65535)

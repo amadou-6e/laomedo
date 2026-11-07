@@ -1,4 +1,4 @@
-﻿"""Internal auth-adapter regressions; no browser/profile acceptance claim."""
+"""Internal auth-adapter regressions; no browser/profile acceptance claim."""
 
 import unittest
 from types import SimpleNamespace
@@ -6,7 +6,10 @@ from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
 from fastapi import HTTPException
-from langflow.services.auth.exceptions import InvalidCredentialsError
+from langflow.services.auth.exceptions import (
+    AuthenticationError,
+    InvalidCredentialsError,
+)
 from langflow.services.auth.service import AuthService
 
 from laomedo.integrations.langflow.local_profiles.auth import LocalProfileAuthService
@@ -109,3 +112,68 @@ class ProfileAuthTests(unittest.IsolatedAsyncioTestCase):
         ):
             with self.assertRaises(InvalidCredentialsError):
                 await self.auth._authenticate_with_api_key("not-a-real-key")
+
+
+class ProfileUpstreamContractTests(unittest.IsolatedAsyncioTestCase):
+    async def test_registered_guard_survives_first_authentication_resolution(self):
+        from langflow.services.deps import get_auth_service
+        from lfx.services.manager import ServiceManager
+        from lfx.services.schema import ServiceType
+
+        manager = ServiceManager()
+        manager._plugins_discovered = True
+        manager.set_factory_registered()
+        manager.services[ServiceType.SETTINGS_SERVICE] = SimpleNamespace()
+        manager.register_service_class(
+            ServiceType.AUTH_SERVICE, LocalProfileAuthService
+        )
+        with patch("lfx.services.manager._service_manager", manager):
+            first = get_auth_service()
+            self.assertIsInstance(first, LocalProfileAuthService)
+            self.assertIsNone(
+                await first.authenticate_user(
+                    SYSTEM_PROFILE_NAME, "not-a-real-secret", None
+                )
+            )
+            self.assertIs(get_auth_service(), first)
+
+    async def test_inherited_websocket_sse_and_mcp_paths_reject_internal_token(self):
+        auth = LocalProfileAuthService(
+            SimpleNamespace(
+                auth_settings=SimpleNamespace(
+                    AUTO_LOGIN=False, EXTERNAL_AUTH_ENABLED=False
+                )
+            )
+        )
+        db = AsyncMock()
+        with (
+            patch.object(
+                AuthService,
+                "_authenticate_with_token",
+                new_callable=AsyncMock,
+                return_value=SimpleNamespace(
+                    username=SYSTEM_PROFILE_NAME, is_active=True, is_superuser=True
+                ),
+            ),
+            patch.object(
+                auth, "_discard_failed_credential_state", new_callable=AsyncMock
+            ),
+        ):
+            for method, args in (
+                (auth.get_current_user_for_websocket, ("not-a-real-token", None, db)),
+                (auth.get_current_user_for_sse, ("not-a-real-token", None, db)),
+                (auth.get_current_user_mcp, ("not-a-real-token", None, None, db)),
+            ):
+                with (
+                    self.subTest(method=method.__name__),
+                    self.assertRaises((AuthenticationError, HTTPException)),
+                ):
+                    await method(*args)
+
+    def test_profile_creation_signature_remains_the_pinned_upstream_contract(self):
+        from inspect import signature
+        from langflow.api.v1.users import add_user
+
+        self.assertEqual(
+            list(signature(add_user).parameters), ["user", "session", "current_user"]
+        )

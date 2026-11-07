@@ -1,95 +1,29 @@
-# Local application sign-in
+﻿# Local profiles
 
-**Approach under revision:** the owner clarified that these are local setup
-profiles, not separate web accounts. The [local profile approach](local-profiles.md)
-records the Claude consultation. The administrator/Bootstrap procedure below is
-an unfinished checkpoint, not the proposed user setup; its manual handoff is on
-hold. No real account has been created or accepted.
+The first local Windows setup uses named profiles with a PIN. No email,
+administrator bootstrap or approval step is exposed. Profiles distinguish setups
+within one Windows user's installation; they are not isolated operating-system
+accounts. Private GitHub connections remain separate work under #259-#262.
 
-The native Windows application reuses Langflow's login page, user database,
-password verification and access/refresh cookies. `tools/start_normal_login.ps1`
-prepares an isolated normal-login deployment; it does not replace authentication
-or implement private GitHub sessions. Owner: [#258](https://github.com/amadou-6e/laomedo/issues/258),
-parent [#251](https://github.com/amadou-6e/laomedo/issues/251),
-[canonical draft](https://github.com/amadou-6e/specs/pull/411).
+The profile implementation is in progress in PR #263. The canonical
+[design and editable screens](https://github.com/amadou-6e/specs/blob/feat/410/projects/laomedo/subsystems/agent-execution/design/local-profiles.md)
+passed design review. That does not establish that the implemented browser
+workflow works. Keep this PR draft until the live stories, code review and owner
+inspection pass. Do not point users at the older administrator bootstrap.
 
-## Boundaries and commands
+`tools/start_local_profiles.ps1` prepares an isolated, explicitly owned runtime
+outside Git, checks an unused loopback port, and starts the matching frontend and
+backend. Its modes are Prepare, Check and Serve. Check validates configuration;
+it is not a server or login test. The existing preview and other runtime folders
+are left unchanged. PIN entry belongs in the browser, never a command argument.
 
-The launcher owns child-process configuration only. `Prepare` admits an empty
-non-Git runtime and fixes its loopback origin. `Check` verifies effective upstream
-settings. `Bootstrap` delegates account creation and hidden password entry to the
-existing upstream CLI. `Serve` delegates the app to Laomedo's existing factory.
-No account is created by Prepare, Check or Serve. Serve requires the explicit
-verified Bootstrap marker and an existing active non-default administrator.
-It refuses a missing/changed database and the upstream legacy default password.
-Upstream startup requires a nonempty setup password even for an existing admin;
-after read-only admission the adapter supplies a fresh in-memory startup value,
-which upstream erases. It never replaces or retains your login password. Runtime/config/database/key
-state is separate from an existing preview. Inherited Laomedo/Langflow settings
-are removed for the child and restored in the calling process.
+The backend admits fresh owned state or its recognized current schema before
+migrations. Partial, corrupt or unexpected identity state is refused without
+repair. One internal startup identity satisfies upstream's initialization contract
+and delegates profile creation, but cannot enter the browser as a profile. Its
+startup secret is generated only in process; it is not a human credential.
+Ordinary profile identities, hashing and sessions remain upstream-owned.
 
-Use Python 3.12 with Laomedo and the pinned Langflow runtime installed, and a
-matching built frontend. From the repository root, in PowerShell:
-
-```powershell
-$login = @{
-    PythonExe = (Resolve-Path '.venv/Scripts/python.exe').Path
-    FrontendPath = 'C:/path/to/matching/upstream/src/frontend/build'
-    RuntimeRoot = (Join-Path $env:LOCALAPPDATA 'Laomedo/normal-login')
-    Port = 17866
-}
-./tools/start_normal_login.ps1 @login -Mode Prepare
-./tools/start_normal_login.ps1 @login -Mode Check
-./tools/start_normal_login.ps1 @login -Mode Bootstrap
-./tools/start_normal_login.ps1 @login -Mode Serve
-```
-
-The bootstrap terminal prompts for an administrator name and hidden password.
-Choose them yourself; do not pass passwords on the command line or paste them
-into chat. The administrator name is stored as non-secret bootstrap metadata after database
-verification; an upstream zero exit code alone does not establish success.
-Initial bootstrap needs a new database; subsequent administrator
-creation follows upstream authorization and is not automated here. Use existing
-administrator user management to create/activate a non-default owner, then sign
-in as that owner. Public signup remains disabled. Private owner binding and
-server-revocable private sessions belong to #259, not this launcher.
-
-Open `http://127.0.0.1:17866` in a separate browser profile with no imported data.
-Different ports do not isolate cookies. Keep this profile and runtime directory
-for browser/app restart checks. Stop only this foreground server with Ctrl+C;
-re-run Serve against the same directory to restore its database/signing key.
-Never reuse another application's runtime. HTTP loopback is local-only and does
-not claim TLS or protection against malicious processes under the same OS user.
-
-## Acceptance record
-
-Implementation is in progress. No actual login, browser persistence, crash or
-owner workflow acceptance is claimed yet. Verify correct/incorrect login,
-refresh, logout, expired login, browser/profile and app restart, human takeover,
-concurrent-profile support/constraints and crash recovery with the real app.
-Record exact revision/environment, results, cleanup and gaps. Upstream logout
-currently deletes cookies; it is not server-side JWT revocation. That gap is
-owned by #259. No runner/model request or GitHub credential is needed for #258.
-
-
-## Current evidence and known startup correction
-
-Initial real Serve at checkpoint 117e37b5 failed during upstream initialization
-with "Username and password must be set". Check-only success did not establish
-startup. The new guarded startup adapter addresses that separately; its real
-bootstrapped Serve remains pending user password entry. Port 17864 was found in
-use by another process and is not this task's acceptance endpoint. Leave that
-process untouched; use a fresh runtime with free port 17866. Generic non-app
-process settings (for example proxies) remain inherited; app-prefixed settings
-are isolated. Access logging is disabled; real error-path redaction still needs
-verification. No real login/persistence or user acceptance is claimed.
-
-
-Claude full substantive review at 117e37b5: Implementation REVISE; Visual
-INCOMPLETE. R1 requires verified existing/active/non-default administrator,
-non-legacy password and exact database before supplying any startup-only value.
-R2 is settled from upstream constants: DEFAULT_SUPERUSER_PASSWORD is empty;
-initial startup failed closed, not with a known password. R3 requires read-only
-verification of CLI bootstrap rather than trusting its exit code. These
-corrections are implemented and await the first focused recheck after a real
-user-owned bootstrap/Serve. No review approval is claimed for them yet.
+Forgotten-PIN recovery is deferred by explicit owner choice: the profile cannot
+be entered, while its data remains preserved. No delete/recreate recovery is
+provided. [Implementation status](local-profiles.md) records remaining work.
