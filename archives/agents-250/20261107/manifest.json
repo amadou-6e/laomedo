@@ -24,8 +24,13 @@
     },
     {
       "path": "results/check-summary.json",
-      "sha256": "75ed9c12d1c70559642dcc4190574e5bbc29af6a9070e17c1defbc7a87b5d129",
-      "bytes": 1239
+      "sha256": "cbd549579f1a8d77f60b7b428049a7f3ad47161cb51ea6ca8da300518fe7b15c",
+      "bytes": 1258
+    },
+    {
+      "path": "results/ci-final-head.json",
+      "sha256": "f355f6d79f4e871d33bb5f3d9e3cf23a684ef694227590ae84e684b966549da3",
+      "bytes": 3104
     },
     {
       "path": "results/claude-actual-stop-result.json",

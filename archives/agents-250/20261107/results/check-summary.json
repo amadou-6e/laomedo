@@ -3,10 +3,11 @@
   "handoff_head": "e27f1c92c0132dfca8a337aef2bf993a00d3f615",
   "later_changes": "controls README clarification and restored error-catalogue test only; no runtime delta",
   "full_agents": {
-    "passed": 586,
+    "passed": 582,
     "skipped": 4,
     "seconds": 230.662,
-    "log": "agents-final-head-tests.log retained privately; hosted CI independently runs concern"
+    "log": "agents-final-head-tests.log retained privately; hosted CI independently runs concern",
+    "tests": 586
   },
   "migration": {
     "passed": 46,
