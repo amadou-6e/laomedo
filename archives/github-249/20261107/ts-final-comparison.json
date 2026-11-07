@@ -1,0 +1,47 @@
+{
+  "accepted_base": "7c72d94cfd1e40ec3df3ef9617584cbbd8c1d3ea",
+  "head": "3786201298fe729ddf3d315c2d70e4b079a8c36b",
+  "accepted_diagnostics": 265,
+  "candidate_diagnostics": 265,
+  "added": [
+    {
+      "diagnostic": [
+        "src/pages/MainPage/pages/filesPage/components/FilesTab.tsx",
+        "TS2322",
+        "Type \"type DiagnosticType = RefObject<AgGridReact<FileType> | null>;\\n\" is not assignable to type \"type DiagnosticType = Ref<AgGridReact<unknown>> | undefined;\\n\".\r\n  Type \"type DiagnosticType = RefObject<AgGridReact<FileType> | null>;\\n\" is not assignable to type \"type DiagnosticType = RefObject<AgGridReact<unknown> | null>;\\n\".\r\n    Type \"type DiagnosticType = AgGridReact<FileType> | null;\\n\" is not assignable to type \"type DiagnosticType = AgGridReact<unknown> | null;\\n\".\r\n      Type \"type DiagnosticType = AgGridReact<FileType>;\\n\" is not assignable to type \"type DiagnosticType = AgGridReact<unknown>;\\n\".\r\n        The types returned by \"api.getColumnDef(...)\" are incompatible between these types.\r\n          Type \"type DiagnosticType = ColDef<FileType, any> | null;\\n\" is not assignable to type \"type DiagnosticType = ColDef<unknown, any> | null;\\n\".\r\n            Type \"type DiagnosticType = ColDef<FileType, any>;\\n\" is not assignable to type \"type DiagnosticType = ColDef<unknown, any>;\\n\".\r\n              Types of property \"type DiagnosticType = field;\\n\" are incompatible.\r\n                Type \"type DiagnosticType = NestedFieldPaths<FileType, any, [\\n]> | undefined;\\n\" is not assignable to type \"type DiagnosticType = undefined;\\n\".\r\n                  Type \"type DiagnosticType = \\\"type\\\";\\n\" is not assignable to type \"type DiagnosticType = undefined;\\n\"."
+      ],
+      "count": 1
+    }
+  ],
+  "removed": [
+    {
+      "diagnostic": [
+        "src/pages/MainPage/pages/filesPage/components/FilesTab.tsx",
+        "TS2322",
+        "Type \"type DiagnosticType = RefObject<AgGridReact<FileType> | null>;\\n\" is not assignable to type \"type DiagnosticType = Ref<AgGridReact<unknown>> | undefined;\\n\".\r\n  Type \"type DiagnosticType = RefObject<AgGridReact<FileType> | null>;\\n\" is not assignable to type \"type DiagnosticType = RefObject<AgGridReact<unknown> | null>;\\n\".\r\n    Type \"type DiagnosticType = AgGridReact<FileType> | null;\\n\" is not assignable to type \"type DiagnosticType = AgGridReact<unknown> | null;\\n\".\r\n      Type \"type DiagnosticType = AgGridReact<FileType>;\\n\" is not assignable to type \"type DiagnosticType = AgGridReact<unknown>;\\n\".\r\n        The types returned by \"api.getColumnDef(...)\" are incompatible between these types.\r\n          Type \"type DiagnosticType = ColDef<FileType, any> | null;\\n\" is not assignable to type \"type DiagnosticType = ColDef<unknown, any> | null;\\n\".\r\n            Type \"type DiagnosticType = ColDef<FileType, any>;\\n\" is not assignable to type \"type DiagnosticType = ColDef<unknown, any>;\\n\".\r\n              Types of property \"type DiagnosticType = field;\\n\" are incompatible.\r\n                Type \"type DiagnosticType = NestedFieldPaths<FileType, any, [\\n]> | undefined;\\n\" is not assignable to type \"type DiagnosticType = undefined;\\n\".\r\n                  Type \"type DiagnosticType = \\\"file\\\";\\n\" is not assignable to type \"type DiagnosticType = undefined;\\n\"."
+      ],
+      "count": 1
+    }
+  ],
+  "normalization": "Complete --noErrorTruncation output. Preserve diagnostic path/code/count/message; ignore line/column offsets and replace only two known checkout roots. Parse quoted type expressions with TypeScript AST, sorting union members and property-only type-literal members, preserving tuple/function/overload order. Unparseable expressions retained unchanged.",
+  "parsed_type_expressions": 2394,
+  "unparsed_type_expressions": 62,
+  "full_typecheck": "Both remain red on inherited errors; not a green full typecheck.",
+  "remaining_variation": {
+    "description": "One inherited AGGrid error chooses a different representative FileType key (file versus type). Code, site and both governing files are unchanged. All other264 normalized diagnostics match; full typecheck remains red.",
+    "files": [
+      {
+        "path": "src/pages/MainPage/pages/filesPage/components/FilesTab.tsx",
+        "accepted_sha256": "fc0b1a9088d57901156f1d2498d65c76f4655fbcd5a4d19cf7d7da205e6c02de",
+        "candidate_sha256": "fc0b1a9088d57901156f1d2498d65c76f4655fbcd5a4d19cf7d7da205e6c02de",
+        "identical": true
+      },
+      {
+        "path": "src/types/file_management/index.ts",
+        "accepted_sha256": "00716928d851fe2bcbc585b398a60d3d93164c581fa4c81a6cf555f45dd68af7",
+        "candidate_sha256": "00716928d851fe2bcbc585b398a60d3d93164c581fa4c81a6cf555f45dd68af7",
+        "identical": true
+      }
+    ]
+  }
+}

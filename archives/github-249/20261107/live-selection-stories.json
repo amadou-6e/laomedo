@@ -1,0 +1,28 @@
+{
+  "head": "9d8c65790d6722cd222907d17dddb3f20748f758",
+  "results": [
+    {
+      "kind": "issue",
+      "repository_change_clears_labels_and_selection": true,
+      "real_scoped_repository_refusal": true,
+      "missing_selection_distinct_and_no_read_refresh": true,
+      "restored_discovery_no_automatic_selection": true,
+      "label_changes_clear_selection": true,
+      "all_label_filter": "Selected actual Issue23 with bug+documentation and viewer confirmed both",
+      "refresh_preserves_identity": 23
+    },
+    {
+      "kind": "pr",
+      "repository_change_clears_labels_and_selection": true,
+      "real_scoped_repository_refusal": true,
+      "missing_selection_distinct_and_no_read_refresh": true,
+      "restored_discovery_no_automatic_selection": true,
+      "label_changes_clear_selection": true,
+      "all_label_filter": "Real filtered discovery with both labels; no automatic selection",
+      "refresh_preserves_identity": 24,
+      "blank_source_distinct": true,
+      "normal_read_preview_restored": true
+    }
+  ],
+  "scope": "Actual UI typing, label pickers, selection clearing, scoped refusal, empty selection and explicit refresh; no interception, model calls or GitHub writes. Forced out-of-order delivery remains covered by internal stale-response controls, not claimed from these observations."
+}

@@ -1,0 +1,29 @@
+{
+  "head": "d6721aa1885c2b3f80710fc7834901451fc3ad03",
+  "results": [
+    {
+      "kind": "issue",
+      "offline": true,
+      "copyable_safe_error": true,
+      "refresh_enabled": true
+    },
+    {
+      "kind": "pr",
+      "offline": true,
+      "copyable_safe_error": true,
+      "refresh_enabled": true
+    },
+    {
+      "kind": "issue",
+      "restored": true,
+      "explicit_read_refresh": true
+    },
+    {
+      "kind": "pr",
+      "restored": true,
+      "explicit_read_refresh": true
+    }
+  ],
+  "graph_dispatches": [],
+  "scope": "Live selected resources, task-owned services stopped after viewer load, real safe failure/copy and explicit read recovery; no model or GitHub writes"
+}

@@ -1,0 +1,93 @@
+{
+  "head": "3786201298fe729ddf3d315c2d70e4b079a8c36b",
+  "issue": {
+    "number": 26,
+    "title": "GitHub Issue refactor verified",
+    "state": "closed",
+    "labels": [
+      "bug",
+      "documentation"
+    ]
+  },
+  "pr": {
+    "number": 25,
+    "title": "Original Codex Agent feedback verified",
+    "state": "open",
+    "draft": true,
+    "head_base_and_body_preserved": true
+  },
+  "effects": {
+    "issue": [
+      {
+        "run_id": "a3ca355f-bd83-486b-8fad-eb1963058dc7",
+        "effect_id": "b5be13ba-892c-44db-96c4-0abd74a19d61",
+        "state": "confirmed"
+      },
+      {
+        "run_id": "d6e7b439-1023-45e3-9ed7-bd30c8572719",
+        "effect_id": "aba27199-e45d-4a4a-8001-02b5570982af",
+        "state": "confirmed"
+      }
+    ],
+    "pr": [
+      {
+        "run_id": "ba421d5b-44c8-4f6f-ba8f-67b73595d31c",
+        "effect_id": "pr-feedback-5efdd1eb745b64ca2d3fa2f93af46556526962ba65295141",
+        "state": "confirmed"
+      },
+      {
+        "run_id": "b63ec281-a532-4cec-9e17-6666d4e89020",
+        "effect_id": "77cefcc4-272e-43ce-9c56-0a0167cb4943",
+        "state": "confirmed"
+      },
+      {
+        "run_id": "8e3627b9-ee10-435e-bce8-7d8fac64294b",
+        "effect_id": "4311e30d-4bfa-4546-aa5e-7806c3406b1d",
+        "state": "confirmed"
+      },
+      {
+        "run_id": "f61998da-43eb-4bd2-94d5-bc7c30189c81",
+        "effect_id": "d5fed744-53d4-47f0-86bd-01e3c9e9f455",
+        "state": "confirmed"
+      },
+      {
+        "run_id": "dd61114a-80cf-4701-94f2-bad9f28d47b1",
+        "effect_id": "16218d69-e047-437a-b59f-594333bbdd7a",
+        "state": "confirmed"
+      },
+      {
+        "run_id": "ade8dd56-1d52-4e41-a86b-b999610c670b",
+        "effect_id": "f3e1a86b-9b60-4f50-961f-80806ee24c6d",
+        "state": "confirmed"
+      },
+      {
+        "run_id": "76816591-72a2-4cc8-ae3c-cf979181c7b8",
+        "effect_id": "b996732e-6b59-4594-9de1-a562a39af951",
+        "state": "confirmed"
+      },
+      {
+        "run_id": "4ec7a846-86ae-4cbf-8335-54d7e3cd0cf0",
+        "effect_id": "3befb2cc-74da-4d1e-93c3-f6bd4d761d01",
+        "state": "confirmed"
+      },
+      {
+        "run_id": "f72b25a1-d0c8-4821-ab23-25478a286fae",
+        "effect_id": "8102f07e-9471-4570-ad1e-1653c5d66225",
+        "state": "confirmed"
+      }
+    ]
+  },
+  "revoked_grants": {
+    "issue": 0,
+    "pr": 2
+  },
+  "all_campaign_grants_revoked": true,
+  "native_run": {
+    "run_id": "0d06d33d-cd5f-4239-abee-35bd6f120549",
+    "thread_id": "01a1b52a-65fe-7360-a7c5-337acef6dafd",
+    "status": "completed",
+    "owned_container_absent": true
+  },
+  "restoration": "Ordinary scoped host operation restored the Agent example title after the separate response-loss checks; no additional model call.",
+  "readback": "Independent direct GitHub GET, separate from node viewer and mutation acknowledgement."
+}

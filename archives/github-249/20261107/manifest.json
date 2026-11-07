@@ -1,0 +1,277 @@
+{
+  "production_head": "39aef3ebfcd7a8480433687f2aaff155823dcf55",
+  "runtime_head": "3786201298fe729ddf3d315c2d70e4b079a8c36b",
+  "policy": "Hashes bind stored Git blobs after text normalization. Sanitized logs explicitly selected; no credentials/private runtime/raw reviewer transcripts. Prepared diffs reproduced from recorded commits.",
+  "files": [
+    {
+      "path": "archives/github-249/20261107/archive-preservation.json",
+      "bytes": 8334,
+      "sha256": "b1e8330fcb25cf5b8049c6cfc8fee8c7826662a81d081f2ff6c674bf887726ba"
+    },
+    {
+      "path": "archives/github-249/20261107/build-outcome-jest-final.log",
+      "bytes": 1184,
+      "sha256": "a22ab26e22cd41588845030416c9935677ab4225219a27be841680298f4d5a95"
+    },
+    {
+      "path": "archives/github-249/20261107/ci-final.json",
+      "bytes": 3037,
+      "sha256": "fc586388693bb4f1f0747de593b5188ddda7eafa2ec3961ed4747f5eee3cac5c"
+    },
+    {
+      "path": "archives/github-249/20261107/final-browser-fixed.log",
+      "bytes": 244,
+      "sha256": "9c921fef444c26216ec735ceb907eb8a80af8136cfecd8b3962c95f1674980a1"
+    },
+    {
+      "path": "archives/github-249/20261107/final-feedback-graph-clear.png",
+      "bytes": 216244,
+      "sha256": "79d1254f75248325484fe3cc5605f94a5ef1fe3a47fbaa322a0ee576be2ee2a2"
+    },
+    {
+      "path": "archives/github-249/20261107/final-integration-result.md",
+      "bytes": 9785,
+      "sha256": "c3afcbbddb0910d576580c9af322c19c769b66232f708b09061e05fa66c91342"
+    },
+    {
+      "path": "archives/github-249/20261107/HANDOFF.md",
+      "bytes": 4511,
+      "sha256": "e9d619b664c2cf9b10d7b7906a9daebc272d40cfaeec5ef5341f3d393197335c"
+    },
+    {
+      "path": "archives/github-249/20261107/layout-recheck-result.md",
+      "bytes": 6807,
+      "sha256": "00228c9b23e84ef3a693b38f2863bfad7cc42a917183061b7ad2a9c841385baf"
+    },
+    {
+      "path": "archives/github-249/20261107/layout-verification.json",
+      "bytes": 389,
+      "sha256": "e4b759e0b4bb5b543b7abe52cbd24fd8332ab59acff100bcf589e8b415beaf54"
+    },
+    {
+      "path": "archives/github-249/20261107/layout.log",
+      "bytes": 718,
+      "sha256": "9606c9c6b014ef2af74e801fbe13b4b613e85e9d276dd25399452a7209cb559a"
+    },
+    {
+      "path": "archives/github-249/20261107/live-agent-pr-result.png",
+      "bytes": 122206,
+      "sha256": "96e60228ea5ac60dbc7c6909ec6a2e0ce463f8351a2232486f0d6c253ca83b62"
+    },
+    {
+      "path": "archives/github-249/20261107/live-agent-result.json",
+      "bytes": 706,
+      "sha256": "4ed06d40ded2985afc4d3f15c3a1eeffe1527f51efd1395550a12a4ea3409874"
+    },
+    {
+      "path": "archives/github-249/20261107/live-authority-refusal.json",
+      "bytes": 409,
+      "sha256": "f16ee5b70457491fb8a489cc096f4577ac15c757aa9be368b145c573df9133b4"
+    },
+    {
+      "path": "archives/github-249/20261107/live-issue-and-filter.png",
+      "bytes": 128633,
+      "sha256": "88f02f1b57f69c138daa46b1d1aef367792fa0c636b3348b8570df60d881a891"
+    },
+    {
+      "path": "archives/github-249/20261107/live-issue-modified.png",
+      "bytes": 130768,
+      "sha256": "08adb3d6752e93afbca717a7cd17d977101743f9365e5ba59234a6fc1e9eaa4b"
+    },
+    {
+      "path": "archives/github-249/20261107/live-operations.json",
+      "bytes": 778,
+      "sha256": "1903d0be04f9f4b080d55848dd91385d04d38d1e4e1a9e929bb9359795fcfe01"
+    },
+    {
+      "path": "archives/github-249/20261107/live-pr-close.json",
+      "bytes": 207,
+      "sha256": "a80849bddc8fb8d2960a218a1cb15f4e55ee8e69cc2fbee2d6d212c2d6ecc498"
+    },
+    {
+      "path": "archives/github-249/20261107/live-pr-closed-filter-refusal.png",
+      "bytes": 109638,
+      "sha256": "7a73a6cfb71fffdc1fa60b4729da9e4bd05d268c1c103b2584605d609cdf7ada"
+    },
+    {
+      "path": "archives/github-249/20261107/live-pr-grant-refusal-fixed.png",
+      "bytes": 240479,
+      "sha256": "d46a6ee8a907261515e51a9272f3bfacdeea11a0868428db7cfa2edd460c5bb9"
+    },
+    {
+      "path": "archives/github-249/20261107/live-pr-loss-recovery-fixed.log",
+      "bytes": 846,
+      "sha256": "2298a85f4df02d9ed2b16efe50defc2cc86af4984663cc792e62b4356030f925"
+    },
+    {
+      "path": "archives/github-249/20261107/live-pr-lost-ack-fixed.png",
+      "bytes": 227076,
+      "sha256": "e9d81f19bc62c5506ce54155fd4899fb1b2d7116968802fea52459f87f29c947"
+    },
+    {
+      "path": "archives/github-249/20261107/live-pr-modified.png",
+      "bytes": 129619,
+      "sha256": "27c7e1a0b9bf9e040118176235076c35dce1af9f87c8bc4b91d45a60abe75798"
+    },
+    {
+      "path": "archives/github-249/20261107/live-pr-read-success-fixed.png",
+      "bytes": 151020,
+      "sha256": "b6b07ba08c2d2833337fd05e20bc9765da12a70978d9ac0c171080bd848b79ca"
+    },
+    {
+      "path": "archives/github-249/20261107/live-readback-cleanup.json",
+      "bytes": 2830,
+      "sha256": "63871532ab00a110ae286f83aa8cd8162801e2e9b2151c80d0342e438d00bacf"
+    },
+    {
+      "path": "archives/github-249/20261107/live-selection-stories.json",
+      "bytes": 1328,
+      "sha256": "104280c29b49bd96c35faf3d966862b0b691292f6c11ea1def8285dd8791bd3e"
+    },
+    {
+      "path": "archives/github-249/20261107/outcome-clean-install.log",
+      "bytes": 76,
+      "sha256": "8c15e3e59a5a18e46b746c31d6a6695747690ade49ef250842f8ac858108443b"
+    },
+    {
+      "path": "archives/github-249/20261107/real-recovery.json",
+      "bytes": 698,
+      "sha256": "dbd3865b9a705f70736ec9f9a56c3ad6c79f925c2e832ac343568b4ec2aa221b"
+    },
+    {
+      "path": "archives/github-249/20261107/review-ledger.md",
+      "bytes": 1709,
+      "sha256": "4c76c7940ab1bfa2be7a2c7410c67fe2be3efeb697ff4333731c579ae2716ea7"
+    },
+    {
+      "path": "archives/github-249/20261107/ts-final-comparison.json",
+      "bytes": 4862,
+      "sha256": "d1f14dde81a9d70d1b6516401cfe74174ee631392402ac456a623286a141896c"
+    },
+    {
+      "path": "archives/github-249/20261107/wheel-parity.json",
+      "bytes": 421,
+      "sha256": "58b9172423bd888352c63a5640e1ad9fb38e1282aa835ddfa2b9c4f3fe96fda7"
+    },
+    {
+      "path": "work/github249-final/authorize.py",
+      "bytes": 1667,
+      "sha256": "f81175d683e419417de9c5850322ba7f90f17f445d1362d60ab1ac2dbfa2dc00"
+    },
+    {
+      "path": "work/github249-final/build_ordinary.py",
+      "bytes": 1732,
+      "sha256": "68274974e70f9611930d59d99af1d001cbdc2d96c6e130fc610fe0e62b8c9c42"
+    },
+    {
+      "path": "work/github249-final/close_pr.cjs",
+      "bytes": 2141,
+      "sha256": "cf837195011529785bb0d4e510bb4d921321261b540b29c58c5cdd809449147d"
+    },
+    {
+      "path": "work/github249-final/close_pr.py",
+      "bytes": 4366,
+      "sha256": "367e7765330ffbf8e0df06e56dd2409b0d356538f16820a0a5c7f372b310d219"
+    },
+    {
+      "path": "work/github249-final/compare_types.cjs",
+      "bytes": 3392,
+      "sha256": "dceafb1fe1883a1c6db10e67a37d6541cb64bd8f3f002e9bcb63833b11ca3483"
+    },
+    {
+      "path": "work/github249-final/compare_types.py",
+      "bytes": 2191,
+      "sha256": "421d523b83b8682cfeefa39b0446c485b467200531fdddb35ed2e571604eb656"
+    },
+    {
+      "path": "work/github249-final/final_browser.cjs",
+      "bytes": 5891,
+      "sha256": "73346d63c3f63abd979fcd0536f1b0a0b4185c9a537050ebc1ac7baef3b940e0"
+    },
+    {
+      "path": "work/github249-final/import_feedback.cjs",
+      "bytes": 1973,
+      "sha256": "aa98c64a11d5654529029a85be5aeeb404218dc702b15774ba55c3f122a9d899"
+    },
+    {
+      "path": "work/github249-final/inspect_controls.cjs",
+      "bytes": 1048,
+      "sha256": "b2619ad8034c069013c23437a1ea7c2f5b3afa2367070b8b4416b0f92d6ab956"
+    },
+    {
+      "path": "work/github249-final/layout.cjs",
+      "bytes": 2594,
+      "sha256": "57f25a0d210b7ea908767776ab92beb8d20b7b8b4e050641fb5324c01a8f2ae3"
+    },
+    {
+      "path": "work/github249-final/operation_result.py",
+      "bytes": 811,
+      "sha256": "f6e26f4c1b19a7cc55d77524e62e6f530d7a2bf43c54ac5536a4c68436d77b94"
+    },
+    {
+      "path": "work/github249-final/prepare_skill.py",
+      "bytes": 896,
+      "sha256": "94c3b81c465cbbef6a0db2749b4235e1006e03b256022bf32437b5ad0d7a2eba"
+    },
+    {
+      "path": "work/github249-final/prepare_targets.py",
+      "bytes": 3848,
+      "sha256": "896246450c3182a91f9f49d5cd30448e3fbeccce1b0fbfddc0faf5fd7c3b42b5"
+    },
+    {
+      "path": "work/github249-final/README.md",
+      "bytes": 1837,
+      "sha256": "82d758b76bb70f2e7e566f970f227d203c956104d3653fd9d85d84a8135969e5"
+    },
+    {
+      "path": "work/github249-final/recover_targets.py",
+      "bytes": 2473,
+      "sha256": "1e3b6658cd71bffc22d5f86b661d7bcf28e0bafda21459af1ec8368c2cd7ab7c"
+    },
+    {
+      "path": "work/github249-final/relay.py",
+      "bytes": 674,
+      "sha256": "f0582af6ffedf750ee882041ba447a67db4c5db4c39bd870be3740710b9cc07e"
+    },
+    {
+      "path": "work/github249-final/relay_handler.py",
+      "bytes": 2214,
+      "sha256": "879da2beae386a5d3e739dd0d5e5a90ca427083366e7dfa01d1f7a53ec0dad3d"
+    },
+    {
+      "path": "work/github249-final/run_feedback.cjs",
+      "bytes": 4128,
+      "sha256": "7e706a2f220213a548323e22ce4560254ad69d3e4b6e63ca1e20edb8cbdac8a9"
+    },
+    {
+      "path": "work/github249-final/run_operations.cjs",
+      "bytes": 6925,
+      "sha256": "3b2046da2e8365efd48c19d4fabe163c9dccb433dfea7477c1e5060030bed604"
+    },
+    {
+      "path": "work/github249-final/selectors.cjs",
+      "bytes": 4764,
+      "sha256": "da5971e6c02960133e1127aa28e03e52fa6820ec2975f7c3bcdd24928037447f"
+    },
+    {
+      "path": "work/github249-final/serve_audited.py",
+      "bytes": 768,
+      "sha256": "c7d5399e152fbdd669456c1e496f5a14ae72e462ce9afcca5c01cce86188b727"
+    },
+    {
+      "path": "work/github249-final/start_audited.py",
+      "bytes": 2030,
+      "sha256": "e9c3f8113d4920e2b8bc6dbe0ecf8707db398d779e05fdbaea233d644bbc2258"
+    },
+    {
+      "path": "work/github249-final/start_runtime.py",
+      "bytes": 2697,
+      "sha256": "c1976b7e659fd43a72beda0ad7bb506298cd476c2e5683f6453d31cd36b343f5"
+    },
+    {
+      "path": "work/github249-final/verify_cleanup.py",
+      "bytes": 4486,
+      "sha256": "4a02e4acffd3ae4c9410e8298cd387858120577ff959a0f687c2a098058c3ff7"
+    }
+  ]
+}

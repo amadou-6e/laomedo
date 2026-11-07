@@ -1,0 +1,16 @@
+{
+  "head": "3786201298fe729ddf3d315c2d70e4b079a8c36b",
+  "outcomes": [
+    {
+      "kind": "pr",
+      "flow_url": "http://127.0.0.1:17862/flow/9a3b8ccb-2459-4488-84b2-165fa2011d82",
+      "request_id": "3befb2cc-74da-4d1e-93c3-f6bd4d761d01",
+      "target": 25,
+      "host_status": "succeeded",
+      "actual_github_mutation_requests": 1,
+      "explicit_replay_extra_mutations": 0,
+      "loss": "Actual host response dropped after confirmed real PATCH/readback; viewer independently reread changed resource before explicit same-identity reconciliation"
+    }
+  ],
+  "scope": "Actual browser node runs, production services/transport/host grants, real GitHub targets. Only injected fault is local response loss after a true upstream response; no provider or model doubles."
+}

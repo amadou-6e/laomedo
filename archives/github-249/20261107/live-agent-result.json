@@ -1,0 +1,19 @@
+{
+  "head": "9d8c65790d6722cd222907d17dddb3f20748f758",
+  "graph": "http://127.0.0.1:17862/flow/bc42e5d2-b651-51da-871b-f7a021e50a16",
+  "runner_run_id": "0d06d33d-cd5f-4239-abee-35bd6f120549",
+  "status": "completed",
+  "thread_id": "01a1b52a-65fe-7360-a7c5-337acef6dafd",
+  "elapsed_ms": 43474,
+  "new_agent_runs": 1,
+  "requests": [],
+  "page_errors": [],
+  "selected_pr": 25,
+  "observed_title": "Original Codex Agent feedback verified",
+  "authorization": {
+    "target": 25,
+    "ttl_seconds": 60,
+    "run_id": "ba421d5b-44c8-4f6f-ba8f-67b73595d31c"
+  },
+  "scope": "Actual browser Run on maintained PR→production Codex Agent→same PR.Operation; no route interception or provider/model doubles"
+}

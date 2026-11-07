@@ -1,0 +1,10 @@
+{
+  "head": "39aef3ebfcd7a8480433687f2aaff155823dcf55",
+  "runtime_head": "3786201298fe729ddf3d315c2d70e4b079a8c36b",
+  "url": "http://127.0.0.1:17862/flow/bc42e5d2-b651-51da-871b-f7a021e50a16",
+  "change": "Agent y80 to680 only, native Fit followed by Zoom Out",
+  "edges_unchanged": true,
+  "node_count": 3,
+  "all_nodes_inside_viewport_with_margin": true,
+  "no_graph_execution": true
+}

@@ -1,0 +1,12 @@
+{
+  "head": "3786201298fe729ddf3d315c2d70e4b079a8c36b",
+  "code": "pr_grant_unavailable",
+  "explicit_error_details": true,
+  "false_success_banner_absent": true,
+  "normal_read_success_banner_preserved": true,
+  "safe_copy": true,
+  "dismissed": true,
+  "extra_agent_runs": 0,
+  "extra_github_mutations": 0,
+  "scope": "Actual graph with revoked/absent host grant refuses before production Agent execution"
+}

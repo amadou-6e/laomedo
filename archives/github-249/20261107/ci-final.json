@@ -1,0 +1,85 @@
+{
+  "headRefOid": "39aef3ebfcd7a8480433687f2aaff155823dcf55",
+  "statusCheckRollup": [
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-11-07T09:49:47Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/amadou-6e/laomedo/actions/runs/42361332728/job/128370176975",
+      "name": "black",
+      "startedAt": "2026-11-07T09:49:22Z",
+      "status": "COMPLETED",
+      "workflowName": "Python formatting"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-11-07T09:49:37Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/amadou-6e/laomedo/actions/runs/42361328121/job/128370162682",
+      "name": "black",
+      "startedAt": "2026-11-07T09:49:18Z",
+      "status": "COMPLETED",
+      "workflowName": "Python formatting"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-11-07T09:49:36Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/amadou-6e/laomedo/actions/runs/42361332735/job/128370177167",
+      "name": "docker-runtime-controls",
+      "startedAt": "2026-11-07T09:49:23Z",
+      "status": "COMPLETED",
+      "workflowName": "Work Graph"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-11-07T09:49:32Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/amadou-6e/laomedo/actions/runs/42361328119/job/128370162864",
+      "name": "docker-runtime-controls",
+      "startedAt": "2026-11-07T09:49:18Z",
+      "status": "COMPLETED",
+      "workflowName": "Work Graph"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-11-07T09:50:53Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/amadou-6e/laomedo/actions/runs/42361332735/job/128370177128",
+      "name": "package-and-test (3.10)",
+      "startedAt": "2026-11-07T09:49:22Z",
+      "status": "COMPLETED",
+      "workflowName": "Work Graph"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-11-07T09:50:44Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/amadou-6e/laomedo/actions/runs/42361328119/job/128370163054",
+      "name": "package-and-test (3.10)",
+      "startedAt": "2026-11-07T09:49:18Z",
+      "status": "COMPLETED",
+      "workflowName": "Work Graph"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-11-07T09:50:58Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/amadou-6e/laomedo/actions/runs/42361332735/job/128370176968",
+      "name": "package-and-test (3.13)",
+      "startedAt": "2026-11-07T09:49:22Z",
+      "status": "COMPLETED",
+      "workflowName": "Work Graph"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-11-07T09:50:39Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/amadou-6e/laomedo/actions/runs/42361328119/job/128370162967",
+      "name": "package-and-test (3.13)",
+      "startedAt": "2026-11-07T09:49:18Z",
+      "status": "COMPLETED",
+      "workflowName": "Work Graph"
+    }
+  ]
+}
