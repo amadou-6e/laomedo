@@ -199,7 +199,7 @@ claiming that capability. No Agent model run is required to verify denial.
 
 ## Approach review record
 
-Review at `1a887193`, Claude model reported by CLI `claude-opus-5-5`, effort low,
+Review at `1a887193`, actual CLI result `modelUsage` key `claude-opus-5-5`, effort low,
 300-second bound: REVISE; specification INCOMPLETE, implementation/visual not
 applicable. No real workflow was reviewed. Reviewer did not read all requested
 instructions/callers, so its first packet is partial coverage, not full approval.
@@ -216,3 +216,34 @@ instructions/callers, so its first packet is partial coverage, not full approval
 
 No finding is marked reviewer-verified-fixed yet. The corrected proposal and
 caller coverage require focused recheck; missing real stories remain unverified.
+
+### Focused recheck at 8c50ef07
+
+The same low-effort reviewer inspected the corrections and required instructions.
+Approach remains REVISE; specification INCOMPLETE. A1/A3/A4 proposal mechanisms
+are corrected; A2 is confirmed and its implementation remains open. No runtime
+or visual acceptance was established. Remaining unread handlers are recorded in
+the ignored review evidence, not represented as reviewed.
+
+- **251-A8 (open):** the existing source design's no-extra-sign-in and public/local
+  transport clauses must explicitly distinguish legacy public discovery from new
+  private connections. The implementation must not disable auto-login or change
+  running services automatically. Under the proposed strict mode, existing public
+  previews continue unchanged and private connections refuse until the owner has
+  deliberately configured supported authentication. The owner has not accepted
+  this prerequisite; another explicit local-owner/session design may be selected.
+- **251-A9 (rejected with evidence):** the reviewer questioned model provenance.
+  The actual raw CLI result contains `modelUsage.claude-opus-5-5.canonicalModel`,
+  independent of the response's self-description. The record now names that exact
+  evidence field; no model identity was inferred from extension/effort metadata.
+  This is a provenance clarification, not a code correction or acceptance claim.
+- **251-A10 (accepted clarification):** a public-only reader can serve independently
+  authorized public bytes even if they happen to hash like private bytes. Private
+  provenance never grants access to public callers, and a missing public pin must
+  not reveal whether an inaccessible private copy exists.
+
+Canonical authoring is currently blocked: Git refused switching the visible specs
+checkout because unrelated authentication/Claude changes would be overwritten.
+No stash, overwrite, reset or branch change occurred. Permission to preserve those
+edits and restore them after the task is pending. Source-read and UI requirements
+remain owned by [specs #410](https://github.com/amadou-6e/specs/issues/410).
