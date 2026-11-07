@@ -1,0 +1,14 @@
+{
+  "provider": "opencode",
+  "graph": "http://127.0.0.1:17863/flow/c556dedd-8089-4b97-839a-d12b531f43f1",
+  "run_id": "d1f7e0f7-bbda-462e-90bb-7e3c6bb96f75",
+  "native_command_observed": true,
+  "ui_stop_clicked": true,
+  "status": "cancelled",
+  "cancel_requested": true,
+  "cancel_confirmed": true,
+  "controller_cleanup": "confirmed",
+  "error_category": null,
+  "total_ms": 30326,
+  "cancellation_ms": 6726
+}

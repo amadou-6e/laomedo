@@ -1,0 +1,11 @@
+[
+  {
+    "provider": "opencode",
+    "graph": "http://127.0.0.1:17863/flow/c6fc70b9-1d63-4de6-8550-97f32f6cf94e",
+    "timeline_rows": 1,
+    "turn_bars": 1,
+    "has_actual_heading": true,
+    "captured_state": "complete",
+    "page_errors": []
+  }
+]

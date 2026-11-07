@@ -1,0 +1,45 @@
+{
+  "accepted_base": "bb25013523e37fbb108b51638be171e879eb3883",
+  "head": "4b81988b6d554a618ea18ea3da9a05f994ed21ce",
+  "accepted_diagnostics": 265,
+  "candidate_diagnostics": 259,
+  "added": [],
+  "removed": [
+    {
+      "diagnostic": [
+        "src/modals/graphAgents/index.test.tsx",
+        "TS2345",
+        "Argument of type \"type DiagnosticType = {\\n    cost: {\\n        amount: null;\\n    };\\n    cost_reason: string;\\n    items: never[];\\n    telemetry: ({\\n        attributes: {\\n            \\\"conversation.id\\\": string;\\n            \\\"turn.id\\\": string;\\n            thread_id?: undefined;\\n        };\\n        scope_conflict?: undefined;\\n    } | {\\n        attributes: {\\n            \\\"conversation.id\\\": string;\\n            \\\"turn.id\\\"?: undefined;\\n            thread_id: string;\\n        };\\n        scope_conflict: boolean;\\n    })[];\\n    telemetry_coverage: string;\\n    threads: never[];\\n    turns: never[];\\n    usage: null;\\n    usage_points: never[];\\n};\\n\" is not assignable to parameter of type \"type DiagnosticType = Projection;\\n\".\r\n  Property \"type DiagnosticType = clock;\\n\" is missing in type \"type DiagnosticType = {\\n    cost: {\\n        amount: null;\\n    };\\n    cost_reason: string;\\n    items: never[];\\n    telemetry: ({\\n        attributes: {\\n            \\\"conversation.id\\\": string;\\n            \\\"turn.id\\\": string;\\n            thread_id?: undefined;\\n        };\\n        scope_conflict?: undefined;\\n    } | {\\n        attributes: {\\n            \\\"conversation.id\\\": string;\\n            \\\"turn.id\\\"?: undefined;\\n            thread_id: string;\\n        };\\n        scope_conflict: boolean;\\n    })[];\\n    telemetry_coverage: string;\\n    threads: never[];\\n    turns: never[];\\n    usage: null;\\n    usage_points: never[];\\n};\\n\" but required in type \"type DiagnosticType = Projection;\\n\"."
+      ],
+      "count": 2
+    },
+    {
+      "diagnostic": [
+        "src/modals/graphAgents/index.test.tsx",
+        "TS2769",
+        "No overload matches this call.\r\n  Overload 1 of 2, \"(role: ByRoleMatcher, options?: ByRoleOptions | undefined): HTMLElement\", gave the following error.\r\n    Object literal may only specify known properties, and \"type DiagnosticType = exact;\\n\" does not exist in type \"type DiagnosticType = ByRoleOptions;\\n\".\r\n  Overload 2 of 2, \"(role: ByRoleMatcher, options?: ByRoleOptions | undefined): HTMLElement\", gave the following error.\r\n    Object literal may only specify known properties, and \"type DiagnosticType = exact;\\n\" does not exist in type \"type DiagnosticType = ByRoleOptions;\\n\"."
+      ],
+      "count": 2
+    },
+    {
+      "diagnostic": [
+        "src/modals/graphAgents/index.test.tsx",
+        "TS2769",
+        "No overload matches this call.\r\n  Overload 1 of 2, \"(role: ByRoleMatcher, options?: ByRoleOptions | undefined, waitForElementOptions?: waitForOptions | undefined): Promise<HTMLElement>\", gave the following error.\r\n    Object literal may only specify known properties, and \"type DiagnosticType = exact;\\n\" does not exist in type \"type DiagnosticType = ByRoleOptions;\\n\".\r\n  Overload 2 of 2, \"(role: ByRoleMatcher, options?: ByRoleOptions | undefined, waitForElementOptions?: waitForOptions | undefined): Promise<HTMLElement>\", gave the following error.\r\n    Object literal may only specify known properties, and \"type DiagnosticType = exact;\\n\" does not exist in type \"type DiagnosticType = ByRoleOptions;\\n\"."
+      ],
+      "count": 1
+    },
+    {
+      "diagnostic": [
+        "src/modals/graphAgents/index.tsx",
+        "TS18047",
+        "\"type DiagnosticType = target;\\n\" is possibly \"type DiagnosticType = null;\\n\"."
+      ],
+      "count": 1
+    }
+  ],
+  "normalization": "Complete --noErrorTruncation output. Preserve diagnostic path/code/count/message; ignore line/column offsets and replace only two known checkout roots. Parse quoted type expressions with TypeScript AST, sorting union members and property-only type-literal members, preserving tuple/function/overload order. Unparseable expressions retained unchanged.",
+  "parsed_type_expressions": 2370,
+  "unparsed_type_expressions": 56,
+  "full_typecheck": "Both remain red on inherited errors; not a green full typecheck."
+}

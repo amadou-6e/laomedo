@@ -1,0 +1,14 @@
+{
+  "head": "2e2be4c6d65ba05ba5de4b1c15edd95cf8b209e7",
+  "wheel_sha256": "c2ab1c337c62c4331cffba5fd585fc4fc426a62e73f6562a5e63d1cf049922ef",
+  "source_files_checked": 340,
+  "missing": [],
+  "changed": [],
+  "smoke": {
+    "import_origin_outside_checkout": true,
+    "provider_inheritance": true,
+    "graph_adapter": true,
+    "refresh_metadata_preserves_run_target": true
+  },
+  "scope": "Package/source parity and real imports only; not model or browser acceptance."
+}

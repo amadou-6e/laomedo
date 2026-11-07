@@ -1,0 +1,53 @@
+[
+  {
+    "provider": "codex",
+    "advanced_mouse_and_keyboard": true,
+    "collapsed_hides_values": true,
+    "model": "gpt-6-luna",
+    "effort": "low",
+    "reload_preserved_values": true,
+    "no_new_native_runs": true,
+    "refresh_controls": [
+      {
+        "text": "Refresh list",
+        "aria": null,
+        "title": null,
+        "testid": "refresh-dropdown-list-model"
+      }
+    ]
+  },
+  {
+    "provider": "claude",
+    "advanced_mouse_and_keyboard": true,
+    "collapsed_hides_values": true,
+    "model": "Haiku",
+    "effort": "low",
+    "reload_preserved_values": true,
+    "no_new_native_runs": true,
+    "refresh_controls": [
+      {
+        "text": "Refresh list",
+        "aria": null,
+        "title": null,
+        "testid": "refresh-dropdown-list-model"
+      }
+    ]
+  },
+  {
+    "provider": "opencode",
+    "advanced_mouse_and_keyboard": true,
+    "collapsed_hides_values": true,
+    "model": "opencode-go/gpt-6-luna",
+    "effort": "default",
+    "reload_preserved_values": true,
+    "no_new_native_runs": true,
+    "refresh_controls": [
+      {
+        "text": "Refresh list",
+        "aria": null,
+        "title": null,
+        "testid": "refresh-dropdown-list-model"
+      }
+    ]
+  }
+]

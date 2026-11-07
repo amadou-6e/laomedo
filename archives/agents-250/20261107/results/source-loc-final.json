@@ -1,0 +1,14 @@
+{
+  "base": {
+    "revision": "bb25013523e37fbb108b51638be171e879eb3883",
+    "source_files": 283,
+    "physical_lines": 33247
+  },
+  "head": {
+    "revision": "02c2c291adb482fc5c07b50cbc85aa62b2157f9f",
+    "source_files": 343,
+    "physical_lines": 37922
+  },
+  "delta": 4675,
+  "scope": "Tracked src Python/MJS physical lines, excluding tests/docs/frontend, not a code-reduction claim."
+}

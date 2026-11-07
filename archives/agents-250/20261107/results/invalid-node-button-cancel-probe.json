@@ -1,0 +1,43 @@
+[
+  {
+    "provider": "codex",
+    "graph": "http://127.0.0.1:17863/flow/b393d902-c751-415c-b5db-992895694f4f",
+    "run_id": "e54e143c-3378-4717-8fbc-b83cfbb58aac",
+    "native_command_observed": true,
+    "ui_stop_clicked": true,
+    "status": "completed",
+    "cancel_requested": false,
+    "cancel_confirmed": false,
+    "controller_cleanup": "confirmed",
+    "error_category": null,
+    "total_ms": 56396,
+    "cancellation_ms": 46967
+  },
+  {
+    "provider": "claude",
+    "graph": "http://127.0.0.1:17863/flow/5370aab8-f53b-4f96-b744-2fc0ddbca4e2",
+    "run_id": "8cd5189e-a40b-4e30-97f1-73832de8170d",
+    "native_command_observed": false,
+    "ui_stop_clicked": false,
+    "status": "failed",
+    "cancel_requested": false,
+    "cancel_confirmed": false,
+    "error_category": "claude_local_login_copy_failed",
+    "total_ms": 2076,
+    "cancellation_ms": null
+  },
+  {
+    "provider": "opencode",
+    "graph": "http://127.0.0.1:17863/flow/0954dac3-03bc-48d4-afd6-eaee4becf5f0",
+    "run_id": "e12c2988-7f99-413d-a0ec-c36bf7e6d21b",
+    "native_command_observed": true,
+    "ui_stop_clicked": true,
+    "status": "completed",
+    "cancel_requested": false,
+    "cancel_confirmed": false,
+    "controller_cleanup": "confirmed",
+    "error_category": null,
+    "total_ms": 78444,
+    "cancellation_ms": 55790
+  }
+]

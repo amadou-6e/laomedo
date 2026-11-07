@@ -1,0 +1,41 @@
+[
+  {
+    "elapsed_ms": 9601,
+    "state": "offline",
+    "reason": "runner_start_cancelled",
+    "http_status": 200
+  },
+  {
+    "elapsed_ms": 14867,
+    "state": "offline",
+    "reason": "runner_start_cancelled",
+    "http_status": 200
+  },
+  {
+    "elapsed_ms": 18055,
+    "state": "offline",
+    "reason": "runner_start_cancelled",
+    "http_status": 200
+  },
+  {
+    "elapsed_ms": 21117,
+    "state": "starting",
+    "http_status": 200
+  },
+  {
+    "elapsed_ms": 23735,
+    "state": "unavailable",
+    "reason": "runner_identity_unverified",
+    "http_status": 200
+  },
+  {
+    "elapsed_ms": 23958,
+    "state": "ready",
+    "http_status": 200
+  },
+  {
+    "elapsed_ms": 24423,
+    "state": "ready",
+    "http_status": 200
+  }
+]

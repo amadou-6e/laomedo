@@ -1,0 +1,26 @@
+[
+  {
+    "provider": "codex",
+    "http_status": 200,
+    "selected_model_label": "gpt-6-luna",
+    "selection_preserved": true,
+    "visible_choice_count": 9,
+    "no_new_native_run": true
+  },
+  {
+    "provider": "claude",
+    "http_status": 200,
+    "selected_model_label": "Haiku",
+    "selection_preserved": true,
+    "visible_choice_count": 6,
+    "no_new_native_run": true
+  },
+  {
+    "provider": "opencode",
+    "http_status": 200,
+    "selected_model_label": "opencode-go/gpt-6-luna",
+    "selection_preserved": true,
+    "visible_choice_count": 42,
+    "no_new_native_run": true
+  }
+]

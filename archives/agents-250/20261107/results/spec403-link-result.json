@@ -1,0 +1,29 @@
+{
+  "head": "558d7e22e651ade08af47748835432b1c7a61430",
+  "change": "PR214 implementation link to PR250; draft maturity unchanged",
+  "validation_exit": 0,
+  "original_branch_restored": "fix/407",
+  "restoration_checks": [
+    {
+      "file": "projects/laomedo/subsystems/agent-execution/contract/authentication.md",
+      "git_content_preserved": true,
+      "worktree_crlf": true
+    },
+    {
+      "file": "projects/laomedo/subsystems/agent-execution/contract/claude.md",
+      "git_content_preserved": true,
+      "worktree_crlf": true
+    },
+    {
+      "file": "projects/laomedo/subsystems/agent-execution/contract/node-errors.md",
+      "git_content_preserved": true,
+      "worktree_crlf": true
+    },
+    {
+      "file": "projects/laomedo/decisions/0006-local-claude-subscription.md",
+      "git_content_preserved": true,
+      "worktree_crlf": true
+    }
+  ],
+  "comparison": "Git content exact after CRLF/LF normalization; no pre-stash raw-byte digest comparison"
+}

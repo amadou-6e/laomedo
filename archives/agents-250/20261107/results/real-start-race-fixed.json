@@ -1,0 +1,68 @@
+[
+  {
+    "attempt": 1,
+    "start": {
+      "state": "starting",
+      "can_start": false,
+      "startup_id": "5265753e-a8d0-4625-8d3e-33729a192d79"
+    },
+    "concurrent_status": [
+      {
+        "state": "offline",
+        "can_start": true,
+        "reason": "runner_start_cancelled"
+      },
+      {
+        "state": "offline",
+        "can_start": true,
+        "reason": "runner_start_cancelled"
+      }
+    ],
+    "new_model_submissions": 0
+  },
+  {
+    "attempt": 2,
+    "start": {
+      "state": "starting",
+      "can_start": false,
+      "startup_id": "2e509d65-6f49-410d-b38e-fbd461231d1f"
+    },
+    "concurrent_status": [
+      {
+        "state": "prerequisite",
+        "can_start": false,
+        "reason": "runner_docker_check_unconfirmed",
+        "runner_state": "offline"
+      },
+      {
+        "state": "prerequisite",
+        "can_start": false,
+        "reason": "runner_docker_check_unconfirmed",
+        "runner_state": "offline"
+      }
+    ],
+    "new_model_submissions": 0
+  },
+  {
+    "attempt": 3,
+    "start": {
+      "state": "starting",
+      "can_start": false,
+      "startup_id": "a1ff9c05-252c-4a54-8895-77b6fe7a0ed2"
+    },
+    "concurrent_status": [
+      {
+        "state": "offline",
+        "can_start": true,
+        "reason": "runner_local_offline"
+      },
+      {
+        "state": "prerequisite",
+        "can_start": false,
+        "reason": "runner_docker_check_unconfirmed",
+        "runner_state": "offline"
+      }
+    ],
+    "new_model_submissions": 0
+  }
+]

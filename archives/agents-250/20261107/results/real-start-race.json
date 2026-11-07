@@ -1,0 +1,46 @@
+[
+  {
+    "attempt": 1,
+    "start": {
+      "state": "starting",
+      "can_start": false,
+      "startup_id": "bb26921a-d6ff-41b7-af1c-db95c5d3f287"
+    },
+    "concurrent_status": [
+      {
+        "state": "offline",
+        "can_start": true,
+        "reason": "runner_local_offline"
+      },
+      {
+        "state": "offline",
+        "can_start": true,
+        "reason": "runner_local_offline"
+      }
+    ],
+    "new_model_submissions": 0
+  },
+  {
+    "attempt": 2,
+    "start": {
+      "state": "prerequisite",
+      "can_start": false,
+      "reason": "runner_docker_check_unconfirmed",
+      "runner_state": "offline"
+    },
+    "concurrent_status": [
+      {
+        "state": "prerequisite",
+        "can_start": false,
+        "reason": "runner_docker_check_unconfirmed",
+        "runner_state": "offline"
+      },
+      {
+        "state": "offline",
+        "can_start": true,
+        "reason": "runner_local_offline"
+      }
+    ],
+    "new_model_submissions": 0
+  }
+]

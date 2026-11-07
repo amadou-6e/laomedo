@@ -1,0 +1,44 @@
+{
+  "source": "Current projection over immutable actual native receipts; no rerun or rewritten record",
+  "run_id": "5e57abb0-e0b1-4e7e-b321-115ed74122f1",
+  "methods": {
+    "thread/started": 1,
+    "turn/started": 1,
+    "item/completed": 3,
+    "acp/sessionUpdate": 66,
+    "item/updated": 3,
+    "item/agentMessage/delta": 62,
+    "acp/promptCompleted": 1,
+    "turn/completed": 1,
+    "opencode/exportStarted": 1,
+    "opencode/modelCatalog": 43,
+    "opencode/sessionSnapshot": 1,
+    "opencode/messageSnapshot": 1,
+    "opencode/exportCompleted": 1
+  },
+  "answer_matches_native_record": true,
+  "root_attempt_usage": {
+    "input": 982,
+    "output": 88,
+    "reasoning": 0,
+    "cache": {
+      "read": 0,
+      "write": 3042
+    },
+    "total": 4112
+  },
+  "root_usage_matches_activity": true,
+  "previous_last_message_usage": {
+    "cache": {
+      "read": 0,
+      "write": 3042
+    },
+    "input": 982,
+    "output": 88,
+    "reasoning": 0
+  },
+  "record_controller_cleanup": "confirmed",
+  "opencode_named_containers_present": 0,
+  "run_receipt_count": 0,
+  "source_binding": "Real capture executed with7ca74370; current usage projection separately applied offline to that exact native data."
+}

@@ -1,0 +1,26 @@
+{
+  "graph": "http://127.0.0.1:17864/flow/fa43fe87-c42c-4484-872e-69b0787ffc84",
+  "offline_error_code": "runner_transport_failed",
+  "copy_icon_works": true,
+  "viewport_bounds": {
+    "x": 1040,
+    "y": 698,
+    "width": 384,
+    "height": 286
+  },
+  "busy_spinner_and_cancel_button": true,
+  "visible_with_actual_nonmodal_onboarding": true,
+  "actual_modal_hides_background_and_close_restores_it": true,
+  "service_state": "ready",
+  "online_border_color": "rgb(74, 222, 128)",
+  "online_border_green": true,
+  "no_graph_rerun_or_native_submission": true,
+  "dismissed": true,
+  "startup_cancellation": "not exercised in this pass",
+  "source_binding": {
+    "frontend_source_revision": "4b81988b6d554a618ea18ea3da9a05f994ed21ce",
+    "final_candidate": "9d1b31d24670c7a805707f2ab6841f146efedcf2",
+    "binding": "All served frontend source matched fresh installer output (deployment-parity-final.json); later commits change Claude auth Python, tests and docs, not recovery UI.",
+    "metadata_correction": "Earlier a01845f4 label was hardcoded by the probe; removed rather than represented as a tested final revision."
+  }
+}

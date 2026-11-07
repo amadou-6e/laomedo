@@ -32,3 +32,6 @@ archives/agents-205/component-cache-inputs/files/** -text
 
 # Exact reconstructable candidate patch; preserve hunk context bytes.
 archives/reconciliation-237/conservation-20261106/continuation/combined-candidate.patch -text -diff
+
+# Curated real Agent evidence retains its recorded bytes.
+archives/agents-250/20261107/** -text whitespace=cr-at-eol

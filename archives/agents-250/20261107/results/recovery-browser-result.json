@@ -1,0 +1,17 @@
+{
+  "graph": "http://127.0.0.1:17863/flow/375ac29e-868a-4704-8e86-f07a529e3218",
+  "offline_error_code": "runner_transport_failed",
+  "copy_icon_works": true,
+  "viewport_bounds": {
+    "x": 1200,
+    "y": 724,
+    "width": 384,
+    "height": 360
+  },
+  "busy_spinner_and_cancel": true,
+  "service_state": "ready",
+  "online_border_color": "rgb(74, 222, 128)",
+  "restart_elapsed_ms": 13419,
+  "no_graph_rerun_or_native_submission": true,
+  "dismissed": true
+}

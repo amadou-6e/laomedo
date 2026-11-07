@@ -1,0 +1,14 @@
+{
+  "provider": "codex",
+  "graph": "http://127.0.0.1:17863/flow/4bcde577-0fbf-49d3-bf5b-6b1e472d8070",
+  "run_id": "0cca5741-f723-4e5e-a63f-5c063490c97c",
+  "native_command_observed": true,
+  "ui_stop_clicked": true,
+  "status": "cancelled",
+  "cancel_requested": true,
+  "cancel_confirmed": true,
+  "controller_cleanup": "confirmed",
+  "error_category": "cancelled_by_user",
+  "total_ms": 11270,
+  "cancellation_ms": 1376
+}

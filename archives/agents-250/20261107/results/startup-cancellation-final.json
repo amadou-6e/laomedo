@@ -1,0 +1,11 @@
+{
+  "source_head": "02c2c291",
+  "graph": "http://127.0.0.1:17863/flow/375ac29e-868a-4704-8e86-f07a529e3218",
+  "state": "offline",
+  "reason": "runner_start_cancelled",
+  "cancellation_ms": 24096,
+  "actual_ui_cancel_stopped_backend_startup": true,
+  "backend_listener_absent": true,
+  "startup_cancelled": true,
+  "no_model_run": true
+}

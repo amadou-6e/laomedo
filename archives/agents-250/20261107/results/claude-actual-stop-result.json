@@ -1,0 +1,14 @@
+{
+  "provider": "claude",
+  "graph": "http://127.0.0.1:17863/flow/bcb8ca45-524f-40d6-9731-988adfdc9d63",
+  "run_id": "515e7205-309a-4904-8c6b-7306c4986e86",
+  "native_command_observed": true,
+  "ui_stop_clicked": true,
+  "status": "cancelled",
+  "cancel_requested": true,
+  "cancel_confirmed": true,
+  "descendant_cleanup": "verified",
+  "error_category": "claude_cancelled",
+  "total_ms": 19726,
+  "cancellation_ms": 2457
+}
