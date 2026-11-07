@@ -9,16 +9,15 @@ No profile UI or real registration/switching acceptance is implemented yet.
 One Windows user operates the installation. Profiles select different setups,
 like profiles inside one account, rather than separate hosted web accounts.
 The desired first-run experience is a simple registration/profile page. A separate
-administrator procedure needs concrete justification. A PIN was an analogy;
-whether one is required is awaiting the owner's answer. No new credential or
+administrator procedure needs concrete justification. The owner confirmed a PIN is required when entering or switching profiles. No new credential or
 GitHub registration has occurred. The earlier manual Bootstrap handoff is on hold.
 
 ## Reviewed direction
 
 Reuse upstream user identities as internal profile records, and adapt its existing
-signup/login UI. With AUTO_LOGIN off, ENABLE_SIGNUP on and NEW_USER_IS_ACTIVE on,
-upstream supports creating an active ordinary user and default project without
-administrator approval. Do not add a second profile ownership database or replace
+signup/login UI. With AUTO_LOGIN off and NEW_USER_IS_ACTIVE on, the dedicated profile boundary
+can delegate upstream creation of an active ordinary user and default project.
+Generic anonymous upstream signup remains disabled to prevent validation bypass. Do not add a second profile ownership database or replace
 password hashing/token validation without demonstrated need.
 
 Proposed flow: Create profile -> enter profile -> restore it on later launches ->
@@ -55,9 +54,9 @@ at upstream fec71dca901949c09ed4d63315804337cd2eb13d:
 
 ## Remaining choices and minimal work
 
-1. Decide PIN-required versus picker-only. Required PIN can reuse upstream password
-   handling; PIN-free selection requires an explicit local profile-session adapter.
-   A short PIN is a convenience lock, not protection from the same Windows user.
+1. PIN-required is confirmed. The initial six-digit policy is proposed. Reuse
+   upstream password handling; a short PIN is a convenience lock, not protection
+   from the same Windows user.
 2. Proposed default: GitHub connections are per profile; the GitHub App registration
    is installation-wide. Connection sharing across profiles is not selected yet.
 3. Resolve startup internally. Claude recommends one reserved, automatically
@@ -78,3 +77,15 @@ checks. Revise the canonical draft and issue scopes after the remaining choices;
 existing issue bodies have not been changed by this consultation. Keep PR #263
 in draft. All real browser creation/switching/restart and private-access stories
 remain unverified.
+
+## Design review and implementation checkpoint
+
+Canonical spec revision `f3400b7` passed Claude's focused specification and visual
+review for implementation. This is not runtime acceptance. LP-R1 through LP-R7
+were corrected; LP-R8 is the owner recovery decision. LP-R9 requires tests for the
+effective auth service after startup/request, environment-key refusal and all
+WebSocket/SSE/MCP credential paths. The new `local_profiles` package currently owns
+only safe boundary models and the auth adapter; it is not wired into serving yet.
+Ten internal model/auth tests pass. Registration, startup integration, UI, actual
+session persistence and real-browser acceptance remain unfinished. The old manual
+bootstrap path must be removed in this PR before delivery, not retained in parallel.
