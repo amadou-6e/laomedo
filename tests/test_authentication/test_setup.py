@@ -3,6 +3,7 @@
 import json
 from pathlib import Path
 import shutil
+import socket
 import subprocess
 import sys
 import tempfile
@@ -23,7 +24,7 @@ class NormalLoginSetupTests(unittest.TestCase):
         self.launcher = self.repo / "tools/start_normal_login.ps1"
         self.powershell = shutil.which("powershell.exe")
 
-    def prepare(self, runtime, port=17864):
+    def prepare(self, runtime, port=17864, mode="Prepare"):
         return subprocess.run(
             [
                 self.powershell,
@@ -33,7 +34,7 @@ class NormalLoginSetupTests(unittest.TestCase):
                 "-File",
                 str(self.launcher),
                 "-Mode",
-                "Prepare",
+                mode,
                 "-PythonExe",
                 sys.executable,
                 "-FrontendPath",
@@ -101,3 +102,12 @@ class NormalLoginSetupTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("missing index.html", result.stderr)
         self.assertFalse(runtime.exists())
+
+    def test_occupied_port_is_refused_before_runtime_import(self):
+        runtime = self.root / "runtime"
+        with socket.socket() as listener:
+            listener.bind(("127.0.0.1", 0))
+            listener.listen()
+            result = self.prepare(runtime, listener.getsockname()[1], mode="Check")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Port is already in use", result.stderr)

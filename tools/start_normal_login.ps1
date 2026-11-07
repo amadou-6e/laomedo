@@ -6,7 +6,7 @@ param(
     [Parameter(Mandatory=$true)][string]$PythonExe,
     [Parameter(Mandatory=$true)][string]$FrontendPath,
     [Parameter(Mandatory=$true)][string]$RuntimeRoot,
-    [ValidateRange(1024,65535)][int]$Port = 17864
+    [ValidateRange(1024,65535)][int]$Port = 17866
 )
 $ErrorActionPreference = 'Stop'
 if ([Environment]::OSVersion.Platform -ne 'Win32NT') { throw 'This setup supports native Windows only.' }
@@ -54,6 +54,11 @@ if (-not (Test-Path -LiteralPath $marker)) {
 foreach ($folder in @('langflow','registry')) {
     New-Item -ItemType Directory -Force -Path (Join-Path $runtime $folder) | Out-Null
 }
+if ($Mode -in @('Check','Serve')) {
+    $probe = [Net.Sockets.TcpListener]::new([Net.IPAddress]::Loopback, $Port)
+    $probe.ExclusiveAddressUse = $true
+    try { $probe.Start() } catch { throw 'Port is already in use. Choose a fresh runtime and free port; do not stop unrelated services.' } finally { $probe.Stop() }
+}
 if ($Mode -eq 'Prepare') { Write-Output 'Isolated runtime prepared; no account or server created.'; exit 0 }
 # Changes affect this launcher/child only, and are restored even on failure.
 $saved = @{}
@@ -71,6 +76,7 @@ $config = @{
     LANGFLOW_SKIP_AUTH_AUTO_LOGIN='false'
     LANGFLOW_ENABLE_SIGNUP='false'
     LANGFLOW_NEW_USER_IS_ACTIVE='false'
+    LANGFLOW_ENABLE_SUPERUSER_CLI=([string]($Mode -eq 'Bootstrap')).ToLowerInvariant()
     LANGFLOW_FRONTEND_PATH=$frontend
     LANGFLOW_COMPONENTS_PATH=(Join-Path $repoRoot 'components')
     LAOMEDO_COMPONENT_DIR=(Join-Path $repoRoot 'components/laomedo')
@@ -80,6 +86,7 @@ $config = @{
     LANGFLOW_CORS_ORIGINS=('["http://127.0.0.1:' + $Port + '"]')
     LANGFLOW_CORS_ALLOW_CREDENTIALS='true'
     LAOMEDO_NORMAL_LOGIN_PORT=[string]$Port
+    LAOMEDO_NORMAL_LOGIN_RUNTIME=$runtime
     PYTHONPATH=(Join-Path $repoRoot 'src')
 }
 $originalLocation = Get-Location
@@ -91,7 +98,11 @@ try {
     Set-Location -LiteralPath $runtime
     if ($Mode -eq 'Bootstrap') {
         Write-Output 'Create the initial local administrator using the hidden password prompt.'
-        & $pythonPath -m langflow superuser
+        $adminName = Read-Host 'Administrator name (not langflow)'
+        if (-not $adminName -or $adminName -eq 'langflow') { throw 'Choose a non-default administrator name.' }
+        & $pythonPath -m langflow superuser --username $adminName
+        if ($LASTEXITCODE -ne 0) { throw 'Administrator bootstrap failed.' }
+        & $pythonPath -m laomedo.integrations.langflow.normal_login $adminName
     } else {
         $bootstrap = @"
 import os
@@ -107,6 +118,10 @@ print('Effective settings: normal login required; public signup disabled.', flus
 import laomedo
 import uvicorn
 laomedo.__path__.append(os.environ['LAOMEDO_COMPONENT_DIR'])
+from laomedo.integrations.langflow.normal_login.settings import NormalLoginSettings
+from laomedo.integrations.langflow.normal_login.startup import NormalLoginStartup
+from lfx.services.settings.constants import DEFAULT_SUPERUSER, LEGACY_DEFAULT_SUPERUSER_PASSWORD
+NormalLoginStartup(NormalLoginSettings().runtime_root).prepare(get_settings_service(), DEFAULT_SUPERUSER, LEGACY_DEFAULT_SUPERUSER_PASSWORD.get_secret_value())
 from laomedo.integrations.langflow.viewer import create_app
 app = create_app()
 uvicorn.run(app, host='127.0.0.1', port=int(os.environ['LAOMEDO_NORMAL_LOGIN_PORT']), access_log=False)

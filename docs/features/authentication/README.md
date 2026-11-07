@@ -13,7 +13,12 @@ The launcher owns child-process configuration only. `Prepare` admits an empty
 non-Git runtime and fixes its loopback origin. `Check` verifies effective upstream
 settings. `Bootstrap` delegates account creation and hidden password entry to the
 existing upstream CLI. `Serve` delegates the app to Laomedo's existing factory.
-No account is created by Prepare, Check or Serve. Runtime/config/database/key
+No account is created by Prepare, Check or Serve. Serve requires the explicit
+verified Bootstrap marker and an existing active non-default administrator.
+It refuses a missing/changed database and the upstream legacy default password.
+Upstream startup requires a nonempty setup password even for an existing admin;
+after read-only admission the adapter supplies a fresh in-memory startup value,
+which upstream erases. It never replaces or retains your login password. Runtime/config/database/key
 state is separate from an existing preview. Inherited Laomedo/Langflow settings
 are removed for the child and restored in the calling process.
 
@@ -25,7 +30,7 @@ $login = @{
     PythonExe = (Resolve-Path '.venv/Scripts/python.exe').Path
     FrontendPath = 'C:/path/to/matching/upstream/src/frontend/build'
     RuntimeRoot = (Join-Path $env:LOCALAPPDATA 'Laomedo/normal-login')
-    Port = 17864
+    Port = 17866
 }
 ./tools/start_normal_login.ps1 @login -Mode Prepare
 ./tools/start_normal_login.ps1 @login -Mode Check
@@ -35,13 +40,15 @@ $login = @{
 
 The bootstrap terminal prompts for an administrator name and hidden password.
 Choose them yourself; do not pass passwords on the command line or paste them
-into chat. Initial bootstrap needs a new database; subsequent administrator
+into chat. The administrator name is stored as non-secret bootstrap metadata after database
+verification; an upstream zero exit code alone does not establish success.
+Initial bootstrap needs a new database; subsequent administrator
 creation follows upstream authorization and is not automated here. Use existing
 administrator user management to create/activate a non-default owner, then sign
 in as that owner. Public signup remains disabled. Private owner binding and
 server-revocable private sessions belong to #259, not this launcher.
 
-Open `http://127.0.0.1:17864` in a separate browser profile with no imported data.
+Open `http://127.0.0.1:17866` in a separate browser profile with no imported data.
 Different ports do not isolate cookies. Keep this profile and runtime directory
 for browser/app restart checks. Stop only this foreground server with Ctrl+C;
 re-run Serve against the same directory to restore its database/signing key.
@@ -57,3 +64,26 @@ concurrent-profile support/constraints and crash recovery with the real app.
 Record exact revision/environment, results, cleanup and gaps. Upstream logout
 currently deletes cookies; it is not server-side JWT revocation. That gap is
 owned by #259. No runner/model request or GitHub credential is needed for #258.
+
+
+## Current evidence and known startup correction
+
+Initial real Serve at checkpoint 117e37b5 failed during upstream initialization
+with "Username and password must be set". Check-only success did not establish
+startup. The new guarded startup adapter addresses that separately; its real
+bootstrapped Serve remains pending user password entry. Port 17864 was found in
+use by another process and is not this task's acceptance endpoint. Leave that
+process untouched; use a fresh runtime with free port 17866. Generic non-app
+process settings (for example proxies) remain inherited; app-prefixed settings
+are isolated. Access logging is disabled; real error-path redaction still needs
+verification. No real login/persistence or user acceptance is claimed.
+
+
+Claude full substantive review at 117e37b5: Implementation REVISE; Visual
+INCOMPLETE. R1 requires verified existing/active/non-default administrator,
+non-legacy password and exact database before supplying any startup-only value.
+R2 is settled from upstream constants: DEFAULT_SUPERUSER_PASSWORD is empty;
+initial startup failed closed, not with a known password. R3 requires read-only
+verification of CLI bootstrap rather than trusting its exit code. These
+corrections are implemented and await the first focused recheck after a real
+user-owned bootstrap/Serve. No review approval is claimed for them yet.
