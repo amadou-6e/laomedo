@@ -16,6 +16,7 @@ def main() -> None:
     parser.add_argument("--frontend", type=Path, required=True)
     parser.add_argument("--components", type=Path, required=True)
     parser.add_argument("--state", type=Path, required=True)
+    parser.add_argument("--activity-db", type=Path)
     parser.add_argument("--port", type=int, default=7860)
     args = parser.parse_args()
     try:

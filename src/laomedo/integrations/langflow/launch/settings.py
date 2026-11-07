@@ -24,6 +24,10 @@ class Settings(BaseSettings):
     frontend: Path = Field(description="Built matching Langflow frontend directory.")
     components: Path = Field(description="This installation's custom component root.")
     state: Path = Field(description="Persistent Langflow state directory outside Git.")
+    activity_db: Path | None = Field(
+        default=None,
+        description="Existing activity database to retain, or state/activity.db by default.",
+    )
     port: int = Field(
         default=7860, ge=1, le=65535, description="Loopback app HTTP port."
     )
@@ -54,6 +58,9 @@ class Settings(BaseSettings):
             )
         if not (self.components / "laomedo" / "codex_agent.py").is_file():
             raise ValueError("Select this installation's components directory.")
-        for path in (self.state.resolve(), self.runner_config.resolve().parent):
+        private_paths = [self.state.resolve(), self.runner_config.resolve().parent]
+        if self.activity_db is not None:
+            private_paths.append(self.activity_db.resolve().parent)
+        for path in private_paths:
             if any((parent / ".git").exists() for parent in (path, *path.parents)):
                 raise ValueError("Keep app state and runner configuration outside Git.")

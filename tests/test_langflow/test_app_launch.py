@@ -1,6 +1,7 @@
 """App configuration controls; these do not establish real runner acceptance."""
 
 import json
+import importlib.util
 import tempfile
 import unittest
 from pathlib import Path
@@ -98,3 +99,39 @@ class AppLaunchTests(unittest.TestCase):
         self.path.write_text(json.dumps(self.config))
         with self.assertRaisesRegex(ValueError, "independent Codex lease service"):
             AppLauncher(self.settings).environment()
+
+    def test_port_collision_refuses_app_startup(self):
+        """An app cannot occupy the managed runner endpoint even while it is offline."""
+        settings = self.settings.model_copy(update={"port": self.config["port"]})
+        with self.assertRaisesRegex(ValueError, "different ports"):
+            AppLauncher(settings).environment()
+
+    def test_activity_defaults_are_installation_scoped_and_existing_path_is_explicit(
+        self,
+    ):
+        """Sibling app directories never silently share a new activity database."""
+        first = AppLauncher(self.settings).environment()
+        second = AppLauncher(
+            self.settings.model_copy(update={"state": self.root / "second-app"})
+        ).environment()
+        self.assertEqual(
+            Path(first["LAOMEDO_AGENT_ACTIVITY_DB"]), self.root / "app/activity.db"
+        )
+        self.assertNotEqual(
+            first["LAOMEDO_AGENT_ACTIVITY_DB"], second["LAOMEDO_AGENT_ACTIVITY_DB"]
+        )
+        existing = self.root / "existing-activity.db"
+        retained = AppLauncher(
+            self.settings.model_copy(update={"activity_db": existing})
+        ).environment()
+        self.assertEqual(Path(retained["LAOMEDO_AGENT_ACTIVITY_DB"]), existing)
+
+    def test_new_component_reads_the_launch_endpoint_before_langflow_loads_it(self):
+        """Actual component definition uses the derived host URL at import time."""
+        path = Path(__file__).resolve().parents[2] / "components/laomedo/codex_agent.py"
+        spec = importlib.util.spec_from_file_location("launch_codex_component", path)
+        module = importlib.util.module_from_spec(spec)
+        with patch.dict("os.environ", AppLauncher(self.settings).environment()):
+            spec.loader.exec_module(module)
+        fields = {field.name: field for field in module.LaomedoCodexAgent.inputs}
+        self.assertEqual(fields["runner_url"].value, "http://127.0.0.1:19876")

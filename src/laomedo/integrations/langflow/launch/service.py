@@ -36,12 +36,18 @@ class AppLauncher:
             )
         if not Path(config["source"]).is_dir():
             raise ValueError("The configured Codex source directory does not exist.")
+        if settings.port == config["port"]:
+            raise ValueError("Choose different ports for the app and Codex runner.")
         state = settings.state.resolve()
         environment = {
             "LAOMEDO_RUNNER_SERVICE_FILE": str(settings.runner_config.resolve()),
             "LAOMEDO_RUNNER_TOKEN_FILE": str(Path(config["state"]) / "api-token"),
             "LAOMEDO_SKILL_STORE": config["skill_store"],
-            "LAOMEDO_AGENT_ACTIVITY_DB": str(state.parent / "activity.db"),
+            "LAOMEDO_AGENT_ACTIVITY_DB": str(
+                settings.activity_db.resolve()
+                if settings.activity_db is not None
+                else state / "activity.db"
+            ),
             "LANGFLOW_CONFIG_DIR": str(state),
             "LFX_CONFIG_DIR": str(state),
             "LANGFLOW_DATABASE_URL": "sqlite:///" + (state / "flow.db").as_posix(),

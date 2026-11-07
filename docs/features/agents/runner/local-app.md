@@ -57,6 +57,11 @@ The app binds to `127.0.0.1:7860`; `--port` changes the app port only. This comm
 explicitly selects the existing loopback auto-login mode. Do not expose it as a
 hosted or multi-user installation.
 
+The activity database defaults to `--state/activity.db`, separate for each app
+installation. If the existing installation keeps activity elsewhere, supply
+`--activity-db` with that existing private path to retain its history. The app
+port must differ from the runner's configured port.
+
 Open the app and graph. New Codex nodes use the configured runner port on
 `127.0.0.1`. Existing graphs keep their saved Runner URL; for a graph migrated
 from a container app, check it against this installation's local runner address.
