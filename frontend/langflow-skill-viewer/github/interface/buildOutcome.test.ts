@@ -16,7 +16,10 @@ beforeAll(() => {
 beforeEach(() => {
   queryClient.clear();
   useFlowStore.setState({
-    nodes: [{ id: "pr", type: "genericNode", position: { x: 0, y: 0 }, data: { id: "pr", type: "LaomedoGitHubPR" } }],
+    nodes: [{ id: "pr", type: "genericNode", position: { x: 0, y: 0 }, data: {
+      id: "pr", type: "LaomedoGitHubPR",
+      node: { display_name: "GitHub PR", description: "Internal outcome control", documentation: "", template: {} },
+    } }],
     flowPool: {}, flowBuildStatus: {}, buildInfo: null, isBuilding: true,
   });
 });
