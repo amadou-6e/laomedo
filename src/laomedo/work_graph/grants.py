@@ -6,7 +6,7 @@ from contextlib import closing
 from datetime import datetime
 from datetime import timezone
 from uuid import uuid4
-import laomedo.agents.workflow.errors as _workflow_errors
+import laomedo.work_graph.runs.errors as _workflow_errors
 import laomedo.work_graph.grant_utils as _work_graph_grant_utils
 import laomedo.work_graph.launch as _work_graph_launch
 import laomedo.work_graph.models as _work_graph_models

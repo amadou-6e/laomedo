@@ -535,6 +535,77 @@ class VerifiedStageTests(unittest.TestCase):
             self.assertTrue(staged.bare.is_dir())
         self.assertFalse(staged.bare.exists())
 
+    def test_divergent_commit_cannot_classify_as_validated_history(self):
+        snapshot = self.resolve()
+        self.git("checkout", "--detach", self.baseline)
+        (self.repo / "peer").write_text("independent peer", encoding="ascii")
+        self.git("add", "peer")
+        self.git(
+            "-c",
+            "user.name=Test",
+            "-c",
+            "user.email=t@example.invalid",
+            "commit",
+            "-qm",
+            "peer",
+        )
+        peer = self.git("rev-parse", "HEAD")
+        ancestry = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(self.repo),
+                "merge-base",
+                "--is-ancestor",
+                self.commit,
+                peer,
+            ],
+            capture_output=True,
+        )
+        self.assertEqual(ancestry.returncode, 1)
+        self.git("branch", "-f", "validated", peer)
+        bundle = self.root / "peer.bundle"
+        self.git("bundle", "create", str(bundle), "refs/heads/validated")
+        payload = bundle.read_bytes()
+        divergent = type(snapshot).model_validate(
+            {
+                **snapshot.model_dump(),
+                "baseline": self.commit,
+                "commit": peer,
+                "bundle": payload,
+                "bundle_sha256": hashlib.sha256(payload).hexdigest(),
+            }
+        )
+        with self.assertRaisesRegex(VerifiedGitStageError, "stage_history_invalid"):
+            with stage_verified_git(divergent) as staged:
+                staged.classify_workflow_change()
+
+    def test_agent_hook_and_hostile_remote_do_not_enter_verified_stage(self):
+        snapshot = self.resolve()
+        marker = self.root / "hook-fired"
+        hook = self.repo / ".git/hooks/post-checkout"
+        hook.write_text(
+            "#!/bin/sh\nprintf FIRED > '" + marker.as_posix() + "'\n", encoding="utf-8"
+        )
+        hook.chmod(0o755)
+        self.git("remote", "add", "hostile", "https://invalid.example/steal")
+        self.git("config", "core.hooksPath", str(hook.parent))
+        with stage_verified_git(snapshot) as staged:
+            self.assertFalse(staged.classify_workflow_change())
+            self.assertEqual(
+                staged.repository.resolve("refs/stage/validated"), self.commit.encode()
+            )
+            config = staged.repository.run(
+                [
+                    "config",
+                    "--local",
+                    "--get-regexp",
+                    r"^(remote\..*\.url|core\.hooksPath)$",
+                ]
+            )
+            self.assertEqual(config.returncode, 1)
+        self.assertFalse(marker.exists())
+
     def test_connectivity_check_rejects_a_broken_anchored_ref(self):
         snapshot = self.resolve()
 

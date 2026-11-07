@@ -1,6 +1,7 @@
 """Run inside the pinned Langflow image; all runner traffic is synthetic."""
 
-from laomedo.activity.agent_activity.models import CaptureIdentity, ActivityInvocation
+from laomedo.agents.activity.models import CaptureIdentity
+from laomedo.agents.activity.models import ActivityInvocation
 
 import asyncio
 from copy import deepcopy
@@ -23,7 +24,7 @@ spec = importlib.util.spec_from_file_location("codex_agent", MODULE_PATH)
 module = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = module
 spec.loader.exec_module(module)
-from laomedo.integrations.langflow.agent import component as shared_module
+from laomedo.agents.interface.langflow import component as shared_module
 
 skill_spec = importlib.util.spec_from_file_location(
     "skill_component", MODULE_PATH.with_name("skill.py")
@@ -93,7 +94,7 @@ def result(**changes):
 
 class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
     def test_bridge_activity_capture_uses_runner_token(self):
-        from laomedo.activity.agent_activity.capture import RunnerCapture
+        from laomedo.agents.activity.capture import ActivityCapture as RunnerCapture
 
         with tempfile.TemporaryDirectory() as folder:
             runner_path = Path(folder) / "runner-token"
@@ -110,7 +111,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
                     },
                 ),
                 patch(
-                    "laomedo.activity.agent_activity.utils.capture_for",
+                    "laomedo.agents.activity.capture.capture_for",
                     return_value=ActivityInvocation.model_construct(
                         store=object(), invocation_id="internal"
                     ),
@@ -123,7 +124,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(capture.base, node.runner_url)
 
     def test_static_output_requirements_reach_request_and_reject_conflicts(self):
-        from laomedo.agents.contracts.output import requirements
+        from laomedo.agents.interface.output.utils import requirements
         from lfx.schema import Data
 
         pin = requirements(
@@ -176,8 +177,8 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
                 self.subTest(status=status),
                 patch.object(node, "_token", return_value="synthetic"),
                 patch.object(
-                    shared_module.request,
-                    "urlopen",
+                    shared_module._HTTP,
+                    "open",
                     side_effect=error.HTTPError(
                         "http://localhost",
                         status,
@@ -220,8 +221,8 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
                 self.subTest(report=report),
                 patch.object(node, "_token", return_value="synthetic"),
                 patch.object(
-                    shared_module.request,
-                    "urlopen",
+                    shared_module._HTTP,
+                    "open",
                     return_value=Response(json.dumps(native).encode()),
                 ),
             ):
@@ -244,8 +245,8 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
                 self.subTest(answer=answer),
                 patch.object(node, "_token", return_value="synthetic"),
                 patch.object(
-                    shared_module.request,
-                    "urlopen",
+                    shared_module._HTTP,
+                    "open",
                     return_value=Response(
                         json.dumps(
                             result(answer=answer, client_request_id=RUN)
@@ -278,8 +279,8 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
                 self.subTest(status=status),
                 patch.object(node, "_token", return_value="synthetic"),
                 patch.object(
-                    shared_module.request,
-                    "urlopen",
+                    shared_module._HTTP,
+                    "open",
                     return_value=Response(json.dumps(native).encode()),
                 ) as http,
             ):
@@ -305,8 +306,8 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
         with (
             patch.object(node, "_token", return_value="synthetic"),
             patch.object(
-                shared_module.request,
-                "urlopen",
+                shared_module._HTTP,
+                "open",
                 side_effect=[
                     Response(json.dumps(native).encode()),
                     *[TimeoutError("SECRET private-path") for _ in range(3)],
@@ -338,8 +339,8 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
             patch.object(node, "_token", return_value="synthetic"),
             patch.object(shared_module.time, "sleep"),
             patch.object(
-                shared_module.request,
-                "urlopen",
+                shared_module._HTTP,
+                "open",
                 side_effect=[
                     Response(json.dumps(running).encode()),
                     TimeoutError("SECRET"),
@@ -366,7 +367,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
         with (
             patch.object(node, "_token", return_value="synthetic"),
             patch.object(
-                shared_module.request, "urlopen", side_effect=TimeoutError("SECRET")
+                shared_module._HTTP, "open", side_effect=TimeoutError("SECRET")
             ) as http,
         ):
             output = (await node.submission_output()).data
@@ -391,8 +392,8 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
         with (
             patch.object(node, "_token", return_value="synthetic"),
             patch.object(
-                shared_module.request,
-                "urlopen",
+                shared_module._HTTP,
+                "open",
                 side_effect=error.HTTPError(
                     "http://localhost",
                     502,
@@ -411,7 +412,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(http.call_count, 1)
 
     async def test_submission_invalid_inputs_refuse_before_dispatch(self):
-        with patch.object(shared_module.request, "urlopen") as http:
+        with patch.object(shared_module._HTTP, "open") as http:
             with self.assertRaisesRegex(ValueError, "task_required"):
                 await component(task=" ").submission_output()
             http.assert_not_called()
@@ -428,8 +429,8 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
         with (
             patch.object(node, "_token", return_value="synthetic"),
             patch.object(
-                shared_module.request,
-                "urlopen",
+                shared_module._HTTP,
+                "open",
                 side_effect=error.HTTPError(
                     "http://localhost",
                     502,
@@ -459,8 +460,8 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
                 self.subTest(category=category),
                 patch.object(node, "_token", return_value="synthetic"),
                 patch.object(
-                    shared_module.request,
-                    "urlopen",
+                    shared_module._HTTP,
+                    "open",
                     return_value=Response(json.dumps(native).encode()),
                 ),
             ):
@@ -473,8 +474,8 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
         with (
             patch.object(node, "_token", return_value="synthetic"),
             patch.object(
-                shared_module.request,
-                "urlopen",
+                shared_module._HTTP,
+                "open",
                 return_value=Response(
                     json.dumps(result(client_request_id=RUN)).encode()
                 ),
@@ -491,7 +492,9 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
         from lfx.graph.graph.base import Graph
 
         root = Path(__file__).resolve().parents[2]
-        flow = json.loads((root / "examples/native-codex-node/flow.json").read_text())
+        flow = json.loads(
+            (root / "tests/test_agents/test_examples/data/codex.json").read_text()
+        )
         agent = next(
             n for n in flow["data"]["nodes"] if n["data"]["type"] == "LaomedoCodexAgent"
         )
@@ -506,7 +509,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
 
         with (
             patch.object(module.LaomedoCodexAgent, "_token", return_value="synthetic"),
-            patch.object(shared_module.request, "urlopen", side_effect=respond) as http,
+            patch.object(shared_module._HTTP, "open", side_effect=respond) as http,
         ):
             # Imported source builds a distinct class, so the fake token file is used.
             with tempfile.TemporaryDirectory() as state:
@@ -541,7 +544,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
 
         with (
             patch.object(node, "_token", return_value="synthetic"),
-            patch.object(shared_module.request, "urlopen", side_effect=opened),
+            patch.object(shared_module._HTTP, "open", side_effect=opened),
         ):
             with self.assertRaisesRegex(
                 RuntimeError, "outstanding_command_completion_unknown"
@@ -565,7 +568,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
 
         with (
             patch.object(node, "_token", return_value="synthetic"),
-            patch.object(shared_module.request, "urlopen", side_effect=opened),
+            patch.object(shared_module._HTTP, "open", side_effect=opened),
         ):
             output = (await node.run_output()).data
         self.assertEqual(output["status"], "completed")
@@ -604,8 +607,8 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
         with (
             patch.object(node, "_token", return_value="synthetic"),
             patch.object(
-                shared_module.request,
-                "urlopen",
+                shared_module._HTTP,
+                "open",
                 return_value=Response(json.dumps(value).encode()),
             ),
         ):
@@ -793,11 +796,13 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
         from lfx.graph.graph.base import Graph
 
         root = Path(__file__).resolve().parents[2]
-        flow = json.loads((root / "examples/native-codex-node/flow.json").read_text())
+        flow = json.loads(
+            (root / "tests/test_agents/test_examples/data/codex.json").read_text()
+        )
         graph = Graph.from_payload(flow)
         with patch.object(
-            shared_module.request,
-            "urlopen",
+            shared_module._HTTP,
+            "open",
             side_effect=lambda req, **_kwargs: Response(
                 json.dumps(
                     result(client_request_id=json.loads(req.data)["request_id"])
@@ -816,7 +821,9 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
         from lfx.graph.graph.base import Graph
 
         root = Path(__file__).resolve().parents[2]
-        flow = json.loads((root / "examples/native-codex-node/flow.json").read_text())
+        flow = json.loads(
+            (root / "tests/test_agents/test_examples/data/codex.json").read_text()
+        )
         observed = []
         fresh_route = shared_module.AgentComponent._fresh_route
 
@@ -841,7 +848,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
             patch.object(
                 shared_module.AgentComponent, "_fresh_route", capture_graph_identity
             ),
-            patch.object(shared_module.request, "urlopen", side_effect=respond),
+            patch.object(shared_module._HTTP, "open", side_effect=respond),
         ):
             for _ in range(2):
                 await Graph.from_payload(flow).arun(
@@ -859,7 +866,9 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
         from lfx.graph.graph.base import Graph
 
         root = Path(__file__).resolve().parents[2]
-        flow = json.loads((root / "examples/native-codex-node/flow.json").read_text())
+        flow = json.loads(
+            (root / "tests/test_agents/test_examples/data/codex.json").read_text()
+        )
         node = next(
             n for n in flow["data"]["nodes"] if n["data"]["type"] == "LaomedoCodexAgent"
         )
@@ -883,9 +892,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(json.loads(req.data)["expected_post_run_hash"], HASH)
             return Response(json.dumps(result()).encode())
 
-        with patch.object(
-            shared_module.request, "urlopen", side_effect=respond
-        ) as http:
+        with patch.object(shared_module._HTTP, "open", side_effect=respond) as http:
             await Graph.from_payload(flow).arun(
                 inputs=[{"input_value": "Read marker"}], types=["chat"]
             )
@@ -896,11 +903,13 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
 
         root = Path(__file__).resolve().parents[2]
         builder_spec = importlib.util.spec_from_file_location(
-            "resume_flow_builder", root / "examples/native-codex-node/build_flow.py"
+            "resume_flow_builder", root / "examples/graph.py"
         )
         builder = importlib.util.module_from_spec(builder_spec)
         builder_spec.loader.exec_module(builder)
-        flow = json.loads((root / "examples/native-codex-node/flow.json").read_text())
+        flow = json.loads(
+            (root / "tests/test_agents/test_examples/data/codex.json").read_text()
+        )
         first = next(
             n for n in flow["data"]["nodes"] if n["data"]["type"] == "LaomedoCodexAgent"
         )
@@ -940,7 +949,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
                 json.dumps(result(client_request_id=payload["request_id"])).encode()
             )
 
-        with patch.object(shared_module.request, "urlopen", side_effect=respond):
+        with patch.object(shared_module._HTTP, "open", side_effect=respond):
             output = await Graph.from_payload(flow).arun(
                 inputs=[{"input_value": "Read fixture"}], types=["chat"]
             )
@@ -952,7 +961,9 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
         from lfx.graph.graph.base import Graph
 
         root = Path(__file__).resolve().parents[2]
-        flow = json.loads((root / "examples/native-codex-node/flow.json").read_text())
+        flow = json.loads(
+            (root / "tests/test_agents/test_examples/data/codex.json").read_text()
+        )
         skill = next(
             n for n in flow["data"]["nodes"] if n["data"]["type"] == "LaomedoSkill"
         )
@@ -981,9 +992,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
                 ).encode()
             )
 
-        with patch.object(
-            shared_module.request, "urlopen", side_effect=respond
-        ) as http:
+        with patch.object(shared_module._HTTP, "open", side_effect=respond) as http:
             await Graph.from_payload(flow).arun(
                 inputs=[{"input_value": "Use both skills"}], types=["chat"]
             )
@@ -1002,9 +1011,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
                 json.dumps(result(client_request_id=payload["request_id"])).encode()
             )
 
-        with patch.object(
-            shared_module.request, "urlopen", side_effect=respond
-        ) as http:
+        with patch.object(shared_module._HTTP, "open", side_effect=respond) as http:
             message, data = await asyncio.gather(
                 node.answer_output(), node.run_output()
             )
@@ -1034,9 +1041,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
                 ).encode()
             )
 
-        with patch.object(
-            shared_module.request, "urlopen", side_effect=respond
-        ) as http:
+        with patch.object(shared_module._HTTP, "open", side_effect=respond) as http:
             early = (await node.run_output()).data
             self.assertEqual(early["status"], "prepared")
             self.assertEqual(early["run_id"], RUN)
@@ -1056,7 +1061,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_uncertain_start_error_retains_retry_identity(self):
         node = component(operation="start")
-        with patch.object(shared_module.request, "urlopen", side_effect=TimeoutError()):
+        with patch.object(shared_module._HTTP, "open", side_effect=TimeoutError()):
             with self.assertRaisesRegex(
                 RuntimeError, "check status for request_id"
             ) as caught:
@@ -1072,7 +1077,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
             {"operation": "resume"},
             {"operation": "status", "run_reference": {"run_id": "../x"}},
         ]
-        with patch.object(shared_module.request, "urlopen") as http:
+        with patch.object(shared_module._HTTP, "open") as http:
             for values in cases:
                 with self.subTest(values=values), self.assertRaises(ValueError):
                     await component(**values).run_output()
@@ -1095,9 +1100,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(payload["expected_post_run_hash"], HASH)
             return Response(json.dumps(result()).encode())
 
-        with patch.object(
-            shared_module.request, "urlopen", side_effect=respond
-        ) as http:
+        with patch.object(shared_module._HTTP, "open", side_effect=respond) as http:
             await component(
                 operation="resume", run_reference=shared_module.Data(data=prior)
             ).run_output()
@@ -1128,7 +1131,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
             {"model": "different"},
             {"effort": "high"},
         ]
-        with patch.object(shared_module.request, "urlopen") as http:
+        with patch.object(shared_module._HTTP, "open") as http:
             for change in changes:
                 with self.subTest(change=change), self.assertRaises(ValueError):
                     await component(
@@ -1155,8 +1158,8 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
                 with (
                     self.subTest(operation=operation, http_error=http_error),
                     patch.object(
-                        shared_module.request,
-                        "urlopen",
+                        shared_module._HTTP,
+                        "open",
                         side_effect=failure if http_error else None,
                         return_value=response,
                     ),
@@ -1178,8 +1181,8 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
             "effort": "low",
         }
         with patch.object(
-            shared_module.request,
-            "urlopen",
+            shared_module._HTTP,
+            "open",
             return_value=Response(
                 json.dumps(result(thread_id="another-thread")).encode()
             ),
@@ -1216,8 +1219,8 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
             with (
                 self.subTest(status=status),
                 patch.object(
-                    shared_module.request,
-                    "urlopen",
+                    shared_module._HTTP,
+                    "open",
                     side_effect=error.HTTPError(
                         "http://localhost", 502, "failure", {}, Response(payload)
                     ),
@@ -1241,8 +1244,8 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
             {"status": "failed", "error_category": "post_run_snapshot_mismatch"}
         ).encode()
         with patch.object(
-            shared_module.request,
-            "urlopen",
+            shared_module._HTTP,
+            "open",
             side_effect=error.HTTPError(
                 "http://localhost", 400, "refused", {}, Response(payload)
             ),
@@ -1267,7 +1270,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
             "trace_ref": f"laomedo:run:{RUN}:events",
         }
         with patch.object(
-            shared_module.request, "urlopen", side_effect=TimeoutError()
+            shared_module._HTTP, "open", side_effect=TimeoutError()
         ) as http:
             with self.assertRaises(shared_module.RunnerResultError) as caught:
                 await component(operation="resume", run_reference=prior).run_output()
@@ -1285,8 +1288,8 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
             result(status="timeout", error_category="turn_timeout")
         ).encode()
         with patch.object(
-            shared_module.request,
-            "urlopen",
+            shared_module._HTTP,
+            "open",
             side_effect=error.HTTPError(
                 "http://localhost", 502, "failure", {}, Response(payload)
             ),
@@ -1301,8 +1304,8 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
             (TimeoutError(), "remote execution may still be active"),
         ]:
             with patch.object(
-                shared_module.request,
-                "urlopen",
+                shared_module._HTTP,
+                "open",
                 side_effect=(response if isinstance(response, Exception) else None),
                 return_value=response,
             ):
@@ -1330,7 +1333,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
                     ).encode()
                 )
 
-            with patch.object(shared_module.request, "urlopen", side_effect=respond):
+            with patch.object(shared_module._HTTP, "open", side_effect=respond):
                 data = (await node.run_output()).data
                 self.assertEqual(data["status"], "running")
 
@@ -1338,8 +1341,8 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
         node = component(operation="cancel", run_reference={"run_id": RUN}, task="")
         payload = json.dumps(result(status="cancelled", answer=None)).encode()
         with patch.object(
-            shared_module.request,
-            "urlopen",
+            shared_module._HTTP,
+            "open",
             side_effect=error.HTTPError(
                 "http://localhost", 502, "terminal", {}, Response(payload)
             ),
@@ -1350,7 +1353,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
         with patch.dict(
             os.environ, {"LAOMEDO_RUNNER_TOKEN_FILE": "missing-token-file"}
         ):
-            with patch.object(shared_module.request, "urlopen") as http:
+            with patch.object(shared_module._HTTP, "open") as http:
                 with self.assertRaisesRegex(
                     RuntimeError, "runner_api_token_file_unavailable"
                 ):

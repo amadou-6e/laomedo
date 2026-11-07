@@ -1,6 +1,7 @@
 """Resolve every published migration target with the real optional runtime installed."""
 
 import importlib
+import sys
 import json
 from pathlib import Path
 import unittest
@@ -31,3 +32,33 @@ class MigrationTargetTests(unittest.TestCase):
                     callable(getattr(importlib.import_module(target), "main", None)),
                     target,
                 )
+
+    def test_migrated_revision_key_matches_the_actual_pinned_lfx_implementation(self):
+        from lfx.custom.utils import _generate_code_hash
+
+        sys.path.insert(0, str(ROOT / "tools/migrations"))
+        try:
+            from migrate_module_paths import migrate_value
+
+            code = 'from laomedo.local_runner import LocalRunner\nlabel = "\u03bb"\n'
+            graph = {
+                "nodes": [
+                    {
+                        "data": {
+                            "node": {
+                                "metadata": {
+                                    "code_hash": _generate_code_hash(code, "before")
+                                },
+                                "template": {"code": {"value": code}},
+                            }
+                        }
+                    }
+                ]
+            }
+            definition = migrate_value(graph)["nodes"][0]["data"]["node"]
+            self.assertEqual(
+                definition["metadata"]["code_hash"],
+                _generate_code_hash(definition["template"]["code"]["value"], "after"),
+            )
+        finally:
+            sys.path.pop(0)

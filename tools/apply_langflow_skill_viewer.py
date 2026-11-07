@@ -23,7 +23,7 @@ def apply(checkout):
     if revision != UPSTREAM:
         raise SystemExit("pinned_langflow_checkout_required")
     overlay = ROOT / "frontend/langflow-skill-viewer"
-    models_patch = overlay / "claude-models.patch"
+    models_patch = overlay / "integration/claude-models.patch"
     patch = overlay / "integration/upstream.patch"
     target = checkout / "src/frontend/src/modals/skillFilesModal"
     if (
@@ -89,7 +89,7 @@ def apply(checkout):
         ],
         check=True,
     )
-    selection_patch = overlay / "claude-selection.patch"
+    selection_patch = overlay / "integration/claude-selection.patch"
     subprocess.run(
         [
             "git",
@@ -138,11 +138,11 @@ def apply(checkout):
         check=True,
     )
     shutil.copy2(
-        overlay / "AgentModelSelection.test.ts",
+        overlay / "agents/controls/AgentModelSelection.test.ts",
         checkout / "src/frontend/src/CustomNodes/helpers/AgentModelSelection.test.ts",
     )
     shutil.copy2(
-        overlay / "ClaudeModelDropdown.test.tsx",
+        overlay / "agents/controls/ClaudeModelDropdown.test.tsx",
         checkout
         / "src/frontend/src/components/core/dropdownComponent/ClaudeModelDropdown.test.tsx",
     )
@@ -150,7 +150,10 @@ def apply(checkout):
         checkout
         / "src/frontend/src/CustomNodes/GenericNode/components/RenderInputParameters"
     )
-    shutil.copy2(overlay / "RenderAgentInputParameters.tsx", agent_target / "index.tsx")
+    shutil.copy2(
+        overlay / "agents/controls/RenderAgentInputParameters.tsx",
+        agent_target / "index.tsx",
+    )
     for name in ("SkillNodeControls.ts", "SkillNodeControls.test.tsx"):
         shutil.copy2(overlay / "skills/node" / name, agent_target / name)
     parameter = (
@@ -169,6 +172,7 @@ def apply(checkout):
     edit_rows = checkout / "src/frontend/src/modals/editNodeModal/hooks/use-row-data.ts"
     source = edit_rows.read_text(encoding="utf-8")
     source = (
+        'import { isAgentControlHidden } from "@/CustomNodes/GenericNode/components/RenderInputParameters/AgentAdvancedControls";\n'
         'import { isSkillControlHidden } from "@/CustomNodes/GenericNode/components/RenderInputParameters/SkillNodeControls";\n'
         'import useFlowStore from "@/stores/flowStore";\n' + source
     )
@@ -182,6 +186,7 @@ def apply(checkout):
         source,
         '          key.charAt(0) !== "_" &&\n',
         '          key.charAt(0) !== "_" &&\n'
+        "          !isAgentControlHidden({ type: nodeType, node: nodeClass }, key) &&\n"
         "          !isSkillControlHidden({ type: nodeType, node: nodeClass }, key) &&\n",
     )
     source = replace_once(
@@ -203,6 +208,7 @@ def apply(checkout):
         / "src/frontend/src/pages/FlowPage/components/InspectionPanel/components/InspectionPanelFields.tsx"
     )
     source = (
+        'import { isAgentControlHidden } from "@/CustomNodes/GenericNode/components/RenderInputParameters/AgentAdvancedControls";\n'
         'import { isSkillControlHidden } from "@/CustomNodes/GenericNode/components/RenderInputParameters/SkillNodeControls";\n'
         + inspection_fields.read_text(encoding="utf-8")
     )
@@ -210,6 +216,7 @@ def apply(checkout):
         source,
         "      .filter((templateField) => {\n",
         "      .filter((templateField) => {\n"
+        "        if (isAgentControlHidden(data, templateField)) return false;\n"
         "        if (isSkillControlHidden(data, templateField)) return false;\n",
     )
     inspection_fields.write_text(source, encoding="utf-8")
@@ -226,11 +233,11 @@ def apply(checkout):
     )
     generic_node.write_text(source, encoding="utf-8")
     shutil.copy2(
-        overlay / "AgentAdvancedControls.tsx",
+        overlay / "agents/controls/AgentAdvancedControls.tsx",
         agent_target / "AgentAdvancedControls.tsx",
     )
     shutil.copy2(
-        overlay / "AgentAdvancedControls.test.tsx",
+        overlay / "agents/controls/AgentAdvancedControls.test.tsx",
         agent_target / "AgentAdvancedControls.test.tsx",
     )
     shutil.copy2(
@@ -285,8 +292,10 @@ def apply(checkout):
     )
     activity_target = checkout / "src/frontend/src/modals/agentActivity"
     activity_target.mkdir()
-    shutil.copy2(overlay / "AgentActivity.tsx", activity_target / "index.tsx")
-    agents_patch = overlay / "agents.patch"
+    shutil.copy2(
+        overlay / "agents/activity/AgentActivity.tsx", activity_target / "index.tsx"
+    )
+    agents_patch = overlay / "integration/agents.patch"
     # HEAD stays pinned; patch context tolerates whitespace differences, including Windows CRLF.
     subprocess.run(
         [
@@ -314,11 +323,19 @@ def apply(checkout):
     agents_target = checkout / "src/frontend/src/modals/graphAgents"
     agents_target.mkdir()
     shutil.copy2(
-        overlay / "AgentActivityNavigation.ts",
+        overlay / "agents/activity/AgentActivityNavigation.ts",
         checkout / "src/frontend/src/stores/agentActivityStore.ts",
     )
-    shutil.copy2(overlay / "GraphAgents.tsx", agents_target / "index.tsx")
-    shutil.copy2(overlay / "GraphAgents.test.tsx", agents_target / "index.test.tsx")
+    for asset in (overlay / "agents/activity").iterdir():
+        if asset.suffix in {".ts", ".tsx"} and asset.name not in {
+            "AgentActivity.tsx",
+            "AgentActivity.test.tsx",
+            "AgentActivityNavigation.ts",
+        }:
+            shutil.copy2(asset, agents_target / asset.name)
+    (agents_target / "index.tsx").write_text(
+        'export { default } from "./GraphAgents";\n', encoding="utf-8"
+    )
     recovery_target = checkout / "src/frontend/src/components/laomedoRecovery"
     recovery_target.mkdir()
     for name in (

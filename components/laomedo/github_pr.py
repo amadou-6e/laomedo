@@ -14,10 +14,10 @@ from laomedo.github.interface.pull_requests.client import pr_request
 from laomedo.github.contract import repository_from_url
 from laomedo.github.pull_requests.contract import ERROR_CODES
 from laomedo.github.pull_requests.contract import PRE_DISPATCH_ERRORS
-from laomedo.agents.feedback.pr import feedback_edge
-from laomedo.agents.feedback.pr import agent_operation
-from laomedo.agents.feedback.pr import bind_feedback_parameters
-from laomedo.agents.feedback.pr import operation_value
+from laomedo.integrations.langflow.feedback.pr import feedback_edge
+from laomedo.integrations.langflow.feedback.pr import agent_operation
+from laomedo.integrations.langflow.feedback.pr import bind_feedback_parameters
+from laomedo.integrations.langflow.feedback.pr import operation_value
 
 
 class LaomedoGitHubPR(Component):

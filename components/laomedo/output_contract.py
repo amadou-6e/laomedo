@@ -7,8 +7,8 @@ from lfx.io import DataInput
 from lfx.io import MultilineInput
 from lfx.io import Output
 from lfx.schema import Data
-from laomedo.agents.contracts.output import evaluate_envelope
-from laomedo.agents.contracts.output import requirements
+from laomedo.agents.interface.output.utils import evaluate_envelope
+from laomedo.agents.interface.output.utils import requirements
 
 
 class LaomedoOutputContract(Component):
@@ -47,8 +47,8 @@ class LaomedoOutputContract(Component):
         self._routing_result = None
 
     def _route(self, selected):
-        from laomedo.agents.contracts.graph import verified_route_submission
-        from laomedo.agents.contracts.graph import route_destination
+        from laomedo.integrations.langflow.output.utils import verified_route_submission
+        from laomedo.integrations.langflow.output.utils import route_destination
         from copy import deepcopy
 
         cached = getattr(self, "_routing_result", None)

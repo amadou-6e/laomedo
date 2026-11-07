@@ -54,16 +54,14 @@ class ModuleMigrationTests(unittest.TestCase):
     def test_intermediate_runtime_symbols_reach_final_owner(self):
         source = "from laomedo.agents.runtime.runner import LocalRunner\n"
         result = migration.migrate_source(source)
-        self.assertIn(
-            "providers.codex.runner import CodexRunner as LocalRunner", result
-        )
+        self.assertIn("agents.codex.agent import CodexAgent as LocalRunner", result)
         self.assertEqual(migration.migrate_source(result), result)
         source = "import laomedo.agents.runtime.runner as runtime\nrunner = runtime.LocalRunner\n"
         result = migration.migrate_source(source)
         namespace = {}
         exec(result, namespace)
         self.assertEqual(
-            namespace["runner"].__module__, "laomedo.agents.providers.codex.runner"
+            namespace["runner"].__module__, "laomedo.agents.agents.codex.agent"
         )
 
     def test_constants_generation_migrates_symbols_and_aliases_in_one_pass(self):
@@ -72,7 +70,8 @@ class ModuleMigrationTests(unittest.TestCase):
             for old, new in migration.MODULE_PATHS.items()
             if old.endswith(".constants")
         }
-        self.assertEqual(len(renamed), 22)
+        self.assertEqual(len(renamed), 21)
+        self.assertIn("laomedo.activity.opencode.constants", migration.MANUAL_SYMBOLS)
         for old, new in renamed.items():
             symbols = {
                 key.rsplit(".", 1)[1]: value
@@ -130,12 +129,12 @@ class ModuleMigrationTests(unittest.TestCase):
             (
                 "laomedo.handoffs",
                 "BoundedController",
-                "laomedo.agents.handoffs.controller",
+                "laomedo.agents.orchestration.controller",
             ),
             (
                 "laomedo.agents.handoffs",
                 "BoundedController",
-                "laomedo.agents.handoffs.controller",
+                "laomedo.agents.orchestration.controller",
             ),
             ("laomedo.artifacts", "ArtifactError", "laomedo.agents.artifacts.errors"),
             (
@@ -149,9 +148,14 @@ class ModuleMigrationTests(unittest.TestCase):
                 result = migration.migrate_source(f"from {old} import {symbol}\n")
                 self.assertIn(current, result)
                 self.assertEqual(migration.migrate_source(result), result)
-                canonical = f"import {current}\nvalue = {current}.{symbol}\n"
+                current_symbol = (
+                    "AgentHandoffController"
+                    if symbol == "BoundedController"
+                    else symbol
+                )
+                canonical = f"import {current}\nvalue = {current}.{current_symbol}\n"
                 self.assertEqual(migration.migrate_source(canonical), canonical)
-        path = TOOL.parents[2] / "examples/agent-handoffs/loop-flow.json"
+        path = TOOL.parents[2] / "tests/test_agents/test_examples/data/controller.json"
         result = subprocess.run(
             [sys.executable, str(TOOL), str(path), "--check"],
             capture_output=True,
@@ -210,13 +214,14 @@ class ModuleMigrationTests(unittest.TestCase):
                 exec(migrated, namespace)
                 self.assertEqual(
                     namespace["LocalRunner"].__module__,
-                    "laomedo.agents.providers.codex.runner",
+                    "laomedo.agents.agents.codex.agent",
                 )
                 self.assertEqual(
-                    namespace["RunnerError"].__module__, "laomedo.agents.runtime.errors"
+                    namespace["RunnerError"].__module__, "laomedo.agents.errors"
                 )
                 self.assertEqual(
-                    namespace["_hash_tree"].__module__, "laomedo.agents.runtime.utils"
+                    namespace["_hash_tree"].__module__,
+                    "laomedo.agents.workspaces.utils",
                 )
 
     def test_moved_module_attributes_keep_aliases(self):
@@ -225,17 +230,17 @@ class ModuleMigrationTests(unittest.TestCase):
         )
         namespace = {}
         exec(migration.migrate_source(source), namespace)
-        self.assertEqual(namespace["error"].__module__, "laomedo.agents.runtime.errors")
+        self.assertEqual(namespace["error"].__module__, "laomedo.agents.errors")
 
     def test_physical_line_offsets_ignore_unicode_text_separators(self):
         source = '"""First\u2028second\fthird"""\nimport laomedo.local_runner as runner\nerror = runner.RunnerError\n'
         namespace = {}
         exec(migration.migrate_source(source), namespace)
-        self.assertEqual(namespace["error"].__module__, "laomedo.agents.runtime.errors")
+        self.assertEqual(namespace["error"].__module__, "laomedo.agents.errors")
         source = "from laomedo.local_runner import LocalRunner\r"
         self.assertEqual(
             migration.migrate_source(source),
-            "from laomedo.agents.providers.codex.runner import CodexRunner as LocalRunner\r",
+            "from laomedo.agents.agents.codex.agent import CodexAgent as LocalRunner\r",
         )
 
     def test_changed_typed_interfaces_require_explicit_manual_migration(self):
@@ -257,38 +262,40 @@ class ModuleMigrationTests(unittest.TestCase):
 
     def test_cli_and_object_imports_use_distinct_final_modules(self):
         self.assertIn(
-            "providers.codex.runner",
+            "agents.codex.agent",
             migration.migrate_source("from laomedo.local_runner import LocalRunner"),
         )
         self.assertEqual(
             migration.migrate_source("python -m laomedo.local_runner"),
-            "python -m laomedo.agents.providers.codex.cli",
+            "python -m laomedo.agents.agents.codex.cli",
         )
         self.assertEqual(
             migration.migrate_value({"module": "laomedo.local_runner"}),
-            {"module": "laomedo.agents.providers.codex.cli"},
+            {"module": "laomedo.agents.agents.codex.cli"},
         )
 
     def test_inline_import_with_unicode_keeps_statement_structure(self):
-        source = "label = 'ÃŽÂ»'; from laomedo import local_runner, skill_store\n"
+        source = "label = 'λ'; from laomedo import local_runner, skill_store\n"
         namespace = {}
         exec(migration.migrate_source(source), namespace)
-        self.assertEqual(namespace["label"], "ÃŽÂ»")
-        self.assertTrue(hasattr(namespace["local_runner"], "CodexRunner"))
+        self.assertEqual(namespace["label"], "λ")
+        self.assertTrue(hasattr(namespace["local_runner"], "CodexAgent"))
         self.assertTrue(hasattr(namespace["skill_store"], "SkillStore"))
 
     def test_aliases_and_multiline_imports_keep_local_names(self):
         source = "from laomedo import (agent_activity, local_runner as runner)\n"
         rewritten = migration.migrate_source(source)
         self.assertIn(
-            "from laomedo.activity.agent_activity import store as agent_activity",
+            "from laomedo.agents.activity import store as agent_activity",
             rewritten,
         )
-        self.assertIn("from laomedo.agents.providers.codex import runner", rewritten)
+        self.assertIn(
+            "from laomedo.agents.agents.codex import agent as runner", rewritten
+        )
         namespace = {}
         exec(rewritten, namespace)
         self.assertTrue(hasattr(namespace["agent_activity"], "ActivityStore"))
-        self.assertTrue(hasattr(namespace["runner"], "CodexRunner"))
+        self.assertTrue(hasattr(namespace["runner"], "CodexAgent"))
 
     def test_graph_migration_is_idempotent_and_preserves_identity(self):
         value = {
@@ -324,7 +331,7 @@ class ModuleMigrationTests(unittest.TestCase):
                 path.with_name(path.name + ".before-module-migration").read_bytes(),
                 original,
             )
-            self.assertIn("laomedo.agents.providers.codex.runner", path.read_text())
+            self.assertIn("laomedo.agents.agents.codex.agent", path.read_text())
             changed = json.dumps({"code": "import laomedo.skill_store"}).encode()
             path.write_bytes(changed)
             refused = subprocess.run(

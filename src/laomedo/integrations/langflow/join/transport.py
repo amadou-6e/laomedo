@@ -6,6 +6,7 @@ This module does not start a service or alter an existing Langflow installation.
 from __future__ import annotations
 
 from laomedo.http.redirect import NoRedirect
+
 from urllib import error
 from urllib import request
 from urllib.parse import urlsplit
@@ -35,7 +36,7 @@ class RunnerHTTPTransport:
         self.base_url = str(base_url).rstrip("/")
         self.token = token
         self.timeout = timeout
-        self.opener = request.build_opener(NoRedirect())
+        self.opener = request.build_opener(request.ProxyHandler({}), NoRedirect())
 
     def _call(self, method, path, payload=None):
         body = None if payload is None else json.dumps(payload).encode("utf-8")

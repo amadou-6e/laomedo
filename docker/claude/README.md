@@ -14,9 +14,9 @@ receiver dependencies refuse the controller turn before model dispatch.
 Build from the repository root:
 
 ```powershell
-docker build -t laomedo-claude-controller:2.1.310 docker/claude
+docker build -t laomedo-claude-controller:2.1.310-acp0.98.0 docker/claude
 docker volume create --label laomedo.provider=claude laomedo-claude-profile
-docker run --rm -it --mount type=volume,source=laomedo-claude-profile,target=/profile laomedo-claude-controller:2.1.310 auth login
+docker run --rm -it --mount type=volume,source=laomedo-claude-profile,target=/profile laomedo-claude-controller:2.1.310-acp0.98.0 auth login
 ```
 
 Use a separate subscription login or an explicitly authorized login-only local

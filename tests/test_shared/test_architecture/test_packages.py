@@ -52,7 +52,7 @@ class PackageLayoutTests(unittest.TestCase):
 
     def test_package_root_has_only_shared_infrastructure(self):
         self.assertEqual(
-            {p.name for p in package_root().iterdir() if p.is_file()},
+            {p.name for p in package_root().iterdir() if p.is_file()} - {"README.md"},
             {"__init__.py", "_paths.py"},
         )
 
@@ -61,9 +61,20 @@ class PackageLayoutTests(unittest.TestCase):
         for canonical in mapping.values():
             with self.subTest(module=canonical):
                 try:
+                    if canonical.startswith(
+                        (
+                            "laomedo.integrations.langflow.",
+                            "laomedo.agents.interface.langflow.",
+                        )
+                    ):
+                        # Bootstrap the installed compatibility shim before its
+                        # LFX plugins, as the real app and graph CLI do. Core
+                        # modules do not acquire a framework dependency.
+                        importlib.import_module("langflow")
                     module = importlib.import_module(canonical)
                 except ModuleNotFoundError as error:
                     if (error.name or "").split(".")[0] in {
+                        "acp",
                         "fastapi",
                         "starlette",
                         "lfx",
@@ -75,9 +86,9 @@ class PackageLayoutTests(unittest.TestCase):
                 self.assertNotIn("alias_module", Path(module.__file__).read_text())
 
     def test_resource_owners_and_bytes(self):
-        from laomedo.agents.providers.codex.settings import CONFIG
-        from laomedo.agents.providers.codex.settings import SECCOMP
-        from laomedo.agents.providers.codex.settings import MEDIATION_CLIENT
+        from laomedo.agents.agents.codex.settings import CONFIG
+        from laomedo.agents.agents.codex.settings import SECCOMP
+        from laomedo.agents.agents.codex.settings import MEDIATION_CLIENT
         from laomedo.host.publication.bundle.settings import SCRIPT
 
         paths = [
@@ -96,11 +107,11 @@ class PackageLayoutTests(unittest.TestCase):
                 (ROOT / "src/laomedo" / path.relative_to(package_root())).read_bytes(),
             )
         self.assertEqual(
-            CONFIG.parent, package_root() / "agents/providers/codex/resources"
+            CONFIG.parent, package_root() / "agents/agents/codex/resources"
         )
         self.assertEqual(SECCOMP.parent, CONFIG.parent)
         self.assertEqual(
-            MEDIATION_CLIENT.parent, package_root() / "agents/resources/mediation"
+            MEDIATION_CLIENT.parent, package_root() / "host/mediation/resources"
         )
         self.assertEqual(SCRIPT.parent, package_root() / "host/publication/resources")
 
@@ -108,8 +119,8 @@ class PackageLayoutTests(unittest.TestCase):
         env = dict(os.environ, PYTHONPATH=str(import_root()))
         modules = [
             "laomedo.host.managed_service",
-            "laomedo.agents.providers.codex.cli",
-            "laomedo.agents.providers.claude.cli",
+            "laomedo.agents.agents.codex.cli",
+            "laomedo.agents.agents.claude.cli",
             "laomedo.host.leases.process_cli",
             "laomedo.host.leases.service_cli",
             "laomedo.work_graph",

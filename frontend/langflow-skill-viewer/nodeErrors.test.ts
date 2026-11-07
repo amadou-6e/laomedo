@@ -18,7 +18,9 @@ test("Claude model failures retain their code and redact native payload details"
 test("a model-refresh alert attaches actionable recovery for its real error-details control",()=>{
  const value=describeLaomedoAlert({title:'Refresh failed',list:['runner_model_catalog_unavailable_check_runner_connection']},true);
  expect(value.title).toBe('The model list could not be loaded');
- expect(value.failure?.recovery).toContain('Refresh control');
+ expect(value.failure?.recovery).toContain('open Model and use Refresh');
+ expect(value.failure?.recovery).toContain('timed-out discovery may still be active');
+ expect(value.failure?.recovery).toContain('avoid repeated Refresh');
  expect(value.list?.join(' ')).toContain('Open Error details');
  expect(value.list?.join(' ')).not.toContain(value.failure?.recovery);
  expect(value.diagnosticCode).toBe('runner_model_catalog_unavailable_check_runner_connection');

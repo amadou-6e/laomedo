@@ -16,6 +16,11 @@ installed.
 atomically with an exclusive backup; `--check` reports whether migration is
 needed. Review all changes, dynamic references and call signatures manually.
 The tool does not execute a graph or certify a historical execution.
+Colon-style launcher attributes from retired modules require manual migration;
+rewriting only their module would leave an unverified attribute or constructor.
+Retired handler factories likewise require explicit service bindings rather than
+an automatic substitution of a server class. OpenCode worker image pins retain
+their provider-owned settings even when their current values match Codex.
 
 GitHubGitTransport, VerifiedGitStage and stage_verified_git use a GitCommandRunner
 through `runner=`. Their old subprocess-shaped `run=` callbacks and removed

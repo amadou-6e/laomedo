@@ -14,6 +14,8 @@ activity. Domain operations remain with the Skills and GitHub features.
 ## Architecture and operation
 
 - [Architecture](architecture.md): component, runner, host and activity ownership.
+- [Provider interaction diagrams](assets/provider-interactions/README.md): editable
+  SDK, ACP and Docker paths, provider differences and a clearly labelled proposal.
 - [Agent activity](activity.md): graph execution navigation, retained messages,
   telemetry and provider-specific limitations.
 - [Local runner service](runner/local-service.md): host configuration and recovery.
@@ -23,10 +25,11 @@ activity. Domain operations remain with the Skills and GitHub features.
 
 ## Providers and evidence
 
+- [Codex account connection](providers/codex/connection.md): app-owned sign-in and local runner credentials.
 - [OpenCode activity](providers/opencode/activity.md): capture and reconciliation.
 - [Codex activity parity validation](providers/codex/activity-parity-validation.md):
   historical evidence with a named revision and bounded acceptance scope.
-- [Claude example](../../../examples/claude-agent/README.md): existing provider guide.
+- [Agent examples](../../../examples/agents/README.md): current graph builder and provider constraints.
 
 See [canonical agent-execution specifications](https://github.com/amadou-6e/specs/tree/main/projects/laomedo/subsystems/agent-execution)
 for governing requirements. Validation reports and examples do not establish

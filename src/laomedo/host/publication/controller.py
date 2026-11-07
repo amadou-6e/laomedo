@@ -6,7 +6,7 @@ or grant-issuing endpoint. The normal runner's behavior remains unchanged.
 
 from copy import deepcopy
 import json
-import laomedo.agents.contracts.output as _contracts_output
+import laomedo.agents.interface.output.utils as _contracts_output
 import laomedo.host.mediation.errors as _mediation_errors
 import math
 import threading

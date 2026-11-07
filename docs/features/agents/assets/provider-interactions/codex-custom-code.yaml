@@ -1,0 +1,271 @@
+version: 1
+title: "1. Run and session"
+header: "Codex | 1. Run and session"
+note: "Blue: shared code. Purple: provider Python. Green: upstream/resources. Orange: custom controller code. | Current runtime 19c7f1f. Paths are repository/package-relative as shown."
+matrix:
+  rows: 1
+  columns: 5
+  cells: [["col_0", "col_1", "col_2", "col_3", "col_4"]]
+  origin: [45, 150]
+  column_gaps: [110, 110, 110, 110]
+nodes:
+  entry:
+    label_html: "<b>[A] Application interface</b><br/>agents/interface/; agents/agents/base/agent.py<br/><br/>Public operations, run admission and records. Concrete providers implement the native execution hooks."
+    style:
+      width: 285
+      height: 150
+      fill: "#EAF0FA"
+      stroke: "#8193A5"
+      font_size: 14
+      rounded: true
+    source_files: ["src/laomedo/agents/interface/bridge.py", "src/laomedo/agents/agents/base/agent.py"]
+    graph_reference: "A"
+  policy:
+    label_html: "<b>[B] Launch policy</b><br/>codex/controller/models.py; resources/<br/><br/>CodexLaunch projects mounts/config. settings.py pins image/CLI and reviewed seccomp/config identities."
+    style:
+      width: 285
+      height: 150
+      fill: "#F0EAF8"
+      stroke: "#8193A5"
+      font_size: 14
+      rounded: true
+    source_files: ["src/laomedo/agents/agents/codex/controller/models.py", "src/laomedo/agents/agents/codex/settings.py", "src/laomedo/agents/agents/codex/resources/runner-config.toml", "src/laomedo/agents/agents/codex/resources/codex-seccomp.json"]
+    graph_reference: "B"
+  agent:
+    label_html: "<b>[C] Provider agent</b><br/>CodexAgent : BaseAgent<br/>codex/agent.py<br/><br/>Bind the native session and runtime; validate output; coordinate execution and finalization."
+    style:
+      width: 285
+      height: 150
+      fill: "#F0EAF8"
+      stroke: "#8193A5"
+      font_size: 14
+      rounded: true
+    source_files: ["src/laomedo/agents/agents/codex/agent.py"]
+    graph_reference: "C"
+  runtime:
+    label_html: "<b>[D] Controller lifecycle</b><br/>CodexController<br/>codex/controller/service.py<br/><br/>Own the ACP session, native callbacks, output precheck and exact controller lifetime."
+    style:
+      width: 285
+      height: 150
+      fill: "#F0EAF8"
+      stroke: "#8193A5"
+      font_size: 14
+      rounded: true
+    source_files: ["src/laomedo/agents/agents/codex/controller/service.py", "src/laomedo/agents/agents/codex/controller/models.py"]
+    graph_reference: "D"
+  acp:
+    label_html: "<b>[E] ACP communication</b><br/>agents/agents/base/acp/session.py; transport.py<br/><br/>AcpSession composes the upstream ACP SDK. DockerTransport carries its frames over attached stdin/stdout."
+    style:
+      width: 285
+      height: 150
+      fill: "#EAF0FA"
+      stroke: "#8193A5"
+      font_size: 14
+      rounded: true
+    source_files: ["src/laomedo/agents/agents/base/acp/session.py", "src/laomedo/agents/agents/base/acp/transport.py"]
+    graph_reference: "E"
+  docker:
+    label_html: "<b>[F] Docker lifecycle</b><br/>py-docker -&gt; Docker SDK -&gt; Engine<br/><br/>Create/attach owned containers, execute jobs, retain receipts and reconcile cleanup."
+    style:
+      width: 285
+      height: 150
+      fill: "#E7F3EC"
+      stroke: "#8193A5"
+      font_size: 14
+      rounded: true
+    source_files: []
+    graph_reference: "F"
+    external_source: "Separate dependencies: py-docker -> Docker SDK -> Docker Engine."
+  adapter:
+    label_html: "<b>[G] ACP endpoint</b><br/>docker/codex-acp/Laomedo*.ts + patch<br/><br/>Custom extension preserves raw native events, policy and precheck; launch hook validates native argv."
+    style:
+      width: 285
+      height: 150
+      fill: "#FFF0DF"
+      stroke: "#8193A5"
+      font_size: 14
+      rounded: true
+    source_files: ["docker/codex-acp/LaomedoExtension.ts", "docker/codex-acp/LaomedoLaunch.ts", "docker/codex-acp/native-events.patch"]
+    graph_reference: "G"
+  cli:
+    label_html: "<b>[H] Native agent runtime</b><br/>codex app-server<br/><br/>Upstream native threads, reasoning, model requests and admitted tool execution."
+    style:
+      width: 285
+      height: 150
+      fill: "#E7F3EC"
+      stroke: "#8193A5"
+      font_size: 14
+      rounded: true
+    source_files: []
+    graph_reference: "H"
+    external_source: "Upstream native codex runtime installed in its Docker image."
+  model:
+    label_html: "<b>[I] Model service</b><br/>Outside local Docker<br/><br/>Native runtime performs authenticated model requests."
+    style:
+      width: 285
+      height: 150
+      fill: "#E7F3EC"
+      stroke: "#8193A5"
+      font_size: 14
+      rounded: true
+    source_files: []
+    graph_reference: "I"
+    external_source: "External model API; no repository source for the service."
+groups:
+  col_0:
+    title: "App contract / launch input"
+    layout: "column"
+    children: ["entry", "policy"]
+    gap: 80
+    style:
+      padding: [60, 20, 25, 20]
+      min_height: 520
+      fill: "#F5F7FA"
+      font_size: 15
+  col_1:
+    title: "Provider host implementation"
+    layout: "column"
+    children: ["agent", "runtime"]
+    gap: 80
+    style:
+      padding: [60, 20, 25, 20]
+      min_height: 520
+      fill: "#F5F7FA"
+      font_size: 15
+  col_2:
+    title: "Shared host adapters"
+    layout: "column"
+    children: ["acp", "docker"]
+    gap: 80
+    style:
+      padding: [60, 20, 25, 20]
+      min_height: 520
+      fill: "#F5F7FA"
+      font_size: 15
+  col_3:
+    title: "Docker controller"
+    layout: "column"
+    children: ["adapter", "cli"]
+    gap: 80
+    style:
+      padding: [60, 20, 25, 20]
+      min_height: 520
+      fill: "#F5F7FA"
+      font_size: 15
+  col_4:
+    title: "External model"
+    layout: "column"
+    children: ["model"]
+    gap: 80
+    style:
+      padding: [60, 20, 25, 20]
+      min_height: 520
+      fill: "#F5F7FA"
+      font_size: 15
+edges:
+  edge_0:
+    from: "entry"
+    to: "agent"
+    label: "start / resume"
+    style:
+      stroke: "#42699A"
+      dashed: false
+      width: 2
+      end_arrow: "classic"
+    from_port: [1, 0.5]
+    to_port: [0, 0.5]
+    waypoints: [[425.0, 285.0], [425.0, 285.0]]
+  edge_1:
+    from: "agent"
+    to: "runtime"
+    label: "execute / finalize"
+    style:
+      stroke: "#42699A"
+      dashed: false
+      width: 2
+      end_arrow: "classic"
+    from_port: [0.5, 1]
+    to_port: [0.5, 0]
+  edge_2:
+    from: "runtime"
+    to: "acp"
+    label: "session / prompt"
+    style:
+      stroke: "#218168"
+      dashed: false
+      width: 2
+      end_arrow: "classic"
+    from_port: [1, 0.5]
+    to_port: [0, 0.5]
+    waypoints: [[860.0, 515.0], [860.0, 285.0]]
+  edge_3:
+    from: "runtime"
+    to: "docker"
+    label: "launch / close"
+    style:
+      stroke: "#42699A"
+      dashed: false
+      width: 2
+      end_arrow: "classic"
+    from_port: [1, 0.5]
+    to_port: [0, 0.5]
+    waypoints: [[860.0, 515.0], [860.0, 515.0]]
+  edge_4:
+    from: "acp"
+    to: "adapter"
+    label: "ACP stdio"
+    style:
+      stroke: "#218168"
+      dashed: false
+      width: 2
+      end_arrow: "classic"
+    from_port: [1, 0.5]
+    to_port: [0, 0.5]
+    waypoints: [[1295.0, 285.0], [1295.0, 285.0]]
+  edge_5:
+    from: "docker"
+    to: "adapter"
+    label: "launch / attach"
+    style:
+      stroke: "#42699A"
+      dashed: false
+      width: 2
+      end_arrow: "classic"
+    from_port: [1, 0.5]
+    to_port: [0, 0.83]
+    waypoints: [[1319.0, 515.0], [1319.0, 334.5]]
+  edge_6:
+    from: "adapter"
+    to: "cli"
+    label: "native interface"
+    style:
+      stroke: "#218168"
+      dashed: false
+      width: 2
+      end_arrow: "classic"
+    from_port: [0.5, 1]
+    to_port: [0.5, 0]
+  edge_7:
+    from: "cli"
+    to: "model"
+    label: "model requests"
+    style:
+      stroke: "#218168"
+      dashed: false
+      width: 2
+      end_arrow: "classic"
+    from_port: [1, 0.5]
+    to_port: [0, 0.5]
+    waypoints: [[1730.0, 515.0], [1730.0, 285.0]]
+  edge_8:
+    from: "policy"
+    to: "runtime"
+    label: "validated launch"
+    style:
+      stroke: "#42699A"
+      dashed: false
+      width: 2
+      end_arrow: "classic"
+    from_port: [1, 0.5]
+    to_port: [0, 0.5]
+    waypoints: [[425.0, 515.0], [425.0, 515.0]]

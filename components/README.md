@@ -1,6 +1,6 @@
 # Laomedo Codex Agent for Langflow
 
-Operator-installed custom component for pinned Langflow 1.12.3. This wraps the
+Locally installed custom component for pinned Langflow 1.12.3. This wraps the
 existing local Docker Codex runner; it does not replace Langflow's built-in Agent
 or implement its tool interface. The `LaomedoRunner` embedded in
 `examples/skill-agent-pilot/pilot-flow.json` now uses the same private runner
@@ -12,7 +12,7 @@ API token; its historical model-turn evidence predates that change.
 Data ports. The separate `LaomedoOutputContractLegacy` retains explicit
 Precheck Requirements and Validation Outcome ports. Install this repository's Laomedo package in the Langflow
 runtime before loading it: the node and Codex requirements input import the
-same `laomedo.agents.contracts.output` evaluator used by the host runner. Mounting only
+same `laomedo.agents.interface.output.utils` evaluator used by the host runner. Mounting only
 component files is insufficient for this component. A missing package fails
 visibly at import rather than falling back to a different validator.
 
@@ -53,7 +53,7 @@ after code updates; inspect its component catalog for `LaomedoCodexAgent` before
 importing a flow. The runtime must have the existing local runner reachable at
 `http://host.docker.internal:8765`; native local installations use localhost.
 
-This is a proposed deployment configuration until the operator approves startup.
+This deployment example requires its own runtime checks before acceptance.
 Keep the existing server and its data volume separate from the acceptance server.
 Do not mount Codex credentials, native sessions, the Docker socket or private runner
 state into Langflow. Mount only the private `api-token` file read-only and set
@@ -66,20 +66,18 @@ Connect Laomedo Skill's Skill Reference output to the agent's Skill Reference
 input. The Skill node takes an existing Skill ID and exact SHA-256 revision and
 emits a structured reference; it does not load credentials, expose host paths or
 claim that a revision exists. The runner resolves and verifies the immutable
-whole bundle before a model turn. Inline advanced skill fields remain compatible
-with older flows; conflicting wired and inline references fail explicitly.
-When connecting a Skill node to an older saved flow, clear advanced Skill ID and
-Skill Revision values if they conflict. Each bundle's `SKILL.md` frontmatter
+whole bundle before a model turn. Legacy inline bindings remain readable in serialized flows; conflicting wired
+and inline references fail explicitly. New graphs configure Skills on the Skill
+node. Migrate conflicting legacy bindings in the saved flow before connecting it. Each bundle's `SKILL.md` frontmatter
 `name` must equal its pinned skill ID to avoid ambiguous Codex discovery.
 
-Fresh: supply task, immutable whole-skill ID/revision, model and effort.
-Resume: set operation to resume and supply the prior structured Run Reference;
-its completed status, thread, model/effort and exact post-run hash are required.
-Connect Data to Prior Run, or paste its serialized object into advanced Prior Run
-JSON for a manual/API invocation. Data handle inputs are not persisted inline by
-Langflow's saved-flow builder; the JSON input is the explicit persisted alternative.
-Status/cancel: supply a prior run reference containing its run ID; these submit
-no model turns. Cancel requests retain the runner's status and evidence.
+Fresh takes a task, with optional pinned Skill references. Model and effort
+choices come from runner discovery. Request identity is assigned automatically.
+Resume requires a completed prior structured Run Reference with its thread,
+model/effort and exact post-run hash. Status/cancel need a known run ID and spend
+no model turn. Existing serialized flows and API requests can carry this reference;
+the current node hides those legacy input controls and has no run selector.
+The node does not automatically reconstruct a missing reference.
 
 Answer is a Langflow Message; Run Reference is Data containing answer, run/thread
 IDs, state, post-run hash, model/effort, skill revision/use evidence, artifact/trace
@@ -141,10 +139,9 @@ interruption alone; the runner's exact terminal evidence is required.
 
 ## Opt-in Playground join prototype
 
-The optional advanced Join Bridge URL routes a fresh/start component call
-through a host-owned [join service](../laomedo/langflow_join_service.py). The
-checked-in sample flow leaves this field unset, so its current runner route is
-unchanged. The bridge takes a separate read-only token file in Langflow at
+Fresh/start calls can use a host-owned [join service](../src/laomedo/integrations/langflow/join/service.py).
+Its address comes from provider host configuration (`LAOMEDO_BRIDGE_URL` for
+Codex), rather than a visible Join Bridge URL control on the node. The bridge takes a separate read-only token file in Langflow at
 `/run/secrets/laomedo-bridge-token`; the host service reads its own copy, a
 runner API token file and a private run store outside Git. The host independently
 hashes the saved-flow export, reserves the run before its native POST, and binds
@@ -155,7 +152,7 @@ been activated for the existing server. While a Stop intent is pending, a
 bridge status GET may reconcile the exact native request and send its cancel;
 it never starts another native request.
 
-The [develop-based checks](../experiments/exp117/RESULTS.md) compose visible
+The [historical prepared/active checks](https://github.com/amadou-6e/laomedo/blob/exp/archives/agents-205/retired-agent-probes/files/experiments/exp117/RESULTS.md) compose visible
 Stop with the durable host/native/Langflow join at both prepared and active
 points, including a disposable SQLite restart with no redispatch. The active
 probe retains an inconclusive classifier result plus a separately reviewed
@@ -197,10 +194,10 @@ and selected artifact manifests persist in the downstream runner record.
 `LaomedoBoundedController` implements bounded scheduling without cyclic visual
 edges, persists turn reservations and partial outcomes, and exposes exact stop
 reason/cancellation evidence. It requires the Laomedo runtime package on Langflow's
-Python path and private execution storage. The separate deployment configuration
-in [agent-handoffs](../examples/agent-handoffs/README.md) remains a draft.
-Tests cover real graph builds with synthetic HTTP; the example also records one
-successful real two-agent chain at exactly two authorized submitted turns.
+Python path and private execution storage. The [Agent builder](../examples/agents/README.md) constructs current lifecycle
+and handoff graphs. Internal tests exercise graph builds with synthetic HTTP;
+these do not establish real execution acceptance. Historical chain/loop campaign
+records are preserved on `exp` with their original limitations.
 
 ## Direct Contract Success to Draft PR Publisher
 

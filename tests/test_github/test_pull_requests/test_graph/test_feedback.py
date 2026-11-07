@@ -16,13 +16,17 @@ import os
 from pathlib import Path
 import tempfile
 from unittest.mock import patch
+
+if find_spec("langflow") is not None:
+    import langflow
+
 from lfx.graph.graph.base import Graph
 from lfx.schema import Message
 from lfx.custom.custom_component.component import Component
 from laomedo.github.pull_requests.gateway import GitHubPRGateway
 from laomedo.host.mediation.store import MediationStore
 from laomedo.github.transport.rest.transport import GitHubRestTransport
-from laomedo.agents.feedback.pr import operation_value
+from laomedo.integrations.langflow.feedback.pr import operation_value
 from test_github.test_pull_requests.provider import FakeGitHub
 
 ROOT = repository_root()
@@ -234,7 +238,10 @@ class PRAgentLoopTests(unittest.IsolatedAsyncioTestCase):
             started.set()
             await asyncio.Future()
 
-        with patch("laomedo.agents.feedback.pr.agent_operation", new=pending_agent):
+        with patch(
+            "laomedo.integrations.langflow.feedback.pr.agent_operation",
+            new=pending_agent,
+        ):
             run = asyncio.create_task(self.execute())
             await asyncio.wait_for(started.wait(), timeout=10)
             run.cancel()

@@ -131,7 +131,7 @@ def load_retained_shared(name):
                         "_run_bounded_tree",
                     }
                 ) or (
-                    node.module == "laomedo.agents.workspace.git"
+                    node.module == "laomedo.agents.workspaces"
                     and item.name in {"_git_environment", "_bounded_git"}
                 ):
                     replacements.append(
@@ -147,7 +147,14 @@ def load_retained_shared(name):
                         "from laomedo.http.redirect import NoRedirect as " + alias
                     )
                     changed = True
-                elif node.module.startswith(("laomedo.skills.", "laomedo.github.")):
+                elif node.module.startswith(
+                    (
+                        "laomedo.skills.",
+                        "laomedo.github.",
+                        "laomedo.agents.",
+                        "laomedo.activity.",
+                    )
+                ):
                     full = node.module + "." + item.name
                     target = symbol_paths.get(
                         full,

@@ -4,8 +4,8 @@ from copy import deepcopy
 import json
 from pathlib import Path
 import unittest
-from test_workgraph_demo import run_case
-from test_workgraph_demo import records
+from test_langflow.test_workgraph_demo import run_case
+from test_langflow.test_workgraph_demo import records
 
 FLOW = (
     Path(__file__).resolve().parents[2] / "examples/langflow-contract-routing/flow.json"
@@ -89,7 +89,7 @@ class IntegratedContractTests(unittest.IsolatedAsyncioTestCase):
         e["data"]["targetHandle"]["id"] = "second"
         e["targetHandle"] = json.dumps(e["data"]["targetHandle"])
         flow["data"]["edges"].append(e)
-        with patch("urllib.request.urlopen") as http:
+        with patch("laomedo.agents.interface.langflow.component._HTTP.open") as http:
             with self.assertRaisesRegex(
                 Exception, "ambiguous_downstream_output_contract"
             ):
@@ -105,7 +105,7 @@ class IntegratedContractTests(unittest.IsolatedAsyncioTestCase):
             patch.dict(
                 "os.environ", {"LAOMEDO_RUNNER_TOKEN_FILE": "/absent-fixture-token"}
             ),
-            patch("urllib.request.urlopen") as http,
+            patch("laomedo.agents.interface.langflow.component._HTTP.open") as http,
         ):
             result = await Graph.from_payload(self.flow()).arun(
                 inputs=[{}], outputs=["success", "failure", "rejection", "recovery"]

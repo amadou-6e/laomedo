@@ -1,0 +1,213 @@
+version: 1
+title: "3. Evidence to Activity"
+header: "OpenCode | 3. Evidence to Activity"
+note: "Data-flow view, not every direct function call. Capture completeness, task completion and cleanup remain separate facts. | Current runtime 19c7f1f. Paths are repository/package-relative as shown."
+matrix:
+  rows: 1
+  columns: 4
+  cells: [["col_0", "col_1", "col_2", "col_3"]]
+  origin: [45, 150]
+  column_gaps: [110, 110, 110]
+nodes:
+  cli:
+    label_html: "<b>[A] Evidence source</b><br/>opencode acp<br/><br/>One upstream process supplies both ACP and native execution. No custom in-container ACP adapter."
+    style:
+      width: 285
+      height: 150
+      fill: "#E7F3EC"
+      stroke: "#8193A5"
+      font_size: 14
+      rounded: true
+    source_files: []
+    graph_reference: "A"
+    external_source: "Upstream native opencode runtime installed in its Docker image."
+  db:
+    label_html: "<b>[B] Native evidence storage</b><br/>Persistent mounted sessions/<br/><br/>OpenCode writes native messages and session relations; history export reads a consistent bound tree."
+    style:
+      width: 285
+      height: 150
+      fill: "#E7F3EC"
+      stroke: "#8193A5"
+      font_size: 14
+      rounded: true
+    source_files: []
+    graph_reference: "B"
+    external_source: "Native session database in the persistent mounted profile."
+  capture:
+    label_html: "<b>[C] Live evidence capture</b><br/>Shared AcpCapture<br/>agents/activity/acp/capture.py<br/><br/>Retain bound live updates and reconcile offline native records. Completeness is a separate observation."
+    style:
+      width: 285
+      height: 150
+      fill: "#EAF0FA"
+      stroke: "#8193A5"
+      font_size: 14
+      rounded: true
+    source_files: ["src/laomedo/agents/activity/acp/capture.py"]
+    graph_reference: "C"
+  reader:
+    label_html: "<b>[D] Historical evidence reader</b><br/>HistoryReader<br/>opencode/history/reader.py<br/><br/>After closure, export consistent native session trees without the live credential store."
+    style:
+      width: 285
+      height: 150
+      fill: "#F0EAF8"
+      stroke: "#8193A5"
+      font_size: 14
+      rounded: true
+    source_files: ["src/laomedo/agents/agents/opencode/history/reader.py", "src/laomedo/agents/agents/opencode/history/models.py"]
+    graph_reference: "D"
+  projection:
+    label_html: "<b>[E] Native evidence interpretation</b><br/>OpenCode Activity projection<br/>opencode/activity/projection.py<br/><br/>Interpret native usage, child identity and costs; preserve missing observations."
+    style:
+      width: 285
+      height: 150
+      fill: "#F0EAF8"
+      stroke: "#8193A5"
+      font_size: 14
+      rounded: true
+    source_files: ["src/laomedo/agents/agents/opencode/activity/projection.py", "src/laomedo/agents/agents/opencode/activity/models.py"]
+    graph_reference: "E"
+  activity:
+    label_html: "<b>[F] Activity storage and projection</b><br/>agents/activity/<br/><br/>Persist and present retained observations. Provider history/projection supplies native identity, child usage and cost facts."
+    style:
+      width: 285
+      height: 150
+      fill: "#EAF0FA"
+      stroke: "#8193A5"
+      font_size: 14
+      rounded: true
+    source_files: ["src/laomedo/agents/activity/store.py", "src/laomedo/agents/activity/projection.py", "src/laomedo/agents/activity/routes.py"]
+    graph_reference: "F"
+  ui:
+    label_html: "<b>[G] Activity viewer</b><br/>Application UI<br/><br/>Show retained native evidence, usage and capture limitations without model work."
+    style:
+      width: 285
+      height: 150
+      fill: "#EAF0FA"
+      stroke: "#8193A5"
+      font_size: 14
+      rounded: true
+    source_files: ["frontend/langflow-skill-viewer/GraphAgents.tsx", "frontend/langflow-skill-viewer/AgentActivity.tsx"]
+    graph_reference: "G"
+groups:
+  col_0:
+    title: "Native sources"
+    layout: "column"
+    children: ["cli", "db"]
+    gap: 80
+    style:
+      padding: [60, 20, 25, 20]
+      min_height: 520
+      fill: "#F5F7FA"
+      font_size: 15
+  col_1:
+    title: "Shared capture / provider history"
+    layout: "column"
+    children: ["capture", "reader"]
+    gap: 80
+    style:
+      padding: [60, 20, 25, 20]
+      min_height: 520
+      fill: "#F5F7FA"
+      font_size: 15
+  col_2:
+    title: "Provider interpretation"
+    layout: "column"
+    children: ["projection"]
+    gap: 80
+    style:
+      padding: [60, 20, 25, 20]
+      min_height: 520
+      fill: "#F5F7FA"
+      font_size: 15
+  col_3:
+    title: "Shared application"
+    layout: "column"
+    children: ["activity", "ui"]
+    gap: 80
+    style:
+      padding: [60, 20, 25, 20]
+      min_height: 520
+      fill: "#F5F7FA"
+      font_size: 15
+edges:
+  edge_0:
+    from: "cli"
+    to: "capture"
+    label: "live updates"
+    style:
+      stroke: "#8C619B"
+      dashed: true
+      width: 2
+      end_arrow: "classic"
+    from_port: [1, 0.5]
+    to_port: [0, 0.5]
+    waypoints: [[425.0, 285.0], [425.0, 285.0]]
+  edge_1:
+    from: "cli"
+    to: "db"
+    label: "native persistence"
+    style:
+      stroke: "#8C619B"
+      dashed: true
+      width: 2
+      end_arrow: "classic"
+    from_port: [0.5, 1]
+    to_port: [0.5, 0]
+  edge_2:
+    from: "db"
+    to: "reader"
+    label: "export after closure"
+    style:
+      stroke: "#8C619B"
+      dashed: true
+      width: 2
+      end_arrow: "classic"
+    from_port: [1, 0.5]
+    to_port: [0, 0.5]
+    waypoints: [[425.0, 515.0], [425.0, 515.0]]
+  edge_3:
+    from: "reader"
+    to: "capture"
+    label: "reconcile records"
+    style:
+      stroke: "#8C619B"
+      dashed: true
+      width: 2
+      end_arrow: "classic"
+    from_port: [0.5, 0]
+    to_port: [0.5, 1]
+  edge_4:
+    from: "capture"
+    to: "projection"
+    label: "retained native data"
+    style:
+      stroke: "#8C619B"
+      dashed: true
+      width: 2
+      end_arrow: "classic"
+    from_port: [1, 0.5]
+    to_port: [0, 0.5]
+    waypoints: [[860.0, 285.0], [860.0, 285.0]]
+  edge_5:
+    from: "projection"
+    to: "activity"
+    label: "normalized result"
+    style:
+      stroke: "#8C619B"
+      dashed: true
+      width: 2
+      end_arrow: "classic"
+    from_port: [1, 0.5]
+    to_port: [0, 0.5]
+    waypoints: [[1295.0, 285.0], [1295.0, 285.0]]
+  edge_6:
+    from: "activity"
+    to: "ui"
+    label: "read"
+    style:
+      stroke: "#8C619B"
+      dashed: true
+      width: 2
+      end_arrow: "classic"
+    from_port: [0.5, 1]
+    to_port: [0.5, 0]

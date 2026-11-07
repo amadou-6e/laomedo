@@ -8,7 +8,7 @@ from pydantic import BaseModel, ValidationError
 
 from laomedo.host.leases.models import ContainerIdentity
 from laomedo.work_graph.models import Dependency, GraphSnapshot
-from laomedo.agents.contracts.models import RunnerRequest
+from laomedo.agents.interface.models import AgentRequest as RunnerRequest
 
 
 class CohesionModelTests(unittest.TestCase):

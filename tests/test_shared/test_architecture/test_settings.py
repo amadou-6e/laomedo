@@ -49,6 +49,9 @@ class SettingsContractTests(unittest.TestCase):
             self.assertIsNone(cls.model_config["secrets_dir"])
             self.assertFalse(cls.model_config["enable_decoding"])
             for name, field in cls.model_fields.items():
+                if field.annotation in {int, float}:
+                    continue  # Positive transport budgets have their own typed checks.
+                self.assertIn(field.annotation, (str, str | None))
                 with self.subTest(module=module.__name__, field=name):
                     alias = field.validation_alias
                     with patch.dict(os.environ, {}, clear=True):
@@ -77,11 +80,35 @@ class SettingsContractTests(unittest.TestCase):
                         ):  # Windows environment keys are case-insensitive.
                             self.assertEqual(getattr(cls(), name), field.default)
 
+    def test_numeric_transport_budgets_validate_at_point_of_use(self):
+        from pydantic import ValidationError
+
+        checked = set()
+        for module, cls in self.classes():
+            for name, field in cls.model_fields.items():
+                if field.annotation not in {int, float}:
+                    continue
+                checked.add((module.__name__, name))
+                with (
+                    self.subTest(module=module.__name__, field=name),
+                    patch.dict(os.environ, {}, clear=True),
+                ):
+                    self.assertGreater(getattr(cls(), name), 0)
+                    expected = field.default + 1
+                    os.environ[field.validation_alias] = str(expected)
+                    self.assertEqual(getattr(cls(), name), expected)
+                    for invalid in ("", "0", "-1", "nan", "inf", "private-test-value"):
+                        os.environ[field.validation_alias] = invalid
+                        with self.assertRaises(ValidationError) as failure:
+                            cls()
+                        self.assertNotIn("private-test-value", str(failure.exception))
+        self.assertTrue(checked, "Numeric budget coverage must not silently disappear")
+
     def test_flags_retain_exact_one_comparison_at_consumers(self):
         consumers = {
-            "agents/providers/codex/servers.py": {"otel", "multi_agent"},
-            "agents/providers/claude/runner.py": {"mirror_host_login"},
-            "activity/opencode/telemetry.py": {"otel"},
+            "agents/agents/codex/controller/service.py": {"otel", "multi_agent"},
+            "agents/agents/claude/agent.py": {"mirror_host_login"},
+            "agents/agents/opencode/activity/telemetry.py": {"otel"},
         }
         for relative, fields in consumers.items():
             tree = ast.parse((SOURCE / relative).read_text())
@@ -144,14 +171,14 @@ class SettingsContractTests(unittest.TestCase):
         protected = {
             "host/runner/utils.py": "os.environ.items()",
             "git/command.py": "os.environ.items()",
-            "agents/providers/claude/utils.py": "os.environ.items()",
-            "host/credentials/claude/utils.py": "os.environ if environment is None",
+            "agents/agents/claude/container.py": "env = dict(environment or {})",
+            "agents/agents/claude/auth/utils.py": "os.environ if environment is None",
             "skills/sources/repository.py": "os.environ.items()",
-            "agents/providers/codex/servers.py": "os.environ if docker_environment is None else docker_environment",
+            "agents/agents/codex/agent.py": "ConnectionSettings.environment_snapshot(None)",
             "host/publication/cli.py": "key in os.environ",
             "github/interface/issues/cli.py": "os.environ.get(args.github_token_env)",
             "github/interface/pull_requests/cli.py": "os.environ.get(args.github_token_env)",
-            "agents/handoffs/transport.py": '"LAOMEDO_" + provider.upper()',
+            "agents/interface/bridge.py": '"LAOMEDO_" + provider.upper()',
         }
         for relative, expression in protected.items():
             self.assertIn(expression, (SOURCE / relative).read_text(), relative)

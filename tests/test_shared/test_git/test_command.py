@@ -193,6 +193,7 @@ class SharedGitTests(unittest.TestCase):
         }
         for relative in (
             "agents/workspace",
+            "agents/workspaces",
             "github/transport/git",
             "host/publication/verified",
             "host/mediation",
@@ -211,6 +212,7 @@ class SharedGitTests(unittest.TestCase):
         for relative in (
             "git",
             "agents/workspace",
+            "agents/workspaces",
             "skills/sources",
             "github/transport/git",
             "host/publication/verified",

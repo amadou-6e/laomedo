@@ -4,18 +4,18 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from laomedo.agents.providers.codex.runner import CodexRunner
-from laomedo.agents.runtime.errors import RunnerError
-from laomedo.agents.runtime.utils import _hash_tree
+from laomedo.agents.agents.codex.agent import CodexAgent as CodexRunner
+from laomedo.agents.errors import RunnerError
+from laomedo.agents.workspaces.utils import _hash_tree
 from laomedo.git.models import GitEnvironmentProfile, GitExecutionContext
 from laomedo.git.repository import GitRepository
 from laomedo.skills.registry.errors import SkillStoreError
 from laomedo.skills.registry.store import SkillStore
 from laomedo.skills.registry.files import inventory
 from laomedo.skills.registry.hashing import tree_hash
-from laomedo.agents.workspace.skills.utils import install
-from laomedo.agents.workspace.skills.utils import remove_owned_tree
-from laomedo.agents.workspace.skills.utils import verify
+from laomedo.agents.workspaces.skills.utils import install
+from laomedo.agents.workspaces.cleanup import remove_owned_tree
+from laomedo.agents.workspaces.skills.utils import verify
 
 
 class SkillMaterializationTests(unittest.TestCase):

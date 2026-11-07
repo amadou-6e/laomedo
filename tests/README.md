@@ -22,8 +22,8 @@ checks. Folder naming does not change their prerequisites or acceptance status.
 
 The existing root files `test_host_mediated_push.py`, `test_host_services.py` and
 `test_host_token_connection.py` cover deferred mediation, service composition
-and credentials. `test_publication_handoff.py` covers Agent publication
-orchestration; `test_probe_stage_s7.py` retains an EXP-100 consumer control.
+and credentials. Host publication handoff controls live in
+`test_host/test_publication/test_handoff`; `test_probe_stage_s7.py` retains an EXP-100 consumer control.
 They are explicit exclusions from the Shared/Skills organization pass, even
 where they use the same host publication package. Agent/provider, GitHub,
 Langflow join, runner and historical campaign families retain their separate
@@ -31,6 +31,32 @@ migration scope. GitHub's selected suites are now in their owning packages;
 see [GitHub controls](test_github/README.md) for coverage and archival boundaries.
 Their presence is not permission to add new flat prefix
 families: new coverage belongs in its concern package.
+
+## Agent campaign regression ownership
+
+Agent regressions run under `test_agents/`. Authorization, lease lifecycle and
+revocation composition run under `test_host/test_mediation`; publication state
+transitions run under `test_host/test_publication/test_handoff`. These checks use
+isolated local state and internal test transports. They do not establish Docker,
+provider, GitHub or browser acceptance.
+
+Twelve obsolete campaign-wrapper suites (68 cases) are preserved on `exp` at
+`f5735e845df8fdb790bf0789faf7daa79045dcf8` under
+`archives/agents-205/test-callers/files/tests/`. Their original Git blobs were
+compared directly with the committed archive blobs before removal. Production
+retains the applicable authority approval/binding/read/revocation, repeated
+revocation and fresh-run publication assertions in the owning suites above;
+prototype mailbox, budget and campaign receipt contracts remain historical.
+Production discovery neither imports those wrappers nor fetches the archive.
+The historical Issue Agent demo and EXP-100/S3 subprocess wrapper are also
+archived at `305d5b269dd2cc1086a88b28812ab4e4edd5d6a0` under
+`archives/agents-205/legacy-agent-callers/`. Their applicable ingestion, history,
+hook isolation and failure-receipt assertions run against production APIs in
+`test_host/test_publication`. The Issue gateway suite retains modification,
+replay, stale-filter and unknown-write controls; native evidence admission belongs
+to the Agent closure and publication handoff suites. The old demo's approved
+fixed multi-Issue sequence remains historical, not a generalized product feature.
+The GitHub-owned EXP-100 broker CI dependency remains separately scoped.
 
 ## Discovery
 

@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import json
-import laomedo.host.leases.utils as _leases_utils
+from laomedo.host.leases.utils import _detached_process_options
 import subprocess
 import sys
 import threading
@@ -57,7 +57,7 @@ class LeaseProcess:
                 stderr=self.log,
                 text=True,
                 encoding="utf-8",
-                **_leases_utils._detached_process_options(),
+                **_detached_process_options(),
             )
         except Exception:
             self.log.close()

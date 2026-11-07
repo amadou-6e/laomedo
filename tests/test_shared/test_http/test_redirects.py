@@ -11,7 +11,7 @@ from urllib.request import build_opener
 
 from support.http_server import RunningHTTPServer
 from laomedo.http.redirect import NoRedirect
-from laomedo.host.credentials.opencode.transport import NoRedirect as OpenCodeRedirect
+from laomedo.agents.agents.opencode.auth.transport import NoRedirect as OpenCodeRedirect
 from laomedo.host.credentials.siwc.connection import _NoRedirect as ChatGPTRedirect
 from laomedo.host.credentials.siwc.errors import AuthError
 
@@ -74,9 +74,9 @@ class SharedHTTPTests(unittest.TestCase):
             {
                 "src/laomedo/http/redirect.py",
                 # Self-contained components and credential-specific refusals are deliberate.
-                "src/laomedo/integrations/langflow/agent/component.py",
+                "src/laomedo/agents/interface/langflow/component.py",
                 "components/laomedo/pr_publisher.py",
-                "src/laomedo/host/credentials/opencode/transport.py",
+                "src/laomedo/agents/agents/opencode/auth/transport.py",
                 "src/laomedo/host/credentials/siwc/connection.py",
             },
         )

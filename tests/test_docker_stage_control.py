@@ -6,7 +6,7 @@ import json
 import unittest
 
 from laomedo.work_graph.docker_stage import DockerLangflowStage
-from laomedo.agents.workflow.errors import LaunchError
+from laomedo.work_graph.runs.errors import LaunchError
 
 
 class FakeProcess:

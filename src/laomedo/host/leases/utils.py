@@ -5,10 +5,10 @@ from __future__ import annotations
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 import json
-import laomedo.host.leases.settings as _leases_settings
-import laomedo.host.leases.models as _leases_models
-import laomedo.host.mediation.errors as _mediation_errors
-import laomedo.host.mediation.store as _mediation_store
+from laomedo.host.leases.settings import LEASE_SECONDS, POST_LOSS_WATCH_SECONDS
+from laomedo.host.leases.models import ContainerIdentity
+
+
 import os
 import queue
 import secrets
@@ -16,6 +16,52 @@ import subprocess
 import sys
 import threading
 import time
+import logging
+
+
+def log_heartbeat_failure(stage, error):
+    """Log only a fixed stage, exact OS class and numeric error codes.
+
+    Unknown subclasses are not inspected. Logging failures never replace the
+    underlying publication/read error or suppress security events.
+    """
+    try:
+        stages = {
+            "service_wall",
+            "service_monotonic",
+            "client_wall",
+            "client_monotonic",
+        }
+        trusted = (
+            OSError,
+            PermissionError,
+            FileNotFoundError,
+            FileExistsError,
+            BlockingIOError,
+            InterruptedError,
+            TimeoutError,
+            IsADirectoryError,
+            NotADirectoryError,
+        )
+        kind = next((kind for kind in trusted if type(error) is kind), None)
+        errno = error.errno if kind is not None else None
+        winerror = getattr(error, "winerror", None) if kind is not None else None
+        label = stage if stage in stages else "unknown"
+        code = (
+            "lease_service_heartbeat_write_failed"
+            if label.startswith("service_")
+            else "lease_client_heartbeat_write_failed"
+        )
+        logging.warning(
+            "%s stage=%s class=%s errno=%s winerror=%s",
+            code,
+            label,
+            kind.__name__ if kind else "OSError",
+            errno if type(errno) is int else None,
+            winerror if type(winerror) is int else None,
+        )
+    except Exception:
+        pass
 
 
 def _detached_process_options() -> dict:
@@ -36,104 +82,43 @@ def _detached_process_options() -> dict:
     return {"start_new_session": True}
 
 
-def inspect_exact(identity: _leases_models.ContainerIdentity) -> tuple[str, str | None]:
-    """Return (absent|owned|conflict|unknown, container ID)."""
+def inspect_exact(identity: ContainerIdentity) -> tuple[str, str | None]:
+    """Inspect on the original endpoint; legacy missing endpoint stays unknown."""
     try:
-        result = subprocess.run(
-            ["docker", "inspect", identity.name],
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-    except (OSError, subprocess.TimeoutExpired):
-        return ("unknown", None)
-    if result.returncode:
-        if (
-            "no such object:" in result.stderr.lower()
-            or "no such container:" in result.stderr.lower()
-        ):
-            return ("absent", None)
-        return ("unknown", None)
-    try:
-        entry = json.loads(result.stdout)[0]
-        labels = entry["Config"]["Labels"] or {}
-        if (
-            entry["Name"].lstrip("/") != identity.name
-            or labels.get(_leases_settings.LABEL_RUN) != identity.run_id
-            or labels.get(_leases_settings.LABEL_TOKEN)
-            != identity.token.get_secret_value()
-        ):
-            return ("conflict", entry.get("Id"))
-        return ("owned", entry["Id"])
-    except (KeyError, IndexError, TypeError, ValueError):
-        return ("unknown", None)
+        with identity.client() as client:
+            observation = client.containers.watch(identity.reservation()).inspect()
+            return observation.state, (
+                observation.identity.id if observation.identity else None
+            )
+    except (ImportError, OSError, ValueError, RuntimeError):
+        return "unknown", None
 
 
-def cleanup_exact(identity: _leases_models.ContainerIdentity) -> tuple[bool, str]:
-    """Stop only the exact labelled reservation, then prove it is absent."""
-    state, container_id = inspect_exact(identity)
-    if state == "unknown":
-        state, container_id = inspect_exact(identity)
-    if state == "absent":
-        return (True, "absent")
-    if state != "owned":
-        return (False, state)
-    try:
-        result = subprocess.run(
-            ["docker", "rm", "-f", container_id],
-            capture_output=True,
-            text=True,
-            timeout=15,
-        )
-    except (OSError, subprocess.TimeoutExpired):
-        result = None
-    after, _ = inspect_exact(identity)
-    if after == "unknown":
-        after, _ = inspect_exact(identity)
-    if after == "absent":
-        return (True, "removed")
-    return (
-        False,
-        (
-            "remove_unknown"
-            if result is None
-            else "remove_failed" if result.returncode else "still_present"
-        ),
-    )
+def cleanup_exact(identity: ContainerIdentity) -> tuple[bool, str]:
+    """Delegate exact removal and confirmation to the endpoint-bound runtime."""
+    return cleanup_after_loss(identity, watch_seconds=0)
 
 
 def cleanup_after_loss(
-    identity: _leases_models.ContainerIdentity,
+    identity: ContainerIdentity,
     *,
-    watch_seconds: float = _leases_settings.POST_LOSS_WATCH_SECONDS,
+    watch_seconds: float = POST_LOSS_WATCH_SECONDS,
 ) -> tuple[bool, str]:
-    """Keep watching for a container created after the runner disappeared.
-
-    Absence throughout the watch is *not* proof that a delayed Docker client
-    cannot create it later. Report that case as unverified; never assert safe
-    termination merely because the first inspection found nothing.
-    """
-    deadline = time.monotonic() + watch_seconds
-    observed = False
-    while True:
-        state, _ = inspect_exact(identity)
-        if state in {"conflict", "unknown"}:
-            return (False, state)
-        if state == "owned":
-            observed = True
-            verified, detail = cleanup_exact(identity)
-            if not verified:
-                return (False, detail)
-        if time.monotonic() >= deadline:
-            state, _ = inspect_exact(identity)
-            if state == "absent":
-                return (
-                    (True, "removed_after_loss")
-                    if observed
-                    else (False, "never_observed")
-                )
-            return (False, "late_" + state)
-        time.sleep(min(0.1, max(0, deadline - time.monotonic())))
+    """Revoke in Laomedo first; delegate Docker's delayed-create watch to runtime."""
+    try:
+        with identity.client() as client:
+            result = client.containers.watch(identity.reservation()).cleanup(
+                watch_seconds=watch_seconds
+            )
+            detail = result.detail
+            if not result.verified:
+                if detail.startswith("removed"):
+                    detail = "late_unknown" if watch_seconds > 0 else "unknown"
+                elif watch_seconds > 0 and detail == "owned":
+                    detail = "late_owned"
+            return result.verified, detail
+    except (ImportError, OSError, ValueError, RuntimeError):
+        return False, "unknown"
 
 
 def supervise(
@@ -161,19 +146,24 @@ def supervise(
     ):
         return 2
     ready_path.write_text(token, encoding="utf-8")
-    deadline = time.monotonic() + _leases_settings.LEASE_SECONDS
+    deadline = time.monotonic() + LEASE_SECONDS
     while True:
         try:
             event = events.get(timeout=min(0.5, max(0.01, deadline - time.monotonic())))
         except queue.Empty:
             event = "EXPIRED" if time.monotonic() >= deadline else ""
         if event == "HEARTBEAT":
-            deadline = time.monotonic() + _leases_settings.LEASE_SECONDS
+            deadline = time.monotonic() + LEASE_SECONDS
             continue
         if event == "DONE":
             # The parent must have stopped and verified the container first.
             state, _ = inspect_exact(
-                _leases_models.ContainerIdentity(name=name, run_id=run_id, token=token)
+                ContainerIdentity(
+                    name=name,
+                    run_id=run_id,
+                    token=token,
+                    docker_endpoint=owner.get("docker_endpoint"),
+                )
             )
             result_path.write_text(
                 json.dumps({"reason": "done", "state": state}) + "\n", encoding="utf-8"
@@ -181,7 +171,12 @@ def supervise(
             return 0 if state == "absent" else 3
         if event in {"EOF", "EXPIRED"}:
             verified, state = cleanup_after_loss(
-                _leases_models.ContainerIdentity(name=name, run_id=run_id, token=token)
+                ContainerIdentity(
+                    name=name,
+                    run_id=run_id,
+                    token=token,
+                    docker_endpoint=owner.get("docker_endpoint"),
+                )
             )
             result_path.write_text(
                 json.dumps(

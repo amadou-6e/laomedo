@@ -5,8 +5,16 @@ installer binds them to upstream entry points. Discover the owned packages here:
 
 - [Skills](skills/README.md)
 - [GitHub viewers](github/README.md)
+- [Agent activity](agents/activity/README.md)
+- [Agent controls](agents/controls/README.md)
 - [Upstream integration patches](integration/README.md)
 
+Shared error cards use `PopupFrame` for a viewport-bound stack and keep actions
+separate from explanatory text. A real modal owns its own cards and hides the
+background stack; a nonmodal Popper tooltip does not hide recovery controls.
+Confirmed backend reconnection turns its connection bar green without rerunning
+the graph or confirming the previous task. A model-list error stays red until
+model discovery actually succeeds.
 
 ## Skill workspace controls
 
@@ -75,6 +83,7 @@ identity until Check result reconciles it. Browser unload warns about unsaved
 buffers; crash restoration is unsupported. Failure cards use the shared
 descriptive catalogue. Unit controls support, but do not replace, real browser
 save/publication and failure/recovery acceptance on the tested artifact.
+
 
 ## Agent activity appearance and node names
 
@@ -243,7 +252,7 @@ The original Codex agent node offers Activity in place of Code. It opens the gra
 
 The overlay applicator installs AgentActivityNavigation.ts at src/frontend/src/stores/agentActivityStore.ts. The node entry point uses an explicit transient target scoped to the graph, clears it when leaving Activity, and does not change canvas selection or save graph data. Opening Agents directly from the sidebar does not infer a target from selected canvas nodes.
 
-OpenCode agent nodes use the same Activity entry point. Provider-qualified message snapshots, capture limits and usage semantics are documented in [the OpenCode node guide](../../examples/opencode-node/README.md).
+OpenCode agent nodes use the same Activity entry point. Provider-qualified message snapshots, capture limits and usage semantics are documented in [the OpenCode activity guide](../../docs/features/agents/providers/opencode/activity.md).
 
 ## Skill workspace lifetime
 
