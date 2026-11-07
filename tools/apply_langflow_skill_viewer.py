@@ -91,6 +91,17 @@ def apply_pr_controls(checkout):
         '    if (event.key === "Enter" && !isPRNode(_nodes.find(node => node.id === nodeId)?.data)) {',
     )
     dropdown.write_text(source, encoding="utf-8")
+    graph_utils = frontend / "utils/reactflowUtils.ts"
+    source = (
+        f'import {{ isPRFeedbackConnection }} from "{helper}";\n'
+        + graph_utils.read_text(encoding="utf-8")
+    )
+    source = replace_once(
+        source,
+        "        if (!hasLoopComponent) {",
+        "        if (!hasLoopComponent && !isPRFeedbackConnection(connection, nodesArray, edgesArray, scapeJSONParse)) {",
+    )
+    graph_utils.write_text(source, encoding="utf-8")
     edit_rows = frontend / "modals/editNodeModal/hooks/use-row-data.ts"
     source = f'import {{ isPRControlHidden }} from "{helper}";\n' + edit_rows.read_text(
         encoding="utf-8"
