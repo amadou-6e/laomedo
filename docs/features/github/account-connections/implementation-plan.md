@@ -63,14 +63,13 @@ Do not replace upstream login pre-emptively.
 
 Retain the upstream authenticated active-user dependency. A private request must
 also match the trusted owner and native Windows/normal-login deployment, reject
-auto-login, API-key-only, explicit bearer-only and external-auth contexts, and
+auto-login, API-key-only, bearer-only requests without a private lease, and external-auth contexts, and
 have a valid revocable private browser-session lease. An auth-method string or
 user UUID alone does not prove an explicit login or a live private session.
 
 Proposed minimal addition for review: a random HttpOnly private-session cookie
 plus a durable server-side lease record (digest only, owner UUID, expiry and
-revocation). Issue it only after successful upstream password login, through a
-small integration adapter around that route. Resolve the resulting user with
+revocation). Issue it only after successful upstream password login, through one ASGI middleware around that route. Resolve the resulting user with
 upstream token validation; never reimplement password/JWT validation, consume/log
 password bodies, or mint a lease from GET session/refresh/auto-login. Do not
 rewrite the upstream login response. Integration failure leaves private access
@@ -81,23 +80,49 @@ Revoke the current private lease before the upstream logout response completes;
 private access stays refused if cookie removal or later response delivery fails.
 The private dependency requires BOTH upstream authentication and the lease, with
 matching owner. Expiry/revocation and current user activity are checked on every
-request and again before private response release. Refresh can retain an existing
-lease only within its original lifetime; it never revives a revoked/expired lease.
+request and again before private response release. The owner selected matching the normal Laomedo login lifetime on 2026-11-07.
+The cookie persists with an explicit expiry matching the upstream refresh cookie.
+A successful upstream refresh may extend an already valid lease to the newly
+issued refresh expiry, using a conditional update serialized against logout.
+It never creates a lease or revives a revoked, missing or expired one. Browser
+and app restart restore consistent unexpired records without another login.
 Old upstream JWTs therefore cannot independently reopen private access after logout.
+A normal browser request may include an Authorization header; do not reject it
+merely for being present. Require the upstream-validated principal to equal the
+live lease owner. A mismatched header takes upstream precedence and must fail
+private admission even when a different valid cookie is also present.
 
 This is private authorization/session binding, not another account system and
 not a claim that all upstream endpoints now revoke JWTs. Other browser profiles
 must obtain their own explicit-login lease. Their support is unclaimed until
 tested; never overwrite an unrelated lease as a convenient cleanup step.
 
-Use narrowly scoped cookie names/path, HttpOnly, SameSite=Lax and a host-only
-cookie. Secure depends on actual HTTPS; local HTTP is supported only on the
-explicit loopback deployment, with its limitation documented. Apply exact-origin
-and host checks plus CSRF protection to local mutations, including lease-issuing
-login/logout. OAuth callback uses its separately validated state/session/PKCE
+Use a distinct cookie name, `Path=/` (so upstream logout receives it),
+HttpOnly, SameSite=Lax and a host-only cookie. Secure depends on actual HTTPS; local HTTP is supported only on the
+explicit loopback deployment, with its limitation documented. Apply exact Origin/Host checks to existing login/logout/refresh POSTs,
+rejecting missing or mismatched Origin in this browser-only private deployment;
+this preserves the upstream form and logout hook without requiring a new token.
+Use token-based CSRF as well on new private mutations whose frontend we own. OAuth callback uses its separately validated state/session/PKCE
 contract, rather than assuming an Origin header on a GitHub return. No arbitrary
-redirect/return target. Freeze the concrete adapter seam and lease persistence
-only after reviewer challenge and a focused compatibility check of route ordering.
+redirect/return target. Use ASGI response-start interception before headers are sent; do not consume
+request/response bodies or replace upstream route handlers. Match exact POST
+`/api/v1/login`, `/api/v1/refresh` and `/api/v1/logout` paths with empty root_path
+in the supported setup. Install from the Laomedo factory after upstream app
+creation and before first serving; verify effective middleware order. Login
+issuance requires HTTP 200 plus an outgoing access cookie validated by upstream
+authentication and matching owner; 200 alone is insufficient. Refresh extends
+only its existing live lease after the same validation. No token logging or
+manual JWT decoding. Logout revokes its incoming lease before passing through.
+All lease updates/releases recheck revocation so a late refresh cannot reopen it.
+
+If a normal upstream login survives but the private lease is missing, expired
+or inconsistent, show C13 Sign in again for private access. On deliberate action,
+perform upstream logout (revoking any current private lease), then open the
+existing login page. Failed/unconfirmed logout stays locked with retry (C14);
+never claim sign-out or redirect as though it succeeded. This exceptional
+recovery does not shorten the selected normal login lifetime or disconnect GitHub.
+Private-lease errors need a dedicated client handling path so upstream automatic
+401/403 refresh/retry cannot loop or silently issue a replacement lease.
 
 Gate: API keys/bearer-only/auto-login/wrong owner cannot obtain private access;
 logout plus replayed old JWT cannot restore it; concurrent tabs cannot refill
@@ -211,4 +236,28 @@ creating an unnecessary second login system? Challenge setup/owner bootstrap,
 login/logout adapter feasibility, CSRF/cookie isolation, refresh/restart semantics,
 private-route completeness and scope. A plan verdict is not runtime approval.
 
-Review status: pending. No runtime change or live acceptance is claimed.
+## Source investigation and approach review ledger
+
+Claude review at `e40abcf8`: REVISE (narrow). Existing login reuse and the lease
+were justified; P1-P3 needed corrections, P4/P5 needed source evidence. No runtime
+or visual acceptance. New investigation confirms: Laomedo factory adds routes
+before static catch-all, upstream router composes /api + /v1, middleware can be
+installed after upstream create_app before serving, native rate-limit errors use
+429 and unhandled errors 500 (not login success). The default frontend API client
+uses cookies, with only language/client custom headers. Nonetheless accept a
+matching validated bearer principal when a live private lease also exists.
+`create_user_tokens` has no iat/session claim, so an owner logout epoch cannot
+be derived safely from current JWT claims; do not add a second JWT validator.
+
+| ID | Correction / evidence | Status |
+| --- | --- | --- |
+| 251-P1 | Cookie Path=/, current browser lease revoked at upstream logout | Corrected; focused recheck pending |
+| 251-P2 | Owner chose normal-login lifetime; persistent lease tracks valid refresh, no resurrection; C13/C14 exceptional recovery | Corrected; focused recheck pending |
+| 251-P3 | Existing login/logout/refresh Origin/Host checks; token-based CSRF confined to new owned controls | Corrected; focused recheck pending |
+| 251-P4 | Exact routes, response-start middleware, validated outgoing cookie; no body consumption; status/error/factory sources inspected | Investigated; focused recheck pending |
+| 251-P5 | Require matching upstream principal plus lease, not blanket rejection of Authorization header | Corrected; focused recheck pending |
+| 251-P6/P7 | One table/middleware/dependency, startup-only deployment checks; bootstrap preserves non-default owner | Addressed suggestions |
+
+Readiness is pending the focused approach recheck. The new C13/C14 recovery states
+need canonical visual review as well; earlier visual approval does not cover them.
+No runtime change or live acceptance is claimed.
