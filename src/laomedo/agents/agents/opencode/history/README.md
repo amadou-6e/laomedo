@@ -20,6 +20,6 @@ roles. Full signatures and detailed parameter contracts remain in source.
 | `HistoryError` | `errors.py` | `__init__` |
 | `HistorySource` | `models.py` | Validated fields / inherited interface |
 | `NativeExport` | `models.py` | `bind`, `message_ids`, `child_ids`, `tool_calls` |
-| `NativeHistory` | `models.py` | `attempt_messages`, `record_fields`, `attempt_sessions`, `terminal_complete` |
+| `NativeHistory` | `models.py` | `attempt_messages`, `attempt_usage`, `record_fields`, `attempt_sessions`, `terminal_complete` |
 | `HistoryReader` | `reader.py` | `__init__`, `read`, `retain` |
 | `Settings` | `settings.py` | `settings_customise_sources` |

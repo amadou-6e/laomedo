@@ -16,7 +16,7 @@ therefore not a distinguishing class qualifier. The HTTP bridge is composed from
 owns this concern's stable codes. A local timeout does not prove that remote work
 stopped; retained uncertainty must not trigger a blind retry. Cross-node PR/Skill
 feedback remains in `integrations/langflow/feedback`.
-# Handoff value vocabulary
+## Handoff value vocabulary
 
 `AgentHandoff` groups target, task, pinned skill references, selected artifacts,
 source identity and optional resume binding. `HandoffTarget`, `HandoffSource`,

@@ -9,9 +9,10 @@ Vocabulary: `start` reserves capture identity; `bind` binds the actual remote ru
 read methods inspect retained evidence without running a model. Exact method names
 are listed below; record schemas and provider IDs do not change during renaming.
 
-Provider-native interpretation is being separated behind registered adapters.
-Current `projection.py` and `cost.py` still contain Codex-specific interpretation;
-that is remaining integration work, not completed common normalization. Partial
+`projection.py` consumes thread/turn/item records, including Codex-specific
+parent and telemetry aliases, and routes native OpenCode history to its provider
+projection. `cost.py` retains the versioned OpenAI API-equivalent price catalogue.
+The Codex leaf does not encapsulate that whole interpretation path. Partial
 capture cannot be upgraded merely because execution ended successfully.
 
 ## Current object interface inventory

@@ -243,6 +243,17 @@ class OpenCodeHistoryTests(unittest.TestCase):
         first.messages[0]["info"]["tokens"].pop("total")
         self.assertNotIn("total", history.record_fields(None)["usage"])
 
+    def test_root_attempt_usage_excludes_child_counters(self):
+        root = self.exported(message="root")
+        child = self.exported("ses_child", "ses_root", "child")
+        child.messages[0]["info"]["tokens"]["input"] = 99999
+        history = NativeHistory(
+            root_id="ses_root", sessions={"ses_root": root, "ses_child": child}
+        )
+        self.assertEqual(
+            history.record_fields(None)["usage"], root.messages[0]["info"]["tokens"]
+        )
+
     def test_unchanged_previous_child_is_excluded_from_resume_scope(self):
         old = self.exported(message="old")
         child = self.exported("ses_child", "ses_root", "child")
