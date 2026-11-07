@@ -27,3 +27,8 @@ request supplies a mutable header record, including GETs. The owned header tests
 cover that browser-observed contract and project session data to safe identity.
 Entry cards use a viewport-bound scroll container because the native canvas page
 has a larger minimum width; that canvas constraint must not clip profile forms.
+
+`ProfileIdentityMutationGate` uses the existing native password-form seam and
+wraps the profile-picture editor. Profile mode does not offer identity mutation
+controls that its backend refuses; ordinary preview mode retains those editors.
+A failed capability check never exposes a blocked editor.

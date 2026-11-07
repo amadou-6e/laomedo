@@ -86,6 +86,41 @@ def apply_profiles(checkout: Path, source: Path):
         auth_anchor, "      <ProfileSessionSync />\n" + auth_anchor
     )
     auth_context.write_text(auth_text, encoding="utf-8")
+    password_gate = (
+        frontend / "customization/components/custom-settings-password-form-gate.tsx"
+    )
+    gate_text = password_gate.read_text(encoding="utf-8")
+    if gate_text.count("  return <>{children}</>;") != 1:
+        raise SystemExit("profile_password_gate_anchor_missing")
+    gate_text = (
+        'import ProfileIdentityMutationGate from "@/components/laomedoProfiles/ProfileIdentityMutationGate";\n'
+        + gate_text
+    )
+    gate_text = gate_text.replace(
+        "  return <>{children}</>;",
+        "  return <ProfileIdentityMutationGate>{children}</ProfileIdentityMutationGate>;",
+    )
+    password_gate.write_text(gate_text, encoding="utf-8")
+    general = frontend / "pages/SettingsPage/pages/GeneralPage/index.tsx"
+    general_text = general.read_text(encoding="utf-8")
+    for before, after in (
+        (
+            "          <ProfilePictureFormComponent",
+            "          <ProfileIdentityMutationGate><ProfilePictureFormComponent",
+        ),
+        (
+            "            userData={userData}\n          />",
+            "            userData={userData}\n          /></ProfileIdentityMutationGate>",
+        ),
+    ):
+        if general_text.count(before) != 1:
+            raise SystemExit("profile_picture_gate_anchor_missing")
+        general_text = general_text.replace(before, after)
+    general_text = (
+        'import ProfileIdentityMutationGate from "@/components/laomedoProfiles/ProfileIdentityMutationGate";\n'
+        + general_text
+    )
+    general.write_text(general_text, encoding="utf-8")
     shutil.copytree(source / "profiles", target)
     routes.write_text(text, encoding="utf-8")
     menu.write_text(menu_text, encoding="utf-8")
