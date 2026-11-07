@@ -120,6 +120,30 @@ class PRAgentLoopTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.fake.prs[1]["title"], "PR operation verified")
         self.assertEqual(len(self.last_graph.vertices), 2)
 
+    async def test_read_only_pr_context_reaches_agent_over_native_data_edge(self):
+        flow = builder.build()
+        flow["data"]["edges"] = flow["data"]["edges"][:1]
+        graph = Graph.from_payload(flow)
+        result = await asyncio.wait_for(
+            graph.arun(inputs=[{}], outputs=["agent"]), timeout=25
+        )
+        self.assertIn("PR operation verified", str(result))
+        self.assertEqual(len(self.agent_calls), 1)
+        self.assertIn("https://github.com/owner/repo/pull/1", self.agent_calls[0])
+        self.assertEqual(self.fake.writes, [])
+
+    async def test_failed_pr_context_cannot_run_acyclic_agent(self):
+        flow = builder.build()
+        flow["data"]["edges"] = flow["data"]["edges"][:1]
+        flow["data"]["nodes"][0]["data"]["node"]["template"]["pr_choice"]["value"] = ""
+        graph = Graph.from_payload(flow)
+        with self.assertRaisesRegex(Exception, "pr_context_upstream_failed"):
+            await asyncio.wait_for(
+                graph.arun(inputs=[{}], outputs=["agent"]), timeout=25
+            )
+        self.assertEqual(self.agent_calls, [])
+        self.assertEqual(self.fake.writes, [])
+
     async def test_normal_upstream_operation_remains_acyclic(self):
         flow = builder.build()
         pr = flow["data"]["nodes"][0]
