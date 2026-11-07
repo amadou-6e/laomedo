@@ -1649,6 +1649,11 @@
     "description": "The repository does not currently advertise every selected label.",
     "recovery": "Refresh Labels and remove or replace unavailable selections."
   },
+  "pr_discovery_failed": {
+    "title": "GitHub PR discovery failed",
+    "description": "The node could not load repository labels and pull requests from the host GitHub connection.",
+    "recovery": "Check the host GitHub connection and repository access, then use Refresh on Labels or PR. Keep credentials out of the graph."
+  },
   "github_discovery_incomplete": {
     "title": "The complete GitHub selection could not be loaded",
     "description": "Discovery reached its response, page or time limit and cannot safely present a complete list.",

@@ -104,6 +104,30 @@ class NativeGitHubPRTests(unittest.TestCase):
         )
         self.assertEqual(config["pr_choice"]["value"], "#1 New title")
 
+    def test_refresh_updates_legacy_metadata_and_separates_failure_from_empty(self):
+        config = {item.name: item.to_dict() for item in self.component.inputs}
+        config["repository_url"]["value"] = self.case.url
+        config["state"].update(
+            advanced=True, options=["open", "closed", "all"], value="closed"
+        )
+        config = asyncio.run(
+            self.component.update_build_config(config, "closed", "state")
+        )
+        self.assertFalse(config["state"]["advanced"])
+        self.assertIn("merged", config["state"]["options"])
+        self.assertEqual(config["state"]["value"], "closed")
+        self.mock.side_effect = ValueError("private provider details")
+        config = asyncio.run(
+            self.component.update_build_config(config, "closed", "state")
+        )
+        self.assertEqual(config["labels"]["options"], [])
+        self.assertEqual(config["pr_choice"]["options"], [])
+        self.assertEqual(
+            config["discovery_status"]["value"],
+            "GitHub discovery failed. Check connection and refresh.",
+        )
+        self.assertEqual(self.case.provider.writes, [])
+
     def test_failure_stops_task_and_unknown_is_routable(self):
         self.component.set(
             operation=Data(
