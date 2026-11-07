@@ -11,6 +11,11 @@ dump, graph or validation evidence may contain credential values.
 
 ## Access-only mirror lifecycle
 
+One process serializes admitted copies so model discovery and execution cannot
+race the same profile receipt. Waiting consumes the existing normal copy deadline;
+it does not add another copy attempt or extend the separate cleanup reserve.
+The SDK still owns cross-process receipt admission and refuses a receipt in use.
+
 The mirror uses py-docker's owned Session lifecycle with a durable private
 ownership receipt. Resume performs its existing admission copy before consuming
 the retained run's resumability. Explicit model Refresh requests fresh discovery

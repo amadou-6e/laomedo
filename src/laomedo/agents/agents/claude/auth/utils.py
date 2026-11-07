@@ -16,6 +16,7 @@ from laomedo.agents.agents.claude.auth.models import ClaudeAccessLoginRecord
 from laomedo.agents.agents.claude.auth.settings import (
     CLEANUP_SECONDS,
     COPY_SECONDS,
+    MIRROR_LOCK,
     Settings,
 )
 from laomedo.host.private_state.models import DirectoryPermissionPolicy
@@ -97,6 +98,44 @@ def _private_directory(
 
 
 def mirror_login(
+    profile,
+    image,
+    *,
+    source=None,
+    environment=None,
+    minimum_validity_seconds=180,
+    deadline=None,
+):
+    """Serialize host copies within the existing normal-phase deadline.
+
+    Model discovery and execution share a dedicated profile and receipt. Queue
+    locally rather than racing that receipt; other processes still fail closed.
+    Waiting consumes the copy budget and never retries a refused SDK operation.
+    """
+    if deadline is not None and (
+        type(deadline) not in (int, float) or not math.isfinite(deadline)
+    ):
+        raise LocalClaudeLoginError("claude_local_login_copy_failed")
+    normal_deadline = time.monotonic() + COPY_SECONDS
+    if deadline is not None:
+        normal_deadline = min(normal_deadline, deadline)
+    remaining = normal_deadline - time.monotonic()
+    if remaining <= 0 or not MIRROR_LOCK.acquire(timeout=remaining):
+        raise LocalClaudeLoginError("claude_local_login_copy_failed")
+    try:
+        return _mirror_login(
+            profile,
+            image,
+            source=source,
+            environment=environment,
+            minimum_validity_seconds=minimum_validity_seconds,
+            deadline=normal_deadline,
+        )
+    finally:
+        MIRROR_LOCK.release()
+
+
+def _mirror_login(
     profile,
     image,
     *,

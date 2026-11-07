@@ -2,6 +2,12 @@
 
 from __future__ import annotations
 
+from threading import Lock
+
+# One host process admits one access-only copy at a time. The SDK's durable
+# receipt still arbitrates between processes; it is never bypassed or replaced.
+MIRROR_LOCK = Lock()
+
 CODES = frozenset(
     {
         "claude_host_login_unavailable",
