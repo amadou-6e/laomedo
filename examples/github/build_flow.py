@@ -63,7 +63,7 @@ def build(
             "agent",
             {"operation": "fresh", "runner_url": runner_url, "output_retries": 0},
             600,
-            80,
+            680,
         )
         skill = graph.node(
             ROOT / "components/laomedo/skill.py",
