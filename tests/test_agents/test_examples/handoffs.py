@@ -13,7 +13,7 @@ from support.paths import repository_root
 
 ROOT = repository_root()
 helper_spec = importlib.util.spec_from_file_location(
-    "native_flow_builder", ROOT / "examples/skills/graph.py"
+    "native_flow_builder", ROOT / "examples/graph.py"
 )
 helper = importlib.util.module_from_spec(helper_spec)
 helper_spec.loader.exec_module(helper)

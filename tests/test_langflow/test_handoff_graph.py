@@ -55,7 +55,10 @@ class GraphTests(unittest.IsolatedAsyncioTestCase):
                 result["client_request_id"] = payloads[-1]["request_id"]
             return Response(json.dumps(result).encode())
 
-        with patch("urllib.request.urlopen", side_effect=respond):
+        with patch(
+            "laomedo.agents.interface.langflow.component._HTTP.open",
+            side_effect=respond,
+        ):
             await Graph.from_payload(flow).arun(
                 inputs=[{"input_value": "FIRST"}], types=["chat"]
             )
@@ -73,7 +76,10 @@ class GraphTests(unittest.IsolatedAsyncioTestCase):
                 result["client_request_id"] = payload["request_id"]
             return Response(json.dumps(result).encode())
 
-        with patch("urllib.request.urlopen", side_effect=respond) as http:
+        with patch(
+            "laomedo.agents.interface.langflow.component._HTTP.open",
+            side_effect=respond,
+        ) as http:
             with self.assertRaises(Exception):
                 await Graph.from_payload(builder.build()).arun(
                     inputs=[{"input_value": "FIRST"}], types=["chat"]

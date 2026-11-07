@@ -65,7 +65,9 @@ class HttpTests(unittest.TestCase):
             )
 
         adapter = self.adapter()
-        with patch("laomedo.agents.interface.bridge.urlopen", side_effect=respond):
+        with patch(
+            "laomedo.agents.interface.bridge.HttpAgentBridge._open", side_effect=respond
+        ):
             output = adapter.dispatch(
                 item, deadline=time.monotonic() + 10, cancelled=threading.Event()
             )
@@ -104,7 +106,9 @@ class HttpTests(unittest.TestCase):
             )
 
         adapter = self.adapter()
-        with patch("laomedo.agents.interface.bridge.urlopen", side_effect=respond):
+        with patch(
+            "laomedo.agents.interface.bridge.HttpAgentBridge._open", side_effect=respond
+        ):
             adapter.dispatch(
                 item, deadline=time.monotonic() + 10, cancelled=threading.Event()
             )
@@ -137,7 +141,9 @@ class HttpTests(unittest.TestCase):
             {},
             io.BytesIO(b'{"error_category":"invalid_skill"}'),
         )
-        with patch("laomedo.agents.interface.bridge.urlopen", side_effect=error):
+        with patch(
+            "laomedo.agents.interface.bridge.HttpAgentBridge._open", side_effect=error
+        ):
             result = self.adapter().dispatch(
                 item, deadline=time.monotonic() + 10, cancelled=threading.Event()
             )
@@ -152,7 +158,10 @@ class HttpTests(unittest.TestCase):
             {},
             io.BytesIO(b'{"error_category":"transport_closed"}'),
         )
-        with patch("laomedo.agents.interface.bridge.urlopen", side_effect=uncertain):
+        with patch(
+            "laomedo.agents.interface.bridge.HttpAgentBridge._open",
+            side_effect=uncertain,
+        ):
             with self.assertRaisesRegex(HandoffError, "invalid_runner_response"):
                 self.adapter().dispatch(
                     item, deadline=time.monotonic() + 10, cancelled=threading.Event()
@@ -175,7 +184,8 @@ class HttpTests(unittest.TestCase):
             with self.subTest(failure=type(failure).__name__):
                 adapter = self.adapter()
                 with patch(
-                    "laomedo.agents.interface.bridge.urlopen", side_effect=failure
+                    "laomedo.agents.interface.bridge.HttpAgentBridge._open",
+                    side_effect=failure,
                 ) as send:
                     with self.assertRaises(HandoffError) as caught:
                         adapter.dispatch(
@@ -221,7 +231,8 @@ class HttpTests(unittest.TestCase):
                     raise failure
 
                 with patch(
-                    "laomedo.agents.interface.bridge.urlopen", side_effect=respond
+                    "laomedo.agents.interface.bridge.HttpAgentBridge._open",
+                    side_effect=respond,
                 ):
                     with self.assertRaises(HandoffError) as caught:
                         adapter.dispatch(

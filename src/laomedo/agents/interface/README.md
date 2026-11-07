@@ -19,9 +19,9 @@ The bridge's methods form this vocabulary:
 | `fresh_request(handoff, request_id)` | Build the native async request and digest; no network dispatch. |
 | `dispatch(handoff, *, deadline, cancelled, ...)` | Dispatch a permitted lifecycle request under a deadline; a timeout can leave remote work active. |
 | `lookup_request(provider, request_id)` | Authenticated reconciliation; never a second POST. |
-| `status(reference)` | Read an existing run; do not create a new identity. |
-| `cancel(...)` | Send a cancellation request and retain confirmation separately. |
-| `select_artifacts(reference, selection)` | Request an admitted selection from retained output. |
+| `status(provider, run_id)` | Read an existing run; do not create a new identity. |
+| `cancel(execution_id)` | Send a cancellation request and retain confirmation separately. |
+| `select_artifacts(source, paths)` | Request an admitted selection from retained output. |
 
 `from_component_request` constructs the request envelope; `with_activity_attempt`
 returns a bound copy; `component_arguments` preserves the saved component's
@@ -31,7 +31,7 @@ remain `runner_*` where already established; Python renaming is not schema migra
 Host HTTP server composition lives in `host/runner/http`, outside these contracts.
 Explicit trusted host startup registers providers. Graph input cannot select
 Python imports, executable commands or credential locations.
-# Structured output contracts
+## Structured output contracts
 
 `RunnerStatusRecord` and `AgentRunReference` in the leaf `models.py` are distinct
 wire contracts. The former projects a join snapshot using `from_snapshot()`;

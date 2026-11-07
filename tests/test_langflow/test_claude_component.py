@@ -392,7 +392,7 @@ class ClaudeComponentTests(unittest.IsolatedAsyncioTestCase):
             )
             with (
                 patch.object(node, "_token", return_value="internal"),
-                patch.object(common.request, "urlopen", side_effect=error),
+                patch.object(common._HTTP, "open", side_effect=error),
             ):
                 expected = (
                     code

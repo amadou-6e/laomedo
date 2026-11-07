@@ -4,13 +4,13 @@ from pathlib import Path
 from laomedo.agents.interface.models import AgentDispatchResult
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
-from urllib.request import Request
-from urllib.request import urlopen
+from urllib.request import ProxyHandler, Request, build_opener
 from uuid import UUID
 from uuid import uuid5
 import hashlib
 import json
 from laomedo.agents.orchestration.errors import HandoffError
+from laomedo.http.redirect import NoRedirect
 import os
 import time
 
@@ -20,6 +20,9 @@ class HttpAgentBridge:
         self.endpoints = dict(endpoints)
         self.token_files = dict(token_files or {})
         self.active = {}
+        # Local bearer credentials must never travel through machine proxies
+        # or be forwarded to a redirect destination.
+        self.opener = build_opener(ProxyHandler({}), NoRedirect())
         for base in self.endpoints.values():
             parsed = urlsplit(base)
             if (
@@ -33,6 +36,9 @@ class HttpAgentBridge:
                 or parsed.fragment
             ):
                 raise HandoffError("local_runner_url_required")
+
+    def _open(self, request, *, timeout):
+        return self.opener.open(request, timeout=timeout)
 
     def _headers(self, provider):
         path = self.token_files.get(provider) or os.environ.get(
@@ -90,7 +96,7 @@ class HttpAgentBridge:
             method="GET",
         )
         try:
-            with urlopen(req, timeout=10) as response:
+            with self._open(req, timeout=10) as response:
                 return json.load(response)
         except HTTPError as exc:
             if exc.code == 404:
@@ -159,7 +165,7 @@ class HttpAgentBridge:
         )
         status_code = None
         try:
-            with urlopen(
+            with self._open(
                 request, timeout=max(0.001, deadline - time.monotonic())
             ) as response:
                 raw = json.load(response)
@@ -219,7 +225,7 @@ class HttpAgentBridge:
                     raise HandoffError("runner_result_pending")
                 poll = Request(endpoint, headers=headers, method="GET")
                 try:
-                    with urlopen(
+                    with self._open(
                         poll, timeout=max(0.001, min(5, deadline - time.monotonic()))
                     ) as response:
                         raw = json.load(response)
@@ -249,7 +255,7 @@ class HttpAgentBridge:
             headers=self._headers(provider),
             method="GET",
         )
-        with urlopen(req, timeout=10) as response:
+        with self._open(req, timeout=10) as response:
             value = json.load(response)
         if not isinstance(value, dict) or value.get("run_id") != run_id:
             raise HandoffError("runner_status_identity_mismatch")
@@ -274,7 +280,7 @@ class HttpAgentBridge:
             method="POST",
             headers=self._headers(provider),
         )
-        with urlopen(req, timeout=10) as response:
+        with self._open(req, timeout=10) as response:
             return json.load(response)
 
     def select_artifacts(self, source, paths):
@@ -292,6 +298,6 @@ class HttpAgentBridge:
             method="POST",
             headers=self._headers(source["provider"]),
         )
-        with urlopen(req, timeout=10) as response:
+        with self._open(req, timeout=10) as response:
             result = json.load(response)
         return result["artifact_refs"]

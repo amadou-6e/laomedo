@@ -170,12 +170,15 @@ class NativeTimeoutReconciliationTests(unittest.TestCase):
                 ).encode()
             )
 
-        with patch("laomedo.agents.interface.bridge.urlopen", side_effect=response):
+        with patch(
+            "laomedo.agents.interface.bridge.HttpAgentBridge._open",
+            side_effect=response,
+        ):
             value = adapter.status("codex", self.native)
         self.assertNotIn("PRIVATE", str(value))
         self.assertNotIn("SECRET", str(value))
         with patch(
-            "laomedo.agents.interface.bridge.urlopen",
+            "laomedo.agents.interface.bridge.HttpAgentBridge._open",
             return_value=io.BytesIO(json.dumps({"run_id": str(uuid4())}).encode()),
         ):
             with self.assertRaisesRegex(
@@ -270,7 +273,7 @@ class NativeTimeoutReconciliationTests(unittest.TestCase):
             "auth": "SECRET",
         }
         with patch(
-            "laomedo.agents.interface.bridge.urlopen",
+            "laomedo.agents.interface.bridge.HttpAgentBridge._open",
             return_value=io.BytesIO(json.dumps(raw).encode()),
         ):
             result = bridge.observe_terminal(self.run, self.inv)
@@ -311,7 +314,8 @@ class NativeTimeoutReconciliationTests(unittest.TestCase):
                         side_effect=lambda: now[0],
                     ),
                     patch(
-                        "laomedo.agents.interface.bridge.urlopen", side_effect=respond
+                        "laomedo.agents.interface.bridge.HttpAgentBridge._open",
+                        side_effect=respond,
                     ),
                 ):
                     adapter = self.adapter()

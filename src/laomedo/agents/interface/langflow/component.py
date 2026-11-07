@@ -222,7 +222,7 @@ class _NoRedirect(request.HTTPRedirectHandler):
         return None
 
 
-_HTTP = request.build_opener(_NoRedirect())
+_HTTP = request.build_opener(request.ProxyHandler({}), _NoRedirect())
 
 
 class _ModelCatalog(dict):
@@ -845,7 +845,7 @@ class AgentComponent(Component):
             method=method,
         )
         try:
-            opener = _HTTP.open if self._bridge_base() else request.urlopen
+            opener = _HTTP.open
             with opener(req, timeout=10) as response:
                 value = json.load(response)
         except error.HTTPError as exc:
@@ -966,7 +966,7 @@ class AgentComponent(Component):
             method=method,
         )
         try:
-            opener = _HTTP.open if self._bridge_base() else request.urlopen
+            opener = _HTTP.open
             with opener(req, timeout=int(self.timeout_seconds)) as response:
                 result = json.load(response)
         except error.HTTPError as exc:
@@ -1063,7 +1063,7 @@ class AgentComponent(Component):
                     )
                 time.sleep(0.2)
                 try:
-                    opener = _HTTP.open if self._bridge_base() else request.urlopen
+                    opener = _HTTP.open
                     with opener(
                         request.Request(
                             (self._bridge_base() or str(self.runner_url).rstrip("/"))

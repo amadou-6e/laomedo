@@ -122,7 +122,10 @@ async def run_case(
         token.write_text("fixture-not-a-credential", encoding="utf-8")
         with (
             patch.dict(os.environ, {"LAOMEDO_RUNNER_TOKEN_FILE": str(token)}),
-            patch("urllib.request.urlopen", side_effect=respond),
+            patch(
+                "laomedo.agents.interface.langflow.component._HTTP.open",
+                side_effect=respond,
+            ),
         ):
             results = await graph.arun(
                 inputs=[{}], outputs=["success", "failure", "rejection", "recovery"]

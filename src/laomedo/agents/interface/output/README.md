@@ -1,9 +1,9 @@
 # Agent output contract
 
 This public boundary owns declarative response requirements and their validation.
-The relocated implementation initially remains in `utils.py`; extracting
-`OutputValidator`, `OutputRequirements` and `OutputValidation` is a subsequent
-replacement, not an already implemented API. Do not introduce a second validator.
+The function-only API in `utils.py` validates the same requirements for native
+prechecks and graph callers. It is the single owner of the serialized contract
+and its validation rules.
 
 | Existing method vocabulary | Contract |
 | --- | --- |
