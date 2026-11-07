@@ -72,6 +72,16 @@ def _sort_pr_vertices(graph, stop_component_id=None, start_component_id=None):
     return first_layer
 
 
+def context_output_name(component):
+    """PR context is Data; Skill feedback retains its independent Task port."""
+    return "pr" if component.name == "LaomedoGitHubPR" else "task"
+
+
+def context_input_name(component):
+    """Only PR consolidates its incoming identity/operation onto context."""
+    return "pr_context" if component.name == "LaomedoGitHubPR" else "operation"
+
+
 def skill_input_vertices(controller, agent):
     """Only independent read-only Skill outputs may accompany feedback Task."""
     selected = set()
@@ -80,7 +90,8 @@ def skill_input_vertices(controller, agent):
         if edge.source_id == controller.id:
             if (
                 edge.target_handle.field_name != "task"
-                or edge.source_handle.name != "task"
+                or edge.source_handle.name
+                != context_output_name(controller.custom_component)
             ):
                 raise ValueError("pr_agent_loop_invalid")
             tasks += 1
@@ -108,20 +119,28 @@ def feedback_edge(component):
     vertex = getattr(component, "_vertex", None)
     if vertex is None:
         return None
+    if component.name == "LaomedoGitHubPR" and any(
+        name in vertex.full_data["data"]["node"]["template"] for name in ("operation", "pr_reference")
+    ):
+        raise ValueError("pr_context_migration_required")
     legacy = [
         edge
         for edge in vertex.incoming_edges
         if edge.target_handle.field_name == "task"
     ]
+    if component.name == "LaomedoGitHubPR" and legacy:
+        raise ValueError("pr_context_migration_required")
     operations = [
         edge
         for edge in vertex.incoming_edges
-        if edge.target_handle.field_name == "operation"
+        if edge.target_handle.field_name == context_input_name(component)
     ]
     if len(operations) > 1:
         raise ValueError("pr_agent_loop_invalid")
     starts = [
-        edge for edge in vertex.outgoing_edges if edge.source_handle.name == "task"
+        edge
+        for edge in vertex.outgoing_edges
+        if edge.source_handle.name == context_output_name(component)
     ]
     # An ordinary upstream operation stays eager. Only the return from the
     # Agent consuming this PR's context is controlled feedback.
@@ -156,6 +175,19 @@ def feedback_edge(component):
     return edges[0]
 
 
+def exclude_feedback_agent(component):
+    """Exclude only the isolated Agent in the pinned runtime, retaining PR consumers.
+
+    A single PR output also feeds terminal inspectors, so output-wide exclusion
+    would wrongly hide the final result. The pinned runtime's source-owned set
+    persists for this invocation without excluding the controller or inspectors.
+    """
+    edge = feedback_edge(component)
+    component.graph._replace_conditional_exclusions(
+        component._vertex.id, {edge.source_id}
+    )
+
+
 def operation_value(value):
     if isinstance(value, Message):
         value = value.text
@@ -186,7 +218,9 @@ async def agent_operation(
     starts = [
         edge
         for edge in component._vertex.outgoing_edges
-        if edge.source_handle.name == "task"
+        if edge.source_handle.name == context_output_name(component)
+        and feedback is not None
+        and edge.target_id == feedback.source_id
     ]
     body = {feedback.source_id} if feedback is not None else set()
     if (

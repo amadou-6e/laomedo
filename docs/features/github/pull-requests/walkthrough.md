@@ -16,8 +16,7 @@ that states the precise change. The steps below use the existing
 
 1. Create a blank flow named **Inspect a pull request** and add **GitHub PR**.
 2. Enter the exact repository URL configured on the host and refresh discovery.
-3. Select the PR explicitly. Labels use all-match filtering; State under advanced
-   settings controls whether open, closed or all PRs are offered.
+3. Select the PR explicitly. Labels use all-match filtering; State controls whether open, closed, merged or all PRs are offered.
 4. Open **PR viewer** to read the current title, description, labels, branch pair,
    state and draft/merged status. Use **Open in GitHub** to check that same PR.
 
@@ -29,8 +28,8 @@ that states the precise change. The steps below use the existing
 capture's PR inspection connection was unavailable; these images do not replace
 your own connection check. [Visual provenance](assets/README.md).*
 
-Leave Operation unconnected and run the PR node once to fetch its outputs.
-Expected Operation Result: **not_requested**. Reading or opening a viewer does
+Leave the **PR** input unconnected and run the node once. Its single **PR**
+output contains the snapshot and an operation outcome of **not_requested**. Reading or opening a viewer does
 not change GitHub or invoke a model.
 
 ## 2. Prepare one precise update
@@ -55,18 +54,18 @@ that exact `pr-feedback-title` revision. Leave the Skill's Edit Request and
 Operation empty. Configure the Agent's runner URL, model and effort; use Fresh.
 
 ```text
-GitHub PR.Task -------------> Claude Agent.Task
-Claude Agent.Answer --------> same GitHub PR.Operation
+GitHub PR.PR -------------> Claude Agent.Task
+Claude Agent.Answer --------> same GitHub PR.PR
 Pinned Skill.Skill Reference --> Claude Agent.Skill References
 ```
 
-Use the **Operation** input for the return edge. This is the supported bounded
+Use the single **PR** input for the return edge. This is the supported bounded
 feedback connection, not an arbitrary cycle or a second PR node. The pinned
-Skill is an independent read-only dependency. Do not add a manual Operation
+Skill is an independent read-only dependency. Do not add a manual PR operation
 value alongside the feedback edge or wire unrelated inputs into its isolated body.
 
 This walkthrough uses Claude. The maintained `examples/github/build_flow.py`
-builder uses the existing Codex Agent with the same PR Operation feedback wiring.
+builder uses the existing Codex Agent with the same PR context feedback wiring.
 
 ## 4. Run once and confirm the actual result
 
@@ -74,7 +73,7 @@ Run the **GitHub PR** controller once. It reads current PR data, reserves its
 host-owned feedback ticket, invokes the Agent for a content-only proposal, and
 validates and applies the operation. Do not run the Agent separately first.
 
-Expected successful result: Operation Result is **succeeded**, the selected PR's
+Expected successful result: the PR output operation status is **succeeded**, the selected PR's
 title is **Original Codex Agent feedback verified**, and the body and labels are
 unchanged. Open GitHub and read the PR independently before calling the update
 complete. An Agent answer proposing JSON is not confirmation that GitHub changed.
@@ -104,3 +103,14 @@ after outstanding outcomes are resolved. [Shared connection cleanup](../connecti
 Creating a PR without an existing reference remains
 [a proposed workflow](user-stories.md#pr-04--create-a-pr-before-its-reference-exists),
 not another option on the current node.
+
+## Migrating older graphs
+
+Export the graph and run `python tools/migrate_github_pr_context.py old.json new.json`
+inside the configured optional Langflow environment. Import the new file after
+reviewing its wiring. This explicit migration preserves the original file and
+refuses two incoming legacy connections or incompatible consumers; repair those
+manually rather than losing an identity or operation edge. Update Agent components
+alongside PR components so their Task input accepts structured PR context. The
+Agent formats a successful context and refuses failed/unknown outcomes before
+runner dispatch. An earlier outcome is never replayed as an operation request.

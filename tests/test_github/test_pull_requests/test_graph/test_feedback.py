@@ -127,7 +127,7 @@ class PRAgentLoopTests(unittest.IsolatedAsyncioTestCase):
             Path(__file__).with_name("operation.py"), "operation", {}, 600, 0
         )
         flow["data"]["nodes"] = [operation, pr]
-        flow["data"]["edges"] = [builder.edge(operation, "operation", pr, "operation")]
+        flow["data"]["edges"] = [builder.edge(operation, "operation", pr, "pr_context")]
         self.assertIn("succeeded", await self.execute(flow=flow))
         self.assertEqual(len(self.fake.writes), 1)
         self.assertEqual(len(self.agent_calls), 0)
@@ -139,7 +139,7 @@ class PRAgentLoopTests(unittest.IsolatedAsyncioTestCase):
         )
         flow["data"]["nodes"].append(extra)
         flow["data"]["edges"].append(
-            builder.edge(extra, "task", flow["data"]["nodes"][1], "task")
+            builder.edge(extra, "pr", flow["data"]["nodes"][1], "task")
         )
         with self.assertRaisesRegex(Exception, "pr_agent_loop_invalid"):
             await self.execute(flow=flow)
@@ -157,9 +157,10 @@ class PRAgentLoopTests(unittest.IsolatedAsyncioTestCase):
         }
         feedback["targetHandle"] = json.dumps(target)
         feedback["data"]["targetHandle"] = target
-        self.assertIn("succeeded", await self.execute(flow=flow))
-        self.assertEqual(len(self.agent_calls), 1)
-        self.assertEqual(len(self.fake.writes), 1)
+        with self.assertRaisesRegex(Exception, "pr_context_migration_required"):
+            await self.execute(flow=flow)
+        self.assertEqual(len(self.agent_calls), 0)
+        self.assertEqual(len(self.fake.writes), 0)
 
     async def test_multiple_operation_sources_are_refused_before_agent(self):
         flow = builder.build()
@@ -168,7 +169,7 @@ class PRAgentLoopTests(unittest.IsolatedAsyncioTestCase):
         )
         flow["data"]["nodes"].append(extra)
         flow["data"]["edges"].append(
-            builder.edge(extra, "operation", flow["data"]["nodes"][0], "operation")
+            builder.edge(extra, "operation", flow["data"]["nodes"][0], "pr_context")
         )
         with self.assertRaisesRegex(Exception, "pr_agent_loop_invalid"):
             await self.execute(flow=flow)
@@ -218,7 +219,7 @@ class PRAgentLoopTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_inline_operation_and_loop_are_refused_without_effect(self):
         flow = builder.build()
-        flow["data"]["nodes"][0]["data"]["node"]["template"]["operation"]["value"] = {
+        flow["data"]["nodes"][0]["data"]["node"]["template"]["pr_context"]["value"] = {
             "action": "close",
             "request_id": "inline",
             "grant_ref": "fixture-grant",
@@ -263,9 +264,7 @@ class PRAgentLoopTests(unittest.IsolatedAsyncioTestCase):
         )
         flow["data"]["nodes"].append(inspector)
         flow["data"]["edges"].append(
-            builder.edge(
-                flow["data"]["nodes"][0], "operation_result", inspector, "result"
-            )
+            builder.edge(flow["data"]["nodes"][0], "pr", inspector, "result")
         )
         flow["data"]["nodes"].reverse()
         graph = Graph.from_payload(flow)
@@ -298,5 +297,7 @@ class ExportedPRFlowTests(unittest.TestCase):
         Graph.from_payload(flow)
         edges = flow["data"]["edges"]
         feedback = next(edge for edge in edges if edge["target"] == "pr")
-        self.assertEqual(json.loads(feedback["targetHandle"])["fieldName"], "operation")
+        self.assertEqual(
+            json.loads(feedback["targetHandle"])["fieldName"], "pr_context"
+        )
         self.assertEqual(flow, builder.build())

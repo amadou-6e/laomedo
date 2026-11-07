@@ -114,6 +114,9 @@ def validate_patch(value):
 ERROR_CODES = frozenset(
     {
         "repository_url_invalid",
+        "pr_context_invalid",
+        "pr_context_upstream_failed",
+        "pr_context_migration_required",
         "repository_connection_unavailable",
         "labels_invalid",
         "selected_label_unavailable",

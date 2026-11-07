@@ -19,7 +19,6 @@ from lfx.custom.custom_component.component import Component
 from lfx.io import DataInput
 from lfx.io import DropdownInput
 from lfx.io import IntInput
-from lfx.io import MessageTextInput
 from lfx.io import Output
 from lfx.io import StrInput
 from lfx.schema import Data
@@ -28,6 +27,8 @@ from lfx.schema import Message
 _STOP_TASKS = set()
 _TERMINAL = {"completed", "cancelled", "failed", "timeout", "interrupted"}
 _ROUTABLE_ERRORS = {
+    "pr_context_invalid",
+    "pr_context_upstream_failed",
     "agent_component_migration_required",
     "langflow_loopback_required",
     "langflow_local_login_unavailable",
@@ -142,7 +143,7 @@ class AgentComponent(Component):
     runner_token_default = ""
 
     inputs = [
-        MessageTextInput(name="task", display_name="Task"),
+        StrInput(name="task", display_name="Task", input_types=["Message", "Data"]),
         DropdownInput(
             name="operation",
             display_name="Operation",
@@ -533,7 +534,12 @@ class AgentComponent(Component):
             raise ValueError("invalid_operation")
         if self._bridge_base() and operation not in {"fresh", "start"}:
             raise ValueError("join_bridge_requires_fresh_start")
-        task = str(getattr(self.task, "text", self.task) or "")
+        if isinstance(self.task, Data) and not isinstance(self.task, Message):
+            from laomedo.github.pull_requests.context import task_text
+
+            task = task_text(self.task)
+        else:
+            task = str(getattr(self.task, "text", self.task) or "")
         if operation in {"fresh", "start", "resume"} and not task.strip():
             raise ValueError("task_required")
         model, effort = str(self.model), str(self.effort)

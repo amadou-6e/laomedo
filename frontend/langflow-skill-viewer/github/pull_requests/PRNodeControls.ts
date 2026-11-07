@@ -1,5 +1,5 @@
 /** GitHub PR presentation, including saved templates. Never rewrites saved values. */
-const ORDER = ["repository_url", "state", "labels", "pr_choice", "pr_reference", "operation"];
+const ORDER = ["repository_url", "state", "labels", "pr_choice", "pr_context"];
 export const PR_DISCOVERY_ERROR = "GitHub discovery failed. Check connection and refresh.";
 export const PR_DISCOVERY_ERROR_CODE = "pr_discovery_failed";
 
