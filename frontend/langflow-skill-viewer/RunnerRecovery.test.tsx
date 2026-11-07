@@ -65,6 +65,15 @@ test("unconfigured or unidentified services cannot be started", async () => {
   expect(api.post).not.toHaveBeenCalled();
 });
 
+test.each([failure, "runner_model_catalog_unavailable_check_runner_connection"])("unmanaged recovery gives configuration advice without an absent start action: %s", async message => {
+  (api.get as jest.Mock).mockResolvedValue({data:{state:"unmanaged",can_start:false}});
+  render(<RunnerRecovery message={message} />);
+  await screen.findByText(/restart the app with its local runner configuration/);
+  expect(screen.queryByText(/Starting the runner/)).toBeNull();
+  expect(screen.queryByRole("button", {name:"Start local runner"})).toBeNull();
+  expect(api.post).not.toHaveBeenCalled();
+});
+
 test("failed startup waits for a fresh offline status before offering recovery", async () => {
   (api.get as jest.Mock).mockResolvedValue({ data: { state: "offline", can_start: true } });
   (api.post as jest.Mock).mockRejectedValue(new Error("private transport details"));

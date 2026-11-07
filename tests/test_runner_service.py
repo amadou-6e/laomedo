@@ -109,6 +109,58 @@ class RunnerServiceTests(unittest.TestCase):
                 self.assertFalse(self.service.start(url)["can_start"])
             spawn.assert_not_called()
 
+    def test_codex_managed_launch_preserves_approved_image_and_supervisor(self):
+        """Recovery uses the host's exact CLI bindings, never a browser image/path."""
+        self.config = {
+            "provider": "codex",
+            "state": str(self.root / "runner"),
+            "skill_store": str(self.root / "registry"),
+            "source": str(self.root / "source"),
+            "port": 18769,
+            "image_id": "sha256:" + "a" * 64,
+            "lease_service": str(self.root / "lease"),
+        }
+        self.path.write_text(json.dumps(self.config))
+        with (
+            patch.object(self.service.opener, "open", side_effect=URLError("offline")),
+            patch(
+                "laomedo.host.runner.service.subprocess.Popen",
+                return_value=Mock(poll=lambda: None),
+            ) as spawn,
+        ):
+            self.assertEqual(self.service.start(self.url)["state"], "starting")
+        command = spawn.call_args.args[0]
+        self.assertIn("laomedo.agents.providers.codex.cli", command)
+        self.assertEqual(
+            command[command.index("--image-id") + 1], self.config["image_id"]
+        )
+        self.assertEqual(
+            command[command.index("--lease-service") + 1], self.config["lease_service"]
+        )
+
+    def test_invalid_codex_image_or_supervisor_never_spawns(self):
+        """Reject malformed pins, unsupported Git overrides and relative leases."""
+        base = {
+            "provider": "codex",
+            "state": str(self.root / "runner"),
+            "skill_store": str(self.root / "registry"),
+            "source": str(self.root / "source"),
+            "port": 18769,
+        }
+        for changes in (
+            {"image_id": "mutable:tag"},
+            {"image_id": 17},
+            {"image_id": "sha256:" + "a" * 64, "git_workspace": True},
+            {"lease_service": "relative/lease"},
+            {"lease_service": 17},
+        ):
+            with self.subTest(changes=changes):
+                self.path.write_text(json.dumps({**base, **changes}))
+                with patch("laomedo.host.runner.service.subprocess.Popen") as spawn:
+                    with self.assertRaises(ValueError):
+                        self.service.start(self.url)
+                    spawn.assert_not_called()
+
     def test_service_start_excludes_host_secrets_and_provider_overrides(self):
         with patch.dict(
             "os.environ",
