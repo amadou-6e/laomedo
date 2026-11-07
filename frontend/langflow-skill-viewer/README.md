@@ -4,6 +4,7 @@ Feature packages own rendering, wire contracts and colocated tests; the pinned
 installer binds them to upstream entry points. Discover the owned packages here:
 
 - [Skills](skills/README.md)
+- [GitHub viewers](github/README.md)
 - [Upstream integration patches](integration/README.md)
 
 
@@ -150,6 +151,14 @@ that concrete configuration is approved.
 
 ## GitHub PR alignment
 
+The shared node error presenter recognizes failed and unknown operations in the
+versioned Issue/PR result envelopes, including the JSON text returned by PR
+feedback. A successful graph step does not hide an operation refusal. Error
+details retain the stable code and catalogue recovery without exposing PR bodies
+or authorization data. Unknown write outcomes require checking the existing
+remote result before another operation. Successful reads and ordinary message
+content do not become errors.
+
 LaomedoGitHubPR uses the Issue node's selector clearing and stale-response guards.
 Its primary toolbar actions are PR viewer and Open in GitHub. PRViewerModal reads
 the exact configured repository/number through authenticated POST
@@ -160,7 +169,7 @@ reference without picker selection does not become a saved selection.
 Copy PRViewerModal.test.tsx beside the applied PR modal as index.tsx's sibling
 and run the upstream Jest suite for that file. The tests unmock Markdown so they
 exercise real rendering. The local evidence is recorded with source hashes in
-`examples/github-pr/evidence.json`. The full production build and five viewer
+[the historical PR evidence](https://github.com/amadou-6e/laomedo/blob/714db418243bc17fff1c2a5bed5181006e21fdee/archives/github-244/files/examples/github-pr/evidence.json). The full production build and five viewer
 tests passed; isolated Edge rendering exercised the real dialog. This does not
 claim an installed full-app selector test or active GitHub PR service deployment.
 

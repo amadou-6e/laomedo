@@ -55,7 +55,7 @@ class RunnerSandboxPolicyTests(unittest.TestCase):
         """All executor permission probes use the preflight-selected environment."""
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
-            source = Path(__file__).resolve().parents[1] / "examples/github-pr"
+            source = Path(__file__).resolve().parents[1] / "examples/github"
             runner = LocalRunner(
                 root / "state",
                 root / "skills",
@@ -105,7 +105,7 @@ class RunnerSandboxPolicyTests(unittest.TestCase):
         """The SDK check replaces the CLI version probe in both execution modes."""
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
-            source = Path(__file__).resolve().parents[1] / "examples/github-pr"
+            source = Path(__file__).resolve().parents[1] / "examples/github"
             selection = DockerSelection(
                 image_id="sha256:" + "a" * 64,
                 environment={"DOCKER_HOST": "unix:///selected.sock"},
@@ -197,7 +197,7 @@ class RunnerSandboxPolicyTests(unittest.TestCase):
         approved = "sha256:" + "a" * 64
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
-            source = Path(__file__).resolve().parents[1] / "examples/github-pr"
+            source = Path(__file__).resolve().parents[1] / "examples/github"
             commands = []
 
             class Capture:
@@ -242,7 +242,7 @@ class RunnerSandboxPolicyTests(unittest.TestCase):
     def test_wrong_cli_version_refuses_before_any_model_dispatch(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
-            source = Path(__file__).resolve().parents[1] / "examples/github-pr"
+            source = Path(__file__).resolve().parents[1] / "examples/github"
             approved = "sha256:" + "a" * 64
             with (
                 patch(
@@ -263,7 +263,7 @@ class RunnerSandboxPolicyTests(unittest.TestCase):
     def test_local_image_override_rejects_tags_git_and_split_mode(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
-            source = Path(__file__).resolve().parents[1] / "examples/github-pr"
+            source = Path(__file__).resolve().parents[1] / "examples/github"
             for image_id in ("latest", "sha256:bad", "sha256:" + "A" * 64):
                 with (
                     self.subTest(image_id=image_id),

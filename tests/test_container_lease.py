@@ -133,6 +133,11 @@ class ContainerLeaseTests(unittest.TestCase):
 
         with (
             patch(
+                "laomedo.host.leases.utils.time.monotonic",
+                side_effect=[0, 0, 0, 0.02],
+            ),
+            patch("laomedo.host.leases.utils.time.sleep"),
+            patch(
                 "laomedo.host.leases.utils.inspect_exact", side_effect=observe
             ) as inspect,
             patch(
@@ -153,6 +158,26 @@ class ContainerLeaseTests(unittest.TestCase):
         cleanup.assert_called_once_with(
             ContainerIdentity(name="exact-name", run_id="run-one", token="token-one")
         )
+
+    def test_creation_at_watch_deadline_remains_unverified(self):
+        with (
+            patch("laomedo.host.leases.utils.time.monotonic", side_effect=[0, 0.02]),
+            patch(
+                "laomedo.host.leases.utils.inspect_exact",
+                side_effect=[("absent", None), ("owned", "exact-id")],
+            ),
+            patch("laomedo.host.leases.utils.cleanup_exact") as cleanup,
+        ):
+            self.assertEqual(
+                cleanup_after_loss(
+                    ContainerIdentity(
+                        name="exact-name", run_id="run-one", token="token-one"
+                    ),
+                    watch_seconds=0.01,
+                ),
+                (False, "late_owned"),
+            )
+        cleanup.assert_not_called()
 
     def test_never_observed_does_not_claim_cleanup(self):
         with patch(

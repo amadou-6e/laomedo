@@ -1628,5 +1628,205 @@
     "title": "The skill edit attribution is invalid",
     "description": "The host-supplied editing identity did not meet the supported provenance format or field limits.",
     "recovery": "Keep the existing revision and report the safe technical details to the application maintainer. Do not invent attribution fields in the proposed edit."
+  },
+  "repository_url_invalid": {
+    "title": "The GitHub repository URL is invalid",
+    "description": "The node needs a GitHub repository URL in the form https://github.com/owner/repository.",
+    "recovery": "Correct Repository URL on the node, then refresh discovery."
+  },
+  "repository_connection_unavailable": {
+    "title": "This repository has no host connection",
+    "description": "The local GitHub service has no configured connection for the selected repository.",
+    "recovery": "Configure the host GitHub connection for this repository before refreshing discovery. Never paste a token into the graph."
+  },
+  "labels_invalid": {
+    "title": "The selected labels are invalid",
+    "description": "Labels must be distinct, nonempty names within the supported limits.",
+    "recovery": "Refresh Labels and select the desired names from the list."
+  },
+  "selected_label_unavailable": {
+    "title": "A selected label is no longer available",
+    "description": "The repository does not currently advertise every selected label.",
+    "recovery": "Refresh Labels and remove or replace unavailable selections."
+  },
+  "github_discovery_incomplete": {
+    "title": "The complete GitHub selection could not be loaded",
+    "description": "Discovery reached its response, page or time limit and cannot safely present a complete list.",
+    "recovery": "Narrow the label or state filters and refresh discovery."
+  },
+  "github_http_401": {
+    "title": "GitHub did not accept the connection",
+    "description": "GitHub rejected authentication for this request.",
+    "recovery": "Check the host GitHub connection and its login. Keep credentials out of the graph."
+  },
+  "github_http_403": {
+    "title": "GitHub refused this request",
+    "description": "The request was forbidden; this response alone does not establish which permission or service restriction caused it.",
+    "recovery": "Check repository access and the host connection permissions. For an operation, inspect the existing result before submitting a new request."
+  },
+  "github_http_404": {
+    "title": "The GitHub resource is unavailable",
+    "description": "GitHub could not find the resource or did not allow this connection to see it.",
+    "recovery": "Check the selected repository and resource in GitHub, and confirm the host connection has access."
+  },
+  "github_http_410": {
+    "title": "The GitHub resource is no longer available",
+    "description": "GitHub reports that the requested resource is gone.",
+    "recovery": "Refresh discovery and select an available resource."
+  },
+  "pr_agent_cancelled": {
+    "title": "The PR proposal was cancelled",
+    "description": "The Agent proposal stopped before a host update was dispatched.",
+    "recovery": "Check the existing Agent run and Operation Result before deciding whether to start a new operation."
+  },
+  "pr_changed_since_agent_read": {
+    "title": "The PR changed while the Agent was working",
+    "description": "The current PR no longer matches the snapshot used for the proposal, so the host refused that update.",
+    "recovery": "Read the current PR and review the proposed change before requesting a new operation."
+  },
+  "pr_feedback_not_configured": {
+    "title": "PR feedback is not configured",
+    "description": "The host has no feedback grant bound to this selected PR.",
+    "recovery": "Configure a host-owned grant for this repository, PR and permitted operation before running the feedback graph."
+  },
+  "pr_feedback_ticket_invalid": {
+    "title": "This PR feedback reservation is unavailable",
+    "description": "The host could not use the supplied reservation; it may be missing, expired or already bound to another operation.",
+    "recovery": "Preserve the existing run and operation result. Check its outcome before preparing another operation."
+  },
+  "github_issue_unavailable": {
+    "title": "The GitHub Issue request could not be completed",
+    "description": "The local service could not obtain a usable result. This message does not establish the remote outcome.",
+    "recovery": "Check the host GitHub service and existing Operation Result. For an attempted update, inspect the remote resource before submitting another operation."
+  },
+  "issue_service_not_configured": {
+    "title": "The local GitHub Issue service is not configured",
+    "description": "The application is missing the private service address or authentication configuration.",
+    "recovery": "Configure the local GitHub service and application connection, then refresh discovery. Keep service tokens outside the graph."
+  },
+  "issue_grant_unavailable": {
+    "title": "This Issue operation is not authorized",
+    "description": "The host could not authenticate a grant bound to this repository and run.",
+    "recovery": "Check the host grant and its repository, run and selected-resource scope. Selecting a resource does not authorize an update."
+  },
+  "issue_operation_conflict": {
+    "title": "This Issue operation conflicts with an earlier request",
+    "description": "The operation identity is already bound to different input or authority. It cannot be reused for this request.",
+    "recovery": "Preserve the existing operation record and inspect its outcome before creating a separately authorized operation."
+  },
+  "issue_operation_invalid": {
+    "title": "The Issue operation payload is invalid",
+    "description": "The incoming operation does not match the supported close or modify format.",
+    "recovery": "Use the documented Operation format. Agent feedback supplies content only; the host supplies identity and authorization."
+  },
+  "issue_patch_invalid": {
+    "title": "The requested Issue changes are invalid",
+    "description": "The proposed fields or values do not match the supported update format.",
+    "recovery": "Review the proposed title, body and labels against the operation contract. Closing uses the supported close operation."
+  },
+  "issue_reference_mismatch": {
+    "title": "The Issue reference does not match this selection",
+    "description": "The connected reference disagrees with the selected repository or resource.",
+    "recovery": "Select the matching repository and resource, or reconnect the intended reference."
+  },
+  "issue_response_invalid": {
+    "title": "The GitHub Issue response could not be verified",
+    "description": "The response did not contain a valid record for the selected resource.",
+    "recovery": "Check the resource in GitHub and the host service. For an attempted update, inspect the existing remote outcome before another operation."
+  },
+  "issue_state_invalid": {
+    "title": "The Issue state filter is invalid",
+    "description": "The saved state value is not one of the supported filters.",
+    "recovery": "Choose Open, Closed or All in the node’s State control and refresh discovery."
+  },
+  "issue_write_unknown": {
+    "title": "The Issue update outcome is not confirmed",
+    "description": "The update may have reached GitHub, but the application could not confirm its final result.",
+    "recovery": "Keep the existing run and operation record. Read the selected resource in GitHub before authorizing another operation; do not blindly rerun the graph."
+  },
+  "selected_issue_invalid": {
+    "title": "The selected Issue is invalid",
+    "description": "The node could not resolve a valid resource number from the current selection.",
+    "recovery": "Refresh discovery and select an existing resource."
+  },
+  "selected_issue_required": {
+    "title": "Select a GitHub Issue",
+    "description": "No existing resource is selected or supplied through a matching reference.",
+    "recovery": "Refresh discovery and choose a resource, or connect its matching reference before running the node."
+  },
+  "selected_issue_no_longer_matches": {
+    "title": "The selected Issue no longer matches",
+    "description": "The resource no longer satisfies the selected labels or state filter.",
+    "recovery": "Refresh discovery and review the filters and current selection. The node will not silently choose another resource."
+  },
+  "github_pr_unavailable": {
+    "title": "The GitHub PR request could not be completed",
+    "description": "The local service could not obtain a usable result. This message does not establish the remote outcome.",
+    "recovery": "Check the host GitHub service and existing Operation Result. For an attempted update, inspect the remote resource before submitting another operation."
+  },
+  "pr_service_not_configured": {
+    "title": "The local GitHub PR service is not configured",
+    "description": "The application is missing the private service address or authentication configuration.",
+    "recovery": "Configure the local GitHub service and application connection, then refresh discovery. Keep service tokens outside the graph."
+  },
+  "pr_grant_unavailable": {
+    "title": "This PR operation is not authorized",
+    "description": "The host could not authenticate a grant bound to this repository and run.",
+    "recovery": "Check the host grant and its repository, run and selected-resource scope. Selecting a resource does not authorize an update."
+  },
+  "pr_operation_conflict": {
+    "title": "This PR operation conflicts with an earlier request",
+    "description": "The operation identity is already bound to different input or authority. It cannot be reused for this request.",
+    "recovery": "Preserve the existing operation record and inspect its outcome before creating a separately authorized operation."
+  },
+  "pr_patch_invalid": {
+    "title": "The requested PR changes are invalid",
+    "description": "The proposed fields or values do not match the supported update format.",
+    "recovery": "Review the proposed title, body and labels against the operation contract. Closing uses the supported close operation."
+  },
+  "pr_reference_mismatch": {
+    "title": "The PR reference does not match this selection",
+    "description": "The connected reference disagrees with the selected repository or resource.",
+    "recovery": "Select the matching repository and resource, or reconnect the intended reference."
+  },
+  "pr_response_invalid": {
+    "title": "The GitHub PR response could not be verified",
+    "description": "The response did not contain a valid record for the selected resource.",
+    "recovery": "Check the resource in GitHub and the host service. For an attempted update, inspect the existing remote outcome before another operation."
+  },
+  "pr_state_invalid": {
+    "title": "The PR state filter is invalid",
+    "description": "The saved state value is not one of the supported filters.",
+    "recovery": "Choose Open, Closed or All in the node’s State control and refresh discovery."
+  },
+  "pr_write_unknown": {
+    "title": "The PR update outcome is not confirmed",
+    "description": "The update may have reached GitHub, but the application could not confirm its final result.",
+    "recovery": "Keep the existing run and operation record. Read the selected resource in GitHub before authorizing another operation; do not blindly rerun the graph."
+  },
+  "selected_pr_invalid": {
+    "title": "The selected PR is invalid",
+    "description": "The node could not resolve a valid resource number from the current selection.",
+    "recovery": "Refresh discovery and select an existing resource."
+  },
+  "selected_pr_required": {
+    "title": "Select a GitHub PR",
+    "description": "No existing resource is selected or supplied through a matching reference.",
+    "recovery": "Refresh discovery and choose a resource, or connect its matching reference before running the node."
+  },
+  "selected_pr_no_longer_matches": {
+    "title": "The selected PR no longer matches",
+    "description": "The resource no longer satisfies the selected labels or state filter.",
+    "recovery": "Refresh discovery and review the filters and current selection. The node will not silently choose another resource."
+  },
+  "github_issue_inspection_unavailable": {
+    "title": "The selected issue could not be loaded",
+    "description": "The viewer could not confirm the current issue content. The cause has not been established.",
+    "recovery": "Refresh issue repeats only this read. It does not edit GitHub, run the graph or start an Agent. Check the current selection and local GitHub connection if the read still fails."
+  },
+  "github_pr_inspection_unavailable": {
+    "title": "The selected pull request could not be loaded",
+    "description": "The viewer could not confirm the current pull request content. The cause has not been established.",
+    "recovery": "Refresh PR repeats only this read. It does not edit GitHub, run the graph or start an Agent. Check the current selection and local GitHub connection if the read still fails."
   }
 }

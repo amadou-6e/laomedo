@@ -162,6 +162,13 @@
       "path": "experiments/exp100/probe_stage_s7.py",
       "sha256": "1046a41c3d5167fbf78beca93481b29a7b473e9c06bf0740c6ffa073cffab38d",
       "dependencies": []
+    },
+    {
+      "module": "experiments.exp19.live_e2e",
+      "path": "experiments/exp19/live_e2e.py",
+      "sha256": "12c45935d6a757df2cea32539e2d7ea8e539d609c37b30eb698d1f378c9f3879",
+      "dependencies": [],
+      "source_revision": "20df788fe776fc0bc0d7576a5f0774880aa9e89d"
     }
   ]
 }

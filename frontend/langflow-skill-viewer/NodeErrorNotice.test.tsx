@@ -30,4 +30,13 @@ test("transport details open recovery through the same card frame", async () => 
  await screen.findByRole("region",{name:"Local backend recovery"});
 });
 
+test("a refused PR feedback operation opens descriptive, dismissible details", () => {
+ const status = {data: {outputs: {task: {message: JSON.stringify({schema_version: "laomedo.github-pr.v1", operation: {status: "failed", error_category: "pr_grant_unavailable"}})}}}};
+ render(<NodeErrorNotice status={status} context={{nodeId: "pr",nodeType: "LaomedoGitHubPR"}} />);
+ fireEvent.click(screen.getByRole("button",{name:"Error details: This PR operation is not authorized"}));
+ expect(screen.getByRole("heading",{name:"This PR operation is not authorized"})).toBeVisible();
+ fireEvent.click(screen.getByRole("button",{name:"Dismiss"}));
+ expect(screen.queryByRole("region",{name:"Error details"})).toBeNull();
+});
+
 jest.mock("@/components/ui/button", () => ({ Button: ({ size, ...props }: any) => <button {...props} /> }));

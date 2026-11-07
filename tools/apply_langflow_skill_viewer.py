@@ -278,12 +278,11 @@ def apply(checkout):
         overlay / "skills/assets/skill-icons-NOTICE.txt",
         checkout / "src/frontend/public/skill-icons-NOTICE.txt",
     )
-    issue_target = checkout / "src/frontend/src/modals/issueViewerModal"
-    issue_target.mkdir()
-    shutil.copy2(overlay / "IssueViewerModal.tsx", issue_target / "index.tsx")
-    pr_target = checkout / "src/frontend/src/modals/prViewerModal"
-    pr_target.mkdir()
-    shutil.copy2(overlay / "PRViewerModal.tsx", pr_target / "index.tsx")
+    shutil.copytree(
+        overlay / "github",
+        checkout / "src/frontend/src/modals/github",
+        ignore=shutil.ignore_patterns("README.md"),
+    )
     activity_target = checkout / "src/frontend/src/modals/agentActivity"
     activity_target.mkdir()
     shutil.copy2(overlay / "AgentActivity.tsx", activity_target / "index.tsx")
@@ -534,6 +533,12 @@ def apply(checkout):
         ],
         check=True,
     )
+    github_outcome_patch = overlay / "integration/github-build-outcome.patch"
+    for mode in ("--check", None):
+        command = ["git", "-C", str(checkout), "apply", "--ignore-space-change"]
+        if mode:
+            command.append(mode)
+        subprocess.run(command + [str(github_outcome_patch)], check=True)
     print("pinned_skill_viewer_overlay_applied")
 
 

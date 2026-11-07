@@ -97,7 +97,7 @@ def _validate_effect(
         ):
             raise _mediation_errors.MediationError("issue_review_denied")
     if operation == "issue_update":
-        import laomedo.github.issues.contract as _issues_contract
+        from laomedo.github.issues.contract import validate_patch
 
         try:
             if (
@@ -108,7 +108,7 @@ def _validate_effect(
                 or not re.fullmatch(r"sha256:[0-9a-f]{64}", payload["expected"])
             ):
                 raise ValueError()
-            _issues_contract.validate_patch(payload["changes"])
+            validate_patch(payload["changes"])
         except (ValueError, TypeError):
             raise _mediation_errors.MediationError("issue_patch_invalid") from None
         if (
@@ -152,7 +152,7 @@ def _validate_effect(
 
 def _validate_read(operation: str, payload: dict, repository: str, grant, db) -> None:
     if operation in {"label_list", "issue_query", "issue_read"}:
-        import laomedo.github.issues.contract as _issues_contract
+        from laomedo.github.contract import labels_value
 
         try:
             if operation == "label_list" and payload != {}:
@@ -170,7 +170,7 @@ def _validate_read(operation: str, payload: dict, repository: str, grant, db) ->
                     "all",
                 }:
                     raise ValueError()
-                _issues_contract.labels_value(payload["labels"])
+                labels_value(payload["labels"])
         except (ValueError, TypeError):
             raise _mediation_errors.MediationError(
                 "issue_read_request_invalid"
