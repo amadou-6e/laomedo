@@ -5,7 +5,10 @@ import useAuthStore from "@/stores/authStore";
 import PopupFrame, {
 	popupButtonStyle,
 } from "@/components/laomedoRecovery/PopupFrame";
-import ErrorExplanation from "@/components/laomedoErrors/ErrorExplanation";
+import ErrorExplanation, {
+	formatErrorCopy,
+} from "@/components/laomedoErrors/ErrorExplanation";
+import CopyIcon from "@/components/laomedoErrors/CopyIcon";
 import { describeNodeFailure } from "@/components/laomedoErrors/nodeErrors";
 import { profileMode } from "./api";
 
@@ -75,9 +78,12 @@ export default function useProfileSessionActions() {
 		<PopupFrame
 			label="Sign-out not confirmed"
 			code="app_signout_unconfirmed"
-			onClose={() => {
-				if (!isPending && !checking) setOpen(false);
-			}}
+			onClose={() => setOpen(false)}
+			tools={
+				!isPending && !checking ? (
+					<CopyIcon text={formatErrorCopy(failure)} />
+				) : undefined
+			}
 			heading={
 				<h3 className="text-sm font-bold">
 					{isPending
