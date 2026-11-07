@@ -252,7 +252,7 @@ The original Codex agent node offers Activity in place of Code. It opens the gra
 
 The overlay applicator installs AgentActivityNavigation.ts at src/frontend/src/stores/agentActivityStore.ts. The node entry point uses an explicit transient target scoped to the graph, clears it when leaving Activity, and does not change canvas selection or save graph data. Opening Agents directly from the sidebar does not infer a target from selected canvas nodes.
 
-OpenCode agent nodes use the same Activity entry point. Provider-qualified message snapshots, capture limits and usage semantics are documented in [the OpenCode node guide](../../examples/opencode-node/README.md).
+OpenCode agent nodes use the same Activity entry point. Provider-qualified message snapshots, capture limits and usage semantics are documented in [the OpenCode activity guide](../../docs/features/agents/providers/opencode/activity.md).
 
 ## Skill workspace lifetime
 
