@@ -18,6 +18,7 @@ implemented yet. No existing app is assumed; the owner corrected that on
 | User access token expiration | Enabled; retain supported refresh semantics |
 | Device flow | Disabled; not an implicit fallback |
 | Installation scope | Only the repository or repositories selected for Skill reads |
+| App slug | Non-secret name from the registered app URL; validate before deriving its GitHub installation link |
 | Client secret | Generated deliberately, entered once into the secure local setup UI and stored in Windows vault; never pasted into chat |
 
 GitHub account authorization and app installation are different. Private repository
@@ -28,12 +29,16 @@ user-access-token flow; do not generate or collect unrelated credentials.
 
 ## Intended one-time path
 
-1. Choose the supported local-owner/session setup. Do not disable a running
+1. Configure normal Laomedo sign-in for private access, as selected by the owner.
+   Do not disable a running
    preview's auto-login as part of registration.
 2. Start the eventual configured local connection UI; it displays its exact
    registered callback. Do not use a guessed preview port or wildcard callback.
 3. Review the configuration above, open GitHub registration and create the app.
-4. Install it on only the intended repositories. Copy the non-secret client ID
+4. Install it on only the intended repositories through its Install App page
+   (`https://github.com/apps/APP-NAME/installations/new`, derived from its trusted
+   slug). A private app installs only on its owning account; GitHub controls
+   account/repository permission checks. Copy the non-secret client ID and slug
    and enter the client secret through the local masked setup field.
 5. Use Connect GitHub; verify the returned account, then explicitly consent to
    the repositories Laomedo may read. Sign-in alone does not select every repository.
@@ -55,7 +60,8 @@ this attempt only. Disconnect stops new local access and hides private views but
 cannot retract previously delivered files or prove GitHub consent was revoked.
 
 No registration URL with live callback or command is presented as runnable yet.
-The exact local app origin and owner-authentication decision are pending. The
+Normal Laomedo sign-in is selected; the exact local app origin and secure
+registration setup are still pending. The
 implementation will derive the fixed callback from trusted configuration; the
 browser cannot substitute an arbitrary callback or token endpoint.
 
