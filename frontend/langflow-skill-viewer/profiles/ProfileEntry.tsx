@@ -1,5 +1,4 @@
-import { useContext, useEffect, useState } from "react";
-import { AuthContext } from "@/contexts/authContext";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import ErrorExplanation from "@/components/laomedoErrors/ErrorExplanation";
@@ -30,7 +29,6 @@ export default function ProfileEntry({
 	initial: ProfileIndex;
 	initialCreate?: boolean;
 }) {
-	const { login, clearAuthSession } = useContext(AuthContext);
 	const [profiles, setProfiles] = useState(initial.profiles);
 	const [screen, setScreen] = useState<Screen>(
 		initialCreate ? "create" : "picker",
@@ -73,11 +71,12 @@ export default function ProfileEntry({
 	) {
 		setPending("Opening profile…");
 		try {
-			const tokens = await enterProfile(profile, value);
+			await enterProfile(profile, value);
 			clearPin();
-			clearAuthSession();
-			login(tokens.access_token, "login", tokens.refresh_token);
 			announceProfileChange();
+			// Restore the confirmed cookie session in a fresh document. No old
+			// query, mutation or store callback can refill the next profile.
+			window.location.replace("/");
 		} catch (caught) {
 			clearPin();
 			const failure =

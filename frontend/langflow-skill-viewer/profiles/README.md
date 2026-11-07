@@ -4,7 +4,8 @@
 it. The existing login/signup remain available unchanged in ordinary previews.
 `ProfileEntry` owns picker, creation, PIN entry and uncertain-result states from
 the canonical local-profiles Draw.io. `api.ts` calls existing upstream login and
-checks the authenticated identity before handing control to AuthContext. It does
+checks the authenticated identity before restoring the cookie session in a fresh
+document. This discards old query/mutation/store callbacks on profile entry. It does
 not store PINs, mint tokens or introduce another authentication protocol.
 
 Failures use the shared catalogue and ErrorExplanation. Unknown save outcomes
@@ -20,3 +21,9 @@ confirmed context changes without credentials and replaces other documents so
 old requests cannot populate a new profile's stores. Independent simultaneous
 profiles require separate browser contexts. Actual cross-tab behavior remains
 unverified until the real browser stories pass.
+
+The pinned upstream fetch interceptor mutates request headers. Every profile API
+request supplies a mutable header record, including GETs. The owned header tests
+cover that browser-observed contract and project session data to safe identity.
+Entry cards use a viewport-bound scroll container because the native canvas page
+has a larger minimum width; that canvas constraint must not clip profile forms.

@@ -156,7 +156,8 @@ export async function enterProfile(profile: ProfileSummary, pin: string) {
 	) {
 		throw new ProfileFailure("profile_entry_unconfirmed");
 	}
-	return tokens;
+	// Cookies are upstream-owned; do not pass credential values to UI state.
+	return;
 }
 
 export async function readProfileSession(): Promise<{
