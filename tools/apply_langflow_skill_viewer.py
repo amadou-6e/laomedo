@@ -533,6 +533,12 @@ def apply(checkout):
         ],
         check=True,
     )
+    github_outcome_patch = overlay / "integration/github-build-outcome.patch"
+    for mode in ("--check", None):
+        command = ["git", "-C", str(checkout), "apply", "--ignore-space-change"]
+        if mode:
+            command.append(mode)
+        subprocess.run(command + [str(github_outcome_patch)], check=True)
     print("pinned_skill_viewer_overlay_applied")
 
 

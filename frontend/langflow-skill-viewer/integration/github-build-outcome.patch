@@ -1,0 +1,65 @@
+diff --git a/src/frontend/src/controllers/API/agui/run-flow-bridge.ts b/src/frontend/src/controllers/API/agui/run-flow-bridge.ts
+--- a/src/frontend/src/controllers/API/agui/run-flow-bridge.ts
++++ b/src/frontend/src/controllers/API/agui/run-flow-bridge.ts
+@@ -1,3 +1,4 @@
++import { githubBuildFailure, githubRunFailure } from "@/modals/github/interface/buildOutcome";
+ /**
+  * Bridge: run a workflow through the AG-UI service and update flowStore.
+  *
+@@ -225,6 +226,11 @@
+         messages: [] as ChatOutputType[] | ChatInputType[],
+         artifacts: null,
+       };
++      const failure = githubBuildFailure(entry, flowStore.nodes.find(node => node.id === nodeId)?.data.type);
++      if (failure) {
++        entry.valid = false;
++        flowStore.updateBuildStatus([nodeId], BuildStatus.ERROR);
++      }
+       flowStore.addDataToFlowPool(entry, nodeId);
+     }
+   }
+@@ -424,6 +430,11 @@
+       // A closing event must never promote an earlier execution failure.
+       if (markRunningAsError) return;
+       terminalEventSeen = true;
++      const failure = githubRunFailure(useFlowStore.getState(), touchedNodeIds, runId);
++      if (failure) {
++        flowStore.setBuildInfo({ error: [failure.diagnostics.code], success: false });
++        return;
++      }
+       if (!opts.silent) {
+         flowStore.setBuildInfo({ success: true });
+       }
+@@ -591,7 +602,9 @@
+     onFinished: () => {
+       // A HITL resume continuation is not a user-initiated build, so the caller can pass
+       // silent to suppress the "Flow built successfully" toast on the canvas.
+-      if (!opts.silent) flowStore.setBuildInfo({ success: true });
++      const failure = githubRunFailure(useFlowStore.getState(), touchedNodeIds, runId);
++      if (failure) flowStore.setBuildInfo({ error: [failure.diagnostics.code], success: false });
++      else if (!opts.silent) flowStore.setBuildInfo({ success: true });
+     },
+     onError: (message) => {
+       flowStore.setBuildInfo({ error: [message], success: false });
+diff --git a/src/frontend/src/utils/buildUtils.ts b/src/frontend/src/utils/buildUtils.ts
+--- a/src/frontend/src/utils/buildUtils.ts
++++ b/src/frontend/src/utils/buildUtils.ts
+@@ -1,3 +1,4 @@
++import { githubBuildFailure } from "@/modals/github/interface/buildOutcome";
+ import type { Edge, Node } from "@xyflow/react";
+ import type { AxiosError } from "axios";
+ import { handleMessageEvent } from "@/components/core/playgroundComponent/chat-view/utils/message-event-handler";
+@@ -470,6 +471,13 @@
+ ): boolean {
+   const { onBuildUpdate, onBuildError, onBuildStart } = callbacks;
+   const buildData = data.build_data;
++  const failure = githubBuildFailure(buildData, useFlowStore.getState().nodes.find(node => node.id === buildData.id)?.data.type);
++  if (failure) {
++    onBuildError?.("Error Building Component", [failure.diagnostics.code], [{ id: buildData.id }]);
++    onBuildUpdate?.({ ...buildData, valid: false }, BuildStatus.ERROR, "");
++    buildResults.push(false);
++    return false;
++  }
+ 
+   if (onBuildUpdate) {
+     if (!buildData.valid) {
