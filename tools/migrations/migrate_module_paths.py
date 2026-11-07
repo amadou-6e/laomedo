@@ -223,6 +223,13 @@ def check_manual_git_calls(source: str, tree) -> None:
 
 def migrate_source(source: str) -> str:
     """Rewrite published imports to defining modules; refuse ambiguous symbols."""
+    # A launcher symbol is not a module-only relocation. Refuse rather than
+    # preserving an attribute whose constructor or defining owner may differ.
+    for match in re.finditer(r"(?<![\w.])(laomedo(?:\.[A-Za-z_]\w*)+):", source):
+        if match[1] in MODULE_PATHS or match[1] in RETIRED_SPLIT_MODULES:
+            raise ManualMigrationRequired(
+                "Colon-style launcher attributes require manual migration"
+            )
     for symbol, explanation in MANUAL_SYMBOLS.items():
         if re.search(r"(?<![\w.])" + re.escape(symbol) + r"(?!\w)", source):
             raise ManualMigrationRequired(symbol + ": " + explanation)

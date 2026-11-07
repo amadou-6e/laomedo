@@ -14,6 +14,64 @@ migration = load_migration()
 
 
 class MigrationFileTests(unittest.TestCase):
+    def test_retired_colon_launcher_refuses_without_writes_or_backup(self):
+        for value in (
+            "laomedo.local_runner:serve",
+            "laomedo.lease_service:_handler",
+            "python -m launcher laomedo.local_runner:serve",
+        ):
+            with self.subTest(value=value), tempfile.TemporaryDirectory() as directory:
+                path = Path(directory) / "launcher.json"
+                original = ('{"factory": "' + value + '"}\n').encode()
+                path.write_bytes(original)
+                result = subprocess.run(
+                    [sys.executable, str(TOOL), str(path), "--apply"],
+                    capture_output=True,
+                    timeout=30,
+                )
+                self.assertEqual(result.returncode, 2)
+                self.assertIn(b"manual migration", result.stderr)
+                self.assertEqual(path.read_bytes(), original)
+                self.assertFalse(
+                    path.with_name(path.name + ".before-module-migration").exists()
+                )
+
+    def test_current_colon_launcher_and_unselected_saved_value_are_unchanged(self):
+        for value in (
+            {"factory": "laomedo.agents.agents.codex.cli:main"},
+            {"task": "laomedo.local_runner:serve"},
+        ):
+            self.assertEqual(migration.migrate_value(value), value)
+
+    def test_colon_launcher_inside_python_is_also_refused(self):
+        with self.assertRaises(migration.ManualMigrationRequired):
+            migration.migrate_source('factory = "laomedo.local_runner:serve"\n')
+
+    def test_retired_handler_strings_require_manual_service_binding(self):
+        for old in (
+            "laomedo.mediation_service._handler",
+            "laomedo.host.mediation.mediation_service._handler",
+            "laomedo.lease_service._handler",
+        ):
+            with (
+                self.subTest(old=old),
+                self.assertRaises(migration.ManualMigrationRequired),
+            ):
+                migration.migrate_source('patch("' + old + '")')
+
+    def test_opencode_worker_pins_keep_their_provider_owner(self):
+        for old in (
+            "laomedo.opencode_boundary",
+            "laomedo.agents.providers.opencode_boundary",
+        ):
+            for name in ("WORKER_IMAGE", "WORKER_IMAGE_ID"):
+                with self.subTest(old=old, name=name):
+                    migrated = migration.migrate_source(f"from {old} import {name}\n")
+                    self.assertEqual(
+                        migrated,
+                        f"from laomedo.agents.agents.opencode.settings import {name}\n",
+                    )
+
     def test_invalid_utf8_refuses_without_payload_traceback_or_writes(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "invalid.py"
