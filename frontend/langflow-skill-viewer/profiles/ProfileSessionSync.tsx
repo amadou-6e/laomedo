@@ -30,13 +30,14 @@ export default function ProfileSessionSync() {
 				window.location.replace("/login");
 			}
 		};
-		const restore = async (event: PageTransitionEvent) => {
-			if (!event.persisted) return;
-			try {
-				if (await profileMode()) window.location.reload();
-			} catch {
-				window.location.reload();
-			}
+		let profileEnabled: boolean | undefined;
+		profileMode()
+			.then((enabled) => {
+				profileEnabled = enabled;
+			})
+			.catch(() => {});
+		const restore = (event: PageTransitionEvent) => {
+			if (event.persisted && profileEnabled !== false) window.location.reload();
 		};
 		window.addEventListener("pageshow", restore);
 		return () => {
