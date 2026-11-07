@@ -1883,5 +1883,10 @@
     "title": "This browser cannot manage local profiles",
     "description": "Required local profile coordination features are unavailable in this browser context.",
     "recovery": "Use a supported local browser setup. Existing profiles and their data have not been deleted."
+  },
+  "profile_pin_invalid": {
+    "title": "Use a six-digit PIN",
+    "description": "This profile uses a PIN of exactly six digits.",
+    "recovery": "Enter all six digits. Leading zeroes are allowed."
   }
 }

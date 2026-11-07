@@ -125,7 +125,7 @@ export default function ProfileEntry({
 			}
 		} else if (selected) {
 			if (!/^[0-9]{6}$/.test(pin)) {
-				setError("profile_input_invalid");
+				setError("profile_pin_invalid");
 				return;
 			}
 			await open(selected, pin);
@@ -242,7 +242,7 @@ export default function ProfileEntry({
 						</Button>
 					</div>
 				) : (
-					<form onSubmit={submit} className="mt-6 space-y-4">
+					<form noValidate onSubmit={submit} className="mt-6 space-y-4">
 						{screen === "create" ? (
 							<label className="block text-sm">
 								Profile name
@@ -262,7 +262,7 @@ export default function ProfileEntry({
 							</p>
 						)}
 						<label className="block text-sm">
-							PIN
+							PIN (6 digits)
 							<Input
 								className="mt-1"
 								type="password"
