@@ -1,8 +1,8 @@
 # Local profile approach
 
-Status: PROPOSED after owner clarification, 2026-11-07. This supersedes the
-administrator-led product setup assumed by the unfinished #258 checkpoint.
-No profile UI or real registration/switching acceptance is implemented yet.
+Status: implementation in progress, 2026-11-07. The opt-in backend and profile UI
+are implemented. Real registration, switching and session-restoration acceptance
+remain unverified. PR #263 is draft; this document grants no release approval.
 
 ## Owner intent
 
@@ -10,7 +10,7 @@ One Windows user operates the installation. Profiles select different setups,
 like profiles inside one account, rather than separate hosted web accounts.
 The desired first-run experience is a simple registration/profile page. A separate
 administrator procedure needs concrete justification. The owner confirmed a PIN is required when entering or switching profiles. No new credential or
-GitHub registration has occurred. The earlier manual Bootstrap handoff is on hold.
+GitHub registration has occurred. The manual Bootstrap path has been removed.
 
 ## Reviewed direction
 
@@ -22,7 +22,7 @@ password hashing/token validation without demonstrated need.
 
 Proposed flow: Create profile -> enter profile -> restore it on later launches ->
 Switch profile. Connecting GitHub remains a separate explicit action. This is a
-proposal, not a claim that a profile picker or PIN-free login already exists.
+target workflow; its complete real user paths are not yet verified.
 
 Keep profiles distinct from Windows accounts and tenant isolation. Existing
 public Skill registry and activity storage are installation-shared; do not claim
@@ -61,9 +61,9 @@ at upstream fec71dca901949c09ed4d63315804337cd2eb13d:
    is installation-wide. Connection sharing across profiles is not selected yet.
 3. Resolve startup internally. Claude recommends one reserved, automatically
    provisioned system account that is never a selectable profile. An explicit
-   startup adapter skipping superuser provisioning is the alternative. Neither
-   has been accepted or implemented; any privileged identity needs a clear purpose,
-   reserved-name protection and reviewed lifecycle, rather than hidden complexity.
+   startup adapter skipping superuser provisioning is the alternative. The implemented adapter uses the reserved system actor solely for upstream
+   startup and profile creation, excludes it from selection and refuses its login.
+   Its backend boundary passed the scoped review listed below.
 4. Reassess #259's revocable private sessions. Claude suggests upstream sessions may
    suffice under the local trust model, but removing logout/token-replay guarantees
    is a separate explicit choice. Do not drop them or close the issue implicitly.
@@ -78,52 +78,26 @@ existing issue bodies have not been changed by this consultation. Keep PR #263
 in draft. All real browser creation/switching/restart and private-access stories
 remain unverified.
 
-## Design review and implementation checkpoint
-
-Canonical spec revision `f3400b7` passed Claude's focused specification and visual
-review for implementation. This is not runtime acceptance. LP-R1 through LP-R7
-were corrected; LP-R8 is the owner recovery decision. LP-R9 requires tests for the
-effective auth service after startup/request, environment-key refusal and all
-WebSocket/SSE/MCP credential paths. The new `local_profiles` package currently owns
-only safe boundary models and the auth adapter; it is not wired into serving yet.
-Ten internal model/auth tests pass. Registration, startup integration, UI, actual
-session persistence and real-browser acceptance remain unfinished. The old manual
-bootstrap path must be removed in this PR before delivery, not retained in parallel.
-
-## Backend implementation progress
+## Implementation and evidence
 
 The manual Bootstrap module and launcher mode have been removed. The opt-in
-launcher is now `tools/start_local_profiles.ps1`; the existing preview factory
-continues to run without profile mode. Profile creation uses a validated
-registration request and the upstream user transaction. Browser entry is bound
-to the configured origin. Unsupported direct identity mutations are refused.
-Each public profile code has a descriptive shared-catalogue entry and an owned
-coverage check. The UI still needs to consume these entries.
+launcher is `tools/start_local_profiles.ps1`; the existing preview factory
+continues without profile mode. Profile creation delegates to the upstream user
+transaction. Exact origin/host admission protects browser entry. Unsupported
+identity mutations, including the nested reset-password route, are refused.
+Native password/avatar editors are hidden in profile mode. Public failures use
+the shared descriptive catalogue and have a coverage regression.
 
-Real supporting backend checks on 2026-11-07: a new isolated database migrated and
-started on 127.0.0.1:17867; the empty picker excluded the internal actor, absent
-origin metadata was refused, and internal-actor login issued no tokens. After
-an abrupt exit of only the task-owned server, the same database started again
-and still returned the empty ordinary picker. These checks used the existing
-frontend build, so they do not verify the new profile UI or any user profile's
-session restoration. Upstream telemetry-writer startup reported WinError 87 and
-fell back to direct writes; this unrelated warning is not resolved here.
+The React overlay implements selection, creation, PIN confirmation, uncertain-save
+handling and switching. Confirmed login starts a fresh document so upstream
+session initialization restores cookies without carrying previous profile state.
+The owner deferred forgotten-PIN recovery: entry stays blocked and data is preserved.
 
-The owner explicitly deferred forgotten-PIN recovery: entry to that profile is
-blocked while data is preserved. LP-R8 is resolved as an accepted constraint.
+Claude approved the specification at `f3400b7` and backend at `ad30ec7` after the
+nested reset-password correction. Those approvals exclude subsequent UI changes
+and runtime acceptance. The final UI review attempt hit the reviewer's subscription
+quota; it did not run. The same reviewer session must be resumed when available.
 
-## Review and frontend checkpoint
-
-Claude approved the backend packet at `ad30ec7`, after fixing the previously
-missed nested reset-password route. The regression enumerates all upstream user
-mutation routes. The inherited auth utility source trace resolved LP-I2. This is
-a backend-only verdict, not approval of the UI or release.
-
-The profile React overlay now includes entry, registration, PIN confirmation,
-uncertain-save reconciliation and profile switching. It has not passed live
-browser stories or visual implementation review. The first Vite production
-build passed (4m41s). Whole-upstream TypeScript checking reported 652 diagnostic
-lines outside the profile/menu/route files; a clean-baseline comparison has not
-been made, so this is a failed check, not a passed type check. A final synchronized
-build is pending. Browser-control inventory currently reports its host unavailable.
-No account or PIN was created on behalf of the owner.
+See [the verification ledger](verification.md) for exact source revisions,
+internal checks, supporting browser captures and the remaining real user stories.
+No profile or PIN has been created on behalf of the owner. Keep PR #263 draft.
