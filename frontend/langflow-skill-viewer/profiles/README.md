@@ -1,4 +1,4 @@
-﻿# Local profile entry
+# Local profile entry
 
 `ProfileEntryGate` selects the profile UI only when the backend explicitly enables
 it. The existing login/signup remain available unchanged in ordinary previews.
@@ -14,3 +14,9 @@ Private-session revocation remains a dependency on #259 before private access.
 
 The overlay is source code, not evidence that the real user stories work. Build,
 unit checks, real browser paths and final owner inspection remain separate gates.
+
+Tabs in one browser context share a cookie session. `ProfileSessionSync` announces
+confirmed context changes without credentials and replaces other documents so
+old requests cannot populate a new profile's stores. Independent simultaneous
+profiles require separate browser contexts. Actual cross-tab behavior remains
+unverified until the real browser stories pass.

@@ -13,6 +13,8 @@ import {
 	type ProfileSummary,
 } from "./api";
 
+import { announceProfileChange } from "./ProfileSessionSync";
+
 type Screen =
 	| "picker"
 	| "create"
@@ -67,6 +69,7 @@ export default function ProfileEntry({ initial }: { initial: ProfileIndex }) {
 			clearPin();
 			clearAuthSession();
 			login(tokens.access_token, "login", tokens.refresh_token);
+			announceProfileChange();
 		} catch (caught) {
 			clearPin();
 			const failure =

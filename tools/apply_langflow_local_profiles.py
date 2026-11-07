@@ -73,6 +73,19 @@ def apply_profiles(checkout: Path, source: Path):
         ),
         encoding="utf-8",
     )
+    auth_context = frontend / "contexts/authContext.tsx"
+    auth_text = auth_context.read_text(encoding="utf-8")
+    auth_anchor = "      {children}"
+    if auth_text.count(auth_anchor) != 1:
+        raise SystemExit("profile_auth_context_anchor_missing")
+    auth_text = (
+        'import ProfileSessionSync from "@/components/laomedoProfiles/ProfileSessionSync";\n'
+        + auth_text
+    )
+    auth_text = auth_text.replace(
+        auth_anchor, "      <ProfileSessionSync />\n" + auth_anchor
+    )
+    auth_context.write_text(auth_text, encoding="utf-8")
     shutil.copytree(source / "profiles", target)
     routes.write_text(text, encoding="utf-8")
     menu.write_text(menu_text, encoding="utf-8")

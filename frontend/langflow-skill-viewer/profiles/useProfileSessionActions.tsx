@@ -9,12 +9,14 @@ import ErrorExplanation from "@/components/laomedoErrors/ErrorExplanation";
 import { describeNodeFailure } from "@/components/laomedoErrors/nodeErrors";
 import { profileMode } from "./api";
 
+import { announceProfileChange } from "./ProfileSessionSync";
+
 export default function useProfileSessionActions() {
 	const [enabled, setEnabled] = useState<boolean>();
 	const [open, setOpen] = useState(false);
 	const [checking, setChecking] = useState(false);
 	const [intent, setIntent] = useState<"switch" | "logout">("switch");
-	const { clearAuthSession } = useContext(AuthContext);
+	const { clearAuthSession, userData } = useContext(AuthContext);
 	const { mutate, isPending } = useLogout();
 	useEffect(() => {
 		let current = true;
@@ -31,6 +33,7 @@ export default function useProfileSessionActions() {
 	}, []);
 
 	function finish() {
+		if (enabled) announceProfileChange();
 		clearAuthSession();
 		window.location.assign("/login");
 	}
@@ -55,7 +58,10 @@ export default function useProfileSessionActions() {
 			if (session.authenticated === false) {
 				useAuthStore.getState().logout();
 				finish();
-			} else if (session.authenticated === true) setOpen(false);
+			} else if (session.authenticated === true) {
+				if (session.user?.id === userData?.id) setOpen(false);
+				else window.location.replace("/login");
+			}
 		} catch {
 			/* Keep the unconfirmed state and its safe explanation. */
 		} finally {

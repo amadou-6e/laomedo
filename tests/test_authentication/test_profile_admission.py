@@ -108,3 +108,86 @@ class ProfileAdmissionTests(unittest.TestCase):
         (self.root / "local-profiles.json").unlink()
         with self.assertRaises(ProfileError):
             ProfileRuntimeAdmission(self.root)
+
+    def create_recognized_database(self):
+        from alembic.script import ScriptDirectory
+        from langflow import __file__ as upstream_file
+        from langflow.services.database.models import User
+        from sqlmodel import Session, create_engine
+        from uuid import uuid4
+        from laomedo.integrations.langflow.local_profiles.settings import (
+            SYSTEM_PROFILE_NAME,
+        )
+
+        engine = create_engine("sqlite:///" + self.admission.database.as_posix())
+        try:
+            User.metadata.create_all(engine)
+            with Session(engine) as db:
+                actor = User(
+                    id=uuid4(),
+                    username=SYSTEM_PROFILE_NAME,
+                    password="internal-test-hash",
+                    is_active=True,
+                    is_superuser=True,
+                )
+                db.add(actor)
+                db.commit()
+            with closing(sqlite3.connect(self.admission.database)) as db:
+                db.execute(
+                    "CREATE TABLE alembic_version (version_num TEXT NOT NULL PRIMARY KEY)"
+                )
+                for revision in ScriptDirectory(
+                    str(Path(upstream_file).parent / "alembic")
+                ).get_heads():
+                    db.execute("INSERT INTO alembic_version VALUES (?)", (revision,))
+                db.commit()
+        finally:
+            engine.dispose()
+        self.auth.pwd_context.verify.return_value = False
+
+    def test_recognized_schema_and_actor_are_admitted_without_mutation(self):
+        self.create_recognized_database()
+        before = self.admission.database.read_bytes()
+        self.assertFalse(self.admission.verify_database(self.auth))
+        self.assertEqual(self.admission.database.read_bytes(), before)
+
+    def test_unknown_revision_or_missing_internal_actor_is_refused(self):
+        self.create_recognized_database()
+        with closing(sqlite3.connect(self.admission.database)) as db:
+            heads = db.execute("SELECT version_num FROM alembic_version").fetchall()
+            db.execute("UPDATE alembic_version SET version_num='unknown-revision'")
+            db.commit()
+        with self.assertRaises(ProfileError):
+            self.admission.verify_database(self.auth)
+        with closing(sqlite3.connect(self.admission.database)) as db:
+            db.execute("DELETE FROM alembic_version")
+            db.executemany("INSERT INTO alembic_version VALUES (?)", heads)
+            db.execute(
+                "UPDATE \"user\" SET username='ordinary-existing-user',is_superuser=0"
+            )
+            db.commit()
+        # Missing internal actor in populated state is never a fresh setup.
+        with self.assertRaises(ProfileError):
+            self.admission.verify_database(self.auth)
+
+    def test_internal_api_key_blocks_startup(self):
+        from langflow.services.database.models import ApiKey, User
+        from sqlmodel import Session, create_engine, select
+
+        self.create_recognized_database()
+        engine = create_engine("sqlite:///" + self.admission.database.as_posix())
+        try:
+            with Session(engine) as db:
+                actor = db.exec(select(User)).one()
+                db.add(
+                    ApiKey(
+                        name="internal-only regression",
+                        api_key="not-a-real-key",
+                        user_id=actor.id,
+                    )
+                )
+                db.commit()
+        finally:
+            engine.dispose()
+        with self.assertRaises(ProfileError):
+            self.admission.verify_database(self.auth)
