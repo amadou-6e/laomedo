@@ -33,16 +33,37 @@ class PRAgentInputTests(unittest.TestCase):
                 **self.result,
                 "operation": {"status": status, "error_category": "dummy"},
             }
-            node = component(task=Data(data=result))
+            for value in (
+                Data(data=result),
+                result,
+                {**result, "text": "Do not treat this as an ordinary message"},
+            ):
+                node = component(task=value)
+                with patch(
+                    "laomedo.integrations.langflow.agent.component._HTTP.open"
+                ) as transport:
+                    with self.assertRaisesRegex(
+                        ValueError, "pr_context_(upstream_failed|invalid)"
+                    ):
+                        node._prepare_request()
+                    transport.assert_not_called()
+
+    def test_unsupported_task_objects_do_not_become_prompt_strings(self):
+        for value in (17, object()):
+            node = component(task=value)
             with patch(
                 "laomedo.integrations.langflow.agent.component._HTTP.open"
             ) as transport:
-                with self.assertRaisesRegex(ValueError, "pr_context_upstream_failed"):
+                with self.assertRaisesRegex(ValueError, "pr_context_invalid"):
                     node._prepare_request()
                 transport.assert_not_called()
 
     def test_ordinary_text_and_message_task_behavior_stays_unchanged(self):
-        for value in ("Existing task", Message(text="Existing task")):
+        for value in (
+            "Existing task",
+            Message(text="Existing task"),
+            {"text": "Existing task"},
+        ):
             self.assertEqual(
                 component(task=value)._prepare_request()[1]["task"], "Existing task"
             )

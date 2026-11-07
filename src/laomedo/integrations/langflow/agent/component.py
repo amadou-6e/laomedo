@@ -534,11 +534,25 @@ class AgentComponent(Component):
             raise ValueError("invalid_operation")
         if self._bridge_base() and operation not in {"fresh", "start"}:
             raise ValueError("join_bridge_requires_fresh_start")
-        if isinstance(self.task, Data) and not isinstance(self.task, Message):
+        structured_task = (
+            self.task.data
+            if isinstance(self.task, Data) and not isinstance(self.task, Message)
+            else self.task
+        )
+        if isinstance(structured_task, dict) and (
+            isinstance(self.task, Data)
+            or any(
+                key in structured_task for key in ("pr", "operation", "schema_version")
+            )
+        ):
             from laomedo.github.pull_requests.context import task_text
 
-            task = task_text(self.task)
+            task = task_text(structured_task)
+        elif isinstance(structured_task, dict):
+            task = str(Message(**structured_task).text or "")
         else:
+            if self.task is not None and not isinstance(self.task, (str, Message)):
+                raise ValueError("pr_context_invalid")
             task = str(getattr(self.task, "text", self.task) or "")
         if operation in {"fresh", "start", "resume"} and not task.strip():
             raise ValueError("task_required")
