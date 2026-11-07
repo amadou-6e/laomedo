@@ -49,7 +49,13 @@ export default function ProfileEntryGate({
 		{ operation: "load profiles" },
 	);
 	if (state.enabled === false) return <>{children}</>;
-	if (state.index) return <ProfileEntry initial={state.index} />;
+	if (state.index)
+		return (
+			<ProfileEntry
+				initial={state.index}
+				initialCreate={window.location.pathname.endsWith("/signup")}
+			/>
+		);
 	return (
 		<main className="flex min-h-svh items-center justify-center p-6">
 			<section className="w-full max-w-md rounded-xl border p-6">

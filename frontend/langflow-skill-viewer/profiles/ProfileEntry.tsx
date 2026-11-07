@@ -23,10 +23,18 @@ type Screen =
 	| "uncertain"
 	| "name-unavailable";
 
-export default function ProfileEntry({ initial }: { initial: ProfileIndex }) {
+export default function ProfileEntry({
+	initial,
+	initialCreate = false,
+}: {
+	initial: ProfileIndex;
+	initialCreate?: boolean;
+}) {
 	const { login, clearAuthSession } = useContext(AuthContext);
 	const [profiles, setProfiles] = useState(initial.profiles);
-	const [screen, setScreen] = useState<Screen>("picker");
+	const [screen, setScreen] = useState<Screen>(
+		initialCreate ? "create" : "picker",
+	);
 	const [selected, setSelected] = useState<ProfileSummary | null>(null);
 	const [name, setName] = useState("");
 	const [pin, setPin] = useState("");
