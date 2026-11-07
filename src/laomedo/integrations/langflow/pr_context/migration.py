@@ -105,6 +105,8 @@ def migrate_pr_graph(flow, definition):
                     "input_types"
                 ] = ["Message", "Data"]
         if edge["target"] in prs:
+            if field == "pr_reference" and edge["source"] not in prs:
+                raise ValueError("pr_context_migration_required")
             if field not in {"pr_context", "pr_reference", "operation", "task"}:
                 raise ValueError("pr_context_migration_required")
             target.pop("name", None)

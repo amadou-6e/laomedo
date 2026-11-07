@@ -111,6 +111,7 @@ class PRMigrationTests(unittest.TestCase):
         self,
     ):
         cases = [
+            [self.edge("agent", "answer", "pr", "pr_reference")],
             [
                 self.edge("agent", "answer", "pr", "operation"),
                 self.edge("agent", "pr_context", "pr", "pr_reference"),
