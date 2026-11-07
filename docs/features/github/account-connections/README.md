@@ -262,7 +262,8 @@ prepare one-time setup without registering or modifying GitHub automatically.
 The canonical draft is [specs #411](https://github.com/amadou-6e/specs/pull/411),
 with SC01-SC10 and eight editable UI pages. Full review and focused recheck found
 remaining deployment/navigation gaps; corrections now cover the existing native
-Windows app recipe, first-install URL and every drawn recovery control. A new
-design-readiness review is pending. The owner accepted normal Laomedo sign-in
+Windows app recipe, first-install URL and every drawn recovery control. The same reviewer approved the specification at `fefdf89` and both
+specification/visual design after the first focused recheck at `b6152ca`.
+This clears design readiness only; runtime implementation remains pending. The owner accepted normal Laomedo sign-in
 for private access; public auto-login previews remain unchanged. No runtime code,
 real sign-in, private read or workflow acceptance is claimed.
