@@ -903,7 +903,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
 
         root = Path(__file__).resolve().parents[2]
         builder_spec = importlib.util.spec_from_file_location(
-            "resume_flow_builder", root / "examples/skills/graph.py"
+            "resume_flow_builder", root / "examples/graph.py"
         )
         builder = importlib.util.module_from_spec(builder_spec)
         builder_spec.loader.exec_module(builder)

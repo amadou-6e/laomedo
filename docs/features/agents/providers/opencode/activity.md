@@ -8,7 +8,11 @@ boundaries. The ACP adapter observes live root notifications and reconciles
 native message/part identities with bounded offline history export. Child
 coverage comes from that export rather than a second host HTTP conversation
 protocol. Exported records do not count as additional model requests. Capture
-failures do not change task success. A missing root terminal, missed child
+failures during post-run history export do not change task success. A failure
+retaining live ACP protocol evidence stops that transport and leaves execution
+unconfirmed; it never certifies success with missing protocol records. Text and
+reasoning display records retain deltas, with a full message at completion,
+instead of repeating the growing message on every chunk. A missing root terminal, missed child
 coverage or capture failure marks the stream incomplete; missing usage stays
 unknown. Repeated raw receipts remain inspectable.
 

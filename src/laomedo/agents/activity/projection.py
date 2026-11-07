@@ -142,6 +142,7 @@ def project(events, *, root_thread=None, model=None):
             value = items.get((thread, item_id))
             field = {
                 "item/agentMessage/delta": "text",
+                "item/reasoning/textDelta": "text",
                 "item/commandExecution/outputDelta": "aggregatedOutput",
             }.get(method)
             if value and field and not value["ended"]:

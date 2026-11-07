@@ -49,8 +49,10 @@ class OpenCodeComponentTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(fields["model"]["options"], [])
         self.assertFalse(fields["model"]["combobox"])
         self.assertEqual(fields["effort"]["options"], ["default"])
+        # Preserve connected Resume edges; canvas policy hides disconnected
+        # compatibility ports instead of deleting their metadata.
+        self.assertTrue(fields["run_reference"]["show"])
         for name in (
-            "run_reference",
             "run_reference_json",
             "skill_id",
             "revision_id",

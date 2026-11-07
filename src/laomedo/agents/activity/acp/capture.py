@@ -128,6 +128,7 @@ class AcpCapture:
             # the original identity retained above.
             native_id = update.get("messageId")
             identity = kind + ":" + native_id if native_id else self.message_id
+            first = identity not in self.items
             item = self.items.setdefault(
                 identity,
                 {
@@ -139,7 +140,31 @@ class AcpCapture:
                     "provenance": "normalized ACP update",
                 },
             )
+            if first:
+                self.append(
+                    "item/updated",
+                    {
+                        "threadId": session_id,
+                        "turnId": self.turn_id,
+                        "item": dict(item),
+                    },
+                )
             item["text"] += content["text"]
+            self.append(
+                (
+                    "item/agentMessage/delta"
+                    if kind == "agent_message_chunk"
+                    else "item/reasoning/textDelta"
+                ),
+                {
+                    "threadId": session_id,
+                    "turnId": self.turn_id,
+                    "itemId": identity,
+                    "delta": content["text"],
+                    "provenance": "normalized ACP update",
+                },
+            )
+            return
         elif kind in {"tool_call", "tool_call_update"}:
             self.message_id = None
             identity = update.get("toolCallId")
