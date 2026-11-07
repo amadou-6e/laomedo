@@ -33,7 +33,12 @@ async def create_profile(request: Request):
                 raise ProfileError("profile_input_invalid")
         try:
             payload = ProfileCreateRequest.model_validate_json(bytes(data))
-        except ValidationError:
+        except ValidationError as error:
+            safe_errors = error.errors(include_input=False, include_context=False)
+            if any(
+                issue["type"] == "profile_name_unavailable" for issue in safe_errors
+            ):
+                raise ProfileError("profile_name_unavailable") from None
             raise ProfileError("profile_input_invalid") from None
         result = await request.app.state.local_profile_registry.create_profile(payload)
         return JSONResponse(

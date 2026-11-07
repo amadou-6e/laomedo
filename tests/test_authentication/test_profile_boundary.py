@@ -111,3 +111,18 @@ class ProfileBrowserBoundaryTests(unittest.IsolatedAsyncioTestCase):
                     )
                     exercised.add((method, path))
         self.assertIn(("PATCH", "/api/v1/users/any-id/reset-password"), exercised)
+
+    async def test_reserved_name_has_actionable_error_without_pin_echo(self):
+        response = await self.client.post(
+            "/api/v1/laomedo/profiles",
+            json={
+                "name": "__LAOMEDO_SYSTEM__",
+                "pin": "001234",
+                "confirmation": "001234",
+            },
+            headers={"Origin": "http://127.0.0.1:17866"},
+        )
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(response.json(), {"code": "profile_name_unavailable"})
+        self.assertNotIn("001234", response.text)
+        self.registry.create_profile.assert_not_awaited()

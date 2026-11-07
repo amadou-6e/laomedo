@@ -4,6 +4,8 @@ from hmac import compare_digest
 from typing import Literal
 from uuid import UUID
 
+from pydantic_core import PydanticCustomError
+
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -35,7 +37,11 @@ class ProfileCreateRequest(BaseModel):
         if not isinstance(value, str):
             raise ValueError("profile_name_invalid")
         name = value.strip()
-        if not name or name.casefold() == SYSTEM_PROFILE_NAME.casefold():
+        if name.casefold() == SYSTEM_PROFILE_NAME.casefold():
+            raise PydanticCustomError(
+                "profile_name_unavailable", "This profile name is unavailable"
+            )
+        if not name:
             raise ValueError("profile_name_invalid")
         if any(ord(character) < 32 or ord(character) == 127 for character in name):
             raise ValueError("profile_name_invalid")
