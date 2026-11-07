@@ -2,6 +2,7 @@
 
 import json
 import subprocess
+import sys
 from pathlib import Path
 
 
@@ -10,18 +11,25 @@ def main():
     state = Path(
         json.loads((e / "runtime-path.json").read_text(encoding="utf-8"))["path"]
     )
-    for file in (state / "codex/runs").glob("*/record.json"):
+    isolated = "--recovery" in sys.argv
+    runner_state = state / "recovery-preview/runner" if isolated else state / "codex"
+    port = 18825 if isolated else 18815
+    for file in (runner_state / "runs").glob("*/record.json"):
         record = json.loads(file.read_text(encoding="utf-8"))
         if record["status"] in {"prepared", "running", "unknown"}:
             raise SystemExit("Native work is not confirmed idle; API left running.")
-    query = 'Get-NetTCPConnection -LocalPort 18815 -State Listen | ForEach-Object { Get-CimInstance Win32_Process -Filter "ProcessId=$($_.OwningProcess)" } | Select-Object ProcessId,CommandLine | ConvertTo-Json -Compress'
+    query = (
+        "Get-NetTCPConnection -LocalPort "
+        + str(port)
+        + ' -State Listen | ForEach-Object { Get-CimInstance Win32_Process -Filter "ProcessId=$($_.OwningProcess)" } | Select-Object ProcessId,CommandLine | ConvertTo-Json -Compress'
+    )
     owner = json.loads(
         subprocess.check_output(
             ["powershell.exe", "-NoProfile", "-Command", query], text=True
         )
     )
     if (
-        str(state / "codex") not in owner["CommandLine"]
+        str(runner_state) not in owner["CommandLine"]
         or "laomedo.agents.agents.codex.cli" not in owner["CommandLine"]
     ):
         raise SystemExit("API ownership mismatch; left untouched.")
@@ -36,7 +44,7 @@ def main():
     )
     result = {
         "stopped_verified_idle_api_pid": owner["ProcessId"],
-        "port": 18815,
+        "port": port,
         "model_turns_submitted": 0,
     }
     (e / "recovery-stop.json").write_text(

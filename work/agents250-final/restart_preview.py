@@ -50,6 +50,7 @@ def main():
         "LANGFLOW_COMPONENTS_PATH": str(source / "components"),
         "LAOMEDO_COMPONENT_DIR": str(source / "components/laomedo"),
         "LAOMEDO_SKILL_STORE": str(state / "registry"),
+        "LAOMEDO_RUNNER_SERVICE_FILE": str(state / "service.json"),
         "LAOMEDO_RUNNER_TOKEN_FILE": str(state / "codex/api-token"),
         "LAOMEDO_CODEX_RUNNER_TOKEN_FILE": str(state / "codex/api-token"),
         "LAOMEDO_CLAUDE_RUNNER_TOKEN_FILE": str(state / "claude/api-token"),
