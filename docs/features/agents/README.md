@@ -34,3 +34,8 @@ activity. Domain operations remain with the Skills and GitHub features.
 See [canonical agent-execution specifications](https://github.com/amadou-6e/specs/tree/main/projects/laomedo/subsystems/agent-execution)
 for governing requirements. Validation reports and examples do not establish
 acceptance of later revisions.
+
+## Understanding the dependencies
+
+Start with [how Laomedo talks to an agent](dependencies-explained.md) for a
+first-principles explanation of ACP, SDKs, local servers and the provider stacks.
