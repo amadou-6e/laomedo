@@ -20,7 +20,11 @@ def apply_pr_controls(checkout):
     overlay = ROOT / "frontend/langflow-skill-viewer/github/pull_requests"
     frontend = checkout / "src/frontend/src"
     target = frontend / "CustomNodes/GenericNode/components/RenderInputParameters"
-    for name in ("PRNodeControls.ts", "PRNodeControls.test.tsx"):
+    for name in (
+        "PRNodeControls.ts",
+        "PRNodeControls.test.tsx",
+        "PRSelectors.test.tsx",
+    ):
         shutil.copy2(overlay / name, target / name)
     helper = "@/CustomNodes/GenericNode/components/RenderInputParameters/PRNodeControls"
     parameter = frontend / "components/core/parameterRenderComponent/index.tsx"
@@ -69,7 +73,24 @@ def apply_pr_controls(checkout):
         "Object.keys(options).length === 0 && !combobox",
         "Object.keys(options).length === 0 && !combobox && !prNode",
     )
+    source = replace_once(
+        source,
+        "          {renderOptionsList()}",
+        "          {renderOptionsList()}\n"
+        '          {prNode && <Button type="button" variant="ghost" className="w-full justify-start" aria-label="Refresh Labels"\n'
+        "            onClick={() => { setOpen(false); handleOnNewValue({ value: treatedValue }, { skipSnapshot: true }); }}>Refresh list</Button>}",
+    )
     multiselect.write_text(source, encoding="utf-8")
+    dropdown = frontend / "components/core/dropdownComponent/index.tsx"
+    source = f'import {{ isPRNode }} from "{helper}";\n' + dropdown.read_text(
+        encoding="utf-8"
+    )
+    source = replace_once(
+        source,
+        '    if (event.key === "Enter") {',
+        '    if (event.key === "Enter" && !isPRNode(_nodes.find(node => node.id === nodeId)?.data)) {',
+    )
+    dropdown.write_text(source, encoding="utf-8")
     edit_rows = frontend / "modals/editNodeModal/hooks/use-row-data.ts"
     source = f'import {{ isPRControlHidden }} from "{helper}";\n' + edit_rows.read_text(
         encoding="utf-8"

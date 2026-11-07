@@ -1,4 +1,4 @@
-﻿import { render, screen } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import RenderInputParameters from "./index";
 import { isPRNode, prChoicePlaceholder, prFieldTemplate, PR_DISCOVERY_ERROR } from "./PRNodeControls";
 
