@@ -16,7 +16,8 @@ No ambient gh/GCM/environment credential fallback, Agent turn, repository write,
 Git publishing or claim of hosted multi-user support is included.
 
 Owner-selected first deployment: one Windows user and loopback-only local services.
-The explicit local-owner/session mechanism remains a proposal. The owner corrected
+The owner selected normal Laomedo sign-in for private access. The detailed
+owner/session mechanism still requires review and implementation. The owner corrected
 the app-registration answer: no app exists; include one-time setup instructions. The
 existing auto-login preview is not accepted as a private-connection user boundary.
 Do not retrofit the shared source-service bearer token as user authentication.
@@ -118,7 +119,8 @@ return that deployment decision to the owner rather than silently using device f
     ambiguous 404 says access could not be confirmed. Never infer privacy or
     existence. Preserve Source text and exact pins; refresh is read-only.
 
-All items above are proposals, not owner-approved contract decisions. Canonical
+Normal app sign-in is owner-selected; the technical mechanisms above remain
+proposals. Canonical
 specification and Draw.io must be reviewed before product implementation.
 
 ## Intended ownership and nomenclature
@@ -211,9 +213,9 @@ instructions/callers, so its first packet is partial coverage, not full approval
 | --- | --- | --- |
 | 251-A1 | Proposal corrected: private registry/journal isolation and caller inventory, not cache-only partition | Focused review and canonical contract |
 | 251-A2 | Confirmed: current source/operation request schemas carry no owner; runner accepts exact refs from its shared store | Implement explicit private admission; no public-store import |
-| 251-A3 | Pinned upstream auth inspected: auto-login can issue JWTs; reject AUTO_LOGIN deployment rather than trusting method=jwt | Owner accepts explicit local sign-in; real browser validation |
+| 251-A3 | Pinned upstream auth inspected: auto-login can issue JWTs; reject AUTO_LOGIN deployment rather than trusting method=jwt | Owner accepted normal sign-in; real browser validation remains |
 | 251-A4 | API refs/tree/blob option compared against depth-one snapshots; custom credential bridge removed from preferred approach | Canonical transport review and bounded real API proof |
-| 251-A5 | Owner question pending: local app registration versus alternate deployment/protocol | Owner choice; no embedded client secret |
+| 251-A5 | No existing app; prepare one-time local registration setup | Owner performs/approves registration; no embedded client secret |
 | 251-A6 | Source-read consent amendment is explicitly required | Reviewed canonical spec and Draw.io before implementation |
 | 251-A7 | Per-request verification latency/rate-limit tradeoff retained as a proposal | Owner accepts policy; measure real read latency |
 
@@ -233,8 +235,9 @@ the ignored review evidence, not represented as reviewed.
   private connections. The implementation must not disable auto-login or change
   running services automatically. Under the proposed strict mode, existing public
   previews continue unchanged and private connections refuse until the owner has
-  deliberately configured supported authentication. The owner has not accepted
-  this prerequisite; another explicit local-owner/session design may be selected.
+  deliberately configured supported authentication. The owner accepted
+  normal Laomedo sign-in for private access on 2026-11-07. Actual setup and
+  browser/session verification remain outstanding.
 - **251-A9 (rejected with evidence):** the reviewer questioned model provenance.
   The actual raw CLI result contains `modelUsage.claude-opus-5-5.canonicalModel`,
   independent of the response's self-description. The record now names that exact
@@ -256,7 +259,10 @@ The owner selected local Windows first and explicitly authorized a separate spec
 worktree, overriding that checkout policy for this task. Then the owner corrected
 the app registration answer: there is no app. Do not assume existing credentials;
 prepare one-time setup without registering or modifying GitHub automatically.
-The canonical draft is specs #411 at `c119de7`, with SC01-SC10 and four editable
-UI pages. All pages were rendered/inspected; the validator passed with zero errors
-and one unrelated existing diagram-size warning. Independent full canonical and
-visual review is running; no runtime acceptance follows from a design render.
+The canonical draft is [specs #411](https://github.com/amadou-6e/specs/pull/411),
+with SC01-SC10 and eight editable UI pages. Full review and focused recheck found
+remaining deployment/navigation gaps; corrections now cover the existing native
+Windows app recipe, first-install URL and every drawn recovery control. A new
+design-readiness review is pending. The owner accepted normal Laomedo sign-in
+for private access; public auto-login previews remain unchanged. No runtime code,
+real sign-in, private read or workflow acceptance is claimed.
