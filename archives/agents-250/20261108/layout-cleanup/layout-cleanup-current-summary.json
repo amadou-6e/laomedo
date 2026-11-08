@@ -48,5 +48,10 @@
   "merge": "Not authorized by these checks; owner graph and spec403 gates retained",
   "new_model_execution": false,
   "earlier_langflow_failures": "Initial150ran:2failures; source/hash sync fixedone, remaining10displaymetadata drift reproduced at620ad13a and corrected. Final150pass.",
-  "ci": "Latest089f71aa:Blackpassed,bothpackage/Dockerjobsinprogress"
+  "ci": {
+    "head": "089f71aaed3a2fd4420dc878fbd6fefb646779d4",
+    "checks": 8,
+    "all_success": true,
+    "earlier_failure": "Python3.10officialdownloadHTTP504beforetests; one failed-jobrerun resolved, no workflowconfigurationchange"
+  }
 }

@@ -9,3 +9,5 @@ Local internal controls:590Agent ran with4skips;188Host ran with3skips;22WorkGra
 The same low-effort reviewer request read the conservation record and requested structural packet ranges1-420and420-839 before native rate_limit. There is no completed focused verdict. Preserve pending digesta2d942bbeccebb7094154ddc05c361129ff07dfa2931e4ff647a1492d5342cb6; resume at840-1225and review subsequent source/hash+metadata deltas. Native reported reset13:40Europe/Berlin on8November. The prior completed full review covers620ad13a, not this new cleanup. No new reviewer conversation or repeated full-PR review is needed.
 
 Spec403and final requesting-owner graph validation remain merge gates. PR250staysdraft/unmerged and23historical checkpointsstayHOLD. Raw native transcripts, credentials, profiles and runtime databases are excluded.
+
+All8hosted checks now pass at089f71aa after one failed-job rerun for a Python3.10downloadHTTP504before project tests. No workflow settings changed. The focused reviewer quota blocker remains.

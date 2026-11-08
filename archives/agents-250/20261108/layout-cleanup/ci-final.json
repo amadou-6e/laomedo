@@ -1,0 +1,45 @@
+{
+  "head": "089f71aaed3a2fd4420dc878fbd6fefb646779d4",
+  "checks": [
+    {
+      "link": "https://github.com/amadou-6e/laomedo/actions/runs/42465451692/job/128684438271",
+      "name": "package-and-test (3.10)",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/amadou-6e/laomedo/actions/runs/42465451692/job/128684438449",
+      "name": "package-and-test (3.13)",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/amadou-6e/laomedo/actions/runs/42465451710/job/128683793970",
+      "name": "black",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/amadou-6e/laomedo/actions/runs/42465451692/job/128684439921",
+      "name": "docker-runtime-controls",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/amadou-6e/laomedo/actions/runs/42465447720/job/128683781539",
+      "name": "black",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/amadou-6e/laomedo/actions/runs/42465447723/job/128683781526",
+      "name": "docker-runtime-controls",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/amadou-6e/laomedo/actions/runs/42465447723/job/128683781685",
+      "name": "package-and-test (3.10)",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/amadou-6e/laomedo/actions/runs/42465447723/job/128683781650",
+      "name": "package-and-test (3.13)",
+      "state": "SUCCESS"
+    }
+  ]
+}

@@ -32,9 +32,14 @@
       "bytes": 289
     },
     {
+      "path": "layout-cleanup/ci-final.json",
+      "sha256": "cf2b056b39871e5053f12d7896bb13db8e379004cff1fe86c47b9cfbb153e402",
+      "bytes": 1482
+    },
+    {
       "path": "layout-cleanup/layout-cleanup-current-summary.json",
-      "sha256": "bbc369519fde4824b9fddbb9a4bcd3087a9d8981a6ce278974f1af7e296499a1",
-      "bytes": 1707
+      "sha256": "64252508893db8940463e2be5f35a36adba7d438dc48fab6d50878f06bd7d0dd",
+      "bytes": 1886
     },
     {
       "path": "layout-cleanup/layout-export-differences.json",
@@ -58,8 +63,8 @@
     },
     {
       "path": "layout-cleanup/README.md",
-      "sha256": "bbe89e5729b79d2106953973b4c056ad1586e25e52ced2b8a59e54ff16b77e7f",
-      "bytes": 2108
+      "sha256": "35a5efd35df5a2f66ce9830122bd0be0632a7f8b33fff44d93ca984a9b419f5c",
+      "bytes": 2303
     },
     {
       "path": "README.md",
