@@ -23,7 +23,7 @@ class ProviderRecoveryTests(unittest.TestCase):
                 threading.Event(),
                 time.monotonic() + 10,
             )
-            self.addCleanup(service.close)
+            self.addCleanup(service.shutdown)
             with self.assertRaisesRegex(
                 RunnerError, "workspace_command_output_too_large"
             ):
@@ -63,7 +63,7 @@ class ProviderRecoveryTests(unittest.TestCase):
             worker.start()
             try:
                 self.assertTrue(entered.wait(2))
-                service.close()
+                service.shutdown()
             finally:
                 service.stopping.set()
                 worker.join(4)
@@ -83,7 +83,7 @@ class ProviderRecoveryTests(unittest.TestCase):
                 threading.Event(),
                 time.monotonic() + 10,
             )
-            self.addCleanup(service.close)
+            self.addCleanup(service.shutdown)
             with self.assertRaisesRegex(RunnerError, "claude_turn_timeout"):
                 service.transport.execute({"command": "pwd"})
             runtime.job.assert_not_called()

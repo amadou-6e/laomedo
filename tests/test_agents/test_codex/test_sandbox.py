@@ -55,7 +55,7 @@ class RunnerSandboxPolicyTests(unittest.TestCase):
                 spec.environment["LAOMEDO_CODEX_ARGS"].get_secret_value(),
             )
             controller._close_resources()
-            executor.close.assert_called_once_with()
+            executor.shutdown.assert_called_once_with()
 
     def test_split_permission_checks_use_selected_endpoint(self):
         from unittest.mock import AsyncMock

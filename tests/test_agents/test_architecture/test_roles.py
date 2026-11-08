@@ -10,6 +10,8 @@ from pydantic import SecretStr, ValidationError
 from laomedo.agents.agents.base.base import (
     BaseAgentRuntime,
     BaseCommandExecutor,
+    BaseInterruptibleCommandExecutor,
+    BaseSplitCommandExecutor,
     BaseCredentialProvider,
     BaseModelCatalog,
     BaseActivityProjector,
@@ -22,6 +24,9 @@ from laomedo.agents.agents.base.models import (
 )
 from laomedo.agents.agents.codex.runtime import CodexAgentRuntime
 from laomedo.agents.agents.claude.runtime import ClaudeAgentRuntime
+from laomedo.agents.agents.claude.executor import ClaudeCommandExecutor
+from laomedo.agents.agents.opencode.executor import OpenCodeCommandExecutor
+from laomedo.agents.agents.codex.split.executor import CodexCommandExecutor
 from laomedo.agents.agents.opencode.runtime import OpenCodeAgentRuntime
 from laomedo.agents.agents.codex.credentials import CodexCredentialProvider
 from laomedo.agents.agents.claude.credentials import ClaudeCredentialProvider
@@ -34,6 +39,40 @@ from laomedo.agents.errors import RunnerError
 
 
 class ProviderRoleTests(unittest.TestCase):
+    def test_command_capabilities_are_explicit_and_cancellation_is_not_acknowledgement(
+        self,
+    ):
+        """Persistent split checks differ from interruptible transient job control."""
+        self.assertTrue(issubclass(CodexCommandExecutor, BaseSplitCommandExecutor))
+        self.assertFalse(
+            issubclass(CodexCommandExecutor, BaseInterruptibleCommandExecutor)
+        )
+        for executor_type in (ClaudeCommandExecutor, OpenCodeCommandExecutor):
+            self.assertTrue(issubclass(executor_type, BaseInterruptibleCommandExecutor))
+            for active in (False, True):
+                with self.subTest(provider=executor_type.__name__, active=active):
+                    executor = executor_type.__new__(executor_type)
+                    executor.lock = threading.Lock()
+                    executor.capacity = threading.BoundedSemaphore(1)
+                    executor.stopping = threading.Event()
+                    executor.closed = False
+                    gate = (
+                        executor.lock
+                        if executor_type is ClaudeCommandExecutor
+                        else executor.capacity
+                    )
+                    if active:
+                        gate.acquire()
+                    try:
+                        observed = executor.request_cancel()
+                    finally:
+                        if active:
+                            gate.release()
+                    self.assertEqual(observed.requested, active)
+                    self.assertIsNone(observed.confirmed)
+                    self.assertTrue(executor.stopping.is_set())
+                    self.assertTrue(executor.closed)
+
     def test_borrow_contract_preserves_native_secret_ownership(self):
         """Each provider returns material without forcing volume secrets into tokens."""
         connection = Mock()

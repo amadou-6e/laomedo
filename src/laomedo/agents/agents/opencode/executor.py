@@ -29,16 +29,17 @@ from laomedo.agents.agents.base.utils import _private
 from laomedo.agents.agents.base.utils import failure_observation
 
 
-from laomedo.agents.agents.base.base import BaseCommandExecutor
+from laomedo.agents.agents.base.base import BaseInterruptibleCommandExecutor
 from laomedo.agents.agents.base.models import (
     CommandRequest,
     CommandResult,
     CleanupObservation,
+    CancellationObservation,
 )
 from laomedo.agents.agents.opencode.http.broker import OpenCodeCommandBroker
 
 
-class OpenCodeCommandExecutor(BaseCommandExecutor):
+class OpenCodeCommandExecutor(BaseInterruptibleCommandExecutor):
     """Own credential-free worker execution and exact receipt cleanup, composed with an MCP adapter."""
 
     def __init__(
@@ -73,15 +74,19 @@ class OpenCodeCommandExecutor(BaseCommandExecutor):
 
         self.broker = OpenCodeCommandBroker(self)
 
-    def stop(self):
-        """Reject new work and signal exact-ID cancellation of the active job."""
+    def request_cancel(self) -> CancellationObservation:
+        """Reject admission and signal exact-job cancellation without waiting for drain."""
         with self.lock:
             self.closed = True
             self.stopping.set()
+            idle = self.capacity.acquire(blocking=False)
+            if idle:
+                self.capacity.release()
+        return CancellationObservation(requested=not idle, confirmed=None)
 
-    def close(self):
-        """Cancel the active job and await its confirmed cleanup before returning."""
-        self.stop()
+    def shutdown(self) -> CleanupObservation:
+        """Stop admission, close owned resources and return exact cleanup evidence."""
+        self.request_cancel()
         self.broker.server.shutdown()
         self.broker.server.server_close()
         self.broker.thread.join(timeout=5)
@@ -91,6 +96,7 @@ class OpenCodeCommandExecutor(BaseCommandExecutor):
         self.drained = acquired and not self.broker.thread.is_alive()
         if not acquired or self.cleanup_failed or self.broker.thread.is_alive():
             raise RunnerError("opencode_container_cleanup_unverified")
+        return CleanupObservation(confirmed=True, scope="command_workers_and_broker")
 
     def execute(self, request: CommandRequest) -> CommandResult:
         """Execute an admitted command with typed output and confirmed worker cleanup."""
@@ -111,11 +117,6 @@ class OpenCodeCommandExecutor(BaseCommandExecutor):
         return CommandResult(
             **value, cleanup=CleanupObservation(confirmed=True, scope="command_worker")
         )
-
-    def shutdown(self) -> CleanupObservation:
-        """Stop admission and verify all allocated command workers before release."""
-        self.close()
-        return CleanupObservation(confirmed=True, scope="command_workers_and_broker")
 
     def _execute_native(self, command, *, deadline=None):
         """Run one credential-free worker; a receipt owns all cleanup uncertainty."""

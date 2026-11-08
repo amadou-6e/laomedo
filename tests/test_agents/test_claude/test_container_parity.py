@@ -491,7 +491,7 @@ class ClaudeContainerParityTests(unittest.TestCase):
         try:
             self.assertEqual(service.transport.server.server_address[0], "127.0.0.1")
         finally:
-            service.close()
+            service.shutdown()
 
     def test_cancel_ack_does_not_race_execution_cleanup(self):
         record = self.runner._prepare(self.payload)

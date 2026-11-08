@@ -53,6 +53,36 @@ class ProviderContractCheckerTests(unittest.TestCase):
         )
         self.assertTrue(any("Provider.bypass" in error for error in errors))
 
+    def test_explicit_derived_capability_is_checked_without_waiving_other_methods(self):
+        """Only a declared interface extension admits a capability API."""
+        sources = {
+            "example.base": "class BaseRole:\n def execute(self, request): ...\n"
+            "class BaseInterruptible(BaseRole):\n def request_cancel(self): ...\n",
+            "example.provider": "from example.base import BaseInterruptible\n"
+            "class Provider(BaseInterruptible):\n"
+            " def execute(self, request): ...\n"
+            " def request_cancel(self): ...\n",
+        }
+        contracts = {"example.base.BaseRole", "example.base.BaseInterruptible"}
+        self.assertEqual(contract_violations(sources, contracts), [])
+        self.assertTrue(contract_violations(sources, {"example.base.BaseRole"}))
+        sources["example.provider"] += " def bypass(self): ...\n"
+        self.assertTrue(
+            any(
+                "Provider.bypass" in item
+                for item in contract_violations(sources, contracts)
+            )
+        )
+        sources["example.provider"] = sources["example.provider"].replace(
+            "request_cancel(self)", "request_cancel(self, required_extra)"
+        )
+        self.assertTrue(
+            any(
+                "Provider.request_cancel" in item and "contract call rejected" in item
+                for item in contract_violations(sources, contracts)
+            )
+        )
+
     def test_sync_async_override_mismatch_fails(self):
         """An awaitable operation cannot become synchronous at a provider boundary."""
         errors = self.check(
@@ -160,6 +190,8 @@ class ProviderInterfaceContractTests(unittest.TestCase):
             for name in (
                 "BaseAgentRuntime",
                 "BaseCommandExecutor",
+                "BaseInterruptibleCommandExecutor",
+                "BaseSplitCommandExecutor",
                 "BaseCredentialProvider",
                 "BaseModelCatalog",
                 "BaseActivityProjector",

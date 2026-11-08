@@ -16,6 +16,8 @@ from laomedo.agents.agents.base.models import (
     CredentialMaterial,
     ModelCatalogSnapshot,
     RuntimeLaunch,
+    ProcessHealthObservation,
+    IsolationObservation,
 )
 from laomedo.agents.activity.models import ActivityProjection
 
@@ -56,6 +58,35 @@ class BaseCommandExecutor(ABC):
     @abstractmethod
     def shutdown(self) -> CleanupObservation:
         """Stop admission and reconcile only resources allocated by this executor."""
+
+
+class BaseInterruptibleCommandExecutor(BaseCommandExecutor):
+    """Optional exact-worker interruption, distinct from closing an executor scope.
+
+    Implementations own a native job cancellation signal. Persistent execution
+    services whose command interruption belongs to native ACP do not claim this
+    capability. No fallback cancels an unrelated controller or invents an ack.
+    """
+
+    @abstractmethod
+    def request_cancel(self) -> CancellationObservation:
+        """Stop admission and signal active owned jobs; acknowledgement stays unknown."""
+
+
+class BaseSplitCommandExecutor(BaseCommandExecutor):
+    """Optional persistent executor paired with a credential-bearing controller.
+
+    A caller using this capability needs liveness of that persistent service and
+    the native split-controller isolation gate, not merely a transient job result.
+    """
+
+    @abstractmethod
+    def check_health(self) -> ProcessHealthObservation:
+        """Observe exact persistent executor/reader liveness or fail closed."""
+
+    @abstractmethod
+    def assert_controller_isolated(self, controller) -> IsolationObservation:
+        """Verify the actual native controller/executor gate, independent of health."""
 
 
 class BaseCredentialProvider(ABC):

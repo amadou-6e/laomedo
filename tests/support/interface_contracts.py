@@ -197,13 +197,23 @@ def contract_violations(sources, contracts):
         if contract_name not in classes:
             diagnostics.append("Missing contract: " + contract_name)
             continue
-        expected = _members(contract_name, classes)
         providers = [
-            name for name in classes if contract_name in _ancestors(name, classes)
+            name
+            for name in classes
+            if name not in contracts and contract_name in _ancestors(name, classes)
         ]
         if not providers:
             diagnostics.append("No implementations found for " + contract_name)
         for provider in sorted(providers):
+            # An explicitly selected derived capability is a contract, not a
+            # concrete-provider exemption. Unregistered mixins grant no API.
+            expected = {}
+            for ancestor in reversed(_mro(provider, classes)):
+                if ancestor in contracts and (
+                    ancestor == contract_name
+                    or contract_name in _ancestors(ancestor, classes)
+                ):
+                    expected.update(_members(ancestor, classes))
             for name, (owner, method) in _members(provider, classes).items():
                 if name == "__init__" or (
                     name.startswith("_") and not name.endswith("__")

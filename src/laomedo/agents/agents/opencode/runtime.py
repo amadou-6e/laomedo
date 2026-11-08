@@ -349,7 +349,7 @@ class OpenCodeAgentRuntime(BaseAgentRuntime):
     def cancel(self):
         """Stop owned workers; the shared ACP prompt observes the runner's flag."""
         if self.broker is not None:
-            self.broker.stop()
+            self.broker.request_cancel()
 
     def check_transport(self):
         """Surface independently observed worker failures, never model claims."""
@@ -369,7 +369,7 @@ class OpenCodeAgentRuntime(BaseAgentRuntime):
         recovered = True
         try:
             if self.broker is not None:
-                self.broker.stop()
+                self.broker.request_cancel()
         except Exception as error:
             failed = True
             observation = failure_observation(
@@ -385,7 +385,7 @@ class OpenCodeAgentRuntime(BaseAgentRuntime):
             )
         try:
             if self.broker is not None:
-                self.broker.close()
+                self.broker.shutdown()
             drained = True
         except Exception as error:
             failed = True

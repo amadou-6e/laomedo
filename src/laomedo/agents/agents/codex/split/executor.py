@@ -10,7 +10,7 @@ from uuid import uuid4
 
 from laomedo.agents.agents.codex.settings import CLI_VERSION
 from laomedo.agents.errors import RunnerError
-from laomedo.agents.agents.base.base import BaseCommandExecutor
+from laomedo.agents.agents.base.base import BaseSplitCommandExecutor
 from laomedo.agents.agents.base.models import (
     CommandRequest,
     CommandResult,
@@ -20,7 +20,7 @@ from laomedo.agents.agents.base.models import (
 )
 
 
-class CodexCommandExecutor(BaseCommandExecutor):
+class CodexCommandExecutor(BaseSplitCommandExecutor):
     """Own one exact-ID executor, its readiness checks and bounded stream drain."""
 
     def __init__(
@@ -81,7 +81,7 @@ class CodexCommandExecutor(BaseCommandExecutor):
             self.reader = threading.Thread(target=self._drain, daemon=True)
             self.reader.start()
         except Exception:
-            self.close()
+            self.shutdown()
             raise
 
     def check_health(self):
@@ -111,8 +111,8 @@ class CodexCommandExecutor(BaseCommandExecutor):
             verified=True, scope="codex_split_controller_and_executor"
         )
 
-    def close(self) -> None:
-        """Keep an unresolved executor receipt and report cleanup uncertainty."""
+    def shutdown(self) -> CleanupObservation:
+        """Stop admission, close owned resources and return exact cleanup evidence."""
         from py_docker.errors import DockerOperationError
 
         try:
@@ -126,6 +126,7 @@ class CodexCommandExecutor(BaseCommandExecutor):
             raise RunnerError("executor_termination_unverified") from None
         finally:
             self.client.close()
+        return CleanupObservation(confirmed=True, scope="codex_executor_and_reader")
 
     def execute(self, request: CommandRequest) -> CommandResult:
         """Execute once in the owned credential-free container; never retry timeout."""
@@ -151,11 +152,6 @@ class CodexCommandExecutor(BaseCommandExecutor):
             stderr=result.stderr.decode("utf-8", errors="replace"),
             cleanup=CleanupObservation(confirmed=True, scope="exec_process_only"),
         )
-
-    def shutdown(self) -> CleanupObservation:
-        """Reconcile the executor session and reader before confirming their closure."""
-        self.close()
-        return CleanupObservation(confirmed=True, scope="codex_executor_and_reader")
 
     def _exec(self, identity, command):
         """Execute a bounded policy probe through the selected owned session."""

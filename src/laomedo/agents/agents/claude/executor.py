@@ -4,17 +4,18 @@ import secrets
 import threading
 import time
 from uuid import uuid4
-from laomedo.agents.agents.base.base import BaseCommandExecutor
+from laomedo.agents.agents.base.base import BaseInterruptibleCommandExecutor
 from laomedo.agents.agents.base.models import (
     CommandRequest,
     CommandResult,
     CleanupObservation,
+    CancellationObservation,
 )
 from laomedo.agents.agents.claude.http.commands import ClaudeCommandTransport
 from laomedo.agents.errors import RunnerError
 
 
-class ClaudeCommandExecutor(BaseCommandExecutor):
+class ClaudeCommandExecutor(BaseInterruptibleCommandExecutor):
     """One run capability; all commands execute without the Claude profile/network."""
 
     def __init__(self, runtime, root, record, cancelled, deadline, *, mediation=None):
@@ -30,11 +31,22 @@ class ClaudeCommandExecutor(BaseCommandExecutor):
 
         self.transport = ClaudeCommandTransport(self)
 
-    def close(self):
-        """Stop admission and reconcile jobs before releasing the wire capability."""
+    def shutdown(self) -> CleanupObservation:
+        """Stop admission, close owned resources and return exact cleanup evidence."""
+        self.request_cancel()
+        self.transport.close()
+        return CleanupObservation(
+            confirmed=True, scope="claude_command_workers_and_transport"
+        )
+
+    def request_cancel(self) -> CancellationObservation:
+        """Signal the owned job without blocking on cleanup or claiming native ack."""
         self.closed = True
         self.stopping.set()
-        self.transport.close()
+        idle = self.lock.acquire(blocking=False)
+        if idle:
+            self.lock.release()
+        return CancellationObservation(requested=not idle, confirmed=None)
 
     def execute(self, request: CommandRequest) -> CommandResult:
         """Run one admitted command; keep its combined-output native wire semantics."""
@@ -49,13 +61,6 @@ class ClaudeCommandExecutor(BaseCommandExecutor):
             cleanup=CleanupObservation(
                 confirmed=True, scope="claude_command_worker_and_lease"
             ),
-        )
-
-    def shutdown(self) -> CleanupObservation:
-        """Confirm command-job cleanup and listener closure without affecting login."""
-        self.close()
-        return CleanupObservation(
-            confirmed=True, scope="claude_command_workers_and_transport"
         )
 
     def _execute_native(self, value, *, deadline=None):

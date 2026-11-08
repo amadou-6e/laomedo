@@ -550,7 +550,7 @@ class CodexAgentRuntime(BaseAgentRuntime):
             )
         try:
             if self.executor is not None:
-                self.executor.close()
+                self.executor.shutdown()
         except RunnerError as failure:
             error = RunnerError(
                 failure.code,

@@ -79,7 +79,7 @@ class ProviderRecoveryTests(unittest.TestCase):
             broker = OpenCodeCommandExecutor(
                 root, root, root, root, docker_endpoint="unix:///internal.sock"
             )
-            self.addCleanup(broker.close)
+            self.addCleanup(broker.shutdown)
             with patch("py_docker.Client") as client:
                 client.return_value.__enter__.return_value.jobs.run.side_effect = (
                     OutputLimitError("internal limit")

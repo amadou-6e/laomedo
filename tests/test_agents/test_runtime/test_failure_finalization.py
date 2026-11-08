@@ -85,15 +85,15 @@ class OpenCodeReceiptTests(unittest.TestCase):
             unrelated.write_text("unrelated", encoding="utf-8")
             backend.allocated_receipts.add(catalog)
             backend.broker = SimpleNamespace(
-                stop=Mock(),
-                close=Mock(),
+                request_cancel=Mock(),
+                shutdown=Mock(),
                 lock=threading.Lock(),
                 allocated_receipts={worker},
                 drained=False,
             )
             order = []
-            backend.broker.stop.side_effect = lambda: order.append("stop")
-            backend.broker.close.side_effect = lambda: order.append("drain")
+            backend.broker.request_cancel.side_effect = lambda: order.append("stop")
+            backend.broker.shutdown.side_effect = lambda: order.append("drain")
             backend.docker.sessions.recover.side_effect = lambda receipt: order.append(
                 receipt
             )
@@ -115,8 +115,8 @@ class OpenCodeReceiptTests(unittest.TestCase):
                     )
                 elif phase == "drain":
                     backend.broker = SimpleNamespace(
-                        stop=Mock(),
-                        close=Mock(
+                        request_cancel=Mock(),
+                        shutdown=Mock(
                             side_effect=RunnerError(
                                 "opencode_container_cleanup_unverified"
                             )
@@ -143,8 +143,8 @@ class OpenCodeReceiptTests(unittest.TestCase):
             backend = self.make_backend(directory)
             backend.session = Mock()
             backend.broker = SimpleNamespace(
-                stop=Mock(side_effect=RuntimeError("PRIVATE")),
-                close=Mock(),
+                request_cancel=Mock(side_effect=RuntimeError("PRIVATE")),
+                shutdown=Mock(),
                 lock=threading.Lock(),
                 allocated_receipts=set(),
             )
@@ -153,7 +153,7 @@ class OpenCodeReceiptTests(unittest.TestCase):
             ):
                 backend.close()
             backend.session.close.assert_called_once()
-            backend.broker.close.assert_called_once()
+            backend.broker.shutdown.assert_called_once()
             backend.docker.close.assert_called_once()
             self.assertFalse(backend.termination_verified)
 
@@ -369,7 +369,7 @@ class CodexAgentRuntimeFailureTests(unittest.IsolatedAsyncioTestCase):
         controller.session = Mock()
         controller.cleanup_confirmed = False
         controller.executor = SimpleNamespace(
-            close=Mock(side_effect=RunnerError("executor_termination_unverified"))
+            shutdown=Mock(side_effect=RunnerError("executor_termination_unverified"))
         )
         controller.logs, controller.telemetry, controller.client = [], None, Mock()
         with self.assertRaisesRegex(

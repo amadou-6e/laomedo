@@ -4,7 +4,8 @@ Existing provider-neutral lifecycle and public-boundary regressions. Source scan
 
 ## Provider interface enforcement
 
-`test_provider_contracts.py` checks the five provider role interfaces in
+`test_provider_contracts.py` checks the five provider role interfaces and the
+explicit interruptible-worker and split-executor capability contracts in
 `agents/agents/base/base.py`. Implementations may expose only methods/properties
 declared by their role, including inherited public methods and context-manager
 protocols. Helpers must remain internal. Override checks reject narrowed call
@@ -14,6 +15,10 @@ host-composition concerns with provider-specific arguments.
 The dependency-free `provider-interface-contracts` CI job runs the guard and its
 negative controls. Normal Agent and installed-wheel discovery also includes it.
 There is no baseline, provider allowlist, expected violation count or soft-fail.
+An explicitly selected derived capability contributes its declared interface to
+implementations of that capability. The checker still rejects undeclared mixin
+methods and incompatible capability overrides; a provider class is not an
+interface exemption.
 The existing provider surface leaks make the check fail until the implementation
 is repaired. Do not expand a base with unrelated operations just to clear CI;
 resolve the responsibility or declare a justified capability contract explicitly.

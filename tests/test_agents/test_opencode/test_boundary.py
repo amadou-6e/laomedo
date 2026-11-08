@@ -36,7 +36,7 @@ class BoundaryTests(unittest.TestCase):
         self.assertIsNone(boundary.cancel())
         boundary.broker = Mock()
         self.assertIsNone(boundary.cancel())
-        boundary.broker.stop.assert_called_once_with()
+        boundary.broker.request_cancel.assert_called_once_with()
 
     @staticmethod
     def fixture(root, *, mode="console_token", expiry=None):
@@ -190,7 +190,7 @@ class BoundaryTests(unittest.TestCase):
                         image="controller",
                         image_id=CONTROLLER_ID,
                     )
-                broker.return_value.close.assert_called_once()
+                broker.return_value.shutdown.assert_called_once()
                 client.return_value.sessions.open.assert_not_called()
 
     @unittest.skipUnless(
@@ -299,7 +299,7 @@ class BoundaryTests(unittest.TestCase):
             broker = OpenCodeCommandExecutor(
                 root, root, root, root, docker_endpoint=ENDPOINT
             )
-            self.addCleanup(broker.close)
+            self.addCleanup(broker.shutdown)
             entered, release = threading.Event(), threading.Event()
 
             def run(job, **kwargs):
@@ -340,7 +340,7 @@ class BoundaryTests(unittest.TestCase):
             )
             broker.capacity.acquire()
             closed = threading.Event()
-            thread = threading.Thread(target=lambda: (broker.close(), closed.set()))
+            thread = threading.Thread(target=lambda: (broker.shutdown(), closed.set()))
             thread.start()
             try:
                 time.sleep(0.6)
@@ -394,7 +394,7 @@ class BoundaryTests(unittest.TestCase):
             with self.assertRaisesRegex(
                 RunnerError, "opencode_container_cleanup_unverified"
             ):
-                broker.close()
+                broker.shutdown()
 
     @unittest.skipUnless(
         find_spec("py_docker"),
@@ -411,7 +411,7 @@ class BoundaryTests(unittest.TestCase):
                 docker_endpoint=ENDPOINT,
                 worker_image_id=CONTROLLER_ID,
             )
-            self.addCleanup(broker.close)
+            self.addCleanup(broker.shutdown)
             with patch("py_docker.Client") as client:
                 client.return_value.__enter__.return_value.jobs.run.return_value = (
                     CommandResult(exit_code=0, stdout=b"ok", stderr=b"")
@@ -442,7 +442,7 @@ class BoundaryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp)
             broker = OpenCodeCommandExecutor(path, path, path, path)
-            self.addCleanup(broker.close)
+            self.addCleanup(broker.shutdown)
             url = "http://127.0.0.1:" + str(broker.broker.server.server_port) + "/mcp"
             payload = json.dumps(
                 {"jsonrpc": "2.0", "id": 1, "method": "tools/list"}

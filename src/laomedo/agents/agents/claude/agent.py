@@ -623,7 +623,7 @@ class ClaudeAgent(BaseAgent):
             service_error = False
             if service is not None:
                 try:
-                    service.close()
+                    service.shutdown()
                 except Exception:
                     service_error = True
             verified, detail = True, "removed"
