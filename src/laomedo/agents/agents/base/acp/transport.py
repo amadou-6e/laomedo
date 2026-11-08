@@ -47,6 +47,9 @@ class DockerTransport:
                 self.on_failure()
         return None
 
+    async def close(self) -> None:
+        """Leave exact-ID teardown to the session's creator, never detach it here."""
+
     def _validate(self, message):
         """Validate SDK-bound inputs before its diagnostic exception handlers."""
         if not isinstance(message, dict):
@@ -75,6 +78,3 @@ class DockerTransport:
                 raise ValueError("Invalid ACP extension")
         elif "id" not in message:
             raise ValueError("Unsupported ACP notification")
-
-    async def close(self) -> None:
-        """Leave exact-ID teardown to the session's creator, never detach it here."""

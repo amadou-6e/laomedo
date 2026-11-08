@@ -33,17 +33,6 @@ class WindowsDirectorySecurity:
                 "private_state_system_directory_unverified"
             ) from None
 
-    def _read(self, path: Path):
-        """Read owner and DACL only, without requesting audit privileges."""
-        from win32security import DACL_SECURITY_INFORMATION, OWNER_SECURITY_INFORMATION
-        from win32security import GetNamedSecurityInfo, SE_FILE_OBJECT
-
-        return GetNamedSecurityInfo(
-            str(path),
-            SE_FILE_OBJECT,
-            OWNER_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION,
-        )
-
     def restrict(self, path: Path, expected_sid: str) -> None:
         """Replace only a newly created, current-user-owned leaf's DACL.
 
@@ -119,3 +108,14 @@ class WindowsDirectorySecurity:
                     raise ValueError()
         except Exception:
             raise PrivateStateError("private_state_permissions_unverified") from None
+
+    def _read(self, path: Path):
+        """Read owner and DACL only, without requesting audit privileges."""
+        from win32security import DACL_SECURITY_INFORMATION, OWNER_SECURITY_INFORMATION
+        from win32security import GetNamedSecurityInfo, SE_FILE_OBJECT
+
+        return GetNamedSecurityInfo(
+            str(path),
+            SE_FILE_OBJECT,
+            OWNER_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION,
+        )

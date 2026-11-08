@@ -103,6 +103,92 @@ class LaomedoGitHubPR(Component):
         super().set_vertex(vertex)
         bind_feedback_parameters(vertex)
 
+    async def agent_task_output(self) -> Message:
+        if feedback_edge(self) is None:
+            return self.task_output()
+        await self._completed_roundtrip()
+        # The Agent received the initial read through the isolated loop body.
+        # Outer graph inspection exposes the terminal result; it never dispatches it again.
+        import json
+
+        return Message(text=json.dumps(self._pr_execution_cache))
+
+    async def routed_result_output(self) -> Data:
+        if feedback_edge(self) is not None:
+            await self._completed_roundtrip()
+        return self.result_output()
+
+    def pr_output(self) -> Data:
+        result = self._execution()
+        return Data(
+            data=result["pr"]
+            or {
+                "error_category": result["operation"].get("error_category"),
+                "status": result["operation"]["status"],
+            }
+        )
+
+    def task_output(self) -> Message:
+        result = self._execution()
+        pr = result["pr"]
+        if not pr or result["operation"]["status"] in {"failed", "unknown"}:
+            if getattr(self, "_vertex", None) is not None:
+                self.stop("task")
+            return Message(text="")
+        return Message(
+            text=f"PR: {pr['url']}\nTitle: {pr['title']}\nState: {pr['state']}\nLabels: {', '.join(pr['labels'])}\n\n{pr['body']}"
+        )
+
+    def result_output(self) -> Data:
+        return Data(data=self._execution())
+
+    async def update_build_config(self, build_config, field_value, field_name=None):
+        for item in self.inputs:
+            build_config.setdefault(item.name, item.to_dict())
+        old = build_config.get(field_name, {}).get("value")
+        if field_name in {"repository_url", "labels", "state", "pr_choice"}:
+            build_config[field_name]["value"] = field_value
+        if old != field_value:
+            if field_name == "repository_url":
+                build_config["labels"].update(value=[], options=[])
+                build_config["pr_choice"].update(value="", options=[])
+            elif field_name in {"labels", "state"}:
+                build_config["pr_choice"].update(value="", options=[])
+        repository = build_config["repository_url"].get("value", "")
+        if not repository:
+            build_config["discovery_status"]["value"] = "Supply a repository URL."
+            return build_config
+        try:
+            found = await asyncio.to_thread(
+                pr_request,
+                "discover",
+                repository_url=repository,
+                labels=build_config["labels"].get("value", []),
+                state=build_config["state"].get("value", "open"),
+            )
+            build_config["labels"]["options"] = found["labels"]
+            choices = [pr["choice"] for pr in found["prs"]]
+            build_config["pr_choice"]["options"] = choices
+            selected = str(build_config["pr_choice"].get("value") or "")
+            identity = re.match(r"^#([1-9][0-9]*) ", selected)
+            build_config["pr_choice"]["value"] = next(
+                (
+                    choice
+                    for choice in choices
+                    if identity and choice.startswith("#" + identity.group(1) + " ")
+                ),
+                "",
+            )
+            build_config["discovery_status"]["value"] = (
+                f"{len(choices)} matching PRs." if choices else "No matching PRs."
+            )
+        except ValueError:
+            build_config["pr_choice"].update(value="", options=[])
+            build_config["discovery_status"][
+                "value"
+            ] = "GitHub discovery failed. Check connection and refresh."
+        return build_config
+
     def _pre_run_setup(self):
         self._pr_execution_cache = None
         self._pr_roundtrip_task = None
@@ -184,21 +270,6 @@ class LaomedoGitHubPR(Component):
             self._pr_roundtrip_task = asyncio.create_task(self._roundtrip())
         return await self._pr_roundtrip_task
 
-    async def agent_task_output(self) -> Message:
-        if feedback_edge(self) is None:
-            return self.task_output()
-        await self._completed_roundtrip()
-        # The Agent received the initial read through the isolated loop body.
-        # Outer graph inspection exposes the terminal result; it never dispatches it again.
-        import json
-
-        return Message(text=json.dumps(self._pr_execution_cache))
-
-    async def routed_result_output(self) -> Data:
-        if feedback_edge(self) is not None:
-            await self._completed_roundtrip()
-        return self.result_output()
-
     def _execution(self):
         cached = getattr(self, "_pr_execution_cache", None)
         if cached is not None:
@@ -249,74 +320,3 @@ class LaomedoGitHubPR(Component):
         self._pr_execution_cache = result
         self.status = result["operation"]["status"]
         return result
-
-    def pr_output(self) -> Data:
-        result = self._execution()
-        return Data(
-            data=result["pr"]
-            or {
-                "error_category": result["operation"].get("error_category"),
-                "status": result["operation"]["status"],
-            }
-        )
-
-    def task_output(self) -> Message:
-        result = self._execution()
-        pr = result["pr"]
-        if not pr or result["operation"]["status"] in {"failed", "unknown"}:
-            if getattr(self, "_vertex", None) is not None:
-                self.stop("task")
-            return Message(text="")
-        return Message(
-            text=f"PR: {pr['url']}\nTitle: {pr['title']}\nState: {pr['state']}\nLabels: {', '.join(pr['labels'])}\n\n{pr['body']}"
-        )
-
-    def result_output(self) -> Data:
-        return Data(data=self._execution())
-
-    async def update_build_config(self, build_config, field_value, field_name=None):
-        for item in self.inputs:
-            build_config.setdefault(item.name, item.to_dict())
-        old = build_config.get(field_name, {}).get("value")
-        if field_name in {"repository_url", "labels", "state", "pr_choice"}:
-            build_config[field_name]["value"] = field_value
-        if old != field_value:
-            if field_name == "repository_url":
-                build_config["labels"].update(value=[], options=[])
-                build_config["pr_choice"].update(value="", options=[])
-            elif field_name in {"labels", "state"}:
-                build_config["pr_choice"].update(value="", options=[])
-        repository = build_config["repository_url"].get("value", "")
-        if not repository:
-            build_config["discovery_status"]["value"] = "Supply a repository URL."
-            return build_config
-        try:
-            found = await asyncio.to_thread(
-                pr_request,
-                "discover",
-                repository_url=repository,
-                labels=build_config["labels"].get("value", []),
-                state=build_config["state"].get("value", "open"),
-            )
-            build_config["labels"]["options"] = found["labels"]
-            choices = [pr["choice"] for pr in found["prs"]]
-            build_config["pr_choice"]["options"] = choices
-            selected = str(build_config["pr_choice"].get("value") or "")
-            identity = re.match(r"^#([1-9][0-9]*) ", selected)
-            build_config["pr_choice"]["value"] = next(
-                (
-                    choice
-                    for choice in choices
-                    if identity and choice.startswith("#" + identity.group(1) + " ")
-                ),
-                "",
-            )
-            build_config["discovery_status"]["value"] = (
-                f"{len(choices)} matching PRs." if choices else "No matching PRs."
-            )
-        except ValueError:
-            build_config["pr_choice"].update(value="", options=[])
-            build_config["discovery_status"][
-                "value"
-            ] = "GitHub discovery failed. Check connection and refresh."
-        return build_config

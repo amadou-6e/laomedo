@@ -2,14 +2,9 @@
 
 from __future__ import annotations
 
-from laomedo.skills.registry.files import inventory
-from laomedo.skills.registry.hashing import tree_hash
-
-
 from abc import ABC, abstractmethod
 from pathlib import Path
 from urllib.request import ProxyHandler, build_opener
-from laomedo.http.redirect import NoRedirect
 from uuid import uuid4
 import hashlib
 import json
@@ -17,6 +12,10 @@ import os
 import re
 import secrets
 import threading
+
+from laomedo.skills.registry.files import inventory
+from laomedo.skills.registry.hashing import tree_hash
+from laomedo.http.redirect import NoRedirect
 from laomedo.agents.artifacts.errors import ArtifactError
 from laomedo.agents.artifacts.utils import import_selected
 from laomedo.agents.artifacts.utils import relative_path
@@ -126,6 +125,11 @@ class BaseAgent(ABC):
     def provider(self) -> str:
         """Concrete adapter identity; there is no default provider."""
 
+    @property
+    def supports_mediated_github(self) -> bool:
+        """Opt in only when the provider actually implements the mediated lease path."""
+        return False
+
     @abstractmethod
     def runtime_binding(self) -> RuntimeBinding:
         """Return this provider's current public record binding, without credentials."""
@@ -149,10 +153,6 @@ class BaseAgent(ABC):
     def resume(self, run_id, task, **binding) -> dict:
         """Validate the provider binding before resuming its existing execution."""
 
-    @abstractmethod
-    def _execute(self, run_id, task, *, resume, activity_attempt_id=None) -> dict:
-        """Execute using the provider's protocol, cancellation and cleanup rules."""
-
     def editor_model_catalog(self):
         """Provider-owned refresh semantics for an explicit editor discovery request."""
         return self.model_catalog()
@@ -162,10 +162,157 @@ class BaseAgent(ABC):
         self._mirror_host_login()
         return {}
 
-    @property
-    def supports_mediated_github(self) -> bool:
-        """Opt in only when the provider actually implements the mediated lease path."""
-        return False
+    def status(self, run_id: str) -> dict:
+        return _read(self._run_dir(run_id) / "record.json")
+
+    def lookup_request(self, request_id: str) -> dict:
+        """Find one durable async run without starting or changing it."""
+        try:
+            _id(request_id)
+        except (TypeError, ValueError, AttributeError):
+            raise RunnerError("invalid_request_id") from None
+        with self.request_lock:
+            matches = []
+            for record_path in (self.state / "runs").glob("*/record.json"):
+                record = _read(record_path)
+                if record.get("client_request_id") == request_id:
+                    matches.append(record)
+            if not matches:
+                raise RunnerError("request_not_found")
+            if len(matches) != 1:
+                raise RunnerError("request_identity_conflict")
+            record = matches[0]
+            return {
+                key: record.get(key)
+                for key in (
+                    "client_request_id",
+                    "request_hash",
+                    "run_id",
+                    "provider",
+                    "raw_event_ref",
+                    "status",
+                )
+            }
+
+    def cancel(self, run_id: str) -> dict:
+        if self.publication_controller is not None:
+            self.publication_controller.cancel(run_id)
+        with self.control_lock:
+            record = self.status(run_id)
+            if record["status"] == "prepared" and record.get("client_request_id"):
+                record.update(
+                    status="cancelled",
+                    error_category="cancelled_before_dispatch",
+                    cancel_requested=True,
+                    cancel_confirmed=True,
+                )
+                _json(self._run_dir(run_id) / "record.json", record)
+                return record
+            if record["status"] == "running":
+                flag = self.cancel_flags.get(run_id)
+                if flag is None:
+                    raise RunnerError("run_not_active_in_this_process")
+                flag.set()
+                record.update(cancel_requested=True, cancel_confirmed=False)
+                _json(self._run_dir(run_id) / "record.json", record)
+                return record
+            return record
+
+    def publish(self, run_id: str) -> dict:
+        if self.publication_controller is None:
+            raise RunnerError("publication_controller_unconfigured")
+        try:
+            result = self.publication_controller.publish(run_id)
+        except MediationError as error:
+            raise RunnerError(error.code) from None
+        return {
+            "status": "completed" if result["phase"] == "completed" else "failed",
+            "run_id": run_id,
+            "publication_handoff": result,
+        }
+
+    def start(self, request: dict) -> dict:
+        record = self._prepare(request)
+        try:
+            self._mirror_host_login()
+        except RunnerError as exc:
+            record.update(status="failed", error_category=str(exc))
+            _json(self._run_dir(record["run_id"]) / "record.json", record)
+            raise
+        return self._execute(record["run_id"], request["task"], resume=False)
+
+    def start_async(self, request: dict, *, response_gate=None) -> dict:
+        """Reserve one request identity, then run only after the HTTP reply."""
+        if not isinstance(request, dict):
+            raise RunnerError("invalid_request")
+        request_id = request.get("request_id")
+        try:
+            _id(request_id)
+        except (TypeError, ValueError, AttributeError):
+            raise RunnerError("invalid_request_id") from None
+        body = {key: value for key, value in request.items() if key != "request_id"}
+        request_hash = (
+            "sha256:"
+            + hashlib.sha256(
+                json.dumps(
+                    body, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+                ).encode("utf-8")
+            ).hexdigest()
+        )
+        with self.request_lock:
+            for record_path in (self.state / "runs").glob("*/record.json"):
+                prior = _read(record_path)
+                if prior.get("client_request_id") == request_id:
+                    if prior.get("request_hash") != request_hash:
+                        raise RunnerError("request_identity_conflict")
+                    return prior
+            record = self._prepare(
+                body, client_request_id=request_id, request_hash=request_hash
+            )
+            gate = response_gate or threading.Event()
+            if response_gate is None:
+                gate.set()
+            worker = threading.Thread(
+                target=self._async_worker,
+                args=(record["run_id"], body["task"], gate),
+                daemon=True,
+            )
+            worker.start()
+            return record
+
+    def select_artifacts(self, run_id, paths):
+        if not isinstance(paths, list) or len(paths) > 32:
+            raise ArtifactError("invalid_artifact_selection")
+        record = self.status(run_id)
+        snapshot = self._run_dir(run_id) / "post-run"
+        if record.get("status") != "completed" or _hash_tree(snapshot) != record.get(
+            "post_run_hash"
+        ):
+            raise ArtifactError("artifact_snapshot_mismatch")
+        result = []
+        for path in paths:
+            path = relative_path(path)
+            source = snapshot / path
+            if not source.is_file() or source.stat().st_size > 1024 * 1024:
+                raise ArtifactError("artifact_file_missing_or_too_large")
+            result.append(
+                ArtifactReference(
+                    provider=self.provider,
+                    run_id=run_id,
+                    snapshot_hash=record["post_run_hash"],
+                    path=path,
+                    content_hash="sha256:"
+                    + hashlib.sha256(source.read_bytes()).hexdigest(),
+                    destination="handoff/" + path,
+                ).model_dump()
+            )
+        if _hash_tree(snapshot) != record["post_run_hash"]:
+            raise ArtifactError("artifact_source_changed_during_selection")
+        return selections(result)
+
+    @abstractmethod
+    def _execute(self, run_id, task, *, resume, activity_attempt_id=None) -> dict:
+        """Execute using the provider's protocol, cancellation and cleanup rules."""
 
     def _mirror_host_login(self):
         """Provider pre-dispatch authentication hook; neutral runners do nothing."""
@@ -240,75 +387,6 @@ class BaseAgent(ABC):
         except OSError:
             pass
         return count + 1
-
-    def status(self, run_id: str) -> dict:
-        return _read(self._run_dir(run_id) / "record.json")
-
-    def lookup_request(self, request_id: str) -> dict:
-        """Find one durable async run without starting or changing it."""
-        try:
-            _id(request_id)
-        except (TypeError, ValueError, AttributeError):
-            raise RunnerError("invalid_request_id") from None
-        with self.request_lock:
-            matches = []
-            for record_path in (self.state / "runs").glob("*/record.json"):
-                record = _read(record_path)
-                if record.get("client_request_id") == request_id:
-                    matches.append(record)
-            if not matches:
-                raise RunnerError("request_not_found")
-            if len(matches) != 1:
-                raise RunnerError("request_identity_conflict")
-            record = matches[0]
-            return {
-                key: record.get(key)
-                for key in (
-                    "client_request_id",
-                    "request_hash",
-                    "run_id",
-                    "provider",
-                    "raw_event_ref",
-                    "status",
-                )
-            }
-
-    def cancel(self, run_id: str) -> dict:
-        if self.publication_controller is not None:
-            self.publication_controller.cancel(run_id)
-        with self.control_lock:
-            record = self.status(run_id)
-            if record["status"] == "prepared" and record.get("client_request_id"):
-                record.update(
-                    status="cancelled",
-                    error_category="cancelled_before_dispatch",
-                    cancel_requested=True,
-                    cancel_confirmed=True,
-                )
-                _json(self._run_dir(run_id) / "record.json", record)
-                return record
-            if record["status"] == "running":
-                flag = self.cancel_flags.get(run_id)
-                if flag is None:
-                    raise RunnerError("run_not_active_in_this_process")
-                flag.set()
-                record.update(cancel_requested=True, cancel_confirmed=False)
-                _json(self._run_dir(run_id) / "record.json", record)
-                return record
-            return record
-
-    def publish(self, run_id: str) -> dict:
-        if self.publication_controller is None:
-            raise RunnerError("publication_controller_unconfigured")
-        try:
-            result = self.publication_controller.publish(run_id)
-        except MediationError as error:
-            raise RunnerError(error.code) from None
-        return {
-            "status": "completed" if result["phase"] == "completed" else "failed",
-            "run_id": run_id,
-            "publication_handoff": result,
-        }
 
     def _materialize(self, workspace: Path, ref: dict) -> dict:
         if not isinstance(ref, dict) or not all(
@@ -512,55 +590,6 @@ class BaseAgent(ABC):
             raise
         return record
 
-    def start(self, request: dict) -> dict:
-        record = self._prepare(request)
-        try:
-            self._mirror_host_login()
-        except RunnerError as exc:
-            record.update(status="failed", error_category=str(exc))
-            _json(self._run_dir(record["run_id"]) / "record.json", record)
-            raise
-        return self._execute(record["run_id"], request["task"], resume=False)
-
-    def start_async(self, request: dict, *, response_gate=None) -> dict:
-        """Reserve one request identity, then run only after the HTTP reply."""
-        if not isinstance(request, dict):
-            raise RunnerError("invalid_request")
-        request_id = request.get("request_id")
-        try:
-            _id(request_id)
-        except (TypeError, ValueError, AttributeError):
-            raise RunnerError("invalid_request_id") from None
-        body = {key: value for key, value in request.items() if key != "request_id"}
-        request_hash = (
-            "sha256:"
-            + hashlib.sha256(
-                json.dumps(
-                    body, sort_keys=True, separators=(",", ":"), ensure_ascii=False
-                ).encode("utf-8")
-            ).hexdigest()
-        )
-        with self.request_lock:
-            for record_path in (self.state / "runs").glob("*/record.json"):
-                prior = _read(record_path)
-                if prior.get("client_request_id") == request_id:
-                    if prior.get("request_hash") != request_hash:
-                        raise RunnerError("request_identity_conflict")
-                    return prior
-            record = self._prepare(
-                body, client_request_id=request_id, request_hash=request_hash
-            )
-            gate = response_gate or threading.Event()
-            if response_gate is None:
-                gate.set()
-            worker = threading.Thread(
-                target=self._async_worker,
-                args=(record["run_id"], body["task"], gate),
-                daemon=True,
-            )
-            worker.start()
-            return record
-
     def _async_worker(self, run_id, task, gate):
         gate.wait()
         try:
@@ -600,36 +629,6 @@ class BaseAgent(ABC):
         if record.get("provider") != provider or record.get("run_id") != run_id:
             raise ArtifactError("artifact_snapshot_mismatch")
         return run / "post-run", record
-
-    def select_artifacts(self, run_id, paths):
-        if not isinstance(paths, list) or len(paths) > 32:
-            raise ArtifactError("invalid_artifact_selection")
-        record = self.status(run_id)
-        snapshot = self._run_dir(run_id) / "post-run"
-        if record.get("status") != "completed" or _hash_tree(snapshot) != record.get(
-            "post_run_hash"
-        ):
-            raise ArtifactError("artifact_snapshot_mismatch")
-        result = []
-        for path in paths:
-            path = relative_path(path)
-            source = snapshot / path
-            if not source.is_file() or source.stat().st_size > 1024 * 1024:
-                raise ArtifactError("artifact_file_missing_or_too_large")
-            result.append(
-                ArtifactReference(
-                    provider=self.provider,
-                    run_id=run_id,
-                    snapshot_hash=record["post_run_hash"],
-                    path=path,
-                    content_hash="sha256:"
-                    + hashlib.sha256(source.read_bytes()).hexdigest(),
-                    destination="handoff/" + path,
-                ).model_dump()
-            )
-        if _hash_tree(snapshot) != record["post_run_hash"]:
-            raise ArtifactError("artifact_source_changed_during_selection")
-        return selections(result)
 
     def _handoff(self, value):
         if value is None:

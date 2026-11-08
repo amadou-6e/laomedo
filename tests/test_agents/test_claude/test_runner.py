@@ -31,31 +31,6 @@ except ImportError:
 
 
 class ClaudeRunnerTests(unittest.TestCase):
-    def _begin_activity(self, root, record, prompt):
-        # Fixture-only replacement for the ACP session binding boundary.
-        common = {"threadId": record["thread_id"], "turnId": record["active_host_turn"]}
-        self.runner._event(
-            root,
-            "turn/started",
-            {
-                **common,
-                "turn": {"id": record["active_host_turn"]},
-                "identity_source": "host_attempt",
-            },
-        )
-        self.runner._event(
-            root,
-            "item/completed",
-            {
-                **common,
-                "item": {
-                    "id": record["active_host_turn"] + ":prompt",
-                    "type": "userMessage",
-                    "content": [{"type": "inputText", "text": prompt}],
-                },
-            },
-        )
-
     def test_no_skills_produces_empty_prompt_bundle_and_preserves_resume_binding(self):
         payload = {
             key: value for key, value in self.payload.items() if key != "skill_ref"
@@ -874,6 +849,31 @@ class ClaudeRunnerTests(unittest.TestCase):
                 self.runner._prepare(
                     {**self.payload, "model": "fable", "effort": "low"}
                 )
+
+    def _begin_activity(self, root, record, prompt):
+        # Fixture-only replacement for the ACP session binding boundary.
+        common = {"threadId": record["thread_id"], "turnId": record["active_host_turn"]}
+        self.runner._event(
+            root,
+            "turn/started",
+            {
+                **common,
+                "turn": {"id": record["active_host_turn"]},
+                "identity_source": "host_attempt",
+            },
+        )
+        self.runner._event(
+            root,
+            "item/completed",
+            {
+                **common,
+                "item": {
+                    "id": record["active_host_turn"] + ":prompt",
+                    "type": "userMessage",
+                    "content": [{"type": "inputText", "text": prompt}],
+                },
+            },
+        )
 
 
 if __name__ == "__main__":

@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+from uuid import uuid4
+import hashlib
+import re
+import shutil
+import threading
+import time
+
 from laomedo.skills.registry.files import inventory
 from laomedo.skills.registry.hashing import tree_hash
 from laomedo.agents.activity.models import ActivityAttemptRecord
-
-from uuid import uuid4
-import hashlib
 from laomedo.agents.activity.utils import now
 from laomedo.agents.activity.runner.feed import line_count
 from laomedo.agents.agents.opencode.settings import CLI_VERSION
@@ -20,10 +24,6 @@ from laomedo.agents.agents.base.utils import _json
 from laomedo.agents.agents.base.utils import failure_observation
 from laomedo.skills.registry.errors import SkillStoreError
 from laomedo.agents.workspaces.skills.utils import verify
-import re
-import shutil
-import threading
-import time
 
 
 class OpenCodeAgent(BaseAgent):
@@ -80,29 +80,6 @@ class OpenCodeAgent(BaseAgent):
     def recover_interrupted(self, record):
         """Constructor recovery reconciles receipts across prior runs before dispatch."""
 
-    def _recover_containers(self):
-        """Recover central and legacy run/catalogue receipts before new dispatch."""
-        if self.transport_factory is None or self.lock.locked():
-            return
-        pending = [
-            *self.state.glob("receipts/*.json"),
-            *self.state.glob("runs/*/docker-receipts/*.json"),
-            *self.state.glob("catalog/*/docker-receipts/*.json"),
-        ]
-        if not pending:
-            return
-        try:
-            from py_docker import Client
-            from py_docker.errors import DockerOperationError
-        except ImportError:
-            raise RunnerError("opencode_container_cleanup_unverified") from None
-        try:
-            with Client() as docker:
-                for receipt in pending:
-                    docker.sessions.recover(receipt)
-        except DockerOperationError:
-            raise RunnerError("opencode_container_cleanup_unverified") from None
-
     def model_catalog(self):
         """Discover connected native models without creating a session or turn."""
         if self.transport_factory is None:
@@ -154,19 +131,6 @@ class OpenCodeAgent(BaseAgent):
             self._opencode_catalog_cached = (time.monotonic(), result)
             return result
 
-    def _prepare(self, request, **kwargs):
-        # Both blocking and asynchronous starts must validate before preparing
-        # a workspace or accepting a request identity.
-        if not isinstance(request, dict):
-            raise RunnerError("invalid_request")
-        self._validate_provider(request.get("model"), request.get("effort"))
-        if self.transport_factory is None:
-            raise RunnerError("opencode_isolated_transport_required")
-        if request.get("output_requirements") is not None:
-            raise RunnerError("opencode_output_requirements_not_supported")
-        self._recover_containers()
-        return super()._prepare(request, **kwargs)
-
     def preflight(self):
         """Report transport configuration without launching an authenticated backend.
 
@@ -188,6 +152,133 @@ class OpenCodeAgent(BaseAgent):
             "status": "transport_configured",
             "submitted_turns": 0,
         }
+
+    def resume(
+        self,
+        run_id,
+        task,
+        *,
+        expected_post_run_hash,
+        expected_thread_id,
+        model,
+        effort,
+        activity_attempt_id=None,
+    ):
+        self._validate_provider(model, effort)
+        record = self.status(run_id)
+        if (
+            record.get("provider") != "opencode"
+            or record.get("runtime_version") != CLI_VERSION
+            or record["status"] != "completed"
+            or record["thread_id"] != expected_thread_id
+            or record["post_run_hash"] != expected_post_run_hash
+            or record["requested_model"] != model
+            or record["requested_effort"] != effort
+            or not isinstance(task, str)
+            or not task.strip()
+        ):
+            raise RunnerError("resume_binding_mismatch")
+        root = self._run_dir(run_id)
+        if (
+            _hash_tree(root / "post-run") != expected_post_run_hash
+            or _hash_tree(root / "workspace") != expected_post_run_hash
+        ):
+            raise RunnerError("workspace_changed_since_snapshot")
+        if (
+            _hash_tree(root / "canonical") != record["source_hash"]
+            or (root / "store/sentinel.txt").read_text(encoding="utf-8")
+            != "STORE-ORIGINAL"
+        ):
+            raise RunnerError("protected_mount_changed")
+        self._verify_pinned_skills(root / "workspace", record)
+        return self._execute(
+            run_id, task, resume=True, activity_attempt_id=activity_attempt_id
+        )
+
+    def cancel(self, run_id):
+        record = self.status(run_id)
+        if record["status"] == "prepared":
+            with self.control_lock:
+                record = self.status(run_id)
+                if record["status"] == "prepared":
+                    record.update(
+                        status="cancelled",
+                        cancel_requested=True,
+                        cancel_confirmed=True,
+                        cancel_acknowledged=True,
+                        attempt_finished=True,
+                        controller_cleanup="not_launched",
+                    )
+                    _json(self._run_dir(run_id) / "record.json", record)
+                    return record
+        if record["status"] == "running":
+            flag = self.cancel_flags.get(run_id)
+            if flag is None:
+                current = self.status(run_id)
+                if current["status"] != "running":
+                    return current
+                raise RunnerError("run_not_active_in_this_process")
+            with self.control_lock:
+                current = self.status(run_id)
+                if current["status"] != "running":
+                    return current
+                flag.set()
+                current["cancel_requested"] = True
+                _json(self._run_dir(run_id) / "record.json", current)
+                record = current
+            backend = self.active_backends.get(run_id)
+            if backend is None or not record.get("thread_id"):
+                return {
+                    **record,
+                    "cancel_requested": True,
+                    "cancel_acknowledged": False,
+                    "termination_verified": False,
+                }
+            backend.cancel()
+            # An acknowledgement is not proof that a native child command terminated.
+            return {
+                **record,
+                "cancel_requested": True,
+                "cancel_acknowledged": False,
+                "termination_verified": False,
+            }
+        return record
+
+    def _recover_containers(self):
+        """Recover central and legacy run/catalogue receipts before new dispatch."""
+        if self.transport_factory is None or self.lock.locked():
+            return
+        pending = [
+            *self.state.glob("receipts/*.json"),
+            *self.state.glob("runs/*/docker-receipts/*.json"),
+            *self.state.glob("catalog/*/docker-receipts/*.json"),
+        ]
+        if not pending:
+            return
+        try:
+            from py_docker import Client
+            from py_docker.errors import DockerOperationError
+        except ImportError:
+            raise RunnerError("opencode_container_cleanup_unverified") from None
+        try:
+            with Client() as docker:
+                for receipt in pending:
+                    docker.sessions.recover(receipt)
+        except DockerOperationError:
+            raise RunnerError("opencode_container_cleanup_unverified") from None
+
+    def _prepare(self, request, **kwargs):
+        # Both blocking and asynchronous starts must validate before preparing
+        # a workspace or accepting a request identity.
+        if not isinstance(request, dict):
+            raise RunnerError("invalid_request")
+        self._validate_provider(request.get("model"), request.get("effort"))
+        if self.transport_factory is None:
+            raise RunnerError("opencode_isolated_transport_required")
+        if request.get("output_requirements") is not None:
+            raise RunnerError("opencode_output_requirements_not_supported")
+        self._recover_containers()
+        return super()._prepare(request, **kwargs)
 
     @staticmethod
     def _validate_provider(model, effort):
@@ -244,48 +335,6 @@ class OpenCodeAgent(BaseAgent):
             )
         except ValueError as exc:
             raise RunnerError(str(exc)) from None
-
-    def resume(
-        self,
-        run_id,
-        task,
-        *,
-        expected_post_run_hash,
-        expected_thread_id,
-        model,
-        effort,
-        activity_attempt_id=None,
-    ):
-        self._validate_provider(model, effort)
-        record = self.status(run_id)
-        if (
-            record.get("provider") != "opencode"
-            or record.get("runtime_version") != CLI_VERSION
-            or record["status"] != "completed"
-            or record["thread_id"] != expected_thread_id
-            or record["post_run_hash"] != expected_post_run_hash
-            or record["requested_model"] != model
-            or record["requested_effort"] != effort
-            or not isinstance(task, str)
-            or not task.strip()
-        ):
-            raise RunnerError("resume_binding_mismatch")
-        root = self._run_dir(run_id)
-        if (
-            _hash_tree(root / "post-run") != expected_post_run_hash
-            or _hash_tree(root / "workspace") != expected_post_run_hash
-        ):
-            raise RunnerError("workspace_changed_since_snapshot")
-        if (
-            _hash_tree(root / "canonical") != record["source_hash"]
-            or (root / "store/sentinel.txt").read_text(encoding="utf-8")
-            != "STORE-ORIGINAL"
-        ):
-            raise RunnerError("protected_mount_changed")
-        self._verify_pinned_skills(root / "workspace", record)
-        return self._execute(
-            run_id, task, resume=True, activity_attempt_id=activity_attempt_id
-        )
 
     def _execute(self, run_id, task, *, resume, activity_attempt_id=None):
         if activity_attempt_id is not None:
@@ -650,53 +699,4 @@ class OpenCodeAgent(BaseAgent):
                         self.active_backends.pop(run_id, None)
                         self.cancel_flags.pop(run_id, None)
                         self.lock.release()
-        return record
-
-    def cancel(self, run_id):
-        record = self.status(run_id)
-        if record["status"] == "prepared":
-            with self.control_lock:
-                record = self.status(run_id)
-                if record["status"] == "prepared":
-                    record.update(
-                        status="cancelled",
-                        cancel_requested=True,
-                        cancel_confirmed=True,
-                        cancel_acknowledged=True,
-                        attempt_finished=True,
-                        controller_cleanup="not_launched",
-                    )
-                    _json(self._run_dir(run_id) / "record.json", record)
-                    return record
-        if record["status"] == "running":
-            flag = self.cancel_flags.get(run_id)
-            if flag is None:
-                current = self.status(run_id)
-                if current["status"] != "running":
-                    return current
-                raise RunnerError("run_not_active_in_this_process")
-            with self.control_lock:
-                current = self.status(run_id)
-                if current["status"] != "running":
-                    return current
-                flag.set()
-                current["cancel_requested"] = True
-                _json(self._run_dir(run_id) / "record.json", current)
-                record = current
-            backend = self.active_backends.get(run_id)
-            if backend is None or not record.get("thread_id"):
-                return {
-                    **record,
-                    "cancel_requested": True,
-                    "cancel_acknowledged": False,
-                    "termination_verified": False,
-                }
-            backend.cancel()
-            # An acknowledgement is not proof that a native child command terminated.
-            return {
-                **record,
-                "cancel_requested": True,
-                "cancel_acknowledged": False,
-                "termination_verified": False,
-            }
         return record

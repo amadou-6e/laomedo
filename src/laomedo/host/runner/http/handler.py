@@ -5,14 +5,15 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from http.server import BaseHTTPRequestHandler
 import json
+import secrets
+import threading
+
 from laomedo.agents.artifacts.errors import ArtifactError
 from laomedo.agents.agents.base.settings import MAX_BODY
 from laomedo.agents.errors import RunnerError
 from laomedo.agents.agents.base.utils import _id
 from laomedo.agents.agents.base.utils import _read
 from laomedo.skills.registry.errors import SkillStoreError
-import secrets
-import threading
 
 if TYPE_CHECKING:
     from .server import RunnerServer
@@ -22,37 +23,6 @@ class RunnerRequestHandler(BaseHTTPRequestHandler):
     """Handle the existing wire protocol through this server's explicit owner."""
 
     server: "RunnerServer"
-
-    def _reply(self, code: int, value: dict):
-        """Serialize the response using the existing JSON status and content length."""
-        data = json.dumps(value).encode("utf-8")
-        self.send_response(code)
-        self.send_header("Content-Type", "application/json")
-        self.send_header("Content-Length", str(len(data)))
-        self.end_headers()
-        self.wfile.write(data)
-
-    def _body(self):
-        """Read a bounded JSON body after validating its media type and declared size."""
-        if (
-            self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower()
-            != "application/json"
-        ):
-            raise RunnerError("json_content_type_required")
-        length = int(self.headers.get("Content-Length", "0"))
-        if length < 1 or length > MAX_BODY:
-            raise RunnerError("invalid_body_size")
-        return json.loads(self.rfile.read(length))
-
-    def _authorized(self):
-        """Check the configured bearer and send the existing rejection on mismatch."""
-        supplied = self.headers.get("Authorization", "")
-        if not secrets.compare_digest(
-            supplied, "Bearer " + self.server.runner.api_token
-        ):
-            self._reply(401, {"status": "failed", "error_category": "unauthorized"})
-            return False
-        return True
 
     def do_GET(self):
         """Authenticate and serve the existing metadata and retained-run read routes."""
@@ -257,3 +227,34 @@ class RunnerRequestHandler(BaseHTTPRequestHandler):
         finally:
             if response_gate is not None:
                 response_gate.set()
+
+    def _reply(self, code: int, value: dict):
+        """Serialize the response using the existing JSON status and content length."""
+        data = json.dumps(value).encode("utf-8")
+        self.send_response(code)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    def _body(self):
+        """Read a bounded JSON body after validating its media type and declared size."""
+        if (
+            self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower()
+            != "application/json"
+        ):
+            raise RunnerError("json_content_type_required")
+        length = int(self.headers.get("Content-Length", "0"))
+        if length < 1 or length > MAX_BODY:
+            raise RunnerError("invalid_body_size")
+        return json.loads(self.rfile.read(length))
+
+    def _authorized(self):
+        """Check the configured bearer and send the existing rejection on mismatch."""
+        supplied = self.headers.get("Authorization", "")
+        if not secrets.compare_digest(
+            supplied, "Bearer " + self.server.runner.api_token
+        ):
+            self._reply(401, {"status": "failed", "error_category": "unauthorized"})
+            return False
+        return True

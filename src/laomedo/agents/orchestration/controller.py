@@ -7,11 +7,12 @@ from pathlib import Path
 from uuid import uuid4
 import hashlib
 import json
-from laomedo.agents.orchestration.errors import HandoffError
-from laomedo.agents.orchestration.utils import envelope
 import os
 import threading
 import time
+
+from laomedo.agents.orchestration.errors import HandoffError
+from laomedo.agents.orchestration.utils import envelope
 
 
 class AgentHandoffController:
@@ -191,6 +192,21 @@ class AgentHandoffController:
         finally:
             self.lock.release()
 
+    @staticmethod
+    def inspect(state_dir, execution_id):
+        from uuid import UUID
+
+        if str(UUID(execution_id)) != execution_id:
+            raise HandoffError("invalid_execution_id")
+        result = json.loads(
+            (Path(state_dir) / (execution_id + ".json")).read_text(encoding="utf-8")
+        )
+        if result["stop_reason"] in {"dispatching", "running", "cancel_requested"}:
+            result["recovery_status"] = (
+                "interrupted_or_uncertain; never automatically replay"
+            )
+        return result
+
     def _finish(self, reason):
         with self.state_lock:
             self.stop_reason = reason
@@ -223,18 +239,3 @@ class AgentHandoffController:
             }
             pending.write_text(json.dumps(value, indent=2) + "\n", encoding="utf-8")
             os.replace(pending, path)
-
-    @staticmethod
-    def inspect(state_dir, execution_id):
-        from uuid import UUID
-
-        if str(UUID(execution_id)) != execution_id:
-            raise HandoffError("invalid_execution_id")
-        result = json.loads(
-            (Path(state_dir) / (execution_id + ".json")).read_text(encoding="utf-8")
-        )
-        if result["stop_reason"] in {"dispatching", "running", "cancel_requested"}:
-            result["recovery_status"] = (
-                "interrupted_or_uncertain; never automatically replay"
-            )
-        return result

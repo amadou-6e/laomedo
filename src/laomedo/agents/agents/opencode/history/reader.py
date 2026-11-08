@@ -98,6 +98,92 @@ class HistoryReader:
             if not unresolved and private.resolve().parent == self.evidence.resolve():
                 shutil.rmtree(private)
 
+    def retain(
+        self, history: NativeHistory, baseline: NativeHistory | None, capture, catalogue
+    ) -> None:
+        """Retain source snapshots and project only new messages for this attempt.
+
+        Once accepted, native snapshots are the sole usage/item source. The
+        historical projection ignores ACP-derived items to avoid double counting.
+        """
+        if history.root_id != capture.session_id or (
+            baseline and baseline.root_id != history.root_id
+        ):
+            raise ValueError("Native history attempt binding mismatch")
+        raw = json.dumps(
+            sanitized(
+                {
+                    "source": "native CLI export",
+                    "before": baseline.model_dump(mode="json") if baseline else None,
+                    "after": history.model_dump(mode="json"),
+                }
+            ),
+            sort_keys=True,
+        ).encode()
+        digest = hashlib.sha256(raw).hexdigest()
+        folder = self.evidence / "native-exports"
+        folder.mkdir(exist_ok=True)
+        folder.joinpath(digest + ".json").write_bytes(raw)
+        events = [
+            {
+                "method": "opencode/modelCatalog",
+                "params": {
+                    "model": item["id"],
+                    "rates": item.get("metadata", {}).get("cost"),
+                    "source": "native CLI models --verbose",
+                },
+            }
+            for item in catalogue
+        ]
+        events.insert(
+            0,
+            {
+                "method": "opencode/exportStarted",
+                "params": {
+                    "source": "host capture boundary",
+                    "snapshot_sha256": digest,
+                },
+            },
+        )
+        selected = history.attempt_sessions(baseline)
+        for identity, exported in history.sessions.items():
+            if identity not in selected:
+                continue
+            events.append(
+                {
+                    "method": "opencode/sessionSnapshot",
+                    "params": {
+                        "source": "native CLI export",
+                        "snapshot_sha256": digest,
+                        "source_received_at": history.captured_at.isoformat(),
+                        "session": exported.info,
+                    },
+                }
+            )
+            events.append(
+                {
+                    "method": "opencode/messageSnapshot",
+                    "params": {
+                        "source": "native CLI export",
+                        "snapshot_sha256": digest,
+                        "source_received_at": history.captured_at.isoformat(),
+                        "sessionID": identity,
+                        "parentSessionID": exported.info.get("parentID"),
+                        "messages": history.attempt_messages(identity, baseline),
+                    },
+                }
+            )
+        events.append(
+            {
+                "method": "opencode/exportCompleted",
+                "params": {
+                    "source": "host capture boundary",
+                    "snapshot_sha256": digest,
+                },
+            }
+        )
+        capture.append_evidence_batch(events)
+
     def _copy_database(self, destination: Path) -> None:
         """Export a compact snapshot only after ruling out credential-store rows.
 
@@ -226,89 +312,3 @@ class HistoryReader:
         if result.exit_code:
             raise ValueError("Native history export did not complete")
         return result.stdout
-
-    def retain(
-        self, history: NativeHistory, baseline: NativeHistory | None, capture, catalogue
-    ) -> None:
-        """Retain source snapshots and project only new messages for this attempt.
-
-        Once accepted, native snapshots are the sole usage/item source. The
-        historical projection ignores ACP-derived items to avoid double counting.
-        """
-        if history.root_id != capture.session_id or (
-            baseline and baseline.root_id != history.root_id
-        ):
-            raise ValueError("Native history attempt binding mismatch")
-        raw = json.dumps(
-            sanitized(
-                {
-                    "source": "native CLI export",
-                    "before": baseline.model_dump(mode="json") if baseline else None,
-                    "after": history.model_dump(mode="json"),
-                }
-            ),
-            sort_keys=True,
-        ).encode()
-        digest = hashlib.sha256(raw).hexdigest()
-        folder = self.evidence / "native-exports"
-        folder.mkdir(exist_ok=True)
-        folder.joinpath(digest + ".json").write_bytes(raw)
-        events = [
-            {
-                "method": "opencode/modelCatalog",
-                "params": {
-                    "model": item["id"],
-                    "rates": item.get("metadata", {}).get("cost"),
-                    "source": "native CLI models --verbose",
-                },
-            }
-            for item in catalogue
-        ]
-        events.insert(
-            0,
-            {
-                "method": "opencode/exportStarted",
-                "params": {
-                    "source": "host capture boundary",
-                    "snapshot_sha256": digest,
-                },
-            },
-        )
-        selected = history.attempt_sessions(baseline)
-        for identity, exported in history.sessions.items():
-            if identity not in selected:
-                continue
-            events.append(
-                {
-                    "method": "opencode/sessionSnapshot",
-                    "params": {
-                        "source": "native CLI export",
-                        "snapshot_sha256": digest,
-                        "source_received_at": history.captured_at.isoformat(),
-                        "session": exported.info,
-                    },
-                }
-            )
-            events.append(
-                {
-                    "method": "opencode/messageSnapshot",
-                    "params": {
-                        "source": "native CLI export",
-                        "snapshot_sha256": digest,
-                        "source_received_at": history.captured_at.isoformat(),
-                        "sessionID": identity,
-                        "parentSessionID": exported.info.get("parentID"),
-                        "messages": history.attempt_messages(identity, baseline),
-                    },
-                }
-            )
-        events.append(
-            {
-                "method": "opencode/exportCompleted",
-                "params": {
-                    "source": "host capture boundary",
-                    "snapshot_sha256": digest,
-                },
-            }
-        )
-        capture.append_evidence_batch(events)

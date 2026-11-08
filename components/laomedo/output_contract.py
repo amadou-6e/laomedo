@@ -43,6 +43,18 @@ class LaomedoOutputContract(Component):
         self.status = result["contract_status"]
         return Data(data=result)
 
+    def success(self) -> Data:
+        return self._route("success")
+
+    def failure(self) -> Data:
+        return self._route("failure")
+
+    def rejection(self) -> Data:
+        return self._route("rejection")
+
+    def recovery(self) -> Data:
+        return self._route("recovery")
+
     def _pre_run_setup(self):
         self._routing_result = None
 
@@ -64,15 +76,3 @@ class LaomedoOutputContract(Component):
             return Data(data={})
         self.status = destination
         return Data(data={"route": destination, "validation": validation})
-
-    def success(self) -> Data:
-        return self._route("success")
-
-    def failure(self) -> Data:
-        return self._route("failure")
-
-    def rejection(self) -> Data:
-        return self._route("rejection")
-
-    def recovery(self) -> Data:
-        return self._route("recovery")

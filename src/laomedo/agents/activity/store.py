@@ -197,17 +197,6 @@ class ActivityStore:
             ).fetchall()
         return [self._summary(row) for row in rows]
 
-    @staticmethod
-    def _summary(row):
-        result = dict(row)
-        for key in ("owner", "flow", "node"):
-            result.pop(key, None)
-        result["usage"] = (
-            json.loads(result["usage"]) if result["usage"] is not None else None
-        )
-        result["action_uniqueness"] = "uncertain"
-        return result
-
     def read(self, owner, flow, node, run, after=0, limit=100):
         with self.db() as db:
             row = db.execute(
@@ -241,3 +230,14 @@ class ActivityStore:
             "next_after": events[-1]["sequence"] if events else after,
             "has_more": bool(events and events[-1]["sequence"] < count),
         }
+
+    @staticmethod
+    def _summary(row):
+        result = dict(row)
+        for key in ("owner", "flow", "node"):
+            result.pop(key, None)
+        result["usage"] = (
+            json.loads(result["usage"]) if result["usage"] is not None else None
+        )
+        result["action_uniqueness"] = "uncertain"
+        return result

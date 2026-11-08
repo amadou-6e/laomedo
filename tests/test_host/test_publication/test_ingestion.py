@@ -42,16 +42,6 @@ class BundleIngestTests(unittest.TestCase):
         self.bundle = self.workspace / HANDOFF_NAME
         self.bundle.write_bytes(b"synthetic bundle bytes")
 
-    def _save_record(self):
-        (self.run_dir / "record.json").write_text(
-            json.dumps(self.record), encoding="utf-8"
-        )
-
-    def _freeze(self, attempt="attempt-1"):
-        return freeze_run_bundle(
-            self.runner, self.private, run_id="run-a", attempt_id=attempt
-        )
-
     def test_freezes_only_fixed_run_file_with_hash_and_reserved_result(self):
         self.record["agent_selected_path"] = str(self.root / "wrong.bundle")
         self._save_record()
@@ -278,6 +268,16 @@ class BundleIngestTests(unittest.TestCase):
         (self.root / ".git").mkdir()
         with self.assertRaisesRegex(BundleIngestError, "stage_boundary_invalid"):
             self._freeze()
+
+    def _save_record(self):
+        (self.run_dir / "record.json").write_text(
+            json.dumps(self.record), encoding="utf-8"
+        )
+
+    def _freeze(self, attempt="attempt-1"):
+        return freeze_run_bundle(
+            self.runner, self.private, run_id="run-a", attempt_id=attempt
+        )
 
 
 if __name__ == "__main__":

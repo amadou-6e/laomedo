@@ -1,14 +1,20 @@
 """Implementation owned by host / leases / service."""
 
 from __future__ import annotations
+
+from pathlib import Path
+import logging
+import os
+import secrets
+import threading
+import time
+
 from laomedo.host.leases.models import (
     LeaseCleanupObservation,
     LeaseRefusalRecord,
     LeaseRevocationRecord,
 )
-
 from laomedo.host.leases.server import LeaseHTTPServer
-from pathlib import Path
 from laomedo.host.leases.settings import GRANT_TTL_SECONDS
 from laomedo.host.leases.settings import LOSS_SECONDS
 from laomedo.host.leases.settings import MAX_FROM_HEARTBEAT_SECONDS
@@ -22,11 +28,6 @@ from laomedo.host.leases.utils import _write_json
 from laomedo.host.leases.utils import cleanup_after_loss
 from laomedo.host.leases.utils import inspect_exact
 from laomedo.host.mediation.store import MediationStore
-import logging
-import os
-import secrets
-import threading
-import time
 
 
 class LeaseService:
@@ -62,6 +63,47 @@ class LeaseService:
     @property
     def port(self) -> int:
         return self.server.server_address[1]
+
+    def tick(self) -> None:
+        for lease_dir in sorted((self.state / "leases").iterdir()):
+            if (
+                not lease_dir.is_dir()
+                or (lease_dir / "result.json").exists()
+                or lease_dir in self._finishing
+            ):
+                continue
+            try:
+                self._tick_lease(lease_dir, time.time())
+            except Exception as error:
+                # One runner-controlled lease must not stop revocation and
+                # exact-container cleanup for every other run.
+                self._refuse_lease(lease_dir, time.time(), error)
+
+    def serve(self) -> None:
+        # A previous instance's publication must not become valid again when
+        # this instance refreshes the heartbeat files on the same state path.
+        (self.state / "service.json").unlink(missing_ok=True)
+        # Refuse startup if either initial heartbeat cannot be published.
+        # Clients may see service.json only after both are fresh.
+        self._publish_heartbeat()
+        _write_json(
+            self.state / "service.json",
+            {
+                "pid": os.getpid(),
+                "port": self.port,
+                "instance": self.instance,
+                "started_at": time.time(),
+            },
+        )
+        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+        threading.Thread(target=self._beat, daemon=True).start()
+        try:
+            while not self.stopping.is_set():
+                self.tick()
+                self.stopping.wait(POLL_SECONDS)
+        finally:
+            self.server.shutdown()
+            self.server.server_close()
 
     def _beat(self) -> None:
         while not self.stopping.is_set():
@@ -250,21 +292,6 @@ class LeaseService:
             target=finish_cleanup, daemon=True, name="laomedo-lease-cleanup"
         ).start()
 
-    def tick(self) -> None:
-        for lease_dir in sorted((self.state / "leases").iterdir()):
-            if (
-                not lease_dir.is_dir()
-                or (lease_dir / "result.json").exists()
-                or lease_dir in self._finishing
-            ):
-                continue
-            try:
-                self._tick_lease(lease_dir, time.time())
-            except Exception as error:
-                # One runner-controlled lease must not stop revocation and
-                # exact-container cleanup for every other run.
-                self._refuse_lease(lease_dir, time.time(), error)
-
     def _tick_lease(self, lease_dir: Path, now: float) -> None:
         lease = _read_json(lease_dir / "lease.json")
         if (
@@ -406,29 +433,3 @@ class LeaseService:
         threading.Thread(
             target=finish_refusal, daemon=True, name="laomedo-lease-refusal"
         ).start()
-
-    def serve(self) -> None:
-        # A previous instance's publication must not become valid again when
-        # this instance refreshes the heartbeat files on the same state path.
-        (self.state / "service.json").unlink(missing_ok=True)
-        # Refuse startup if either initial heartbeat cannot be published.
-        # Clients may see service.json only after both are fresh.
-        self._publish_heartbeat()
-        _write_json(
-            self.state / "service.json",
-            {
-                "pid": os.getpid(),
-                "port": self.port,
-                "instance": self.instance,
-                "started_at": time.time(),
-            },
-        )
-        threading.Thread(target=self.server.serve_forever, daemon=True).start()
-        threading.Thread(target=self._beat, daemon=True).start()
-        try:
-            while not self.stopping.is_set():
-                self.tick()
-                self.stopping.wait(POLL_SECONDS)
-        finally:
-            self.server.shutdown()
-            self.server.server_close()

@@ -7,6 +7,10 @@ from .http.server import BrokerHttpServer
 from pathlib import Path
 from uuid import uuid4
 import json
+import secrets
+import shutil
+import threading
+
 from laomedo.agents.agents.opencode.models import (
     OpenCodeConfig,
     OpenCodeRuntimeIdentity,
@@ -24,9 +28,6 @@ from laomedo.agents.errors import RunnerError
 from laomedo.agents.agents.base.utils import _json
 from laomedo.agents.agents.base.utils import _private
 from laomedo.agents.agents.base.utils import failure_observation
-import secrets
-import shutil
-import threading
 
 
 class CommandBroker:
@@ -236,11 +237,6 @@ class CommandBroker:
 class IsolatedOpenCode:
     """One controller per turn, persistent session profile, independent workers."""
 
-    @property
-    def runtime_identity(self):
-        """Preserve the provider's public dictionary fingerprint boundary."""
-        return self.identity.to_payload()
-
     def __init__(
         self,
         workspace,
@@ -447,6 +443,11 @@ class IsolatedOpenCode:
                 "opencode_controller_startup_failed", observation=observation
             ) from None
 
+    @property
+    def runtime_identity(self):
+        """Preserve the provider's public dictionary fingerprint boundary."""
+        return self.identity.to_payload()
+
     def models(self):
         """Read native CLI metadata without creating a session or model turn."""
         from py_docker.jobs.models import ContainerJob
@@ -534,55 +535,6 @@ class IsolatedOpenCode:
             self._run_acp(task, model, session_id, cancelled, capture, on_session)
         )
 
-    async def _run_acp(self, task, model, session_id, cancelled, capture, on_session):
-        """Validate agent identity, load the same native session and await its prompt."""
-        from laomedo.agents.agents.base.acp.session import AcpSession
-
-        # Loading may replay earlier native history. Subscribe only after the
-        # current attempt is bound so it cannot be mistaken for new activity.
-        client = AcpSession(self.session)
-        try:
-            initialized = await client.initialize()
-            if initialized.agent_info.version != CLI_VERSION:
-                raise RunnerError("opencode_runtime_pin_mismatch")
-            created = await client.open(session_id=session_id)
-            options = getattr(created, "config_options", None) or []
-            picker = next(
-                (option for option in options if option.category == "model"), None
-            )
-            if picker is None:
-                raise RunnerError("opencode_model_not_connected")
-            configured = await client.configure(picker.id, model)
-            observed = next(
-                (
-                    option.current_value
-                    for option in configured.config_options
-                    if option.id == picker.id
-                ),
-                None,
-            )
-            if observed != model:
-                raise RunnerError("opencode_model_not_connected")
-            if cancelled.is_set():
-                raise RunnerError("opencode_cancelled_before_dispatch")
-            on_session(client.session_id)
-            capture.begin(client.session_id, task)
-            client.on_update = capture.update
-            outcome = await client.prompt(task, cancelled=cancelled, seconds=180)
-            if not cancelled.is_set():
-                self.check_transport()
-            status = (
-                "cancelled"
-                if cancelled.is_set() or outcome.stop_reason == "cancelled"
-                else "completed" if outcome.stop_reason == "end_turn" else "failed"
-            )
-            capture.finish(client.session_id, status, outcome.usage)
-            if status == "failed":
-                raise RunnerError("opencode_response_not_terminal")
-            return outcome
-        finally:
-            await client.close()
-
     def cancel(self):
         """Stop owned workers; the shared ACP prompt observes the runner's flag."""
         if self.broker is not None:
@@ -668,3 +620,52 @@ class IsolatedOpenCode:
     def check_auth_fresh(self):
         """Validate the dedicated profile's existing bounded credential grant."""
         opencode_check_auth_fresh(self.profile)
+
+    async def _run_acp(self, task, model, session_id, cancelled, capture, on_session):
+        """Validate agent identity, load the same native session and await its prompt."""
+        from laomedo.agents.agents.base.acp.session import AcpSession
+
+        # Loading may replay earlier native history. Subscribe only after the
+        # current attempt is bound so it cannot be mistaken for new activity.
+        client = AcpSession(self.session)
+        try:
+            initialized = await client.initialize()
+            if initialized.agent_info.version != CLI_VERSION:
+                raise RunnerError("opencode_runtime_pin_mismatch")
+            created = await client.open(session_id=session_id)
+            options = getattr(created, "config_options", None) or []
+            picker = next(
+                (option for option in options if option.category == "model"), None
+            )
+            if picker is None:
+                raise RunnerError("opencode_model_not_connected")
+            configured = await client.configure(picker.id, model)
+            observed = next(
+                (
+                    option.current_value
+                    for option in configured.config_options
+                    if option.id == picker.id
+                ),
+                None,
+            )
+            if observed != model:
+                raise RunnerError("opencode_model_not_connected")
+            if cancelled.is_set():
+                raise RunnerError("opencode_cancelled_before_dispatch")
+            on_session(client.session_id)
+            capture.begin(client.session_id, task)
+            client.on_update = capture.update
+            outcome = await client.prompt(task, cancelled=cancelled, seconds=180)
+            if not cancelled.is_set():
+                self.check_transport()
+            status = (
+                "cancelled"
+                if cancelled.is_set() or outcome.stop_reason == "cancelled"
+                else "completed" if outcome.stop_reason == "end_turn" else "failed"
+            )
+            capture.finish(client.session_id, status, outcome.usage)
+            if status == "failed":
+                raise RunnerError("opencode_response_not_terminal")
+            return outcome
+        finally:
+            await client.close()

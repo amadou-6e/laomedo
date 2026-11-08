@@ -1,11 +1,10 @@
-from test_agents.test_runtime.utils import prepare_runner
-
 """No credentials or model requests: verify OpenCode protocol and persistence."""
 
 import unittest
 import threading
 import json
 
+from test_agents.test_runtime.utils import prepare_runner
 import test_agents.test_runtime.test_lifecycle as fixtures
 from laomedo.agents.agents.opencode.agent import OpenCodeAgent
 from laomedo.agents.errors import RunnerError
@@ -117,6 +116,13 @@ class OpenCodeTests(unittest.TestCase):
             def __init__(self):
                 self.lock = threading.Lock()
 
+            def __enter__(self):
+                self.acquire()
+                return self
+
+            def __exit__(self, *args):
+                self.release()
+
             def acquire(self, *args, **kwargs):
                 if kwargs.get("timeout") == 30:
                     waiting.set()
@@ -124,13 +130,6 @@ class OpenCodeTests(unittest.TestCase):
 
             def release(self):
                 self.lock.release()
-
-            def __enter__(self):
-                self.acquire()
-                return self
-
-            def __exit__(self, *args):
-                self.release()
 
         self.runner._opencode_catalog_lock = ObservedLock()
 

@@ -33,69 +33,6 @@ class LangflowJoinController:
         self.resolve_saved_flow = resolve_saved_flow
         self._cancel_lock = RLock()
 
-    def _reconcile_stop_after_failure(self, client_request_id):
-        """Keep an earlier Stop active after an uncertain native response."""
-        if not self.store.langflow_cancel_requested(client_request_id):
-            return
-        try:
-            self.cancel(client_request_id)
-        except Exception:
-            # The original failed start remains unknown. A later status read
-            # retries the exact lookup and cancellation under the saved intent.
-            pass
-
-    @staticmethod
-    def _saved_graph(exported, flow_id, stage_id):
-        if (
-            not isinstance(exported, dict)
-            or exported.get("id") != flow_id
-            or not isinstance(exported.get("data"), dict)
-        ):
-            raise LaunchError("saved_flow_identity_mismatch")
-        graph = exported["data"]
-        nodes = graph.get("nodes")
-        if not isinstance(nodes, list) or not nodes:
-            raise LaunchError("unresolved_saved_graph")
-        codes = {}
-        for node in nodes:
-            try:
-                node_id = node["id"]
-                code = node["data"]["node"]["template"]["code"]["value"]
-            except (KeyError, TypeError):
-                raise LaunchError("unresolved_component_identity") from None
-            if (
-                not isinstance(node_id, str)
-                or not node_id
-                or not isinstance(code, str)
-                or not code.strip()
-                or node_id in codes
-            ):
-                raise LaunchError("unresolved_component_identity")
-            codes[node_id] = code
-        if stage_id not in codes:
-            raise LaunchError("stage_not_in_saved_flow")
-        return graph, codes
-
-    def _snapshot(self, client_id):
-        row = self.store.langflow_client_snapshot(client_id)
-        if row is None:
-            return None
-        return {
-            "client_request_id": client_id,
-            "run_id": row["run_id"],
-            "trace_id": self.store.get(row["run_id"])["trace_id"],
-            "invocation_id": row["invocation_id"],
-            "runner_request_id": row["invocation_id"],
-            "runner_run_id": row["runner_run_id"],
-            "runner_request_hash": row["runner_request_hash"],
-            "runner_provider": row["runner_provider"],
-            "runner_raw_event_ref": row["runner_raw_event_ref"],
-            "status": row["run_status"],
-            "dispatch_attempts": row["dispatch_attempts"],
-            "graph_basis": row["graph_basis"],
-            "executing_graph_verified": False,
-        }
-
     def status(self, client_request_id):
         """Read native status; a pending Stop may reconcile and cancel exactly once."""
         client_request_id = _uuid(client_request_id, "invalid_client_request_id")
@@ -306,3 +243,66 @@ class LangflowJoinController:
                 },
             )
             return self.status(client_request_id)
+
+    def _reconcile_stop_after_failure(self, client_request_id):
+        """Keep an earlier Stop active after an uncertain native response."""
+        if not self.store.langflow_cancel_requested(client_request_id):
+            return
+        try:
+            self.cancel(client_request_id)
+        except Exception:
+            # The original failed start remains unknown. A later status read
+            # retries the exact lookup and cancellation under the saved intent.
+            pass
+
+    @staticmethod
+    def _saved_graph(exported, flow_id, stage_id):
+        if (
+            not isinstance(exported, dict)
+            or exported.get("id") != flow_id
+            or not isinstance(exported.get("data"), dict)
+        ):
+            raise LaunchError("saved_flow_identity_mismatch")
+        graph = exported["data"]
+        nodes = graph.get("nodes")
+        if not isinstance(nodes, list) or not nodes:
+            raise LaunchError("unresolved_saved_graph")
+        codes = {}
+        for node in nodes:
+            try:
+                node_id = node["id"]
+                code = node["data"]["node"]["template"]["code"]["value"]
+            except (KeyError, TypeError):
+                raise LaunchError("unresolved_component_identity") from None
+            if (
+                not isinstance(node_id, str)
+                or not node_id
+                or not isinstance(code, str)
+                or not code.strip()
+                or node_id in codes
+            ):
+                raise LaunchError("unresolved_component_identity")
+            codes[node_id] = code
+        if stage_id not in codes:
+            raise LaunchError("stage_not_in_saved_flow")
+        return graph, codes
+
+    def _snapshot(self, client_id):
+        row = self.store.langflow_client_snapshot(client_id)
+        if row is None:
+            return None
+        return {
+            "client_request_id": client_id,
+            "run_id": row["run_id"],
+            "trace_id": self.store.get(row["run_id"])["trace_id"],
+            "invocation_id": row["invocation_id"],
+            "runner_request_id": row["invocation_id"],
+            "runner_run_id": row["runner_run_id"],
+            "runner_request_hash": row["runner_request_hash"],
+            "runner_provider": row["runner_provider"],
+            "runner_raw_event_ref": row["runner_raw_event_ref"],
+            "status": row["run_status"],
+            "dispatch_attempts": row["dispatch_attempts"],
+            "graph_basis": row["graph_basis"],
+            "executing_graph_verified": False,
+        }

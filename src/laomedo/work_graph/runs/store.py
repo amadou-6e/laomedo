@@ -10,12 +10,13 @@ from pathlib import Path
 from uuid import UUID
 from uuid import uuid4
 import json
+import sqlite3
+
 from laomedo.work_graph.runs.errors import ExternalOutcomeUnknown
 from laomedo.work_graph.runs.errors import LaunchError
 from laomedo.work_graph.runs.utils import _canonical
 from laomedo.work_graph.runs.utils import _digest
 from laomedo.work_graph.runs.utils import runner_attempt_terminal
-import sqlite3
 
 
 class WorkflowRunStore:
@@ -110,23 +111,6 @@ class WorkflowRunStore:
                 ON workflow_invocations(runner_provider, runner_run_id)
                 WHERE runner_run_id IS NOT NULL""")
 
-    def _connect(self):
-        db = sqlite3.connect(self.path, timeout=10)
-        db.row_factory = sqlite3.Row
-        db.execute("PRAGMA journal_mode=WAL")
-        db.execute("PRAGMA synchronous=FULL")
-        db.execute("PRAGMA foreign_keys=ON")
-        return db
-
-    @contextmanager
-    def _database(self):
-        db = self._connect()
-        try:
-            with db:
-                yield db
-        finally:
-            db.close()
-
     def reserve(self, *, graph, component_code, resolved_config, trigger):
         if (
             not isinstance(graph, dict)
@@ -184,21 +168,6 @@ class WorkflowRunStore:
         result = dict(row)
         result["component_revisions"] = json.loads(result["component_revisions"])
         return result
-
-    @staticmethod
-    def _receipt(db, run_id, invocation_id, kind, payload, source_time=None):
-        db.execute(
-            """INSERT INTO trace_receipts
-            (run_id, invocation_id, kind, payload_json, source_time)
-            VALUES (?, ?, ?, ?, ?)""",
-            (
-                run_id,
-                invocation_id,
-                kind,
-                _canonical(payload),
-                source_time,
-            ),
-        )
 
     def reserve_invocation(self, run_id, stage_id):
         """Reserve first-slice invocation identity before any external dispatch."""
@@ -260,16 +229,6 @@ class WorkflowRunStore:
                 "runner_request_frozen",
                 {"request_hash": request_hash, "provider": provider},
             )
-
-    @staticmethod
-    def _client_uuid(value):
-        try:
-            normalized = str(UUID(str(value)))
-        except (TypeError, ValueError, AttributeError):
-            raise LaunchError("invalid_client_request_id") from None
-        if normalized != value:
-            raise LaunchError("invalid_client_request_id")
-        return normalized
 
     def claim_langflow_client(
         self,
@@ -1048,3 +1007,45 @@ class WorkflowRunStore:
                 WHERE run_id IN (SELECT run_id FROM runs WHERE status='crashed')
                 AND status IN ('reserved','running')""")
         return ids
+
+    def _connect(self):
+        db = sqlite3.connect(self.path, timeout=10)
+        db.row_factory = sqlite3.Row
+        db.execute("PRAGMA journal_mode=WAL")
+        db.execute("PRAGMA synchronous=FULL")
+        db.execute("PRAGMA foreign_keys=ON")
+        return db
+
+    @contextmanager
+    def _database(self):
+        db = self._connect()
+        try:
+            with db:
+                yield db
+        finally:
+            db.close()
+
+    @staticmethod
+    def _receipt(db, run_id, invocation_id, kind, payload, source_time=None):
+        db.execute(
+            """INSERT INTO trace_receipts
+            (run_id, invocation_id, kind, payload_json, source_time)
+            VALUES (?, ?, ?, ?, ?)""",
+            (
+                run_id,
+                invocation_id,
+                kind,
+                _canonical(payload),
+                source_time,
+            ),
+        )
+
+    @staticmethod
+    def _client_uuid(value):
+        try:
+            normalized = str(UUID(str(value)))
+        except (TypeError, ValueError, AttributeError):
+            raise LaunchError("invalid_client_request_id") from None
+        if normalized != value:
+            raise LaunchError("invalid_client_request_id")
+        return normalized

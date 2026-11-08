@@ -29,18 +29,6 @@ class LangflowLocalClient:
         self._token_lock = Lock()
         self._token = self._login()
 
-    def _login(self):
-        try:
-            with self.opener.open(
-                self.base_url + "/api/v1/auto_login", timeout=15
-            ) as response:
-                token = json.load(response)["access_token"]
-        except (OSError, ValueError, KeyError):
-            raise LaunchError("langflow_local_login_unavailable") from None
-        if not isinstance(token, str) or not token:
-            raise LaunchError("langflow_local_login_unavailable")
-        return token
-
     def fetch(self, flow_id):
         if not isinstance(flow_id, str) or not flow_id or "/" in flow_id:
             raise LaunchError("saved_flow_identity_unavailable")
@@ -68,3 +56,15 @@ class LangflowLocalClient:
                 raise LaunchError("saved_flow_fetch_failed") from None
             except (OSError, ValueError):
                 raise LaunchError("saved_flow_fetch_failed") from None
+
+    def _login(self):
+        try:
+            with self.opener.open(
+                self.base_url + "/api/v1/auto_login", timeout=15
+            ) as response:
+                token = json.load(response)["access_token"]
+        except (OSError, ValueError, KeyError):
+            raise LaunchError("langflow_local_login_unavailable") from None
+        if not isinstance(token, str) or not token:
+            raise LaunchError("langflow_local_login_unavailable")
+        return token

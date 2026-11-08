@@ -5,12 +5,12 @@ This module does not start a service or alter an existing Langflow installation.
 
 from __future__ import annotations
 
-from laomedo.http.redirect import NoRedirect
-
 from urllib import error
 from urllib import request
 from urllib.parse import urlsplit
 import json
+
+from laomedo.http.redirect import NoRedirect
 
 
 class RunnerHTTPTransport:
@@ -37,6 +37,18 @@ class RunnerHTTPTransport:
         self.token = token
         self.timeout = timeout
         self.opener = request.build_opener(request.ProxyHandler({}), NoRedirect())
+
+    def start_async(self, body):
+        return self._call("POST", "/v1/runs/async", body)
+
+    def lookup_request(self, request_id):
+        return self._call("GET", "/v1/requests/" + str(request_id))
+
+    def status(self, run_id):
+        return self._call("GET", "/v1/runs/" + str(run_id))
+
+    def cancel(self, run_id):
+        return self._call("POST", "/v1/runs/" + str(run_id) + "/cancel", {})
 
     def _call(self, method, path, payload=None):
         body = None if payload is None else json.dumps(payload).encode("utf-8")
@@ -69,15 +81,3 @@ class RunnerHTTPTransport:
         if not isinstance(value, dict):
             raise RuntimeError("runner_invalid_response")
         return value
-
-    def start_async(self, body):
-        return self._call("POST", "/v1/runs/async", body)
-
-    def lookup_request(self, request_id):
-        return self._call("GET", "/v1/requests/" + str(request_id))
-
-    def status(self, run_id):
-        return self._call("GET", "/v1/runs/" + str(run_id))
-
-    def cancel(self, run_id):
-        return self._call("POST", "/v1/runs/" + str(run_id) + "/cancel", {})

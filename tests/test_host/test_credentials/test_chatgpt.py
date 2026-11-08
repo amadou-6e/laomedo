@@ -105,46 +105,6 @@ class ChatGPTConnectionTests(unittest.TestCase):
         self.store = ChatGPTConnection(self.root)
         self.scopes = " ".join(sorted(NEEDED | {"profile", "email"}))
 
-    def _connect(
-        self,
-        *,
-        client_id="oaiapp_fixture",
-        subject="subject-a",
-        token="synthetic-access",
-        expiry=3600,
-    ):
-        attempt = self.store.begin(
-            "http://127.0.0.1:1455/auth/callback",
-            client_id=client_id if self._known(client_id) else None,
-        )
-        callback = {
-            "code": "synthetic-code",
-            "state": attempt["state"],
-            "client_id": client_id,
-        }
-        return self.store.finish(
-            attempt,
-            callback,
-            exchange=lambda _url, fields: {
-                "id_token": "synthetic-id",
-                "access_token": token,
-                "refresh_token": "synthetic-refresh",
-                "scope": self.scopes,
-                "expires_in": expiry,
-            },
-            verify=lambda _token, _client, _nonce: {
-                "iss": "https://auth.openai.com",
-                "sub": subject,
-            },
-        )
-
-    def _known(self, client_id):
-        try:
-            self.store._account(client_id)
-            return True
-        except AuthError:
-            return False
-
     def test_registration_restart_and_private_summary(self):
         attempt = self.store.begin("http://127.0.0.1:1455/auth/callback")
         query = parse_qs(urlsplit(attempt["url"]).query)
@@ -435,6 +395,46 @@ class ChatGPTConnectionTests(unittest.TestCase):
             self.store.active()
         self.store.switch("oaiapp_two")
         self.assertEqual(self.store.access_token()[0], "second")
+
+    def _connect(
+        self,
+        *,
+        client_id="oaiapp_fixture",
+        subject="subject-a",
+        token="synthetic-access",
+        expiry=3600,
+    ):
+        attempt = self.store.begin(
+            "http://127.0.0.1:1455/auth/callback",
+            client_id=client_id if self._known(client_id) else None,
+        )
+        callback = {
+            "code": "synthetic-code",
+            "state": attempt["state"],
+            "client_id": client_id,
+        }
+        return self.store.finish(
+            attempt,
+            callback,
+            exchange=lambda _url, fields: {
+                "id_token": "synthetic-id",
+                "access_token": token,
+                "refresh_token": "synthetic-refresh",
+                "scope": self.scopes,
+                "expires_in": expiry,
+            },
+            verify=lambda _token, _client, _nonce: {
+                "iss": "https://auth.openai.com",
+                "sub": subject,
+            },
+        )
+
+    def _known(self, client_id):
+        try:
+            self.store._account(client_id)
+            return True
+        except AuthError:
+            return False
 
 
 if __name__ == "__main__":

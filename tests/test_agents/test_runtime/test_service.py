@@ -1,7 +1,6 @@
 """Internal controls only; live startup verification is recorded separately."""
 
 import json
-import laomedo
 import socket
 from pathlib import Path
 from types import SimpleNamespace
@@ -14,6 +13,8 @@ from unittest.mock import Mock
 from urllib.error import URLError
 from urllib.request import Request
 from urllib.request import urlopen
+
+import laomedo
 from laomedo.host.runner.service import RunnerService
 from laomedo.host.runner.routes import install_runner_service_routes
 from laomedo.host.runner.utils import service_environment
@@ -730,6 +731,42 @@ class RunnerServiceTests(unittest.TestCase):
         finally:
             self.service.docker_lock.release()
 
+    def test_start_joins_inflight_healthy_check_without_running_another(self):
+        self.assertEqual(self._start_during_docker_check(None)["state"], "starting")
+
+    def test_start_does_not_reuse_stale_health_when_inflight_check_fails(self):
+        self.assertEqual(
+            self._start_during_docker_check("runner_docker_unavailable")["reason"],
+            "runner_docker_unavailable",
+        )
+
+    def test_start_stays_unconfirmed_when_inflight_check_is_unconfirmed(self):
+        self.assertEqual(
+            self._start_during_docker_check("runner_docker_check_unconfirmed")[
+                "reason"
+            ],
+            "runner_docker_check_unconfirmed",
+        )
+
+    def test_running_api_does_not_imply_docker_is_ready(self):
+        from io import BytesIO
+
+        self.docker.return_value = "runner_docker_unavailable"
+        with patch.object(
+            self.service.opener,
+            "open",
+            return_value=BytesIO(b'{"provider":"claude","status":"ready"}'),
+        ):
+            self.assertEqual(self.service.status()["state"], "prerequisite")
+
+    def test_confirmed_cancellation_is_retained_when_docker_is_down(self):
+        self.docker.return_value = "runner_docker_unavailable"
+        state = self.service._with_docker(
+            {"state": "offline", "can_start": True, "reason": "runner_start_cancelled"}
+        )
+        self.assertTrue(state["startup_cancelled"])
+        self.assertFalse(state["can_start"])
+
     def _start_during_docker_check(self, reason):
         from laomedo.host.runner.models import DockerReadiness
 
@@ -777,42 +814,6 @@ class RunnerServiceTests(unittest.TestCase):
             self.assertEqual(self.docker.call_count, 1)
             self.assertEqual(spawn.call_count, 1 if reason is None else 0)
         return results["start"]
-
-    def test_start_joins_inflight_healthy_check_without_running_another(self):
-        self.assertEqual(self._start_during_docker_check(None)["state"], "starting")
-
-    def test_start_does_not_reuse_stale_health_when_inflight_check_fails(self):
-        self.assertEqual(
-            self._start_during_docker_check("runner_docker_unavailable")["reason"],
-            "runner_docker_unavailable",
-        )
-
-    def test_start_stays_unconfirmed_when_inflight_check_is_unconfirmed(self):
-        self.assertEqual(
-            self._start_during_docker_check("runner_docker_check_unconfirmed")[
-                "reason"
-            ],
-            "runner_docker_check_unconfirmed",
-        )
-
-    def test_running_api_does_not_imply_docker_is_ready(self):
-        from io import BytesIO
-
-        self.docker.return_value = "runner_docker_unavailable"
-        with patch.object(
-            self.service.opener,
-            "open",
-            return_value=BytesIO(b'{"provider":"claude","status":"ready"}'),
-        ):
-            self.assertEqual(self.service.status()["state"], "prerequisite")
-
-    def test_confirmed_cancellation_is_retained_when_docker_is_down(self):
-        self.docker.return_value = "runner_docker_unavailable"
-        state = self.service._with_docker(
-            {"state": "offline", "can_start": True, "reason": "runner_start_cancelled"}
-        )
-        self.assertTrue(state["startup_cancelled"])
-        self.assertFalse(state["can_start"])
 
 
 if __name__ == "__main__":

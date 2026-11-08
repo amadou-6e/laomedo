@@ -19,38 +19,6 @@ PINNED_LANGFLOW = "1.12.3"
 
 
 class FrozenLangflowStage:
-    @staticmethod
-    def _require_pinned_runtime():
-        """Admit the pinned base app or umbrella and reject mixed revisions."""
-        found_app = False
-        missing_app = None
-        for distribution in ("langflow", "langflow-base"):
-            try:
-                installed_version = version(distribution)
-            except PackageNotFoundError as exc:
-                missing_app = exc
-                continue
-            found_app = True
-            if installed_version != PINNED_LANGFLOW:
-                raise LaunchError("unsupported_langflow_revision")
-        if not found_app:
-            raise LaunchError("langflow_runtime_unavailable") from missing_app
-        try:
-            if version("lfx") != PINNED_LANGFLOW:
-                raise LaunchError("unsupported_langflow_revision")
-        except PackageNotFoundError as exc:
-            raise LaunchError("langflow_runtime_unavailable") from exc
-
-    @classmethod
-    def from_saved_flow(cls, flow_id, fetch_export):
-        """Fetch one saved revision immediately before building its graph."""
-        if not isinstance(flow_id, str) or not flow_id or not callable(fetch_export):
-            raise LaunchError("unresolved_graph_identity")
-        exported = fetch_export(flow_id)
-        if not isinstance(exported, dict) or exported.get("id") != flow_id:
-            raise LaunchError("saved_flow_identity_mismatch")
-        return cls(exported)
-
     def __init__(self, exported_flow):
         self._require_pinned_runtime()
         if not isinstance(exported_flow, dict):
@@ -110,6 +78,16 @@ class FrozenLangflowStage:
             for node_id, code in self.component_code.items()
         }
 
+    @classmethod
+    def from_saved_flow(cls, flow_id, fetch_export):
+        """Fetch one saved revision immediately before building its graph."""
+        if not isinstance(flow_id, str) or not flow_id or not callable(fetch_export):
+            raise LaunchError("unresolved_graph_identity")
+        exported = fetch_export(flow_id)
+        if not isinstance(exported, dict) or exported.get("id") != flow_id:
+            raise LaunchError("saved_flow_identity_mismatch")
+        return cls(exported)
+
     def reserve(self, store: WorkflowRunStore, *, resolved_config, trigger):
         if self._reserved:
             raise LaunchError("stage_already_reserved")
@@ -149,3 +127,25 @@ class FrozenLangflowStage:
             ),
         )
         return store.get(record["run_id"]), result
+
+    @staticmethod
+    def _require_pinned_runtime():
+        """Admit the pinned base app or umbrella and reject mixed revisions."""
+        found_app = False
+        missing_app = None
+        for distribution in ("langflow", "langflow-base"):
+            try:
+                installed_version = version(distribution)
+            except PackageNotFoundError as exc:
+                missing_app = exc
+                continue
+            found_app = True
+            if installed_version != PINNED_LANGFLOW:
+                raise LaunchError("unsupported_langflow_revision")
+        if not found_app:
+            raise LaunchError("langflow_runtime_unavailable") from missing_app
+        try:
+            if version("lfx") != PINNED_LANGFLOW:
+                raise LaunchError("unsupported_langflow_revision")
+        except PackageNotFoundError as exc:
+            raise LaunchError("langflow_runtime_unavailable") from exc

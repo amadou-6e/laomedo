@@ -8,20 +8,21 @@ from urllib.error import URLError
 from urllib.request import ProxyHandler
 from urllib.request import Request
 from urllib.request import build_opener
-from laomedo.http.redirect import NoRedirect
 import json
-from laomedo._paths import import_root
-from laomedo.host.runner.prerequisites import check_docker
-from laomedo.host.runner.models import DockerReadiness
-from laomedo.host.runner.settings import DOCKER_CHECK_TIMEOUT_SECONDS
-from laomedo.host.runner.startup import startup_gate
-from laomedo.host.runner.utils import service_environment
 import socket
 import subprocess
 import sys
 import threading
 import time
 import uuid
+
+from laomedo.http.redirect import NoRedirect
+from laomedo._paths import import_root
+from laomedo.host.runner.prerequisites import check_docker
+from laomedo.host.runner.models import DockerReadiness
+from laomedo.host.runner.settings import DOCKER_CHECK_TIMEOUT_SECONDS
+from laomedo.host.runner.startup import startup_gate
+from laomedo.host.runner.utils import service_environment
 
 
 class RunnerService:
@@ -146,103 +147,6 @@ class RunnerService:
         except (URLError, TimeoutError, OSError):
             return self._probe_listener(config, refresh=refresh)
 
-    def _probe_listener(self, config, *, refresh=False):
-        # A health timeout does not prove the process is offline. Never replace
-        # a listener whose identity/response cannot be established.
-        try:
-            with socket.create_connection(("127.0.0.1", config["port"]), timeout=3):
-                return {
-                    "state": "unavailable",
-                    "can_start": False,
-                    "reason": "runner_identity_unverified",
-                }
-        except ConnectionRefusedError:
-            return self._with_docker(self._offline_state(), refresh=refresh)
-        except OSError:
-            return {
-                "state": "unavailable",
-                "can_start": False,
-                "reason": "runner_identity_unverified",
-            }
-
-    def _with_docker(self, state, *, refresh=False):
-        if state["state"] not in {"ready", "offline"}:
-            return state
-        observation = self.docker_observation
-        if (
-            refresh
-            or observation is None
-            or time.monotonic() - observation.checked_at >= 2
-        ):
-            unconfirmed = {
-                "state": "prerequisite",
-                "can_start": False,
-                "reason": "runner_docker_check_unconfirmed",
-                "runner_state": state["state"],
-            }
-            if self.docker_lock.acquire(blocking=False):
-                try:
-                    reason = check_docker(service_environment("codex"))
-                    observation = DockerReadiness(
-                        reason=reason, checked_at=time.monotonic()
-                    )
-                    self.docker_observation = observation
-                finally:
-                    self.docker_lock.release()
-            elif refresh and self.docker_lock.acquire(
-                timeout=DOCKER_CHECK_TIMEOUT_SECONDS
-            ):
-                try:
-                    # Start joins the in-flight check. Only a newly completed
-                    # observation may admit it; never reuse the old healthy poll.
-                    if self.docker_observation is observation:
-                        return unconfirmed
-                    observation = self.docker_observation
-                finally:
-                    self.docker_lock.release()
-            else:
-                return unconfirmed
-        if observation.reason is not None:
-            value = {
-                "state": "prerequisite",
-                "can_start": False,
-                "reason": observation.reason,
-                "runner_state": state["state"],
-            }
-            if state.get("reason") == "runner_start_cancelled":
-                value["startup_cancelled"] = True
-            return value
-        if state["state"] == "offline" and not state.get("reason"):
-            return {**state, "reason": "runner_local_offline"}
-        return state
-
-    def _offline_state(self):
-        process = self.process
-        if process is not None and process.poll() is None:
-            return {
-                "state": "cancelling" if self.cancel_requested else "starting",
-                "can_start": False,
-                "startup_id": self.startup_id,
-            }
-        cancelled = (
-            self.cancel_requested
-            and self.startup_gate_path is not None
-            and self.startup_gate_path.with_suffix(".cancelled").exists()
-        )
-        return {
-            "state": "offline",
-            "can_start": True,
-            "reason": (
-                "runner_start_cancelled"
-                if cancelled
-                else (
-                    "runner_start_failed"
-                    if process is not None and self.ready_process is not process
-                    else None
-                )
-            ),
-        }
-
     def start(self, url=None):
         with self.lock:
             # A stale successful poll cannot authorize starting without Docker.
@@ -357,3 +261,100 @@ class RunnerService:
                 listening.with_suffix(".cancel").touch()
                 self.cancel_requested = True
                 return self._offline_state()
+
+    def _probe_listener(self, config, *, refresh=False):
+        # A health timeout does not prove the process is offline. Never replace
+        # a listener whose identity/response cannot be established.
+        try:
+            with socket.create_connection(("127.0.0.1", config["port"]), timeout=3):
+                return {
+                    "state": "unavailable",
+                    "can_start": False,
+                    "reason": "runner_identity_unverified",
+                }
+        except ConnectionRefusedError:
+            return self._with_docker(self._offline_state(), refresh=refresh)
+        except OSError:
+            return {
+                "state": "unavailable",
+                "can_start": False,
+                "reason": "runner_identity_unverified",
+            }
+
+    def _with_docker(self, state, *, refresh=False):
+        if state["state"] not in {"ready", "offline"}:
+            return state
+        observation = self.docker_observation
+        if (
+            refresh
+            or observation is None
+            or time.monotonic() - observation.checked_at >= 2
+        ):
+            unconfirmed = {
+                "state": "prerequisite",
+                "can_start": False,
+                "reason": "runner_docker_check_unconfirmed",
+                "runner_state": state["state"],
+            }
+            if self.docker_lock.acquire(blocking=False):
+                try:
+                    reason = check_docker(service_environment("codex"))
+                    observation = DockerReadiness(
+                        reason=reason, checked_at=time.monotonic()
+                    )
+                    self.docker_observation = observation
+                finally:
+                    self.docker_lock.release()
+            elif refresh and self.docker_lock.acquire(
+                timeout=DOCKER_CHECK_TIMEOUT_SECONDS
+            ):
+                try:
+                    # Start joins the in-flight check. Only a newly completed
+                    # observation may admit it; never reuse the old healthy poll.
+                    if self.docker_observation is observation:
+                        return unconfirmed
+                    observation = self.docker_observation
+                finally:
+                    self.docker_lock.release()
+            else:
+                return unconfirmed
+        if observation.reason is not None:
+            value = {
+                "state": "prerequisite",
+                "can_start": False,
+                "reason": observation.reason,
+                "runner_state": state["state"],
+            }
+            if state.get("reason") == "runner_start_cancelled":
+                value["startup_cancelled"] = True
+            return value
+        if state["state"] == "offline" and not state.get("reason"):
+            return {**state, "reason": "runner_local_offline"}
+        return state
+
+    def _offline_state(self):
+        process = self.process
+        if process is not None and process.poll() is None:
+            return {
+                "state": "cancelling" if self.cancel_requested else "starting",
+                "can_start": False,
+                "startup_id": self.startup_id,
+            }
+        cancelled = (
+            self.cancel_requested
+            and self.startup_gate_path is not None
+            and self.startup_gate_path.with_suffix(".cancelled").exists()
+        )
+        return {
+            "state": "offline",
+            "can_start": True,
+            "reason": (
+                "runner_start_cancelled"
+                if cancelled
+                else (
+                    "runner_start_failed"
+                    if process is not None and self.ready_process is not process
+                    else None
+                )
+            ),
+        }

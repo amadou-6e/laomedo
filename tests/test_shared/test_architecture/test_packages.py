@@ -1,7 +1,6 @@
 """Protect canonical ownership, packaged resources and executable entrypoints."""
 
-from support.paths import repository_root
-
+import ast
 import importlib
 import json
 import os
@@ -10,6 +9,8 @@ import subprocess
 import sys
 import tempfile
 import unittest
+
+from support.paths import repository_root
 from laomedo._paths import import_root
 from laomedo._paths import package_root
 
@@ -150,3 +151,48 @@ class PackageLayoutTests(unittest.TestCase):
             DockerLangflowStage(flow, source_root=ROOT).source_root, ROOT / "src"
         )
         self.assertEqual(DockerLangflowStage(flow).source_root, import_root())
+
+    def test_agent_class_members_follow_public_api_order(self):
+        """Keep provider entrypoints discoverable before implementation helpers.
+
+        Inspect source without importing optional runtimes. Properties and their
+        accessors form one section; public class/static methods remain public.
+        Class fields and decorators retain their separate runtime semantics.
+        """
+        paths = list(ROOT.joinpath("src/laomedo/agents").rglob("*.py"))
+        paths.extend(
+            ROOT.joinpath("components/laomedo", name + ".py")
+            for name in ("bounded_controller", "github_pr", "output_contract", "skill")
+        )
+        for path in paths:
+            tree = ast.parse(path.read_text(encoding="utf-8-sig"))
+            for definition in ast.walk(tree):
+                if not isinstance(definition, ast.ClassDef):
+                    continue
+                sections = []
+                dunders = []
+                for method in definition.body:
+                    if not isinstance(method, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                        continue
+                    if method.name.startswith("__") and method.name.endswith("__"):
+                        section = 0
+                        dunders.append(method.name)
+                    elif any(
+                        isinstance(decorator, ast.Name)
+                        and decorator.id == "property"
+                        or isinstance(decorator, ast.Attribute)
+                        and decorator.attr in {"setter", "getter", "deleter"}
+                        for decorator in method.decorator_list
+                    ):
+                        section = 1
+                    else:
+                        section = 3 if method.name.startswith("_") else 2
+                    sections.append(section)
+                with self.subTest(path=path.relative_to(ROOT), cls=definition.name):
+                    self.assertEqual(
+                        sections,
+                        sorted(sections),
+                        "Expected dunders, properties, public methods, private helpers",
+                    )
+                    if "__init__" in dunders:
+                        self.assertEqual(dunders[0], "__init__")

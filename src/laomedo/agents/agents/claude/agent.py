@@ -2,10 +2,6 @@
 
 from __future__ import annotations
 
-from laomedo.skills.registry.files import inventory
-from laomedo.skills.registry.hashing import tree_hash
-from laomedo.agents.activity.models import ActivityAttemptRecord
-
 from concurrent.futures import Future
 from concurrent.futures import TimeoutError as FutureTimeout
 from copy import deepcopy
@@ -15,6 +11,14 @@ from uuid import uuid4
 import asyncio
 import hashlib
 import json
+import re
+import subprocess
+import threading
+import time
+
+from laomedo.skills.registry.files import inventory
+from laomedo.skills.registry.hashing import tree_hash
+from laomedo.agents.activity.models import ActivityAttemptRecord
 from laomedo.agents.activity.utils import now
 from laomedo.agents.activity.runner.feed import line_count
 from laomedo.agents.activity.runner.feed import receipt
@@ -40,14 +44,47 @@ from laomedo.host.leases.models import ContainerIdentity
 from laomedo.host.leases.utils import cleanup_exact
 from laomedo.agents.workspaces.skills.utils import verify
 from laomedo.agents.agents.claude.auth.settings import Settings
-import re
-import subprocess
-import threading
-import time
 
 
 class ClaudeAgent(BaseAgent):
     provider = "claude"
+
+    def __init__(
+        self,
+        state,
+        skill_store,
+        source_workspace,
+        *,
+        image=IMAGE,
+        profile_volume=PROFILE,
+        lease_service=None,
+        turn_timeout=180,
+        container=None,
+        github_authority=None,
+        mediator_state=None,
+        git_workspace=False,
+        artifact_sources=None,
+    ):
+        if type(turn_timeout) is not int or not 1 <= turn_timeout <= 86400:
+            raise RunnerError("claude_turn_timeout_invalid")
+        self.turn_timeout = turn_timeout
+        self.container = container or ClaudeContainer(
+            image, profile_volume, lease_service
+        )
+        self.executable = "claude"
+        self._catalog_lock = threading.Lock()
+        super().__init__(
+            state,
+            skill_store,
+            source_workspace,
+            lease_service=lease_service,
+            github_authority=github_authority,
+            mediator_state=mediator_state,
+            git_workspace=git_workspace,
+            artifact_sources=artifact_sources,
+        )
+        self.profile = self.container.profile
+        self.image, self.image_id = image, self.container.image_id
 
     def editor_model_catalog(self):
         return self.model_catalog(refresh=True)
@@ -125,6 +162,109 @@ class ClaudeAgent(BaseAgent):
             with self._catalog_lock:
                 self._catalog_pending = None
 
+    def preflight(self):
+        """Check native authentication after constructor image/version validation.
+
+        The existing opt-in login mirror may update the dedicated credential
+        volume. This check sends no model request and makes no permission-probe
+        claim. Preserve the public ready payload and its authentication meaning.
+        """
+        self._check_auth()
+        return {
+            "provider": self.provider,
+            "cli_version": CLI_VERSION,
+            "status": "ready",
+            "native_tools": ["Skill", "mcp__laomedo__exec_command"],
+            "profile": self.profile,
+            "image_id": self.image_id,
+            "profile_mode": "dedicated_volume",
+        }
+
+    def resume(
+        self,
+        run_id,
+        task,
+        *,
+        expected_post_run_hash,
+        expected_thread_id,
+        model,
+        effort,
+        activity_attempt_id=None,
+        run_timeout_seconds=None,
+    ):
+        if run_timeout_seconds is not None and (
+            type(run_timeout_seconds) is not int
+            or not 1 <= run_timeout_seconds <= 86400
+        ):
+            raise RunnerError("claude_turn_timeout_invalid")
+        record = self.status(run_id)
+        root = self._run_dir(run_id)
+        if (
+            record.get("provider") != self.provider
+            or record.get("runtime_version") != CLI_VERSION
+            or record.get("image_id") != self.image_id
+            or record.get("profile") != self.profile
+            or record.get("config_sha256")
+            != configuration_hash(
+                record.get("resolved_model"), effort, record.get("skills", [])
+            )
+            or record.get("permission_grant")
+            != {
+                "workspace": "draft-write",
+                "commands": "network-free-worker",
+                "profile": "controller-only",
+                "external_effects": "host-mediated",
+            }
+            or record.get("execution_mode") != "claude_container"
+            or record["status"] != "completed"
+            or record["thread_id"] != expected_thread_id
+            or record["post_run_hash"] != expected_post_run_hash
+            or record["requested_model"] != model
+            or record["requested_effort"] != effort
+            or not isinstance(task, str)
+            or not task.strip()
+        ):
+            raise RunnerError("resume_binding_mismatch")
+        if (
+            not (root / "post-run").is_dir()
+            or _hash_tree(root / "post-run") != expected_post_run_hash
+        ):
+            raise RunnerError("post_run_snapshot_mismatch")
+        if _hash_tree(root / "workspace") != expected_post_run_hash:
+            raise RunnerError("workspace_changed_since_snapshot")
+        return self._execute(
+            run_id,
+            task,
+            resume=True,
+            activity_attempt_id=activity_attempt_id,
+            run_timeout_seconds=run_timeout_seconds,
+        )
+
+    def cancel(self, run_id):
+        with self.control_lock:
+            record = self.status(run_id)
+            if record["status"] == "prepared":
+                record.update(
+                    status="cancelled",
+                    cancel_requested=True,
+                    cancel_confirmed=True,
+                    attempt_finished=True,
+                )
+                _json(self._run_dir(run_id) / "record.json", record)
+                return record
+        if record["status"] == "running":
+            flag = self.cancel_flags.get(run_id)
+            if flag is None:
+                raise RunnerError("run_not_active_in_this_process")
+            with self.control_lock:
+                flag.set()
+            # The execution loop owns teardown of both controller and workers.
+            # Concurrent removals here race its finally block and can report a
+            # spurious failure even though exact cleanup subsequently succeeds.
+            # Acknowledge the request only; terminal status confirms cleanup.
+            return {**record, "cancel_requested": True, "cancel_confirmed": False}
+        return record
+
     def _discover_models(self):
         """The native account picker, using only an initialize control request.
 
@@ -198,43 +338,6 @@ class ClaudeAgent(BaseAgent):
         except (OSError, ValueError, TypeError, KeyError, subprocess.SubprocessError):
             raise RunnerError(failure) from None
 
-    def __init__(
-        self,
-        state,
-        skill_store,
-        source_workspace,
-        *,
-        image=IMAGE,
-        profile_volume=PROFILE,
-        lease_service=None,
-        turn_timeout=180,
-        container=None,
-        github_authority=None,
-        mediator_state=None,
-        git_workspace=False,
-        artifact_sources=None,
-    ):
-        if type(turn_timeout) is not int or not 1 <= turn_timeout <= 86400:
-            raise RunnerError("claude_turn_timeout_invalid")
-        self.turn_timeout = turn_timeout
-        self.container = container or ClaudeContainer(
-            image, profile_volume, lease_service
-        )
-        self.executable = "claude"
-        self._catalog_lock = threading.Lock()
-        super().__init__(
-            state,
-            skill_store,
-            source_workspace,
-            lease_service=lease_service,
-            github_authority=github_authority,
-            mediator_state=mediator_state,
-            git_workspace=git_workspace,
-            artifact_sources=artifact_sources,
-        )
-        self.profile = self.container.profile
-        self.image, self.image_id = image, self.container.image_id
-
     def _mirror_host_login(self, *, minimum_validity_seconds=None, deadline=None):
         if Settings().mirror_host_login == "1":
             try:
@@ -282,24 +385,6 @@ class ClaudeAgent(BaseAgent):
             if identity
             else None
         )
-
-    def preflight(self):
-        """Check native authentication after constructor image/version validation.
-
-        The existing opt-in login mirror may update the dedicated credential
-        volume. This check sends no model request and makes no permission-probe
-        claim. Preserve the public ready payload and its authentication meaning.
-        """
-        self._check_auth()
-        return {
-            "provider": self.provider,
-            "cli_version": CLI_VERSION,
-            "status": "ready",
-            "native_tools": ["Skill", "mcp__laomedo__exec_command"],
-            "profile": self.profile,
-            "image_id": self.image_id,
-            "profile_mode": "dedicated_volume",
-        }
 
     def _prepare(self, request, **kwargs):
         if (
@@ -1258,89 +1343,4 @@ class ClaudeAgent(BaseAgent):
                 _json(self._run_dir(run_id) / "record.json", record)
             self.cancel_flags.pop(run_id, None)
             self.lock.release()
-        return record
-
-    def resume(
-        self,
-        run_id,
-        task,
-        *,
-        expected_post_run_hash,
-        expected_thread_id,
-        model,
-        effort,
-        activity_attempt_id=None,
-        run_timeout_seconds=None,
-    ):
-        if run_timeout_seconds is not None and (
-            type(run_timeout_seconds) is not int
-            or not 1 <= run_timeout_seconds <= 86400
-        ):
-            raise RunnerError("claude_turn_timeout_invalid")
-        record = self.status(run_id)
-        root = self._run_dir(run_id)
-        if (
-            record.get("provider") != self.provider
-            or record.get("runtime_version") != CLI_VERSION
-            or record.get("image_id") != self.image_id
-            or record.get("profile") != self.profile
-            or record.get("config_sha256")
-            != configuration_hash(
-                record.get("resolved_model"), effort, record.get("skills", [])
-            )
-            or record.get("permission_grant")
-            != {
-                "workspace": "draft-write",
-                "commands": "network-free-worker",
-                "profile": "controller-only",
-                "external_effects": "host-mediated",
-            }
-            or record.get("execution_mode") != "claude_container"
-            or record["status"] != "completed"
-            or record["thread_id"] != expected_thread_id
-            or record["post_run_hash"] != expected_post_run_hash
-            or record["requested_model"] != model
-            or record["requested_effort"] != effort
-            or not isinstance(task, str)
-            or not task.strip()
-        ):
-            raise RunnerError("resume_binding_mismatch")
-        if (
-            not (root / "post-run").is_dir()
-            or _hash_tree(root / "post-run") != expected_post_run_hash
-        ):
-            raise RunnerError("post_run_snapshot_mismatch")
-        if _hash_tree(root / "workspace") != expected_post_run_hash:
-            raise RunnerError("workspace_changed_since_snapshot")
-        return self._execute(
-            run_id,
-            task,
-            resume=True,
-            activity_attempt_id=activity_attempt_id,
-            run_timeout_seconds=run_timeout_seconds,
-        )
-
-    def cancel(self, run_id):
-        with self.control_lock:
-            record = self.status(run_id)
-            if record["status"] == "prepared":
-                record.update(
-                    status="cancelled",
-                    cancel_requested=True,
-                    cancel_confirmed=True,
-                    attempt_finished=True,
-                )
-                _json(self._run_dir(run_id) / "record.json", record)
-                return record
-        if record["status"] == "running":
-            flag = self.cancel_flags.get(run_id)
-            if flag is None:
-                raise RunnerError("run_not_active_in_this_process")
-            with self.control_lock:
-                flag.set()
-            # The execution loop owns teardown of both controller and workers.
-            # Concurrent removals here race its finally block and can report a
-            # spurious failure even though exact cleanup subsequently succeeds.
-            # Acknowledge the request only; terminal status confirms cleanup.
-            return {**record, "cancel_requested": True, "cancel_confirmed": False}
         return record

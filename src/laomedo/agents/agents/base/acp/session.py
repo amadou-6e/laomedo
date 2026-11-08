@@ -52,10 +52,6 @@ class AcpSession:
             self, DockerTransport(session, on_failure=self._fail_protocol)
         )
 
-    def _fail_protocol(self):
-        """Invalidate success without exposing an SDK diagnostic traceback."""
-        self.protocol_failed = True
-
     async def initialize(self):
         """Negotiate ACP v1 without logging authentication or native payloads."""
         reply = await self._request(
@@ -238,6 +234,17 @@ class AcpSession:
             except Exception:
                 self.protocol_failed = True
 
+    async def close(self) -> None:
+        """Unblock the reader through creator-owned cleanup before closing SDK I/O."""
+        try:
+            self.session.close()
+        finally:
+            await self.connection.close()
+
+    def _fail_protocol(self):
+        """Invalidate success without exposing an SDK diagnostic traceback."""
+        self.protocol_failed = True
+
     def _answer(self) -> str:
         """Return the final message only, retaining commentary in the update log.
 
@@ -263,13 +270,6 @@ class AcpSession:
                 identity = current
             messages.setdefault(identity, []).append(update["content"]["text"])
         return "".join(next(reversed(messages.values()))) if messages else ""
-
-    async def close(self) -> None:
-        """Unblock the reader through creator-owned cleanup before closing SDK I/O."""
-        try:
-            self.session.close()
-        finally:
-            await self.connection.close()
 
     async def _request(self, request, method: str, seconds: float):
         """Map bounded SDK failures to existing safe runner error contracts."""

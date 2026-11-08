@@ -145,125 +145,6 @@ class LocalRunnerTests(unittest.TestCase):
         ):
             self.assertEqual(restarted._reserve_turn(), 9)
 
-    def _output_run(
-        self,
-        answers,
-        *,
-        effects=False,
-        retry_count=1,
-        native_item=None,
-        native_precheck=False,
-        failed_wait=False,
-    ):
-        from laomedo.agents.interface.output.utils import requirements
-
-        pinned = requirements(
-            {
-                "schema_version": 1,
-                "fields": [{"name": "report", "type": "string", "required": True}],
-            }
-        )
-
-        class OutputServer(FakeServer):
-            inputs, thread_params = [], []
-
-            def request(inner, method, params, timeout=30):
-                if method == "thread/start":
-                    inner.thread_params.append(params)
-                if method == "turn/start":
-                    inner.inputs.append(params)
-                    return {
-                        "result": {"turn": {"id": "output-" + str(len(inner.inputs))}}
-                    }
-                return super().request(method, params, timeout)
-
-            def wait_turn(inner, turn_id, timeout, cancelled):
-                if native_precheck:
-                    inner.events.append(
-                        {
-                            "method": "item/completed",
-                            "params": {
-                                "turnId": turn_id,
-                                "item": {
-                                    "type": "userMessage",
-                                    "id": "user-message",
-                                    "content": [],
-                                },
-                            },
-                        }
-                    )
-                    inner.process = SimpleNamespace(stdin=io.StringIO())
-                    AppServer._precheck(
-                        inner,
-                        {
-                            "threadId": "native-thread",
-                            "turnId": turn_id,
-                            "callId": "precheck-" + turn_id,
-                            "tool": "laomedo_output_precheck",
-                            "namespace": None,
-                            "arguments": {
-                                "requirements_revision": pinned[
-                                    "requirements_revision"
-                                ],
-                                "submission": {},
-                            },
-                        },
-                    )
-                    inner.events.append(
-                        {
-                            "method": "item/completed",
-                            "params": {
-                                "turnId": turn_id,
-                                "item": {
-                                    "type": "dynamicToolCall",
-                                    "id": "precheck-" + turn_id,
-                                    "tool": "laomedo_output_precheck",
-                                    "namespace": None,
-                                },
-                            },
-                        }
-                    )
-                if failed_wait:
-                    raise RunnerError("request_timeout:turn/start")
-                if native_item:
-                    inner.events.append(
-                        {
-                            "method": "item/completed",
-                            "params": {"turnId": turn_id, "item": native_item},
-                        }
-                    )
-                if effects:
-                    inner.events.append(
-                        {
-                            "method": "item/completed",
-                            "params": {
-                                "turnId": turn_id,
-                                "item": {"type": "fileChange", "id": "effect"},
-                            },
-                        }
-                    )
-                answer = answers[min(len(inner.inputs) - 1, len(answers) - 1)]
-                if answer is not None:
-                    inner.events.append(
-                        {
-                            "method": "item/completed",
-                            "params": {
-                                "threadId": "native-thread",
-                                "turnId": turn_id,
-                                "item": {
-                                    "type": "agentMessage",
-                                    "text": json.dumps(answer),
-                                },
-                            },
-                        }
-                    )
-                return "completed", None
-
-        self.runner.transport = OutputServer
-        request = self.request()
-        request.update(output_requirements=pinned, output_retries=retry_count)
-        return self.runner.start(request), OutputServer
-
     def test_output_continuation_is_same_thread_feedback_only_and_ledger_counted(self):
         record, transport = self._output_run(
             [{}, {"report": "fixed", "task_outcome": "success"}]
@@ -1166,6 +1047,7 @@ class LocalRunnerTests(unittest.TestCase):
             self.assertEqual(
                 (owned_workspace / ".git/info/exclude").read_bytes(), before
             )
+
         # These are mocked grants/transports, not acceptance of real renewed
         # mediated grants or a model invocation's resume lifecycle.
 
@@ -1850,6 +1732,125 @@ class LocalRunnerTests(unittest.TestCase):
         self.assertEqual(result["status"], "cancelled")
         self.assertEqual(result["run_id"], run_dir.name)
         self.assertIn("item/started", (run_dir / "raw-events.jsonl").read_text())
+
+    def _output_run(
+        self,
+        answers,
+        *,
+        effects=False,
+        retry_count=1,
+        native_item=None,
+        native_precheck=False,
+        failed_wait=False,
+    ):
+        from laomedo.agents.interface.output.utils import requirements
+
+        pinned = requirements(
+            {
+                "schema_version": 1,
+                "fields": [{"name": "report", "type": "string", "required": True}],
+            }
+        )
+
+        class OutputServer(FakeServer):
+            inputs, thread_params = [], []
+
+            def request(inner, method, params, timeout=30):
+                if method == "thread/start":
+                    inner.thread_params.append(params)
+                if method == "turn/start":
+                    inner.inputs.append(params)
+                    return {
+                        "result": {"turn": {"id": "output-" + str(len(inner.inputs))}}
+                    }
+                return super().request(method, params, timeout)
+
+            def wait_turn(inner, turn_id, timeout, cancelled):
+                if native_precheck:
+                    inner.events.append(
+                        {
+                            "method": "item/completed",
+                            "params": {
+                                "turnId": turn_id,
+                                "item": {
+                                    "type": "userMessage",
+                                    "id": "user-message",
+                                    "content": [],
+                                },
+                            },
+                        }
+                    )
+                    inner.process = SimpleNamespace(stdin=io.StringIO())
+                    AppServer._precheck(
+                        inner,
+                        {
+                            "threadId": "native-thread",
+                            "turnId": turn_id,
+                            "callId": "precheck-" + turn_id,
+                            "tool": "laomedo_output_precheck",
+                            "namespace": None,
+                            "arguments": {
+                                "requirements_revision": pinned[
+                                    "requirements_revision"
+                                ],
+                                "submission": {},
+                            },
+                        },
+                    )
+                    inner.events.append(
+                        {
+                            "method": "item/completed",
+                            "params": {
+                                "turnId": turn_id,
+                                "item": {
+                                    "type": "dynamicToolCall",
+                                    "id": "precheck-" + turn_id,
+                                    "tool": "laomedo_output_precheck",
+                                    "namespace": None,
+                                },
+                            },
+                        }
+                    )
+                if failed_wait:
+                    raise RunnerError("request_timeout:turn/start")
+                if native_item:
+                    inner.events.append(
+                        {
+                            "method": "item/completed",
+                            "params": {"turnId": turn_id, "item": native_item},
+                        }
+                    )
+                if effects:
+                    inner.events.append(
+                        {
+                            "method": "item/completed",
+                            "params": {
+                                "turnId": turn_id,
+                                "item": {"type": "fileChange", "id": "effect"},
+                            },
+                        }
+                    )
+                answer = answers[min(len(inner.inputs) - 1, len(answers) - 1)]
+                if answer is not None:
+                    inner.events.append(
+                        {
+                            "method": "item/completed",
+                            "params": {
+                                "threadId": "native-thread",
+                                "turnId": turn_id,
+                                "item": {
+                                    "type": "agentMessage",
+                                    "text": json.dumps(answer),
+                                },
+                            },
+                        }
+                    )
+                return "completed", None
+
+        self.runner.transport = OutputServer
+        request = self.request()
+        request.update(output_requirements=pinned, output_retries=retry_count)
+        return self.runner.start(request), OutputServer
 
 
 if __name__ == "__main__":

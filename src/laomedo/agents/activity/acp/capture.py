@@ -54,24 +54,6 @@ class AcpCapture:
                 )
             self._write_records(events)
 
-    def _write_records(self, events):
-        """Validate the whole batch before writing any accepted evidence record."""
-        records = [json.dumps(receipt(sanitized(event))) + "\n" for event in events]
-        sizes = [len(raw.encode("utf-8")) for raw in records]
-        size = sum(sizes)
-        if (
-            any(value > MAX_RECORD_BYTES for value in sizes)
-            or self.bytes + size > MAX_ATTEMPT_BYTES
-        ):
-            # Capture failure propagates through the ACP client. Do not
-            # silently claim complete evidence after discarding a record.
-            raise ValueError("ACP activity retention limit exceeded")
-        with self.root.joinpath("activity-events.jsonl").open(
-            "a", encoding="utf-8"
-        ) as log:
-            log.writelines(records)
-        self.bytes += size
-
     def begin(self, session_id, task):
         """Record the actual session binding and the host-submitted prompt."""
         if self.session_id is not None:
@@ -242,3 +224,21 @@ class AcpCapture:
         )
         self.finished = True
         self.seal()
+
+    def _write_records(self, events):
+        """Validate the whole batch before writing any accepted evidence record."""
+        records = [json.dumps(receipt(sanitized(event))) + "\n" for event in events]
+        sizes = [len(raw.encode("utf-8")) for raw in records]
+        size = sum(sizes)
+        if (
+            any(value > MAX_RECORD_BYTES for value in sizes)
+            or self.bytes + size > MAX_ATTEMPT_BYTES
+        ):
+            # Capture failure propagates through the ACP client. Do not
+            # silently claim complete evidence after discarding a record.
+            raise ValueError("ACP activity retention limit exceeded")
+        with self.root.joinpath("activity-events.jsonl").open(
+            "a", encoding="utf-8"
+        ) as log:
+            log.writelines(records)
+        self.bytes += size

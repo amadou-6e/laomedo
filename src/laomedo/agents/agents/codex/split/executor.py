@@ -82,6 +82,42 @@ class Executor:
         except RuntimeError:
             raise RunnerError("executor_lost") from None
 
+    def exec_probe(self, command: list[str]):
+        """Run a bounded readiness probe only inside the credential-free executor."""
+        from py_docker.streams.models import StreamLimits
+
+        return self.client.execution.run(
+            self.session.identity, command, StreamLimits(seconds=15, max_bytes=65536)
+        )
+
+    def assert_controller_isolated(self, controller) -> None:
+        if self._controller_listeners(controller):
+            raise RunnerError("controller_listener_gate_failed")
+        if self._exec(controller.identity, ["codex", "--version"]) != CLI_VERSION:
+            raise RunnerError("unsupported_codex_cli_version")
+        if self.read_failed or not self.session.state().running:
+            raise RunnerError("executor_not_running")
+        for session in (controller, self.session):
+            container = self.client.containers.inspect(session.identity)
+            if container is None or container.attrs["Image"] != self.image:
+                raise RunnerError("running_image_digest_changed")
+
+    def close(self) -> None:
+        """Keep an unresolved executor receipt and report cleanup uncertainty."""
+        from py_docker.errors import DockerOperationError
+
+        try:
+            if self.session is not None:
+                self.session.close()
+            if self.reader is not None and self.reader.ident is not None:
+                self.reader.join(timeout=5)
+                if self.reader.is_alive():
+                    raise DockerOperationError("confirm executor reader shutdown")
+        except DockerOperationError:
+            raise RunnerError("executor_termination_unverified") from None
+        finally:
+            self.client.close()
+
     def _exec(self, identity, command):
         """Execute a bounded policy probe through the selected owned session."""
         from py_docker.errors import DockerOperationError
@@ -128,26 +164,6 @@ class Executor:
                 found.add("unix")
         return found
 
-    def exec_probe(self, command: list[str]):
-        """Run a bounded readiness probe only inside the credential-free executor."""
-        from py_docker.streams.models import StreamLimits
-
-        return self.client.execution.run(
-            self.session.identity, command, StreamLimits(seconds=15, max_bytes=65536)
-        )
-
-    def assert_controller_isolated(self, controller) -> None:
-        if self._controller_listeners(controller):
-            raise RunnerError("controller_listener_gate_failed")
-        if self._exec(controller.identity, ["codex", "--version"]) != CLI_VERSION:
-            raise RunnerError("unsupported_codex_cli_version")
-        if self.read_failed or not self.session.state().running:
-            raise RunnerError("executor_not_running")
-        for session in (controller, self.session):
-            container = self.client.containers.inspect(session.identity)
-            if container is None or container.attrs["Image"] != self.image:
-                raise RunnerError("running_image_digest_changed")
-
     def _drain(self) -> None:
         """Consume binary output under the session budget without retaining secrets."""
         from py_docker.errors import DockerOperationError
@@ -157,19 +173,3 @@ class Executor:
                 pass
         except (DockerOperationError, OSError):
             self.read_failed = True
-
-    def close(self) -> None:
-        """Keep an unresolved executor receipt and report cleanup uncertainty."""
-        from py_docker.errors import DockerOperationError
-
-        try:
-            if self.session is not None:
-                self.session.close()
-            if self.reader is not None and self.reader.ident is not None:
-                self.reader.join(timeout=5)
-                if self.reader.is_alive():
-                    raise DockerOperationError("confirm executor reader shutdown")
-        except DockerOperationError:
-            raise RunnerError("executor_termination_unverified") from None
-        finally:
-            self.client.close()

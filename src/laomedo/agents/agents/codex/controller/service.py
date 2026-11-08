@@ -365,6 +365,70 @@ class CodexController:
         result = await self.extension("laomedo/preflight", {"check": check})
         return result.get("exitCode")
 
+    async def close(self):
+        """Remove exact owned resources before trusting stream or cleanup closure."""
+        error = None
+        if self._closed:
+            return
+        try:
+            if self.acp is not None:
+                await self.acp.close()
+                self.streams_closed = True
+        except Exception as failure:
+            error = RunnerError(
+                "container_termination_unverified",
+                observation=failure_observation(
+                    failure, stage="cleanup", code="container_termination_unverified"
+                ),
+            )
+        try:
+            self._close_resources()
+        except RunnerError as failure:
+            error = RunnerError(
+                failure.code,
+                observation=(error.observation if error else None)
+                or failure.observation,
+            )
+        self._closed = True
+        if error:
+            raise error
+
+    async def models(self):
+        """Read the bounded native catalogue through the named ACP extension."""
+        models, seen, ids, cursor = [], set(), set(), None
+        for _ in range(50):
+            result = await self.extension(
+                "laomedo/codexModels", {"cursor": cursor} if cursor else {}
+            )
+            if not isinstance(result, dict) or not isinstance(result.get("data"), list):
+                raise RunnerError("model_list_rejected")
+            for item in result["data"]:
+                if (
+                    not isinstance(item, dict)
+                    or not isinstance(item.get("id"), str)
+                    or not item["id"]
+                    or item["id"] in ids
+                ):
+                    raise RunnerError("model_list_invalid_entry")
+                efforts = item.get("supportedReasoningEfforts", [])
+                if not isinstance(efforts, list):
+                    raise RunnerError("model_list_invalid_entry")
+                efforts = [
+                    level.get("reasoningEffort") if isinstance(level, dict) else level
+                    for level in efforts
+                ]
+                if not all(isinstance(level, str) and level for level in efforts):
+                    raise RunnerError("model_list_invalid_entry")
+                ids.add(item["id"])
+                models.append({"id": item["id"], "efforts": efforts})
+            cursor = result.get("nextCursor")
+            if not cursor:
+                return models
+            if not isinstance(cursor, str) or cursor in seen:
+                raise RunnerError("model_list_invalid_cursor")
+            seen.add(cursor)
+        raise RunnerError("model_list_page_limit")
+
     def _native_event(self, method, event):
         """Retain redacted original native events before ACP prompt returns."""
         if method != "laomedo/codexEvent":
@@ -413,34 +477,6 @@ class CodexController:
                 self.verified_precheck_calls.add(params["callId"])
         return response
 
-    async def close(self):
-        """Remove exact owned resources before trusting stream or cleanup closure."""
-        error = None
-        if self._closed:
-            return
-        try:
-            if self.acp is not None:
-                await self.acp.close()
-                self.streams_closed = True
-        except Exception as failure:
-            error = RunnerError(
-                "container_termination_unverified",
-                observation=failure_observation(
-                    failure, stage="cleanup", code="container_termination_unverified"
-                ),
-            )
-        try:
-            self._close_resources()
-        except RunnerError as failure:
-            error = RunnerError(
-                failure.code,
-                observation=(error.observation if error else None)
-                or failure.observation,
-            )
-        self._closed = True
-        if error:
-            raise error
-
     def _close_resources(self):
         """Attempt both owned containers even if either removal is uncertain."""
         error = None
@@ -472,39 +508,3 @@ class CodexController:
                     error = error or RunnerError("runner_transport_failed")
         if error:
             raise error
-
-    async def models(self):
-        """Read the bounded native catalogue through the named ACP extension."""
-        models, seen, ids, cursor = [], set(), set(), None
-        for _ in range(50):
-            result = await self.extension(
-                "laomedo/codexModels", {"cursor": cursor} if cursor else {}
-            )
-            if not isinstance(result, dict) or not isinstance(result.get("data"), list):
-                raise RunnerError("model_list_rejected")
-            for item in result["data"]:
-                if (
-                    not isinstance(item, dict)
-                    or not isinstance(item.get("id"), str)
-                    or not item["id"]
-                    or item["id"] in ids
-                ):
-                    raise RunnerError("model_list_invalid_entry")
-                efforts = item.get("supportedReasoningEfforts", [])
-                if not isinstance(efforts, list):
-                    raise RunnerError("model_list_invalid_entry")
-                efforts = [
-                    level.get("reasoningEffort") if isinstance(level, dict) else level
-                    for level in efforts
-                ]
-                if not all(isinstance(level, str) and level for level in efforts):
-                    raise RunnerError("model_list_invalid_entry")
-                ids.add(item["id"])
-                models.append({"id": item["id"], "efforts": efforts})
-            cursor = result.get("nextCursor")
-            if not cursor:
-                return models
-            if not isinstance(cursor, str) or cursor in seen:
-                raise RunnerError("model_list_invalid_cursor")
-            seen.add(cursor)
-        raise RunnerError("model_list_page_limit")

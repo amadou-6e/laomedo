@@ -8,43 +8,16 @@ from __future__ import annotations
 from contextlib import closing
 from hashlib import sha256
 import json
+import math
+import re
+
 import laomedo.agents.interface.output.utils as _contracts_output
 import laomedo.host.publication.handoff.settings as _handoff_settings
 import laomedo.host.publication.handoff.utils as _handoff_utils
-import math
-import re
 
 
 class HandoffStore:
     """Internal methods inherited by the durable mediator, not its public API."""
-
-    def _handoff_gate(self, db, grant, operation, handoff_id, payload):
-        row = db.execute(
-            "SELECT * FROM publication_handoffs WHERE grant_id=?", (grant["grant_id"],)
-        ).fetchone()
-        if row is None:
-            if handoff_id is not None:
-                _handoff_utils._deny("handoff_unavailable")
-            return
-        if (
-            self.now() >= row["deadline"]
-            or self.monotonic() >= row["deadline_monotonic"]
-        ):
-            _handoff_utils._deny("handoff_expired")
-        if row["phase"] in _handoff_settings.TERMINAL:
-            _handoff_utils._deny("handoff_terminal")
-        if handoff_id is None:
-            if row["phase"] != "agent_active":
-                # Freeze/status also touch the private bundle state. Deny all
-                # old agent bearer operations after execution, including reads.
-                _handoff_utils._deny("agent_handoff_ended")
-        elif (
-            handoff_id != grant["grant_id"]
-            or row["phase"] != "publication_pending"
-            or operation != "pr_create"
-            or _handoff_utils._json(payload) != row["request_json"]
-        ):
-            _handoff_utils._deny("publisher_binding_mismatch")
 
     def begin_publication_handoff(
         self, *, token, repository, requirements, deadline, deadline_monotonic
@@ -161,17 +134,6 @@ class HandoffStore:
                 ),
             )
             return {"phase": "validation_pending", "handoff_id": grant["grant_id"]}
-
-    def _end_handoff(self, db, handoff_id, phase):
-        db.execute(
-            "UPDATE publication_handoffs SET phase=? WHERE grant_id=? AND phase "
-            "NOT IN ('completed','rejected','failed','unknown','expired','cancelled')",
-            (phase, handoff_id),
-        )
-        db.execute(
-            "UPDATE grants SET revoked_at=? WHERE grant_id=? AND revoked_at IS NULL",
-            (self.now(), handoff_id),
-        )
 
     def end_publication_handoff(self, handoff_id, phase="cancelled"):
         if phase not in _handoff_settings.TERMINAL:
@@ -318,3 +280,42 @@ class HandoffStore:
                 return {"phase": current["phase"], "publication": {"state": "unknown"}}
             self._end_handoff(db, handoff_id, phase)
         return {"phase": phase, "publication": result}
+
+    def _handoff_gate(self, db, grant, operation, handoff_id, payload):
+        row = db.execute(
+            "SELECT * FROM publication_handoffs WHERE grant_id=?", (grant["grant_id"],)
+        ).fetchone()
+        if row is None:
+            if handoff_id is not None:
+                _handoff_utils._deny("handoff_unavailable")
+            return
+        if (
+            self.now() >= row["deadline"]
+            or self.monotonic() >= row["deadline_monotonic"]
+        ):
+            _handoff_utils._deny("handoff_expired")
+        if row["phase"] in _handoff_settings.TERMINAL:
+            _handoff_utils._deny("handoff_terminal")
+        if handoff_id is None:
+            if row["phase"] != "agent_active":
+                # Freeze/status also touch the private bundle state. Deny all
+                # old agent bearer operations after execution, including reads.
+                _handoff_utils._deny("agent_handoff_ended")
+        elif (
+            handoff_id != grant["grant_id"]
+            or row["phase"] != "publication_pending"
+            or operation != "pr_create"
+            or _handoff_utils._json(payload) != row["request_json"]
+        ):
+            _handoff_utils._deny("publisher_binding_mismatch")
+
+    def _end_handoff(self, db, handoff_id, phase):
+        db.execute(
+            "UPDATE publication_handoffs SET phase=? WHERE grant_id=? AND phase "
+            "NOT IN ('completed','rejected','failed','unknown','expired','cancelled')",
+            (phase, handoff_id),
+        )
+        db.execute(
+            "UPDATE grants SET revoked_at=? WHERE grant_id=? AND revoked_at IS NULL",
+            (self.now(), handoff_id),
+        )

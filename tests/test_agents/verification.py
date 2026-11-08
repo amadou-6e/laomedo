@@ -18,6 +18,11 @@ class VerificationTurnBounds:
         self.max_model_turns = max_model_turns
         super().__init__(*args, **kwargs)
 
+    def resume(self, *args, **kwargs):
+        """Apply harness admission before the provider can mutate a saved run."""
+        self._turn_available()
+        return super().resume(*args, **kwargs)
+
     def _turn_available(self):
         ledger = self.state / "turn-ledger.json"
         value = _read(ledger) if ledger.exists() else {"attempted_turns": 0}
@@ -39,11 +44,6 @@ class VerificationTurnBounds:
             },
         )
         return count + 1
-
-    def resume(self, *args, **kwargs):
-        """Apply harness admission before the provider can mutate a saved run."""
-        self._turn_available()
-        return super().resume(*args, **kwargs)
 
 
 class VerificationLocalRunner(VerificationTurnBounds, LocalRunner):

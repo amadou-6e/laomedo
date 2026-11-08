@@ -1,28 +1,19 @@
 """Authenticated, turn-scoped Claude Code OTLP capture (content is not retained)."""
 
 from __future__ import annotations
-from laomedo.agents.agents.claude.activity.models import ClaudeTelemetryEnvironment
 
 from .http.server import ClaudeTelemetryHttpServer
 import json
-from laomedo.agents.agents.claude.activity.settings import EVENTS
-from laomedo.agents.agents.claude.activity.utils import safe_attributes
 import re
 import secrets
 import threading
 
+from laomedo.agents.agents.claude.activity.models import ClaudeTelemetryEnvironment
+from laomedo.agents.agents.claude.activity.settings import EVENTS
+from laomedo.agents.agents.claude.activity.utils import safe_attributes
+
 
 class ClaudeTelemetry:
-    def bind_thread(self, thread_id):
-        """Bind the observed ACP native identity before submitting a model prompt.
-
-        ACP assigns fresh native session IDs during session/new. Replacing the
-        provisional host identity before dispatch keeps subsequent exports scoped
-        to the same native conversation as retained SDK events.
-        """
-        with self.lock:
-            self.scope = {**self.scope, "thread_id": thread_id}
-
     def __init__(self, directory, *, run_id, thread_id, turn_id):
         from opentelemetry.proto.collector.logs.v1.logs_service_pb2 import (
             ExportLogsServiceRequest,
@@ -67,6 +58,16 @@ class ClaudeTelemetry:
                 self.server.server_close()
             self.output.close()
             raise
+
+    def bind_thread(self, thread_id):
+        """Bind the observed ACP native identity before submitting a model prompt.
+
+        ACP assigns fresh native session IDs during session/new. Replacing the
+        provisional host identity before dispatch keeps subsequent exports scoped
+        to the same native conversation as retained SDK events.
+        """
+        with self.lock:
+            self.scope = {**self.scope, "thread_id": thread_id}
 
     def record(self, attributes, **value):
         native = attributes.get("session.id")

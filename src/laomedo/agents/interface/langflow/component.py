@@ -1,6 +1,5 @@
 """Provider-neutral graph lifecycle, request identity and runner HTTP boundary."""
 
-from laomedo.agents.interface.models import AgentRunReference, AgentSubmission
 import asyncio
 import hashlib
 import json
@@ -14,8 +13,6 @@ from urllib.parse import urlsplit
 from uuid import UUID
 from uuid import uuid4
 
-from laomedo.agents.interface.langflow.errors import RunnerResultError
-from laomedo.agents.interface.utils import terminal_record as _terminal_record
 from lfx.custom.custom_component.component import Component
 from lfx.io import DataInput
 from lfx.io import DropdownInput
@@ -25,6 +22,10 @@ from lfx.io import Output
 from lfx.io import StrInput
 from lfx.schema import Data
 from lfx.schema import Message
+
+from laomedo.agents.interface.models import AgentRunReference, AgentSubmission
+from laomedo.agents.interface.langflow.errors import RunnerResultError
+from laomedo.agents.interface.utils import terminal_record as _terminal_record
 
 # TODO! this file is massive and should probably be broken up into a several modules
 
@@ -379,14 +380,125 @@ class AgentComponent(Component):
         ),
     ]
 
-    def _validate_adapter(self):
-        """Concrete adapters may reject stale inheritance before routing or discovery."""
-
     async def update_build_config(self, build_config, field_value, field_name=None):
         # OpenCode has a separate provider/model and variant contract.
         if not self.discover_models_on_upgrade:
             return build_config
         return await self._update_model_config(build_config, field_value, field_name)
+
+    async def update_frontend_node(self, new_frontend_node, current_frontend_node):
+        updated = await super().update_frontend_node(
+            new_frontend_node, current_frontend_node
+        )
+        if self.discover_models_on_upgrade:
+            try:
+                await self.update_build_config(updated["template"], None)
+            except ValueError as exc:
+                if (
+                    str(exc)
+                    != "runner_model_catalog_unavailable_check_runner_connection"
+                ):
+                    raise
+                # Offline component upgrades must not block unrelated fields.
+                # Retain saved choices only; explicit refresh still reports failure.
+                for name in ("model", "effort"):
+                    field = updated["template"].get(name, {})
+                    value = field.get("value")
+                    field["options"] = (
+                        [value] if isinstance(value, str) and value else []
+                    )
+                    if self.present_native_models and name == "model":
+                        field["options_metadata"] = [{} for _ in field["options"]]
+        return updated
+
+    async def run_output(self) -> Data:
+        return Data(data=await self._result())
+
+    async def answer_output(self) -> Message:
+        result = await self._result()
+        return Message(text=result.get("answer") or "")
+
+    async def submission_output(self) -> Data:
+        """Route known runtime failures; legacy outputs retain their exceptions."""
+        try:
+            reference = await self._result()
+        except RunnerResultError as exc:
+            reference = dict(exc.run_reference)
+            if (
+                self.operation in {"fresh", "start"}
+                and reference.get("request_id") != self._stop_request_id
+            ):
+                # Legacy exceptions can contain an unbound HTTP error record.
+                # A graph output must not adopt its unsolicited run/trace identity.
+                reference = dict(self._last_reference or {})
+                reference.update(
+                    status="unknown",
+                    evidence_complete=False,
+                    artifact_ref=None,
+                    error_category="runner_request_identity_mismatch",
+                )
+                reference.setdefault("run_id", self._active_run_id)
+                reference.setdefault("request_id", self._stop_request_id)
+        except RuntimeError as exc:
+            # Input ValueErrors and framework cancellation still refuse/abort.
+            # Never put raw exception text, HTTP bodies or exception paths in Data.
+            code = str(exc).split(";", 1)[0]
+            if code not in _ROUTABLE_ERRORS:
+                code = "runner_runtime_unknown"
+            reference = dict(self._last_reference or {})
+            reference.update(
+                status="unknown",
+                evidence_complete=False,
+                artifact_ref=None,
+                error_category=code,
+            )
+            reference.setdefault("run_id", self._reference_run_id)
+            reference.setdefault("trace_ref", self._prior_trace_ref)
+            reference.setdefault("request_id", self._stop_request_id)
+        category = reference.get("error_category")
+        if category is not None and (
+            not isinstance(category, str) or category not in _ROUTABLE_ERRORS
+        ):
+            reference = {**reference, "error_category": "runner_runtime_unknown"}
+        answer = reference.get("answer")
+        submission = None
+        if isinstance(answer, str):
+            try:
+                parsed = json.loads(answer)
+            except (ValueError, TypeError):
+                parsed = None
+            if isinstance(parsed, dict):
+                submission = parsed
+        reported = (submission or {}).get("task_outcome")
+        outcome = (
+            reported
+            if isinstance(reported, str) and reported in {"success", "failure"}
+            else "unknown"
+        )
+        # Even an explicit claim of success cannot promote an incomplete executor.
+        if outcome == "success" and reference.get("status") != "completed":
+            outcome = "unknown"
+        value = AgentSubmission(
+            submission=submission,
+            answer=answer,
+            requirements_revision=reference.get("requirements_revision"),
+            precheck=reference.get(
+                "precheck", {"installed": "unknown", "call_count": "unknown"}
+            ),
+            task_outcome=outcome,
+            executor_status=reference.get("status") or "unknown",
+            evidence_complete=reference.get("evidence_complete", "unknown"),
+            run_reference=reference,
+            error_category=reference.get("error_category"),
+        ).to_payload()
+        from copy import deepcopy
+
+        self._contract_submission = deepcopy(value)
+        self.status = "Laomedo outcome: " + value["executor_status"]
+        return Data(data=value)
+
+    def _validate_adapter(self):
+        """Concrete adapters may reject stale inheritance before routing or discovery."""
 
     async def _update_model_config(self, build_config, field_value, field_name=None):
         if field_name == "runner_url":
@@ -511,31 +623,6 @@ class AgentComponent(Component):
             raise ValueError(
                 "runner_model_catalog_unavailable_check_runner_connection"
             ) from None
-
-    async def update_frontend_node(self, new_frontend_node, current_frontend_node):
-        updated = await super().update_frontend_node(
-            new_frontend_node, current_frontend_node
-        )
-        if self.discover_models_on_upgrade:
-            try:
-                await self.update_build_config(updated["template"], None)
-            except ValueError as exc:
-                if (
-                    str(exc)
-                    != "runner_model_catalog_unavailable_check_runner_connection"
-                ):
-                    raise
-                # Offline component upgrades must not block unrelated fields.
-                # Retain saved choices only; explicit refresh still reports failure.
-                for name in ("model", "effort"):
-                    field = updated["template"].get(name, {})
-                    value = field.get("value")
-                    field["options"] = (
-                        [value] if isinstance(value, str) and value else []
-                    )
-                    if self.present_native_models and name == "model":
-                        field["options_metadata"] = [{} for _ in field["options"]]
-        return updated
 
     def _pre_run_setup(self):
         self._validate_adapter()
@@ -1175,89 +1262,3 @@ class AgentComponent(Component):
             raise
         self.status = f"Laomedo run {result['run_id']}: {result['status']}"
         return result
-
-    async def run_output(self) -> Data:
-        return Data(data=await self._result())
-
-    async def answer_output(self) -> Message:
-        result = await self._result()
-        return Message(text=result.get("answer") or "")
-
-    async def submission_output(self) -> Data:
-        """Route known runtime failures; legacy outputs retain their exceptions."""
-        try:
-            reference = await self._result()
-        except RunnerResultError as exc:
-            reference = dict(exc.run_reference)
-            if (
-                self.operation in {"fresh", "start"}
-                and reference.get("request_id") != self._stop_request_id
-            ):
-                # Legacy exceptions can contain an unbound HTTP error record.
-                # A graph output must not adopt its unsolicited run/trace identity.
-                reference = dict(self._last_reference or {})
-                reference.update(
-                    status="unknown",
-                    evidence_complete=False,
-                    artifact_ref=None,
-                    error_category="runner_request_identity_mismatch",
-                )
-                reference.setdefault("run_id", self._active_run_id)
-                reference.setdefault("request_id", self._stop_request_id)
-        except RuntimeError as exc:
-            # Input ValueErrors and framework cancellation still refuse/abort.
-            # Never put raw exception text, HTTP bodies or exception paths in Data.
-            code = str(exc).split(";", 1)[0]
-            if code not in _ROUTABLE_ERRORS:
-                code = "runner_runtime_unknown"
-            reference = dict(self._last_reference or {})
-            reference.update(
-                status="unknown",
-                evidence_complete=False,
-                artifact_ref=None,
-                error_category=code,
-            )
-            reference.setdefault("run_id", self._reference_run_id)
-            reference.setdefault("trace_ref", self._prior_trace_ref)
-            reference.setdefault("request_id", self._stop_request_id)
-        category = reference.get("error_category")
-        if category is not None and (
-            not isinstance(category, str) or category not in _ROUTABLE_ERRORS
-        ):
-            reference = {**reference, "error_category": "runner_runtime_unknown"}
-        answer = reference.get("answer")
-        submission = None
-        if isinstance(answer, str):
-            try:
-                parsed = json.loads(answer)
-            except (ValueError, TypeError):
-                parsed = None
-            if isinstance(parsed, dict):
-                submission = parsed
-        reported = (submission or {}).get("task_outcome")
-        outcome = (
-            reported
-            if isinstance(reported, str) and reported in {"success", "failure"}
-            else "unknown"
-        )
-        # Even an explicit claim of success cannot promote an incomplete executor.
-        if outcome == "success" and reference.get("status") != "completed":
-            outcome = "unknown"
-        value = AgentSubmission(
-            submission=submission,
-            answer=answer,
-            requirements_revision=reference.get("requirements_revision"),
-            precheck=reference.get(
-                "precheck", {"installed": "unknown", "call_count": "unknown"}
-            ),
-            task_outcome=outcome,
-            executor_status=reference.get("status") or "unknown",
-            evidence_complete=reference.get("evidence_complete", "unknown"),
-            run_reference=reference,
-            error_category=reference.get("error_category"),
-        ).to_payload()
-        from copy import deepcopy
-
-        self._contract_submission = deepcopy(value)
-        self.status = "Laomedo outcome: " + value["executor_status"]
-        return Data(data=value)

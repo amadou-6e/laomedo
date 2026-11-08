@@ -1,7 +1,6 @@
 """Local-only synchronous runner adapter; timeout outcomes are uncertain."""
 
 from pathlib import Path
-from laomedo.agents.interface.models import AgentDispatchResult
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
 from urllib.request import ProxyHandler, Request, build_opener
@@ -9,10 +8,12 @@ from uuid import UUID
 from uuid import uuid5
 import hashlib
 import json
-from laomedo.agents.orchestration.errors import HandoffError
-from laomedo.http.redirect import NoRedirect
 import os
 import time
+
+from laomedo.agents.interface.models import AgentDispatchResult
+from laomedo.agents.orchestration.errors import HandoffError
+from laomedo.http.redirect import NoRedirect
 
 
 class HttpAgentBridge:
@@ -36,27 +37,6 @@ class HttpAgentBridge:
                 or parsed.fragment
             ):
                 raise HandoffError("local_runner_url_required")
-
-    def _open(self, request, *, timeout):
-        return self.opener.open(request, timeout=timeout)
-
-    def _headers(self, provider):
-        path = self.token_files.get(provider) or os.environ.get(
-            "LAOMEDO_" + provider.upper() + "_RUNNER_TOKEN_FILE"
-        )
-        if not path and provider == "codex":
-            path = os.environ.get(
-                "LAOMEDO_RUNNER_TOKEN_FILE", "/run/secrets/laomedo-runner-token"
-            )
-        if not path:
-            raise HandoffError("runner_token_file_required")
-        try:
-            token = Path(path).read_text(encoding="utf-8").strip()
-        except OSError as exc:
-            raise HandoffError("runner_token_unavailable") from exc
-        if len(token) != 64 or any(c not in "0123456789abcdef" for c in token):
-            raise HandoffError("runner_token_invalid")
-        return {"Content-Type": "application/json", "Authorization": "Bearer " + token}
 
     @staticmethod
     def fresh_request(handoff, request_id):
@@ -301,3 +281,24 @@ class HttpAgentBridge:
         with self._open(req, timeout=10) as response:
             result = json.load(response)
         return result["artifact_refs"]
+
+    def _open(self, request, *, timeout):
+        return self.opener.open(request, timeout=timeout)
+
+    def _headers(self, provider):
+        path = self.token_files.get(provider) or os.environ.get(
+            "LAOMEDO_" + provider.upper() + "_RUNNER_TOKEN_FILE"
+        )
+        if not path and provider == "codex":
+            path = os.environ.get(
+                "LAOMEDO_RUNNER_TOKEN_FILE", "/run/secrets/laomedo-runner-token"
+            )
+        if not path:
+            raise HandoffError("runner_token_file_required")
+        try:
+            token = Path(path).read_text(encoding="utf-8").strip()
+        except OSError as exc:
+            raise HandoffError("runner_token_unavailable") from exc
+        if len(token) != 64 or any(c not in "0123456789abcdef" for c in token):
+            raise HandoffError("runner_token_invalid")
+        return {"Content-Type": "application/json", "Authorization": "Bearer " + token}

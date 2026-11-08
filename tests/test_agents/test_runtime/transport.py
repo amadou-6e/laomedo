@@ -2,21 +2,8 @@
 
 
 class FakeServer:
-    @property
-    def streams_closed(self):
-        return (
-            getattr(self, "reader", None) is not None
-            and getattr(self, "stderr_reader", None) is not None
-            and not self.reader.is_alive()
-            and not self.stderr_reader.is_alive()
-        )
-
     calls = []
     turn_inputs = []
-
-    def _write(self, data):
-        self.process.stdin.write(data)
-        self.process.stdin.flush()
 
     def __init__(self, command, evidence):
         self.command = command
@@ -27,6 +14,15 @@ class FakeServer:
         self.log.write('{"method":"initialized"}\n')
         self.log.flush()
         self.calls.append(command)
+
+    @property
+    def streams_closed(self):
+        return (
+            getattr(self, "reader", None) is not None
+            and getattr(self, "stderr_reader", None) is not None
+            and not self.reader.is_alive()
+            and not self.stderr_reader.is_alive()
+        )
 
     def request(self, method, params, timeout=30):
         if method == "initialize":
@@ -112,3 +108,7 @@ class FakeServer:
 
     async def close(self):
         self.log.close()
+
+    def _write(self, data):
+        self.process.stdin.write(data)
+        self.process.stdin.flush()

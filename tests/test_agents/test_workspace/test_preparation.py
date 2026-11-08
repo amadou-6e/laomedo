@@ -1,7 +1,5 @@
 """Credential-free, opt-in whole-repository workspace preparation."""
 
-from laomedo.git.command import GitCommandRunner
-
 from pathlib import Path
 import os
 import subprocess
@@ -9,6 +7,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
+from laomedo.git.command import GitCommandRunner
 from laomedo.agents.workspaces.workspace import AgentWorkspace
 from laomedo.agents.workspaces.models import WorkspacePaths
 from laomedo.agents.workspaces.errors import GitWorkspaceError
@@ -30,16 +29,6 @@ class GitWorkspaceTests(unittest.TestCase):
         self.baseline = (
             self._git(self.source, "rev-parse", "HEAD").stdout.decode().strip()
         )
-
-    def _git(self, source, *args):
-        result = subprocess.run(
-            ["git", "-C", str(source), *args],
-            capture_output=True,
-            check=False,
-            timeout=10,
-        )
-        self.assertEqual(result.returncode, 0, result.stderr)
-        return result
 
     def test_clean_clone_preserves_commit_without_remote_or_host_config(self):
         hostile_home = self.root / "host-home"
@@ -173,6 +162,16 @@ class GitWorkspaceTests(unittest.TestCase):
             AgentWorkspace(
                 WorkspacePaths(source=self.source, directory=self.root / "workspace")
             ).prepare_git()
+
+    def _git(self, source, *args):
+        result = subprocess.run(
+            ["git", "-C", str(source), *args],
+            capture_output=True,
+            check=False,
+            timeout=10,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return result
 
 
 if __name__ == "__main__":

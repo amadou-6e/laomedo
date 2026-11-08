@@ -1,6 +1,19 @@
 """Codex adapter for the provider-neutral Agent lifecycle."""
 
 from __future__ import annotations
+
+from pathlib import Path
+from uuid import uuid4
+import hashlib
+import asyncio
+import logging
+import sys
+import json
+import re
+import shutil
+import threading
+import time
+
 from laomedo.agents.activity.models import ActivityAttemptRecord
 from laomedo.agents.agents.codex.settings import CLI_VERSION
 from laomedo.agents.agents.codex.settings import CONFIG
@@ -26,14 +39,6 @@ from laomedo.agents.agents.codex.utils import _execution_evidence
 from laomedo.agents.agents.codex.utils import _native_error_summary
 from laomedo.agents.agents.codex.utils import _split_profile
 from laomedo.agents.agents.codex.controller.settings import Settings
-
-from pathlib import Path
-from uuid import uuid4
-import hashlib
-import asyncio
-import logging
-import sys
-import json
 from laomedo.agents.interface.output.utils import evaluate
 from laomedo.agents.errors import RunnerError
 from laomedo.agents.agents.codex.controller.service import CodexController
@@ -50,12 +55,6 @@ from laomedo.host.leases.models import LeaseCleanupObservation
 from laomedo.host.leases.utils import cleanup_exact
 from laomedo.host.mediation.authority import RunGrantAuthority
 from laomedo.agents.workspaces.skills.utils import verify
-import re
-import shutil
-import threading
-import time
-
-
 from laomedo.agents.agents.base.agent import BaseAgent
 from laomedo.agents.agents.base.models import CredentialBinding
 from laomedo.agents.agents.base.models import RuntimeBinding
@@ -177,6 +176,139 @@ class CodexAgent(BaseAgent):
                     if not docker.volumes.exists(VOLUME):
                         raise RunnerError("docker_control_failed")
 
+    @property
+    def supports_mediated_github(self):
+        return self.supervise_containers and not self.split_executor
+
+    def runtime_binding(self):
+        return RuntimeBinding(
+            provider=self.provider,
+            profile=self.profile,
+            image=self.image,
+            image_id=self.image_id,
+            execution_mode="codex_acp_split" if self.split_executor else "codex_acp",
+            cli_version=CLI_VERSION,
+            config_sha256=CONFIG_SHA256,
+            credential=(
+                CredentialBinding(
+                    credential_mode="chatgpt_plan_oauth",
+                    credential_ref=None,
+                    auth_outcome="not_checked",
+                )
+                if self.auth
+                else None
+            ),
+        )
+
+    def recover_interrupted(self, record):
+        owner = record.get("container_ownership") or {}
+        if owner.get("supervised"):
+            verified, detail = cleanup_exact(
+                ContainerIdentity(
+                    name=owner["name"],
+                    run_id=record["run_id"],
+                    token=owner["launch_token"],
+                    docker_endpoint=owner.get("docker_endpoint"),
+                )
+            )
+            owner["cleanup_verified"], owner["cleanup_detail"] = verified, detail
+            if not verified:
+                record["error_category"] = "container_cleanup_unverified"
+
+    def model_catalog(self) -> dict:
+        """Serialize and briefly cache metadata discovery; never submit a turn."""
+        # Lazy initialization also supports existing host-created runner objects.
+        with _CATALOG_INIT_LOCK:
+            if not hasattr(self, "_catalog_lock"):
+                self._catalog_lock = threading.Lock()
+                self._catalog_cached = None
+        with self._catalog_lock:
+            cached = self._catalog_cached
+            if cached and time.monotonic() - cached[0] < 30:
+                return cached[1]
+            result = asyncio.run(self._model_catalog())
+            self._catalog_cached = (time.monotonic(), result)
+            return result
+
+    def preflight(self) -> dict:
+        """Run provider handshake and policy probes without a model request."""
+        return asyncio.run(self._preflight())
+
+    def resume(
+        self,
+        run_id: str,
+        task: str,
+        *,
+        expected_post_run_hash: str,
+        expected_thread_id: str,
+        model: str,
+        effort: str,
+        activity_attempt_id: str | None = None,
+    ) -> dict:
+        record = self.status(run_id)
+        if (
+            self.publication_controller is not None
+            and run_id in self.publication_controller.owned
+        ):
+            raise RunnerError("publication_handoff_resume_denied")
+        if not isinstance(task, str) or not task.strip():
+            raise RunnerError("invalid_task")
+        if (
+            record["status"] != "completed"
+            or not record["thread_id"]
+            or record["thread_id"] != expected_thread_id
+            or record["post_run_hash"] != expected_post_run_hash
+            or record["requested_model"] != model
+            or record["requested_effort"] != effort
+            or record["profile"] != self.profile
+            or record.get("workspace_mode", "files")
+            != ("git" if self.git_workspace else "files")
+            or record.get("execution_mode", "legacy")
+            != ("codex_acp_split" if self.split_executor else "codex_acp")
+            or record["image"] != self.image
+            or record["image_id"] != self.image_id
+            or record["cli_version"] != CLI_VERSION
+            or record["config_sha256"] != CONFIG_SHA256
+        ):
+            raise RunnerError("resume_binding_mismatch")
+        run_dir = self._run_dir(run_id)
+        if activity_attempt_id is not None:
+            if not isinstance(activity_attempt_id, str):
+                raise RunnerError("invalid_activity_attempt_id")
+            _id(activity_attempt_id)
+            if (
+                run_dir / "activity-attempts" / (activity_attempt_id + ".json")
+            ).exists():
+                raise RunnerError("activity_attempt_already_exists")
+        snapshot = run_dir / "post-run"
+        workspace = run_dir / "workspace"
+        if not snapshot.exists() or _hash_tree(snapshot) != expected_post_run_hash:
+            raise RunnerError("post_run_snapshot_mismatch")
+        if (
+            _hash_tree(workspace, exclude_root_git=self.git_workspace)
+            != expected_post_run_hash
+        ):
+            raise RunnerError("workspace_changed_since_snapshot")
+        if (
+            _hash_tree(run_dir / "canonical") != record["source_hash"]
+            or (run_dir / "store/sentinel.txt").read_text(encoding="utf-8")
+            != "STORE-ORIGINAL"
+        ):
+            raise RunnerError("protected_mount_changed")
+        if self.auth:
+            if record.get("runner_instance_id") != self.instance_id:
+                raise RunnerError("resume_after_runner_restart_forbidden")
+            _token, current = self.auth.access_token()
+            prior = record.get("credential") or {}
+            if any(
+                current.get(key) != prior.get(key)
+                for key in ("credential_ref", "provider_subject_hash")
+            ):
+                raise RunnerError("resume_auth_identity_mismatch")
+        return self._execute(
+            run_id, task, resume=True, activity_attempt_id=activity_attempt_id
+        )
+
     def _check_container(self) -> dict[str, str]:
         """Recover and verify the Docker runtime without credentials or model work.
 
@@ -293,45 +425,6 @@ class CodexAgent(BaseAgent):
             for pending in self.state.joinpath(folder).glob("*/*receipt*.json"):
                 client.sessions.recover(pending)
 
-    def runtime_binding(self):
-        return RuntimeBinding(
-            provider=self.provider,
-            profile=self.profile,
-            image=self.image,
-            image_id=self.image_id,
-            execution_mode="codex_acp_split" if self.split_executor else "codex_acp",
-            cli_version=CLI_VERSION,
-            config_sha256=CONFIG_SHA256,
-            credential=(
-                CredentialBinding(
-                    credential_mode="chatgpt_plan_oauth",
-                    credential_ref=None,
-                    auth_outcome="not_checked",
-                )
-                if self.auth
-                else None
-            ),
-        )
-
-    @property
-    def supports_mediated_github(self):
-        return self.supervise_containers and not self.split_executor
-
-    def recover_interrupted(self, record):
-        owner = record.get("container_ownership") or {}
-        if owner.get("supervised"):
-            verified, detail = cleanup_exact(
-                ContainerIdentity(
-                    name=owner["name"],
-                    run_id=record["run_id"],
-                    token=owner["launch_token"],
-                    docker_endpoint=owner.get("docker_endpoint"),
-                )
-            )
-            owner["cleanup_verified"], owner["cleanup_detail"] = verified, detail
-            if not verified:
-                record["error_category"] = "container_cleanup_unverified"
-
     def _receipt_path(self, root: Path) -> Path:
         """Keep lifecycle intent outside disposable metadata and evidence folders."""
         directory = self.state.joinpath("receipts")
@@ -425,21 +518,6 @@ class CodexAgent(BaseAgent):
             )
         return self.transport(launch, root)
 
-    def model_catalog(self) -> dict:
-        """Serialize and briefly cache metadata discovery; never submit a turn."""
-        # Lazy initialization also supports existing host-created runner objects.
-        with _CATALOG_INIT_LOCK:
-            if not hasattr(self, "_catalog_lock"):
-                self._catalog_lock = threading.Lock()
-                self._catalog_cached = None
-        with self._catalog_lock:
-            cached = self._catalog_cached
-            if cached and time.monotonic() - cached[0] < 30:
-                return cached[1]
-            result = asyncio.run(self._model_catalog())
-            self._catalog_cached = (time.monotonic(), result)
-            return result
-
     async def _model_catalog(self):
         root = self.state / "catalog" / str(uuid4())
         server = None
@@ -461,10 +539,6 @@ class CodexAgent(BaseAgent):
             finally:
                 if not self._pending_receipts(root):
                     shutil.rmtree(root, ignore_errors=True)
-
-    def preflight(self) -> dict:
-        """Run provider handshake and policy probes without a model request."""
-        return asyncio.run(self._preflight())
 
     async def _preflight(self) -> dict:
         """Launch native handshake, model and permission probes without a model turn.
@@ -529,81 +603,6 @@ class CodexAgent(BaseAgent):
         finally:
             if server is not None:
                 await server.close()
-
-    def resume(
-        self,
-        run_id: str,
-        task: str,
-        *,
-        expected_post_run_hash: str,
-        expected_thread_id: str,
-        model: str,
-        effort: str,
-        activity_attempt_id: str | None = None,
-    ) -> dict:
-        record = self.status(run_id)
-        if (
-            self.publication_controller is not None
-            and run_id in self.publication_controller.owned
-        ):
-            raise RunnerError("publication_handoff_resume_denied")
-        if not isinstance(task, str) or not task.strip():
-            raise RunnerError("invalid_task")
-        if (
-            record["status"] != "completed"
-            or not record["thread_id"]
-            or record["thread_id"] != expected_thread_id
-            or record["post_run_hash"] != expected_post_run_hash
-            or record["requested_model"] != model
-            or record["requested_effort"] != effort
-            or record["profile"] != self.profile
-            or record.get("workspace_mode", "files")
-            != ("git" if self.git_workspace else "files")
-            or record.get("execution_mode", "legacy")
-            != ("codex_acp_split" if self.split_executor else "codex_acp")
-            or record["image"] != self.image
-            or record["image_id"] != self.image_id
-            or record["cli_version"] != CLI_VERSION
-            or record["config_sha256"] != CONFIG_SHA256
-        ):
-            raise RunnerError("resume_binding_mismatch")
-        run_dir = self._run_dir(run_id)
-        if activity_attempt_id is not None:
-            if not isinstance(activity_attempt_id, str):
-                raise RunnerError("invalid_activity_attempt_id")
-            _id(activity_attempt_id)
-            if (
-                run_dir / "activity-attempts" / (activity_attempt_id + ".json")
-            ).exists():
-                raise RunnerError("activity_attempt_already_exists")
-        snapshot = run_dir / "post-run"
-        workspace = run_dir / "workspace"
-        if not snapshot.exists() or _hash_tree(snapshot) != expected_post_run_hash:
-            raise RunnerError("post_run_snapshot_mismatch")
-        if (
-            _hash_tree(workspace, exclude_root_git=self.git_workspace)
-            != expected_post_run_hash
-        ):
-            raise RunnerError("workspace_changed_since_snapshot")
-        if (
-            _hash_tree(run_dir / "canonical") != record["source_hash"]
-            or (run_dir / "store/sentinel.txt").read_text(encoding="utf-8")
-            != "STORE-ORIGINAL"
-        ):
-            raise RunnerError("protected_mount_changed")
-        if self.auth:
-            if record.get("runner_instance_id") != self.instance_id:
-                raise RunnerError("resume_after_runner_restart_forbidden")
-            _token, current = self.auth.access_token()
-            prior = record.get("credential") or {}
-            if any(
-                current.get(key) != prior.get(key)
-                for key in ("credential_ref", "provider_subject_hash")
-            ):
-                raise RunnerError("resume_auth_identity_mismatch")
-        return self._execute(
-            run_id, task, resume=True, activity_attempt_id=activity_attempt_id
-        )
 
     def _execute(
         self,

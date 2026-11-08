@@ -42,45 +42,6 @@ class WindowsProcessTree:
             self.close()
             raise error
 
-    def _bind(self):
-        """Declare pointer-width-safe signatures for this fixed Win32 boundary."""
-        native = self._native
-        native.CreateJobObjectW.argtypes = [ctypes.c_void_p, LPCWSTR]
-        native.CreateJobObjectW.restype = HANDLE
-        native.SetInformationJobObject.argtypes = [
-            HANDLE,
-            ctypes.c_int,
-            ctypes.c_void_p,
-            DWORD,
-        ]
-        native.SetInformationJobObject.restype = BOOL
-        native.AssignProcessToJobObject.argtypes = [HANDLE, HANDLE]
-        native.AssignProcessToJobObject.restype = BOOL
-        native.QueryInformationJobObject.argtypes = [
-            HANDLE,
-            ctypes.c_int,
-            ctypes.c_void_p,
-            DWORD,
-            ctypes.c_void_p,
-        ]
-        native.QueryInformationJobObject.restype = BOOL
-        native.TerminateJobObject.argtypes = [HANDLE, DWORD]
-        native.TerminateJobObject.restype = BOOL
-        native.CreateToolhelp32Snapshot.argtypes = [DWORD, DWORD]
-        native.CreateToolhelp32Snapshot.restype = HANDLE
-        native.Thread32First.argtypes = [HANDLE, ctypes.POINTER(NativeThreadEntry)]
-        native.Thread32First.restype = BOOL
-        native.Thread32Next.argtypes = [HANDLE, ctypes.POINTER(NativeThreadEntry)]
-        native.Thread32Next.restype = BOOL
-        native.OpenThread.argtypes = [DWORD, BOOL, DWORD]
-        native.OpenThread.restype = HANDLE
-        native.GetProcessIdOfThread.argtypes = [HANDLE]
-        native.GetProcessIdOfThread.restype = DWORD
-        native.ResumeThread.argtypes = [HANDLE]
-        native.ResumeThread.restype = DWORD
-        native.CloseHandle.argtypes = [HANDLE]
-        native.CloseHandle.restype = BOOL
-
     def attach(self, process):
         """Bind the Popen-owned, still-suspended root handle before any code runs."""
         if self._attached:
@@ -168,3 +129,42 @@ class WindowsProcessTree:
                 return False
             self._job = None
         return True
+
+    def _bind(self):
+        """Declare pointer-width-safe signatures for this fixed Win32 boundary."""
+        native = self._native
+        native.CreateJobObjectW.argtypes = [ctypes.c_void_p, LPCWSTR]
+        native.CreateJobObjectW.restype = HANDLE
+        native.SetInformationJobObject.argtypes = [
+            HANDLE,
+            ctypes.c_int,
+            ctypes.c_void_p,
+            DWORD,
+        ]
+        native.SetInformationJobObject.restype = BOOL
+        native.AssignProcessToJobObject.argtypes = [HANDLE, HANDLE]
+        native.AssignProcessToJobObject.restype = BOOL
+        native.QueryInformationJobObject.argtypes = [
+            HANDLE,
+            ctypes.c_int,
+            ctypes.c_void_p,
+            DWORD,
+            ctypes.c_void_p,
+        ]
+        native.QueryInformationJobObject.restype = BOOL
+        native.TerminateJobObject.argtypes = [HANDLE, DWORD]
+        native.TerminateJobObject.restype = BOOL
+        native.CreateToolhelp32Snapshot.argtypes = [DWORD, DWORD]
+        native.CreateToolhelp32Snapshot.restype = HANDLE
+        native.Thread32First.argtypes = [HANDLE, ctypes.POINTER(NativeThreadEntry)]
+        native.Thread32First.restype = BOOL
+        native.Thread32Next.argtypes = [HANDLE, ctypes.POINTER(NativeThreadEntry)]
+        native.Thread32Next.restype = BOOL
+        native.OpenThread.argtypes = [DWORD, BOOL, DWORD]
+        native.OpenThread.restype = HANDLE
+        native.GetProcessIdOfThread.argtypes = [HANDLE]
+        native.GetProcessIdOfThread.restype = DWORD
+        native.ResumeThread.argtypes = [HANDLE]
+        native.ResumeThread.restype = DWORD
+        native.CloseHandle.argtypes = [HANDLE]
+        native.CloseHandle.restype = BOOL

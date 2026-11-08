@@ -12,11 +12,12 @@ from threading import Thread
 from time import monotonic
 from uuid import uuid4
 import json
+import subprocess
+
 import laomedo._paths as _package_paths
 import laomedo.work_graph.runs.errors as _workflow_errors
 import laomedo.work_graph.settings as _work_graph_settings
 import laomedo.work_graph.serialization as _work_graph_serialization
-import subprocess
 
 
 class DockerLangflowStage:
@@ -78,6 +79,92 @@ class DockerLangflowStage:
         if not isinstance(exported, dict) or exported.get("id") != flow_id:
             raise _workflow_errors.LaunchError("saved_flow_identity_mismatch")
         return cls(exported, **kwargs)
+
+    def execute(
+        self, store, *, resolved_config, trigger, inputs=None, types=None, outputs=None
+    ):
+        limits = (
+            resolved_config.get("effective_limits")
+            if isinstance(resolved_config, dict)
+            else None
+        )
+        if not isinstance(limits, dict) or limits.get("max_turns") != 0:
+            raise _workflow_errors.LaunchError("isolated_stage_zero_turn_only")
+        timeout = limits.get("timeout_seconds")
+        if type(timeout) is not int or not 1 <= timeout <= 3600:
+            raise _workflow_errors.LaunchError("stage_timeout_invalid")
+        with TemporaryDirectory(prefix="laomedo-stage-") as directory:
+            flow_dir = Path(directory)
+            (flow_dir / "flow.json").write_bytes(self.flow_bytes)
+            if (
+                "sha256:" + sha256((flow_dir / "flow.json").read_bytes()).hexdigest()
+                != self.flow_digest
+            ):
+                raise _workflow_errors.LaunchError("stage_input_identity_mismatch")
+            self._validate(flow_dir)
+            config = {
+                **resolved_config,
+                "stage_image": _work_graph_settings.IMAGE,
+                "stage_input_digest": self.flow_digest,
+                "stage_control": "host-owned-v2",
+            }
+            record = store.reserve(
+                graph=self.graph,
+                component_code=self.code,
+                resolved_config=config,
+                trigger=trigger,
+            )
+            self.last_run_id = record["run_id"]
+            if (
+                record["graph_revision"] != self.graph_revision
+                or record["component_revisions"] != self.component_revisions
+            ):
+                raise _workflow_errors.LaunchError("recorded_stage_identity_mismatch")
+
+            name = "laomedo-stage-" + uuid4().hex
+            command = self._command(name, flow_dir, "execute")
+            self.last_command = tuple(command)
+
+            def dispatch(_run_id):
+                try:
+                    with subprocess.Popen(
+                        command,
+                        stdin=subprocess.PIPE,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.DEVNULL,
+                        text=True,
+                        encoding="utf-8",
+                    ) as process:
+                        try:
+                            return self._untrusted_result(
+                                process,
+                                json.dumps(
+                                    {
+                                        "type": "execute",
+                                        "inputs": inputs,
+                                        "types": types,
+                                        "outputs": outputs,
+                                    }
+                                ),
+                                timeout,
+                            )
+                        finally:
+                            if process.poll() is None:
+                                process.kill()
+                                process.wait(timeout=5)
+                except OSError as exc:
+                    raise _workflow_errors.ExternalOutcomeUnknown(
+                        "stage_container_unavailable"
+                    ) from exc
+                finally:
+                    subprocess.run(
+                        ["docker", "rm", "-f", name], capture_output=True, timeout=10
+                    )
+
+            result = store.dispatch(
+                record["run_id"], dispatch, completion_basis="process_exit"
+            )
+            return store.get(record["run_id"]), result
 
     def _command(self, name, flow_dir, mode):
         package = self.source_root / "laomedo"
@@ -180,89 +267,3 @@ class DockerLangflowStage:
         if process.returncode != 0:
             raise _workflow_errors.LaunchError("stage_execution_failed")
         return output.strip()
-
-    def execute(
-        self, store, *, resolved_config, trigger, inputs=None, types=None, outputs=None
-    ):
-        limits = (
-            resolved_config.get("effective_limits")
-            if isinstance(resolved_config, dict)
-            else None
-        )
-        if not isinstance(limits, dict) or limits.get("max_turns") != 0:
-            raise _workflow_errors.LaunchError("isolated_stage_zero_turn_only")
-        timeout = limits.get("timeout_seconds")
-        if type(timeout) is not int or not 1 <= timeout <= 3600:
-            raise _workflow_errors.LaunchError("stage_timeout_invalid")
-        with TemporaryDirectory(prefix="laomedo-stage-") as directory:
-            flow_dir = Path(directory)
-            (flow_dir / "flow.json").write_bytes(self.flow_bytes)
-            if (
-                "sha256:" + sha256((flow_dir / "flow.json").read_bytes()).hexdigest()
-                != self.flow_digest
-            ):
-                raise _workflow_errors.LaunchError("stage_input_identity_mismatch")
-            self._validate(flow_dir)
-            config = {
-                **resolved_config,
-                "stage_image": _work_graph_settings.IMAGE,
-                "stage_input_digest": self.flow_digest,
-                "stage_control": "host-owned-v2",
-            }
-            record = store.reserve(
-                graph=self.graph,
-                component_code=self.code,
-                resolved_config=config,
-                trigger=trigger,
-            )
-            self.last_run_id = record["run_id"]
-            if (
-                record["graph_revision"] != self.graph_revision
-                or record["component_revisions"] != self.component_revisions
-            ):
-                raise _workflow_errors.LaunchError("recorded_stage_identity_mismatch")
-
-            name = "laomedo-stage-" + uuid4().hex
-            command = self._command(name, flow_dir, "execute")
-            self.last_command = tuple(command)
-
-            def dispatch(_run_id):
-                try:
-                    with subprocess.Popen(
-                        command,
-                        stdin=subprocess.PIPE,
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.DEVNULL,
-                        text=True,
-                        encoding="utf-8",
-                    ) as process:
-                        try:
-                            return self._untrusted_result(
-                                process,
-                                json.dumps(
-                                    {
-                                        "type": "execute",
-                                        "inputs": inputs,
-                                        "types": types,
-                                        "outputs": outputs,
-                                    }
-                                ),
-                                timeout,
-                            )
-                        finally:
-                            if process.poll() is None:
-                                process.kill()
-                                process.wait(timeout=5)
-                except OSError as exc:
-                    raise _workflow_errors.ExternalOutcomeUnknown(
-                        "stage_container_unavailable"
-                    ) from exc
-                finally:
-                    subprocess.run(
-                        ["docker", "rm", "-f", name], capture_output=True, timeout=10
-                    )
-
-            result = store.dispatch(
-                record["run_id"], dispatch, completion_basis="process_exit"
-            )
-            return store.get(record["run_id"]), result

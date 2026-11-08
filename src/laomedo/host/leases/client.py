@@ -3,14 +3,15 @@
 from __future__ import annotations
 
 from pathlib import Path
-from laomedo.host.leases.settings import SERVICE_STALE_SECONDS
-from laomedo.host.leases.models import ContainerIdentity
-from laomedo.host.leases.utils import _read_float, _read_json, _write_float, _write_json
 import logging
 import os
 import secrets
 import threading
 import time
+
+from laomedo.host.leases.settings import SERVICE_STALE_SECONDS
+from laomedo.host.leases.models import ContainerIdentity
+from laomedo.host.leases.utils import _read_float, _read_json, _write_float, _write_json
 from laomedo.host.leases.models import LeaseLossObservation
 from laomedo.host.leases.utils import log_heartbeat_failure
 
@@ -112,6 +113,33 @@ class LeaseClient:
         self.thread = threading.Thread(target=heartbeat, daemon=True)
         self.thread.start()
 
+    def grant_secret(self) -> str:
+        return (self.dir / "grant.secret").read_text(encoding="utf-8")
+
+    def stop_heartbeats(self) -> None:
+        """Delegate loss cleanup to the independent owner; never signal done."""
+        self.stop_event.set()
+        self.thread.join(timeout=3)
+
+    def finish(self, *, timeout: float = 15.0) -> dict:
+        """Report a normal end after the runner verified its own cleanup."""
+        self.stop_heartbeats()
+        (self.dir / "done").write_text("done", encoding="utf-8")
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            result = _read_json(self.dir / "result.json")
+            if result is not None:
+                self.result = result
+                if (
+                    self.lost.is_set()
+                    or result.get("reason") != "done"
+                    or result.get("cleanup_verified") is not True
+                ):
+                    raise RuntimeError("lease_service_unverified")
+                return result
+            time.sleep(0.05)
+        raise RuntimeError("lease_service_unverified")
+
     def _check_service(self, cancelled):
         """Apply existing health comparisons; signal security before diagnostics."""
         alive_at = _read_float(self.state / "service.alive")
@@ -143,30 +171,3 @@ class LeaseClient:
                     _write_json(self.dir / "loss.json", self.loss.to_record())
                 except Exception:
                     pass
-
-    def grant_secret(self) -> str:
-        return (self.dir / "grant.secret").read_text(encoding="utf-8")
-
-    def stop_heartbeats(self) -> None:
-        """Delegate loss cleanup to the independent owner; never signal done."""
-        self.stop_event.set()
-        self.thread.join(timeout=3)
-
-    def finish(self, *, timeout: float = 15.0) -> dict:
-        """Report a normal end after the runner verified its own cleanup."""
-        self.stop_heartbeats()
-        (self.dir / "done").write_text("done", encoding="utf-8")
-        deadline = time.monotonic() + timeout
-        while time.monotonic() < deadline:
-            result = _read_json(self.dir / "result.json")
-            if result is not None:
-                self.result = result
-                if (
-                    self.lost.is_set()
-                    or result.get("reason") != "done"
-                    or result.get("cleanup_verified") is not True
-                ):
-                    raise RuntimeError("lease_service_unverified")
-                return result
-            time.sleep(0.05)
-        raise RuntimeError("lease_service_unverified")

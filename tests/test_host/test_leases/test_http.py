@@ -18,39 +18,6 @@ from laomedo.host.mediation.errors import MediationError
 class LeaseHTTPHandlerTests(unittest.TestCase):
     """Use actual ephemeral TCP listeners and independently fixed wire bytes."""
 
-    def _server(self, book=None, mediator=None, transport=None, instance=None):
-        """Start one owned loopback listener and register deterministic cleanup."""
-        server = LeaseHTTPServer(book, mediator, transport, instance)
-        lifetime = RunningHTTPServer(server)
-        self.addCleanup(lifetime.__exit__, None, None, None)
-        lifetime.__enter__()
-        return server
-
-    def _request(self, server, method, path, body=b"", headers=None):
-        """Send exact chosen headers, including deliberately missing lengths."""
-        connection = HTTPConnection("127.0.0.1", server.server_address[1], timeout=5)
-        try:
-            connection.putrequest(method, path)
-            for key, value in (headers or {}).items():
-                connection.putheader(key, value)
-            connection.endheaders(body)
-            response = connection.getresponse()
-            raw = response.read()
-            self.assertEqual(response.getheader("Content-Type"), "application/json")
-            self.assertEqual(response.getheader("Content-Length"), str(len(raw)))
-            return response.status, raw
-        finally:
-            connection.close()
-
-    def _post(self, server, body, *, headers=None, path="/v1/mediate"):
-        """Use the existing valid prefix while allowing explicit invalid overrides."""
-        supplied = {
-            "Authorization": "Bearer internal",
-            "Content-Length": str(len(body)),
-        }
-        supplied.update(headers or {})
-        return self._request(server, "POST", path, body, supplied)
-
     def test_dependencies_exist_before_framework_initialization(self):
         """Server construction never binds before its handler dependencies exist."""
         book, mediator, transport = RecordingGrantBook(), RecordingMediator(), object()
@@ -60,13 +27,6 @@ class LeaseHTTPHandlerTests(unittest.TestCase):
             server = LeaseHTTPServer(book, mediator, transport, "instance")
         initialize.assert_called_once_with(
             server, ("127.0.0.1", 0), LeaseRequestHandler
-        )
-
-    def _observe_initialization(self, server, address, handler):
-        """Inspect the state at the framework boundary without opening a socket."""
-        self.assertEqual(
-            (server.book, server.mediator, server.transport, server.instance),
-            self.expected,
         )
 
     def test_health_requires_all_existing_non_none_dependencies(self):
@@ -222,6 +182,46 @@ class LeaseHTTPHandlerTests(unittest.TestCase):
                 "effect_id": None,
                 "transport": transport,
             },
+        )
+
+    def _server(self, book=None, mediator=None, transport=None, instance=None):
+        """Start one owned loopback listener and register deterministic cleanup."""
+        server = LeaseHTTPServer(book, mediator, transport, instance)
+        lifetime = RunningHTTPServer(server)
+        self.addCleanup(lifetime.__exit__, None, None, None)
+        lifetime.__enter__()
+        return server
+
+    def _request(self, server, method, path, body=b"", headers=None):
+        """Send exact chosen headers, including deliberately missing lengths."""
+        connection = HTTPConnection("127.0.0.1", server.server_address[1], timeout=5)
+        try:
+            connection.putrequest(method, path)
+            for key, value in (headers or {}).items():
+                connection.putheader(key, value)
+            connection.endheaders(body)
+            response = connection.getresponse()
+            raw = response.read()
+            self.assertEqual(response.getheader("Content-Type"), "application/json")
+            self.assertEqual(response.getheader("Content-Length"), str(len(raw)))
+            return response.status, raw
+        finally:
+            connection.close()
+
+    def _post(self, server, body, *, headers=None, path="/v1/mediate"):
+        """Use the existing valid prefix while allowing explicit invalid overrides."""
+        supplied = {
+            "Authorization": "Bearer internal",
+            "Content-Length": str(len(body)),
+        }
+        supplied.update(headers or {})
+        return self._request(server, "POST", path, body, supplied)
+
+    def _observe_initialization(self, server, address, handler):
+        """Inspect the state at the framework boundary without opening a socket."""
+        self.assertEqual(
+            (server.book, server.mediator, server.transport, server.instance),
+            self.expected,
         )
 
 
