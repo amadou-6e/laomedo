@@ -29,6 +29,13 @@ to a new image, credential binding, policy or execution mode.
 
 ## Verified gaps and retained native differences
 
+The baseline column records the starting architecture, not an assertion that
+retired objects still exist. Issue #275 delivers explicit runtime, command,
+credential, discovery and Activity roles, with host-owned registration; see the
+[implemented contracts](../../src/laomedo/agents/agents/README.md#provider-role-contracts-275).
+Provider deployment parity and whole-pipeline lifecycle consolidation remain
+separate work. New fixture/structural coverage does not establish live parity.
+
 | Area | Baseline | Required outcome |
 | --- | --- | --- |
 | Docker packaging | OpenCode's recipe was archived at `dbc528af`; no maintained replacement. Codex folder names the protocol, Claude names the provider. | Provider-owned `docker/{codex,claude,opencode}` builds; checked versions and immutable runtime identity. |

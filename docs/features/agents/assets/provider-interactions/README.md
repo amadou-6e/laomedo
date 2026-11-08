@@ -77,9 +77,9 @@ and the presence of local images do not close those gaps.
   composes `connect_to_agent` from the ACP Python SDK.
 - [Docker transport](../../../../../src/laomedo/agents/agents/base/acp/transport.py)
   adapts the existing py-docker session's input/output; it creates no container.
-- [Codex controller](../../../../../src/laomedo/agents/agents/codex/controller/service.py),
+- [Codex controller](../../../../../src/laomedo/agents/agents/codex/runtime.py),
   [Claude Agent](../../../../../src/laomedo/agents/agents/claude/agent.py) and
-  [OpenCode boundary](../../../../../src/laomedo/agents/agents/opencode/boundary.py)
+  [OpenCode boundary](../../../../../src/laomedo/agents/agents/opencode/runtime.py)
   compose the shared communication with native launch/policy and closure.
 - [Codex Docker recipe](../../../../../docker/codex-acp/Dockerfile) builds the
   patched adapter; [Claude's recipe](../../../../../docker/claude/Dockerfile)

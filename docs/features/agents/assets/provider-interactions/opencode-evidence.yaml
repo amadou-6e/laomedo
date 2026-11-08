@@ -1,7 +1,7 @@
 version: 1
 title: "3. Evidence to Activity"
 header: "OpenCode | 3. Evidence to Activity"
-note: "Data-flow view, not every direct function call. Capture completeness, task completion and cleanup remain separate facts. | Current runtime 19c7f1f. Paths are repository/package-relative as shown."
+note: "Data-flow view, not every direct function call. Capture completeness, task completion and cleanup remain separate facts. | Provider roles #275. Paths are repository/package-relative as shown."
 matrix:
   rows: 1
   columns: 4
@@ -86,7 +86,7 @@ nodes:
       stroke: "#8193A5"
       font_size: 14
       rounded: true
-    source_files: ["frontend/langflow-skill-viewer/GraphAgents.tsx", "frontend/langflow-skill-viewer/AgentActivity.tsx"]
+    source_files: ["frontend/langflow-skill-viewer/agents/activity/GraphAgents.tsx", "frontend/langflow-skill-viewer/agents/activity/AgentActivity.tsx"]
     graph_reference: "G"
 groups:
   col_0:

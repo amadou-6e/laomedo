@@ -1,7 +1,7 @@
 version: 1
 title: "2. Tools and credentials"
 header: "Codex | 2. Tools and credentials"
-note: "OPTIONAL SPLIT PATH. Normal mode uses native execution. App-owned login is only one credential source. | Current runtime 19c7f1f. Paths are repository/package-relative as shown."
+note: "OPTIONAL SPLIT PATH. Normal mode uses native execution. App-owned login is only one credential source. | Provider roles #275. Paths are repository/package-relative as shown."
 matrix:
   rows: 1
   columns: 5
@@ -33,7 +33,7 @@ nodes:
     graph_reference: "B"
     external_source: "Separate dependencies: py-docker -> Docker SDK -> Docker Engine."
   runtime:
-    label_html: "<b>[C] Controller lifecycle</b><br/>CodexController<br/>codex/controller/service.py<br/><br/>Own the ACP session, native callbacks, output precheck and exact controller lifetime."
+    label_html: "<b>[C] Controller lifecycle</b><br/>CodexAgentRuntime<br/>codex/runtime.py<br/><br/>Own the ACP session, native callbacks, output precheck and exact controller lifetime."
     style:
       width: 285
       height: 150
@@ -41,7 +41,7 @@ nodes:
       stroke: "#8193A5"
       font_size: 14
       rounded: true
-    source_files: ["src/laomedo/agents/agents/codex/controller/service.py", "src/laomedo/agents/agents/codex/controller/models.py"]
+    source_files: ["src/laomedo/agents/agents/codex/runtime.py", "src/laomedo/agents/agents/codex/controller/models.py"]
     graph_reference: "C"
   executor:
     label_html: "<b>[D] Worker lifecycle</b><br/>Optional split executor<br/>codex/split/executor.py; models.py<br/><br/>Controller creates/registers this separate execution resource. Native isolation remains unverified."

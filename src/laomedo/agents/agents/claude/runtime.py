@@ -56,11 +56,10 @@ class ClaudeAgentRuntime(BaseAgentRuntime):
 
     def request_cancel(self) -> CancellationObservation:
         """Signal the existing prompt flag without claiming native interruption."""
-        if self._cancelled is not None:
-            self._cancelled.set()
-        return CancellationObservation(
-            requested=self._cancelled is not None, confirmed=None
-        )
+        flag = self._cancelled if not self._closed else None
+        if flag is not None:
+            flag.set()
+        return CancellationObservation(requested=flag is not None, confirmed=None)
 
     async def shutdown(self) -> CleanupObservation:
         """Close the exact turn context or propagate native cleanup uncertainty."""

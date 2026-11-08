@@ -1,7 +1,7 @@
 version: 1
 title: "1. Run and session"
 header: "OpenCode | 1. Run and session"
-note: "Blue: shared code. Purple: provider Python. Green: upstream/resources. Orange: custom controller code. | Current runtime 19c7f1f. Paths are repository/package-relative as shown."
+note: "Blue: shared code. Purple: provider Python. Green: upstream/resources. Orange: custom controller code. | Provider roles #275. Paths are repository/package-relative as shown."
 matrix:
   rows: 1
   columns: 5
@@ -32,7 +32,7 @@ nodes:
     source_files: ["src/laomedo/agents/agents/opencode/agent.py"]
     graph_reference: "B"
   runtime:
-    label_html: "<b>[C] Controller lifecycle</b><br/>IsolatedOpenCode<br/>opencode/boundary.py; models.py<br/><br/>Own controller setup, shared ACP session, native model selection, cancellation and exact resource closure."
+    label_html: "<b>[C] Controller lifecycle</b><br/>OpenCodeAgentRuntime<br/>opencode/runtime.py; models.py<br/><br/>Own controller setup, shared ACP session, native model selection, cancellation and exact resource closure."
     style:
       width: 285
       height: 150
@@ -40,7 +40,7 @@ nodes:
       stroke: "#8193A5"
       font_size: 14
       rounded: true
-    source_files: ["src/laomedo/agents/agents/opencode/boundary.py", "src/laomedo/agents/agents/opencode/models.py"]
+    source_files: ["src/laomedo/agents/agents/opencode/runtime.py", "src/laomedo/agents/agents/opencode/models.py"]
     graph_reference: "C"
   acp:
     label_html: "<b>[D] ACP communication</b><br/>agents/agents/base/acp/session.py; transport.py<br/><br/>AcpSession composes the upstream ACP SDK. DockerTransport carries its frames over attached stdin/stdout."

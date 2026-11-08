@@ -1,7 +1,7 @@
 version: 1
 title: "2. Tools and credentials"
 header: "Claude | 2. Tools and credentials"
-note: "Credential path across the top; command requests return through host admission to a separate worker. | Current runtime 19c7f1f. Paths are repository/package-relative as shown."
+note: "Credential path across the top; command requests return through host admission to a separate worker. | Provider roles #275. Paths are repository/package-relative as shown."
 matrix:
   rows: 1
   columns: 4
@@ -45,7 +45,7 @@ nodes:
     source_files: ["src/laomedo/agents/agents/claude/auth/utils.py", "src/laomedo/agents/agents/claude/auth/models.py", "src/laomedo/agents/agents/claude/auth/resources/write_login.py"]
     graph_reference: "C"
   broker:
-    label_html: "<b>[D] Host command gateway</b><br/>Host CommandService<br/>claude/container.py; http/<br/><br/>Receive authenticated /command requests and execute admitted worker jobs; mediate GitHub only with a grant."
+    label_html: "<b>[D] Host command gateway</b><br/>ClaudeCommandExecutor + HTTP<br/>claude/policy.py; http/<br/><br/>Receive authenticated /command requests and execute admitted worker jobs; mediate GitHub only with a grant."
     style:
       width: 285
       height: 150
@@ -53,7 +53,7 @@ nodes:
       stroke: "#8193A5"
       font_size: 14
       rounded: true
-    source_files: ["src/laomedo/agents/agents/claude/container.py", "src/laomedo/agents/agents/claude/http/handler.py", "src/laomedo/agents/agents/claude/http/server.py"]
+    source_files: ["src/laomedo/agents/agents/claude/executor.py", "src/laomedo/agents/agents/claude/http/handler.py", "src/laomedo/agents/agents/claude/http/server.py"]
     graph_reference: "D"
   profile:
     label_html: "<b>[E] Controller credentials and state</b><br/>Mounted access/session volume<br/><br/>Controller reads mirrored access credentials and persists the native session for Resume."

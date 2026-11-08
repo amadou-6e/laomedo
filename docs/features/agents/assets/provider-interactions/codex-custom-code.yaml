@@ -1,7 +1,7 @@
 version: 1
 title: "1. Run and session"
 header: "Codex | 1. Run and session"
-note: "Blue: shared code. Purple: provider Python. Green: upstream/resources. Orange: custom controller code. | Current runtime 19c7f1f. Paths are repository/package-relative as shown."
+note: "Blue: shared code. Purple: provider Python. Green: upstream/resources. Orange: custom controller code. | Provider roles #275. Paths are repository/package-relative as shown."
 matrix:
   rows: 1
   columns: 5
@@ -43,7 +43,7 @@ nodes:
     source_files: ["src/laomedo/agents/agents/codex/agent.py"]
     graph_reference: "C"
   runtime:
-    label_html: "<b>[D] Controller lifecycle</b><br/>CodexController<br/>codex/controller/service.py<br/><br/>Own the ACP session, native callbacks, output precheck and exact controller lifetime."
+    label_html: "<b>[D] Controller lifecycle</b><br/>CodexAgentRuntime<br/>codex/runtime.py<br/><br/>Own the ACP session, native callbacks, output precheck and exact controller lifetime."
     style:
       width: 285
       height: 150
@@ -51,7 +51,7 @@ nodes:
       stroke: "#8193A5"
       font_size: 14
       rounded: true
-    source_files: ["src/laomedo/agents/agents/codex/controller/service.py", "src/laomedo/agents/agents/codex/controller/models.py"]
+    source_files: ["src/laomedo/agents/agents/codex/runtime.py", "src/laomedo/agents/agents/codex/controller/models.py"]
     graph_reference: "D"
   acp:
     label_html: "<b>[E] ACP communication</b><br/>agents/agents/base/acp/session.py; transport.py<br/><br/>AcpSession composes the upstream ACP SDK. DockerTransport carries its frames over attached stdin/stdout."

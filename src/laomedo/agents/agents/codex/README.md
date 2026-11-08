@@ -4,6 +4,13 @@
 The implementation is in `agent.py`; folder and object renaming do not
 remove its whole-pipeline overrides.
 
+`CodexAgentRuntime` in `runtime.py` owns exact controller lifetime and composes
+shared ACP communication. `CodexCommandExecutor` in `split/executor.py` owns the
+optional split command scope. `CodexCredentialProvider` in `credentials.py`
+borrows host-native access; `CodexModelCatalog` in `catalog.py` owns discovery.
+`CodexActivityProjector` in `activity/projector.py` owns native interpretation and
+the pinned pricing catalogue. See the [role methods](../README.md#provider-role-contracts-275).
+
 A controller and optional executor span the attempt and output corrections. Native precheck and split-executor guards remain explicit.
 
 | Method vocabulary | Provider contract |

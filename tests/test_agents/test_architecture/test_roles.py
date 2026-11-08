@@ -76,6 +76,9 @@ class ProviderRoleTests(unittest.TestCase):
         self.assertIsNone(request.confirmed)
         self.assertTrue(asyncio.run(launched.runtime.shutdown()).confirmed)
         self.assertFalse(launched.runtime.observe().launched)
+        cancelled.clear()
+        self.assertFalse(launched.runtime.request_cancel().requested)
+        self.assertFalse(cancelled.is_set())
 
     def test_cleanup_uncertainty_survives_repeated_shutdown(self):
         """Already-closed is not evidence that a prior failed cleanup succeeded."""

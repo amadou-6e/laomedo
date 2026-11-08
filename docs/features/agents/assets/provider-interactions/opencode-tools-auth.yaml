@@ -1,7 +1,7 @@
 version: 1
 title: "2. Tools and credentials"
 header: "OpenCode | 2. Tools and credentials"
-note: "Credential path across the top; command requests return through host admission to a separate worker. | Current runtime 19c7f1f. Paths are repository/package-relative as shown."
+note: "Credential path across the top; command requests return through host admission to a separate worker. | Provider roles #275. Paths are repository/package-relative as shown."
 matrix:
   rows: 1
   columns: 4
@@ -45,7 +45,7 @@ nodes:
     source_files: ["src/laomedo/agents/agents/opencode/auth/utils.py", "src/laomedo/agents/agents/opencode/auth/transport.py", "src/laomedo/agents/agents/opencode/utils.py"]
     graph_reference: "C"
   broker:
-    label_html: "<b>[D] Host command gateway</b><br/>Host CommandBroker<br/>opencode/boundary.py; http/<br/><br/>Authenticated remote MCP receives native tool calls and admits credential-free Docker command jobs."
+    label_html: "<b>[D] Host command gateway</b><br/>OpenCodeCommandExecutor + MCP<br/>opencode/runtime.py; http/<br/><br/>Authenticated remote MCP receives native tool calls and admits credential-free Docker command jobs."
     style:
       width: 285
       height: 150
@@ -53,7 +53,7 @@ nodes:
       stroke: "#8193A5"
       font_size: 14
       rounded: true
-    source_files: ["src/laomedo/agents/agents/opencode/boundary.py", "src/laomedo/agents/agents/opencode/http/handler.py", "src/laomedo/agents/agents/opencode/http/server.py"]
+    source_files: ["src/laomedo/agents/agents/opencode/executor.py", "src/laomedo/agents/agents/opencode/http/handler.py", "src/laomedo/agents/agents/opencode/http/server.py"]
     graph_reference: "D"
   profile:
     label_html: "<b>[E] Controller credentials and state</b><br/>Private generated config / auth / sessions<br/><br/>Only admitted skills/config and read-only auth reach the controller. Model-writable project config stays out."

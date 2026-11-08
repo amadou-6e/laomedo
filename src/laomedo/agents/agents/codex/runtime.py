@@ -454,8 +454,12 @@ class CodexAgentRuntime(BaseAgentRuntime):
         """Report launch separately from the independently completed ACP handshake."""
         return RuntimeObservation(
             provider="codex",
-            launched=self.session is not None,
-            ready=getattr(self, "_protocol_ready", False) or None,
+            launched=self.session is not None and not self._closed,
+            ready=(
+                (getattr(self, "_protocol_ready", False) or None)
+                if not self._closed
+                else None
+            ),
             native_session=self.active_thread_id,
         )
 

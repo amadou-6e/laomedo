@@ -1,7 +1,9 @@
 # BrokerHttpServer HTTP collaborators
 
-`BrokerHttpServer` binds the existing listener to one explicit `CommandBroker`
-instance. `BrokerRequestHandler` implements its framework `do_POST` callback using
+`BrokerHttpServer` binds the existing listener to one `OpenCodeCommandBroker`
+from `broker.py`. It adapts MCP requests to `OpenCodeCommandExecutor` in
+`../executor.py`; the executor owns worker admission, deadlines and receipts.
+`BrokerRequestHandler` implements its framework `do_POST` callback using
 that owner; request state is not captured by a nested class or mutable global.
 `server_close` / `shutdown` retain the existing HTTP server lifecycle meanings.
 The caller retains responsibility for thread startup, cancellation and exact cleanup.

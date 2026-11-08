@@ -325,7 +325,6 @@ class OpenCodeAgentRuntime(BaseAgentRuntime):
         from py_docker.sessions.models import ContainerSession
         from py_docker.streams.models import StreamLimits
 
-        self._cancelled = cancelled
         self.check_auth_fresh()
         receipt_path = self.receipts.joinpath(self.name + ".json")
         self.allocated_receipts.add(receipt_path)
@@ -339,6 +338,7 @@ class OpenCodeAgentRuntime(BaseAgentRuntime):
                 receipt_path=receipt_path,
             )
         )
+        self._cancelled = cancelled
         try:
             return asyncio.run(
                 self._run_acp(task, model, session_id, cancelled, capture, on_session)
@@ -436,7 +436,7 @@ class OpenCodeAgentRuntime(BaseAgentRuntime):
         """Do not infer a controller process or ACP readiness from a prepared environment."""
         return RuntimeObservation(
             provider="opencode",
-            launched=self.session is not None,
+            launched=self.session is not None and not self.closing,
             ready=None,
             native_session=getattr(self, "_native_session", None),
         )
