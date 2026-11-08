@@ -28,7 +28,7 @@ Archive approved artifacts before removing them from the production cut. A
 production test must not fetch an experiment branch or require its checkout.
 
 EXP-08 is archived on `exp`; its useful assertions live under
-`tests/test_skills/test_workspace` and run in normal discovery. Agent Activity and provider controls run in their owning test packages;
+`tests/test_agents/test_workspace` and run in normal discovery. Agent Activity and provider controls run in their owning test packages;
 selected historical Agent examples/callers are archived on `exp`. Remaining
 campaign dependencies are removed only in their selected owning migration after
 useful regression ports. The retained Shared caller inventory and the

@@ -106,7 +106,7 @@ and deferred Agent/GitHub controls. Their callers import defining helpers
 directly; no root forwarding modules remain. Historical dependencies are retained.
 No test fetches an experiment branch or requires a second checkout.
 
-`test_skills/test_workspace` retains the exact-byte and Git-isolation assertions from the
+`test_agents/test_workspace` retains the exact-byte and Git-isolation assertions from the
 archived EXP-08 campaign. It uses the installed registry/materialization boundary
 and shared Git command runner; ordinary discovery replaces the old campaign CI
 invocation. No archived script or model turn is needed.

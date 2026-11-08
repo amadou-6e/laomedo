@@ -82,5 +82,5 @@ rejects links/reparse points, hard links, special files and empty directories;
 it does not itself enforce byte/count limits. Those limits remain caller-owned.
 
 EXP-08 sources and observations are archived on `exp`; production discovery
-uses the concern-owned registry and `tests/test_skills/test_workspace` controls.
+uses the concern-owned registry and `tests/test_agents/test_workspace` controls.
 Those internal controls do not import the archive or establish live acceptance.
