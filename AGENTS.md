@@ -17,6 +17,27 @@
   except explicit import/template migrations needed by a selected owner. Their
   presence is not permission to add new investigations to production.
 
+## Test lifecycle
+
+- Tests must protect current supported behavior, an ongoing invariant, or an
+  explicitly scoped point-in-time verification purpose. Do not retain tests only
+  because they passed before a refactor.
+- When code, ports, module paths or contracts are retired, remove tests that
+  reconstruct those retired states solely to exercise migration, compatibility
+  or rejection. Update maintained examples to the current method; personal saved
+  graphs do not create a compatibility requirement.
+- Keep compatibility tests only when support for that older state is an explicit
+  current requirement. Identify that requirement and the condition for retiring
+  the test. Persisted operational data recovery requires its own scope decision;
+  it is not equivalent to preserving personal graph exports.
+- Keep regression tests that exercise current behavior and architecture rules
+  that still apply. In mixed tests, remove obsolete setup and assertions while
+  preserving meaningful coverage of the current contract. Do not pin historical
+  refactor counts or retired filenames unless they express an ongoing rule.
+- Keep explicitly requested historical or point-in-time evidence with its owning
+  experiment or archive and revision. Do not make normal production verification
+  depend on recreating retired implementations merely to keep that evidence green.
+
 ## Python formatting
 
 - Install the pinned formatter with `python -m pip install -e '.[dev]'`.

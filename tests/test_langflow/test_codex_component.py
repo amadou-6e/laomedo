@@ -487,37 +487,6 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(run.data["run_id"], submission.data["run_reference"]["run_id"])
         self.assertEqual(http.call_count, 1)
 
-    async def test_saved_flow_old_ports_run_with_updated_component_source(self):
-        from lfx.graph.graph.base import Graph
-
-        root = Path(__file__).resolve().parents[2]
-        flow = json.loads((root / "examples/native-codex-node/flow.json").read_text())
-        agent = next(
-            n for n in flow["data"]["nodes"] if n["data"]["type"] == "LaomedoCodexAgent"
-        )
-        agent["data"]["node"]["template"]["code"]["value"] = MODULE_PATH.read_text()
-
-        def respond(req, **_kwargs):
-            return Response(
-                json.dumps(
-                    result(client_request_id=json.loads(req.data)["request_id"])
-                ).encode()
-            )
-
-        with (
-            patch.object(module.LaomedoCodexAgent, "_token", return_value="synthetic"),
-            patch.object(shared_module.request, "urlopen", side_effect=respond) as http,
-        ):
-            # Imported source builds a distinct class, so the fake token file is used.
-            with tempfile.TemporaryDirectory() as state:
-                token = Path(state) / "token"
-                token.write_text("synthetic")
-                with patch.dict(os.environ, {"LAOMEDO_RUNNER_TOKEN_FILE": str(token)}):
-                    await Graph.from_payload(flow).arun(
-                        inputs=[{"input_value": "Read fixture"}], types=["chat"]
-                    )
-        self.assertEqual(http.call_count, 1)
-
     async def test_finished_unknown_stops_fresh_polling_without_success(self):
         node = component(request_id=RUN)
         replies = [

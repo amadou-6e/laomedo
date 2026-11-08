@@ -163,12 +163,10 @@ class NativeGitHubPRTests(unittest.TestCase):
         )
         self.assertEqual(config["pr_choice"]["value"], "#1 New title")
 
-    def test_refresh_updates_legacy_metadata_and_separates_failure_from_empty(self):
+    def test_refresh_preserves_selection_and_separates_failure_from_empty(self):
         config = {item.name: item.to_dict() for item in self.component.inputs}
         config["repository_url"]["value"] = self.case.url
-        config["state"].update(
-            advanced=True, options=["open", "closed", "all"], value="closed"
-        )
+        config["state"]["value"] = "closed"
         config = asyncio.run(
             self.component.update_build_config(config, "closed", "state")
         )
