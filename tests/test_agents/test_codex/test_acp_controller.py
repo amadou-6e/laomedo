@@ -329,6 +329,20 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
             await self.controller.preflight("arbitrary-command")
         self.controller.extension.assert_not_called()
 
+    async def test_extension_boundary_keeps_native_allowlist_and_safe_operation(self):
+        self.controller.acp.extension = AsyncMock(return_value={"models": []})
+        self.assertEqual(
+            await self.controller.extension("laomedo/codexModels", {}, seconds=2),
+            {"models": []},
+        )
+        self.controller.acp.extension.assert_awaited_once_with(
+            "laomedo/codexModels", {}, operation="model/list", seconds=2
+        )
+        self.controller.acp.extension.reset_mock()
+        with self.assertRaisesRegex(RunnerError, "^runner_transport_failed$"):
+            await self.controller.extension("terminal/create", {"command": "anything"})
+        self.controller.acp.extension.assert_not_called()
+
     async def test_unconfirmed_cleanup_cannot_pass(self):
         self.controller.acp.close.side_effect = RuntimeError(
             "private cleanup diagnostic"

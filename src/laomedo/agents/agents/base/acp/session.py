@@ -104,6 +104,17 @@ class AcpSession:
             30,
         )
 
+    async def extension(self, method, params, *, operation: str, seconds: float = 30):
+        """Send a host-admitted extension with bounded, safe failure mapping.
+
+        Provider collaborators own the method allowlist and fixed diagnostic
+        operation label. This is outbound SDK communication, separate from
+        ext_method, which denies inbound execution requests.
+        """
+        return await self._request(
+            self.connection.ext_method(method, params), operation, seconds
+        )
+
     async def prompt(
         self, text: str, *, cancelled, seconds: float, metadata=None, check_health=None
     ) -> AcpTurn:

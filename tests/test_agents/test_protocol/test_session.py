@@ -71,6 +71,28 @@ class AcpSessionTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(RequestError):
             await self.client.ext_method("terminal/create", {"command": "anything"})
 
+    async def test_outbound_extension_uses_safe_error_mapping_without_payload_leak(
+        self,
+    ):
+        self.connection.ext_method = AsyncMock(
+            side_effect=RequestError.internal_error({"token": "private-token"})
+        )
+        with self.assertRaisesRegex(ValueError, "^runner_transport_failed$"):
+            await self.client.extension(
+                "laomedo/codexModels", {}, operation="model/list", seconds=1
+            )
+        self.connection.ext_method.assert_awaited_once_with("laomedo/codexModels", {})
+
+    async def test_outbound_extension_timeout_uses_operation_label(self):
+        async def never_finishes(*args):
+            await asyncio.sleep(10)
+
+        self.connection.ext_method = AsyncMock(side_effect=never_finishes)
+        with self.assertRaisesRegex(ValueError, "^request_timeout:model/list$"):
+            await self.client.extension(
+                "laomedo/codexModels", {}, operation="model/list", seconds=0.001
+            )
+
     async def test_precheck_is_opt_in_and_other_extensions_stay_denied(self):
         with self.assertRaises(RequestError):
             await self.client.ext_method("laomedo/outputPrecheck", {})

@@ -223,8 +223,8 @@ class CodexAgentRuntime(BaseAgentRuntime):
             "laomedo/registerExecutor": "environment/add",
             "laomedo/executorStatus": "environment/status",
         }[method]
-        return await self.acp._request(
-            self.acp.connection.ext_method(method, params), label, seconds
+        return await self.acp.extension(
+            method, params, operation=label, seconds=seconds
         )
 
     async def open(self, record, *, resume):
