@@ -20,7 +20,7 @@ github/
     mediated.py               dispatcher composing existing Git and REST paths
     git/                      GitHub branch/ref/publication policy
     rest/                     narrow GitHub REST delivery
-  workflows/                  pure workflow-path classification
+  workflows.py                pure workflow-path classification
 ```
 
 ## Object and method nomenclature
@@ -33,7 +33,7 @@ github/
 | `interface/` | Clients are the supported app boundary. `*Server` owns endpoint lifetime/state; `*RequestHandler` owns HTTP parsing, authentication and response policy. Explicit startup CLIs compose host/domain implementations. |
 | `contract.py` | `repository_from_url`, `validate_repository`, `labels_value`, `issue_digest`: independent admission/hash functions, with no I/O or authority. |
 | `issues/context_reader.py` | `fetch_context`: read issue/timeline evidence and confirm issue stability; discovered PRs remain candidates. `context.main` owns arguments, JSON output and exit status. |
-| `workflows/` | `touches_workflows`: pure classification, with no Git execution. |
+| `workflows.py` | `touches_workflows`: pure classification, with no Git execution. |
 
 Use `Base` only for a genuine abstract contract, meaningful adjectives for actual
 variants, and a final responsibility noun. Gateway means effect admission;
@@ -64,3 +64,7 @@ migration; a reference never grants authority or permission to retry unknown wri
 These boundaries preserve payloads, argument shapes, errors, authorization
 and unknown outcomes. Leaf READMEs document the supported interfaces. Product acceptance requires
 real workflow verification and the requesting owner’s graph validation.
+
+`workflows.py` classifies already-inspected native Git path bytes. Transport and
+verified publication share this predicate; it performs no Git execution, API
+request or authorization.

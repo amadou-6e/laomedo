@@ -8,7 +8,7 @@ import argparse
 import json
 import laomedo.github.transport.git.transport as _git_transport
 import laomedo.github.transport.rest.transport as _rest_transport
-import laomedo.host.credentials.token.connection as _token_connection
+import laomedo.host.credentials.token as _token_connection
 import laomedo.host.mediation.store as _mediation_store
 import laomedo.host.publication.verified.utils as _verified_utils
 import os
