@@ -36,6 +36,14 @@ returning success or unsupported on every provider.
 These changes align callable roles. They do not establish that all provider
 configuration, native resource state or orchestration is already interchangeable.
 
+Remaining cross-object coupling also needs attention: catalogue implementations
+still call native Agent discovery hooks; command transports inspect executor
+locks/flags; Codex registration reads native executor fields; and runtime launch
+returns an opaque handle from provider-specific constructor arguments. Those
+boundaries need explicit injected callback/state/factory contracts in the next
+ownership pass. The public-surface guard does not establish that those accesses
+are fully declared or type checked.
+
 ## Runtime divergence that remains
 
 | Runtime | Current ownership and outside calls | Why the lifecycle base is insufficient |
