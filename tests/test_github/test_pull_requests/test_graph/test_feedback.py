@@ -170,22 +170,6 @@ class PRAgentLoopTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(self.agent_calls), 0)
         self.assertEqual(len(self.fake.writes), 0)
 
-    async def test_legacy_infinity_feedback_still_runs_once(self):
-        flow = builder.build()
-        feedback = flow["data"]["edges"][1]
-        target = {
-            "dataType": "LaomedoGitHubPR",
-            "id": "pr",
-            "name": "task",
-            "output_types": ["Message", "Data"],
-        }
-        feedback["targetHandle"] = json.dumps(target)
-        feedback["data"]["targetHandle"] = target
-        with self.assertRaisesRegex(Exception, "pr_context_migration_required"):
-            await self.execute(flow=flow)
-        self.assertEqual(len(self.agent_calls), 0)
-        self.assertEqual(len(self.fake.writes), 0)
-
     async def test_multiple_operation_sources_are_refused_before_agent(self):
         flow = builder.build()
         extra = builder.node(

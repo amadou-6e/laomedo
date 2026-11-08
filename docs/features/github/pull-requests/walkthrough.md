@@ -104,13 +104,9 @@ Creating a PR without an existing reference remains
 [a proposed workflow](user-stories.md#pr-04--create-a-pr-before-its-reference-exists),
 not another option on the current node.
 
-## Migrating older graphs
+## Structured PR handoff
 
-Export the graph and run `python tools/migrate_github_pr_context.py old.json new.json`
-inside the configured optional Langflow environment. Import the new file after
-reviewing its wiring. This explicit migration preserves the original file and
-refuses two incoming legacy connections or incompatible consumers; repair those
-manually rather than losing an identity or operation edge. Update Agent components
+Maintained examples use the single PR input and output. Update Agent components
 alongside PR components so their Task input accepts structured PR context. The
 Agent formats a successful context and refuses failed/unknown outcomes before
 runner dispatch. An earlier outcome is never replayed as an operation request.

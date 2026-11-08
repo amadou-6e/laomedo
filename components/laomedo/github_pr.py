@@ -180,12 +180,6 @@ class LaomedoGitHubPR(Component):
         incoming = getattr(self, "pr_context", None)
         context = None
         try:
-            vertex = getattr(self, "_vertex", None)
-            if vertex is not None and any(
-                name in vertex.full_data["data"]["node"]["template"]
-                for name in ("pr_reference", "operation")
-            ):
-                raise ValueError("pr_context_migration_required")
             if feedback_edge(self) is not None:
                 operation = None
             elif incoming is not None and incoming != "":

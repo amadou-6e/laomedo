@@ -119,18 +119,12 @@ def feedback_edge(component):
     vertex = getattr(component, "_vertex", None)
     if vertex is None:
         return None
-    if component.name == "LaomedoGitHubPR" and any(
-        name in vertex.full_data["data"]["node"]["template"]
-        for name in ("operation", "pr_reference")
-    ):
-        raise ValueError("pr_context_migration_required")
     legacy = [
         edge
         for edge in vertex.incoming_edges
-        if edge.target_handle.field_name == "task"
+        if component.name != "LaomedoGitHubPR"
+        and edge.target_handle.field_name == "task"
     ]
-    if component.name == "LaomedoGitHubPR" and legacy:
-        raise ValueError("pr_context_migration_required")
     operations = [
         edge
         for edge in vertex.incoming_edges

@@ -1659,11 +1659,6 @@
     "description": "A failed or uncertain upstream PR result cannot trigger another read, write or Agent task.",
     "recovery": "Inspect and reconcile the earlier operation before providing new PR context."
   },
-  "pr_context_migration_required": {
-    "title": "The PR connections need migration",
-    "description": "Legacy PR ports cannot be combined safely without an explicit graph migration.",
-    "recovery": "Migrate compatible connections to the single PR input/output; repair ambiguous or incompatible edges manually."
-  },
   "pr_discovery_failed": {
     "title": "GitHub PR discovery failed",
     "description": "The node could not load repository labels and pull requests from the host GitHub connection.",
