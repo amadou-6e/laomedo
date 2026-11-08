@@ -3,7 +3,7 @@
 from __future__ import annotations
 from pathlib import PurePosixPath
 import re
-from laomedo.skills.inspection.settings import (
+from laomedo.skills.registry.settings import (
     MAX_FILES,
     MAX_FILE_BYTES,
     MAX_BUNDLE_BYTES,

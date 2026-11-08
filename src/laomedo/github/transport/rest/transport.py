@@ -7,7 +7,7 @@ mediator capability. Unsupported operations fail explicitly.
 
 from __future__ import annotations
 
-from laomedo.http.redirect import NoRedirect
+from laomedo.host.http import NoRedirect
 from laomedo.github.contract import issue_digest
 from laomedo.github.issues.contract import issue_value
 from laomedo.github.contract import labels_value

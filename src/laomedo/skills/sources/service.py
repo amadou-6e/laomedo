@@ -10,8 +10,8 @@ import tempfile
 import threading
 import time
 
-from laomedo.skills.inspection.settings import MAX_FILES, MAX_BUNDLE_BYTES
-from laomedo.skills.inspection.utils import inspect_skill
+from laomedo.skills.registry.settings import MAX_FILES, MAX_BUNDLE_BYTES
+from laomedo.skills.registry.inspection import inspect_skill
 from laomedo.skills.registry.errors import SkillStoreError
 from laomedo.skills.registry.files import is_link
 from laomedo.skills.registry.hashing import tree_hash

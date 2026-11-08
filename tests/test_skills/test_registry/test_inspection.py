@@ -4,9 +4,9 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from laomedo.skills.inspection.utils import inspect_skill
-from laomedo.skills.inspection.errors import InspectionError
-from laomedo.skills.inspection.settings import MAX_FILE_BYTES
+from laomedo.skills.registry.inspection import inspect_skill
+from laomedo.skills.registry.errors import InspectionError
+from laomedo.skills.registry.settings import MAX_FILE_BYTES
 from laomedo.skills.registry.store import SkillStore
 
 

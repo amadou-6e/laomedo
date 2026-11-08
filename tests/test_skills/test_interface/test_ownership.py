@@ -21,6 +21,11 @@ class SkillOwnershipTests(unittest.TestCase):
                             "Import the defining Skill object or function directly",
                         )
                     if isinstance(node, ast.ImportFrom) and node.module:
+                        if (
+                            node.module == "laomedo.host.http"
+                            and "interface" in path.relative_to(root).parts
+                        ):
+                            continue  # HTTP adapters share host transport policy only.
                         self.assertFalse(
                             node.module.startswith(
                                 (

@@ -3,12 +3,12 @@
 from pathlib import Path
 import os
 import time
-from laomedo.skills.inspection.settings import (
+from laomedo.skills.registry.settings import (
     MAX_FILE_BYTES,
     MAX_FILES,
     MAX_BUNDLE_BYTES,
 )
-from laomedo.skills.inspection.utils import _read_regular
+from laomedo.skills.registry.inspection import _read_regular
 from laomedo.skills.registry.files import is_link
 from laomedo.skills.sources.bundle import validate_bundle_path
 from laomedo.skills.sources.errors import SourceError

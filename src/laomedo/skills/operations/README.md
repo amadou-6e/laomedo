@@ -166,3 +166,11 @@ archive and configure a new journal for the verified canonical lineage; its
 registered entries do not invent the old edit provenance. Preserve old immutable
 revision references, and select new Base Commit references explicitly. Do not
 delete or rewrite the old journal, or present this maintenance as a UI merge.
+
+## Missing-description guidance
+
+`summary.py` owns `has_description` and `summary_authoring`. It conservatively
+preserves existing descriptions and loads packaged Agent instructions only when
+a readable SKILL.md has no description. It neither calls a model nor edits files;
+the operation service validates and applies authorized proposals. Viewer reads
+do not trigger authoring.

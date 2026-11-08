@@ -22,9 +22,9 @@ from uuid import uuid4
 import difflib
 import hashlib
 import json
-from laomedo.skills.authoring.summary import has_description
-from laomedo.skills.authoring.summary import summary_authoring
-from laomedo.skills.inspection.utils import inspect_skill
+from laomedo.skills.operations.summary import has_description
+from laomedo.skills.operations.summary import summary_authoring
+from laomedo.skills.registry.inspection import inspect_skill
 from laomedo.skills.operations.models import EditorProvenance
 from laomedo.skills.operations.models import SkillProposal
 from laomedo.skills.operations.models import (

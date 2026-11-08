@@ -8,7 +8,7 @@ from urllib.request import Request, build_opener
 
 from laomedo.github.interface.issues.server import IssueServer
 from laomedo.github.interface.pull_requests.server import PullRequestServer
-from laomedo.http.redirect import NoRedirect
+from laomedo.host.http import NoRedirect
 from support.http_server import RunningHTTPServer
 
 

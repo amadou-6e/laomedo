@@ -84,3 +84,12 @@ it does not itself enforce byte/count limits. Those limits remain caller-owned.
 Archived EXP-08 controls run through an explicit temporary import-only migration.
 Their original sources and observations remain byte-preserved. They supplement
 current registry behavior tests; they do not establish live graph acceptance.
+
+## Read-only inspection
+
+`inspection.py` owns `inspect_skill`: verify an exact immutable revision and
+project bounded file metadata/text, optionally images or binary bytes. It never
+constructs a mutable store, creates drafts, selects latest or executes skill
+content. Registry `settings.py` owns inspection limits; `errors.py` owns
+`InspectionError`. Links, hard links, nonregular entries, oversized bundles and
+identity/hash mismatches are refused. Source admission uses these same limits.

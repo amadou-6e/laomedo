@@ -1,6 +1,6 @@
 """Backend-only Skill operation credentials, never graph inputs."""
 
-from laomedo.http.redirect import NoRedirect
+from laomedo.host.http import NoRedirect
 from laomedo.skills.interface.operations.settings import Settings
 
 from pathlib import Path

@@ -52,7 +52,7 @@ retains its intentional `pr_digest = issue_digest` identity binding.
 Application callers use defining modules in `interface/`; models, gateways and
 contracts do not eagerly import HTTP startup, host composition or optional graph
 frameworks. Shared contracts and the context reader do not depend on work_graph.
-Core HTTP redirect refusal comes from `laomedo.http.redirect.NoRedirect`.
+Core HTTP redirect refusal comes from `laomedo.host.http.NoRedirect`.
 
 The active `python -m laomedo.github.issues.context` command keeps its parser and
 `main`. Maintained imports and flat migration maps point at final definitions;

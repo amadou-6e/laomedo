@@ -5,7 +5,7 @@
 [Git](../../src/laomedo/git/README.md) owns host process execution, isolated
 environments, repository and working-tree mechanics. Feature owners retain
 admission, credential selection, authorization, refs and error translation.
-[HTTP](../../src/laomedo/http/README.md) owns neutral redirect refusal. Credential
+[Host HTTP policy](../../src/laomedo/host/README.md) owns neutral redirect refusal. Credential
 handlers keep their distinct errors; self-contained components retain their
 standard-library copies. Source discovery's separate read-budget process path is
 owned by Skills and is outside the shared workspace/transport Git profiles.

@@ -5,8 +5,8 @@ No runner/provider credentials are used by this route.
 """
 
 from pathlib import Path
-from laomedo.skills.inspection.errors import InspectionError
-from laomedo.skills.inspection.utils import inspect_skill
+from laomedo.skills.registry.errors import InspectionError
+from laomedo.skills.registry.inspection import inspect_skill
 from laomedo.integrations.langflow.settings import Settings
 
 

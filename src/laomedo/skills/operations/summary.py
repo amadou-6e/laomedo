@@ -43,7 +43,14 @@ def has_description(text):
 
 
 def summary_authoring(snapshot):
-    """Return the packaged description-authoring contract without executing Skill content."""
+    """Return missing-description guidance for a verified inspection snapshot.
+
+    The snapshot must contain readable SKILL.md text. A meaningful existing
+    description returns summary_required=False with no instructions; otherwise
+    packaged Agent instructions are read and returned. No model is dispatched
+    and no skill file is changed. Raises SkillStoreError with
+    skill_summary_source_unavailable when the source text is absent.
+    """
     skill = next((f for f in snapshot["files"] if f["path"] == "SKILL.md"), None)
     if not skill or not isinstance(skill.get("text"), str):
         raise SkillStoreError("skill_summary_source_unavailable")

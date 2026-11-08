@@ -1,1 +1,1 @@
-"""host.credentials domain services."""
+"""Host services, credentials and shared outbound HTTP policy."""
