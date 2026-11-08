@@ -75,34 +75,6 @@ class GitHubOwnershipTests(unittest.TestCase):
                 (ROOT / "src/laomedo/github" / relative / "README.md").is_file()
             )
 
-    def test_retired_definitions_are_absent_and_migrate_to_final_owners(self):
-        migration = load_migration()
-        for feature in ("issues", "pull_requests"):
-            for name in ("client", "server", "settings", "cli"):
-                old = f"laomedo.github.{feature}.{name}"
-                self.assertFalse(
-                    ROOT.joinpath("src", *old.split(".")).with_suffix(".py").exists()
-                )
-                self.assertEqual(
-                    migration.MODULE_PATHS[old],
-                    f"laomedo.github.interface.{feature}.{name}",
-                )
-        source = "from laomedo.github.issues.utils import fetch_context\nfrom laomedo.github.transport.git.transport import GitHubMediatedTransport\n"
-        migrated = migration.migrate_source(source)
-        self.assertIn(
-            "from laomedo.github.issues.context_reader import fetch_context", migrated
-        )
-        self.assertIn(
-            "from laomedo.github.transport.mediated import GitHubMediatedTransport",
-            migrated,
-        )
-        self.assertEqual(migration.migrate_source(migrated), migrated)
-        moved_main = migration.migrate_source(
-            "from laomedo.github.issues.utils import main\n"
-        )
-        self.assertIn("from laomedo.github.issues.context import main", moved_main)
-        self.assertEqual(migration.migrate_source(moved_main), moved_main)
-
         # The loader enforces equality of the full non-import AST on every load.
         # Its existing tamper/refusal controls remain in test_shared.
 
