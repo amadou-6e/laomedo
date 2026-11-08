@@ -1,0 +1,41 @@
+{
+  "reviewed_runtime": "e27f1c92c0132dfca8a337aef2bf993a00d3f615",
+  "current_head": "e317eb3e2523084473f7e3aa864be315a0e2a6e3",
+  "classification": [
+    {
+      "path": "src",
+      "runtime_delta": true,
+      "readme_only": true
+    },
+    {
+      "path": "components",
+      "runtime_delta": false,
+      "readme_only": true
+    },
+    {
+      "path": "frontend",
+      "runtime_delta": false,
+      "readme_only": true
+    },
+    {
+      "path": "docker",
+      "runtime_delta": false,
+      "readme_only": true
+    },
+    {
+      "path": "pyproject.toml",
+      "runtime_delta": false,
+      "readme_only": true
+    },
+    {
+      "path": "uv.lock",
+      "runtime_delta": false,
+      "readme_only": true
+    }
+  ],
+  "later_commits": [
+    "e317eb3e Consolidate Skill delivery controls under Agent workspaces",
+    "183262b4 Exercise output precheck through the pending ACP wire"
+  ],
+  "scope": "Later changes are internal test corrections/consolidation and README references; no provider/browser runtime rerun is claimed."
+}

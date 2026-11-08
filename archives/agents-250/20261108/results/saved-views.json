@@ -1,0 +1,35 @@
+[
+  {
+    "provider": "codex",
+    "graph": "http://127.0.0.1:17863/flow/9a647be0-39e9-4a07-b937-e92d69c43a64",
+    "icon_placeholders": 0,
+    "svg_count": 35,
+    "asset_failures": [],
+    "viewport": {
+      "width": 1600,
+      "height": 1300
+    }
+  },
+  {
+    "provider": "claude",
+    "graph": "http://127.0.0.1:17863/flow/60fba406-30ac-4a9e-9372-11bf53a6304c",
+    "icon_placeholders": 0,
+    "svg_count": 35,
+    "asset_failures": [],
+    "viewport": {
+      "width": 1600,
+      "height": 1300
+    }
+  },
+  {
+    "provider": "opencode",
+    "graph": "http://127.0.0.1:17863/flow/2d580828-a8fb-4edb-b729-c32e6ab89e1d",
+    "icon_placeholders": 0,
+    "svg_count": 35,
+    "asset_failures": [],
+    "viewport": {
+      "width": 1600,
+      "height": 1300
+    }
+  }
+]

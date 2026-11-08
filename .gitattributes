@@ -35,3 +35,5 @@ archives/reconciliation-237/conservation-20261106/continuation/combined-candidat
 
 # Curated real Agent evidence retains its recorded bytes.
 archives/agents-250/20261107/** -text whitespace=cr-at-eol
+
+archives/agents-250/20261108/** -text whitespace=cr-at-eol

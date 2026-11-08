@@ -1,0 +1,8 @@
+{
+  "old_exclusion_cases": 11,
+  "retained_cases": 11,
+  "missing_cases": [],
+  "stronger_baseline_inventory_refusal_retained": true,
+  "materialization_source_unchanged_except_checkout_line_endings": true,
+  "test_result": "22 passed18.672seconds in task-owned environment; older shared Langflow environment failed import because jwt.api_jws is absent, not suppressed"
+}

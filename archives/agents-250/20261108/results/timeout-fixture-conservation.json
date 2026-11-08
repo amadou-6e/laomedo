@@ -1,0 +1,9 @@
+{
+  "old": "experiments/exp65/observation.json",
+  "new": "tests/test_work_graph/fixtures/timeout-observation.json",
+  "base_blob": "28206e80b251af08ade6b6487b5925c2ea3e4565",
+  "sha256": "933e57aed5b58663fe6c20b457cf37e3a99c2b9a692e687632fb37080573a487",
+  "bytes": 3809,
+  "identical_bytes": true,
+  "purpose": "Historical EXP65 characterization input, not current execution or native acceptance"
+}

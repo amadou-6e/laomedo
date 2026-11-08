@@ -1,0 +1,78 @@
+{
+  "head": "620ad13a15b07704f4a11280ed206cd2345c88f7",
+  "changes_since_e27f1c92": "Internal tests and README references only; no provider/component/frontend runtime change",
+  "checks": {
+    "hosted_ci": "8passed exact620ad13a",
+    "protocol": "36passed1.531seconds; actual installed SDK with in-memory peer, no provider",
+    "workspace": "22passed18.672seconds in task-owned environment",
+    "touched_graph_timeout_callers": "23passed2.813seconds"
+  },
+  "real_browser_today": "All3saved Resume graphs, Advanced controls and2retained Activity attempts reopened1600x1300; zero placeholders and failed assets. No new agent execution.",
+  "review": {
+    "session": "266a9306-48e9-4131-b8f5-06dbe0d41e71",
+    "effort": "low",
+    "completed_today": "8757provider test lines,7404shared test lines,168support lines;T-D1/Q-P1/Q-S1/Q-S2/privacy/consolidation independently disposed",
+    "final_integration": "No completed verdict; actual rate_limit interrupted final pass",
+    "latest_reported_reset": "07:50 Europe/Berlin on8November2026",
+    "partial_read_requests": [
+      {
+        "offset": 1101,
+        "limit": 279
+      },
+      {
+        "offset": 1540,
+        "limit": 500
+      },
+      {
+        "offset": 2040,
+        "limit": 500
+      },
+      {
+        "offset": 2540,
+        "limit": 470
+      },
+      {
+        "offset": 3010,
+        "limit": 480
+      },
+      {
+        "offset": 3490,
+        "limit": 480
+      },
+      {
+        "offset": 3970,
+        "limit": 460
+      },
+      {
+        "offset": 4430,
+        "limit": 450
+      },
+      {
+        "offset": 4880,
+        "limit": 480
+      },
+      {
+        "offset": 5360,
+        "limit": 480
+      },
+      {
+        "offset": 5840,
+        "limit": 500
+      }
+    ],
+    "minimum_remaining_fixture_range": "6340-7203; partial read requests are not final substantive approval"
+  },
+  "gates": [
+    "Complete remaining fixture pass and integrated verdict in same reviewer conversation",
+    "Spec403draft558d7e2 remains unmerged; no maturity change",
+    "Owner final graph validation absent"
+  ],
+  "limits": [
+    "FullTS inheritedred259vs265",
+    "NativeGitHubmediation215/defaultConsole/app-ownedOAuth/live split/newchild/Dockerdownuninstalled not retested",
+    "Claude evidence-completeness unknown; OpenCode Go profile injection only",
+    "Older shared Langflow Python failed import:jwt.api_jws absent. Failure not counted green; no shared environment modifications. Actual saved browser views still opened.",
+    "590Agent-case count is not claimed as an actual local full-suite rerun; earlier586run and currentCI have distinct revision bindings",
+    "srcPython/MJSLOC+4675; no reduction claim"
+  ]
+}
