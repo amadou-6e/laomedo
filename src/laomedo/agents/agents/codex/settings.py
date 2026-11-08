@@ -1,6 +1,5 @@
 """Codex protocol/security pins and native feature configuration."""
 
-import threading
 from laomedo._paths import package_root
 
 IMAGE = "laomedo-codex-acp:0.159.2-2.1.1"
@@ -60,9 +59,6 @@ CONFIG_SHA256 = "a14cd7e8abb4216b16d29e55809c2c3c9a9c33cc0196fd459fc033aaaa1ea4c
 
 
 CONFIG_LF_SHA256 = "a1472e6d63ac71307af791767cc22fb76959549d9371114ff3382e4dfb3ad11b"
-
-
-_CATALOG_INIT_LOCK = threading.Lock()
 
 
 NATIVE_ERROR_KINDS = frozenset(
@@ -149,3 +145,6 @@ PREFLIGHT_STREAM_SECONDS = 20
 PREFLIGHT_MAX_OUTPUT_BYTES = 65536
 PREFLIGHT_WAIT_SECONDS = 20
 PREFLIGHT_RECEIPT_FILENAME = "docker-preflight-receipt.json"
+
+
+MODEL_CATALOG_TTL_SECONDS = 30

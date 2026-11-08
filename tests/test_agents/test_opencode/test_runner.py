@@ -131,7 +131,7 @@ class OpenCodeTests(unittest.TestCase):
             def release(self):
                 self.lock.release()
 
-        self.runner._opencode_catalog_lock = ObservedLock()
+        self.runner.catalog._lock = ObservedLock()
 
         class PausedCatalog(Backend):
             def models(self):

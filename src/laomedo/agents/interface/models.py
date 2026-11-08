@@ -415,4 +415,6 @@ class AgentRequest(BaseModel):
 
 
 # Closed external handoff/artifact vocabulary, not provider selection logic.
-SUPPORTED_PROVIDERS = frozenset({"codex", "opencode", "claude"})
+from laomedo.agents.registry import AgentProviderRegistry
+
+SUPPORTED_PROVIDERS = AgentProviderRegistry.provider_ids()

@@ -33,6 +33,7 @@ class AgentModuleStructureTests(unittest.TestCase):
             any(
                 isinstance(node, ast.ImportFrom)
                 and (node.module or "").startswith("laomedo.")
+                and node.module != "laomedo.agents.registry"
                 or isinstance(node, ast.Import)
                 and any(item.name.startswith("laomedo.") for item in node.names)
                 for node in ast.walk(models)

@@ -27,3 +27,9 @@ SYSTEM = (
     "Do not claim external changes without a successful receipt. When an output "
     "contract is provided, return exactly one JSON object without fences."
 )
+
+
+EFFORTS = ("default", "low", "medium", "high", "xhigh", "max")
+
+
+MODEL_CATALOG_TTL_SECONDS = 300

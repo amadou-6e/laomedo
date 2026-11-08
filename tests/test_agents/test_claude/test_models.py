@@ -33,7 +33,7 @@ class ClaudeModelTests(unittest.TestCase):
         self.runner.state = Path(self.temp.name)
         self.runner.executable = "claude"
         self.runner.container = SimpleNamespace(control=lambda *a, **k: None)
-        self.runner._catalog_lock = threading.Lock()
+        self.runner.catalog._lock = threading.Lock()
         self.auth = patch.object(self.runner, "_check_auth")
         self.auth.start()
         self.addCleanup(self.auth.stop)
@@ -97,7 +97,7 @@ class ClaudeModelTests(unittest.TestCase):
                     "^runner_model_catalog_unavailable_check_runner_connection$",
                 ):
                     self.runner.model_catalog()
-            self.assertFalse(self.runner._catalog_lock.locked())
+            self.assertFalse(self.runner.catalog._lock.locked())
         with self.transport():
             self.assertEqual(len(self.runner.model_catalog()["models"]), 1)
 
@@ -160,14 +160,14 @@ class ClaudeModelTests(unittest.TestCase):
                 first = pool.submit(self.runner.model_catalog)
                 self.assertTrue(entered.wait(timeout=5))
                 waiting = threading.Event()
-                original = self.runner._catalog_pending.result
+                original = self.runner.catalog._pending.result
 
                 def wait_result(*args, **kwargs):
                     waiting.set()
                     return original(*args, **kwargs)
 
                 with patch.object(
-                    self.runner._catalog_pending, "result", side_effect=wait_result
+                    self.runner.catalog._pending, "result", side_effect=wait_result
                 ):
                     second = pool.submit(self.runner.model_catalog)
                     self.assertTrue(waiting.wait(timeout=5))

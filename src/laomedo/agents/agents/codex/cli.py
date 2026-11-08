@@ -1,7 +1,7 @@
 """Implementation owned by agents / runtime / cli."""
 
 from __future__ import annotations
-from laomedo.agents.agents.codex.agent import CodexAgent
+from laomedo.agents.registry import AgentProviderRegistry
 
 from pathlib import Path
 import argparse
@@ -63,7 +63,8 @@ def main():
         if args.github_authority_store
         else None
     )
-    runner = CodexAgent(
+    runner = AgentProviderRegistry.create_agent(
+        "codex",
         args.state,
         args.skill_store,
         args.source_workspace,

@@ -20,3 +20,6 @@ WORKER_IMAGE_ID = (
 # Covers the maximum validated Agent turn plus startup/teardown margin.
 CONTROLLER_LIFETIME_SECONDS = 86400 + 120
 CONTROLLER_LOG_TAIL_BYTES = 65536
+
+
+MODEL_CATALOG_TTL_SECONDS = 30

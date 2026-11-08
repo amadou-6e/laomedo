@@ -1,9 +1,8 @@
 """Isolated Claude Code runner with persistent sessions and streamed native events."""
 
 from __future__ import annotations
+from laomedo.agents.agents.claude.catalog import ClaudeModelCatalog
 
-from concurrent.futures import Future
-from concurrent.futures import TimeoutError as FutureTimeout
 from copy import deepcopy
 from pathlib import Path
 from uuid import UUID
@@ -23,7 +22,7 @@ from laomedo.agents.activity.utils import now
 from laomedo.agents.activity.runner.feed import line_count
 from laomedo.agents.activity.runner.feed import receipt
 from laomedo.agents.interface.output.utils import evaluate
-from laomedo.agents.agents.claude.catalog import EFFORTS
+from laomedo.agents.agents.claude.settings import EFFORTS
 from laomedo.agents.agents.claude.settings import CLI_VERSION
 from laomedo.agents.agents.claude.settings import IMAGE
 from laomedo.agents.agents.claude.settings import PROFILE
@@ -47,6 +46,8 @@ from laomedo.agents.agents.claude.auth.settings import Settings
 
 
 class ClaudeAgent(BaseAgent):
+    catalog_type = ClaudeModelCatalog
+
     provider = "claude"
 
     def __init__(
@@ -72,7 +73,6 @@ class ClaudeAgent(BaseAgent):
             image, profile_volume, lease_service
         )
         self.executable = "claude"
-        self._catalog_lock = threading.Lock()
         super().__init__(
             state,
             skill_store,
@@ -131,36 +131,6 @@ class ClaudeAgent(BaseAgent):
             owner.update(cleanup_verified=verified, cleanup_detail=detail)
             if not verified:
                 record["error_category"] = "container_cleanup_unverified"
-
-    def model_catalog(self, *, refresh=False):
-        """Share an in-flight discovery across simultaneous editor refreshes."""
-        with self._catalog_lock:
-            cached = getattr(self, "_catalog_cached", None)
-            if not refresh and cached and time.monotonic() - cached[0] < 300:
-                return deepcopy(cached[1])
-            pending = getattr(self, "_catalog_pending", None)
-            owner = pending is None
-            if owner:
-                pending = self._catalog_pending = Future()
-        if not owner:
-            try:
-                return deepcopy(pending.result(timeout=65))
-            except FutureTimeout:
-                raise RunnerError(
-                    "runner_model_catalog_unavailable_check_runner_connection"
-                ) from None
-        try:
-            result = self._discover_models()
-            with self._catalog_lock:
-                self._catalog_cached = (time.monotonic(), deepcopy(result))
-            pending.set_result(result)
-            return deepcopy(result)
-        except Exception as exc:
-            pending.set_exception(exc)
-            raise
-        finally:
-            with self._catalog_lock:
-                self._catalog_pending = None
 
     def preflight(self):
         """Check native authentication after constructor image/version validation.
@@ -404,9 +374,7 @@ class ClaudeAgent(BaseAgent):
         # selection for dispatch even after its editor-cache TTL; never silently
         # remap an alias during a slow concurrent refresh. A cold API client
         # refuses promptly until background discovery or explicit refresh completes.
-        with self._catalog_lock:
-            cached = getattr(self, "_catalog_cached", None)
-            selected_catalog = deepcopy(cached[1]) if cached else None
+        selected_catalog = self.catalog.selected_snapshot()
         if not selected_catalog:
             raise RunnerError(
                 "runner_model_catalog_unavailable_check_runner_connection"

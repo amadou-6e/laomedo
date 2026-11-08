@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from laomedo.agents.agents.claude.catalog import EFFORTS
+from laomedo.agents.agents.claude.settings import EFFORTS
 from laomedo.agents.errors import RunnerError
 import re
 

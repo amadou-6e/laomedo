@@ -23,6 +23,7 @@ from laomedo.host.runner.models import DockerReadiness
 from laomedo.host.runner.settings import DOCKER_CHECK_TIMEOUT_SECONDS
 from laomedo.host.runner.startup import startup_gate
 from laomedo.host.runner.utils import service_environment
+from laomedo.agents.registry import AgentProviderRegistry
 
 
 class RunnerService:
@@ -44,8 +45,9 @@ class RunnerService:
         value = json.loads(self.config_path.read_text(encoding="utf-8"))
         required = {"provider", "state", "skill_store", "source", "port"}
         if not isinstance(value, dict) or value.get("provider") not in {
-            "codex",
-            "claude",
+            item.provider
+            for item in AgentProviderRegistry.descriptors()
+            if item.managed_startup
         }:
             raise ValueError("invalid_runner_service_config")
         # Retire persisted preview-only ceilings when reading older host configs.
@@ -77,7 +79,7 @@ class RunnerService:
         if (
             not isinstance(sources, dict)
             or any(
-                provider not in {"codex", "claude", "opencode"}
+                provider not in AgentProviderRegistry.provider_ids()
                 or not isinstance(path, str)
                 or not Path(path).is_absolute()
                 for provider, path in sources.items()

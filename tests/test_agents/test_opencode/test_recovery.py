@@ -45,8 +45,8 @@ class ProviderRecoveryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             runner = OpenCodeAgent.__new__(OpenCodeAgent)
             runner.state, runner.lock = Path(temporary), threading.Lock()
-            runner._opencode_catalog_lock = threading.Lock()
-            runner._opencode_catalog_cached = None
+            runner.catalog._lock = threading.Lock()
+            runner.catalog._cached = None
 
             def fail_after_intent(workspace, evidence):
                 receipt = evidence.joinpath("docker-receipts/pending.json")

@@ -359,7 +359,7 @@ class ClaudeRunnerTests(unittest.TestCase):
         )
         self.catalog.start()
         self.addCleanup(self.catalog.stop)
-        self.runner._catalog_cached = (time.monotonic(), self.runner.model_catalog())
+        self.runner.catalog._cached = (time.monotonic(), self.runner.model_catalog())
         self.payload = {
             "task": "Read skill",
             "model": "sonnet",
@@ -826,8 +826,8 @@ class ClaudeRunnerTests(unittest.TestCase):
         with self.assertRaisesRegex(RunnerError, "claude_model_required"):
             self.runner._prepare({**self.payload, "model": "claude-not-in-account"})
         with patch.object(
-            self.runner,
-            "_catalog_cached",
+            self.runner.catalog,
+            "_cached",
             (
                 time.monotonic(),
                 {

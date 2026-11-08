@@ -55,6 +55,9 @@ from laomedo.agents.workspaces.cleanup import remove_owned_tree
 from laomedo.agents.workspaces.skills.utils import verify
 
 
+from laomedo.agents.agents.base.settings import ROLE_INIT_LOCK
+
+
 class BaseAgent(ABC):
     """Template-method lifecycle; concrete providers own protocol and runtime policy."""
 
@@ -121,6 +124,15 @@ class BaseAgent(ABC):
         self.cancel_flags = {}
 
     @property
+    def catalog(self):
+        """Lazily compose the declared provider catalog without native effects."""
+        # Construction and tests may query metadata before provider startup ends.
+        with ROLE_INIT_LOCK:
+            if not hasattr(self, "_catalog_service"):
+                self._catalog_service = self.catalog_type(self)
+            return self._catalog_service
+
+    @property
     @abstractmethod
     def provider(self) -> str:
         """Concrete adapter identity; there is no default provider."""
@@ -141,9 +153,9 @@ class BaseAgent(ABC):
         Called during base construction, before concrete initialization finishes.
         """
 
-    @abstractmethod
-    def model_catalog(self) -> dict:
-        """Discover provider metadata without dispatching work."""
+    def model_catalog(self, *, refresh=False) -> dict:
+        """Project typed provider discovery into the unchanged application payload."""
+        return self.catalog.discover(refresh=refresh).model_dump(exclude_unset=True)
 
     @abstractmethod
     def preflight(self) -> dict:

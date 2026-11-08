@@ -211,3 +211,8 @@ RUNNER_FAILURE_CODES = frozenset(
         "workspace_copy_mismatch",
     )
 )
+
+
+import threading
+
+ROLE_INIT_LOCK = threading.Lock()

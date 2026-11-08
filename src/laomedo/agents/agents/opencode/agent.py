@@ -1,6 +1,7 @@
 """OpenCode provider adapter. Production Docker/auth deployment is intentionally gated."""
 
 from __future__ import annotations
+from laomedo.agents.agents.opencode.catalog import OpenCodeModelCatalog
 
 from uuid import uuid4
 import hashlib
@@ -33,6 +34,8 @@ class OpenCodeAgent(BaseAgent):
     native OpenCode shell tools would expose it to the model's command execution.
     """
 
+    catalog_type = OpenCodeModelCatalog
+
     provider = "opencode"
 
     def __init__(
@@ -51,8 +54,6 @@ class OpenCodeAgent(BaseAgent):
     ):
         self.transport_factory = transport_factory
         self.active_backends = {}
-        self._opencode_catalog_lock = threading.Lock()
-        self._opencode_catalog_cached = None
         super().__init__(
             state,
             skill_store,
@@ -79,57 +80,6 @@ class OpenCodeAgent(BaseAgent):
 
     def recover_interrupted(self, record):
         """Constructor recovery reconciles receipts across prior runs before dispatch."""
-
-    def model_catalog(self):
-        """Discover connected native models without creating a session or turn."""
-        if self.transport_factory is None:
-            raise RunnerError("opencode_isolated_transport_required")
-        self._recover_containers()
-        with self._opencode_catalog_lock:
-            cached = self._opencode_catalog_cached
-            if cached and time.monotonic() - cached[0] < 30:
-                return cached[1]
-            if not self.lock.acquire(blocking=False):
-                raise RunnerError("runner_busy")
-            root = self.state / "catalog" / str(uuid4())
-            backend = None
-            primary = None
-            try:
-                for name in ("workspace", "canonical", "store"):
-                    (root / name).mkdir(parents=True)
-                (root / "workspace/.agents/skills").mkdir(parents=True)
-                backend = self.transport_factory(root / "workspace", root)
-                models = [
-                    {"id": item["id"], "efforts": item["efforts"]}
-                    for item in backend.models()
-                ]
-                for item in models:
-                    self._validate_provider(item["id"], "default")
-                if not models:
-                    raise RunnerError("opencode_model_not_connected")
-                result = {"models": models, "submitted_turns": 0}
-            except Exception as error:
-                primary = failure_observation(error, stage="startup")
-                raise
-            finally:
-                try:
-                    if backend is not None:
-                        try:
-                            backend.close()
-                        except RunnerError as cleanup:
-                            raise RunnerError(
-                                cleanup.code, observation=primary or cleanup.observation
-                            ) from None
-                finally:
-                    try:
-                        if root.exists() and not list(
-                            root.joinpath("docker-receipts").glob("*.json")
-                        ):
-                            shutil.rmtree(root)
-                    finally:
-                        self.lock.release()
-            self._opencode_catalog_cached = (time.monotonic(), result)
-            return result
 
     def preflight(self):
         """Report transport configuration without launching an authenticated backend.
@@ -342,9 +292,8 @@ class OpenCodeAgent(BaseAgent):
         if not self.lock.acquire(blocking=False):
             # A model refresh is not an agent run. Wait for its bounded cleanup
             # instead of rejecting Run while metadata owns the profile lock.
-            if not self._opencode_catalog_lock.acquire(timeout=30):
+            if not self.catalog.wait_until_idle(timeout=30):
                 raise RunnerError("opencode_model_discovery_in_progress")
-            self._opencode_catalog_lock.release()
             if not self.lock.acquire(blocking=False):
                 raise RunnerError("runner_busy")
         root, record, flag, backend, attempt = None, None, None, None, None

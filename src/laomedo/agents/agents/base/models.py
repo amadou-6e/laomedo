@@ -426,3 +426,132 @@ class AttemptFailureRecord(BaseModel):
     def to_record(self):
         """Serialize only the declared safe private snapshot fields."""
         return self.model_dump()
+
+
+class RuntimeObservation(BaseModel):
+    """Separate launch, readiness and native identity observations for one scope."""
+
+    model_config = ConfigDict(
+        strict=True, frozen=True, extra="forbid", hide_input_in_errors=True
+    )
+    provider: str = Field(
+        description="Registered native provider for the observed scope."
+    )
+    launched: bool = Field(
+        description="Whether this runtime allocated its owned process/session scope."
+    )
+    ready: bool | None = Field(
+        description="Observed protocol readiness; None means not yet established."
+    )
+    native_session: str | None = Field(
+        default=None,
+        description="Observed native session ID, never fabricated from a Laomedo run ID.",
+    )
+
+
+class CancellationObservation(BaseModel):
+    """Cancellation admission is distinct from native interruption confirmation."""
+
+    model_config = ConfigDict(strict=True, frozen=True, extra="forbid")
+    requested: bool = Field(
+        description="Whether interruption was requested for owned active work."
+    )
+    confirmed: bool | None = Field(
+        description="Observed interruption acknowledgement; unknown is not false or success."
+    )
+
+
+class CleanupObservation(BaseModel):
+    """Exact resource cleanup result, never a global process-health assertion."""
+
+    model_config = ConfigDict(strict=True, frozen=True, extra="forbid")
+    confirmed: bool | None = Field(
+        description="Whether all resources owned by the selected scope are confirmed closed."
+    )
+    scope: str = Field(
+        min_length=1,
+        description="Resource set to which this cleanup observation applies.",
+    )
+
+
+class CommandRequest(BaseModel):
+    """One admitted workspace command; no credential or executable selection authority."""
+
+    model_config = ConfigDict(
+        strict=True, frozen=True, extra="forbid", hide_input_in_errors=True
+    )
+    command: str = Field(
+        min_length=1,
+        repr=False,
+        description="Command text to admit under provider-local workspace policy.",
+    )
+    deadline: float | None = Field(
+        default=None,
+        description="Absolute host monotonic deadline; None retains provider's bounded default.",
+    )
+
+
+class CommandResult(BaseModel):
+    """Native command outcome plus independently observed resource cleanup."""
+
+    model_config = ConfigDict(
+        strict=True, frozen=True, extra="forbid", hide_input_in_errors=True
+    )
+    exit_code: int = Field(
+        description="Native exit status, including provider's established timeout/cancellation mapping."
+    )
+    stdout: str = Field(
+        default="",
+        repr=False,
+        description="Bounded decoded standard output; not diagnostic authorization evidence.",
+    )
+    stderr: str = Field(
+        default="",
+        repr=False,
+        description="Bounded decoded standard error when the provider exposes separate streams.",
+    )
+    cleanup: CleanupObservation = Field(
+        description="Cleanup evidence for resources allocated by this command."
+    )
+
+
+class CredentialRequest(BaseModel):
+    """Provider-local credential admission constraints, with no secret material."""
+
+    model_config = ConfigDict(strict=True, frozen=True, extra="forbid")
+    minimum_validity_seconds: float | None = Field(
+        default=None,
+        gt=0,
+        description="Required remaining validity when native policy can establish it.",
+    )
+    deadline: float | None = Field(
+        default=None,
+        description="Absolute monotonic deadline for credential preparation.",
+    )
+
+
+class ModelChoice(BaseModel):
+    """A native model identifier and its actually advertised reasoning choices."""
+
+    model_config = ConfigDict(
+        strict=True, frozen=True, extra="allow", hide_input_in_errors=True
+    )
+    id: str = Field(
+        min_length=1,
+        description="Native model identifier, not a display label or implicit selection.",
+    )
+    efforts: list[str] = Field(
+        default_factory=list,
+        description="Native supported effort identifiers; an empty list does not invent a default.",
+    )
+
+
+class ModelCatalogSnapshot(BaseModel):
+    """Validated choices with unchanged provider metadata at the wire boundary."""
+
+    model_config = ConfigDict(
+        strict=True, frozen=True, extra="allow", hide_input_in_errors=True
+    )
+    models: list[ModelChoice] = Field(
+        description="Native discovery choices without submitting a model turn."
+    )

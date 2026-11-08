@@ -1,6 +1,7 @@
 """Codex adapter for the provider-neutral Agent lifecycle."""
 
 from __future__ import annotations
+from laomedo.agents.agents.codex.catalog import CodexModelCatalog
 
 from pathlib import Path
 from uuid import uuid4
@@ -30,7 +31,6 @@ from laomedo.agents.agents.codex.settings import PREFLIGHT_RECEIPT_FILENAME
 from laomedo.agents.agents.codex.settings import PREFLIGHT_STREAM_SECONDS
 from laomedo.agents.agents.codex.settings import PREFLIGHT_WAIT_SECONDS
 from laomedo.agents.agents.codex.settings import VOLUME
-from laomedo.agents.agents.codex.settings import _CATALOG_INIT_LOCK
 from laomedo.agents.agents.codex.utils import _answer
 from laomedo.agents.agents.codex.utils import _auth_record_error
 from laomedo.agents.agents.codex.utils import _command_summary
@@ -61,6 +61,8 @@ from laomedo.agents.agents.base.models import RuntimeBinding
 
 
 class CodexAgent(BaseAgent):
+    catalog_type = CodexModelCatalog
+
     provider = "codex"
 
     def __init__(
@@ -214,21 +216,6 @@ class CodexAgent(BaseAgent):
             owner["cleanup_verified"], owner["cleanup_detail"] = verified, detail
             if not verified:
                 record["error_category"] = "container_cleanup_unverified"
-
-    def model_catalog(self) -> dict:
-        """Serialize and briefly cache metadata discovery; never submit a turn."""
-        # Lazy initialization also supports existing host-created runner objects.
-        with _CATALOG_INIT_LOCK:
-            if not hasattr(self, "_catalog_lock"):
-                self._catalog_lock = threading.Lock()
-                self._catalog_cached = None
-        with self._catalog_lock:
-            cached = self._catalog_cached
-            if cached and time.monotonic() - cached[0] < 30:
-                return cached[1]
-            result = asyncio.run(self._model_catalog())
-            self._catalog_cached = (time.monotonic(), result)
-            return result
 
     def preflight(self) -> dict:
         """Run provider handshake and policy probes without a model request."""

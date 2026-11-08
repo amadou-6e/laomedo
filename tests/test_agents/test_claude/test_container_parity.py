@@ -547,7 +547,7 @@ class ClaudeContainerParityTests(unittest.TestCase):
 
     def test_dispatch_reuses_native_selection_after_editor_cache_expires(self):
         snapshot = self.runner.model_catalog()
-        self.runner._catalog_cached = (time.monotonic() - 301, snapshot)
+        self.runner.catalog._cached = (time.monotonic() - 301, snapshot)
         with patch.object(
             self.runner,
             "model_catalog",
@@ -557,7 +557,7 @@ class ClaudeContainerParityTests(unittest.TestCase):
         self.assertEqual(record["resolved_model"], "claude-sonnet")
 
     def test_cold_dispatch_refuses_without_blocking_on_native_discovery(self):
-        self.runner._catalog_cached = None
+        self.runner.catalog._cached = None
         with patch.object(
             self.runner,
             "model_catalog",

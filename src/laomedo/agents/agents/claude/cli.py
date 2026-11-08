@@ -10,7 +10,7 @@ import threading
 
 
 def main():
-    from laomedo.agents.agents.claude.agent import ClaudeAgent
+    from laomedo.agents.registry import AgentProviderRegistry
     import argparse
     from laomedo.host.runner.http.server import RunnerServer
 
@@ -39,7 +39,8 @@ def main():
         if args.github_authority_store
         else None
     )
-    runner = ClaudeAgent(
+    runner = AgentProviderRegistry.create_agent(
+        "claude",
         args.state,
         args.skill_store,
         args.source,
