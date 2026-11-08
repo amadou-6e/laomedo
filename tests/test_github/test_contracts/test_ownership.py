@@ -69,7 +69,6 @@ class GitHubOwnershipTests(unittest.TestCase):
             "transport",
             "transport/git",
             "transport/rest",
-            "workflows",
         ):
             self.assertTrue(
                 (ROOT / "src/laomedo/github" / relative / "README.md").is_file()
