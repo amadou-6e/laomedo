@@ -1,4 +1,4 @@
-# Package layout and migration
+# Package layout
 
 ## Shared host mechanics
 
@@ -12,9 +12,8 @@ owned by Skills and is outside the shared workspace/transport Git profiles.
 
 GitHubGitTransport, VerifiedGitStage and stage_verified_git accept a
 GitCommandRunner through `runner=`. Their previous subprocess-shaped `run=`
-callbacks and removed procedural Git helpers require explicit manual migration;
-there is no compatibility adapter. The [offline migration tools](../../tools/migrations/README.md)
-document supported rewrites and refusals. Install a fresh wheel and run package
+callbacks and removed procedural Git helpers are unsupported. Use the current
+interfaces and maintained example builders. Install a fresh wheel and run package
 checks outside the checkout; discard generated `build/` before rebuilding after
 module removals, because stale build output can retain deleted Python files.
 
@@ -109,43 +108,16 @@ Credentials and persisted runner/activity state stay outside the package.
 Resource bytes, image pins, schemas, request acknowledgement and cleanup
 behavior stay unchanged. Resource paths follow their owning package.
 
-## One-time migration
+## Current examples and historical evidence
 
-Old flat imports are removed. Migrate older saved graph component code and
-external launcher commands before running them with this version:
+Generate maintained graphs through their current builders and component templates.
+Personal saved graphs and external launchers are outside compatibility scope;
+no user-file migration command is provided. Historical execution evidence retains
+its original bytes and revision. Internal ownership/evidence maps remain for
+current import checks and explicitly inventoried historical controls.
 
-```text
-python tools/migrations/migrate_module_paths.py saved-flow.json service-launcher.ps1
-python tools/migrations/migrate_module_paths.py saved-flow.json service-launcher.ps1 --apply
-python tools/migrations/migrate_module_paths.py saved-flow.json --check
-```
-
-The default reports which explicitly selected files need changes. Applying
-creates a sibling `.before-module-migration` backup; existing backups are never
-overwritten. Module references in graph JSON are rewritten without changing
-graph/run identities or unrelated payloads. The map in `tools/migrations/` is
-one-time migration data, not runtime compatibility code.
-
-File migration splices changed JSON strings, preserving unrelated bytes,
-formatting, duplicate keys, Unicode, number spelling, BOM and line endings.
-Graph migration selects template code. It preserves `metadata.code_hash` and
-stored dependency metadata; it does not regenerate component-cache metadata.
-Generate current component templates/exports through Langflow or the graph's
-builder when refreshed metadata is required. Import migration alone does not
-certify those fields. Launcher fields are selected only at
-the root or in an explicit root `launcher` object. Unparseable retired imports
-require manual migration. `--check` exits 1 when changes are needed.
-Backup conflicts are checked before writing; replacement is atomic per file.
-An unexpected later I/O failure can leave a batch partly applied, with earlier
-originals retained in backups. Registered tasks are not files: re-run
-`scripts/Install-LaomedoUserTask.ps1` with the existing configuration to replace
-an old registered command before enabling the task again.
-
-Do not rewrite historical execution evidence. Preserve originals and migrate
-a copy when needed for a new graph. Validation covers installed discovery,
-resources, canonical CLIs, migration idempotence and migrated graph loading.
-Real Agent and managed-service acceptance are recorded separately; internal
-tests do not establish a live workflow.
+Validation covers installed discovery, resources and canonical CLIs. Real Agent
+and managed-service acceptance are recorded separately from internal tests.
 
 ## Cohesion and typed internal data
 
@@ -197,16 +169,10 @@ and validation text; only the named private registration projection extracts a
 lease capability. Model construction never replaces host authorization checks.
 The standalone Git credential helper remains stdlib-only.
 
-Migration maps distinguish module names, moved symbols and CLI entrypoints. Every
-published generation resolves directly to final owners in one pass. Ambiguous
-symbols, dynamic access to retired modules and changed typed call signatures
-require manual migration before any selected file is written. Detection is
-conservative and best-effort; manually review changed call signatures and dynamic
-references even after a successful migration preview. In particular,
-container cleanup takes `ContainerIdentity` (including injected `LeaseService`
-cleanup callbacks, whose signatures the tool cannot always infer); `ActivityStore.start` takes
-`CaptureIdentity`; `capture_for` returns `ActivityInvocation` with `.store` and
-`.invocation_id`, rather than a tuple. Historical execution records are retained.
+Current typed interfaces require `ContainerIdentity` for container cleanup,
+`CaptureIdentity` for `ActivityStore.start`, and `ActivityInvocation` from
+`capture_for`, with `.store` and `.invocation_id`. Historical execution records
+are retained without rewriting.
 
 Structural checks reject mixed class/function files, module/package shadowing and
 conflicting module aliases. Regression checks preserve model serialization,
@@ -245,18 +211,17 @@ Graph components keep their public names and ports. Their shared implementation
 lives in `integrations/langflow/agent/component.py`, imported by the installed
 package, so no additional base node is exposed by the component category loader.
 Concrete adapters declare capabilities instead of the common component choosing
-behavior by node name. Embedded Claude/OpenCode sources inheriting the old Codex
-component must be migrated with the one-time tool; custom methods and graph
-identities are retained. Regenerate templates when current dependency metadata is
-needed. Current source templates are distinct from historical execution evidence.
+behavior by node name. Use current provider-specific templates and regenerate
+exports when current dependency metadata is needed. Current source templates are
+distinct from historical execution evidence.
 
 Issue #205 covers this boundary. General helper decomposition, cross-feature HTTP/
 Git ownership, mediation server extraction and frontend feature directories remain
 separate follow-ups (#206?#210).
 
 Concrete Codex components reject stale subclass inheritance before model discovery,
-bridge selection or dispatch with `agent_component_migration_required`. The shared
-error catalogue explains updating the node or explicitly migrating saved source;
-unmigrated Claude/OpenCode code cannot silently route through Codex configuration.
+bridge selection or dispatch with `agent_component_migration_required`. This
+leaf-adapter check prevents unsupported subclasses from silently routing through
+Codex configuration; use the provider-specific current adapter.
 OpenCode owns its worker image pin independently in its settings. It initially uses
 the same reviewed sandbox bytes as Codex, without importing Codex configuration.

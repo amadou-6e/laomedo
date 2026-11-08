@@ -1,20 +1,18 @@
-"""One-pass Shared migration and explicit refusal controls, not live acceptance."""
+"""Current Shared symbol owners and explicit historical-evidence integrity."""
 
 from support.paths import repository_root
-from test_shared.test_migration.utils import load_migration
+from test_shared.test_migration.utils import load_owner_maps
 
 import ast
 import importlib
 import json
-from pathlib import Path
 import unittest
 from unittest.mock import patch
 
 from support.retained import load_retained_shared, refuse_private_git_api
 
 ROOT = repository_root()
-TOOL = ROOT / "tools/migrations/migrate_module_paths.py"
-migration = load_migration()
+migration = load_owner_maps()
 
 
 class SharedMigrationTests(unittest.TestCase):
@@ -72,54 +70,6 @@ class SharedMigrationTests(unittest.TestCase):
             with self.subTest(target=target):
                 owner, name = target.rsplit(".", 1)
                 self.assertTrue(hasattr(importlib.import_module(owner), name), target)
-
-    def test_retired_helpers_refuse_direct_and_aliased_source(self):
-        for source in (
-            "from laomedo.agents.workspace.git import _bounded_git as execute\n",
-            "import laomedo.github.transport.git.utils as native\nnative._base_git_environment()\n",
-            "from laomedo.github_git_transport import _credential_environment\n",
-        ):
-            with self.subTest(source=source):
-                with self.assertRaisesRegex(
-                    migration.ManualMigrationRequired, "manual migration|manual|Use Git"
-                ):
-                    migration.migrate_source(source)
-
-    def test_all_three_changed_injection_signatures_refuse_automatic_rewrite(self):
-        for owner, name in (
-            ("laomedo.github.transport.git.transport", "GitHubGitTransport"),
-            ("laomedo.host.publication.verified.git", "VerifiedGitStage"),
-            ("laomedo.host.publication.verified.utils", "stage_verified_git"),
-        ):
-            for source in (
-                f"from {owner} import {name} as Factory\nFactory(run=callback)\n",
-                f"import {owner} as module\nmodule.{name}(run=callback)\n",
-            ):
-                with self.subTest(source=source):
-                    with self.assertRaisesRegex(
-                        migration.ManualMigrationRequired, "run="
-                    ):
-                        migration.migrate_source(source)
-
-    def test_timeout_and_redirect_migration_are_one_pass(self):
-        for source, target in (
-            (
-                "from laomedo.github.transport.git.transport import GitTreeTimeout\n",
-                "laomedo.git.errors",
-            ),
-            (
-                "from laomedo.http.redirect import NoRedirect\n",
-                "laomedo.http.redirect",
-            ),
-            (
-                "from laomedo.github.transport.rest.transport import _NoRedirect\n",
-                "laomedo.http.redirect",
-            ),
-        ):
-            with self.subTest(source=source):
-                rewritten = migration.migrate_source(source)
-                self.assertIn(target, rewritten)
-                self.assertEqual(migration.migrate_source(rewritten), rewritten)
 
     def test_historical_native_entrypoints_still_refuse_before_process_work(self):
         module = load_retained_shared("experiments.exp104.native_managed_probe")

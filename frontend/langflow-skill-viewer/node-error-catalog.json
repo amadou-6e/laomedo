@@ -1432,7 +1432,7 @@
   "agent_component_migration_required": {
     "title": "This saved Agent node needs an update",
     "description": "This node inherits an older provider component. It was stopped before sending a request because its provider routing could be incorrect.",
-    "recovery": "Replace the node with its current provider component, or migrate a copy of the saved flow with the module migration tool before loading it. Custom Agent subclasses must extend the shared AgentComponent."
+    "recovery": "Use the current provider component. Custom Agent subclasses must extend the shared AgentComponent."
   },
   "discovered_skill_required": {
     "title": "Choose a Skill from this source",
