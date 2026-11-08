@@ -2,11 +2,12 @@
 
 import asyncio
 import json
-import queue
 import threading
 import unittest
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
+
+from test_agents.test_protocol.wire import NotificationWire, PrecheckWire
 
 try:
     from acp import RequestError
@@ -291,63 +292,39 @@ class AcpSessionTests(unittest.IsolatedAsyncioTestCase):
 class AcpOrderingTests(unittest.IsolatedAsyncioTestCase):
     """Pin actual SDK notification ordering with an internal in-memory wire."""
 
+    async def test_output_precheck_is_answered_before_pending_prompt_can_finish(self):
+        wire = PrecheckWire()
+        expected = {"success": True, "contentItems": []}
+        observed = []
+
+        def precheck(params):
+            self.assertIsNotNone(wire.prompt_id)
+            self.assertIsNone(wire.precheck_reply)
+            observed.append(params)
+            return expected
+
+        client = AcpSession(wire, on_precheck=precheck)
+        try:
+            await client.initialize()
+            await client.open()
+            result = await asyncio.wait_for(
+                client.prompt("test prompt", cancelled=threading.Event(), seconds=2),
+                timeout=3,
+            )
+            self.assertEqual(result.stop_reason, "end_turn")
+            self.assertEqual(
+                observed, [{"threadId": "native-session", "callId": "native-call"}]
+            )
+            self.assertEqual(wire.precheck_reply, expected)
+            self.assertFalse(client.protocol_failed)
+        finally:
+            await client.close()
+
     async def test_raw_terminal_notification_is_captured_before_prompt_returns(self):
-        class Wire:
-            def __init__(self):
-                self.messages = queue.Queue()
-
-            def write(self, payload):
-                request = json.loads(payload)
-                method = request["method"]
-                if method == "initialize":
-                    result = {
-                        "protocolVersion": 1,
-                        "agentCapabilities": {"loadSession": True},
-                    }
-                elif method == "session/new":
-                    result = {"sessionId": "native-session"}
-                elif method == "session/prompt":
-                    self.messages.put(
-                        SimpleNamespace(
-                            channel="stdout",
-                            data=json.dumps(
-                                {
-                                    "method": "_laomedo/codexEvent",
-                                    "params": {
-                                        "method": "turn/completed",
-                                        "params": {
-                                            "threadId": "native-session",
-                                            "turn": {
-                                                "id": "actual-native-turn",
-                                                "status": "completed",
-                                            },
-                                        },
-                                    },
-                                }
-                            ).encode(),
-                        )
-                    )
-                    result = {"stopReason": "end_turn"}
-                else:
-                    raise AssertionError(method)
-                self.messages.put(
-                    SimpleNamespace(
-                        channel="stdout",
-                        data=json.dumps(
-                            {"id": request["id"], "result": result}
-                        ).encode(),
-                    )
-                )
-
-            def read_line(self):
-                return self.messages.get(timeout=5)
-
-            def close(self):
-                self.messages.put(None)
-
         observed = []
         client = AcpSession(
-            Wire(), on_extension=lambda method, params: observed.append(params)
+            NotificationWire(),
+            on_extension=lambda method, params: observed.append(params),
         )
         try:
             await client.initialize()
