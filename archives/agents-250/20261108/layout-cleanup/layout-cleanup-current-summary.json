@@ -1,0 +1,52 @@
+{
+  "head": "089f71aaed3a2fd4420dc878fbd6fefb646779d4",
+  "base": "620ad13a15b07704f4a11280ed206cd2345c88f7",
+  "changed_files": 52,
+  "all_paths_previously_in_pr": true,
+  "method_order_violations": 0,
+  "python_files_audited": 358,
+  "agent_tests": {
+    "ran": 590,
+    "skipped": 4,
+    "seconds": 207.379
+  },
+  "host_tests": {
+    "ran": 188,
+    "skipped": 3,
+    "seconds": 78.335
+  },
+  "work_graph_tests": {
+    "ran": 22,
+    "skipped": 0,
+    "seconds": 10.327
+  },
+  "architecture_tests": {
+    "ran": 25,
+    "skipped": 1,
+    "seconds": 22.363
+  },
+  "template_guard": {
+    "ran": 1,
+    "passed": true,
+    "seconds": 0.028
+  },
+  "langflow_tests": {
+    "ran": 150,
+    "skipped": 0,
+    "seconds": 34.576,
+    "passed": true
+  },
+  "black": "26.10.1;46Pythonfiles checked, no residual changes",
+  "review": {
+    "completed_prior_head": "620ad13a15b07704f4a11280ed206cd2345c88f7",
+    "current_cleanup": "Incomplete: same low-effort session rate_limit before verdict",
+    "pending_digest": "a2d942bbeccebb7094154ddc05c361129ff07dfa2931e4ff647a1492d5342cb6",
+    "packet_read_requests": "1-420,420-839; no semantic verdict",
+    "minimum_remaining": "840-1225 plus latest saved-source/hash and10metadata delta",
+    "native_message": "5-hour limit resets13:40Europe/Berlin"
+  },
+  "merge": "Not authorized by these checks; owner graph and spec403 gates retained",
+  "new_model_execution": false,
+  "earlier_langflow_failures": "Initial150ran:2failures; source/hash sync fixedone, remaining10displaymetadata drift reproduced at620ad13a and corrected. Final150pass.",
+  "ci": "Latest089f71aa:Blackpassed,bothpackage/Dockerjobsinprogress"
+}

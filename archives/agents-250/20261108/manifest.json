@@ -32,6 +32,36 @@
       "bytes": 289
     },
     {
+      "path": "layout-cleanup/layout-cleanup-current-summary.json",
+      "sha256": "bbc369519fde4824b9fddbb9a4bcd3087a9d8981a6ce278974f1af7e296499a1",
+      "bytes": 1707
+    },
+    {
+      "path": "layout-cleanup/layout-export-differences.json",
+      "sha256": "5395156f8e51e6cb23d46926430b2796b34aabd87dd0a22f9d627727d4386ed3",
+      "bytes": 2575
+    },
+    {
+      "path": "layout-cleanup/layout-metadata-refresh.json",
+      "sha256": "c14bea3712c9effe148912dedda060282263263e9c2f8a7a405b937dbc1aa374",
+      "bytes": 3460
+    },
+    {
+      "path": "layout-cleanup/layout-template-sync.json",
+      "sha256": "b4be7e5ca78e90897981b99be41aedceb24a2f6c5391e7b696a4e30863c0518a",
+      "bytes": 370
+    },
+    {
+      "path": "layout-cleanup/method-order-conservation.json",
+      "sha256": "1ec2a93df753647deeccb693c9cd0fde9e110a1b349c4d897fdfa9ee8e7396ed",
+      "bytes": 13184
+    },
+    {
+      "path": "layout-cleanup/README.md",
+      "sha256": "bbe89e5729b79d2106953973b4c056ad1586e25e52ced2b8a59e54ff16b77e7f",
+      "bytes": 2108
+    },
+    {
       "path": "README.md",
       "sha256": "4b1909ff5e17e0877e7471c7bec1219e652ffda6bb758c783457c6ea1da6feaf",
       "bytes": 4449

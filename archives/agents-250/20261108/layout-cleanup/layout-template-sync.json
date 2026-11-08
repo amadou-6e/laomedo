@@ -1,0 +1,11 @@
+{
+  "files": [
+    "tests/test_agents/test_examples/data/claude.json",
+    "tests/test_agents/test_examples/data/codex.json",
+    "tests/test_agents/test_examples/data/opencode.json",
+    "examples/langflow-workgraph-demo/flow.json",
+    "examples/langflow-contract-routing/flow.json"
+  ],
+  "only_source_and_code_hash_changed": true,
+  "already_in_pr": true
+}

@@ -1,0 +1,61 @@
+[
+  {
+    "graph": "langflow-workgraph-demo",
+    "differences": [
+      {
+        "path": "/data/nodes/1/data/node/description",
+        "old": "Read an immutable skill or propose a traceable, atomic multi-file revision.",
+        "new": "Use and edit versioned skill files."
+      },
+      {
+        "path": "/data/nodes/1/data/node/template/discovery_status/info",
+        "old": "",
+        "new": "Scans Source and lists available skills and revisions. Reads and imports files; never runs a Skill or changes the selected revision."
+      },
+      {
+        "path": "/data/nodes/1/data/node/template/discovery_status/value",
+        "old": "Supply a source to discover skills.",
+        "new": "Set Source to browse skills, or use a saved reference."
+      },
+      {
+        "path": "/data/nodes/1/data/node/template/edit_request/info",
+        "old": "What the connected Agent should change in the selected skill.",
+        "new": "Legacy saved feedback request. New edits use Operation or the Skill files editor."
+      },
+      {
+        "path": "/data/nodes/1/data/node/template/edit_request/show",
+        "old": "True",
+        "new": "False"
+      },
+      {
+        "path": "/data/nodes/1/data/node/template/operation/info",
+        "old": "Modify several files atomically; creates a reviewed proposal, never promotes automatically. Accepts ordinary or Agent feedback input.",
+        "new": "Receive file changes from another node. Creates one revision for the batch; publish it in Skill files when ready."
+      },
+      {
+        "path": "/data/nodes/1/data/node/template/revision_id/advanced",
+        "old": "False",
+        "new": "True"
+      },
+      {
+        "path": "/data/nodes/1/data/node/template/revision_id/info",
+        "old": "Type in the dropdown to filter discovered revisions.",
+        "new": "The exact file version to use. Choose a discovered revision; refreshing never selects a newer version."
+      },
+      {
+        "path": "/data/nodes/1/data/node/template/source/info",
+        "old": "Repository URL or allowed local folder. Leave empty for an existing pinned registry reference.",
+        "new": "Public HTTPS GitHub/GitLab repository URL, or a local folder allowed by the host source service. Leave empty to use a saved registry reference."
+      },
+      {
+        "path": "/data/nodes/3/data/node/template/run_reference/show",
+        "old": "False",
+        "new": "True"
+      }
+    ]
+  },
+  {
+    "graph": "langflow-contract-routing",
+    "differences": []
+  }
+]

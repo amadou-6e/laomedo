@@ -1,0 +1,144 @@
+{
+  "changes": [
+    {
+      "path": [
+        "data",
+        "nodes",
+        1,
+        "data",
+        "node",
+        "template",
+        "operation",
+        "info"
+      ],
+      "before": "Modify several files atomically; creates a reviewed proposal, never promotes automatically. Accepts ordinary or Agent feedback input.",
+      "after": "Receive file changes from another node. Creates one revision for the batch; publish it in Skill files when ready."
+    },
+    {
+      "path": [
+        "data",
+        "nodes",
+        1,
+        "data",
+        "node",
+        "template",
+        "discovery_status",
+        "value"
+      ],
+      "before": "Supply a source to discover skills.",
+      "after": "Set Source to browse skills, or use a saved reference."
+    },
+    {
+      "path": [
+        "data",
+        "nodes",
+        1,
+        "data",
+        "node",
+        "template",
+        "discovery_status",
+        "info"
+      ],
+      "before": "",
+      "after": "Scans Source and lists available skills and revisions. Reads and imports files; never runs a Skill or changes the selected revision."
+    },
+    {
+      "path": [
+        "data",
+        "nodes",
+        1,
+        "data",
+        "node",
+        "template",
+        "edit_request",
+        "show"
+      ],
+      "before": true,
+      "after": false
+    },
+    {
+      "path": [
+        "data",
+        "nodes",
+        1,
+        "data",
+        "node",
+        "template",
+        "edit_request",
+        "info"
+      ],
+      "before": "What the connected Agent should change in the selected skill.",
+      "after": "Legacy saved feedback request. New edits use Operation or the Skill files editor."
+    },
+    {
+      "path": [
+        "data",
+        "nodes",
+        1,
+        "data",
+        "node",
+        "template",
+        "revision_id",
+        "advanced"
+      ],
+      "before": false,
+      "after": true
+    },
+    {
+      "path": [
+        "data",
+        "nodes",
+        1,
+        "data",
+        "node",
+        "template",
+        "revision_id",
+        "info"
+      ],
+      "before": "Type in the dropdown to filter discovered revisions.",
+      "after": "The exact file version to use. Choose a discovered revision; refreshing never selects a newer version."
+    },
+    {
+      "path": [
+        "data",
+        "nodes",
+        1,
+        "data",
+        "node",
+        "template",
+        "source",
+        "info"
+      ],
+      "before": "Repository URL or allowed local folder. Leave empty for an existing pinned registry reference.",
+      "after": "Public HTTPS GitHub/GitLab repository URL, or a local folder allowed by the host source service. Leave empty to use a saved registry reference."
+    },
+    {
+      "path": [
+        "data",
+        "nodes",
+        1,
+        "data",
+        "node",
+        "description"
+      ],
+      "before": "Read an immutable skill or propose a traceable, atomic multi-file revision.",
+      "after": "Use and edit versioned skill files."
+    },
+    {
+      "path": [
+        "data",
+        "nodes",
+        3,
+        "data",
+        "node",
+        "template",
+        "run_reference",
+        "show"
+      ],
+      "before": false,
+      "after": true
+    }
+  ],
+  "other_graph_values_unchanged": true,
+  "contract_updated_for_explicit_metadata_only": true
+}

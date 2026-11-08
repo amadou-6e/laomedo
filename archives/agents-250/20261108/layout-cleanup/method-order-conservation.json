@@ -1,0 +1,278 @@
+{
+  "base": "620ad13a15b07704f4a11280ed206cd2345c88f7",
+  "changed_files": 46,
+  "all_files_already_in_pr": true,
+  "conservation": [
+    {
+      "file": "components/laomedo/bounded_controller.py",
+      "ast": "unchanged except class-member/import order and module-docstring placement",
+      "comments": "same multiset",
+      "sha256": "cbb0cdde8a1939c3727097cefa1517ad1e4f6327cf1eff5f761b00295dc5514f"
+    },
+    {
+      "file": "components/laomedo/github_pr.py",
+      "ast": "unchanged except class-member/import order and module-docstring placement",
+      "comments": "same multiset",
+      "sha256": "086157da6cefa3018225f4ca3242ebcc9ec9e669883c9dadd763de3894f985c0"
+    },
+    {
+      "file": "components/laomedo/output_contract.py",
+      "ast": "unchanged except class-member/import order and module-docstring placement",
+      "comments": "same multiset",
+      "sha256": "9af7c83da36c35178a62d079c2da5a6961e84d6cdb3a3772ec85acef0aee1993"
+    },
+    {
+      "file": "components/laomedo/skill.py",
+      "ast": "unchanged except class-member/import order and module-docstring placement",
+      "comments": "same multiset",
+      "sha256": "bcdafb5f60f1636ad3aad67c093423c303159d1729df37cae8ae140eabc80d65"
+    },
+    {
+      "file": "src/laomedo/agents/activity/acp/capture.py",
+      "ast": "unchanged except class-member/import order and module-docstring placement",
+      "comments": "same multiset",
+      "sha256": "953a3592ac7ffdff2040e96f519211c45502206059bf451e2ce8acee123d8d06"
+    },
+    {
+      "file": "src/laomedo/agents/activity/store.py",
+      "ast": "unchanged except class-member/import order and module-docstring placement",
+      "comments": "same multiset",
+      "sha256": "06b873fcde65186bdd9691fe35864aed71307c9622ca3b6b1c93389eee552cf9"
+    },
+    {
+      "file": "src/laomedo/agents/agents/base/acp/session.py",
+      "ast": "unchanged except class-member/import order and module-docstring placement",
+      "comments": "same multiset",
+      "sha256": "2fc167bcae8234bb5e1090634a83712336620c3f79bc83dc292d12a585c3efa9"
+    },
+    {
+      "file": "src/laomedo/agents/agents/base/acp/transport.py",
+      "ast": "unchanged except class-member/import order and module-docstring placement",
+      "comments": "same multiset",
+      "sha256": "ac89afe566d9405f1e9fa35432b418d20b06e2e66b19f8c190ce39e7b5862b4e"
+    },
+    {
+      "file": "src/laomedo/agents/agents/base/agent.py",
+      "ast": "unchanged except class-member/import order and module-docstring placement",
+      "comments": "same multiset",
+      "sha256": "efb327b6bd7d6f5d1d470bbf02b868c673cf8a9fa477434b71b1fb5a4c2a70bd"
+    },
+    {
+      "file": "src/laomedo/agents/agents/claude/activity/telemetry.py",
+      "ast": "unchanged except class-member/import order and module-docstring placement",
+      "comments": "same multiset",
+      "sha256": "7d805a6dcd85dcc61977d5964532718e1165b5211bb33097feb4272b96bdcca5"
+    },
+    {
+      "file": "src/laomedo/agents/agents/claude/agent.py",
+      "ast": "unchanged except class-member/import order and module-docstring placement",
+      "comments": "same multiset",
+      "sha256": "359f692ad192e2c876a9f81b16db53b4e89dbc83f69b534a675716b4173496e7"
+    },
+    {
+      "file": "src/laomedo/agents/agents/codex/agent.py",
+      "ast": "unchanged except class-member/import order and module-docstring placement",
+      "comments": "same multiset",
+      "sha256": "d8fedc223731e215cc683549930680948dc1ae567b1063a25bfb75b708b6a23f"
+    },
+    {
+      "file": "src/laomedo/agents/agents/codex/controller/service.py",
+      "ast": "unchanged except class-member/import order and module-docstring placement",
+      "comments": "same multiset",
+      "sha256": "e920d48ace92b120d7d3a4e4c1e68ae4685736ac47247ce3377a23a75b5b4353"
+    },
+    {
+      "file": "src/laomedo/agents/agents/codex/split/executor.py",
+      "ast": "unchanged except class-member/import order and module-docstring placement",
+      "comments": "same multiset",
+      "sha256": "98f546b4e0f977ecba50e30d178fab83a8488b31c153ff0dfaea1ba6e6c36ae4"
+    },
+    {
+      "file": "src/laomedo/agents/agents/opencode/agent.py",
+      "ast": "unchanged except class-member/import order and module-docstring placement",
+      "comments": "same multiset",
+      "sha256": "5ef9c9be58f5b119be0675a5627cd60f089a3ed050d6143f0df056a15fbc705c"
+    },
+    {
+      "file": "src/laomedo/agents/agents/opencode/boundary.py",
+      "ast": "unchanged except class-member/import order and module-docstring placement",
+      "comments": "same multiset",
+      "sha256": "891c00cd3abed2b010434d1de44c01d78410026721d8992987ed3c2e9d472aa4"
+    },
+    {
+      "file": "src/laomedo/agents/agents/opencode/history/reader.py",
+      "ast": "unchanged except class-member/import order and module-docstring placement",
+      "comments": "same multiset",
+      "sha256": "be21416b88a282793bf2fdde9a7e128de46649e7c7de0ac2492807fff800f904"
+    },
+    {
+      "file": "src/laomedo/agents/interface/bridge.py",
+      "ast": "unchanged except class-member/import order and module-docstring placement",
+      "comments": "same multiset",
+      "sha256": "f78b52c5b81480b0b9084ac2ec190da7a69b466701e938a3ac70ba694015c34b"
+    },
+    {
+      "file": "src/laomedo/agents/interface/langflow/component.py",
+      "ast": "unchanged except class-member/import order and module-docstring placement",
+      "comments": "same multiset",
+      "sha256": "99210de9cc448a6ce8778459e399b2c1b74e0489d2bbb9e356cc514ad7b6b3ad"
+    },
+    {
+      "file": "src/laomedo/agents/orchestration/controller.py",
+      "ast": "unchanged except class-member/import order and module-docstring placement",
+      "comments": "same multiset",
+      "sha256": "f2f68edc7b62f13e15b8519018ccc42203a83464065c420960854e899a7fc30c"
+    },
+    {
+      "file": "src/laomedo/git/windows/tree.py",
+      "ast": "unchanged except class-member/import order and module-docstring placement",
+      "comments": "same multiset",
+      "sha256": "c5cef865babc52ff887b26061cdd897de5401b6afc615fcf252c0d1ecb14cad1"
+    },
+    {
+      "file": "src/laomedo/host/leases/client.py",
+      "ast": "unchanged except class-member/import order and module-docstring placement",
+      "comments": "same multiset",
+      "sha256": "45627d47a668937f2d665ba686efaaddc1a12118b84bbff4cdfda157f6c809ce"
+    },
+    {
+      "file": "src/laomedo/host/leases/service.py",
+      "ast": "unchanged except class-member/import order and module-docstring placement",
+      "comments": "same multiset",
+      "sha256": "bf41868ba98db2493b16912b7283c20c5a1009357829fdd879da22aab113f81b"
+    },
+    {
+      "file": "src/laomedo/host/private_state/windows.py",
+      "ast": "unchanged except class-member/import order and module-docstring placement",
+      "comments": "same multiset",
+      "sha256": "cd417ce2f7c7cd39d28d0b7bba09722abfc27f51f34d9a330179e989ad878b67"
+    },
+    {
+      "file": "src/laomedo/host/publication/handoff/store.py",
+      "ast": "unchanged except class-member/import order and module-docstring placement",
+      "comments": "same multiset",
+      "sha256": "2374bfedd40ddb7467826275cc08493aa70e2b48bdd877584dc3f0d088ba6485"
+    },
+    {
+      "file": "src/laomedo/host/runner/http/handler.py",
+      "ast": "unchanged except class-member/import order and module-docstring placement",
+      "comments": "same multiset",
+      "sha256": "92a45bd44dd2b0971526322f1083d94455ab442a6e11cb46cdefce3f3148aa04"
+    },
+    {
+      "file": "src/laomedo/host/runner/service.py",
+      "ast": "unchanged except class-member/import order and module-docstring placement",
+      "comments": "same multiset",
+      "sha256": "5944e849946d9eb7cf101e70d962f677c590204068a4531fddf2b50b4c513d6d"
+    },
+    {
+      "file": "src/laomedo/integrations/langflow/join/controller.py",
+      "ast": "unchanged except class-member/import order and module-docstring placement",
+      "comments": "same multiset",
+      "sha256": "06c0cb6b6d32d891c452cccfc181a9449e50472685b312dfa09310947ea6c208"
+    },
+    {
+      "file": "src/laomedo/integrations/langflow/join/transport.py",
+      "ast": "unchanged except class-member/import order and module-docstring placement",
+      "comments": "same multiset",
+      "sha256": "eebe2b28b80b6a8a7384d3e8e07e890c29cb57ccf140dfa270c403c60f693e57"
+    },
+    {
+      "file": "src/laomedo/integrations/langflow/stage_adapter.py",
+      "ast": "unchanged except class-member/import order and module-docstring placement",
+      "comments": "same multiset",
+      "sha256": "557d7e2e697954b00c89017d74b910eed648186085371ce8dca80f950a814108"
+    },
+    {
+      "file": "src/laomedo/work_graph/client.py",
+      "ast": "unchanged except class-member/import order and module-docstring placement",
+      "comments": "same multiset",
+      "sha256": "90b727115e8d98b94d514c7cf68fde5373f515bb929d97c3dc1dce1fead72b02"
+    },
+    {
+      "file": "src/laomedo/work_graph/docker_stage.py",
+      "ast": "unchanged except class-member/import order and module-docstring placement",
+      "comments": "same multiset",
+      "sha256": "d6e76d6c57ff0b28875230b6bea613948154254d722d1672417143f5d197e531"
+    },
+    {
+      "file": "src/laomedo/work_graph/grants.py",
+      "ast": "unchanged except class-member/import order and module-docstring placement",
+      "comments": "same multiset",
+      "sha256": "6e6bf6ea9d6d903d7a2f5056c7df3365aa19f00f89c8d671d90dbe7ea213aae5"
+    },
+    {
+      "file": "src/laomedo/work_graph/runs/store.py",
+      "ast": "unchanged except class-member/import order and module-docstring placement",
+      "comments": "same multiset",
+      "sha256": "54b50bf14398ef74b04d56e23141d61114b3aed78e6f17c040071b36a904dac5"
+    },
+    {
+      "file": "tests/test_agents/test_claude/test_runner.py",
+      "ast": "unchanged except class-member/import order and module-docstring placement",
+      "comments": "same multiset",
+      "sha256": "5725a70a7ffc8d88ec1b07403d20bcc84de9d30b0ff52f7c45b4efcd1e679e97"
+    },
+    {
+      "file": "tests/test_agents/test_opencode/test_runner.py",
+      "ast": "unchanged except class-member/import order and module-docstring placement",
+      "comments": "same multiset",
+      "sha256": "f3be988ca7583153bc1a94652d5c3a4e5114451c73b46af1e36a90d3f912ac63"
+    },
+    {
+      "file": "tests/test_agents/test_runtime/test_lifecycle.py",
+      "ast": "unchanged except class-member/import order and module-docstring placement",
+      "comments": "same multiset",
+      "sha256": "cb36b52b6eec12494c8b4fdeec4e97fa40bf963e4b3bbe87de826db72caee303"
+    },
+    {
+      "file": "tests/test_agents/test_runtime/test_service.py",
+      "ast": "unchanged except class-member/import order and module-docstring placement",
+      "comments": "same multiset",
+      "sha256": "8cf5ed260515669b14fa05a3d748458239d7de8adc525d05f8734451ff661af3"
+    },
+    {
+      "file": "tests/test_agents/test_runtime/transport.py",
+      "ast": "unchanged except class-member/import order and module-docstring placement",
+      "comments": "same multiset",
+      "sha256": "2295b424d2dcea3af570f02bdf4fea92435d50d9f6e1449f19398f7dca7c87c4"
+    },
+    {
+      "file": "tests/test_agents/test_workspace/test_preparation.py",
+      "ast": "unchanged except class-member/import order and module-docstring placement",
+      "comments": "same multiset",
+      "sha256": "6585be39860a90afddeafb516c812e28bab47b6ca657632e76ab5582f6beb3a3"
+    },
+    {
+      "file": "tests/test_agents/verification.py",
+      "ast": "unchanged except class-member/import order and module-docstring placement",
+      "comments": "same multiset",
+      "sha256": "a8fe5d160751fa85c3fd8e1a084eac7ab98618524ee01bdcfc6908f05f9910d6"
+    },
+    {
+      "file": "tests/test_host/test_credentials/test_chatgpt.py",
+      "ast": "unchanged except class-member/import order and module-docstring placement",
+      "comments": "same multiset",
+      "sha256": "73c6cfc8f7426c82f934a233ae6d72a3c1b91053e325e1385fbe9caea3e8c277"
+    },
+    {
+      "file": "tests/test_host/test_leases/test_http.py",
+      "ast": "unchanged except class-member/import order and module-docstring placement",
+      "comments": "same multiset",
+      "sha256": "64f2ce1ee3b19398032af0f70e490df4877af35d5e7a806988003bd939a31b08"
+    },
+    {
+      "file": "tests/test_host/test_publication/test_bundle/test_stage.py",
+      "ast": "unchanged except class-member/import order and module-docstring placement",
+      "comments": "same multiset",
+      "sha256": "8cfb49f01db1e2ccd24c233d96abc2c80017717f82d102639016a9c44c81ae45"
+    },
+    {
+      "file": "tests/test_host/test_publication/test_ingestion.py",
+      "ast": "unchanged except class-member/import order and module-docstring placement",
+      "comments": "same multiset",
+      "sha256": "2081544e95c25b6921056c401690be6b54f6ebd882a4268c6862058173d81544"
+    }
+  ],
+  "regression_test": "Existing test_packages.py adds Agent/component class-order check; no new file"
+}
