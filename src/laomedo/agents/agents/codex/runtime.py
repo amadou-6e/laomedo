@@ -18,6 +18,8 @@ from laomedo.agents.agents.base.models import (
     CancellationObservation,
     CleanupObservation,
     CommandRequest,
+    ProcessHealthObservation,
+    IsolationObservation,
 )
 from laomedo.agents.agents.base.utils import failure_observation
 
@@ -351,17 +353,21 @@ class CodexAgentRuntime(BaseAgentRuntime):
             status, error = "cancelled", "cancel_native_unconfirmed"
         return CodexTurn(turn_id=turn["id"], status=status, error=error)
 
-    def check_health(self):
+    def check_health(self) -> ProcessHealthObservation:
         """Guard host authorization and the separately owned executor."""
         if self.authorization_probe is not None and not self.authorization_probe():
             raise RunnerError("auth_revoked_during_turn")
         if self.executor is not None:
-            self.executor.check_health()
+            return self.executor.check_health()
+        return ProcessHealthObservation(
+            alive=None, scope="codex_executor_not_configured"
+        )
 
-    def assert_controller_isolated(self):
+    def assert_controller_isolated(self) -> IsolationObservation:
         """Keep native tool execution out of the credential-bearing controller."""
         if self.executor is not None:
-            self.executor.assert_controller_isolated(self.session)
+            return self.executor.assert_controller_isolated(self.session)
+        return IsolationObservation(verified=None, scope="codex_split_not_configured")
 
     async def preflight(self, check):
         """Run fixed zero-turn permission probes; never accept an arbitrary command."""

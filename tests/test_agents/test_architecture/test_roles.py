@@ -33,6 +33,25 @@ from laomedo.agents.errors import RunnerError
 
 
 class ProviderRoleTests(unittest.TestCase):
+    def test_runtime_check_results_preserve_scope_and_unsupported_unknown(self):
+        """Absent split checks remain unknown; native scoped results reach callers."""
+        runtime = CodexAgentRuntime.__new__(CodexAgentRuntime)
+        runtime.authorization_probe = None
+        runtime.executor = None
+        runtime.session = object()
+        self.assertIsNone(runtime.check_health().alive)
+        self.assertIsNone(runtime.assert_controller_isolated().verified)
+        runtime.executor = SimpleNamespace(
+            check_health=Mock(), assert_controller_isolated=Mock()
+        )
+        health = runtime.executor.check_health.return_value
+        isolation = runtime.executor.assert_controller_isolated.return_value
+        self.assertIs(runtime.check_health(), health)
+        self.assertIs(runtime.assert_controller_isolated(), isolation)
+        runtime.executor.assert_controller_isolated.assert_called_once_with(
+            runtime.session
+        )
+
     def test_role_contracts_are_actual_abstract_boundaries(self):
         """An incomplete provider cannot silently inherit a success implementation."""
         for role in (

@@ -95,7 +95,7 @@ class CodexCommandExecutor(BaseCommandExecutor):
             alive=True, scope="codex_executor_session_and_reader"
         )
 
-    def assert_controller_isolated(self, controller) -> None:
+    def assert_controller_isolated(self, controller) -> IsolationObservation:
         """Verify the existing split-controller gates and image identities; a passed handshake alone is insufficient."""
         if self._controller_listeners(controller):
             raise RunnerError("controller_listener_gate_failed")
