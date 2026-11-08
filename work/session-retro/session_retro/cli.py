@@ -10,9 +10,11 @@ from pydantic import BaseModel, ValidationError
 
 from session_retro.errors import RetrospectiveError
 from session_retro.index import SessionIndex
+from session_retro.models import OperationFailure
 from session_retro.reader import SessionReader
 from session_retro.report import RetrospectiveReport
 from session_retro.settings import Settings
+from session_retro.settings import ERROR_MESSAGES
 
 
 def main() -> int:
@@ -37,6 +39,11 @@ def main() -> int:
             sub.add_argument("--session-id", required=True)
             sub.add_argument("--extend", action="store_true")
             sub.add_argument("--stop-after", type=int)
+            sub.add_argument(
+                "--boundary",
+                type=int,
+                help="Pin an earlier captured byte boundary for reproducible rebuilds",
+            )
         elif name == "search":
             sub.add_argument("query")
             sub.add_argument("--after", type=int, default=0)
@@ -66,6 +73,7 @@ def main() -> int:
                 args.session_id,
                 extend=args.extend,
                 stop_after=args.stop_after,
+                boundary=args.boundary,
             )
         elif args.command == "coverage":
             result = index.coverage()
@@ -86,12 +94,12 @@ def main() -> int:
             else "filesystem_or_settings_failed"
         )
         print(
-            json.dumps(
-                {
-                    "code": code,
-                    "message": "Evidence operation did not complete. Check the selected source, private output path and coverage before continuing; the tool does not modify the source.",
-                }
-            ),
+            OperationFailure(
+                code=code,
+                message=ERROR_MESSAGES.get(
+                    code, ERROR_MESSAGES["filesystem_or_settings_failed"]
+                ),
+            ).model_dump_json(),
             file=sys.stderr,
         )
         return 1
@@ -109,4 +117,4 @@ def _emit(value) -> None:
         ]
     elif isinstance(value, BaseModel):
         value = value.model_dump(mode="json")
-    print(json.dumps(value, ensure_ascii=False, indent=2))
+    print(json.dumps(value, ensure_ascii=True, indent=2))

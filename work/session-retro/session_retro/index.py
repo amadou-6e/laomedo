@@ -60,7 +60,8 @@ class SessionIndex:
                     sha256 TEXT NOT NULL, prefix_sha256 TEXT NOT NULL, timestamp TEXT,
                     native_type TEXT NOT NULL, kind TEXT NOT NULL, role TEXT,
                     call_id TEXT, turn_id TEXT, name TEXT, failure INTEGER,
-                    text TEXT NOT NULL, text_truncated INTEGER NOT NULL);
+                    text TEXT NOT NULL, text_truncated INTEGER NOT NULL,
+                    phase TEXT, message_id TEXT);
                 CREATE INDEX IF NOT EXISTS call_lookup ON events(call_id,kind);
                 CREATE INDEX IF NOT EXISTS kind_lookup ON events(kind,line);
             """)
@@ -83,13 +84,14 @@ class SessionIndex:
         *,
         extend: bool = False,
         stop_after: int | None = None,
+        boundary: int | None = None,
     ) -> BuildResult:
         """Index/resume complete records, atomically retaining each committed cursor."""
         started = time.perf_counter()
         if source.resolve() == self.path:
             raise RetrospectiveError("source_is_database")
         reader = SessionReader(source, self.settings)
-        admitted = reader.snapshot(session_id)
+        admitted = reader.snapshot(session_id, boundary=boundary)
         row = self.db.execute("SELECT value FROM state WHERE id=1").fetchone()
         snapshot = SourceSnapshot.model_validate_json(row[0]) if row else admitted
         if (
@@ -104,7 +106,11 @@ class SessionIndex:
         ):
             raise RetrospectiveError("index_settings_changed")
         reader.verify(snapshot)
+        if boundary is not None and boundary != snapshot.boundary and not extend:
+            raise RetrospectiveError("index_boundary_mismatch")
         if extend:
+            if admitted.boundary < snapshot.indexed_bytes:
+                raise RetrospectiveError("invalid_source_boundary")
             snapshot.boundary = admitted.boundary
             snapshot.complete = False
         if snapshot.complete:
@@ -193,7 +199,7 @@ class SessionIndex:
     ) -> list[SearchHit]:
         """Return a bounded page of literal matches; results are candidate evidence."""
         rows = self.db.execute(
-            "SELECT line,timestamp,kind,role,name,call_id,offset,length,text,text_truncated FROM events WHERE line>? AND instr(lower(text),lower(?))>0 AND (? IS NULL OR kind=?) ORDER BY line LIMIT ?",
+            "SELECT line,timestamp,kind,role,phase,name,call_id,offset,length,text,text_truncated FROM events WHERE line>? AND instr(lower(text),lower(?))>0 AND (? IS NULL OR kind=?) ORDER BY line LIMIT ?",
             (after, query, kind, kind, self.settings.page_records),
         )
         return [SearchHit(**dict(row)) for row in rows]
@@ -239,7 +245,7 @@ class SessionIndex:
         """Persist only bounded normalized values and exact original locators."""
         loc = event.locator
         self.db.execute(
-            "INSERT INTO events VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            "INSERT INTO events VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (
                 loc.line,
                 loc.offset,
@@ -256,5 +262,7 @@ class SessionIndex:
                 event.failure,
                 event.text,
                 int(event.text_truncated),
+                event.phase,
+                event.message_id,
             ),
         )

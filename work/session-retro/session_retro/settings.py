@@ -7,7 +7,33 @@ from pathlib import Path
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-PARSER_VERSION = "codex-retro-1"
+PARSER_VERSION = "codex-retro-2"
+
+# Stable local failure explanations, not user-editable runtime configuration.
+ERROR_MESSAGES = {
+    "invalid_source_boundary": "The requested finite boundary is outside the source or precedes its identity record.",
+    "index_boundary_mismatch": "An explicit boundary differs from this index; use a new index or an intentional extension.",
+    "invalid_session_metadata": "The first source record is not supported Codex session metadata.",
+    "session_identity_mismatch": "The selected file does not identify the expected session.",
+    "source_replaced": "The file at the selected path has been replaced since indexing.",
+    "source_truncated": "The source is shorter than the captured indexing boundary.",
+    "source_prefix_changed": "Previously indexed source bytes changed; existing evidence is stale.",
+    "source_record_changed": "The requested source record no longer matches its stored hash.",
+    "source_is_database": "The output database must be a different file from the session source.",
+    "record_requires_bounded_large_payload_decoder": "This record exceeds the safe parsing limit and remains an explicit coverage gap.",
+    "record_outside_indexed_prefix": "The requested record lies beyond the admitted indexed prefix.",
+    "private_root_required": "Select a private output root before creating or reading derived evidence.",
+    "database_outside_private_root": "The selected database is outside the configured private output root.",
+    "database_not_owned": "The selected database belongs to another application and was refused.",
+    "index_missing": "The selected index does not exist; create it from the intended source first.",
+    "index_not_initialized": "The database has no admitted source checkpoint yet.",
+    "index_source_mismatch": "This index belongs to a different source or session.",
+    "index_settings_changed": "Parser or interpretation settings differ from the existing index.",
+    "invalid_record_page": "The requested source line or text-page position is invalid.",
+    "report_outside_private_root": "Reports must remain inside the configured private output root.",
+    "invalid_stop_after": "An interruption checkpoint must stop after at least one record.",
+    "filesystem_or_settings_failed": "A filesystem, index-storage or settings operation could not complete.",
+}
 
 
 class Settings(BaseSettings):

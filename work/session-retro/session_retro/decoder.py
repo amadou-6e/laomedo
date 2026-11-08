@@ -42,7 +42,9 @@ class CodexEventDecoder:
                 locator=record.locator, native_type=str(outer), kind="unknown"
             )
         native = payload.get("type") if isinstance(payload.get("type"), str) else ""
-        turn = payload.get("turn_id")
+        metadata = payload.get("internal_chat_message_metadata_passthrough")
+        metadata = metadata if isinstance(metadata, dict) else {}
+        turn = payload.get("turn_id", metadata.get("turn_id"))
         if isinstance(turn, str):
             self.turn_id = turn
         event = NormalizedEvent(
@@ -55,6 +57,14 @@ class CodexEventDecoder:
                 else None
             ),
             turn_id=self.turn_id,
+            phase=(
+                payload.get("phase", payload.get("channel"))
+                if isinstance(payload.get("phase", payload.get("channel")), str)
+                else None
+            ),
+            message_id=(
+                payload.get("id") if isinstance(payload.get("id"), str) else None
+            ),
             call_id=(
                 payload.get("call_id")
                 if isinstance(payload.get("call_id"), str)
@@ -81,7 +91,11 @@ class CodexEventDecoder:
         }:
             event.kind = "result"
             output = payload.get("output", "")
-            text = self._text(output)
+            text = (
+                self._message(output)
+                if isinstance(output, list)
+                else self._text(output)
+            )
             event.failure = self._failure(output)
             if payload.get("is_error") is True:
                 event.failure = True
@@ -93,8 +107,22 @@ class CodexEventDecoder:
         elif "compact" in str(outer).lower() or "compact" in str(native).lower():
             event.kind = "compaction"
             text = self._text(payload.get("summary", payload.get("message", "")))
-        elif outer in {"session_meta", "turn_context"}:
+        elif outer in {
+            "session_meta",
+            "turn_context",
+            "world_state",
+            "inter_agent_communication_metadata",
+        }:
             event.kind = "metadata"
+        elif (
+            outer == "token_usage_record"
+            or outer == "event_msg"
+            and native == "token_count"
+        ):
+            event.kind = "usage"
+        elif outer == "response_item" and native == "agent_message":
+            event.kind = "delegation_message"
+            text = self._message(payload.get("content", payload.get("message")))
         elif outer == "event_msg":
             event.kind, event.name = "observation", str(native)
             event.failure = self._failure(payload)
@@ -129,8 +157,11 @@ class CodexEventDecoder:
 
     def _failure(self, value, depth: int = 0) -> bool | None:
         """Recognize explicit outcomes, not arbitrary occurrences of 'error'."""
-        if depth > 4:
+        if depth > 8:
             return None
+        if isinstance(value, list):
+            outcomes = [self._failure(part, depth + 1) for part in value]
+            return True if True in outcomes else False if False in outcomes else None
         if isinstance(value, dict):
             if (
                 value.get("is_error") is True
@@ -140,7 +171,7 @@ class CodexEventDecoder:
                 return True
             if type(value.get("exit_code")) is int:
                 return value["exit_code"] != 0
-            for key in ("output", "result", "metadata"):
+            for key in ("output", "result", "metadata", "text"):
                 if key in value:
                     result = self._failure(value[key], depth + 1)
                     if result is not None:
@@ -150,6 +181,12 @@ class CodexEventDecoder:
                 parsed = json.loads(value)
             except ValueError:
                 match = re.search(r"(?m)^Process exited with code (-?\d+)\s*$", value)
-                return int(match[1]) != 0 if match else None
+                if match:
+                    return int(match[1]) != 0
+                return (
+                    True
+                    if re.match(r"^Script (?:failed|error)(?::|\s*\n)", value)
+                    else None
+                )
             return self._failure(parsed, depth + 1)
         return None

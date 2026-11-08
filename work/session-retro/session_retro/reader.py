@@ -27,7 +27,9 @@ class SessionReader:
         self.path = path.resolve()
         self.settings = settings
 
-    def snapshot(self, session_id: str) -> SourceSnapshot:
+    def snapshot(
+        self, session_id: str, *, boundary: int | None = None
+    ) -> SourceSnapshot:
         """Validate native identity before admitting a finite source boundary."""
         with open_source(self.path) as stream:
             stat = os.fstat(stream.fileno())
@@ -36,6 +38,10 @@ class SessionReader:
                 meta = json.loads(first)
             except (ValueError, UnicodeDecodeError):
                 raise RetrospectiveError("invalid_session_metadata") from None
+            if not isinstance(meta, dict) or not isinstance(meta.get("payload"), dict):
+                raise RetrospectiveError("invalid_session_metadata")
+            if boundary is not None and not len(first) <= boundary <= stat.st_size:
+                raise RetrospectiveError("invalid_source_boundary")
             if (
                 meta.get("type") != "session_meta"
                 or meta.get("payload", {}).get("id") != session_id
@@ -45,7 +51,7 @@ class SessionReader:
                 path=str(self.path),
                 session_id=session_id,
                 identity=self._identity(stat),
-                boundary=stat.st_size,
+                boundary=stat.st_size if boundary is None else boundary,
                 sha256=hashlib.sha256().hexdigest(),
                 parser_version=PARSER_VERSION,
                 settings_digest=self.settings.digest(),

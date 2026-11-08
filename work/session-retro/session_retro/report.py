@@ -32,7 +32,7 @@ class RetrospectiveReport:
             (directory / "candidates.jsonl").open("w", encoding="utf-8") as queue,
         ):
             for row in self.index.db.execute(
-                "SELECT line,timestamp,kind,role,name,call_id,offset,length,failure,text,text_truncated FROM events ORDER BY line"
+                "SELECT line,timestamp,kind,role,phase,message_id,name,call_id,turn_id,offset,length,failure,text,text_truncated FROM events ORDER BY line"
             ):
                 value = dict(row)
                 if row["kind"] in {"message", "message_observation"}:

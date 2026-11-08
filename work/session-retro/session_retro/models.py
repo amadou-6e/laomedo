@@ -61,6 +61,13 @@ class NormalizedEvent(BaseModel):
         description="Message, call, result, compaction, observation or explicit gap"
     )
     role: str | None = Field(default=None, description="Observed speaker if supplied")
+    phase: str | None = Field(
+        default=None,
+        description="Native commentary/final-answer channel; not inferred from text",
+    )
+    message_id: str | None = Field(
+        default=None, description="Native item identity for duplicate investigation"
+    )
     call_id: str | None = Field(
         default=None, description="Native tool correlation ID when present"
     )
@@ -146,6 +153,7 @@ class SearchHit(BaseModel):
     timestamp: str | None = Field(description="Original timestamp when available")
     kind: str = Field(description="Decoded category")
     role: str | None = Field(description="Observed speaker")
+    phase: str | None = Field(description="Native message phase when supplied")
     name: str | None = Field(description="Observed tool or event name")
     call_id: str | None = Field(description="Observed correlation identity")
     offset: int = Field(description="Original byte offset")
@@ -177,4 +185,15 @@ class ReportResult(BaseModel):
     status: str = Field(
         default="candidate_queue_requires_source_review",
         description="Analytical limitation",
+    )
+
+
+class OperationFailure(BaseModel):
+    """Safe explanation and inspection-oriented recovery for failed evidence work."""
+
+    code: str = Field(description="Stable machine-readable local error category")
+    message: str = Field(description="Known plain-language failure explanation")
+    recovery: str = Field(
+        default="Check the selected source, output path and coverage. For changed evidence or parser settings, preserve the old index and create a new one; do not silently trust stale results.",
+        description="Recovery that does not mutate original evidence",
     )

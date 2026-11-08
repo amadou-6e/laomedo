@@ -27,7 +27,11 @@ class SourceTests(unittest.TestCase):
             meta(),
             record(
                 "response_item",
-                {"type": "message", "role": "user", "content": [{"text": "Ã©ðŸ™‚"}]},
+                {
+                    "type": "message",
+                    "role": "user",
+                    "content": [{"text": "ÃƒÂ©Ã°Å¸â„¢â€š"}],
+                },
             ),
             b"x" * 5000 + b"\n",
             b'{"unfinished":',
