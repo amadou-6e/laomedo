@@ -1,0 +1,23 @@
+{
+  "source_head": "620ad13a15b07704f4a11280ed206cd2345c88f7",
+  "versions_checked": 335,
+  "version_changes": {},
+  "fresh_preview_and_all_provider_imports": "passed",
+  "fresh_docker_sdk_and_runner_http_imports": "passed; no daemon/model call",
+  "cold_preview_restart": "passed; verified only task-owned17863listener before stop; same private state;0submittedturns",
+  "real_saved_views": "all3savedResumegraphs/Advanced/2Activityattempts reopen; nofailedassets/placeholders; no new execution",
+  "protocol_tests": {
+    "passed": 36,
+    "seconds": 5.692
+  },
+  "workspace_tests": {
+    "passed": 22,
+    "seconds": 19.258
+  },
+  "repair": "273existingpurePythonversions restored from official wheels with system pip; exact native-wrapper wheels restored missing module files and missing binaries; all checked existing DLL/PYD hashes matched; existing DLL/PYD files were not overwritten",
+  "failed_attempts": "Initial uv restoration did not restore all required files; source-onlycuidbuildfailed and4existing source-onlypackages were retained; original failure logs preserved privately. Cause of original missing files not established.",
+  "source_or_lockfile_changes": false,
+  "scope": "Fresh environment and saved-view availability only; not a new Fresh/Resume/Stop model-execution acceptance or integrated review verdict.",
+  "credential_profile_or_database_files_copied_or_replaced": false,
+  "database_scope": "Same private state reused; normal application/UI database writes are not asserted absent."
+}

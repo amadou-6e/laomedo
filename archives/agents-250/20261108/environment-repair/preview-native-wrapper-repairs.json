@@ -1,0 +1,101 @@
+[
+  {
+    "package": "numpy",
+    "version": "2.5.4",
+    "files_restored": 909,
+    "existing_native_binaries_modified": false,
+    "missing_native_files_restored": 7,
+    "existing_binary_mismatches": [],
+    "official_sha256": "a7b1b6353e36a7e50de2973a38d705c88ee93adcf120673cee7f45a4a3fa223a"
+  },
+  {
+    "package": "pyarrow",
+    "version": "26.0.0",
+    "files_restored": 747,
+    "existing_native_binaries_modified": false,
+    "missing_native_files_restored": 27,
+    "existing_binary_mismatches": [],
+    "official_sha256": "cc903e1069e9dd5e9dcf780324c0112e27e051e422ecfaff574fb33ed65d9160"
+  },
+  {
+    "package": "sqlalchemy",
+    "version": "2.0.55",
+    "files_restored": 265,
+    "existing_native_binaries_modified": false,
+    "missing_native_files_restored": 0,
+    "existing_binary_mismatches": [],
+    "official_sha256": "a13820f47eda53d603f56feaadeab9787d0110b7fcbe6ab2ff2415bd3ea31c79"
+  },
+  {
+    "package": "pydantic-core",
+    "version": "2.46.5",
+    "files_restored": 4,
+    "existing_native_binaries_modified": false,
+    "missing_native_files_restored": 0,
+    "existing_binary_mismatches": [],
+    "official_sha256": "5e81740c09e310f5aa5cbd3e434a01c154d4bef93241c7877b39f211d2b78ba8"
+  },
+  {
+    "package": "orjson",
+    "version": "3.13.0",
+    "files_restored": 3,
+    "existing_native_binaries_modified": false,
+    "missing_native_files_restored": 0,
+    "existing_binary_mismatches": [],
+    "official_sha256": "b571236d8393edcd3236e07423f762bfcf571f852aad667a3bce9e7b755e0790"
+  },
+  {
+    "package": "psutil",
+    "version": "7.2.2",
+    "files_restored": 10,
+    "existing_native_binaries_modified": false,
+    "missing_native_files_restored": 0,
+    "existing_binary_mismatches": [],
+    "official_sha256": "eb7e81434c8d223ec4a219b5fc1c47d0417b12be7ea866e24fb5ad6e84b3d988"
+  },
+  {
+    "package": "greenlet",
+    "version": "3.5.6",
+    "files_restored": 91,
+    "existing_native_binaries_modified": false,
+    "missing_native_files_restored": 2,
+    "existing_binary_mismatches": [],
+    "official_sha256": "7ac4abb3877c43af320392c664774eef6fa2cc063c79a55fc02d844a3cbe7395"
+  },
+  {
+    "package": "cryptography",
+    "version": "50.0.2",
+    "files_restored": 111,
+    "existing_native_binaries_modified": false,
+    "missing_native_files_restored": 0,
+    "existing_binary_mismatches": [],
+    "official_sha256": "7afa5a6602a9f29af1f3a2965f831bae7c9d5d597b7cbb716d41ab3b7d89879c"
+  },
+  {
+    "package": "pillow",
+    "version": "12.3.0",
+    "files_restored": 112,
+    "existing_native_binaries_modified": false,
+    "missing_native_files_restored": 6,
+    "existing_binary_mismatches": [],
+    "official_sha256": "a2b55dd6b2a4c4b7d87ffa56bdb33fdc5fdb9a462173861a7bc097f17d91cb09"
+  },
+  {
+    "package": "protobuf",
+    "version": "7.36.2",
+    "files_restored": 58,
+    "existing_native_binaries_modified": false,
+    "missing_native_files_restored": 0,
+    "existing_binary_mismatches": [],
+    "official_sha256": "a300819d441e078a5608c0d3c709796bb548136058fda017ae51d425b44fd353"
+  },
+  {
+    "package": "grpcio",
+    "version": "1.85.1",
+    "files_restored": 60,
+    "existing_native_binaries_modified": false,
+    "missing_native_files_restored": 0,
+    "existing_binary_mismatches": [],
+    "official_sha256": "eaad7e6aa9ac3aded4f6bc86a18bf2cff3de356f972bf32a5558df9788085b85"
+  }
+]

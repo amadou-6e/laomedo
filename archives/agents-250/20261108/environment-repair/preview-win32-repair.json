@@ -1,0 +1,9 @@
+{
+  "package": "pywin32",
+  "version": "312",
+  "files_restored": 587,
+  "missing_native_files_restored": 46,
+  "existing_native_binaries_modified": false,
+  "existing_binary_mismatches": [],
+  "official_sha256": "b457f6d628a47e8a7346ce22acb7e1a46a4a78b52e1d17e1af56871bd19a93bc"
+}

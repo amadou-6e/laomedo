@@ -2,9 +2,39 @@
   "head": "620ad13a15b07704f4a11280ed206cd2345c88f7",
   "files": [
     {
+      "path": "environment-repair/cold-start-saved-views.json",
+      "sha256": "c7940d55a9f58962fb24cdaa2d88330ed4402e9c485aaf48704f0e17215963ef",
+      "bytes": 774
+    },
+    {
+      "path": "environment-repair/exact-existing-wheel-versions.txt",
+      "sha256": "31764f3e4c7961c727a8c80bd502164e8c538a24b3d4eaa5235e7ee523417187",
+      "bytes": 6940
+    },
+    {
+      "path": "environment-repair/preview-native-wrapper-repairs.json",
+      "sha256": "6301ec79e1cedb9cc0cf70b735c5fee45b853754ecdf5965d6ef14067d1a7fb0",
+      "bytes": 3435
+    },
+    {
+      "path": "environment-repair/preview-pandas-source-repair.json",
+      "sha256": "2d0644af193b96703bd605ad6a55238426ee37bcbd5e9796eecd588c9de0040d",
+      "bytes": 264
+    },
+    {
+      "path": "environment-repair/preview-repair-verified-summary.json",
+      "sha256": "cf4ad03c2ac1e20e25d683ccb538fdbd53cc2e45689c7b7700c8eae622b81bc6",
+      "bytes": 1536
+    },
+    {
+      "path": "environment-repair/preview-win32-repair.json",
+      "sha256": "b31d2c0d4e84b3ebc9716f5042420428d5b247e0e5ce6b99c30b70f40ca53871",
+      "bytes": 289
+    },
+    {
       "path": "README.md",
-      "sha256": "d12e491135c5a19d7716d973ef199b69ab5beca945d9349b459bf8ecefe3f132",
-      "bytes": 2538
+      "sha256": "a284a9e3bda7297395ebe022d5f69161ffe3faea6971610fade2d540a72bd030",
+      "bytes": 3859
     },
     {
       "path": "results/check-summary.json",
@@ -105,6 +135,51 @@
       "path": "screenshots/opencode-stable-graph.png",
       "sha256": "bfd3e983aabfdf6f79d99d55fd3f70aa5324a79f5d7f6feb112b1b63162016bd",
       "bytes": 108775
+    },
+    {
+      "path": "screenshots/post-repair/claude-stable-activity.png",
+      "sha256": "03d2819caee64d7c5f9d27f7ec110e4343575126809c8ddb8486720a83295a98",
+      "bytes": 125979
+    },
+    {
+      "path": "screenshots/post-repair/claude-stable-advanced.png",
+      "sha256": "8cf821a9514a649b7f14f883a3cfee7264664e20c5367d0d7a6ea11aea8b2e14",
+      "bytes": 191704
+    },
+    {
+      "path": "screenshots/post-repair/claude-stable-graph.png",
+      "sha256": "41601f52ec10ff2bb56605dbc7d7a99413c90ed4ed33c8238023d63f771111a2",
+      "bytes": 114861
+    },
+    {
+      "path": "screenshots/post-repair/codex-stable-activity.png",
+      "sha256": "06e4ef264091ad283f80ed35575d4cd4a23b579492874b0b96d1843cadbe53e6",
+      "bytes": 115661
+    },
+    {
+      "path": "screenshots/post-repair/codex-stable-advanced.png",
+      "sha256": "0ebbd0f38a1b40bada668cbaa2e422828bc484a75e2548693d899bc61a9643ad",
+      "bytes": 190268
+    },
+    {
+      "path": "screenshots/post-repair/codex-stable-graph.png",
+      "sha256": "6f24707ff14ec8f5e269d514e02a4660e746ae824622dfb60d3b97df4df9b78e",
+      "bytes": 116562
+    },
+    {
+      "path": "screenshots/post-repair/opencode-stable-activity.png",
+      "sha256": "0a6966f386b4558548947b97d4b35a0035bd45b38905ab11e45b65993f1e3815",
+      "bytes": 114442
+    },
+    {
+      "path": "screenshots/post-repair/opencode-stable-advanced.png",
+      "sha256": "210aa30687540561b81a6acf08bfd136902b919d14457c72e5535f65ac00fb5d",
+      "bytes": 185447
+    },
+    {
+      "path": "screenshots/post-repair/opencode-stable-graph.png",
+      "sha256": "8b817bb6138828ea0328ba133f477e39c73285a56dd80df0f61d20c06beab66a",
+      "bytes": 116761
     }
   ],
   "text_normalization": {

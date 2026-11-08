@@ -1,0 +1,8 @@
+{
+  "package": "pandas",
+  "version": "2.3.3",
+  "files_restored": 1511,
+  "existing_native_binaries_modified": false,
+  "existing_native_binary_mismatches": [],
+  "official_wheel_sha256": "a16dcec078a01eeef8ee61bf64074b4e524a2a3f4b3be9326420cabe59c4778b"
+}
