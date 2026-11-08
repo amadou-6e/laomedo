@@ -30,6 +30,9 @@
   current requirement. Identify that requirement and the condition for retiring
   the test. Persisted operational data recovery requires its own scope decision;
   it is not equivalent to preserving personal graph exports.
+- When retiring a compatibility tool, remove its executable entry points and
+  documentation too. Keep tests for any current file-writing or routing behavior
+  that remains supported.
 - Keep regression tests that exercise current behavior and architecture rules
   that still apply. In mixed tests, remove obsolete setup and assertions while
   preserving meaningful coverage of the current contract. Do not pin historical

@@ -1,7 +1,7 @@
 """Current Shared symbol owners and explicit historical-evidence integrity."""
 
 from support.paths import repository_root
-from test_shared.test_migration.utils import load_migration
+from test_shared.test_migration.utils import load_owner_maps
 
 import ast
 import importlib
@@ -12,7 +12,7 @@ from unittest.mock import patch
 from support.retained import load_retained_shared, refuse_private_git_api
 
 ROOT = repository_root()
-migration = load_migration()
+migration = load_owner_maps()
 
 
 class SharedMigrationTests(unittest.TestCase):

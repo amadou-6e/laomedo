@@ -487,6 +487,23 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(run.data["run_id"], submission.data["run_reference"]["run_id"])
         self.assertEqual(http.call_count, 1)
 
+    def test_concrete_codex_adapter_refuses_subclass_before_provider_contact(self):
+        adapter = type("UnsupportedAdapter", (module.LaomedoCodexAgent,), {})
+        node = adapter()
+        with patch.object(shared_module._HTTP, "open") as http:
+            for action in (
+                node._pre_run_setup,
+                node._bridge_base,
+                node._prepare,
+                lambda: node._model_catalog({}),
+                lambda: node._http("http://localhost", {}, "POST"),
+            ):
+                with self.assertRaisesRegex(
+                    ValueError, "agent_component_migration_required"
+                ):
+                    action()
+            http.assert_not_called()
+
     async def test_finished_unknown_stops_fresh_polling_without_success(self):
         node = component(request_id=RUN)
         replies = [
