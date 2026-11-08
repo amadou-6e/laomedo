@@ -25,7 +25,7 @@ from laomedo.work_graph.runs.errors import ExternalOutcomeUnknown
 from laomedo.work_graph.runs.errors import LaunchError
 from laomedo.work_graph.runs.store import WorkflowRunStore
 
-CORPUS = Path(__file__).resolve().parents[1] / "experiments" / "exp16" / "corpus.json"
+CORPUS = Path(__file__).parent / "test_work_graph" / "fixtures" / "corpus.json"
 REPO = "verify/exp16"
 WORK = "github:S-20"
 TIME = datetime(2026, 10, 5, 10, 0, tzinfo=timezone.utc)

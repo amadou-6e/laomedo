@@ -21,3 +21,6 @@ Copied wire fixtures have canonical imports and synchronized source/cache hashes
 They are editable internal controls; immutable originals and their exact hashes
 remain on `exp`. The offline migrator still rejects an inconsistent input code
 hash instead of guessing how to repair a historical execution.
+
+`data/controller.json` is a saved-wire migration input, not a current controller
+template. The current builder uses `components/laomedo/bounded_controller.py`.
