@@ -1,5 +1,7 @@
 """Recovered internal controls; no live Docker or model acceptance is inferred."""
 
+from laomedo.agents.agents.base.models import CommandRequest
+
 from importlib.util import find_spec
 from pathlib import Path
 import tempfile
@@ -9,7 +11,8 @@ import unittest
 from unittest.mock import Mock, patch
 from laomedo.agents.errors import RunnerError
 from laomedo.agents.agents.opencode.agent import OpenCodeAgent
-from laomedo.agents.agents.opencode.boundary import CommandBroker, IsolatedOpenCode
+from laomedo.agents.agents.opencode.executor import OpenCodeCommandExecutor
+from laomedo.agents.agents.opencode.runtime import OpenCodeAgentRuntime
 
 
 class ProviderRecoveryTests(unittest.TestCase):
@@ -73,7 +76,7 @@ class ProviderRecoveryTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            broker = CommandBroker(
+            broker = OpenCodeCommandExecutor(
                 root, root, root, root, docker_endpoint="unix:///internal.sock"
             )
             self.addCleanup(broker.close)
@@ -81,8 +84,13 @@ class ProviderRecoveryTests(unittest.TestCase):
                 client.return_value.__enter__.return_value.jobs.run.side_effect = (
                     OutputLimitError("internal limit")
                 )
-                self.assertEqual(broker.execute("pwd")["exit_code"], 125)
-            backend = IsolatedOpenCode.__new__(IsolatedOpenCode)
+                self.assertEqual(
+                    broker.execute(CommandRequest(command="pwd")).model_dump(
+                        exclude={"cleanup"}
+                    )["exit_code"],
+                    125,
+                )
+            backend = OpenCodeAgentRuntime.__new__(OpenCodeAgentRuntime)
             backend.broker, backend.drain_error = broker, None
             with self.assertRaisesRegex(
                 RunnerError, "workspace_command_output_too_large"

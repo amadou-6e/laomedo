@@ -35,14 +35,16 @@ with the Python object name.
 
 ## Workspace command boundary
 
-`CommandService` in `container.py` owns admitted local commands and host-mediated
-operations. Its methods keep execution, mediation and cleanup distinct:
+`ClaudeCommandExecutor` in `executor.py` owns admitted local commands. Its
+`ClaudeCommandTransport` in `http/commands.py` owns authenticated HTTP adaptation
+and host mediation. `ClaudeRuntimePolicy` in `policy.py` owns launch/lease policy;
+`ClaudeAgentRuntime` in `runtime.py` owns each exact turn session.
 
 | Method | Contract |
 | --- | --- |
-| `execute(value)` | Run an admitted workspace command under the turn's policy and deadline. |
-| `mediate(value)` | Forward one scoped operation directly to the host mediator, bypassing proxies and refusing redirects. |
-| `close()` | Stop owned command jobs and confirm their journal cleanup before releasing the workspace. |
+| `ClaudeCommandExecutor.execute(request)` | Run a typed workspace command under the turn's policy and deadline; return native output and scoped cleanup evidence. |
+| `ClaudeCommandTransport.mediate(value)` | Forward one scoped operation directly to the host mediator, bypassing proxies and refusing redirects. |
+| `ClaudeCommandExecutor.shutdown()` | Stop owned command jobs and confirm their journal cleanup before releasing the workspace. |
 
 An authoritative HTTP refusal remains a refusal. Redirects, server failures and
 transport interruptions leave mediation unconfirmed and stop further commands;

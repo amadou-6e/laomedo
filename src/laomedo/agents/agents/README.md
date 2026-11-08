@@ -40,6 +40,27 @@ implies another. An unsupported check is unknown/unsupported, never success. No
 interchangeable check coordinator exists, so no generic health-check ABC is added.
 `AcpSession` remains the shared wire implementation without a redundant ABC.
 
+`start` is a host-only class factory returning `RuntimeLaunch`: an opaque owned
+runtime plus its initial observation. `shutdown` is asynchronous so exact native
+session cleanup can finish before a confirmed result. OpenCode construction only
+prepares an environment; launch becomes observed when its session is allocated.
+Claude owns a turn session, with ACP readiness and native identity still owned by
+the composed Agent communication path. Unknown observations do not certify either.
+
+The concrete runtime/executor/credential roles live in each provider's
+`runtime.py`, `executor.py` (Codex: `split/executor.py`) and `credentials.py`.
+Claude's `policy.py` constructs admitted Docker specifications and lease policy;
+its HTTP transport and OpenCode's MCP broker only adapt authenticated requests to
+their executors. Model discovery lives in provider `catalog.py`: Codex/OpenCode
+retain 30-second caches, Claude retains its 300-second cache and shared in-flight
+refresh. Discovery never prompts a model.
+
+Credential bindings contain public metadata; explicit host-only material access
+keeps tokens excluded from representations and serialization. `release` does not
+revoke borrowed credentials. Unsupported requested validity/deadline constraints
+fail with `credential_constraints_unsupported` before refresh rather than claiming
+they were enforced. Existing native refresh owners and credential paths remain.
+
 Existing public payloads, persisted schemas, stable failure codes, native session
 IDs and host authorization are preserved at explicit adapters. Native user-story
 acceptance covers Fresh, Resume, status, cancellation, model refresh, Activity and

@@ -1434,6 +1434,11 @@
     "description": "This node inherits an older provider component. It was stopped before sending a request because its provider routing could be incorrect.",
     "recovery": "Replace the node with its current provider component, or migrate a copy of the saved flow with the module migration tool before loading it. Custom Agent subclasses must extend the shared AgentComponent."
   },
+  "credential_constraints_unsupported": {
+    "title": "Credential requirements are unsupported",
+    "description": "The selected provider cannot establish the requested credential validity or preparation deadline through its existing native credential source.",
+    "recovery": "Use the supported provider credential policy. No credential refresh or model task was started by this refusal."
+  },
   "discovered_skill_required": {
     "title": "Choose a Skill from this source",
     "description": "No discovered Skill has been selected from the current source.",

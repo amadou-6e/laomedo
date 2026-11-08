@@ -1,5 +1,7 @@
 """Provider-owned zero-turn model discovery and its native freshness policy."""
 
+import asyncio
+from laomedo.agents.agents.base.base import BaseAgentRuntime
 import shutil
 import threading
 import time
@@ -60,7 +62,11 @@ class OpenCodeModelCatalog(BaseModelCatalog):
                 try:
                     if backend is not None:
                         try:
-                            backend.close()
+                            (
+                                asyncio.run(backend.shutdown())
+                                if isinstance(backend, BaseAgentRuntime)
+                                else backend.close()
+                            )
                         except RunnerError as cleanup:
                             raise RunnerError(
                                 cleanup.code, observation=primary or cleanup.observation

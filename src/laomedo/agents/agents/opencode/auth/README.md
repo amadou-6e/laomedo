@@ -6,7 +6,7 @@ does not become generic host storage simply because trusted host startup calls i
 urllib hook. Login data remains private and excluded from graphs and diagnostics.
 `console_provider()` selects the active native Console account from its local
 read-only database and validates the account's authenticated provider routing.
-`IsolatedOpenCode` uses this loader by default. Trusted host composition can supply
+`OpenCodeAgentRuntime` uses this loader by default. Trusted host composition can supply
 a different loader with a dedicated runner profile; graph input cannot choose it.
 
 The current real graph validation used an existing Go API login through that

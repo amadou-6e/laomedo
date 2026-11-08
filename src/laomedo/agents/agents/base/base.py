@@ -10,6 +10,7 @@ from laomedo.agents.agents.base.models import (
     CredentialRequest,
     CredentialBinding,
     ModelCatalogSnapshot,
+    RuntimeLaunch,
 )
 from laomedo.agents.activity.models import ActivityProjection
 
@@ -17,16 +18,26 @@ from laomedo.agents.activity.models import ActivityProjection
 class BaseAgentRuntime(ABC):
     """Own exact process/session lifecycle; ACP communication remains composed."""
 
+    @classmethod
+    def start(cls, *args, **kwargs) -> RuntimeLaunch:
+        """Construct the provider's configured scope and return an opaque owned handle.
+
+        Only trusted host factories supply constructor arguments. Existing native
+        startup/admission failures propagate; launch does not imply ACP readiness.
+        """
+        runtime = cls(*args, **kwargs)
+        return RuntimeLaunch(runtime=runtime, observation=runtime.observe())
+
     @abstractmethod
-    def start(self) -> RuntimeObservation:
-        """Allocate the configured native scope; report readiness independently of launch."""
+    def observe(self) -> RuntimeObservation:
+        """Read known process and native-session facts without launching a turn."""
 
     @abstractmethod
     def request_cancel(self) -> CancellationObservation:
         """Request interruption without claiming native acknowledgement or cleanup."""
 
     @abstractmethod
-    def shutdown(self) -> CleanupObservation:
+    async def shutdown(self) -> CleanupObservation:
         """Close owned resources or preserve provider's fail-closed cleanup error."""
 
 
@@ -68,6 +79,8 @@ class BaseModelCatalog(ABC):
 
 class BaseActivityProjector(ABC):
     """Interpret one provider's observations into canonical shared Activity values."""
+
+    usage_first_payload = False
 
     @abstractmethod
     def project(self, events, *, root_thread=None, model=None) -> ActivityProjection:

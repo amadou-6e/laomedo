@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 from laomedo.agents.agents.codex.catalog import CodexModelCatalog
+from laomedo.agents.agents.codex.credentials import CodexCredentialProvider
 
 from pathlib import Path
 from uuid import uuid4
@@ -41,7 +42,8 @@ from laomedo.agents.agents.codex.utils import _split_profile
 from laomedo.agents.agents.codex.controller.settings import Settings
 from laomedo.agents.interface.output.utils import evaluate
 from laomedo.agents.errors import RunnerError
-from laomedo.agents.agents.codex.controller.service import CodexController
+from laomedo.agents.agents.codex.runtime import CodexAgentRuntime
+from laomedo.agents.agents.base.base import BaseAgentRuntime
 from laomedo.agents.workspaces.utils import _hash_tree
 from laomedo.agents.agents.base.utils import _id
 from laomedo.agents.agents.base.utils import _json
@@ -61,6 +63,9 @@ from laomedo.agents.agents.base.models import RuntimeBinding
 
 
 class CodexAgent(BaseAgent):
+    """Own Codex launch policy, native bindings and durable run finalization."""
+
+    credential_type = CodexCredentialProvider
     catalog_type = CodexModelCatalog
 
     provider = "codex"
@@ -71,7 +76,7 @@ class CodexAgent(BaseAgent):
         skill_store: Path,
         source_workspace: Path,
         *,
-        transport=CodexController,
+        transport=CodexAgentRuntime,
         check_docker: bool = True,
         supervise_containers: bool | None = None,
         lease_service: Path | None = None,
@@ -86,6 +91,7 @@ class CodexAgent(BaseAgent):
         image_id: str | None = None,
         artifact_sources=None,
     ):
+        """Bind admitted configuration and owned state; provider startup errors propagate before use."""
         self.image = GIT_IMAGE if git_workspace else IMAGE
         self.image_id = GIT_IMAGE_ID if git_workspace else IMAGE_ID
         if image_id is not None:
@@ -99,7 +105,7 @@ class CodexAgent(BaseAgent):
             # Trusted host startup configuration, never a per-run API input.
             self.image_id = image_id
         self.supervise_containers = (
-            transport is CodexController and not split_executor
+            transport is CodexAgentRuntime and not split_executor
             if supervise_containers is None
             else supervise_containers
         )
@@ -151,7 +157,7 @@ class CodexAgent(BaseAgent):
                 "model_providers.openai_chatgpt_plan.supports_websockets=false",
             )
         self.profile = _split_profile(self.state) if split_executor else VOLUME
-        if split_executor and transport is not CodexController:
+        if split_executor and transport is not CodexAgentRuntime:
             raise RunnerError("split_executor_requires_native_transport")
         if (
             self.split_provider_config or split_access_token is not None
@@ -180,9 +186,11 @@ class CodexAgent(BaseAgent):
 
     @property
     def supports_mediated_github(self):
+        """Declare support only for this Agent mode that actually owns the supervised mediated path."""
         return self.supervise_containers and not self.split_executor
 
     def runtime_binding(self):
+        """Return existing nonsecret provider/image/profile metadata for retained run identity."""
         return RuntimeBinding(
             provider=self.provider,
             profile=self.profile,
@@ -203,6 +211,7 @@ class CodexAgent(BaseAgent):
         )
 
     def recover_interrupted(self, record):
+        """Reconcile only recorded owned resources after restart; do not replay the model request."""
         owner = record.get("container_ownership") or {}
         if owner.get("supervised"):
             verified, detail = cleanup_exact(
@@ -232,6 +241,7 @@ class CodexAgent(BaseAgent):
         effort: str,
         activity_attempt_id: str | None = None,
     ) -> dict:
+        """Admit an existing session/workspace binding before continuing it; failures never create a fresh session."""
         record = self.status(run_id)
         if (
             self.publication_controller is not None
@@ -285,7 +295,7 @@ class CodexAgent(BaseAgent):
         if self.auth:
             if record.get("runner_instance_id") != self.instance_id:
                 raise RunnerError("resume_after_runner_restart_forbidden")
-            _token, current = self.auth.access_token()
+            _token, current = self.credentials.borrow().native_pair()
             prior = record.get("credential") or {}
             if any(
                 current.get(key) != prior.get(key)
@@ -440,6 +450,7 @@ class CodexAgent(BaseAgent):
         branch: str | None = None,
         base_branch: str = "main",
     ):
+        """Launch the configured native runtime with exact admitted mounts, credential transfer and receipt identity."""
         workspace, canonical, store_mount = (
             root / name for name in ("workspace", "canonical", "store")
         )
@@ -476,7 +487,7 @@ class CodexAgent(BaseAgent):
         from laomedo.agents.agents.codex.controller.models import SplitPolicy
 
         if isinstance(self.transport, type) and issubclass(
-            self.transport, CodexController
+            self.transport, CodexAgentRuntime
         ):
             split = (
                 SplitPolicy(
@@ -490,7 +501,7 @@ class CodexAgent(BaseAgent):
                 if self.split_executor
                 else None
             )
-            return self.transport(
+            return self.transport.start(
                 launch,
                 root,
                 env=self.docker_environment,
@@ -502,16 +513,17 @@ class CodexAgent(BaseAgent):
                     if capability is not None
                     else ()
                 ),
-            )
+            ).runtime
         return self.transport(launch, root)
 
     async def _model_catalog(self):
+        """Read native model metadata under a temporary bounded scope and reconcile cleanup without inference."""
         root = self.state / "catalog" / str(uuid4())
         server = None
         try:
             for name in ("workspace", "canonical", "store"):
                 (root / name).mkdir(parents=True)
-            token = self.auth.access_token()[0] if self.auth else None
+            token = self.credentials.borrow().native_pair()[0] if self.auth else None
             server = self._open_server(
                 root,
                 access_token=token,
@@ -522,7 +534,11 @@ class CodexAgent(BaseAgent):
         finally:
             try:
                 if server is not None:
-                    await server.close()
+                    await (
+                        server.shutdown()
+                        if isinstance(server, BaseAgentRuntime)
+                        else server.close()
+                    )
             finally:
                 if not self._pending_receipts(root):
                     shutil.rmtree(root, ignore_errors=True)
@@ -544,7 +560,7 @@ class CodexAgent(BaseAgent):
         (root / "store/sentinel.txt").write_text("STORE-ORIGINAL", encoding="utf-8")
         server = None
         try:
-            token = self.auth.access_token()[0] if self.auth else None
+            token = self.credentials.borrow().native_pair()[0] if self.auth else None
             server = self._open_server(
                 root,
                 access_token=token,
@@ -589,7 +605,11 @@ class CodexAgent(BaseAgent):
             }
         finally:
             if server is not None:
-                await server.close()
+                await (
+                    server.shutdown()
+                    if isinstance(server, BaseAgentRuntime)
+                    else server.close()
+                )
 
     def _execute(
         self,
@@ -599,6 +619,7 @@ class CodexAgent(BaseAgent):
         resume: bool,
         activity_attempt_id: str | None = None,
     ) -> dict:
+        """Own one admitted attempt and its cancellation, snapshot, evidence and exact cleanup finalization."""
         return asyncio.run(
             self._execute_acp(
                 run_id, task, resume=resume, activity_attempt_id=activity_attempt_id
@@ -613,6 +634,7 @@ class CodexAgent(BaseAgent):
         resume: bool,
         activity_attempt_id: str | None = None,
     ) -> dict:
+        """Coordinate the admitted attempt through shared ACP while retaining provider-specific policy and evidence."""
         if activity_attempt_id is not None:
             if not isinstance(activity_attempt_id, str):
                 raise RunnerError("invalid_activity_attempt_id")
@@ -734,7 +756,7 @@ class CodexAgent(BaseAgent):
                     raise RunnerError("mediated_capability_unavailable")
                 mediator_url, mediator_instance = self._mediator_route()
             access_token, auth_summary = (
-                self.auth.access_token() if self.auth else (None, None)
+                self.credentials.borrow().native_pair() if self.auth else (None, None)
             )
             if resume and self.auth:
                 prior = record.get("credential") or {}
@@ -858,6 +880,7 @@ class CodexAgent(BaseAgent):
                 }
 
                 def still_authorized():
+                    """Recheck the existing host grant/account binding while native work remains active."""
                     try:
                         current = self.auth.active()
                         selected = self.auth.summary(current)
@@ -941,6 +964,7 @@ class CodexAgent(BaseAgent):
                 commands_before = _command_summary(server.events, turn_id)
 
                 def effect_event(event):
+                    """Retain the scoped effect observation without treating a model claim as host authorization."""
                     if event.get("method") not in {"item/started", "item/completed"}:
                         return False
                     item = event.get("params", {}).get("item") or {}
@@ -1090,7 +1114,11 @@ class CodexAgent(BaseAgent):
                         record["precheck"]["installed"] = record["precheck"][
                             "installed"
                         ] or bool(getattr(server, "verified_precheck_calls", set()))
-                    await server.close()
+                    await (
+                        server.shutdown()
+                        if isinstance(server, BaseAgentRuntime)
+                        else server.close()
+                    )
                     if record is not None:
                         record["controller_cleanup"] = "confirmed"
                         if not self.supervise_containers and getattr(

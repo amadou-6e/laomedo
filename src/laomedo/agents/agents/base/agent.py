@@ -74,6 +74,7 @@ class BaseAgent(ABC):
         publication_controller=None,
         artifact_sources=None,
     ):
+        """Bind admitted configuration and owned state; provider startup errors propagate before use."""
         self.state = _private(state)
         self.store = SkillStore(skill_store)
         self.source = source_workspace.expanduser().resolve()
@@ -124,6 +125,14 @@ class BaseAgent(ABC):
         self.cancel_flags = {}
 
     @property
+    def credentials(self):
+        """Compose the declared native credential provider without reading secrets."""
+        with ROLE_INIT_LOCK:
+            if not hasattr(self, "_credential_service"):
+                self._credential_service = self.credential_type(self)
+            return self._credential_service
+
+    @property
     def catalog(self):
         """Lazily compose the declared provider catalog without native effects."""
         # Construction and tests may query metadata before provider startup ends.
@@ -165,6 +174,20 @@ class BaseAgent(ABC):
     def resume(self, run_id, task, **binding) -> dict:
         """Validate the provider binding before resuming its existing execution."""
 
+    def readiness(self):
+        """Observe the provider's scoped preflight without conflating health/isolation."""
+        from laomedo.agents.agents.base.models import ReadinessObservation
+        from laomedo.agents.registry import AgentProviderRegistry
+
+        payload = self.preflight()
+        status = payload.get("status")
+        return ReadinessObservation(
+            provider=self.provider,
+            ready=True if status == "ready" else False if status == "blocked" else None,
+            scope=AgentProviderRegistry.descriptor(self.provider).readiness_scope,
+            payload=payload,
+        )
+
     def editor_model_catalog(self):
         """Provider-owned refresh semantics for an explicit editor discovery request."""
         return self.model_catalog()
@@ -175,6 +198,7 @@ class BaseAgent(ABC):
         return {}
 
     def status(self, run_id: str) -> dict:
+        """Read an admitted retained run record without dispatching or repeating native work."""
         return _read(self._run_dir(run_id) / "record.json")
 
     def lookup_request(self, request_id: str) -> dict:
@@ -207,6 +231,7 @@ class BaseAgent(ABC):
             }
 
     def cancel(self, run_id: str) -> dict:
+        """Request cancellation of the selected existing run; acknowledgement does not establish native cleanup."""
         if self.publication_controller is not None:
             self.publication_controller.cancel(run_id)
         with self.control_lock:
@@ -231,6 +256,7 @@ class BaseAgent(ABC):
             return record
 
     def publish(self, run_id: str) -> dict:
+        """Delegate authorized publication to the configured host controller; run identity is not authority."""
         if self.publication_controller is None:
             raise RunnerError("publication_controller_unconfigured")
         try:
@@ -244,6 +270,7 @@ class BaseAgent(ABC):
         }
 
     def start(self, request: dict) -> dict:
+        """Admit and prepare a fresh request, then execute its reserved native attempt without automatic replay."""
         record = self._prepare(request)
         try:
             self._mirror_host_login()
@@ -293,6 +320,7 @@ class BaseAgent(ABC):
             return record
 
     def select_artifacts(self, run_id, paths):
+        """Admit and project selected retained files under the existing run/artifact boundary."""
         if not isinstance(paths, list) or len(paths) > 32:
             raise ArtifactError("invalid_artifact_selection")
         record = self.status(run_id)
@@ -330,6 +358,7 @@ class BaseAgent(ABC):
         """Provider pre-dispatch authentication hook; neutral runners do nothing."""
 
     def _run_dir(self, run_id: str) -> Path:
+        """Resolve an admitted run identifier under this Agent state root; reject invalid identities."""
         return self.state / "runs" / _id(run_id)
 
     def _retain_attempt_failure(
@@ -376,6 +405,7 @@ class BaseAgent(ABC):
     def _reserve_turn(self) -> int:
         # Diagnostic sequence only; neither corrupt accounting nor a write failure
         # may become an authorization gate. Historical turn-ledger.json is untouched.
+        """Record the next native attempt counter without adding a verification-only authorization limit."""
         ledger = self.state / "attempt-count.json"
         count = getattr(self, "_observed_turns", 0)
         try:
@@ -401,6 +431,7 @@ class BaseAgent(ABC):
         return count + 1
 
     def _materialize(self, workspace: Path, ref: dict) -> dict:
+        """Create the admitted run-local workspace and pinned skill view; preserve existing cleanup failures."""
         if not isinstance(ref, dict) or not all(
             ref.get(k) for k in ("skill_id", "revision_id", "tree_hash")
         ):
@@ -449,6 +480,7 @@ class BaseAgent(ABC):
     def _prepare(
         self, request: dict, *, client_request_id=None, request_hash=None
     ) -> dict:
+        """Validate the request and persist its prepared identity/workspace binding before native dispatch."""
         if not isinstance(request, dict):
             raise RunnerError("invalid_request")
         task = request.get("task")
@@ -603,6 +635,7 @@ class BaseAgent(ABC):
         return record
 
     def _async_worker(self, run_id, task, gate):
+        """Execute a reserved request on its owned worker and retain terminal or uncertain outcomes."""
         gate.wait()
         try:
             self._mirror_host_login()
@@ -629,6 +662,7 @@ class BaseAgent(ABC):
                     _json(self._run_dir(run_id) / "record.json", record)
 
     def _artifact_source(self, provider, run_id):
+        """Resolve only host-configured provider artifact state; graph input cannot choose host paths."""
         if provider == self.provider:
             return self._run_dir(run_id) / "post-run", self.status(run_id)
         state = self.artifact_sources.get(provider)
@@ -643,6 +677,7 @@ class BaseAgent(ABC):
         return run / "post-run", record
 
     def _handoff(self, value):
+        """Project the admitted host handoff without broadening the run or publication authority."""
         if value is None:
             return None
         if not isinstance(value, dict) or set(value) != {
@@ -715,6 +750,7 @@ class BaseAgent(ABC):
     def _mediator_route(self) -> tuple[str, str]:
         # host.docker.internal -> host loopback is checked by the Windows
         # Docker Desktop probe. Other network layouts need their own check.
+        """Resolve the configured host mediation endpoint/capability for the selected admitted run."""
         if os.name != "nt" or self.mediator_state is None:
             raise RunnerError("mediator_container_route_unverified")
         try:

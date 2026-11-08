@@ -106,8 +106,8 @@ class SettingsContractTests(unittest.TestCase):
 
     def test_flags_retain_exact_one_comparison_at_consumers(self):
         consumers = {
-            "agents/agents/codex/controller/service.py": {"otel", "multi_agent"},
-            "agents/agents/claude/agent.py": {"mirror_host_login"},
+            "agents/agents/codex/runtime.py": {"otel", "multi_agent"},
+            "agents/agents/claude/credentials.py": {"mirror_host_login"},
             "agents/agents/opencode/activity/telemetry.py": {"otel"},
         }
         for relative, fields in consumers.items():
@@ -171,7 +171,7 @@ class SettingsContractTests(unittest.TestCase):
         protected = {
             "host/runner/utils.py": "os.environ.items()",
             "git/command.py": "os.environ.items()",
-            "agents/agents/claude/container.py": "env = dict(environment or {})",
+            "agents/agents/claude/policy.py": "env = dict(environment or {})",
             "agents/agents/claude/auth/utils.py": "os.environ if environment is None",
             "skills/sources/repository.py": "os.environ.items()",
             "agents/agents/codex/agent.py": "ConnectionSettings.environment_snapshot(None)",

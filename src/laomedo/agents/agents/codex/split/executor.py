@@ -4,19 +4,29 @@ import hashlib
 import re
 import secrets
 import threading
+import time
 from pathlib import Path
 from uuid import uuid4
 
 from laomedo.agents.agents.codex.settings import CLI_VERSION
 from laomedo.agents.errors import RunnerError
+from laomedo.agents.agents.base.base import BaseCommandExecutor
+from laomedo.agents.agents.base.models import (
+    CommandRequest,
+    CommandResult,
+    CleanupObservation,
+    ProcessHealthObservation,
+    IsolationObservation,
+)
 
 
-class Executor:
+class CodexCommandExecutor(BaseCommandExecutor):
     """Own one exact-ID executor, its readiness checks and bounded stream drain."""
 
     def __init__(
         self, launch, evidence: Path, *, environment, lifetime_seconds, receipt_path
     ):
+        """Bind admitted configuration and owned state; provider startup errors propagate before use."""
         from py_docker import Client
         from py_docker.containers.models import ContainerSpec, Mount
         from py_docker.sessions.models import ContainerSession
@@ -81,16 +91,12 @@ class Executor:
                 raise RunnerError("executor_lost")
         except RuntimeError:
             raise RunnerError("executor_lost") from None
-
-    def exec_probe(self, command: list[str]):
-        """Run a bounded readiness probe only inside the credential-free executor."""
-        from py_docker.streams.models import StreamLimits
-
-        return self.client.execution.run(
-            self.session.identity, command, StreamLimits(seconds=15, max_bytes=65536)
+        return ProcessHealthObservation(
+            alive=True, scope="codex_executor_session_and_reader"
         )
 
     def assert_controller_isolated(self, controller) -> None:
+        """Verify the existing split-controller gates and image identities; a passed handshake alone is insufficient."""
         if self._controller_listeners(controller):
             raise RunnerError("controller_listener_gate_failed")
         if self._exec(controller.identity, ["codex", "--version"]) != CLI_VERSION:
@@ -101,6 +107,9 @@ class Executor:
             container = self.client.containers.inspect(session.identity)
             if container is None or container.attrs["Image"] != self.image:
                 raise RunnerError("running_image_digest_changed")
+        return IsolationObservation(
+            verified=True, scope="codex_split_controller_and_executor"
+        )
 
     def close(self) -> None:
         """Keep an unresolved executor receipt and report cleanup uncertainty."""
@@ -117,6 +126,36 @@ class Executor:
             raise RunnerError("executor_termination_unverified") from None
         finally:
             self.client.close()
+
+    def execute(self, request: CommandRequest) -> CommandResult:
+        """Execute once in the owned credential-free container; never retry timeout."""
+        from py_docker.streams.models import StreamLimits
+
+        seconds = 15.0
+        if request.deadline is not None:
+            seconds = min(seconds, request.deadline - time.monotonic())
+            if seconds <= 0:
+                return CommandResult(
+                    exit_code=124,
+                    stderr="worker_timeout",
+                    cleanup=CleanupObservation(confirmed=True, scope="no_exec_started"),
+                )
+        result = self.client.execution.run(
+            self.session.identity,
+            request.argv if request.argv is not None else ["sh", "-c", request.command],
+            StreamLimits(seconds=seconds, max_bytes=65536),
+        )
+        return CommandResult(
+            exit_code=result.exit_code,
+            stdout=result.stdout.decode("utf-8", errors="replace"),
+            stderr=result.stderr.decode("utf-8", errors="replace"),
+            cleanup=CleanupObservation(confirmed=True, scope="exec_process_only"),
+        )
+
+    def shutdown(self) -> CleanupObservation:
+        """Reconcile the executor session and reader before confirming their closure."""
+        self.close()
+        return CleanupObservation(confirmed=True, scope="codex_executor_and_reader")
 
     def _exec(self, identity, command):
         """Execute a bounded policy probe through the selected owned session."""

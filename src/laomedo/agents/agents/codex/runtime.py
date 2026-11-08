@@ -12,10 +12,17 @@ from laomedo.agents.agents.codex.settings import Settings as CodexSettings
 from laomedo.agents.agents.codex.controller.models import CodexLaunch, CodexTurn
 from laomedo.agents.agents.codex.controller.settings import Settings
 from laomedo.agents.errors import RunnerError
+from laomedo.agents.agents.base.base import BaseAgentRuntime
+from laomedo.agents.agents.base.models import (
+    RuntimeObservation,
+    CancellationObservation,
+    CleanupObservation,
+    CommandRequest,
+)
 from laomedo.agents.agents.base.utils import failure_observation
 
 
-class CodexController:
+class CodexAgentRuntime(BaseAgentRuntime):
     """Own a controller and optional executor without implementing another wire.
 
     Native events remain the authority for item identities and terminal status.
@@ -33,6 +40,7 @@ class CodexController:
         receipt_path=None,
         split=None,
     ):
+        """Bind admitted configuration and owned state; provider startup errors propagate before use."""
         from py_docker import Client
         from py_docker.connection.settings import ConnectionSettings
         from py_docker.sessions.models import ContainerSession
@@ -43,6 +51,8 @@ class CodexController:
         )
         self.container_name = launch.name
         self.session = self.acp = self.executor = self.telemetry = None
+        self._cancelled = None
+        self._protocol_ready = False
         self.events = []
         self.output_requirements = None
         self.active_thread_id = None
@@ -53,14 +63,17 @@ class CodexController:
         self.authorization_probe = None
         self.cleanup_confirmed = self.streams_closed = False
         self._closed = False
+        self._close_failure = None
         self.secret_redactions = tuple(value for value in secret_redactions if value)
         self.logs = []
         try:
             if split is not None:
-                from laomedo.agents.agents.codex.split.executor import Executor
+                from laomedo.agents.agents.codex.split.executor import (
+                    CodexCommandExecutor,
+                )
                 from laomedo.agents.agents.codex.split.models import SplitLaunch
 
-                self.executor = Executor(
+                self.executor = CodexCommandExecutor(
                     launch,
                     evidence,
                     environment=env,
@@ -185,11 +198,13 @@ class CodexController:
                     seconds=5,
                 )
                 if result.get("status") == "ready":
+                    self._protocol_ready = True
                     return
                 if result.get("status") != "pending":
                     break
                 await asyncio.sleep(0.2)
             raise RunnerError("executor_not_ready")
+        self._protocol_ready = True
 
     async def extension(self, method, params, *, seconds=30):
         """Invoke a named adapter contract; never forward arbitrary native RPC."""
@@ -255,6 +270,7 @@ class CodexController:
 
     async def prompt(self, text, *, skills, cancelled, seconds):
         """Use the common health/cancel loop and require raw native completion."""
+        self._cancelled = cancelled
         offset = len(self.events)
         failure = None
         response = None
@@ -281,6 +297,8 @@ class CodexController:
             )
         except RunnerError as exc:
             failure = exc.code
+        finally:
+            self._cancelled = None
         terminal = [
             event["params"]["turn"]
             for event in self.events[offset:]
@@ -361,7 +379,7 @@ class CodexController:
         if check not in commands:
             raise RunnerError("permission_preflight_failed")
         if self.executor:
-            return self.executor.exec_probe(commands[check]).exit_code
+            return self.executor.execute(CommandRequest(argv=commands[check])).exit_code
         result = await self.extension("laomedo/preflight", {"check": check})
         return result.get("exitCode")
 
@@ -369,6 +387,8 @@ class CodexController:
         """Remove exact owned resources before trusting stream or cleanup closure."""
         error = None
         if self._closed:
+            if getattr(self, "_close_failure", None) is not None:
+                raise self._close_failure
             return
         try:
             if self.acp is not None:
@@ -390,6 +410,7 @@ class CodexController:
                 or failure.observation,
             )
         self._closed = True
+        self._close_failure = error
         if error:
             raise error
 
@@ -428,6 +449,32 @@ class CodexController:
                 raise RunnerError("model_list_invalid_cursor")
             seen.add(cursor)
         raise RunnerError("model_list_page_limit")
+
+    def observe(self) -> RuntimeObservation:
+        """Report launch separately from the independently completed ACP handshake."""
+        return RuntimeObservation(
+            provider="codex",
+            launched=self.session is not None,
+            ready=getattr(self, "_protocol_ready", False) or None,
+            native_session=self.active_thread_id,
+        )
+
+    def request_cancel(self) -> CancellationObservation:
+        """Signal the owned prompt flag; acknowledgement remains native evidence."""
+        flag = getattr(self, "_cancelled", None)
+        if flag is not None:
+            flag.set()
+        return CancellationObservation(
+            requested=flag is not None,
+            confirmed=(
+                True if flag is not None and self.interrupt_acknowledged else None
+            ),
+        )
+
+    async def shutdown(self) -> CleanupObservation:
+        """Await the existing fail-closed exact cleanup without retrying execution."""
+        await self.close()
+        return CleanupObservation(confirmed=True, scope="codex_controller_and_executor")
 
     def _native_event(self, method, event):
         """Retain redacted original native events before ACP prompt returns."""

@@ -11,7 +11,10 @@ from laomedo.agents.activity.settings import Settings
 
 
 def install_activity_routes(app, authenticate, store=None):
+    """Register authenticated read-only Activity routes; every lookup remains owner and invocation scoped."""
+
     def configured():
+        """Open only the configured Activity store; missing configuration maps to a safe HTTP refusal."""
         path = Settings().database
         if store is None and not path:
             raise HTTPException(503, detail={"code": "agent_activity_not_configured"})
@@ -22,12 +25,14 @@ def install_activity_routes(app, authenticate, store=None):
         return store if store is not None else ActivityStore(path, read_only=True)
 
     def owner(user):
+        """Extract authenticated caller identity or refuse before reading retained Activity."""
         identity = getattr(user, "id", None)
         if identity is None:
             raise HTTPException(401)
         return str(identity)
 
     def response(body):
+        """Project the existing Activity schema with no-store and content-type protections."""
         return JSONResponse(
             {"schema_version": "laomedo.agent-activity.v1", **body},
             headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"},
@@ -39,6 +44,7 @@ def install_activity_routes(app, authenticate, store=None):
         execution: str | None = Query(None, max_length=200),
         user=Depends(authenticate),
     ):
+        """Read owner-scoped invocation summaries for the selected flow/execution without native dispatch."""
         identity = owner(user)
         result = await run_in_threadpool(
             configured().graph_runs, identity, flow, execution
@@ -47,11 +53,13 @@ def install_activity_routes(app, authenticate, store=None):
 
     @app.get("/api/v1/laomedo/agent-executions/{flow}/{node}/{run}")
     async def invocation(flow: str, node: str, run: str, user=Depends(authenticate)):
+        """Read one owner-scoped invocation and project its bounded retained observations."""
         from laomedo.agents.activity.projection import project
 
         identity = owner(user)
 
         def load():
+            """Read retained evidence and apply the selected owner-scoped projection without native execution."""
             store = configured()
             events = []
             after = 0
@@ -62,6 +70,7 @@ def install_activity_routes(app, authenticate, store=None):
                 if not page["has_more"] or len(events) >= 20000:
                     projection = project(
                         events,
+                        provider=page["run"].get("provider"),
                         root_thread=page["run"]["native_session"],
                         model=page["run"]["model"],
                     )
@@ -109,6 +118,7 @@ def install_activity_routes(app, authenticate, store=None):
 
     @app.get("/api/v1/laomedo/agent-activity/{flow}/{node}")
     async def list_runs(flow: str, node: str, user=Depends(authenticate)):
+        """List only authenticated owner-visible Activity invocations without dispatching work."""
         identity = owner(user)
         result = await run_in_threadpool(configured().runs, identity, flow, node)
         return response({"runs": result})
@@ -122,6 +132,7 @@ def install_activity_routes(app, authenticate, store=None):
         limit: int = Query(100, ge=1, le=200),
         user=Depends(authenticate),
     ):
+        """Read bounded owner-scoped receipts after the requested cursor; never execute native content."""
         identity = owner(user)
         try:
             result = await run_in_threadpool(

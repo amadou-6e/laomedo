@@ -272,9 +272,9 @@ class NativeAuthDeadlineTests(unittest.TestCase):
 @unittest.skipIf(py_docker is None, "optional runner SDK is not installed")
 class ContainerControlDeadlineTests(unittest.TestCase):
     def test_client_keeps_selected_endpoint_without_ambient_configuration(self):
-        from laomedo.agents.agents.claude.container import ClaudeContainer
+        from laomedo.agents.agents.claude.policy import ClaudeRuntimePolicy
 
-        runtime = object.__new__(ClaudeContainer)
+        runtime = object.__new__(ClaudeRuntimePolicy)
         runtime.docker_endpoint = "npipe:////./pipe/selected-control"
         with patch("py_docker.Client") as factory:
             with runtime.client():
@@ -285,7 +285,7 @@ class ContainerControlDeadlineTests(unittest.TestCase):
         with (
             patch("py_docker.Client") as factory,
             patch(
-                "laomedo.agents.agents.claude.container.time.monotonic", return_value=80
+                "laomedo.agents.agents.claude.policy.time.monotonic", return_value=80
             ),
         ):
             with runtime.client(deadline=100):
@@ -297,15 +297,15 @@ class ContainerControlDeadlineTests(unittest.TestCase):
         self.assertEqual(factory.call_args.kwargs["settings"].timeout_seconds, 20)
 
     def test_expired_control_budget_never_connects_to_docker(self):
-        from laomedo.agents.agents.claude.container import ClaudeContainer
+        from laomedo.agents.agents.claude.policy import ClaudeRuntimePolicy
         from laomedo.agents.errors import RunnerError
 
-        runtime = object.__new__(ClaudeContainer)
+        runtime = object.__new__(ClaudeRuntimePolicy)
         runtime.docker_endpoint = "npipe:////./pipe/selected-control"
         with (
             patch("py_docker.Client") as factory,
             patch(
-                "laomedo.agents.agents.claude.container.time.monotonic",
+                "laomedo.agents.agents.claude.policy.time.monotonic",
                 return_value=100,
             ),
             self.assertRaisesRegex(RunnerError, "claude_turn_timeout"),

@@ -1,5 +1,7 @@
 """Local-only synchronous runner adapter; timeout outcomes are uncertain."""
 
+from laomedo.agents.registry import AgentProviderRegistry
+
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
@@ -17,7 +19,10 @@ from laomedo.http.redirect import NoRedirect
 
 
 class HttpAgentBridge:
+    """Dispatch admitted application requests through configured provider endpoints and reconcile identities."""
+
     def __init__(self, endpoints, token_files=None):
+        """Bind admitted configuration and owned state; provider startup errors propagate before use."""
         self.endpoints = dict(endpoints)
         self.token_files = dict(token_files or {})
         self.active = {}
@@ -96,6 +101,7 @@ class HttpAgentBridge:
         runner_request_id=None,
         expected_request_hash=None,
     ):
+        """Send one admitted Agent handoff and reconcile durable identity without replaying uncertain work."""
         if cancelled.is_set() or time.monotonic() >= deadline:
             raise HandoffError("dispatch_stopped")
         target = handoff["target"]
@@ -127,7 +133,7 @@ class HttpAgentBridge:
                 key: handoff[key]
                 for key in ("execution_id", "step", "source", "workspace_policy")
             }
-            if early_start and provider in {"codex", "claude"}:
+            if early_start and AgentProviderRegistry.supports(provider, "join_bridge"):
                 request_id = runner_request_id or str(
                     uuid5(UUID(handoff["execution_id"]), str(handoff["step"]))
                 )
@@ -176,7 +182,7 @@ class HttpAgentBridge:
         self.active[handoff["execution_id"]] = (base, raw["run_id"])
         if (
             early_start
-            and provider in {"codex", "claude"}
+            and AgentProviderRegistry.supports(provider, "join_bridge")
             and handoff["operation"] == "fresh"
         ):
             if (
@@ -248,6 +254,7 @@ class HttpAgentBridge:
         }
 
     def cancel(self, execution_id):
+        """Request cancellation of the selected existing run; acknowledgement does not establish native cleanup."""
         active = self.active.get(execution_id)
         if active is None:
             # Fresh runner POST does not publish run ID before completing (#22).
@@ -264,6 +271,7 @@ class HttpAgentBridge:
             return json.load(response)
 
     def select_artifacts(self, source, paths):
+        """Admit and project selected retained files under the existing run/artifact boundary."""
         if source is None or not paths:
             return []
         endpoint = (
@@ -283,9 +291,11 @@ class HttpAgentBridge:
         return result["artifact_refs"]
 
     def _open(self, request, *, timeout):
+        """Perform the configured bounded HTTP request and map transport failures without exposing credential payloads."""
         return self.opener.open(request, timeout=timeout)
 
     def _headers(self, provider):
+        """Load the configured current credential only for private transport headers; never include it in public metadata."""
         path = self.token_files.get(provider) or os.environ.get(
             "LAOMEDO_" + provider.upper() + "_RUNNER_TOKEN_FILE"
         )

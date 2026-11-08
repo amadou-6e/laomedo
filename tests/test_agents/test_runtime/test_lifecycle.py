@@ -24,7 +24,7 @@ from unittest.mock import patch
 from urllib import request as http_request
 from urllib import error as http_error
 
-from laomedo.agents.agents.codex.controller.service import CodexController as AppServer
+from laomedo.agents.agents.codex.runtime import CodexAgentRuntime as AppServer
 from laomedo.agents.agents.codex.agent import CodexAgent as LocalRunner
 from laomedo.agents.errors import RunnerError
 from laomedo.agents.agents.codex.controller.models import CodexLaunch

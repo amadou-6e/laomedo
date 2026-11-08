@@ -1,5 +1,7 @@
 """Credential-free command recipe and MCP capability checks."""
 
+from laomedo.agents.agents.base.models import CommandRequest
+
 from importlib.util import find_spec
 
 from pathlib import Path
@@ -14,8 +16,8 @@ from unittest.mock import patch
 from urllib import error
 from urllib import request
 
-from laomedo.agents.agents.opencode.boundary import CommandBroker
-from laomedo.agents.agents.opencode.boundary import IsolatedOpenCode
+from laomedo.agents.agents.opencode.executor import OpenCodeCommandExecutor
+from laomedo.agents.agents.opencode.runtime import OpenCodeAgentRuntime
 from laomedo.agents.agents.opencode.utils import check_auth_fresh
 from laomedo.agents.agents.codex.settings import IMAGE_ID
 from laomedo.agents.errors import RunnerError
@@ -29,7 +31,7 @@ ENDPOINT = "npipe:////./pipe/dockerDesktopLinuxEngine"
 
 class BoundaryTests(unittest.TestCase):
     def test_cancel_stops_owned_broker_without_claiming_termination(self):
-        boundary = IsolatedOpenCode.__new__(IsolatedOpenCode)
+        boundary = OpenCodeAgentRuntime.__new__(OpenCodeAgentRuntime)
         boundary.broker = None
         self.assertIsNone(boundary.cancel())
         boundary.broker = Mock()
@@ -122,7 +124,7 @@ class BoundaryTests(unittest.TestCase):
                     else:
                         selected.sessions.recover.side_effect = error
                     with self.assertRaisesRegex(RunnerError, expected):
-                        IsolatedOpenCode(
+                        OpenCodeAgentRuntime(
                             workspace,
                             evidence,
                             profile=profile,
@@ -170,18 +172,18 @@ class BoundaryTests(unittest.TestCase):
             with (
                 patch("py_docker.Client") as client,
                 patch(
-                    "laomedo.agents.agents.opencode.boundary.CommandBroker"
+                    "laomedo.agents.agents.opencode.runtime.OpenCodeCommandExecutor"
                 ) as broker,
             ):
                 client.return_value.__enter__.return_value.connection.endpoint = (
                     ENDPOINT
                 )
-                broker.return_value.server.server_port = 12345
-                broker.return_value.token = "internal-test-broker-capability"
+                broker.return_value.broker.server.server_port = 12345
+                broker.return_value.broker.token = "internal-test-broker-capability"
                 with self.assertRaisesRegex(
                     RunnerError, "opencode_organization_context_invalid"
                 ):
-                    IsolatedOpenCode(
+                    OpenCodeAgentRuntime(
                         workspace,
                         evidence,
                         profile=profile,
@@ -201,19 +203,19 @@ class BoundaryTests(unittest.TestCase):
             with (
                 patch("py_docker.Client") as client,
                 patch(
-                    "laomedo.agents.agents.opencode.boundary.CommandBroker"
+                    "laomedo.agents.agents.opencode.runtime.OpenCodeCommandExecutor"
                 ) as broker,
             ):
                 client.return_value.__enter__.return_value.connection.endpoint = (
                     ENDPOINT
                 )
                 broker.return_value.error_code = None
-                broker.return_value.token = "internal-capability"
-                broker.return_value.server.server_port = 12345
+                broker.return_value.broker.token = "internal-capability"
+                broker.return_value.broker.server.server_port = 12345
                 client.return_value.sessions.open.side_effect = DockerOperationError(
                     "internal refusal"
                 )
-                backend = IsolatedOpenCode(
+                backend = OpenCodeAgentRuntime(
                     workspace,
                     evidence,
                     profile=profile,
@@ -255,19 +257,19 @@ class BoundaryTests(unittest.TestCase):
             with (
                 patch("py_docker.Client") as client,
                 patch(
-                    "laomedo.agents.agents.opencode.boundary.CommandBroker"
+                    "laomedo.agents.agents.opencode.runtime.OpenCodeCommandExecutor"
                 ) as broker,
             ):
                 client.return_value.__enter__.return_value.connection.endpoint = (
                     ENDPOINT
                 )
                 broker.return_value.error_code = None
-                broker.return_value.token = "internal-capability"
-                broker.return_value.server.server_port = 12345
+                broker.return_value.broker.token = "internal-capability"
+                broker.return_value.broker.server.server_port = 12345
                 client.return_value.sessions.open.side_effect = DockerOperationError(
                     "internal refusal"
                 )
-                backend = IsolatedOpenCode(
+                backend = OpenCodeAgentRuntime(
                     workspace,
                     evidence,
                     profile=profile,
@@ -294,7 +296,9 @@ class BoundaryTests(unittest.TestCase):
     def test_second_worker_request_rejected_while_one_is_active(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            broker = CommandBroker(root, root, root, root, docker_endpoint=ENDPOINT)
+            broker = OpenCodeCommandExecutor(
+                root, root, root, root, docker_endpoint=ENDPOINT
+            )
             self.addCleanup(broker.close)
             entered, release = threading.Event(), threading.Event()
 
@@ -307,12 +311,21 @@ class BoundaryTests(unittest.TestCase):
             with patch("py_docker.Client") as client:
                 client.return_value.__enter__.return_value.jobs.run.side_effect = run
                 thread = threading.Thread(
-                    target=lambda: result.update(broker.execute("pwd"))
+                    target=lambda: result.update(
+                        broker.execute(CommandRequest(command="pwd")).model_dump(
+                            exclude={"cleanup"}
+                        )
+                    )
                 )
                 thread.start()
                 try:
                     self.assertTrue(entered.wait(3))
-                    self.assertEqual(broker.execute("pwd")["stderr"], "worker_busy")
+                    self.assertEqual(
+                        broker.execute(CommandRequest(command="pwd")).model_dump(
+                            exclude={"cleanup"}
+                        )["stderr"],
+                        "worker_busy",
+                    )
                 finally:
                     release.set()
                     thread.join(4)
@@ -322,7 +335,9 @@ class BoundaryTests(unittest.TestCase):
     def test_workers_stop_before_request_handlers_are_joined(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            broker = CommandBroker(root, root, root, root, docker_endpoint=ENDPOINT)
+            broker = OpenCodeCommandExecutor(
+                root, root, root, root, docker_endpoint=ENDPOINT
+            )
             broker.capacity.acquire()
             closed = threading.Event()
             thread = threading.Thread(target=lambda: (broker.close(), closed.set()))
@@ -336,7 +351,9 @@ class BoundaryTests(unittest.TestCase):
                 thread.join(4)
             self.assertTrue(closed.is_set())
             with self.assertRaisesRegex(RunnerError, "opencode_command_service_closed"):
-                broker.execute("pwd")
+                broker.execute(CommandRequest(command="pwd")).model_dump(
+                    exclude={"cleanup"}
+                )
 
     def test_credential_binding_is_keyed_stable_and_changes_with_credentials(self):
         from laomedo.agents.agents.opencode.utils import _credential_binding
@@ -361,7 +378,9 @@ class BoundaryTests(unittest.TestCase):
     def test_cleanup_transport_failure_is_not_claimed_as_verified(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            broker = CommandBroker(root, root, root, root, docker_endpoint=ENDPOINT)
+            broker = OpenCodeCommandExecutor(
+                root, root, root, root, docker_endpoint=ENDPOINT
+            )
             with patch("py_docker.Client") as client:
                 client.return_value.__enter__.return_value.jobs.run.side_effect = (
                     CleanupUnconfirmedError("internal cleanup")
@@ -369,7 +388,9 @@ class BoundaryTests(unittest.TestCase):
                 with self.assertRaisesRegex(
                     RunnerError, "opencode_container_cleanup_unverified"
                 ):
-                    broker.execute("pwd")
+                    broker.execute(CommandRequest(command="pwd")).model_dump(
+                        exclude={"cleanup"}
+                    )
             with self.assertRaisesRegex(
                 RunnerError, "opencode_container_cleanup_unverified"
             ):
@@ -382,7 +403,7 @@ class BoundaryTests(unittest.TestCase):
     def test_worker_never_mounts_controller_profile_or_environment(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            broker = CommandBroker(
+            broker = OpenCodeCommandExecutor(
                 root,
                 root,
                 root,
@@ -395,7 +416,9 @@ class BoundaryTests(unittest.TestCase):
                 client.return_value.__enter__.return_value.jobs.run.return_value = (
                     CommandResult(exit_code=0, stdout=b"ok", stderr=b"")
                 )
-                broker.execute("pwd")
+                broker.execute(CommandRequest(command="pwd")).model_dump(
+                    exclude={"cleanup"}
+                )
                 job = (
                     client.return_value.__enter__.return_value.jobs.run.call_args.args[
                         0
@@ -418,9 +441,9 @@ class BoundaryTests(unittest.TestCase):
     def test_mcp_requires_bearer_capability_and_rejects_unknown_tools(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp)
-            broker = CommandBroker(path, path, path, path)
+            broker = OpenCodeCommandExecutor(path, path, path, path)
             self.addCleanup(broker.close)
-            url = "http://127.0.0.1:" + str(broker.server.server_port) + "/mcp"
+            url = "http://127.0.0.1:" + str(broker.broker.server.server_port) + "/mcp"
             payload = json.dumps(
                 {"jsonrpc": "2.0", "id": 1, "method": "tools/list"}
             ).encode()
@@ -436,7 +459,7 @@ class BoundaryTests(unittest.TestCase):
                     )
                 self.assertEqual(denied.exception.code, 403)
             headers = {
-                "Authorization": "Bearer " + broker.token,
+                "Authorization": "Bearer " + broker.broker.token,
                 "Content-Type": "application/json",
             }
             with request.urlopen(
@@ -445,7 +468,7 @@ class BoundaryTests(unittest.TestCase):
                 body = json.load(response)
             self.assertEqual(body["result"]["tools"][0]["name"], "exec")
             with self.assertRaisesRegex(ValueError, "unknown_worker_tool"):
-                broker.rpc("tools/call", {"name": "read_personal_profile"})
+                broker.broker.rpc("tools/call", {"name": "read_personal_profile"})
 
 
 if __name__ == "__main__":

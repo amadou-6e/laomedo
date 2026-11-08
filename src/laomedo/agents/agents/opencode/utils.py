@@ -13,7 +13,8 @@ import secrets
 import time
 
 
-def check_auth_fresh(profile):
+def check_auth_fresh(profile, *, minimum_validity_seconds=None):
+    """Check native validity/fingerprint and never weaken the configured minimum TTL."""
     path = Path(profile) / "auth-validity.json"
     try:
         validity = json.loads(path.read_text(encoding="utf-8"))
@@ -42,11 +43,13 @@ def check_auth_fresh(profile):
         or isinstance(expiry, bool)
     ):
         raise RunnerError("opencode_auth_validity_invalid")
-    if expiry <= int(time.time() * 1000) + MIN_TOKEN_REMAINING_MS:
+    required_ms = max(MIN_TOKEN_REMAINING_MS, (minimum_validity_seconds or 0) * 1000)
+    if expiry <= int(time.time() * 1000) + required_ms:
         raise RunnerError("opencode_console_token_refresh_required")
 
 
 def _credential_binding(profile):
+    """Return the existing keyed local credential fingerprint; no raw credential is exposed."""
     path = Path(profile) / "credential-binding-key"
     try:
         with path.open("xb") as target:

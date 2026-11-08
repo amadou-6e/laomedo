@@ -65,7 +65,7 @@ class LoginMirrorTests(TestCase):
         )
         with (
             patch.dict("os.environ", {"LAOMEDO_CLAUDE_MIRROR_HOST_LOGIN": "1"}),
-            patch("laomedo.agents.agents.claude.agent.mirror_login") as mirror,
+            patch("laomedo.agents.agents.claude.credentials.mirror_login") as mirror,
         ):
             self.assertTrue(runner._check_auth().startswith("sha256:"))
             mirror.assert_called_once_with(
@@ -76,7 +76,7 @@ class LoginMirrorTests(TestCase):
                 self.subTest(code=code),
                 patch.dict("os.environ", {"LAOMEDO_CLAUDE_MIRROR_HOST_LOGIN": "1"}),
                 patch(
-                    "laomedo.agents.agents.claude.agent.mirror_login",
+                    "laomedo.agents.agents.claude.credentials.mirror_login",
                     side_effect=LocalClaudeLoginError(code),
                 ),
                 self.assertRaisesRegex(RunnerError, "^" + code + "$"),

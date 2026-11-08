@@ -25,7 +25,7 @@ from laomedo.host.leases.settings import LABEL_TOKEN
 from laomedo.host.leases.settings import SERVICE_STALE_SECONDS
 
 
-class ClaudeContainer:
+class ClaudeRuntimePolicy:
     """Keep provider policy here; delegate Docker lifecycle and receipts to py-docker."""
 
     def __init__(
@@ -231,22 +231,6 @@ class ClaudeContainer:
                 **options,
             )
 
-    @contextmanager
-    def session(self, spec, receipt, seconds):
-        """Keep output and durable cleanup on the launcher's creator thread."""
-        from py_docker.sessions.models import ContainerSession
-        from py_docker.streams.models import StreamLimits
-
-        with self.client(output_code="claude_receipt_too_large") as docker:
-            with docker.sessions.open(
-                ContainerSession(
-                    spec=spec,
-                    receipt_path=receipt,
-                    limits=StreamLimits(seconds=seconds, max_bytes=36 * 1024 * 1024),
-                )
-            ) as session:
-                yield session
-
     def control(self, args, *, input=None, timeout=45, deadline=None):
         """Run a zero-turn CLI request; input files avoid Windows pipe half-close."""
         from py_docker.containers.models import Mount
@@ -298,6 +282,7 @@ class ClaudeContainer:
             raise RunnerError("lease_service_unavailable") from None
 
     def lease(self, run_id, name, token, cancelled, scope=None):
+        """Bind the exact resource/run capability to its independent supervisor; missing or stale supervision refuses."""
         if self.lease_service is None:
             raise RunnerError("lease_service_required")
         try:
@@ -313,144 +298,18 @@ class ClaudeContainer:
         except (OSError, RuntimeError):
             raise RunnerError("lease_service_unavailable") from None
 
+    @contextmanager
+    def _session_context(self, spec, receipt, seconds):
+        """Keep output and durable cleanup on the launcher's creator thread."""
+        from py_docker.sessions.models import ContainerSession
+        from py_docker.streams.models import StreamLimits
 
-class CommandService:
-    """One run capability; all commands execute without the Claude profile/network."""
-
-    def __init__(self, runtime, root, record, cancelled, deadline, *, mediation=None):
-        self.runtime, self.root, self.record = runtime, root, record
-        self.cancelled, self.deadline = cancelled, deadline
-        self.mediation = mediation
-        self.token = secrets.token_hex(32)
-        self.lock = threading.Lock()
-        self.cleanup_failed = False
-        self.error_code = None
-        self.stopping = threading.Event()
-        self.closed = False
-
-        self.server = CommandHttpServer(self, ("127.0.0.1", 0))
-        self.server.daemon_threads = True
-        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
-        self.thread.start()
-        self.secret_path = root / ("command-capability-" + uuid4().hex)
-        self.secret_path.write_text(self.token, encoding="ascii")
-        self.url = f"http://host.docker.internal:{self.server.server_port}/command"
-
-    def execute(self, value):
-        if (
-            not isinstance(value, dict)
-            or set(value) != {"command"}
-            or not isinstance(value["command"], str)
-        ):
-            raise RunnerError("claude_workspace_command_invalid")
-        if not value["command"].strip() or len(value["command"]) > 60000:
-            raise RunnerError("claude_workspace_command_invalid")
-        with self.lock:
-            if self.closed or self.cancelled.is_set():
-                raise RunnerError("claude_cancelled")
-            if time.monotonic() >= self.deadline:
-                raise RunnerError("claude_turn_timeout")
-            name, token = "laomedo-claude-command-" + uuid4().hex, uuid4().hex
-            lease = self.runtime.lease(
-                self.record["run_id"], name, token, self.cancelled
-            )
-            cleanup_confirmed = job_started = False
-            try:
-                worker_deadline = min(self.deadline, time.monotonic() + 120)
-                spec = self.runtime.spec(
-                    self.runtime.guarded(
-                        ["sh", "-c", value["command"]], worker_deadline
-                    ),
-                    name=name,
-                    run_id=self.record["run_id"],
-                    token=token,
-                    workspace=self.root.joinpath("workspace"),
-                    worker=True,
+        with self.client(output_code="claude_receipt_too_large") as docker:
+            with docker.sessions.open(
+                ContainerSession(
+                    spec=spec,
+                    receipt_path=receipt,
+                    limits=StreamLimits(seconds=seconds, max_bytes=36 * 1024 * 1024),
                 )
-                job_started = True
-                result = self.runtime.job(
-                    spec,
-                    timeout=max(1, worker_deadline - time.monotonic()),
-                    cancelled=self.stopping,
-                )
-                cleanup_confirmed = True
-                return {
-                    "exit_code": result.exit_code,
-                    "output": (result.stdout + result.stderr)[: 1024 * 1024].decode(
-                        "utf-8", errors="replace"
-                    ),
-                }
-            except RunnerError as error:
-                if str(error) == "workspace_command_output_too_large":
-                    self.error_code = "workspace_command_output_too_large"
-                cleanup_confirmed = (
-                    not job_started or str(error) != "container_termination_unverified"
-                )
-                raise
-            finally:
-                verified = cleanup_confirmed
-                if verified:
-                    try:
-                        lease.finish()
-                    except RuntimeError:
-                        verified = False
-                else:
-                    lease.stop_heartbeats()
-                if not verified:
-                    self.cleanup_failed = True
-                    self.cancelled.set()
-                    raise RunnerError("container_termination_unverified")
-
-    def mediate(self, value):
-        from urllib.request import Request
-        from urllib.request import ProxyHandler, build_opener
-        from laomedo.http.redirect import NoRedirect
-        from urllib.error import HTTPError
-
-        if self.mediation is None or self.closed or self.cancelled.is_set():
-            raise RunnerError("mediated_grant_unavailable")
-        if (
-            not isinstance(value, dict)
-            or set(value) - {"operation", "payload", "effect_id"}
-            or not isinstance(value.get("operation"), str)
-            or not isinstance(value.get("payload"), dict)
-        ):
-            raise RunnerError("claude_workspace_command_invalid")
-        url, instance, secret_path = self.mediation
-        body = {**value, "repository": self.record["github_scope"]["repository"]}
-        request = Request(
-            url.replace("host.docker.internal", "127.0.0.1"),
-            data=json.dumps(body).encode(),
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": "Bearer " + secret_path.read_text().strip(),
-                "X-Laomedo-Mediator-Instance": instance,
-            },
-        )
-        try:
-            with build_opener(ProxyHandler({}), NoRedirect()).open(
-                request, timeout=20
-            ) as response:
-                return json.load(response)
-        except HTTPError as exc:
-            if exc.code in {400, 401, 403, 404, 409, 422}:
-                # An authoritative refusal contains no raw response. A redirect
-                # or server failure does not establish whether an effect ran.
-                return {"error": "mediation_request_refused"}
-        except Exception:
-            pass
-        self.record["mediation_outcome"] = "unknown"
-        self.cancelled.set()
-        raise RunnerError("claude_mediation_outcome_unknown") from None
-
-    def close(self):
-        """Cancel the owned job and await its journal cleanup before freezing files."""
-        self.closed = True
-        self.stopping.set()
-        self.server.shutdown()
-        self.server.server_close()
-        self.thread.join(timeout=3)
-        with self.lock:
-            self.secret_path.unlink(missing_ok=True)
-        if self.cleanup_failed or self.thread.is_alive():
-            raise RunnerError("container_termination_unverified")
+            ) as session:
+                yield session

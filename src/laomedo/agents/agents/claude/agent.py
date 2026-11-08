@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 from laomedo.agents.agents.claude.catalog import ClaudeModelCatalog
+from laomedo.agents.agents.claude.credentials import ClaudeCredentialProvider
 
 from copy import deepcopy
 from pathlib import Path
@@ -26,15 +27,16 @@ from laomedo.agents.agents.claude.settings import EFFORTS
 from laomedo.agents.agents.claude.settings import CLI_VERSION
 from laomedo.agents.agents.claude.settings import IMAGE
 from laomedo.agents.agents.claude.settings import PROFILE
-from laomedo.agents.agents.claude.container import ClaudeContainer
-from laomedo.agents.agents.claude.container import CommandService
+from laomedo.agents.agents.claude.policy import ClaudeRuntimePolicy
+from laomedo.agents.agents.claude.runtime import ClaudeAgentRuntime
+from laomedo.agents.agents.claude.executor import ClaudeCommandExecutor
 from laomedo.agents.agents.claude.utils import activity_usage
 from laomedo.agents.agents.claude.utils import configuration_hash
 from laomedo.agents.agents.claude.utils import normalize_models
 from laomedo.agents.agents.claude.utils import terminal_result
 from laomedo.agents.errors import RunnerError
 from laomedo.agents.agents.base.agent import BaseAgent
-from laomedo.agents.agents.base.models import RuntimeBinding
+from laomedo.agents.agents.base.models import RuntimeBinding, CredentialRequest
 from laomedo.agents.workspaces.utils import _hash_tree
 from laomedo.agents.agents.base.utils import _json
 from laomedo.agents.agents.claude.auth.errors import LocalClaudeLoginError
@@ -46,6 +48,9 @@ from laomedo.agents.agents.claude.auth.settings import Settings
 
 
 class ClaudeAgent(BaseAgent):
+    """Own Claude admission, native turn orchestration and durable run finalization."""
+
+    credential_type = ClaudeCredentialProvider
     catalog_type = ClaudeModelCatalog
 
     provider = "claude"
@@ -66,10 +71,11 @@ class ClaudeAgent(BaseAgent):
         git_workspace=False,
         artifact_sources=None,
     ):
+        """Bind admitted configuration and owned state; provider startup errors propagate before use."""
         if type(turn_timeout) is not int or not 1 <= turn_timeout <= 86400:
             raise RunnerError("claude_turn_timeout_invalid")
         self.turn_timeout = turn_timeout
-        self.container = container or ClaudeContainer(
+        self.container = container or ClaudeRuntimePolicy(
             image, profile_volume, lease_service
         )
         self.executable = "claude"
@@ -87,9 +93,11 @@ class ClaudeAgent(BaseAgent):
         self.image, self.image_id = image, self.container.image_id
 
     def editor_model_catalog(self):
+        """Perform the provider-specific explicit refresh without submitting a model turn."""
         return self.model_catalog(refresh=True)
 
     def prepare_resume(self, run_id, body):
+        """Validate provider resume extensions and credential admission before reusing native identity."""
         extra = {}
         if "run_timeout_seconds" in body:
             value = body["run_timeout_seconds"]
@@ -105,6 +113,7 @@ class ClaudeAgent(BaseAgent):
         return extra
 
     def runtime_binding(self):
+        """Return existing nonsecret provider/image/profile metadata for retained run identity."""
         return RuntimeBinding(
             provider=self.provider,
             profile=self.profile,
@@ -118,6 +127,7 @@ class ClaudeAgent(BaseAgent):
     def recover_interrupted(self, record):
         # The independent lease supervisor owns controller/worker lifetimes.
         # Reconcile the exact persisted controller identity without broad cleanup.
+        """Reconcile only recorded owned resources after restart; do not replay the model request."""
         owner = record.get("container_ownership") or {}
         if owner.get("supervised"):
             verified, detail = cleanup_exact(
@@ -162,6 +172,7 @@ class ClaudeAgent(BaseAgent):
         activity_attempt_id=None,
         run_timeout_seconds=None,
     ):
+        """Admit an existing session/workspace binding before continuing it; failures never create a fresh session."""
         if run_timeout_seconds is not None and (
             type(run_timeout_seconds) is not int
             or not 1 <= run_timeout_seconds <= 86400
@@ -211,6 +222,7 @@ class ClaudeAgent(BaseAgent):
         )
 
     def cancel(self, run_id):
+        """Request cancellation of the selected existing run; acknowledgement does not establish native cleanup."""
         with self.control_lock:
             record = self.status(run_id)
             if record["status"] == "prepared":
@@ -309,54 +321,25 @@ class ClaudeAgent(BaseAgent):
             raise RunnerError(failure) from None
 
     def _mirror_host_login(self, *, minimum_validity_seconds=None, deadline=None):
-        if Settings().mirror_host_login == "1":
-            try:
-                options = {"deadline": deadline} if deadline is not None else {}
-                mirror_login(
-                    self.container.profile,
-                    self.container.image_id,
-                    minimum_validity_seconds=minimum_validity_seconds
-                    or self.turn_timeout,
-                    **options,
-                )
-            except LocalClaudeLoginError as error:
-                if str(error) == "claude_host_login_unavailable":
-                    raise RunnerError("claude_host_login_unavailable") from None
-                if str(error) == "claude_host_login_expired":
-                    raise RunnerError("claude_host_login_expired") from None
-                raise RunnerError("claude_local_login_copy_failed") from None
+        """Prepare credentials through the provider-owned admission contract."""
+        self.credentials.prepare(
+            CredentialRequest(
+                minimum_validity_seconds=minimum_validity_seconds, deadline=deadline
+            )
+        )
 
     def _check_auth(self, *, timeout=20, minimum_validity_seconds=None, deadline=None):
-        self._mirror_host_login(
-            minimum_validity_seconds=minimum_validity_seconds, deadline=deadline
-        )
-        options = {}
-        if deadline is not None:
-            remaining = deadline - time.monotonic()
-            if remaining <= 0:
-                raise RunnerError("claude_turn_timeout")
-            timeout = min(timeout, remaining)
-            options["deadline"] = deadline
-        checked = self.container.control(["auth", "status"], timeout=timeout, **options)
-        try:
-            auth = json.loads(checked.stdout)
-        except ValueError:
-            raise RunnerError("claude_subscription_unavailable") from None
-        if (
-            checked.exit_code
-            or not auth.get("loggedIn")
-            or auth.get("authMethod") != "claude.ai"
-        ):
-            raise RunnerError("claude_subscription_unavailable")
-        identity = {key: auth[key] for key in ("email", "orgId") if auth.get(key)}
-        return (
-            "sha256:"
-            + hashlib.sha256(json.dumps(identity, sort_keys=True).encode()).hexdigest()
-            if identity
-            else None
-        )
+        """Keep the existing native identity projection at this private caller boundary."""
+        return self.credentials.validate(
+            CredentialRequest(
+                timeout_seconds=float(timeout),
+                minimum_validity_seconds=minimum_validity_seconds,
+                deadline=deadline,
+            )
+        ).credential_ref
 
     def _prepare(self, request, **kwargs):
+        """Validate the request and persist its prepared identity/workspace binding before native dispatch."""
         if (
             not isinstance(request, dict)
             or not isinstance(request.get("model"), str)
@@ -481,6 +464,7 @@ class ClaudeAgent(BaseAgent):
         return record
 
     def _verify_skills(self, root, record):
+        """Verify pinned skill bytes and protected mounts before trusting native completion."""
         for skill in record["skills"]:
             path = root / "workspace/.agents/skills" / skill["skill_id"]
             if tree_hash(inventory(path)) != skill["tree_hash"]:
@@ -495,6 +479,7 @@ class ClaudeAgent(BaseAgent):
 
     def _prompt(self, root, record, task):
         # Skills are native CLI plugin bundles, never text-truncated snapshots.
+        """Build the existing native prompt from admitted task and pinned skill inputs."""
         for skill in record["skills"]:
             skill.update(delivery_mode="native_plugin")
             skill.setdefault("use_evidence", "offered")
@@ -516,6 +501,7 @@ class ClaudeAgent(BaseAgent):
         )
 
     def _invoke(self, root, record, prompt, flag, *, resume):
+        """Run one bounded native turn scope and preserve exact cleanup/failure attribution."""
         name, token = "laomedo-claude-" + uuid4().hex, uuid4().hex
         record["container_ownership"] = {
             "name": name,
@@ -549,7 +535,7 @@ class ClaudeAgent(BaseAgent):
                     raise RunnerError("mediated_grant_unavailable")
                 route, instance = self._mediator_route()
                 mediation = (route, instance, lease.dir / "grant.secret")
-            service = CommandService(
+            service = ClaudeCommandExecutor(
                 self.container, root, record, flag, deadline, mediation=mediation
             )
             try:
@@ -576,7 +562,7 @@ class ClaudeAgent(BaseAgent):
                 workspace=root.joinpath("workspace"),
                 environment={
                     **telemetry.environment,
-                    "LAOMEDO_COMMAND_URL": service.url,
+                    "LAOMEDO_COMMAND_URL": service.transport.url,
                     "LAOMEDO_GITHUB_GRANTED": "1" if mediation else "0",
                     "CLAUDE_CODE_EXECUTABLE": "/usr/local/bin/claude",
                 },
@@ -591,7 +577,7 @@ class ClaudeAgent(BaseAgent):
                             root.joinpath("workspace/.agents/skills"),
                             "/run/laomedo/pinned-skills/skills",
                         ),
-                        (service.secret_path, "/run/laomedo/command-token"),
+                        (service.transport.secret_path, "/run/laomedo/command-token"),
                     )
                 ],
             )
@@ -602,11 +588,13 @@ class ClaudeAgent(BaseAgent):
                 if time.monotonic() >= deadline:
                     raise RunnerError("claude_turn_timeout")
             with (
-                self.container.session(
+                ClaudeAgentRuntime.start(
+                    self.container,
                     spec,
                     self.container.receipts.joinpath("claude-" + name + ".json"),
                     max(1, deadline - time.monotonic()) + 10,
-                ) as session,
+                    cancelled=flag,
+                ).runtime as session,
                 session.stop_on(
                     lambda: time.monotonic() >= deadline + 5 or bool(service.error_code)
                 ),
@@ -823,6 +811,7 @@ class ClaudeAgent(BaseAgent):
             await client.close()
 
     def _native_event(self, root, record, event):
+        """Retain admitted native events with their actual identities, never inferred display-label correlation."""
         if (
             not isinstance(event, dict)
             or event.get("session_id", record["thread_id"]) != record["thread_id"]
@@ -969,6 +958,7 @@ class ClaudeAgent(BaseAgent):
 
     def _event(self, root, method, params):
         # These are explicitly adapter-normalized receipts, not Codex RPC events.
+        """Append the established normalized receipt shape without executing its content."""
         event = {
             "method": method,
             "params": params,
@@ -987,6 +977,7 @@ class ClaudeAgent(BaseAgent):
         activity_attempt_id=None,
         run_timeout_seconds=None,
     ):
+        """Own one admitted attempt and its cancellation, snapshot, evidence and exact cleanup finalization."""
         if not self.lock.acquire(blocking=False):
             raise RunnerError("runner_busy")
         record, attempt, flag = None, None, threading.Event()

@@ -5,6 +5,7 @@ HTTP service. It records the saved-flow revision separately from the
 unverified executing editor graph and never replays an uncertain native start."""
 
 from __future__ import annotations
+from laomedo.agents.registry import AgentProviderRegistry
 
 from threading import RLock
 from laomedo.work_graph.runs.errors import LaunchError
@@ -28,7 +29,7 @@ class LangflowJoinController:
         self.store = store
         self.runner = runner
         self.provider = getattr(runner, "provider", "codex")
-        if self.provider not in {"codex", "claude"}:
+        if not AgentProviderRegistry.supports(self.provider, "join_bridge"):
             raise LaunchError("unsupported_join_provider")
         self.resolve_saved_flow = resolve_saved_flow
         self._cancel_lock = RLock()

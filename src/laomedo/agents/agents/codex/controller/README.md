@@ -1,6 +1,6 @@
 # Codex ACP controller
 
-`CodexController` owns one admitted controller lifetime and composes
+`CodexAgentRuntime` owns one admitted controller lifetime and composes
 `AcpSession`. `CodexLaunch`, `CodexTurn` and `SplitPolicy` in `models.py` carry
 validated launch/turn/policy values. They do not authorize a new effect.
 
@@ -21,5 +21,5 @@ roles. Full signatures and detailed parameter contracts remain in source.
 | `CodexLaunch` | `models.py` | `to_container_spec` |
 | `SplitPolicy` | `models.py` | Validated fields / inherited interface |
 | `CodexTurn` | `models.py` | Validated fields / inherited interface |
-| `CodexController` | `service.py` | `__init__`, `initialize`, `extension`, `open`, `prompt`, `check_health`, `assert_controller_isolated`, `preflight`, `close`, `models` |
+| `CodexAgentRuntime` | `../runtime.py` | `start`, `observe`, `request_cancel`, `shutdown`; native `initialize`, `extension`, `open`, `prompt`, `check_health`, `assert_controller_isolated`, `preflight`, `close`, `models` |
 | `Settings` | `settings.py` | `settings_customise_sources`, `load` |

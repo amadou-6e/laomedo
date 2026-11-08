@@ -67,6 +67,7 @@ class AgentModuleStructureTests(unittest.TestCase):
 
     def test_agent_record_fields_keep_their_descriptions(self):
         assert_described_models(
+            "agents.models",
             "agents.artifacts.models",
             "agents.orchestration.models",
             "agents.agents.base.models",

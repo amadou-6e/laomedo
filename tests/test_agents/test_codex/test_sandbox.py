@@ -21,7 +21,7 @@ class RunnerSandboxPolicyTests(unittest.TestCase):
     def test_split_controller_token_is_not_a_control_environment(self):
         from laomedo.agents.agents.codex.split.models import SplitLaunch
         from laomedo.agents.agents.codex.controller.models import SplitPolicy
-        from laomedo.agents.agents.codex.controller.service import CodexController
+        from laomedo.agents.agents.codex.runtime import CodexAgentRuntime
         from unittest.mock import Mock
 
         root = Path("/test")
@@ -34,11 +34,11 @@ class RunnerSandboxPolicyTests(unittest.TestCase):
             tempfile.TemporaryDirectory() as temp,
             patch("py_docker.Client") as client,
             patch(
-                "laomedo.agents.agents.codex.split.executor.Executor",
+                "laomedo.agents.agents.codex.split.executor.CodexCommandExecutor",
                 return_value=executor,
             ),
         ):
-            controller = CodexController(
+            controller = CodexAgentRuntime(
                 launch,
                 Path(temp),
                 env={"DOCKER_HOST": "unix:///selected.sock"},
@@ -128,9 +128,9 @@ class RunnerSandboxPolicyTests(unittest.TestCase):
                         client.return_value.__enter__.return_value.volumes.exists.assert_called_once()
 
     def test_split_control_calls_keep_the_selected_endpoint(self):
-        from laomedo.agents.agents.codex.split.executor import Executor
+        from laomedo.agents.agents.codex.split.executor import CodexCommandExecutor
 
-        server = Executor.__new__(Executor)
+        server = CodexCommandExecutor.__new__(CodexCommandExecutor)
         server.client = MagicMock()
         server.client.execution.run.return_value.exit_code = 0
         server.client.execution.run.return_value.stdout = b"verified"
@@ -284,11 +284,11 @@ class RunnerSandboxPolicyTests(unittest.TestCase):
                 )
 
     def test_claude_endpoint_configuration_maps_to_descriptive_code(self):
-        from laomedo.agents.agents.claude.container import ClaudeContainer
+        from laomedo.agents.agents.claude.policy import ClaudeRuntimePolicy
         from py_docker.errors import ConnectionConfigurationError
 
         with (
-            patch.object(ClaudeContainer, "check_supervisor"),
+            patch.object(ClaudeRuntimePolicy, "check_supervisor"),
             patch(
                 "py_docker.Client",
                 side_effect=ConnectionConfigurationError("select local endpoint"),
@@ -297,4 +297,4 @@ class RunnerSandboxPolicyTests(unittest.TestCase):
             with self.assertRaisesRegex(
                 RunnerError, "claude_container_configuration_invalid"
             ):
-                ClaudeContainer()
+                ClaudeRuntimePolicy()

@@ -5,6 +5,7 @@ from laomedo.agents.agents.opencode.catalog import OpenCodeModelCatalog
 
 from uuid import uuid4
 import hashlib
+import asyncio
 import re
 import shutil
 import threading
@@ -17,6 +18,7 @@ from laomedo.agents.activity.utils import now
 from laomedo.agents.activity.runner.feed import line_count
 from laomedo.agents.agents.opencode.settings import CLI_VERSION
 from laomedo.agents.errors import RunnerError
+from laomedo.agents.agents.base.base import BaseAgentRuntime
 from laomedo.agents.agents.base.agent import BaseAgent
 from laomedo.agents.agents.base.models import RuntimeBinding
 from laomedo.agents.workspaces.utils import _hash_tree
@@ -52,6 +54,7 @@ class OpenCodeAgent(BaseAgent):
         publication_controller=None,
         artifact_sources=None,
     ):
+        """Bind admitted configuration and owned state; provider startup errors propagate before use."""
         self.transport_factory = transport_factory
         self.active_backends = {}
         super().__init__(
@@ -68,6 +71,7 @@ class OpenCodeAgent(BaseAgent):
         self._recover_containers()
 
     def runtime_binding(self):
+        """Return existing nonsecret provider/image/profile metadata for retained run identity."""
         return RuntimeBinding(
             provider=self.provider,
             profile=None,
@@ -114,6 +118,7 @@ class OpenCodeAgent(BaseAgent):
         effort,
         activity_attempt_id=None,
     ):
+        """Admit an existing session/workspace binding before continuing it; failures never create a fresh session."""
         self._validate_provider(model, effort)
         record = self.status(run_id)
         if (
@@ -146,6 +151,7 @@ class OpenCodeAgent(BaseAgent):
         )
 
     def cancel(self, run_id):
+        """Request cancellation of the selected existing run; acknowledgement does not establish native cleanup."""
         record = self.status(run_id)
         if record["status"] == "prepared":
             with self.control_lock:
@@ -184,7 +190,11 @@ class OpenCodeAgent(BaseAgent):
                     "cancel_acknowledged": False,
                     "termination_verified": False,
                 }
-            backend.cancel()
+            (
+                backend.request_cancel()
+                if isinstance(backend, BaseAgentRuntime)
+                else backend.cancel()
+            )
             # An acknowledgement is not proof that a native child command terminated.
             return {
                 **record,
@@ -220,6 +230,7 @@ class OpenCodeAgent(BaseAgent):
     def _prepare(self, request, **kwargs):
         # Both blocking and asynchronous starts must validate before preparing
         # a workspace or accepting a request identity.
+        """Validate the request and persist its prepared identity/workspace binding before native dispatch."""
         if not isinstance(request, dict):
             raise RunnerError("invalid_request")
         self._validate_provider(request.get("model"), request.get("effort"))
@@ -232,6 +243,7 @@ class OpenCodeAgent(BaseAgent):
 
     @staticmethod
     def _validate_provider(model, effort):
+        """Admit the configured native model/effort pair; unsupported choices fail before native dispatch."""
         if not isinstance(model, str) or not re.fullmatch(
             r"[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.:-]+", model
         ):
@@ -241,6 +253,7 @@ class OpenCodeAgent(BaseAgent):
 
     def _materialize(self, workspace, ref):
         # OpenCode skill names have a narrower grammar than the shared registry.
+        """Create the admitted run-local workspace and pinned skill view; preserve existing cleanup failures."""
         if not isinstance(ref, dict) or not re.fullmatch(
             r"[a-z0-9]+(?:-[a-z0-9]+)*", str(ref.get("skill_id", ""))
         ):
@@ -248,6 +261,7 @@ class OpenCodeAgent(BaseAgent):
         return super()._materialize(workspace, ref)
 
     def _verify_pinned_skills(self, workspace, record):
+        """Check immutable skill materialization and exclusion policy before accepting the attempt."""
         skills = record.get("skills")
         if not isinstance(skills, list):
             raise RunnerError("pinned_skill_record_invalid")
@@ -287,6 +301,7 @@ class OpenCodeAgent(BaseAgent):
             raise RunnerError(str(exc)) from None
 
     def _execute(self, run_id, task, *, resume, activity_attempt_id=None):
+        """Own one admitted attempt and its cancellation, snapshot, evidence and exact cleanup finalization."""
         if activity_attempt_id is not None:
             _id(activity_attempt_id)
         if not self.lock.acquire(blocking=False):
@@ -469,7 +484,11 @@ class OpenCodeAgent(BaseAgent):
         finally:
             try:
                 if backend:
-                    backend.close()
+                    (
+                        asyncio.run(backend.shutdown())
+                        if isinstance(backend, BaseAgentRuntime)
+                        else backend.close()
+                    )
                     if metadata_cleanup_unverified:
                         backend.termination_verified = False
                         raise RunnerError("opencode_container_cleanup_unverified")

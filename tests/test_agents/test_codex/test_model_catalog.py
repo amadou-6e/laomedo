@@ -3,7 +3,7 @@
 import asyncio
 import unittest
 from unittest.mock import Mock, AsyncMock
-from laomedo.agents.agents.codex.controller.service import CodexController
+from laomedo.agents.agents.codex.runtime import CodexAgentRuntime
 from laomedo.agents.errors import RunnerError
 from laomedo.agents.agents.codex.agent import CodexAgent as LocalRunner
 from pathlib import Path
@@ -27,7 +27,7 @@ class CatalogTests(unittest.TestCase):
             {"data": [{"id": "two", "supportedReasoningEfforts": ["different"]}]},
         ]
         self.assertEqual(
-            asyncio.run(CodexController.models(server)),
+            asyncio.run(CodexAgentRuntime.models(server)),
             [
                 {"id": "one", "efforts": ["novel"]},
                 {"id": "two", "efforts": ["different"]},
@@ -48,14 +48,14 @@ class CatalogTests(unittest.TestCase):
         server = Mock(extension=AsyncMock())
         server.extension.return_value = {"data": [], "nextCursor": "same"}
         with self.assertRaisesRegex(RunnerError, "model_list_invalid_cursor"):
-            asyncio.run(CodexController.models(server))
+            asyncio.run(CodexAgentRuntime.models(server))
 
     def test_duplicate_ids_are_rejected(self):
         server = Mock(extension=AsyncMock())
         entry = {"id": "duplicate", "supportedReasoningEfforts": ["low"]}
         server.extension.return_value = {"data": [entry, entry]}
         with self.assertRaisesRegex(RunnerError, "model_list_invalid_entry"):
-            asyncio.run(CodexController.models(server))
+            asyncio.run(CodexAgentRuntime.models(server))
 
     def test_unique_endless_cursors_are_bounded(self):
         server = Mock(extension=AsyncMock())
@@ -63,7 +63,7 @@ class CatalogTests(unittest.TestCase):
             {"data": [], "nextCursor": str(i)} for i in range(50)
         ]
         with self.assertRaisesRegex(RunnerError, "model_list_page_limit"):
-            asyncio.run(CodexController.models(server))
+            asyncio.run(CodexAgentRuntime.models(server))
 
     def test_concurrent_discovery_is_cached_and_temporary_state_removed(self):
         with TemporaryDirectory() as directory:

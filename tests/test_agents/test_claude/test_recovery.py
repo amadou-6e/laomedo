@@ -8,7 +8,7 @@ import time
 import unittest
 from unittest.mock import Mock, patch
 from laomedo.agents.errors import RunnerError
-from laomedo.agents.agents.claude.container import CommandService
+from laomedo.agents.agents.claude.executor import ClaudeCommandExecutor
 
 
 class ProviderRecoveryTests(unittest.TestCase):
@@ -16,7 +16,7 @@ class ProviderRecoveryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             runtime = Mock()
             runtime.job.side_effect = RunnerError("workspace_command_output_too_large")
-            service = CommandService(
+            service = ClaudeCommandExecutor(
                 runtime,
                 Path(temporary),
                 {"run_id": "internal-run"},
@@ -27,7 +27,7 @@ class ProviderRecoveryTests(unittest.TestCase):
             with self.assertRaisesRegex(
                 RunnerError, "workspace_command_output_too_large"
             ):
-                service.execute({"command": "pwd"})
+                service.transport.execute({"command": "pwd"})
             self.assertEqual(service.error_code, "workspace_command_output_too_large")
             self.assertFalse(service.cleanup_failed)
             runtime.lease.return_value.finish.assert_called_once()
@@ -44,7 +44,7 @@ class ProviderRecoveryTests(unittest.TestCase):
                 raise RunnerError("claude_cancelled")
 
             runtime.job.side_effect = run_job
-            service = CommandService(
+            service = ClaudeCommandExecutor(
                 runtime,
                 Path(temporary),
                 {"run_id": "internal-cancel"},
@@ -55,7 +55,7 @@ class ProviderRecoveryTests(unittest.TestCase):
 
             def command():
                 try:
-                    service.execute({"command": "pwd"})
+                    service.transport.execute({"command": "pwd"})
                 except RunnerError as error:
                     outcome["code"] = str(error)
 
@@ -76,7 +76,7 @@ class ProviderRecoveryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             runtime = Mock()
             runtime.guarded.side_effect = RunnerError("claude_turn_timeout")
-            service = CommandService(
+            service = ClaudeCommandExecutor(
                 runtime,
                 Path(temporary),
                 {"run_id": "internal-deadline"},
@@ -85,7 +85,7 @@ class ProviderRecoveryTests(unittest.TestCase):
             )
             self.addCleanup(service.close)
             with self.assertRaisesRegex(RunnerError, "claude_turn_timeout"):
-                service.execute({"command": "pwd"})
+                service.transport.execute({"command": "pwd"})
             runtime.job.assert_not_called()
             runtime.lease.return_value.finish.assert_called_once()
             self.assertFalse(service.cleanup_failed)

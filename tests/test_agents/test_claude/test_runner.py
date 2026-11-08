@@ -70,7 +70,7 @@ class ClaudeRunnerTests(unittest.TestCase):
                 self.runner, "_invoke", side_effect=AssertionError("no native turn")
             ),
             patch(
-                "laomedo.agents.agents.codex.controller.service.CodexController",
+                "laomedo.agents.agents.codex.runtime.CodexAgentRuntime",
                 side_effect=AssertionError("no Codex RPC"),
             ),
         ):
@@ -433,7 +433,7 @@ class ClaudeRunnerTests(unittest.TestCase):
         self.runner.container.spec = Mock()
         self.runner.container.guarded = Mock(return_value=[])
         self.runner.container.receipts = self.runner.state
-        self.runner.container.session = MagicMock()
+        self.runner.container._session_context = MagicMock()
         root = self.runner._run_dir(record["run_id"])
         receipt = {
             "type": "result",
@@ -444,7 +444,9 @@ class ClaudeRunnerTests(unittest.TestCase):
         }
         from py_docker.streams.models import Line
 
-        session = self.runner.container.session.return_value.__enter__.return_value
+        session = (
+            self.runner.container._session_context.return_value.__enter__.return_value
+        )
         session.read_line.side_effect = [
             Line(channel="stdout", data=(json.dumps(receipt) + "\n").encode()),
             None,
@@ -527,7 +529,7 @@ class ClaudeRunnerTests(unittest.TestCase):
         self.runner.container.spec = Mock()
         self.runner.container.guarded = Mock(return_value=[])
         self.runner.container.receipts = self.runner.state
-        self.runner.container.session = MagicMock()
+        self.runner.container._session_context = MagicMock()
         root = self.runner._run_dir(record["run_id"])
         receipt = {
             "type": "result",
@@ -538,7 +540,9 @@ class ClaudeRunnerTests(unittest.TestCase):
         }
         from py_docker.streams.models import Line
 
-        session = self.runner.container.session.return_value.__enter__.return_value
+        session = (
+            self.runner.container._session_context.return_value.__enter__.return_value
+        )
         session.read_line.side_effect = [
             Line(channel="stdout", data=(json.dumps(receipt) + "\n").encode()),
             None,
@@ -632,7 +636,7 @@ class ClaudeRunnerTests(unittest.TestCase):
         self.runner.container.spec = Mock()
         self.runner.container.guarded = Mock(return_value=[])
         self.runner.container.receipts = self.runner.state
-        self.runner.container.session = MagicMock()
+        self.runner.container._session_context = MagicMock()
         root = self.runner._run_dir(record["run_id"])
         with (
             patch(
@@ -788,9 +792,9 @@ class ClaudeRunnerTests(unittest.TestCase):
         "Requires the optional Docker runtime; covered by docker-runtime-controls",
     )
     def test_environment_excludes_host_service_credentials(self):
-        from laomedo.agents.agents.claude.container import ClaudeContainer
+        from laomedo.agents.agents.claude.policy import ClaudeRuntimePolicy
 
-        runtime = ClaudeContainer.__new__(ClaudeContainer)
+        runtime = ClaudeRuntimePolicy.__new__(ClaudeRuntimePolicy)
         runtime.profile, runtime.image_id = "laomedo-claude-unit", "sha256:" + "a" * 64
         with patch.dict(
             "os.environ",

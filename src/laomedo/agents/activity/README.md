@@ -9,11 +9,14 @@ Vocabulary: `start` reserves capture identity; `bind` binds the actual remote ru
 read methods inspect retained evidence without running a model. Exact method names
 are listed below; record schemas and provider IDs do not change during renaming.
 
-`projection.py` consumes thread/turn/item records, including Codex-specific
-parent and telemetry aliases, and routes native OpenCode history to its provider
-projection. `cost.py` retains the versioned OpenAI API-equivalent price catalogue.
-The Codex leaf does not encapsulate that whole interpretation path. Partial
-capture cannot be upgraded merely because execution ended successfully.
+`projection.py` resolves the stored provider through `AgentProviderRegistry` and
+adapts its canonical `ActivityProjection` to the existing response. Provider
+`activity/projector.py` implementations own native interpretation and pricing.
+`timeline.py` assembles normalized thread/turn/item observations using explicit
+provider callbacks; it imports no provider implementation or pricing catalogue.
+The pinned OpenAI API-equivalent catalogue belongs to Codex. Claude and OpenCode
+without native rates retain unknown costs rather than borrowing Codex rates.
+Partial capture cannot be upgraded merely because execution ended successfully.
 
 ## Current object interface inventory
 

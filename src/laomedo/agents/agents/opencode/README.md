@@ -37,7 +37,7 @@ with the Python object name.
 ## Runtime identity value
 
 `OpenCodeRuntimeIdentity` groups the controller/worker images, profile identity,
-CLI version and existing keyed credential fingerprint. `IsolatedOpenCode` keeps
+CLI version and existing keyed credential fingerprint. `OpenCodeAgentRuntime` keeps
 that object internally; its `runtime_identity` property calls `to_payload()` only
 for the existing provider fingerprint boundary. Profile identity read from legacy
 JSON retains its admitted shape. The fingerprint is metadata, never a login token.

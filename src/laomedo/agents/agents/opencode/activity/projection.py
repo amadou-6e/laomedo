@@ -12,11 +12,11 @@ from datetime import datetime
 from datetime import timezone
 from decimal import Decimal
 import json
-from laomedo.agents.activity.cost import estimate
 import math
 
 
 def _at(value, fallback):
+    """Admit a finite native timestamp or preserve the supplied receipt-time fallback."""
     if type(value) not in {int, float}:
         return fallback
     try:
@@ -26,10 +26,12 @@ def _at(value, fallback):
 
 
 def _object(value):
+    """Decode a native JSON object conservatively without inventing a missing observation."""
     return value if isinstance(value, dict) else {}
 
 
 def project(events, *, root_thread=None, model=None):
+    """Interpret observed native records and return the existing scoped Activity projection; unknown usage is not zero."""
     parents = {root_thread: None} if root_thread else {}
     native_events = []
     catalogs = {}
@@ -410,6 +412,7 @@ def project(events, *, root_thread=None, model=None):
 
 
 def estimate_native(model, usage, rates, source=None):
+    """Use only admitted provider-native rate/usage evidence; unavailable or overlapping categories remain unpriced."""
     metadata = {
         "currency": "USD",
         "model": model,
@@ -426,10 +429,11 @@ def estimate_native(model, usage, rates, source=None):
         metadata["source_record"] = {"runtime": "1.18.33", "provenance": source}
 
     def unknown(reason):
+        """Return the current provider estimate metadata with an explicit unknown amount and reason."""
         return {**metadata, "amount": None, "reason": reason}
 
     if not isinstance(rates, dict):
-        return estimate(model, usage)
+        return unknown("Native OpenCode pricing is unavailable.")
     if not isinstance(usage, dict):
         return unknown("Token usage is unavailable.")
     keys = ("inputTokens", "cachedInputTokens", "cacheWriteInputTokens", "outputTokens")
@@ -478,7 +482,8 @@ def estimate_native(model, usage, rates, source=None):
 
 
 def sum_costs(values, model):
-    base = values[-1] if values else estimate(model, None)
+    """Combine confirmed native estimate amounts without turning any unknown child cost into zero."""
+    base = values[-1] if values else estimate_native(model, None, None)
     return {
         **base,
         "model": model,

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-from .http.server import BrokerHttpServer
 from pathlib import Path
 from uuid import uuid4
 import json
@@ -25,216 +24,23 @@ from laomedo.agents.agents.opencode.utils import (
 )
 from laomedo.agents.agents.opencode.utils import model_metadata
 from laomedo.agents.errors import RunnerError
+from laomedo.agents.agents.opencode.credentials import OpenCodeCredentialProvider
+from laomedo.agents.agents.base.models import CredentialRequest
+from laomedo.agents.agents.base.base import BaseAgentRuntime
+from laomedo.agents.agents.base.models import (
+    RuntimeObservation,
+    CancellationObservation,
+    CleanupObservation,
+)
 from laomedo.agents.agents.base.utils import _json
 from laomedo.agents.agents.base.utils import _private
 from laomedo.agents.agents.base.utils import failure_observation
 
 
-class CommandBroker:
-
-    def __init__(
-        self,
-        workspace,
-        canonical,
-        store,
-        evidence,
-        *,
-        worker_image_id=None,
-        docker_endpoint=None,
-        receipt_directory=None,
-    ):
-        self.workspace, self.canonical, self.store = workspace, canonical, store
-        self.evidence = evidence
-        self.token = secrets.token_hex(32)
-        self.closed = self.cleanup_failed = False
-        self.error_code = None
-        self.stopping = threading.Event()
-        self.worker_image_id = worker_image_id or WORKER_IMAGE_ID
-        self.docker_endpoint = docker_endpoint
-        self.receipts = (
-            Path(receipt_directory)
-            if receipt_directory is not None
-            else evidence.joinpath("docker-receipts")
-        )
-        self.receipts.mkdir(mode=0o700, parents=True, exist_ok=True)
-        self.lock = threading.Lock()
-        self.allocated_receipts = set()
-        self.drained = False
-        self.capacity = threading.BoundedSemaphore(1)
-
-        # Docker bridge must reach this host listener. A random bearer capability
-        # is mandatory, and only one run's immutable mounts are addressable.
-        self.server = BrokerHttpServer(self, ("0.0.0.0", 0))
-        self.server.daemon_threads = True
-        try:
-            self.thread = threading.Thread(
-                target=self.server.serve_forever, daemon=True
-            )
-            self.thread.start()
-        except Exception:
-            self.server.server_close()
-            raise
-
-    def rpc(self, method, params):
-        if method == "initialize":
-            return {
-                "protocolVersion": "2024-11-05",
-                "capabilities": {"tools": {}},
-                "serverInfo": {"name": "laomedo-command-worker", "version": "1"},
-            }
-        if method == "ping":
-            return {}
-        if method == "tools/list":
-            return {
-                "tools": [
-                    {
-                        "name": "exec",
-                        "description": "Run a shell command in the isolated /draft workspace Docker worker. Credentials are not mounted.",
-                        "inputSchema": {
-                            "type": "object",
-                            "properties": {"command": {"type": "string"}},
-                            "required": ["command"],
-                            "additionalProperties": False,
-                        },
-                    }
-                ]
-            }
-        if method != "tools/call" or params.get("name") != "exec":
-            raise RunnerError("unknown_worker_tool")
-        command = params.get("arguments", {}).get("command")
-        if not isinstance(command, str) or not command.strip() or len(command) > 16000:
-            raise RunnerError("invalid_worker_command")
-        result = self.execute(command)
-        return {
-            "content": [{"type": "text", "text": json.dumps(result)}],
-            "isError": result["exit_code"] != 0,
-        }
-
-    def execute(self, command):
-        """Run one credential-free worker; a receipt owns all cleanup uncertainty."""
-        if not self.capacity.acquire(blocking=False):
-            return {"exit_code": 75, "stdout": "", "stderr": "worker_busy"}
-        try:
-            with self.lock:
-                if self.closed:
-                    raise RunnerError("opencode_command_service_closed")
-            from py_docker import Client
-            from py_docker.containers.models import ContainerSpec, Mount
-            from py_docker.jobs.models import ContainerJob
-            from py_docker.streams.models import StreamLimits
-            from py_docker.errors import (
-                JobCancelledError,
-                CleanupUnconfirmedError,
-                DeadlineError,
-                DockerOperationError,
-                OutputLimitError,
-            )
-
-            name = "laomedo-oc-worker-" + uuid4().hex
-            receipt_path = self.receipts.joinpath(name + ".json")
-            with self.lock:
-                self.allocated_receipts.add(receipt_path)
-            try:
-                with Client(
-                    environment={"DOCKER_HOST": self.docker_endpoint}
-                ) as docker:
-                    result = docker.jobs.run(
-                        ContainerJob(
-                            spec=ContainerSpec(
-                                image=self.worker_image_id,
-                                name=name,
-                                entrypoint=["timeout"],
-                                command=[
-                                    "--signal=TERM",
-                                    "--kill-after=5s",
-                                    "60",
-                                    "sh",
-                                    "-c",
-                                    command,
-                                ],
-                                user="10001:10001",
-                                network_mode="none",
-                                read_only=False,
-                                working_dir="/draft",
-                                mounts=[
-                                    Mount(
-                                        type="bind",
-                                        source=str(source),
-                                        target=target,
-                                        read_only=readonly,
-                                    )
-                                    for source, target, readonly in (
-                                        (self.workspace, "/draft", False),
-                                        (self.canonical, "/canonical", True),
-                                        (self.store, "/store", True),
-                                    )
-                                ],
-                            ),
-                            limits=StreamLimits(seconds=70, max_bytes=1024 * 1024),
-                            wait_timeout_seconds=10.0,
-                            receipt_path=receipt_path,
-                        ),
-                        cancelled=self.stopping,
-                    )
-                value = {
-                    "exit_code": result.exit_code,
-                    "stdout": result.stdout.decode("utf-8", errors="replace")[:32768],
-                    "stderr": result.stderr.decode("utf-8", errors="replace")[:32768],
-                }
-            except CleanupUnconfirmedError as error:
-                self.cleanup_failed = True
-                raise RunnerError(
-                    "opencode_container_cleanup_unverified",
-                    observation=failure_observation(
-                        error,
-                        stage="cleanup",
-                        code="opencode_container_cleanup_unverified",
-                    ),
-                ) from None
-            except JobCancelledError:
-                value = {"exit_code": 130, "stdout": "", "stderr": "worker_cancelled"}
-            except DeadlineError:
-                value = {"exit_code": 124, "stdout": "", "stderr": "worker_timeout"}
-            except OutputLimitError:
-                self.error_code = "workspace_command_output_too_large"
-                value = {
-                    "exit_code": 125,
-                    "stdout": "",
-                    "stderr": "workspace_command_output_too_large",
-                }
-            except DockerOperationError:
-                self.error_code = "opencode_workspace_command_failed"
-                raise RunnerError("opencode_workspace_command_failed") from None
-            with self.evidence.joinpath("worker-events.jsonl").open(
-                "a", encoding="utf-8"
-            ) as log:
-                log.write(json.dumps({"command": command, **value}) + "\n")
-            return value
-        finally:
-            self.capacity.release()
-
-    def stop(self):
-        """Reject new work and signal exact-ID cancellation of the active job."""
-        with self.lock:
-            self.closed = True
-            self.stopping.set()
-
-    def close(self):
-        """Cancel the active job and await its confirmed cleanup before returning."""
-        self.stop()
-        self.server.shutdown()
-        self.server.server_close()
-        self.thread.join(timeout=5)
-        acquired = self.capacity.acquire(timeout=180)
-        if acquired:
-            self.capacity.release()
-        self.drained = acquired and not self.thread.is_alive()
-        if not acquired or self.cleanup_failed or self.thread.is_alive():
-            raise RunnerError("opencode_container_cleanup_unverified")
+from laomedo.agents.agents.opencode.executor import OpenCodeCommandExecutor
 
 
-# TODO! the adjective is unnecessary giving the naming nomenclature. This file should not be named boundary and should probably not group both objects
-class IsolatedOpenCode:
+class OpenCodeAgentRuntime(BaseAgentRuntime):
     """One controller per turn, persistent session profile, independent workers."""
 
     def __init__(
@@ -249,6 +55,7 @@ class IsolatedOpenCode:
         configure_agents=None,
         receipt_directory=None,
     ):
+        """Bind admitted configuration and owned state; provider startup errors propagate before use."""
         self.termination_verified = False
         self.cleanup_observed = None
         self.broker = self.session = self.docker = None
@@ -318,7 +125,7 @@ class IsolatedOpenCode:
         self.session = self.docker = None
         self.closing = False
         try:
-            self.broker = CommandBroker(
+            self.broker = OpenCodeCommandExecutor(
                 workspace,
                 evidence / "canonical",
                 evidence / "store",
@@ -333,8 +140,8 @@ class IsolatedOpenCode:
                 permissions["skill"][skill.name] = "allow"
             config = OpenCodeConfig(
                 permissions=permissions,
-                broker_port=self.broker.server.server_port,
-                broker_token=self.broker.token,
+                broker_port=self.broker.broker.server.server_port,
+                broker_token=self.broker.broker.token,
             ).to_config()
             provider_options = self.profile / "provider-options.json"
             if provider_options.exists():
@@ -518,6 +325,7 @@ class IsolatedOpenCode:
         from py_docker.sessions.models import ContainerSession
         from py_docker.streams.models import StreamLimits
 
+        self._cancelled = cancelled
         self.check_auth_fresh()
         receipt_path = self.receipts.joinpath(self.name + ".json")
         self.allocated_receipts.add(receipt_path)
@@ -531,9 +339,12 @@ class IsolatedOpenCode:
                 receipt_path=receipt_path,
             )
         )
-        return asyncio.run(
-            self._run_acp(task, model, session_id, cancelled, capture, on_session)
-        )
+        try:
+            return asyncio.run(
+                self._run_acp(task, model, session_id, cancelled, capture, on_session)
+            )
+        finally:
+            self._cancelled = None
 
     def cancel(self):
         """Stop owned workers; the shared ACP prompt observes the runner's flag."""
@@ -619,7 +430,31 @@ class IsolatedOpenCode:
 
     def check_auth_fresh(self):
         """Validate the dedicated profile's existing bounded credential grant."""
-        opencode_check_auth_fresh(self.profile)
+        OpenCodeCredentialProvider(self.profile).validate(CredentialRequest())
+
+    def observe(self) -> RuntimeObservation:
+        """Do not infer a controller process or ACP readiness from a prepared environment."""
+        return RuntimeObservation(
+            provider="opencode",
+            launched=self.session is not None,
+            ready=None,
+            native_session=getattr(self, "_native_session", None),
+        )
+
+    def request_cancel(self) -> CancellationObservation:
+        """Stop the command executor and signal the current ACP prompt when present."""
+        self.cancel()
+        flag = getattr(self, "_cancelled", None)
+        if flag is not None:
+            flag.set()
+        return CancellationObservation(
+            requested=flag is not None or self.broker is not None, confirmed=None
+        )
+
+    async def shutdown(self) -> CleanupObservation:
+        """Confirm every allocated controller/worker receipt before returning success."""
+        self.close()
+        return CleanupObservation(confirmed=True, scope="opencode_owned_resources")
 
     async def _run_acp(self, task, model, session_id, cancelled, capture, on_session):
         """Validate agent identity, load the same native session and await its prompt."""
@@ -652,6 +487,7 @@ class IsolatedOpenCode:
                 raise RunnerError("opencode_model_not_connected")
             if cancelled.is_set():
                 raise RunnerError("opencode_cancelled_before_dispatch")
+            self._native_session = client.session_id
             on_session(client.session_id)
             capture.begin(client.session_id, task)
             client.on_update = capture.update

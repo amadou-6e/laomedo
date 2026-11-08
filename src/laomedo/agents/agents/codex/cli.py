@@ -11,7 +11,7 @@ from laomedo.host.mediation.authority import RunGrantAuthority
 
 
 def main():
-
+    """Parse trusted host startup configuration, construct the provider and optionally perform zero-turn preflight."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--state", type=Path, required=True)
     parser.add_argument("--skill-store", type=Path, required=True)
@@ -78,7 +78,7 @@ def main():
         artifact_sources=dict(item.split("=", 1) for item in args.artifact_source),
     )
     if args.preflight:
-        print(json.dumps(runner.preflight(), indent=2))
+        print(json.dumps(runner.readiness().payload, indent=2))
         return
     RunnerServer(runner, port=args.port).serve_forever()
 

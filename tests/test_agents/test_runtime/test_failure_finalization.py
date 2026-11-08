@@ -23,8 +23,8 @@ import test_agents.test_runtime.test_lifecycle as fixtures
 import test_agents.test_opencode.test_runner as opencode_fixtures
 from laomedo.agents.agents.base.utils import failure_observation
 from laomedo.agents.agents.codex.controller.models import CodexTurn
-from laomedo.agents.agents.codex.controller.service import CodexController
-from laomedo.agents.agents.opencode.boundary import IsolatedOpenCode
+from laomedo.agents.agents.codex.runtime import CodexAgentRuntime
+from laomedo.agents.agents.opencode.runtime import OpenCodeAgentRuntime
 from laomedo.agents.errors import RunnerError
 
 
@@ -33,7 +33,7 @@ class OpenCodeReceiptTests(unittest.TestCase):
     """Call actual boundary methods with owned receipt and SDK failure controls."""
 
     def make_backend(self, directory):
-        backend = IsolatedOpenCode.__new__(IsolatedOpenCode)
+        backend = OpenCodeAgentRuntime.__new__(OpenCodeAgentRuntime)
         backend.receipts = Path(directory)
         backend.allocated_receipts = set()
         backend.docker = Mock()
@@ -357,11 +357,11 @@ class CodexFailureFinalizationTests(unittest.TestCase):
 
 
 @unittest.skipUnless(find_spec("py_docker"), "Requires the optional runner SDK")
-class CodexControllerFailureTests(unittest.IsolatedAsyncioTestCase):
+class CodexAgentRuntimeFailureTests(unittest.IsolatedAsyncioTestCase):
     """Cleanup keeps the first safe error while preserving public category priority."""
 
     async def test_close_keeps_acp_error_when_executor_cleanup_also_fails(self):
-        controller = CodexController.__new__(CodexController)
+        controller = CodexAgentRuntime.__new__(CodexAgentRuntime)
         controller._closed = False
         controller.acp = SimpleNamespace(
             close=AsyncMock(side_effect=DockerOperationError("read container stream"))

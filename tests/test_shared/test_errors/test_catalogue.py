@@ -67,7 +67,7 @@ class NodeErrorCatalogueTests(unittest.TestCase):
             "lease_service_lost",
         }
         paths = [
-            ROOT / "src/laomedo/agents/agents/opencode/boundary.py",
+            ROOT / "src/laomedo/agents/agents/opencode/runtime.py",
             ROOT / "src/laomedo/agents/agents/codex/agent.py",
         ]
         produced = set()

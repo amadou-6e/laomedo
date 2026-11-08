@@ -10,7 +10,7 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
-from laomedo.agents.agents.claude.container import CommandService
+from laomedo.agents.agents.claude.http.commands import ClaudeCommandTransport
 from laomedo.agents.agents.codex.agent import CodexAgent
 from laomedo.agents.errors import RunnerError
 from laomedo.work_graph.client import LangflowLocalClient
@@ -36,15 +36,17 @@ class LocalServiceTransportTests(unittest.TestCase):
         return self.servers.enter_context(RunningHTTPServer(server))
 
     def service(self, server):
-        service = object.__new__(CommandService)
-        service.closed = False
-        service.cancelled = Event()
-        service.mediation = (
+        executor = SimpleNamespace()
+        service = object.__new__(ClaudeCommandTransport)
+        service.executor = executor
+        service.executor.closed = False
+        service.executor.cancelled = Event()
+        service.executor.mediation = (
             f"http://127.0.0.1:{server.server_port}/mediate",
             "a" * 32,
             self.secret,
         )
-        service.record = {"github_scope": {"repository": "owner/repository"}}
+        service.executor.record = {"github_scope": {"repository": "owner/repository"}}
         return service
 
     def test_mediation_and_local_app_login_ignore_machine_proxies(self):
@@ -81,8 +83,8 @@ class LocalServiceTransportTests(unittest.TestCase):
         service = self.service(server)
         with self.assertRaisesRegex(RunnerError, "claude_mediation_outcome_unknown"):
             service.mediate({"operation": "read", "payload": {}})
-        self.assertTrue(service.cancelled.is_set())
-        self.assertEqual(service.record["mediation_outcome"], "unknown")
+        self.assertTrue(service.executor.cancelled.is_set())
+        self.assertEqual(service.executor.record["mediation_outcome"], "unknown")
         with self.assertRaisesRegex(LaunchError, "saved_flow_fetch_failed"):
             client.fetch("flow")
         with self.assertRaisesRegex(LaunchError, "langflow_local_login_unavailable"):
@@ -97,11 +99,11 @@ class LocalServiceTransportTests(unittest.TestCase):
             service.mediate({"operation": "read", "payload": {}}),
             {"error": "mediation_request_refused"},
         )
-        self.assertFalse(service.cancelled.is_set())
+        self.assertFalse(service.executor.cancelled.is_set())
         server.response_status = 503
         with self.assertRaisesRegex(RunnerError, "claude_mediation_outcome_unknown"):
             service.mediate({"operation": "read", "payload": {}})
-        self.assertTrue(service.cancelled.is_set())
+        self.assertTrue(service.executor.cancelled.is_set())
 
     def test_mediator_health_ignores_proxies_and_refuses_redirects(self):
         server, destination = self.server(), self.server()

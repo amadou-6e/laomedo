@@ -1,5 +1,6 @@
 """Internal controls for the native-evidence boundary; no live acceptance."""
 
+from laomedo.agents.agents.base.models import CommandRequest
 import asyncio
 from importlib.util import find_spec
 import json
@@ -12,7 +13,7 @@ from unittest.mock import AsyncMock, Mock, patch
 
 from laomedo.agents.interface.output.utils import requirements
 from laomedo.agents.agents.codex.controller.models import CodexLaunch
-from laomedo.agents.agents.codex.controller.service import CodexController
+from laomedo.agents.agents.codex.runtime import CodexAgentRuntime
 from laomedo.agents.errors import RunnerError
 
 
@@ -32,7 +33,7 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
         )
         self.docker = Mock()
         with patch("py_docker.Client", return_value=self.docker):
-            self.controller = CodexController(
+            self.controller = CodexAgentRuntime(
                 self.launch,
                 self.root,
                 secret_redactions=("private-token", "telemetry-secret"),
@@ -49,7 +50,8 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
         self.controller.active_thread_id = "native-thread"
 
     async def asyncTearDown(self):
-        await self.controller.close()
+        if not self.controller._closed:
+            await self.controller.close()
 
     async def test_stock_and_wrong_version_are_refused_before_session_creation(self):
         for value in (
@@ -295,7 +297,7 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_split_preflight_uses_only_fixed_probe_argv(self):
         self.controller.executor = Mock()
-        self.controller.executor.exec_probe.return_value = SimpleNamespace(exit_code=17)
+        self.controller.executor.execute.return_value = SimpleNamespace(exit_code=17)
         for check, argv in (
             ("workspace_write", ["sh", "-c", "printf CANARY > /draft/canary.txt"]),
             (
@@ -308,11 +310,13 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
         ):
             with self.subTest(check=check):
                 self.assertEqual(await self.controller.preflight(check), 17)
-                self.controller.executor.exec_probe.assert_called_once_with(argv)
-                self.controller.executor.exec_probe.reset_mock()
+                self.controller.executor.execute.assert_called_once_with(
+                    CommandRequest(argv=argv)
+                )
+                self.controller.executor.execute.reset_mock()
         with self.assertRaisesRegex(RunnerError, "^permission_preflight_failed$"):
             await self.controller.preflight("sh -c arbitrary-command")
-        self.controller.executor.exec_probe.assert_not_called()
+        self.controller.executor.execute.assert_not_called()
 
     async def test_unsplit_preflight_uses_the_named_adapter_extension(self):
         self.controller.extension = AsyncMock(return_value={"exitCode": 23})

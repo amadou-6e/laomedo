@@ -4,6 +4,7 @@ The caller supplies the bridge token, saved-flow resolver and runner transport.
 This module does not start a service or alter an existing Langflow installation."""
 
 from __future__ import annotations
+from laomedo.agents.registry import AgentProviderRegistry
 
 from urllib import error
 from urllib import request
@@ -17,7 +18,7 @@ class RunnerHTTPTransport:
     """Authenticated host-side client for the existing local Codex runner."""
 
     def __init__(self, base_url, token, *, timeout=30, provider="codex"):
-        if provider not in {"codex", "claude"}:
+        if not AgentProviderRegistry.supports(provider, "join_bridge"):
             raise ValueError("unsupported_join_provider")
         self.provider = provider
         parsed = urlsplit(str(base_url).rstrip("/"))

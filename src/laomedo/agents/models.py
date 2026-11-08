@@ -20,3 +20,12 @@ class AgentProviderDescriptor(BaseModel):
     output_requirements: bool = Field(
         description="Whether this provider implements the selected output-requirements protocol."
     )
+
+    activity_provider: str = Field(
+        min_length=1,
+        description="Existing persisted Activity provider identifier, distinct from runtime selection ID.",
+    )
+
+    readiness_scope: str = Field(
+        description="Exact native preflight guarantee, distinct from runtime health or isolation."
+    )

@@ -16,6 +16,8 @@ class AgentProviderRegistry:
         return (
             AgentProviderDescriptor(
                 provider="codex",
+                activity_provider="codex-cli",
+                readiness_scope="native_handshake_and_policy_probes",
                 display_name="Codex",
                 managed_startup=True,
                 join_bridge=True,
@@ -23,6 +25,8 @@ class AgentProviderRegistry:
             ),
             AgentProviderDescriptor(
                 provider="claude",
+                activity_provider="claude-code",
+                readiness_scope="native_subscription_authentication",
                 display_name="Claude",
                 managed_startup=True,
                 join_bridge=True,
@@ -30,6 +34,8 @@ class AgentProviderRegistry:
             ),
             AgentProviderDescriptor(
                 provider="opencode",
+                activity_provider="opencode",
+                readiness_scope="transport_configuration_only",
                 display_name="OpenCode",
                 managed_startup=False,
                 join_bridge=False,
@@ -71,3 +77,59 @@ class AgentProviderRegistry:
 
             factory = OpenCodeAgent
         return factory(*args, **kwargs)
+
+    @classmethod
+    def activity_projector(cls, provider: str):
+        """Compose a registered native projector without optional process startup."""
+        descriptor = next(
+            (
+                item
+                for item in cls.descriptors()
+                if provider in (item.provider, item.activity_provider)
+            ),
+            None,
+        )
+        if descriptor is None:
+            raise ValueError("unregistered_activity_provider")
+        provider = descriptor.provider
+        if provider == "codex":
+            from laomedo.agents.agents.codex.activity.projector import (
+                CodexActivityProjector,
+            )
+
+            return CodexActivityProjector()
+        if provider == "claude":
+            from laomedo.agents.agents.claude.activity.projector import (
+                ClaudeActivityProjector,
+            )
+
+            return ClaudeActivityProjector()
+        from laomedo.agents.agents.opencode.activity.projector import (
+            OpenCodeActivityProjector,
+        )
+
+        return OpenCodeActivityProjector()
+
+    @classmethod
+    def projector_for_events(cls, events):
+        """Resolve provider-native markers for internal callers lacking stored identity.
+
+        Stored invocation identity must be preferred by application routes. The
+        final built-in handles the established normalized receipt vocabulary;
+        this never selects a runtime, credential source or executable.
+        """
+        for descriptor in reversed(cls.descriptors()):
+            projector = cls.activity_projector(descriptor.provider)
+            if projector.accepts(events):
+                return projector
+        raise ValueError("unregistered_activity_provider")
+
+    @classmethod
+    def supports(cls, provider: str, capability: str) -> bool:
+        """Read a declared capability; unknown identities never acquire support."""
+        if capability not in {"managed_startup", "join_bridge", "output_requirements"}:
+            raise ValueError("unknown_agent_capability")
+        descriptor = next(
+            (item for item in cls.descriptors() if item.provider == provider), None
+        )
+        return bool(descriptor is not None and getattr(descriptor, capability))

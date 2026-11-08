@@ -13,8 +13,8 @@ from uuid import uuid4
 
 from laomedo.agents.agents.claude.agent import ClaudeAgent
 from laomedo.agents.agents.claude.models import ClaudePolicy
-from laomedo.agents.agents.claude.container import ClaudeContainer
-from laomedo.agents.agents.claude.container import CommandService
+from laomedo.agents.agents.claude.policy import ClaudeRuntimePolicy
+from laomedo.agents.agents.claude.executor import ClaudeCommandExecutor
 from laomedo.agents.activity.projection import project
 from laomedo.agents.errors import RunnerError
 from laomedo.agents.orchestration.utils import envelope
@@ -76,13 +76,13 @@ class ClaudeContainerParityTests(unittest.TestCase):
                     selected.sessions.recover.side_effect = failure
                 with (
                     patch("py_docker.Client", client),
-                    patch.object(ClaudeContainer, "check_supervisor"),
-                    patch.object(ClaudeContainer, "control") as control,
+                    patch.object(ClaudeRuntimePolicy, "check_supervisor"),
+                    patch.object(ClaudeRuntimePolicy, "control") as control,
                 ):
                     with self.assertRaisesRegex(
                         RunnerError, "^" + code + "$"
                     ) as caught:
-                        ClaudeContainer(
+                        ClaudeRuntimePolicy(
                             "local-image", "laomedo-claude-test", root.joinpath("lease")
                         )
                     self.assertNotIn("private", str(caught.exception))
@@ -95,7 +95,7 @@ class ClaudeContainerParityTests(unittest.TestCase):
     _begin_activity = controls.ClaudeRunnerTests._begin_activity
 
     def test_controller_command_is_bounded_inside_container(self):
-        runtime = object.__new__(ClaudeContainer)
+        runtime = object.__new__(ClaudeRuntimePolicy)
         runtime.image_id = "sha256:" + "a" * 64
         args = runtime.guarded(["claude", "--print"], time.monotonic() + 20)
         self.assertEqual(args[:2], ["python3", "-c"])
@@ -463,7 +463,7 @@ class ClaudeContainerParityTests(unittest.TestCase):
                 native.assert_not_called()
 
     def test_missing_or_stale_supervisor_refuses_startup(self):
-        runtime = object.__new__(ClaudeContainer)
+        runtime = object.__new__(ClaudeRuntimePolicy)
         runtime.lease_service = self.root / "supervisor"
         with self.assertRaisesRegex(RunnerError, "lease_service_unavailable"):
             runtime.check_supervisor()
@@ -481,7 +481,7 @@ class ClaudeContainerParityTests(unittest.TestCase):
             runtime.check_supervisor()
 
     def test_command_capability_listens_only_on_loopback(self):
-        service = CommandService(
+        service = ClaudeCommandExecutor(
             self.runner.container,
             self.root,
             {},
@@ -489,7 +489,7 @@ class ClaudeContainerParityTests(unittest.TestCase):
             time.monotonic() + 20,
         )
         try:
-            self.assertEqual(service.server.server_address[0], "127.0.0.1")
+            self.assertEqual(service.transport.server.server_address[0], "127.0.0.1")
         finally:
             service.close()
 
@@ -514,7 +514,7 @@ class ClaudeContainerParityTests(unittest.TestCase):
         "Requires the optional Docker runtime; covered by docker-runtime-controls",
     )
     def test_command_worker_has_neither_profile_nor_network(self):
-        runtime = ClaudeContainer.__new__(ClaudeContainer)
+        runtime = ClaudeRuntimePolicy.__new__(ClaudeRuntimePolicy)
         runtime.profile, runtime.image_id = (
             "laomedo-claude-internal",
             "sha256:" + "a" * 64,

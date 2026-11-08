@@ -10,6 +10,7 @@ from laomedo.agents.activity.settings import Settings
 
 
 def dispatch_with_capture(component, prepared):
+    """Coordinate the existing invocation capture around dispatch while preserving partial/failure evidence."""
     from laomedo.agents.activity.capture import ActivityCapture
 
     if component.operation not in {"fresh", "start", "resume"}:
@@ -39,6 +40,7 @@ def dispatch_with_capture(component, prepared):
 
 
 def now():
+    """Return the existing UTC timestamp representation for retained observations."""
     return datetime.now(timezone.utc).isoformat()
 
 
@@ -70,3 +72,30 @@ def capture_for(component):
     )
     run = store.start(identity)
     return ActivityInvocation(store=store, invocation_id=run)
+
+
+def normalize_telemetry(record):
+    """Normalize explicit native aliases; never correlate by time or label."""
+    attrs = dict(record.get("attributes") or {})
+    conflict = False
+    for target, aliases in {
+        "conversation.id": ("thread.id", "thread_id"),
+        "turn.id": ("turn_id",),
+        "call.id": ("call_id",),
+    }.items():
+        values = {
+            attrs[key]
+            for key in (target, *aliases)
+            if isinstance(attrs.get(key), str) and attrs[key]
+        }
+        if len(values) == 1:
+            attrs[target] = values.pop()
+        elif len(values) > 1:
+            conflict = True
+    # Retain conflicting native attributes for inspection/export. Only the
+    # scoped projection excludes them; All activity still contains the record.
+    return {
+        **record,
+        "attributes": attrs,
+        **({"scope_conflict": True} if conflict else {}),
+    }

@@ -1,6 +1,6 @@
 # CommandHttpServer HTTP collaborators
 
-`CommandHttpServer` binds the existing listener to one explicit `CommandService`
+`CommandHttpServer` binds the existing listener to one explicit `ClaudeCommandExecutor`
 instance. `CommandRequestHandler` implements its framework `do_POST` callback using
 that owner; request state is not captured by a nested class or mutable global.
 `server_close` / `shutdown` retain the existing HTTP server lifecycle meanings.

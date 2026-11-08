@@ -11,7 +11,7 @@ import unittest
 from unittest.mock import AsyncMock, Mock, patch
 
 from laomedo.agents.agents.claude.agent import ClaudeAgent
-from laomedo.agents.agents.opencode.boundary import IsolatedOpenCode
+from laomedo.agents.agents.opencode.runtime import OpenCodeAgentRuntime
 from laomedo.agents.agents.opencode.settings import CLI_VERSION
 from laomedo.agents.agents.opencode.utils import model_metadata
 from laomedo.agents.errors import RunnerError
@@ -108,7 +108,7 @@ class ProviderBindingTests(unittest.IsolatedAsyncioTestCase):
             (CLI_VERSION, "provider/model", "opencode_cancelled_before_dispatch", True),
         ):
             with self.subTest(version=version, observed=observed):
-                runner = IsolatedOpenCode.__new__(IsolatedOpenCode)
+                runner = OpenCodeAgentRuntime.__new__(OpenCodeAgentRuntime)
                 runner.session = Mock()
                 runner.check_transport = Mock()
                 client = SimpleNamespace(

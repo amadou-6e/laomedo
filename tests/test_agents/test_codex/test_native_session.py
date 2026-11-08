@@ -13,7 +13,7 @@ from unittest.mock import Mock, patch
 
 from laomedo.agents.agents.codex import settings
 from laomedo.agents.agents.codex.controller.models import CodexLaunch
-from laomedo.agents.agents.codex.controller.service import CodexController as AppServer
+from laomedo.agents.agents.codex.runtime import CodexAgentRuntime as AppServer
 from laomedo.agents.errors import RunnerError
 
 
@@ -94,7 +94,7 @@ class RetirementAndCatalogueTests(unittest.TestCase):
         self.assertFalse(package.joinpath("servers.py").exists())
         self.assertFalse(package.joinpath("split/transport.py").exists())
         self.assertNotIn("def _docker_prefix", package.joinpath("utils.py").read_text())
-        source = package.joinpath("controller/service.py").read_text()
+        source = package.joinpath("runtime.py").read_text()
         tree = ast.parse(source)
         imports = {
             alias.name
@@ -118,8 +118,9 @@ class RetirementAndCatalogueTests(unittest.TestCase):
         codes = set()
         producers = [
             root.joinpath("src/laomedo/agents/agents/codex/controller", module)
-            for module in ("service.py", "models.py", "settings.py")
+            for module in ("models.py", "settings.py")
         ]
+        producers += [root / "src/laomedo/agents/agents/codex/runtime.py"]
         producers += [
             root.joinpath("src/laomedo/agents/agents/codex/split", module)
             for module in ("executor.py", "models.py")
@@ -127,9 +128,16 @@ class RetirementAndCatalogueTests(unittest.TestCase):
         producers += [
             root.joinpath("src/laomedo/agents/agents", module)
             for module in (
-                "claude/container.py",
+                "claude/policy.py",
+                "claude/runtime.py",
+                "claude/executor.py",
+                "claude/credentials.py",
+                "claude/http/commands.py",
                 "claude/agent.py",
-                "opencode/boundary.py",
+                "opencode/runtime.py",
+                "opencode/executor.py",
+                "opencode/credentials.py",
+                "opencode/http/broker.py",
                 "opencode/utils.py",
             )
         ]

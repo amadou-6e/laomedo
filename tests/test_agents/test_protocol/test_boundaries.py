@@ -18,7 +18,7 @@ class AcpBoundaryTests(unittest.TestCase):
             self.assertFalse((root / relative).exists())
         for relative in (
             "agents/agents/codex/agent.py",
-            "agents/agents/codex/controller/service.py",
+            "agents/agents/codex/runtime.py",
             "agents/agents/codex/split/executor.py",
         ):
             tree = ast.parse((root / relative).read_text(encoding="utf-8-sig"))

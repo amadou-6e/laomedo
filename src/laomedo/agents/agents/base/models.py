@@ -1,7 +1,7 @@
 """Shared provider bindings and private allowlisted failure observations."""
 
 from pydantic import BaseModel, ConfigDict, Field
-from pydantic import JsonValue
+from pydantic import JsonValue, SkipValidation, SecretStr
 from pydantic import model_validator
 from typing import ClassVar, Literal
 import hashlib
@@ -480,15 +480,31 @@ class CommandRequest(BaseModel):
     model_config = ConfigDict(
         strict=True, frozen=True, extra="forbid", hide_input_in_errors=True
     )
-    command: str = Field(
+    command: str | None = Field(
+        default=None,
         min_length=1,
         repr=False,
         description="Command text to admit under provider-local workspace policy.",
     )
     deadline: float | None = Field(
         default=None,
+        allow_inf_nan=False,
         description="Absolute host monotonic deadline; None retains provider's bounded default.",
     )
+
+    argv: list[str] | None = Field(
+        default=None,
+        min_length=1,
+        repr=False,
+        description="Exact admitted native argv for fixed probes; mutually exclusive with shell text.",
+    )
+
+    @model_validator(mode="after")
+    def validate_command_form(self):
+        """Admit one explicit command representation without shell coercion."""
+        if (self.command is None) == (self.argv is None):
+            raise ValueError("one_command_form_required")
+        return self
 
 
 class CommandResult(BaseModel):
@@ -522,12 +538,49 @@ class CredentialRequest(BaseModel):
     minimum_validity_seconds: float | None = Field(
         default=None,
         gt=0,
+        allow_inf_nan=False,
         description="Required remaining validity when native policy can establish it.",
     )
     deadline: float | None = Field(
         default=None,
+        allow_inf_nan=False,
         description="Absolute monotonic deadline for credential preparation.",
     )
+
+    timeout_seconds: float = Field(
+        default=20.0,
+        gt=0,
+        allow_inf_nan=False,
+        description="Native credential-check timeout ceiling, separately clamped to the request deadline.",
+    )
+
+
+class CredentialMaterial(BaseModel):
+    """Private host transfer of one credential and its existing public identity."""
+
+    model_config = ConfigDict(
+        strict=True, frozen=True, extra="forbid", hide_input_in_errors=True
+    )
+    token: SecretStr | None = Field(
+        default=None,
+        exclude=True,
+        repr=False,
+        description="Borrowed native credential; only explicit host projection may unwrap it.",
+    )
+    identity: dict[str, JsonValue] | None = Field(
+        default=None,
+        repr=False,
+        description="Existing nonsecret connection metadata, never raw login state.",
+    )
+    binding: CredentialBinding = Field(
+        description="Public preparation/identity outcome with no credential material."
+    )
+
+    def native_pair(self):
+        """Unwrap only at the existing host launch boundary, preserving native identity."""
+        return (
+            self.token.get_secret_value() if self.token is not None else None
+        ), self.identity
 
 
 class ModelChoice(BaseModel):
@@ -555,3 +608,58 @@ class ModelCatalogSnapshot(BaseModel):
     models: list[ModelChoice] = Field(
         description="Native discovery choices without submitting a model turn."
     )
+
+
+class RuntimeLaunch(BaseModel):
+    """Host-only owned runtime handle and its separate launch/readiness evidence."""
+
+    model_config = ConfigDict(
+        strict=True, frozen=True, extra="forbid", hide_input_in_errors=True
+    )
+    runtime: SkipValidation[object] = Field(
+        exclude=True,
+        repr=False,
+        description="Opaque host-owned runtime; never serialized or supplied by graph input.",
+    )
+    observation: RuntimeObservation = Field(
+        description="Actual launch and readiness facts at construction, not execution success."
+    )
+
+
+class ReadinessObservation(BaseModel):
+    """A scoped readiness result, independent of process health and isolation."""
+
+    model_config = ConfigDict(strict=True, frozen=True, extra="forbid")
+    provider: str = Field(
+        description="Registered provider whose preflight was observed."
+    )
+    ready: bool | None = Field(
+        description="Native ready/blocked result; configuration-only evidence remains unknown."
+    )
+    scope: str = Field(
+        description="Exact native/authentication/configuration check established by this result."
+    )
+    payload: SkipValidation[dict[str, JsonValue]] = Field(
+        repr=False,
+        description="Existing public preflight payload without schema or native-extension changes.",
+    )
+
+
+class ProcessHealthObservation(BaseModel):
+    """Liveness of a named resource set, never permission or authentication proof."""
+
+    model_config = ConfigDict(strict=True, frozen=True, extra="forbid")
+    alive: bool | None = Field(
+        description="Observed process/transport liveness; unknown is not healthy."
+    )
+    scope: str = Field(description="Exact checked process or resource set.")
+
+
+class IsolationObservation(BaseModel):
+    """Independent sandbox observation, not inferred from readiness or liveness."""
+
+    model_config = ConfigDict(strict=True, frozen=True, extra="forbid")
+    verified: bool | None = Field(
+        description="Whether the stated isolation gate was actually established."
+    )
+    scope: str = Field(description="Exact sandbox policy/resource boundary checked.")

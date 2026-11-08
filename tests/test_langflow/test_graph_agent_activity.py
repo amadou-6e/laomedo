@@ -12,7 +12,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from laomedo.agents.activity.store import ActivityStore
 from laomedo.agents.activity.projection import project
-from laomedo.agents.activity.cost import estimate
+from laomedo.agents.agents.codex.activity.cost import estimate
 from laomedo.agents.activity.runner.feed import notification
 from laomedo.agents.activity.runner.feed import read_feed
 
