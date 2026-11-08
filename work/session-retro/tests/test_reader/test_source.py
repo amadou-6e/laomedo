@@ -30,7 +30,11 @@ class SourceTests(unittest.TestCase):
                 {
                     "type": "message",
                     "role": "user",
-                    "content": [{"text": "ÃƒÂ©Ã°Å¸â„¢â€š"}],
+                    "content": [
+                        {
+                            "text": "ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡"
+                        }
+                    ],
                 },
             ),
             b"x" * 5000 + b"\n",

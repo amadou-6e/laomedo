@@ -15,6 +15,8 @@ Experimental implementation for [issue276](https://github.com/amadou-6e/laomedo/
 
 ## Processing contract
 
+`EpisodeBuilder.write` streams user-message windows and final-answer source locations. These windows are not automatically independent tasks: continuations and scope changes require original-context review. `Incident`, `EvidenceReference` and `PreventionProposal` retain reviewed findings, counterevidence and unapplied controls. A tool failure or regex match is not a causal verdict.
+
 Each JSONL record retains line, offset, byte length and SHA256. Large lines are scanned without retaining their payload, marked oversized and excluded from semantic-completeness claims. Malformed JSON, incomplete final bytes, unknown events, missing call partners and truncated search text are reported. Restart verifies the committed prefix and parser/settings version; explicit `--extend` admits later bytes only after verifying the old prefix. A completed build re-verifies the prefix before becoming complete. Source replacement/truncation fails closed. Source reads use Windows shared read/write/delete access; no source writes or model calls.
 
 All native records remain source-addressable. `event_msg` representations are not silently deduplicated against `response_item` messages. Compactions and referenced child sessions are retained as observations, not recursively opened or counted as fresh requests. Search is over bounded extracted text, not guaranteed full-payload search. Original payloads remain in the source. Read pages declare omitted characters.

@@ -1,5 +1,7 @@
 """Typed source identities, locators, decoded observations and coverage values."""
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -130,6 +132,13 @@ class CoverageReport(BaseModel):
     explicit_failure_records: int = Field(
         description="Records containing recognized explicit failure status"
     )
+    result_outcomes_unknown: int = Field(
+        description="Result records without a recognized explicit terminal signal"
+    )
+    usage_values: str = Field(
+        default="source_only_not_aggregated",
+        description="Usage records are located, not summed into unsupported cost claims",
+    )
     truncated_search_records: int = Field(
         description="Records whose search values omit text"
     )
@@ -176,6 +185,9 @@ class ReportResult(BaseModel):
     """Private candidate report locations, not a confirmed incident verdict."""
 
     directory: str = Field(description="Private report directory")
+    episodes: int = Field(
+        default=0, description="User-message windows, not distinct tasks"
+    )
     messages: int = Field(
         description="Message observations written, not deduplicated requests"
     )
@@ -185,6 +197,98 @@ class ReportResult(BaseModel):
     status: str = Field(
         default="candidate_queue_requires_source_review",
         description="Analytical limitation",
+    )
+
+
+class Episode(BaseModel):
+    """A physical user-message window; task continuity needs semantic review."""
+
+    id: str = Field(
+        description="Stable window identifier derived from original user line"
+    )
+    source_kind: Literal[
+        "request_or_continuation", "clarification", "injected_context"
+    ] = Field(
+        default="request_or_continuation",
+        description="Native user records can contain injected context rather than human requests",
+    )
+    start_line: int = Field(description="Original user-message source line")
+    end_line: int = Field(description="Last physical line before the next user message")
+    turn_id: str | None = Field(description="Native user turn when supplied")
+    user_text: str = Field(description="Private redacted bounded original request text")
+    user_text_truncated: bool = Field(
+        description="Original user text needs further source pages"
+    )
+    final_answer_lines: list[int] = Field(
+        default_factory=list, description="Original final-answer source locations"
+    )
+    calls: int = Field(default=0, description="Observed calls in the window")
+    results: int = Field(default=0, description="Observed results in the window")
+    explicit_failure_records: int = Field(
+        default=0, description="Tool failures, not automatically agent mistakes"
+    )
+    compactions: int = Field(default=0, description="Compactions inside this window")
+
+
+class EvidenceReference(BaseModel):
+    """A statement grounded in original immutable-prefix record locations."""
+
+    lines: list[int] = Field(
+        description="Original physical lines supporting this evidence"
+    )
+    statement: str = Field(
+        description="Concise observation, distinct from causal inference"
+    )
+    relation: Literal[
+        "intent", "action", "result", "claim", "correction", "counterevidence"
+    ] = Field(description="Role of the observation in the incident")
+
+
+class Incident(BaseModel):
+    """Reviewed behavior discrepancy with uncertainty and counterevidence retained."""
+
+    id: str = Field(
+        description="Stable incident identity; compaction repeats do not add recurrence"
+    )
+    title: str = Field(description="Concrete observed problem")
+    category: str = Field(description="Behavioral concern, not a blame label")
+    severity: str = Field(description="Impact assessment and priority")
+    summary: str = Field(description="Requested versus observed behavior")
+    evidence: list[EvidenceReference] = Field(
+        description="Original supporting and counterevidence references"
+    )
+    causal_status: Literal["observed", "inferred", "unresolved"] = Field(
+        description="Confidence category for the proposed mechanism"
+    )
+    mechanism: str = Field(
+        description="Evidence-bounded explanation and remaining uncertainty"
+    )
+    source_sha256: str = Field(description="Exact immutable source prefix reviewed")
+    status: Literal["candidate", "source_reviewed", "independently_checked"] = Field(
+        description="Review status, distinct from prevention effectiveness"
+    )
+
+
+class PreventionProposal(BaseModel):
+    """Unapplied change with a falsifiable recurrence-prevention check."""
+
+    id: str = Field(description="Stable proposal identity")
+    incident_ids: list[str] = Field(
+        description="Distinct source-reviewed incidents motivating it"
+    )
+    owner: str = Field(description="Owning repository, skill or concern")
+    proposed_change: str = Field(
+        description="Smallest concrete change, not automatically applied"
+    )
+    verification: str = Field(
+        description="Fail-before/pass-after or representative scenario evaluation"
+    )
+    false_positive_check: str = Field(
+        description="Compliant behavior that must still be allowed"
+    )
+    status: Literal["proposed", "approved", "applied", "verified"] = Field(
+        default="proposed",
+        description="Approval/application/effectiveness are separate states",
     )
 
 

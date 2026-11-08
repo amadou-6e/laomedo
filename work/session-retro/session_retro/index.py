@@ -49,6 +49,15 @@ class SessionIndex:
         if app != 0x5254524F and (app or existing):
             self.db.close()
             raise RetrospectiveError("database_not_owned")
+        if any(row[0] == "state" for row in existing):
+            saved = self.db.execute("SELECT value FROM state WHERE id=1").fetchone()
+            if (
+                saved
+                and SourceSnapshot.model_validate_json(saved[0]).parser_version
+                != PARSER_VERSION
+            ):
+                self.db.close()
+                raise RetrospectiveError("index_settings_changed")
         if create:
             self.db.executescript("""
                 PRAGMA application_id=1381257807;
@@ -166,6 +175,19 @@ class SessionIndex:
             r[0]: r[1]
             for r in self.db.execute("SELECT kind,COUNT(*) FROM events GROUP BY kind")
         }
+        gaps = self.db.execute(
+            "SELECT COUNT(*) FROM (SELECT offset,COALESCE(LAG(offset+length) OVER(ORDER BY line),0) AS expected FROM events) WHERE offset!=expected"
+        ).fetchone()[0]
+        totals = self.db.execute(
+            "SELECT COALESCE(SUM(length),0),COALESCE(MAX(line),0) FROM events"
+        ).fetchone()
+        if (
+            gaps
+            or sum(counts.values()) != snapshot.lines
+            or totals[0] != snapshot.indexed_bytes
+            or totals[1] != snapshot.lines
+        ):
+            raise RetrospectiveError("index_locator_integrity_failed")
         pairs = self.db.execute(
             "SELECT COUNT(*) FROM (SELECT call_id FROM events WHERE call_id IS NOT NULL AND kind IN ('call','result') GROUP BY call_id HAVING SUM(kind='call')=1 AND SUM(kind='result')=1)"
         ).fetchone()[0]
@@ -183,6 +205,9 @@ class SessionIndex:
             ).fetchone()[0],
             explicit_failure_records=self.db.execute(
                 "SELECT COUNT(*) FROM events WHERE failure=1"
+            ).fetchone()[0],
+            result_outcomes_unknown=self.db.execute(
+                "SELECT COUNT(*) FROM events WHERE kind='result' AND failure IS NULL"
             ).fetchone()[0],
             truncated_search_records=self.db.execute(
                 "SELECT COUNT(*) FROM events WHERE text_truncated=1"

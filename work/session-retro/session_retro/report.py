@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 from session_retro.errors import RetrospectiveError
+from session_retro.episodes import EpisodeBuilder
 from session_retro.index import SessionIndex
 from session_retro.models import ReportResult
 
@@ -23,6 +24,7 @@ class RetrospectiveReport:
         self.index.verify()
         directory.mkdir(parents=True, exist_ok=True)
         coverage = self.index.coverage()
+        episodes = EpisodeBuilder(self.index).write(directory / "episodes.jsonl")
         (directory / "coverage.json").write_text(
             coverage.model_dump_json(indent=2), encoding="utf-8"
         )
@@ -51,5 +53,8 @@ class RetrospectiveReport:
             encoding="utf-8",
         )
         return ReportResult(
-            directory=str(directory.resolve()), messages=messages, candidates=candidates
+            directory=str(directory.resolve()),
+            messages=messages,
+            candidates=candidates,
+            episodes=episodes,
         )

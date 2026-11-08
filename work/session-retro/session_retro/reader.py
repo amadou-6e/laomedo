@@ -34,6 +34,8 @@ class SessionReader:
         with open_source(self.path) as stream:
             stat = os.fstat(stream.fileno())
             first = stream.readline(self.settings.max_record_bytes + 1)
+            if not first.endswith(b"\n"):
+                raise RetrospectiveError("invalid_session_metadata")
             try:
                 meta = json.loads(first)
             except (ValueError, UnicodeDecodeError):
