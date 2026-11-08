@@ -1,6 +1,17 @@
 name: Work Graph
 on: [push, pull_request]
 jobs:
+  provider-interface-contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check provider interfaces and override compatibility without native runtimes
+        run: python -m unittest test_agents.test_architecture.test_provider_contracts -v
+        env:
+          PYTHONPATH: tests
   docker-runtime-controls:
     runs-on: ubuntu-latest
     steps:

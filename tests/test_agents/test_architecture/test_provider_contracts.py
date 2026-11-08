@@ -1,0 +1,174 @@
+"""Enforce complete declared provider surfaces and compatible override shapes."""
+
+import unittest
+
+from support.interface_contracts import contract_violations
+from support.paths import repository_root
+
+
+class ProviderContractCheckerTests(unittest.TestCase):
+    """Negative controls ensure the architecture guard catches real violations."""
+
+    def check(self, interface, implementation):
+        """Inspect independent source snippets without importing or executing them."""
+        return contract_violations(
+            {
+                "example.base": interface,
+                "example.provider": "from example.base import BaseRole\n"
+                + implementation,
+            },
+            {"example.base.BaseRole"},
+        )
+
+    def test_declared_operations_and_private_helpers_pass(self):
+        """Implementation helpers remain internal; an optional extra keyword is safe."""
+        self.assertEqual(
+            self.check(
+                "class BaseRole:\n def execute(self, request, *, deadline=None): ...\n",
+                "class Provider(BaseRole):\n"
+                " def execute(self, request, *, deadline=None, trace=False): return self._run(request)\n"
+                " def _run(self, request): return request\n",
+            ),
+            [],
+        )
+
+    def test_extra_public_operation_is_reported_with_location(self):
+        """A nominal base must not conceal the provider's undeclared public API."""
+        errors = self.check(
+            "class BaseRole:\n def execute(self, request): ...\n",
+            "class Provider(BaseRole):\n"
+            " def execute(self, request): return request\n"
+            " def bypass(self): return True\n",
+        )
+        self.assertEqual(len(errors), 1)
+        self.assertIn("example/provider.py:4: Provider.bypass", errors[0])
+        self.assertIn("not declared by example.base.BaseRole", errors[0])
+
+    def test_transitive_mixin_leak_is_not_missed(self):
+        """Inherited concrete additions are part of the exposed provider surface."""
+        errors = self.check(
+            "class BaseRole:\n def execute(self, request): ...\n",
+            "class Extra:\n def bypass(self): ...\n"
+            "class Provider(Extra, BaseRole):\n def execute(self, request): ...\n",
+        )
+        self.assertTrue(any("Provider.bypass" in error for error in errors))
+
+    def test_sync_async_override_mismatch_fails(self):
+        """An awaitable operation cannot become synchronous at a provider boundary."""
+        errors = self.check(
+            "class BaseRole:\n async def execute(self, request): ...\n",
+            "class Provider(BaseRole):\n def execute(self, request): ...\n",
+        )
+        self.assertTrue(any("sync/async" in error for error in errors))
+
+    def test_optional_contract_argument_cannot_become_required(self):
+        """The minimal call admitted by the interface must remain valid."""
+        errors = self.check(
+            "class BaseRole:\n def execute(self, request, *, deadline=None): ...\n",
+            "class Provider(BaseRole):\n def execute(self, request, *, deadline): ...\n",
+        )
+        self.assertTrue(any("contract call rejected" in error for error in errors))
+
+    def test_contract_keyword_and_variadic_calls_cannot_be_narrowed(self):
+        """Renamed keyword parameters and removed variadic support reject callers."""
+        for contract, implementation in (
+            ("request", "renamed"),
+            ("request, **options", "request"),
+            ("request, *items", "request"),
+        ):
+            with self.subTest(contract=contract):
+                self.assertTrue(
+                    self.check(
+                        f"class BaseRole:\n def execute(self, {contract}): ...\n",
+                        f"class Provider(BaseRole):\n def execute(self, {implementation}): ...\n",
+                    )
+                )
+
+    def test_context_manager_protocol_must_also_be_declared(self):
+        """Implicit with-protocol access is an external interface too."""
+        errors = self.check(
+            "class BaseRole:\n def execute(self, request): ...\n",
+            "class Provider(BaseRole):\n"
+            " def execute(self, request): ...\n"
+            " def __enter__(self): return self\n",
+        )
+        self.assertTrue(any("Provider.__enter__" in error for error in errors))
+
+    def test_missing_contract_and_empty_discovery_fail(self):
+        """Deleted/moved sources cannot turn an empty architecture scan green."""
+        self.assertTrue(contract_violations({}, {"example.base.BaseRole"}))
+        self.assertTrue(
+            contract_violations(
+                {"example.base": "class BaseRole: pass\n"},
+                {"example.base.BaseRole"},
+            )
+        )
+
+    def test_aliased_imports_are_supported(self):
+        """Declared ancestry is resolved through a module import alias."""
+        sources = {
+            "example.base": "class BaseRole:\n def execute(self, request): ...\n",
+            "example.provider": "import example.base as contracts\n"
+            "class Provider(contracts.BaseRole):\n def execute(self, request): ...\n",
+        }
+        self.assertEqual(contract_violations(sources, {"example.base.BaseRole"}), [])
+
+    def test_c3_order_selects_the_actual_inherited_override(self):
+        """A later incompatible mixin must not shadow the earlier valid override."""
+        prefix = (
+            "from example.base import BaseRole\n"
+            "class Good:\n def execute(self, request): ...\n"
+            "class Bad:\n def execute(self, renamed): ...\n"
+        )
+        for bases, fails in (("Good, Bad", False), ("Bad, Good", True)):
+            with self.subTest(bases=bases):
+                errors = contract_violations(
+                    {
+                        "example.base": "class BaseRole:\n def execute(self, request): ...\n",
+                        "example.provider": prefix
+                        + f"class Provider({bases}, BaseRole): pass\n",
+                    },
+                    {"example.base.BaseRole"},
+                )
+                self.assertEqual(bool(errors), fails)
+
+    def test_static_and_property_binding_cannot_change(self):
+        """Matching names and arguments do not excuse changed descriptor semantics."""
+        for decorator in ("staticmethod", "property"):
+            with self.subTest(decorator=decorator):
+                argument = "request" if decorator == "staticmethod" else "self"
+                errors = self.check(
+                    f"class BaseRole:\n @{decorator}\n def execute({argument}): ...\n",
+                    "class Provider(BaseRole):\n def execute(self, request): ...\n",
+                )
+                self.assertTrue(any("binding differs" in error for error in errors))
+
+
+class ProviderInterfaceContractTests(unittest.TestCase):
+    """Current production providers must expose their declared role contract only."""
+
+    def test_provider_public_surfaces_match_declared_role_interfaces(self):
+        """Fail on live undeclared APIs without a baseline or provider exceptions."""
+        root = repository_root() / "src"
+        sources = {}
+        for path in root.joinpath("laomedo").rglob("*.py"):
+            parts = path.relative_to(root).with_suffix("").parts
+            module = ".".join(parts[:-1] if parts[-1] == "__init__" else parts)
+            sources[module] = path.read_text(encoding="utf-8-sig")
+        contracts = {
+            "laomedo.agents.agents.base.base." + name
+            for name in (
+                "BaseAgentRuntime",
+                "BaseCommandExecutor",
+                "BaseCredentialProvider",
+                "BaseModelCatalog",
+                "BaseActivityProjector",
+            )
+        }
+        violations = contract_violations(sources, contracts)
+        self.assertEqual(
+            violations,
+            [],
+            "Provider interface violations:\n"
+            + "\n".join("src/" + violation for violation in violations),
+        )
