@@ -1,0 +1,155 @@
+"""Codex native observations; successful tool evidence is retained for context."""
+
+import json
+import re
+
+from session_retro.models import NormalizedEvent, SourceRecord
+from session_retro.redaction import Redactor
+from session_retro.settings import Settings
+
+
+class CodexEventDecoder:
+    """Normalize bounded source records without trusting embedded instructions."""
+
+    def __init__(self, settings: Settings):
+        """Retain injected limits and current observed turn identity."""
+        self.settings = settings
+        self.redactor = Redactor()
+        self.turn_id = None
+
+    def decode(
+        self, record: SourceRecord, *, full_text: bool = False
+    ) -> NormalizedEvent:
+        """Preserve native type and correlation; gaps and truncation stay explicit."""
+        if record.data is None:
+            return NormalizedEvent(
+                locator=record.locator, native_type="unknown", kind="oversized"
+            )
+        try:
+            value = json.loads(record.data)
+        except (ValueError, UnicodeDecodeError, RecursionError):
+            return NormalizedEvent(
+                locator=record.locator, native_type="invalid_json", kind="malformed"
+            )
+        if not isinstance(value, dict):
+            return NormalizedEvent(
+                locator=record.locator, native_type="invalid_shape", kind="malformed"
+            )
+        outer = value.get("type") if isinstance(value.get("type"), str) else "unknown"
+        payload = value.get("payload", {})
+        if not isinstance(payload, dict):
+            return NormalizedEvent(
+                locator=record.locator, native_type=str(outer), kind="unknown"
+            )
+        native = payload.get("type") if isinstance(payload.get("type"), str) else ""
+        turn = payload.get("turn_id")
+        if isinstance(turn, str):
+            self.turn_id = turn
+        event = NormalizedEvent(
+            locator=record.locator,
+            native_type=str(outer) + (":" + str(native) if native else ""),
+            kind="unknown",
+            timestamp=(
+                value.get("timestamp")
+                if isinstance(value.get("timestamp"), str)
+                else None
+            ),
+            turn_id=self.turn_id,
+            call_id=(
+                payload.get("call_id")
+                if isinstance(payload.get("call_id"), str)
+                else None
+            ),
+        )
+        text = ""
+        if outer == "response_item" and native == "message":
+            event.kind, event.role = "message", (
+                payload.get("role") if isinstance(payload.get("role"), str) else None
+            )
+            text = self._message(payload.get("content"))
+        elif outer == "response_item" and native in {
+            "function_call",
+            "custom_tool_call",
+        }:
+            event.kind, event.name = "call", (
+                payload.get("name") if isinstance(payload.get("name"), str) else None
+            )
+            text = self._text(payload.get("arguments", payload.get("input", "")))
+        elif outer == "response_item" and native in {
+            "function_call_output",
+            "custom_tool_call_output",
+        }:
+            event.kind = "result"
+            output = payload.get("output", "")
+            text = self._text(output)
+            event.failure = self._failure(output)
+            if payload.get("is_error") is True:
+                event.failure = True
+        elif outer == "event_msg" and native in {"user_message", "agent_message"}:
+            event.kind, event.role = "message_observation", (
+                "user" if native == "user_message" else "assistant"
+            )
+            text = self._text(payload.get("message", ""))
+        elif "compact" in str(outer).lower() or "compact" in str(native).lower():
+            event.kind = "compaction"
+            text = self._text(payload.get("summary", payload.get("message", "")))
+        elif outer in {"session_meta", "turn_context"}:
+            event.kind = "metadata"
+        elif outer == "event_msg":
+            event.kind, event.name = "observation", str(native)
+            event.failure = self._failure(payload)
+            text = self._text(payload.get("message", payload.get("reason", "")))
+        elif outer == "response_item" and native in {"reasoning", "compaction"}:
+            event.kind = "reasoning" if native == "reasoning" else "compaction"
+            text = self._message(payload.get("summary", payload.get("content")))
+        text = self.redactor.text(text)
+        event.text_truncated = (
+            not full_text and len(text) > self.settings.search_characters
+        )
+        event.text = text if full_text else text[: self.settings.search_characters]
+        return event
+
+    def _text(self, value) -> str:
+        """Preserve text or serialize an already bounded external JSON value."""
+        return (
+            value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)
+        )
+
+    def _message(self, content) -> str:
+        """Extract explicit text blocks; exclude binary/image payloads from search."""
+        if isinstance(content, str):
+            return content
+        if not isinstance(content, list):
+            return ""
+        return "\n".join(
+            item["text"]
+            for item in content
+            if isinstance(item, dict) and isinstance(item.get("text"), str)
+        )
+
+    def _failure(self, value, depth: int = 0) -> bool | None:
+        """Recognize explicit outcomes, not arbitrary occurrences of 'error'."""
+        if depth > 4:
+            return None
+        if isinstance(value, dict):
+            if (
+                value.get("is_error") is True
+                or isinstance(value.get("status"), str)
+                and value["status"] in {"failed", "error", "timeout"}
+            ):
+                return True
+            if type(value.get("exit_code")) is int:
+                return value["exit_code"] != 0
+            for key in ("output", "result", "metadata"):
+                if key in value:
+                    result = self._failure(value[key], depth + 1)
+                    if result is not None:
+                        return result
+        elif isinstance(value, str):
+            try:
+                parsed = json.loads(value)
+            except ValueError:
+                match = re.search(r"(?m)^Process exited with code (-?\d+)\s*$", value)
+                return int(match[1]) != 0 if match else None
+            return self._failure(parsed, depth + 1)
+        return None
