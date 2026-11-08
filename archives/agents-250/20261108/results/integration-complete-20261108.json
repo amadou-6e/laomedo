@@ -1,0 +1,18 @@
+{
+    "head":  "620ad13a15b07704f4a11280ed206cd2345c88f7",
+    "base":  "bb25013523e37fbb108b51638be171e879eb3883",
+    "effort":  "low",
+    "timeout_seconds":  480,
+    "duration_ms":  54429,
+    "prompt_sha256":  "bab8fada83ee9aeb1bd3b3a08d57a2455cec30b6fa97c9925bd0a7d4daeb2232",
+    "native_outcome":  "success",
+    "is_error":  false,
+    "pending_request":  null,
+    "coverage":  "Final6339-7203 paged; complete substantive PR own-diff integrated; no confirmed defects",
+    "visual":  "Prior actual image review retained; tests/docs-only delta",
+    "merge_gates":  [
+                        "Owner final graph validation",
+                        "Spec403 accepted merged coverage"
+                    ],
+    "report_sha256":  "7e2c9e719448ffb30a1d5e1f84a35d7c67a8b2a8c87b35e64f6ed8cf52d11be4"
+}

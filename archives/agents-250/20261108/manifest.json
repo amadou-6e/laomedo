@@ -33,8 +33,8 @@
     },
     {
       "path": "README.md",
-      "sha256": "a284a9e3bda7297395ebe022d5f69161ffe3faea6971610fade2d540a72bd030",
-      "bytes": 3859
+      "sha256": "4b1909ff5e17e0877e7471c7bec1219e652ffda6bb758c783457c6ea1da6feaf",
+      "bytes": 4449
     },
     {
       "path": "results/check-summary.json",
@@ -50,6 +50,11 @@
       "path": "results/final-runtime-conservation-20261108.json",
       "sha256": "71a6bd96526b8dabed0b31bc7a311f28a929c8b53fe45b1b4a9575924d9c179a",
       "bytes": 1076
+    },
+    {
+      "path": "results/integration-complete-20261108.json",
+      "sha256": "8e67c602e21188e02491e007fce7bbe3139aaa17d9fa342404d941599c7cfa8d",
+      "bytes": 823
     },
     {
       "path": "results/saved-views.json",
@@ -75,6 +80,11 @@
       "path": "reviews/data-corrections-final-result.md",
       "sha256": "ca07d4cd0ae17c0ba1dd5c9d113e1d5e855b171049dd75e5528e1203bf858a2a",
       "bytes": 8538
+    },
+    {
+      "path": "reviews/integration-complete-20261108-result.md",
+      "sha256": "7e2c9e719448ffb30a1d5e1f84a35d7c67a8b2a8c87b35e64f6ed8cf52d11be4",
+      "bytes": 7302
     },
     {
       "path": "reviews/integration-final-ledger-20261108.md",
