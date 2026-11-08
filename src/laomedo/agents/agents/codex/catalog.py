@@ -1,7 +1,6 @@
 """Provider-owned zero-turn model discovery and its native freshness policy."""
 
 import asyncio
-import threading
 import time
 from laomedo.agents.agents.codex.settings import MODEL_CATALOG_TTL_SECONDS
 from laomedo.agents.agents.base.base import BaseModelCatalog
@@ -14,9 +13,7 @@ class CodexModelCatalog(BaseModelCatalog):
     def __init__(self, agent):
         """Bind the provider's admitted discovery hooks and create private cache state."""
         self.agent = agent
-        self._lock = threading.Lock()
-        self._cached = None
-        self._pending = None
+        super().__init__()
 
     def discover(self, *, refresh: bool = False) -> ModelCatalogSnapshot:
         """Serialize and briefly cache metadata discovery; never submit a turn."""

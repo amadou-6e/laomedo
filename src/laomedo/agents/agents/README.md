@@ -30,9 +30,9 @@ The wider application's interface remains `agents/interface/`.
 | --- | --- | --- |
 | `BaseAgentRuntime` / `{Provider}AgentRuntime` | `start`, `request_cancel`, `shutdown` | Launch/initialize the configured scope, retain exact native handles, request interruption, and close only owned resources. Results separate launched/ready, requested/confirmed cancellation, and confirmed/unknown cleanup. Codex/OpenCode scope is an attempt; Claude sessions are turn-scoped. ACP messaging is composed, not a lifecycle superclass. |
 | `BaseCommandExecutor` / `{Provider}CommandExecutor` | `execute`, `shutdown` | Admit one typed command/deadline/cancellation context and report native exit/output separately from cleanup. HTTP/MCP command handlers adapt wire requests; they do not define the execution contract. Existing provider limits and mediation authority remain local. |
-| `BaseCredentialProvider` / `{Provider}CredentialProvider` | `prepare`, `validate`, `release` | Provider-owned admission/refresh and exact temporary-state lifetime. Public bindings contain no secrets. Releasing a borrowed profile does not revoke or delete host login. |
-| `BaseModelCatalog` / `{Provider}ModelCatalog` | `discover(refresh=False)` | Zero-turn discovery, provider-specific freshness and in-flight sharing. Refresh never silently chooses another model. Failed refresh does not certify stale data. |
-| `BaseActivityProjector` / `{Provider}ActivityProjector` | `project` | Convert provider-native observations to shared `ActivityProjection`; unknown usage remains unknown. Native pricing belongs to its provider. Parsing helpers may remain functions. |
+| `BaseCredentialProvider` / `{Provider}CredentialProvider` | `prepare`, `validate`, `borrow`, `release` | Provider-owned admission/refresh and exact temporary-state lifetime. Public bindings contain no secrets; borrowed material stays host-only. Releasing a borrowed profile does not revoke or delete host login. |
+| `BaseModelCatalog` / `{Provider}ModelCatalog` | `discover(refresh=False)`, `snapshot`, `wait_until_idle` | Zero-turn discovery, provider-specific freshness and in-flight sharing. A snapshot is the last observed account catalogue, possibly stale, never a refresh or a selection change. Waiting observes discovery cleanup, not run admission. |
+| `BaseActivityProjector` / `{Provider}ActivityProjector` | `accepts`, `project` | Recognize unqualified native observations and convert them to shared `ActivityProjection`; persisted provider identity takes precedence. Unknown usage remains unknown. Native pricing belongs to its provider. |
 | `AgentProviderRegistry` | `descriptor`, `create_agent`, `activity_projector` | Trusted built-in registrations and typed `AgentProviderDescriptor` capabilities. External inputs can select only registered IDs, never imports, executables or credential locations. |
 
 Readiness, process health and isolation return distinct typed observations; none
@@ -60,6 +60,17 @@ keeps tokens excluded from representations and serialization. `release` does not
 revoke borrowed credentials. Unsupported requested validity/deadline constraints
 fail with `credential_constraints_unsupported` before refresh rather than claiming
 they were enforced. Existing native refresh owners and credential paths remain.
+
+`BaseCredentialProvider.borrow()` returns host-only `CredentialMaterial` for every
+provider. Codex supplies a borrowed access token and public identity; volume/profile
+providers prepare their existing native credential source and return its binding
+without copying a token into the controller environment. Absence of an inline token
+does not imply missing authentication. The material excludes secrets from dumps.
+
+Catalogue cache state and observation methods belong to `BaseModelCatalog`; native
+discovery, TTL and in-flight ownership remain provider-owned. `wait_until_idle`
+waits for the observed discovery only; it does not reserve the provider or certify
+successful discovery. `snapshot` does not certify freshness after a failed refresh.
 
 Existing public payloads, persisted schemas, stable failure codes, native session
 IDs and host authorization are preserved at explicit adapters. Native user-story

@@ -2,7 +2,6 @@
 
 from concurrent.futures import Future, TimeoutError as FutureTimeout
 from copy import deepcopy
-import threading
 import time
 from laomedo.agents.agents.claude.settings import MODEL_CATALOG_TTL_SECONDS
 from laomedo.agents.agents.base.base import BaseModelCatalog
@@ -16,9 +15,7 @@ class ClaudeModelCatalog(BaseModelCatalog):
     def __init__(self, agent):
         """Bind the provider's admitted discovery hooks and create private cache state."""
         self.agent = agent
-        self._lock = threading.Lock()
-        self._cached = None
-        self._pending = None
+        super().__init__()
 
     def discover(self, *, refresh: bool = False) -> ModelCatalogSnapshot:
         """Share an in-flight discovery across simultaneous editor refreshes."""
@@ -55,8 +52,3 @@ class ClaudeModelCatalog(BaseModelCatalog):
         finally:
             with self._lock:
                 self._pending = None
-
-    def selected_snapshot(self):
-        """Copy the last observed account choices without refreshing during dispatch."""
-        with self._lock:
-            return deepcopy(self._cached[1]) if self._cached else None

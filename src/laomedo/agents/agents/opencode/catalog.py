@@ -3,7 +3,6 @@
 import asyncio
 from laomedo.agents.agents.base.base import BaseAgentRuntime
 import shutil
-import threading
 import time
 from laomedo.agents.agents.opencode.settings import MODEL_CATALOG_TTL_SECONDS
 from uuid import uuid4
@@ -19,9 +18,7 @@ class OpenCodeModelCatalog(BaseModelCatalog):
     def __init__(self, agent):
         """Bind the provider's admitted discovery hooks and create private cache state."""
         self.agent = agent
-        self._lock = threading.Lock()
-        self._cached = None
-        self._pending = None
+        super().__init__()
 
     def discover(self, *, refresh: bool = False) -> ModelCatalogSnapshot:
         """Discover connected native models without creating a session or turn."""
@@ -81,10 +78,3 @@ class OpenCodeModelCatalog(BaseModelCatalog):
                         self.agent.lock.release()
             self._cached = (time.monotonic(), result)
             return ModelCatalogSnapshot.model_validate(result)
-
-    def wait_until_idle(self, *, timeout: float) -> bool:
-        """Wait for discovery cleanup without claiming that another run is idle."""
-        if not self._lock.acquire(timeout=timeout):
-            return False
-        self._lock.release()
-        return True

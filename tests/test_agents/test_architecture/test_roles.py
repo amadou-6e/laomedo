@@ -5,7 +5,7 @@ from contextlib import nullcontext
 import threading
 from types import SimpleNamespace
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 from pydantic import SecretStr, ValidationError
 from laomedo.agents.agents.base.base import (
     BaseAgentRuntime,
@@ -24,6 +24,7 @@ from laomedo.agents.agents.codex.runtime import CodexAgentRuntime
 from laomedo.agents.agents.claude.runtime import ClaudeAgentRuntime
 from laomedo.agents.agents.opencode.runtime import OpenCodeAgentRuntime
 from laomedo.agents.agents.codex.credentials import CodexCredentialProvider
+from laomedo.agents.agents.claude.credentials import ClaudeCredentialProvider
 from laomedo.agents.agents.opencode.credentials import OpenCodeCredentialProvider
 from laomedo.agents.agents.codex.activity.cost import estimate
 from laomedo.agents.agents.claude.activity.projection import estimate as claude_estimate
@@ -33,6 +34,40 @@ from laomedo.agents.errors import RunnerError
 
 
 class ProviderRoleTests(unittest.TestCase):
+    def test_borrow_contract_preserves_native_secret_ownership(self):
+        """Each provider returns material without forcing volume secrets into tokens."""
+        connection = Mock()
+        connection.access_token.return_value = (
+            "private-test-token",
+            {"credential_ref": "host-account", "auth_outcome": "authenticated"},
+        )
+        codex = CodexCredentialProvider(SimpleNamespace(auth=connection))
+        claude = ClaudeCredentialProvider(SimpleNamespace())
+        opencode = OpenCodeCredentialProvider("admitted-profile")
+        with (
+            patch(
+                "laomedo.agents.agents.claude.credentials.Settings",
+                return_value=SimpleNamespace(mirror_host_login="0"),
+            ),
+            patch(
+                "laomedo.agents.agents.opencode.credentials.check_auth_fresh"
+            ) as check_profile,
+        ):
+            for provider in (codex, claude, opencode):
+                with self.subTest(provider=type(provider).__name__):
+                    material = provider.borrow()
+                    self.assertIsInstance(material, CredentialMaterial)
+                    self.assertNotIn("token", material.model_dump())
+                    if provider is codex:
+                        self.assertEqual(
+                            material.native_pair()[0], "private-test-token"
+                        )
+                    else:
+                        self.assertIsNone(material.token)
+                    self.assertTrue(provider.release().confirmed)
+        connection.access_token.assert_called_once_with()
+        check_profile.assert_called_once_with("admitted-profile")
+
     def test_runtime_check_results_preserve_scope_and_unsupported_unknown(self):
         """Absent split checks remain unknown; native scoped results reach callers."""
         runtime = CodexAgentRuntime.__new__(CodexAgentRuntime)

@@ -1,6 +1,10 @@
 """Behavioral provider extension contracts, separate from application interfaces."""
 
 from abc import ABC, abstractmethod
+from concurrent.futures import TimeoutError as FutureTimeout
+from copy import deepcopy
+import threading
+import time
 from laomedo.agents.agents.base.models import (
     RuntimeObservation,
     CancellationObservation,
@@ -9,6 +13,7 @@ from laomedo.agents.agents.base.models import (
     CommandResult,
     CredentialRequest,
     CredentialBinding,
+    CredentialMaterial,
     ModelCatalogSnapshot,
     RuntimeLaunch,
 )
@@ -56,6 +61,15 @@ class BaseCommandExecutor(ABC):
 class BaseCredentialProvider(ABC):
     """Own native credential preparation, validity and borrowed-state release."""
 
+    def borrow(self) -> CredentialMaterial:
+        """Prepare a native source and return a host-only borrowed binding.
+
+        Volume/profile providers keep secrets in their native owner. Providers
+        admitting inline host tokens override this projection; neither form
+        transfers refresh ownership or revokes host credentials on release.
+        """
+        return CredentialMaterial(binding=self.prepare(CredentialRequest()))
+
     @abstractmethod
     def prepare(self, request: CredentialRequest) -> CredentialBinding:
         """Admit or refresh credentials under local policy; return public metadata only."""
@@ -72,6 +86,50 @@ class BaseCredentialProvider(ABC):
 class BaseModelCatalog(ABC):
     """Discover model choices without inference, preserving native cache policy."""
 
+    def __init__(self):
+        """Own cache observation synchronization without native discovery effects."""
+        self._lock = threading.Lock()
+        self._cached = None
+        self._pending = None
+
+    def snapshot(self) -> ModelCatalogSnapshot | None:
+        """Copy last observed choices, including stale values, without refreshing.
+
+        A missing catalogue remains None. This observation never substitutes a
+        selection, certifies freshness or exposes mutable cached containers.
+        """
+        with self._lock:
+            return (
+                ModelCatalogSnapshot.model_validate(deepcopy(self._cached[1]))
+                if self._cached is not None
+                else None
+            )
+
+    def wait_until_idle(self, *, timeout: float) -> bool:
+        """Wait for observed discovery completion, not success or run admission.
+
+        Serialized providers hold the lock through native discovery and cleanup.
+        A provider sharing in-flight work publishes its Future under the same
+        lock. Waiting for that Future preserves its native cleanup lifetime.
+        Other work may start after this observation returns.
+        """
+        deadline = time.monotonic() + timeout
+        if not self._lock.acquire(timeout=timeout):
+            return False
+        try:
+            pending = self._pending
+        finally:
+            self._lock.release()
+        if pending is not None:
+            try:
+                pending.result(timeout=max(0.0, deadline - time.monotonic()))
+            except FutureTimeout:
+                return pending.done()
+            except Exception:
+                # The discovery failed; completion does not certify its result.
+                return True
+        return True
+
     @abstractmethod
     def discover(self, *, refresh: bool = False) -> ModelCatalogSnapshot:
         """Discover or refresh choices; never change the caller's selected model."""
@@ -81,6 +139,11 @@ class BaseActivityProjector(ABC):
     """Interpret one provider's observations into canonical shared Activity values."""
 
     usage_first_payload = False
+
+    @classmethod
+    @abstractmethod
+    def accepts(cls, events) -> bool:
+        """Recognize unqualified native receipts without selecting an execution provider."""
 
     @abstractmethod
     def project(self, events, *, root_thread=None, model=None) -> ActivityProjection:

@@ -357,7 +357,12 @@ class ClaudeAgent(BaseAgent):
         # selection for dispatch even after its editor-cache TTL; never silently
         # remap an alias during a slow concurrent refresh. A cold API client
         # refuses promptly until background discovery or explicit refresh completes.
-        selected_catalog = self.catalog.selected_snapshot()
+        observed_catalog = self.catalog.snapshot()
+        selected_catalog = (
+            observed_catalog.model_dump(exclude_unset=True)
+            if observed_catalog is not None
+            else None
+        )
         if not selected_catalog:
             raise RunnerError(
                 "runner_model_catalog_unavailable_check_runner_connection"
