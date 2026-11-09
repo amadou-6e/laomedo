@@ -1,64 +1,35 @@
-"""Target provider contracts for #277; provider inheritance is not migrated yet.
-
-BaseAgent stays in agent.py. Values are defined in models.py; type-only imports
-keep contracts independent of model construction and optional Docker imports.
-"""
+"""Attempt target interfaces for provider migration (#277)."""
 
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Mapping
-import threading
-from typing import TYPE_CHECKING, ClassVar, Protocol, runtime_checkable
+from collections.abc import Callable
+from typing import Protocol
+
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from pydantic import JsonValue
-    from py_docker.execution.models import CommandResult as DockerCommandResult
-    from py_docker.jobs.models import ContainerJob
-    from py_docker.sessions.models import ContainerSession
-    from py_docker.streams.models import Line
-    from laomedo.agents.activity.models import ActivityProjection
-    from laomedo.agents.agents.base.models import (
+    from laomedo.agents.agents.base.models.attempt import (
         AttemptContext,
-        AttemptRequest,
         AttemptOutcome,
-        OwnershipEntry,
-        NativeSessionEntry,
-        DispatchEntry,
-        TurnEntry,
-        LeaseEntry,
-        RuntimeIdentityEntry,
-        CorrectionEntry,
-        ScopeCleanupEntry,
-        EvidenceEntry,
-        ResourceBinding,
-        ResourcePlan,
-        RuntimeLaunchRequest,
-        RuntimeObservation,
-        RuntimeCleanupReport,
-        CleanupObservation,
-        CredentialRequest,
-        CredentialAdmission,
-        CommandRequest,
-        CommandResult,
-        CancellationObservation,
-        ModelCatalogSnapshot,
-        SettlementView,
+        AttemptRequest,
         SettlementResult,
-        FailureObservation,
+        SettlementView,
     )
-    from laomedo.agents.errors import RunnerError
+    from laomedo.agents.agents.base.models.failures import FailureObservation
+    from laomedo.agents.agents.base.models.journal import (
+        CorrectionEntry,
+        DispatchEntry,
+        EvidenceEntry,
+        LeaseEntry,
+        NativeSessionEntry,
+        OwnershipEntry,
+        RuntimeIdentityEntry,
+        ScopeCleanupEntry,
+        TurnEntry,
+    )
     from laomedo.host.leases.client import LeaseClient
-
-
-class ControllerStream(Protocol):
-    """Borrowed native I/O only: no close, container identity or credentials."""
-
-    def write(self, data: bytes) -> None:
-        """Write through the launched controller's bounded native stdin."""
-
-    def read_line(self) -> Line | None:
-        """Read a native channel-tagged line, or EOF; EOF is not completion."""
+    from pydantic import JsonValue
 
 
 class StopSource(Protocol):
@@ -89,19 +60,6 @@ class StopContext(Protocol):
 
     def subscribe(self, callback: Callable[[], None]) -> Callable[[], None]:
         """Subscribe race-safely, including an already-set signal; return unsubscribe."""
-
-
-class BaseRuntimeResource(ABC):
-    """One allocated resource in the shared runtime's dependency-ordered plan."""
-
-    @property
-    @abstractmethod
-    def binding(self) -> ResourceBinding:
-        """Expose typed dependency inputs; host-only secrets stay excluded."""
-
-    @abstractmethod
-    def close(self, cause: BaseException | None = None) -> CleanupObservation:
-        """Close only this resource; return uncertainty without hiding the cause."""
 
 
 class BaseAttemptDriver(ABC):
@@ -198,76 +156,3 @@ class BasePostFreezeSettlement(ABC):
         Agent converts escaping exceptions to verified=False. No frozen snapshot
         is required; leases retain their provider-specific finish/heartbeat policy.
         """
-
-
-class BaseCredentialProvider(ABC):
-    """Common credential admission; native refresh/probes remain provider-owned."""
-
-    @abstractmethod
-    def admit(self, request: CredentialRequest) -> CredentialAdmission:
-        """Preserve native timing/identity; expose only explicit host launch material.
-
-        No universal token borrowing or success-only release. Do not delete host
-        login or claim unsupported validity/deadline constraints were enforced.
-        """
-
-
-class BaseCommandExecutor(ABC):
-    """Claude/OpenCode isolated worker jobs; CodexExecServer is a separate role."""
-
-    @abstractmethod
-    def execute(self, request: CommandRequest) -> CommandResult:
-        """Admit bounded work and distinguish exit from exact worker cleanup."""
-
-    @abstractmethod
-    def request_cancel(self) -> CancellationObservation:
-        """Stop admission and signal owned jobs at existing provider timing."""
-
-    @abstractmethod
-    def shutdown(self) -> CleanupObservation:
-        """Drain workers and close transport, preserving cleanup uncertainty."""
-
-
-class BaseModelCatalog(ABC):
-    """Common zero-turn discovery; native caching/admission stays composed."""
-
-    @abstractmethod
-    def discover(self, *, refresh: bool = False) -> ModelCatalogSnapshot:
-        """Return advertised choices without inference or selection substitution."""
-
-
-class BaseActivityProjector(ABC):
-    """Read-time native interpretation, separate from live terminal evidence."""
-
-    usage_first_payload: ClassVar[bool] = False
-
-    @classmethod
-    @abstractmethod
-    def accepts(cls, events: list[dict]) -> bool:
-        """Recognize unqualified receipts; explicit persisted provider wins."""
-
-    @abstractmethod
-    def project(
-        self,
-        events: list[dict],
-        *,
-        root_thread: str | None = None,
-        model: str | None = None,
-    ) -> ActivityProjection:
-        """Project native provenance with unknown usage/cost distinct from zero."""
-
-
-@runtime_checkable
-class ContainerBuilder(Protocol):
-    """Build an admitted Docker request; shared runtime performs allocation."""
-
-    def __call__(self, bindings: Mapping[str, ResourceBinding]) -> ContainerSession:
-        """Resolve earlier dependency bindings into a native session specification."""
-
-
-@runtime_checkable
-class OwnedResourceBuilder(Protocol):
-    """Allocate a non-Docker broker/telemetry resource under shared rollback."""
-
-    def __call__(self, bindings: Mapping[str, ResourceBinding]) -> BaseRuntimeResource:
-        """Return one owned non-Docker resource with its exact close contract."""

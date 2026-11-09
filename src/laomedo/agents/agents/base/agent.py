@@ -22,15 +22,15 @@ from laomedo.agents.artifacts.utils import relative_path
 from laomedo.agents.artifacts.utils import selections
 from laomedo.agents.interface.output.utils import verify_requirements
 from laomedo.agents.interface.models import SUPPORTED_PROVIDERS
-from laomedo.agents.agents.base.models import (
-    RuntimeBinding,
+from laomedo.agents.agents.base.models.runtime import RuntimeBinding
+from laomedo.agents.agents.base.models.preparation import (
     PreparedRunRecord,
     PreparedWorkspaceState,
     AgentSkillBinding,
     SkillGitExclusion,
     AgentGitHubScope,
-    AttemptFailureRecord,
 )
+from laomedo.agents.agents.base.models.failures import AttemptFailureRecord
 from laomedo.agents.agents.base.settings import RUNNER_FAILURE_CODES
 from laomedo.agents.artifacts.models import ArtifactReference
 from laomedo.agents.orchestration.models import HandoffProvenance
@@ -176,7 +176,7 @@ class BaseAgent(ABC):
 
     def readiness(self):
         """Observe the provider's scoped preflight without conflating health/isolation."""
-        from laomedo.agents.agents.base.models import ReadinessObservation
+        from laomedo.agents.agents.base.models.runtime import ReadinessObservation
         from laomedo.agents.registry import AgentProviderRegistry
 
         payload = self.preflight()

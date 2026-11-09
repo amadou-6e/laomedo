@@ -202,7 +202,7 @@ cancellation and resource recovery. Host services retain authority and publicati
 policy; the lifecycle uses explicitly supplied capabilities.
 
 All three use the common ACP session boundary. Provider-specific native records
-remain provider-owned. `RuntimeBinding` in `agents/agents/base/models.py` carries
+remain provider-owned. `RuntimeBinding` in `agents/agents/base/models/runtime.py` carries
 public execution metadata; credential identity is separate from login material.
 OpenCode records its own CLI and `opencode_acp` execution mode. Historical records
 retain their original identities and remain readable; migration does not rewrite

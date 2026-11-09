@@ -22,8 +22,9 @@ consolidation requires separate implementation and real per-provider evidence.
 ## Provider role contracts (#275)
 
 Provider names identify implementations of a role, not matching directories.
-Shared behavioral contracts live in `base/base.py`; their typed values live in
-`base/models.py`. There is no base subclass per provider merely for symmetry.
+Target behavioral contracts live in `base/base/<concern>.py`; typed values live
+in `base/models/<concern>.py`. Current providers still use `base/base/interim.py`
+until the #277 behavioral migration; see [the interface index](base/base/README.md). There is no base subclass per provider merely for symmetry.
 The wider application's interface remains `agents/interface/`.
 
 | Role | Required vocabulary | Ownership and side effects |

@@ -11,6 +11,37 @@ ROOT = repository_root() / "src/laomedo"
 
 
 class AgentModuleStructureTests(unittest.TestCase):
+    def test_declaration_packages_have_no_flat_twins_or_facade_exports(self):
+        """Concern packages organize definitions without ambiguous parallel owners."""
+        owner = ROOT / "agents/agents/base"
+        for concern in ("base", "models"):
+            package = owner / concern
+            self.assertTrue(package.is_dir())
+            self.assertFalse(package.with_suffix(".py").exists())
+            tree = ast.parse((package / "__init__.py").read_text(encoding="utf-8"))
+            self.assertFalse(
+                any(
+                    isinstance(
+                        node,
+                        (ast.Import, ast.ImportFrom, ast.ClassDef, ast.FunctionDef),
+                    )
+                    for node in tree.body
+                ),
+                package,
+            )
+
+    def test_declaration_consumers_import_defining_concern_modules(self):
+        """Imports bypass declaration-package facades, including internal consumers."""
+        facades = {
+            "laomedo.agents.agents.base.base",
+            "laomedo.agents.agents.base.models",
+        }
+        for path in ROOT.rglob("*.py"):
+            tree = ast.parse(path.read_text(encoding="utf-8-sig"))
+            for node in ast.walk(tree):
+                if isinstance(node, ast.ImportFrom):
+                    self.assertNotIn(node.module, facades, (path, node.lineno))
+
     def test_public_interface_does_not_import_provider_implementations(self):
         paths = list((ROOT / "agents/interface").rglob("*.py"))
         self.assertTrue(paths, "Public interface scan must not be empty")
@@ -70,7 +101,14 @@ class AgentModuleStructureTests(unittest.TestCase):
             "agents.models",
             "agents.artifacts.models",
             "agents.orchestration.models",
-            "agents.agents.base.models",
+            "agents.agents.base.models.attempt",
+            "agents.agents.base.models.catalog",
+            "agents.agents.base.models.commands",
+            "agents.agents.base.models.credentials",
+            "agents.agents.base.models.failures",
+            "agents.agents.base.models.journal",
+            "agents.agents.base.models.preparation",
+            "agents.agents.base.models.runtime",
             "agents.interface.models",
             "agents.activity.models",
             "agents.agents.claude.activity.models",

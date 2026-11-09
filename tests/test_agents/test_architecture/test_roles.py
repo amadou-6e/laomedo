@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock, patch
 from pydantic import SecretStr, ValidationError
-from laomedo.agents.agents.base.base import (
+from laomedo.agents.agents.base.base.interim import (
     BaseAgentRuntime,
     BaseCommandExecutor,
     BaseInterruptibleCommandExecutor,
@@ -16,8 +16,8 @@ from laomedo.agents.agents.base.base import (
     BaseModelCatalog,
     BaseActivityProjector,
 )
-from laomedo.agents.agents.base.models import (
-    CommandRequest,
+from laomedo.agents.agents.base.models.commands import CommandRequest
+from laomedo.agents.agents.base.models.credentials import (
     CredentialRequest,
     CredentialMaterial,
     CredentialBinding,

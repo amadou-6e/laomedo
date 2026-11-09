@@ -10,8 +10,8 @@ selection, GitHub workflows or native provider skill execution.
 | --- | --- | --- |
 | Git metadata and skill-byte checks | `utils.py` | `_exclude`, `install`, `verify`; focused function-only module |
 | Refused preparation/verification | `errors.py` | `WorkspaceSkillError`; existing ValueError identity domain, safe code and argument shape |
-| Prepared skill evidence | [canonical Agent models](../../agents/base/models.py) | `AgentSkillBinding`; skill/revision/tree/file identities and offered discovery evidence |
-| Git exclusion evidence | [canonical Agent models](../../agents/base/models.py) | `SkillGitExclusion`; enabled state, optional rules and exact exclusion-byte digest |
+| Prepared skill evidence | [canonical Agent models](../../agents/base/models/preparation.py) | `AgentSkillBinding`; skill/revision/tree/file identities and offered discovery evidence |
+| Git exclusion evidence | [canonical Agent models](../../agents/base/models/preparation.py) | `SkillGitExclusion`; enabled state, optional rules and exact exclusion-byte digest |
 
 Binding names the installed identity/evidence pair. Exclusion names observed
 run-local Git metadata, not registry policy or authorization. The two existing

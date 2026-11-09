@@ -26,7 +26,10 @@ if find_spec("py_docker"):
             raise AssertionError("untrusted subclass property read")
 
 
-from laomedo.agents.agents.base.models import AttemptFailureRecord, FailureObservation
+from laomedo.agents.agents.base.models.failures import (
+    AttemptFailureRecord,
+    FailureObservation,
+)
 from laomedo.agents.agents.base.agent import BaseAgent
 from laomedo.agents.agents.base.utils import failure_observation
 from laomedo.agents.errors import RunnerError

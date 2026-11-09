@@ -1,6 +1,6 @@
 """Credential-free command recipe and MCP capability checks."""
 
-from laomedo.agents.agents.base.models import CommandRequest
+from laomedo.agents.agents.base.models.commands import CommandRequest
 
 from importlib.util import find_spec
 

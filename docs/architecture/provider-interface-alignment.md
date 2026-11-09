@@ -1,5 +1,7 @@
 # Provider interface alignment
 
+The local inspection layout now organizes target ABCs in `src/laomedo/agents/agents/base/base/` and values in `src/laomedo/agents/agents/base/models/`, both by concern. Existing provider inheritance points to `base/base/interim.py`; this is a declaration move, not behavioral migration. Shared Docker implementation remains in `base/runtime.py`.
+
 The reviewed target and completion criteria are tracked in [#277](https://github.com/amadou-6e/laomedo/issues/277) and [the canonical draft design](https://github.com/amadou-6e/specs/blob/feat/shared-acp-agent-protocol/projects/laomedo/subsystems/agent-execution/design/provider-roles.md). The analysis below describes the interim implementation, not the approved final object boundaries. In particular the target retains `BaseAgentRuntime` with shared Docker mechanisms; it separates drivers from resource scopes and removes symmetry-only capabilities.
 
 The initial exception-aware-cleanup rationale below is incomplete: `AcpSession.close` currently closes Docker before the later context exit. The target gives process cleanup exclusively to runtime and exposes a stream without close access to ACP. SDK disconnect cancels tasks; controller EOF is required before the owning `asyncio.run` shuts its blocking-reader executor down.

@@ -12,15 +12,15 @@ from laomedo.agents.agents.codex.settings import Settings as CodexSettings
 from laomedo.agents.agents.codex.controller.models import CodexLaunch, CodexTurn
 from laomedo.agents.agents.codex.controller.settings import Settings
 from laomedo.agents.errors import RunnerError
-from laomedo.agents.agents.base.base import BaseAgentRuntime
-from laomedo.agents.agents.base.models import (
+from laomedo.agents.agents.base.base.interim import BaseAgentRuntime
+from laomedo.agents.agents.base.models.runtime import (
     RuntimeObservation,
     CancellationObservation,
     CleanupObservation,
-    CommandRequest,
     ProcessHealthObservation,
     IsolationObservation,
 )
+from laomedo.agents.agents.base.models.commands import CommandRequest
 from laomedo.agents.agents.base.utils import failure_observation
 
 

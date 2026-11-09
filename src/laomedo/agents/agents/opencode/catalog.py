@@ -1,13 +1,13 @@
 """Provider-owned zero-turn model discovery and its native freshness policy."""
 
 import asyncio
-from laomedo.agents.agents.base.base import BaseAgentRuntime
+from laomedo.agents.agents.base.base.interim import BaseAgentRuntime
 import shutil
 import time
 from laomedo.agents.agents.opencode.settings import MODEL_CATALOG_TTL_SECONDS
 from uuid import uuid4
-from laomedo.agents.agents.base.base import BaseModelCatalog
-from laomedo.agents.agents.base.models import ModelCatalogSnapshot
+from laomedo.agents.agents.base.base.interim import BaseModelCatalog
+from laomedo.agents.agents.base.models.catalog import ModelCatalogSnapshot
 from laomedo.agents.agents.base.utils import failure_observation
 from laomedo.agents.errors import RunnerError
 

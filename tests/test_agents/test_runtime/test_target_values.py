@@ -5,24 +5,28 @@ from unittest.mock import Mock
 
 from pydantic import SecretStr, ValidationError
 
-from laomedo.agents.agents.base.models import (
+from laomedo.agents.agents.base.models.runtime import (
     CleanupObservation,
-    CredentialAdmission,
-    CredentialBinding,
-    CredentialMaterial,
     NamedCleanup,
     ResourcePlan,
     ContainerStep,
     OwnedResourceStep,
-    NativeSessionEntry,
+    RuntimeCleanupReport,
+)
+from laomedo.agents.agents.base.models.credentials import (
+    CredentialAdmission,
+    CredentialBinding,
+    CredentialMaterial,
+)
+from laomedo.agents.agents.base.models.journal import NativeSessionEntry
+from laomedo.agents.agents.base.models.attempt import (
     SettlementUpdates,
     AttemptRequest,
     AttemptContext,
     AttemptOutcome,
     SettlementView,
-    RuntimeCleanupReport,
 )
-from laomedo.agents.agents.base.contracts import BasePostFreezeSettlement
+from laomedo.agents.agents.base.base.attempt import BasePostFreezeSettlement
 
 
 class TargetValueTests(unittest.TestCase):

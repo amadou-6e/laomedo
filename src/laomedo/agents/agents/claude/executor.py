@@ -4,10 +4,9 @@ import secrets
 import threading
 import time
 from uuid import uuid4
-from laomedo.agents.agents.base.base import BaseInterruptibleCommandExecutor
-from laomedo.agents.agents.base.models import (
-    CommandRequest,
-    CommandResult,
+from laomedo.agents.agents.base.base.interim import BaseInterruptibleCommandExecutor
+from laomedo.agents.agents.base.models.commands import CommandRequest, CommandResult
+from laomedo.agents.agents.base.models.runtime import (
     CleanupObservation,
     CancellationObservation,
 )

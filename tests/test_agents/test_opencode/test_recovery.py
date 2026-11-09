@@ -1,6 +1,6 @@
 """Recovered internal controls; no live Docker or model acceptance is inferred."""
 
-from laomedo.agents.agents.base.models import CommandRequest
+from laomedo.agents.agents.base.models.commands import CommandRequest
 
 from importlib.util import find_spec
 from pathlib import Path

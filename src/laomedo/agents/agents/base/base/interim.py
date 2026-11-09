@@ -1,25 +1,26 @@
-"""Behavioral provider extension contracts, separate from application interfaces."""
+"""Interim live provider contracts; remove after the #277 behavioral migration."""
 
 from abc import ABC, abstractmethod
 from concurrent.futures import TimeoutError as FutureTimeout
 from copy import deepcopy
-import threading
-import time
-from laomedo.agents.agents.base.models import (
-    RuntimeObservation,
-    CancellationObservation,
-    CleanupObservation,
-    CommandRequest,
-    CommandResult,
-    CredentialRequest,
+from laomedo.agents.activity.models import ActivityProjection
+from laomedo.agents.agents.base.models.catalog import ModelCatalogSnapshot
+from laomedo.agents.agents.base.models.commands import CommandRequest, CommandResult
+from laomedo.agents.agents.base.models.credentials import (
     CredentialBinding,
     CredentialMaterial,
-    ModelCatalogSnapshot,
-    RuntimeLaunch,
-    ProcessHealthObservation,
-    IsolationObservation,
+    CredentialRequest,
 )
-from laomedo.agents.activity.models import ActivityProjection
+from laomedo.agents.agents.base.models.runtime import (
+    CancellationObservation,
+    CleanupObservation,
+    IsolationObservation,
+    ProcessHealthObservation,
+    RuntimeLaunch,
+    RuntimeObservation,
+)
+import threading
+import time
 
 
 class BaseAgentRuntime(ABC):
