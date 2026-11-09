@@ -26,7 +26,7 @@ from laomedo.agents.agents.opencode.utils import model_metadata
 from laomedo.agents.errors import RunnerError
 from laomedo.agents.agents.opencode.credentials import OpenCodeCredentialProvider
 from laomedo.agents.agents.base.models.credentials import CredentialRequest
-from laomedo.agents.agents.base.base.interim import BaseAgentRuntime
+from laomedo.agents.agents.base.interim import BaseAgentRuntime
 from laomedo.agents.agents.base.models.runtime import (
     RuntimeObservation,
     CancellationObservation,

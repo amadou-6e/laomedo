@@ -10,7 +10,7 @@ import secrets
 import shutil
 import threading
 
-from laomedo.agents.agents.base.runtime import AgentDockerMechanism
+from laomedo.agents.agents.base.docker import AgentDockerMechanism
 from laomedo.agents.agents.opencode.models import (
     OpenCodeConfig,
     OpenCodeRuntimeIdentity,
@@ -30,7 +30,7 @@ from laomedo.agents.agents.base.utils import _private
 from laomedo.agents.agents.base.utils import failure_observation
 
 
-from laomedo.agents.agents.base.base.interim import BaseInterruptibleCommandExecutor
+from laomedo.agents.agents.base.interim import BaseInterruptibleCommandExecutor
 from laomedo.agents.agents.base.models.commands import CommandRequest, CommandResult
 from laomedo.agents.agents.base.models.runtime import (
     CleanupObservation,

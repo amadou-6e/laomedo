@@ -30,7 +30,7 @@ from laomedo.agents.agents.base.models.failures import (
     AttemptFailureRecord,
     FailureObservation,
 )
-from laomedo.agents.agents.base.agent import BaseAgent
+from laomedo.agents.agents.base import BaseAgent
 from laomedo.agents.agents.base.utils import failure_observation
 from laomedo.agents.errors import RunnerError
 from laomedo.host.leases.client import LeaseClient

@@ -1,6 +1,6 @@
 """OpenCode-native validity policy over the explicitly admitted private profile."""
 
-from laomedo.agents.agents.base.base.interim import BaseCredentialProvider
+from laomedo.agents.agents.base.interim import BaseCredentialProvider
 from laomedo.agents.agents.base.models.credentials import (
     CredentialBinding,
     CredentialRequest,

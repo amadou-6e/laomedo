@@ -18,8 +18,8 @@ from laomedo.agents.activity.utils import now
 from laomedo.agents.activity.runner.feed import line_count
 from laomedo.agents.agents.opencode.settings import CLI_VERSION
 from laomedo.agents.errors import RunnerError
-from laomedo.agents.agents.base.base.interim import BaseAgentRuntime
-from laomedo.agents.agents.base.agent import BaseAgent
+from laomedo.agents.agents.base.interim import BaseAgentRuntime
+from laomedo.agents.agents.base import BaseAgent
 from laomedo.agents.agents.base.models.runtime import RuntimeBinding
 from laomedo.agents.workspaces.utils import _hash_tree
 from laomedo.agents.agents.base.utils import _id

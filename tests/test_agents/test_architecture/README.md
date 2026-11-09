@@ -6,7 +6,7 @@ Existing provider-neutral lifecycle and public-boundary regressions. Source scan
 
 `test_provider_contracts.py` checks the five provider role interfaces and the
 explicit interruptible-worker and split-executor capability contracts in
-`agents/agents/base/base/interim.py`. Implementations may expose only methods/properties
+`agents/agents/base/interim.py`. Implementations may expose only methods/properties
 declared by their role, including inherited public methods and context-manager
 protocols. Helpers must remain internal. Override checks reject narrowed call
 shapes, changed method binding and sync/async mismatches. Constructors remain
@@ -32,4 +32,4 @@ registry and reusable call-site helpers are tracked in
 [my-skills#38](https://github.com/amadou-6e/my-skills/issues/38); skill implementation
 is deferred. This guard imports no provider and performs no model/native work.
 
-Target interfaces are organized in base/base concern modules and values in base/models concern modules. Declaration-package checks reject flat-file twins, facade re-exports and caller imports through the empty initializers. The live provider guard remains selected on interim contracts until behavioral migration.
+Target interfaces are defined directly in base/ concern modules and exported through base/__init__.py for provider authors. Values remain in base/models defining modules. Checks enforce canonical exported type identity, a single model owner, and internal imports that avoid public-initializer cycles. The live provider guard remains selected on interim contracts until behavioral migration.

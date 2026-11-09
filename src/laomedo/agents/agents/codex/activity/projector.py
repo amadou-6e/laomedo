@@ -1,6 +1,6 @@
 """Codex provider implementation of canonical Activity projection."""
 
-from laomedo.agents.agents.base.base.interim import BaseActivityProjector
+from laomedo.agents.agents.base.interim import BaseActivityProjector
 from laomedo.agents.activity.models import ActivityProjection
 from laomedo.agents.agents.codex.activity.projection import project
 

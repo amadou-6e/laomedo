@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock
 
-from laomedo.agents.agents.base.base.interim import BaseModelCatalog
+from laomedo.agents.agents.base.interim import BaseModelCatalog
 from laomedo.agents.agents.codex.catalog import CodexModelCatalog
 from laomedo.agents.agents.claude.catalog import ClaudeModelCatalog
 from laomedo.agents.agents.opencode.catalog import OpenCodeModelCatalog

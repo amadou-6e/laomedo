@@ -3,7 +3,7 @@
 import hashlib
 import json
 import time
-from laomedo.agents.agents.base.base.interim import BaseCredentialProvider
+from laomedo.agents.agents.base.interim import BaseCredentialProvider
 from laomedo.agents.agents.base.models.credentials import (
     CredentialBinding,
     CredentialRequest,

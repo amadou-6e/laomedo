@@ -3,7 +3,7 @@
 from contextlib import ExitStack
 import sys
 from laomedo.agents.errors import RunnerError
-from laomedo.agents.agents.base.base.interim import BaseAgentRuntime
+from laomedo.agents.agents.base.interim import BaseAgentRuntime
 from laomedo.agents.agents.base.models.runtime import (
     RuntimeObservation,
     CancellationObservation,

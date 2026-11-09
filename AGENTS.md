@@ -84,6 +84,11 @@
   quietly return.
 
 - Import objects directly from their defining modules; avoid module-prefix aliases throughout callers.
+  Exception: provider-facing Agent base contracts are exported by
+  `laomedo.agents.agents.base.__init__`; provider authors and external consumers
+  import those contracts from that package. Internal base/model concern imports
+  stay bound to defining modules to avoid initializer cycles. Interim live
+  migration contracts remain internal and are not substituted for target exports.
 - Model large owned configuration records with typed Pydantic objects and explicit `to_config()` projections.
 - Define classes at module scope in their owning files; never nest handlers or construct class definitions inside functions.
 - Apply these rules to owned/reworked code while preserving standard-library boundaries and immutable historical sources.

@@ -10,11 +10,13 @@ shared bounds. `acp/` owns protocol communication; native policy stays local.
 
 ## Target interface inspection (#277)
 
-Read [base/README.md](base/README.md) for the concern-organized target interfaces.
-`base/invocation.py` defines execution, journal and settlement contracts;
-`base/runtime.py` defines `BaseAgentRuntime`; other base modules own resource,
-credential, command, catalogue and Activity roles. Shared concrete Docker code
-stays in `runtime.py`.
+Import provider-facing contracts from `laomedo.agents.agents.base`. The package
+initializer deliberately exports the target base classes and their support protocols.
+Definitions live in concern files directly in this directory: invocation.py,
+runtime.py, resources.py, credentials.py, commands.py, catalog.py and activity.py.
+There is no second base/ folder. agent.py owns BaseAgent; docker.py owns the
+shared concrete AgentDockerMechanism. Internal concern/model imports use defining
+modules to avoid depending on the public aggregator during initialization.
 `BaseAgent` remains defined in `agent.py`; it is not duplicated here. Target
 Request/result values live in `models/` and are host-side values, not new wire
 or persisted schemas. Journal operations use separate frozen operation models with named fields;
@@ -39,9 +41,9 @@ not additional provider ABCs. `StopSignal`, `AgentDockerMechanism`,
 `AgentProviderRegistry`, `CodexExecServer` and `AcpSession` are concrete roles,
 so this inspection step does not invent abstract counterparts for them.
 
-The providers still import the interim contracts in `base/interim.py`. No provider is
+The providers still import the interim contracts in `interim.py`. No provider is
 switched to these target ABCs in this inspection checkpoint. During migration,
-callers will import each class from its defining module; the interim contracts
+provider authors import public contracts through the package; the interim contracts
 and their retired operations will be removed, without forwarding aliases.
 Runtime methods are abstract here so their intended obligations can be inspected;
 the subsequent runtime implementation must share Docker mechanisms rather than
@@ -49,7 +51,7 @@ copy those methods into each provider.
 
 ## Shared Docker mechanisms (#277 checkpoint)
 
-`runtime.py` defines concrete `AgentDockerMechanism`. `client()` owns one
+`docker.py` defines concrete `AgentDockerMechanism`. `client()` owns one
 py-docker client context; `run_job()` collects one typed native job with unchanged
 cancellation/deadline/cleanup bounds; `recover()` reconciles exact receipts using
 the selected native job or session service. Each call owns its client, so worker
@@ -122,3 +124,54 @@ SDK privacy literals follow the exact declared `py-docker` revision. Its
 `CreateNotSentDeadlineError` is a distinct trusted class with the existing
 `docker_deadline_exceeded` code; a generic deadline does not establish that no
 create was sent. Unknown subclasses and operation strings remain omitted.
+
+## Contract concern index
+
+| Module | Objects | Responsibility |
+| --- | --- | --- |
+| [invocation.py](invocation.py) | `BaseAgentRunner`, `BaseInvocationJournal`, `BasePostFreezeSettlement`; stop protocols | Native execution, durable write port, surviving supervision |
+| [runtime.py](runtime.py) | `BaseAgentRuntime` | Shared resource lifetime with provider plan/error hooks |
+| [resources.py](resources.py) | `BaseRuntimeResource`, `ControllerStream`, builder protocols | Exact resource closure and borrowed I/O; container builders return specs |
+| [credentials.py](credentials.py) | `BaseCredentialProvider` | Admit native credentials without universal borrowing/release |
+| [commands.py](commands.py) | `BaseCommandExecutor` | Isolated worker admission, cancellation and drain |
+| [catalog.py](catalog.py) | `BaseModelCatalog` | Zero-turn discovery |
+| [activity.py](activity.py) | `BaseActivityProjector` | Read-time native evidence interpretation |
+| [interim.py](interim.py) | Current live provider ABCs | Temporary implementation contracts until #277 migration |
+
+These are the target declarations for user inspection, not migrated provider
+implementations. `interim.py` retains its current behavior and remains the
+production guard's selected contract owner; it is not a compatibility forwarder.
+Delete it when the actual providers and callers use the target contracts.
+
+`BaseAgent` stays in [agent.py](agent.py). Shared concrete Docker code stays
+in [docker.py](docker.py). Target method docstrings define admitted inputs,
+failure outcomes and lifecycle order. The existing interface guard remains red on
+unresolved provider runtime methods; this layout does not exempt them.
+
+## Invocation nomenclature
+
+An invocation is one admitted provider execution: it can contain multiple native
+model/tool turns and remains distinct from the host run and saved conversation.
+The defining concern is invocation.py. BaseAgentRunner.run takes InvocationRequest
+and returns InvocationResult; InvocationContext carries the host context.
+BaseInvocationJournal owns durable writes, not execution-state checkpoint restoration.
+
+Persisted attempt_id and activity-attempt records keep their established schemas
+and stable codes. open_activity_attempt names that existing activity record boundary.
+StopContext still combines requesting and observing; it must not be called a
+read-only cancellation token. ContainerBuilder/OwnedResourceBuilder remain an
+unresolved construction/allocation design concern, not repaired by these renames.
+
+
+## Provider-authoring experience
+
+Public import: from laomedo.agents.agents.base import BaseAgent, BaseAgentRunner,
+BaseAgentRuntime. Defining a subclass alone starts no service or task. BaseAgent
+still requires provider-specific execution/readiness/resume hooks and undeclared
+catalogue/credential class attributes. BaseAgentRunner still requires admitted
+request, journal and stop collaborators and is not yet wired into shared Agent
+execution. The registry currently admits only the existing three providers.
+
+The canonical [provider-authoring story](https://github.com/amadou-6e/specs/blob/267ab0c1673bac9af564bfb5c07cd75e725e8c9d/projects/laomedo/subsystems/agent-execution/design/provider-authoring.md)
+records that actual experience and the intended journey. This layout/export
+checkpoint does not claim a complete one-class provider integration.

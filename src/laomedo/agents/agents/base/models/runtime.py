@@ -1,7 +1,7 @@
 """Runtime values owned by the shared Agent capability."""
 
 from collections.abc import Callable
-from laomedo.agents.agents.base.base.resources import (
+from laomedo.agents.agents.base.resources import (
     ContainerBuilder,
     OwnedResourceBuilder,
 )

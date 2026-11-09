@@ -186,7 +186,7 @@ class ProviderInterfaceContractTests(unittest.TestCase):
             module = ".".join(parts[:-1] if parts[-1] == "__init__" else parts)
             sources[module] = path.read_text(encoding="utf-8-sig")
         contracts = {
-            "laomedo.agents.agents.base.base.interim." + name
+            "laomedo.agents.agents.base.interim." + name
             for name in (
                 "BaseAgentRuntime",
                 "BaseCommandExecutor",

@@ -1,6 +1,6 @@
 """Codex credential admission composed with the host-owned ChatGPT connection."""
 
-from laomedo.agents.agents.base.base.interim import BaseCredentialProvider
+from laomedo.agents.agents.base.interim import BaseCredentialProvider
 from laomedo.agents.agents.base.models.credentials import (
     CredentialBinding,
     CredentialMaterial,

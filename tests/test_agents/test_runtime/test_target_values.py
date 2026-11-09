@@ -27,7 +27,7 @@ from laomedo.agents.agents.base.models.invocation import (
     InvocationResult,
     SettlementView,
 )
-from laomedo.agents.agents.base.base.invocation import BasePostFreezeSettlement
+from laomedo.agents.agents.base import BasePostFreezeSettlement
 
 
 class TargetValueTests(unittest.TestCase):

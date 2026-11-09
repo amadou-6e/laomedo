@@ -18,7 +18,7 @@ The move preserves class bodies, validation, field descriptions and serializatio
 Target values remain inspection-stage contracts; they do not replace current
 public payloads or persisted schemas. Host callables, credentials and settlement
 handles retain their exclusions and validation-error privacy. Dependencies flow
-from value concerns to lower resource/settlement ports without importing concrete
+from value concerns to adjacent resource/settlement ports without importing concrete
 providers or optional Docker implementations at module load.
 
 InvocationContext, InvocationRequest and InvocationResult are the defining Python

@@ -1,6 +1,6 @@
 """Invocation values owned by the shared Agent capability."""
 
-from laomedo.agents.agents.base.base.invocation import BasePostFreezeSettlement
+from laomedo.agents.agents.base.invocation import BasePostFreezeSettlement
 from laomedo.agents.agents.base.models.failures import FailureObservation
 from laomedo.agents.agents.base.models.runtime import RuntimeCleanupReport
 from pathlib import Path

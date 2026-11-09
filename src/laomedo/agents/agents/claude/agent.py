@@ -35,7 +35,7 @@ from laomedo.agents.agents.claude.utils import configuration_hash
 from laomedo.agents.agents.claude.utils import normalize_models
 from laomedo.agents.agents.claude.utils import terminal_result
 from laomedo.agents.errors import RunnerError
-from laomedo.agents.agents.base.agent import BaseAgent
+from laomedo.agents.agents.base import BaseAgent
 from laomedo.agents.agents.base.models.runtime import RuntimeBinding
 from laomedo.agents.agents.base.models.credentials import CredentialRequest
 from laomedo.agents.workspaces.utils import _hash_tree

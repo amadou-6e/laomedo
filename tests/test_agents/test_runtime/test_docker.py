@@ -6,7 +6,7 @@ import threading
 import unittest
 from unittest.mock import Mock, patch
 
-from laomedo.agents.agents.base.runtime import AgentDockerMechanism
+from laomedo.agents.agents.base.docker import AgentDockerMechanism
 
 
 @unittest.skipUnless(find_spec("py_docker"), "Requires optional runner dependencies")
