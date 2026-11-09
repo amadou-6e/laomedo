@@ -42,3 +42,9 @@ This reader replaces whole-file extraction rather than wrapping its lossy output
 Report generation requires a new private directory and exclusively creates files.
 Native-type histograms and final-answer references are bounded by page_records;
 omitted counts stay visible. Regression controls verify non-destructive refusal.
+
+Parser v3 recognizes only the observed outer two-block exec envelope; stdout is
+never searched recursively for status. Unsupported formats remain unknown. Rebuild
+older indexes into a new database at the original finite boundary. Redaction keys
+are bounded to256characters; best-effort masking is not privacy certification.
+Turn attribution carries the latest observed ID when absent on a physical record.

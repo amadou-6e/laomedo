@@ -75,7 +75,8 @@ class IndexTests(unittest.TestCase):
         self.assertEqual(result.snapshot.lines, 6)
         self.assertEqual(result.snapshot.trailing_bytes, len(rows[-1]))
         self.assertEqual(index.coverage().paired_call_ids, 1)
-        self.assertEqual(index.coverage().explicit_failure_records, 1)
+        self.assertEqual(index.coverage().explicit_failure_records, 0)
+        self.assertEqual(index.coverage().result_outcomes_unknown, 1)
         self.assertEqual(index.coverage().kinds["malformed"], 1)
         self.assertEqual(index.coverage().kinds["compaction"], 1)
         hit = index.search("begin")[0]

@@ -15,12 +15,30 @@ class Redactor:
         )
         value = re.sub(r"(?i)(bearer\s+)[A-Za-z0-9._~+/=-]+", r"\1[REDACTED]", value)
         value = re.sub(
-            r"""(?im)((?:["']?[\w-]*(?:token|password|secret|api[_-]?key)[\w-]*["']?)\s*[:=]\s*)(["'])([^\r\n]*?)\2""",
-            r'\1"[REDACTED]"',
+            r"""(?m)(?<![\w-])((["']?)([\w-]{1,256})\2[ \t]*[:=][ \t]*)(["'])([^\r\n]*?)\4""",
+            self._quoted_assignment,
             value,
         )
         return re.sub(
-            r"(?im)^(\s*[A-Z_]*(?:TOKEN|PASSWORD|SECRET|API_KEY)[A-Z_]*\s*=)[^\r\n]*",
-            r"\1[REDACTED]",
+            r"(?im)^([ \t]*([A-Z_][A-Z0-9_]{0,255})[ \t]*=)[^\r\n]*",
+            self._environment_assignment,
             value,
+        )
+
+    def _quoted_assignment(self, match: re.Match) -> str:
+        """Inspect one bounded key instead of retrying a keyword regex per suffix."""
+        if self._sensitive(match[3]):
+            return match[1] + match[4] + "[REDACTED]" + match[4]
+        return match[0]
+
+    def _environment_assignment(self, match: re.Match) -> str:
+        """Mask an environment assignment only when its complete key is sensitive."""
+        return match[1] + "[REDACTED]" if self._sensitive(match[2]) else match[0]
+
+    @staticmethod
+    def _sensitive(key: str) -> bool:
+        """Classify a bounded key; unusually long/unrecognized secrets remain gaps."""
+        normalized = key.lower().replace("_", "").replace("-", "")
+        return any(
+            word in normalized for word in ("token", "password", "secret", "apikey")
         )

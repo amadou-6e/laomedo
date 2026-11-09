@@ -7,7 +7,7 @@ from pathlib import Path
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-PARSER_VERSION = "codex-retro-2"
+PARSER_VERSION = "codex-retro-3"
 
 # Stable local failure explanations, not user-editable runtime configuration.
 ERROR_MESSAGES = {

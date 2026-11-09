@@ -155,38 +155,39 @@ class CodexEventDecoder:
             if isinstance(item, dict) and isinstance(item.get("text"), str)
         )
 
-    def _failure(self, value, depth: int = 0) -> bool | None:
-        """Recognize explicit outcomes, not arbitrary occurrences of 'error'."""
-        if depth > 8:
+    def _failure(self, value) -> bool | None:
+        """Read only the observed outer exec envelope; never recurse into stdout.
+
+        Other native/tool formats remain unknown. This is a format-scoped wrapper
+        signal, not authentication of arbitrary transcript content or proof that
+        the requested user workflow succeeded.
+        """
+        if not isinstance(value, list) or len(value) != 2:
             return None
-        if isinstance(value, list):
-            outcomes = [self._failure(part, depth + 1) for part in value]
-            return True if True in outcomes else False if False in outcomes else None
-        if isinstance(value, dict):
-            if (
-                value.get("is_error") is True
-                or isinstance(value.get("status"), str)
-                and value["status"] in {"failed", "error", "timeout"}
-            ):
-                return True
-            if type(value.get("exit_code")) is int:
-                return value["exit_code"] != 0
-            for key in ("output", "result", "metadata", "text"):
-                if key in value:
-                    result = self._failure(value[key], depth + 1)
-                    if result is not None:
-                        return result
-        elif isinstance(value, str):
-            try:
-                parsed = json.loads(value)
-            except ValueError:
-                match = re.search(r"(?m)^Process exited with code (-?\d+)\s*$", value)
-                if match:
-                    return int(match[1]) != 0
-                return (
-                    True
-                    if re.match(r"^Script (?:failed|error)(?::|\s*\n)", value)
-                    else None
-                )
-            return self._failure(parsed, depth + 1)
-        return None
+        if any(
+            not isinstance(block, dict) or block.get("type") != "input_text"
+            for block in value
+        ):
+            return None
+        header, body = (block.get("text") for block in value)
+        if not isinstance(header, str) or not isinstance(body, str):
+            return None
+        if not re.fullmatch(
+            r"Script completed\nWall time [0-9]+(?:\.[0-9]+)? seconds\nOutput:\n?",
+            header,
+        ):
+            return None
+        try:
+            envelope = json.loads(body)
+        except (ValueError, RecursionError):
+            return None
+        if not isinstance(envelope, dict):
+            return None
+        if not (
+            isinstance(envelope.get("chunk_id"), str)
+            and type(envelope.get("wall_time_seconds")) in {int, float}
+            and isinstance(envelope.get("output"), str)
+            and type(envelope.get("exit_code")) is int
+        ):
+            return None
+        return envelope["exit_code"] != 0

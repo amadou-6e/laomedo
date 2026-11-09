@@ -73,7 +73,10 @@ class NormalizedEvent(BaseModel):
     call_id: str | None = Field(
         default=None, description="Native tool correlation ID when present"
     )
-    turn_id: str | None = Field(default=None, description="Native turn ID when present")
+    turn_id: str | None = Field(
+        default=None,
+        description="Explicit or latest carried native turn ID; not necessarily supplied by this record",
+    )
     name: str | None = Field(
         default=None, description="Native tool or observation name"
     )
@@ -218,7 +221,9 @@ class Episode(BaseModel):
     )
     start_line: int = Field(description="Original user-message source line")
     end_line: int = Field(description="Last physical line before the next user message")
-    turn_id: str | None = Field(description="Native user turn when supplied")
+    turn_id: str | None = Field(
+        description="Attributed user turn; may be carried from the latest observed turn ID"
+    )
     user_text: str = Field(description="Private redacted bounded original request text")
     user_text_truncated: bool = Field(
         description="Original user text needs further source pages"
