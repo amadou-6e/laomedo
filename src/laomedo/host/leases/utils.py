@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from laomedo.docker import DockerRuntime
+
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 import json
@@ -86,7 +88,9 @@ def inspect_exact(identity: ContainerIdentity) -> tuple[str, str | None]:
     """Inspect on the original endpoint; legacy missing endpoint stays unknown."""
     try:
         with identity.client() as client:
-            observation = client.containers.watch(identity.reservation()).inspect()
+            observation = DockerRuntime.inspect_reservation(
+                client, identity.reservation()
+            )
             return observation.state, (
                 observation.identity.id if observation.identity else None
             )
@@ -107,8 +111,8 @@ def cleanup_after_loss(
     """Revoke in Laomedo first; delegate Docker's delayed-create watch to runtime."""
     try:
         with identity.client() as client:
-            result = client.containers.watch(identity.reservation()).cleanup(
-                watch_seconds=watch_seconds
+            result = DockerRuntime.cleanup_reservation(
+                client, identity.reservation(), watch_seconds=watch_seconds
             )
             detail = result.detail
             if not result.verified:

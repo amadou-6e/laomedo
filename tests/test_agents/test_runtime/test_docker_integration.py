@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from uuid import uuid4
 
-from laomedo.agents.agents.base.runtime import AgentDockerMechanism
+from laomedo.docker import DockerRuntime
 
 
 @unittest.skipUnless(
@@ -24,7 +24,7 @@ class DockerIntegrationTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as directory:
             receipt = Path(directory) / "job.json"
-            mechanism = AgentDockerMechanism(None)
+            mechanism = DockerRuntime(None)
             with mechanism.client() as client:
                 name = "laomedo-docker-test-" + uuid4().hex
                 job = ContainerJob(
@@ -58,7 +58,7 @@ class DockerIntegrationTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as directory:
             receipt = Path(directory) / "session.json"
-            mechanism = AgentDockerMechanism(None)
+            mechanism = DockerRuntime(None)
             with mechanism.client() as client:
                 request = ContainerSession(
                     spec=ContainerSpec(

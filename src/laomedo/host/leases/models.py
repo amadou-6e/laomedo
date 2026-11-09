@@ -81,9 +81,11 @@ class ContainerIdentity(BaseModel):
         """Open only the recorded endpoint, never the ambient default daemon."""
         if not self.docker_endpoint:
             raise ValueError("Original Docker endpoint unavailable")
-        from py_docker import Client
+        from laomedo.docker import DockerRuntime
 
-        return Client(environment={"DOCKER_HOST": self.docker_endpoint})
+        return DockerRuntime(
+            environment={"DOCKER_HOST": self.docker_endpoint}
+        ).connect()
 
     def reservation(self):
         """Project application ownership into the canonical runtime reservation."""

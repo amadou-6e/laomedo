@@ -1,6 +1,6 @@
 """Credential-free Codex executor resource; ACP owns all agent communication."""
 
-from laomedo.agents.agents.base.runtime import AgentDockerMechanism
+from laomedo.docker import DockerRuntime
 import hashlib
 import re
 import secrets
@@ -39,7 +39,7 @@ class CodexCommandExecutor(BaseSplitCommandExecutor):
         self.session = None
         self.reader = None
         self.read_failed = False
-        self.client = AgentDockerMechanism(environment=environment).connect()
+        self.client = DockerRuntime(environment=environment).connect()
         try:
             spec = ContainerSpec(
                 image=self.image,
@@ -65,7 +65,7 @@ class CodexCommandExecutor(BaseSplitCommandExecutor):
                 tmpfs={"/home/runner/.codex": "rw,uid=10001,gid=10001,mode=0700"},
                 security_opt=launch.to_container_spec().security_opt,
             )
-            self.session = AgentDockerMechanism.start_session(
+            self.session = DockerRuntime.start_session(
                 self.client,
                 ContainerSession(
                     spec=spec,
@@ -118,7 +118,7 @@ class CodexCommandExecutor(BaseSplitCommandExecutor):
 
         try:
             if self.session is not None:
-                AgentDockerMechanism.close_session(self.session)
+                DockerRuntime.close_session(self.session)
             if self.reader is not None and self.reader.ident is not None:
                 self.reader.join(timeout=5)
                 if self.reader.is_alive():
@@ -142,7 +142,7 @@ class CodexCommandExecutor(BaseSplitCommandExecutor):
                     stderr="worker_timeout",
                     cleanup=CleanupObservation(confirmed=True, scope="no_exec_started"),
                 )
-        result = AgentDockerMechanism.run_command(
+        result = DockerRuntime.run_command(
             self.client,
             self.session.identity,
             request.argv if request.argv is not None else ["sh", "-c", request.command],
@@ -161,7 +161,7 @@ class CodexCommandExecutor(BaseSplitCommandExecutor):
         from py_docker.streams.models import StreamLimits
 
         try:
-            result = AgentDockerMechanism.run_command(
+            result = DockerRuntime.run_command(
                 self.client, identity, command, StreamLimits(seconds=5, max_bytes=65536)
             )
             if result.exit_code:

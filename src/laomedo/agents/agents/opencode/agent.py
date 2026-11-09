@@ -1,7 +1,7 @@
 """OpenCode provider adapter. Production Docker/auth deployment is intentionally gated."""
 
 from __future__ import annotations
-from laomedo.agents.agents.base.runtime import AgentDockerMechanism
+from laomedo.docker import DockerRuntime
 from laomedo.agents.agents.opencode.catalog import OpenCodeModelCatalog
 
 from uuid import uuid4
@@ -221,11 +221,9 @@ class OpenCodeAgent(BaseAgent):
         except ImportError:
             raise RunnerError("opencode_container_cleanup_unverified") from None
         try:
-            with AgentDockerMechanism(environment=None).connect() as docker:
+            with DockerRuntime(environment=None).connect() as docker:
                 for receipt in pending:
-                    AgentDockerMechanism.recover_receipts(
-                        docker, [receipt], kind="session"
-                    )
+                    DockerRuntime.recover_receipts(docker, [receipt], kind="session")
         except DockerOperationError:
             raise RunnerError("opencode_container_cleanup_unverified") from None
 

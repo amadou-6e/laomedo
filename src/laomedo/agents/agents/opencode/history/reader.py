@@ -1,6 +1,6 @@
 """Export bound native history offline without restoring a second execution wire."""
 
-from laomedo.agents.agents.base.runtime import AgentDockerMechanism
+from laomedo.docker import DockerRuntime
 import hashlib
 from contextlib import closing
 import json
@@ -61,7 +61,7 @@ class HistoryReader:
             history = NativeHistory(root_id=session_id)
             pending = [(session_id, None)]
             total = 0
-            with AgentDockerMechanism(
+            with DockerRuntime(
                 environment={"DOCKER_HOST": self.source.endpoint}
             ).connect() as docker:
                 while pending:
@@ -270,7 +270,7 @@ class HistoryReader:
         from py_docker.streams.models import StreamLimits
 
         name = "laomedo-oc-history-" + uuid4().hex
-        result = AgentDockerMechanism.execute_job(
+        result = DockerRuntime.execute_job(
             docker,
             ContainerJob(
                 spec=ContainerSpec(

@@ -91,15 +91,15 @@ def _ensure_split_profile(name: str, *, state: Path, env=None) -> None:
     The one-shot container keeps its own durable cleanup receipt in runner state.
     """
     from docker.errors import DockerException
-    from laomedo.agents.agents.base.runtime import AgentDockerMechanism
+    from laomedo.docker import DockerRuntime
     from py_docker.containers.models import ContainerSpec, Mount
     from py_docker.jobs.models import ContainerJob
     from py_docker.streams.models import StreamLimits
     from py_docker.errors import CleanupUnconfirmedError
 
     try:
-        with AgentDockerMechanism(environment=env).client() as client:
-            AgentDockerMechanism.recover_receipts(
+        with DockerRuntime(environment=env).client() as client:
+            DockerRuntime.recover_receipts(
                 client, [state.joinpath("profile-init.json")], kind="job"
             )
             image = client.images.resolve(IMAGE, expected_id=IMAGE_ID)
@@ -107,7 +107,7 @@ def _ensure_split_profile(name: str, *, state: Path, env=None) -> None:
             if not client.volumes.exists(name):
                 client.volumes.create(name=name)
                 created = True
-            result = AgentDockerMechanism.execute_job(
+            result = DockerRuntime.execute_job(
                 client,
                 ContainerJob(
                     spec=ContainerSpec(

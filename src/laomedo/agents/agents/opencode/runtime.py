@@ -25,7 +25,7 @@ from laomedo.agents.agents.opencode.utils import (
 )
 from laomedo.agents.agents.opencode.utils import model_metadata
 from laomedo.agents.errors import RunnerError
-from laomedo.agents.agents.base.runtime import AgentDockerMechanism
+from laomedo.docker import DockerRuntime
 from laomedo.agents.agents.opencode.credentials import OpenCodeCredentialProvider
 from laomedo.agents.agents.base.models import CredentialRequest
 from laomedo.agents.agents.base.base import BaseAgentRuntime
@@ -93,7 +93,7 @@ class OpenCodeAgentRuntime(BaseAgentRuntime):
         except ImportError:
             raise RunnerError("opencode_controller_startup_failed") from None
         try:
-            with AgentDockerMechanism(environment=None).connect() as docker:
+            with DockerRuntime(environment=None).connect() as docker:
                 self.docker_endpoint = docker.connection.endpoint
                 docker.images.resolve(image, expected_id=image_id)
                 docker.images.resolve(WORKER_IMAGE, expected_id=selected_worker_id)
@@ -105,9 +105,7 @@ class OpenCodeAgentRuntime(BaseAgentRuntime):
                 receipts.mkdir(mode=0o700, parents=True, exist_ok=True)
                 self.receipts = receipts
                 for receipt in receipts.glob("*.json"):
-                    AgentDockerMechanism.recover_receipts(
-                        docker, [receipt], kind="session"
-                    )
+                    DockerRuntime.recover_receipts(docker, [receipt], kind="session")
         except OwnershipConflictError:
             raise RunnerError("opencode_image_pin_mismatch") from None
         except ImageResolutionError:
@@ -239,7 +237,7 @@ class OpenCodeAgentRuntime(BaseAgentRuntime):
             ],
         )
         try:
-            self.docker = AgentDockerMechanism(
+            self.docker = DockerRuntime(
                 environment={"DOCKER_HOST": self.docker_endpoint}
             ).connect()
         except Exception as error:
@@ -272,7 +270,7 @@ class OpenCodeAgentRuntime(BaseAgentRuntime):
         receipt_path = self.receipts.joinpath(name + ".json")
         self.allocated_receipts.add(receipt_path)
         try:
-            result = AgentDockerMechanism.execute_job(
+            result = DockerRuntime.execute_job(
                 self.docker,
                 ContainerJob(
                     spec=self.spec.model_copy(
@@ -336,7 +334,7 @@ class OpenCodeAgentRuntime(BaseAgentRuntime):
         receipt_path = self.receipts.joinpath(self.name + ".json")
         self.allocated_receipts.add(receipt_path)
         self.session = self._session_scope.enter_context(
-            AgentDockerMechanism.session(
+            DockerRuntime.session(
                 self.docker,
                 ContainerSession(
                     spec=self.spec,
@@ -413,7 +411,7 @@ class OpenCodeAgentRuntime(BaseAgentRuntime):
             elif paths:
                 for receipt in paths:
                     try:
-                        AgentDockerMechanism.recover_receipts(
+                        DockerRuntime.recover_receipts(
                             self.docker, [receipt], kind="session"
                         )
                     except Exception as error:

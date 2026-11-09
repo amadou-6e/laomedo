@@ -57,3 +57,12 @@ cleanup through the existing model instead of serializing that raw receipt.
 OS failures remain log-only: fixed wall/monotonic stage, known OS class and numeric
 errno/WinError. No raw message, filename, token, instance or path is logged. New
 diagnostic failures never suppress security events or change existing I/O retries.
+
+## Shared Docker boundary
+
+`ContainerIdentity.client()` opens the original pinned endpoint through
+`laomedo.docker.DockerRuntime`. Inspection and post-loss cleanup delegate exact
+reservations and the unchanged delayed-create watch to that same shared runtime.
+The supervisor remains independently launched; sharing code does not tie its
+process lifetime to the runner. Lease revocation, verdict mapping and journals
+remain host responsibilities. No dependency on concrete Agent providers is added.

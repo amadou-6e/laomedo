@@ -14,10 +14,15 @@ if TYPE_CHECKING:
     from py_docker.sessions.models import ContainerSession
     from py_docker.sessions.session import Session
     from py_docker.containers.models import ContainerIdentity
+    from py_docker.containers.models import (
+        ContainerReservation,
+        ContainerObservation,
+        CleanupResult,
+    )
     from py_docker.streams.models import StreamLimits
 
 
-class AgentDockerMechanism:
+class DockerRuntime:
     """Own self-contained client calls without provider policy or attempt state.
 
     Native exceptions propagate unchanged to the owning provider boundary. An
@@ -107,7 +112,7 @@ class AgentDockerMechanism:
         caller closes its client after its other dependent resources; this
         scope never interprets agent readiness or a native conversation.
         """
-        with AgentDockerMechanism.start_session(
+        with DockerRuntime.start_session(
             client, request, deadline=deadline, cleanup_seconds=cleanup_seconds
         ) as session:
             yield session
@@ -151,6 +156,20 @@ class AgentDockerMechanism:
         Session.close preserves uncertainty rather than treating a retry as OK.
         """
         session.close()
+
+    @staticmethod
+    def inspect_reservation(
+        client: "Client", reservation: "ContainerReservation"
+    ) -> "ContainerObservation":
+        """Inspect exact reserved ownership on the original pinned daemon."""
+        return client.containers.watch(reservation).inspect()
+
+    @staticmethod
+    def cleanup_reservation(
+        client: "Client", reservation: "ContainerReservation", *, watch_seconds: float
+    ) -> "CleanupResult":
+        """Preserve the native delayed-create watch and ownership verification."""
+        return client.containers.watch(reservation).cleanup(watch_seconds=watch_seconds)
 
     def recover(
         self,

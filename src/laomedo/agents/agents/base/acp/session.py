@@ -15,7 +15,7 @@ from acp.schema import (
 from laomedo.agents.agents.base.acp.models import AcpTurn
 from laomedo.agents.agents.base.acp.transport import DockerTransport
 from laomedo.agents.errors import RunnerError
-from laomedo.agents.agents.base.runtime import AgentDockerMechanism
+from laomedo.docker import DockerRuntime
 
 
 class AcpSession:
@@ -249,7 +249,7 @@ class AcpSession:
     async def close(self) -> None:
         """Unblock the reader through creator-owned cleanup before closing SDK I/O."""
         try:
-            AgentDockerMechanism.close_session(self.session)
+            DockerRuntime.close_session(self.session)
         finally:
             await self.connection.close()
 

@@ -5,6 +5,7 @@ Skills and GitHub have separate responsibilities; host services mediate private
 credentials and external effects. Langflow supplies graph composition and the
 application integration.
 
+- [Provider boundaries and shared Docker](provider-boundaries.md): container requirements, shared runtime ownership and migration acceptance.
 - [Package layout and migration](package-layout.md): source ownership, canonical
   entrypoints, typed internal data and migration from retired module paths.
 - [Node boundaries](node-contracts.md): responsibilities and operation exchange.

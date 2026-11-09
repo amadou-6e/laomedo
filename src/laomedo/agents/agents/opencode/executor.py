@@ -10,7 +10,7 @@ import secrets
 import shutil
 import threading
 
-from laomedo.agents.agents.base.runtime import AgentDockerMechanism
+from laomedo.docker import DockerRuntime
 from laomedo.agents.agents.opencode.models import (
     OpenCodeConfig,
     OpenCodeRuntimeIdentity,
@@ -143,7 +143,7 @@ class OpenCodeCommandExecutor(BaseInterruptibleCommandExecutor):
             with self.lock:
                 self.allocated_receipts.add(receipt_path)
             try:
-                result = AgentDockerMechanism(
+                result = DockerRuntime(
                     environment={"DOCKER_HOST": self.docker_endpoint}
                 ).run_job(
                     ContainerJob(

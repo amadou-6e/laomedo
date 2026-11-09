@@ -10,7 +10,7 @@ shared bounds. `acp/` owns protocol communication; native policy stays local.
 
 ## Shared Docker handling
 
-`runtime.py` defines concrete `AgentDockerMechanism`, the single Agent owner of
+`laomedo/docker.py` defines concrete `DockerRuntime`, the shared owner of
 native client construction, session/job/command dispatch and receipt recovery.
 See [container requirements and method ownership](../../../../../docs/architecture/provider-boundaries.md).
 `client()` scopes a connection; `connect()` supports existing explicit cleanup

@@ -21,9 +21,9 @@ not designed yet. Existing live base classes remain until their callers migrate.
 
 ## Container ownership
 
-`AgentDockerMechanism` in `agents/agents/base/runtime.py` delegates to py-docker.
+`DockerRuntime` in `src/laomedo/docker.py` delegates to py-docker.
 It provides concrete client, session, job and exact-receipt delegation seams.
-All Agent lifecycle dispatch paths use these concrete mechanisms.
+Agent execution and independent host lease supervision use these concrete mechanisms.
 Provider code supplies launch configuration, native readiness and resource order.
 It retains existing error mapping and credentials checks. The target for a new provider is to reuse Docker lifecycle rather than subclass
 it or implement another Docker client. Existing live runtime ABCs remain during
@@ -75,12 +75,12 @@ changing them is a separate behavioral task.
 
 ## Unified Docker dispatch
 
-All agent container client construction, interactive launches, one-shot jobs,
+All Laomedo container client construction, interactive launches, one-shot jobs,
 in-container commands and exact receipt recovery now route through
-`AgentDockerMechanism` in `src/laomedo/agents/agents/base/runtime.py`.
+`DockerRuntime` in `src/laomedo/docker.py`.
 This includes controller and worker execution, authentication/profile setup,
-model discovery, offline history export, preflight and interrupted-run recovery.
-The architecture check scans every Agent source file, so a new provider cannot
+model discovery, offline history export, preflight, interrupted-run recovery and independent lease-supervisor cleanup.
+The architecture check scans every Laomedo source file, so a new provider cannot
 bypass this boundary with a native Client import or direct dispatch/recovery call.
 
 | Operation | Shared entry point | Ownership |
@@ -93,6 +93,7 @@ bypass this boundary with a native Client import or direct dispatch/recovery cal
 | Persistent executor | `start_session(client, request)` / `close_session(session)` | Explicit owner retains native cached cleanup failure. |
 | Command in an existing container | `run_command(client, identity, command, limits)` | No container creation, replacement or retry. |
 | Recovery | `recover(receipts)` / `recover_receipts(client, receipts)` | Exact selected receipts; stop on uncertainty. |
+| Supervisor observation/removal | `inspect_reservation(client, reservation)` / `cleanup_reservation(client, reservation, watch_seconds=...)` | Original pinned daemon, exact labels, unchanged delayed-create watch. |
 
 Native py-docker models remain canonical. Image resolution, volume labels,
 inspection assertions and launch configuration remain provider policy using

@@ -1,6 +1,6 @@
 """Opt-in local access-only mirror through py-docker's owned Session lifecycle."""
 
-from laomedo.agents.agents.base.runtime import AgentDockerMechanism
+from laomedo.docker import DockerRuntime
 from importlib.resources import files
 import json
 import math
@@ -214,7 +214,7 @@ def _mirror_login(
             "DOCKER_TLS_VERIFY",
         ):
             docker_environment.pop(key, None)
-        client = AgentDockerMechanism(
+        client = DockerRuntime(
             settings=ConnectionSettings(
                 endpoint=endpoint,
                 context=None,
@@ -267,7 +267,7 @@ def _mirror_login(
             ),
             receipt_path=state / (profile + ".json"),
         )
-        with AgentDockerMechanism.session(
+        with DockerRuntime.session(
             client,
             request,
             deadline=float(normal_deadline),

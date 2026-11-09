@@ -18,7 +18,7 @@ from laomedo.agents.agents.claude.settings import EXECUTION_GUARD
 from laomedo.agents.agents.claude.settings import IMAGE
 from laomedo.agents.agents.claude.settings import PROFILE
 from laomedo.agents.errors import RunnerError
-from laomedo.agents.agents.base.runtime import AgentDockerMechanism
+from laomedo.docker import DockerRuntime
 from laomedo.agents.agents.claude.http.server import CommandHttpServer
 from laomedo.host.leases.client import LeaseClient
 from laomedo.host.leases.settings import LABEL_RUN
@@ -55,15 +55,13 @@ class ClaudeRuntimePolicy:
         except ImportError:
             raise RunnerError("claude_container_unavailable") from None
         try:
-            with AgentDockerMechanism(environment=None).connect() as docker:
+            with DockerRuntime(environment=None).connect() as docker:
                 self.docker_endpoint = docker.connection.endpoint
                 self.image_id = docker.images.resolve(image)
                 self.receipts = Path(lease_service).parent.joinpath("receipts")
                 self.receipts.mkdir(mode=0o700, parents=True, exist_ok=True)
                 for receipt in self.receipts.glob("claude-*.json"):
-                    AgentDockerMechanism.recover_receipts(
-                        docker, [receipt], kind="session"
-                    )
+                    DockerRuntime.recover_receipts(docker, [receipt], kind="session")
                 labels = {"laomedo.provider": "claude"}
                 if not docker.volumes.exists(profile):
                     docker.volumes.create(name=profile, labels=labels)
@@ -112,7 +110,7 @@ class ClaudeRuntimePolicy:
                     ),
                     "environment": {},
                 }
-            with AgentDockerMechanism(**options).client() as docker:
+            with DockerRuntime(**options).client() as docker:
                 yield docker
         except CleanupUnconfirmedError:
             raise RunnerError("container_termination_unverified") from None
@@ -217,7 +215,7 @@ class ClaudeRuntimePolicy:
         with self.client(
             **({"deadline": deadline} if deadline is not None else {})
         ) as docker:
-            return AgentDockerMechanism.execute_job(
+            return DockerRuntime.execute_job(
                 docker,
                 ContainerJob(
                     spec=spec,
@@ -307,7 +305,7 @@ class ClaudeRuntimePolicy:
         from py_docker.streams.models import StreamLimits
 
         with self.client(output_code="claude_receipt_too_large") as docker:
-            with AgentDockerMechanism.session(
+            with DockerRuntime.session(
                 docker,
                 ContainerSession(
                     spec=spec,

@@ -13,7 +13,7 @@ from laomedo.agents.agents.codex.settings import Settings as CodexSettings
 from laomedo.agents.agents.codex.controller.models import CodexLaunch, CodexTurn
 from laomedo.agents.agents.codex.controller.settings import Settings
 from laomedo.agents.errors import RunnerError
-from laomedo.agents.agents.base.runtime import AgentDockerMechanism
+from laomedo.docker import DockerRuntime
 from laomedo.agents.agents.base.base import BaseAgentRuntime
 from laomedo.agents.agents.base.models import (
     RuntimeObservation,
@@ -49,7 +49,7 @@ class CodexAgentRuntime(BaseAgentRuntime):
         from py_docker.sessions.models import ContainerSession
         from py_docker.streams.models import StreamLimits
 
-        self.client = AgentDockerMechanism(
+        self.client = DockerRuntime(
             settings=ConnectionSettings(timeout_seconds=15), environment=env
         ).connect()
         self.container_name = launch.name
@@ -134,7 +134,7 @@ class CodexAgentRuntime(BaseAgentRuntime):
             )
             self.logs.append(self.activity_log)
             self.session = self._session_scope.enter_context(
-                AgentDockerMechanism.session(
+                DockerRuntime.session(
                     self.client,
                     ContainerSession(
                         spec=spec,

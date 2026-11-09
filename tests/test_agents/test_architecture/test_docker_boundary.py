@@ -10,10 +10,10 @@ class DockerBoundaryTests(unittest.TestCase):
     """Detect bypasses in any current or newly added agent provider."""
 
     def test_only_shared_runtime_constructs_clients_or_dispatches_container_work(self):
-        root = repository_root() / "src/laomedo/agents"
-        owner = root / "agents/base/runtime.py"
+        root = repository_root() / "src/laomedo"
+        owner = root / "docker.py"
         paths = list(root.rglob("*.py"))
-        self.assertTrue(paths, "Agent Docker boundary scan must not be empty")
+        self.assertTrue(paths, "Docker boundary scan must not be empty")
         violations = []
         for path in paths:
             if path == owner:
@@ -47,6 +47,11 @@ class DockerBoundaryTests(unittest.TestCase):
                     ("sessions", "open"),
                     ("sessions", "recover"),
                     ("execution", "run"),
+                    ("containers", "watch"),
+                    ("containers", "create"),
+                    ("containers", "start"),
+                    ("containers", "stop"),
+                    ("containers", "remove"),
                 }:
                     violations.append((path, node.lineno, "direct container operation"))
         self.assertEqual(violations, [], str(violations))
