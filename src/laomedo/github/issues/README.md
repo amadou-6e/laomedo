@@ -7,7 +7,7 @@ object/method vocabulary. This package retains domain behavior and values.
 ## Canonical values
 
 `GitHubIssue` in `models.py` is the canonical normalized issue value. Identity is
-descriptive and grants no authority. `contract.issue_value()` preserves the
+descriptive and grants no authority. `utils.issue_value()` preserves the
 existing response admission and error categories, constructs this object, then
 calls `to_payload()` at the public dictionary boundary. Labels are normalized
 by the existing validator before construction. Null provider bodies become empty
@@ -26,7 +26,7 @@ hash inputs and does not validate or authorize a grant.
 
 `context_reader.py` owns the existing read-only `gh` functions, and `context.py`
 owns the actual CLI parser and `main() -> int`, retaining its existing `-m`
-entrypoint. Shared repository/label/digest primitives live in `github/contract.py`; normalized
+entrypoint. Shared repository/label/digest primitives live in `github/utils.py`; normalized
 Issue response admission and patch validation stay in `issues/contract.py`.
 
 | Function | Interface and effects |
@@ -40,3 +40,7 @@ Timeline failure remains incomplete evidence, never a confirmed empty search;
 changed issue text remains an explicit error. Context dictionaries intentionally
 do not become node `GitHubIssue` records. Caller migrations preserve all function
 arguments and default bindings. There is no compatibility `utils.py` runtime.
+
+`utils.py` owns response normalization and patch admission; `settings.py` owns
+the fixed error vocabulary. Neither helper access nor a resource identity grants
+write authority. The gateway remains the owner of admitted effects.

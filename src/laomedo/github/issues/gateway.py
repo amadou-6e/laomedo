@@ -7,10 +7,10 @@ from datetime import datetime
 from datetime import timezone
 from hashlib import sha256
 import json
-from laomedo.github.contract import issue_digest
-from laomedo.github.contract import labels_value
-from laomedo.github.contract import repository_from_url
-from laomedo.github.issues.contract import validate_patch
+from laomedo.github.utils import issue_digest
+from laomedo.github.utils import labels_value
+from laomedo.github.utils import repository_from_url
+from laomedo.github.issues.utils import validate_patch
 from laomedo.host.mediation.errors import KnownRejected
 from laomedo.host.mediation.errors import MediationError
 import re

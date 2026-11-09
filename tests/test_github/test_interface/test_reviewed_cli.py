@@ -14,7 +14,7 @@ from laomedo.agents.agents.codex.settings import MEDIATION_CLIENT
 from laomedo.host.mediation.store import MediationStore
 from laomedo.host.mediation.errors import MediationError
 from laomedo.host.mediation.authority import RunGrantAuthority
-from laomedo.github.transport.rest.transport import ISSUE_GRAPHQL_QUERY
+from laomedo.github.transport.rest import ISSUE_GRAPHQL_QUERY
 
 ADAPTER_URI = MEDIATION_CLIENT.with_name("agent_gh_adapter.mjs").resolve().as_uri()
 

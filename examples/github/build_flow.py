@@ -11,7 +11,7 @@ import langflow
 
 from lfx.graph.graph.base import Graph
 from lfx.services.deps import get_settings_service
-from laomedo.github.contract import validate_repository
+from laomedo.github.utils import validate_repository
 
 ROOT = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location(

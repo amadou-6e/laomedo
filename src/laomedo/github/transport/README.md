@@ -1,7 +1,7 @@
 # GitHub operation delivery
 
 `GitHubMediatedTransport` lives in `mediated.py`. Keep GitHub
-Git policy in `git/`, REST policy in `rest/`, and generic Git mechanics in
+Git policy in `git/`, REST delivery in `rest.py` and its fixed protocol values in `settings.py`, and generic Git mechanics in
 `laomedo.git`. This is composition, not a common base or new transport pipeline.
 
 `GitHubMediatedTransport` means the concrete dispatcher for an already-admitted

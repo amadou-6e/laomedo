@@ -25,7 +25,7 @@ from lfx.schema import Message
 from lfx.custom.custom_component.component import Component
 from laomedo.github.pull_requests.gateway import GitHubPRGateway
 from laomedo.host.mediation.store import MediationStore
-from laomedo.github.transport.rest.transport import GitHubRestTransport
+from laomedo.github.transport.rest import GitHubRestTransport
 from laomedo.integrations.langflow.feedback.pr import operation_value
 from test_github.test_pull_requests.provider import FakeGitHub
 

@@ -6,16 +6,17 @@ import json
 import unittest
 
 from pydantic import ValidationError
-from laomedo.github.contract import (
+from laomedo.github.utils import (
     issue_digest,
     labels_value,
     repository_from_url,
     validate_repository,
 )
-from laomedo.github.issues.contract import issue_value
+from laomedo.github.issues.utils import issue_value
 from laomedo.github.issues.models import GitHubIssue
 from laomedo.github.models import GitHubGrantBinding, GitHubOperationIntent
-from laomedo.github.pull_requests.contract import pr_digest, pr_value
+from laomedo.github.pull_requests.utils import pr_digest
+from laomedo.github.pull_requests.utils import pr_value
 from test_github.test_issues.utils import raw_issue
 from test_github.test_pull_requests.utils import raw_pr
 

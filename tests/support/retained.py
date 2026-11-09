@@ -140,7 +140,11 @@ def load_retained_shared(name):
                     )
                     changed = True
                 elif (
-                    node.module == "laomedo.github.transport.rest.transport"
+                    node.module
+                    in {
+                        "laomedo.github.transport.rest.transport",
+                        "laomedo.github.transport.rest",
+                    }
                     and item.name == "_NoRedirect"
                 ):
                     replacements.append(

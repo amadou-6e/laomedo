@@ -12,7 +12,7 @@ Agent workspace policy and publication decisions belong to callers.
 | `models.py` | `GitCommand`, `GitExecutionContext`, `GitCredential`, `GitEnvironmentProfile` | Canonical Pydantic command/isolation values; credentials and environment overrides excluded from ordinary dumps and reprs |
 | `errors.py` | `GitOperationError`, `GitCommandTimeout` | Safe operation code or deadline with a separate `cleanup_verified` observation |
 | `settings.py` | Fixed protocol values | Thirty-second default, five-second cleanup substep bound and private credential variable name |
-| [credentials/](credentials/README.md) | Standard-library helper | GitHub-only credential projection for the selected connection, independently executable by Git |
+| `credential_helper.py` | Standard-library helper | GitHub-only credential projection for the selected connection, independently executable by Git |
 
 Runner means native execution, Repository means object metadata, and WorkingTree
 means checked-out state. Objects compose; none grants a remote effect. Feature

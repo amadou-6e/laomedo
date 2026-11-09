@@ -30,7 +30,7 @@ class PreflightBoundaryTests(unittest.TestCase):
         code = """
 import sys
 import laomedo.work_graph.stage_worker
-import laomedo.git.credentials.helper
+import laomedo.git.credential_helper
 import laomedo.agents.agents.codex.agent
 assert not any(n == 'py_docker' or n.startswith('py_docker.') for n in sys.modules)
 assert 'docker' not in sys.modules

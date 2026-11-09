@@ -8,13 +8,13 @@ mediator capability. Unsupported operations fail explicitly.
 from __future__ import annotations
 
 from laomedo.http.redirect import NoRedirect
-from laomedo.github.contract import issue_digest
-from laomedo.github.issues.contract import issue_value
-from laomedo.github.contract import labels_value
-from laomedo.github.issues.contract import validate_patch
-from laomedo.github.contract import issue_digest as pr_digest
-from laomedo.github.pull_requests.contract import pr_value
-from laomedo.github.pull_requests.contract import validate_patch as pr_validate_patch
+from laomedo.github.utils import issue_digest
+from laomedo.github.issues.utils import issue_value
+from laomedo.github.utils import labels_value
+from laomedo.github.issues.utils import validate_patch
+from laomedo.github.utils import issue_digest as pr_digest
+from laomedo.github.pull_requests.utils import pr_value
+from laomedo.github.pull_requests.utils import validate_patch as pr_validate_patch
 from laomedo.host.mediation.errors import KnownRejected
 
 from urllib import error
@@ -24,8 +24,7 @@ import json
 import re
 import time
 
-_REPOSITORY = re.compile(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+\Z")
-ISSUE_GRAPHQL_QUERY = "query($owner:String!,$name:String!){repository(owner:$owner,name:$name){issues(first:30,states:OPEN){nodes{number title body}}}}"
+from laomedo.github.transport.settings import _REPOSITORY, ISSUE_GRAPHQL_QUERY
 
 
 class GitHubRestTransport:

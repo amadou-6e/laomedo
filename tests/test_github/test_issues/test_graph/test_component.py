@@ -15,7 +15,7 @@ from unittest.mock import patch
 from lfx.schema import Data
 from laomedo.github.issues.gateway import GitHubIssueGateway
 from laomedo.host.mediation.store import MediationStore
-from laomedo.github.transport.rest.transport import GitHubRestTransport
+from laomedo.github.transport.rest import GitHubRestTransport
 
 ROOT = repository_root()
 from test_github.test_issues.provider import FakeGitHub

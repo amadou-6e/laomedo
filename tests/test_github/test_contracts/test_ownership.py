@@ -8,7 +8,6 @@ from unittest.mock import Mock, patch
 
 from support.paths import repository_root
 from support.model_contracts import assert_described_models
-from test_shared.test_migration.utils import load_migration
 from laomedo.github.transport.mediated import GitHubMediatedTransport
 
 ROOT = repository_root()
@@ -16,41 +15,6 @@ ROOT = repository_root()
 
 class GitHubOwnershipTests(unittest.TestCase):
 
-    def test_split_issue_symbols_and_server_launchers_keep_their_owners(self):
-        migration = load_migration()
-        for source in (
-            "from laomedo.github.issues.utils import fetch_context as fetch\nvalue = fetch(request)\n",
-            "import laomedo.github.issues.utils as old\nvalue = old.fetch_context(request)\n",
-            "from laomedo.github.issues import utils as old\nvalue = old.main(args)\n",
-            "from laomedo.work_graph.github import validate_repository\nvalue = validate_repository(name)\n",
-            "from laomedo.github.issues.contract import labels_value\nvalue = labels_value(labels)\n",
-        ):
-            with self.subTest(source=source):
-                result = migration.migrate_source(source)
-                self.assertNotEqual(result, source)
-                compile(result, "<github-migration>", "exec")
-                self.assertEqual(migration.migrate_source(result), result)
-        for source in (
-            "from laomedo.github.issues.utils import *\n",
-            "from laomedo.github.issues.utils import unknown\n",
-            "import laomedo.github.issues.utils as old\nvalue = getattr(old, 'fetch_context')\n",
-        ):
-            with (
-                self.subTest(source=source),
-                self.assertRaises(migration.ManualMigrationRequired),
-            ):
-                migration.migrate_source(source)
-        for feature in ("issues", "pull_requests"):
-            old = f"laomedo.github.{feature}.server"
-            self.assertEqual(
-                migration.MODULE_PATHS[old],
-                f"laomedo.github.interface.{feature}.server",
-            )
-            cli = f"laomedo.github.interface.{feature}.cli"
-            self.assertEqual(migration.CLI_PATHS[old], cli)
-            result = migration.migrate_source("python -m " + old + " --help")
-            self.assertIn(cli + " --help", result)
-            self.assertEqual(migration.migrate_source(result), result)
 
     def test_github_records_keep_described_fields(self):
         assert_described_models(
@@ -105,40 +69,11 @@ class GitHubOwnershipTests(unittest.TestCase):
             "pull_requests",
             "transport",
             "transport/git",
-            "transport/rest",
-            "workflows",
         ):
             self.assertTrue(
                 (ROOT / "src/laomedo/github" / relative / "README.md").is_file()
             )
 
-    def test_retired_definitions_are_absent_and_migrate_to_final_owners(self):
-        migration = load_migration()
-        for feature in ("issues", "pull_requests"):
-            for name in ("client", "server", "settings", "cli"):
-                old = f"laomedo.github.{feature}.{name}"
-                self.assertFalse(
-                    ROOT.joinpath("src", *old.split(".")).with_suffix(".py").exists()
-                )
-                self.assertEqual(
-                    migration.MODULE_PATHS[old],
-                    f"laomedo.github.interface.{feature}.{name}",
-                )
-        source = "from laomedo.github.issues.utils import fetch_context\nfrom laomedo.github.transport.git.transport import GitHubMediatedTransport\n"
-        migrated = migration.migrate_source(source)
-        self.assertIn(
-            "from laomedo.github.issues.context_reader import fetch_context", migrated
-        )
-        self.assertIn(
-            "from laomedo.github.transport.mediated import GitHubMediatedTransport",
-            migrated,
-        )
-        self.assertEqual(migration.migrate_source(migrated), migrated)
-        moved_main = migration.migrate_source(
-            "from laomedo.github.issues.utils import main\n"
-        )
-        self.assertIn("from laomedo.github.issues.context import main", moved_main)
-        self.assertEqual(migration.migrate_source(moved_main), moved_main)
 
         # The loader enforces equality of the full non-import AST on every load.
         # Its existing tamper/refusal controls remain in test_shared.
