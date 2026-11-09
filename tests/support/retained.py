@@ -144,7 +144,16 @@ def load_retained_shared(name):
                     and item.name == "_NoRedirect"
                 ):
                     replacements.append(
-                        "from laomedo.http.redirect import NoRedirect as " + alias
+                        "from laomedo.host.http import NoRedirect as " + alias
+                    )
+                    changed = True
+                elif (
+                    node.module == "laomedo.host.credentials.token.connection"
+                    and item.name == "HostTokenConnection"
+                ):
+                    replacements.append(
+                        "from laomedo.host.credentials.token import HostTokenConnection"
+                        + (" as " + alias if alias != item.name else "")
                     )
                     changed = True
                 elif node.module.startswith(("laomedo.skills.", "laomedo.github.")):

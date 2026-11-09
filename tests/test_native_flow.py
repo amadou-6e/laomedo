@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 import unittest
 
-from laomedo.skills.registry.hashing import tree_hash
+from laomedo.skills.registry.utils.hashing import tree_hash
 
 
 class NativeFlowTests(unittest.TestCase):

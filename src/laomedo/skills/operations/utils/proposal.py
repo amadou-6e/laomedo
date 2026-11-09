@@ -1,6 +1,6 @@
 """Public proposal dictionary boundary for component and saved-flow callers."""
 
-from laomedo.skills.operations.models import SkillProposal
+from laomedo.skills.operations.models.proposal import SkillProposal
 
 
 def proposal(value):

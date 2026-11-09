@@ -2,8 +2,8 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from laomedo.skills.authoring.summary import has_description
-from laomedo.skills.authoring.summary import summary_authoring
+from laomedo.skills.operations.utils.summary import has_description
+from laomedo.skills.operations.utils.summary import summary_authoring
 from laomedo.skills.registry.store import SkillStore
 from laomedo.skills.registry.errors import SkillStoreError
 from laomedo.skills.operations.service import SkillOperations

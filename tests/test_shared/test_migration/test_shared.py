@@ -63,7 +63,7 @@ class SharedMigrationTests(unittest.TestCase):
         targets = {
             target
             for target in migration.SYMBOL_PATHS.values()
-            if target.startswith(("laomedo.git.", "laomedo.http."))
+            if target.startswith(("laomedo.git.", "laomedo.host.http."))
         }
         self.assertTrue(targets)
         for target in targets:

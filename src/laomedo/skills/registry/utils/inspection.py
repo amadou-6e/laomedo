@@ -1,22 +1,22 @@
-"""Bounded, read-only inspection of an exact immutable registry revision."""
+"""Verify and read immutable registry bundles without creating mutable store state."""
 
 from __future__ import annotations
 
-from laomedo.skills.registry.files import is_link
-from laomedo.skills.registry.hashing import file_hashes
-from laomedo.skills.registry.hashing import tree_hash
+from laomedo.skills.registry.utils.files import is_link
+from laomedo.skills.registry.utils.hashing import file_hashes
+from laomedo.skills.registry.utils.hashing import tree_hash
 
 from pathlib import Path
 import base64
 import json
-from laomedo.skills.inspection.settings import (
+from laomedo.skills.registry.settings import (
     MAX_DIRECTORIES,
     MAX_DEPTH,
     MAX_FILES,
     MAX_FILE_BYTES,
     MAX_BUNDLE_BYTES,
 )
-from laomedo.skills.inspection.errors import InspectionError
+from laomedo.skills.registry.errors import InspectionError
 from laomedo.skills.registry.settings import NAME, HASH
 from laomedo.skills.registry.errors import SkillStoreError
 import os
@@ -51,7 +51,24 @@ def inspect_skill(
     include_images: bool = False,
     include_binary: bool = False,
 ) -> dict:
-    """Verify and project one immutable revision for read-only inspection; never construct a mutable store."""
+    """Verify an immutable revision and return its bounded file snapshot.
+
+    Args:
+        root: Registry root containing the skills directory.
+        skill_id: Valid registry skill name.
+        revision_id: Exact sha256 revision; latest selection is not accepted.
+        include_images: Include data URLs for recognized raster image bytes.
+        include_binary: Include base64 for binary files without an image preview.
+
+    Returns:
+        The inspection envelope with identity, verified hashes and file content.
+
+    Raises:
+        InspectionError: Invalid identity, unsafe entries, exceeded limits or an
+            unavailable revision. Error codes contain no inspected content.
+
+    Reads only; no drafts, writes, imports or execution of skill content occur.
+    """
     if not isinstance(skill_id, str) or not NAME.fullmatch(skill_id):
         raise InspectionError("invalid_skill_id")
     if not isinstance(revision_id, str) or not HASH.fullmatch(revision_id):

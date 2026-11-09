@@ -15,7 +15,7 @@ import json
 import laomedo._paths as _package_paths
 import laomedo.github.transport.git.transport as _git_transport
 import laomedo.github.transport.rest.transport as _rest_transport
-import laomedo.host.credentials.token.connection as _token_connection
+import laomedo.host.credentials.token as _token_connection
 import laomedo.host.leases.service as _leases_service
 import laomedo.host.mediation.authority as _mediation_authority
 import laomedo.host.mediation.service as _mediation_service

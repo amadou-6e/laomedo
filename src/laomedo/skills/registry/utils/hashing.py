@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from laomedo.skills.registry.paths import validate_relative_path
+from laomedo.skills.registry.utils.paths import validate_relative_path
 
 
 def hash_bytes(data: bytes) -> str:
