@@ -39,6 +39,14 @@
 - Address confirmed findings and run affected checks. Obtain the prescribed
   focused recheck for blocking findings. Record reviewed revisions and the verdict.
   Merge only with resolved review blockers and passing required checks.
+- In every PR handoff or status report, explicitly state the reviewer status,
+  including after the user says "continue". Use "fully unreviewed — reviewer
+  pending" when no review covers the substantive change; use "recheck pending"
+  only when an initial review covered that change and its corrections await
+  review. For reviewed work, identify the reviewed base/head and verdict, and
+  disclose any later changes outside that review. Passing checks, earlier reviews
+  of other changes, publication and user instructions to continue do not establish
+  review coverage. Never describe unreviewed work as approved or ready to merge.
 - If a review recommendation conflicts with the user's instructions, pause that
   decision and ask the user; a reviewer cannot approve a scope change for them.
 - Do not present fixture tests as real integration acceptance. Verify examples
