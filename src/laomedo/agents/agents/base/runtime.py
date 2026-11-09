@@ -82,12 +82,14 @@ class AgentDockerMechanism:
         cleanup_seconds: float | None = None,
     ) -> "CommandResult":
         """Run on an explicitly borrowed client without changing its lifetime."""
-        return client.jobs.run(
-            job,
-            cancelled=cancelled,
-            deadline=deadline,
-            cleanup_seconds=cleanup_seconds,
-        )
+        options = {}
+        if cancelled is not None:
+            options["cancelled"] = cancelled
+        if deadline is not None:
+            options["deadline"] = deadline
+        if cleanup_seconds is not None:
+            options["cleanup_seconds"] = cleanup_seconds
+        return client.jobs.run(job, **options)
 
     @staticmethod
     @contextmanager
