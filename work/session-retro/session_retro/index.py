@@ -24,7 +24,26 @@ from session_retro.settings import PARSER_VERSION, Settings
 
 
 class SessionIndex:
-    """Own one private database; never open another application database for writes."""
+    """Own one private database; never open another application database for writes.
+
+    Parameters
+    ----------
+    database : Path
+        Owned private SQLite destination; unrelated databases are refused.
+    settings : Settings
+        Injected private-root and resource bounds.
+    create : bool
+        Explicitly allow creating/updating the owned index; otherwise open read-only.
+
+    Raises
+    ------
+    RetrospectiveError
+        Missing/private-root mismatch, unrelated store or parser mismatch.
+
+    Notes
+    -----
+    Construction may create the private index schema. Always close its connection.
+    """
 
     def __init__(self, database: Path, settings: Settings, *, create: bool = False):
         """Admit an explicit private destination and refuse unrelated SQLite stores."""
@@ -76,11 +95,36 @@ class SessionIndex:
             """)
 
     def close(self) -> None:
-        """Release only this index connection; source files are independently owned."""
+        """Release this index connection.
+
+        Returns
+        -------
+        None
+            The SQLite connection is closed; original files are not changed.
+
+        Notes
+        -----
+        Call after success or failure. Source handles are owned by SessionReader.
+        """
         self.db.close()
 
     def snapshot(self) -> SourceSnapshot:
-        """Read the durable checkpoint; reject a database without admitted source."""
+        """Read the durable index checkpoint.
+
+        Returns
+        -------
+        SourceSnapshot
+            Last atomically committed source cursor and interpretation fingerprint.
+
+        Raises
+        ------
+        RetrospectiveError
+            The owned database has no admitted source checkpoint.
+
+        Notes
+        -----
+        A checkpoint alone does not prove that original bytes are still current.
+        """
         row = self.db.execute("SELECT value FROM state WHERE id=1").fetchone()
         if row is None:
             raise RetrospectiveError("index_not_initialized")
@@ -95,7 +139,38 @@ class SessionIndex:
         stop_after: int | None = None,
         boundary: int | None = None,
     ) -> BuildResult:
-        """Index/resume complete records, atomically retaining each committed cursor."""
+        """Build or resume an index with transactional cursor updates.
+
+        Parameters
+        ----------
+        source : Path
+            Explicit native log; never written by this operation.
+        session_id : str
+            Expected native identity.
+        extend : bool
+            Explicitly admit appended bytes after checking the old prefix.
+        stop_after : int, optional
+            Internal interruption-control limit, never a model/runtime allowance.
+        boundary : int, optional
+            Finite byte limit for a reproducible new index.
+
+        Returns
+        -------
+        BuildResult
+            Committed snapshot, elapsed seconds and process peak resident bytes.
+
+        Raises
+        ------
+        RetrospectiveError
+            Source/index identity, parser/settings or boundary mismatch; stale bytes.
+        OSError
+            Source access or output-storage failure.
+
+        Notes
+        -----
+        Writes only the admitted private database in bounded batches. An interrupted
+        build is resumed only after rehashing its committed prefix.
+        """
         started = time.perf_counter()
         if source.resolve() == self.path:
             raise RetrospectiveError("source_is_database")
@@ -169,7 +244,24 @@ class SessionIndex:
         )
 
     def coverage(self) -> CoverageReport:
-        """Reconcile physical source records and explicit gaps; no analysis claim."""
+        """Reconcile indexed locators and expose interpretation gaps.
+
+        Returns
+        -------
+        CoverageReport
+            Physical counts, wrapper/event signals and explicit unknown/omitted counts.
+            Indexing itself always leaves analyzed_records at zero.
+
+        Raises
+        ------
+        RetrospectiveError
+            Missing checkpoint or inconsistent record spans/counts.
+
+        Notes
+        -----
+        Queries the index only; call verify separately to rehash original bytes.
+        Informational event observations can legitimately have no outcome.
+        """
         snapshot = self.snapshot()
         counts = {
             r[0]: r[1]
@@ -209,6 +301,9 @@ class SessionIndex:
             result_outcomes_unknown=self.db.execute(
                 "SELECT COUNT(*) FROM events WHERE kind='result' AND failure IS NULL"
             ).fetchone()[0],
+            observation_outcomes_unknown=self.db.execute(
+                "SELECT COUNT(*) FROM events WHERE kind='observation' AND failure IS NULL"
+            ).fetchone()[0],
             truncated_search_records=self.db.execute(
                 "SELECT COUNT(*) FROM events WHERE text_truncated=1"
             ).fetchone()[0],
@@ -230,7 +325,27 @@ class SessionIndex:
     def search(
         self, query: str, *, after: int = 0, kind: str | None = None
     ) -> list[SearchHit]:
-        """Return a bounded page of literal matches; results are candidate evidence."""
+        """Return a bounded page of literal extracted-text matches.
+
+        Parameters
+        ----------
+        query : str
+            Literal, case-insensitive search text, never executable syntax.
+        after : int
+            Exclusive original-line cursor for the next page.
+        kind : str, optional
+            Restrict matches to one normalized category.
+
+        Returns
+        -------
+        list of SearchHit
+            At most settings.page_records source-linked candidates.
+
+        Notes
+        -----
+        Reads cached bounded text only. Omitted text can contain additional matches;
+        retrieve originals before interpreting a candidate. No source writes occur.
+        """
         rows = self.db.execute(
             "SELECT line,timestamp,kind,role,phase,name,call_id,offset,length,text,text_truncated FROM events WHERE line>? AND instr(lower(text),lower(?))>0 AND (? IS NULL OR kind=?) ORDER BY line LIMIT ?",
             (after, query, kind, kind, self.settings.page_records),
@@ -238,7 +353,30 @@ class SessionIndex:
         return [SearchHit(**dict(row)) for row in rows]
 
     def read(self, line: int, *, start: int = 0) -> ReadPage:
-        """Re-read exact verified source and page extracted text, not cached snippets."""
+        """Read and page extracted content from an original source record.
+
+        Parameters
+        ----------
+        line : int
+            Original physical line in the indexed prefix.
+        start : int
+            Character offset within extracted, best-effort-redacted text.
+
+        Returns
+        -------
+        ReadPage
+            Bounded content with an explicit continuation offset and total length.
+
+        Raises
+        ------
+        RetrospectiveError
+            Invalid page, oversized record or changed/replaced source.
+
+        Notes
+        -----
+        Verifies the original record hash before decoding; never executes content.
+        This is extracted text, not an unredacted raw-payload export.
+        """
         row = self.db.execute("SELECT * FROM events WHERE line=?", (line,)).fetchone()
         if row is None or start < 0:
             raise RetrospectiveError("invalid_record_page")
@@ -261,7 +399,22 @@ class SessionIndex:
         )
 
     def verify(self) -> VerificationResult:
-        """Verify all indexed source bytes without parsing or model execution."""
+        """Verify the original committed prefix against the stored snapshot.
+
+        Returns
+        -------
+        VerificationResult
+            Verified byte count and expected SHA256.
+
+        Raises
+        ------
+        RetrospectiveError
+            Missing checkpoint or source replacement, truncation or mutation.
+
+        Notes
+        -----
+        Reads the source without changing source or index.
+        """
         snapshot = self.snapshot()
         SessionReader(Path(snapshot.path), self.settings).verify(snapshot)
         return VerificationResult(

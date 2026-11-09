@@ -19,10 +19,10 @@ class IndexTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
-        self.source = self.root / "source.jsonl"
-        self.database = self.root / "private/index.sqlite"
+        self.source = Path(self.root, "source.jsonl")
+        self.database = Path(self.root, "private/index.sqlite")
         self.settings = Settings(
-            private_root=self.root / "private",
+            private_root=Path(self.root, "private"),
             chunk_bytes=1024,
             max_record_bytes=2048,
             batch_records=2,
@@ -117,8 +117,8 @@ class IndexTests(unittest.TestCase):
         with self.assertRaisesRegex(
             RetrospectiveError, "database_outside_private_root"
         ):
-            SessionIndex(self.root / "outside.sqlite", self.settings, create=True)
-        other = self.root / "private/other.sqlite"
+            SessionIndex(Path(self.root, "outside.sqlite"), self.settings, create=True)
+        other = Path(self.root, "private/other.sqlite")
         with sqlite3.connect(other) as connection:
             connection.execute("CREATE TABLE unrelated(value)")
         connection.close()

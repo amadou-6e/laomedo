@@ -48,3 +48,9 @@ never searched recursively for status. Unsupported formats remain unknown. Rebui
 older indexes into a new database at the original finite boundary. Redaction keys
 are bounded to256characters; best-effort masking is not privacy certification.
 Turn attribution carries the latest observed ID when absent on a physical record.
+
+Current parser v4 has a separate native-observation handler: only top-level
+status/is_error/integer exit_code is recognized, while message/nested content stays
+opaque. Observation unknown counts are distinct from tool results and include
+informational records. Public APIs document parameters, results, failures and
+side effects. The helper has its own uv.lock; use uv sync --locked.

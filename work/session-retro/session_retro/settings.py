@@ -7,7 +7,7 @@ from pathlib import Path
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-PARSER_VERSION = "codex-retro-3"
+PARSER_VERSION = "codex-retro-4"
 
 # Stable local failure explanations, not user-editable runtime configuration.
 ERROR_MESSAGES = {
@@ -81,7 +81,18 @@ class Settings(BaseSettings):
     )
 
     def digest(self) -> str:
-        """Bind resumability to limits affecting record interpretation and search."""
+        """Fingerprint settings that affect persisted interpretation.
+
+        Returns
+        -------
+        str
+            SHA256 of canonical max-record and search-text limits.
+
+        Notes
+        -----
+        Pure calculation. Presentation limits are not interpretation changes; parser
+        version is checked separately. Credential values are never included.
+        """
         values = {
             "max_record_bytes": self.max_record_bytes,
             "search_characters": self.search_characters,

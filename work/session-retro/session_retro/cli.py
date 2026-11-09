@@ -18,7 +18,19 @@ from session_retro.settings import ERROR_MESSAGES
 
 
 def main() -> int:
-    """Parse explicit source/private destinations, execute one command and close."""
+    """Execute one explicit local evidence command.
+
+    Returns
+    -------
+    int
+        Zero on success, one on a handled domain/filesystem/settings failure.
+
+    Notes
+    -----
+    Parses process arguments and environment at invocation. Commands may read only
+    the selected original and write admitted private artifacts. Bounded results go
+    to stdout; safe descriptive failures go to stderr. No model/network invocation.
+    """
     parser = argparse.ArgumentParser(
         description="Private bounded Codex evidence, not automatic incident judgments"
     )

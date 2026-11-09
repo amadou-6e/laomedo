@@ -8,14 +8,47 @@ from session_retro.models import Episode
 
 
 class EpisodeBuilder:
-    """Group records after original user messages using one streaming SQL cursor."""
+    """Group records after original user messages using one streaming SQL cursor.
+
+    Parameters
+    ----------
+    index : SessionIndex
+        Borrowed source-linked index; caller owns its lifecycle.
+
+    Notes
+    -----
+    Physical windows require semantic review before being treated as tasks.
+    """
 
     def __init__(self, index: SessionIndex):
         """Borrow an admitted private index; caller retains its connection."""
         self.index = index
 
     def write(self, path: Path) -> int:
-        """Write private bounded user-message windows with native outcome locations."""
+        """Stream bounded physical user-message windows to a new artifact.
+
+        Parameters
+        ----------
+        path : Path
+            New output file beneath the configured private root.
+
+        Returns
+        -------
+        int
+            Windows written; continuations are not automatically independent tasks.
+
+        Raises
+        ------
+        RetrospectiveError
+            Output escapes the private root.
+        FileExistsError
+            Destination exists and must be preserved.
+
+        Notes
+        -----
+        Queries the borrowed index. Final-answer references are capped with omitted
+        counts; this method does not establish retrospective conclusions.
+        """
         root = self.index.settings.private_root
         if root is None or not path.resolve().is_relative_to(root.resolve()):
             raise RetrospectiveError("report_outside_private_root")

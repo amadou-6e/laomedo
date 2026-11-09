@@ -6,7 +6,11 @@ import sys
 
 
 class WindowsMemoryCounters(ctypes.Structure):
-    """Windows PROCESS_MEMORY_COUNTERS ABI, local process metadata only."""
+    """Windows PROCESS_MEMORY_COUNTERS ABI, local process metadata only.
+
+    This ctypes FFI layout is intentionally not a Pydantic domain model: its
+    native memory layout must match the OS structure exactly.
+    """
 
     _fields_ = [("cb", ctypes.c_ulong), ("PageFaultCount", ctypes.c_ulong)] + [
         (name, ctypes.c_size_t)
@@ -28,7 +32,22 @@ class ProcessMemory:
 
     @staticmethod
     def peak() -> int:
-        """Return OS high-water resident bytes; raise rather than invent zero."""
+        """Measure this process's high-water resident memory.
+
+        Returns
+        -------
+        int
+            OS-reported peak resident bytes; not a sum of child process memory.
+
+        Raises
+        ------
+        OSError
+            The native memory-information query fails.
+
+        Notes
+        -----
+        Does not start a sampler or subprocess; never invents zero on failure.
+        """
         if os.name == "nt":
             from ctypes import wintypes
 

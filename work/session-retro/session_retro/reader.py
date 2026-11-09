@@ -30,7 +30,31 @@ class SessionReader:
     def snapshot(
         self, session_id: str, *, boundary: int | None = None
     ) -> SourceSnapshot:
-        """Validate native identity before admitting a finite source boundary."""
+        """Capture and admit a finite native session prefix.
+
+        Parameters
+        ----------
+        session_id : str
+            Expected native identity from the selected session.
+        boundary : int, optional
+            Earlier reproducible byte limit; otherwise capture current file length.
+
+        Returns
+        -------
+        SourceSnapshot
+            Identity, finite limit and empty-prefix hash; no semantic review claim.
+
+        Raises
+        ------
+        RetrospectiveError
+            Invalid metadata, identity mismatch or out-of-range boundary.
+        OSError
+            Source cannot be opened read-only.
+
+        Notes
+        -----
+        Only reads the selected file; later appends are outside the captured limit.
+        """
         with open_source(self.path) as stream:
             stat = os.fstat(stream.fileno())
             first = stream.readline(self.settings.max_record_bytes + 1)
@@ -60,10 +84,26 @@ class SessionReader:
             )
 
     def records(self, snapshot: SourceSnapshot):
-        """Yield complete source records and bounded bytes; ignore append suffixes.
+        """Stream complete records within the admitted byte boundary.
 
-        Verify the prior committed prefix before resuming. A trailing incomplete
-        record is never yielded; its range remains visible in coverage.
+        Parameters
+        ----------
+        snapshot : SourceSnapshot
+            Committed cursor and expected identity/hash for restart.
+
+        Yields
+        ------
+        SourceRecord
+            Exact locator and bounded bytes; oversized payloads have no decoded data.
+
+        Raises
+        ------
+        RetrospectiveError
+            Source replacement, truncation or committed-prefix mutation.
+
+        Notes
+        -----
+        Does not lock the writer or change the source. A partial tail is not yielded.
         """
         with open_source(self.path) as stream:
             self._check_identity(stream, snapshot)
@@ -116,7 +156,27 @@ class SessionReader:
             self._check_identity(stream, snapshot)
 
     def verify(self, snapshot: SourceSnapshot) -> None:
-        """Re-read the committed prefix and reject source mutation or replacement."""
+        """Rehash the committed source prefix without parsing it.
+
+        Parameters
+        ----------
+        snapshot : SourceSnapshot
+            Expected identity, prefix length and SHA256.
+
+        Returns
+        -------
+        None
+            Successful completion means the selected bytes still match.
+
+        Raises
+        ------
+        RetrospectiveError
+            Source replacement, truncation or prefix mutation.
+
+        Notes
+        -----
+        Reads source bytes only; this does not validate statements inside them.
+        """
         with open_source(self.path) as stream:
             self._check_identity(stream, snapshot)
             if (
@@ -126,7 +186,29 @@ class SessionReader:
                 raise RetrospectiveError("source_prefix_changed")
 
     def read(self, snapshot: SourceSnapshot, locator: RecordLocator) -> bytes:
-        """Return a bounded exact record only after identity, range and hash checks."""
+        """Retrieve one exact, bounded original record.
+
+        Parameters
+        ----------
+        snapshot : SourceSnapshot
+            Admitted source identity and finite prefix.
+        locator : RecordLocator
+            Original byte span and expected record hash.
+
+        Returns
+        -------
+        bytes
+            Original record bytes after span, identity and hash checks.
+
+        Raises
+        ------
+        RetrospectiveError
+            Oversized/out-of-range record, replacement, truncation or changed record.
+
+        Notes
+        -----
+        Read-only; no extraction, execution or publication is performed.
+        """
         if locator.length > self.settings.max_record_bytes:
             raise RetrospectiveError("record_requires_bounded_large_payload_decoder")
         if locator.offset + locator.length > snapshot.indexed_bytes:

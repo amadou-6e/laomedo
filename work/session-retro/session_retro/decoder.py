@@ -9,7 +9,17 @@ from session_retro.settings import Settings
 
 
 class CodexEventDecoder:
-    """Normalize bounded source records without trusting embedded instructions."""
+    """Normalize bounded source records without trusting embedded instructions.
+
+    Parameters
+    ----------
+    settings : Settings
+        Resource bounds and extraction limits.
+
+    Notes
+    -----
+    Keeps the latest observed turn identity; no I/O or content execution.
+    """
 
     def __init__(self, settings: Settings):
         """Retain injected limits and current observed turn identity."""
@@ -20,7 +30,26 @@ class CodexEventDecoder:
     def decode(
         self, record: SourceRecord, *, full_text: bool = False
     ) -> NormalizedEvent:
-        """Preserve native type and correlation; gaps and truncation stay explicit."""
+        """Decode one bounded native record into source-linked observations.
+
+        Parameters
+        ----------
+        record : SourceRecord
+            Exact locator plus bounded bytes, or an explicit oversized-payload gap.
+        full_text : bool
+            Keep full extracted text for subsequent paging instead of search truncation.
+
+        Returns
+        -------
+        NormalizedEvent
+            Classification, attributed turn, status signal and best-effort-redacted text.
+            Unknown/malformed/oversized records remain explicit categories.
+
+        Notes
+        -----
+        No execution or I/O. Turn attribution carries the latest observed ID when a
+        record omits it. Tool stdout and event messages are opaque to status detection.
+        """
         if record.data is None:
             return NormalizedEvent(
                 locator=record.locator, native_type="unknown", kind="oversized"
@@ -125,7 +154,7 @@ class CodexEventDecoder:
             text = self._message(payload.get("content", payload.get("message")))
         elif outer == "event_msg":
             event.kind, event.name = "observation", str(native)
-            event.failure = self._failure(payload)
+            event.failure = self._observation_failure(payload)
             text = self._text(payload.get("message", payload.get("reason", "")))
         elif outer == "response_item" and native in {"reasoning", "compaction"}:
             event.kind = "reasoning" if native == "reasoning" else "compaction"
@@ -191,3 +220,15 @@ class CodexEventDecoder:
         ):
             return None
         return envelope["exit_code"] != 0
+
+    @staticmethod
+    def _observation_failure(payload: dict) -> bool | None:
+        """Read native top-level observation status; message text stays opaque."""
+        if payload.get("is_error") is True:
+            return True
+        status = payload.get("status")
+        if isinstance(status, str) and status in {"failed", "error", "timeout"}:
+            return True
+        if type(payload.get("exit_code")) is int:
+            return payload["exit_code"] != 0
+        return None

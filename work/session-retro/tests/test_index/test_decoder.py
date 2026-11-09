@@ -107,7 +107,7 @@ class DecoderTests(unittest.TestCase):
 
     def test_each_local_error_producer_has_a_descriptive_explanation(self):
         """Reject newly introduced bare codes without a safe shared explanation."""
-        root = Path(__file__).resolve().parents[2] / "session_retro"
+        root = Path(Path(__file__).resolve().parents[2], "session_retro")
         codes = set()
         for path in root.glob("*.py"):
             for node in ast.walk(ast.parse(path.read_text())):

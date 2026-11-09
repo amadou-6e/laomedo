@@ -16,19 +16,55 @@ from support.utils import meta, record
 class ReportTests(unittest.TestCase):
     """Own temporary evidence and verify semantic categories rather than wording."""
 
+    def test_native_observation_outcomes_reach_coverage_and_queue(self):
+        """Native top-level signals survive while message/nested statuses stay opaque."""
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = Path(root, "source.jsonl")
+            source.write_bytes(
+                meta()
+                + b"".join(
+                    record("event_msg", payload)
+                    for payload in [
+                        {"type": "native_status", "status": "failed"},
+                        {"type": "native_status", "is_error": True},
+                        {
+                            "type": "native_status",
+                            "exit_code": 0,
+                            "message": '{"status":"failed"}',
+                        },
+                        {"type": "native_status", "message": '{"exit_code":1}'},
+                        {"type": "native_status", "metadata": {"status": "failed"}},
+                        {"type": "native_status", "exit_code": True},
+                    ]
+                )
+            )
+            index = SessionIndex(
+                Path(root, "index.sqlite"), Settings(private_root=root), create=True
+            )
+            try:
+                index.build(source, "internal-session")
+                coverage = index.coverage()
+                self.assertEqual(coverage.explicit_failure_records, 2)
+                self.assertEqual(coverage.observation_outcomes_unknown, 3)
+                result = RetrospectiveReport(index).write(Path(root, "report"))
+                self.assertEqual(result.candidates, 2)
+            finally:
+                index.close()
+
     def test_existing_report_source_and_outside_output_are_preserved(self):
         """Refuse regeneration before a report can truncate its own source."""
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            target = root / "report"
+            target = Path(root, "report")
             target.mkdir()
-            source = target / "episodes.jsonl"
+            source = Path(target, "episodes.jsonl")
             original = meta()
             source.write_bytes(original)
-            sentinel = target / "README.md"
+            sentinel = Path(target, "README.md")
             sentinel.write_text("existing evidence", encoding="utf-8")
             index = SessionIndex(
-                root / "index.sqlite", Settings(private_root=root), create=True
+                Path(root, "index.sqlite"), Settings(private_root=root), create=True
             )
             try:
                 index.build(source, "internal-session")
@@ -41,7 +77,7 @@ class ReportTests(unittest.TestCase):
                 with self.assertRaisesRegex(
                     RetrospectiveError, "report_outside_private_root"
                 ):
-                    EpisodeBuilder(index).write(root.parent / "outside.jsonl")
+                    EpisodeBuilder(index).write(Path(root.parent, "outside.jsonl"))
                 self.assertEqual(source.read_bytes(), original)
                 self.assertEqual(sentinel.read_text(), "existing evidence")
                 index.verify()
@@ -52,7 +88,7 @@ class ReportTests(unittest.TestCase):
         """A long window and arbitrary native types must not grow Python lists."""
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            source = root / "source.jsonl"
+            source = Path(root, "source.jsonl")
             source.write_bytes(
                 meta()
                 + record(
@@ -73,15 +109,15 @@ class ReportTests(unittest.TestCase):
                 )
             )
             index = SessionIndex(
-                root / "index.sqlite",
+                Path(root, "index.sqlite"),
                 Settings(private_root=root, page_records=2),
                 create=True,
             )
             try:
                 index.build(source, "internal-session")
-                result = RetrospectiveReport(index).write(root / "report")
+                result = RetrospectiveReport(index).write(Path(root, "report"))
                 episode = json.loads(
-                    (Path(result.directory) / "episodes.jsonl").read_text()
+                    (Path(Path(result.directory), "episodes.jsonl")).read_text()
                 )
                 self.assertEqual(len(episode["final_answer_lines"]), 2)
                 self.assertEqual(episode["omitted_final_answer_lines"], 10)
@@ -95,7 +131,7 @@ class ReportTests(unittest.TestCase):
         """Preserve context, commentary and finals while keeping analysis pending."""
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            source = root / "source.jsonl"
+            source = Path(root, "source.jsonl")
             source.write_bytes(
                 meta()
                 + record(
@@ -136,16 +172,16 @@ class ReportTests(unittest.TestCase):
                 )
             )
             index = SessionIndex(
-                root / "private/index.sqlite",
-                Settings(private_root=root / "private"),
+                Path(root, "private/index.sqlite"),
+                Settings(private_root=Path(root, "private")),
                 create=True,
             )
             try:
                 index.build(source, "internal-session")
-                report = RetrospectiveReport(index).write(root / "private/report")
+                report = RetrospectiveReport(index).write(Path(root, "private/report"))
                 episodes = [
                     json.loads(x)
-                    for x in (root / "private/report/episodes.jsonl")
+                    for x in (Path(root, "private/report/episodes.jsonl"))
                     .read_text()
                     .splitlines()
                 ]
@@ -156,7 +192,7 @@ class ReportTests(unittest.TestCase):
                 with self.assertRaisesRegex(
                     RetrospectiveError, "report_outside_private_root"
                 ):
-                    RetrospectiveReport(index).write(root / "outside")
+                    RetrospectiveReport(index).write(Path(root, "outside"))
                 index.db.execute("UPDATE events SET offset=offset+1 WHERE line=3")
                 index.db.commit()
                 with self.assertRaisesRegex(

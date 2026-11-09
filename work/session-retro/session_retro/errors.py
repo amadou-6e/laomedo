@@ -13,7 +13,13 @@ class RetrospectiveError(ValueError):
 
     @property
     def explanation(self) -> str:
-        """Describe only the known failure, without including native payloads."""
+        """Describe the known failure without including native payloads.
+
+        Returns
+        -------
+        str
+            Safe catalogue explanation, with a descriptive unknown-code fallback.
+        """
         return ERROR_MESSAGES.get(
             self.code, ERROR_MESSAGES["filesystem_or_settings_failed"]
         )

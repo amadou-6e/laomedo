@@ -7,10 +7,27 @@ from typing import BinaryIO
 
 
 def open_source(path: Path) -> BinaryIO:
-    """Open native bytes read-only, permitting Windows write/delete sharing.
+    """Open an original source read-only without blocking an active writer.
 
-    The caller owns the returned handle. No credential, login or sibling file is
-    opened. Errors retain normal filesystem categories for the CLI boundary.
+    Parameters
+    ----------
+    path : Path
+        Explicit selected source; no recursive discovery is performed.
+
+    Returns
+    -------
+    BinaryIO
+        Owned binary handle; caller must close it, normally with a context manager.
+
+    Raises
+    ------
+    OSError
+        File open fails; no source or profile mutation is attempted.
+
+    Notes
+    -----
+    Windows uses shared read/write/delete access. Other platforms use ordinary rb.
+    The caller verifies identity/hash; opening alone does not authenticate evidence.
     """
     if os.name != "nt":
         return path.open("rb")

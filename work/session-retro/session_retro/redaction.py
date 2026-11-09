@@ -7,7 +7,23 @@ class Redactor:
     """Mask recognizable credentials; arbitrary sensitive prose can still remain."""
 
     def text(self, value: str) -> str:
-        """Return masked text without logging the original or changing source bytes."""
+        """Mask recognized credential forms in private extracted text.
+
+        Parameters
+        ----------
+        value : str
+            Already bounded source-derived text; never logged by this object.
+
+        Returns
+        -------
+        str
+            Best-effort masked text, leaving unrecognized sensitive prose possible.
+
+        Notes
+        -----
+        No I/O or source mutation. Assignment keys are capped at256characters. This is
+        not declassification, privacy certification or a processing-time guarantee.
+        """
         value = re.sub(
             r"\b(?:gh[pousr]_[A-Za-z0-9_]{12,}|github_pat_[A-Za-z0-9_]{12,}|sk-[A-Za-z0-9_-]{12,}|eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)",
             "[REDACTED_CREDENTIAL]",

@@ -138,6 +138,9 @@ class CoverageReport(BaseModel):
     result_outcomes_unknown: int = Field(
         description="Result records without a recognized explicit terminal signal"
     )
+    observation_outcomes_unknown: int = Field(
+        description="Native event observations without recognized top-level outcome fields, including informational observations"
+    )
     usage_values: str = Field(
         default="source_only_not_aggregated",
         description="Usage records are located, not summed into unsupported cost claims",
