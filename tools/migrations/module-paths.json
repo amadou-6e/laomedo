@@ -289,9 +289,7 @@
   "laomedo.github.issues.cli": "laomedo.github.interface.issues.cli",
   "laomedo.github.issues.client": "laomedo.github.interface.issues.client",
   "laomedo.github.issues.server": "laomedo.github.interface.issues.server",
-  "laomedo.github.issues.settings": "laomedo.github.interface.issues.settings",
   "laomedo.github.pull_requests.cli": "laomedo.github.interface.pull_requests.cli",
   "laomedo.github.pull_requests.client": "laomedo.github.interface.pull_requests.client",
-  "laomedo.github.pull_requests.server": "laomedo.github.interface.pull_requests.server",
-  "laomedo.github.pull_requests.settings": "laomedo.github.interface.pull_requests.settings"
+  "laomedo.github.pull_requests.server": "laomedo.github.interface.pull_requests.server"
 }

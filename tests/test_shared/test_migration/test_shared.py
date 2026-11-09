@@ -259,7 +259,7 @@ class SharedMigrationTests(unittest.TestCase):
                 "laomedo.http.redirect",
             ),
             (
-                "from laomedo.github.transport.rest import _NoRedirect\n",
+                "from laomedo.github.transport.rest.transport import _NoRedirect\n",
                 "laomedo.http.redirect",
             ),
         ):
