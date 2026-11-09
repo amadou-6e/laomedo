@@ -1,6 +1,7 @@
 """Codex launch policy and native evidence over the shared ACP client."""
 
 import asyncio
+from contextlib import ExitStack
 import json
 import time
 
@@ -12,6 +13,7 @@ from laomedo.agents.agents.codex.settings import Settings as CodexSettings
 from laomedo.agents.agents.codex.controller.models import CodexLaunch, CodexTurn
 from laomedo.agents.agents.codex.controller.settings import Settings
 from laomedo.agents.errors import RunnerError
+from laomedo.agents.agents.base.runtime import AgentDockerMechanism
 from laomedo.agents.agents.base.base import BaseAgentRuntime
 from laomedo.agents.agents.base.models import (
     RuntimeObservation,
@@ -52,6 +54,7 @@ class CodexAgentRuntime(BaseAgentRuntime):
             settings=ConnectionSettings(timeout_seconds=15), environment=env
         )
         self.container_name = launch.name
+        self._session_scope = ExitStack()
         self.session = self.acp = self.executor = self.telemetry = None
         self._cancelled = None
         self._protocol_ready = False
@@ -131,13 +134,17 @@ class CodexAgentRuntime(BaseAgentRuntime):
                 "a", encoding="utf-8"
             )
             self.logs.append(self.activity_log)
-            self.session = self.client.sessions.open(
-                ContainerSession(
-                    spec=spec,
-                    limits=StreamLimits(
-                        seconds=lifetime_seconds, max_bytes=Settings.load().max_bytes
+            self.session = self._session_scope.enter_context(
+                AgentDockerMechanism.session(
+                    self.client,
+                    ContainerSession(
+                        spec=spec,
+                        limits=StreamLimits(
+                            seconds=lifetime_seconds,
+                            max_bytes=Settings.load().max_bytes,
+                        ),
+                        receipt_path=receipt_path or evidence / NATIVE_RECEIPT_FILENAME,
                     ),
-                    receipt_path=receipt_path or evidence / NATIVE_RECEIPT_FILENAME,
                 )
             )
         except Exception as primary:
@@ -539,7 +546,7 @@ class CodexAgentRuntime(BaseAgentRuntime):
         error = None
         try:
             if self.session is not None:
-                self.session.close()
+                self._session_scope.close()
                 self.cleanup_confirmed = True
         except Exception as failure:
             error = RunnerError(

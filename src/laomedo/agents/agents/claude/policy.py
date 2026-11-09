@@ -305,11 +305,12 @@ class ClaudeRuntimePolicy:
         from py_docker.streams.models import StreamLimits
 
         with self.client(output_code="claude_receipt_too_large") as docker:
-            with docker.sessions.open(
+            with AgentDockerMechanism.session(
+                docker,
                 ContainerSession(
                     spec=spec,
                     receipt_path=receipt,
                     limits=StreamLimits(seconds=seconds, max_bytes=36 * 1024 * 1024),
-                )
+                ),
             ) as session:
                 yield session

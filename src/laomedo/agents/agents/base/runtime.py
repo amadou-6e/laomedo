@@ -11,6 +11,8 @@ if TYPE_CHECKING:
     from py_docker.connection.settings import ConnectionSettings
     from py_docker.execution.models import CommandResult
     from py_docker.jobs.models import ContainerJob
+    from py_docker.sessions.models import ContainerSession
+    from py_docker.sessions.session import Session
 
 
 class AgentDockerMechanism:
@@ -57,6 +59,19 @@ class AgentDockerMechanism:
                 deadline=deadline,
                 cleanup_seconds=cleanup_seconds,
             )
+
+    @staticmethod
+    @contextmanager
+    def session(client: "Client", request: "ContainerSession") -> Iterator["Session"]:
+        """Own one interactive session on a caller-owned client.
+
+        Enter and exit on the creator thread. Native startup, body and cleanup
+        exceptions retain their identity and context-manager semantics. The
+        caller closes its client after its other dependent resources; this
+        scope never interprets agent readiness or a native conversation.
+        """
+        with client.sessions.open(request) as session:
+            yield session
 
     def recover(
         self, receipts: Sequence[Path], *, kind: Literal["session", "job"] = "session"

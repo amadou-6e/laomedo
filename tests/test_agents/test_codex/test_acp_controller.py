@@ -9,7 +9,7 @@ import tempfile
 import threading
 from types import SimpleNamespace
 import unittest
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 from laomedo.agents.interface.output.utils import requirements
 from laomedo.agents.agents.codex.controller.models import CodexLaunch
@@ -32,6 +32,10 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
             image="sha256:" + "a" * 64,
         )
         self.docker = Mock()
+        native = MagicMock()
+        native.__enter__.return_value = native
+        native.__exit__.side_effect = lambda *args: native.close()
+        self.docker.sessions.open.return_value = native
         with patch("py_docker.Client", return_value=self.docker):
             self.controller = CodexAgentRuntime(
                 self.launch,

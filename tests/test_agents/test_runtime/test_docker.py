@@ -4,7 +4,7 @@ from importlib.util import find_spec
 from pathlib import Path
 import threading
 import unittest
-from unittest.mock import Mock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 from laomedo.agents.agents.base.runtime import AgentDockerMechanism
 
@@ -12,6 +12,45 @@ from laomedo.agents.agents.base.runtime import AgentDockerMechanism
 @unittest.skipUnless(find_spec("py_docker"), "Requires optional runner dependencies")
 class DockerMechanismTests(unittest.TestCase):
     """Protect pinned connections, ownership and fail-closed native outcomes."""
+
+    def test_session_passes_body_failure_to_native_cleanup_without_closing_client(self):
+        client = Mock()
+        native = MagicMock()
+        native.__enter__.return_value = native
+        native.__exit__.return_value = False
+        client.sessions.open.return_value = native
+        request = Mock()
+        primary = RuntimeError("execution failed")
+        with self.assertRaises(RuntimeError) as caught:
+            with AgentDockerMechanism.session(client, request) as session:
+                self.assertIs(session, native)
+                raise primary
+        self.assertIs(caught.exception, primary)
+        client.sessions.open.assert_called_once_with(request)
+        self.assertIs(native.__exit__.call_args.args[1], primary)
+        client.close.assert_not_called()
+
+    def test_session_cleanup_uncertainty_is_not_reported_as_success(self):
+        client = Mock()
+        native = MagicMock()
+        client.sessions.open.return_value = native
+        failure = RuntimeError("cleanup uncertain")
+        native.__exit__.side_effect = failure
+        with self.assertRaises(RuntimeError) as caught:
+            with AgentDockerMechanism.session(client, Mock()):
+                pass
+        self.assertIs(caught.exception, failure)
+        client.close.assert_not_called()
+
+    def test_session_startup_failure_does_not_claim_an_opened_scope(self):
+        client = Mock()
+        failure = RuntimeError("startup failed")
+        client.sessions.open.side_effect = failure
+        with self.assertRaises(RuntimeError) as caught:
+            with AgentDockerMechanism.session(client, Mock()):
+                self.fail("startup unexpectedly succeeded")
+        self.assertIs(caught.exception, failure)
+        client.close.assert_not_called()
 
     def test_supplied_endpoint_is_detached_from_mutable_host_configuration(self):
         environment = {"DOCKER_HOST": "unix:///selected.sock"}

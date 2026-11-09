@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from contextlib import ExitStack
 from pathlib import Path
 from uuid import uuid4
 import json
@@ -24,6 +25,7 @@ from laomedo.agents.agents.opencode.utils import (
 )
 from laomedo.agents.agents.opencode.utils import model_metadata
 from laomedo.agents.errors import RunnerError
+from laomedo.agents.agents.base.runtime import AgentDockerMechanism
 from laomedo.agents.agents.opencode.credentials import OpenCodeCredentialProvider
 from laomedo.agents.agents.base.models import CredentialRequest
 from laomedo.agents.agents.base.base import BaseAgentRuntime
@@ -56,6 +58,7 @@ class OpenCodeAgentRuntime(BaseAgentRuntime):
         receipt_directory=None,
     ):
         """Bind admitted configuration and owned state; provider startup errors propagate before use."""
+        self._session_scope = ExitStack()
         self.termination_verified = False
         self.cleanup_observed = None
         self.broker = self.session = self.docker = None
@@ -328,14 +331,17 @@ class OpenCodeAgentRuntime(BaseAgentRuntime):
         self.check_auth_fresh()
         receipt_path = self.receipts.joinpath(self.name + ".json")
         self.allocated_receipts.add(receipt_path)
-        self.session = self.docker.sessions.open(
-            ContainerSession(
-                spec=self.spec,
-                limits=StreamLimits(
-                    seconds=CONTROLLER_LIFETIME_SECONDS + 10,
-                    max_bytes=36 * 1024 * 1024,
+        self.session = self._session_scope.enter_context(
+            AgentDockerMechanism.session(
+                self.docker,
+                ContainerSession(
+                    spec=self.spec,
+                    limits=StreamLimits(
+                        seconds=CONTROLLER_LIFETIME_SECONDS + 10,
+                        max_bytes=36 * 1024 * 1024,
+                    ),
+                    receipt_path=receipt_path,
                 ),
-                receipt_path=receipt_path,
             )
         )
         self._cancelled = cancelled
@@ -377,7 +383,7 @@ class OpenCodeAgentRuntime(BaseAgentRuntime):
             )
         try:
             if self.session is not None:
-                self.session.close()
+                self._session_scope.close()
         except Exception as error:
             failed = True
             observation = observation or failure_observation(
