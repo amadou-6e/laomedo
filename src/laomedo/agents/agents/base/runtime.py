@@ -13,6 +13,8 @@ if TYPE_CHECKING:
     from py_docker.jobs.models import ContainerJob
     from py_docker.sessions.models import ContainerSession
     from py_docker.sessions.session import Session
+    from py_docker.containers.models import ContainerIdentity
+    from py_docker.streams.models import StreamLimits
 
 
 class AgentDockerMechanism:
@@ -35,13 +37,22 @@ class AgentDockerMechanism:
     @contextmanager
     def client(self) -> Iterator["Client"]:
         """Open and close one native client, preserving native exception handling."""
+        with self.connect() as client:
+            yield client
+
+    def connect(self) -> "Client":
+        """Open a client whose explicit owner must close it.
+
+        Long-lived provider scopes use this when their existing cleanup sequence
+        cannot be expressed as one lexical client context. Connection selection
+        is identical to client(); no provider constructs a separate SDK client.
+        """
         from py_docker import Client
 
         options = {"environment": self._environment}
         if self._settings is not None:
             options["settings"] = self._settings
-        with Client(**options) as client:
-            yield client
+        return Client(**options)
 
     def run_job(
         self,
@@ -53,7 +64,8 @@ class AgentDockerMechanism:
     ) -> "CommandResult":
         """Delegate exact launch, bounded output and cleanup to the native job API."""
         with self.client() as client:
-            return client.jobs.run(
+            return self.execute_job(
+                client,
                 job,
                 cancelled=cancelled,
                 deadline=deadline,
@@ -61,8 +73,31 @@ class AgentDockerMechanism:
             )
 
     @staticmethod
+    def execute_job(
+        client: "Client",
+        job: "ContainerJob",
+        *,
+        cancelled: threading.Event | None = None,
+        deadline: float | None = None,
+        cleanup_seconds: float | None = None,
+    ) -> "CommandResult":
+        """Run on an explicitly borrowed client without changing its lifetime."""
+        return client.jobs.run(
+            job,
+            cancelled=cancelled,
+            deadline=deadline,
+            cleanup_seconds=cleanup_seconds,
+        )
+
+    @staticmethod
     @contextmanager
-    def session(client: "Client", request: "ContainerSession") -> Iterator["Session"]:
+    def session(
+        client: "Client",
+        request: "ContainerSession",
+        *,
+        deadline: float | None = None,
+        cleanup_seconds: float | None = None,
+    ) -> Iterator["Session"]:
         """Own one interactive session on a caller-owned client.
 
         Enter and exit on the creator thread. Native startup, body and cleanup
@@ -70,16 +105,73 @@ class AgentDockerMechanism:
         caller closes its client after its other dependent resources; this
         scope never interprets agent readiness or a native conversation.
         """
-        with client.sessions.open(request) as session:
+        with AgentDockerMechanism.start_session(
+            client, request, deadline=deadline, cleanup_seconds=cleanup_seconds
+        ) as session:
             yield session
 
+    @staticmethod
+    def start_session(
+        client: "Client",
+        request: "ContainerSession",
+        *,
+        deadline: float | None = None,
+        cleanup_seconds: float | None = None,
+    ) -> "Session":
+        """Launch an explicitly owned session; its owner must call close_session.
+
+        Use session() for lexical scope ownership. This form supports a
+        persistent executor whose reader must drain at its existing close point.
+        """
+        options = {}
+        if deadline is not None:
+            options["deadline"] = deadline
+        if cleanup_seconds is not None:
+            options["cleanup_seconds"] = cleanup_seconds
+        return client.sessions.open(request, **options)
+
+    @staticmethod
+    def run_command(
+        client: "Client",
+        identity: "ContainerIdentity",
+        command: Sequence[str],
+        limits: "StreamLimits",
+    ) -> "CommandResult":
+        """Execute once inside an exact owned container; never retry on failure."""
+        return client.execution.run(identity, command, limits)
+
+    @staticmethod
+    def close_session(session: "Session") -> None:
+        """Request exact creator-thread cleanup, retaining native cached failure.
+
+        ACP calls this before reader disconnect to unblock its read thread. The
+        enclosing session scope also exits through the same native owner; native
+        Session.close preserves uncertainty rather than treating a retry as OK.
+        """
+        session.close()
+
     def recover(
-        self, receipts: Sequence[Path], *, kind: Literal["session", "job"] = "session"
+        self,
+        receipts: Sequence[Path],
+        *,
+        kind: Literal["session", "job"] = "session",
     ) -> None:
         """Recover caller-selected receipts, never scan or broaden their scope."""
         if kind not in {"session", "job"}:
             raise ValueError("Unknown Docker receipt kind")
         with self.client() as client:
-            service = client.jobs if kind == "job" else client.sessions
-            for receipt in receipts:
-                service.recover(receipt)
+            self.recover_receipts(client, receipts, kind=kind)
+
+    @staticmethod
+    def recover_receipts(
+        client: "Client",
+        receipts: Sequence[Path],
+        *,
+        kind: Literal["session", "job"] = "session",
+    ) -> None:
+        """Recover exact receipts on a borrowed client; never broaden selection."""
+        if kind not in {"session", "job"}:
+            raise ValueError("Unknown Docker receipt kind")
+        service = client.jobs if kind == "job" else client.sessions
+        for receipt in receipts:
+            service.recover(receipt)

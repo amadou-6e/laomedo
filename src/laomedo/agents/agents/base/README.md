@@ -8,23 +8,24 @@ it must not import concrete providers or their credential implementations.
 These are public identity metadata, never login material. `settings.py` owns
 shared bounds. `acp/` owns protocol communication; native policy stays local.
 
-## Shared Docker mechanisms (#277 checkpoint)
+## Shared Docker handling
 
-`runtime.py` defines concrete `AgentDockerMechanism`. `client()` owns one
-py-docker client context; `run_job()` collects one typed native job with unchanged
-cancellation/deadline/cleanup bounds; `recover()` reconciles exact receipts using
-the selected native job or session service. Each call owns its client, so worker
-threads and recovery do not borrow an attempt's creator-thread session.
-The mechanism snapshots supplied host environment overrides and accepts native
-connection settings. Callers pin an already selected endpoint where available;
-initial daemon discovery retains py-docker's existing selection behavior.
-Provider code retains spec construction, admission and stable failure mapping.
-The unimplemented target ABCs have been withdrawn. See
-[provider boundaries and container requirements](../../../../../docs/architecture/provider-boundaries.md).
-`session(client, request)` owns one native session context on an explicitly
-caller-owned client. It closes the session before returning control to outer
-resource cleanup and preserves native exception/cleanup behavior. The caller
-keeps client ownership so existing broker/worker/log cleanup order is unchanged.
+`runtime.py` defines concrete `AgentDockerMechanism`, the single Agent owner of
+native client construction, session/job/command dispatch and receipt recovery.
+See [container requirements and method ownership](../../../../../docs/architecture/provider-boundaries.md).
+`client()` scopes a connection; `connect()` supports existing explicit cleanup
+order. `run_job()` owns a client; `execute_job(client, job)` borrows one.
+`session()` scopes a native interactive session; `start_session()` and
+`close_session()` support persistent executor ownership. `run_command()` executes
+inside an exact container. `recover()` owns a client; `recover_receipts()` borrows
+one and never broadens the caller-selected receipts. SDK models stay canonical.
+
+Providers retain image/volume policy, immutable launch configuration, native
+readiness, credential phases, broker/lease coordination and stable error mapping.
+They do not construct Docker clients or dispatch jobs/sessions/recovery directly.
+ACP requests container closure through this module before reader disconnect;
+repeated closure remains owned and cached by native py-docker Session.
+An architecture regression scans all Agent sources for lifecycle bypasses.
 
 | Interface / vocabulary | Contract and effects |
 | --- | --- |

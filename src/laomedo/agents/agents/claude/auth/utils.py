@@ -1,5 +1,6 @@
 """Opt-in local access-only mirror through py-docker's owned Session lifecycle."""
 
+from laomedo.agents.agents.base.runtime import AgentDockerMechanism
 from importlib.resources import files
 import json
 import math
@@ -195,7 +196,6 @@ def _mirror_login(
     client = None
     failure = None
     try:
-        from py_docker import Client
         from py_docker.connection.settings import ConnectionSettings
         from py_docker.containers.models import ContainerSpec, Mount
         from py_docker.sessions.models import ContainerSession
@@ -214,14 +214,14 @@ def _mirror_login(
             "DOCKER_TLS_VERIFY",
         ):
             docker_environment.pop(key, None)
-        client = Client(
-            ConnectionSettings(
+        client = AgentDockerMechanism(
+            settings=ConnectionSettings(
                 endpoint=endpoint,
                 context=None,
                 timeout_seconds=_remaining(normal_deadline),
             ),
             environment=docker_environment,
-        )
+        ).connect()
         if not client.volumes.has_labels(profile, {"laomedo.provider": "claude"}):
             raise LocalClaudeLoginError("claude_local_login_copy_failed")
         _remaining(normal_deadline)
@@ -267,8 +267,11 @@ def _mirror_login(
             ),
             receipt_path=state / (profile + ".json"),
         )
-        with client.sessions.open(
-            request, deadline=float(normal_deadline), cleanup_seconds=CLEANUP_SECONDS
+        with AgentDockerMechanism.session(
+            client,
+            request,
+            deadline=float(normal_deadline),
+            cleanup_seconds=CLEANUP_SECONDS,
         ) as session:
             session.write(payload)
             while session.read_frame() is not None:

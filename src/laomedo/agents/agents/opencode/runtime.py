@@ -83,7 +83,6 @@ class OpenCodeAgentRuntime(BaseAgentRuntime):
             credential_binding=_credential_binding(self.profile),
         )
         try:
-            from py_docker import Client
             from py_docker.errors import (
                 CleanupUnconfirmedError,
                 ConnectionConfigurationError,
@@ -94,7 +93,7 @@ class OpenCodeAgentRuntime(BaseAgentRuntime):
         except ImportError:
             raise RunnerError("opencode_controller_startup_failed") from None
         try:
-            with Client() as docker:
+            with AgentDockerMechanism(environment=None).connect() as docker:
                 self.docker_endpoint = docker.connection.endpoint
                 docker.images.resolve(image, expected_id=image_id)
                 docker.images.resolve(WORKER_IMAGE, expected_id=selected_worker_id)
@@ -106,7 +105,9 @@ class OpenCodeAgentRuntime(BaseAgentRuntime):
                 receipts.mkdir(mode=0o700, parents=True, exist_ok=True)
                 self.receipts = receipts
                 for receipt in receipts.glob("*.json"):
-                    docker.sessions.recover(receipt)
+                    AgentDockerMechanism.recover_receipts(
+                        docker, [receipt], kind="session"
+                    )
         except OwnershipConflictError:
             raise RunnerError("opencode_image_pin_mismatch") from None
         except ImageResolutionError:
@@ -238,7 +239,9 @@ class OpenCodeAgentRuntime(BaseAgentRuntime):
             ],
         )
         try:
-            self.docker = Client(environment={"DOCKER_HOST": self.docker_endpoint})
+            self.docker = AgentDockerMechanism(
+                environment={"DOCKER_HOST": self.docker_endpoint}
+            ).connect()
         except Exception as error:
             observation = failure_observation(
                 error, stage="startup", code="opencode_controller_startup_failed"
@@ -269,7 +272,8 @@ class OpenCodeAgentRuntime(BaseAgentRuntime):
         receipt_path = self.receipts.joinpath(name + ".json")
         self.allocated_receipts.add(receipt_path)
         try:
-            result = self.docker.jobs.run(
+            result = AgentDockerMechanism.execute_job(
+                self.docker,
                 ContainerJob(
                     spec=self.spec.model_copy(
                         update={
@@ -288,7 +292,7 @@ class OpenCodeAgentRuntime(BaseAgentRuntime):
                     limits=StreamLimits(seconds=70, max_bytes=8 * 1024 * 1024),
                     wait_timeout_seconds=10.0,
                     receipt_path=receipt_path,
-                )
+                ),
             )
             if result.exit_code:
                 raise RunnerError("opencode_model_not_connected")
@@ -409,7 +413,9 @@ class OpenCodeAgentRuntime(BaseAgentRuntime):
             elif paths:
                 for receipt in paths:
                     try:
-                        self.docker.sessions.recover(receipt)
+                        AgentDockerMechanism.recover_receipts(
+                            self.docker, [receipt], kind="session"
+                        )
                     except Exception as error:
                         failed, recovered = True, False
                         observation = observation or failure_observation(

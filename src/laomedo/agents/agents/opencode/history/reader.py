@@ -1,5 +1,6 @@
 """Export bound native history offline without restoring a second execution wire."""
 
+from laomedo.agents.agents.base.runtime import AgentDockerMechanism
 import hashlib
 from contextlib import closing
 import json
@@ -48,7 +49,6 @@ class HistoryReader:
         Native export then reads that private copy through the supported CLI.
         Every descendant must have an explicit task link and matching native parent.
         """
-        from py_docker import Client
         from py_docker.errors import CleanupUnconfirmedError
 
         if not re.fullmatch(r"ses_[A-Za-z0-9]+", session_id):
@@ -61,7 +61,9 @@ class HistoryReader:
             history = NativeHistory(root_id=session_id)
             pending = [(session_id, None)]
             total = 0
-            with Client(environment={"DOCKER_HOST": self.source.endpoint}) as docker:
+            with AgentDockerMechanism(
+                environment={"DOCKER_HOST": self.source.endpoint}
+            ).connect() as docker:
                 while pending:
                     identity, parent = pending.pop()
                     if identity in history.sessions:
@@ -268,7 +270,8 @@ class HistoryReader:
         from py_docker.streams.models import StreamLimits
 
         name = "laomedo-oc-history-" + uuid4().hex
-        result = docker.jobs.run(
+        result = AgentDockerMechanism.execute_job(
+            docker,
             ContainerJob(
                 spec=ContainerSpec(
                     image=self.source.image_id,
@@ -307,7 +310,7 @@ class HistoryReader:
                 ),
                 wait_timeout_seconds=10.0,
                 receipt_path=self.source.receipts / (name + ".json"),
-            )
+            ),
         )
         if result.exit_code:
             raise ValueError("Native history export did not complete")

@@ -99,13 +99,16 @@ def _ensure_split_profile(name: str, *, state: Path, env=None) -> None:
 
     try:
         with AgentDockerMechanism(environment=env).client() as client:
-            client.jobs.recover(state.joinpath("profile-init.json"))
+            AgentDockerMechanism.recover_receipts(
+                client, [state.joinpath("profile-init.json")], kind="job"
+            )
             image = client.images.resolve(IMAGE, expected_id=IMAGE_ID)
             created = False
             if not client.volumes.exists(name):
                 client.volumes.create(name=name)
                 created = True
-            result = client.jobs.run(
+            result = AgentDockerMechanism.execute_job(
+                client,
                 ContainerJob(
                     spec=ContainerSpec(
                         image=image,
@@ -129,7 +132,7 @@ def _ensure_split_profile(name: str, *, state: Path, env=None) -> None:
                     limits=StreamLimits(seconds=30, max_bytes=65536),
                     wait_timeout_seconds=30,
                     receipt_path=state.joinpath("profile-init.json"),
-                )
+                ),
             )
             if result.exit_code or (not created and result.stdout.strip() != b"10001"):
                 raise RunnerError("docker_control_failed")

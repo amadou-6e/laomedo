@@ -1,5 +1,6 @@
 """Credential-free Codex executor resource; ACP owns all agent communication."""
 
+from laomedo.agents.agents.base.runtime import AgentDockerMechanism
 import hashlib
 import re
 import secrets
@@ -27,7 +28,6 @@ class CodexCommandExecutor(BaseSplitCommandExecutor):
         self, launch, evidence: Path, *, environment, lifetime_seconds, receipt_path
     ):
         """Bind admitted configuration and owned state; provider startup errors propagate before use."""
-        from py_docker import Client
         from py_docker.containers.models import ContainerSpec, Mount
         from py_docker.sessions.models import ContainerSession
         from py_docker.streams.models import StreamLimits
@@ -39,7 +39,7 @@ class CodexCommandExecutor(BaseSplitCommandExecutor):
         self.session = None
         self.reader = None
         self.read_failed = False
-        self.client = Client(environment=environment)
+        self.client = AgentDockerMechanism(environment=environment).connect()
         try:
             spec = ContainerSpec(
                 image=self.image,
@@ -65,7 +65,8 @@ class CodexCommandExecutor(BaseSplitCommandExecutor):
                 tmpfs={"/home/runner/.codex": "rw,uid=10001,gid=10001,mode=0700"},
                 security_opt=launch.to_container_spec().security_opt,
             )
-            self.session = self.client.sessions.open(
+            self.session = AgentDockerMechanism.start_session(
+                self.client,
                 ContainerSession(
                     spec=spec,
                     limits=StreamLimits(
@@ -76,7 +77,7 @@ class CodexCommandExecutor(BaseSplitCommandExecutor):
                         if receipt_path
                         else evidence / "executor-receipt.json"
                     ),
-                )
+                ),
             )
             self.reader = threading.Thread(target=self._drain, daemon=True)
             self.reader.start()
@@ -117,7 +118,7 @@ class CodexCommandExecutor(BaseSplitCommandExecutor):
 
         try:
             if self.session is not None:
-                self.session.close()
+                AgentDockerMechanism.close_session(self.session)
             if self.reader is not None and self.reader.ident is not None:
                 self.reader.join(timeout=5)
                 if self.reader.is_alive():
@@ -141,7 +142,8 @@ class CodexCommandExecutor(BaseSplitCommandExecutor):
                     stderr="worker_timeout",
                     cleanup=CleanupObservation(confirmed=True, scope="no_exec_started"),
                 )
-        result = self.client.execution.run(
+        result = AgentDockerMechanism.run_command(
+            self.client,
             self.session.identity,
             request.argv if request.argv is not None else ["sh", "-c", request.command],
             StreamLimits(seconds=seconds, max_bytes=65536),
@@ -159,8 +161,8 @@ class CodexCommandExecutor(BaseSplitCommandExecutor):
         from py_docker.streams.models import StreamLimits
 
         try:
-            result = self.client.execution.run(
-                identity, command, StreamLimits(seconds=5, max_bytes=65536)
+            result = AgentDockerMechanism.run_command(
+                self.client, identity, command, StreamLimits(seconds=5, max_bytes=65536)
             )
             if result.exit_code:
                 raise RunnerError("docker_control_failed")

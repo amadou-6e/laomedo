@@ -13,6 +13,55 @@ from laomedo.agents.agents.base.runtime import AgentDockerMechanism
 class DockerMechanismTests(unittest.TestCase):
     """Protect pinned connections, ownership and fail-closed native outcomes."""
 
+    def test_borrowed_job_client_is_not_replaced_or_closed(self):
+        client = Mock()
+        job = Mock()
+        cancelled = threading.Event()
+        with patch("py_docker.Client") as factory:
+            result = AgentDockerMechanism.execute_job(
+                client, job, cancelled=cancelled, deadline=100, cleanup_seconds=5
+            )
+        self.assertIs(result, client.jobs.run.return_value)
+        client.jobs.run.assert_called_once_with(
+            job, cancelled=cancelled, deadline=100, cleanup_seconds=5
+        )
+        client.close.assert_not_called()
+        factory.assert_not_called()
+
+    def test_borrowed_recovery_stops_at_first_uncertain_receipt(self):
+        client = Mock()
+        failure = RuntimeError("uncertain")
+        client.sessions.recover.side_effect = failure
+        with self.assertRaises(RuntimeError) as caught:
+            AgentDockerMechanism.recover_receipts(
+                client, [Path("first.json"), Path("second.json")]
+            )
+        self.assertIs(caught.exception, failure)
+        client.sessions.recover.assert_called_once_with(Path("first.json"))
+        client.close.assert_not_called()
+
+    def test_session_preserves_admission_and_cleanup_budgets(self):
+        client = Mock()
+        native = MagicMock()
+        client.sessions.open.return_value = native
+        request = Mock()
+        with AgentDockerMechanism.session(
+            client, request, deadline=123, cleanup_seconds=7
+        ):
+            pass
+        client.sessions.open.assert_called_once_with(
+            request, deadline=123, cleanup_seconds=7
+        )
+
+    def test_explicit_session_close_preserves_native_cached_failure(self):
+        session = Mock()
+        failure = RuntimeError("cleanup uncertain")
+        session.close.side_effect = failure
+        for _ in range(2):
+            with self.assertRaises(RuntimeError) as caught:
+                AgentDockerMechanism.close_session(session)
+            self.assertIs(caught.exception, failure)
+
     def test_session_passes_body_failure_to_native_cleanup_without_closing_client(self):
         client = Mock()
         native = MagicMock()

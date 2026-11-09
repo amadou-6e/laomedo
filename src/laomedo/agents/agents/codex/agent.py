@@ -1,6 +1,7 @@
 """Codex adapter for the provider-neutral Agent lifecycle."""
 
 from __future__ import annotations
+from laomedo.agents.agents.base.runtime import AgentDockerMechanism
 from laomedo.agents.agents.codex.catalog import CodexModelCatalog
 from laomedo.agents.agents.codex.credentials import CodexCredentialProvider
 
@@ -178,9 +179,9 @@ class CodexAgent(BaseAgent):
                     self.profile, state=self.state, env=self.docker_environment
                 )
             else:
-                from py_docker import Client
-
-                with Client(environment=self.docker_environment) as docker:
+                with AgentDockerMechanism(
+                    environment=self.docker_environment
+                ).connect() as docker:
                     if not docker.volumes.exists(VOLUME):
                         raise RunnerError("docker_control_failed")
 
@@ -323,7 +324,6 @@ class CodexAgent(BaseAgent):
         try:
             from docker.errors import DockerException
             from requests.exceptions import RequestException
-            from py_docker import Client
             from py_docker.connection.settings import ConnectionSettings
             from py_docker.containers.models import ContainerSpec
             from py_docker.errors import (
@@ -343,20 +343,21 @@ class CodexAgent(BaseAgent):
             raise RunnerError("runner_docker_check_unconfirmed") from None
         snapshot = ConnectionSettings.environment_snapshot(None)
         try:
-            with Client(
+            with AgentDockerMechanism(
                 settings=ConnectionSettings(
                     timeout_seconds=PREFLIGHT_API_TIMEOUT_SECONDS
                 ),
                 environment=snapshot,
-            ) as client:
+            ).connect() as client:
                 receipt = self.state.joinpath(PREFLIGHT_RECEIPT_FILENAME)
-                client.jobs.recover(receipt)
+                AgentDockerMechanism.recover_receipts(client, [receipt], kind="job")
                 self._recover_containers(client)
                 try:
                     client.images.resolve(self.image, expected_id=self.image_id)
                 except OwnershipConflictError:
                     raise RunnerError("docker_image_digest_changed") from None
-                result = client.jobs.run(
+                result = AgentDockerMechanism.execute_job(
+                    client,
                     ContainerJob(
                         spec=ContainerSpec(
                             image=self.image_id,
@@ -370,7 +371,7 @@ class CodexAgent(BaseAgent):
                         ),
                         receipt_path=receipt,
                         wait_timeout_seconds=PREFLIGHT_WAIT_SECONDS,
-                    )
+                    ),
                 )
                 try:
                     version = result.stdout.decode("utf-8").strip()
@@ -417,10 +418,10 @@ class CodexAgent(BaseAgent):
             Endpoint-bound client; recovery refuses uncertain or active receipts.
         """
         for pending in self.state.joinpath("receipts").glob("*.json"):
-            client.sessions.recover(pending)
+            AgentDockerMechanism.recover_receipts(client, [pending], kind="session")
         for folder in ("runs", "catalog", "preflight"):
             for pending in self.state.joinpath(folder).glob("*/*receipt*.json"):
-                client.sessions.recover(pending)
+                AgentDockerMechanism.recover_receipts(client, [pending], kind="session")
 
     def _receipt_path(self, root: Path) -> Path:
         """Keep lifecycle intent outside disposable metadata and evidence folders."""

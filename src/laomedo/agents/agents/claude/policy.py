@@ -46,7 +46,6 @@ class ClaudeRuntimePolicy:
         self.profile, self.lease_service = profile, lease_service
         self.check_supervisor()
         try:
-            from py_docker import Client
             from py_docker.errors import (
                 CleanupUnconfirmedError,
                 ConnectionConfigurationError,
@@ -56,13 +55,15 @@ class ClaudeRuntimePolicy:
         except ImportError:
             raise RunnerError("claude_container_unavailable") from None
         try:
-            with Client() as docker:
+            with AgentDockerMechanism(environment=None).connect() as docker:
                 self.docker_endpoint = docker.connection.endpoint
                 self.image_id = docker.images.resolve(image)
                 self.receipts = Path(lease_service).parent.joinpath("receipts")
                 self.receipts.mkdir(mode=0o700, parents=True, exist_ok=True)
                 for receipt in self.receipts.glob("claude-*.json"):
-                    docker.sessions.recover(receipt)
+                    AgentDockerMechanism.recover_receipts(
+                        docker, [receipt], kind="session"
+                    )
                 labels = {"laomedo.provider": "claude"}
                 if not docker.volumes.exists(profile):
                     docker.volumes.create(name=profile, labels=labels)
@@ -216,7 +217,8 @@ class ClaudeRuntimePolicy:
         with self.client(
             **({"deadline": deadline} if deadline is not None else {})
         ) as docker:
-            return docker.jobs.run(
+            return AgentDockerMechanism.execute_job(
+                docker,
                 ContainerJob(
                     spec=spec,
                     limits=StreamLimits(

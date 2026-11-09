@@ -23,7 +23,7 @@ not designed yet. Existing live base classes remain until their callers migrate.
 
 `AgentDockerMechanism` in `agents/agents/base/runtime.py` delegates to py-docker.
 It provides concrete client, session, job and exact-receipt delegation seams.
-Only selected callers use them today; complete migration is a target.
+All Agent lifecycle dispatch paths use these concrete mechanisms.
 Provider code supplies launch configuration, native readiness and resource order.
 It retains existing error mapping and credentials checks. The target for a new provider is to reuse Docker lifecycle rather than subclass
 it or implement another Docker client. Existing live runtime ABCs remain during
@@ -73,15 +73,40 @@ correction executions change tool/MCP configuration. Reuse remains unverified
 for that adapter. This extraction preserves existing per-execution lifetimes;
 changing them is a separate behavioral task.
 
-## Remaining extraction work
+## Unified Docker dispatch
 
-The following inventory is non-exhaustive. Direct native calls still exist in Codex's split executor and admission paths,
-OpenCode's catalogue and history reader, and Claude's authentication helpers.
-Those paths must migrate with their actual endpoint/receipt/cleanup semantics.
-The shared session context is a first delegation seam, not completed container
-unification. AcpSession.close still closes the underlying native session before
-SDK reader disconnect; its overlapping cleanup ownership is explicitly unresolved.
-Do not remove that close until reader shutdown ordering is preserved.
+All agent container client construction, interactive launches, one-shot jobs,
+in-container commands and exact receipt recovery now route through
+`AgentDockerMechanism` in `src/laomedo/agents/agents/base/runtime.py`.
+This includes controller and worker execution, authentication/profile setup,
+model discovery, offline history export, preflight and interrupted-run recovery.
+The architecture check scans every Agent source file, so a new provider cannot
+bypass this boundary with a native Client import or direct dispatch/recovery call.
+
+| Operation | Shared entry point | Ownership |
+| --- | --- | --- |
+| Scoped client | `client()` | Context closes the native client. |
+| Long-lived client | `connect()` | Caller closes at its existing finalization point. |
+| Finite worker/control job | `run_job(job)` | Own client per call, including worker threads. |
+| Job on an existing client | `execute_job(client, job)` | Borrowed client remains open. |
+| Scoped interactive container | `session(client, request)` | Context closes the exact native session. |
+| Persistent executor | `start_session(client, request)` / `close_session(session)` | Explicit owner retains native cached cleanup failure. |
+| Command in an existing container | `run_command(client, identity, command, limits)` | No container creation, replacement or retry. |
+| Recovery | `recover(receipts)` / `recover_receipts(client, receipts)` | Exact selected receipts; stop on uncertainty. |
+
+Native py-docker models remain canonical. Image resolution, volume labels,
+inspection assertions and launch configuration remain provider policy using
+services on the centrally constructed native client; no second SDK is built.
+Provider-local finalization still coordinates brokers, reader threads, leases,
+telemetry and native error mapping. This extraction does not merge those agent
+concerns into Docker handling.
+
+ACP requests native session closure through the shared implementation before
+SDK reader disconnect. The enclosing session context also exits the same native
+Session owner. Native idempotent close retains cached failure on repeated
+requests; the protocol layer does not implement container termination itself.
+Do not reorder this into disconnect-before-container-close: the blocking reader
+must reach EOF before asyncio.run shuts down its executor.
 
 ## Open and unchanged
 
@@ -101,14 +126,14 @@ does not resolve or authorize behavioral changes to any of these questions.
 
 ## Completion checks
 
-- [ ] All agent and worker container launch/close/recovery paths use shared
-      mechanisms, with no provider-owned duplicate Docker lifecycle.
+- [x] All agent and worker container launch/close/recovery dispatch paths use
+      shared mechanisms. Native SDK image/volume/inspection policy stays explicit.
 - [ ] Existing endpoint, image, deadline, output, receipt and error semantics hold.
 - [ ] Partial startup, cancellation, uncertain cleanup and recovery are covered.
 - [ ] Provider resource ordering and thread ownership are explicit.
 - [ ] Real-image acceptance covers each supported provider; fixture tests alone
       do not check this box.
 
-The initial session extraction does not complete this checklist or the five
-boundary contracts. The earlier architecture review returned REVISE; replacement
+Unified Docker dispatch does not establish real-provider acceptance or complete
+the other four boundary contracts. The earlier architecture review returned REVISE; replacement
 implementation needs its own review.

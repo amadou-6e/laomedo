@@ -45,14 +45,13 @@ class CodexAgentRuntime(BaseAgentRuntime):
         split=None,
     ):
         """Bind admitted configuration and owned state; provider startup errors propagate before use."""
-        from py_docker import Client
         from py_docker.connection.settings import ConnectionSettings
         from py_docker.sessions.models import ContainerSession
         from py_docker.streams.models import StreamLimits
 
-        self.client = Client(
+        self.client = AgentDockerMechanism(
             settings=ConnectionSettings(timeout_seconds=15), environment=env
-        )
+        ).connect()
         self.container_name = launch.name
         self._session_scope = ExitStack()
         self.session = self.acp = self.executor = self.telemetry = None
