@@ -10,6 +10,7 @@ import secrets
 import shutil
 import threading
 
+from laomedo.agents.agents.base.runtime import AgentDockerMechanism
 from laomedo.agents.agents.opencode.models import (
     OpenCodeConfig,
     OpenCodeRuntimeIdentity,
@@ -126,7 +127,6 @@ class OpenCodeCommandExecutor(BaseInterruptibleCommandExecutor):
             with self.lock:
                 if self.closed:
                     raise RunnerError("opencode_command_service_closed")
-            from py_docker import Client
             from py_docker.containers.models import ContainerSpec, Mount
             from py_docker.jobs.models import ContainerJob
             from py_docker.streams.models import StreamLimits
@@ -143,48 +143,47 @@ class OpenCodeCommandExecutor(BaseInterruptibleCommandExecutor):
             with self.lock:
                 self.allocated_receipts.add(receipt_path)
             try:
-                with Client(
+                result = AgentDockerMechanism(
                     environment={"DOCKER_HOST": self.docker_endpoint}
-                ) as docker:
-                    result = docker.jobs.run(
-                        ContainerJob(
-                            spec=ContainerSpec(
-                                image=self.worker_image_id,
-                                name=name,
-                                entrypoint=["timeout"],
-                                command=[
-                                    "--signal=TERM",
-                                    "--kill-after=5s",
-                                    "60",
-                                    "sh",
-                                    "-c",
-                                    command,
-                                ],
-                                user="10001:10001",
-                                network_mode="none",
-                                read_only=False,
-                                working_dir="/draft",
-                                mounts=[
-                                    Mount(
-                                        type="bind",
-                                        source=str(source),
-                                        target=target,
-                                        read_only=readonly,
-                                    )
-                                    for source, target, readonly in (
-                                        (self.workspace, "/draft", False),
-                                        (self.canonical, "/canonical", True),
-                                        (self.store, "/store", True),
-                                    )
-                                ],
-                            ),
-                            limits=StreamLimits(seconds=70, max_bytes=1024 * 1024),
-                            wait_timeout_seconds=10.0,
-                            receipt_path=receipt_path,
+                ).run_job(
+                    ContainerJob(
+                        spec=ContainerSpec(
+                            image=self.worker_image_id,
+                            name=name,
+                            entrypoint=["timeout"],
+                            command=[
+                                "--signal=TERM",
+                                "--kill-after=5s",
+                                "60",
+                                "sh",
+                                "-c",
+                                command,
+                            ],
+                            user="10001:10001",
+                            network_mode="none",
+                            read_only=False,
+                            working_dir="/draft",
+                            mounts=[
+                                Mount(
+                                    type="bind",
+                                    source=str(source),
+                                    target=target,
+                                    read_only=readonly,
+                                )
+                                for source, target, readonly in (
+                                    (self.workspace, "/draft", False),
+                                    (self.canonical, "/canonical", True),
+                                    (self.store, "/store", True),
+                                )
+                            ],
                         ),
-                        cancelled=self.stopping,
-                        **({"deadline": deadline} if deadline is not None else {}),
-                    )
+                        limits=StreamLimits(seconds=70, max_bytes=1024 * 1024),
+                        wait_timeout_seconds=10.0,
+                        receipt_path=receipt_path,
+                    ),
+                    cancelled=self.stopping,
+                    **({"deadline": deadline} if deadline is not None else {}),
+                )
                 value = {
                     "exit_code": result.exit_code,
                     "stdout": result.stdout.decode("utf-8", errors="replace")[:32768],

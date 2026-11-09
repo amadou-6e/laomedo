@@ -4,6 +4,10 @@ The suite protects Agent lifecycle, request identity, startup/recovery, accounti
 command completion and failure finalization. Internal transports are doubles; these
 checks do not establish real provider or graph acceptance.
 
+`test_docker.py` protects shared client ownership, detached endpoint overrides,
+exact receipt-service selection and propagation of native cleanup uncertainty.
+It patches only the Docker client boundary and never contacts a daemon.
+
 `RunnerCase` in `models.py` owns one temporary source, imported Skill receipt and
 CodexAgent. `create()` prepares fresh resources and cleans partial setup on failure;
 `request()` produces a fresh request bound to that receipt; `close()` releases only

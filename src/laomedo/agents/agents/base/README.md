@@ -8,6 +8,20 @@ it must not import concrete providers or their credential implementations.
 These are public identity metadata, never login material. `settings.py` owns
 shared bounds. `acp/` owns protocol communication; native policy stays local.
 
+## Shared Docker mechanisms (#277 checkpoint)
+
+`runtime.py` defines concrete `AgentDockerMechanism`. `client()` owns one
+py-docker client context; `run_job()` collects one typed native job with unchanged
+cancellation/deadline/cleanup bounds; `recover()` reconciles exact receipts using
+the selected native job or session service. Each call owns its client, so worker
+threads and recovery do not borrow an attempt's creator-thread session.
+The mechanism snapshots supplied host environment overrides and accepts native
+connection settings. Callers pin an already selected endpoint where available;
+initial daemon discovery retains py-docker's existing selection behavior.
+Provider code retains spec construction, admission and stable failure mapping.
+This checkpoint does not yet move controller scope ownership into the shared
+runtime: the reviewed target is recorded in issue #277 and its canonical design.
+
 | Interface / vocabulary | Contract and effects |
 | --- | --- |
 | `start(request)` / `start_async(request)` | Admit a fresh run; persist identity before dispatch. Async acknowledgement is not completion. |

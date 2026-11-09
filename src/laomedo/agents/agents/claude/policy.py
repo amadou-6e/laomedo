@@ -18,6 +18,7 @@ from laomedo.agents.agents.claude.settings import EXECUTION_GUARD
 from laomedo.agents.agents.claude.settings import IMAGE
 from laomedo.agents.agents.claude.settings import PROFILE
 from laomedo.agents.errors import RunnerError
+from laomedo.agents.agents.base.runtime import AgentDockerMechanism
 from laomedo.agents.agents.claude.http.server import CommandHttpServer
 from laomedo.host.leases.client import LeaseClient
 from laomedo.host.leases.settings import LABEL_RUN
@@ -87,7 +88,6 @@ class ClaudeRuntimePolicy:
         self, *, output_code="workspace_command_output_too_large", deadline=None
     ):
         """Pin the daemon and translate library failures at the provider boundary."""
-        from py_docker import Client
         from py_docker.connection.settings import ConnectionSettings
         from py_docker.errors import (
             CleanupUnconfirmedError,
@@ -111,7 +111,7 @@ class ClaudeRuntimePolicy:
                     ),
                     "environment": {},
                 }
-            with Client(**options) as docker:
+            with AgentDockerMechanism(**options).client() as docker:
                 yield docker
         except CleanupUnconfirmedError:
             raise RunnerError("container_termination_unverified") from None
