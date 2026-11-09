@@ -8,6 +8,45 @@ it must not import concrete providers or their credential implementations.
 These are public identity metadata, never login material. `settings.py` owns
 shared bounds. `acp/` owns protocol communication; native policy stays local.
 
+## Target interface inspection (#277)
+
+Read `contracts.py` for the complete target ABC surface before provider migration.
+It defines `BaseAttemptDriver`, `BaseAttemptJournal`,
+`BasePostFreezeSettlement`, `BaseCredentialProvider`, `BaseCommandExecutor`,
+`BaseModelCatalog` and `BaseActivityProjector`, plus the resource/stream/stop ports.
+`BaseAgentRuntime` is defined in `runtime.py`, alongside shared Docker mechanisms.
+`BaseAgent` remains defined in `agent.py`; it is not duplicated here. Target
+Request/result values live in `models.py` and are host-side values, not new wire
+or persisted schemas. Journal operations use separate frozen operation models with named fields;
+provider extensions cannot override shared record state. Container builders return
+native specifications for shared allocation; non-Docker builders return owned
+resources. Each plan has exactly one launch-phase controller.
+
+| Target ABC | Required operations | Owner / boundary |
+| --- | --- | --- |
+| `BaseAttemptDriver` | `open_activity_attempt`, `run` | Native execution for one admitted attempt |
+| `BaseAgentRuntime` | `prepare`, `launch`, `run_job`, `controller_stream`, `close_controller`, `shutdown`; plan/error hooks | Shared Docker scope with provider policy |
+| `BaseAttemptJournal` | Ownership, native binding, dispatch, turns, lease, publication, identity, correction, cleanup, evidence writes | Agent-owned durable persistence |
+| `BasePostFreezeSettlement` | `settle`, `abort` | Supervision surviving any attempt outcome |
+| `BaseCredentialProvider` | `admit` | Native credential admission |
+| `BaseCommandExecutor` | `execute`, `request_cancel`, `shutdown` | Claude/OpenCode isolated workers |
+| `BaseModelCatalog` | `discover` | Zero-turn native discovery |
+| `BaseActivityProjector` | `accepts`, `project` | Read-time Activity interpretation |
+| `BaseRuntimeResource` | `binding`, `close` | One runtime-plan allocation |
+
+`ControllerStream`, `StopContext`, `StopSource` and builder callables are structural protocols,
+not additional provider ABCs. `StopSignal`, `AgentDockerMechanism`,
+`AgentProviderRegistry`, `CodexExecServer` and `AcpSession` are concrete roles,
+so this inspection step does not invent abstract counterparts for them.
+
+The providers still import the interim contracts in `base.py`. No provider is
+switched to these target ABCs in this inspection checkpoint. During migration,
+callers will import each class from its defining module; the interim contracts
+and their retired operations will be removed, without forwarding aliases.
+Runtime methods are abstract here so their intended obligations can be inspected;
+the subsequent runtime implementation must share Docker mechanisms rather than
+copy those methods into each provider.
+
 ## Shared Docker mechanisms (#277 checkpoint)
 
 `runtime.py` defines concrete `AgentDockerMechanism`. `client()` owns one

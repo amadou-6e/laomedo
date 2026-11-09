@@ -1,7 +1,7 @@
 """Shared provider bindings and private allowlisted failure observations."""
 
 from pydantic import BaseModel, ConfigDict, Field
-from pydantic import JsonValue, SkipValidation, SecretStr
+from pydantic import JsonValue, SkipValidation, SecretStr, InstanceOf
 from pydantic import model_validator
 from typing import ClassVar, Literal
 import hashlib
@@ -11,6 +11,13 @@ from laomedo.agents.orchestration.models import HandoffProvenance
 from laomedo.agents.agents.base.settings import SDK_FAILURE_CODES
 from laomedo.agents.agents.base.settings import SDK_FAILURE_OPERATIONS
 from laomedo.agents.agents.base.settings import RUNNER_FAILURE_CODES
+from pathlib import Path
+from collections.abc import Callable
+from laomedo.agents.agents.base.contracts import (
+    BasePostFreezeSettlement,
+    ContainerBuilder,
+    OwnedResourceBuilder,
+)
 
 
 class CredentialBinding(BaseModel):
@@ -663,3 +670,449 @@ class IsolationObservation(BaseModel):
         description="Whether the stated isolation gate was actually established."
     )
     scope: str = Field(description="Exact sandbox policy/resource boundary checked.")
+
+
+class JournalEntry(BaseModel):
+    """Common journal identity; operation subclasses constrain shared fields."""
+
+    model_config = ConfigDict(
+        strict=True, frozen=True, extra="forbid", hide_input_in_errors=True
+    )
+    attempt_id: str = Field(
+        min_length=1, description="Owning admitted attempt identity."
+    )
+    extensions: dict[str, JsonValue] = Field(
+        default_factory=dict,
+        repr=False,
+        description="Detached provider-native metadata, not shared record updates.",
+    )
+
+    @model_validator(mode="after")
+    def reject_shared_updates(self):
+        """Native extensions cannot override shared state or operation fields."""
+        reserved = {
+            "status",
+            "cancel_requested",
+            "cancel_confirmed",
+            "snapshot_ready",
+            "post_run_hash",
+            "output_ref",
+            "error_category",
+        }
+        if (reserved | set(type(self).model_fields)) & self.extensions.keys():
+            raise ValueError("reserved_journal_extension")
+        return self
+
+
+class OwnershipEntry(JournalEntry):
+    """Persist exact ownership before native allocation."""
+
+    name: str = Field(min_length=1, description="Exact admitted container name.")
+    docker_endpoint: str = Field(min_length=1, description="Pinned owning daemon.")
+    token: SecretStr = Field(
+        exclude=True,
+        repr=False,
+        description="Host ownership token, explicitly projected privately.",
+    )
+    receipt: Path | None = Field(
+        default=None, repr=False, description="Private native receipt when admitted."
+    )
+
+
+class NativeSessionEntry(JournalEntry):
+    """Bind a real conversation before dispatch; never a host placeholder."""
+
+    native_session: str = Field(
+        min_length=1, description="Actual native conversation identity."
+    )
+    communication_protocol: str = Field(
+        description="Observed native communication protocol."
+    )
+
+
+class DispatchEntry(JournalEntry):
+    """Reserve or mark one exact host turn."""
+
+    turn_id: str = Field(
+        min_length=1, description="Reserved host/native turn identity."
+    )
+
+
+class TurnEntry(JournalEntry):
+    """Native turn facts; provider-specific receipt fields remain extensions."""
+
+    turn_id: str = Field(min_length=1, description="Observed native turn identity.")
+    status: str = Field(
+        description="Original native turn status, not run-state mutation."
+    )
+
+
+class LeaseEntry(JournalEntry):
+    """Bind supervision and grant identity without transporting a live lease."""
+
+    lease_instance: str = Field(description="Admitted supervisor instance identity.")
+    grant_id: str | None = Field(
+        description="Native mediation grant identity when present."
+    )
+
+
+class RuntimeIdentityEntry(JournalEntry):
+    """Persist canonical runtime and public credential identities."""
+
+    binding: RuntimeBinding = Field(description="Admitted native runtime fingerprint.")
+    credential: CredentialBinding | None = Field(
+        description="Public credential identity, or existing native null."
+    )
+
+
+class CorrectionEntry(JournalEntry):
+    """Record correction ordering without mutating terminal run status."""
+
+    turn_id: str = Field(min_length=1, description="Next reserved correction turn.")
+
+
+class EvidenceEntry(JournalEntry):
+    """Native capture metadata; shared terminal-state fields are prohibited."""
+
+
+class AttemptContext(BaseModel):
+    """Host paths and detached current record for provider attempt construction."""
+
+    model_config = ConfigDict(
+        strict=True, frozen=True, extra="forbid", hide_input_in_errors=True
+    )
+    run_id: str = Field(min_length=1, description="Existing host run identity.")
+    attempt_id: str = Field(
+        min_length=1, description="Current admitted attempt identity."
+    )
+    workspace: Path = Field(repr=False, description="Admitted execution workspace.")
+    evidence: Path = Field(repr=False, description="Private evidence location.")
+    record: dict[str, JsonValue] = Field(
+        repr=False,
+        description="Detached record snapshot; journal owns actual persistence.",
+    )
+
+
+class AttemptRequest(BaseModel):
+    """Admitted host execution request; never deserialized directly from graph input."""
+
+    model_config = ConfigDict(
+        strict=True, frozen=True, extra="forbid", hide_input_in_errors=True
+    )
+    context: AttemptContext = Field(description="Owning host attempt context.")
+    task: str = Field(repr=False, description="Admitted task text.")
+    model: str = Field(description="Explicit selected native model, never substituted.")
+    effort: str | None = Field(description="Explicit native effort when selected.")
+    resume: bool = Field(
+        description="Load the saved native conversation without Fresh fallback."
+    )
+    native_session: str | None = Field(description="Saved native identity on Resume.")
+    deadline: float | None = Field(
+        default=None,
+        allow_inf_nan=False,
+        description="Native attempt deadline only where existing policy supplies one.",
+    )
+
+    @model_validator(mode="after")
+    def validate_conversation_mode(self):
+        """No missing Resume binding or preselected native identity on Fresh."""
+        if self.resume != bool(self.native_session):
+            raise ValueError("attempt_native_binding_mismatch")
+        return self
+
+
+class ResourceBinding(BaseModel):
+    """Typed dependency identity; native subclasses add their named launch inputs."""
+
+    model_config = ConfigDict(
+        strict=True, frozen=True, extra="forbid", hide_input_in_errors=True
+    )
+    resource_id: str = Field(
+        min_length=1, description="Unique admitted resource-plan step identity."
+    )
+
+
+class ResourceStep(BaseModel):
+    """Common trusted topology metadata; native allocation is not a builder hook."""
+
+    model_config = ConfigDict(
+        strict=True,
+        frozen=True,
+        extra="forbid",
+        hide_input_in_errors=True,
+        arbitrary_types_allowed=True,
+    )
+    id: str = Field(min_length=1, description="Unique resource step identity.")
+    depends_on: tuple[str, ...] = Field(
+        default=(), description="Earlier required step identities."
+    )
+    phase: Literal["prepare", "launch"] = Field(
+        description="Dependency versus controller phase."
+    )
+    quiesce: Callable[[], None] | None = Field(
+        default=None,
+        exclude=True,
+        repr=False,
+        description="Optional native pre-close stop; currently OpenCode workers only.",
+    )
+
+
+class ContainerStep(ResourceStep):
+    """Builder returns ContainerSession; shared runtime opens and closes Docker."""
+
+    build: InstanceOf[ContainerBuilder] = Field(
+        exclude=True,
+        repr=False,
+        description="Trusted spec builder, not a native allocation callback.",
+    )
+    controller: bool = Field(
+        default=False, description="This is the scope's single ACP controller."
+    )
+    stop_when: Callable[[], bool] | None = Field(
+        default=None,
+        exclude=True,
+        repr=False,
+        description="Optional controller monitor, never allowed on another resource.",
+    )
+
+
+class OwnedResourceStep(ResourceStep):
+    """Owned non-Docker service such as a broker or telemetry receiver."""
+
+    build: InstanceOf[OwnedResourceBuilder] = Field(
+        exclude=True,
+        repr=False,
+        description="Trusted non-Docker resource allocation under shared rollback.",
+    )
+
+
+class ResourcePlan(BaseModel):
+    """Provider topology; shared runtime owns allocation, rollback and closure."""
+
+    model_config = ConfigDict(
+        strict=True, frozen=True, extra="forbid", hide_input_in_errors=True
+    )
+    steps: tuple[ContainerStep | OwnedResourceStep, ...] = Field(
+        description="Dependency-ordered host resource steps."
+    )
+
+    @model_validator(mode="after")
+    def validate_dependencies(self):
+        """Reject duplicate, missing/forward and cross-phase dependencies before allocation."""
+        seen = set()
+        launching = False
+        controllers = 0
+        for step in self.steps:
+            if step.id in seen or not set(step.depends_on) <= seen:
+                raise ValueError("invalid_resource_dependencies")
+            launching = launching or step.phase == "launch"
+            if launching and step.phase == "prepare":
+                raise ValueError("invalid_resource_phase_order")
+            if isinstance(step, ContainerStep):
+                if step.controller:
+                    controllers += 1
+                    if step.phase != "launch":
+                        raise ValueError("controller_requires_launch_phase")
+                elif step.stop_when is not None:
+                    raise ValueError("monitor_requires_controller")
+            seen.add(step.id)
+        if controllers != 1:
+            raise ValueError("one_controller_required")
+        return self
+
+
+class RuntimeLaunchRequest(BaseModel):
+    """Admitted scope inputs; provider subclasses add named host launch configuration."""
+
+    model_config = ConfigDict(
+        strict=True, frozen=True, extra="forbid", hide_input_in_errors=True
+    )
+    provider: str = Field(
+        min_length=1, description="Trusted registered provider identity."
+    )
+    scope_id: str = Field(min_length=1, description="Exact single-use scope identity.")
+    workspace: Path = Field(repr=False, description="Admitted mounted workspace.")
+    evidence: Path = Field(
+        repr=False, description="Private receipts and native evidence directory."
+    )
+    deadline: float | None = Field(
+        default=None,
+        allow_inf_nan=False,
+        description="Admitted native scope lifetime bound when supplied; not a new attempt deadline.",
+    )
+
+
+class NamedCleanup(BaseModel):
+    """Cleanup fact for one named owned resource."""
+
+    model_config = ConfigDict(
+        strict=True, frozen=True, extra="forbid", hide_input_in_errors=True
+    )
+    resource_id: str = Field(min_length=1, description="Resource-plan step identity.")
+    observation: CleanupObservation = Field(
+        description="Exact cleanup fact; uncertainty is retained."
+    )
+
+
+class RuntimeCleanupReport(BaseModel):
+    """Controller and resource cleanup facts, independent of attempt success."""
+
+    model_config = ConfigDict(
+        strict=True, frozen=True, extra="forbid", hide_input_in_errors=True
+    )
+    controller: CleanupObservation | None = Field(
+        default=None, description="Controller cleanup, or None when never allocated."
+    )
+    resources: tuple[NamedCleanup, ...] = Field(
+        description="Other allocated resource observations."
+    )
+    primary: FailureObservation | None = Field(
+        default=None, description="Safe original failure evidence."
+    )
+    code: str | None = Field(
+        default=None, description="Existing provider boundary failure code."
+    )
+
+    @property
+    def confirmed(self) -> bool:
+        """Only explicit confirmation of every named scope establishes cleanup."""
+        return (
+            self.code is None
+            and (self.controller is None or self.controller.confirmed is True)
+            and all(item.observation.confirmed is True for item in self.resources)
+        )
+
+
+class CredentialAdmission(BaseModel):
+    """Public native binding and optional excluded host launch material."""
+
+    model_config = ConfigDict(
+        strict=True, frozen=True, extra="forbid", hide_input_in_errors=True
+    )
+    binding: CredentialBinding = Field(
+        description="Admitted public credential metadata."
+    )
+    material: CredentialMaterial | None = Field(
+        default=None,
+        exclude=True,
+        repr=False,
+        description="Explicit host-only native launch material; no universal token requirement.",
+    )
+
+
+class SettlementView(BaseModel):
+    """Detached Agent record after freeze or failure, never the live mutable record."""
+
+    model_config = ConfigDict(
+        strict=True, frozen=True, extra="forbid", hide_input_in_errors=True
+    )
+    record: dict[str, JsonValue] = Field(
+        repr=False, description="Deep-copied current persisted fields."
+    )
+
+
+class SettlementUpdates(BaseModel):
+    """Declared settlement-owned fields; Agent alone owns status/demotion."""
+
+    model_config = ConfigDict(
+        strict=True, frozen=True, extra="forbid", hide_input_in_errors=True
+    )
+    container_ownership: dict[str, JsonValue] | None = Field(
+        default=None,
+        repr=False,
+        description="Existing exact cleanup/grant ownership fields.",
+    )
+    controller_cleanup: Literal["confirmed", "unverified"] | None = Field(
+        default=None, description="Observed controller closure."
+    )
+    publication_handoff: dict[str, JsonValue] | None = Field(
+        default=None, repr=False, description="Existing host publication handoff state."
+    )
+    evidence: dict[str, JsonValue] = Field(
+        default_factory=dict,
+        repr=False,
+        description="Provider-native evidence, not shared record-state overrides.",
+    )
+
+    @model_validator(mode="after")
+    def reject_state_override(self):
+        if {
+            "status",
+            "cancel_requested",
+            "cancel_confirmed",
+            "snapshot_ready",
+            "post_run_hash",
+            "output_ref",
+            "error_category",
+        } & self.evidence.keys():
+            raise ValueError("reserved_settlement_evidence")
+        return self
+
+
+class SettlementResult(BaseModel):
+    """Settlement cleanup truth and declared updates for Agent-owned persistence."""
+
+    model_config = ConfigDict(
+        strict=True, frozen=True, extra="forbid", hide_input_in_errors=True
+    )
+    verified: bool = Field(
+        description="Confirmed settlement cleanup, not inferred publication success."
+    )
+    detail: str | None = Field(default=None, description="Safe scoped cleanup detail.")
+    code: str | None = Field(
+        default=None, description="Existing stable failure category."
+    )
+    updates: SettlementUpdates = Field(
+        default_factory=SettlementUpdates,
+        repr=False,
+        description="Declared detached settlement updates applied by Agent.",
+    )
+
+
+class AttemptOutcome(BaseModel):
+    """Native attempt result before Agent freeze and any surviving lease settlement."""
+
+    model_config = ConfigDict(
+        strict=True,
+        frozen=True,
+        extra="forbid",
+        hide_input_in_errors=True,
+        arbitrary_types_allowed=True,
+    )
+    status: Literal[
+        "completed", "failed", "cancelled", "unknown", "timeout", "interrupted"
+    ] = Field(description="Native attempt outcome.")
+    native_session: str | None = Field(
+        description="Actual native conversation identity, if bound."
+    )
+    answer: str | None = Field(
+        default=None, repr=False, description="Native terminal output."
+    )
+    turns: tuple[dict[str, JsonValue], ...] = Field(
+        description="Detached native turn records."
+    )
+    error_category: str | None = Field(
+        default=None,
+        description="Unchanged public category, separate from allowlisted private diagnostics.",
+    )
+    failure: FailureObservation | None = Field(
+        default=None, description="Safe original failure evidence."
+    )
+    cleanup: RuntimeCleanupReport = Field(
+        description="Exact owned resource cleanup facts."
+    )
+    settlement: BasePostFreezeSettlement | None = Field(
+        default=None,
+        exclude=True,
+        repr=False,
+        description="Host-only supervision surviving run, for any outcome status.",
+    )
+
+
+class ScopeCleanupEntry(JournalEntry):
+    """Persist exact scope cleanup independently from native terminal result."""
+
+    scope_id: str = Field(description="Single runtime scope identity.")
+    report: RuntimeCleanupReport = Field(
+        description="Controller and owned resource observations."
+    )
