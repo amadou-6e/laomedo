@@ -52,6 +52,9 @@
 
 ## Python module cohesion
 
+- Follow [Rule N1 — Recognizable and distinct names](https://github.com/amadou-6e/my-skills/blob/5b4af08/05-software_engineering/skill-code/skill-naming/SKILL.md#rule-n1--recognizable-and-distinct-names)
+  when naming or renaming code entities.
+
 - Beneath the `tests/` discovery root, prefix every folder containing tests,
   directly or through nested concerns, with `test_`. Keep support-only and
   data-only folders descriptive. Update discovery, imports and CI paths together.
