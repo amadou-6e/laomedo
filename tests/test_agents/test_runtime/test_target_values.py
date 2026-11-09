@@ -1,5 +1,6 @@
 """Current target-value invariants; no provider execution or historical migration."""
 
+from pathlib import Path
 import unittest
 from unittest.mock import Mock
 
@@ -19,14 +20,14 @@ from laomedo.agents.agents.base.models.credentials import (
     CredentialMaterial,
 )
 from laomedo.agents.agents.base.models.journal import NativeSessionEntry
-from laomedo.agents.agents.base.models.attempt import (
+from laomedo.agents.agents.base.models.invocation import (
     SettlementUpdates,
-    AttemptRequest,
-    AttemptContext,
-    AttemptOutcome,
+    InvocationRequest,
+    InvocationContext,
+    InvocationResult,
     SettlementView,
 )
-from laomedo.agents.agents.base.base.attempt import BasePostFreezeSettlement
+from laomedo.agents.agents.base.base.invocation import BasePostFreezeSettlement
 
 
 class TargetValueTests(unittest.TestCase):
@@ -117,7 +118,7 @@ class TargetValueTests(unittest.TestCase):
 
     def test_validation_errors_hide_native_record_and_task_content(self):
         try:
-            AttemptContext(
+            InvocationContext(
                 run_id="r",
                 attempt_id="a",
                 workspace=123,
@@ -129,6 +130,49 @@ class TargetValueTests(unittest.TestCase):
             self.assertNotIn("input_value", str(error))
         else:
             self.fail("Invalid host paths were admitted")
+
+    def test_invocation_request_preserves_host_identity_and_fresh_resume_binding(self):
+        """Host identity stays serializable while native conversation binding is explicit."""
+        context = InvocationContext(
+            run_id="host-run",
+            attempt_id="admitted-execution",
+            workspace=Path("workspace"),
+            evidence=Path("evidence"),
+            record={"provider": "codex"},
+        )
+        for resume, native_session in ((False, None), (True, "native-conversation")):
+            with self.subTest(resume=resume):
+                request = InvocationRequest(
+                    context=context,
+                    task="Inspect the workspace",
+                    model="selected-model",
+                    effort=None,
+                    resume=resume,
+                    native_session=native_session,
+                )
+                self.assertEqual(
+                    request.model_dump(mode="json")["context"],
+                    {
+                        "run_id": "host-run",
+                        "attempt_id": "admitted-execution",
+                        "workspace": "workspace",
+                        "evidence": "evidence",
+                        "record": {"provider": "codex"},
+                    },
+                )
+        for resume, native_session in ((True, None), (False, "native-conversation")):
+            with self.subTest(resume=resume, invalid_binding=native_session):
+                with self.assertRaisesRegex(
+                    ValidationError, "attempt_native_binding_mismatch"
+                ):
+                    InvocationRequest(
+                        context=context,
+                        task="Inspect the workspace",
+                        model="selected-model",
+                        effort=None,
+                        resume=resume,
+                        native_session=native_session,
+                    )
 
     def test_native_journal_and_settlement_fields_cannot_override_shared_state(self):
         with self.assertRaises(ValidationError):
@@ -146,7 +190,7 @@ class TargetValueTests(unittest.TestCase):
     def test_uncertain_outcomes_retain_public_category_and_surviving_settlement(self):
         settlement = Mock(spec=BasePostFreezeSettlement)
         for status in ("unknown", "timeout", "interrupted", "cancelled"):
-            outcome = AttemptOutcome(
+            outcome = InvocationResult(
                 status=status,
                 native_session=None,
                 turns=(),

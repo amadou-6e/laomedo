@@ -11,7 +11,7 @@ shared bounds. `acp/` owns protocol communication; native policy stays local.
 ## Target interface inspection (#277)
 
 Read [base/README.md](base/README.md) for the concern-organized target interfaces.
-`base/attempt.py` defines execution, journal and settlement contracts;
+`base/invocation.py` defines execution, journal and settlement contracts;
 `base/runtime.py` defines `BaseAgentRuntime`; other base modules own resource,
 credential, command, catalogue and Activity roles. Shared concrete Docker code
 stays in `runtime.py`.
@@ -24,9 +24,9 @@ resources. Each plan has exactly one launch-phase controller.
 
 | Target ABC | Required operations | Owner / boundary |
 | --- | --- | --- |
-| `BaseAttemptDriver` | `open_activity_attempt`, `run` | Native execution for one admitted attempt |
+| `BaseAgentRunner` | `open_activity_attempt`, `run` | Native execution for one admitted invocation |
 | `BaseAgentRuntime` | `prepare`, `launch`, `run_job`, `controller_stream`, `close_controller`, `shutdown`; plan/error hooks | Shared Docker scope with provider policy |
-| `BaseAttemptJournal` | Ownership, native binding, dispatch, turns, lease, publication, identity, correction, cleanup, evidence writes | Agent-owned durable persistence |
+| `BaseInvocationJournal` | Ownership, native binding, dispatch, turns, lease, publication, identity, correction, cleanup, evidence writes | Agent-owned durable persistence |
 | `BasePostFreezeSettlement` | `settle`, `abort` | Supervision surviving any attempt outcome |
 | `BaseCredentialProvider` | `admit` | Native credential admission |
 | `BaseCommandExecutor` | `execute`, `request_cancel`, `shutdown` | Claude/OpenCode isolated workers |

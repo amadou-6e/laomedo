@@ -1,6 +1,6 @@
-"""Attempt values owned by the shared Agent capability."""
+"""Invocation values owned by the shared Agent capability."""
 
-from laomedo.agents.agents.base.base.attempt import BasePostFreezeSettlement
+from laomedo.agents.agents.base.base.invocation import BasePostFreezeSettlement
 from laomedo.agents.agents.base.models.failures import FailureObservation
 from laomedo.agents.agents.base.models.runtime import RuntimeCleanupReport
 from pathlib import Path
@@ -8,8 +8,8 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
 from typing import Literal
 
 
-class AttemptContext(BaseModel):
-    """Host paths and detached current record for provider attempt construction."""
+class InvocationContext(BaseModel):
+    """Host context for one admitted invocation; persisted attempt identity is retained."""
 
     model_config = ConfigDict(
         strict=True, frozen=True, extra="forbid", hide_input_in_errors=True
@@ -26,13 +26,13 @@ class AttemptContext(BaseModel):
     )
 
 
-class AttemptRequest(BaseModel):
+class InvocationRequest(BaseModel):
     """Admitted host execution request; never deserialized directly from graph input."""
 
     model_config = ConfigDict(
         strict=True, frozen=True, extra="forbid", hide_input_in_errors=True
     )
-    context: AttemptContext = Field(description="Owning host attempt context.")
+    context: InvocationContext = Field(description="Owning host attempt context.")
     task: str = Field(repr=False, description="Admitted task text.")
     model: str = Field(description="Explicit selected native model, never substituted.")
     effort: str | None = Field(description="Explicit native effort when selected.")
@@ -123,8 +123,8 @@ class SettlementResult(BaseModel):
     )
 
 
-class AttemptOutcome(BaseModel):
-    """Native attempt result before Agent freeze and any surviving lease settlement."""
+class InvocationResult(BaseModel):
+    """Native invocation result before Agent freeze and surviving lease settlement."""
 
     model_config = ConfigDict(
         strict=True,

@@ -1,4 +1,4 @@
-"""Attempt target interfaces for provider migration (#277)."""
+"""Invocation target interfaces for provider migration (#277)."""
 
 from __future__ import annotations
 
@@ -9,10 +9,10 @@ from typing import Protocol
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from laomedo.agents.agents.base.models.attempt import (
-        AttemptContext,
-        AttemptOutcome,
-        AttemptRequest,
+    from laomedo.agents.agents.base.models.invocation import (
+        InvocationContext,
+        InvocationResult,
+        InvocationRequest,
         SettlementResult,
         SettlementView,
     )
@@ -62,26 +62,29 @@ class StopContext(Protocol):
         """Subscribe race-safely, including an already-set signal; return unsubscribe."""
 
 
-class BaseAttemptDriver(ABC):
+class BaseAgentRunner(ABC):
     """Interchangeable admitted execution, independent of native resource topology."""
 
     @abstractmethod
-    def open_activity_attempt(self, context: AttemptContext) -> dict[str, JsonValue]:
+    def open_activity_attempt(self, context: InvocationContext) -> dict[str, JsonValue]:
         """Construct the provider's current baseline/record shape for journal writes."""
 
     @abstractmethod
     def run(
-        self, request: AttemptRequest, journal: BaseAttemptJournal, stop: StopContext
-    ) -> AttemptOutcome:
+        self,
+        request: InvocationRequest,
+        journal: BaseInvocationJournal,
+        stop: StopContext,
+    ) -> InvocationResult:
         """Execute Fresh/Resume, native turns and cleanup on the creator thread.
 
-        Return an outcome for every failure after reservation/lease acquisition;
+        Return a result for every failure after reservation/lease acquisition;
         retain settlement for every status with a surviving lease. Never freeze,
         mutate Agent records, substitute a model or fall back to Fresh on Resume.
         """
 
 
-class BaseAttemptJournal(ABC):
+class BaseInvocationJournal(ABC):
     """Agent-owned durable writes; success precedes the guarded native side effect.
 
     Entries carry detached provider fields, never the Agent's mutable dictionary.
@@ -144,7 +147,7 @@ class BasePostFreezeSettlement(ABC):
         Return typed updates/cleanup; unverified settlement demotes completion
         and clears snapshot/output fields through the Agent's existing policy.
         Agent converts escaping exceptions to verified=False; calls are serialized
-        after freeze, never while the driver still owns the lease.
+        after freeze, never while the runner still owns the lease.
         """
 
     @abstractmethod

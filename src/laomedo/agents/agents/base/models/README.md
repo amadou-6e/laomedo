@@ -5,7 +5,7 @@ directly from defining modules; the initializer contains no model re-exports.
 
 | Module | Values |
 | --- | --- |
-| [attempt.py](attempt.py) | Attempt context/request/outcome and detached settlement view/updates/result |
+| [invocation.py](invocation.py) | Invocation context/request/result and detached settlement view/updates/result |
 | [journal.py](journal.py) | Typed ownership, native binding, dispatch, turn, lease, identity, correction, evidence and cleanup writes |
 | [runtime.py](runtime.py) | Runtime binding/observations, resource plans and per-resource cleanup reports |
 | [credentials.py](credentials.py) | Public bindings, admission constraints and excluded host material |
@@ -20,3 +20,9 @@ public payloads or persisted schemas. Host callables, credentials and settlement
 handles retain their exclusions and validation-error privacy. Dependencies flow
 from value concerns to lower resource/settlement ports without importing concrete
 providers or optional Docker implementations at module load.
+
+InvocationContext, InvocationRequest and InvocationResult are the defining Python
+types in invocation.py, without aliases for retired type names. Existing field
+names (including attempt_id), validation codes, privacy exclusions and record
+payloads are preserved. InvocationResult describes native execution before freeze
+and surviving supervision; it is not proof of publication or final host success.

@@ -101,7 +101,7 @@ class AgentModuleStructureTests(unittest.TestCase):
             "agents.models",
             "agents.artifacts.models",
             "agents.orchestration.models",
-            "agents.agents.base.models.attempt",
+            "agents.agents.base.models.invocation",
             "agents.agents.base.models.catalog",
             "agents.agents.base.models.commands",
             "agents.agents.base.models.credentials",
