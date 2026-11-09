@@ -6,12 +6,12 @@ when a later edit returns to the same bytes. No operation promotes canonical lat
 
 from __future__ import annotations
 
-from laomedo.skills.registry.diff import patch_for
-from laomedo.skills.registry.files import inventory
-from laomedo.skills.registry.hashing import canonical_json
-from laomedo.skills.registry.hashing import tree_hash
-from laomedo.skills.registry.policy import validate_draft
-from laomedo.skills.registry.policy import validate_policy
+from laomedo.skills.registry.utils.diff import patch_for
+from laomedo.skills.registry.utils.files import inventory
+from laomedo.skills.registry.utils.hashing import canonical_json
+from laomedo.skills.registry.utils.hashing import tree_hash
+from laomedo.skills.registry.utils.policy import validate_draft
+from laomedo.skills.registry.utils.policy import validate_policy
 
 from contextlib import contextmanager
 from copy import deepcopy
@@ -22,18 +22,16 @@ from uuid import uuid4
 import difflib
 import hashlib
 import json
-from laomedo.skills.operations.summary import has_description
-from laomedo.skills.operations.summary import summary_authoring
-from laomedo.skills.registry.inspection import inspect_skill
-from laomedo.skills.operations.models import EditorProvenance
-from laomedo.skills.operations.models import SkillProposal
-from laomedo.skills.operations.models import (
-    SkillCommit,
-    SkillCommitReceipt,
-    SkillComparison,
-    SkillFileChange,
-    SkillOperationResult,
-)
+from laomedo.skills.operations.utils.summary import has_description
+from laomedo.skills.operations.utils.summary import summary_authoring
+from laomedo.skills.registry.utils.inspection import inspect_skill
+from laomedo.skills.operations.models.provenance import EditorProvenance
+from laomedo.skills.operations.models.proposal import SkillProposal
+from laomedo.skills.operations.models.history import SkillCommit
+from laomedo.skills.operations.models.history import SkillCommitReceipt
+from laomedo.skills.operations.models.history import SkillComparison
+from laomedo.skills.operations.models.history import SkillFileChange
+from laomedo.skills.operations.models.history import SkillOperationResult
 from laomedo.skills.registry.models import SkillPolicyReference, SkillReference
 from laomedo.skills.registry.errors import ConflictError
 from laomedo.skills.registry.errors import SkillStoreError

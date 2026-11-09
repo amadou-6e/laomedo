@@ -10,6 +10,7 @@ from laomedo.skills.interface.operations.settings import (
     Settings as OperationServiceSettings,
 )
 from laomedo.skills.interface.sources.settings import Settings as SourceServiceSettings
+from laomedo.skills.operations.settings import MANUAL_ERROR_CODES
 from laomedo.skills.registry.settings import (
     ASSET_SUFFIXES,
     HASH,
@@ -25,6 +26,7 @@ from laomedo.skills.sources.settings import MAX_ENTRIES, SECRET, SKIP
 __all__ = [
     "ASSET_SUFFIXES",
     "HASH",
+    "MANUAL_ERROR_CODES",
     "MAX_BUNDLE_BYTES",
     "MAX_DEPTH",
     "MAX_DIRECTORIES",

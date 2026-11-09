@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from laomedo.skills.registry.files import is_link
-from laomedo.skills.registry.hashing import file_hashes
-from laomedo.skills.registry.hashing import tree_hash
+from laomedo.skills.registry.utils.files import is_link
+from laomedo.skills.registry.utils.hashing import file_hashes
+from laomedo.skills.registry.utils.hashing import tree_hash
 
 from pathlib import Path
 import base64

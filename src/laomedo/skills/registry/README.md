@@ -11,11 +11,11 @@ workspace installation remain with their callers.
 | --- | --- | --- |
 | Filesystem lifecycle | `store.py` | `SkillStore` owns registry roots, immutable revisions, drafts and promotion |
 | New record construction | `models.py` | Pydantic references, revision, draft and frozen review records |
-| Name and relative-path admission | `paths.py` | `validate_name`, `validate_relative_path` |
-| Filesystem reads and record replacement | `files.py` | `is_link`, `inventory`, `read_json`, `write_json` |
-| Byte identities | `hashing.py` | `hash_bytes`, `canonical_json`, `tree_hash`, `file_hashes` |
-| Editing policy | `policy.py` | `validate_policy`, `validate_draft` |
-| Exact review patch | `diff.py` | `patch_for` |
+| Name and relative-path admission | `utils/paths.py` | `validate_name`, `validate_relative_path` |
+| Filesystem reads and record replacement | `utils/files.py` | `is_link`, `inventory`, `read_json`, `write_json` |
+| Byte identities | `utils/hashing.py` | `hash_bytes`, `canonical_json`, `tree_hash`, `file_hashes` |
+| Editing policy | `utils/policy.py` | `validate_policy`, `validate_draft` |
+| Exact review patch | `utils/diff.py` | `patch_for` |
 | Failure domain | `errors.py` | `SkillStoreError`, `ConflictError`; stable code, arguments and inheritance |
 | Fixed identity syntax | `settings.py` | `NAME` and `HASH` patterns |
 
@@ -87,9 +87,13 @@ current registry behavior tests; they do not establish live graph acceptance.
 
 ## Read-only inspection
 
-`inspection.py` owns `inspect_skill`: verify an exact immutable revision and
+`utils/inspection.py` owns `inspect_skill`: verify an exact immutable revision and
 project bounded file metadata/text, optionally images or binary bytes. It never
 constructs a mutable store, creates drafts, selects latest or executes skill
 content. Registry `settings.py` owns inspection limits; `errors.py` owns
 `InspectionError`. Links, hard links, nonregular entries, oversized bundles and
 identity/hash mismatches are refused. Source admission uses these same limits.
+
+Registry function-only helpers live under utils/: inspection, paths, hashing,
+files, diff and policy. Store remains the behavioral owner; settings and errors
+remain registry-owned. These utility groups are not separate capabilities.

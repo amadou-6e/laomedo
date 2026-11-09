@@ -48,7 +48,6 @@ class SkillOwnershipTests(unittest.TestCase):
             "operations/client.py",
             "operations/server.py",
             "operations/cli.py",
-            "operations/settings.py",
             "workspace/utils.py",
             "ingestion/utils.py",
         ):

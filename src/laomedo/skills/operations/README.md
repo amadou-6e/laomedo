@@ -11,11 +11,11 @@ does not promote canonical latest or publish Git commits.
 | Concern | Defining owner | Vocabulary |
 | --- | --- | --- |
 | Authorization, replay, staging and journal effects | `service.py` | `SkillOperations`; one atomic owner, not separate Store/Ledger facades |
-| Candidate edits | `models.py` | `FileEdit`, `SkillProposal`; admit paths/content and project the proposal payload |
-| Execution provenance | `models.py` | `EditorProvenance`, `ImportedSkillEditor`; evidence supplied by the trusted boundary, not model-granted authority |
-| History and receipts | `models.py` | `SkillCommit`, `SkillCommitReceipt`, `SkillOperationResult`; preserve record and response shapes |
-| Historical comparison | `models.py` | `SkillFileChange`, `SkillComparison`; changed file metadata and exact patch presentation data |
-| Public dictionary admission | `utils.py` | proposal(value); use the canonical SkillProposal directly |
+| Candidate edits | `models/` | `FileEdit`, `SkillProposal`; admit paths/content and project the proposal payload |
+| Execution provenance | `models/` | `EditorProvenance`, `ImportedSkillEditor`; evidence supplied by the trusted boundary, not model-granted authority |
+| History and receipts | `models/` | `SkillCommit`, `SkillCommitReceipt`, `SkillOperationResult`; preserve record and response shapes |
+| Historical comparison | `models/` | `SkillFileChange`, `SkillComparison`; changed file metadata and exact patch presentation data |
+| Public dictionary admission | `utils/proposal.py` | proposal(value); use the canonical SkillProposal directly |
 
 ## Service interfaces
 
@@ -64,8 +64,8 @@ not a user-facing demonstration or acceptance result.
 ## Manual editor and registry publication
 
 `ManualSkillEditor` in `manual.py` is the trusted local viewer's write boundary.
-Its canonical request/state/receipt and host grant models live in `models.py`.
-The closed public failure vocabulary lives in `contract.py`; presentation belongs
+Its canonical request/state/receipt and host grant models live in `models/`.
+The closed public failure vocabulary lives in `settings.py`; presentation belongs
 to the shared catalogue. Existing Agent/ordinary operations never promote latest.
 
 | Method | Interface and effect |
@@ -169,8 +169,13 @@ delete or rewrite the old journal, or present this maintenance as a UI merge.
 
 ## Missing-description guidance
 
-`summary.py` owns `has_description` and `summary_authoring`. It conservatively
+`utils/summary.py` owns `has_description` and `summary_authoring`. It conservatively
 preserves existing descriptions and loads packaged Agent instructions only when
 a readable SKILL.md has no description. It neither calls a model nor edits files;
 the operation service validates and applies authorized proposals. Viewer reads
 do not trigger authoring.
+
+Models are organized by proposal, provenance, history and manual concerns under
+models/. Independent proposal admission and summary guidance live under utils/.
+The fixed error vocabulary lives in settings.py. Service and ManualSkillEditor
+retain their operations and persistence responsibilities.

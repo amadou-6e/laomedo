@@ -8,8 +8,8 @@ from laomedo.skills.registry.settings import (
     MAX_FILES,
     MAX_BUNDLE_BYTES,
 )
-from laomedo.skills.registry.inspection import _read_regular
-from laomedo.skills.registry.files import is_link
+from laomedo.skills.registry.utils.inspection import _read_regular
+from laomedo.skills.registry.utils.files import is_link
 from laomedo.skills.sources.bundle import validate_bundle_path
 from laomedo.skills.sources.errors import SourceError
 from laomedo.skills.sources.models import SkillSourceChoice

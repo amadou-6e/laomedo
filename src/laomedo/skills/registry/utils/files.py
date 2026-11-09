@@ -8,7 +8,7 @@ import json
 import os
 import stat
 from laomedo.skills.registry.errors import SkillStoreError
-from laomedo.skills.registry.paths import validate_relative_path
+from laomedo.skills.registry.utils.paths import validate_relative_path
 
 
 def is_link(path: Path) -> bool:

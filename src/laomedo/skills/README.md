@@ -14,8 +14,8 @@ Git commits. Explicit registry promotion and later Git publication remain separa
 | Source discovery and immutable choices | [sources/](sources/README.md) | `SkillSources`: discover, revisions, resolve; concrete LocalSkillSource and GitSkillSource retain admission/read policy |
 | Immutable bundles and drafts | [registry/](registry/README.md) | `SkillStore`: import_skill, revision, read_file, create_draft, draft_workspace, freeze_draft, promote_draft |
 | Atomic edits and history | [operations/](operations/README.md) | `SkillOperations`: prepare, apply, history, diff, compare; one authorization/replay/journal transaction |
-| Read-only verification | `registry/inspection.py` | `inspect_skill`; verify exact immutable bytes without constructing a mutable store |
-| Description authoring contract | `operations/summary.py` | has_description, summary_authoring; load the packaged instructions without executing skill content |
+| Read-only verification | `registry/utils/inspection.py` | `inspect_skill`; verify exact immutable bytes without constructing a mutable store |
+| Description authoring contract | `operations/utils/summary.py` | has_description, summary_authoring; load the packaged instructions without executing skill content |
 
 The interface directories contain the actual public adapters, not forwarding
 facades. Core domain services/models do not import an optional graph framework.

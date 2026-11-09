@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from pathlib import PurePosixPath
 from laomedo.skills.registry.errors import SkillStoreError
-from laomedo.skills.registry.hashing import canonical_json, hash_bytes
-from laomedo.skills.registry.paths import validate_name, validate_relative_path
+from laomedo.skills.registry.utils.hashing import canonical_json, hash_bytes
+from laomedo.skills.registry.utils.paths import validate_name, validate_relative_path
 from laomedo.skills.registry.settings import ASSET_SUFFIXES
 
 

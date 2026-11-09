@@ -9,7 +9,7 @@ from laomedo.skills.registry.settings import (
     MAX_BUNDLE_BYTES,
 )
 from laomedo.skills.registry.errors import SkillStoreError
-from laomedo.skills.registry.paths import validate_relative_path
+from laomedo.skills.registry.utils.paths import validate_relative_path
 from laomedo.skills.sources.errors import SourceError
 from laomedo.skills.sources.settings import SECRET
 
