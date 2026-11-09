@@ -22,10 +22,12 @@ not designed yet. Existing live base classes remain until their callers migrate.
 ## Container ownership
 
 `AgentDockerMechanism` in `agents/agents/base/runtime.py` delegates to py-docker.
-Its client, session, job and exact-receipt operations are shared concrete code.
+It provides concrete client, session, job and exact-receipt delegation seams.
+Only selected callers use them today; complete migration is a target.
 Provider code supplies launch configuration, native readiness and resource order.
-It retains existing error mapping and credentials checks. A new provider does
-not subclass Docker lifecycle or implement a second Docker client.
+It retains existing error mapping and credentials checks. The target for a new provider is to reuse Docker lifecycle rather than subclass
+it or implement another Docker client. Existing live runtime ABCs remain during
+migration.
 
 Interactive agent containers use a `ContainerSession`; finite command containers
 use a `ContainerJob`. Both use native `ContainerSpec` and `StreamLimits`, not a
@@ -64,9 +66,22 @@ one container's successful removal.
 
 Different commands, mounts, worker topologies and lifetimes are configuration or
 sequencing differences. They are not evidence for separate Docker mechanisms.
-Claude does not inherently require a new process/container per prompt: the SDK
-supports multiple queries in one open client. This extraction initially preserves
-our existing per-execution lifetimes; changing them is a separate behavioral task.
+Anthropic documents multiple queries in one open ClaudeSDKClient in its
+[session cookbook](https://platform.claude.com/cookbook/claude-agent-sdk-04-migrating-from-openai-agents-sdk).
+That does not establish reuse for our pinned claude-agent-acp adapter, where
+correction executions change tool/MCP configuration. Reuse remains unverified
+for that adapter. This extraction preserves existing per-execution lifetimes;
+changing them is a separate behavioral task.
+
+## Remaining extraction work
+
+Direct native calls still exist in Codex's split executor and admission paths,
+OpenCode's catalogue and history reader, and Claude's authentication helpers.
+Those paths must migrate with their actual endpoint/receipt/cleanup semantics.
+The shared session context is a first delegation seam, not completed container
+unification. AcpSession.close still closes the underlying native session before
+SDK reader disconnect; its overlapping cleanup ownership is explicitly unresolved.
+Do not remove that close until reader shutdown ordering is preserved.
 
 ## Completion checks
 
