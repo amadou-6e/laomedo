@@ -1,6 +1,6 @@
 """Internal controls for the native-evidence boundary; no live acceptance."""
 
-from laomedo.agents.agents.base.models.commands import CommandRequest
+from laomedo.agents.agents.base.models import CommandRequest
 import asyncio
 from importlib.util import find_spec
 import json

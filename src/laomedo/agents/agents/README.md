@@ -22,9 +22,8 @@ consolidation requires separate implementation and real per-provider evidence.
 ## Provider role contracts (#275)
 
 Provider names identify implementations of a role, not matching directories.
-Target behavioral contracts live in `base/<concern>.py`; typed values live
-in `base/models/<concern>.py`. Current providers still use `base/interim.py`
-until the #277 behavioral migration; see [the interface index](base/README.md). There is no base subclass per provider merely for symmetry.
+Shared behavioral contracts live in `base/base.py`; their typed values live in
+`base/models.py`. There is no base subclass per provider merely for symmetry.
 The wider application's interface remains `agents/interface/`.
 
 | Role | Required vocabulary | Ownership and side effects |
@@ -80,5 +79,3 @@ IDs and host authorization are preserved at explicit adapters. Native user-story
 acceptance covers Fresh, Resume, status, cancellation, model refresh, Activity and
 failure/recovery independently for each provider. Unit/socket/fixture checks do
 not establish real-provider acceptance; this work authorizes no new model probe.
-
-Provider authors import target contracts from laomedo.agents.agents.base. The initializer exports the defining types once; internal concern/model imports remain direct.

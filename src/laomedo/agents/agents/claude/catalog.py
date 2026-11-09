@@ -4,8 +4,8 @@ from concurrent.futures import Future, TimeoutError as FutureTimeout
 from copy import deepcopy
 import time
 from laomedo.agents.agents.claude.settings import MODEL_CATALOG_TTL_SECONDS
-from laomedo.agents.agents.base.interim import BaseModelCatalog
-from laomedo.agents.agents.base.models.catalog import ModelCatalogSnapshot
+from laomedo.agents.agents.base.base import BaseModelCatalog
+from laomedo.agents.agents.base.models import ModelCatalogSnapshot
 from laomedo.agents.errors import RunnerError
 
 

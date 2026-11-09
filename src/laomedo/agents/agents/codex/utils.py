@@ -91,7 +91,7 @@ def _ensure_split_profile(name: str, *, state: Path, env=None) -> None:
     The one-shot container keeps its own durable cleanup receipt in runner state.
     """
     from docker.errors import DockerException
-    from laomedo.agents.agents.base.docker import AgentDockerMechanism
+    from laomedo.agents.agents.base.runtime import AgentDockerMechanism
     from py_docker.containers.models import ContainerSpec, Mount
     from py_docker.jobs.models import ContainerJob
     from py_docker.streams.models import StreamLimits

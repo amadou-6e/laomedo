@@ -10,9 +10,10 @@ from uuid import uuid4
 
 from laomedo.agents.agents.codex.settings import CLI_VERSION
 from laomedo.agents.errors import RunnerError
-from laomedo.agents.agents.base.interim import BaseSplitCommandExecutor
-from laomedo.agents.agents.base.models.commands import CommandRequest, CommandResult
-from laomedo.agents.agents.base.models.runtime import (
+from laomedo.agents.agents.base.base import BaseSplitCommandExecutor
+from laomedo.agents.agents.base.models import (
+    CommandRequest,
+    CommandResult,
     CleanupObservation,
     ProcessHealthObservation,
     IsolationObservation,

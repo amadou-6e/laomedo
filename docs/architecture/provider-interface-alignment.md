@@ -1,6 +1,7 @@
-# Provider interface alignment
+> Current direction: [Provider boundaries and shared containers](provider-boundaries.md).
+> The role-by-role proposal below is historical analysis, not the implementation target.
 
-The local inspection layout now organizes target ABCs in `src/laomedo/agents/agents/base/` and values in `src/laomedo/agents/agents/base/models/`, both by concern. Existing provider inheritance points to `base/interim.py`; this is a declaration move, not behavioral migration. Shared Docker implementation is in `base/docker.py`; runtime.py defines the abstract runtime contract. The public base/__init__.py exports the canonical target roles for provider authors, while interim roles remain internal.
+# Provider interface alignment
 
 The reviewed target and completion criteria are tracked in [#277](https://github.com/amadou-6e/laomedo/issues/277) and [the canonical draft design](https://github.com/amadou-6e/specs/blob/feat/shared-acp-agent-protocol/projects/laomedo/subsystems/agent-execution/design/provider-roles.md). The analysis below describes the interim implementation, not the approved final object boundaries. In particular the target retains `BaseAgentRuntime` with shared Docker mechanisms; it separates drivers from resource scopes and removes symmetry-only capabilities.
 

@@ -18,7 +18,7 @@ from laomedo.agents.agents.claude.settings import EXECUTION_GUARD
 from laomedo.agents.agents.claude.settings import IMAGE
 from laomedo.agents.agents.claude.settings import PROFILE
 from laomedo.agents.errors import RunnerError
-from laomedo.agents.agents.base.docker import AgentDockerMechanism
+from laomedo.agents.agents.base.runtime import AgentDockerMechanism
 from laomedo.agents.agents.claude.http.server import CommandHttpServer
 from laomedo.host.leases.client import LeaseClient
 from laomedo.host.leases.settings import LABEL_RUN

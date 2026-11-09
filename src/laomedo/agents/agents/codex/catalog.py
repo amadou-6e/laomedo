@@ -3,8 +3,8 @@
 import asyncio
 import time
 from laomedo.agents.agents.codex.settings import MODEL_CATALOG_TTL_SECONDS
-from laomedo.agents.agents.base.interim import BaseModelCatalog
-from laomedo.agents.agents.base.models.catalog import ModelCatalogSnapshot
+from laomedo.agents.agents.base.base import BaseModelCatalog
+from laomedo.agents.agents.base.models import ModelCatalogSnapshot
 
 
 class CodexModelCatalog(BaseModelCatalog):

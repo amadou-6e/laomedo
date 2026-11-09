@@ -3,8 +3,8 @@
 from contextlib import ExitStack
 import sys
 from laomedo.agents.errors import RunnerError
-from laomedo.agents.agents.base.interim import BaseAgentRuntime
-from laomedo.agents.agents.base.models.runtime import (
+from laomedo.agents.agents.base.base import BaseAgentRuntime
+from laomedo.agents.agents.base.models import (
     RuntimeObservation,
     CancellationObservation,
     CleanupObservation,

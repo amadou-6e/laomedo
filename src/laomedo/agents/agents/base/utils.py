@@ -18,7 +18,7 @@ def failure_observation(error=None, *, stage="execution", code=None):
     cannot replace the execution or cleanup error being observed.
     """
     try:
-        from laomedo.agents.agents.base.models.failures import FailureObservation
+        from laomedo.agents.agents.base.models import FailureObservation
         from laomedo.agents.agents.base.settings import SDK_FAILURE_CODES
 
         if type(error) is RunnerError:

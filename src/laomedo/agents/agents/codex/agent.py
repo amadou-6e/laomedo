@@ -43,7 +43,7 @@ from laomedo.agents.agents.codex.controller.settings import Settings
 from laomedo.agents.interface.output.utils import evaluate
 from laomedo.agents.errors import RunnerError
 from laomedo.agents.agents.codex.runtime import CodexAgentRuntime
-from laomedo.agents.agents.base.interim import BaseAgentRuntime
+from laomedo.agents.agents.base.base import BaseAgentRuntime
 from laomedo.agents.workspaces.utils import _hash_tree
 from laomedo.agents.agents.base.utils import _id
 from laomedo.agents.agents.base.utils import _json
@@ -57,9 +57,9 @@ from laomedo.host.leases.models import LeaseCleanupObservation
 from laomedo.host.leases.utils import cleanup_exact
 from laomedo.host.mediation.authority import RunGrantAuthority
 from laomedo.agents.workspaces.skills.utils import verify
-from laomedo.agents.agents.base import BaseAgent
-from laomedo.agents.agents.base.models.credentials import CredentialBinding
-from laomedo.agents.agents.base.models.runtime import RuntimeBinding
+from laomedo.agents.agents.base.agent import BaseAgent
+from laomedo.agents.agents.base.models import CredentialBinding
+from laomedo.agents.agents.base.models import RuntimeBinding
 
 
 class CodexAgent(BaseAgent):

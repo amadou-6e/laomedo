@@ -4,7 +4,7 @@ import json
 import secrets
 import threading
 from laomedo.agents.agents.opencode.http.server import BrokerHttpServer
-from laomedo.agents.agents.base.models.commands import CommandRequest
+from laomedo.agents.agents.base.models import CommandRequest
 from laomedo.agents.errors import RunnerError
 
 

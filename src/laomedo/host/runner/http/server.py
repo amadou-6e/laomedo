@@ -5,7 +5,7 @@ from __future__ import annotations
 from http.server import ThreadingHTTPServer
 
 from .handler import RunnerRequestHandler
-from laomedo.agents.agents.base import BaseAgent
+from laomedo.agents.agents.base.agent import BaseAgent
 from laomedo.agents.agents.base.settings import Settings
 from laomedo.agents.errors import RunnerError
 

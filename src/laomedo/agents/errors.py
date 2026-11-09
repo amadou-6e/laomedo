@@ -12,7 +12,7 @@ class RunnerError(ValueError):
     def __init__(self, code: str, *, observation=None):
         """Keep legacy args/string while carrying an optional typed private fact."""
         if observation is not None:
-            from laomedo.agents.agents.base.models.failures import FailureObservation
+            from laomedo.agents.agents.base.models import FailureObservation
 
             if type(observation) is not FailureObservation:
                 raise TypeError("failure_observation_required")

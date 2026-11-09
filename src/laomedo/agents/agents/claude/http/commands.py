@@ -5,7 +5,7 @@ import secrets
 import threading
 from uuid import uuid4
 from laomedo.agents.agents.claude.http.server import CommandHttpServer
-from laomedo.agents.agents.base.models.commands import CommandRequest
+from laomedo.agents.agents.base.models import CommandRequest
 from laomedo.agents.errors import RunnerError
 
 

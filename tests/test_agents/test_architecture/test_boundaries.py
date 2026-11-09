@@ -7,7 +7,7 @@ from support.paths import repository_root
 import unittest
 from unittest.mock import patch
 
-from laomedo.agents.agents.base import BaseAgent
+from laomedo.agents.agents.base.agent import BaseAgent
 from laomedo.agents.agents.codex.agent import CodexAgent
 from laomedo.agents.agents.claude.agent import ClaudeAgent
 from laomedo.agents.agents.opencode.agent import OpenCodeAgent
