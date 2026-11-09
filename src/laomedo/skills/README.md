@@ -56,3 +56,12 @@ GitHub, work_graph or a graph framework.
 Structural/protocol checks, CI and review support this boundary. Real source
 selection/pinning, multi-file editing, history/diff browsing, errors/recovery and
 requesting-user validation remain separate browser/graph acceptance gates.
+
+## Central settings access
+
+`skills/settings.py` exposes the submodule-owned constants and settings classes
+for callers that need a central entry point. `SourceServiceSettings` and
+`OperationServiceSettings` distinguish the two HTTP adapters' local `Settings`
+classes. Construct them at the point of use; importing the central module neither
+loads settings instances nor reads credentials. Definitions and their environment
+rules remain with the submodules, and constants are re-exported without copying.
