@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+from session_retro.errors import RetrospectiveError
 from session_retro.index import SessionIndex
 from session_retro.models import Episode
 
@@ -15,9 +16,12 @@ class EpisodeBuilder:
 
     def write(self, path: Path) -> int:
         """Write private bounded user-message windows with native outcome locations."""
+        root = self.index.settings.private_root
+        if root is None or not path.resolve().is_relative_to(root.resolve()):
+            raise RetrospectiveError("report_outside_private_root")
         episode = None
         count = 0
-        with path.open("w", encoding="utf-8") as output:
+        with path.open("x", encoding="utf-8") as output:
             rows = self.index.db.execute(
                 "SELECT line,kind,role,phase,turn_id,failure,CASE WHEN kind='message' AND role='user' THEN text ELSE '' END AS text,text_truncated FROM events ORDER BY line"
             )
@@ -48,7 +52,13 @@ class EpisodeBuilder:
                     and row["role"] == "assistant"
                     and row["phase"] in {"final_answer", "final"}
                 ):
-                    episode.final_answer_lines.append(row["line"])
+                    if (
+                        len(episode.final_answer_lines)
+                        < self.index.settings.page_records
+                    ):
+                        episode.final_answer_lines.append(row["line"])
+                    else:
+                        episode.omitted_final_answer_lines += 1
             if episode is not None:
                 output.write(episode.model_dump_json() + "\n")
                 count += 1

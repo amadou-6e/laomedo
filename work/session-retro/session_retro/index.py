@@ -214,8 +214,16 @@ class SessionIndex:
             ).fetchone()[0],
             types=dict(
                 self.db.execute(
-                    "SELECT native_type,COUNT(*) FROM events GROUP BY native_type"
+                    "SELECT native_type,COUNT(*) FROM events GROUP BY native_type ORDER BY native_type LIMIT ?",
+                    (self.settings.page_records,),
                 )
+            ),
+            omitted_native_types=max(
+                0,
+                self.db.execute(
+                    "SELECT COUNT(DISTINCT native_type) FROM events"
+                ).fetchone()[0]
+                - self.settings.page_records,
             ),
         )
 

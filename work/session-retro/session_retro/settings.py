@@ -11,6 +11,7 @@ PARSER_VERSION = "codex-retro-2"
 
 # Stable local failure explanations, not user-editable runtime configuration.
 ERROR_MESSAGES = {
+    "report_destination_exists": "The report destination already exists. Select a new directory to preserve existing evidence and source files.",
     "index_locator_integrity_failed": "Indexed record spans no longer reconcile with the committed source prefix.",
     "invalid_source_boundary": "The requested finite boundary is outside the source or precedes its identity record.",
     "index_boundary_mismatch": "An explicit boundary differs from this index; use a new index or an intentional extension.",

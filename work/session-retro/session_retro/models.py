@@ -145,6 +145,10 @@ class CoverageReport(BaseModel):
     analyzed_records: int = Field(
         default=0, description="Indexing itself performs no retrospective analysis"
     )
+    omitted_native_types: int = Field(
+        default=0,
+        description="Additional distinct native types omitted from bounded histogram",
+    )
     search_coverage: str = Field(
         default="bounded_extracted_text_only",
         description="Search completeness limitation",
@@ -221,6 +225,10 @@ class Episode(BaseModel):
     )
     final_answer_lines: list[int] = Field(
         default_factory=list, description="Original final-answer source locations"
+    )
+    omitted_final_answer_lines: int = Field(
+        default=0,
+        description="Further final-answer locations omitted from this bounded window summary",
     )
     calls: int = Field(default=0, description="Observed calls in the window")
     results: int = Field(default=0, description="Observed results in the window")

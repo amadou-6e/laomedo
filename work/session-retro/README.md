@@ -38,3 +38,7 @@ Methodological references, not copied implementation:
 - pskoett-ai-skills `878b0e48bca74849c6219815882e75e60cfa2b72`.
 
 This reader replaces whole-file extraction rather than wrapping its lossy output. Promotion into a reusable skill, independent review, persistent instruction edits and publishing private evidence are separate decisions.
+
+Report generation requires a new private directory and exclusively creates files.
+Native-type histograms and final-answer references are bounded by page_records;
+omitted counts stay visible. Regression controls verify non-destructive refusal.

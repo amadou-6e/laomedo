@@ -17,21 +17,24 @@ class RetrospectiveReport:
         self.index = index
 
     def write(self, directory: Path) -> ReportResult:
-        """Stream messages and explicit-failure/gap candidates to private JSONL."""
+        """Create a fresh private review directory; never replace existing files."""
         root = self.index.settings.private_root
         if root is None or not directory.resolve().is_relative_to(root.resolve()):
             raise RetrospectiveError("report_outside_private_root")
         self.index.verify()
-        directory.mkdir(parents=True, exist_ok=True)
+        try:
+            directory.mkdir(parents=True, exist_ok=False)
+        except FileExistsError:
+            raise RetrospectiveError("report_destination_exists") from None
         coverage = self.index.coverage()
         episodes = EpisodeBuilder(self.index).write(directory / "episodes.jsonl")
-        (directory / "coverage.json").write_text(
-            coverage.model_dump_json(indent=2), encoding="utf-8"
+        self._write_text(
+            directory / "coverage.json", coverage.model_dump_json(indent=2)
         )
         messages = candidates = 0
         with (
-            (directory / "messages.jsonl").open("w", encoding="utf-8") as timeline,
-            (directory / "candidates.jsonl").open("w", encoding="utf-8") as queue,
+            (directory / "messages.jsonl").open("x", encoding="utf-8") as timeline,
+            (directory / "candidates.jsonl").open("x", encoding="utf-8") as queue,
         ):
             for row in self.index.db.execute(
                 "SELECT line,timestamp,kind,role,phase,message_id,name,call_id,turn_id,offset,length,failure,text,text_truncated FROM events ORDER BY line"
@@ -48,9 +51,9 @@ class RetrospectiveReport:
                 }:
                     queue.write(json.dumps(value, ensure_ascii=False) + "\n")
                     candidates += 1
-        (directory / "README.md").write_text(
+        self._write_text(
+            directory / "README.md",
             "# Private retrospective review queue\n\nThese are indexed observations, not confirmed mistakes or root causes. Read source context with the CLI before drawing conclusions. Message observations retain duplicate native representations; do not count them as distinct requests. Coverage distinguishes indexing from analysis. No child session was opened. Redaction is best-effort; do not publish these files.\n",
-            encoding="utf-8",
         )
         return ReportResult(
             directory=str(directory.resolve()),
@@ -58,3 +61,9 @@ class RetrospectiveReport:
             candidates=candidates,
             episodes=episodes,
         )
+
+    @staticmethod
+    def _write_text(path: Path, text: str) -> None:
+        """Create one artifact exclusively, refusing existing files and symlinks."""
+        with path.open("x", encoding="utf-8") as output:
+            output.write(text)
