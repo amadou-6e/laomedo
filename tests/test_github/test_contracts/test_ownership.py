@@ -15,7 +15,6 @@ ROOT = repository_root()
 
 class GitHubOwnershipTests(unittest.TestCase):
 
-
     def test_github_records_keep_described_fields(self):
         assert_described_models(
             "github.models", "github.issues.models", "github.pull_requests.models"
@@ -73,7 +72,6 @@ class GitHubOwnershipTests(unittest.TestCase):
             self.assertTrue(
                 (ROOT / "src/laomedo/github" / relative / "README.md").is_file()
             )
-
 
         # The loader enforces equality of the full non-import AST on every load.
         # Its existing tamper/refusal controls remain in test_shared.

@@ -49,3 +49,7 @@ is unsupported: callers must migrate explicitly; there is no callable adapter or
 second production process path. Retired procedural environment/argv helpers also
 require manual migration. Archived execution evidence retains its original bytes;
 only explicitly identified migrated copies may execute against the new interface.
+
+The flat credential_helper.py remains independently executable using only the
+standard library. Git receives the admitted credential through its private
+process environment; helper protocol output must never be logged as diagnostics.
