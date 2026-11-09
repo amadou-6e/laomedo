@@ -75,13 +75,29 @@ changing them is a separate behavioral task.
 
 ## Remaining extraction work
 
-Direct native calls still exist in Codex's split executor and admission paths,
+The following inventory is non-exhaustive. Direct native calls still exist in Codex's split executor and admission paths,
 OpenCode's catalogue and history reader, and Claude's authentication helpers.
 Those paths must migrate with their actual endpoint/receipt/cleanup semantics.
 The shared session context is a first delegation seam, not completed container
 unification. AcpSession.close still closes the underlying native session before
 SDK reader disconnect; its overlapping cleanup ownership is explicitly unresolved.
 Do not remove that close until reader shutdown ordering is preserved.
+
+## Open and unchanged
+
+This extraction does not change persisted schemas, native identities, error
+codes or recovery ordering. Recovery before concrete provider initialization,
+credential timing, host-owned GitHub authorization, zero-turn discovery/cache
+semantics, correction behavior and existing worker cancellation timing remain.
+Preserve Codex post-freeze lease/publication settlement and OpenCode post-close
+history ordering. Missing OpenCode production composition remains explicitly
+blocked rather than supplied implicitly by this Docker change.
+
+The earlier unresolved questions remain separately scoped: DESIGN-04 concerns
+persisted `cancel_confirmed` meaning; DESIGN-09 concerns worker cancellation
+timing; DESIGN-10 needs a Claude stream-JSON discovery specification ruling;
+DESIGN-11 concerns correction policy. Withdrawing the abstract-object proposal
+does not resolve or authorize behavioral changes to any of these questions.
 
 ## Completion checks
 
