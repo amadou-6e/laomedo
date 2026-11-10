@@ -10,7 +10,6 @@ import sys
 import tempfile
 import threading
 import time
-from uuid import uuid4
 
 
 def main():
@@ -142,47 +141,9 @@ def main():
                 ),
                 flush=True,
             )
-            if args.max_prompts < 3:
+            if args.max_prompts < 3 or second["status"] != "completed":
                 return
-            pending = agent.start_async(
-                {
-                    "request_id": str(uuid4()),
-                    "task": "Use a shell command to sleep for 45 seconds, then reply done. Do not edit files or delegate.",
-                    "model": model,
-                    "effort": effort,
-                }
-            )
-            run_id = pending["run_id"]
-            deadline = time.monotonic() + 60
-            while time.monotonic() < deadline:
-                state = agent.status(run_id)
-                receipts = list(
-                    (root / "runner" / "runs" / run_id).rglob("*receipt*.json")
-                )
-                if state["status"] == "running" and receipts:
-                    break
-                if state["status"] in {"completed", "failed", "cancelled"}:
-                    break
-                time.sleep(0.1)
-            agent.cancel(run_id)
-            deadline = time.monotonic() + 90
-            while time.monotonic() < deadline:
-                state = agent.status(run_id)
-                if state["status"] in {"completed", "failed", "cancelled"}:
-                    break
-                time.sleep(0.2)
-            print(
-                json.dumps(
-                    {
-                        "stage": "cancel",
-                        "status": state["status"],
-                        "requested": state.get("cancel_requested"),
-                        "confirmed": state.get("cancel_confirmed"),
-                        "error": state.get("error_category"),
-                    }
-                ),
-                flush=True,
-            )
+            resume_then_cancel(agent, second, model, effort)
         except RunnerError as error:
             print(
                 json.dumps(
