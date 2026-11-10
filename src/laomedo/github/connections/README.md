@@ -57,3 +57,23 @@ total operation deadline across requests. `close` releases its connections.
 PAT repository candidates, refusing unfinished inventories. `verify` repeats
 principal identity, numeric repository identity and Contents-read admission.
 Inventory is a candidate list, not stored read consent or a write grant.
+
+`service.py` defines `GitHubConnectionService`, one native broker's serialized
+lifecycle. `configure_app` versions explicit app setup in the native vault;
+`begin` creates one owner/lease-bound browser attempt; `complete` consumes its
+one-use callback; `begin_token` verifies deliberately supplied token candidates.
+`confirm` rechecks selected repository identities and commits explicit consent
+with generation CAS. `cancel` abandons only its pending attempt, preserving ready
+state. `refresh` fences uncertainty before exchange and verifies the same account;
+`disconnect` fences before deleting and reports unconfirmed cleanup accurately.
+`authorize_read` checks current generation, consent and online access; `current`
+is its synchronous response-release fence. `cleanup` handles only journaled
+inactive targets, excluding live pending attempts. `status` exposes safe metadata.
+
+`GitHubConnectionScope` is a trusted in-process projection supplied by the browser
+adapter: verified owner, masked lease binding and a bound revalidation callback.
+It is never parsed from browser JSON. The service receives the same commit lock
+as the authentication response guard. Every commit revalidates under that lock;
+network I/O uses the separate service lock and cannot deadlock response release.
+Pending attempts remain in memory and expire; restart invalidates them while the
+durable journal retains any provisional vault cleanup responsibility.

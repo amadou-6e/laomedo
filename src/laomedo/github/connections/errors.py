@@ -55,3 +55,23 @@ class GitHubRepositoryAccessError(GitHubConnectionError):
     """
 
     code = "github_repository_access_unconfirmed"
+
+
+class GitHubReauthorizationRequired(GitHubConnectionError):
+    """Credential absence, expiry or uncertain renewal prevents new private reads.
+
+    The ready metadata is not replacement authority. A deliberate reconnect must
+    verify the same account and explicit repository consent before committing.
+    """
+
+    code = "github_reauthorization_required"
+
+
+class GitHubTokenUnsupported(GitHubConnectionError):
+    """Deliberate token entry is outside the supported fine-grained format.
+
+    No provider request, custody write or ready replacement is authorized.
+    The token value and validation diagnostics never cross this boundary.
+    """
+
+    code = "github_token_unsupported"

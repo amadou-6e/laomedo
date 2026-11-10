@@ -1,6 +1,7 @@
 """Canonical masked OAuth protocol values; no permission follows from a token."""
 
 import json
+from collections.abc import Awaitable, Callable
 from math import isfinite
 from typing import Literal
 from uuid import UUID
@@ -274,4 +275,134 @@ class GitHubRepositoryInventory(BaseModel):
         ge=0,
         allow_inf_nan=False,
         description="Measured online verification time in seconds.",
+    )
+
+
+class GitHubConnectionScope(BaseModel):
+    """Trusted request-local admission projection, never a browser input schema."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid", hide_input_in_errors=True)
+    owner_id: UUID = Field(description="Upstream-verified ordinary local profile UUID.")
+    lease_binding: SecretStr = Field(
+        exclude=True,
+        repr=False,
+        description="Digest binding to this explicit-login browser lease.",
+    )
+    check: Callable[[], Awaitable[None]] = Field(
+        exclude=True,
+        repr=False,
+        description="Host-bound current upstream/lease revalidation.",
+    )
+
+    async def revalidate(self):
+        """Delegate authentication proof to the trusted adapter, never browser data."""
+        await self.check()
+
+
+class GitHubConnectionAttempt(BaseModel):
+    """One finite pending attempt; failed or stale attempts never replace ready state."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid", hide_input_in_errors=True)
+    id: UUID = Field(description="Broker-generated pending request identity.")
+    owner_id: UUID = Field(description="Verified initiating local profile.")
+    lease_binding: SecretStr = Field(
+        exclude=True,
+        repr=False,
+        description="Exact initiating explicit-login lease digest.",
+    )
+    connection_id: UUID = Field(
+        description="Connection to create or deliberately reconnect."
+    )
+    expected_generation: int = Field(
+        strict=True,
+        ge=0,
+        description="Selected generation CAS; zero means a new connection.",
+    )
+    expected_principal_id: int | None = Field(
+        default=None,
+        strict=True,
+        gt=0,
+        description="Existing account identity required on reconnect.",
+    )
+    mode: Literal["browser", "token"] = Field(
+        description="Deliberately chosen connection mode."
+    )
+    app_id: UUID | None = Field(
+        default=None, description="Immutable browser-app setup version."
+    )
+    expires_at: float = Field(
+        allow_inf_nan=False,
+        gt=0,
+        description="Absolute pending-request expiry in Unix seconds.",
+    )
+    oauth: GitHubOAuthAttempt | None = Field(
+        default=None,
+        exclude=True,
+        repr=False,
+        description="One-use protocol state before callback consumption.",
+    )
+    inventory: GitHubRepositoryInventory | None = Field(
+        default=None, description="Verified candidates awaiting explicit consent."
+    )
+    secret_reference: UUID | None = Field(
+        default=None,
+        exclude=True,
+        repr=False,
+        description="Provisional native-vault target, if verification finished.",
+    )
+
+    def public(self):
+        """Return safe UI state with explicit authorization navigation only when pending."""
+        return {
+            "request_id": str(self.id),
+            "connection_id": str(self.connection_id),
+            "expires_at": self.expires_at,
+            "phase": "authorize" if self.oauth is not None else "consent",
+            "authorization_url": (
+                self.oauth.authorization_url if self.oauth is not None else None
+            ),
+            "inventory": (
+                self.inventory.model_dump(mode="json") if self.inventory else None
+            ),
+        }
+
+
+class GitHubReadAuthorization(BaseModel):
+    """Exact current consent/provenance binding for one private user read."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid", hide_input_in_errors=True)
+    owner_id: UUID = Field(description="Authenticated local profile owning the read.")
+    connection_id: UUID = Field(
+        description="Explicit selected connection, never inferred from a hash."
+    )
+    generation: int = Field(
+        strict=True, ge=1, description="Current admission generation before this read."
+    )
+    repository: GitHubRepositoryIdentity = Field(
+        description="Exact consented numeric repository identity."
+    )
+    principal: GitHubPrincipal = Field(
+        description="Account verified online for this user read."
+    )
+    deadline: float = Field(
+        allow_inf_nan=False,
+        description="Monotonic total-read deadline, including release.",
+    )
+
+
+class GitHubConnectionStatus(BaseModel):
+    """Safe custody availability projection, distinct from fresh online permission."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid", hide_input_in_errors=True)
+    connection: GitHubConnectionRecord = Field(
+        description="Persisted non-secret connection identity and consent."
+    )
+    availability: Literal[
+        "ready", "expired", "reauthorization_required", "revoked", "unavailable"
+    ] = Field(
+        description="Current local custody/lifetime availability, not online permission."
+    )
+    credential_cleanup_pending: bool = Field(
+        default=False,
+        description="An inactive local credential still needs confirmed removal.",
     )

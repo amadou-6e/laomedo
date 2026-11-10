@@ -1934,6 +1934,16 @@
     "description": "The app could not verify the current account and repository read access online. This does not establish whether the repository exists or is private.",
     "recovery": "Check the selected connection and its repository access in the connection manager. Reconnect or update repository consent if needed; private files stay locked until verification succeeds."
   },
+  "github_reauthorization_required": {
+    "title": "Reconnect this GitHub account",
+    "description": "The selected connection's credential is missing, expired or could not be renewed safely.",
+    "recovery": "Open the connection manager and reconnect the selected account. Keep the same account and confirm repository reads again; the app will not replay an uncertain renewal or choose another login."
+  },
+  "github_token_unsupported": {
+    "title": "Use a supported fine-grained GitHub token",
+    "description": "This entry is not a supported fine-grained personal access token. No connection was replaced.",
+    "recovery": "Use browser sign-in, or deliberately enter a fine-grained token through the masked connection control. Classic tokens and borrowed installation credentials are not supported."
+  },
   "profile_pin_invalid": {
     "title": "Use a six-digit PIN",
     "description": "This profile uses a PIN of exactly six digits.",
