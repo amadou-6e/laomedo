@@ -6,7 +6,8 @@ param(
     [Parameter(Mandatory=$true)][string]$PythonExe,
     [Parameter(Mandatory=$true)][string]$FrontendPath,
     [Parameter(Mandatory=$true)][string]$RuntimeRoot,
-    [ValidateRange(1024,65535)][int]$Port = 17866
+    [ValidateRange(1024,65535)][int]$Port = 17866,
+    [switch]$PrivateConnections
 )
 $ErrorActionPreference = 'Stop'
 if ([Environment]::OSVersion.Platform -ne 'Win32NT') { throw 'This setup supports native Windows only.' }
@@ -110,6 +111,7 @@ ProfileRuntimeAdmission(LocalProfileSettings().runtime_root).verify_settings(get
 print('Effective settings: local profiles require PIN login; generic signup disabled.', flush=True)
 "@
         if ($Mode -eq 'Serve') {
+            $privateEnabled = if ($PrivateConnections) { 'True' } else { 'False' }
             $bootstrap += @"
 
 import laomedo
@@ -118,7 +120,7 @@ laomedo.__path__.append(os.environ['LAOMEDO_COMPONENT_DIR'])
 from laomedo.integrations.langflow.local_profiles.settings import LocalProfileSettings
 from laomedo.integrations.langflow.local_profiles.runtime import LocalProfileRuntime
 from laomedo.integrations.langflow.viewer import create_app
-app = create_app(profile_runtime=LocalProfileRuntime(LocalProfileSettings().runtime_root))
+app = create_app(profile_runtime=LocalProfileRuntime(LocalProfileSettings().runtime_root), private_connections=$privateEnabled)
 uvicorn.run(app, host='127.0.0.1', port=int(os.environ['LAOMEDO_LOCAL_PROFILE_PORT']), access_log=False, workers=1)
 "@
         }

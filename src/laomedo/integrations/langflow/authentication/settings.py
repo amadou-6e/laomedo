@@ -24,6 +24,12 @@ class PrivateBrowserSettings(BaseSettings):
     runtime_root: Path = Field(
         description="Admitted private state outside public stores."
     )
+    public_roots: tuple[Path, ...] = Field(
+        default=(), description="All public registry and admitted local source roots."
+    )
+    agent_mounts: tuple[Path, ...] = Field(
+        default=(), description="All configured host directories mounted into Agents."
+    )
 
     @classmethod
     def settings_customise_sources(

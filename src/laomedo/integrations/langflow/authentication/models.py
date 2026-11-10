@@ -1,6 +1,7 @@
 """Private lease records; browser cookies never enter serialized models."""
 
 from uuid import UUID
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, SecretStr
 
@@ -32,3 +33,13 @@ class PrivateBrowserContext(BaseModel):
     session: PrivateSession
     cookie: SecretStr = Field(exclude=True, repr=False)
     upstream_token: SecretStr = Field(exclude=True, repr=False)
+
+
+class PrivateRuntimeMarker(BaseModel):
+    """Ownership and fixed-origin admission for one private connection installation."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+
+    purpose: Literal["laomedo-private-github"] = "laomedo-private-github"
+    version: Literal[1] = 1
+    origin: str

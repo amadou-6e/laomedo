@@ -60,3 +60,22 @@ carry its initiating browser lease. Private reads still require exact same-origi
 request metadata; the OAuth callback additionally requires its one-use state and
 lease binding. New mutating controls require their separate CSRF proof. Cookie
 SameSite alone does not authorize a read, callback or mutation.
+
+`boundary.py` owns `PrivateResponseBoundary`. Its `_private_path` recognizes only
+the owned private API namespaces. Before a successful response starts, the guard
+requires the route's `PrivateBrowserContext`, revalidates it under the shared
+policy lock, and holds that lock until the response finishes. `_refuse` replaces
+an unauthorized response with a safe no-store error and discards its body.
+This does not authorize a connection mutation: its service must recheck session,
+consent and generation before committing as well as before response release.
+
+`runtime.py` owns opt-in `PrivateBrowserRuntime`: `configure` installs the policy,
+adapters and status route before the SPA fallback; `_admit_directory` admits only
+the marked private directory, disjoint from declared public roots/agent mounts;
+`_claim_process` and `_release_process` hold one native Windows broker lock;
+`lifespan` verifies the final upstream profile adapter before serving.
+`PrivateRuntimeMarker` binds persistent private state to its exact loopback origin.
+`routes.py` owns the authenticated `private_session_status` safe readiness check.
+The host must declare every configured public source root and Agent mount; the
+isolated profile launcher clears external bindings and declares its public registry.
+Unknown external deployments are not admitted by this setup recipe.

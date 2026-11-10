@@ -197,7 +197,7 @@ def install_routes(app, root: Path, authenticate):
         )
 
 
-def create_app(profile_runtime=None):
+def create_app(profile_runtime=None, private_connections=False):
     from laomedo.integrations.langflow.local_profiles.routes import profile_mode
     from langflow.main import create_app as upstream_app
     from langflow.main import setup_static_files
@@ -211,6 +211,27 @@ def create_app(profile_runtime=None):
     install_routes(app, root, get_current_active_user)
     if profile_runtime is not None:
         profile_runtime.configure(app)
+    if private_connections:
+        if profile_runtime is None:
+            from laomedo.integrations.langflow.authentication.errors import (
+                PrivateSessionError,
+            )
+
+            raise PrivateSessionError()
+        from laomedo.integrations.langflow.authentication.runtime import (
+            PrivateBrowserRuntime,
+        )
+        from laomedo.integrations.langflow.authentication.settings import (
+            PrivateBrowserSettings,
+        )
+
+        PrivateBrowserRuntime(
+            PrivateBrowserSettings(
+                origin=f"http://127.0.0.1:{profile_runtime.admission.marker.port}",
+                runtime_root=profile_runtime.admission.root / "private-github",
+                public_roots=(root,),
+            )
+        ).configure(app)
     # Register the API before the installed runtime's catch-all SPA routes.
     setup_static_files(app, frontend)
     return app

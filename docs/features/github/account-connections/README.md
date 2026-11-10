@@ -17,10 +17,12 @@ A separate native check verified storage, reopened-instance loading and removal
 of one fresh synthetic vault entry; no existing entries were read or enumerated.
 The implementation now stacks on PR #263 for PIN profile identity. Install its
 optional libraries with `.[private-sources]`; their pinned versions are locked.
-The upstream login/refresh/logout ASGI adapter and private-access policy now have
-internal controls for cookie validation, origin, owner binding, expiry and logout
-ordering. They are not installed in the app yet. Private response-release guards,
-OAuth, repository consent, private source readers and the connection UI remain
+The upstream login/refresh/logout ASGI adapter, private-access policy and response
+guards now have internal controls for origin, owner binding, expiry, logout
+ordering and exclusive native broker ownership. The isolated profile launcher can
+install these with `-PrivateConnections`; ordinary launches remain unchanged.
+The authenticated private-session status route exposes readiness only. OAuth,
+repository consent, private source readers and the connection UI remain
 unfinished. The private cookie uses SameSite=Lax for the top-level GitHub return;
 normal private reads still require exact origin metadata, with callback state and
 mutation CSRF validation remaining separate required boundaries.
