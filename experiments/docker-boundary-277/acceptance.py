@@ -8,6 +8,7 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 from uuid import uuid4
 
@@ -16,6 +17,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--implementation", type=Path, required=True)
     parser.add_argument("--execute", action="store_true")
+    parser.add_argument("--session-login", action="store_true")
+    parser.add_argument("--resume-cancel", action="store_true")
     parser.add_argument("--open-session", action="store_true")
     parser.add_argument("--max-prompts", type=int, default=1, choices=(1, 2, 3))
     args = parser.parse_args()
@@ -53,8 +56,13 @@ def main():
                 if supervisor.poll() is not None or time.monotonic() > deadline:
                     raise RuntimeError("lease_service_start_failed")
                 time.sleep(0.1)
+            options = session_login() if args.session_login else {}
             agent = CodexAgent(
-                root / "runner", root / "registry", source, lease_service=lease
+                root / "runner",
+                root / "registry",
+                source,
+                lease_service=lease,
+                **options,
             )
             print(
                 json.dumps(
@@ -109,6 +117,9 @@ def main():
                 flush=True,
             )
             if first["status"] != "completed" or args.max_prompts < 2:
+                return
+            if args.resume_cancel:
+                resume_then_cancel(agent, first, model, effort)
                 return
             second = agent.resume(
                 first["run_id"],
@@ -183,6 +194,101 @@ def main():
             supervisor.terminate()
             supervisor.wait(timeout=15)
             log.close()
+
+
+def resume_then_cancel(agent, first, model, effort):
+    """Resume the completed native session and cancel its active second turn."""
+    from laomedo.agents.agents.codex.runtime import CodexAgentRuntime
+
+    results, errors = [], []
+    prompt_started = threading.Event()
+    original_prompt = CodexAgentRuntime.prompt
+
+    async def observe_prompt(self, *args, **kwargs):
+        prompt_started.set()
+        return await original_prompt(self, *args, **kwargs)
+
+    CodexAgentRuntime.prompt = observe_prompt
+
+    def resume():
+        try:
+            results.append(
+                agent.resume(
+                    first["run_id"],
+                    "Use the shell to sleep for 45 seconds, then repeat the marker from our previous turn. Do not edit files or delegate.",
+                    expected_post_run_hash=first["post_run_hash"],
+                    expected_thread_id=first["thread_id"],
+                    model=model,
+                    effort=effort,
+                )
+            )
+        except Exception as error:
+            errors.append(type(error).__name__)
+
+    worker = threading.Thread(target=resume)
+    worker.start()
+    started = prompt_started.wait(timeout=60)
+    if started:
+        time.sleep(3)
+    requested = agent.cancel(first["run_id"])
+    worker.join(timeout=120)
+    if worker.is_alive():
+        raise RuntimeError("resumed_turn_did_not_settle_after_cancellation")
+    CodexAgentRuntime.prompt = original_prompt
+    current = agent.status(first["run_id"])
+    print(
+        json.dumps(
+            {
+                "stage": "resumed_turn_cancellation",
+                "prompt_started": started,
+                "status": current["status"],
+                "thread_preserved": current.get("thread_id") == first["thread_id"],
+                "requested": requested.get("cancel_requested"),
+                "confirmed": current.get("cancel_confirmed"),
+                "error": current.get("error_category"),
+                "worker_errors": errors,
+            }
+        ),
+        flush=True,
+    )
+
+
+def session_login():
+    """Borrow only the explicitly authorized host access token for this process."""
+    from pydantic import SecretStr
+    from laomedo.agents.errors import RunnerError
+
+    home = Path(os.environ.get("CODEX_HOME") or Path.home() / ".codex")
+    try:
+        stored = json.loads((home / "auth.json").read_text(encoding="utf-8"))
+        native = stored.get("tokens") or {}
+        access = native["access_token"]
+        account = native["account_id"]
+        if (
+            not isinstance(access, str)
+            or not access
+            or not isinstance(account, str)
+            or not account
+        ):
+            raise ValueError()
+    except (OSError, ValueError, TypeError, KeyError):
+        raise RunnerError("session_access_credential_unavailable") from None
+    return {
+        "split_executor": True,
+        "split_access_token": SecretStr(access),
+        "split_provider_config": (
+            'model_provider="session_chatgpt"',
+            'model_providers.session_chatgpt.name="Authorized host session"',
+            'model_providers.session_chatgpt.base_url="https://chatgpt.com/backend-api/codex"',
+            'model_providers.session_chatgpt.env_key="ACCESS_TOKEN"',
+            'model_providers.session_chatgpt.wire_api="responses"',
+            "model_providers.session_chatgpt.requires_openai_auth=false",
+            "model_providers.session_chatgpt.supports_websockets=false",
+            'model_providers.session_chatgpt.http_headers={"ChatGPT-Account-Id"='
+            + json.dumps(account)
+            + "}",
+        ),
+    }
 
 
 async def check_session(agent, model, effort):
