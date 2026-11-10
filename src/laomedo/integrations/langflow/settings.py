@@ -45,6 +45,13 @@ class Settings(BaseSettings):
         repr=False,
         exclude=True,
     )
+    codex_runner_url: str = Field(
+        default="http://host.docker.internal:8765",
+        validation_alias="LAOMEDO_CODEX_RUNNER_URL",
+        repr=False,
+        exclude=True,
+        description="Trusted app launch default for new Codex nodes; saved node values remain unchanged.",
+    )
 
     def required_path(self, name: str) -> str:
         """Preserve the viewer's existing missing-environment KeyError contract."""
