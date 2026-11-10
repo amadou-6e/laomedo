@@ -2,8 +2,9 @@
 
 This package supplements upstream authentication with the revocable private
 browser lease required by SC01 of the GitHub account-connection contract. It
-does not authenticate passwords or validate upstream JWTs. Integration remains
-unfinished until the upstream login, refresh and logout adapter is installed.
+does not authenticate passwords or validate upstream JWTs. The opt-in native
+runtime installs the upstream login, refresh and logout adapter. GitHub connection
+and private content integration remain unfinished.
 
 `models.py` defines `PrivateSession` (owner and lifetime) and
 `IssuedPrivateSession` (the session plus a masked, nonserializable cookie).
@@ -25,7 +26,7 @@ validated by the supplied upstream policy; lease expiry follows the outgoing
 refresh cookie. A process-local policy lock serializes authentication responses
 and logout. Refresh never mints a missing lease; known revoked leases are refused
 before upstream refresh. Logout fences its incoming lease before upstream work;
-failure stays unconfirmed. The adapter is not installed in the app yet.
+failure stays unconfirmed. The opt-in runtime installs this adapter in the app.
 
 `PrivateSessionAdapter._refresh_expiry` parses only the outgoing refresh cookie's
 absolute expiry; `_cookie_headers` creates a persistent, HttpOnly, SameSite=Lax
@@ -44,8 +45,9 @@ serializes the safe session projection. No browser-supplied owner is admitted.
 Writes serialize through SQLite transactions across store instances. Refresh
 cannot overwrite a committed revocation. The adapter additionally serializes
 authentication responses against logout; the store alone does not provide that
-response ordering. Private route authorization and response-release rechecks
-remain unfinished and must be installed before any private content is exposed.
+response ordering. The opt-in readiness route uses private authorization and
+response-release checks. Connection-specific consent and generation checks must
+also be installed before any private content is exposed.
 
 `errors.py` contains the stable domain exception. Trusted callers provide an
 absolute database path outside Git and public registry roots. The runtime owner

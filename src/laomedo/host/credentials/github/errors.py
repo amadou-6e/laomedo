@@ -12,4 +12,9 @@ class GitHubVaultError(RuntimeError):
     code = "github_credential_unavailable"
 
     def __init__(self):
+        """Expose only the fixed custody outcome, never backend details."""
         super().__init__(self.code)
+
+    def __reduce__(self):
+        """Restore this safe no-argument exception without accepting arbitrary text."""
+        return type(self), ()

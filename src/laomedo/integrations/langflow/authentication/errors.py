@@ -11,7 +11,12 @@ class PrivateSessionError(RuntimeError):
     code = "private_session_unavailable"
 
     def __init__(self):
+        """Expose only the fixed private-admission outcome."""
         super().__init__(self.code)
+
+    def __reduce__(self):
+        """Preserve the no-argument constructor when crossing process boundaries."""
+        return type(self), ()
 
 
 class PrivateSessionRequired(PrivateSessionError):

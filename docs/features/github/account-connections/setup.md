@@ -5,6 +5,12 @@ not a working installation guide. The connection UI and secure entry are not
 implemented yet. No existing app is assumed; the owner corrected that on
 2026-11-07. Creating an app or changing its settings needs explicit owner action.
 
+The opt-in native implementation targets Python 3.11 or newer (the inspected
+local runtime is 3.12). Its `private-sources` extra pins Authlib and its supported
+HTTPX2 client together, plus the explicit Windows keyring backend. Installing
+these dependencies does not configure an app or connect an account. Core Python
+3.10 installations retain public behavior and do not support this private path.
+
 ## Registration configuration to review
 
 | GitHub setting | Required value for this local source-read increment |

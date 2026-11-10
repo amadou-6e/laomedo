@@ -1914,6 +1914,11 @@
     "description": "The app could not confirm secure Windows storage or removal of this connection's credential.",
     "recovery": "Use the native Windows app and retry once secure storage is available. An unconfirmed removal does not establish that the credential was deleted or revoked at GitHub."
   },
+  "github_oauth_unavailable": {
+    "title": "GitHub authorization could not be confirmed",
+    "description": "The app could not confirm this GitHub authorization or credential renewal. Your previous connection has not been replaced by this attempt.",
+    "recovery": "Open the connection manager and start a new sign-in. An uncertain renewal requires reconnecting; it is not safe to replay the previous exchange."
+  },
   "profile_pin_invalid": {
     "title": "Use a six-digit PIN",
     "description": "This profile uses a PIN of exactly six digits.",

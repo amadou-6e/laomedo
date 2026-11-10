@@ -212,6 +212,11 @@ class ErrorContractTests(unittest.TestCase):
                     if cls.__name__ == "PushOutcomeUnknown":
                         error = cls("timeout", None)
                         code = "push_outcome_unknown"
+                    elif isinstance(getattr(cls, "code", None), str):
+                        # Fixed-outcome exceptions deliberately cannot accept
+                        # arbitrary provider diagnostics as constructor arguments.
+                        code = cls.code
+                        error = cls()
                     else:
                         code = "existing_category"
                         error = cls(code)
