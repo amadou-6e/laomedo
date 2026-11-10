@@ -69,6 +69,10 @@ from public models and redacted from provider observations.
 
 Current checks cover the actual native tool factory, real local HTTP and STDIO
 servers, app-lifetime retention, scoped forwarding and selected-tool rejection.
+Status and Cancel omit their MCP input dependencies during native scheduling, so
+an unavailable MCP server does not prevent contacting the runner. Shared inputs
+needed by another active Agent and explicitly playing an MCP node remain enabled.
+The saved graph keeps its connections; fresh work and graph rebuilds restore them.
 They do not establish the full editor UI or six real provider/transport cases.
 Those remain acceptance work in [issue #280](https://github.com/amadou-6e/laomedo/issues/280).
 The governing contract/design is [specification PR #419](https://github.com/amadou-6e/specs/pull/419),

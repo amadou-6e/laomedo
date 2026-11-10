@@ -37,8 +37,15 @@ registration reference is transient admission, verified against that manifest an
 excluded from semantic request hashes. Native bearer capabilities remain in
 host-private state/configuration and are never upstream server credentials.
 Resume requires the same frozen manifest with fresh live registration. Status and
-cancel skip registration, but preventing upstream graph discovery is an open
-acceptance blocker. No MCP preserves existing behavior.
+cancel omit their MCP dependency edges from the request-local execution graph
+before native output execution. `integrations/langflow/mcp_graph.py` owns
+`McpGraphPolicy`: `install` verifies and installs the pinned scheduling adapter;
+`sort_vertices` applies the effective operation and explicit play target;
+`initialize` and `restore` restore the full graph before reuse;
+`apply` removes recursive input references as well as scheduling dependencies;
+`execution_graph` removes only inactive MCP inputs and their exclusive ancestors.
+Shared dependencies and explicit execution of an MCP node remain available.
+Saved definitions are never rewritten. No MCP preserves existing behavior.
 
 Use the existing trusted single-user deployment only. Default to loopback; refuse
 wildcard bind addresses. An explicit Docker-reachable private interface may be
