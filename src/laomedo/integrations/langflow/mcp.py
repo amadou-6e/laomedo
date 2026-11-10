@@ -126,27 +126,31 @@ class LangflowMcpTool:
             current = None
             cursor = None
             seen = set()
-            async with asyncio.timeout(timeout):
-                for _ in range(32):
-                    advertised = (
-                        await session.list_tools(cursor=cursor)
-                        if cursor is not None
-                        else await session.list_tools()
-                    )
-                    current = next(
-                        (
-                            tool
-                            for tool in advertised.tools
-                            if tool.name == self.descriptor.upstream_name
-                        ),
-                        None,
-                    )
-                    if current is not None or not advertised.nextCursor:
-                        break
-                    cursor = advertised.nextCursor
-                    if cursor in seen:
-                        raise McpError("mcp_tool_binding_changed")
-                    seen.add(cursor)
+            loop = asyncio.get_running_loop()
+            deadline = loop.time() + timeout
+            for _ in range(32):
+                page = (
+                    session.list_tools(cursor=cursor)
+                    if cursor is not None
+                    else session.list_tools()
+                )
+                advertised = await asyncio.wait_for(
+                    page, timeout=max(0, deadline - loop.time())
+                )
+                current = next(
+                    (
+                        tool
+                        for tool in advertised.tools
+                        if tool.name == self.descriptor.upstream_name
+                    ),
+                    None,
+                )
+                if current is not None or not advertised.nextCursor:
+                    break
+                cursor = advertised.nextCursor
+                if cursor in seen:
+                    raise McpError("mcp_tool_binding_changed")
+                seen.add(cursor)
             if (
                 current is None
                 or create_input_schema_from_json_schema(

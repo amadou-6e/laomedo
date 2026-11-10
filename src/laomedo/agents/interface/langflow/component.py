@@ -217,7 +217,8 @@ _ROUTABLE_ERRORS = {
     "turn_timeout",
     "unsupported_claude_effort",
     "workspace_command_output_too_large",
-} | MCP_ERROR_CODES
+}
+_ROUTABLE_ERRORS.update(MCP_ERROR_CODES)
 
 
 class _NoRedirect(request.HTTPRedirectHandler):

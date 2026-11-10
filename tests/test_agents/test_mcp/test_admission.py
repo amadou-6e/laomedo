@@ -1,6 +1,7 @@
 """Current request identity and frozen external-grant admission contracts."""
 
 from pathlib import Path
+import json
 import unittest
 from unittest.mock import Mock, patch
 from uuid import uuid4
@@ -12,6 +13,8 @@ from laomedo.agents.mcp.models import McpManifest, McpTool
 from laomedo.agents.mcp.settings import McpSettings
 from laomedo.agents.errors import RunnerError
 from test_agents.test_runtime.models import RunnerCase
+from support.paths import repository_root
+from laomedo.agents.mcp.settings import MCP_ERROR_CODES
 
 
 class McpAdmissionTests(unittest.TestCase):
@@ -67,6 +70,21 @@ class McpAdmissionTests(unittest.TestCase):
             with self.subTest(address=address), self.assertRaises(ValidationError):
                 McpSettings(bind=address)
 
+    def test_mcp_failures_have_recovery_without_automatic_call_replay(self):
+        """Every forwarded failure has a useful explanation at the graph boundary."""
+        catalogue = json.loads(
+            (
+                repository_root()
+                / "frontend/langflow-skill-viewer/node-error-catalog.json"
+            ).read_text(encoding="utf-8")
+        )
+        for code in MCP_ERROR_CODES:
+            with self.subTest(code=code):
+                self.assertTrue(catalogue[code]["title"].strip())
+                self.assertIn(
+                    "may already have had effects", catalogue[code]["recovery"]
+                )
+
     def test_preparation_persists_manifest_and_never_capability(self):
         """Only the tool grant enters the actual prepared run record."""
         case = RunnerCase.create()
@@ -100,3 +118,17 @@ class McpAdmissionTests(unittest.TestCase):
         with self.assertRaisesRegex(RunnerError, "mcp_registration_required"):
             case.runner._prepare(request)
         self.assertEqual(list((case.runner.state / "runs").iterdir()), [])
+
+    def test_attempt_cleanup_cannot_release_a_replacement_grant(self):
+        """Late cleanup from an older handler only owns its exact admitted access."""
+        case = RunnerCase.create()
+        self.addCleanup(case.close)
+        run_id = str(uuid4())
+        old = Mock()
+        current = Mock()
+        case.runner._mcp_access[run_id] = current
+        case.runner.release_mcp(run_id, expected=old)
+        self.assertIs(case.runner.mcp_access(run_id), current)
+        current.close.assert_not_called()
+        case.runner.release_mcp(run_id, expected=current)
+        current.close.assert_called_once()

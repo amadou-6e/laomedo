@@ -37,7 +37,8 @@ registration reference is transient admission, verified against that manifest an
 excluded from semantic request hashes. Native bearer capabilities remain in
 host-private state/configuration and are never upstream server credentials.
 Resume requires the same frozen manifest with fresh live registration. Status and
-cancel do not materialize upstream nodes. No MCP preserves existing behavior.
+cancel skip registration, but preventing upstream graph discovery is an open
+acceptance blocker. No MCP preserves existing behavior.
 
 Use the existing trusted single-user deployment only. Default to loopback; refuse
 wildcard bind addresses. An explicit Docker-reachable private interface may be

@@ -127,6 +127,7 @@ class BaseAgent(ABC):
         self.request_lock = threading.Lock()
         self.cancel_flags = {}
         self._mcp_access = {}
+        self._mcp_lock = threading.Lock()
 
     def mcp_access(self, run_id):
         """Return only in-memory admitted external access, never reconstruct a grant."""
@@ -157,9 +158,12 @@ class BaseAgent(ABC):
                 raise RunnerError(exc.code) from None
         return access
 
-    def release_mcp(self, run_id):
+    def release_mcp(self, run_id, *, expected=None):
         """Revoke an attempt's external access without masking native cleanup errors."""
-        access = getattr(self, "_mcp_access", {}).pop(run_id, None)
+        with self._mcp_lock:
+            if expected is not None and self.mcp_access(run_id) is not expected:
+                return
+            access = self._mcp_access.pop(run_id, None)
         if access:
             try:
                 access.close()
@@ -197,12 +201,14 @@ class BaseAgent(ABC):
         saved = self.status(run_id).get("mcp_manifest")
         if (manifest.model_dump(mode="json") if manifest else None) != saved:
             raise RunnerError("mcp_resume_binding_mismatch")
-        access = self._admit_mcp(request)
-        if access:
+        with self._mcp_lock:
             if self.mcp_access(run_id) is not None:
                 raise RunnerError("mcp_run_already_bound")
-            access.claim(run_id)
-            self._mcp_access[run_id] = access
+            access = self._admit_mcp(request)
+            if access:
+                access.claim(run_id)
+                self._mcp_access[run_id] = access
+            return access
 
     @property
     def credentials(self):
