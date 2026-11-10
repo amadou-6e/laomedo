@@ -75,13 +75,22 @@ changing them is a separate behavioral task.
 
 ## Unified Docker dispatch
 
-All Laomedo container client construction, interactive launches, one-shot jobs,
-in-container commands and exact receipt recovery now route through
+Provider paths using the Python Docker SDK route client construction, interactive
+launches, one-shot jobs, in-container commands and exact receipt recovery through
 `DockerRuntime` in `src/laomedo/docker.py`.
 This includes controller and worker execution, authentication/profile setup,
-model discovery, offline history export, preflight, interrupted-run recovery and independent lease-supervisor cleanup.
-The architecture check scans every Laomedo source file, so a new provider cannot
-bypass this boundary with a native Client import or direct dispatch/recovery call.
+model discovery, OpenCode offline history, preflight, interrupted-run recovery
+and independent lease-supervisor cleanup.
+The architecture check scans every Laomedo source file for native Client imports
+and direct SDK dispatch/recovery calls. It does not prove the absence of indirect
+aliases or Docker CLI subprocesses.
+
+Codex `activity/rollout_export.py` still launches three Docker CLI jobs for its
+selected native history export. It uses local-only image lookup (`--pull=never`)
+but does not use shared receipts or pin the daemon with `--host`. Outside Agents,
+`work_graph/docker_stage.py` and host publication bundle staging/ownership also
+retain their own Docker CLI operations. These paths remain migration work;
+the current extraction is not complete consolidation of all Docker handling.
 
 | Operation | Shared entry point | Ownership |
 | --- | --- | --- |
@@ -162,8 +171,9 @@ does not resolve or authorize behavioral changes to any of these questions.
 
 ## Completion checks
 
-- [x] All agent and worker container launch/close/recovery dispatch paths use
-      shared mechanisms. Native SDK image/volume/inspection policy stays explicit.
+- [ ] All agent and worker container launch/close/recovery dispatch paths use
+      shared mechanisms. Codex native rollout export still bypasses this owner.
+      Native SDK image/volume/inspection policy stays explicit.
 - [ ] Existing endpoint, image, deadline, output, receipt and error semantics hold.
 - [ ] Partial startup, cancellation, uncertain cleanup and recovery are covered.
 - [ ] Provider resource ordering and thread ownership are explicit.
@@ -171,5 +181,6 @@ does not resolve or authorize behavioral changes to any of these questions.
       do not check this box.
 
 Unified Docker dispatch does not establish real-provider acceptance or complete
-the other four boundary contracts. The earlier architecture review returned REVISE; replacement
-implementation needs its own review.
+the other four boundary contracts. The shared SDK dispatch implementation was
+reviewed separately from image acquisition. Neither review establishes full
+provider acceptance or resolves the remaining CLI migrations and runtime contracts.
