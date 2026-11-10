@@ -99,6 +99,17 @@ and representations. A diagnostic payload's `status=ready` never overrides the
 provider's narrower typed conclusion. Cleanup errors cannot produce a ready
 result. Process health and model discovery remain independent observations.
 
+## Agent interaction
+
+The public interaction owner is the existing Python abstract `BaseAgent`:
+`start`, `start_async`, `resume`, `status`, `cancel` and `lookup_request`.
+All providers declare the same resume parameters. Complete request/record
+payloads and provider finalization stay intact; cancellation is an observation,
+not guaranteed termination. Claude alone supports per-run timeout overrides;
+Codex/OpenCode refuse non-None overrides before dispatch. See
+[the complete contract and caller examples](agent-interaction.md).
+This change does not align native runtime internals or the separate Activity API.
+
 ## Container ownership
 
 `DockerRuntime` in `src/laomedo/docker.py` delegates to py-docker.

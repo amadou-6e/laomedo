@@ -117,16 +117,18 @@ class OpenCodeAgent(BaseAgent):
 
     def resume(
         self,
-        run_id,
-        task,
+        run_id: str,
+        task: str,
         *,
-        expected_post_run_hash,
-        expected_thread_id,
-        model,
-        effort,
-        activity_attempt_id=None,
-    ):
+        expected_post_run_hash: str,
+        expected_thread_id: str,
+        model: str,
+        effort: str,
+        activity_attempt_id: str | None = None,
+        run_timeout_seconds: int | None = None,
+    ) -> dict:
         """Admit an existing session/workspace binding before continuing it; failures never create a fresh session."""
+        self._validate_run_timeout(run_timeout_seconds)
         self._validate_provider(model, effort)
         record = self.status(run_id)
         if (
@@ -158,7 +160,7 @@ class OpenCodeAgent(BaseAgent):
             run_id, task, resume=True, activity_attempt_id=activity_attempt_id
         )
 
-    def cancel(self, run_id):
+    def cancel(self, run_id: str) -> dict:
         """Request cancellation of the selected existing run; acknowledgement does not establish native cleanup."""
         record = self.status(run_id)
         if record["status"] == "prepared":
@@ -240,6 +242,7 @@ class OpenCodeAgent(BaseAgent):
         """Validate the request and persist its prepared identity/workspace binding before native dispatch."""
         if not isinstance(request, dict):
             raise RunnerError("invalid_request")
+        self._validate_run_timeout(request.get("run_timeout_seconds"))
         self._validate_provider(request.get("model"), request.get("effort"))
         if self.transport_factory is None:
             raise RunnerError("opencode_isolated_transport_required")

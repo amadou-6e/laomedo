@@ -195,6 +195,7 @@ RUNNER_FAILURE_CODES = frozenset(
         "resume_provider_binding_mismatch",
         "run_not_active_in_this_process",
         "run_not_dispatchable",
+        "run_timeout_not_supported",
         "runner_busy",
         "runner_docker_check_unconfirmed",
         "runner_transport_failed",

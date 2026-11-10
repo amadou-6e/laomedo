@@ -51,6 +51,8 @@ from laomedo.agents.agents.claude.auth.settings import Settings
 class ClaudeAgent(BaseAgent):
     """Own Claude admission, native turn orchestration and durable run finalization."""
 
+    _supports_run_timeout = True
+
     credential_type = ClaudeCredentialProvider
     catalog_type = ClaudeModelCatalog
 
@@ -167,16 +169,16 @@ class ClaudeAgent(BaseAgent):
 
     def resume(
         self,
-        run_id,
-        task,
+        run_id: str,
+        task: str,
         *,
-        expected_post_run_hash,
-        expected_thread_id,
-        model,
-        effort,
-        activity_attempt_id=None,
-        run_timeout_seconds=None,
-    ):
+        expected_post_run_hash: str,
+        expected_thread_id: str,
+        model: str,
+        effort: str,
+        activity_attempt_id: str | None = None,
+        run_timeout_seconds: int | None = None,
+    ) -> dict:
         """Admit an existing session/workspace binding before continuing it; failures never create a fresh session."""
         if run_timeout_seconds is not None and (
             type(run_timeout_seconds) is not int
@@ -226,7 +228,7 @@ class ClaudeAgent(BaseAgent):
             run_timeout_seconds=run_timeout_seconds,
         )
 
-    def cancel(self, run_id):
+    def cancel(self, run_id: str) -> dict:
         """Request cancellation of the selected existing run; acknowledgement does not establish native cleanup."""
         with self.control_lock:
             record = self.status(run_id)

@@ -50,6 +50,22 @@ it must not import concrete providers or their credential implementations.
 These are public identity metadata, never login material. `settings.py` owns
 shared bounds. `acp/` owns protocol communication; native policy stays local.
 
+## Agent interaction
+
+`BaseAgent` declares the complete run-oriented interaction methods: `start`,
+`start_async`, `resume`, `status`, `cancel` and `lookup_request`. Providers use
+shared durable admission and observations; their resume implementations retain
+native binding checks. `start_async` is a background-thread method, not a
+coroutine. Requests and returned full records keep their current dictionary
+payloads. Cancellation request and final confirmation remain distinct.
+
+`resume` explicitly declares run/task, expected snapshot hash/thread ID,
+model/effort, optional activity capture ID and optional run timeout. Claude
+supports timeout overrides; Codex/OpenCode reject a non-None override before
+native dispatch in fresh/resume paths, including HTTP admission. No public
+session object or close method bypasses provider finalization. See the
+[full contract and examples](../../../../../docs/architecture/agent-interaction.md).
+
 ## Execution readiness
 
 `BaseAgent.readiness() -> ReadinessObservation` is the Python abstract boundary.

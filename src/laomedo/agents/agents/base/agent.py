@@ -64,6 +64,8 @@ from laomedo.agents.agents.base.settings import ROLE_INIT_LOCK
 class BaseAgent(ABC):
     """Template-method lifecycle; concrete providers own protocol and runtime policy."""
 
+    _supports_run_timeout = False
+
     def __init__(
         self,
         state: Path,
@@ -176,12 +178,28 @@ class BaseAgent(ABC):
         """Report this provider's readiness and isolation checks."""
 
     @abstractmethod
-    def resume(self, run_id, task, **binding) -> dict:
+    def resume(
+        self,
+        run_id: str,
+        task: str,
+        *,
+        expected_post_run_hash: str,
+        expected_thread_id: str,
+        model: str,
+        effort: str,
+        activity_attempt_id: str | None = None,
+        run_timeout_seconds: int | None = None,
+    ) -> dict:
         """Validate the provider binding before resuming its existing execution."""
 
     @abstractmethod
     def readiness(self) -> ReadinessObservation:
         """Check scoped execution availability without inference; explain blocked/unknown results."""
+
+    def _validate_run_timeout(self, value) -> None:
+        """Refuse an unsupported override before allocating or dispatching a turn."""
+        if value is not None and not self._supports_run_timeout:
+            raise RunnerError("run_timeout_not_supported")
 
     def _observe_readiness(
         self, *, ready_on_success: bool | None, unverified_reason: str | None = None
@@ -224,6 +242,7 @@ class BaseAgent(ABC):
 
     def prepare_resume(self, run_id, body):
         """Validate provider extensions and refresh authentication before HTTP resume."""
+        self._validate_run_timeout(body.get("run_timeout_seconds"))
         self._mirror_host_login()
         return {}
 
@@ -310,7 +329,9 @@ class BaseAgent(ABC):
             raise
         return self._execute(record["run_id"], request["task"], resume=False)
 
-    def start_async(self, request: dict, *, response_gate=None) -> dict:
+    def start_async(
+        self, request: dict, *, response_gate: threading.Event | None = None
+    ) -> dict:
         """Reserve one request identity, then run only after the HTTP reply."""
         if not isinstance(request, dict):
             raise RunnerError("invalid_request")
@@ -513,6 +534,7 @@ class BaseAgent(ABC):
         """Validate the request and persist its prepared identity/workspace binding before native dispatch."""
         if not isinstance(request, dict):
             raise RunnerError("invalid_request")
+        self._validate_run_timeout(request.get("run_timeout_seconds"))
         task = request.get("task")
         if not isinstance(task, str) or not task.strip() or len(task) > 16000:
             raise RunnerError("invalid_task")

@@ -1,4 +1,9 @@
 {
+  "run_timeout_not_supported": {
+    "title": "This provider does not support a per-run timeout override",
+    "description": "The requested timeout override was refused before model dispatch.",
+    "recovery": "Remove run_timeout_seconds from this request, or use a provider that supports the override. No model turn was submitted by this refusal."
+  },
   "authentication_not_verified": {
     "title": "Execution authentication is unverified",
     "description": "The protocol and permission checks passed, but they did not verify authenticated session creation.",

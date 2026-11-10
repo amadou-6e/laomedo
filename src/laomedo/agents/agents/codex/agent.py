@@ -259,8 +259,10 @@ class CodexAgent(BaseAgent):
         model: str,
         effort: str,
         activity_attempt_id: str | None = None,
+        run_timeout_seconds: int | None = None,
     ) -> dict:
         """Admit an existing session/workspace binding before continuing it; failures never create a fresh session."""
+        self._validate_run_timeout(run_timeout_seconds)
         record = self.status(run_id)
         if (
             self.publication_controller is not None
