@@ -1,0 +1,250 @@
+"""Scoped real-provider acceptance; no credentials or raw native output in evidence."""
+
+import argparse
+import asyncio
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+import tempfile
+import time
+from uuid import uuid4
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--implementation", type=Path, required=True)
+    parser.add_argument("--execute", action="store_true")
+    parser.add_argument("--open-session", action="store_true")
+    parser.add_argument("--max-prompts", type=int, default=1, choices=(1, 2, 3))
+    args = parser.parse_args()
+    sys.path.insert(0, str(args.implementation / "src"))
+    from laomedo.agents.agents.codex.agent import CodexAgent
+    from laomedo.agents.errors import RunnerError
+
+    with tempfile.TemporaryDirectory(prefix="laomedo-docker-acceptance-") as temporary:
+        root = Path(temporary)
+        repository = root / "repository"
+        source = repository / "source"
+        source.mkdir(parents=True)
+        subprocess.run(["git", "init", "--quiet", str(repository)], check=True)
+        (source / "task.txt").write_text("Docker acceptance marker: amber-277.\n")
+        lease = root / "lease"
+        environment = dict(os.environ, PYTHONPATH=str(args.implementation / "src"))
+        log = (root / "supervisor.log").open("wb")
+        supervisor = subprocess.Popen(
+            [
+                sys.executable,
+                "-m",
+                "laomedo.host.leases.service_cli",
+                "serve",
+                "--state",
+                str(lease),
+            ],
+            env=environment,
+            stdout=log,
+            stderr=log,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+        try:
+            deadline = time.monotonic() + 20
+            while not (lease / "service.json").exists():
+                if supervisor.poll() is not None or time.monotonic() > deadline:
+                    raise RuntimeError("lease_service_start_failed")
+                time.sleep(0.1)
+            agent = CodexAgent(
+                root / "runner", root / "registry", source, lease_service=lease
+            )
+            print(
+                json.dumps(
+                    {
+                        "stage": "admission",
+                        "provider": "codex",
+                        "image_id": agent.image_id,
+                    }
+                ),
+                flush=True,
+            )
+            catalog = agent.model_catalog(refresh=True)
+            models = catalog["models"]
+            print(
+                json.dumps(
+                    {
+                        "stage": "discovery",
+                        "provider": "codex",
+                        "model_count": len(models),
+                    }
+                ),
+                flush=True,
+            )
+            if not args.execute and not args.open_session:
+                return
+            selected = next((m for m in models if "gpt-5" in m["id"]), models[0])
+            model = selected["id"]
+            efforts = selected.get("efforts", [])
+            effort = (
+                "low" if "low" in efforts else (efforts[0] if efforts else "default")
+            )
+            if args.open_session:
+                asyncio.run(check_session(agent, model, effort))
+                return
+            first = agent.start(
+                {
+                    "task": "Read task.txt and reply with only the acceptance marker. Do not edit files or delegate.",
+                    "model": model,
+                    "effort": effort,
+                }
+            )
+            print(
+                json.dumps(
+                    {
+                        "stage": "fresh",
+                        "status": first["status"],
+                        "error": first.get("error_category"),
+                        "answer_ok": "amber-277" in (first.get("answer") or ""),
+                        "model": model,
+                    }
+                ),
+                flush=True,
+            )
+            if first["status"] != "completed" or args.max_prompts < 2:
+                return
+            second = agent.resume(
+                first["run_id"],
+                "What marker did you just read? Reply with only that marker. Do not use tools or delegate.",
+                expected_post_run_hash=first["post_run_hash"],
+                expected_thread_id=first["thread_id"],
+                model=model,
+                effort=effort,
+            )
+            print(
+                json.dumps(
+                    {
+                        "stage": "resume",
+                        "status": second["status"],
+                        "error": second.get("error_category"),
+                        "thread_preserved": second.get("thread_id")
+                        == first["thread_id"],
+                        "answer_ok": "amber-277" in (second.get("answer") or ""),
+                    }
+                ),
+                flush=True,
+            )
+            if args.max_prompts < 3:
+                return
+            pending = agent.start_async(
+                {
+                    "request_id": str(uuid4()),
+                    "task": "Use a shell command to sleep for 45 seconds, then reply done. Do not edit files or delegate.",
+                    "model": model,
+                    "effort": effort,
+                }
+            )
+            run_id = pending["run_id"]
+            deadline = time.monotonic() + 60
+            while time.monotonic() < deadline:
+                state = agent.status(run_id)
+                receipts = list(
+                    (root / "runner" / "runs" / run_id).rglob("*receipt*.json")
+                )
+                if state["status"] == "running" and receipts:
+                    break
+                if state["status"] in {"completed", "failed", "cancelled"}:
+                    break
+                time.sleep(0.1)
+            agent.cancel(run_id)
+            deadline = time.monotonic() + 90
+            while time.monotonic() < deadline:
+                state = agent.status(run_id)
+                if state["status"] in {"completed", "failed", "cancelled"}:
+                    break
+                time.sleep(0.2)
+            print(
+                json.dumps(
+                    {
+                        "stage": "cancel",
+                        "status": state["status"],
+                        "requested": state.get("cancel_requested"),
+                        "confirmed": state.get("cancel_confirmed"),
+                        "error": state.get("error_category"),
+                    }
+                ),
+                flush=True,
+            )
+        except RunnerError as error:
+            print(
+                json.dumps(
+                    {"stage": "blocked", "provider": "codex", "code": error.code}
+                ),
+                flush=True,
+            )
+        finally:
+            supervisor.terminate()
+            supervisor.wait(timeout=15)
+            log.close()
+
+
+async def check_session(agent, model, effort):
+    from laomedo.agents.agents.base.acp.session import AcpSession
+    from laomedo.agents.errors import RunnerError
+
+    original = AcpSession._request
+
+    async def observed(self, request, method, seconds):
+        try:
+            return await original(self, request, method, seconds)
+        except RunnerError as error:
+            cause = error.__context__
+            print(
+                json.dumps(
+                    {
+                        "stage": "rpc_failure",
+                        "method": method,
+                        "code": error.code,
+                        "cause_type": type(cause).__name__,
+                        "rpc_code": getattr(cause, "code", None),
+                        "diagnostic_terms": [
+                            term
+                            for term in (
+                                "auth",
+                                "login",
+                                "permission denied",
+                                "read-only",
+                                "no such file",
+                                "spawn",
+                                "invalid",
+                                "model",
+                                "sandbox",
+                                "config",
+                                "thread/start",
+                                "unsupported",
+                                "deserialize",
+                                "environment",
+                                "token",
+                            )
+                            if term in str(cause).lower()
+                        ],
+                    }
+                ),
+                flush=True,
+            )
+            raise
+
+    AcpSession._request = observed
+    record = agent._prepare(
+        {"task": "No prompt: session setup only.", "model": model, "effort": effort}
+    )
+    root = agent._run_dir(record["run_id"])
+    runtime = agent._open_server(root, lifetime_seconds=120)
+    try:
+        await runtime.initialize()
+        print(json.dumps({"stage": "session_initialize", "ok": True}), flush=True)
+        await runtime.open(record, resume=False)
+        print(json.dumps({"stage": "session_open", "ok": True}), flush=True)
+    finally:
+        await runtime.shutdown()
+
+
+if __name__ == "__main__":
+    main()
