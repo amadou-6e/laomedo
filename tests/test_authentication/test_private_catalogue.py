@@ -31,9 +31,14 @@ class PrivateAdmissionCatalogueTests(unittest.TestCase):
                     ):
                         codes.add(node.value)
         self.assertTrue(codes)
-        from laomedo.github.connections.errors import GitHubOAuthError
+        from laomedo.github.connections.errors import (
+            GitHubConnectionChanged,
+            GitHubConnectionError,
+            GitHubOAuthError,
+        )
 
         codes.add(GitHubOAuthError.code)
+        codes.update((GitHubConnectionError.code, GitHubConnectionChanged.code))
         for code in codes:
             with self.subTest(code=code):
                 self.assertIn(code, catalogue)

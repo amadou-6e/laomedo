@@ -17,3 +17,31 @@ class GitHubOAuthError(RuntimeError):
     def __reduce__(self):
         """Restore the fixed safe outcome without provider response arguments."""
         return type(self), ()
+
+
+class GitHubConnectionError(RuntimeError):
+    """Private connection persistence is unavailable or its outcome is unconfirmed.
+
+    Callers must keep private access locked and preserve custody cleanup records.
+    Database paths, provider diagnostics and credentials are never arguments.
+    """
+
+    code = "github_connection_unavailable"
+
+    def __init__(self):
+        """Expose only the fixed, safe connection outcome."""
+        super().__init__(self.code)
+
+    def __reduce__(self):
+        """Preserve the fixed no-argument outcome across serialization."""
+        return type(self), ()
+
+
+class GitHubConnectionChanged(GitHubConnectionError):
+    """An owner or generation check refused stale admission without changing it.
+
+    A ready connection may still exist; this does not authorize another account,
+    a replayed refresh, or automatic replacement of its current credential.
+    """
+
+    code = "github_connection_changed"

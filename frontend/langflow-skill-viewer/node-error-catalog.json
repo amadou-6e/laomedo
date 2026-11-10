@@ -1919,6 +1919,16 @@
     "description": "The app could not confirm this GitHub authorization or credential renewal. Your previous connection has not been replaced by this attempt.",
     "recovery": "Open the connection manager and start a new sign-in. An uncertain renewal requires reconnecting; it is not safe to replay the previous exchange."
   },
+  "github_connection_unavailable": {
+    "title": "The GitHub connection could not be confirmed",
+    "description": "The app could not verify or save its private connection state. Private content stays locked.",
+    "recovery": "Check the local app and retry the connection manager read. Preserve the runtime folder; do not delete state or reuse an uncertain authorization exchange."
+  },
+  "github_connection_changed": {
+    "title": "This GitHub connection has changed",
+    "description": "The selected connection no longer matches the owner or generation checked by this request.",
+    "recovery": "Reload the connection manager and select the current connection. Reconnect if required; a stale request cannot replace or reopen it."
+  },
   "profile_pin_invalid": {
     "title": "Use a six-digit PIN",
     "description": "This profile uses a PIN of exactly six digits.",

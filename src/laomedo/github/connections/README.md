@@ -34,3 +34,16 @@ These protocol objects alone authorize no private read, expose no HTTP route and
 make no ready-connection claim. Pending owner/lease binding, journal transactions,
 principal/repository verification, consent and response-generation checks must be
 composed by the connection service before live credentials are accepted.
+
+`journal.py` defines `GitHubConnectionJournal`, the private SQLite authority.
+`reserve_secret` durably records an opaque provisional vault target before any
+secret write. `save_app` retains immutable app configuration versions for ready
+connections. `commit_connection` atomically checks owner/generation, activates a
+verified replacement and retires its old credential. `begin_refresh` first fences
+the current generation into reauthorization-required; an uncertain exchange stays
+there after restart. `disconnect` commits revocation before any vault deletion.
+`cleanup_references` lists only inactive broker-owned targets; `finish_cleanup`
+records independently confirmed absence. `current` is the synchronous generation
+check used while holding the browser response/commit policy lock.
+`get`, `list` and `app` are owner-filtered metadata reads. They do not load secrets
+or prove current GitHub access. All database values exclude credentials and codes.

@@ -3,6 +3,7 @@
 import json
 from math import isfinite
 from typing import Literal
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, model_validator
 
@@ -139,3 +140,97 @@ class GitHubConnectionCredential(BaseModel):
     def from_vault_value(cls, value: SecretStr):
         """Reconstruct an explicitly authorized vault record without logging its text."""
         return cls.model_validate_json(value.get_secret_value())
+
+
+class GitHubPrincipal(BaseModel):
+    """Stable GitHub account identity verified with the selected credential."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid", hide_input_in_errors=True)
+    id: int = Field(strict=True, gt=0, description="Immutable numeric GitHub user ID.")
+    login: str = Field(
+        strict=True,
+        min_length=1,
+        max_length=100,
+        description="Current GitHub account display login.",
+    )
+
+
+class GitHubConsentedRepository(BaseModel):
+    """Repository identity admitted to explicit read consent, never write authority."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid", hide_input_in_errors=True)
+    id: int = Field(strict=True, gt=0, description="Immutable numeric repository ID.")
+    full_name: str = Field(
+        strict=True,
+        pattern=r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$",
+        description="Verified current owner/name, without a URL.",
+    )
+    private: bool = Field(strict=True, description="Provider-reported visibility flag.")
+
+
+class GitHubAppRecord(BaseModel):
+    """Immutable non-secret app version; old connections retain their own version."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid", hide_input_in_errors=True)
+    id: UUID = Field(description="Broker-generated immutable app configuration ID.")
+    owner_id: UUID = Field(description="Authenticated local profile owning this setup.")
+    client_id: str = Field(
+        strict=True, min_length=1, description="Configured app client ID."
+    )
+    slug: str = Field(
+        strict=True,
+        pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$",
+        description="Configured GitHub App installation slug.",
+    )
+    secret_reference: UUID = Field(
+        exclude=True,
+        repr=False,
+        description="Internal native-vault target, never public.",
+    )
+
+
+class GitHubConnectionRecord(BaseModel):
+    """Non-secret current authority and its internal, separately held custody target."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid", hide_input_in_errors=True)
+    id: UUID = Field(description="Opaque broker-generated connection reference.")
+    owner_id: UUID = Field(description="Upstream-verified local profile owner.")
+    generation: int = Field(strict=True, ge=1, description="Monotonic admission fence.")
+    mode: Literal["browser", "token"] = Field(description="Deliberate connection mode.")
+    principal: GitHubPrincipal = Field(description="Verified stable GitHub account.")
+    repositories: tuple[GitHubConsentedRepository, ...] = Field(
+        description="Explicitly consented repository identities, not all visible repos."
+    )
+    state: Literal["ready", "reauthorization_required", "revoked"] = Field(
+        description="Durable local admission state; not proof of remote revocation."
+    )
+    app_id: UUID | None = Field(
+        default=None, description="Immutable app version used by browser refresh."
+    )
+    access_expires_at: float | None = Field(
+        default=None,
+        allow_inf_nan=False,
+        description="Verified access expiry, if known.",
+    )
+    refresh_expires_at: float | None = Field(
+        default=None,
+        allow_inf_nan=False,
+        description="Verified refresh expiry, if known.",
+    )
+    secret_reference: UUID = Field(
+        exclude=True,
+        repr=False,
+        description="Internal native-vault target, never public.",
+    )
+
+
+class GitHubSecretReference(BaseModel):
+    """Journaled custody responsibility containing no credential value."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    id: UUID = Field(description="Exact broker-generated vault target UUID.")
+    owner_id: UUID = Field(
+        description="Authenticated local profile responsible for cleanup."
+    )
+    purpose: Literal["app", "connection"] = Field(description="Owning secret concern.")
+    resource_id: UUID = Field(description="App configuration or connection UUID.")
