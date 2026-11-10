@@ -20,7 +20,14 @@ export default function useProfileSessionActions() {
 	const [checking, setChecking] = useState(false);
 	const [intent, setIntent] = useState<"switch" | "logout">("switch");
 	const { clearAuthSession, userData } = useContext(AuthContext);
-	const { mutate, isPending } = useLogout();
+	const { mutate, isPending } = useLogout({
+		onSettled: (_data, error) => {
+			// Upstream success clears stores and can unmount this menu before
+			// per-call callbacks run. The mutation lifecycle must still broadcast.
+			if (error) setOpen(true);
+			else finish();
+		},
+	});
 	useEffect(() => {
 		let current = true;
 		profileMode()
@@ -43,10 +50,7 @@ export default function useProfileSessionActions() {
 	function signOut(next: "switch" | "logout") {
 		setIntent(next);
 		setOpen(true);
-		mutate(undefined, {
-			onSuccess: finish,
-			onError: () => setOpen(true),
-		});
+		mutate(undefined);
 	}
 	async function check() {
 		setChecking(true);

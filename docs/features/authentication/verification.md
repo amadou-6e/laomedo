@@ -95,3 +95,23 @@ is being repeated with Node 22.23.3. No profile or PIN was created in this check
 Reviewer status: the new tracking fix is fully unreviewed — reviewer pending.
 The earlier backend approval at `ad30ec7` does not cover this fix, later UI changes
 or real browser acceptance. This checkpoint does not establish merge readiness.
+
+The later real-browser switching check exposed a cross-tab logout race. Upstream
+logout clears authentication/query stores, which can unmount the account menu
+before its per-call mutation callbacks run. The source tab reached the picker,
+but the other tab did not receive the intended context-change notification.
+The fix puts the final broadcast/document reset in the mutation's `onSettled`
+lifecycle callback, retaining upstream cleanup and failure recovery. This new
+delta is fully unreviewed — reviewer pending; fresh build and two-tab recheck
+remain required. The earlier scoped review at `7bfeffb0` was INCOMPLETE, with no
+confirmed code defect; it did not establish actual switching acceptance.
+
+The fresh two-tab recheck passes after the lifecycle correction: actual profile
+creation/login, browser restart restoration, injected logout-network failure with
+current-profile recovery, and successful switching all work. The second tab now
+replaces its document and reaches the picker. Four incorrect PIN requests return
+401, followed by an actual upstream 429; the UI clears the PIN, disables entry
+and displays the server's 60-second delay. These use disposable QA profiles, not
+the owner's PIN. The corrected production frontend builds successfully. The
+full TypeScript check still reports 652 lines of existing diagnostics, with none
+in the profile files; this is not a passing project-wide type check.
