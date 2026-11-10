@@ -5,8 +5,8 @@ No runner/provider credentials are used by this route.
 """
 
 from pathlib import Path
-from laomedo.skills.inspection.errors import InspectionError
-from laomedo.skills.inspection.utils import inspect_skill
+from laomedo.skills.registry.errors import InspectionError
+from laomedo.skills.registry.utils.inspection import inspect_skill
 from laomedo.integrations.langflow.settings import Settings
 
 
@@ -175,7 +175,7 @@ def install_routes(app, root: Path, authenticate):
             if (
                 type(payload["pr_number"]) is not int
                 or not 0 < payload["pr_number"] <= 2**53 - 1
-                or payload["state"] not in {"open", "closed", "all"}
+                or payload["state"] not in {"open", "closed", "merged", "all"}
             ):
                 raise ValueError("selected_pr_invalid")
             result = await run_in_threadpool(

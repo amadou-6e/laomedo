@@ -48,6 +48,14 @@ class SettingsContractTests(unittest.TestCase):
             self.assertIsNone(cls.model_config["env_file"])
             self.assertIsNone(cls.model_config["secrets_dir"])
             self.assertFalse(cls.model_config["enable_decoding"])
+            if module.__name__ == "laomedo.integrations.langflow.launch.settings":
+                # New CLI-only settings deliberately use required typed paths and
+                # an integer port, rather than the legacy raw-string env contract.
+                # test_langflow/test_app_launch.py protects their source rules.
+                self.assertTrue(cls.model_config["frozen"])
+                for field in cls.model_fields.values():
+                    self.assertTrue(field.description)
+                continue
             for name, field in cls.model_fields.items():
                 with self.subTest(module=module.__name__, field=name):
                     alias = field.validation_alias
@@ -155,7 +163,7 @@ class SettingsContractTests(unittest.TestCase):
         }
         for relative, expression in protected.items():
             self.assertIn(expression, (SOURCE / relative).read_text(), relative)
-        helper = (SOURCE / "git/credentials/helper.py").read_text()
+        helper = (SOURCE / "git/credential_helper.py").read_text()
         self.assertIn('os.environ.get("LAOMEDO_MEDIATED_GIT_TOKEN", "")', helper)
         self.assertNotIn("pydantic", helper)
         self.assertNotIn("import laomedo", helper)

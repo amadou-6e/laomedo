@@ -15,6 +15,119 @@ def replace_once(source, old, new):
     return source.replace(old, new)
 
 
+def apply_pr_controls(checkout):
+    """Install PR-only presentation without changing native selector semantics."""
+    overlay = ROOT / "frontend/langflow-skill-viewer/github/pull_requests"
+    frontend = checkout / "src/frontend/src"
+    target = frontend / "CustomNodes/GenericNode/components/RenderInputParameters"
+    for name in (
+        "PRNodeControls.ts",
+        "PRNodeControls.test.tsx",
+        "PRSelectors.test.tsx",
+    ):
+        shutil.copy2(overlay / name, target / name)
+    helper = "@/CustomNodes/GenericNode/components/RenderInputParameters/PRNodeControls"
+    parameter = frontend / "components/core/parameterRenderComponent/index.tsx"
+    source = (
+        f'import {{ prChoicePlaceholder, prFieldTemplate }} from "{helper}";\n'
+        + parameter.read_text(encoding="utf-8")
+    )
+    source = replace_once(
+        source,
+        "  const { t } = useTranslation();",
+        "  templateData = prFieldTemplate(useFlowStore.getState().nodes.find(node => node.id === nodeId)?.data, name, templateData);\n  const { t } = useTranslation();",
+    )
+    source = replace_once(
+        source,
+        "placeholder: skillChoicePlaceholder(",
+        "placeholder: prChoicePlaceholder(useFlowStore.getState().nodes.find(node => node.id === nodeId)?.data, name, skillChoicePlaceholder(",
+    )
+    source = replace_once(
+        source,
+        "name, placeholder || templateData?.placeholder),",
+        "name, placeholder || templateData?.placeholder)),",
+    )
+    parameter.write_text(source, encoding="utf-8")
+    multiselect = (
+        frontend
+        / "components/core/parameterRenderComponent/components/multiselectComponent/index.tsx"
+    )
+    source = (
+        f'import {{ isPRNode, prChoicePlaceholder }} from "{helper}";\nimport useFlowStore from "@/stores/flowStore";\n'
+        + multiselect.read_text(encoding="utf-8")
+    )
+    source = replace_once(source, "  disabled,", "  nodeId,\n  disabled,")
+    source = replace_once(
+        source,
+        "  const { t } = useTranslation();",
+        "  const nodeData = useFlowStore(state => state.nodes.find(node => node.id === nodeId)?.data);\n  const prNode = isPRNode(nodeData);\n  const refreshedOptions = prNode ? defaultOptions : undefined;\n  const { t } = useTranslation();",
+    )
+    source = replace_once(
+        source,
+        ': t("multiselect.chooseOption")}',
+        ': prChoicePlaceholder(nodeData, "labels", t("multiselect.chooseOption"))}',
+    )
+    source = replace_once(source, "  }, [value]);", "  }, [value, refreshedOptions]);")
+    source = replace_once(
+        source,
+        "Object.keys(options).length === 0 && !combobox",
+        "Object.keys(options).length === 0 && !combobox && !prNode",
+    )
+    source = replace_once(
+        source,
+        "          {renderOptionsList()}",
+        "          {renderOptionsList()}\n"
+        '          {prNode && <Button type="button" variant="ghost" className="w-full justify-start" aria-label="Refresh Labels"\n'
+        "            onClick={() => { setOpen(false); handleOnNewValue({ value: treatedValue }, { skipSnapshot: true }); }}>Refresh list</Button>}",
+    )
+    multiselect.write_text(source, encoding="utf-8")
+    dropdown = frontend / "components/core/dropdownComponent/index.tsx"
+    source = f'import {{ isPRNode }} from "{helper}";\n' + dropdown.read_text(
+        encoding="utf-8"
+    )
+    source = replace_once(
+        source,
+        '    if (event.key === "Enter") {',
+        '    if (event.key === "Enter" && !isPRNode(_nodes.find(node => node.id === nodeId)?.data)) {',
+    )
+    dropdown.write_text(source, encoding="utf-8")
+    graph_utils = frontend / "utils/reactflowUtils.ts"
+    source = (
+        f'import {{ isPRFeedbackConnection }} from "{helper}";\n'
+        + graph_utils.read_text(encoding="utf-8")
+    )
+    source = replace_once(
+        source,
+        "        if (!hasLoopComponent) {",
+        "        if (!hasLoopComponent && !isPRFeedbackConnection(connection, nodesArray, edgesArray, scapeJSONParse)) {",
+    )
+    graph_utils.write_text(source, encoding="utf-8")
+    edit_rows = frontend / "modals/editNodeModal/hooks/use-row-data.ts"
+    source = f'import {{ isPRControlHidden }} from "{helper}";\n' + edit_rows.read_text(
+        encoding="utf-8"
+    )
+    source = replace_once(
+        source,
+        "!isSkillControlHidden({ type: nodeType, node: nodeClass }, key) &&",
+        "!isSkillControlHidden({ type: nodeType, node: nodeClass }, key) &&\n          !isPRControlHidden({ type: nodeType, node: nodeClass }, key) &&",
+    )
+    edit_rows.write_text(source, encoding="utf-8")
+    inspection = (
+        frontend
+        / "pages/FlowPage/components/InspectionPanel/components/InspectionPanelFields.tsx"
+    )
+    source = (
+        f'import {{ isPRControlHidden }} from "{helper}";\n'
+        + inspection.read_text(encoding="utf-8")
+    )
+    source = replace_once(
+        source,
+        "if (isSkillControlHidden(data, templateField)) return false;",
+        "if (isSkillControlHidden(data, templateField) || isPRControlHidden(data, templateField)) return false;",
+    )
+    inspection.write_text(source, encoding="utf-8")
+
+
 def apply(checkout):
     checkout = checkout.resolve()
     revision = subprocess.check_output(
@@ -213,6 +326,7 @@ def apply(checkout):
         "        if (isSkillControlHidden(data, templateField)) return false;\n",
     )
     inspection_fields.write_text(source, encoding="utf-8")
+    apply_pr_controls(checkout)
     generic_node = checkout / "src/frontend/src/CustomNodes/GenericNode/index.tsx"
     source = generic_node.read_text(encoding="utf-8")
     source = (

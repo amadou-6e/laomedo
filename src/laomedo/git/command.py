@@ -91,7 +91,7 @@ class GitCommandRunner:
                 *configuration,
             ]
         if command.credential is not None:
-            helper = Path(__file__).with_name("credentials") / "helper.py"
+            helper = Path(__file__).with_name("credential_helper.py")
             invocation = (
                 "!" + shlex.quote(sys.executable) + " " + shlex.quote(str(helper))
             )

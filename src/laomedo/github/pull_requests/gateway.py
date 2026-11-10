@@ -11,7 +11,7 @@ import json
 from laomedo.github.contract import labels_value
 from laomedo.github.contract import repository_from_url
 from laomedo.github.contract import issue_digest as pr_digest
-from laomedo.github.pull_requests.contract import validate_patch
+from laomedo.github.pull_requests.contract import validate_patch, matches_state
 from laomedo.host.mediation.errors import KnownRejected
 from laomedo.host.mediation.errors import MediationError
 import re
@@ -169,7 +169,7 @@ class GitHubPRGateway:
     def discover(self, repository_url, labels, state="open"):
         repository, transport = self._transport(repository_url)
         labels = labels_value(labels)
-        if state not in {"open", "closed", "all"}:
+        if state not in {"open", "closed", "merged", "all"}:
             raise ValueError("pr_state_invalid")
         available = labels_value(
             [item["name"] for item in transport(repository, "label_list", {})["items"]]
@@ -188,6 +188,7 @@ class GitHubPRGateway:
                     "title": item["title"],
                 }
                 for item in prs
+                if matches_state(item, state)
             ],
         }
 
@@ -222,7 +223,7 @@ class GitHubPRGateway:
         ):
             raise ValueError("invalid_request")
         if (
-            state not in {"open", "closed", "all"}
+            state not in {"open", "closed", "merged", "all"}
             or type(pr_number) is not int
             or pr_number < 1
         ):
@@ -327,9 +328,7 @@ class GitHubPRGateway:
                     else self._result(None, "unknown", "pr_operation_conflict")
                 )
         pr = transport(repository, "pr_node_read", {"number": pr_number})
-        if not set(labels) <= set(pr["labels"]) or (
-            state != "all" and pr["state"] != state
-        ):
+        if not set(labels) <= set(pr["labels"]) or not matches_state(pr, state):
             raise ValueError("selected_pr_no_longer_matches")
         if operation is None:
             return self._result(pr, "not_requested")

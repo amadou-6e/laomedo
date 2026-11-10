@@ -24,3 +24,15 @@ class ConflictError(SkillStoreError):
     state and the specific code (revision mismatch, busy or interrupted transition)
     before choosing recovery. A blind replay may overwrite another revision.
     """
+
+
+class InspectionError(ValueError):
+    """A skill tree failed bounded, non-executing filesystem inspection.
+
+    ``code`` identifies the unsafe path, unsupported entry or resource limit;
+    no inspected file content is included in the error contract."""
+
+    def __init__(self, code: str):
+        """Retain the stable machine category and exception arguments without formatting external context."""
+        self.code = code
+        super().__init__(code)

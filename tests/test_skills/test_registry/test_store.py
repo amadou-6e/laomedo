@@ -10,9 +10,9 @@ import unittest
 from laomedo.skills.registry.errors import ConflictError
 from laomedo.skills.registry.store import SkillStore
 from laomedo.skills.registry.errors import SkillStoreError
-from laomedo.skills.registry.files import inventory
-from laomedo.skills.registry.hashing import tree_hash
-from laomedo.skills.registry.policy import validate_policy
+from laomedo.skills.registry.utils.files import inventory
+from laomedo.skills.registry.utils.hashing import tree_hash
+from laomedo.skills.registry.utils.policy import validate_policy
 
 BASE = (
     "---\nname: fixture-core\ndescription: Synthetic skill.\n---\n\n"

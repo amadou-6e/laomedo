@@ -19,15 +19,13 @@ Python files, not JavaScript, Markdown, patch payloads, embedded code strings
 or immutable JSON graph/execution exports.
 
 Maintained graph templates still need their embedded component code refreshed
-when the source changes. Preserve graph/run identities and unrelated JSON bytes;
-refresh a recognized component source hash only after confirming its original
-hash matches. The strict source/hash splicer in `tools/migrations/` provides these
-checks. Historical execution exports remain untouched. The saved-flow regression
+when the source changes. Use the maintained builders and current component
+templates. Historical execution exports remain untouched. Template regression
 tests check that maintained templates embed their current component source.
 
 ## Exact historical exceptions
 
-The existing [migration policy](package-layout.md#one-time-migration)
+The [historical evidence policy](package-layout.md#current-examples-and-historical-evidence)
 requires preserving historical execution evidence. A tracked-file audit at
 `4b46032` found the following seven archived experiment sources whose current
 bytes still match SHA-256 values in retained evidence. `force-exclude` protects
