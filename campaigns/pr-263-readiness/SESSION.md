@@ -32,3 +32,6 @@ preserved the stored mixed-case profile names. Screenshots remain outside Git.
 The browser script is visual-recheck.cjs. It is experiment evidence, not a
 production test or complete acceptance. App restart/expiry/bfcache and requesting
 owner inspection remain unfinished. Reviewer V1/V3 focused recheck is pending.
+
+
+V4reviewerfoundadjacentrecoverybuttons. Sourcea0e04a96206803ddcb4954b3309343e84baf2b73 usesexplicitflexcolgap4. Freshpinnedbuildpasses; Edgeallpreviouschecksrepeatedpassplus390create/enterformswithnoPINincaptures. Claude focusedrecheck base db2c43f3/head a0e04a96 APPROVE implementationandcapturedvisualstates;V1-V4verifiedfixed,N1upstreamautoLogin guardresolved. No furtherV1-V4rechecksrequired. Apprestart/expiry/bfcache/ownerinspectionremainopen; nooverallreadyclaim.

@@ -72,5 +72,11 @@ const out = path.join(process.cwd(), '.tools/pr-readiness');
     await page.setViewportSize({ width: 390, height: 844 });
     await page.screenshot({ path: path.join(out, '263-picker-narrow.png'), fullPage: false });
     console.log(JSON.stringify({ phase: 'narrow-picker', exactMixedCaseName: true, width: 390 }));
+    await page.getByRole('button', { name: /^create another profile$/i }).click();
+    await page.screenshot({ path: path.join(out, '263-create-narrow.png'), fullPage: false });
+    await page.getByRole('button', { name: /^back to profiles$/i }).click();
+    await page.getByRole('button', { name, exact: true }).click();
+    await page.screenshot({ path: path.join(out, '263-enter-narrow.png'), fullPage: false });
+    console.log(JSON.stringify({ phase: 'narrow-forms', width: 390, pinNotCaptured: true }));
   } finally { await context.close(); }
 })().catch(error => { console.error(error.message); process.exit(1); });
