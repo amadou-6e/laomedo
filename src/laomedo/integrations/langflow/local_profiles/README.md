@@ -49,6 +49,12 @@ registration, switching, restoration or recovery user stories.
 - `LocalProfileBoundary` validates exact browser entry origin/host and refuses
   unsupported direct identity mutations. `routes.py` is function-only composition.
 
+The frontend installer preserves community links on the empty-flow page. Its
+optional upstream click tracking writes the user record, so the installer checks
+the existing profile-mode capability before tracking: profile mode and an
+unavailable capability skip that write; ordinary mode retains upstream tracking.
+This does not admit any user mutation through the profile boundary.
+
 Forgotten-PIN recovery is intentionally deferred by the owner: entry is blocked,
 but profile data remains preserved. No reset/deletion recovery is offered.
 

@@ -75,10 +75,23 @@ deltas still need review. PR #263 remains draft and unmerged.
 - Actual restoration after browser and app restart; expired login.
 - Concurrent tabs/profile changes, crash recovery, human takeover and scoped cleanup.
 - Existing preview compatibility and final requesting-owner inspection.
-- Native onboarding controls also PATCH user opt-ins. Profile mode currently
-  refuses those mutations with the rest of the users tree. Their visible behavior
-  and persistence need a compatibility decision/check before release; do not
-  weaken the identity guard just to make those requests succeed.
+- Native community links also PATCH user opt-ins for optional click tracking.
+  The readiness fix preserves those links while skipping tracking in profile
+  mode (and when its capability check fails). Ordinary mode retains tracking;
+  the backend still refuses every direct user mutation. A real authenticated
+  click and final rendered review remain required.
 
 Private GitHub access additionally requires #259's revocable private-session
 boundary. It is not delivered by the basic profile UI.
+
+## Readiness checkpoint, 2026-11-10
+
+The tracking compatibility fix passes all 37 authentication tests and the clean
+overlay installer against upstream `fec71dca901949c09ed4d63315804337cd2eb13d`.
+Project-wide Black leaves 763 files unchanged. The system Node 20.11 cannot run
+the installed Vite worker build (`crypto.hash` is unavailable); the isolated build
+is being repeated with Node 22.23.3. No profile or PIN was created in this check.
+
+Reviewer status: the new tracking fix is fully unreviewed — reviewer pending.
+The earlier backend approval at `ad30ec7` does not cover this fix, later UI changes
+or real browser acceptance. This checkpoint does not establish merge readiness.

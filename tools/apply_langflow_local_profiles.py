@@ -121,6 +121,21 @@ def apply_profiles(checkout: Path, source: Path):
         + general_text
     )
     general.write_text(general_text, encoding="utf-8")
+    empty_page = frontend / "pages/MainPage/pages/empty-page.tsx"
+    empty_text = empty_page.read_text(encoding="utf-8")
+    tracking_anchor = "  const handleUserTrack = (key: string) => () => {"
+    if empty_text.count(tracking_anchor) != 1:
+        raise SystemExit("profile_tracking_anchor_missing")
+    empty_text = (
+        'import { profileMode } from "@/components/laomedoProfiles/api";\n'
+        + empty_text.replace(
+            tracking_anchor,
+            "  const handleUserTrack = (key: string) => async () => {\n"
+            "    // Profile mode refuses user-record mutations, including optional tracking.\n"
+            "    if (await profileMode().catch(() => true)) return;",
+        )
+    )
+    empty_page.write_text(empty_text, encoding="utf-8")
     shutil.copytree(source / "profiles", target)
     routes.write_text(text, encoding="utf-8")
     menu.write_text(menu_text, encoding="utf-8")
