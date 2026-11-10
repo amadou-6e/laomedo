@@ -45,3 +45,13 @@ class GitHubConnectionChanged(GitHubConnectionError):
     """
 
     code = "github_connection_changed"
+
+
+class GitHubRepositoryAccessError(GitHubConnectionError):
+    """Current account or repository read access could not be confirmed online.
+
+    A 404 does not establish repository existence or visibility. No stale cache,
+    anonymous fallback, alternate credential or retry permission follows.
+    """
+
+    code = "github_repository_access_unconfirmed"

@@ -10,6 +10,11 @@ GITHUB_TOKEN_URL = "https://github.com/login/oauth/access_token"
 GITHUB_CALLBACK_PATH = "/api/v1/laomedo/github-connections/callback"
 OAUTH_RESPONSE_LIMIT = 65536
 OAUTH_DEADLINE_SECONDS = 30
+GITHUB_API_ORIGIN = "https://api.github.com"
+GITHUB_API_VERSION = "2026-03-10"
+GITHUB_READ_RESPONSE_LIMIT = 8 * 1024 * 1024
+GITHUB_READ_DEADLINE_SECONDS = 60
+GITHUB_REPOSITORY_LIMIT = 1000
 
 
 class GitHubAppSettings(BaseSettings):

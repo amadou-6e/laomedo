@@ -6,6 +6,7 @@ from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, model_validator
+from laomedo.github.connections.settings import GITHUB_REPOSITORY_LIMIT
 
 
 class GitHubOAuthAttempt(BaseModel):
@@ -16,11 +17,15 @@ class GitHubOAuthAttempt(BaseModel):
     state: SecretStr = Field(
         exclude=True,
         repr=False,
+        min_length=32,
+        max_length=128,
         description="Unpredictable pending-request state.",
     )
     verifier: SecretStr = Field(
         exclude=True,
         repr=False,
+        min_length=43,
+        max_length=128,
         description="S256 proof held only by the broker.",
     )
     authorization_url: str = Field(
@@ -155,8 +160,8 @@ class GitHubPrincipal(BaseModel):
     )
 
 
-class GitHubConsentedRepository(BaseModel):
-    """Repository identity admitted to explicit read consent, never write authority."""
+class GitHubRepositoryIdentity(BaseModel):
+    """Verified repository identity; a candidate is not explicit consent or authority."""
 
     model_config = ConfigDict(frozen=True, extra="forbid", hide_input_in_errors=True)
     id: int = Field(strict=True, gt=0, description="Immutable numeric repository ID.")
@@ -198,7 +203,7 @@ class GitHubConnectionRecord(BaseModel):
     generation: int = Field(strict=True, ge=1, description="Monotonic admission fence.")
     mode: Literal["browser", "token"] = Field(description="Deliberate connection mode.")
     principal: GitHubPrincipal = Field(description="Verified stable GitHub account.")
-    repositories: tuple[GitHubConsentedRepository, ...] = Field(
+    repositories: tuple[GitHubRepositoryIdentity, ...] = Field(
         description="Explicitly consented repository identities, not all visible repos."
     )
     state: Literal["ready", "reauthorization_required", "revoked"] = Field(
@@ -223,6 +228,25 @@ class GitHubConnectionRecord(BaseModel):
         description="Internal native-vault target, never public.",
     )
 
+    @model_validator(mode="after")
+    def consistent_authority(self):
+        """Refuse corrupt modes and duplicate consent instead of widening admission."""
+        if len(self.repositories) > GITHUB_REPOSITORY_LIMIT or len(
+            {repo.id for repo in self.repositories}
+        ) != len(self.repositories):
+            raise ValueError("github_connection_invalid")
+        if self.mode == "browser":
+            if (
+                self.app_id is None
+                or self.access_expires_at is None
+                or self.refresh_expires_at is None
+                or not 0 < self.access_expires_at <= self.refresh_expires_at
+            ):
+                raise ValueError("github_connection_invalid")
+        elif self.app_id is not None or self.refresh_expires_at is not None:
+            raise ValueError("github_connection_invalid")
+        return self
+
 
 class GitHubSecretReference(BaseModel):
     """Journaled custody responsibility containing no credential value."""
@@ -234,3 +258,20 @@ class GitHubSecretReference(BaseModel):
     )
     purpose: Literal["app", "connection"] = Field(description="Owning secret concern.")
     resource_id: UUID = Field(description="App configuration or connection UUID.")
+
+
+class GitHubRepositoryInventory(BaseModel):
+    """Verified account and complete bounded candidate list, before read consent."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid", hide_input_in_errors=True)
+    principal: GitHubPrincipal = Field(
+        description="Account verified by this credential."
+    )
+    repositories: tuple[GitHubRepositoryIdentity, ...] = Field(
+        description="Complete bounded visible repository candidates, not read consent."
+    )
+    elapsed_seconds: float = Field(
+        ge=0,
+        allow_inf_nan=False,
+        description="Measured online verification time in seconds.",
+    )

@@ -47,3 +47,13 @@ records independently confirmed absence. `current` is the synchronous generation
 check used while holding the browser response/commit policy lock.
 `get`, `list` and `app` are owner-filtered metadata reads. They do not load secrets
 or prove current GitHub access. All database values exclude credentials and codes.
+
+`client.py` defines `GitHubReadClient`, a bounded GET-only fixed-origin HTTPX2
+client with native TLS trust, no environment proxies, redirects or retries.
+`get` admits only the provider API paths this capability uses and shares one
+total operation deadline across requests. `close` releases its connections.
+`GitHubRepositoryAccess.principal` obtains the actual authenticated user;
+`inventory` enumerates the browser app/user installation intersection or deliberate
+PAT repository candidates, refusing unfinished inventories. `verify` repeats
+principal identity, numeric repository identity and Contents-read admission.
+Inventory is a candidate list, not stored read consent or a write grant.

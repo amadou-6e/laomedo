@@ -1929,6 +1929,11 @@
     "description": "The selected connection no longer matches the owner or generation checked by this request.",
     "recovery": "Reload the connection manager and select the current connection. Reconnect if required; a stale request cannot replace or reopen it."
   },
+  "github_repository_access_unconfirmed": {
+    "title": "GitHub repository access could not be confirmed",
+    "description": "The app could not verify the current account and repository read access online. This does not establish whether the repository exists or is private.",
+    "recovery": "Check the selected connection and its repository access in the connection manager. Reconnect or update repository consent if needed; private files stay locked until verification succeeds."
+  },
   "profile_pin_invalid": {
     "title": "Use a six-digit PIN",
     "description": "This profile uses a PIN of exactly six digits.",

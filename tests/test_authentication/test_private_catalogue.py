@@ -35,10 +35,12 @@ class PrivateAdmissionCatalogueTests(unittest.TestCase):
             GitHubConnectionChanged,
             GitHubConnectionError,
             GitHubOAuthError,
+            GitHubRepositoryAccessError,
         )
 
         codes.add(GitHubOAuthError.code)
         codes.update((GitHubConnectionError.code, GitHubConnectionChanged.code))
+        codes.add(GitHubRepositoryAccessError.code)
         for code in codes:
             with self.subTest(code=code):
                 self.assertIn(code, catalogue)

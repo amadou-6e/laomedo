@@ -13,7 +13,7 @@ from laomedo.github.connections.journal import GitHubConnectionJournal
 from laomedo.github.connections.models import (
     GitHubAppRecord,
     GitHubConnectionRecord,
-    GitHubConsentedRepository,
+    GitHubRepositoryIdentity,
     GitHubPrincipal,
 )
 
@@ -41,7 +41,7 @@ class GitHubConnectionJournalTests(unittest.TestCase):
             mode="token",
             principal=GitHubPrincipal(id=principal, login="synthetic-user"),
             repositories=(
-                GitHubConsentedRepository(
+                GitHubRepositoryIdentity(
                     id=456, full_name="synthetic/private", private=True
                 ),
             ),
