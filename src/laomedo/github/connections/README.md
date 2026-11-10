@@ -96,3 +96,18 @@ transaction as the change. `GitHubResponseBinding` records exactly one owner
 revision, connection result, pending attempt or authorized read. The native
 response guard rechecks this binding while holding the same commit lock as the
 service; private-session readiness alone is never private resource authority.
+
+## Permission proof and source-location changes
+
+GitHub documents [List branches](https://docs.github.com/en/rest/branches/branches#list-branches)
+as requiring Contents read permission for GitHub App user tokens and fine-grained
+PATs (checked 2026-11-10). Public resources are an explicit exception: a successful
+public branch list does not prove that the credential has additional private
+permissions. Each actual private source read still revalidates its selected
+repository and must pass the gated object request. No globally read-only token
+claim follows from this probe.
+
+Current verification also requires the stored repository location to match its
+verified numeric identity. A rename or transfer fails closed and needs deliberate
+reconnection and fresh repository consent. Whether consent should follow these
+changes is awaiting the owner's decision; reviewer finding T1 remains open.
