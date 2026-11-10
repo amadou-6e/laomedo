@@ -24,6 +24,8 @@ from laomedo.integrations.langflow.authentication.models import (
     PrivateBrowserContext,
     PrivateSession,
 )
+from laomedo.github.connections.models import GitHubResponseBinding
+from laomedo.github.connections.errors import GitHubConnectionChanged
 
 
 class PrivateResponseControl:
@@ -37,10 +39,15 @@ class PrivateResponseControl:
         self.started = asyncio.Event()
         self.release = asyncio.Event()
         self.block = False
+        self.binding = GitHubResponseBinding(
+            owner_id=self.context.session.owner_id, revision=0
+        )
 
     async def __call__(self, scope, receive, send):
         if self.context is not None:
             scope.setdefault("state", {})["private_browser_context"] = self.context
+        if self.binding is not None:
+            scope.setdefault("state", {})["github_response_binding"] = self.binding
         response = Response("synthetic-content", status_code=self.status)
         await send(
             {
@@ -69,13 +76,28 @@ class ResponsePolicyControl:
             self.fenced.set()
 
 
+class ResponseResourceControl:
+    """Represent an explicit metadata fence in session-ordering tests only."""
+
+    def revalidate(self, binding, context):
+        if (
+            not isinstance(binding, GitHubResponseBinding)
+            or binding.owner_id != context.session.owner_id
+        ):
+            raise GitHubConnectionChanged()
+
+
 class PrivateResponseBoundaryTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         self.upstream = PrivateResponseControl()
         self.policy = ResponsePolicyControl()
         self.client = AsyncClient(
             transport=ASGITransport(
-                PrivateResponseBoundary(self.upstream, policy=self.policy)
+                PrivateResponseBoundary(
+                    self.upstream,
+                    policy=self.policy,
+                    resource_policy=ResponseResourceControl(),
+                )
             ),
             base_url="http://127.0.0.1:17866",
         )
@@ -87,6 +109,12 @@ class PrivateResponseBoundaryTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status_code, 409)
         self.assertNotIn("synthetic-content", response.text)
         self.policy.revalidate.assert_not_awaited()
+
+    async def test_live_browser_context_alone_is_not_private_resource_authority(self):
+        self.upstream.binding = None
+        response = await self.client.get("/api/v1/laomedo/private-skills/file")
+        self.assertEqual(response.status_code, 409)
+        self.assertNotIn("synthetic-content", response.text)
 
     async def test_logout_or_storage_failure_before_release_discards_body(self):
         for error, status in (

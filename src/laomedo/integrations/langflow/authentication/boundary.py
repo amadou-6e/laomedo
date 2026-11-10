@@ -5,16 +5,23 @@ from starlette.responses import JSONResponse
 from laomedo.integrations.langflow.authentication.errors import (
     PrivateSessionError,
     PrivateSessionRequired,
+    PrivateRequestRefused,
 )
 from laomedo.integrations.langflow.authentication.models import PrivateBrowserContext
+from laomedo.github.connections.errors import (
+    GitHubConnectionError,
+    GitHubConnectionChanged,
+    GitHubRepositoryAccessError,
+)
 
 
 class PrivateResponseBoundary:
     """Keep logout ordered against private responses without touching public routes."""
 
-    def __init__(self, app, *, policy):
+    def __init__(self, app, *, policy, resource_policy=None):
         self.app = app
         self.policy = policy
+        self.resource_policy = resource_policy
 
     def _private_path(self, path):
         return path == "/api/v1/laomedo/private-session" or any(
@@ -45,7 +52,17 @@ class PrivateResponseBoundary:
                     await self.policy.lock.acquire()
                     locked = True
                     await self.policy.revalidate(context)
+                    if scope.get("path") != "/api/v1/laomedo/private-session":
+                        if self.resource_policy is None:
+                            raise GitHubConnectionError()
+                        self.resource_policy.revalidate(
+                            scope.get("state", {}).get("github_response_binding"),
+                            context,
+                        )
                 except PrivateSessionError as error:
+                    refused = True
+                    return await self._refuse(scope, receive, send, error)
+                except GitHubConnectionError as error:
                     refused = True
                     return await self._refuse(scope, receive, send, error)
                 except Exception:
@@ -78,6 +95,18 @@ class PrivateResponseBoundary:
     async def _refuse(self, scope, receive, send, error):
         await JSONResponse(
             {"code": error.code},
-            status_code=409 if isinstance(error, PrivateSessionRequired) else 503,
+            status_code=(
+                409
+                if isinstance(
+                    error,
+                    (
+                        PrivateSessionRequired,
+                        PrivateRequestRefused,
+                        GitHubConnectionChanged,
+                        GitHubRepositoryAccessError,
+                    ),
+                )
+                else 503
+            ),
             headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"},
         )(scope, receive, send)

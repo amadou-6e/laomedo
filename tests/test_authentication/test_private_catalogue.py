@@ -26,7 +26,11 @@ class PrivateAdmissionCatalogueTests(unittest.TestCase):
                         isinstance(node, ast.Constant)
                         and isinstance(node.value, str)
                         and node.value.startswith(
-                            ("private_session_", "github_credential_")
+                            (
+                                "private_session_",
+                                "private_request_",
+                                "github_credential_",
+                            )
                         )
                     ):
                         codes.add(node.value)

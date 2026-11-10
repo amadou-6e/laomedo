@@ -440,3 +440,52 @@ class GitHubConnectionStatus(BaseModel):
         default=False,
         description="An inactive local credential still needs confirmed removal.",
     )
+
+
+class GitHubResponseBinding(BaseModel):
+    """Exactly one trusted resource snapshot for private response release."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid", hide_input_in_errors=True)
+    owner_id: UUID = Field(
+        description="Verified local profile receiving this response."
+    )
+    revision: int | None = Field(
+        default=None,
+        strict=True,
+        ge=0,
+        description="Owner metadata revision captured under the commit lock.",
+    )
+    connection: GitHubConnectionRecord | None = Field(
+        default=None, description="Exact connection result generation and state."
+    )
+    request_id: UUID | None = Field(
+        default=None, description="Still-live owner/lease-bound pending request."
+    )
+    authorization: GitHubReadAuthorization | None = Field(
+        default=None, description="Exact repository/read generation and deadline."
+    )
+
+    @model_validator(mode="after")
+    def one_resource(self):
+        """Refuse ambiguous or mismatched authority snapshots rather than widening one."""
+        if (
+            sum(
+                value is not None
+                for value in (
+                    self.revision,
+                    self.connection,
+                    self.request_id,
+                    self.authorization,
+                )
+            )
+            != 1
+        ):
+            raise ValueError("github_response_binding_invalid")
+        if self.connection is not None and self.connection.owner_id != self.owner_id:
+            raise ValueError("github_response_binding_invalid")
+        if (
+            self.authorization is not None
+            and self.authorization.owner_id != self.owner_id
+        ):
+            raise ValueError("github_response_binding_invalid")
+        return self

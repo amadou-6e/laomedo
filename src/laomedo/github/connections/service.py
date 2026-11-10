@@ -144,9 +144,12 @@ class GitHubConnectionService:
         await scope.revalidate()
         # Expired attempts are never live cleanup exclusions. Their reservations
         # remain in the durable journal until cleanup verifies absence.
-        for key, attempt in tuple(self.pending.items()):
-            if attempt.expires_at <= self.clock():
-                self.pending.pop(key)
+        async with self.commit_lock:
+            await scope.revalidate()
+            for key, attempt in tuple(self.pending.items()):
+                if attempt.expires_at <= self.clock():
+                    self.journal.touch(attempt.owner_id)
+                    self.pending.pop(key)
         if len(self.pending) >= CONNECTION_PENDING_LIMIT:
             raise GitHubConnectionError()
         selected_id, generation, principal_id = self._selected(scope, connection_id)
@@ -172,6 +175,7 @@ class GitHubConnectionService:
             async with self.commit_lock:
                 await scope.revalidate()
                 attempt = attempt.model_copy(update={"app_id": app.id, "oauth": oauth})
+                self.journal.touch(scope.owner_id)
                 self.pending[attempt.id] = attempt
             return attempt.public()
 
@@ -256,7 +260,10 @@ class GitHubConnectionService:
                 attempt = self._attempt(scope, attempt.id)
             except ValueError:
                 raise GitHubOAuthError() from None
-            self.pending.pop(attempt.id)
+            async with self.commit_lock:
+                await scope.revalidate()
+                self.journal.touch(scope.owner_id)
+                self.pending.pop(attempt.id)
             _, settings = self._app_settings(scope.owner_id, attempt.app_id)
             credential = await self.oauth_client(settings).complete(
                 attempt.oauth, callback_url
@@ -328,6 +335,7 @@ class GitHubConnectionService:
         async with self.lock, self.commit_lock:
             await scope.revalidate()
             attempt = self._attempt(scope, request_id)
+            self.journal.touch(scope.owner_id)
             self.pending.pop(request_id)
             if attempt.secret_reference is not None:
                 self.journal.abandon_secret(scope.owner_id, attempt.secret_reference)
@@ -547,6 +555,7 @@ class GitHubConnectionService:
                     ).model_dump(mode="json")
                 )
             return {
+                "revision": self.journal.revision(scope.owner_id),
                 "app": app.model_dump(mode="json") if app else None,
                 "callback_uri": self.callback_uri,
                 "connections": connections,

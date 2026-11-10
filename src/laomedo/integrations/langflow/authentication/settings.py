@@ -7,6 +7,8 @@ from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 PRIVATE_SESSION_COOKIE_NAME = "laomedo_private_session"
+PRIVATE_CSRF_HEADER = "x-laomedo-csrf"
+PRIVATE_CSRF_PURPOSE = b"laomedo-private-mutation-v1"
 
 
 class PrivateBrowserSettings(BaseSettings):

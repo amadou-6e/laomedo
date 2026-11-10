@@ -44,6 +44,8 @@ class GitHubConnectionJournal:
                     "CREATE TABLE IF NOT EXISTS github_connections ("
                     "id TEXT PRIMARY KEY, owner_id TEXT NOT NULL, generation INTEGER NOT NULL, "
                     "payload TEXT NOT NULL);"
+                    "CREATE TABLE IF NOT EXISTS github_owner_revisions ("
+                    "owner_id TEXT PRIMARY KEY, revision INTEGER NOT NULL);"
                 )
         except (OSError, sqlite3.Error):
             raise GitHubConnectionError() from None
@@ -57,6 +59,39 @@ class GitHubConnectionJournal:
         payload = record.model_dump(mode="json")
         payload["secret_reference"] = str(record.secret_reference)
         return json.dumps(payload, separators=(",", ":"))
+
+    def _advance(self, db, owner_id):
+        """Advance metadata admission in the same transaction as its owned change."""
+        db.execute(
+            "INSERT INTO github_owner_revisions VALUES (?,1) ON CONFLICT(owner_id) "
+            "DO UPDATE SET revision=revision+1",
+            (str(owner_id),),
+        )
+
+    def revision(self, owner_id: UUID) -> int:
+        """Read the owner-scoped metadata fence; a fresh profile starts at zero."""
+        try:
+            with closing(self._connect()) as db:
+                row = db.execute(
+                    "SELECT revision FROM github_owner_revisions WHERE owner_id=?",
+                    (str(owner_id),),
+                ).fetchone()
+            if row is None:
+                return 0
+            if type(row[0]) is not int or row[0] < 0:
+                raise GitHubConnectionError()
+            return row[0]
+        except sqlite3.Error:
+            raise GitHubConnectionError() from None
+
+    def touch(self, owner_id: UUID):
+        """Fence an in-memory pending-state change under the host commit lock."""
+        try:
+            with closing(self._connect()) as db, db:
+                db.execute("BEGIN IMMEDIATE")
+                self._advance(db, owner_id)
+        except sqlite3.Error:
+            raise GitHubConnectionError() from None
 
     def _connection(self, db, owner_id: UUID, connection_id: UUID):
         """Resolve an exact owner-scoped row and verify its redundant fence columns."""
@@ -93,6 +128,7 @@ class GitHubConnectionJournal:
                     "INSERT INTO github_secrets VALUES (?,?,?,?, 'provisional')",
                     (str(reference.id), str(owner_id), purpose, str(resource_id)),
                 )
+                self._advance(db, owner_id)
             return reference
         except sqlite3.Error:
             raise GitHubConnectionError() from None
@@ -119,6 +155,7 @@ class GitHubConnectionJournal:
                     "INSERT INTO github_apps VALUES (?,?,?)",
                     (str(record.id), str(record.owner_id), self._payload(record)),
                 )
+                self._advance(db, record.owner_id)
         except sqlite3.Error:
             raise GitHubConnectionError() from None
 
@@ -207,6 +244,7 @@ class GitHubConnectionJournal:
                         self._payload(record),
                     ),
                 )
+                self._advance(db, record.owner_id)
         except sqlite3.Error:
             raise GitHubConnectionError() from None
 
@@ -263,6 +301,7 @@ class GitHubConnectionJournal:
                         str(owner_id),
                     ),
                 )
+                self._advance(db, owner_id)
                 if state == "revoked":
                     db.execute(
                         "UPDATE github_secrets SET state='obsolete' WHERE owner_id=? "
@@ -290,11 +329,13 @@ class GitHubConnectionJournal:
         try:
             with closing(self._connect()) as db, db:
                 db.execute("BEGIN IMMEDIATE")
-                db.execute(
+                changed = db.execute(
                     "UPDATE github_secrets SET state='obsolete' WHERE id=? "
                     "AND owner_id=? AND state='provisional'",
                     (str(reference_id), str(owner_id)),
-                )
+                ).rowcount
+                if changed:
+                    self._advance(db, owner_id)
         except sqlite3.Error:
             raise GitHubConnectionError() from None
 
@@ -331,5 +372,6 @@ class GitHubConnectionJournal:
                 ).rowcount
                 if changed != 1:
                     raise GitHubConnectionChanged()
+                self._advance(db, owner_id)
         except sqlite3.Error:
             raise GitHubConnectionError() from None

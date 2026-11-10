@@ -80,11 +80,19 @@ durable journal retains any provisional vault cleanup responsibility.
 
 `repository.py` defines `GitHubRepositoryReader`, a nonexecuting snapshot reader
 constructed only after `authorize_read`. `refs` admits at most32 complete heads
-and tags, follows pagination by constructing fixed API requests and peels tags
-with a16-object visited bound. `entries` binds exact commit/tree SHA identities,
+and tags from the documented complete matching-refs arrays; any advertised
+unfinished pagination is refused rather than silently hiding choices. It peels
+tags with a16-object visited bound. `entries` binds exact commit/tree SHA identities,
 refuses recursive-tree truncation and admits only portable regular file entries.
 `read_blob` checks mode, size, base64 and Git blob identity. `discover` reuses
 canonical Skill name/choice validation; `revisions` collects complete validated
 `PendingSkillImport` candidates without writing a shared registry. All reads share
 the authorization's total deadline/byte budget. Its in-memory cache lasts for
 one authorized operation; it is not offline permission or a cross-owner cache.
+
+The journal's `revision` is an owner-scoped metadata response fence. App setup,
+connection consent, refresh fencing and disconnect advance it in the same SQLite
+transaction as the change. `GitHubResponseBinding` records exactly one owner
+revision, connection result, pending attempt or authorized read. The native
+response guard rechecks this binding while holding the same commit lock as the
+service; private-session readiness alone is never private resource authority.

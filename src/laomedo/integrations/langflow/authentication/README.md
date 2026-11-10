@@ -81,3 +81,13 @@ the marked private directory, disjoint from declared public roots/agent mounts;
 The host must declare every configured public source root and Agent mount; the
 isolated profile launcher clears external bindings and declares its public registry.
 Unknown external deployments are not admitted by this setup recipe.
+
+`PrivateGitHubAdmission` projects a verified browser context into the connection
+service's trusted scope, binding the exact lease digest and a host revalidation
+method. `PrivateAccessPolicy.csrf` derives a private mutation proof; `mutation`
+requires it plus exact browser origin. `callback` separately admits only a fixed
+top-level return with a current upstream profile and live initiating lease; the
+connection service still must validate and consume one-use state/PKCE.
+`PrivateGitHubResponsePolicy` checks owner metadata revisions, connection results,
+pending attempts and read authorization before releasing private responses.
+The shared commit lock orders these checks against logout and connection changes.

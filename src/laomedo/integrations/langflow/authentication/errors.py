@@ -28,3 +28,13 @@ class PrivateSessionRequired(PrivateSessionError):
     """
 
     code = "private_session_required"
+
+
+class PrivateRequestRefused(PrivateSessionError):
+    """Origin, mutation proof or callback metadata failed the private control seam.
+
+    No connection mutation or credential exchange was admitted. This does not
+    establish that the upstream session ended or that a reconnect is required.
+    """
+
+    code = "private_request_refused"

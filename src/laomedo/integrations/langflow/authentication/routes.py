@@ -19,7 +19,10 @@ async def private_session_status(request: Request, user: CurrentActiveUser):
     try:
         context = await policy.authorize(request, user)
         request.state.private_browser_context = context
-        return JSONResponse({"ready": True}, headers={"Cache-Control": "no-store"})
+        return JSONResponse(
+            {"ready": True, "csrf_token": policy.csrf(context)},
+            headers={"Cache-Control": "no-store"},
+        )
     except PrivateSessionError as error:
         return JSONResponse(
             {"code": error.code},

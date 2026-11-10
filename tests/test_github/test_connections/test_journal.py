@@ -181,3 +181,15 @@ class GitHubConnectionJournalTests(unittest.TestCase):
         with self.assertRaises(GitHubConnectionError):
             GitHubConnectionJournal(root / "connections.sqlite")
         self.assertFalse((root / "connections.sqlite").exists())
+
+    def test_owner_metadata_revision_commits_with_generation_fences(self):
+        self.assertEqual(self.journal.revision(self.owner), 0)
+        record = self.record()
+        reserved = self.journal.revision(self.owner)
+        self.assertGreater(reserved, 0)
+        self.journal.commit_connection(record, expected_generation=0)
+        committed = self.journal.revision(self.owner)
+        self.assertGreater(committed, reserved)
+        self.journal.disconnect(self.owner, self.connection, 1)
+        self.assertGreater(self.journal.revision(self.owner), committed)
+        self.assertEqual(self.journal.revision(self.other), 0)

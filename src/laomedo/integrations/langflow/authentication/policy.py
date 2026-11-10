@@ -1,7 +1,10 @@
 """Bind native upstream profile authentication to live private browser leases."""
 
 import asyncio
+from hashlib import sha256
+from hmac import compare_digest, digest
 import sys
+from time import monotonic, time
 from urllib.parse import urlsplit
 
 from pydantic import SecretStr
@@ -9,13 +12,26 @@ from pydantic import SecretStr
 from laomedo.integrations.langflow.authentication.errors import (
     PrivateSessionError,
     PrivateSessionRequired,
+    PrivateRequestRefused,
 )
 from laomedo.integrations.langflow.authentication.models import PrivateBrowserContext
 from laomedo.integrations.langflow.authentication.settings import (
     PRIVATE_SESSION_COOKIE_NAME,
+    PRIVATE_CSRF_HEADER,
+    PRIVATE_CSRF_PURPOSE,
     PrivateBrowserSettings,
 )
 from laomedo.integrations.langflow.authentication.store import PrivateSessionStore
+from laomedo.github.connections.errors import (
+    GitHubConnectionChanged,
+    GitHubConnectionError,
+    GitHubRepositoryAccessError,
+)
+from laomedo.github.connections.models import (
+    GitHubConnectionScope,
+    GitHubResponseBinding,
+)
+from laomedo.github.connections.settings import GITHUB_CALLBACK_PATH
 
 
 class PrivateAccessPolicy:
@@ -46,6 +62,11 @@ class PrivateAccessPolicy:
             or auth.ENABLE_SIGNUP
             or not auth.NEW_USER_IS_ACTIVE
             or auth.API_KEY_SOURCE != "db"
+            or auth.ACCESS_SAME_SITE != "lax"
+            or auth.REFRESH_SAME_SITE != "lax"
+            or auth.ACCESS_SECURE
+            or auth.REFRESH_SECURE
+            or auth.COOKIE_DOMAIN is not None
             or not isinstance(get_auth_service(), LocalProfileAuthService)
         ):
             raise PrivateSessionError()
@@ -149,3 +170,141 @@ class PrivateAccessPolicy:
             or self.store.resolve(context.cookie, context.session.owner_id) is None
         ):
             raise PrivateSessionRequired()
+
+    def csrf(self, context: PrivateBrowserContext):
+        """Derive a mutation proof held only by this admitted browser in memory."""
+        return digest(
+            context.cookie.get_secret_value().encode(), PRIVATE_CSRF_PURPOSE, "sha256"
+        ).hex()
+
+    def mutation(self, request, context: PrivateBrowserContext):
+        """Require exact origin and one explicit proof before reading a mutation body."""
+        proofs = [
+            value
+            for key, value in request.scope["headers"]
+            if key.lower() == PRIVATE_CSRF_HEADER.encode()
+        ]
+        if (
+            request.method != "POST"
+            or not self.same_origin(request)
+            or len(proofs) != 1
+            or not compare_digest(proofs[0], self.csrf(context).encode())
+        ):
+            raise PrivateRequestRefused()
+
+    async def callback(self, request):
+        """Admit only a fixed top-level return with upstream identity and a live lease."""
+        self.verify_runtime()
+        headers = {}
+        for key, value in request.scope["headers"]:
+            name = key.decode("latin-1").lower()
+            if name in {
+                "host",
+                "origin",
+                "sec-fetch-site",
+                "sec-fetch-mode",
+                "sec-fetch-dest",
+            }:
+                if name in headers:
+                    raise PrivateRequestRefused()
+                headers[name] = value.decode("latin-1")
+        if (
+            request.method != "GET"
+            or request.scope.get("scheme") != "http"
+            or request.scope.get("root_path")
+            or request.scope.get("path") != GITHUB_CALLBACK_PATH
+            or headers.get("host") != self.host
+            or headers.get("origin") not in {None, self.settings.origin}
+            or headers.get("sec-fetch-site")
+            not in {"cross-site", "same-origin", "none"}
+            or headers.get("sec-fetch-mode") != "navigate"
+            or headers.get("sec-fetch-dest") != "document"
+        ):
+            raise PrivateRequestRefused()
+        from langflow.services.auth.utils import oauth2_login
+
+        try:
+            token = await oauth2_login(request)
+            owner = await self.owner_from_token(token)
+            value = request.cookies.get(PRIVATE_SESSION_COOKIE_NAME)
+            if owner is None or not isinstance(token, str) or not value:
+                raise PrivateSessionRequired()
+            cookie = SecretStr(value)
+            session = self.store.resolve(cookie, owner)
+            if session is None:
+                raise PrivateSessionRequired()
+            return PrivateBrowserContext(
+                session=session, cookie=cookie, upstream_token=SecretStr(token)
+            )
+        except PrivateSessionError:
+            raise
+        except Exception:
+            raise PrivateSessionRequired() from None
+
+
+class PrivateGitHubAdmission:
+    """Bind one trusted upstream context to the domain's request-local scope."""
+
+    def __init__(self, policy: PrivateAccessPolicy, context: PrivateBrowserContext):
+        """Keep raw browser credentials in the authentication adapter only."""
+        self.policy, self.context = policy, context
+
+    async def revalidate(self):
+        """Repeat upstream and lease proof without accepting browser owner fields."""
+        await self.policy.revalidate(self.context)
+
+    def scope(self):
+        """Project only verified owner, masked digest and host revalidation callback."""
+        return GitHubConnectionScope(
+            owner_id=self.context.session.owner_id,
+            lease_binding=SecretStr(
+                sha256(self.context.cookie.get_secret_value().encode()).hexdigest()
+            ),
+            check=self.revalidate,
+        )
+
+
+class PrivateGitHubResponsePolicy:
+    """Check resource snapshots synchronously under the shared admission lock."""
+
+    def __init__(self, service):
+        """Bind the one native broker's journal and in-memory pending authority."""
+        self.service = service
+
+    def revalidate(self, binding, context: PrivateBrowserContext):
+        """Refuse missing/stale resource authority before any successful body is sent."""
+        if (
+            not isinstance(binding, GitHubResponseBinding)
+            or binding.owner_id != context.session.owner_id
+        ):
+            raise GitHubConnectionError()
+        if binding.revision is not None:
+            if self.service.journal.revision(binding.owner_id) != binding.revision:
+                raise GitHubConnectionChanged()
+        elif binding.connection is not None:
+            expected = binding.connection
+            actual = self.service.journal.get(binding.owner_id, expected.id)
+            if (
+                actual is None
+                or actual.generation != expected.generation
+                or actual.state != expected.state
+            ):
+                raise GitHubConnectionChanged()
+        elif binding.request_id is not None:
+            attempt = self.service.pending.get(binding.request_id)
+            if (
+                attempt is None
+                or attempt.owner_id != binding.owner_id
+                or attempt.expires_at <= self.service.clock()
+                or not compare_digest(
+                    attempt.lease_binding.get_secret_value(),
+                    sha256(context.cookie.get_secret_value().encode()).hexdigest(),
+                )
+            ):
+                raise GitHubConnectionChanged()
+        else:
+            authorization = binding.authorization
+            if authorization.deadline <= monotonic():
+                raise GitHubRepositoryAccessError()
+            if not self.service.current(authorization):
+                raise GitHubConnectionChanged()

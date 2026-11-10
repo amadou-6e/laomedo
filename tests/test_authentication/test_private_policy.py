@@ -20,7 +20,11 @@ from langflow.services.auth.context import (
     set_current_auth_context,
 )
 
-from laomedo.integrations.langflow.authentication.errors import PrivateSessionRequired
+from laomedo.integrations.langflow.authentication.errors import (
+    PrivateSessionRequired,
+    PrivateRequestRefused,
+)
+from laomedo.github.connections.settings import GITHUB_CALLBACK_PATH
 from laomedo.integrations.langflow.authentication.policy import PrivateAccessPolicy
 from laomedo.integrations.langflow.authentication.settings import PrivateBrowserSettings
 from laomedo.integrations.langflow.authentication.store import PrivateSessionStore
@@ -139,11 +143,63 @@ class PrivateAccessPolicyTests(unittest.IsolatedAsyncioTestCase):
             self.store.revoke_browser(context.cookie)
             with self.assertRaises(PrivateSessionRequired):
                 await self.policy.revalidate(context)
+
+        self.issued = self.store.issue(self.owner, expires_at=time.time() + 3600)
+        context = await self.policy.authorize(self.request(), self.user)
         with patch.object(
             self.policy, "owner_from_token", AsyncMock(return_value=uuid4())
         ):
             with self.assertRaises(PrivateSessionRequired):
                 await self.policy.revalidate(context)
+
+    async def test_mutations_need_exact_origin_and_current_browser_proof(self):
+        context = await self.policy.authorize(self.request(), self.user)
+        proof = self.policy.csrf(context).encode()
+        valid = self.request(
+            method="POST",
+            origin=self.settings.origin,
+            extra=((b"x-laomedo-csrf", proof),),
+        )
+        self.policy.mutation(valid, context)
+        for request in (
+            self.request(method="POST", origin=self.settings.origin),
+            self.request(
+                method="POST",
+                origin=self.settings.origin,
+                extra=((b"x-laomedo-csrf", b"wrong"),),
+            ),
+            self.request(
+                method="POST",
+                origin=self.settings.origin,
+                extra=((b"x-laomedo-csrf", proof), (b"x-laomedo-csrf", proof)),
+            ),
+            self.request(
+                method="POST",
+                origin="https://evil.invalid",
+                extra=((b"x-laomedo-csrf", proof),),
+            ),
+        ):
+            with self.subTest(), self.assertRaises(PrivateRequestRefused):
+                self.policy.mutation(request, context)
+
+    async def test_callback_has_separate_navigation_and_live_session_admission(self):
+        request = self.request(
+            fetch_site="cross-site",
+            extra=((b"sec-fetch-mode", b"navigate"), (b"sec-fetch-dest", b"document")),
+        )
+        request.scope["path"] = GITHUB_CALLBACK_PATH
+        self.assertFalse(self.policy.same_origin(request))
+        with patch.object(
+            self.policy, "owner_from_token", AsyncMock(return_value=self.owner)
+        ):
+            context = await self.policy.callback(request)
+            self.assertEqual(context.session.owner_id, self.owner)
+            self.store.revoke_browser(context.cookie)
+            with self.assertRaises(PrivateSessionRequired):
+                await self.policy.callback(request)
+        request.scope["headers"].append((b"host", b"evil.invalid"))
+        with self.assertRaises(PrivateRequestRefused):
+            await self.policy.callback(request)
 
 
 class PrivateBrowserSettingsTests(unittest.TestCase):
