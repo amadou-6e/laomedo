@@ -24,3 +24,6 @@ successfully completed resumed answer. Check `prompt_started`, cancellation
 acknowledgement and terminal status before claiming this combined flow passes.
 All prompt allowances apply across invocations, including uncertain submissions;
 flags are harness bounds, not renewed authorization.
+
+`--native-model-metadata` observes allowlisted Codex model metadata and the typed
+catalog without submitting an inference prompt.

@@ -16,6 +16,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--implementation", type=Path, required=True)
     parser.add_argument("--execute", action="store_true")
+    parser.add_argument("--native-model-metadata", action="store_true")
     parser.add_argument("--session-login", action="store_true")
     parser.add_argument("--resume-cancel", action="store_true")
     parser.add_argument("--open-session", action="store_true")
@@ -24,6 +25,9 @@ def main():
     sys.path.insert(0, str(args.implementation / "src"))
     from laomedo.agents.agents.codex.agent import CodexAgent
     from laomedo.agents.errors import RunnerError
+
+    if args.native_model_metadata:
+        observe_native_models()
 
     with tempfile.TemporaryDirectory(prefix="laomedo-docker-acceptance-") as temporary:
         root = Path(temporary)
@@ -85,6 +89,19 @@ def main():
                 ),
                 flush=True,
             )
+            if args.native_model_metadata:
+                typed = agent.catalog.list_models()
+                print(
+                    json.dumps(
+                        {
+                            "stage": "typed_catalog",
+                            "default_model_id": typed.default_model_id,
+                            "models": [model.model_dump() for model in typed.models],
+                            "wire_fields": sorted(catalog),
+                        }
+                    ),
+                    flush=True,
+                )
             if not args.execute and not args.open_session:
                 return
             selected = next((m for m in models if "gpt-5" in m["id"]), models[0])
@@ -155,6 +172,41 @@ def main():
             supervisor.terminate()
             supervisor.wait(timeout=15)
             log.close()
+
+
+def observe_native_models():
+    """Record only allowlisted public model fields; never session or login data."""
+    from laomedo.agents.agents.codex.runtime import CodexAgentRuntime
+
+    original = CodexAgentRuntime.extension
+
+    async def observe(self, method, params, **kwargs):
+        result = await original(self, method, params, **kwargs)
+        if method == "laomedo/codexModels":
+            print(
+                json.dumps(
+                    {
+                        "stage": "native_catalog_metadata",
+                        "models": [
+                            {
+                                key: item[key]
+                                for key in (
+                                    "id",
+                                    "displayName",
+                                    "defaultReasoningEffort",
+                                    "isDefault",
+                                )
+                                if key in item
+                            }
+                            for item in result["data"]
+                        ],
+                    }
+                ),
+                flush=True,
+            )
+        return result
+
+    CodexAgentRuntime.extension = observe
 
 
 def resume_then_cancel(agent, first, model, effort):
