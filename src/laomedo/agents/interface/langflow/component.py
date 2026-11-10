@@ -1223,10 +1223,11 @@ class AgentComponent(Component):
                     for item in selected:
                         flattened.extend(item if isinstance(item, list) else [item])
                     registry = McpRegistry.current()
-                    registration = registry.register(
+                    registration = await registry.register(
                         [LangflowMcpTool(tool) for tool in flattened]
                     )
                     self._mcp_registration_id = registration.registration_id
+                    self._mcp_registry = registry
                     target = prepared[1].get("runner_body", prepared[1])
                     target["mcp_manifest"] = registration.manifest.model_dump(
                         mode="json"
@@ -1265,9 +1266,7 @@ class AgentComponent(Component):
             result = await asyncio.shield(self._dispatch_task)
         except asyncio.CancelledError:
             if getattr(self, "_mcp_registration_id", None):
-                from laomedo.agents.mcp.registry import McpRegistry
-
-                McpRegistry.current().release(self._mcp_registration_id)
+                self._mcp_registry.release(self._mcp_registration_id)
             self._stop_requested = True
             if self._stop_request_id and self._cancel_task is None:
                 bridge = self._bridge_base()
@@ -1293,5 +1292,8 @@ class AgentComponent(Component):
                 self._cancel_task.add_done_callback(_STOP_TASKS.discard)
             self.status = "Laomedo Stop requested; remote outcome unknown"
             raise
+        finally:
+            if getattr(self, "_mcp_registration_id", None):
+                self._mcp_registry.release_unclaimed(self._mcp_registration_id)
         self.status = f"Laomedo run {result['run_id']}: {result['status']}"
         return result

@@ -123,15 +123,30 @@ class LangflowMcpTool:
             session = await asyncio.wait_for(
                 self._client._get_or_create_session(), timeout=timeout
             )
-            advertised = await asyncio.wait_for(session.list_tools(), timeout=timeout)
-            current = next(
-                (
-                    tool
-                    for tool in advertised.tools
-                    if tool.name == self.descriptor.upstream_name
-                ),
-                None,
-            )
+            current = None
+            cursor = None
+            seen = set()
+            async with asyncio.timeout(timeout):
+                for _ in range(32):
+                    advertised = (
+                        await session.list_tools(cursor=cursor)
+                        if cursor is not None
+                        else await session.list_tools()
+                    )
+                    current = next(
+                        (
+                            tool
+                            for tool in advertised.tools
+                            if tool.name == self.descriptor.upstream_name
+                        ),
+                        None,
+                    )
+                    if current is not None or not advertised.nextCursor:
+                        break
+                    cursor = advertised.nextCursor
+                    if cursor in seen:
+                        raise McpError("mcp_tool_binding_changed")
+                    seen.add(cursor)
             if (
                 current is None
                 or create_input_schema_from_json_schema(

@@ -39,6 +39,7 @@ class McpRegistry:
         self.leases = {}
         self.calls = None
         self.directory = None
+        self.registration_lock = None
 
     @classmethod
     def install(cls, app, settings: McpSettings):
@@ -64,6 +65,7 @@ class McpRegistry:
                 raise McpError("mcp_app_owner_conflict")
             self.loop = asyncio.get_running_loop()
             self.calls = asyncio.Semaphore(self.settings.max_calls)
+            self.registration_lock = asyncio.Lock()
             type(self)._active = self
             reaper = asyncio.create_task(self._expire())
             try:
@@ -81,7 +83,20 @@ class McpRegistry:
                     await asyncio.to_thread(self.thread.join, 5)
                 self.loop = None
 
-    def register(self, tools) -> McpRegistration:
+    async def register(self, tools) -> McpRegistration:
+        """Serialize registration while allowing app requests during private I/O."""
+        if self.current() is not self:
+            raise McpError("mcp_app_lifetime_required")
+        async with self.registration_lock:
+            return await self._register(tools)
+
+    def _prepare_directory(self):
+        """Verify directory custody on a worker, including Windows subprocesses."""
+        prepare_private_directory(
+            self.directory, policy=self.settings.permission_policy()
+        )
+
+    async def _register(self, tools) -> McpRegistration:
         """Publish an exact bounded manifest and a host-private random capability."""
         from laomedo.agents.mcp.server import McpServer
 
@@ -102,9 +117,7 @@ class McpRegistry:
         if self.server is None:
             self.directory = self.settings.state_directory()
             try:
-                prepare_private_directory(
-                    self.directory, policy=self.settings.permission_policy()
-                )
+                await asyncio.to_thread(self._prepare_directory)
             except Exception:
                 raise McpError("mcp_private_state_unverified") from None
             self.server = McpServer((self.settings.bind, 0), self)
@@ -129,10 +142,22 @@ class McpRegistry:
             tools=admitted,
             expires=time.monotonic() + self.settings.lease_seconds,
         )
+        path = self.directory / (identifier + ".json")
+        write = asyncio.create_task(
+            asyncio.to_thread(_json, path, connection.private_payload())
+        )
         try:
-            _json(self.directory / (identifier + ".json"), connection.private_payload())
+            await asyncio.shield(write)
+        except asyncio.CancelledError:
+            self.leases.pop(identifier, None)
+            # A worker cannot be cancelled: wait for its private write before unlinking.
+            with suppress(Exception):
+                await write
+            await asyncio.to_thread(path.unlink, missing_ok=True)
+            raise
         except Exception:
             self.leases.pop(identifier, None)
+            await asyncio.to_thread(path.unlink, missing_ok=True)
             raise McpError("mcp_registration_failed") from None
         return registration
 
@@ -145,6 +170,13 @@ class McpRegistry:
                 task.cancel()
         if self.directory:
             (self.directory / (identifier + ".json")).unlink(missing_ok=True)
+
+    def release_unclaimed(self, registration_id):
+        """Discard refused/replayed admission without revoking an active attempt."""
+        identifier = str(UUID(str(registration_id)))
+        lease = self.leases.get(identifier)
+        if lease is not None and lease.run_id is None:
+            self.release(identifier)
 
     async def _expire(self):
         """Reclaim abandoned app registrations without imposing a run duration cap."""

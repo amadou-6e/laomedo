@@ -12,6 +12,7 @@ import socket
 import subprocess
 import sys
 import tempfile
+import threading
 from types import SimpleNamespace
 import unittest
 from uuid import uuid4
@@ -84,7 +85,7 @@ class NativeTransportTests(unittest.IsolatedAsyncioTestCase):
                 registry = McpRegistry.install(app, settings)
                 async with app.router.lifespan_context(app):
                     adapter = await build()
-                    registration = registry.register([adapter])
+                    registration = await registry.register([adapter])
                     await asyncio.sleep(0)
                     # build() has returned; app lifespan still owns the native client.
                     access = await asyncio.to_thread(
@@ -95,6 +96,8 @@ class NativeTransportTests(unittest.IsolatedAsyncioTestCase):
                     )
                     connection = access.connection
                     await asyncio.to_thread(access.claim, str(uuid4()))
+                    registry.release_unclaimed(registration.registration_id)
+                    self.assertIn(str(registration.registration_id), registry.leases)
                     with self.assertRaisesRegex(
                         RunnerError, "mcp_run_binding_mismatch"
                     ):
@@ -159,6 +162,58 @@ class NativeTransportTests(unittest.IsolatedAsyncioTestCase):
         await self.check_transport(
             {"command": sys.executable, "args": [str(self.resource)]}
         )
+
+    async def test_registration_private_io_does_not_block_the_app_loop(self):
+        """Other app work progresses while permission checks or writes are stalled."""
+        from fastapi import FastAPI
+        from laomedo.agents.mcp.models import McpTool
+        from laomedo.agents.mcp.registry import McpRegistry
+        from laomedo.agents.mcp.settings import McpSettings
+
+        adapter = SimpleNamespace(
+            descriptor=McpTool(
+                server="local",
+                upstream_name="echo",
+                display_name="echo",
+                description="Echo",
+                input_schema={"type": "object"},
+            )
+        )
+        for target in ("_prepare_directory", "write"):
+            with self.subTest(operation=target), tempfile.TemporaryDirectory() as state:
+                registry = McpRegistry.install(
+                    FastAPI(lifespan=self.upstream_lifespan),
+                    McpSettings(directory=Path(state) / "connections"),
+                )
+                loop = asyncio.get_running_loop()
+                entered = asyncio.Event()
+                release = threading.Event()
+                original = registry._prepare_directory
+                from laomedo.agents.mcp.registry import _json
+
+                def blocked(*args):
+                    loop.call_soon_threadsafe(entered.set)
+                    release.wait(3)
+                    return (
+                        original() if target == "_prepare_directory" else _json(*args)
+                    )
+
+                patched = (
+                    patch.object(registry, target, side_effect=blocked)
+                    if target == "_prepare_directory"
+                    else patch("laomedo.agents.mcp.registry._json", side_effect=blocked)
+                )
+                async with registry.lifespan(None):
+                    with patched:
+                        task = asyncio.create_task(registry.register([adapter]))
+                        try:
+                            await asyncio.wait_for(entered.wait(), 1)
+                            self.assertFalse(task.done())
+                        finally:
+                            release.set()
+                        registration = await task
+                        registry.release_unclaimed(registration.registration_id)
+                        self.assertFalse(registry.leases)
 
     async def test_http_native_discovery_and_invocation(self):
         """Use the actual native HTTP client and a loopback-only MCP server."""

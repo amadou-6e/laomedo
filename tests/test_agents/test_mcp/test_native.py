@@ -78,6 +78,20 @@ class NativeToolTests(unittest.IsolatedAsyncioTestCase):
             await LangflowMcpTool(self.tool).invoke({"message": "hello"})
         self.assertEqual(self.call.await_count, 1)
 
+    async def test_selected_tool_on_later_page_is_checked_before_dispatch(self):
+        """Pagination must not incorrectly invalidate an unchanged selected tool."""
+        from mcp.types import ListToolsResult
+        from laomedo.integrations.langflow.mcp import LangflowMcpTool
+
+        selected = self.session.list_tools.return_value
+        self.session.list_tools.side_effect = [
+            ListToolsResult(tools=[], nextCursor="next-page"),
+            selected,
+        ]
+        await LangflowMcpTool(self.tool).invoke({"message": "hello"})
+        self.session.list_tools.assert_awaited_with(cursor="next-page")
+        self.call.assert_awaited_once()
+
     async def test_mcp_error_result_is_preserved(self):
         """Do not convert an upstream MCP error into apparent successful content."""
         from laomedo.integrations.langflow.mcp import LangflowMcpTool
