@@ -1,12 +1,21 @@
 # GitHub account connections for private Skill sources
 
-Status: PROPOSED, NOT IMPLEMENTED. Owner: [issue #251](https://github.com/amadou-6e/laomedo/issues/251).
+Status: IMPLEMENTATION IN PROGRESS; private connections are not available yet.
+Owner: [issue #251](https://github.com/amadou-6e/laomedo/issues/251).
 Baseline: develop `bb25013523e37fbb108b51638be171e879eb3883`.
 This approach brief accompanies [canonical spec PR #411](https://github.com/amadou-6e/specs/pull/411)
 and its editable UI proposal; implementation waits for the design review. See the
 [one-time app setup design](setup.md) and
 [ordered implementation plan](implementation-plan.md).
 It grants no credential access or repository write permission.
+
+The first implementation block adds the durable, digest-only private-session
+store under `integrations/langflow/authentication`. It covers owner/lifetime
+checks, restart persistence and refresh/revocation serialization. It is not wired
+to upstream login or private routes yet. OAuth, the Windows vault, repository
+consent, private source readers and browser acceptance remain unfinished.
+Reviewer status: fully unreviewed — reviewer pending for this implementation
+block. Earlier plan/design approval is not implementation review.
 
 ## Outcome and boundaries
 
