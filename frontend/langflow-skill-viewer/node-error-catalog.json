@@ -1,4 +1,24 @@
 {
+  "authentication_not_verified": {
+    "title": "Execution authentication is unverified",
+    "description": "The protocol and permission checks passed, but they did not verify authenticated session creation.",
+    "recovery": "Validate the configured native account before relying on execution availability. Model discovery alone does not verify account access."
+  },
+  "opencode_transport_not_verified": {
+    "title": "The OpenCode transport is configured but unverified",
+    "description": "A transport factory is configured; backend health and authentication have not been checked.",
+    "recovery": "Complete the isolated OpenCode backend setup and its native authentication checks. Configuration alone does not establish execution availability."
+  },
+  "readiness_not_verified": {
+    "title": "Execution readiness is unverified",
+    "description": "The provider check did not establish whether execution is available.",
+    "recovery": "Inspect the reported readiness scope and complete the provider's missing prerequisite checks. Do not infer readiness from process health or model discovery."
+  },
+  "execution_blocked": {
+    "title": "Execution is blocked",
+    "description": "The provider reported a blocker without a more specific category.",
+    "recovery": "Inspect the provider's native prerequisite checks before starting another run."
+  },
   "prior_run_required": {
     "title": "No previous run is available",
     "description": "This operation needs a reference to an earlier run.",

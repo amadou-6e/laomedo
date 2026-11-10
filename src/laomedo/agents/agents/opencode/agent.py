@@ -1,6 +1,7 @@
 """OpenCode provider adapter. Production Docker/auth deployment is intentionally gated."""
 
 from __future__ import annotations
+from laomedo.agents.agents.base.models import ReadinessObservation
 from laomedo.docker import DockerRuntime
 from laomedo.agents.agents.opencode.catalog import OpenCodeModelCatalog
 
@@ -85,6 +86,12 @@ class OpenCodeAgent(BaseAgent):
 
     def recover_interrupted(self, record):
         """Constructor recovery reconciles receipts across prior runs before dispatch."""
+
+    def readiness(self) -> ReadinessObservation:
+        """Return the actual native check's availability, reason and scope without inference."""
+        return self._observe_readiness(
+            ready_on_success=None, unverified_reason="opencode_transport_not_verified"
+        )
 
     def preflight(self):
         """Report transport configuration without launching an authenticated backend.

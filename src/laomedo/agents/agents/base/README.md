@@ -50,6 +50,42 @@ it must not import concrete providers or their credential implementations.
 These are public identity metadata, never login material. `settings.py` owns
 shared bounds. `acp/` owns protocol communication; native policy stays local.
 
+## Execution readiness
+
+`BaseAgent.readiness() -> ReadinessObservation` is the Python abstract boundary.
+The existing provider Agents implement it; no separate checker object is needed.
+`preflight()` retains the native diagnostic payload and exception behavior.
+Readiness performs that same zero-turn check and normalizes declared admission
+failures into a result with `ready`, `reason`, `provider` and `scope`.
+
+```python
+from laomedo.agents.agents.base import BaseAgent
+
+def show_readiness(agent: BaseAgent):
+    result = agent.readiness()
+    print(result.ready, result.reason, result.scope)
+```
+
+`ready=True` means the provider's stated execution prerequisite check passed at
+that moment, not that a later turn will succeed. `False` means a known blocker;
+`None` means execution remains unverified. Both False and None require a stable
+reason code; presentation/recovery text stays in the shared error catalogue.
+Unexpected programming errors propagate rather than masquerading as a blocker.
+There is no cached readiness, inference request, retry or automatic login.
+Constructor failures still occur before an Agent exists to query.
+
+| Provider | Check performed | Successful result | Blocked result |
+| --- | --- | --- | --- |
+| Claude | Existing native subscription auth check, including the explicitly configured login mirror | True, scope `native_subscription_authentication` | False with the original admission error code |
+| Codex | Existing ACP initialization and sandbox permission probes, followed by native cleanup | None, reason `authentication_not_verified`; these probes do not authenticate a session | False with the original admission/authentication error code |
+| OpenCode | Existing transport configuration inspection; no backend startup | None, reason `opencode_transport_not_verified` | False, reason `opencode_isolated_transport_required` when no factory is configured |
+
+`payload` retains detached native preflight details for existing explicit
+consumers, including the CLI, but is excluded from generic model serialization
+and representations. A diagnostic payload's `status=ready` never overrides the
+provider's narrower typed conclusion. Cleanup errors cannot produce a ready
+result. Process health and model discovery remain independent observations.
+
 ## Shared Docker handling
 
 `laomedo/docker.py` defines concrete `DockerRuntime`, the shared owner of

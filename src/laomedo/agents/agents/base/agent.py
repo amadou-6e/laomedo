@@ -6,6 +6,7 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from urllib.request import ProxyHandler, build_opener
 from uuid import uuid4
+from copy import deepcopy
 import hashlib
 import json
 import os
@@ -23,6 +24,7 @@ from laomedo.agents.artifacts.utils import selections
 from laomedo.agents.interface.output.utils import verify_requirements
 from laomedo.agents.interface.models import SUPPORTED_PROVIDERS
 from laomedo.agents.agents.base.models import (
+    ReadinessObservation,
     RuntimeBinding,
     PreparedRunRecord,
     PreparedWorkspaceState,
@@ -177,18 +179,43 @@ class BaseAgent(ABC):
     def resume(self, run_id, task, **binding) -> dict:
         """Validate the provider binding before resuming its existing execution."""
 
-    def readiness(self):
-        """Observe the provider's scoped preflight without conflating health/isolation."""
-        from laomedo.agents.agents.base.models import ReadinessObservation
+    @abstractmethod
+    def readiness(self) -> ReadinessObservation:
+        """Check scoped execution availability without inference; explain blocked/unknown results."""
+
+    def _observe_readiness(
+        self, *, ready_on_success: bool | None, unverified_reason: str | None = None
+    ) -> ReadinessObservation:
+        """Normalize native admission failures without changing raw preflight callers."""
         from laomedo.agents.registry import AgentProviderRegistry
 
-        payload = self.preflight()
+        scope = AgentProviderRegistry.descriptor(self.provider).readiness_scope
+        try:
+            payload = self.preflight()
+        except RunnerError as error:
+            return ReadinessObservation(
+                provider=self.provider,
+                ready=False,
+                reason=error.code,
+                scope=scope,
+                payload={"status": "blocked", "error_category": error.code},
+            )
         status = payload.get("status")
+        if status == "blocked":
+            ready = False
+            reason = payload.get("error_category") or "execution_blocked"
+        elif status == "ready" and ready_on_success is True:
+            ready = True
+            reason = None
+        else:
+            ready = None
+            reason = unverified_reason or "readiness_not_verified"
         return ReadinessObservation(
             provider=self.provider,
-            ready=True if status == "ready" else False if status == "blocked" else None,
-            scope=AgentProviderRegistry.descriptor(self.provider).readiness_scope,
-            payload=payload,
+            ready=ready,
+            reason=reason,
+            scope=scope,
+            payload=deepcopy(payload),
         )
 
     def editor_model_catalog(self):

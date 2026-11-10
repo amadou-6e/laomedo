@@ -1,6 +1,7 @@
 """Isolated Claude Code runner with persistent sessions and streamed native events."""
 
 from __future__ import annotations
+from laomedo.agents.agents.base.models import ReadinessObservation
 from laomedo.agents.agents.claude.catalog import ClaudeModelCatalog
 from laomedo.agents.agents.claude.credentials import ClaudeCredentialProvider
 
@@ -141,6 +142,10 @@ class ClaudeAgent(BaseAgent):
             owner.update(cleanup_verified=verified, cleanup_detail=detail)
             if not verified:
                 record["error_category"] = "container_cleanup_unverified"
+
+    def readiness(self) -> ReadinessObservation:
+        """Return the actual native check's availability, reason and scope without inference."""
+        return self._observe_readiness(ready_on_success=True)
 
     def preflight(self):
         """Check native authentication after constructor image/version validation.

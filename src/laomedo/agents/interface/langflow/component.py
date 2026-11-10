@@ -32,6 +32,10 @@ from laomedo.agents.interface.utils import terminal_record as _terminal_record
 _STOP_TASKS = set()
 _TERMINAL = {"completed", "cancelled", "failed", "timeout", "interrupted"}
 _ROUTABLE_ERRORS = {
+    "authentication_not_verified",
+    "execution_blocked",
+    "readiness_not_verified",
+    "opencode_transport_not_verified",
     "invalid_join_body",
     "external_git_directory_unsupported",
     "invalid_skill_id",

@@ -1,6 +1,7 @@
 """Codex adapter for the provider-neutral Agent lifecycle."""
 
 from __future__ import annotations
+from laomedo.agents.agents.base.models import ReadinessObservation
 from laomedo.docker import DockerRuntime
 from laomedo.container_images.errors import ImageBuildError
 from laomedo.agents.agents.codex.catalog import CodexModelCatalog
@@ -228,6 +229,21 @@ class CodexAgent(BaseAgent):
             owner["cleanup_verified"], owner["cleanup_detail"] = verified, detail
             if not verified:
                 record["error_category"] = "container_cleanup_unverified"
+
+    def readiness(self) -> ReadinessObservation:
+        """Return the actual native check's availability, reason and scope without inference."""
+        try:
+            return self._observe_readiness(
+                ready_on_success=None, unverified_reason="authentication_not_verified"
+            )
+        except AuthError as error:
+            return ReadinessObservation(
+                provider=self.provider,
+                ready=False,
+                reason=error.code,
+                scope="native_handshake_and_policy_probes",
+                payload={"status": "blocked", "error_category": error.code},
+            )
 
     def preflight(self) -> dict:
         """Run provider handshake and policy probes without a model request."""

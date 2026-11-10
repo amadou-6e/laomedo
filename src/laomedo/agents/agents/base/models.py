@@ -739,10 +739,25 @@ class ReadinessObservation(BaseModel):
     scope: str = Field(
         description="Exact native/authentication/configuration check established by this result."
     )
+    reason: str | None = Field(
+        default=None,
+        min_length=1,
+        description="Stable blocker or unverified-readiness code; None only when ready.",
+    )
     payload: SkipValidation[dict[str, JsonValue]] = Field(
+        exclude=True,
         repr=False,
         description="Existing public preflight payload without schema or native-extension changes.",
     )
+
+    @model_validator(mode="after")
+    def valid_readiness_reason(self):
+        """Unavailable or unknown execution needs an explanation, never an implied success."""
+        if self.ready is not True and self.reason is None:
+            raise ValueError("readiness_reason_required")
+        if self.ready is True and self.reason is not None:
+            raise ValueError("ready_result_has_blocker")
+        return self
 
 
 class ProcessHealthObservation(BaseModel):
