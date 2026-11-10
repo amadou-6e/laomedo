@@ -6,7 +6,7 @@ from laomedo.integrations.langflow.agent.component import AgentComponent
 
 class LaomedoCodexAgent(AgentComponent):
     display_name = "Laomedo Codex Agent"
-    description = "Start, run, resume or cancel a Codex task with optional pinned skills through the local Docker runner."
+    description = "Start, run, resume or cancel a Codex task with optional pinned skills and selected MCP tools through the local Docker runner."
     name = "LaomedoCodexAgent"
     provider_id = "codex"
     discover_models_on_upgrade = True

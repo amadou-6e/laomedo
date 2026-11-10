@@ -253,8 +253,18 @@ class CodexAgentRuntime(BaseAgentRuntime):
         }
         if self.executor:
             policy["environmentId"] = self.executor.environment_id
+        if getattr(self, "mcp_access", None):
+            policy["externalTools"] = list(self.mcp_access.tool_names())
+            self.secret_redactions += (
+                self.mcp_access.connection.token.get_secret_value(),
+            )
         await self.acp.open(
             session_id=record["thread_id"] if resume else None,
+            mcp_servers=(
+                [self.mcp_access.acp_server()]
+                if getattr(self, "mcp_access", None)
+                else []
+            ),
             metadata={"laomedo": policy},
         )
         self.active_thread_id = self.acp.session_id
@@ -362,6 +372,8 @@ class CodexAgentRuntime(BaseAgentRuntime):
 
     def check_health(self) -> ProcessHealthObservation:
         """Guard host authorization and the separately owned executor."""
+        if getattr(self, "mcp_access", None):
+            self.mcp_access.check_health()
         if self.authorization_probe is not None and not self.authorization_probe():
             raise RunnerError("auth_revoked_during_turn")
         if self.executor is not None:

@@ -27,6 +27,12 @@ explicit second turn on the first run; `--workflow handoff` passes its answer an
 provenance to a fresh independent second Agent. Resume requires `--follow-up`.
 For handoff, that option overrides the selected answer as the second task.
 
+For an MCP example, build a fresh graph with an optional Skill Reference, import
+it, then drag an existing registered MCP server from Langflow's MCP sidebar.
+Select its tools and connect **Toolset → Agent.MCP Tools**, alongside the Skill
+edge. The builder does not copy server configuration or credentials into a new
+node. See [MCP setup and current acceptance limits](../../docs/features/agents/mcp-tools.md).
+
 Import the generated file into Langflow. Inspect its inputs, run it intentionally,
 and view answer/run outputs and retained Activity. Resume preserves the native
 run identity; handoff creates an independent run. A completed build validates only

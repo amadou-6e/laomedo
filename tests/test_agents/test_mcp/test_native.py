@@ -24,7 +24,7 @@ class NativeToolTests(unittest.IsolatedAsyncioTestCase):
             MCPStreamableHttpClient,
             update_tools,
         )
-        from mcp.types import CallToolResult, TextContent, Tool
+        from mcp.types import CallToolResult, TextContent, Tool, ListToolsResult
 
         self.result = CallToolResult(content=[TextContent(type="text", text="result")])
         self.client = MCPStdioClient(tool_execution_timeout=180)
@@ -49,7 +49,10 @@ class NativeToolTests(unittest.IsolatedAsyncioTestCase):
             )
         self.tool = tools[0]
         self.call = AsyncMock(return_value=self.result)
-        self.session = unittest.mock.Mock(call_tool=self.call)
+        self.session = unittest.mock.Mock(
+            call_tool=self.call,
+            list_tools=AsyncMock(return_value=ListToolsResult(tools=[native])),
+        )
         self.client._get_or_create_session = AsyncMock(return_value=self.session)
 
     async def test_alias_does_not_change_upstream_name_or_manifest_identity(self):

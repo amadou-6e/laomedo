@@ -19,7 +19,7 @@ class AcpCapture:
         Host-assigned attempt identity, explicitly labelled as host provenance.
     """
 
-    def __init__(self, root, turn_id):
+    def __init__(self, root, turn_id, *, redactor=None):
         """Initialize prompt-local item state without creating provider identities."""
         self.root = root
         self.turn_id = turn_id
@@ -32,6 +32,7 @@ class AcpCapture:
         self.finished = False
         self.bytes = 0
         self.lock = threading.RLock()
+        self.redactor = redactor
 
     def append(self, method, params):
         """Persist a sanitized observation; normalized records are never native claims."""
@@ -227,7 +228,13 @@ class AcpCapture:
 
     def _write_records(self, events):
         """Validate the whole batch before writing any accepted evidence record."""
-        records = [json.dumps(receipt(sanitized(event))) + "\n" for event in events]
+        records = [
+            json.dumps(
+                receipt(sanitized(self.redactor(event) if self.redactor else event))
+            )
+            + "\n"
+            for event in events
+        ]
         sizes = [len(raw.encode("utf-8")) for raw in records]
         size = sum(sizes)
         if (

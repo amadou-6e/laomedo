@@ -1,5 +1,7 @@
 """Cover Agent errors and the affected runner skill-validation producers."""
 
+from laomedo.agents.interface.langflow.component import _ROUTABLE_ERRORS
+
 import ast
 import json
 import re
@@ -116,15 +118,7 @@ class NodeErrorCatalogueTests(unittest.TestCase):
                 encoding="utf-8"
             )
         )
-        routed = next(
-            ast.literal_eval(node.value)
-            for node in tree.body
-            if isinstance(node, ast.Assign)
-            and any(
-                isinstance(target, ast.Name) and target.id == "_ROUTABLE_ERRORS"
-                for target in node.targets
-            )
-        )
+        routed = _ROUTABLE_ERRORS
         self.assertIn("invalid_join_body", routed)
 
     def test_opencode_discovery_recovery_names_the_existing_user_controls(self):
@@ -148,15 +142,7 @@ class NodeErrorCatalogueTests(unittest.TestCase):
         component = ast.parse(
             (ROOT / "src/laomedo/agents/interface/langflow/component.py").read_text()
         )
-        routed = next(
-            ast.literal_eval(n.value)
-            for n in component.body
-            if isinstance(n, ast.Assign)
-            and any(
-                isinstance(t, ast.Name) and t.id == "_ROUTABLE_ERRORS"
-                for t in n.targets
-            )
-        )
+        routed = _ROUTABLE_ERRORS
         paths = (
             "agents/workspaces/workspace.py",
             "agents/workspaces/utils.py",
@@ -201,15 +187,7 @@ class NodeErrorCatalogueTests(unittest.TestCase):
         tree = ast.parse(
             (ROOT / "src/laomedo/agents/interface/langflow/component.py").read_text()
         )
-        routed = next(
-            ast.literal_eval(node.value)
-            for node in tree.body
-            if isinstance(node, ast.Assign)
-            and any(
-                isinstance(target, ast.Name) and target.id == "_ROUTABLE_ERRORS"
-                for target in node.targets
-            )
-        )
+        routed = _ROUTABLE_ERRORS
         self.assertTrue(methods)
         self.assertFalse({"request_timeout:" + method for method in methods} - routed)
 
@@ -222,15 +200,7 @@ class NodeErrorCatalogueTests(unittest.TestCase):
         tree = ast.parse(
             (ROOT / "src/laomedo/agents/interface/langflow/component.py").read_text()
         )
-        routed = next(
-            ast.literal_eval(node.value)
-            for node in tree.body
-            if isinstance(node, ast.Assign)
-            and any(
-                isinstance(target, ast.Name) and target.id == "_ROUTABLE_ERRORS"
-                for target in node.targets
-            )
-        )
+        routed = _ROUTABLE_ERRORS
         self.assertFalse(
             {code for code in catalogue if code.startswith("opencode_")} - routed
         )
@@ -277,15 +247,7 @@ class NodeErrorCatalogueTests(unittest.TestCase):
         tree = ast.parse(
             (ROOT / "src/laomedo/agents/interface/langflow/component.py").read_text()
         )
-        routed = next(
-            ast.literal_eval(node.value)
-            for node in tree.body
-            if isinstance(node, ast.Assign)
-            and any(
-                isinstance(target, ast.Name) and target.id == "_ROUTABLE_ERRORS"
-                for target in node.targets
-            )
-        )
+        routed = _ROUTABLE_ERRORS
         self.assertFalse(codes - catalogue.keys())
         self.assertFalse(codes - routed)
         for code in codes:
@@ -303,15 +265,7 @@ class NodeErrorCatalogueTests(unittest.TestCase):
                 encoding="utf-8"
             )
         )
-        codes = next(
-            ast.literal_eval(node.value)
-            for node in tree.body
-            if isinstance(node, ast.Assign)
-            and any(
-                isinstance(target, ast.Name) and target.id == "_ROUTABLE_ERRORS"
-                for target in node.targets
-            )
-        )
+        codes = _ROUTABLE_ERRORS
         self.assertFalse(
             {key for key in catalogue if key.startswith("claude_")} - codes
         )

@@ -24,6 +24,14 @@ and registry after asynchronous `start` returns. Registration on another loop or
 without that owner is refused. Shutdown revokes grants before upstream teardown.
 The native-loop and single-call gates must pass before provider integration.
 
+The compatibility checks now exercise real native discovery and actual MCP HTTP
+and STDIO calls through the authenticated forwarder after the build coroutine
+returns. A registration is claimed by one runner invocation; another run cannot
+borrow it. Heartbeats run on a separate thread so native cancellation loops never
+perform blocking supervision I/O. Directory custody uses the existing strict
+`host/private_state` owner, not a new permission implementation. Full editor and
+provider acceptance remain separate and unverified.
+
 Graph and durable task identity contain only the frozen manifest. An opaque local
 registration reference is transient admission, verified against that manifest and
 excluded from semantic request hashes. Native bearer capabilities remain in

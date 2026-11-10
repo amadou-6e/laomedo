@@ -1,9 +1,11 @@
 """Version-checked borrowing of native MCP tools without LFX invocation retries."""
 
 import asyncio
+import hashlib
 from importlib.metadata import version
 from inspect import getclosurevars
 import json
+from pydantic import BaseModel
 
 from laomedo.agents.mcp.errors import McpError
 from laomedo.agents.mcp.models import McpTool
@@ -59,6 +61,7 @@ class LangflowMcpTool:
         self._client = client
         self._schema = closure["arg_schema"]
         self._loop = asyncio.get_running_loop()
+        self._binding_digest = self._binding()
         self.descriptor = McpTool(
             server=metadata["server_name"],
             upstream_name=closure["tool_name"],
@@ -68,6 +71,17 @@ class LangflowMcpTool:
         )
         if len(json.dumps(self.descriptor.input_schema).encode()) > MAX_SCHEMA_BYTES:
             raise McpError("mcp_schema_too_large")
+
+    def _binding(self) -> str:
+        """Fingerprint private mutable client routing without exposing its contents."""
+        parameters = self._client._connection_params
+        if isinstance(parameters, BaseModel):
+            parameters = parameters.model_dump(mode="json")
+        material = json.dumps(
+            [self._client._session_context, parameters],
+            sort_keys=True,
+        )
+        return hashlib.sha256(material.encode()).hexdigest()
 
     async def invoke(
         self, arguments: dict, *, timeout: float = CALL_TIMEOUT_SECONDS
@@ -82,10 +96,16 @@ class LangflowMcpTool:
             _convert_camel_case_to_snake_case,
             _normalize_arguments_for_mcp,
             _strip_none_recursive,
+            create_input_schema_from_json_schema,
         )
 
         if asyncio.get_running_loop() is not self._loop:
             raise McpError("mcp_event_loop_mismatch")
+        if (
+            self._binding() != self._binding_digest
+            or self._schema.model_json_schema() != self.descriptor.input_schema
+        ):
+            raise McpError("mcp_tool_binding_changed")
         if not isinstance(arguments, dict):
             raise McpError("mcp_arguments_invalid")
         if len(json.dumps(arguments).encode()) > MAX_ARGUMENT_BYTES:
@@ -103,6 +123,25 @@ class LangflowMcpTool:
             session = await asyncio.wait_for(
                 self._client._get_or_create_session(), timeout=timeout
             )
+            advertised = await asyncio.wait_for(session.list_tools(), timeout=timeout)
+            current = next(
+                (
+                    tool
+                    for tool in advertised.tools
+                    if tool.name == self.descriptor.upstream_name
+                ),
+                None,
+            )
+            if (
+                current is None
+                or create_input_schema_from_json_schema(
+                    current.inputSchema
+                ).model_json_schema()
+                != self.descriptor.input_schema
+            ):
+                raise McpError("mcp_tool_binding_changed")
+        except McpError:
+            raise
         except Exception:
             raise McpError("mcp_connection_unavailable") from None
         try:

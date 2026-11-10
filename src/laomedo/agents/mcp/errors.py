@@ -1,7 +1,9 @@
 """Safe failures at the external MCP admission and invocation boundary."""
 
+from laomedo.agents.errors import RunnerError
 
-class McpError(ValueError):
+
+class McpError(RunnerError):
     """Reject external access without exposing native errors or upstream credentials.
 
     ``code`` is a stable machine category. An invocation failure never establishes

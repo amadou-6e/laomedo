@@ -35,6 +35,9 @@ from laomedo.agents.agents.base.settings import RUNNER_FAILURE_CODES
 from laomedo.agents.artifacts.models import ArtifactReference
 from laomedo.agents.orchestration.models import HandoffProvenance
 from laomedo.agents.errors import RunnerError
+from laomedo.agents.mcp.client import McpAccess
+from laomedo.agents.mcp.models import McpManifest
+from laomedo.agents.mcp.errors import McpError
 from laomedo.agents.workspaces.utils import _copy_tree
 from laomedo.agents.agents.base.utils import _git_tree
 from laomedo.agents.workspaces.utils import _hash_tree
@@ -123,6 +126,83 @@ class BaseAgent(ABC):
         self.control_lock = threading.Lock()
         self.request_lock = threading.Lock()
         self.cancel_flags = {}
+        self._mcp_access = {}
+
+    def mcp_access(self, run_id):
+        """Return only in-memory admitted external access, never reconstruct a grant."""
+        return getattr(self, "_mcp_access", {}).get(run_id)
+
+    @staticmethod
+    def mcp_names(record):
+        """Derive exact non-secret provider tool names from an admitted manifest."""
+        manifest = record.get("mcp_manifest")
+        return (
+            ()
+            if manifest is None
+            else tuple(
+                tool.external_name()
+                for tool in McpManifest.model_validate(manifest).tools
+            )
+        )
+
+    def check_mcp(self, record):
+        """Refuse a saved MCP run without its live attempt capability before launch."""
+        access = self.mcp_access(record["run_id"])
+        if record.get("mcp_manifest") is not None:
+            if access is None:
+                raise RunnerError("mcp_registration_required")
+            try:
+                access.check_health(force=True)
+            except McpError as exc:
+                raise RunnerError(exc.code) from None
+        return access
+
+    def release_mcp(self, run_id):
+        """Revoke an attempt's external access without masking native cleanup errors."""
+        access = getattr(self, "_mcp_access", {}).pop(run_id, None)
+        if access:
+            try:
+                access.close()
+            except McpError:
+                # App loss has already removed access; remote tool effects remain unknown.
+                pass
+
+    def _mcp_manifest(self, request):
+        """Validate paired external admission fields before identity lookup or effects."""
+        if ("mcp_manifest" in request) != ("mcp_registration" in request):
+            raise RunnerError("mcp_registration_required")
+        if "mcp_manifest" not in request:
+            return None
+        try:
+            _id(request["mcp_registration"])
+            return McpManifest.model_validate(request["mcp_manifest"])
+        except Exception:
+            raise RunnerError("mcp_manifest_invalid") from None
+
+    def _admit_mcp(self, request):
+        """Resolve exact tool identities using only host-owned local rendezvous state."""
+        manifest = self._mcp_manifest(request)
+        if manifest is None:
+            return None
+        try:
+            return McpAccess(
+                request["mcp_registration"], manifest.model_dump(mode="json")
+            )
+        except McpError as exc:
+            raise RunnerError(exc.code) from None
+
+    def bind_mcp_resume(self, run_id, request):
+        """Require identical saved tools and a fresh live registration for HTTP resume."""
+        manifest = self._mcp_manifest(request)
+        saved = self.status(run_id).get("mcp_manifest")
+        if (manifest.model_dump(mode="json") if manifest else None) != saved:
+            raise RunnerError("mcp_resume_binding_mismatch")
+        access = self._admit_mcp(request)
+        if access:
+            if self.mcp_access(run_id) is not None:
+                raise RunnerError("mcp_run_already_bound")
+            access.claim(run_id)
+            self._mcp_access[run_id] = access
 
     @property
     def credentials(self):
@@ -277,8 +357,12 @@ class BaseAgent(ABC):
         except RunnerError as exc:
             record.update(status="failed", error_category=str(exc))
             _json(self._run_dir(record["run_id"]) / "record.json", record)
+            self.release_mcp(record["run_id"])
             raise
-        return self._execute(record["run_id"], request["task"], resume=False)
+        try:
+            return self._execute(record["run_id"], request["task"], resume=False)
+        finally:
+            self.release_mcp(record["run_id"])
 
     def start_async(self, request: dict, *, response_gate=None) -> dict:
         """Reserve one request identity, then run only after the HTTP reply."""
@@ -290,11 +374,17 @@ class BaseAgent(ABC):
         except (TypeError, ValueError, AttributeError):
             raise RunnerError("invalid_request_id") from None
         body = {key: value for key, value in request.items() if key != "request_id"}
+        manifest = self._mcp_manifest(body)
+        if manifest:
+            body["mcp_manifest"] = manifest.model_dump(mode="json")
         request_hash = (
             "sha256:"
             + hashlib.sha256(
                 json.dumps(
-                    body, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+                    McpAccess.semantic_request(body),
+                    sort_keys=True,
+                    separators=(",", ":"),
+                    ensure_ascii=False,
                 ).encode("utf-8")
             ).hexdigest()
         )
@@ -304,6 +394,21 @@ class BaseAgent(ABC):
                 if prior.get("client_request_id") == request_id:
                     if prior.get("request_hash") != request_hash:
                         raise RunnerError("request_identity_conflict")
+                    try:
+                        unused = self._admit_mcp(body)
+                    except RunnerError as exc:
+                        if exc.code != "mcp_registration_expired":
+                            raise
+                        unused = None
+                    active = self.mcp_access(prior["run_id"])
+                    if unused and unused.run_id not in (None, prior["run_id"]):
+                        raise RunnerError("mcp_run_binding_mismatch")
+                    if unused and (
+                        active is None
+                        or active.connection.registration.registration_id
+                        != unused.connection.registration.registration_id
+                    ):
+                        unused.close()
                     return prior
             record = self._prepare(
                 body, client_request_id=request_id, request_hash=request_hash
@@ -483,6 +588,7 @@ class BaseAgent(ABC):
         """Validate the request and persist its prepared identity/workspace binding before native dispatch."""
         if not isinstance(request, dict):
             raise RunnerError("invalid_request")
+        self._mcp_manifest(request)
         task = request.get("task")
         if not isinstance(task, str) or not task.strip() or len(task) > 16000:
             raise RunnerError("invalid_task")
@@ -625,8 +731,15 @@ class BaseAgent(ABC):
                 ),
             )
             record = prepared_record.to_record()
+            manifest = self._mcp_manifest(request)
+            if manifest:
+                access = self._admit_mcp(request)
+                access.claim(record["run_id"])
+                self._mcp_access[record["run_id"]] = access
+                record["mcp_manifest"] = manifest.model_dump(mode="json")
             _json(run_dir / "record.json", record)
         except Exception:
+            self.release_mcp(run_id)
             try:
                 remove_owned_tree(run_dir, self.state)
             except OSError:
@@ -660,6 +773,8 @@ class BaseAgent(ABC):
                         answer=None,
                     )
                     _json(self._run_dir(run_id) / "record.json", record)
+        finally:
+            self.release_mcp(run_id)
 
     def _artifact_source(self, provider, run_id):
         """Resolve only host-configured provider artifact state; graph input cannot choose host paths."""

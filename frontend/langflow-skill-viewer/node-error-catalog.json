@@ -957,7 +957,7 @@
   "fresh_codex_request_required": {
     "title": "A new agent run is required",
     "description": "This handoff route accepts only Fresh operations targeting Codex or Claude.",
-    "recovery": "Choose Fresh and a supported target agent. Resume must use that agentÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢s original completed Run Reference."
+    "recovery": "Choose Fresh and a supported target agent. Resume must use that agentÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢s original completed Run Reference."
   },
   "runner_token_file_required": {
     "title": "The handoff runner is not connected",
@@ -2032,7 +2032,7 @@
   "issue_state_invalid": {
     "title": "The Issue state filter is invalid",
     "description": "The saved state value is not one of the supported filters.",
-    "recovery": "Choose Open, Closed or All in the node’s State control and refresh discovery."
+    "recovery": "Choose Open, Closed or All in the nodeâ€™s State control and refresh discovery."
   },
   "issue_write_unknown": {
     "title": "The Issue update outcome is not confirmed",
@@ -2092,7 +2092,7 @@
   "pr_state_invalid": {
     "title": "The PR state filter is invalid",
     "description": "The saved state value is not one of the supported filters.",
-    "recovery": "Choose Open, Closed or All in the node’s State control and refresh discovery."
+    "recovery": "Choose Open, Closed or All in the nodeâ€™s State control and refresh discovery."
   },
   "pr_write_unknown": {
     "title": "The PR update outcome is not confirmed",
@@ -2123,5 +2123,190 @@
     "title": "The selected pull request could not be loaded",
     "description": "The viewer could not confirm the current pull request content. The cause has not been established.",
     "recovery": "Refresh PR repeats only this read. It does not edit GitHub, run the graph or start an Agent. Check the current selection and local GitHub connection if the read still fails."
+  },
+  "mcp_app_lifetime_required": {
+    "title": "MCP tool access could not continue",
+    "description": "The selected MCP tools could not be admitted or used safely (mcp_app_lifetime_required).",
+    "recovery": "Check the MCP server connection and selected tools, keep the Laomedo app running, and check the run status before starting again. A failed call may already have had effects; do not automatically repeat it."
+  },
+  "mcp_app_owner_conflict": {
+    "title": "MCP tool access could not continue",
+    "description": "The selected MCP tools could not be admitted or used safely (mcp_app_owner_conflict).",
+    "recovery": "Check the MCP server connection and selected tools, keep the Laomedo app running, and check the run status before starting again. A failed call may already have had effects; do not automatically repeat it."
+  },
+  "mcp_arguments_invalid": {
+    "title": "MCP tool access could not continue",
+    "description": "The selected MCP tools could not be admitted or used safely (mcp_arguments_invalid).",
+    "recovery": "Check the MCP server connection and selected tools, keep the Laomedo app running, and check the run status before starting again. A failed call may already have had effects; do not automatically repeat it."
+  },
+  "mcp_arguments_too_large": {
+    "title": "MCP tool access could not continue",
+    "description": "The selected MCP tools could not be admitted or used safely (mcp_arguments_too_large).",
+    "recovery": "Check the MCP server connection and selected tools, keep the Laomedo app running, and check the run status before starting again. A failed call may already have had effects; do not automatically repeat it."
+  },
+  "mcp_call_limit": {
+    "title": "MCP tool access could not continue",
+    "description": "The selected MCP tools could not be admitted or used safely (mcp_call_limit).",
+    "recovery": "Check the MCP server connection and selected tools, keep the Laomedo app running, and check the run status before starting again. A failed call may already have had effects; do not automatically repeat it."
+  },
+  "mcp_call_outcome_unknown": {
+    "title": "MCP tool access could not continue",
+    "description": "The selected MCP tools could not be admitted or used safely (mcp_call_outcome_unknown).",
+    "recovery": "Check the MCP server connection and selected tools, keep the Laomedo app running, and check the run status before starting again. A failed call may already have had effects; do not automatically repeat it."
+  },
+  "mcp_connection_unavailable": {
+    "title": "MCP tool access could not continue",
+    "description": "The selected MCP tools could not be admitted or used safely (mcp_connection_unavailable).",
+    "recovery": "Check the MCP server connection and selected tools, keep the Laomedo app running, and check the run status before starting again. A failed call may already have had effects; do not automatically repeat it."
+  },
+  "mcp_controller_host_invalid": {
+    "title": "MCP tool access could not continue",
+    "description": "The selected MCP tools could not be admitted or used safely (mcp_controller_host_invalid).",
+    "recovery": "Check the MCP server connection and selected tools, keep the Laomedo app running, and check the run status before starting again. A failed call may already have had effects; do not automatically repeat it."
+  },
+  "mcp_duplicate_tool": {
+    "title": "MCP tool access could not continue",
+    "description": "The selected MCP tools could not be admitted or used safely (mcp_duplicate_tool).",
+    "recovery": "Check the MCP server connection and selected tools, keep the Laomedo app running, and check the run status before starting again. A failed call may already have had effects; do not automatically repeat it."
+  },
+  "mcp_event_loop_mismatch": {
+    "title": "MCP tool access could not continue",
+    "description": "The selected MCP tools could not be admitted or used safely (mcp_event_loop_mismatch).",
+    "recovery": "Check the MCP server connection and selected tools, keep the Laomedo app running, and check the run status before starting again. A failed call may already have had effects; do not automatically repeat it."
+  },
+  "mcp_manifest_invalid": {
+    "title": "MCP tool access could not continue",
+    "description": "The selected MCP tools could not be admitted or used safely (mcp_manifest_invalid).",
+    "recovery": "Check the MCP server connection and selected tools, keep the Laomedo app running, and check the run status before starting again. A failed call may already have had effects; do not automatically repeat it."
+  },
+  "mcp_manifest_too_large": {
+    "title": "MCP tool access could not continue",
+    "description": "The selected MCP tools could not be admitted or used safely (mcp_manifest_too_large).",
+    "recovery": "Check the MCP server connection and selected tools, keep the Laomedo app running, and check the run status before starting again. A failed call may already have had effects; do not automatically repeat it."
+  },
+  "mcp_method_unsupported": {
+    "title": "MCP tool access could not continue",
+    "description": "The selected MCP tools could not be admitted or used safely (mcp_method_unsupported).",
+    "recovery": "Check the MCP server connection and selected tools, keep the Laomedo app running, and check the run status before starting again. A failed call may already have had effects; do not automatically repeat it."
+  },
+  "mcp_native_tool_unsupported": {
+    "title": "MCP tool access could not continue",
+    "description": "The selected MCP tools could not be admitted or used safely (mcp_native_tool_unsupported).",
+    "recovery": "Check the MCP server connection and selected tools, keep the Laomedo app running, and check the run status before starting again. A failed call may already have had effects; do not automatically repeat it."
+  },
+  "mcp_native_version_unsupported": {
+    "title": "MCP tool access could not continue",
+    "description": "The selected MCP tools could not be admitted or used safely (mcp_native_version_unsupported).",
+    "recovery": "Check the MCP server connection and selected tools, keep the Laomedo app running, and check the run status before starting again. A failed call may already have had effects; do not automatically repeat it."
+  },
+  "mcp_private_interface_required": {
+    "title": "MCP tool access could not continue",
+    "description": "The selected MCP tools could not be admitted or used safely (mcp_private_interface_required).",
+    "recovery": "Check the MCP server connection and selected tools, keep the Laomedo app running, and check the run status before starting again. A failed call may already have had effects; do not automatically repeat it."
+  },
+  "mcp_private_state_unverified": {
+    "title": "MCP tool access could not continue",
+    "description": "The selected MCP tools could not be admitted or used safely (mcp_private_state_unverified).",
+    "recovery": "Check the MCP server connection and selected tools, keep the Laomedo app running, and check the run status before starting again. A failed call may already have had effects; do not automatically repeat it."
+  },
+  "mcp_protocol_invalid": {
+    "title": "MCP tool access could not continue",
+    "description": "The selected MCP tools could not be admitted or used safely (mcp_protocol_invalid).",
+    "recovery": "Check the MCP server connection and selected tools, keep the Laomedo app running, and check the run status before starting again. A failed call may already have had effects; do not automatically repeat it."
+  },
+  "mcp_provider_unsupported": {
+    "title": "MCP tool access could not continue",
+    "description": "The selected MCP tools could not be admitted or used safely (mcp_provider_unsupported).",
+    "recovery": "Check the MCP server connection and selected tools, keep the Laomedo app running, and check the run status before starting again. A failed call may already have had effects; do not automatically repeat it."
+  },
+  "mcp_registration_expired": {
+    "title": "MCP tool access could not continue",
+    "description": "The selected MCP tools could not be admitted or used safely (mcp_registration_expired).",
+    "recovery": "Check the MCP server connection and selected tools, keep the Laomedo app running, and check the run status before starting again. A failed call may already have had effects; do not automatically repeat it."
+  },
+  "mcp_registration_failed": {
+    "title": "MCP tool access could not continue",
+    "description": "The selected MCP tools could not be admitted or used safely (mcp_registration_failed).",
+    "recovery": "Check the MCP server connection and selected tools, keep the Laomedo app running, and check the run status before starting again. A failed call may already have had effects; do not automatically repeat it."
+  },
+  "mcp_registration_limit": {
+    "title": "MCP tool access could not continue",
+    "description": "The selected MCP tools could not be admitted or used safely (mcp_registration_limit).",
+    "recovery": "Check the MCP server connection and selected tools, keep the Laomedo app running, and check the run status before starting again. A failed call may already have had effects; do not automatically repeat it."
+  },
+  "mcp_registration_required": {
+    "title": "MCP tool access could not continue",
+    "description": "The selected MCP tools could not be admitted or used safely (mcp_registration_required).",
+    "recovery": "Check the MCP server connection and selected tools, keep the Laomedo app running, and check the run status before starting again. A failed call may already have had effects; do not automatically repeat it."
+  },
+  "mcp_registration_too_late": {
+    "title": "MCP tool access could not continue",
+    "description": "The selected MCP tools could not be admitted or used safely (mcp_registration_too_late).",
+    "recovery": "Check the MCP server connection and selected tools, keep the Laomedo app running, and check the run status before starting again. A failed call may already have had effects; do not automatically repeat it."
+  },
+  "mcp_registration_unavailable": {
+    "title": "MCP tool access could not continue",
+    "description": "The selected MCP tools could not be admitted or used safely (mcp_registration_unavailable).",
+    "recovery": "Check the MCP server connection and selected tools, keep the Laomedo app running, and check the run status before starting again. A failed call may already have had effects; do not automatically repeat it."
+  },
+  "mcp_registration_unclaimed": {
+    "title": "MCP tool access could not continue",
+    "description": "The selected MCP tools could not be admitted or used safely (mcp_registration_unclaimed).",
+    "recovery": "Check the MCP server connection and selected tools, keep the Laomedo app running, and check the run status before starting again. A failed call may already have had effects; do not automatically repeat it."
+  },
+  "mcp_request_too_large": {
+    "title": "MCP tool access could not continue",
+    "description": "The selected MCP tools could not be admitted or used safely (mcp_request_too_large).",
+    "recovery": "Check the MCP server connection and selected tools, keep the Laomedo app running, and check the run status before starting again. A failed call may already have had effects; do not automatically repeat it."
+  },
+  "mcp_result_too_large": {
+    "title": "MCP tool access could not continue",
+    "description": "The selected MCP tools could not be admitted or used safely (mcp_result_too_large).",
+    "recovery": "Check the MCP server connection and selected tools, keep the Laomedo app running, and check the run status before starting again. A failed call may already have had effects; do not automatically repeat it."
+  },
+  "mcp_resume_binding_mismatch": {
+    "title": "MCP tool access could not continue",
+    "description": "The selected MCP tools could not be admitted or used safely (mcp_resume_binding_mismatch).",
+    "recovery": "Check the MCP server connection and selected tools, keep the Laomedo app running, and check the run status before starting again. A failed call may already have had effects; do not automatically repeat it."
+  },
+  "mcp_run_already_bound": {
+    "title": "MCP tool access could not continue",
+    "description": "The selected MCP tools could not be admitted or used safely (mcp_run_already_bound).",
+    "recovery": "Check the MCP server connection and selected tools, keep the Laomedo app running, and check the run status before starting again. A failed call may already have had effects; do not automatically repeat it."
+  },
+  "mcp_run_binding_mismatch": {
+    "title": "MCP tool access could not continue",
+    "description": "The selected MCP tools could not be admitted or used safely (mcp_run_binding_mismatch).",
+    "recovery": "Check the MCP server connection and selected tools, keep the Laomedo app running, and check the run status before starting again. A failed call may already have had effects; do not automatically repeat it."
+  },
+  "mcp_schema_too_large": {
+    "title": "MCP tool access could not continue",
+    "description": "The selected MCP tools could not be admitted or used safely (mcp_schema_too_large).",
+    "recovery": "Check the MCP server connection and selected tools, keep the Laomedo app running, and check the run status before starting again. A failed call may already have had effects; do not automatically repeat it."
+  },
+  "mcp_server_limit": {
+    "title": "MCP tool access could not continue",
+    "description": "The selected MCP tools could not be admitted or used safely (mcp_server_limit).",
+    "recovery": "Check the MCP server connection and selected tools, keep the Laomedo app running, and check the run status before starting again. A failed call may already have had effects; do not automatically repeat it."
+  },
+  "mcp_tool_approval_unsupported": {
+    "title": "MCP tool access could not continue",
+    "description": "The selected MCP tools could not be admitted or used safely (mcp_tool_approval_unsupported).",
+    "recovery": "Check the MCP server connection and selected tools, keep the Laomedo app running, and check the run status before starting again. A failed call may already have had effects; do not automatically repeat it."
+  },
+  "mcp_tool_binding_changed": {
+    "title": "MCP tool access could not continue",
+    "description": "The selected MCP tools could not be admitted or used safely (mcp_tool_binding_changed).",
+    "recovery": "Check the MCP server connection and selected tools, keep the Laomedo app running, and check the run status before starting again. A failed call may already have had effects; do not automatically repeat it."
+  },
+  "mcp_tool_limit": {
+    "title": "MCP tool access could not continue",
+    "description": "The selected MCP tools could not be admitted or used safely (mcp_tool_limit).",
+    "recovery": "Check the MCP server connection and selected tools, keep the Laomedo app running, and check the run status before starting again. A failed call may already have had effects; do not automatically repeat it."
+  },
+  "mcp_tool_not_selected": {
+    "title": "MCP tool access could not continue",
+    "description": "The selected MCP tools could not be admitted or used safely (mcp_tool_not_selected).",
+    "recovery": "Check the MCP server connection and selected tools, keep the Laomedo app running, and check the run status before starting again. A failed call may already have had effects; do not automatically repeat it."
   }
 }

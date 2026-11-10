@@ -725,6 +725,29 @@
                 "track_in_telemetry": true,
                 "type": "int",
                 "_input_type": "IntInput"
+              },
+              "mcp_tools": {
+                "trace_as_metadata": true,
+                "list": true,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "mcp_tools",
+                "value": "",
+                "display_name": "MCP Tools",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Tool"
+                ],
+                "dynamic": false,
+                "info": "Connect selected tools from existing MCP server nodes.",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "other",
+                "_input_type": "HandleInput"
               }
             },
             "description": "Run pinned skills with OpenCode through its isolated local Docker runner.",
@@ -795,6 +818,7 @@
               "model",
               "effort",
               "skill_reference",
+              "mcp_tools",
               "run_reference",
               "run_reference_json",
               "runner_url",

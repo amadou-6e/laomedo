@@ -5,13 +5,16 @@ server. They are not model/provider or real editor acceptance.
 """
 
 import asyncio
+from contextlib import asynccontextmanager
 from importlib.util import find_spec
 from pathlib import Path
 import socket
 import subprocess
 import sys
+import tempfile
 from types import SimpleNamespace
 import unittest
+from uuid import uuid4
 from unittest.mock import patch
 
 
@@ -54,6 +57,14 @@ class NativeTransportTests(unittest.IsolatedAsyncioTestCase):
             update_tools,
         )
         from laomedo.integrations.langflow.mcp import LangflowMcpTool
+        from laomedo.agents.mcp.registry import McpRegistry
+        from laomedo.agents.mcp.settings import McpSettings
+        from laomedo.agents.mcp.client import McpAccess
+        from laomedo.agents.errors import RunnerError
+        from fastapi import FastAPI
+        from mcp import ClientSession
+        from mcp.shared.exceptions import McpError
+        from mcp.client.streamable_http import streamablehttp_client
 
         stdio = MCPStdioClient(tool_execution_timeout=15)
         http = MCPStreamableHttpClient(tool_execution_timeout=15)
@@ -65,11 +76,67 @@ class NativeTransportTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual([tool.name for tool in tools], ["echo"])
                 return LangflowMcpTool(tools[0])
 
-            adapter = await build()
-            await asyncio.sleep(0)
-            result = await adapter.invoke({"message": "native-roundtrip"}, timeout=15)
-            self.assertFalse(result["isError"])
-            self.assertEqual(result["content"][0]["text"], "native-roundtrip")
+            with tempfile.TemporaryDirectory() as state:
+                settings = McpSettings(
+                    directory=Path(state) / "connections", controller_host="127.0.0.1"
+                )
+                app = FastAPI(lifespan=self.upstream_lifespan)
+                registry = McpRegistry.install(app, settings)
+                async with app.router.lifespan_context(app):
+                    adapter = await build()
+                    registration = registry.register([adapter])
+                    await asyncio.sleep(0)
+                    # build() has returned; app lifespan still owns the native client.
+                    access = await asyncio.to_thread(
+                        McpAccess,
+                        str(registration.registration_id),
+                        registration.manifest.model_dump(mode="json"),
+                        settings=settings,
+                    )
+                    connection = access.connection
+                    await asyncio.to_thread(access.claim, str(uuid4()))
+                    with self.assertRaisesRegex(
+                        RunnerError, "mcp_run_binding_mismatch"
+                    ):
+                        await asyncio.to_thread(access.claim, str(uuid4()))
+                    self.assertNotIn("token", connection.model_dump())
+                    self.assertNotIn(
+                        connection.token.get_secret_value(), repr(connection)
+                    )
+                    self.assertEqual(
+                        access.redact({"value": connection.token.get_secret_value()}),
+                        {"value": "[redacted]"},
+                    )
+                    try:
+                        async with streamablehttp_client(
+                            connection.endpoint(),
+                            headers={
+                                "Authorization": "Bearer "
+                                + connection.token.get_secret_value()
+                            },
+                        ) as (read, write, _):
+                            async with ClientSession(read, write) as session:
+                                await session.initialize()
+                                listed = await session.list_tools()
+                                self.assertEqual(
+                                    [tool.name for tool in listed.tools],
+                                    list(access.tool_names()),
+                                )
+                                result = await session.call_tool(
+                                    access.tool_names()[0],
+                                    {"message": "native-roundtrip"},
+                                )
+                                self.assertFalse(result.isError)
+                                self.assertEqual(
+                                    result.content[0].text, "native-roundtrip"
+                                )
+                                with self.assertRaisesRegex(
+                                    McpError, "mcp_tool_not_selected"
+                                ):
+                                    await session.call_tool("not_selected", {})
+                    finally:
+                        await asyncio.to_thread(access.close)
+                    self.assertFalse(registry.leases)
         finally:
             for client in (stdio, http):
                 if client._connected:
@@ -77,6 +144,15 @@ class NativeTransportTests(unittest.IsolatedAsyncioTestCase):
                 manager = getattr(client, "_session_manager", None)
                 if manager:
                     await manager.cleanup_all()
+
+    @asynccontextmanager
+    async def upstream_lifespan(self, app):
+        """Observe composition without initializing unrelated Langflow services."""
+        self.upstream_active = True
+        try:
+            yield
+        finally:
+            self.upstream_active = False
 
     async def test_stdio_native_discovery_and_invocation(self):
         """Use the actual native STDIO client and a credential-free local process."""
