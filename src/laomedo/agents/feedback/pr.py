@@ -84,6 +84,15 @@ def context_input_name(component):
 
 def skill_input_vertices(controller, agent):
     """Only independent read-only Skill outputs may accompany feedback Task."""
+    if controller.custom_component.name == "LaomedoGitHubPR" and any(
+        edge.target_id != controller.id
+        or edge.target_handle.field_name
+        != context_input_name(controller.custom_component)
+        for edge in agent.outgoing_edges
+    ):
+        # The isolated body publishes its selected proposal only to its PR
+        # controller. Refuse other consumers rather than silently omitting them.
+        raise ValueError("pr_agent_loop_invalid")
     selected = set()
     tasks = 0
     for edge in agent.incoming_edges:

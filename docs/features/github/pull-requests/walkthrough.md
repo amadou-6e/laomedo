@@ -63,6 +63,9 @@ Use the single **PR** input for the return edge. This is the supported bounded
 feedback connection, not an arbitrary cycle or a second PR node. The pinned
 Skill is an independent read-only dependency. Do not add a manual PR operation
 value alongside the feedback edge or wire unrelated inputs into its isolated body.
+The feedback Agent's proposal output returns only to this PR controller; other
+consumers of that Agent are refused before execution. Connect result inspectors
+to the PR output to inspect the final envelope.
 
 This walkthrough uses Claude. The maintained `examples/github/build_flow.py`
 builder uses the existing Codex Agent with the same PR context feedback wiring.

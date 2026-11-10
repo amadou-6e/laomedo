@@ -170,6 +170,23 @@ class PRAgentLoopTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(self.agent_calls), 0)
         self.assertEqual(len(self.fake.writes), 0)
 
+    async def test_extra_feedback_agent_consumer_is_refused_before_execution(self):
+        flow = builder.build()
+        consumer = builder.node(
+            Path(__file__).with_name("result.py"), "consumer", {}, 900, 0
+        )
+        flow["data"]["nodes"].append(consumer)
+        flow["data"]["edges"].append(
+            builder.edge(flow["data"]["nodes"][1], "operation", consumer, "result")
+        )
+        graph = Graph.from_payload(flow)
+        with self.assertRaisesRegex(Exception, "pr_agent_loop_invalid"):
+            await asyncio.wait_for(
+                graph.arun(inputs=[{}], outputs=["pr", "consumer"]), timeout=25
+            )
+        self.assertEqual(self.agent_calls, [])
+        self.assertEqual(self.fake.writes, [])
+
     async def test_multiple_operation_sources_are_refused_before_agent(self):
         flow = builder.build()
         extra = builder.node(
