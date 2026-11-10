@@ -10,6 +10,7 @@ from laomedo.github.connections.client import GitHubReadClient, GitHubRepository
 from laomedo.github.connections.errors import (
     GitHubConnectionChanged,
     GitHubConnectionError,
+    GitHubConnectionInputError,
     GitHubOAuthError,
     GitHubReauthorizationRequired,
     GitHubRepositoryAccessError,
@@ -118,12 +119,15 @@ class GitHubConnectionService:
         self, scope: GitHubConnectionScope, *, client_id, slug, secret
     ):
         """Version deliberate app setup without rebinding existing ready connections."""
-        settings = GitHubAppSettings(
-            client_id=client_id,
-            slug=slug,
-            client_secret=secret,
-            callback_uri=self.callback_uri,
-        )
+        try:
+            settings = GitHubAppSettings(
+                client_id=client_id,
+                slug=slug,
+                client_secret=secret,
+                callback_uri=self.callback_uri,
+            )
+        except ValueError:
+            raise GitHubConnectionInputError() from None
         async with self.lock, self.commit_lock:
             await scope.revalidate()
             app_id = uuid4()
@@ -294,7 +298,10 @@ class GitHubConnectionService:
             value = self.vault.load(attempt.secret_reference)
             if value is None:
                 raise GitHubReauthorizationRequired()
-            credential = GitHubConnectionCredential.from_vault_value(value)
+            try:
+                credential = GitHubConnectionCredential.from_vault_value(value)
+            except ValueError:
+                raise GitHubReauthorizationRequired() from None
             reader = self.read_client(credential)
             try:
                 access = GitHubRepositoryAccess(reader)

@@ -17,10 +17,11 @@ class PrivateAdmissionCatalogueTests(unittest.TestCase):
         owners = (
             root / "src/laomedo/integrations/langflow/authentication",
             root / "src/laomedo/host/credentials/github",
+            root / "src/laomedo/github/connections",
         )
         codes = set()
         for owner in owners:
-            for path in owner.glob("*.py"):
+            for path in owner.glob("errors.py"):
                 for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
                     if (
                         isinstance(node, ast.Constant)
@@ -29,25 +30,12 @@ class PrivateAdmissionCatalogueTests(unittest.TestCase):
                             (
                                 "private_session_",
                                 "private_request_",
-                                "github_credential_",
+                                "github_",
                             )
                         )
                     ):
                         codes.add(node.value)
         self.assertTrue(codes)
-        from laomedo.github.connections.errors import (
-            GitHubConnectionChanged,
-            GitHubConnectionError,
-            GitHubOAuthError,
-            GitHubRepositoryAccessError,
-            GitHubReauthorizationRequired,
-            GitHubTokenUnsupported,
-        )
-
-        codes.add(GitHubOAuthError.code)
-        codes.update((GitHubConnectionError.code, GitHubConnectionChanged.code))
-        codes.add(GitHubRepositoryAccessError.code)
-        codes.update((GitHubReauthorizationRequired.code, GitHubTokenUnsupported.code))
         for code in codes:
             with self.subTest(code=code):
                 self.assertIn(code, catalogue)

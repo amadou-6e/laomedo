@@ -13,7 +13,10 @@ from laomedo.integrations.langflow.authentication.boundary import (
 )
 from laomedo.integrations.langflow.authentication.errors import PrivateSessionError
 from laomedo.integrations.langflow.authentication.models import PrivateRuntimeMarker
-from laomedo.integrations.langflow.authentication.policy import PrivateAccessPolicy
+from laomedo.integrations.langflow.authentication.policy import (
+    PrivateAccessPolicy,
+    PrivateGitHubResponsePolicy,
+)
 from laomedo.integrations.langflow.authentication.settings import PrivateBrowserSettings
 from laomedo.integrations.langflow.authentication.store import PrivateSessionStore
 
@@ -78,10 +81,29 @@ class PrivateBrowserRuntime:
         self.policy = PrivateAccessPolicy(store, self.settings)
         app.state.private_access_policy = self.policy
         from laomedo.integrations.langflow.authentication.routes import router
+        from laomedo.integrations.langflow.authentication.connections import (
+            connection_router,
+        )
+        from laomedo.github.connections.journal import GitHubConnectionJournal
+        from laomedo.github.connections.service import GitHubConnectionService
+        from laomedo.github.connections.settings import GITHUB_CALLBACK_PATH
+        from laomedo.host.credentials.github.vault import WindowsCredentialVault
 
+        connections = GitHubConnectionService(
+            GitHubConnectionJournal(self.root / "connections.sqlite"),
+            WindowsCredentialVault(),
+            callback_uri=self.settings.origin + GITHUB_CALLBACK_PATH,
+            commit_lock=self.policy.lock,
+        )
+        app.state.private_github_connections = connections
         app.include_router(router)
+        app.include_router(connection_router)
         app.add_middleware(PrivateSessionAdapter, store=store, policy=self.policy)
-        app.add_middleware(PrivateResponseBoundary, policy=self.policy)
+        app.add_middleware(
+            PrivateResponseBoundary,
+            policy=self.policy,
+            resource_policy=PrivateGitHubResponsePolicy(connections),
+        )
         self._upstream_lifespan = app.router.lifespan_context
         app.router.lifespan_context = self.lifespan
 

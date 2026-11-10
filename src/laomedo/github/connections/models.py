@@ -3,7 +3,7 @@
 import json
 from collections.abc import Awaitable, Callable
 from math import isfinite
-from typing import Literal
+from typing import Annotated, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, model_validator
@@ -489,3 +489,97 @@ class GitHubResponseBinding(BaseModel):
         ):
             raise ValueError("github_response_binding_invalid")
         return self
+
+
+class GitHubAppSetupRequest(BaseModel):
+    """Deliberate masked local app setup; owner is never a request field."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True, hide_input_in_errors=True)
+    client_id: str = Field(
+        strict=True,
+        min_length=1,
+        max_length=128,
+        description="Operator-entered GitHub App client ID.",
+    )
+    slug: str = Field(
+        strict=True,
+        min_length=1,
+        max_length=100,
+        description="Operator-entered GitHub App installation slug.",
+    )
+    secret: SecretStr = Field(
+        exclude=True,
+        repr=False,
+        min_length=1,
+        max_length=4096,
+        description="Masked app secret, for native vault custody only.",
+    )
+
+
+class GitHubBrowserConnectRequest(BaseModel):
+    """Start a new connection or deliberate reconnect of one selected reference."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True, hide_input_in_errors=True)
+    connection_id: UUID | None = Field(
+        default=None,
+        description="Existing owned reference for reconnect, or new when absent.",
+    )
+
+
+class GitHubTokenConnectRequest(BaseModel):
+    """Deliberate masked token entry, never inferred from the host environment."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True, hide_input_in_errors=True)
+    connection_id: UUID | None = Field(
+        default=None,
+        description="Existing owned reference for reconnect, or new when absent.",
+    )
+    token: SecretStr = Field(
+        exclude=True,
+        repr=False,
+        min_length=1,
+        max_length=4096,
+        description="Explicitly entered fine-grained credential, never echoed.",
+    )
+
+
+class GitHubConsentRequest(BaseModel):
+    """Confirm explicit repository read consent from a verified pending inventory."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True, hide_input_in_errors=True)
+    request_id: UUID = Field(
+        description="Exact still-live owner/lease-bound pending request."
+    )
+    repository_ids: tuple[Annotated[int, Field(strict=True, gt=0)], ...] = Field(
+        min_length=1,
+        max_length=GITHUB_REPOSITORY_LIMIT,
+        description="Explicit selected numeric repository identities, not write permissions.",
+    )
+
+
+class GitHubPendingRequest(BaseModel):
+    """Cancel one pending attempt without touching unrelated ready connections."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True, hide_input_in_errors=True)
+    request_id: UUID = Field(
+        description="Exact pending request selected by this browser lease."
+    )
+
+
+class GitHubConnectionRequest(BaseModel):
+    """Select one opaque owned connection for an explicit lifecycle operation."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True, hide_input_in_errors=True)
+    connection_id: UUID = Field(description="Explicit selected connection reference.")
+
+
+class GitHubDisconnectRequest(BaseModel):
+    """Fence only the exact selected connection generation before local removal."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True, hide_input_in_errors=True)
+    connection_id: UUID = Field(description="Explicit selected owned connection.")
+    generation: int = Field(
+        strict=True,
+        ge=1,
+        description="Generation shown by the current connection manager.",
+    )

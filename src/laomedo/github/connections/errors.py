@@ -75,3 +75,13 @@ class GitHubTokenUnsupported(GitHubConnectionError):
     """
 
     code = "github_token_unsupported"
+
+
+class GitHubConnectionInputError(GitHubConnectionError):
+    """A private control request has an unsupported shape or configuration value.
+
+    Request bodies, credentials and Pydantic input diagnostics are never exposed.
+    No connection replacement follows from this validation failure.
+    """
+
+    code = "github_connection_input_invalid"
