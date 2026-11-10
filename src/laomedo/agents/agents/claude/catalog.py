@@ -12,6 +12,8 @@ from laomedo.agents.errors import RunnerError
 class ClaudeModelCatalog(BaseModelCatalog):
     """Own claude discovery cache; construction performs no native operation."""
 
+    include_model_names = True
+
     def __init__(self, agent):
         """Bind the provider's admitted discovery hooks and create private cache state."""
         self.agent = agent

@@ -117,6 +117,9 @@ class BaseCredentialProvider(ABC):
 class BaseModelCatalog(ABC):
     """Discover model choices without inference, preserving native cache policy."""
 
+    include_model_names: bool = False
+    """Whether the existing HTTP projection includes native display/alias names."""
+
     def __init__(self):
         """Own cache observation synchronization without native discovery effects."""
         self._lock = threading.Lock()

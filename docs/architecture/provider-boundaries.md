@@ -57,7 +57,7 @@ its provider. `snapshot()` observes the last result without discovery;
 detached from cache state. A failed refresh preserves the last successful cache.
 
 The HTTP `/v1/models` response remains its current payload. Explicit
-`ModelCatalog.to_payload(provider=...)` projects `id`/`efforts`, Claude
+`ModelCatalog.to_payload(include_model_names=...)` projects `id`/`efforts`, Claude
 `name`/`resolved_model` and existing catalog metadata. The new Python-only default
 and label information does not silently change that external schema. Readiness
 remains the existing, separate Agent boundary; this extraction does not add an

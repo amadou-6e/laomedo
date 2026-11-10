@@ -166,7 +166,7 @@ class BaseAgent(ABC):
     def model_catalog(self, *, refresh=False) -> dict:
         """Project typed provider discovery into the unchanged application payload."""
         return self.catalog.list_models(refresh=refresh).to_payload(
-            provider=self.provider
+            include_model_names=self.catalog.include_model_names
         )
 
     @abstractmethod

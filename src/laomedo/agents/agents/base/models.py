@@ -632,10 +632,10 @@ class ModelOption(BaseModel):
             resolved_model=payload.get("resolved_model"),
         )
 
-    def to_payload(self, *, provider: str) -> dict:
+    def to_payload(self, *, include_model_names: bool = False) -> dict:
         """Project the existing HTTP model shape without adding Python-only fields."""
         payload = {"id": self.id, "efforts": list(self.reasoning_efforts)}
-        if provider == "claude":
+        if include_model_names:
             if self.display_name is not None:
                 payload["name"] = self.display_name
             if self.resolved_model is not None:
@@ -695,10 +695,13 @@ class ModelCatalog(BaseModel):
             submitted_turns=payload.get("submitted_turns"),
         )
 
-    def to_payload(self, *, provider: str) -> dict:
+    def to_payload(self, *, include_model_names: bool = False) -> dict:
         """Preserve the current /v1/models fields at the explicit wire boundary."""
         payload = {
-            "models": [model.to_payload(provider=provider) for model in self.models]
+            "models": [
+                model.to_payload(include_model_names=include_model_names)
+                for model in self.models
+            ]
         }
         for name in ("provider", "source", "account_availability", "submitted_turns"):
             value = getattr(self, name)

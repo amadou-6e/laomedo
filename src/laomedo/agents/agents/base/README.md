@@ -32,7 +32,7 @@ metadata stays inside the provider. Catalog methods never submit a model prompt.
 
 `ModelOption.from_payload()` and `ModelCatalog.from_payload()` translate the
 existing provider-owned discovery records into canonical values. Their
-`to_payload()` projection is the explicit existing HTTP boundary: `/v1/models`
+`to_payload(include_model_names=...)` projection is the explicit existing HTTP boundary: `/v1/models`
 keeps `id`/`efforts`, Claude `name`/`resolved_model`, and current catalog metadata.
 New Python-only labels/defaults do not silently change that wire format.
 Cached values and returned catalogs must be detached, including reasoning lists.
@@ -130,3 +130,7 @@ SDK privacy literals follow the exact declared `py-docker` revision. Its
 `CreateNotSentDeadlineError` is a distinct trusted class with the existing
 `docker_deadline_exceeded` code; a generic deadline does not establish that no
 create was sent. Unknown subclasses and operation strings remain omitted.
+
+The catalog declares `include_model_names` for the existing HTTP projection.
+Claude enables native display/alias names; the shared model never selects a
+provider by name. This serialization policy does not change typed discovery.

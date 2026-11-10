@@ -38,7 +38,7 @@ class CatalogTests(unittest.TestCase):
         self.assertEqual(catalog.models[0].default_reasoning_effort, "low")
         self.assertEqual(catalog.default_model_id, "reported")
         self.assertEqual(
-            catalog.to_payload(provider="codex"),
+            catalog.to_payload(),
             {
                 "models": [{"id": "reported", "efforts": ["low"]}],
                 "submitted_turns": 0,

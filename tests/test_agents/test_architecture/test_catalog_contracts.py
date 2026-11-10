@@ -157,7 +157,7 @@ class CatalogContractTests(unittest.TestCase):
                 }
                 catalog._cached = (0.0, native)
                 snapshot = catalog.snapshot()
-                self.assertEqual(snapshot.to_payload(provider="codex"), native)
+                self.assertEqual(snapshot.to_payload(), native)
                 snapshot.models[0].reasoning_efforts.append("changed-by-caller")
                 self.assertEqual(native["models"][0]["efforts"], ["low"])
                 self.assertEqual(catalog._cached[0], 0.0)
