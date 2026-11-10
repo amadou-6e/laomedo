@@ -27,3 +27,7 @@ flags are harness bounds, not renewed authorization.
 
 `--native-model-metadata` observes allowlisted Codex model metadata and the typed
 catalog without submitting an inference prompt.
+
+`--readiness` runs the existing zero-turn protocol/permission preflight and
+prints only the typed readiness result; the native diagnostic payload is excluded.
+It does not verify authenticated execution or submit a model prompt.

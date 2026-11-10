@@ -17,6 +17,7 @@ def main():
     parser.add_argument("--implementation", type=Path, required=True)
     parser.add_argument("--execute", action="store_true")
     parser.add_argument("--native-model-metadata", action="store_true")
+    parser.add_argument("--readiness", action="store_true")
     parser.add_argument("--session-login", action="store_true")
     parser.add_argument("--resume-cancel", action="store_true")
     parser.add_argument("--open-session", action="store_true")
@@ -100,6 +101,12 @@ def main():
                             "wire_fields": sorted(catalog),
                         }
                     ),
+                    flush=True,
+                )
+            if args.readiness:
+                result = agent.readiness()
+                print(
+                    json.dumps({"stage": "readiness", **result.model_dump()}),
                     flush=True,
                 )
             if not args.execute and not args.open_session:
