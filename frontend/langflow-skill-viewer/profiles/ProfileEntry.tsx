@@ -199,7 +199,7 @@ export default function ProfileEntry({
 						</Button>
 					</div>
 				) : screen === "name-unavailable" ? (
-					<div className="mt-6 space-y-4">
+					<div className="mt-6 flex flex-col gap-4">
 						<p className="text-sm">
 							This name is unavailable. Your profile has not been created.
 						</p>
@@ -216,7 +216,7 @@ export default function ProfileEntry({
 						</Button>
 					</div>
 				) : screen === "saved" ? (
-					<div className="mt-6 space-y-4">
+					<div className="mt-6 flex flex-col gap-4">
 						<p className="text-sm">
 							Your profile exists. Enter its PIN to open it. Do not create it
 							again.
@@ -231,7 +231,7 @@ export default function ProfileEntry({
 						</Button>
 					</div>
 				) : screen === "uncertain" ? (
-					<div className="mt-6 space-y-4">
+					<div className="mt-6 flex flex-col gap-4">
 						<p className="text-sm">
 							Check the profile list before trying to create it again.
 						</p>
@@ -243,7 +243,7 @@ export default function ProfileEntry({
 						</Button>
 					</div>
 				) : (
-					<form noValidate onSubmit={submit} className="mt-6 space-y-4">
+					<form noValidate onSubmit={submit} className="mt-6 flex flex-col gap-4">
 						{screen === "create" ? (
 							<label className="block text-sm">
 								Profile name
