@@ -129,6 +129,33 @@ class BaseAgent(ABC):
         self._mcp_access = {}
         self._mcp_lock = threading.Lock()
 
+    @property
+    def credentials(self):
+        """Compose the declared native credential provider without reading secrets."""
+        with ROLE_INIT_LOCK:
+            if not hasattr(self, "_credential_service"):
+                self._credential_service = self.credential_type(self)
+            return self._credential_service
+
+    @property
+    def catalog(self):
+        """Lazily compose the declared provider catalog without native effects."""
+        # Construction and tests may query metadata before provider startup ends.
+        with ROLE_INIT_LOCK:
+            if not hasattr(self, "_catalog_service"):
+                self._catalog_service = self.catalog_type(self)
+            return self._catalog_service
+
+    @property
+    @abstractmethod
+    def provider(self) -> str:
+        """Concrete adapter identity; there is no default provider."""
+
+    @property
+    def supports_mediated_github(self) -> bool:
+        """Opt in only when the provider actually implements the mediated lease path."""
+        return False
+
     def mcp_access(self, run_id):
         """Return only in-memory admitted external access, never reconstruct a grant."""
         return getattr(self, "_mcp_access", {}).get(run_id)
@@ -171,30 +198,6 @@ class BaseAgent(ABC):
                 # App loss has already removed access; remote tool effects remain unknown.
                 pass
 
-    def _mcp_manifest(self, request):
-        """Validate paired external admission fields before identity lookup or effects."""
-        if ("mcp_manifest" in request) != ("mcp_registration" in request):
-            raise RunnerError("mcp_registration_required")
-        if "mcp_manifest" not in request:
-            return None
-        try:
-            _id(request["mcp_registration"])
-            return McpManifest.model_validate(request["mcp_manifest"])
-        except Exception:
-            raise RunnerError("mcp_manifest_invalid") from None
-
-    def _admit_mcp(self, request):
-        """Resolve exact tool identities using only host-owned local rendezvous state."""
-        manifest = self._mcp_manifest(request)
-        if manifest is None:
-            return None
-        try:
-            return McpAccess(
-                request["mcp_registration"], manifest.model_dump(mode="json")
-            )
-        except McpError as exc:
-            raise RunnerError(exc.code) from None
-
     def bind_mcp_resume(self, run_id, request):
         """Require identical saved tools and a fresh live registration for HTTP resume."""
         manifest = self._mcp_manifest(request)
@@ -209,33 +212,6 @@ class BaseAgent(ABC):
                 access.claim(run_id)
                 self._mcp_access[run_id] = access
             return access
-
-    @property
-    def credentials(self):
-        """Compose the declared native credential provider without reading secrets."""
-        with ROLE_INIT_LOCK:
-            if not hasattr(self, "_credential_service"):
-                self._credential_service = self.credential_type(self)
-            return self._credential_service
-
-    @property
-    def catalog(self):
-        """Lazily compose the declared provider catalog without native effects."""
-        # Construction and tests may query metadata before provider startup ends.
-        with ROLE_INIT_LOCK:
-            if not hasattr(self, "_catalog_service"):
-                self._catalog_service = self.catalog_type(self)
-            return self._catalog_service
-
-    @property
-    @abstractmethod
-    def provider(self) -> str:
-        """Concrete adapter identity; there is no default provider."""
-
-    @property
-    def supports_mediated_github(self) -> bool:
-        """Opt in only when the provider actually implements the mediated lease path."""
-        return False
 
     @abstractmethod
     def runtime_binding(self) -> RuntimeBinding:
@@ -460,6 +436,30 @@ class BaseAgent(ABC):
         if _hash_tree(snapshot) != record["post_run_hash"]:
             raise ArtifactError("artifact_source_changed_during_selection")
         return selections(result)
+
+    def _mcp_manifest(self, request):
+        """Validate paired external admission fields before identity lookup or effects."""
+        if ("mcp_manifest" in request) != ("mcp_registration" in request):
+            raise RunnerError("mcp_registration_required")
+        if "mcp_manifest" not in request:
+            return None
+        try:
+            _id(request["mcp_registration"])
+            return McpManifest.model_validate(request["mcp_manifest"])
+        except Exception:
+            raise RunnerError("mcp_manifest_invalid") from None
+
+    def _admit_mcp(self, request):
+        """Resolve exact tool identities using only host-owned local rendezvous state."""
+        manifest = self._mcp_manifest(request)
+        if manifest is None:
+            return None
+        try:
+            return McpAccess(
+                request["mcp_registration"], manifest.model_dump(mode="json")
+            )
+        except McpError as exc:
+            raise RunnerError(exc.code) from None
 
     @abstractmethod
     def _execute(self, run_id, task, *, resume, activity_attempt_id=None) -> dict:

@@ -164,6 +164,7 @@ class ClaudeContainerParityTests(unittest.TestCase):
 
         with (
             patch.object(self.runner, "_mirror_host_login") as mirror,
+            patch.object(self.runner, "status", return_value={"status": "completed"}),
             patch.object(
                 self.runner, "resume", return_value={"status": "completed"}
             ) as resume,

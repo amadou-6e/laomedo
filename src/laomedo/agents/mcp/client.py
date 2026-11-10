@@ -75,30 +75,6 @@ class McpAccess:
             ).model_dump(mode="json")
         return body
 
-    def _request(self, method, body=None):
-        """Make one authenticated local request without proxies, redirects or retry."""
-        req = Request(
-            self.connection.endpoint(),
-            method=method,
-            data=None if body is None else json.dumps(body).encode(),
-            headers={
-                "Authorization": "Bearer " + self.connection.token.get_secret_value(),
-                "Content-Type": "application/json",
-            },
-        )
-        try:
-            with self._opener.open(req, timeout=5) as response:
-                result = json.loads(response.read(4096))
-            if (
-                method == "GET"
-                and result.get("manifest_digest")
-                != self.connection.registration.manifest.digest()
-            ):
-                raise ValueError()
-            return result
-        except Exception:
-            raise McpError("mcp_connection_unavailable") from None
-
     def check_health(self, *, force=False):
         """Read supervisor health without blocking the native ACP cancellation loop."""
         if self._closed:
@@ -130,18 +106,6 @@ class McpAccess:
         self.run_id = run_id
         self._monitor_thread = threading.Thread(target=self._monitor, daemon=True)
         self._monitor_thread.start()
-
-    def _monitor(self):
-        """Keep I/O off native loops and stop admission promptly when the app is lost."""
-        while not self._stop.wait(1):
-            try:
-                result = self._request("GET")
-                if result.get("run_id") != self.run_id:
-                    raise McpError("mcp_run_binding_mismatch")
-                self._last_health = time.monotonic()
-            except McpError as exc:
-                self._failure = exc.code
-                return
 
     def close(self):
         """Revoke future access; an unreachable app never implies no prior effects."""
@@ -189,3 +153,39 @@ class McpAccess:
             },
             "oauth": False,
         }
+
+    def _request(self, method, body=None):
+        """Make one authenticated local request without proxies, redirects or retry."""
+        req = Request(
+            self.connection.endpoint(),
+            method=method,
+            data=None if body is None else json.dumps(body).encode(),
+            headers={
+                "Authorization": "Bearer " + self.connection.token.get_secret_value(),
+                "Content-Type": "application/json",
+            },
+        )
+        try:
+            with self._opener.open(req, timeout=5) as response:
+                result = json.loads(response.read(4096))
+            if (
+                method == "GET"
+                and result.get("manifest_digest")
+                != self.connection.registration.manifest.digest()
+            ):
+                raise ValueError()
+            return result
+        except Exception:
+            raise McpError("mcp_connection_unavailable") from None
+
+    def _monitor(self):
+        """Keep I/O off native loops and stop admission promptly when the app is lost."""
+        while not self._stop.wait(1):
+            try:
+                result = self._request("GET")
+                if result.get("run_id") != self.run_id:
+                    raise McpError("mcp_run_binding_mismatch")
+                self._last_health = time.monotonic()
+            except McpError as exc:
+                self._failure = exc.code
+                return

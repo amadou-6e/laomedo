@@ -81,9 +81,14 @@ class McpAdmissionTests(unittest.TestCase):
         for code in MCP_ERROR_CODES:
             with self.subTest(code=code):
                 self.assertTrue(catalogue[code]["title"].strip())
-                self.assertIn(
-                    "may already have had effects", catalogue[code]["recovery"]
-                )
+                self.assertTrue(catalogue[code]["description"].strip())
+                self.assertTrue(catalogue[code]["recovery"].strip())
+        self.assertIn("1.12.3", catalogue["mcp_native_version_unsupported"]["recovery"])
+        self.assertNotIn("effects", catalogue["mcp_manifest_invalid"]["description"])
+        self.assertIn(
+            "do not automatically repeat",
+            catalogue["mcp_call_outcome_unknown"]["recovery"],
+        )
 
     def test_preparation_persists_manifest_and_never_capability(self):
         """Only the tool grant enters the actual prepared run record."""

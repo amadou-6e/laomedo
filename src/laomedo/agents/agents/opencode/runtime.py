@@ -258,19 +258,6 @@ class OpenCodeAgentRuntime(BaseAgentRuntime):
         """Preserve the provider's public dictionary fingerprint boundary."""
         return self.identity.to_payload()
 
-    def configure_mcp(self, access):
-        """Extend private config with exact external grants before controller launch."""
-        if self.session is not None:
-            raise RunnerError("mcp_registration_too_late")
-        access.check_health(force=True)
-        config = json.loads((self.root / "config.json").read_text(encoding="utf-8"))
-        config["mcp"]["external"] = access.opencode_config()
-        for name in access.tool_names():
-            config["tools"]["external_" + name] = True
-            config["permission"]["external_" + name] = "allow"
-        _json(self.root / "config.json", config)
-        self.mcp_access = access
-
     def models(self):
         """Read native CLI metadata without creating a session or model turn."""
         from py_docker.jobs.models import ContainerJob
@@ -476,6 +463,19 @@ class OpenCodeAgentRuntime(BaseAgentRuntime):
         """Confirm every allocated controller/worker receipt before returning success."""
         self.close()
         return CleanupObservation(confirmed=True, scope="opencode_owned_resources")
+
+    def _configure_mcp(self, access):
+        """Extend private config with exact external grants before controller launch."""
+        if self.session is not None:
+            raise RunnerError("mcp_registration_too_late")
+        access.check_health(force=True)
+        config = json.loads((self.root / "config.json").read_text(encoding="utf-8"))
+        config["mcp"]["external"] = access.opencode_config()
+        for name in access.tool_names():
+            config["tools"]["external_" + name] = True
+            config["permission"]["external_" + name] = "allow"
+        _json(self.root / "config.json", config)
+        self.mcp_access = access
 
     async def _run_acp(self, task, model, session_id, cancelled, capture, on_session):
         """Validate agent identity, load the same native session and await its prompt."""

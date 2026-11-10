@@ -90,77 +90,6 @@ class McpRegistry:
         async with self.registration_lock:
             return await self._register(tools)
 
-    def _prepare_directory(self):
-        """Verify directory custody on a worker, including Windows subprocesses."""
-        prepare_private_directory(
-            self.directory, policy=self.settings.permission_policy()
-        )
-
-    async def _register(self, tools) -> McpRegistration:
-        """Publish an exact bounded manifest and a host-private random capability."""
-        from laomedo.agents.mcp.server import McpServer
-
-        if self.current() is not self:
-            raise McpError("mcp_app_lifetime_required")
-        if len(self.leases) >= self.settings.max_registrations:
-            raise McpError("mcp_registration_limit")
-        if not tools or len(tools) > 128:
-            raise McpError("mcp_tool_limit")
-        admitted = {}
-        for tool in tools:
-            name = tool.descriptor.external_name()
-            if name in admitted:
-                raise McpError("mcp_duplicate_tool")
-            admitted[name] = tool
-        if len({tool.descriptor.server for tool in tools}) > 32:
-            raise McpError("mcp_server_limit")
-        if self.server is None:
-            self.directory = self.settings.state_directory()
-            try:
-                await asyncio.to_thread(self._prepare_directory)
-            except Exception:
-                raise McpError("mcp_private_state_unverified") from None
-            self.server = McpServer((self.settings.bind, 0), self)
-            self.thread = threading.Thread(
-                target=self.server.serve_forever, daemon=True
-            )
-            self.thread.start()
-        registration = McpRegistration(
-            registration_id=uuid4(),
-            manifest=McpManifest(tools=tuple(tool.descriptor for tool in tools)),
-        )
-        connection = McpConnection(
-            registration=registration,
-            port=self.server.server_port,
-            bind=self.settings.bind,
-            controller_host=self.settings.controller_host,
-            token=secrets.token_urlsafe(32),
-        )
-        identifier = str(registration.registration_id)
-        self.leases[identifier] = McpLease(
-            connection=connection,
-            tools=admitted,
-            expires=time.monotonic() + self.settings.lease_seconds,
-        )
-        path = self.directory / (identifier + ".json")
-        write = asyncio.create_task(
-            asyncio.to_thread(_json, path, connection.private_payload())
-        )
-        try:
-            await asyncio.shield(write)
-        except asyncio.CancelledError:
-            self.leases.pop(identifier, None)
-            # A worker cannot be cancelled: wait for its private write before unlinking.
-            with suppress(Exception):
-                await write
-            await asyncio.to_thread(path.unlink, missing_ok=True)
-            raise
-        except Exception:
-            self.leases.pop(identifier, None)
-            await asyncio.to_thread(path.unlink, missing_ok=True)
-            raise McpError("mcp_registration_failed") from None
-        return registration
-
     def release(self, registration_id):
         """Revoke future calls and discard only this registration's private file."""
         identifier = str(UUID(str(registration_id)))
@@ -177,14 +106,6 @@ class McpRegistry:
         lease = self.leases.get(identifier)
         if lease is not None and lease.run_id is None:
             self.release(identifier)
-
-    async def _expire(self):
-        """Reclaim abandoned app registrations without imposing a run duration cap."""
-        while True:
-            await asyncio.sleep(5)
-            for identifier, lease in list(self.leases.items()):
-                if lease.expires <= time.monotonic():
-                    self.release(identifier)
 
     async def request(self, identifier, token, method, body=None):
         """Authorize one request before discovery or invocation; never widen a grant."""
@@ -264,3 +185,82 @@ class McpRegistry:
                 )
             finally:
                 lease.tasks.pop(request_id, None)
+
+    def _prepare_directory(self):
+        """Verify directory custody on a worker, including Windows subprocesses."""
+        prepare_private_directory(
+            self.directory, policy=self.settings.permission_policy()
+        )
+
+    async def _register(self, tools) -> McpRegistration:
+        """Publish an exact bounded manifest and a host-private random capability."""
+        from laomedo.agents.mcp.server import McpServer
+
+        if self.current() is not self:
+            raise McpError("mcp_app_lifetime_required")
+        if len(self.leases) >= self.settings.max_registrations:
+            raise McpError("mcp_registration_limit")
+        if not tools or len(tools) > 128:
+            raise McpError("mcp_tool_limit")
+        admitted = {}
+        for tool in tools:
+            name = tool.descriptor.external_name()
+            if name in admitted:
+                raise McpError("mcp_duplicate_tool")
+            admitted[name] = tool
+        if len({tool.descriptor.server for tool in tools}) > 32:
+            raise McpError("mcp_server_limit")
+        if self.server is None:
+            self.directory = self.settings.state_directory()
+            try:
+                await asyncio.to_thread(self._prepare_directory)
+            except Exception:
+                raise McpError("mcp_private_state_unverified") from None
+            self.server = McpServer((self.settings.bind, 0), self)
+            self.thread = threading.Thread(
+                target=self.server.serve_forever, daemon=True
+            )
+            self.thread.start()
+        registration = McpRegistration(
+            registration_id=uuid4(),
+            manifest=McpManifest(tools=tuple(tool.descriptor for tool in tools)),
+        )
+        connection = McpConnection(
+            registration=registration,
+            port=self.server.server_port,
+            bind=self.settings.bind,
+            controller_host=self.settings.controller_host,
+            token=secrets.token_urlsafe(32),
+        )
+        identifier = str(registration.registration_id)
+        self.leases[identifier] = McpLease(
+            connection=connection,
+            tools=admitted,
+            expires=time.monotonic() + self.settings.lease_seconds,
+        )
+        path = self.directory / (identifier + ".json")
+        write = asyncio.create_task(
+            asyncio.to_thread(_json, path, connection.private_payload())
+        )
+        try:
+            await asyncio.shield(write)
+        except asyncio.CancelledError:
+            self.leases.pop(identifier, None)
+            # A worker cannot be cancelled: wait for its private write before unlinking.
+            with suppress(Exception):
+                await write
+            await asyncio.to_thread(path.unlink, missing_ok=True)
+            raise
+        except Exception:
+            self.leases.pop(identifier, None)
+            await asyncio.to_thread(path.unlink, missing_ok=True)
+            raise McpError("mcp_registration_failed") from None
+        return registration
+
+    async def _expire(self):
+        """Reclaim abandoned app registrations without imposing a run duration cap."""
+        while True:
+            await asyncio.sleep(5)
+            for identifier, lease in list(self.leases.items()):
+                if lease.expires <= time.monotonic():
+                    self.release(identifier)

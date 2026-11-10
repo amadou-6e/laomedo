@@ -377,9 +377,9 @@ class OpenCodeAgent(BaseAgent):
             launch_attempted = True
             backend = self.transport_factory(root / "workspace", root)
             if self.mcp_access(run_id):
-                if not hasattr(backend, "configure_mcp"):
+                if not hasattr(backend, "_configure_mcp"):
                     raise RunnerError("mcp_provider_unsupported")
-                backend.configure_mcp(self.mcp_access(run_id))
+                backend._configure_mcp(self.mcp_access(run_id))
             self.active_backends[run_id] = backend
             identity = getattr(
                 backend,

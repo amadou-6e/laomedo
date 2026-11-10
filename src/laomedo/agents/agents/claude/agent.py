@@ -763,8 +763,8 @@ class ClaudeAgent(BaseAgent):
                             env=[],
                         ),
                         *(
-                            [self.mcp_access(record["run_id"]).acp_server()]
-                            if self.mcp_access(record["run_id"])
+                            [self.mcp_access(record.get("run_id")).acp_server()]
+                            if self.mcp_access(record.get("run_id"))
                             else []
                         ),
                     ]
@@ -836,8 +836,8 @@ class ClaudeAgent(BaseAgent):
 
     def _native_event(self, root, record, event):
         """Retain admitted native events with their actual identities, never inferred display-label correlation."""
-        if self.mcp_access(record["run_id"]):
-            event = self.mcp_access(record["run_id"]).redact(event)
+        if self.mcp_access(record.get("run_id")):
+            event = self.mcp_access(record.get("run_id")).redact(event)
         if (
             not isinstance(event, dict)
             or event.get("session_id", record["thread_id"]) != record["thread_id"]
