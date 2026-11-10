@@ -1,0 +1,1666 @@
+diff --git a/experiments/exp18/Dockerfile.canary b/experiments/exp18/Dockerfile.canary
+new file mode 100644
+index 0000000000000000000000000000000000000000..bee70f029491c94ca039bad01d30f147f5332c9e
+--- /dev/null
++++ b/experiments/exp18/Dockerfile.canary
+@@ -0,0 +1,6 @@
++FROM python@sha256:bb8009c87ab69e751a1dd2c6c7f8abaae3d9fce8e072802d4a23c95594d16d84
++COPY exp07/canary.py exp07/lease.py /app/
++USER 10001:10001
++ENV PYTHONDONTWRITEBYTECODE=1
++WORKDIR /app
++ENTRYPOINT ["python", "-B", "-u", "/app/canary.py"]
+diff --git a/experiments/exp18/Dockerfile.sidecar b/experiments/exp18/Dockerfile.sidecar
+new file mode 100644
+index 0000000000000000000000000000000000000000..5b44397270e3d4c9da4d76000d613b66693abd55
+--- /dev/null
++++ b/experiments/exp18/Dockerfile.sidecar
+@@ -0,0 +1,5 @@
++FROM python@sha256:bb8009c87ab69e751a1dd2c6c7f8abaae3d9fce8e072802d4a23c95594d16d84
++COPY exp18/runner_probe_sidecar.py /app/probe.py
++USER 10001:10001
++ENV PYTHONDONTWRITEBYTECODE=1
++ENTRYPOINT ["python", "-B", "-u", "/app/probe.py"]
+diff --git a/experiments/exp18/README.md b/experiments/exp18/README.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..49688470e393d87d52828d776ec370acef0a3865
+--- /dev/null
++++ b/experiments/exp18/README.md
+@@ -0,0 +1,39 @@
++# EXP-18: Docker stage protection preflight
++
++This directory prepares the [E05 protocol draft](https://github.com/amadou-6e/specs/pull/195).
++`preflight.py` compares a created container's full normalized `HostConfig`
++against `hostconfig-27.3.1.json`, a sanitized baseline from the pinned image
++and Docker Desktop 27.3.1. Only the per-run network and two bind sources are
++normalized. It also checks the image ID, user and top-level mount sources,
++read/write modes and propagation. The real `systempaths=unconfined` shape
++changes `MaskedPaths` and `ReadonlyPaths`; tests cover that and each other
++reviewed downgrade. Unknown `HostConfig` fields fail closed.
++
++`python experiments/exp18/probe_create_only.py` runs only approved protocol
++steps 1-2: validate private fixture roots, create and inspect a correct
++container without starting it, refuse a writable `/skills` bind, and confirm
++an unavailable seccomp profile fails at `docker create`. The 2026-10-03
++observation passed with zero stage starts, dispatch attempts and model turns;
++named Docker resources were removed. See `create-only-observation.json`.
++
++`runner_probe_sidecar.py` contains the fixed unauthenticated runner
++API request for the internal-network stage check. Its route, status-only
++response and rejection of stage-controlled paths or bodies are unit tested.
++For the approved no-model steps 3-4, `Dockerfile.sidecar` builds it from a
++pinned local Python image. `probe_stage.py` verifies its pinned image ID,
++exactly two networks, zero mounts and published ports, read-only root, dropped
++capabilities, `no-new-privileges`, non-root user and fixed command before
++starting the stage. The sidecar then reaches a disposable local runner on port
++8767 with model turns disabled. `Dockerfile.canary` packages the EXP-07 grant
++canary from the same pinned base image.
++
++The approved [direct no-model observation](stage-observation.json) records a
++stage that wrote its disposable checkout and scoped HTTP canary, read its
++effective skill, received `EROFS` on a skill write, found no protected marker
++in a complete bounded sweep, failed to reach host listeners directly, and
++cleaned up. The host snapshot hash rejected the stage-created symlink. Two
++earlier runs were inconclusive because the initial marker sweep skipped large
++image files; the final streaming sweep covered those files. No model turn or
++personal credential was used. This is a direct process-boundary result, not
++the agent-originated criterion or a production runner integration. The
++current runner's permissions remain unchanged.
+diff --git a/experiments/exp18/create-only-observation.json b/experiments/exp18/create-only-observation.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..228c1d21b9a4c74f6bd29e3f714bfd17ebe49ada
+--- /dev/null
++++ b/experiments/exp18/create-only-observation.json
+@@ -0,0 +1,198 @@
++{
++  "model_turns": 0,
++  "stage_starts": 0,
++  "dispatch_attempts": 0,
++  "image_id": "sha256:7b79ce12be47d6c8262dd4043895112d204416bda5cd891d124775df55587239",
++  "docker_engine": "27.3.1",
++  "root_errors": [],
++  "effective_inspect": {
++    "Image": "sha256:7b79ce12be47d6c8262dd4043895112d204416bda5cd891d124775df55587239",
++    "Config.User": "10001:10001",
++    "HostConfig": {
++      "ReadonlyRootfs": true,
++      "CapDrop": [
++        "ALL"
++      ],
++      "CapAdd": null,
++      "SecurityOpt": [
++        "no-new-privileges"
++      ],
++      "PidMode": "",
++      "IpcMode": "private",
++      "UTSMode": "",
++      "UsernsMode": "",
++      "Devices": [],
++      "DeviceRequests": null,
++      "Tmpfs": {
++        "/tmp": "rw,nosuid,nodev,size=16m"
++      },
++      "NetworkMode": "laomedo-exp18-create-2f6970661450",
++      "PidsLimit": 128,
++      "Memory": 1073741824,
++      "Privileged": false,
++      "MaskedPaths": [
++        "/proc/asound",
++        "/proc/acpi",
++        "/proc/kcore",
++        "/proc/keys",
++        "/proc/latency_stats",
++        "/proc/timer_list",
++        "/proc/timer_stats",
++        "/proc/sched_debug",
++        "/proc/scsi",
++        "/sys/firmware",
++        "/sys/devices/virtual/powercap"
++      ],
++      "ReadonlyPaths": [
++        "/proc/bus",
++        "/proc/fs",
++        "/proc/irq",
++        "/proc/sys",
++        "/proc/sysrq-trigger"
++      ],
++      "CgroupnsMode": "private",
++      "GroupAdd": null,
++      "Sysctls": null,
++      "ExtraHosts": null,
++      "Ulimits": [],
++      "OomKillDisable": false,
++      "MemorySwap": 2147483648
++    },
++    "Mounts": [
++      {
++        "Destination": "/draft",
++        "Type": "bind",
++        "RW": true,
++        "Propagation": "rprivate"
++      },
++      {
++        "Destination": "/skills",
++        "Type": "bind",
++        "RW": false,
++        "Propagation": "rprivate"
++      }
++    ]
++  },
++  "reviewed_hostconfig": {
++    "Binds": null,
++    "ContainerIDFile": "",
++    "LogConfig": {
++      "Type": "json-file",
++      "Config": {}
++    },
++    "NetworkMode": "<e05-network>",
++    "PortBindings": {},
++    "RestartPolicy": {
++      "Name": "no",
++      "MaximumRetryCount": 0
++    },
++    "AutoRemove": false,
++    "VolumeDriver": "",
++    "VolumesFrom": null,
++    "ConsoleSize": [
++      0,
++      0
++    ],
++    "CapAdd": null,
++    "CapDrop": [
++      "ALL"
++    ],
++    "CgroupnsMode": "private",
++    "Dns": [],
++    "DnsOptions": [],
++    "DnsSearch": [],
++    "ExtraHosts": null,
++    "GroupAdd": null,
++    "IpcMode": "private",
++    "Cgroup": "",
++    "Links": null,
++    "OomScoreAdj": 0,
++    "PidMode": "",
++    "Privileged": false,
++    "PublishAllPorts": false,
++    "ReadonlyRootfs": true,
++    "SecurityOpt": [
++      "no-new-privileges"
++    ],
++    "Tmpfs": {
++      "/tmp": "rw,nosuid,nodev,size=16m"
++    },
++    "UTSMode": "",
++    "UsernsMode": "",
++    "ShmSize": 67108864,
++    "Runtime": "runc",
++    "Isolation": "",
++    "CpuShares": 0,
++    "Memory": 1073741824,
++    "NanoCpus": 0,
++    "CgroupParent": "",
++    "BlkioWeight": 0,
++    "BlkioWeightDevice": [],
++    "BlkioDeviceReadBps": [],
++    "BlkioDeviceWriteBps": [],
++    "BlkioDeviceReadIOps": [],
++    "BlkioDeviceWriteIOps": [],
++    "CpuPeriod": 0,
++    "CpuQuota": 0,
++    "CpuRealtimePeriod": 0,
++    "CpuRealtimeRuntime": 0,
++    "CpusetCpus": "",
++    "CpusetMems": "",
++    "Devices": [],
++    "DeviceCgroupRules": null,
++    "DeviceRequests": null,
++    "MemoryReservation": 0,
++    "MemorySwap": 2147483648,
++    "MemorySwappiness": null,
++    "OomKillDisable": false,
++    "PidsLimit": 128,
++    "Ulimits": [],
++    "CpuCount": 0,
++    "CpuPercent": 0,
++    "IOMaximumIOps": 0,
++    "IOMaximumBandwidth": 0,
++    "Mounts": [
++      {
++        "Type": "bind",
++        "Source": "<mount:/draft>",
++        "Target": "/draft"
++      },
++      {
++        "Type": "bind",
++        "Source": "<mount:/skills>",
++        "Target": "/skills",
++        "ReadOnly": true
++      }
++    ],
++    "MaskedPaths": [
++      "/proc/asound",
++      "/proc/acpi",
++      "/proc/kcore",
++      "/proc/keys",
++      "/proc/latency_stats",
++      "/proc/timer_list",
++      "/proc/timer_stats",
++      "/proc/sched_debug",
++      "/proc/scsi",
++      "/sys/firmware",
++      "/sys/devices/virtual/powercap"
++    ],
++    "ReadonlyPaths": [
++      "/proc/bus",
++      "/proc/fs",
++      "/proc/irq",
++      "/proc/sys",
++      "/proc/sysrq-trigger"
++    ]
++  },
++  "correct_errors": [],
++  "writable_skill_errors": [
++    "hostconfig_mismatch:Mounts",
++    "mount_mismatch:/skills"
++  ],
++  "missing_seccomp_create_failed": true,
++  "missing_seccomp_container_absent": true,
++  "seccomp_error_class": "opening_seccomp_profile_failed",
++  "cleanup_complete": true,
++  "passed": true
++}
+diff --git a/experiments/exp18/hostconfig-27.3.1.json b/experiments/exp18/hostconfig-27.3.1.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..04440eef2e7e9957aca9b4fd761c54c5bce72366
+--- /dev/null
++++ b/experiments/exp18/hostconfig-27.3.1.json
+@@ -0,0 +1,136 @@
++{
++    "Binds":  null,
++    "ContainerIDFile":  "",
++    "LogConfig":  {
++                      "Type":  "json-file",
++                      "Config":  {
++
++                                 }
++                  },
++    "NetworkMode":  "\u003ce05-network\u003e",
++    "PortBindings":  {
++
++                     },
++    "RestartPolicy":  {
++                          "Name":  "no",
++                          "MaximumRetryCount":  0
++                      },
++    "AutoRemove":  false,
++    "VolumeDriver":  "",
++    "VolumesFrom":  null,
++    "ConsoleSize":  [
++                        0,
++                        0
++                    ],
++    "CapAdd":  null,
++    "CapDrop":  [
++                    "ALL"
++                ],
++    "CgroupnsMode":  "private",
++    "Dns":  [
++
++            ],
++    "DnsOptions":  [
++
++                   ],
++    "DnsSearch":  [
++
++                  ],
++    "ExtraHosts":  null,
++    "GroupAdd":  null,
++    "IpcMode":  "private",
++    "Cgroup":  "",
++    "Links":  null,
++    "OomScoreAdj":  0,
++    "PidMode":  "",
++    "Privileged":  false,
++    "PublishAllPorts":  false,
++    "ReadonlyRootfs":  true,
++    "SecurityOpt":  [
++                        "no-new-privileges"
++                    ],
++    "Tmpfs":  {
++                  "/tmp":  "rw,nosuid,nodev,size=16m"
++              },
++    "UTSMode":  "",
++    "UsernsMode":  "",
++    "ShmSize":  67108864,
++    "Runtime":  "runc",
++    "Isolation":  "",
++    "CpuShares":  0,
++    "Memory":  1073741824,
++    "NanoCpus":  0,
++    "CgroupParent":  "",
++    "BlkioWeight":  0,
++    "BlkioWeightDevice":  [
++
++                          ],
++    "BlkioDeviceReadBps":  [
++
++                           ],
++    "BlkioDeviceWriteBps":  [
++
++                            ],
++    "BlkioDeviceReadIOps":  [
++
++                            ],
++    "BlkioDeviceWriteIOps":  [
++
++                             ],
++    "CpuPeriod":  0,
++    "CpuQuota":  0,
++    "CpuRealtimePeriod":  0,
++    "CpuRealtimeRuntime":  0,
++    "CpusetCpus":  "",
++    "CpusetMems":  "",
++    "Devices":  [
++
++                ],
++    "DeviceCgroupRules":  null,
++    "DeviceRequests":  null,
++    "MemoryReservation":  0,
++    "MemorySwap":  2147483648,
++    "MemorySwappiness":  null,
++    "OomKillDisable":  false,
++    "PidsLimit":  128,
++    "Ulimits":  [
++
++                ],
++    "CpuCount":  0,
++    "CpuPercent":  0,
++    "IOMaximumIOps":  0,
++    "IOMaximumBandwidth":  0,
++    "Mounts":  [
++                   {
++                       "Type":  "bind",
++                       "Source":  "\u003cmount:/draft\u003e",
++                       "Target":  "/draft"
++                   },
++                   {
++                       "Type":  "bind",
++                       "Source":  "\u003cmount:/skills\u003e",
++                       "Target":  "/skills",
++                       "ReadOnly":  true
++                   }
++               ],
++    "MaskedPaths":  [
++                        "/proc/asound",
++                        "/proc/acpi",
++                        "/proc/kcore",
++                        "/proc/keys",
++                        "/proc/latency_stats",
++                        "/proc/timer_list",
++                        "/proc/timer_stats",
++                        "/proc/sched_debug",
++                        "/proc/scsi",
++                        "/sys/firmware",
++                        "/sys/devices/virtual/powercap"
++                    ],
++    "ReadonlyPaths":  [
++                          "/proc/bus",
++                          "/proc/fs",
++                          "/proc/irq",
++                          "/proc/sys",
++                          "/proc/sysrq-trigger"
++                      ]
++}
+\ No newline at end of file
+diff --git a/experiments/exp18/preflight.py b/experiments/exp18/preflight.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..4e0d0aef57f94903368b9ed8b07080f068d4d582
+--- /dev/null
++++ b/experiments/exp18/preflight.py
+@@ -0,0 +1,132 @@
++"""Check an E05 Docker create result against the reviewed grant before start."""
++
++import json
++from pathlib import Path
++
++
++HOST_CONFIG_BASELINE = json.loads(
++    Path(__file__).with_name("hostconfig-27.3.1.json").read_text(encoding="utf-8"))
++
++
++def validate_host_roots(roots):
++    """Refuse aliased, missing or overlapping fixture roots before create."""
++    required = {"checkout", "effective_skill", "canonical_skill", "host",
++                "runner_store", "credential_standin"}
++    errors = []
++    if set(roots) != required:
++        errors.append("root_set_mismatch")
++    resolved = {}
++    for role, value in roots.items():
++        path = Path(value)
++        if not path.is_dir():
++            errors.append("missing_root:" + role)
++            continue
++        canonical = path.resolve(strict=True)
++        if str(path.absolute()).casefold() != str(canonical).casefold():
++            errors.append("aliased_root:" + role)
++        resolved[role] = canonical
++    for left, first in resolved.items():
++        for right, second in resolved.items():
++            if left >= right:
++                continue
++            if first == second or first.is_relative_to(second) or second.is_relative_to(first):
++                errors.append("overlapping_roots:" + left + ":" + right)
++    return errors
++
++
++def _source(mount):
++    if mount.get("Type") == "bind":
++        return str(Path(mount.get("Source", "")).resolve()).casefold()
++    return mount.get("Name", "")
++
++
++def _host_config_projection(host, expected_mounts, network):
++    """Normalize only nonce-bearing values before full HostConfig comparison."""
++    projected = json.loads(json.dumps(host))
++    if projected.get("NetworkMode") == network:
++        projected["NetworkMode"] = "<e05-network>"
++    if projected.get("SecurityOpt") == ["no-new-privileges:true"]:
++        projected["SecurityOpt"] = ["no-new-privileges"]
++    for mount in projected.get("Mounts") or []:
++        target = mount.get("Target")
++        expected = expected_mounts.get(target)
++        if expected and mount.get("Type") == expected[0] and _source(mount) == (
++                str(Path(expected[1]).resolve()).casefold()
++                if expected[0] == "bind" else expected[1]):
++            mount["Source"] = "<mount:" + target + ">"
++    return projected
++
++
++def validate_inspect(inspected, expected_mounts, network, image_id, tmpfs):
++    """Return fail-closed mismatch codes for one `docker inspect` object.
++
++    expected_mounts maps a container target to (type, source/name, writable).
++    tmpfs maps each approved scratch target to its exact Docker option string.
++    The caller must construct and review this manifest before Docker create.
++    """
++    errors = []
++    host = inspected.get("HostConfig") or {}
++    config = inspected.get("Config") or {}
++    projected = _host_config_projection(host, expected_mounts, network)
++    for field in sorted(set(projected) | set(HOST_CONFIG_BASELINE)):
++        if projected.get(field, object()) != HOST_CONFIG_BASELINE.get(field, object()):
++            errors.append("hostconfig_mismatch:" + field)
++    if inspected.get("Image") != image_id:
++        errors.append("image_id_mismatch")
++    if host.get("ReadonlyRootfs") is not True:
++        errors.append("root_not_read_only")
++    if host.get("CapDrop") != ["ALL"]:
++        errors.append("capabilities_not_dropped")
++    if host.get("CapAdd") not in (None, []):
++        errors.append("capabilities_added")
++    if host.get("SecurityOpt") not in (["no-new-privileges"],
++                                       ["no-new-privileges:true"]):
++        errors.append("security_options_mismatch")
++    for field, allowed in (("PidMode", ("",)), ("IpcMode", ("private",)),
++                           ("UTSMode", ("",)), ("UsernsMode", ("",))):
++        if host.get(field) not in allowed:
++            errors.append(field.lower() + "_mismatch")
++    if host.get("Devices") not in (None, []):
++        errors.append("devices_present")
++    if host.get("DeviceRequests") not in (None, []):
++        errors.append("device_requests_present")
++    if host.get("CgroupnsMode") != "private":
++        errors.append("cgroup_namespace_mismatch")
++    if host.get("MaskedPaths") != HOST_CONFIG_BASELINE["MaskedPaths"]:
++        errors.append("masked_paths_mismatch")
++    if host.get("ReadonlyPaths") != HOST_CONFIG_BASELINE["ReadonlyPaths"]:
++        errors.append("readonly_paths_mismatch")
++    if host.get("Tmpfs") != tmpfs:
++        errors.append("tmpfs_mismatch")
++    if host.get("PidsLimit") != 128:
++        errors.append("pid_limit_mismatch")
++    if host.get("Memory") != 1024 ** 3:
++        errors.append("memory_limit_mismatch")
++    if config.get("User") != "10001:10001":
++        errors.append("user_mismatch")
++    if host.get("NetworkMode") != network:
++        errors.append("network_mismatch")
++    if host.get("Privileged") is not False:
++        errors.append("privileged_or_unknown")
++    mounted = inspected.get("Mounts") or []
++    mounted_tmpfs = {mount.get("Destination") for mount in mounted
++                    if mount.get("Type") == "tmpfs"}
++    if mounted_tmpfs and mounted_tmpfs != set(tmpfs):
++        errors.append("tmpfs_mount_set_mismatch")
++    regular = [mount for mount in mounted if mount.get("Type") != "tmpfs"]
++    actual = {mount.get("Destination"): mount for mount in regular}
++    if len(actual) != len(regular):
++        errors.append("duplicate_mount_target")
++    if set(actual) != set(expected_mounts):
++        errors.append("mount_set_mismatch")
++    for target, (kind, source, writable) in expected_mounts.items():
++        mount = actual.get(target)
++        if mount is None:
++            continue
++        expected_source = (str(Path(source).resolve()).casefold()
++                           if kind == "bind" else source)
++        if (mount.get("Type") != kind or _source(mount) != expected_source or
++                mount.get("RW") is not writable or
++                mount.get("Propagation") != "rprivate"):
++            errors.append("mount_mismatch:" + target)
++    return errors
+diff --git a/experiments/exp18/probe_create_only.py b/experiments/exp18/probe_create_only.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..05d1b7eb08f8431ad0997ca2b5898e04d3b50d06
+--- /dev/null
++++ b/experiments/exp18/probe_create_only.py
+@@ -0,0 +1,145 @@
++"""EXP-18 steps 1-2: create/inspect refusals, never start a stage."""
++
++import json
++from pathlib import Path
++import secrets
++import subprocess
++import tempfile
++
++from preflight import _host_config_projection, validate_host_roots, validate_inspect
++
++
++HERE = Path(__file__).resolve().parent
++BASE = HERE.parents[2] / ".tools.local" / "exp18-create"
++IMAGE = "laomedo-codex-boundary:0.159.2"
++IMAGE_ID = "sha256:7b79ce12be47d6c8262dd4043895112d204416bda5cd891d124775df55587239"
++ENGINE_VERSION = "27.3.1"
++TMPFS = {"/tmp": "rw,nosuid,nodev,size=16m"}
++
++
++def docker(*args, check=True):
++    result = subprocess.run(["docker", *args], capture_output=True, text=True,
++                            timeout=40, check=False)
++    if check and result.returncode:
++        raise RuntimeError(f"docker {args[0]} failed: {result.stderr[-250:]}")
++    return result
++
++
++def create_args(name, network, roots, *, skill_writable=False, seccomp=None,
++                grant=None, command=None):
++    skill_mount = (f"type=bind,source={roots['effective_skill']},target=/skills" +
++                   ("" if skill_writable else ",readonly"))
++    args = ["create", "--pull=never", "--name", name, "--network", network,
++            "--read-only", "--cap-drop=ALL", "--security-opt=no-new-privileges",
++            "--cgroupns=private",
++            "--pids-limit=128", "--memory=1g", "--user=10001:10001",
++            "--tmpfs=/tmp:rw,nosuid,nodev,size=16m",
++            "--mount", f"type=bind,source={roots['checkout']},target=/draft",
++            "--mount", skill_mount]
++    if seccomp is not None:
++        args.extend(["--security-opt", "seccomp=" + str(seccomp)])
++    if grant is not None:
++        args.extend(["--env", "CANARY_GRANT=" + grant])
++    return args + [IMAGE, *(command or ["sh", "-c", "true"])]
++
++
++def safe_projection(inspected):
++    host = inspected["HostConfig"]
++    fields = ("ReadonlyRootfs", "CapDrop", "CapAdd", "SecurityOpt",
++              "PidMode", "IpcMode", "UTSMode", "UsernsMode", "Devices",
++              "DeviceRequests", "Tmpfs", "NetworkMode", "PidsLimit",
++              "Memory", "Privileged", "MaskedPaths", "ReadonlyPaths",
++              "CgroupnsMode", "GroupAdd", "Sysctls", "ExtraHosts",
++              "Ulimits", "OomKillDisable", "MemorySwap")
++    return {"Image": inspected["Image"], "Config.User": inspected["Config"]["User"],
++            "HostConfig": {field: host.get(field) for field in fields},
++            "Mounts": [{key: mount.get(key) for key in
++                        ("Destination", "Type", "RW", "Propagation")}
++                       for mount in inspected.get("Mounts", [])]}
++
++
++def normalized_host_config(inspected, roots, network):
++    expected = {"/draft": ("bind", str(roots["checkout"]), True),
++                "/skills": ("bind", str(roots["effective_skill"]), False)}
++    return _host_config_projection(inspected["HostConfig"], expected, network)
++
++
++def main():
++    BASE.mkdir(parents=True, exist_ok=True)
++    if not BASE.resolve().is_relative_to(HERE.parents[2].resolve()):
++        raise RuntimeError("scratch_outside_workspace")
++    nonce = secrets.token_hex(6)
++    network = "laomedo-exp18-create-" + nonce
++    names = ["laomedo-exp18-correct-" + nonce,
++             "laomedo-exp18-writable-" + nonce,
++             "laomedo-exp18-seccomp-" + nonce]
++    if docker("image", "inspect", IMAGE, "--format", "{{.Id}}").stdout.strip() != IMAGE_ID:
++        raise RuntimeError("image_id_mismatch")
++    if any(docker("inspect", name, check=False).returncode == 0 for name in names):
++        raise RuntimeError("container_name_collision")
++    if docker("network", "inspect", network, check=False).returncode == 0:
++        raise RuntimeError("network_name_collision")
++
++    report = {"model_turns": 0, "stage_starts": 0, "dispatch_attempts": 0,
++              "image_id": IMAGE_ID, "docker_engine": docker("version", "--format",
++              "{{.Server.Version}}").stdout.strip()}
++    if report["docker_engine"] != ENGINE_VERSION:
++        raise RuntimeError("unreviewed_docker_engine")
++    with tempfile.TemporaryDirectory(prefix="fixture-", dir=BASE) as temp:
++        root = Path(temp).resolve()
++        if not root.is_relative_to(BASE.resolve()):
++            raise RuntimeError("scratch_outside_workspace")
++        roots = {role: root / role for role in ("checkout", "effective_skill",
++                 "canonical_skill", "host", "runner_store", "credential_standin")}
++        for path in roots.values():
++            path.mkdir()
++            (path / "canary.txt").write_text(secrets.token_hex(12), encoding="utf-8")
++        report["root_errors"] = validate_host_roots(roots)
++        if report["root_errors"]:
++            raise RuntimeError("fixture_root_refused")
++        expected = {"/draft": ("bind", str(roots["checkout"]), True),
++                    "/skills": ("bind", str(roots["effective_skill"]), False)}
++        try:
++            docker("network", "create", "--internal", network)
++            docker(*create_args(names[0], network, roots))
++            correct = json.loads(docker("inspect", names[0]).stdout)[0]
++            report["effective_inspect"] = safe_projection(correct)
++            report["reviewed_hostconfig"] = normalized_host_config(correct, roots, network)
++            report["correct_errors"] = validate_inspect(correct, expected, network,
++                                                          IMAGE_ID, TMPFS)
++            docker(*create_args(names[1], network, roots, skill_writable=True))
++            writable = json.loads(docker("inspect", names[1]).stdout)[0]
++            report["writable_skill_errors"] = validate_inspect(
++                writable, expected, network, IMAGE_ID, TMPFS)
++            failed = docker(*create_args(names[2], network, roots,
++                           seccomp=root / "missing-seccomp.json"), check=False)
++            report["missing_seccomp_create_failed"] = failed.returncode != 0
++            report["missing_seccomp_container_absent"] = (
++                docker("inspect", names[2], check=False).returncode != 0)
++            report["seccomp_error_class"] = (
++                "opening_seccomp_profile_failed" if "seccomp profile" in
++                failed.stderr.lower() else "other")
++        finally:
++            for name in names:
++                docker("rm", "-f", name, check=False)
++            docker("network", "rm", network, check=False)
++        report["cleanup_complete"] = (
++            all(docker("inspect", name, check=False).returncode != 0 for name in names)
++            and docker("network", "inspect", network, check=False).returncode != 0)
++    report["passed"] = (
++        not report["correct_errors"] and
++        "mount_mismatch:/skills" in report["writable_skill_errors"] and
++        report["missing_seccomp_create_failed"] and
++        report["missing_seccomp_container_absent"] and report["cleanup_complete"])
++    (HERE / "create-only-observation.json").write_text(
++        json.dumps(report, indent=2) + "\n", encoding="utf-8")
++    print(json.dumps({key: report[key] for key in (
++        "docker_engine", "correct_errors", "writable_skill_errors",
++        "missing_seccomp_create_failed", "missing_seccomp_container_absent",
++        "stage_starts", "dispatch_attempts", "model_turns", "cleanup_complete", "passed")}))
++    if not report["passed"]:
++        raise SystemExit(1)
++
++
++if __name__ == "__main__":
++    main()
+diff --git a/experiments/exp18/probe_stage.py b/experiments/exp18/probe_stage.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..02cc169681433edf2ec8dc9a217c3631c3c7bd28
+--- /dev/null
++++ b/experiments/exp18/probe_stage.py
+@@ -0,0 +1,329 @@
++"""EXP-18 steps 3-4: bounded no-model stage and sidecar probe."""
++
++import hashlib
++import json
++from pathlib import Path
++import secrets
++import shutil
++import socket
++import sys
++import tempfile
++import threading
++import time
++
++from preflight import validate_host_roots, validate_inspect
++from probe_create_only import (ENGINE_VERSION, HERE, IMAGE,
++                               IMAGE_ID, TMPFS, create_args, docker)
++
++
++ROOT = HERE.parents[1]
++sys.path.insert(0, str(ROOT))
++from laomedo.local_runner import LocalRunner, RunnerError, _hash_tree, serve  # noqa: E402
++
++
++SIDE_IMAGE = "laomedo-exp18-sidecar:local"
++SIDE_ID = "sha256:cb476dfe5717f9a6a37795c22b24e93892ccbfde2873c3cda109268e131a47e3"
++CANARY_IMAGE = "laomedo-exp18-canary:local"
++CANARY_ID = "sha256:502b45f6af95045522f9ea8e9da6f28c197263d2216bc57cd2828dfbf76b13d1"
++RUNNER_PORT = 8767
++BASE = ROOT / ".tools.local" / "exp18-stage"
++OBSERVATION = HERE / "stage-observation.json"
++REFUSAL = HERE / "stage-refusal.json"
++
++
++def image_id(name):
++    return docker("image", "inspect", name, "--format", "{{.Id}}").stdout.strip()
++
++
++def inspect(name):
++    return json.loads(docker("inspect", name).stdout)[0]
++
++
++def digest(path):
++    return hashlib.sha256(path.read_bytes()).hexdigest()
++
++
++def sidecar_evidence(item, network):
++    host = item["HostConfig"]
++    config = item["Config"]
++    networks = set(item["NetworkSettings"]["Networks"])
++    errors = []
++    if item["Image"] != SIDE_ID:
++        errors.append("sidecar_image_mismatch")
++    if networks != {network, "bridge"}:
++        errors.append("sidecar_network_set_mismatch")
++    if host.get("NetworkMode") != network:
++        errors.append("sidecar_primary_network_mismatch")
++    if item.get("Mounts") or host.get("Binds") or host.get("Mounts") or config.get("Volumes"):
++        errors.append("sidecar_mount_present")
++    if (host.get("PortBindings") or item["NetworkSettings"].get("Ports") or
++            host.get("PublishAllPorts")):
++        errors.append("sidecar_published_port")
++    if host.get("ReadonlyRootfs") is not True or host.get("CapDrop") != ["ALL"]:
++        errors.append("sidecar_filesystem_or_capabilities")
++    if host.get("CapAdd") not in (None, []) or host.get("Privileged") is not False:
++        errors.append("sidecar_privilege")
++    if host.get("Devices") not in (None, []) or host.get("DeviceRequests") not in (None, []):
++        errors.append("sidecar_device")
++    if host.get("SecurityOpt") not in (["no-new-privileges"],
++                                       ["no-new-privileges:true"]):
++        errors.append("sidecar_no_new_privileges")
++    if config.get("User") != "10001:10001":
++        errors.append("sidecar_user")
++    if config.get("Entrypoint") != ["python", "-B", "-u", "/app/probe.py"]:
++        errors.append("sidecar_entrypoint")
++    return {"image_id": item["Image"], "networks": sorted(networks),
++            "published_ports": host.get("PortBindings"),
++            "mount_count": len(item.get("Mounts") or []),
++            "read_only_root": host.get("ReadonlyRootfs"),
++            "cap_drop": host.get("CapDrop"),
++            "cap_add": host.get("CapAdd"),
++            "security_options": host.get("SecurityOpt"),
++            "user": config.get("User"),
++            "entrypoint": config.get("Entrypoint"), "errors": errors}
++
++
++def config_errors(item, grant):
++    config = item["Config"]
++    expected_names = {entry.split("=", 1)[0] for entry in
++                      json.loads(docker("image", "inspect", IMAGE,
++                                         "--format", "{{json .Config.Env}}").stdout)}
++    expected_names.add("CANARY_GRANT")
++    names = {entry.split("=", 1)[0] for entry in config.get("Env") or []}
++    errors = []
++    if names != expected_names or len(config.get("Env") or []) != len(names):
++        errors.append("config_env_names_mismatch")
++    if config.get("Cmd") != ["sh", "-c", "sleep 45"]:
++        errors.append("config_command_mismatch")
++    if config.get("Entrypoint") != ["docker-entrypoint.sh"]:
++        errors.append("config_entrypoint_mismatch")
++    if config.get("WorkingDir") != "/draft":
++        errors.append("config_workdir_mismatch")
++    if not any(entry == "CANARY_GRANT=" + grant for entry in config.get("Env") or []):
++        errors.append("config_grant_mismatch")
++    return errors, sorted(names)
++
++
++def sidecar_ready(network):
++    code = ("import urllib.request,urllib.error; "
++            "u='http://runner-probe:8098/runner-auth-probe'; "
++            "\ntry: urllib.request.urlopen(u,timeout=3); print('unexpected')"
++            "\nexcept urllib.error.HTTPError as e: print(e.code)")
++    result = docker("run", "--rm", "--pull=never", "--network", network,
++                    "--entrypoint", "python", CANARY_IMAGE, "-c", code)
++    return result.stdout.strip() == "401"
++
++
++def revoke(canary):
++    code = ("import os,urllib.request; "
++            "r=urllib.request.Request('http://127.0.0.1:8099/revoke',"
++            "data=b'x',method='POST',headers={'X-Test-Grant':os.environ['CANARY_GRANT']});"
++            "print(urllib.request.urlopen(r,timeout=3).status)")
++    return docker("exec", canary, "python", "-c", code, check=False).stdout.strip() == "200"
++
++
++def canary_status(canary):
++    code = ("import json,urllib.request; "
++            "print(urllib.request.urlopen('http://127.0.0.1:8099/status',"
++            "timeout=3).read().decode())")
++    for _ in range(20):
++        result = docker("exec", canary, "python", "-c", code, check=False)
++        if result.returncode == 0:
++            return json.loads(result.stdout)
++        time.sleep(0.1)
++    raise RuntimeError("canary_status_unavailable")
++
++
++def post_revoke_status(canary):
++    code = ("import os,urllib.request,urllib.error; "
++            "r=urllib.request.Request('http://127.0.0.1:8099/write',"
++            "data=b'x',method='POST',headers={'X-Test-Grant':os.environ['CANARY_GRANT']});"
++            "\ntry: print(urllib.request.urlopen(r,timeout=3).status)"
++            "\nexcept urllib.error.HTTPError as e: print(e.code)")
++    return docker("exec", canary, "python", "-c", code).stdout.strip()
++
++
++def main():
++    if image_id(IMAGE) != IMAGE_ID or image_id(SIDE_IMAGE) != SIDE_ID or image_id(CANARY_IMAGE) != CANARY_ID:
++        raise RuntimeError("image_id_mismatch")
++    engine = docker("version", "--format", "{{.Server.Version}}").stdout.strip()
++    if engine != ENGINE_VERSION:
++        REFUSAL.write_text(json.dumps({"error_category": "engine_change",
++                                      "expected_engine": ENGINE_VERSION,
++                                      "observed_engine": engine,
++                                      "stage_starts": 0, "model_turns": 0}, indent=2) + "\n",
++                           encoding="utf-8")
++        raise RuntimeError("engine_change:" + engine)
++    with socket.socket() as sock:
++        if sock.connect_ex(("127.0.0.1", RUNNER_PORT)) == 0:
++            raise RuntimeError("runner_port_already_in_use")
++    BASE.mkdir(parents=True, exist_ok=True)
++    if not BASE.resolve().is_relative_to(ROOT.resolve()):
++        raise RuntimeError("scratch_outside_workspace")
++    nonce = secrets.token_hex(6)
++    network = "laomedo-exp18-stage-" + nonce
++    names = {role: "laomedo-exp18-" + role + "-" + nonce
++             for role in ("sidecar", "canary", "stage")}
++    token = secrets.token_hex(32)
++    report = {"launcher_revision": "probe_stage.py", "docker_engine": engine,
++              "stage_image_id": IMAGE_ID, "sidecar_image_id": SIDE_ID,
++              "canary_image_id": CANARY_ID, "runner_port": RUNNER_PORT,
++              "model_turns": 0, "grant_fingerprint": hashlib.sha256(token.encode()).hexdigest(),
++              "stage_starts": 0}
++    for name in names.values():
++        if docker("inspect", name, check=False).returncode == 0:
++            raise RuntimeError("container_name_collision")
++    if docker("network", "inspect", network, check=False).returncode == 0:
++        raise RuntimeError("network_name_collision")
++    server = None
++    thread = None
++    with tempfile.TemporaryDirectory(prefix="laomedo-exp18-runner-") as private:
++        with tempfile.TemporaryDirectory(prefix="fixture-", dir=BASE) as temp:
++            root = Path(temp).resolve()
++            roots = {role: root / role for role in ("checkout", "effective_skill",
++                     "canonical_skill", "host", "runner_store", "credential_standin")}
++            markers = {"names": [], "bytes": [], "paths": []}
++            canaries = {}
++            for role, directory in roots.items():
++                directory.mkdir()
++                name = role + "-" + secrets.token_hex(8) + ".txt"
++                value = secrets.token_hex(24)
++                path = directory / ("canary.txt" if role == "effective_skill" else name)
++                path.write_text(value, encoding="utf-8")
++                canaries[role] = path
++                if role not in ("checkout", "effective_skill"):
++                    markers["names"].append(name)
++                    markers["bytes"].append(value)
++                    mount_path = {"canonical_skill": "/canonical-skill",
++                                  "runner_store": "/runner-store",
++                                  "host": "/host-protected",
++                                  "credential_standin": "/credential-standin"}[role]
++                    markers["paths"].append(mount_path + "/" + name)
++            shutil.copy2(HERE / "stage_probe.js", roots["checkout"] / "probe.js")
++            before = {role: digest(path) for role, path in canaries.items()}
++            if validate_host_roots(roots):
++                raise RuntimeError("fixture_roots_invalid")
++            try:
++                runner = LocalRunner(Path(private) / "state", Path(private) / "skills",
++                                     ROOT / "laomedo", check_docker=False, max_model_turns=0)
++                server = serve(runner, port=RUNNER_PORT)
++                thread = threading.Thread(target=server.serve_forever, daemon=True)
++                thread.start()
++                report["runner_model_turn_cap"] = runner.max_model_turns
++                docker("network", "create", "--internal", network)
++                docker("create", "--pull=never", "--name", names["sidecar"],
++                       "--network", network, "--network-alias", "runner-probe",
++                       "--read-only", "--cap-drop=ALL", "--security-opt=no-new-privileges",
++                       "--user=10001:10001", SIDE_IMAGE)
++                docker("network", "connect", "bridge", names["sidecar"])
++                report["sidecar_prestart_inspect"] = sidecar_evidence(inspect(names["sidecar"]), network)
++                if report["sidecar_prestart_inspect"]["errors"]:
++                    raise RuntimeError("sidecar_prestart_refused")
++                docker("start", names["sidecar"])
++                report["sidecar_runner_401"] = sidecar_ready(network)
++                if not report["sidecar_runner_401"]:
++                    raise RuntimeError("sidecar_runner_401_unavailable")
++                docker("create", "--pull=never", "--name", names["canary"],
++                       "--network", network, "--network-alias", "canary",
++                       "--tmpfs", "/canary-state:rw,nosuid,nodev,size=1m,mode=1777",
++                       "--env", "CANARY_GRANT=" + token,
++                       "--env", "CANARY_LEASE_NS=60000000000", CANARY_IMAGE)
++                docker("start", names["canary"])
++                report["lease_deadline_ns"] = canary_status(names["canary"])["expiry_ns"]
++                expected = {"/draft": ("bind", str(roots["checkout"]), True),
++                            "/skills": ("bind", str(roots["effective_skill"]), False)}
++                docker(*create_args(names["stage"], network, roots, grant=token,
++                                    command=["sh", "-c", "sleep 45"]))
++                stage = inspect(names["stage"])
++                report["stage_prestart_errors"] = validate_inspect(
++                    stage, expected, network, IMAGE_ID, TMPFS)
++                config_failures, env_names = config_errors(stage, token)
++                report["stage_config_errors"] = config_failures
++                report["stage_env_names"] = env_names
++                report["stage_command"] = stage["Config"]["Cmd"]
++                report["stage_id"] = stage["Id"][:16]
++                if report["stage_prestart_errors"] or config_failures:
++                    raise RuntimeError("stage_prestart_refused")
++                docker("start", names["stage"])
++                report["stage_starts"] = 1
++                report["probe_start_ns"] = time.time_ns()
++                run = docker("exec", "--env", "PROTECTED_MARKERS=" + json.dumps(markers),
++                             names["stage"], "node", "/draft/probe.js", check=False)
++                report["probe_exit_code"] = run.returncode
++                report["probe_end_ns"] = time.time_ns()
++                try:
++                    report["probe"] = json.loads(run.stdout.strip().splitlines()[-1])
++                except (ValueError, IndexError):
++                    report["probe"] = {"parse_error": True, "stderr_class": "probe_failed"}
++                docker("stop", "--time", "1", names["stage"])
++                report["stage_stopped"] = inspect(names["stage"])["State"]["Status"] == "exited"
++                report["grant_revoked"] = revoke(names["canary"])
++                report["post_revoke_status"] = post_revoke_status(names["canary"])
++                report["canary_revoked"] = canary_status(names["canary"])["revoked"]
++                events = docker("exec", names["canary"], "cat", "/canary-state/events.jsonl",
++                                check=False)
++                report["canary_events"] = [json.loads(line) for line in events.stdout.splitlines()]
++                try:
++                    _hash_tree(roots["checkout"])
++                    report["host_symlink_processing"] = "accepted"
++                except RunnerError as exc:
++                    report["host_symlink_processing"] = str(exc)
++                report["protected_hashes"] = {
++                    role: {"before": before[role], "after": digest(canaries[role])}
++                    for role in ("checkout", "canonical_skill", "runner_store", "host",
++                                 "credential_standin", "effective_skill")}
++                report["protected_hashes_unchanged"] = all(
++                    pair["before"] == pair["after"]
++                    for pair in report["protected_hashes"].values())
++            except Exception as exc:
++                report["error"] = type(exc).__name__ + ":" + str(exc)[:120]
++            finally:
++                if names["canary"] and docker("inspect", names["canary"], check=False).returncode == 0:
++                    report.setdefault("grant_revoked", revoke(names["canary"]))
++                for role in ("stage", "canary", "sidecar"):
++                    docker("rm", "-f", names[role], check=False)
++                docker("network", "rm", network, check=False)
++                report["cleanup_complete"] = (
++                    all(docker("inspect", name, check=False).returncode != 0
++                        for name in names.values()) and
++                    docker("network", "inspect", network, check=False).returncode != 0)
++                if server is not None:
++                    server.shutdown()
++                    server.server_close()
++                if thread is not None:
++                    thread.join(timeout=3)
++            report["direct_boundary_pass"] = (
++                "error" not in report and report["cleanup_complete"] and
++                report.get("stage_stopped") and
++                report.get("grant_revoked") and report.get("canary_revoked") and
++                report.get("post_revoke_status") == "403" and
++                report.get("probe_end_ns", 0) < report.get("lease_deadline_ns", 0) and
++                report.get("protected_hashes_unchanged") and
++                report.get("host_symlink_processing") == "unsafe_workspace_entry" and
++                report.get("probe_exit_code") == 0 and
++                report.get("probe", {}).get("checkout_write") and
++                report.get("probe", {}).get("effective_skill_read") and
++                report.get("probe", {}).get("skill_write") in ("EROFS", "EACCES") and
++                report.get("probe", {}).get("canary_valid") == 200 and
++                report.get("probe", {}).get("canary_invalid") == 403 and
++                report.get("probe", {}).get("runner_probe") == 401 and
++                not report.get("probe", {}).get("sweep", {}).get("found") and
++                not report.get("probe", {}).get("sweep", {}).get("incomplete") and
++                len(report.get("probe", {}).get("protected_paths", {})) == 8 and
++                report.get("probe", {}).get("symlink_read") == "ENOENT" and
++                all(value in ("ENOENT", "EACCES") for value in
++                    report.get("probe", {}).get("protected_paths", {}).values()) and
++                all(not isinstance(value, int) for value in
++                    report.get("probe", {}).get("direct_routes", {}).values()))
++    OBSERVATION.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
++    print(json.dumps({key: report.get(key) for key in (
++        "docker_engine", "sidecar_runner_401", "stage_prestart_errors",
++        "stage_config_errors", "stage_starts", "probe_exit_code", "grant_revoked",
++        "protected_hashes_unchanged", "host_symlink_processing",
++        "cleanup_complete", "direct_boundary_pass", "error")}))
++    if not report["direct_boundary_pass"]:
++        raise SystemExit(1)
++
++
++if __name__ == "__main__":
++    main()
+diff --git a/experiments/exp18/runner_probe_sidecar.py b/experiments/exp18/runner_probe_sidecar.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..1142cd8226b8c35fb9b9e742afd5b306df684521
+--- /dev/null
++++ b/experiments/exp18/runner_probe_sidecar.py
+@@ -0,0 +1,54 @@
++"""Fixed unauthenticated runner-API probe for an internal E05 stage network.
++
++This sidecar never forwards a stage-supplied URL, header, body or credential.
++It must not be launched until the amended EXP-18 protocol is reviewed.
++"""
++
++import http.client
++from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
++import json
++
++
++UPSTREAM_HOST = "host.docker.internal"
++UPSTREAM_PORT = 8767
++UPSTREAM_PATH = "/v1/runs/00000000-0000-0000-0000-000000000000"
++PROBE_PATH = "/runner-auth-probe"
++
++
++def probe_runner():
++    connection = http.client.HTTPConnection(UPSTREAM_HOST, UPSTREAM_PORT, timeout=3)
++    try:
++        connection.request("GET", UPSTREAM_PATH)
++        response = connection.getresponse()
++        response.read(1024)
++        return response.status
++    finally:
++        connection.close()
++
++
++class Handler(BaseHTTPRequestHandler):
++    def log_message(self, _format, *_args):
++        # Never retain client-controlled paths or headers in logs.
++        pass
++
++    def do_GET(self):
++        if self.path != PROBE_PATH or self.headers.get("Content-Length", "0") != "0":
++            self.send_error(404)
++            return
++        try:
++            status = probe_runner()
++        except (OSError, http.client.HTTPException):
++            status = 502
++        payload = json.dumps({"upstream_status": status}).encode("ascii")
++        self.send_response(status if status == 401 else 502)
++        self.send_header("Content-Type", "application/json")
++        self.send_header("Content-Length", str(len(payload)))
++        self.end_headers()
++        self.wfile.write(payload)
++
++    def do_POST(self):
++        self.send_error(405)
++
++
++if __name__ == "__main__":
++    ThreadingHTTPServer(("0.0.0.0", 8098), Handler).serve_forever()
+diff --git a/experiments/exp18/stage-observation.json b/experiments/exp18/stage-observation.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..299db631a54459ef013eb5188f7fe78f32ff9663
+--- /dev/null
++++ b/experiments/exp18/stage-observation.json
+@@ -0,0 +1,149 @@
++{
++  "launcher_revision": "probe_stage.py",
++  "docker_engine": "27.3.1",
++  "stage_image_id": "sha256:7b79ce12be47d6c8262dd4043895112d204416bda5cd891d124775df55587239",
++  "sidecar_image_id": "sha256:cb476dfe5717f9a6a37795c22b24e93892ccbfde2873c3cda109268e131a47e3",
++  "canary_image_id": "sha256:502b45f6af95045522f9ea8e9da6f28c197263d2216bc57cd2828dfbf76b13d1",
++  "runner_port": 8767,
++  "model_turns": 0,
++  "grant_fingerprint": "04dbb42bb771a3965634acb5afdf135abde96de290b99b6291d4604ea8194d1e",
++  "stage_starts": 1,
++  "runner_model_turn_cap": 0,
++  "sidecar_prestart_inspect": {
++    "image_id": "sha256:cb476dfe5717f9a6a37795c22b24e93892ccbfde2873c3cda109268e131a47e3",
++    "networks": [
++      "bridge",
++      "laomedo-exp18-stage-009065e4d09b"
++    ],
++    "published_ports": {},
++    "mount_count": 0,
++    "read_only_root": true,
++    "cap_drop": [
++      "ALL"
++    ],
++    "cap_add": null,
++    "security_options": [
++      "no-new-privileges"
++    ],
++    "user": "10001:10001",
++    "entrypoint": [
++      "python",
++      "-B",
++      "-u",
++      "/app/probe.py"
++    ],
++    "errors": []
++  },
++  "sidecar_runner_401": true,
++  "lease_deadline_ns": 1791125041334095610,
++  "stage_prestart_errors": [],
++  "stage_config_errors": [],
++  "stage_env_names": [
++    "CANARY_GRANT",
++    "HOME",
++    "NODE_VERSION",
++    "PATH",
++    "YARN_VERSION"
++  ],
++  "stage_command": [
++    "sh",
++    "-c",
++    "sleep 45"
++  ],
++  "stage_id": "94dbb1cead1d973a",
++  "probe_start_ns": 1791124981992167300,
++  "probe_exit_code": 0,
++  "probe_end_ns": 1791124984534069000,
++  "probe": {
++    "checkout_write": true,
++    "effective_skill_read": true,
++    "skill_write": "EROFS",
++    "protected_paths": {
++      "/canonical-skill/canonical_skill-97641e2610cadfed.txt": "ENOENT",
++      "/canonical-skill/canonical_skill-97641e2610cadfed.txt:write": "ENOENT",
++      "/host-protected/host-65104670fa73e6c8.txt": "ENOENT",
++      "/host-protected/host-65104670fa73e6c8.txt:write": "ENOENT",
++      "/runner-store/runner_store-792e9ed2ed51e6ba.txt": "ENOENT",
++      "/runner-store/runner_store-792e9ed2ed51e6ba.txt:write": "ENOENT",
++      "/credential-standin/credential_standin-898ff98c8b6a6b13.txt": "ENOENT",
++      "/credential-standin/credential_standin-898ff98c8b6a6b13.txt:write": "ENOENT"
++    },
++    "symlink_read": "ENOENT",
++    "canary_valid": 200,
++    "canary_invalid": 403,
++    "runner_probe": 401,
++    "direct_routes": {
++      "2375": "EAI_AGAIN",
++      "8767": "EAI_AGAIN",
++      "8768": "EAI_AGAIN"
++    },
++    "sweep": {
++      "found": [],
++      "files": 6009,
++      "bytes": 679212708,
++      "incomplete": false,
++      "incomplete_reasons": {},
++      "elapsed_ms": 2234
++    }
++  },
++  "stage_stopped": true,
++  "grant_revoked": true,
++  "post_revoke_status": "403",
++  "canary_revoked": true,
++  "canary_events": [
++    {
++      "at_ns": 1791124982254875513,
++      "action": "write",
++      "accepted": true,
++      "reason": "ok"
++    },
++    {
++      "at_ns": 1791124982264151222,
++      "action": "write",
++      "accepted": false,
++      "reason": "bad_grant"
++    },
++    {
++      "at_ns": 1791124986183444342,
++      "action": "revoke",
++      "accepted": true,
++      "reason": "ok"
++    },
++    {
++      "at_ns": 1791124986458166497,
++      "action": "write",
++      "accepted": false,
++      "reason": "revoked"
++    }
++  ],
++  "host_symlink_processing": "unsafe_workspace_entry",
++  "protected_hashes": {
++    "checkout": {
++      "before": "c3cf54924531b446010cd79bda65b45d9f53a76f3c430f027cb7691355f19e35",
++      "after": "c3cf54924531b446010cd79bda65b45d9f53a76f3c430f027cb7691355f19e35"
++    },
++    "canonical_skill": {
++      "before": "0b36ef95cf6eaaa185ccdba2330c89c4f889e09344a7c9a556bf446daf73761f",
++      "after": "0b36ef95cf6eaaa185ccdba2330c89c4f889e09344a7c9a556bf446daf73761f"
++    },
++    "runner_store": {
++      "before": "250eb7c8861f63889a7c3368cf9156e63b0e036bf760336c8a9f7711e35ad0c7",
++      "after": "250eb7c8861f63889a7c3368cf9156e63b0e036bf760336c8a9f7711e35ad0c7"
++    },
++    "host": {
++      "before": "3cd5b3cfedd27035af5d2d3d241a741b61388f713ae3b36f192619407d26f640",
++      "after": "3cd5b3cfedd27035af5d2d3d241a741b61388f713ae3b36f192619407d26f640"
++    },
++    "credential_standin": {
++      "before": "4c14453ff5cc23f0f1c85117d69e2f7007632d9a614d53e5e748877f94d8fb56",
++      "after": "4c14453ff5cc23f0f1c85117d69e2f7007632d9a614d53e5e748877f94d8fb56"
++    },
++    "effective_skill": {
++      "before": "22dd7a7cdc756ae5c086e99b2ea718de7cbd9703be07b63eea59faa3533f75bc",
++      "after": "22dd7a7cdc756ae5c086e99b2ea718de7cbd9703be07b63eea59faa3533f75bc"
++    }
++  },
++  "protected_hashes_unchanged": true,
++  "cleanup_complete": true,
++  "direct_boundary_pass": true
++}
+diff --git a/experiments/exp18/stage_probe.js b/experiments/exp18/stage_probe.js
+new file mode 100644
+index 0000000000000000000000000000000000000000..6a31d04ed2f1ef7a526ba62d78a286baa6942141
+--- /dev/null
++++ b/experiments/exp18/stage_probe.js
+@@ -0,0 +1,106 @@
++/* Deterministic EXP-18 no-model process probe. Never prints grant or canaries. */
++const fs = require('fs');
++const path = require('path');
++
++async function http(url, options = {}) {
++  try {
++    const response = await fetch(url, {
++      ...options,
++      signal: AbortSignal.timeout(1500),
++    });
++    return response.status;
++  } catch (error) {
++    return error.cause?.code || error.code || error.name;
++  }
++}
++
++function sweep(markers) {
++  const found = [];
++  const stack = ['/'];
++  const started = Date.now();
++  let files = 0;
++  let bytes = 0;
++  let incomplete = false;
++  const incomplete_reasons = {};
++  function mark(reason) {
++    incomplete = true;
++    incomplete_reasons[reason] = (incomplete_reasons[reason] || 0) + 1;
++  }
++  while (stack.length) {
++    if (files >= 100000 || bytes >= 4 * 1024 * 1024 * 1024 || Date.now() - started > 20000) {
++      mark('budget');
++      break;
++    }
++    const dir = stack.pop();
++    if (['/proc', '/sys', '/dev'].includes(dir)) continue;
++    let entries;
++    try { entries = fs.readdirSync(dir, {withFileTypes: true}); }
++    catch (error) {
++      if (error.code !== 'EACCES' && error.code !== 'EPERM') mark('readdir_' + error.code);
++      continue;
++    }
++    for (const entry of entries) {
++      const file = path.join(dir, entry.name);
++      if (markers.names.some(name => entry.name === name)) found.push('name');
++      if (entry.isDirectory()) stack.push(file);
++      if (!entry.isFile()) continue;
++      try {
++        const stat = fs.statSync(file);
++        if (bytes + stat.size > 4 * 1024 * 1024 * 1024) { mark('byte_budget'); continue; }
++        const handle = fs.openSync(file, 'r');
++        try {
++          const block = Buffer.allocUnsafe(1024 * 1024);
++          let previous = Buffer.alloc(0);
++          let count;
++          while ((count = fs.readSync(handle, block, 0, block.length, null)) > 0) {
++            const data = Buffer.concat([previous, block.subarray(0, count)]);
++            if (markers.bytes.some(marker => data.includes(Buffer.from(marker)))) found.push('bytes');
++            previous = data.subarray(Math.max(0, data.length - 64));
++            bytes += count;
++          }
++          files++;
++        } finally { fs.closeSync(handle); }
++      } catch (error) {
++        if (error.code !== 'EACCES' && error.code !== 'EPERM') mark('read_' + error.code);
++      }
++    }
++  }
++  return {found, files, bytes, incomplete, incomplete_reasons,
++          elapsed_ms: Date.now() - started};
++}
++
++async function main() {
++  const markers = JSON.parse(process.env.PROTECTED_MARKERS);
++  const result = {};
++  fs.writeFileSync('/draft/positive.txt', 'stage-write-ok');
++  result.checkout_write = fs.readFileSync('/draft/positive.txt', 'utf8') === 'stage-write-ok';
++  result.effective_skill_read = fs.readFileSync('/skills/canary.txt', 'utf8').length > 0;
++  try { fs.writeFileSync('/skills/forbidden.txt', 'forbidden'); result.skill_write = 'succeeded'; }
++  catch (error) { result.skill_write = error.code; }
++  result.protected_paths = {};
++  for (const target of markers.paths) {
++    try { fs.readFileSync(target); result.protected_paths[target] = 'readable'; }
++    catch (error) { result.protected_paths[target] = error.code; }
++    try { fs.writeFileSync(target, 'forbidden'); result.protected_paths[target + ':write'] = 'succeeded'; }
++    catch (error) { result.protected_paths[target + ':write'] = error.code; }
++  }
++  fs.symlinkSync('/host-protected/canary.txt', '/draft/host-link');
++  try { fs.readFileSync('/draft/host-link'); result.symlink_read = 'readable'; }
++  catch (error) { result.symlink_read = error.code; }
++  result.canary_valid = await http('http://canary:8099/write', {
++    method: 'POST', headers: {'X-Test-Grant': process.env.CANARY_GRANT}, body: 'x',
++  });
++  result.canary_invalid = await http('http://canary:8099/write', {method: 'POST', body: 'x'});
++  result.runner_probe = await http('http://runner-probe:8098/runner-auth-probe');
++  result.direct_routes = {};
++  for (const port of [8767, 8768, 2375]) {
++    result.direct_routes[String(port)] = await http(`http://host.docker.internal:${port}/`);
++  }
++  result.sweep = sweep(markers);
++  console.log(JSON.stringify(result));
++}
++
++main().catch(error => {
++  console.log(JSON.stringify({fatal: error.code || error.name}));
++  process.exitCode = 1;
++});
+diff --git a/tests/test_exp18_preflight.py b/tests/test_exp18_preflight.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..a2da1667084a9479b6ffeebd94578910b6541309
+--- /dev/null
++++ b/tests/test_exp18_preflight.py
+@@ -0,0 +1,155 @@
++import importlib.util
++from pathlib import Path
++import tempfile
++import unittest
++from copy import deepcopy
++
++
++MODULE_PATH = Path(__file__).resolve().parents[1] / "experiments" / "exp18" / "preflight.py"
++spec = importlib.util.spec_from_file_location("exp18_preflight", MODULE_PATH)
++module = importlib.util.module_from_spec(spec)
++spec.loader.exec_module(module)
++
++
++class PreflightTests(unittest.TestCase):
++    def setUp(self):
++        self.image_id = "sha256:" + "a" * 64
++        self.tmpfs = {"/tmp": "rw,nosuid,nodev,size=16m"}
++        self.source = str(Path(__file__).resolve())
++        self.mounts = {"/skills": ("bind", self.source, False),
++                       "/draft": ("bind", self.source, True)}
++        host = deepcopy(module.HOST_CONFIG_BASELINE)
++        host["NetworkMode"] = "exp18-private"
++        host["SecurityOpt"] = ["no-new-privileges:true"]
++        for mount in host["Mounts"]:
++            mount["Source"] = self.source
++        self.inspect = {
++            "Image": self.image_id,
++            "HostConfig": host,
++            "Config": {"User": "10001:10001"},
++            "Mounts": [
++                {"Destination": target, "Type": "bind", "Source": self.source,
++                 "RW": writable, "Propagation": "rprivate"}
++                for target, (_, _, writable) in self.mounts.items()
++            ],
++        }
++
++    def test_exact_grant_accepted(self):
++        self.assertEqual(module.validate_inspect(self.inspect, self.mounts,
++                                                 "exp18-private", self.image_id,
++                                                 self.tmpfs), [])
++
++    def test_writable_skill_mount_and_extra_mount_rejected(self):
++        self.inspect["Mounts"][0]["RW"] = True
++        self.inspect["Mounts"].append({"Destination": "/host", "Type": "bind",
++                                        "Source": self.source, "RW": False,
++                                        "Propagation": "rprivate"})
++        errors = self.validate()
++        self.assertIn("mount_mismatch:/skills", errors)
++        self.assertIn("mount_set_mismatch", errors)
++
++    def test_missing_protection_rejected(self):
++        self.inspect["HostConfig"]["ReadonlyRootfs"] = False
++        self.inspect["HostConfig"]["SecurityOpt"] = []
++        self.inspect["HostConfig"]["Privileged"] = True
++        errors = self.validate()
++        self.assertIn("root_not_read_only", errors)
++        self.assertIn("security_options_mismatch", errors)
++        self.assertIn("privileged_or_unknown", errors)
++
++    def validate(self):
++        return module.validate_inspect(self.inspect, self.mounts, "exp18-private",
++                                       self.image_id, self.tmpfs)
++
++    def test_each_real_downgrade_is_rejected(self):
++        mutations = (
++            ("cap_add", "CapAdd", ["SYS_ADMIN"], "capabilities_added"),
++            ("nnp_false", "SecurityOpt", ["no-new-privileges:false"],
++             "security_options_mismatch"),
++            ("seccomp_unconfined", "SecurityOpt",
++             ["no-new-privileges:true", "seccomp=unconfined"],
++             "security_options_mismatch"),
++            ("apparmor_unconfined", "SecurityOpt",
++             ["no-new-privileges:true", "apparmor=unconfined"],
++             "security_options_mismatch"),
++            ("host_pid", "PidMode", "host", "pidmode_mismatch"),
++            ("device", "Devices", [{"PathOnHost": "/dev/fuse"}],
++             "devices_present"),
++            ("extra_tmpfs", "Tmpfs", {**self.tmpfs, "/data": "exec"},
++             "tmpfs_mismatch"),
++        )
++        baseline = deepcopy(self.inspect)
++        for label, field, value, code in mutations:
++            with self.subTest(label=label):
++                self.inspect = deepcopy(baseline)
++                self.inspect["HostConfig"][field] = value
++                self.assertIn(code, self.validate())
++
++    def test_namespace_device_request_tmpfs_mount_and_image_mismatch(self):
++        baseline = deepcopy(self.inspect)
++        for field, value, code in (
++            ("IpcMode", "host", "ipcmode_mismatch"),
++            ("UTSMode", "host", "utsmode_mismatch"),
++            ("UsernsMode", "host", "usernsmode_mismatch"),
++            ("DeviceRequests", [{"Capabilities": [["gpu"]]}],
++             "device_requests_present"),
++        ):
++            with self.subTest(field=field):
++                self.inspect = deepcopy(baseline)
++                self.inspect["HostConfig"][field] = value
++                self.assertIn(code, self.validate())
++        self.inspect = deepcopy(baseline)
++        self.inspect["Image"] = "sha256:" + "b" * 64
++        self.assertIn("image_id_mismatch", self.validate())
++        self.inspect = deepcopy(baseline)
++        self.inspect["Mounts"].append({"Destination": "/data", "Type": "tmpfs"})
++        self.assertIn("tmpfs_mount_set_mismatch", self.validate())
++
++    def test_systempaths_unconfined_real_inspect_shape_is_rejected(self):
++        # Docker records this downgrade by emptying both path lists, even when
++        # SecurityOpt contains no "systempaths" entry.
++        self.inspect["HostConfig"]["MaskedPaths"] = []
++        self.inspect["HostConfig"]["ReadonlyPaths"] = []
++        self.assertNotIn("systempaths=unconfined",
++                         self.inspect["HostConfig"]["SecurityOpt"])
++        errors = self.validate()
++        self.assertIn("masked_paths_mismatch", errors)
++        self.assertIn("readonly_paths_mismatch", errors)
++
++    def test_full_host_config_projection_rejects_unlisted_downgrades(self):
++        baseline = deepcopy(self.inspect)
++        cases = (
++            ("CgroupnsMode", "host"), ("GroupAdd", ["0"]),
++            ("Sysctls", {"net.ipv4.ip_forward": "1"}),
++            ("ExtraHosts", ["example:127.0.0.1"]),
++            ("Ulimits", [{"Name": "nofile", "Soft": 1024, "Hard": 1024}]),
++            ("OomKillDisable", True), ("MemorySwap", -1),
++            ("new_field", "unsafe"),
++        )
++        for field, value in cases:
++            with self.subTest(field=field):
++                self.inspect = deepcopy(baseline)
++                self.inspect["HostConfig"][field] = value
++                self.assertIn("hostconfig_mismatch:" + field, self.validate())
++        self.inspect = deepcopy(baseline)
++        self.inspect["HostConfig"]["ReadonlyPaths"] = []
++        self.assertIn("readonly_paths_mismatch", self.validate())
++        self.inspect = deepcopy(baseline)
++        self.inspect["Mounts"][0]["Propagation"] = "rshared"
++        self.assertIn("mount_mismatch:/skills", self.validate())
++
++    def test_fixture_roots_must_be_distinct(self):
++        with tempfile.TemporaryDirectory() as temp:
++            base = Path(temp)
++            roots = {name: base / name for name in ("checkout", "effective_skill",
++                     "canonical_skill", "host", "runner_store", "credential_standin")}
++            for path in roots.values():
++                path.mkdir()
++            self.assertEqual(module.validate_host_roots(roots), [])
++            roots["canonical_skill"] = roots["checkout"]
++            self.assertTrue(any(error.startswith("overlapping_roots:") for error
++                                in module.validate_host_roots(roots)))
++
++
++if __name__ == "__main__":
++    unittest.main()
+diff --git a/tests/test_exp18_runner_probe_sidecar.py b/tests/test_exp18_runner_probe_sidecar.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..9c639c82c79fb6cbfed73e6511b8e90feceda980
+--- /dev/null
++++ b/tests/test_exp18_runner_probe_sidecar.py
+@@ -0,0 +1,60 @@
++import importlib.util
++from http.server import ThreadingHTTPServer
++from pathlib import Path
++import threading
++from unittest import TestCase, main, mock
++from urllib import error, request
++
++
++MODULE_PATH = (Path(__file__).resolve().parents[1] / "experiments" / "exp18" /
++               "runner_probe_sidecar.py")
++spec = importlib.util.spec_from_file_location("exp18_runner_probe_sidecar", MODULE_PATH)
++module = importlib.util.module_from_spec(spec)
++spec.loader.exec_module(module)
++
++
++class SidecarTests(TestCase):
++    def test_fixed_unauthenticated_request_only(self):
++        response = mock.Mock(status=401)
++        connection = mock.Mock()
++        connection.getresponse.return_value = response
++        with mock.patch.object(module.http.client, "HTTPConnection",
++                               return_value=connection) as constructor:
++            self.assertEqual(module.probe_runner(), 401)
++        constructor.assert_called_once_with("host.docker.internal", 8767, timeout=3)
++        connection.request.assert_called_once_with(
++            "GET", "/v1/runs/00000000-0000-0000-0000-000000000000")
++        connection.close.assert_called_once()
++
++    def test_server_rejects_stage_controlled_route_and_body(self):
++        server = ThreadingHTTPServer(("127.0.0.1", 0), module.Handler)
++        thread = threading.Thread(target=server.serve_forever, daemon=True)
++        thread.start()
++        base = f"http://127.0.0.1:{server.server_address[1]}"
++        try:
++            with mock.patch.object(module, "probe_runner", return_value=401) as probe:
++                with self.assertRaises(error.HTTPError) as denied:
++                    request.urlopen(base + module.PROBE_PATH,
++                                    timeout=2)
++                self.assertEqual(denied.exception.code, 401)
++                probe.assert_called_once_with()
++                for path, method, data, expected in (
++                    (module.PROBE_PATH + "?url=http://example", "GET", None, 404),
++                    (module.PROBE_PATH, "POST", b"secret", 405),
++                    (module.PROBE_PATH, "GET", b"secret", 404),
++                ):
++                    with self.subTest(path=path, method=method):
++                        req = request.Request(base + path, method=method, data=data,
++                                              headers={"Authorization": "secret"})
++                        with self.assertRaises(error.HTTPError) as rejected:
++                            request.urlopen(req, timeout=2)
++                        self.assertEqual(rejected.exception.code, expected)
++                self.assertEqual(probe.call_count, 1)
++        finally:
++            server.shutdown()
++            server.server_close()
++            thread.join(timeout=2)
++
++
++if __name__ == "__main__":
++    main()
+diff --git a/tests/test_exp18_stage.py b/tests/test_exp18_stage.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..eb4057dea997655de18ece6a42a7fe9e469572d7
+--- /dev/null
++++ b/tests/test_exp18_stage.py
+@@ -0,0 +1,67 @@
++import importlib.util
++import json
++from pathlib import Path
++import sys
++import unittest
++from unittest import mock
++
++
++HERE = Path(__file__).resolve().parents[1] / "experiments" / "exp18"
++sys.path.insert(0, str(HERE))
++spec = importlib.util.spec_from_file_location("exp18_probe_stage", HERE / "probe_stage.py")
++module = importlib.util.module_from_spec(spec)
++spec.loader.exec_module(module)
++
++
++class StagePreflightTests(unittest.TestCase):
++    def sidecar(self):
++        return {
++            "Image": module.SIDE_ID,
++            "Mounts": [],
++            "HostConfig": {
++                "NetworkMode": "isolated", "Binds": None, "Mounts": [],
++                "PortBindings": {}, "PublishAllPorts": False,
++                "ReadonlyRootfs": True, "CapDrop": ["ALL"], "CapAdd": None,
++                "Privileged": False, "SecurityOpt": ["no-new-privileges"],
++                "Devices": [], "DeviceRequests": [],
++            },
++            "NetworkSettings": {
++                "Networks": {"isolated": {}, "bridge": {}}, "Ports": {},
++            },
++            "Config": {
++                "Volumes": None, "User": "10001:10001",
++                "Entrypoint": ["python", "-B", "-u", "/app/probe.py"],
++            },
++        }
++
++    def test_only_inspected_two_network_restricted_sidecar_passes(self):
++        item = self.sidecar()
++        self.assertEqual(module.sidecar_evidence(item, "isolated")["errors"], [])
++        item["NetworkSettings"]["Networks"]["third"] = {}
++        self.assertIn("sidecar_network_set_mismatch",
++                      module.sidecar_evidence(item, "isolated")["errors"])
++        del item["NetworkSettings"]["Networks"]["third"]
++        item["HostConfig"]["PortBindings"] = {"8098/tcp": [{"HostPort": "8098"}]}
++        self.assertIn("sidecar_published_port",
++                      module.sidecar_evidence(item, "isolated")["errors"])
++        item["HostConfig"]["PortBindings"] = {}
++        item["Mounts"] = [{"Destination": "/host"}]
++        self.assertIn("sidecar_mount_present",
++                      module.sidecar_evidence(item, "isolated")["errors"])
++
++    def test_stage_config_changes_fail_before_start(self):
++        env = ["PATH=/bin", "HOME=/home/runner", "CANARY_GRANT=fixture"]
++        item = {"Config": {"Env": env, "Cmd": ["sh", "-c", "sleep 45"],
++                           "Entrypoint": ["docker-entrypoint.sh"],
++                           "WorkingDir": "/draft"}}
++        fake = mock.Mock(stdout=json.dumps(env[:2]))
++        with mock.patch.object(module, "docker", return_value=fake):
++            self.assertEqual(module.config_errors(item, "fixture")[0], [])
++            item["Config"]["Cmd"] = ["sh", "-c", "other"]
++            item["Config"]["Env"].append("UNREVIEWED=1")
++            self.assertEqual(set(module.config_errors(item, "fixture")[0]),
++                             {"config_command_mismatch", "config_env_names_mismatch"})
++
++
++if __name__ == "__main__":
++    unittest.main()

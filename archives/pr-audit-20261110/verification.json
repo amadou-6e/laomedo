@@ -1,0 +1,24 @@
+{
+  "baseline_exp": "f9b633e035b91a3bf6752da7886dff77ac97b6cd",
+  "fresh_repository_reconstruction": [
+    {
+      "pr": 168,
+      "head_and_tree_verified": true,
+      "patch_digest_verified": true
+    },
+    {
+      "pr": 71,
+      "head_and_tree_verified": true,
+      "patch_digest_verified": true
+    },
+    {
+      "pr": 58,
+      "head_and_tree_verified": true,
+      "patch_digest_verified": true
+    }
+  ],
+  "exact_report_verified": true,
+  "bundle_digest_verified": true,
+  "git_fsck_passed": true,
+  "new_provider_runs": 0
+}

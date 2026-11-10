@@ -1,0 +1,4 @@
+# Historical artifacts retain exact bytes, including original whitespace.
+*.bundle -text
+*.patch -text -whitespace
+exp19-agent-output.md -text -whitespace

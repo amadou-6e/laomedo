@@ -1,0 +1,61 @@
+{
+  "purpose": "Historical checkpoint preservation only, not fresh behavior/acceptance evidence",
+  "baseline_exp": "f9b633e035b91a3bf6752da7886dff77ac97b6cd",
+  "checkpoints": [
+    {
+      "pr": 168,
+      "url": "https://github.com/amadou-6e/laomedo/pull/168",
+      "head": "8d0aac1b8044f0929163947f5c2a83fa3979b01a",
+      "source_branch": "feat/164-langflow-demo",
+      "merge_base_with_exp": "c29c93f2af93dde0a57dcbb3d38f23336407f56c",
+      "tree": "d917bb879cd9e3a4451870bc78abf68a56ddee62",
+      "patch": "pr-168.patch",
+      "patch_sha256": "a038da00bb82ae0a36a26dbeb5f529fa148376ba352427c49d2a8b9c69c7416d"
+    },
+    {
+      "pr": 71,
+      "url": "https://github.com/amadou-6e/laomedo/pull/71",
+      "head": "769b47b36572251f702cf7e84674f96316d8bdde",
+      "source_branch": "test/49",
+      "merge_base_with_exp": "1fb2da4641ff1dcfcf112a9deba5723fa90a5931",
+      "tree": "c31b7207aa587f7a1596c57be8e32da0759db4ab",
+      "patch": "pr-71.patch",
+      "patch_sha256": "d9352453c66d174941c75afad23cb9fd41a8aa955f8004b16cb0f89df75d1745"
+    },
+    {
+      "pr": 58,
+      "url": "https://github.com/amadou-6e/laomedo/pull/58",
+      "head": "571dac87d11f6b822129b9b2787f8f6bb990e4bc",
+      "source_branch": "feat/48",
+      "merge_base_with_exp": "097510a7861e9bcbfd19c73d93c5f08755dad020",
+      "tree": "97a349b3dd57efd4dc384fea38023d574afb0919",
+      "patch": "pr-58.patch",
+      "patch_sha256": "e9fdf4a3443a18e1189558f4b1ea496fe0702cd5849b7ef09c8d6c5319e34f40"
+    }
+  ],
+  "bundle": "checkpoints.bundle",
+  "bundle_sha256": "b07a20ad0dce833c6342f15c6fda91d3d22754dbfdde444ca281948d58277890",
+  "bundle_bytes": 97013,
+  "report": {
+    "file": "exp19-agent-output.md",
+    "source_pr": 71,
+    "bytes": 1024,
+    "sha256": "b05e98c3bb4b42cf20c9a3e743bc4e1ec646c63b4a6501ab28b20b02f5dd6f15"
+  },
+  "credential_shape_scan": [
+    {
+      "pr": 168,
+      "credential_shape_matches": 0
+    },
+    {
+      "pr": 71,
+      "credential_shape_matches": 0
+    },
+    {
+      "pr": 58,
+      "credential_shape_matches": 0
+    }
+  ],
+  "scan_limit": "Pattern scan of newly archived own patches, not proof of secret absence across all ancestral history. These are existing repository commits; no private runtime/profile files collected.",
+  "canonical_specs_revision": "125137a819b56a6347e3fdf12eb90132d147aebd"
+}
