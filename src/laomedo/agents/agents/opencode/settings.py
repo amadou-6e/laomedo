@@ -9,12 +9,11 @@ CLI_VERSION = "1.18.33"
 CONFIG_SCHEMA_URL = "https://opencode.ai/config.json"
 BROKER_HOST = "host.docker.internal"
 
-# Independently owned worker sandbox pin. Initially the same reviewed image used
-# by Codex; updating the Codex controller must not silently update this worker.
-WORKER_IMAGE = "laomedo-codex-acp:0.159.2-2.1.1"
-WORKER_IMAGE_ID = (
-    "sha256:d3f53de292540a8e412aa34a43a975b467df2d21aa6bba290cee11956edc03aa"
-)
+# Registered controller and independently tagged worker recipes. IDs are local
+# observations, never copied from another machine's build.
+IMAGE = "laomedo-opencode:1.18.33"
+WORKER_IMAGE = "laomedo-opencode-worker:codex-0.159.2-2.1.1"
+WORKER_IMAGE_ID = None
 
 
 # Covers the maximum validated Agent turn plus startup/teardown margin.

@@ -109,6 +109,7 @@ assert 'docker' not in sys.modules
         self.assertEqual(
             codes,
             {
+                "container_image_build_failed",
                 "docker_image_digest_changed",
                 "unsupported_codex_cli_version",
                 "runner_docker_check_unconfirmed",

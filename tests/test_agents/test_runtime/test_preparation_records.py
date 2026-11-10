@@ -42,6 +42,8 @@ class PreparationRecordTests(unittest.TestCase):
                 expected = dict(
                     cases["prepared_skill" if with_skill else "prepared_empty"]
                 )
+                # This double skips image admission; no daemon ID was observed.
+                expected["image_id"] = None
                 # Only the hooksPath-bearing private Git metadata is machine-specific.
                 expected["effective_hash"] = _hash_tree(
                     case.runner._run_dir(result["run_id"]) / "workspace"

@@ -19,6 +19,7 @@ from laomedo.agents.agents.claude.settings import IMAGE
 from laomedo.agents.agents.claude.settings import PROFILE
 from laomedo.agents.errors import RunnerError
 from laomedo.docker import DockerRuntime
+from laomedo.container_images.errors import ImageBuildError
 from laomedo.agents.agents.claude.http.server import CommandHttpServer
 from laomedo.host.leases.client import LeaseClient
 from laomedo.host.leases.settings import LABEL_RUN
@@ -57,7 +58,7 @@ class ClaudeRuntimePolicy:
         try:
             with DockerRuntime(environment=None).connect() as docker:
                 self.docker_endpoint = docker.connection.endpoint
-                self.image_id = docker.images.resolve(image)
+                self.image_id = DockerRuntime.ensure_image(docker, image)
                 self.receipts = Path(lease_service).parent.joinpath("receipts")
                 self.receipts.mkdir(mode=0o700, parents=True, exist_ok=True)
                 for receipt in self.receipts.glob("claude-*.json"):
@@ -67,6 +68,8 @@ class ClaudeRuntimePolicy:
                     docker.volumes.create(name=profile, labels=labels)
                 if not docker.volumes.has_labels(profile, labels):
                     raise RunnerError("claude_container_profile_unavailable")
+        except ImageBuildError:
+            raise RunnerError("container_image_build_failed") from None
         except CleanupUnconfirmedError:
             raise RunnerError("container_termination_unverified") from None
         except ConnectionConfigurationError:

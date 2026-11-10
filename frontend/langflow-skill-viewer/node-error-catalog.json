@@ -2124,4 +2124,10 @@
     "description": "The viewer could not confirm the current pull request content. The cause has not been established.",
     "recovery": "Refresh PR repeats only this read. It does not edit GitHub, run the graph or start an Agent. Check the current selection and local GitHub connection if the read still fails."
   }
+,
+  "container_image_build_failed": {
+    "title": "Container image could not be prepared",
+    "description": "A registered image could not be built or verified and was not admitted for use.",
+    "recovery": "Check Docker availability, network access and image-build progress. A stale existing image tag must be reviewed and removed before startup can rebuild it."
+  }
 }

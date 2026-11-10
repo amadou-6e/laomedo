@@ -31,7 +31,13 @@ class CodexLaunch(BaseModel):
         description="Read-only canonical snapshot for integrity checks."
     )
     store_mount: Path = Field(description="Prepared run-local skill store mount.")
-    image: str = Field(description="Host-authorized immutable Codex image ID.")
+    image: str = Field(
+        description="Host-authorized Codex image; pinned before normal execution."
+    )
+    managed_image: bool = Field(
+        default=False,
+        description="Use the registered image Git configuration with a daemon-resolved ID.",
+    )
     profile: str = Field(
         default_factory=lambda: VOLUME,
         description="Dedicated named credential volume selected by the host runner.",
@@ -193,7 +199,7 @@ class CodexLaunch(BaseModel):
                 LAOMEDO_BASE_BRANCH=self.base_branch,
                 PATH="/run/laomedo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
             )
-        if self.image in {GIT_IMAGE, GIT_IMAGE_ID}:
+        if self.managed_image or self.image in {GIT_IMAGE, GIT_IMAGE_ID}:
             environment.update(
                 GIT_CONFIG_COUNT="1",
                 GIT_CONFIG_KEY_0="safe.directory",

@@ -143,6 +143,13 @@ class OpenCodeCommandExecutor(BaseInterruptibleCommandExecutor):
             with self.lock:
                 self.allocated_receipts.add(receipt_path)
             try:
+                if self.worker_image_id is None:
+                    with DockerRuntime(
+                        environment={"DOCKER_HOST": self.docker_endpoint}
+                    ).client() as client:
+                        self.worker_image_id = DockerRuntime.ensure_image(
+                            client, WORKER_IMAGE
+                        )
                 result = DockerRuntime(
                     environment={"DOCKER_HOST": self.docker_endpoint}
                 ).run_job(

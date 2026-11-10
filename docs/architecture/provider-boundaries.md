@@ -109,6 +109,40 @@ requests; the protocol layer does not implement container termination itself.
 Do not reorder this into disconnect-before-container-close: the blocking reader
 must reach EOF before asyncio.run shuts down its executor.
 
+## Automatic registered image acquisition
+
+`docker/images.json` registers each provider image tag, Dockerfile, exact context
+inputs and a zero-turn version command. Claude uses `docker/claude`, Codex uses
+`docker/codex-acp`, and OpenCode uses `docker/opencode`. The OpenCode worker has
+an independent tag built from the Codex context. Installed wheels include these
+same inputs; image acquisition does not depend on a source checkout or cwd.
+
+Before container startup, `DockerRuntime.ensure_image(client, image)` inspects the
+selected daemon. Only Docker's explicit image-not-found response allows a build.
+The runtime locks that daemon/tag, inspects again, snapshots only registered files,
+and builds a temporary tag with Docker BuildKit. Docker CLI and BuildKit are
+required. Building may download base layers and locked dependencies over the
+network; model credentials and request-controlled paths or arguments are not
+passed to the build. Registry authentication uses the user's normal Docker config.
+
+The runtime verifies the built image with a finite, network-disabled version job,
+then publishes its registered tag and returns the actual daemon image ID. Runs
+use that ID. A recipe fingerprint covers the registration and context bytes.
+An existing tag with a different fingerprint fails and requires explicit removal
+before rebuilding; it is never silently replaced. Explicit caller-supplied image
+IDs remain strict and are not relaxed to permit a rebuild.
+
+Concurrent callers reuse the verified result. Build failure or interruption never
+publishes the final tag. OS file locks release on process exit. CLI timeout or
+cancellation terminates the owned local build processes; daemon-side build cache
+or a staging tag can remain, so this does not claim daemon-wide cancellation.
+Version-job cleanup uses the existing exact-receipt recovery mechanism.
+
+`LAOMEDO_IMAGE_BUILD_SECONDS` (default 900) and
+`LAOMEDO_IMAGE_VERIFY_SECONDS` (default 30) are separate from model-turn budgets.
+Progress logging reports build steps without copying arbitrary build diagnostics.
+An acquisition failure stops startup with `container_image_build_failed`.
+
 ## Open and unchanged
 
 This extraction does not change persisted schemas, native identities, error

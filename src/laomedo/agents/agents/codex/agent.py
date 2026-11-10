@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 from laomedo.docker import DockerRuntime
+from laomedo.container_images.errors import ImageBuildError
 from laomedo.agents.agents.codex.catalog import CodexModelCatalog
 from laomedo.agents.agents.codex.credentials import CodexCredentialProvider
 
@@ -93,6 +94,7 @@ class CodexAgent(BaseAgent):
         artifact_sources=None,
     ):
         """Bind admitted configuration and owned state; provider startup errors propagate before use."""
+        self._managed_image = image_id is None
         self.image = GIT_IMAGE if git_workspace else IMAGE
         self.image_id = GIT_IMAGE_ID if git_workspace else IMAGE_ID
         if image_id is not None:
@@ -353,7 +355,9 @@ class CodexAgent(BaseAgent):
                 DockerRuntime.recover_receipts(client, [receipt], kind="job")
                 self._recover_containers(client)
                 try:
-                    client.images.resolve(self.image, expected_id=self.image_id)
+                    self.image_id = DockerRuntime.ensure_image(
+                        client, self.image, expected_id=self.image_id
+                    )
                 except OwnershipConflictError:
                     raise RunnerError("docker_image_digest_changed") from None
                 result = DockerRuntime.execute_job(
@@ -388,6 +392,8 @@ class CodexAgent(BaseAgent):
                 return pinned
         except RunnerError:
             raise
+        except ImageBuildError:
+            raise RunnerError("container_image_build_failed") from None
         except CleanupUnconfirmedError:
             raise RunnerError("container_termination_unverified") from None
         except ConnectionConfigurationError:
@@ -472,7 +478,8 @@ class CodexAgent(BaseAgent):
             workspace=workspace,
             canonical=canonical,
             store_mount=store_mount,
-            image=self.image_id,
+            image=self.image_id or self.image,
+            managed_image=self._managed_image,
             profile=self.profile,
             run_id=run_id,
             launch_token=launch_token,

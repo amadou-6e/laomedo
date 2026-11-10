@@ -26,6 +26,8 @@ from laomedo.agents.agents.opencode.utils import (
 from laomedo.agents.agents.opencode.utils import model_metadata
 from laomedo.agents.errors import RunnerError
 from laomedo.docker import DockerRuntime
+from laomedo.container_images.errors import ImageBuildError
+from laomedo.agents.agents.opencode.settings import IMAGE
 from laomedo.agents.agents.opencode.credentials import OpenCodeCredentialProvider
 from laomedo.agents.agents.base.models import CredentialRequest
 from laomedo.agents.agents.base.base import BaseAgentRuntime
@@ -51,8 +53,8 @@ class OpenCodeAgentRuntime(BaseAgentRuntime):
         evidence,
         *,
         profile,
-        image,
-        image_id,
+        image=IMAGE,
+        image_id=None,
         worker_image_id=None,
         configure_agents=None,
         receipt_directory=None,
@@ -73,15 +75,6 @@ class OpenCodeAgentRuntime(BaseAgentRuntime):
         identity_path = self.profile / "identity.json"
         if not identity_path.exists():
             _json(identity_path, {"profile_id": str(uuid4())})
-        self.identity = OpenCodeRuntimeIdentity(
-            runtime_version=CLI_VERSION,
-            image=image,
-            image_id=image_id,
-            profile_id=json.loads(identity_path.read_text())["profile_id"],
-            worker_image=WORKER_IMAGE,
-            worker_image_id=selected_worker_id,
-            credential_binding=_credential_binding(self.profile),
-        )
         try:
             from py_docker.errors import (
                 CleanupUnconfirmedError,
@@ -95,8 +88,12 @@ class OpenCodeAgentRuntime(BaseAgentRuntime):
         try:
             with DockerRuntime(environment=None).connect() as docker:
                 self.docker_endpoint = docker.connection.endpoint
-                docker.images.resolve(image, expected_id=image_id)
-                docker.images.resolve(WORKER_IMAGE, expected_id=selected_worker_id)
+                image_id = DockerRuntime.ensure_image(
+                    docker, image, expected_id=image_id
+                )
+                selected_worker_id = DockerRuntime.ensure_image(
+                    docker, WORKER_IMAGE, expected_id=selected_worker_id
+                )
                 receipts = (
                     Path(receipt_directory)
                     if receipt_directory is not None
@@ -106,6 +103,8 @@ class OpenCodeAgentRuntime(BaseAgentRuntime):
                 self.receipts = receipts
                 for receipt in receipts.glob("*.json"):
                     DockerRuntime.recover_receipts(docker, [receipt], kind="session")
+        except ImageBuildError:
+            raise RunnerError("container_image_build_failed") from None
         except OwnershipConflictError:
             raise RunnerError("opencode_image_pin_mismatch") from None
         except ImageResolutionError:
@@ -116,6 +115,15 @@ class OpenCodeAgentRuntime(BaseAgentRuntime):
             raise RunnerError("opencode_container_configuration_invalid") from None
         except DockerOperationError:
             raise RunnerError("opencode_controller_startup_failed") from None
+        self.identity = OpenCodeRuntimeIdentity(
+            runtime_version=CLI_VERSION,
+            image=image,
+            image_id=image_id,
+            profile_id=json.loads(identity_path.read_text())["profile_id"],
+            worker_image=WORKER_IMAGE,
+            worker_image_id=selected_worker_id,
+            credential_binding=_credential_binding(self.profile),
+        )
         root = evidence / ("controller-" + uuid4().hex)
         root.mkdir()
         view = root / "view"

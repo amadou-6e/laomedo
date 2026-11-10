@@ -1,0 +1,69 @@
+{
+  "claude": {
+    "image": "laomedo-claude-controller:2.1.310-acp0.98.0",
+    "context": "claude",
+    "files": [
+      "Dockerfile",
+      "package.json",
+      "package-lock.json",
+      "command_mcp.py"
+    ],
+    "verify_command": [
+      "claude",
+      "--version"
+    ],
+    "verify_output": "2.1.310 (Claude Code)"
+  },
+  "codex": {
+    "image": "laomedo-codex-acp:0.159.2-2.1.1",
+    "context": "codex-acp",
+    "files": [
+      "Dockerfile",
+      "package.json",
+      "package-lock.json",
+      "native-events.patch",
+      "LaomedoExtension.ts",
+      "LaomedoExtension.test.ts",
+      "LaomedoLaunch.ts",
+      "LaomedoLaunch.test.ts"
+    ],
+    "verify_command": [
+      "codex",
+      "--version"
+    ],
+    "verify_output": "codex-cli 0.159.2"
+  },
+  "opencode": {
+    "image": "laomedo-opencode:1.18.33",
+    "context": "opencode",
+    "files": [
+      "Dockerfile",
+      "package.json",
+      "package-lock.json"
+    ],
+    "verify_command": [
+      "opencode",
+      "--version"
+    ],
+    "verify_output": "1.18.33"
+  },
+  "opencode-worker": {
+    "image": "laomedo-opencode-worker:codex-0.159.2-2.1.1",
+    "context": "codex-acp",
+    "files": [
+      "Dockerfile",
+      "package.json",
+      "package-lock.json",
+      "native-events.patch",
+      "LaomedoExtension.ts",
+      "LaomedoExtension.test.ts",
+      "LaomedoLaunch.ts",
+      "LaomedoLaunch.test.ts"
+    ],
+    "verify_command": [
+      "codex",
+      "--version"
+    ],
+    "verify_output": "codex-cli 0.159.2"
+  }
+}

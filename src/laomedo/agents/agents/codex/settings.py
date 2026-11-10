@@ -5,7 +5,8 @@ from laomedo._paths import package_root
 IMAGE = "laomedo-codex-acp:0.159.2-2.1.1"
 
 
-IMAGE_ID = "sha256:d3f53de292540a8e412aa34a43a975b467df2d21aa6bba290cee11956edc03aa"
+# Managed image IDs are resolved on the selected daemon before execution.
+IMAGE_ID = None
 
 
 GIT_IMAGE = IMAGE

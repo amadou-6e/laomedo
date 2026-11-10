@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 from laomedo.agents.agents.codex.settings import IMAGE
-from laomedo.agents.agents.codex.settings import IMAGE_ID
 from laomedo.agents.agents.codex.settings import NATIVE_ERROR_KINDS
 from laomedo.agents.agents.codex.settings import NATIVE_HTTP_ERROR_KINDS
 
@@ -102,7 +101,7 @@ def _ensure_split_profile(name: str, *, state: Path, env=None) -> None:
             DockerRuntime.recover_receipts(
                 client, [state.joinpath("profile-init.json")], kind="job"
             )
-            image = client.images.resolve(IMAGE, expected_id=IMAGE_ID)
+            image = DockerRuntime.ensure_image(client, IMAGE)
             created = False
             if not client.volumes.exists(name):
                 client.volumes.create(name=name)
