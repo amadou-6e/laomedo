@@ -22,7 +22,9 @@ from urllib import parse
 from urllib import request
 import json
 import re
+import ssl
 import time
+from truststore import SSLContext
 
 _REPOSITORY = re.compile(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+\Z")
 ISSUE_GRAPHQL_QUERY = "query($owner:String!,$name:String!){repository(owner:$owner,name:$name){issues(first:30,states:OPEN){nodes{number title body}}}}"
@@ -38,7 +40,14 @@ class GitHubRestTransport:
             raise ValueError("credential_supplier_required")
         self.repository = repository
         self.token_supplier = token_supplier
-        self.opener = opener or request.build_opener(NoRedirect)
+        self.opener = (
+            opener
+            if opener is not None
+            else request.build_opener(
+                NoRedirect,
+                request.HTTPSHandler(context=SSLContext(ssl.PROTOCOL_TLS_CLIENT)),
+            )
+        )
 
     def __call__(
         self,
