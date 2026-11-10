@@ -1,0 +1,15 @@
+{
+  "approval": "pending",
+  "repository": "amadou-6e/laomedo",
+  "pr": 268,
+  "original_title": "Consolidate PR node to one context input and output",
+  "temporary_title": "Consolidate PR node to one context input and output [QA 20261110]",
+  "head_branch": "feat/267",
+  "base_branch": "fix/265",
+  "head_sha": "db2c43f3cd822d56cbfc3c45813ee976b0dcf8e1",
+  "model_tasks": 1,
+  "maximum_write_attempts": 2,
+  "fields": [
+    "title"
+  ]
+}
