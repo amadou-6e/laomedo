@@ -1,11 +1,10 @@
-# Agent interaction: proposed public contract
+# Agent interaction: public run contract
 
-Implemented contract for #277, continuing the run-oriented design from baseline
-`08d6864c050a90f1dbea7d3c4ee71974f652c7ff`. The discarded public session-object
-proposal received REVISE. This subsequent interaction change is fully unreviewed:
-reviewer pending. The previous same-session request was quota-refused until
-19:20 Europe/Berlin on 2026-11-10; no approval is inferred. Catalog/readiness
-approvals remain scoped to their earlier revisions.
+Contract for #277. Laomedo exposes run operations through the existing
+`BaseAgent` class. Native sessions remain internal to each provider; durable
+admission, retained records, workspace freezing and provider finalization keep
+their existing owners. This contract does not introduce a public session object
+or replace the persisted request/record schemas.
 
 ## One public abstract class
 
