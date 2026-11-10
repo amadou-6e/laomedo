@@ -122,3 +122,26 @@ class PrivateSessionStore:
                 )
         except (OSError, sqlite3.Error):
             raise PrivateSessionError() from None
+
+    def revoke_browser(self, cookie: SecretStr) -> None:
+        """Fence only the presented browser capability, even after JWT expiry."""
+        try:
+            with closing(self._connect()) as db, db:
+                db.execute(
+                    "UPDATE private_sessions SET revoked=1 WHERE digest=?",
+                    (self._digest(cookie),),
+                )
+        except (OSError, sqlite3.Error):
+            raise PrivateSessionError() from None
+
+    def is_revoked(self, cookie: SecretStr) -> bool:
+        """Recognize a durable logout fence; an unknown value grants nothing."""
+        try:
+            with closing(self._connect()) as db:
+                row = db.execute(
+                    "SELECT revoked FROM private_sessions WHERE digest=?",
+                    (self._digest(cookie),),
+                ).fetchone()
+        except (OSError, sqlite3.Error):
+            raise PrivateSessionError() from None
+        return row is not None and bool(row[0])

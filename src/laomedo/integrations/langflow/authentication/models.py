@@ -22,3 +22,13 @@ class IssuedPrivateSession(BaseModel):
 
     session: PrivateSession
     cookie: SecretStr = Field(exclude=True, repr=False)
+
+
+class PrivateBrowserContext(BaseModel):
+    """A request-local authorization projection, never a browser owner assertion."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True, hide_input_in_errors=True)
+
+    session: PrivateSession
+    cookie: SecretStr = Field(exclude=True, repr=False)
+    upstream_token: SecretStr = Field(exclude=True, repr=False)

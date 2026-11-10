@@ -17,8 +17,13 @@ A separate native check verified storage, reopened-instance loading and removal
 of one fresh synthetic vault entry; no existing entries were read or enumerated.
 The implementation now stacks on PR #263 for PIN profile identity. Install its
 optional libraries with `.[private-sources]`; their pinned versions are locked.
-Upstream login admission, OAuth, repository consent, private source readers and
-the connection UI remain unfinished.
+The upstream login/refresh/logout ASGI adapter and private-access policy now have
+internal controls for cookie validation, origin, owner binding, expiry and logout
+ordering. They are not installed in the app yet. Private response-release guards,
+OAuth, repository consent, private source readers and the connection UI remain
+unfinished. The private cookie uses SameSite=Lax for the top-level GitHub return;
+normal private reads still require exact origin metadata, with callback state and
+mutation CSRF validation remaining separate required boundaries.
 Reviewer status: fully unreviewed — reviewer pending for this implementation
 block. Earlier plan/design approval is not implementation review.
 

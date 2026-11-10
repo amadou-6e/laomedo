@@ -1884,6 +1884,21 @@
     "description": "Required local profile coordination features are unavailable in this browser context.",
     "recovery": "Use a supported local browser setup. Existing profiles and their data have not been deleted."
   },
+  "private_session_required": {
+    "title": "Sign in again for private access",
+    "description": "The app could not confirm a live private session for this profile.",
+    "recovery": "Use the profile menu to sign out, then open your profile again. If sign-out fails, private access stays locked until it can be confirmed."
+  },
+  "private_session_unavailable": {
+    "title": "Private access could not be confirmed",
+    "description": "The local app could not verify this profile's private access.",
+    "recovery": "Check that the local app is running and try again. If sign-in is still required, sign out and open your profile again."
+  },
+  "github_credential_unavailable": {
+    "title": "GitHub credential storage could not be confirmed",
+    "description": "The app could not confirm secure Windows storage or removal of this connection's credential.",
+    "recovery": "Use the native Windows app and retry once secure storage is available. An unconfirmed removal does not establish that the credential was deleted or revoked at GitHub."
+  },
   "profile_pin_invalid": {
     "title": "Use a six-digit PIN",
     "description": "This profile uses a PIN of exactly six digits.",
