@@ -17,7 +17,17 @@ const { chromium } = require(path.join(runtime, 'upstream-langflow/src/frontend/
     await page.getByRole('button', { name: /^create profile$/i }).click();
     await page.waitForURL('http://127.0.0.1:17867/', { timeout: 60000 });
     await page.goto('http://127.0.0.1:17867/settings/github');
-    await page.getByRole('button', { name: 'View App Setup', exact: true }).waitFor({ timeout: 60000 });
+    try { await page.getByRole('button', { name: 'View App Setup', exact: true }).waitFor({ timeout: 20000 }); }
+    catch (error) {
+      await page.screenshot({ path: path.join(process.cwd(), '.tools/pr-readiness/257-manager-diagnostic.png'), fullPage: true });
+      const admission = await page.evaluate(async () => {
+        const response = await fetch('/api/v1/laomedo/github-connections', { headers: {} });
+        const body = await response.json();
+        return { status: response.status, code: body.code, hasIndex: Boolean(body.index), connectionCount: body.index?.connections?.length };
+      });
+      console.log(JSON.stringify({ phase: 'manager-admission-diagnostic', ...admission }));
+      throw error;
+    }
     const response = await page.evaluate(async () => {
       const index = await fetch('/api/v1/laomedo/github-connections', { headers: {} });
       const body = await index.json();
@@ -31,6 +41,16 @@ const { chromium } = require(path.join(runtime, 'upstream-langflow/src/frontend/
     await page.getByRole('button', { name: 'View App Setup', exact: true }).click();
     await page.getByLabel('App client secret').waitFor();
     await page.screenshot({ path: path.join(process.cwd(), '.tools/pr-readiness/257-manager-setup.png'), fullPage: true });
-    console.log(JSON.stringify({ ...response, nativeManager: true, githubRequests: 0 }));
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await page.getByRole('button', { name: 'Use A Token Instead', exact: true }).click();
+    await page.getByLabel('Fine-grained token').fill('synthetic-invalid-format');
+    const refusedToken = page.waitForResponse(r => new URL(r.url()).pathname === '/api/v1/laomedo/github-connections/token' && r.request().method() === 'POST');
+    await page.getByRole('button', { name: 'Verify Token', exact: true }).click();
+    const tokenStatus = (await refusedToken).status();
+    await page.getByText(/This entry is not a supported fine-grained personal access token/).waitFor();
+    if (tokenStatus !== 400 || await page.getByText(/changed in another tab/).count()) throw new Error('Initiating tab discarded its mutation result');
+    if (await page.getByLabel('Fine-grained token').count()) throw new Error('Credential DOM retained');
+    await page.screenshot({ path: path.join(process.cwd(), '.tools/pr-readiness/257-manager-mutation-refused.png'), fullPage: true });
+    console.log(JSON.stringify({ ...response, nativeManager: true, githubRequests: 0, invalidTokenStatus: tokenStatus, initiatingTabDisplayedError: true, credentialDomCleared: true }));
   } finally { await context.close(); await browser.close(); }
 })().catch(error => { console.error(error.message); process.exit(1); });

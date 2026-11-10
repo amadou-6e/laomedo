@@ -36,3 +36,26 @@ credential DOM clearing/cancel and unselected repository consent. Those controls
 and this empty manager observation do not establish real connection or private
 Skill acceptance. All new HTTP/UI/lifecycle/reader work is fully unreviewed -
 reviewer pending. Claude's current packet is rate-limited until19:20 Berlin.
+
+
+## Reviewer correction check, 2026-11-10
+
+Claude manager review ataa0d3704 foundM1: a new BroadcastChannel sender delivered
+to another channel in the same document, invalidating its own mutation epoch.
+Fixbabdd226 tagsmessages and ignores the manager's own source. Two new frontend
+controls exercise real same-document object delivery and reject another document's
+late result; total5UIcontrols pass. Also correctedM2timeout/uncertaincopy,
+M3registrationlinkstyling andM4copy. Clean reviewed profile parenta0 integrated
+as8a858b30, unchangedownpatch. Complete matching frontend build2m10s passes.
+
+Actual native synthetic-profile UI posted an invalid-format synthetic token,
+received400, displayed the supported-token refusal in its initiating document,
+retained no credential inputDOM and showed no false another-tab notice. The
+invalid format is rejected before provider transport/vault custody. No real
+GitHub credential or exchange was used; this is a native UI mutation control,
+not positive GitHub integration acceptance. Manager harnessfirstpointed at a
+profile-only catalogue and then expected a non-rendered catalogue title; those
+checks failed, were diagnosed and rerun with the matching catalogue and actual
+shared-presenter description. Current manager.cjs records the successful check.
+Screenshots/logs remain outsideGit. M1-M4focusedrecheckpending: same reviewer
+hitquota on nextpacket, resets21:00Berlin. Private Skillaccess stillunfinished.
