@@ -92,14 +92,17 @@ class PrivateSessionStore:
 
     def renew(self, cookie: SecretStr, owner_id: UUID, *, expires_at: float) -> bool:
         """Extend a live matching lease, never shortening or resurrecting it."""
-        now = float(self.now())
-        lifetime = PrivateSession(
-            owner_id=owner_id, issued_at=now, expires_at=expires_at
-        )
-        if lifetime.expires_at <= now:
-            return False
         try:
             with closing(self._connect()) as db, db:
+                # Evaluate expiry after acquiring the write lock: time spent
+                # waiting for another transaction must not revive an old lease.
+                db.execute("BEGIN IMMEDIATE")
+                now = float(self.now())
+                lifetime = PrivateSession(
+                    owner_id=owner_id, issued_at=now, expires_at=expires_at
+                )
+                if lifetime.expires_at <= now:
+                    return False
                 result = db.execute(
                     "UPDATE private_sessions SET expires_at=MAX(expires_at, ?) "
                     "WHERE digest=? AND owner_id=? AND revoked=0 AND expires_at>?",
