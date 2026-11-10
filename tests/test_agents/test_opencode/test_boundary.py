@@ -29,6 +29,34 @@ ENDPOINT = "npipe:////./pipe/dockerDesktopLinuxEngine"
 
 
 class BoundaryTests(unittest.TestCase):
+    @unittest.skipUnless(find_spec("py_docker"), "Requires optional Docker runtime")
+    def test_worker_image_admission_preserves_errors_before_starting_broker(self):
+        from py_docker.errors import ImageResolutionError, OwnershipConflictError
+
+        for error, expected in (
+            (
+                ImageResolutionError("inspect image"),
+                "opencode_controller_image_unavailable",
+            ),
+            (OwnershipConflictError("pin mismatch"), "opencode_image_pin_mismatch"),
+        ):
+            with (
+                self.subTest(expected=expected),
+                patch(
+                    "laomedo.agents.agents.opencode.executor.DockerRuntime"
+                ) as runtime,
+                patch(
+                    "laomedo.agents.agents.opencode.executor.OpenCodeCommandBroker"
+                ) as broker,
+            ):
+                runtime.ensure_image.side_effect = error
+                with self.assertRaises(RunnerError) as caught:
+                    OpenCodeCommandExecutor(
+                        None, None, None, None, docker_endpoint=ENDPOINT
+                    )
+                self.assertEqual(caught.exception.code, expected)
+                broker.assert_not_called()
+
     def test_cancel_stops_owned_broker_without_claiming_termination(self):
         boundary = OpenCodeAgentRuntime.__new__(OpenCodeAgentRuntime)
         boundary.broker = None

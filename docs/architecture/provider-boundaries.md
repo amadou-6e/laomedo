@@ -141,7 +141,8 @@ Version-job cleanup uses the existing exact-receipt recovery mechanism.
 `LAOMEDO_IMAGE_BUILD_SECONDS` (default 900) and
 `LAOMEDO_IMAGE_VERIFY_SECONDS` (default 30) are separate from model-turn budgets.
 Progress logging reports build steps without copying arbitrary build diagnostics.
-An acquisition failure stops startup with `container_image_build_failed`.
+Build or verification failures stop startup with `container_image_build_failed`.
+Image lookup and explicit-pin failures retain their provider-specific codes.
 
 ## Open and unchanged
 

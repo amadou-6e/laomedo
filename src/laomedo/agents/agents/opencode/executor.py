@@ -64,7 +64,11 @@ class OpenCodeCommandExecutor(BaseInterruptibleCommandExecutor):
         self.worker_image_id = worker_image_id or WORKER_IMAGE_ID
         self.docker_endpoint = docker_endpoint
         if self.worker_image_id is None:
-            from py_docker.errors import DockerOperationError
+            from py_docker.errors import (
+                DockerOperationError,
+                ImageResolutionError,
+                OwnershipConflictError,
+            )
 
             try:
                 with DockerRuntime(
@@ -75,6 +79,10 @@ class OpenCodeCommandExecutor(BaseInterruptibleCommandExecutor):
                     )
             except ImageBuildError:
                 raise RunnerError("container_image_build_failed") from None
+            except OwnershipConflictError:
+                raise RunnerError("opencode_image_pin_mismatch") from None
+            except ImageResolutionError:
+                raise RunnerError("opencode_controller_image_unavailable") from None
             except DockerOperationError:
                 raise RunnerError("opencode_workspace_command_failed") from None
         self.receipts = (
