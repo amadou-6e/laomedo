@@ -17,7 +17,7 @@ async function request(path: string, options: RequestInit = {}) {
       headers,
       credentials: "same-origin",
       cache: "no-store",
-      signal: AbortSignal.timeout(65000),
+      signal: AbortSignal.timeout(120000),
     });
   } catch {
     throw new ConnectionFailure("github_connection_unavailable");

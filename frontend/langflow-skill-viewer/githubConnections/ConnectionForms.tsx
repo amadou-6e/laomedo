@@ -31,10 +31,11 @@ export default function ConnectionForms({
         <>
           <p>
             Register a GitHub App with repository Contents read access, expiring
-            user tokens and the exact callback shown below. Registration and
+            user tokens and the exact callback shown above. Registration and
             installation remain actions you confirm on GitHub.
           </p>
           <a
+            className="text-primary underline underline-offset-4"
             href="https://github.com/settings/apps/new"
             target="_blank"
             rel="noreferrer"

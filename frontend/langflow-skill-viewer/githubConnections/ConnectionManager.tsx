@@ -23,6 +23,7 @@ export default function ConnectionManager() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const epoch = useRef(0);
+  const [source] = useState(() => crypto.randomUUID());
   const profile = useProfileSessionActions();
   const run = useCallback(
     async (action?: ConnectionAction, payload?: Record<string, unknown>) => {
@@ -34,7 +35,7 @@ export default function ConnectionManager() {
       if (action) {
         // Invalidate before sending: an unknown response can still have committed.
         const channel = new BroadcastChannel(channelName);
-        channel.postMessage({ type: "invalidate" });
+        channel.postMessage({ type: "invalidate", source });
         channel.close();
         window.dispatchEvent(new Event("laomedo-private-data-invalidated"));
       }
@@ -44,25 +45,32 @@ export default function ConnectionManager() {
         setIndex(result.index);
         if (action) {
           const channel = new BroadcastChannel(channelName);
-          channel.postMessage({ type: "invalidate" });
+          channel.postMessage({ type: "invalidate", source });
           channel.close();
           window.dispatchEvent(new Event("laomedo-private-data-invalidated"));
           setNotice(
-            "Current state checked. Local disconnect does not revoke consent on GitHub.",
+            action === "disconnect"
+              ? "Local disconnect checked. This does not revoke consent on GitHub."
+              : "Current connection state checked.",
           );
         }
       } catch (failure) {
-        if (epoch.current === current)
+        if (epoch.current === current) {
+          if (action)
+            setNotice(
+              "The request may still be completing. Check current state before starting another action.",
+            );
           setError(
             failure instanceof ConnectionFailure
               ? failure.code
               : "github_connection_unavailable",
           );
+        }
       } finally {
         if (epoch.current === current) setBusy(false);
       }
     },
-    [],
+    [source],
   );
   useEffect(() => {
     let active = true;
@@ -73,7 +81,9 @@ export default function ConnectionManager() {
       }
     });
     const channel = new BroadcastChannel(channelName);
-    channel.onmessage = () => {
+    channel.onmessage = (event) => {
+      if (event.data?.type !== "invalidate" || event.data?.source === source)
+        return;
       ++epoch.current;
       setIndex(undefined);
       setForm(undefined);
@@ -97,7 +107,7 @@ export default function ConnectionManager() {
       ++epoch.current;
       channel.close();
     };
-  }, [run]);
+  }, [run, source]);
   if (enabled === undefined) return <p>Checking connection availability…</p>;
   if (!enabled)
     return (
