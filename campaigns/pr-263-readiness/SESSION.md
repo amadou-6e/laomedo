@@ -19,3 +19,16 @@ TypeScript remains failing with652 diagnostic lines, none in the profile files;
 the same count was present in the pinned baseline. Production build succeeds.
 These observations do not establish all profile acceptance, owner approval or
 Claude review of the latest correction; those remain pending.
+
+## Visual corrections at 0c0d8d91
+
+The profile picker now preserves exact case, the sign-out popup has a visible
+accessible Close control, and uncertain-session copy is intent-neutral. The real
+isolated Edge check observed duplicate-name409 and reserved-name409. It fetched
+an actual successful creation201 then lost the browser response, reconciled the
+saved profile through the list and entered it without creating a duplicate.
+The PIN cleared; the Close control dismissed only the notice, and a390px picker
+preserved the stored mixed-case profile names. Screenshots remain outside Git.
+The browser script is visual-recheck.cjs. It is experiment evidence, not a
+production test or complete acceptance. App restart/expiry/bfcache and requesting
+owner inspection remain unfinished. Reviewer V1/V3 focused recheck is pending.

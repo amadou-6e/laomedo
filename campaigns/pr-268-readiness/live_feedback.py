@@ -127,7 +127,7 @@ class PRReadinessHarness:
         return self.bindings[ref]
 
     def issue(self, ref):
-        _, token = self.mediation.issue(
+        grant_id, token = self.mediation.issue(
             run_id=self.run_id, invocation_id=ref, repository=self.repository,
             operations={"pr_node_update"}, ttl_seconds=60,
             branch=self.proposal["head_branch"], base_branch=self.proposal["base_branch"],
@@ -136,7 +136,7 @@ class PRReadinessHarness:
             approval_identity="explicit-human-title-only-readiness-approval",
         )
         self.bindings[ref] = {"token": token, "run_id": self.run_id, "repository": self.repository}
-        return _
+        return grant_id
 
     def renew(self, grant_id, stop):
         deadline = time.monotonic() + 180
@@ -177,14 +177,27 @@ class PRReadinessHarness:
             from laomedo.integrations.langflow.agent.component import _STOP_TASKS
 
             flow = json.loads((self.campaign / "flow.json").read_text(encoding="utf-8"))
-            graph = Graph.from_payload(flow)
+            graph = Graph.from_payload(
+                flow, flow_id=flow["id"], user_id="pr268-scoped-readiness-owner"
+            )
+            graph.set_run_id()
+            graph_error = None
             try:
-                await asyncio.wait_for(graph.arun(inputs=[{}], outputs=["pr"]), timeout=180)
+                graph_result = await asyncio.wait_for(graph.arun(inputs=[{}], outputs=["pr"]), timeout=180)
+                (self.state / "graph-result.txt").write_text(str(graph_result), encoding="utf-8")
+            except Exception as error:
+                graph_error = type(error).__name__
             finally:
                 if _STOP_TASKS:
                     await asyncio.wait_for(asyncio.gather(*tuple(_STOP_TASKS), return_exceptions=True), timeout=30)
             remote = self.transport(self.repository, "pr_node_read", {"number": self.number})
+            operation = getattr(graph.get_vertex("pr").custom_component, "_pr_execution_cache", {}).get("operation")
+            print(json.dumps({"graph_operation": operation}))
             if remote["title"] != self.proposal["temporary_title"]:
+                print(json.dumps({"model_task_limit": 1,
+                                  "write_attempts": self.transport.write_attempts,
+                                  "original_title_unchanged": remote["title"] == self.proposal["original_title"],
+                                  "graph_error_type": graph_error}))
                 raise RuntimeError("The title-only feedback result was not verified; no replay")
             stop.set()
             self.mediation.revoke_run(self.run_id)
@@ -201,9 +214,12 @@ class PRReadinessHarness:
             final = self.transport(self.repository, "pr_node_read", {"number": self.number})
             print(json.dumps({"model_tasks": 1, "write_attempts": self.transport.write_attempts,
                               "restore_status": outcome["operation"]["status"],
+                              "graph_error_type": graph_error,
                               "original_title_restored": final["title"] == self.proposal["original_title"]}))
             if outcome["operation"]["status"] != "succeeded" or final["title"] != self.proposal["original_title"]:
                 raise RuntimeError("Restoration remains unconfirmed; do not replay")
+            if graph_error is not None:
+                raise RuntimeError("Original title restored, but graph completion remains unconfirmed")
         finally:
             stop.set()
             self.mediation.revoke_run(self.run_id)

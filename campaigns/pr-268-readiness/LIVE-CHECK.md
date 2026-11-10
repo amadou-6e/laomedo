@@ -22,3 +22,19 @@ confirmed restoration, actual graph/runner evidence and reviewer coverage.
 Earlier native UI checks at source `70df3c59`: actual GitHub discovery, label
 clear, fuzzy `recovry` selecting PR264, no-match popup and explicit selection.
 No mutation or Agent task was performed by `selectors.cjs`.
+
+## Authorized attempts, 2026-11-10
+
+The human authorized the scoped check, then renewed the dedicated Docker login
+and explicitly authorized one retry after the first task failed authentication.
+The first submitted task was ffdef593-82cc-4d92-8090-31790b73a397; the retry was
+6baed8fe-2ff7-4731-8d0b-3cf52612052e. Both failed runner authentication before a
+proposal or GitHub write. The retry reported HTTP401 invalid_jwt while refreshing
+its dedicated login. Stored login status alone did not establish validity.
+
+Both attempts made zero PATCH calls and zero effects; the original PR title
+remained unchanged. The harness revoked its scoped grants and stopped its own
+service. No successful feedback acceptance is claimed. The two single-task
+approvals are consumed; do not issue another task under either old approval.
+A preliminary missing native graph run-context error submitted no task; the
+harness now supplies the owner and run context required by the real executor.
