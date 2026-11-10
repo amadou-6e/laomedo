@@ -8,6 +8,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, model_validator
 from laomedo.github.connections.settings import GITHUB_REPOSITORY_LIMIT
+from laomedo.skills.sources.models import PendingSkillImport
 
 
 class GitHubOAuthAttempt(BaseModel):
@@ -387,6 +388,39 @@ class GitHubReadAuthorization(BaseModel):
     deadline: float = Field(
         allow_inf_nan=False,
         description="Monotonic total-read deadline, including release.",
+    )
+    consumed_bytes: int = Field(
+        default=0,
+        strict=True,
+        ge=0,
+        description="API response bytes already consumed by this user read.",
+    )
+
+
+class GitHubReadPage(BaseModel):
+    """Internal bounded provider JSON with a non-followed pagination signal."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid", hide_input_in_errors=True)
+    payload: dict | list = Field(
+        exclude=True,
+        repr=False,
+        description="Bounded raw provider JSON, never public serialization.",
+    )
+    next_page: bool = Field(
+        description="Provider advertised another page; never its target URL."
+    )
+
+
+class GitHubSkillRevision(BaseModel):
+    """One exact ref snapshot and validated candidate, before private registry import."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid", hide_input_in_errors=True)
+    label: str = Field(description="Exact heads/tags label and commit snapshot.")
+    commit: str = Field(
+        pattern=r"^[0-9a-f]{40}$", description="Exact resolved Git commit identity."
+    )
+    candidate: PendingSkillImport = Field(
+        description="Canonical validated Skill bytes and private origin."
     )
 
 

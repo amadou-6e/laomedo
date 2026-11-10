@@ -14,12 +14,14 @@ from laomedo.github.connections.models import (
     GitHubPrincipal,
     GitHubRepositoryIdentity,
     GitHubRepositoryInventory,
+    GitHubReadPage,
 )
 from laomedo.github.connections.settings import (
     GITHUB_API_ORIGIN,
     GITHUB_API_VERSION,
     GITHUB_READ_DEADLINE_SECONDS,
     GITHUB_READ_RESPONSE_LIMIT,
+    GITHUB_READ_TOTAL_BYTES,
     GITHUB_REPOSITORY_LIMIT,
 )
 
@@ -32,6 +34,7 @@ class GitHubReadClient:
         self.clock = clock
         self.started = clock()
         self.deadline = self.started + GITHUB_READ_DEADLINE_SECONDS
+        self.read_bytes = 0
         self.client = AsyncClient(
             headers={
                 "Authorization": "Bearer " + credential.access_token.get_secret_value(),
@@ -68,7 +71,7 @@ class GitHubReadClient:
         ):
             raise GitHubRepositoryAccessError()
 
-    async def get(self, path: str, *, params=None):
+    async def get_page(self, path: str, *, params=None):
         """Return bounded JSON from one fixed GET without following provider links."""
         self._path(path)
         remaining = self.deadline - self.clock()
@@ -83,15 +86,25 @@ class GitHubReadClient:
                         raise GitHubRepositoryAccessError()
                     body = bytearray()
                     async for chunk in response.aiter_bytes():
-                        if len(body) + len(chunk) > GITHUB_READ_RESPONSE_LIMIT:
+                        self.read_bytes += len(chunk)
+                        if (
+                            len(body) + len(chunk) > GITHUB_READ_RESPONSE_LIMIT
+                            or self.read_bytes > GITHUB_READ_TOTAL_BYTES
+                        ):
                             raise GitHubRepositoryAccessError()
                         body.extend(chunk)
                     value = json.loads(body)
                     if not isinstance(value, (dict, list)):
                         raise GitHubRepositoryAccessError()
-                    return value
+                    return GitHubReadPage(
+                        payload=value, next_page="next" in response.links
+                    )
         except Exception:
             raise GitHubRepositoryAccessError() from None
+
+    async def get(self, path: str, *, params=None):
+        """Return bounded JSON; completeness-sensitive callers also inspect get_page."""
+        return (await self.get_page(path, params=params)).payload
 
     async def close(self):
         """Close only this private operation's transport and sockets."""
@@ -118,7 +131,10 @@ class GitHubRepositoryAccess:
         items = []
         total = None
         for page in range(1, GITHUB_REPOSITORY_LIMIT // 100 + 2):
-            value = await self.client.get(path, params={"per_page": 100, "page": page})
+            response = await self.client.get_page(
+                path, params={"per_page": 100, "page": page}
+            )
+            value = response.payload
             if key:
                 count = value.get("total_count") if isinstance(value, dict) else None
                 if (
@@ -134,7 +150,7 @@ class GitHubRepositoryAccess:
             items.extend(batch)
             if len(items) > GITHUB_REPOSITORY_LIMIT:
                 raise GitHubRepositoryAccessError()
-            if len(batch) < 100:
+            if len(batch) < 100 and not response.next_page:
                 if total is not None and len(items) != total:
                     raise GitHubRepositoryAccessError()
                 return items

@@ -477,6 +477,7 @@ class GitHubConnectionService:
                     repository=repository,
                     principal=record.principal,
                     deadline=reader.deadline,
+                    consumed_bytes=reader.read_bytes,
                 )
             finally:
                 await reader.close()
@@ -505,6 +506,7 @@ class GitHubConnectionService:
         record = self.journal.get(authorization.owner_id, authorization.connection_id)
         reader = self.read_client(self._credential(record))
         reader.deadline = min(reader.deadline, authorization.deadline)
+        reader.read_bytes = authorization.consumed_bytes
         return reader
 
     async def status(self, scope: GitHubConnectionScope):
