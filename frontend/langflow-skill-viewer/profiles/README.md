@@ -32,3 +32,8 @@ has a larger minimum width; that canvas constraint must not clip profile forms.
 wraps the profile-picture editor. Profile mode does not offer identity mutation
 controls that its backend refuses; ordinary preview mode retains those editors.
 A failed capability check never exposes a blocked editor.
+
+Profile name buttons opt out of the native Button's title-case conversion so
+the picker preserves the exact stored name. The sign-out notice offers an
+accessible Close control during waiting and failure; closing dismisses the
+notice only and never claims to cancel a request or confirm sign-out.

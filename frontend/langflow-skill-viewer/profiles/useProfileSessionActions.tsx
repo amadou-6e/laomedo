@@ -78,12 +78,21 @@ export default function useProfileSessionActions() {
 			code="app_signout_unconfirmed"
 			onClose={() => setOpen(false)}
 			tools={
-				!isPending && !checking ? (
-					<CopyIcon text={formatErrorCopy(failure)} />
-				) : undefined
+				<div className="flex items-center gap-1">
+					{!isPending && !checking && <CopyIcon text={formatErrorCopy(failure)} />}
+					<button
+						type="button"
+						aria-label="Close sign-out notice"
+						title="Close sign-out notice"
+						onClick={() => setOpen(false)}
+						className="flex h-8 w-8 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline focus-visible:outline-2"
+					>
+						<span aria-hidden="true">×</span>
+					</button>
+				</div>
 			}
 			heading={
-				<h3 className="text-sm font-bold">
+				<h3 className="pr-10 text-sm font-bold">
 					{isPending
 						? "Signing out..."
 						: checking

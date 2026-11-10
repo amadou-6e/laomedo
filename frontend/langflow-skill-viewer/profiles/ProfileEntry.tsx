@@ -180,6 +180,7 @@ export default function ProfileEntry({
 							<Button
 								key={profile.id}
 								variant="outline"
+								ignoreTitleCase
 								onClick={() => {
 									setSelected(profile);
 									setScreen("enter");
