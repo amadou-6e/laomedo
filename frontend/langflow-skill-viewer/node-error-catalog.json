@@ -957,7 +957,7 @@
   "fresh_codex_request_required": {
     "title": "A new agent run is required",
     "description": "This handoff route accepts only Fresh operations targeting Codex or Claude.",
-    "recovery": "Choose Fresh and a supported target agent. Resume must use that agentÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¢s original completed Run Reference."
+    "recovery": "Choose Fresh and a supported target agent. Resume must use that agent's original completed Run Reference."
   },
   "runner_token_file_required": {
     "title": "The handoff runner is not connected",
@@ -2032,7 +2032,7 @@
   "issue_state_invalid": {
     "title": "The Issue state filter is invalid",
     "description": "The saved state value is not one of the supported filters.",
-    "recovery": "Choose Open, Closed or All in the nodeÃ¢â‚¬â„¢s State control and refresh discovery."
+    "recovery": "Choose Open, Closed or All in the node’s State control and refresh discovery."
   },
   "issue_write_unknown": {
     "title": "The Issue update outcome is not confirmed",
@@ -2092,7 +2092,7 @@
   "pr_state_invalid": {
     "title": "The PR state filter is invalid",
     "description": "The saved state value is not one of the supported filters.",
-    "recovery": "Choose Open, Closed or All in the nodeÃ¢â‚¬â„¢s State control and refresh discovery."
+    "recovery": "Choose Open, Closed or All in the node’s State control and refresh discovery."
   },
   "pr_write_unknown": {
     "title": "The PR update outcome is not confirmed",
@@ -2182,7 +2182,7 @@
   "mcp_manifest_too_large": {
     "title": "The MCP selection exceeds supported limits",
     "description": "Too many servers/tools or oversized descriptions or schemas were selected.",
-    "recovery": "Reduce the selected tools or servers. Limits are 128 tools, 32 servers, 32 KiB per manifest and 128 KiB per tool schema."
+    "recovery": "Reduce the selected tools or servers. Limits are 128 tools and 32 servers. All tool descriptions and schemas must fit together in the 32 KiB manifest."
   },
   "mcp_method_unsupported": {
     "title": "The MCP integration cannot handle this request",
@@ -2282,12 +2282,12 @@
   "mcp_schema_too_large": {
     "title": "The MCP selection exceeds supported limits",
     "description": "Too many servers/tools or oversized descriptions or schemas were selected.",
-    "recovery": "Reduce the selected tools or servers. Limits are 128 tools, 32 servers, 32 KiB per manifest and 128 KiB per tool schema."
+    "recovery": "Reduce the selected tools or servers. Limits are 128 tools and 32 servers. All tool descriptions and schemas must fit together in the 32 KiB manifest."
   },
   "mcp_server_limit": {
     "title": "The MCP selection exceeds supported limits",
     "description": "Too many servers/tools or oversized descriptions or schemas were selected.",
-    "recovery": "Reduce the selected tools or servers. Limits are 128 tools, 32 servers, 32 KiB per manifest and 128 KiB per tool schema."
+    "recovery": "Reduce the selected tools or servers. Limits are 128 tools and 32 servers. All tool descriptions and schemas must fit together in the 32 KiB manifest."
   },
   "mcp_tool_approval_unsupported": {
     "title": "This MCP tool needs an unsupported approval",
@@ -2302,7 +2302,7 @@
   "mcp_tool_limit": {
     "title": "The MCP selection exceeds supported limits",
     "description": "Too many servers/tools or oversized descriptions or schemas were selected.",
-    "recovery": "Reduce the selected tools or servers. Limits are 128 tools, 32 servers, 32 KiB per manifest and 128 KiB per tool schema."
+    "recovery": "Reduce the selected tools or servers. Limits are 128 tools and 32 servers. All tool descriptions and schemas must fit together in the 32 KiB manifest."
   },
   "mcp_tool_not_selected": {
     "title": "The MCP tool selection is invalid",
