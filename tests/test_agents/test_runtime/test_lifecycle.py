@@ -935,7 +935,7 @@ class LocalRunnerTests(unittest.TestCase):
         result = runner.start(self.request())
         self.assertEqual(result["status"], "completed")
         self.assertEqual(result["workspace_mode"], "git")
-        self.assertEqual(result["image"], "laomedo-codex-acp:0.159.2-2.1.1")
+        self.assertEqual(result["image"], "laomedo-codex-acp:0.159.2-2.1.1-mcp")
         self.assertEqual(
             FakeServer.calls[-1].image,
             __import__(

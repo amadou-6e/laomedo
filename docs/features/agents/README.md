@@ -25,6 +25,8 @@ activity. Domain operations remain with the Skills and GitHub features.
 
 ## Providers and evidence
 
+- [Connect MCP tools](mcp-tools.md): native Toolset edges, private forwarding and lifecycle boundaries.
+
 - [Codex account connection](providers/codex/connection.md): app-owned sign-in and local runner credentials.
 - [OpenCode activity](providers/opencode/activity.md): capture and reconciliation.
 - [Codex activity parity validation](providers/codex/activity-parity-validation.md):

@@ -214,5 +214,8 @@ RUNNER_FAILURE_CODES = frozenset(
 
 
 import threading
+from laomedo.agents.mcp.settings import MCP_ERROR_CODES
+
+RUNNER_FAILURE_CODES = RUNNER_FAILURE_CODES | MCP_ERROR_CODES
 
 ROLE_INIT_LOCK = threading.Lock()

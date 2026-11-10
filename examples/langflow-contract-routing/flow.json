@@ -640,7 +640,7 @@
                 "list": false,
                 "show": true,
                 "multiline": true,
-                "value": "\"\"\"Codex graph adapter; common lifecycle lives in the optional Langflow integration.\"\"\"\n\nfrom copy import deepcopy\nfrom laomedo.integrations.langflow.agent.component import AgentComponent\n\n\nclass LaomedoCodexAgent(AgentComponent):\n    display_name = \"Laomedo Codex Agent\"\n    description = \"Start, run, resume or cancel a Codex task with optional pinned skills through the local Docker runner.\"\n    name = \"LaomedoCodexAgent\"\n    provider_id = \"codex\"\n    discover_models_on_upgrade = True\n    supports_output_requirements = True\n    supports_join_bridge = True\n    bridge_url_env = \"LAOMEDO_BRIDGE_URL\"\n    bridge_token_env = \"LAOMEDO_BRIDGE_TOKEN_FILE\"\n    runner_token_env = \"LAOMEDO_RUNNER_TOKEN_FILE\"\n    runner_token_default = \"/run/secrets/laomedo-runner-token\"\n\n    def _validate_adapter(self):\n        # A concrete adapter is a leaf. Old saved Claude/OpenCode code must\n        # migrate its base before inheriting provider routing capabilities.\n        if type(self) is not __class__:\n            raise ValueError(\"agent_component_migration_required\")\n\n    inputs = [deepcopy(item) for item in AgentComponent.inputs]\n    for _field in inputs:\n        if _field.name == \"runner_url\":\n            _field.value = \"http://host.docker.internal:8765\"\n    del _field\n",
+                "value": "\"\"\"Codex graph adapter; common lifecycle lives in the optional Langflow integration.\"\"\"\n\nfrom copy import deepcopy\nfrom laomedo.integrations.langflow.agent.component import AgentComponent\n\n\nclass LaomedoCodexAgent(AgentComponent):\n    display_name = \"Laomedo Codex Agent\"\n    description = \"Start, run, resume or cancel a Codex task with optional pinned skills and selected MCP tools through the local Docker runner.\"\n    name = \"LaomedoCodexAgent\"\n    provider_id = \"codex\"\n    discover_models_on_upgrade = True\n    supports_output_requirements = True\n    supports_join_bridge = True\n    bridge_url_env = \"LAOMEDO_BRIDGE_URL\"\n    bridge_token_env = \"LAOMEDO_BRIDGE_TOKEN_FILE\"\n    runner_token_env = \"LAOMEDO_RUNNER_TOKEN_FILE\"\n    runner_token_default = \"/run/secrets/laomedo-runner-token\"\n\n    def _validate_adapter(self):\n        # A concrete adapter is a leaf. Old saved Claude/OpenCode code must\n        # migrate its base before inheriting provider routing capabilities.\n        if type(self) is not __class__:\n            raise ValueError(\"agent_component_migration_required\")\n\n    inputs = [deepcopy(item) for item in AgentComponent.inputs]\n    for _field in inputs:\n        if _field.name == \"runner_url\":\n            _field.value = \"http://host.docker.internal:8765\"\n    del _field\n",
                 "fileTypes": [],
                 "file_path": "",
                 "password": false,
@@ -935,6 +935,29 @@
                 "track_in_telemetry": true,
                 "type": "int",
                 "_input_type": "IntInput"
+              },
+              "mcp_tools": {
+                "trace_as_metadata": true,
+                "list": true,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "mcp_tools",
+                "value": "",
+                "display_name": "MCP Tools",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Tool"
+                ],
+                "dynamic": false,
+                "info": "Connect selected tools from existing MCP server nodes.",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "other",
+                "_input_type": "HandleInput"
               }
             },
             "description": "Start, run, resume or cancel a Codex task with optional pinned skills through the local Docker runner.",
@@ -1008,6 +1031,7 @@
               "model",
               "effort",
               "skill_reference",
+              "mcp_tools",
               "run_reference",
               "run_reference_json",
               "runner_url",
@@ -1019,7 +1043,7 @@
             "edited": false,
             "metadata": {
               "module": "custom_components.laomedo_codex_agent",
-              "code_hash": "3022cec0907e",
+              "code_hash": "a38bb366b355",
               "dependencies": {
                 "total_dependencies": 1,
                 "dependencies": [

@@ -361,6 +361,8 @@ class OpenCodeAgentRuntime(BaseAgentRuntime):
 
     def check_transport(self):
         """Surface independently observed worker failures, never model claims."""
+        if getattr(self, "mcp_access", None):
+            self.mcp_access.check_health()
         if self.broker is not None and self.broker.error_code:
             raise RunnerError(self.broker.error_code)
 
@@ -466,6 +468,19 @@ class OpenCodeAgentRuntime(BaseAgentRuntime):
         self.close()
         return CleanupObservation(confirmed=True, scope="opencode_owned_resources")
 
+    def _configure_mcp(self, access):
+        """Extend private config with exact external grants before controller launch."""
+        if self.session is not None:
+            raise RunnerError("mcp_registration_too_late")
+        access.check_health(force=True)
+        config = json.loads((self.root / "config.json").read_text(encoding="utf-8"))
+        config["mcp"]["external"] = access.opencode_config()
+        for name in access.tool_names():
+            config["tools"]["external_" + name] = True
+            config["permission"]["external_" + name] = "allow"
+        _json(self.root / "config.json", config)
+        self.mcp_access = access
+
     async def _run_acp(self, task, model, session_id, cancelled, capture, on_session):
         """Validate agent identity, load the same native session and await its prompt."""
         from laomedo.agents.agents.base.acp.session import AcpSession
@@ -501,7 +516,12 @@ class OpenCodeAgentRuntime(BaseAgentRuntime):
             on_session(client.session_id)
             capture.begin(client.session_id, task)
             client.on_update = capture.update
-            outcome = await client.prompt(task, cancelled=cancelled, seconds=180)
+            outcome = await client.prompt(
+                task,
+                cancelled=cancelled,
+                seconds=180,
+                check_health=self.check_transport,
+            )
             if not cancelled.is_set():
                 self.check_transport()
             status = (

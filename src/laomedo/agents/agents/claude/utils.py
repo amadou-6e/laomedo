@@ -53,12 +53,15 @@ def activity_usage(result):
     return normalized
 
 
-def configuration_hash(model, effort, skills):
+def configuration_hash(model, effort, skills, *, external_tools=()):
     """Fingerprint the same canonical ACP options that execution will apply."""
     from laomedo.agents.agents.claude.models import ClaudePolicy
 
     return ClaudePolicy(
-        model=model, effort=effort, skill_ids=tuple(item["skill_id"] for item in skills)
+        model=model,
+        effort=effort,
+        skill_ids=tuple(item["skill_id"] for item in skills),
+        external_tools=tuple(external_tools),
     ).fingerprint()
 
 

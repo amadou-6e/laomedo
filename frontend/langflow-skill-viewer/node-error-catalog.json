@@ -957,7 +957,7 @@
   "fresh_codex_request_required": {
     "title": "A new agent run is required",
     "description": "This handoff route accepts only Fresh operations targeting Codex or Claude.",
-    "recovery": "Choose Fresh and a supported target agent. Resume must use that agentÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢s original completed Run Reference."
+    "recovery": "Choose Fresh and a supported target agent. Resume must use that agent's original completed Run Reference."
   },
   "runner_token_file_required": {
     "title": "The handoff runner is not connected",
@@ -2123,5 +2123,190 @@
     "title": "The selected pull request could not be loaded",
     "description": "The viewer could not confirm the current pull request content. The cause has not been established.",
     "recovery": "Refresh PR repeats only this read. It does not edit GitHub, run the graph or start an Agent. Check the current selection and local GitHub connection if the read still fails."
+  },
+  "mcp_app_lifetime_required": {
+    "title": "The MCP app owner is unavailable",
+    "description": "Tools need the active Laomedo app and its original event loop.",
+    "recovery": "Run this graph through the Laomedo app and keep it open while the Agent runs. Headless execution cannot retain these connections."
+  },
+  "mcp_app_owner_conflict": {
+    "title": "The MCP app owner is unavailable",
+    "description": "Tools need the active Laomedo app and its original event loop.",
+    "recovery": "Run this graph through the Laomedo app and keep it open while the Agent runs. Headless execution cannot retain these connections."
+  },
+  "mcp_arguments_invalid": {
+    "title": "The MCP request was refused before dispatch",
+    "description": "Arguments are invalid or the request exceeds forwarding limits.",
+    "recovery": "Match the selected tool schema and keep the complete request within 64 KiB. This refusal does not dispatch the tool."
+  },
+  "mcp_arguments_too_large": {
+    "title": "The MCP request was refused before dispatch",
+    "description": "Arguments are invalid or the request exceeds forwarding limits.",
+    "recovery": "Match the selected tool schema and keep the complete request within 64 KiB. This refusal does not dispatch the tool."
+  },
+  "mcp_call_limit": {
+    "title": "MCP forwarding capacity is full",
+    "description": "The app reached its bounded number of calls or registrations.",
+    "recovery": "Wait for active work or cancel unused runs. Check Status before starting again. LAOMEDO_MCP_MAX_CALLS and LAOMEDO_MCP_MAX_REGISTRATIONS control host capacity."
+  },
+  "mcp_call_outcome_unknown": {
+    "title": "The MCP call outcome could not be confirmed",
+    "description": "Communication failed; a dispatched call may already have had effects.",
+    "recovery": "Keep the app and server available, check run Status and the upstream outcome, and do not automatically repeat the call. Reconnecting does not prove cancellation."
+  },
+  "mcp_connection_unavailable": {
+    "title": "The MCP call outcome could not be confirmed",
+    "description": "Communication failed; a dispatched call may already have had effects.",
+    "recovery": "Keep the app and server available, check run Status and the upstream outcome, and do not automatically repeat the call. Reconnecting does not prove cancellation."
+  },
+  "mcp_controller_host_invalid": {
+    "title": "The MCP forwarding address is invalid",
+    "description": "Forwarding needs a private interface and a controller-reachable host.",
+    "recovery": "Check LAOMEDO_MCP_BIND and LAOMEDO_MCP_CONTROLLER_HOST on app and runner. Use loopback or an explicit private interface; public and wildcard addresses are refused."
+  },
+  "mcp_duplicate_tool": {
+    "title": "The MCP tool selection is invalid",
+    "description": "The requested tool is outside the selection or an upstream tool is selected twice.",
+    "recovery": "Select each required tool once on its native MCP node, then connect its Toolset to MCP Tools. Aliases do not create distinct upstream tools. Start a new run after changing selection."
+  },
+  "mcp_event_loop_mismatch": {
+    "title": "The MCP app owner is unavailable",
+    "description": "Tools need the active Laomedo app and its original event loop.",
+    "recovery": "Run this graph through the Laomedo app and keep it open while the Agent runs. Headless execution cannot retain these connections."
+  },
+  "mcp_manifest_invalid": {
+    "title": "MCP tool admission is incomplete",
+    "description": "No verified paired manifest and live registration was admitted.",
+    "recovery": "Start or resume through the connected graph so the app registers its Toolset. Do not construct registration references or edit the retained manifest manually."
+  },
+  "mcp_manifest_too_large": {
+    "title": "The MCP selection exceeds supported limits",
+    "description": "Too many servers/tools or oversized descriptions or schemas were selected.",
+    "recovery": "Reduce the selected tools or servers. Limits are 128 tools and 32 servers. All tool descriptions and schemas must fit together in the 32 KiB manifest."
+  },
+  "mcp_method_unsupported": {
+    "title": "The MCP integration cannot handle this request",
+    "description": "The provider or protocol operation is outside this integration contract.",
+    "recovery": "Use a supported Laomedo Codex, Claude or OpenCode controller with the owned MCP adapter. Check app and runner versions together. Arbitrary protocol methods are not forwarded."
+  },
+  "mcp_native_tool_unsupported": {
+    "title": "This native MCP tool is unsupported",
+    "description": "The adapter cannot verify this native tool implementation.",
+    "recovery": "Use native MCP Toolset outputs from the supported LFX 1.12.3 deployment. Arbitrary callables and other versions require a verified adapter update."
+  },
+  "mcp_native_version_unsupported": {
+    "title": "This native MCP tool is unsupported",
+    "description": "The adapter cannot verify this native tool implementation.",
+    "recovery": "Use native MCP Toolset outputs from the supported LFX 1.12.3 deployment. Arbitrary callables and other versions require a verified adapter update."
+  },
+  "mcp_private_interface_required": {
+    "title": "The MCP forwarding address is invalid",
+    "description": "Forwarding needs a private interface and a controller-reachable host.",
+    "recovery": "Check LAOMEDO_MCP_BIND and LAOMEDO_MCP_CONTROLLER_HOST on app and runner. Use loopback or an explicit private interface; public and wildcard addresses are refused."
+  },
+  "mcp_private_state_unverified": {
+    "title": "MCP private storage could not be verified",
+    "description": "The host could not verify exclusive custody of its connection directory.",
+    "recovery": "Check ownership and permissions of LAOMEDO_MCP_DIRECTORY. Use the same absolute private directory for app and runner, outside checkouts and without links. Do not weaken permissions."
+  },
+  "mcp_protocol_invalid": {
+    "title": "The MCP integration cannot handle this request",
+    "description": "The provider or protocol operation is outside this integration contract.",
+    "recovery": "Use a supported Laomedo Codex, Claude or OpenCode controller with the owned MCP adapter. Check app and runner versions together. Arbitrary protocol methods are not forwarded."
+  },
+  "mcp_provider_unsupported": {
+    "title": "The MCP integration cannot handle this request",
+    "description": "The provider or protocol operation is outside this integration contract.",
+    "recovery": "Use a supported Laomedo Codex, Claude or OpenCode controller with the owned MCP adapter. Check app and runner versions together. Arbitrary protocol methods are not forwarded."
+  },
+  "mcp_registration_expired": {
+    "title": "The MCP registration is unavailable",
+    "description": "The registration expired, was revoked, or could not be published privately.",
+    "recovery": "Keep the app open and check its private directory. Check the prior run Status, then start or resume through the graph for a fresh registration. Old references cannot restore access."
+  },
+  "mcp_registration_failed": {
+    "title": "The MCP registration is unavailable",
+    "description": "The registration expired, was revoked, or could not be published privately.",
+    "recovery": "Keep the app open and check its private directory. Check the prior run Status, then start or resume through the graph for a fresh registration. Old references cannot restore access."
+  },
+  "mcp_registration_limit": {
+    "title": "MCP forwarding capacity is full",
+    "description": "The app reached its bounded number of calls or registrations.",
+    "recovery": "Wait for active work or cancel unused runs. Check Status before starting again. LAOMEDO_MCP_MAX_CALLS and LAOMEDO_MCP_MAX_REGISTRATIONS control host capacity."
+  },
+  "mcp_registration_required": {
+    "title": "MCP tool admission is incomplete",
+    "description": "No verified paired manifest and live registration was admitted.",
+    "recovery": "Start or resume through the connected graph so the app registers its Toolset. Do not construct registration references or edit the retained manifest manually."
+  },
+  "mcp_registration_too_late": {
+    "title": "MCP tools arrived after controller startup",
+    "description": "Native MCP configuration must be frozen before controller launch.",
+    "recovery": "Start a new attempt with MCP Tools already connected. Do not add servers to a running controller."
+  },
+  "mcp_registration_unavailable": {
+    "title": "The MCP registration is unavailable",
+    "description": "The registration expired, was revoked, or could not be published privately.",
+    "recovery": "Keep the app open and check its private directory. Check the prior run Status, then start or resume through the graph for a fresh registration. Old references cannot restore access."
+  },
+  "mcp_registration_unclaimed": {
+    "title": "MCP tool admission is incomplete",
+    "description": "No verified paired manifest and live registration was admitted.",
+    "recovery": "Start or resume through the connected graph so the app registers its Toolset. Do not construct registration references or edit the retained manifest manually."
+  },
+  "mcp_request_too_large": {
+    "title": "The MCP request was refused before dispatch",
+    "description": "Arguments are invalid or the request exceeds forwarding limits.",
+    "recovery": "Match the selected tool schema and keep the complete request within 64 KiB. This refusal does not dispatch the tool."
+  },
+  "mcp_result_too_large": {
+    "title": "The MCP result exceeds the size limit",
+    "description": "The upstream tool returned more than the supported 1 MiB result after dispatch.",
+    "recovery": "Request a smaller result or narrower read. The tool already ran; check its outcome before repeating any operation."
+  },
+  "mcp_resume_binding_mismatch": {
+    "title": "The MCP tool binding changed",
+    "description": "This attempt differs from its saved selection, upstream route or live registration.",
+    "recovery": "Resume with identical tool names, aliases and schemas and a fresh graph registration. Keep the original upstream connection unchanged while a run is active. Check Status before retrying an already bound run."
+  },
+  "mcp_run_already_bound": {
+    "title": "The MCP tool binding changed",
+    "description": "This attempt differs from its saved selection, upstream route or live registration.",
+    "recovery": "Resume with identical tool names, aliases and schemas and a fresh graph registration. Keep the original upstream connection unchanged while a run is active. Check Status before retrying an already bound run."
+  },
+  "mcp_run_binding_mismatch": {
+    "title": "The MCP tool binding changed",
+    "description": "This attempt differs from its saved selection, upstream route or live registration.",
+    "recovery": "Resume with identical tool names, aliases and schemas and a fresh graph registration. Keep the original upstream connection unchanged while a run is active. Check Status before retrying an already bound run."
+  },
+  "mcp_schema_too_large": {
+    "title": "The MCP selection exceeds supported limits",
+    "description": "Too many servers/tools or oversized descriptions or schemas were selected.",
+    "recovery": "Reduce the selected tools or servers. Limits are 128 tools and 32 servers. All tool descriptions and schemas must fit together in the 32 KiB manifest."
+  },
+  "mcp_server_limit": {
+    "title": "The MCP selection exceeds supported limits",
+    "description": "Too many servers/tools or oversized descriptions or schemas were selected.",
+    "recovery": "Reduce the selected tools or servers. Limits are 128 tools and 32 servers. All tool descriptions and schemas must fit together in the 32 KiB manifest."
+  },
+  "mcp_tool_approval_unsupported": {
+    "title": "This MCP tool needs an unsupported approval",
+    "description": "The tool requires an approval interaction this Agent connection cannot preserve.",
+    "recovery": "Remove this tool from the native selection or use an integration supporting its approval interaction. Do not disable the approval requirement to bypass this refusal."
+  },
+  "mcp_tool_binding_changed": {
+    "title": "The MCP tool binding changed",
+    "description": "This attempt differs from its saved selection, upstream route or live registration.",
+    "recovery": "Resume with identical tool names, aliases and schemas and a fresh graph registration. Keep the original upstream connection unchanged while a run is active. Check Status before retrying an already bound run."
+  },
+  "mcp_tool_limit": {
+    "title": "The MCP selection exceeds supported limits",
+    "description": "Too many servers/tools or oversized descriptions or schemas were selected.",
+    "recovery": "Reduce the selected tools or servers. Limits are 128 tools and 32 servers. All tool descriptions and schemas must fit together in the 32 KiB manifest."
+  },
+  "mcp_tool_not_selected": {
+    "title": "The MCP tool selection is invalid",
+    "description": "The requested tool is outside the selection or an upstream tool is selected twice.",
+    "recovery": "Select each required tool once on its native MCP node, then connect its Toolset to MCP Tools. Aliases do not create distinct upstream tools. Start a new run after changing selection."
   }
 }

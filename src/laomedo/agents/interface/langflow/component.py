@@ -15,6 +15,7 @@ from uuid import uuid4
 
 from lfx.custom.custom_component.component import Component
 from lfx.io import DataInput
+from lfx.io import HandleInput
 from lfx.io import DropdownInput
 from lfx.io import IntInput
 from lfx.io import MessageTextInput
@@ -25,6 +26,8 @@ from lfx.schema import Message
 
 from laomedo.agents.interface.models import AgentRunReference, AgentSubmission
 from laomedo.agents.interface.langflow.errors import RunnerResultError
+from laomedo.agents.mcp.client import McpAccess
+from laomedo.agents.mcp.settings import MCP_ERROR_CODES
 from laomedo.agents.interface.utils import terminal_record as _terminal_record
 
 # TODO! this file is massive and should probably be broken up into a several modules
@@ -215,6 +218,7 @@ _ROUTABLE_ERRORS = {
     "unsupported_claude_effort",
     "workspace_command_output_too_large",
 }
+_ROUTABLE_ERRORS.update(MCP_ERROR_CODES)
 
 
 class _NoRedirect(request.HTTPRedirectHandler):
@@ -237,9 +241,7 @@ class _ModelCatalog(dict):
 
 class AgentComponent(Component):
     display_name = "Agent"
-    description = (
-        "Dispatch work through a provider adapter with optional pinned skills."
-    )
+    description = "Dispatch work through a provider adapter with optional pinned skills and selected MCP tools."
     icon = "Bot"
     name = "AgentComponent"
 
@@ -321,6 +323,13 @@ class AgentComponent(Component):
             display_name="Skill References",
             is_list=True,
             info="Optional pinned skills. Leave disconnected to run the task without skills.",
+        ),
+        HandleInput(
+            name="mcp_tools",
+            display_name="MCP Tools",
+            input_types=["Tool"],
+            is_list=True,
+            info="Connect selected tools from existing MCP server nodes.",
         ),
         DataInput(
             name="run_reference",
@@ -640,6 +649,7 @@ class AgentComponent(Component):
         self._last_reference = None
         self._contract_submission = None
         self._downstream_contract_binding = None
+        self._mcp_registration_id = None
 
     def _prepare(self):
         self._validate_adapter()
@@ -1203,6 +1213,27 @@ class AgentComponent(Component):
     async def _result(self):
         if getattr(self, "_dispatch_task", None) is None:
             prepared = self._prepare()
+            if self.operation in {"fresh", "start", "resume"}:
+                connected = getattr(self, "mcp_tools", None)
+                if connected:
+                    from laomedo.agents.mcp.registry import McpRegistry
+                    from laomedo.integrations.langflow.mcp import LangflowMcpTool
+
+                    selected = connected if isinstance(connected, list) else [connected]
+                    flattened = []
+                    for item in selected:
+                        flattened.extend(item if isinstance(item, list) else [item])
+                    registry = McpRegistry.current()
+                    registration = await registry.register(
+                        [LangflowMcpTool(tool) for tool in flattened]
+                    )
+                    self._mcp_registration_id = registration.registration_id
+                    self._mcp_registry = registry
+                    target = prepared[1].get("runner_body", prepared[1])
+                    target["mcp_manifest"] = registration.manifest.model_dump(
+                        mode="json"
+                    )
+                    target["mcp_registration"] = str(registration.registration_id)
             if self.operation in {"fresh", "start"}:
                 payload = prepared[1]
                 if self._bridge_base():
@@ -1219,7 +1250,7 @@ class AgentComponent(Component):
                     "sha256:"
                     + hashlib.sha256(
                         json.dumps(
-                            canonical,
+                            McpAccess.semantic_request(canonical),
                             sort_keys=True,
                             separators=(",", ":"),
                             ensure_ascii=False,
@@ -1235,6 +1266,8 @@ class AgentComponent(Component):
             # Shield the HTTP call so the same request identity can be reconciled.
             result = await asyncio.shield(self._dispatch_task)
         except asyncio.CancelledError:
+            if getattr(self, "_mcp_registration_id", None):
+                self._mcp_registry.release(self._mcp_registration_id)
             self._stop_requested = True
             if self._stop_request_id and self._cancel_task is None:
                 bridge = self._bridge_base()
@@ -1260,5 +1293,8 @@ class AgentComponent(Component):
                 self._cancel_task.add_done_callback(_STOP_TASKS.discard)
             self.status = "Laomedo Stop requested; remote outcome unknown"
             raise
+        finally:
+            if getattr(self, "_mcp_registration_id", None):
+                self._mcp_registry.release_unclaimed(self._mcp_registration_id)
         self.status = f"Laomedo run {result['run_id']}: {result['status']}"
         return result

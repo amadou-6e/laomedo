@@ -3,7 +3,7 @@
 This image adapts the Codex app server to the shared ACP runner interface.
 The native-event extension preserves raw receipts and host-owned policy.
 
-Build from this directory with `docker build -t laomedo-codex-acp:0.159.2-2.1.1 .`.
+Build from this directory with `docker build -t laomedo-codex-acp:0.159.2-2.1.1-mcp .`.
 Record the resulting immutable image ID before testing or configuring a runner.
 The Dockerfile pins the Node base, upstream adapter commit/archive checksum and
 Codex package lock. The runtime includes the upstream Apache-2.0 licence and
@@ -51,3 +51,8 @@ native terminal status, auth revocation, executor monitoring and exact-ID cleanu
 
 Laomedo does not enable upstream payload debug logging (`APP_SERVER_LOGS`), and
 private credentials or capabilities must never be written to build inputs.
+
+Graph-connected MCP tools use one private `external` HTTP server and an exact
+host-supplied tool allowlist. Internal Laomedo tools retain their own namespace.
+The forwarding capability is admitted only for a host Docker alias or a private
+IPv4 endpoint; public URLs and arbitrary MCP server definitions are rejected.

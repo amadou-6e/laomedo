@@ -9,6 +9,7 @@ const sessionPolicy = z.object({
     model: z.string().min(1).max(200),
     effort: z.string().min(1).max(40),
     environmentId: z.string().min(1).max(200).optional(),
+    externalTools: z.array(z.string().regex(/^external_[0-9a-f]{32}$/)).max(128).default([]),
     dynamicTools: z.array(z.object({
         type: z.literal("function"),
         name: z.literal("laomedo_output_precheck"),
@@ -85,8 +86,30 @@ export class LaomedoExtension {
 
     sessionParameters(request: acp.NewSessionRequest | acp.LoadSessionRequest) {
         const policy = sessionPolicy.parse(request._meta?.["laomedo"]);
-        if (request.cwd !== "/draft" || request.mcpServers.length) {
+        if (request.cwd !== "/draft" || request.mcpServers.length > 1) {
             throw acp.RequestError.invalidParams("Invalid Laomedo session scope");
+        }
+        if (Boolean(request.mcpServers.length) !== Boolean(policy.externalTools.length)
+            || new Set(policy.externalTools).size !== policy.externalTools.length) {
+            throw acp.RequestError.invalidParams("External MCP grant mismatch");
+        }
+        for (const server of request.mcpServers) {
+            if (!("type" in server) || server.type !== "http" || server.name !== "external") {
+                throw acp.RequestError.invalidParams("External MCP endpoint required");
+            }
+            const url = new URL(server.url);
+            const header = server.headers[0];
+            const parts = url.hostname.split(".").map(Number);
+            const privateIp = parts.length === 4 && parts.every(part => Number.isInteger(part) && part >= 0 && part <= 255)
+                && (parts[0] === 10 || (parts[0] === 192 && parts[1] === 168)
+                    || (parts[0] === 172 && parts[1]! >= 16 && parts[1]! <= 31));
+            if (url.protocol !== "http:" || (url.hostname !== "host.docker.internal" && !privateIp)
+                || !url.port || url.username || url.password || url.search || url.hash
+                || !/^\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\/mcp$/.test(url.pathname)
+                || server.headers.length !== 1 || !header || header.name !== "Authorization"
+                || !/^Bearer [A-Za-z0-9_-]{43}$/.test(header.value)) {
+                throw acp.RequestError.invalidParams("Invalid external MCP capability");
+            }
         }
         if ((policy.policy === "split") !== Boolean(policy.environmentId)
             || (policy.environmentId && policy.environmentId !== this.executorId)) {
@@ -102,6 +125,11 @@ export class LaomedoExtension {
 
     bind(request: acp.NewSessionRequest | acp.LoadSessionRequest, sessionId: string) {
         this.sessions.set(sessionId, sessionPolicy.parse(request._meta?.["laomedo"]));
+    }
+
+    mcpToolNames(request: acp.NewSessionRequest | acp.LoadSessionRequest): string[] {
+        // Exact host-admitted names are applied to native enabled_tools as well as the bridge.
+        return sessionPolicy.parse(request._meta?.["laomedo"]).externalTools;
     }
 
     turnParameters(request: acp.PromptRequest) {

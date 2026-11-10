@@ -1,5 +1,4 @@
 diff --git a/src/CodexAcpClient.ts b/src/CodexAcpClient.ts
-index ecdf1b8..2e62c3f 100644
 --- a/src/CodexAcpClient.ts
 +++ b/src/CodexAcpClient.ts
 @@ -1,3 +1,5 @@
@@ -8,7 +7,7 @@ index ecdf1b8..2e62c3f 100644
  import {
      type ApiKeyAuthRequest,
      CODEX_API_KEY_ENV_VAR,
-@@ -141,7 +143,7 @@ export class CodexAcpClient {
+@@ -141,7 +143,7 @@
      private configPath: string | null = null;
  
  
@@ -17,7 +16,7 @@ index ecdf1b8..2e62c3f 100644
          this.codexClient = codexClient;
          this.config = codexConfig ?? {};
          this.modelProvider = modelProvider ?? null;
-@@ -638,6 +640,7 @@ export class CodexAcpClient {
+@@ -638,16 +640,19 @@
      }
  
      async loadSession(request: acp.LoadSessionRequest, onSubscribed?: () => void): Promise<SessionMetadataWithThread> {
@@ -25,17 +24,21 @@ index ecdf1b8..2e62c3f 100644
          const additionalDirectories = readAdditionalDirectories(request.cwd, request.additionalDirectories, request._meta);
          await this.refreshSkills(request.cwd, additionalDirectories);
  
-@@ -647,7 +650,9 @@ export class CodexAcpClient {
+         const response = await this.resumeThread({
+             excludeTurns: true,
+-            config: await this.createSessionConfig(request.cwd, additionalDirectories, request.mcpServers ?? []),
++            config: await this.createSessionConfig(request.cwd, additionalDirectories, request.mcpServers ?? [], this.laomedo?.mcpToolNames(request)),
              cwd: request.cwd,
              modelProvider: await this.getResumeModelProvider(),
              threadId: request.sessionId,
+-        });
 +            ...host,
-         });
++        });
 +        this.laomedo?.bind(request, response.thread.id);
          onSubscribed?.();
          // Resume cursors bound durable history; later turns arrive through live events.
          // A null paginated cursor means there was no durable history at resume time.
-@@ -706,6 +711,7 @@ export class CodexAcpClient {
+@@ -706,15 +711,18 @@
      }
  
      async newSession(request: acp.NewSessionRequest): Promise<SessionMetadata> {
@@ -43,18 +46,31 @@ index ecdf1b8..2e62c3f 100644
          const additionalDirectories = readAdditionalDirectories(request.cwd, request.additionalDirectories, request._meta);
          await this.refreshSkills(request.cwd, additionalDirectories);
  
-@@ -713,8 +719,10 @@ export class CodexAcpClient {
-             config: await this.createSessionConfig(request.cwd, additionalDirectories, request.mcpServers),
+         const response = await this.codexClient.threadStart({
+-            config: await this.createSessionConfig(request.cwd, additionalDirectories, request.mcpServers),
++            config: await this.createSessionConfig(request.cwd, additionalDirectories, request.mcpServers, this.laomedo?.mcpToolNames(request)),
              modelProvider: this.getModelProvider(),
              cwd: request.cwd,
+-        });
+-
 +            ...host,
-         });
- 
++        });
++
 +        this.laomedo?.bind(request, response.thread.id);
          const codexModels = await this.fetchAvailableModels();
          if (codexModels.length === 0) {
              throw new Error("Codex did not return any models");
-@@ -866,9 +874,7 @@ export class CodexAcpClient {
+@@ -848,7 +856,8 @@
+     private async createSessionConfig(
+         projectPath: string,
+         additionalDirectories: string[],
+-        mcpServers: Array<McpServer>
++        mcpServers: Array<McpServer>,
++        externalTools?: string[]
+     ): Promise<JsonObject> {
+         const sessionRoots = [projectPath, ...additionalDirectories];
+         const activeProvider = this.gatewayConfig
+@@ -866,9 +875,7 @@
          });
          const mergedConfig = {
              ...forceGitRootTurnDiffPaths(mergeGatewayConfig(this.config, this.gatewayConfig)),
@@ -65,7 +81,19 @@ index ecdf1b8..2e62c3f 100644
          };
          const configWithWorkspaceRoots = mergeSandboxWorkspaceWriteRoots(mergedConfig, additionalDirectories);
          if (mcpServers.length === 0) {
-@@ -1057,8 +1063,10 @@ export class CodexAcpClient {
+@@ -891,7 +898,10 @@
+ 
+         return {
+             ...configWithWorkspaceRoots,
+-            "mcp_servers": Object.fromEntries(serversToConfigure.map(mcp => [mcp.name, this.createMcpSeverConfig(mcp.server)])),
++            "mcp_servers": Object.fromEntries(serversToConfigure.map(mcp => [mcp.name, {
++                ...this.createMcpSeverConfig(mcp.server),
++                ...(this.laomedo ? {enabled_tools: externalTools ?? []} : {}),
++            }])),
+         };
+     }
+ 
+@@ -1057,8 +1067,10 @@
          onTurnStarted?: (turnId: string) => void,
          shouldCancel?: () => boolean,
      ): Promise<TurnCompletedNotification | null> {
@@ -78,7 +106,7 @@ index ecdf1b8..2e62c3f 100644
          await this.refreshSkills(cwd, additionalDirectories);
          if (shouldCancel?.()) {
              return null;
-@@ -1066,9 +1074,11 @@ export class CodexAcpClient {
+@@ -1066,9 +1078,11 @@
          return await this.codexClient.runTurn({
              threadId: request.sessionId,
              input: input,

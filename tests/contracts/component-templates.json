@@ -10,7 +10,7 @@
           "has_code_hash": true
         }
       ],
-      "graph_values_sha256": "27c2ed4bb2adb83e1a5f8ac6b37a6955c9235311f6f6c5d07e2c8953f6123df2"
+      "graph_values_sha256": "1d9f4952e69ad6d751b0aeff6a4fd621a8929712274154d9cf51ba8fa5bdf673"
     },
     {
       "path": "tests/test_agents/test_examples/data/claude.json",
@@ -26,7 +26,7 @@
           "has_code_hash": true
         }
       ],
-      "graph_values_sha256": "7ed2fbdb3aa5ca5737fda8dab57dbccb381b0c49b72a7c40f6d8b38778cfb166"
+      "graph_values_sha256": "165cd6a6397c3590b94fb8bb46cc126fd8358bf9a04406cda9e274def1d0e0aa"
     },
     {
       "path": "tests/test_agents/test_examples/data/codex.json",
@@ -42,7 +42,7 @@
           "has_code_hash": true
         }
       ],
-      "graph_values_sha256": "666d1b06948909b9cda7a02f8f806be188f27bde65af3cd2fda8c287b83eec37"
+      "graph_values_sha256": "9e003228076c05d38fcd6d1bab0d1bcd8837570872b509e82139319665136e28"
     },
     {
       "path": "tests/test_agents/test_examples/data/opencode.json",
@@ -58,7 +58,7 @@
           "has_code_hash": true
         }
       ],
-      "graph_values_sha256": "6ba26922193b1bd5ea730ff56d883a17b444c9ef2964d33200d0ded844fbecbe"
+      "graph_values_sha256": "dd6ee3eb5b898daa3e06d04b22c6af5075c7c22d116e60470a53347bef391751"
     },
     {
       "path": "examples/skill-agent-pilot/pilot-flow.json",
@@ -125,7 +125,7 @@
           "has_code_hash": true
         }
       ],
-      "graph_values_sha256": "8c05f6fca4fcddd7001034b18726ce091d336cc7aab078f1e726058654ee26a2"
+      "graph_values_sha256": "09739165458c4ae1a6d43f51173db0ef0746c07845af4f3141e79eb59579325d"
     },
     {
       "path": "examples/langflow-contract-routing/flow.json",
@@ -171,7 +171,7 @@
           "has_code_hash": true
         }
       ],
-      "graph_values_sha256": "e3e143e91c79471b58118989334660db4cf765e6b55578eb71682153719f809a"
+      "graph_values_sha256": "6bd25400d8a693be4e391f2b434d0f25f19013e4f92a601275ddbf9981f74eba"
     }
   ]
 }

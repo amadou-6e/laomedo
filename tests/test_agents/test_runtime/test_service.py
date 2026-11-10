@@ -283,7 +283,9 @@ class RunnerServiceTests(unittest.TestCase):
             release.wait(5)
 
         runner = SimpleNamespace(
-            _mirror_host_login=slow_copy, _execute=lambda *a, **kw: executed.set()
+            _mirror_host_login=slow_copy,
+            _execute=lambda *a, **kw: executed.set(),
+            release_mcp=Mock(),
         )
         worker = threading.Thread(
             target=LocalRunner._async_worker, args=(runner, "run", "task", gate)
@@ -310,6 +312,7 @@ class RunnerServiceTests(unittest.TestCase):
 
         runner = SimpleNamespace(
             _mirror_host_login=fail,
+            release_mcp=Mock(),
             _execute=Mock(),
             control_lock=threading.Lock(),
             status=lambda run_id: record,
@@ -337,6 +340,7 @@ class RunnerServiceTests(unittest.TestCase):
                     path.unlink(missing_ok=True)
                     runner = SimpleNamespace(
                         _mirror_host_login=lambda: None,
+                        release_mcp=Mock(),
                         _execute=Mock(side_effect=failure),
                         control_lock=threading.Lock(),
                         status=lambda run_id: record,

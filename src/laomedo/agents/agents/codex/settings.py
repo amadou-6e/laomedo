@@ -2,10 +2,10 @@
 
 from laomedo._paths import package_root
 
-IMAGE = "laomedo-codex-acp:0.159.2-2.1.1"
+IMAGE = "laomedo-codex-acp:0.159.2-2.1.1-mcp"
 
 
-IMAGE_ID = "sha256:d3f53de292540a8e412aa34a43a975b467df2d21aa6bba290cee11956edc03aa"
+IMAGE_ID = "sha256:78f02ca12c0c0b6b432a74d136e5f8cc27e681ed1d8ff93feffe2fa281cfdab7"
 
 
 GIT_IMAGE = IMAGE

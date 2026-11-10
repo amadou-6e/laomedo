@@ -91,13 +91,16 @@ class LangflowJoinController:
             or "request_id" in runner_body
         ):
             raise LaunchError("invalid_langflow_start")
+        from laomedo.agents.mcp.client import McpAccess
+
         body = dict(runner_body)
+        semantic_body = McpAccess.semantic_request(body)
         client_hash = _digest(
             {
                 "flow_id": flow_id,
                 "graph_run_id": graph_run_id,
                 "stage_id": stage_id,
-                "runner_body": body,
+                "runner_body": semantic_body,
             }
         )
         prior = self.store.langflow_client_snapshot(client_request_id)
@@ -110,7 +113,7 @@ class LangflowJoinController:
         run = self.store.reserve(
             graph=graph,
             component_code=codes,
-            resolved_config=body,
+            resolved_config=semantic_body,
             trigger={
                 "kind": "langflow_playground",
                 "flow_id": flow_id,
@@ -120,7 +123,7 @@ class LangflowJoinController:
         )
         run_id = run["run_id"]
         invocation_id = self.store.reserve_invocation(run_id, stage_id)
-        request_hash = _digest(body)
+        request_hash = _digest(semantic_body)
         self.store.freeze_runner_request(
             run_id, invocation_id, request_hash, provider=self.provider
         )

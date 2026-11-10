@@ -13,6 +13,13 @@ ROOT = repository_root()
 
 
 class NodeErrorCatalogueTests(unittest.TestCase):
+    def test_catalogue_text_preserves_utf8_punctuation(self):
+        """Do not ship English recovery copy damaged by repeated Windows decoding."""
+        text = (
+            ROOT / "frontend/langflow-skill-viewer/node-error-catalog.json"
+        ).read_text(encoding="utf-8")
+        self.assertNotRegex(text, "\u00c3|\u00e2\u20ac")
+
     def test_catalogue_keys_are_unique(self):
         def unique(pairs):
             result = {}

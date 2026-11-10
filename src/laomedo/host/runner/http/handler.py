@@ -136,6 +136,7 @@ class RunnerRequestHandler(BaseHTTPRequestHandler):
         if not self._authorized():
             return
         response_gate = None
+        mcp_access = None
         try:
             parts = self.path.strip("/").split("/")
             body = self._body()
@@ -154,6 +155,7 @@ class RunnerRequestHandler(BaseHTTPRequestHandler):
             elif (
                 len(parts) == 4 and parts[:2] == ["v1", "runs"] and parts[3] == "resume"
             ):
+                mcp_access = self.server.runner.bind_mcp_resume(parts[2], body)
                 extra = self.server.runner.prepare_resume(parts[2], body)
                 result = self.server.runner.resume(
                     parts[2],
@@ -225,6 +227,8 @@ class RunnerRequestHandler(BaseHTTPRequestHandler):
                 {"status": "failed", "error_category": str(exc)},
             )
         finally:
+            if mcp_access is not None:
+                self.server.runner.release_mcp(parts[2], expected=mcp_access)
             if response_gate is not None:
                 response_gate.set()
 
