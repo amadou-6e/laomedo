@@ -1,5 +1,47 @@
 # Abstract Agent lifecycle
 
+## Model discovery boundary
+
+`base.py` declares `BaseModelCatalog.list_models(refresh=False) -> ModelCatalog`.
+`models.py` defines `ModelCatalog` and `ModelOption`. Laomedo consumes this typed
+result; each provider owns discovery, authentication, caching and exact cleanup.
+`snapshot()` observes the last catalog without discovery, and `wait_until_idle()`
+observes discovery completion without declaring readiness or success.
+
+```python
+from laomedo.agents.agents.base.base import BaseModelCatalog
+
+def show_models(catalog: BaseModelCatalog):
+    model_catalog = catalog.list_models()
+    for model in model_catalog.models:
+        print(model.id, model.display_name, model.reasoning_efforts)
+```
+
+| Value | Meaning |
+| --- | --- |
+| `ModelOption.id` | Exact provider selection ID; never a synthesized display name. |
+| `display_name` | Provider-reported label, or `None` when unavailable. |
+| `reasoning_efforts` | Supported execution-setting IDs. The existing `"default"` sentinel means omit an override; it does not establish a native default. |
+| `default_reasoning_effort` | Explicitly reported default, or `None`; never the first available choice. |
+| `resolved_model` | Reported native model behind an alias, when available. |
+| `ModelCatalog.default_model_id` | Explicitly reported default selection ID, or `None`. |
+
+Provider normalization retains Claude picker labels and resolved IDs, Codex
+reported labels/defaults, and OpenCode reported labels. Unselected provider
+metadata stays inside the provider. Catalog methods never submit a model prompt.
+
+`ModelOption.from_payload()` and `ModelCatalog.from_payload()` translate the
+existing provider-owned discovery records into canonical values. Their
+`to_payload()` projection is the explicit existing HTTP boundary: `/v1/models`
+keeps `id`/`efforts`, Claude `name`/`resolved_model`, and current catalog metadata.
+New Python-only labels/defaults do not silently change that wire format.
+Cached values and returned catalogs must be detached, including reasoning lists.
+
+Claude retains shared in-flight refresh and stale observation for admission;
+Codex retains serialized TTL discovery; OpenCode retains runner exclusion,
+authentication checks and cleanup-before-publication. Failures must not replace
+a prior successful cache. Readiness remains the separate existing Agent check.
+
 `agent.py` defines abstract `BaseAgent`. It owns common run admission, file-backed records, request identity,
 workspace freezing and artifact selection. It composes provider execution hooks;
 it must not import concrete providers or their credential implementations.

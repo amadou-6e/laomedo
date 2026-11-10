@@ -19,6 +19,50 @@ boundaries; journaling, leases, publication and cancellation are host-supplied
 services, not extra provider implementations. Their final composition API is
 not designed yet. Existing live base classes remain until their callers migrate.
 
+## Model discovery
+
+Laomedo calls the Python abstract `BaseModelCatalog.list_models(*, refresh=False)`
+and receives `ModelCatalog`, containing `ModelOption` entries. These are defined
+in `agents/agents/base/base.py` and `models.py`, and exported from that package.
+Existing `ClaudeModelCatalog`, `CodexModelCatalog` and `OpenCodeModelCatalog`
+implement the same method. Their Agents supply their native collaborators;
+shared callers depend on the base contract rather than concrete catalog classes.
+
+```python
+from laomedo.agents.agents.base import BaseModelCatalog
+
+def show_models(catalog: BaseModelCatalog):
+    result = catalog.list_models()
+    for model in result.models:
+        print(model.id, model.display_name, model.reasoning_efforts)
+```
+
+Each option carries the exact selection ID, optional reported display name,
+supported reasoning-setting IDs, optional reported default effort and optional
+resolved native ID behind an alias. The catalog has an optional reported
+`default_model_id`. Missing labels/defaults stay `None`: the first model or effort
+is never selected implicitly. The existing `"default"` execution-setting sentinel
+means omit an override, not proof of the native default. Discovery alone is not
+authentication or execution-readiness attestation.
+
+| Provider | Native discovery and normalization | Retained provider policy |
+| --- | --- | --- |
+| Claude | Initialize-only picker: alias, label, resolved native ID and effort choices; defaults remain unknown. | Shared in-flight refresh, TTL cache and stale observation for dispatch admission. |
+| Codex | Paginated adapter model listing: ID, label, effort choices and explicit `isDefault` / `defaultReasoningEffort`. | Serialized TTL discovery, bounded pages, exact controller shutdown and receipt recovery. |
+| OpenCode | Verbose native model records: provider-qualified ID and reported label; existing omission setting, defaults unknown. | Connected-provider validation, runner exclusion, auth freshness and cleanup before publishing/cache. |
+
+Only normalized values cross this Python boundary. Native metadata remains in
+its provider. `snapshot()` observes the last result without discovery;
+`wait_until_idle()` observes completion, not success. Returned option lists are
+detached from cache state. A failed refresh preserves the last successful cache.
+
+The HTTP `/v1/models` response remains its current payload. Explicit
+`ModelCatalog.to_payload(provider=...)` projects `id`/`efforts`, Claude
+`name`/`resolved_model` and existing catalog metadata. The new Python-only default
+and label information does not silently change that external schema. Readiness
+remains the existing, separate Agent boundary; this extraction does not add an
+inference probe or broaden OpenCode production composition.
+
 ## Container ownership
 
 `DockerRuntime` in `src/laomedo/docker.py` delegates to py-docker.

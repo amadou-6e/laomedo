@@ -453,7 +453,23 @@ class CodexAgentRuntime(BaseAgentRuntime):
                 if not all(isinstance(level, str) and level for level in efforts):
                     raise RunnerError("model_list_invalid_entry")
                 ids.add(item["id"])
-                models.append({"id": item["id"], "efforts": efforts})
+                model = {"id": item["id"], "efforts": efforts}
+                for native_name, name in (
+                    ("displayName", "display_name"),
+                    ("defaultReasoningEffort", "default_reasoning_effort"),
+                ):
+                    value = item.get(native_name)
+                    if value is not None:
+                        if not isinstance(value, str) or not value.strip():
+                            raise RunnerError("model_list_invalid_entry")
+                        if name == "default_reasoning_effort" and value not in efforts:
+                            raise RunnerError("model_list_invalid_entry")
+                        model[name] = value
+                if "isDefault" in item:
+                    if type(item["isDefault"]) is not bool:
+                        raise RunnerError("model_list_invalid_entry")
+                    model["is_default"] = item["isDefault"]
+                models.append(model)
             cursor = result.get("nextCursor")
             if not cursor:
                 return models

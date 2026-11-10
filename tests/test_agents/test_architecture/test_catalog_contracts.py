@@ -1,14 +1,20 @@
 """Exercise one cache-observation contract against each actual provider catalogue."""
 
 from concurrent.futures import Future
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from types import SimpleNamespace
+import threading
 import unittest
-from unittest.mock import Mock
+from unittest.mock import AsyncMock, Mock
+
+from pydantic import ValidationError
 
 from laomedo.agents.agents.base.base import BaseModelCatalog
 from laomedo.agents.agents.codex.catalog import CodexModelCatalog
 from laomedo.agents.agents.claude.catalog import ClaudeModelCatalog
 from laomedo.agents.agents.opencode.catalog import OpenCodeModelCatalog
+from laomedo.agents.agents.base.models import ModelCatalog, ModelOption
 
 
 class CatalogContractTests(unittest.TestCase):
@@ -24,6 +30,112 @@ class CatalogContractTests(unittest.TestCase):
             kind(agent)
             for kind in (CodexModelCatalog, ClaudeModelCatalog, OpenCodeModelCatalog)
         ]
+
+    def discovery_catalogs(self, root):
+        """Use real catalog/cache owners with explicit native protocol doubles."""
+        for kind in (CodexModelCatalog, ClaudeModelCatalog, OpenCodeModelCatalog):
+            payload = {
+                "models": [
+                    {
+                        "id": "provider/model",
+                        "name": "Reported model",
+                        "efforts": ["low"],
+                    }
+                ],
+                "submitted_turns": 0,
+            }
+            backend = Mock()
+            backend.models.return_value = [
+                {
+                    "id": "provider/model",
+                    "efforts": ["low"],
+                    "metadata": {
+                        "name": "Reported model",
+                        "api_key": "excluded-synthetic-value",
+                    },
+                }
+            ]
+            agent = SimpleNamespace(
+                state=Path(root) / kind.__name__,
+                lock=threading.Lock(),
+                _model_catalog=AsyncMock(return_value=payload),
+                _discover_models=Mock(return_value=payload),
+                _recover_containers=Mock(),
+                _validate_provider=Mock(),
+                transport_factory=Mock(return_value=backend),
+            )
+            yield kind(agent), agent, backend
+
+    def test_one_typed_consumer_reads_each_provider_without_discovery_turns(self):
+        """All catalog classes expose the same labels/options without raw metadata."""
+        with TemporaryDirectory() as root:
+            for catalog, agent, backend in self.discovery_catalogs(root):
+                with self.subTest(catalog=type(catalog).__name__):
+                    result = catalog.list_models()
+                    self.assertIsInstance(result, ModelCatalog)
+                    model = result.models[0]
+                    self.assertIsInstance(model, ModelOption)
+                    self.assertEqual(model.id, "provider/model")
+                    self.assertEqual(model.display_name, "Reported model")
+                    self.assertEqual(model.reasoning_efforts, ["low"])
+                    self.assertIsNone(model.default_reasoning_effort)
+                    self.assertIsNone(result.default_model_id)
+                    self.assertEqual(result.submitted_turns, 0)
+                    self.assertNotIn(
+                        "excluded-synthetic-value", result.model_dump_json()
+                    )
+                    model.reasoning_efforts.append("caller mutation")
+                    self.assertEqual(
+                        catalog.list_models().models[0].reasoning_efforts, ["low"]
+                    )
+
+    def test_invalid_refresh_preserves_each_previous_successful_cache(self):
+        """Invalid provider data cannot poison a successful discovery observation."""
+        with TemporaryDirectory() as root:
+            for catalog, agent, backend in self.discovery_catalogs(root):
+                with self.subTest(catalog=type(catalog).__name__):
+                    original = catalog.list_models()
+                    invalid = {
+                        "models": [{"id": "provider/model", "efforts": "not-a-list"}]
+                    }
+                    agent._model_catalog.return_value = invalid
+                    agent._discover_models.return_value = invalid
+                    backend.models.return_value = invalid["models"]
+                    with self.assertRaises(ValidationError):
+                        catalog.list_models(refresh=True)
+                    self.assertEqual(catalog.snapshot(), original)
+                    self.assertEqual(catalog.list_models(), original)
+
+    def test_reported_defaults_are_validated_without_implicit_selection(self):
+        """Known defaults remain explicit; absence is never the first listed choice."""
+        catalog = ModelCatalog(
+            models=[
+                ModelOption(
+                    id="reported",
+                    reasoning_efforts=["low", "high"],
+                    default_reasoning_effort="low",
+                )
+            ],
+            default_model_id="reported",
+        )
+        self.assertEqual(catalog.default_model_id, "reported")
+        self.assertEqual(catalog.models[0].default_reasoning_effort, "low")
+        with self.assertRaises(ValidationError):
+            ModelCatalog(models=catalog.models, default_model_id="missing")
+        with self.assertRaises(ValidationError):
+            ModelCatalog(models=catalog.models + catalog.models)
+        with self.assertRaises(ValidationError):
+            ModelOption(
+                id="reported",
+                reasoning_efforts=["low"],
+                default_reasoning_effort="high",
+            )
+
+    def test_default_omission_sentinel_is_not_a_native_default(self):
+        """An existing default execution setting does not identify a native effort."""
+        model = ModelOption.from_payload({"id": "native", "efforts": ["default"]})
+        self.assertEqual(model.reasoning_efforts, ["default"])
+        self.assertIsNone(model.default_reasoning_effort)
 
     def test_missing_snapshot_does_not_discover_or_invent_choices(self):
         """A cold observation is None for every provider, without native effects."""
@@ -45,8 +157,8 @@ class CatalogContractTests(unittest.TestCase):
                 }
                 catalog._cached = (0.0, native)
                 snapshot = catalog.snapshot()
-                self.assertEqual(snapshot.model_dump(exclude_unset=True), native)
-                snapshot.models[0].efforts.append("changed-by-caller")
+                self.assertEqual(snapshot.to_payload(provider="codex"), native)
+                snapshot.models[0].reasoning_efforts.append("changed-by-caller")
                 self.assertEqual(native["models"][0]["efforts"], ["low"])
                 self.assertEqual(catalog._cached[0], 0.0)
 

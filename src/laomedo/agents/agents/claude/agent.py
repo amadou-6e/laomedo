@@ -359,7 +359,7 @@ class ClaudeAgent(BaseAgent):
         # refuses promptly until background discovery or explicit refresh completes.
         observed_catalog = self.catalog.snapshot()
         selected_catalog = (
-            observed_catalog.model_dump(exclude_unset=True)
+            observed_catalog.to_payload(provider=self.provider)
             if observed_catalog is not None
             else None
         )

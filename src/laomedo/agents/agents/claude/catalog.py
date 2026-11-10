@@ -5,7 +5,7 @@ from copy import deepcopy
 import time
 from laomedo.agents.agents.claude.settings import MODEL_CATALOG_TTL_SECONDS
 from laomedo.agents.agents.base.base import BaseModelCatalog
-from laomedo.agents.agents.base.models import ModelCatalogSnapshot
+from laomedo.agents.agents.base.models import ModelCatalog
 from laomedo.agents.errors import RunnerError
 
 
@@ -17,7 +17,7 @@ class ClaudeModelCatalog(BaseModelCatalog):
         self.agent = agent
         super().__init__()
 
-    def discover(self, *, refresh: bool = False) -> ModelCatalogSnapshot:
+    def list_models(self, *, refresh: bool = False) -> ModelCatalog:
         """Share an in-flight discovery across simultaneous editor refreshes."""
         with self._lock:
             cached = self._cached
@@ -26,26 +26,25 @@ class ClaudeModelCatalog(BaseModelCatalog):
                 and cached
                 and time.monotonic() - cached[0] < MODEL_CATALOG_TTL_SECONDS
             ):
-                return ModelCatalogSnapshot.model_validate(deepcopy(cached[1]))
+                return ModelCatalog.from_payload(deepcopy(cached[1]))
             pending = self._pending
             owner = pending is None
             if owner:
                 pending = self._pending = Future()
         if not owner:
             try:
-                return ModelCatalogSnapshot.model_validate(
-                    deepcopy(pending.result(timeout=65))
-                )
+                return ModelCatalog.from_payload(deepcopy(pending.result(timeout=65)))
             except FutureTimeout:
                 raise RunnerError(
                     "runner_model_catalog_unavailable_check_runner_connection"
                 ) from None
         try:
             result = self.agent._discover_models()
+            catalog = ModelCatalog.from_payload(result)
             with self._lock:
                 self._cached = (time.monotonic(), deepcopy(result))
             pending.set_result(result)
-            return ModelCatalogSnapshot.model_validate(deepcopy(result))
+            return catalog
         except Exception as exc:
             pending.set_exception(exc)
             raise

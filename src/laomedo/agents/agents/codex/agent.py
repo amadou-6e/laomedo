@@ -538,7 +538,14 @@ class CodexAgent(BaseAgent):
                 lifetime_seconds=60 + Settings.load().startup_margin,
             )
             await server.initialize()
-            return {"models": await server.models(), "submitted_turns": 0}
+            models = await server.models()
+            defaults = [item["id"] for item in models if item.get("is_default") is True]
+            if len(defaults) > 1:
+                raise RunnerError("model_list_invalid_entry")
+            result = {"models": models, "submitted_turns": 0}
+            if defaults:
+                result["default_model_id"] = defaults[0]
+            return result
         finally:
             try:
                 if server is not None:

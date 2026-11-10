@@ -583,31 +583,128 @@ class CredentialMaterial(BaseModel):
         ), self.identity
 
 
-class ModelChoice(BaseModel):
-    """A native model identifier and its actually advertised reasoning choices."""
+class ModelOption(BaseModel):
+    """One selectable model and the configuration actually reported for it."""
 
     model_config = ConfigDict(
-        strict=True, frozen=True, extra="allow", hide_input_in_errors=True
+        strict=True, frozen=True, extra="forbid", hide_input_in_errors=True
     )
     id: str = Field(
         min_length=1,
         description="Native model identifier, not a display label or implicit selection.",
     )
-    efforts: list[str] = Field(
+    display_name: str | None = Field(
+        default=None, min_length=1, description="Reported picker label, or unknown."
+    )
+    reasoning_efforts: list[str] = Field(
         default_factory=list,
-        description="Native supported effort identifiers; an empty list does not invent a default.",
+        description="Supported effort settings; the default sentinel omits an override and is not a reported native default.",
+    )
+    default_reasoning_effort: str | None = Field(
+        default=None,
+        min_length=1,
+        description="Explicitly reported default effort, or unknown.",
+    )
+    resolved_model: str | None = Field(
+        default=None,
+        min_length=1,
+        description="Reported native model behind a selection alias, when available.",
     )
 
+    @model_validator(mode="after")
+    def valid_default_effort(self):
+        """A reported default must be one of this model's supported settings."""
+        if (
+            self.default_reasoning_effort is not None
+            and self.default_reasoning_effort not in self.reasoning_efforts
+        ):
+            raise ValueError("model_default_effort_not_supported")
+        return self
 
-class ModelCatalogSnapshot(BaseModel):
-    """Validated choices with unchanged provider metadata at the wire boundary."""
+    @classmethod
+    def from_payload(cls, payload: dict) -> "ModelOption":
+        """Normalize the provider-owned discovery record without retaining raw metadata."""
+        return cls(
+            id=payload["id"],
+            display_name=payload.get("display_name", payload.get("name")),
+            reasoning_efforts=payload.get("efforts", []),
+            default_reasoning_effort=payload.get("default_reasoning_effort"),
+            resolved_model=payload.get("resolved_model"),
+        )
+
+    def to_payload(self, *, provider: str) -> dict:
+        """Project the existing HTTP model shape without adding Python-only fields."""
+        payload = {"id": self.id, "efforts": list(self.reasoning_efforts)}
+        if provider == "claude":
+            if self.display_name is not None:
+                payload["name"] = self.display_name
+            if self.resolved_model is not None:
+                payload["resolved_model"] = self.resolved_model
+        return payload
+
+
+class ModelCatalog(BaseModel):
+    """Typed discovery result; unknown defaults never select a model for the caller."""
 
     model_config = ConfigDict(
-        strict=True, frozen=True, extra="allow", hide_input_in_errors=True
+        strict=True, frozen=True, extra="forbid", hide_input_in_errors=True
     )
-    models: list[ModelChoice] = Field(
+    models: list[ModelOption] = Field(
         description="Native discovery choices without submitting a model turn."
     )
+    default_model_id: str | None = Field(
+        default=None,
+        min_length=1,
+        description="Explicitly reported default selection ID, or unknown.",
+    )
+    provider: str | None = Field(
+        default=None,
+        description="Provider identity reported in the existing discovery response.",
+    )
+    source: str | None = Field(
+        default=None, description="Reported discovery mechanism, when provided."
+    )
+    account_availability: str | None = Field(
+        default=None,
+        description="Scope of the provider's account-availability observation.",
+    )
+    submitted_turns: Literal[0] | None = Field(
+        default=None,
+        description="Zero-turn accounting when explicitly reported; discovery never submits inference.",
+    )
+
+    @model_validator(mode="after")
+    def valid_model_ids(self):
+        """Reject duplicate choices and defaults outside the reported catalog."""
+        ids = [model.id for model in self.models]
+        if len(ids) != len(set(ids)):
+            raise ValueError("duplicate_catalog_model")
+        if self.default_model_id is not None and self.default_model_id not in ids:
+            raise ValueError("catalog_default_model_not_available")
+        return self
+
+    @classmethod
+    def from_payload(cls, payload: dict) -> "ModelCatalog":
+        """Build canonical values from the existing provider discovery records."""
+        return cls(
+            models=[ModelOption.from_payload(item) for item in payload["models"]],
+            default_model_id=payload.get("default_model_id"),
+            provider=payload.get("provider"),
+            source=payload.get("source"),
+            account_availability=payload.get("account_availability"),
+            submitted_turns=payload.get("submitted_turns"),
+        )
+
+    def to_payload(self, *, provider: str) -> dict:
+        """Preserve the current /v1/models fields at the explicit wire boundary."""
+        payload = {
+            "models": [model.to_payload(provider=provider) for model in self.models]
+        }
+        for name in ("provider", "source", "account_availability", "submitted_turns"):
+            value = getattr(self, name)
+            if value is not None:
+                payload[name] = value
+        return payload
 
 
 class RuntimeLaunch(BaseModel):

@@ -14,7 +14,7 @@ from laomedo.agents.agents.base.models import (
     CredentialRequest,
     CredentialBinding,
     CredentialMaterial,
-    ModelCatalogSnapshot,
+    ModelCatalog,
     RuntimeLaunch,
     ProcessHealthObservation,
     IsolationObservation,
@@ -123,7 +123,7 @@ class BaseModelCatalog(ABC):
         self._cached = None
         self._pending = None
 
-    def snapshot(self) -> ModelCatalogSnapshot | None:
+    def snapshot(self) -> ModelCatalog | None:
         """Copy last observed choices, including stale values, without refreshing.
 
         A missing catalogue remains None. This observation never substitutes a
@@ -131,7 +131,7 @@ class BaseModelCatalog(ABC):
         """
         with self._lock:
             return (
-                ModelCatalogSnapshot.model_validate(deepcopy(self._cached[1]))
+                ModelCatalog.from_payload(deepcopy(self._cached[1]))
                 if self._cached is not None
                 else None
             )
@@ -162,7 +162,7 @@ class BaseModelCatalog(ABC):
         return True
 
     @abstractmethod
-    def discover(self, *, refresh: bool = False) -> ModelCatalogSnapshot:
+    def list_models(self, *, refresh: bool = False) -> ModelCatalog:
         """Discover or refresh choices; never change the caller's selected model."""
 
 
