@@ -86,15 +86,11 @@ class DockerRuntime:
         """
         from docker.errors import DockerException, ImageNotFound
         from requests.exceptions import RequestException
-        from py_docker.errors import ImageResolutionError, OwnershipConflictError
+        from py_docker.errors import ImageResolutionError
 
         if expected_id is not None:
-            try:
-                client.images.resolve(reference, expected_id=expected_id)
-                return expected_id
-            except ImageResolutionError:
-                # The second inspection below distinguishes genuine absence.
-                pass
+            client.images.resolve(reference, expected_id=expected_id)
+            return expected_id
         settings = ImageBuildSettings()
         recipe = ImageRegistry.load().find(reference, max_bytes=settings.context_bytes)
         if recipe is None:
@@ -106,12 +102,12 @@ class DockerRuntime:
         except (DockerException, RequestException):
             raise ImageResolutionError("inspect local image") from None
         if image is not None:
-            return cls._admit_image(image, recipe, expected_id)
+            return cls._admit_image(image, recipe)
         deadline = time.monotonic() + settings.build_seconds
         key = hashlib.sha256(
             (client.connection.endpoint + "\0" + reference).encode()
         ).hexdigest()
-        cache = Path(tempfile.gettempdir()) / "laomedo-image-builds"
+        cache = ImageBuildLock.state_directory(deadline)
         with ImageBuildLock(
             cache / (key + ".lock"), deadline=deadline, cancelled=cancelled
         ):
@@ -122,11 +118,10 @@ class DockerRuntime:
             except (DockerException, RequestException):
                 raise ImageResolutionError("inspect local image") from None
             if image is not None:
-                return cls._admit_image(image, recipe, expected_id)
+                return cls._admit_image(image, recipe)
             return cls._build_image(
                 client,
                 recipe,
-                expected_id,
                 settings,
                 deadline,
                 cancelled,
@@ -134,26 +129,18 @@ class DockerRuntime:
             )
 
     @staticmethod
-    def _admit_image(image, recipe, expected_id):
-        from py_docker.errors import OwnershipConflictError
-
-        if expected_id is not None:
-            if image.id != expected_id:
-                raise OwnershipConflictError("verify immutable image ID")
-        elif (image.labels or {}).get("laomedo.image.recipe") != recipe.fingerprint:
+    def _admit_image(image, recipe):
+        if (image.labels or {}).get("laomedo.image.recipe") != recipe.fingerprint:
             raise ImageBuildError("image_recipe_changed_remove_tag_to_rebuild")
         return image.id
 
     @classmethod
-    def _build_image(
-        cls, client, recipe, expected_id, settings, deadline, cancelled, receipt
-    ):
+    def _build_image(cls, client, recipe, settings, deadline, cancelled, receipt):
         from docker.errors import DockerException, ImageNotFound
         from requests.exceptions import RequestException
         from py_docker.containers.models import ContainerSpec
         from py_docker.jobs.models import ContainerJob
         from py_docker.streams.models import StreamLimits
-        from py_docker.errors import OwnershipConflictError
 
         registration = recipe.registration
         executable = shutil.which("docker")
@@ -184,8 +171,6 @@ class DockerRuntime:
                 command.append(directory)
                 cls._run_build(command, registration.image, deadline, cancelled)
             image = client.sdk.images.get(stage)
-            if expected_id is not None and image.id != expected_id:
-                raise OwnershipConflictError("verify immutable image ID")
             cls.recover_receipts(client, [receipt], kind="job")
             if cancelled is not None and cancelled.is_set():
                 raise ImageBuildError("build_cancelled")
@@ -200,6 +185,14 @@ class DockerRuntime:
                         read_only=True,
                         network_mode="none",
                         cap_drop=["ALL"],
+                        environment={
+                            "HOME": "/tmp",
+                            "XDG_DATA_HOME": "/tmp/data",
+                            "XDG_CACHE_HOME": "/tmp/cache",
+                            "XDG_STATE_HOME": "/tmp/state",
+                            "CLAUDE_CONFIG_DIR": "/tmp/config",
+                        },
+                        tmpfs={"/tmp": "rw,nosuid,nodev,size=64m,mode=1777"},
                     ),
                     limits=StreamLimits(
                         seconds=settings.verify_seconds, max_bytes=65536
@@ -227,9 +220,7 @@ class DockerRuntime:
             repository, _, tag = registration.image.rpartition(":")
             if not image.tag(repository, tag=tag):
                 raise ImageBuildError("image_tag_failed")
-            return cls._admit_image(
-                client.sdk.images.get(registration.image), recipe, expected_id
-            )
+            return cls._admit_image(client.sdk.images.get(registration.image), recipe)
         except ImageBuildError as error:
             logging.getLogger(__name__).error(
                 "Image acquisition failed: %s", error.phase

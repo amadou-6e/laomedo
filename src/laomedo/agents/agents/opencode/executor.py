@@ -11,6 +11,7 @@ import shutil
 import threading
 
 from laomedo.docker import DockerRuntime
+from laomedo.container_images.errors import ImageBuildError
 from laomedo.agents.agents.opencode.models import (
     OpenCodeConfig,
     OpenCodeRuntimeIdentity,
@@ -62,6 +63,20 @@ class OpenCodeCommandExecutor(BaseInterruptibleCommandExecutor):
         self.stopping = threading.Event()
         self.worker_image_id = worker_image_id or WORKER_IMAGE_ID
         self.docker_endpoint = docker_endpoint
+        if self.worker_image_id is None:
+            from py_docker.errors import DockerOperationError
+
+            try:
+                with DockerRuntime(
+                    environment={"DOCKER_HOST": self.docker_endpoint}
+                ).client() as client:
+                    self.worker_image_id = DockerRuntime.ensure_image(
+                        client, WORKER_IMAGE
+                    )
+            except ImageBuildError:
+                raise RunnerError("container_image_build_failed") from None
+            except DockerOperationError:
+                raise RunnerError("opencode_workspace_command_failed") from None
         self.receipts = (
             Path(receipt_directory)
             if receipt_directory is not None
@@ -143,13 +158,6 @@ class OpenCodeCommandExecutor(BaseInterruptibleCommandExecutor):
             with self.lock:
                 self.allocated_receipts.add(receipt_path)
             try:
-                if self.worker_image_id is None:
-                    with DockerRuntime(
-                        environment={"DOCKER_HOST": self.docker_endpoint}
-                    ).client() as client:
-                        self.worker_image_id = DockerRuntime.ensure_image(
-                            client, WORKER_IMAGE
-                        )
                 result = DockerRuntime(
                     environment={"DOCKER_HOST": self.docker_endpoint}
                 ).run_job(

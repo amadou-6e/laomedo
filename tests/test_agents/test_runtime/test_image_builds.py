@@ -11,6 +11,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 from laomedo.container_images.errors import ImageBuildError
+from laomedo.container_images.lock import ImageBuildLock
 from laomedo.container_images.models import ImageRecipe, ImageRegistration
 from laomedo.container_images.registry import ImageRegistry
 from laomedo.docker import DockerRuntime
@@ -51,6 +52,9 @@ class ImageBuildTests(unittest.TestCase):
         )
         self.addCleanup(patch.stopall)
         patch("laomedo.docker.ImageRegistry.load", return_value=self.registry).start()
+        patch.object(
+            ImageBuildLock, "state_directory", return_value=root / "state"
+        ).start()
 
     def lookup(self, reference):
         from docker.errors import ImageNotFound
@@ -72,6 +76,7 @@ class ImageBuildTests(unittest.TestCase):
         command = build.call_args.args[0]
         self.assertEqual(command[1:3], ["--host", self.client.connection.endpoint])
         self.assertIn("laomedo.image.recipe=" + self.recipe.fingerprint, command)
+        self.assertTrue(Path(command[command.index("--file") + 1]).is_absolute())
         self.assertEqual(
             self.client.jobs.run.call_args.args[0].spec.image, self.image.id
         )
@@ -123,6 +128,73 @@ class ImageBuildTests(unittest.TestCase):
                     self.client, self.reference, expected_id="sha256:" + "b" * 64
                 )
         build.assert_not_called()
+
+    def test_missing_explicit_pin_refuses_without_a_network_build(self):
+        from py_docker.errors import ImageResolutionError
+
+        self.client.images.resolve.side_effect = ImageResolutionError("missing")
+        with patch.object(DockerRuntime, "_run_build") as build:
+            with self.assertRaises(ImageResolutionError):
+                DockerRuntime.ensure_image(
+                    self.client, self.reference, expected_id="sha256:" + "b" * 64
+                )
+        self.assertNotIn(self.reference, self.published)
+        self.client.jobs.run.assert_not_called()
+        build.assert_not_called()
+
+    def test_failed_build_never_probes_or_publishes(self):
+        with patch.object(
+            DockerRuntime,
+            "_run_build",
+            side_effect=ImageBuildError("image_build_timeout"),
+        ):
+            with self.assertRaises(ImageBuildError):
+                DockerRuntime.ensure_image(self.client, self.reference)
+        self.assertNotIn(self.reference, self.published)
+        self.client.jobs.run.assert_not_called()
+
+    def test_concurrent_callers_build_once_and_reuse_verified_result(self):
+        results, failures = [], []
+
+        def acquire():
+            try:
+                results.append(DockerRuntime.ensure_image(self.client, self.reference))
+            except BaseException as error:
+                failures.append(error)
+
+        with patch.object(
+            DockerRuntime, "_run_build", side_effect=lambda *_: time.sleep(0.1)
+        ) as build:
+            callers = [threading.Thread(target=acquire) for _ in range(2)]
+            for caller in callers:
+                caller.start()
+            for caller in callers:
+                caller.join(timeout=5)
+            self.assertFalse(any(caller.is_alive() for caller in callers))
+        self.assertEqual(failures, [])
+        self.assertEqual(results, [self.image.id, self.image.id])
+        self.assertEqual(build.call_count, 1)
+        self.assertEqual(self.client.jobs.run.call_count, 1)
+
+    def test_lock_blocks_an_independent_process_until_timeout(self):
+        lock = Path(self.temp.name) / "held.lock"
+        code = (
+            "import time;from pathlib import Path;"
+            "from laomedo.container_images.lock import ImageBuildLock;"
+            "from laomedo.container_images.errors import ImageBuildError;"
+            "\ntry:\n with ImageBuildLock(Path("
+            + repr(str(lock))
+            + "),deadline=time.monotonic()+0.2): pass"
+            "\nexcept ImageBuildError as e:\n assert e.phase=='build_lock_timeout';print('blocked')"
+        )
+        import subprocess
+
+        with ImageBuildLock(lock, deadline=time.monotonic() + 3):
+            child = subprocess.run(
+                [sys.executable, "-c", code], capture_output=True, text=True, timeout=5
+            )
+        self.assertEqual(child.returncode, 0, child.stderr)
+        self.assertEqual(child.stdout.strip(), "blocked")
 
     def test_recipe_snapshot_does_not_copy_unregistered_or_changed_inputs(self):
         root = Path(self.temp.name)

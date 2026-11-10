@@ -2,6 +2,7 @@
 
 import errno
 import os
+from pathlib import Path
 import time
 
 from laomedo.container_images.errors import ImageBuildError
@@ -13,6 +14,34 @@ class ImageBuildLock:
     def __init__(self, path, *, deadline, cancelled=None):
         self.path, self.deadline, self.cancelled = path, deadline, cancelled
         self.stream = None
+
+    @classmethod
+    def state_directory(cls, deadline):
+        """Admit owner-only durable state; never recover receipts from shared /tmp."""
+        from laomedo.host.private_state.models import DirectoryPermissionPolicy
+        from laomedo.host.private_state.utils import prepare_private_directory
+        from laomedo.host.private_state.windows import WindowsDirectorySecurity
+        from laomedo.host.private_state.errors import PrivateStateError
+
+        path = Path.home() / ".laomedo-image-builds"
+        policy = None
+        try:
+            if os.name == "nt":
+                system = WindowsDirectorySecurity().system_directory()
+                policy = DirectoryPermissionPolicy(
+                    whoami=system / "whoami.exe",
+                    icacls=system / "icacls.exe",
+                    environment={
+                        key: value
+                        for key, value in os.environ.items()
+                        if key.upper() in {"SYSTEMROOT", "WINDIR", "TEMP", "TMP"}
+                    },
+                    deadline=deadline,
+                )
+            prepare_private_directory(path, policy=policy)
+        except (OSError, PrivateStateError):
+            raise ImageBuildError("image_build_state_unverified") from None
+        return path
 
     def __enter__(self):
         self.path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
