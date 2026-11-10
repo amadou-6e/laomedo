@@ -9,7 +9,7 @@ abstract role solely because a provider has a similarly named internal object.
 | --- | --- |
 | Activity | Read history and translate native events into common activity. |
 | Containers/resources | Prepare, launch, inspect and clean up owned resources. |
-| Agent interaction | Start/resume sessions, prompt, stream results and cancel. |
+| Agent interaction | Start/resume runs, observe status and request cancellation. |
 | Model discovery/readiness | List models and report the readiness actually checked. |
 | Recovery | Reconcile interrupted runs and clean up surviving owned resources. |
 
