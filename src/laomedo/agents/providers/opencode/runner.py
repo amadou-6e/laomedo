@@ -17,8 +17,8 @@ import laomedo.agents.runtime.runner as _runtime_runner
 import laomedo.agents.runtime.models as _runtime_models
 import laomedo.agents.runtime.utils as _runtime_utils
 from laomedo.skills.registry.errors import SkillStoreError
-from laomedo.skills.registry.hashing import tree_hash
-from laomedo.skills.registry.files import inventory
+from laomedo.skills.registry.utils.hashing import tree_hash
+from laomedo.skills.registry.utils.files import inventory
 from laomedo.agents.workspace.skills.utils import verify
 from laomedo.agents.workspace.skills.utils import remove_owned_tree
 import re

@@ -44,7 +44,7 @@ def build(action="modify"):
     }
     target = {
         "id": "pr",
-        "fieldName": "operation",
+        "fieldName": "pr_context",
         "inputTypes": ["Data", "Message"],
         "type": "other",
     }
@@ -65,7 +65,7 @@ def build(action="modify"):
         "access_type": "PRIVATE",
         "data": {
             "nodes": [pr, agent],
-            "edges": [edge(pr, "task", agent, "task"), feedback],
+            "edges": [edge(pr, "pr", agent, "task"), feedback],
             "viewport": {"x": 80, "y": 40, "zoom": 0.8},
         },
     }

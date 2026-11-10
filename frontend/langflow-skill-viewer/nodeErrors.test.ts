@@ -195,12 +195,12 @@ test('invalid handoff selections explain the actual parameter without exposing i
  expect(JSON.stringify(failure)).not.toContain('private-value');
 });
 
-test("legacy Agent inheritance reports migration without leaking payloads or suggesting a blind retry", () => {
+test("unsupported Agent inheritance reports safe replacement without leaking payloads or suggesting a blind retry", () => {
  const failure = describeNodeFailure("Error building Component LaomedoClaudeAgent: \n\nagent_component_migration_required; private-native-payload", undefined,
    {nodeId: "agent", nodeType: "LaomedoClaudeAgent", operation: "fresh"});
  expect(failure.title).toBe("This saved Agent node needs an update");
  expect(failure.description).toContain("stopped before sending a request");
- expect(failure.recovery).toContain("migrate a copy");
+ expect(failure.recovery).toContain("Use the current provider component");
  expect(failure.diagnostics.code).toBe("agent_component_migration_required");
  expect(JSON.stringify(failure)).not.toContain("private-native-payload");
  expect(failure.recovery).not.toMatch(/retry|operator|restart/i);

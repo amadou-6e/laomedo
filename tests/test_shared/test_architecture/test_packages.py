@@ -88,7 +88,7 @@ class PackageLayoutTests(unittest.TestCase):
             MEDIATION_CLIENT.with_name("agent_gh_adapter.mjs"),
             MEDIATION_CLIENT.with_name("agent_git_remote.mjs"),
             package_root() / "skills/resources/skill-summary/SKILL.md",
-            package_root() / "git/credentials/helper.py",
+            package_root() / "git/credential_helper.py",
         ]
         for path in paths:
             self.assertEqual(
