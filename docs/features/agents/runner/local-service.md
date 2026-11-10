@@ -12,7 +12,10 @@ Historical experiment ceilings do not authorize or block normal user runs.
 
 Opt in on the trusted Langflow host with `LAOMEDO_RUNNER_SERVICE_FILE` pointing
 to a private JSON file. The browser cannot choose a command, source, token,
-or arbitrary endpoint. Example host configuration (replace paths):
+or arbitrary endpoint. For a prepared native Codex app, the
+[managed app launch command](local-app.md) binds this configuration, the token
+file and new-node endpoint together without an environment-variable bootstrap.
+Example host configuration (replace paths):
 
 ```json
 {
@@ -40,8 +43,11 @@ rotating refresh credential. No sessions, settings or full profile are copied.
 Async requests acknowledge before copying, and copy failures are retained against
 the run. Remote or TCP Docker endpoints are refused. Expired host access requires
 normal host Claude usage to refresh; it does not establish a missing subscription. For Codex, use `provider: "codex"` and omit the Claude-only
-`image`, `profile_volume`, and `lease_service` configuration fields; its
-normal Docker prerequisites and default runner options still apply.
+`image` and `profile_volume` fields. Set `lease_service` to the independent Codex
+supervisor's absolute state path for normal supervised execution. An optional
+Codex-only `image_id` passes the exact host-reviewed local rebuild identity to
+the existing CLI; Git-workspace overrides are refused. Normal Docker/version
+checks and default image pins still apply when it is omitted.
 
 Authenticated status/start routes select the configured host service when no URL
 is supplied. Legacy explicit URLs must still match exactly. They return only service state and safe reason codes,
