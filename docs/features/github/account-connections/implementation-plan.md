@@ -1,6 +1,7 @@
 # Implementation sequence: local sign-in and private GitHub Skills
 
-Status: PROPOSED, NOT IMPLEMENTED. Scope: [#251](https://github.com/amadou-6e/laomedo/issues/251),
+Status: IMPLEMENTATION IN PROGRESS; the connection feature is not available yet.
+Scope: [#251](https://github.com/amadou-6e/laomedo/issues/251),
 [canonical spec PR #411](https://github.com/amadou-6e/specs/pull/411).
 This plan follows the approved draft design, not runtime acceptance. Owner asked
 for detailed steps/methods and a Claude approach review before runtime changes.
@@ -46,12 +47,13 @@ Use a separate browser profile as well. Different localhost ports do not isolate
 cookies, so a different app port alone cannot protect the existing preview's
 login state. Do not copy personal profiles, cookies or credentials into that profile.
 
-Bootstrap through the existing hidden-prompt administrator CLI, then existing
-administrator user management to create/activate a non-default owner. Sign in as
-that owner. Bind its verified database UUID through trusted local configuration;
-never infer the owner from the first connection request or browser JSON. Keep
-public signup closed. Password entry/selection belongs to the user; prepare the
-concrete setup first and request only necessary interactive input.
+Use the local PIN profile runtime from PR #263, as selected in the later SC01
+profile contract at specs `a16a7aed`. It provisions the internal startup actor
+without exposing an administrator workflow. Resolve the ordinary active profile
+through upstream authentication and bind its verified database UUID to each lease
+and connection; never accept an owner assertion from browser JSON. Public signup
+stays closed. Owner PIN selection belongs in the browser. Disposable QA profiles
+may validate the actual app without selecting or disclosing the owner's PIN.
 
 Gate: real login, incorrect-password failure, session query, refresh, logout,
 expired-session recovery, browser restart/profile restoration and app restart on
@@ -62,7 +64,7 @@ Do not replace upstream login pre-emptively.
 ### 2. Admit private browser sessions explicitly
 
 Retain the upstream authenticated active-user dependency. A private request must
-also match the trusted owner and native Windows/normal-login deployment, reject
+also match the authenticated profile and native Windows/normal-login deployment, reject
 auto-login, API-key-only, bearer-only requests without a private lease, and external-auth contexts, and
 have a valid revocable private browser-session lease. An auth-method string or
 user UUID alone does not prove an explicit login or a live private session.

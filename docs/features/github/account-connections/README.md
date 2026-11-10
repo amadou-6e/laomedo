@@ -9,11 +9,16 @@ and its editable UI proposal; implementation waits for the design review. See th
 [ordered implementation plan](implementation-plan.md).
 It grants no credential access or repository write permission.
 
-The first implementation block adds the durable, digest-only private-session
-store under `integrations/langflow/authentication`. It covers owner/lifetime
-checks, restart persistence and refresh/revocation serialization. It is not wired
-to upstream login or private routes yet. OAuth, the Windows vault, repository
-consent, private source readers and browser acceptance remain unfinished.
+The first implementation blocks add the durable, digest-only private-session
+store under `integrations/langflow/authentication` and explicit Windows vault
+custody under `host/credentials/github`. Internal tests cover owner/lifetime
+checks, restart persistence, refresh/revocation serialization and vault failures.
+A separate native check verified storage, reopened-instance loading and removal
+of one fresh synthetic vault entry; no existing entries were read or enumerated.
+The implementation now stacks on PR #263 for PIN profile identity. Install its
+optional libraries with `.[private-sources]`; their pinned versions are locked.
+Upstream login admission, OAuth, repository consent, private source readers and
+the connection UI remain unfinished.
 Reviewer status: fully unreviewed — reviewer pending for this implementation
 block. Earlier plan/design approval is not implementation review.
 
