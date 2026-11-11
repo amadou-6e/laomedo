@@ -199,8 +199,8 @@ const RenderInputParameters = ({
       {renderInputParameters(shownTemplateFields)}
       {advancedFields.length > 0 && <AgentAdvancedControls nodeId={data.id} visible={showNode}
         label={isSkillNode(data) ? "Advanced settings" : "Advanced controls"}>
-        {renderInputParameters(advancedFields, true)}
         {isSkillNode(data) && <PrivateSkillControls data={data} />}
+        {renderInputParameters(advancedFields, true)}
       </AgentAdvancedControls>}
     </>
   );

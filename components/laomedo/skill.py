@@ -321,9 +321,15 @@ class LaomedoSkill(Component):
         for item in self.inputs:
             build_config.setdefault(item.name, item.to_dict())
         if build_config["github_connection"].get("value"):
+            changed = (
+                field_name in {"source", "skill_id", "revision_id"}
+                and build_config[field_name].get("value") != field_value
+            )
             if field_name in {"source", "skill_id", "revision_id"}:
                 build_config[field_name]["value"] = field_value
-            if field_name == "source":
+            for key in ("skill_id", "revision_id"):
+                build_config[key]["combobox"] = False
+            if field_name == "source" and changed:
                 for key in ("skill_id", "revision_id"):
                     build_config[key].update(value="", options=[])
                 for key in (
@@ -331,6 +337,14 @@ class LaomedoSkill(Component):
                     "resolved_revision_id",
                     "resolved_selection",
                     "private_repository_id",
+                ):
+                    build_config[key]["value"] = ""
+            elif field_name == "skill_id" and changed:
+                build_config["revision_id"].update(value="", options=[])
+                for key in (
+                    "resolved_skill_id",
+                    "resolved_revision_id",
+                    "resolved_selection",
                 ):
                     build_config[key]["value"] = ""
             build_config["discovery_status"][
