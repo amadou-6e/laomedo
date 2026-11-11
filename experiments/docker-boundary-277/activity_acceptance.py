@@ -84,6 +84,7 @@ def main():
                     break
                 page = agent.read_activity(run_id, attempt, after=page.next_after, limit=1)
             checks = {'stage': 'activity_' + operation, 'status': results[0]['status'],
+                      'error': results[0].get('error_category'), 'reason': page.reason,
                       'stream_state': saved['run']['stream_state'], 'closed': page.closed,
                       'complete': page.complete, 'record_count': count,
                       'item_count': len(view['items']), 'stable_replay': first.records == replay.records,
