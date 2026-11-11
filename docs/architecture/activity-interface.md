@@ -5,13 +5,19 @@ The selected boundary is implemented on the existing Python `BaseAgent` ABC.
 Claude approved the code delta `ebf74f27..3778e2714` and the selected Activity
 specification section, then read this complete document and approved it subject
 to this review-status correction. Later edits here only record that verdict.
-Codex fresh execution, successful resume and resumed-prompt cancellation now
-pass on this reviewed executable code through real HTTP capture/store/display,
-with complete closure and stable replay. See [sanitized acceptance evidence](https://github.com/amadou-6e/laomedo/blob/324579336/experiments/docker-boundary-277/evidence/2026-11-11-activity-current.md).
-This later evidence and the experiment-only cancellation option have not been
-independently reviewed. Earlier failed observations remain preserved; their
-causes were not established. Claude/OpenCode and host-loss acceptance remain open.
-PR #250 remains draft; this scoped review does not approve the whole PR.
+Real Codex fresh/resume/cancellation passed; Claude fresh/resume/confirmed
+cancellation and explicitly composed OpenCode fresh/resume/active-worker
+cancellation also passed through HTTP capture/store/common display and replay.
+Claude approved the experiment harnesses and supported the disclosed conclusions
+at exp `c11976467..271f9058c`. See [Claude evidence and teardown limitation](https://github.com/amadou-6e/laomedo/blob/271f9058c/experiments/docker-boundary-277/evidence/2026-11-11-claude-activity.md)
+and [OpenCode evidence and supported-route scope](https://github.com/amadou-6e/laomedo/blob/271f9058c/experiments/docker-boundary-277/evidence/2026-11-11-opencode-activity.md).
+Failed observations remain preserved. Claude's initial process exited with a
+Windows log-cleanup error after successful model flows and auth-volume removal;
+the corrected harness teardown was not rerun live. OpenCode default host
+composition, unsupported routes, authenticated readiness and host-loss/daemon-wide
+cleanup remain unaccepted. The unused runtime-role guard failure was resolved;
+all five GitHub checks pass at `68415e3dd`. PR #250 remains draft with older
+whole-PR review gaps; scoped approvals do not approve the whole PR.
 
 ## Public method and caller
 
@@ -219,5 +225,4 @@ intervals, incremental tool output, replacement usage, completeness, invalid
 cursors, and real HTTP capture/store/display with owner isolation. Synthetic
 source fixtures are not real agent execution acceptance. Real native execution
 and reviewer coverage must be reported separately in the PR; this document does
-not establish them. The existing runtime-interface guard and broader PR blockers
-remain separately scoped.
+not establish them. The remaining broad-PR review and recovery-acceptance gaps remain separately scoped.

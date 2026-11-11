@@ -285,10 +285,12 @@ projector ABC and forwarding wrappers are retired. Existing saved native history
 keeps a private read-only interpretation path. See [the complete method, data and
 streaming contract](activity-interface.md). Claude approved the Activity code
 and selected specification at `3778e2714`, then the full interface document.
-Current-code Codex fresh/resume/cancellation acceptance passes; Claude/OpenCode
-and host-loss acceptance remain open. Later experiment evidence is not part of
-that independent review. PR250 remains draft with the existing runtime guard
-and other broad-PR review/acceptance gaps.
+Current-code fresh/resume/cancellation acceptance passes for Codex, Claude and
+explicitly composed supported-route OpenCode. Claude approved the new harnesses
+and supported their disclosed conclusions at exp c11976467..271f9058c; see the
+Activity interface document for evidence and limits. All five GitHub checks pass
+at68415e3dd, including the runtime contract guard. PR250 remains draft with
+host-loss/daemon-wide cleanup and older broad-PR review gaps.
 
 ## Native runtime ownership
 
@@ -306,5 +308,7 @@ baseline or provider exceptions; retired classes/imports cannot return.
 Claude approved this retirement's code delta `98d130bb9..acc9c41ae`, selected
 specification and documentation, subject to this review-status update. Full Agent
 suite: 693 tests pass, four skipped. Real Codex fresh/resume/cancellation passed
-on that head. These scoped approvals do not cover later changes or establish
-Claude/OpenCode, host-loss or whole-PR acceptance.
+on that head. These scoped approvals do not cover later changes or establish host-loss or
+whole-PR acceptance. Separate native-provider evidence and its review are
+recorded above; installed-wheel CI corrections acc9c41ae..68415e3dd also received
+implementation/documentation APPROVE.
