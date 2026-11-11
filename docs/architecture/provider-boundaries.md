@@ -328,7 +328,7 @@ Layout code/metadata `620ad13a..089f71aa` and the nonvacuous architecture guard
 correction `0fdacaa78..cc02e68b` received APPROVE with declared import-order audit
 limits. Actual UI captures are on exp `9477b4da`; visual recheck is pending.
 Initial provider-role extraction and surviving integration still have uncovered
-portions: fully unreviewed ? reviewer pending. All five required CI checks pass
+portions: fully unreviewed — reviewer pending. All five required CI checks pass
 at `cc02e68b`. These status-only notes do not claim review of subsequent code.
 PR250 remains draft; canonical specification and owner graph acceptance remain
 separate gates.
