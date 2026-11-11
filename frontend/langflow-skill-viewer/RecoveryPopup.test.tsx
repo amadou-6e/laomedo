@@ -86,7 +86,7 @@ test("online guidance is not repeated or conditional on a future reconnect", asy
 test("a healthy API does not turn an unresolved catalogue failure green", async () => {
   (api.get as jest.Mock).mockResolvedValue({data:{state:"ready",can_start:false}});
   render(<RecoveryPopup message="runner_model_catalog_unavailable_check_runner_connection" context={{nodeId:"agent"}} onDismiss={jest.fn()} />);
-  await screen.findByText(/Open Model and use Refresh/);
+  await screen.findByText(/Use Refresh models/);
   const popup=screen.getByRole("region",{name:"Local backend recovery"});
   expect(popup).toHaveStyle({borderLeftColor:"#F87171"});
   expect(popup).toHaveAttribute("data-error-code","runner_model_catalog_unavailable_check_runner_connection");
