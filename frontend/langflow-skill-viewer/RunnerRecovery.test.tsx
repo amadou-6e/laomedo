@@ -219,3 +219,32 @@ test("late readiness after the catalogue reconciliation window never auto refres
   expect(ready).not.toHaveBeenCalled();expect(api.post).toHaveBeenCalledTimes(1);
  }finally{jest.useRealTimers();}
 });
+
+
+test("a previous failure during an unconfirmed new start cannot discard recovery",async()=>{
+ jest.useFakeTimers();try{
+  const ready=jest.fn();(api.get as jest.Mock).mockResolvedValue({data:{state:"offline",can_start:true,reason:"runner_start_failed"}});
+  (api.post as jest.Mock).mockRejectedValue(new Error("start response unconfirmed"));
+  render(<RunnerRecovery message="runner_model_catalog_unavailable_check_runner_connection" onReady={ready}/>);
+  await act(async()=>{});fireEvent.click(screen.getByRole("button",{name:"Start local runner"}));await act(async()=>{});
+  await act(async()=>{jest.advanceTimersByTime(2000);});
+  expect(api.post).toHaveBeenCalledTimes(1);expect(ready).not.toHaveBeenCalled();
+  (api.get as jest.Mock).mockResolvedValue({data:{state:"ready",can_start:false}});
+  await act(async()=>{jest.advanceTimersByTime(2000);});
+  expect(ready).toHaveBeenCalledTimes(1);expect(api.post).toHaveBeenCalledTimes(1);
+ }finally{jest.useRealTimers();}
+});
+
+test("a confirmed current attempt failing suppresses automatic discovery",async()=>{
+ jest.useFakeTimers();try{
+  const ready=jest.fn();(api.get as jest.Mock).mockResolvedValue({data:{state:"offline",can_start:true}});
+  (api.post as jest.Mock).mockResolvedValue({data:{state:"starting",can_start:false,startup_id:"current-attempt"}});
+  render(<RunnerRecovery message="runner_model_catalog_unavailable_check_runner_connection" onReady={ready}/>);
+  await act(async()=>{});fireEvent.click(screen.getByRole("button",{name:"Start local runner"}));await act(async()=>{});
+  (api.get as jest.Mock).mockResolvedValue({data:{state:"offline",can_start:true,reason:"runner_start_failed"}});
+  await act(async()=>{jest.advanceTimersByTime(2000);});
+  (api.get as jest.Mock).mockResolvedValue({data:{state:"ready",can_start:false}});
+  await act(async()=>{jest.advanceTimersByTime(2000);});
+  expect(ready).not.toHaveBeenCalled();expect(api.post).toHaveBeenCalledTimes(1);
+ }finally{jest.useRealTimers();}
+});

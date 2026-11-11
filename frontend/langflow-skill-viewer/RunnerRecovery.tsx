@@ -35,6 +35,7 @@ function LocalBackendRecovery({ children, catalogue = false, onReady }: { childr
   const pending = useRef(false);
   const discoverAfterStart = useRef(false);
   const catalogueDeadline = useRef(0);
+  const startupConfirmed = useRef(false);
   const [awaitingCatalogue, setAwaitingCatalogue] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const startRequest = useRef<Promise<{ data: Service }> | null>(null);
@@ -52,6 +53,7 @@ function LocalBackendRecovery({ children, catalogue = false, onReady }: { childr
       try {
         const { data } = await recoveryRequest(api.get<Service>(endpoint, { signal: controller.signal, timeout: 10000 }));
         if (!controller.signal.aborted && version === generation.current) {
+          if (discoverAfterStart.current && data.state === "starting" && data.startup_id) startupConfirmed.current = true;
           setService(data); setError("");
           if (data.state !== "starting") setStarting(false);
         }
@@ -71,6 +73,7 @@ function LocalBackendRecovery({ children, catalogue = false, onReady }: { childr
   const clearCatalogueIntent = useCallback(() => {
     discoverAfterStart.current = false;
     catalogueDeadline.current = 0;
+    startupConfirmed.current = false;
     setAwaitingCatalogue(false);
   }, []);
 
@@ -88,7 +91,7 @@ function LocalBackendRecovery({ children, catalogue = false, onReady }: { childr
       const inTime = Date.now() < catalogueDeadline.current;
       clearCatalogueIntent();
       if (inTime) onReady?.();
-    } else if (service?.state === "offline" && ["runner_start_failed", "runner_start_cancelled"].includes(service.reason ?? "")) {
+    } else if (service?.state === "offline" && startupConfirmed.current && ["runner_start_failed", "runner_start_cancelled"].includes(service.reason ?? "")) {
       clearCatalogueIntent();
     }
   }, [service?.state, service?.reason, cancelling, onReady, clearCatalogueIntent]);
@@ -96,6 +99,7 @@ function LocalBackendRecovery({ children, catalogue = false, onReady }: { childr
   const restart = async () => {
     if (pending.current || discoverAfterStart.current || !service?.can_start || service.state !== "offline") return;
     discoverAfterStart.current = catalogue && Boolean(onReady);
+    startupConfirmed.current = false;
     catalogueDeadline.current = discoverAfterStart.current ? Date.now() + 120000 : 0;
     setAwaitingCatalogue(discoverAfterStart.current);
     pending.current = true; generation.current += 1;
@@ -104,6 +108,7 @@ function LocalBackendRecovery({ children, catalogue = false, onReady }: { childr
       startRequest.current = recoveryRequest(api.post<Service>(`${endpoint}/start`, null, {timeout: 10000}));
       const { data } = await startRequest.current;
       completedStart.current = data;
+      if (data.state === "starting" && data.startup_id) startupConfirmed.current = true;
       if (!["starting", "ready"].includes(data.state)) clearCatalogueIntent();
       setService(data); setError("");
       if (data.state !== "starting") setStarting(false);
