@@ -198,3 +198,56 @@ test("catalogue recovery waits for actual models and remains actionable after fa
   expect(api.post).not.toHaveBeenCalled();
   window.removeEventListener("laomedo-refresh-model-catalog",requested);
 });
+
+
+test("catalogue startup automatically refreshes only its node once after readiness", async () => {
+ const refreshed=jest.fn(); const dismissed=jest.fn();
+ window.addEventListener("laomedo-refresh-model-catalog",refreshed);
+ try {
+  (api.post as jest.Mock).mockResolvedValue({data:{state:"starting",can_start:false,startup_id:"catalogue-start"}});
+  render(<RecoveryPopup message="runner_model_catalog_unavailable_check_runner_connection" context={{nodeId:"codex"}} onDismiss={dismissed}/>);
+  fireEvent.click(await screen.findByRole("button",{name:"Start local runner"}));
+  await screen.findByRole("button",{name:"Starting..."});
+  expect(refreshed).not.toHaveBeenCalled();
+  (api.get as jest.Mock).mockResolvedValue({data:{state:"ready",can_start:false}});
+  await waitFor(()=>expect(refreshed).toHaveBeenCalledTimes(1),{timeout:4500});
+  expect((refreshed.mock.calls[0][0] as CustomEvent).detail).toEqual({nodeId:"codex"});
+  expect(screen.getByText("Loading available models...")).toBeVisible();
+  act(()=>window.dispatchEvent(new CustomEvent("laomedo-model-catalog-settled",{detail:{nodeId:"codex"}})));
+  expect(screen.getByRole("button",{name:"Refresh models"})).toBeEnabled();
+  expect(refreshed).toHaveBeenCalledTimes(1);
+  expect(dismissed).not.toHaveBeenCalled();
+  act(()=>window.dispatchEvent(new CustomEvent("laomedo-model-catalog-loaded",{detail:{nodeId:"other"}})));
+  expect(dismissed).not.toHaveBeenCalled();
+  act(()=>window.dispatchEvent(new CustomEvent("laomedo-model-catalog-loaded",{detail:{nodeId:"codex"}})));
+  expect(dismissed).toHaveBeenCalledTimes(1);
+  expect(api.post).toHaveBeenCalledTimes(1);
+ } finally {window.removeEventListener("laomedo-refresh-model-catalog",refreshed);}
+});
+
+test.each(["runner_transport_failed","runner_model_catalog_unavailable_check_runner_connection"])("initial ready polling never automatically refreshes: %s",async message=>{
+ const refreshed=jest.fn();window.addEventListener("laomedo-refresh-model-catalog",refreshed);
+ try{(api.get as jest.Mock).mockResolvedValue({data:{state:"ready",can_start:false}});
+ render(<RecoveryPopup message={message} context={{nodeId:"codex"}} onDismiss={jest.fn()}/>);
+ await screen.findByText(/The local runner is online/);expect(refreshed).not.toHaveBeenCalled();expect(api.post).not.toHaveBeenCalled();
+ }finally{window.removeEventListener("laomedo-refresh-model-catalog",refreshed);}
+});
+
+test("immediate ready startup refreshes catalogue but failed startup does not",async()=>{
+ const refreshed=jest.fn();window.addEventListener("laomedo-refresh-model-catalog",refreshed);
+ try{(api.post as jest.Mock).mockResolvedValueOnce({data:{state:"offline",can_start:true,reason:"runner_start_failed"}}).mockResolvedValueOnce({data:{state:"ready",can_start:false}});
+ render(<RecoveryPopup message="runner_model_catalog_unavailable_check_runner_connection" context={{nodeId:"codex"}} onDismiss={jest.fn()}/>);
+ fireEvent.click(await screen.findByRole("button",{name:"Start local runner"}));
+ await screen.findByText(/exited before it was ready/i);expect(refreshed).not.toHaveBeenCalled();
+ fireEvent.click(screen.getByRole("button",{name:"Start local runner"}));await waitFor(()=>expect(refreshed).toHaveBeenCalledTimes(1));
+ }finally{window.removeEventListener("laomedo-refresh-model-catalog",refreshed);}
+});
+
+test("catalogue startup cancellation never refreshes",async()=>{
+ const refreshed=jest.fn();window.addEventListener("laomedo-refresh-model-catalog",refreshed);
+ try{(api.post as jest.Mock).mockResolvedValueOnce({data:{state:"starting",can_start:false,startup_id:"cancel-me"}}).mockResolvedValueOnce({data:{state:"offline",can_start:true,reason:"runner_start_cancelled"}});
+ const dismissed=jest.fn();render(<RecoveryPopup message="runner_model_catalog_unavailable_check_runner_connection" context={{nodeId:"codex"}} onDismiss={dismissed}/>);
+ fireEvent.click(await screen.findByRole("button",{name:"Start local runner"}));fireEvent.click(await screen.findByRole("button",{name:"Cancel",exact:true}));
+ await waitFor(()=>expect(dismissed).toHaveBeenCalledTimes(1));expect(refreshed).not.toHaveBeenCalled();
+ }finally{window.removeEventListener("laomedo-refresh-model-catalog",refreshed);}
+});
