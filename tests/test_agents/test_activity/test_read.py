@@ -341,3 +341,11 @@ class ActivityReadTests(unittest.TestCase):
         with self.assertRaises(RunnerError) as caught:
             self.agent.read_activity(self.run, self.attempt)
         self.assertEqual(caught.exception.code, "activity_journal_unavailable")
+
+    def test_projection_budget_failure_keeps_its_stable_category(self):
+        with patch(
+            "laomedo.agents.activity.normalizer.ActivityNormalizer.MAX_BYTES", 1
+        ):
+            with self.assertRaises(RunnerError) as caught:
+                self.agent.read_activity(self.run, self.attempt)
+        self.assertEqual(caught.exception.code, "activity_projection_limit")

@@ -180,7 +180,12 @@ class ActivityNormalizer:
                         native_position < ends[0] or otel_position < ends[1]
                     ):
                         complete, reason = False, "activity_capture_incomplete"
-                    total, revision = self._publish(db, attempt_id, projection)
+                    try:
+                        total, revision = self._publish(db, attempt_id, projection)
+                    except RunnerError:
+                        raise
+                    except (ValidationError, TypeError, ValueError):
+                        raise RunnerError("activity_normalization_failed") from None
                     if after > total:
                         raise RunnerError("invalid_activity_cursor")
                     values = db.execute(
