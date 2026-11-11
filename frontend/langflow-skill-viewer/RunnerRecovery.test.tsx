@@ -175,3 +175,19 @@ test("a client promise that never settles cannot keep restarting forever", async
   expect(screen.getByRole("alert")).toHaveTextContent("startup could not be confirmed");
  } finally {jest.useRealTimers()}
 });
+
+
+test("an unconfirmed status poll disarms automatic catalogue recovery",async()=>{
+ jest.useFakeTimers();
+ try {
+  const ready=jest.fn();(api.get as jest.Mock).mockResolvedValue({data:{state:"offline",can_start:true}});
+  (api.post as jest.Mock).mockResolvedValue({data:{state:"starting",can_start:false,startup_id:"one"}});
+  render(<RunnerRecovery message="runner_model_catalog_unavailable_check_runner_connection" onReady={ready}/>);
+  await act(async()=>{});fireEvent.click(screen.getByRole("button",{name:"Start local runner"}));await act(async()=>{});
+  (api.get as jest.Mock).mockRejectedValue(new Error("network unavailable"));
+  await act(async()=>{jest.advanceTimersByTime(2000);});
+  (api.get as jest.Mock).mockResolvedValue({data:{state:"ready",can_start:false}});
+  await act(async()=>{jest.advanceTimersByTime(2000);});
+  expect(ready).not.toHaveBeenCalled();
+ } finally {jest.useRealTimers();}
+});
