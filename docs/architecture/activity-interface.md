@@ -1,11 +1,14 @@
 # Activity interface
 
 The selected boundary is implemented on the existing Python `BaseAgent` ABC.
-**Implementation REVISE at dea9eadc; corrections await focused recheck.**
-Claude reviewed the Activity code delta from ebf74f27. Specification/evidence
-coverage was incomplete in that first pass. Current corrections and the retained
-limits are documented below; PR #250 remains draft. Earlier reviews of other
-boundaries do not approve this delta.
+**Activity implementation, selected specification and this document reviewed.**
+Claude approved the code delta `ebf74f27..3778e2714` and the selected Activity
+specification section, then read this complete document and approved it subject
+to this review-status correction. Later edits here only record that verdict.
+Native acceptance at the corrected head is not established: one fresh run failed
+for an unknown reason, and a later diagnostic was blocked at discovery with
+`docker_control_failed`. Earlier native success does not cover the corrections.
+PR #250 remains draft; this scoped review does not approve the whole PR.
 
 ## Public method and caller
 
@@ -112,7 +115,7 @@ prior read. Capture stops following only after the sealed sources are drained.
 
 | Situation | Result |
 | --- | --- |
-| First read | after=0; limit defaults to100. |
+| First read | after=0; limit defaults to 100. |
 | Missing attempt on a known run | available=False, no records, unchanged cursor, open, complete=None, activity_attempt_not_available. |
 | No records yet, open capture | has_more=False; poll later. |
 | More records retained | has_more=True; continue immediately with next_after. |
@@ -155,9 +158,11 @@ it. This mutable display slot is separate from immutable normalized records and
 the provider's public cursor. The authenticated detail route uses this latest
 snapshot directly and omits duplicate snapshot/common record bodies from its
 `events`; the bounded raw-receipt endpoint remains available. The latest view does
-not depend on traversing the20,000-receipt historical detail limit. Invocation ownership, flow/node scope and the
-existing receipt schema remain; a small snapshot revision index identifies the mutable display slot. The store is Laomedo persistence, not a provider
-capability; historical display needs no live Agent, Docker or authentication
+not depend on traversing the 20,000-receipt historical detail limit.
+Invocation ownership, flow/node scope and the receipt schema remain; a small
+snapshot revision index identifies the mutable display slot. Detail clears usage
+and cost totals for `activity_projection_limit` or `invocation_boundary_unverified`.
+The store is Laomedo persistence, not a provider capability; historical display needs no live Agent, Docker or authentication
 check against the provider.
 
 Application `projection.project` selects the highest retained common display
@@ -170,14 +175,14 @@ capture uses `/activity`.
 
 ## Validation, limits and failures
 
-Cursor and limit must be exact integers: after>=0, limit1..200. Future cursors
+Cursor and limit must be exact integers: after>=0, limit 1..200. Future cursors
 are refused, not silently reset. Invalid UUIDs, unknown runs, mismatched source
 boundaries and journal failures raise the existing `RunnerError` with stable
 categories. No new Activity exception hierarchy is introduced.
 
-Each source interpretation is bounded to20,000 receipts/20MiB. Individual source
-lines and common records are bounded to2MiB; the shared display snapshot to20MiB.
-The durable journal has a128MiB logical data budget **per attempt**, including
+Each source interpretation is bounded to 20,000 receipts/20MiB. Individual source
+lines and common records are bounded to 2 MiB; the shared display snapshot to 20 MiB.
+The durable journal has a 128 MiB logical data budget **per attempt**, including
 record bodies, current normalized state and the current display snapshot; SQLite
 page overhead and independent resumed attempts are not a run-wide failure gate.
 At a source bound, the retained prefix remains readable; at a publication budget,
