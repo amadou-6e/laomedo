@@ -205,6 +205,11 @@ def main():
                         or not receipt.exists()
                     ):
                         raise RuntimeError("endpoint_mismatch_not_preserved")
+                    endpoint_container_untouched = client.sdk.containers.get(
+                        identity
+                    ).attrs["State"]["Running"]
+                    if not endpoint_container_untouched:
+                        raise RuntimeError("wrong_endpoint_changed_container")
                     wrong.unlink()
                     DockerRuntime.recover_receipts(client, [receipt], kind=kind)
                     try:
@@ -234,6 +239,7 @@ def main():
                         "owner_terminated": child.poll() is not None,
                         "orphan_observed_running": survived,
                         "wrong_endpoint_refused_and_retained": endpoint_refused,
+                        "wrong_endpoint_container_untouched": endpoint_container_untouched,
                         "exact_container_absent": absent,
                         "receipt_removed": not receipt.exists(),
                         "repeat_recovery_ok": True,

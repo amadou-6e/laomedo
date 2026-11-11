@@ -3,6 +3,7 @@
 import argparse
 import hashlib
 import os
+import shutil
 from urllib.request import Request, build_opener
 import json
 from pathlib import Path
@@ -11,6 +12,30 @@ import sys
 import tempfile
 import time
 from uuid import uuid4
+
+
+def remove_temporary_profile(root, provider, docker):
+    """Remove only this generated experiment's profile, including on early failure."""
+    root = root.resolve()
+    if root.parent != Path(tempfile.gettempdir()).resolve() or not root.name.startswith(
+        "laomedo-codex-restart-"
+    ):
+        raise RuntimeError("unexpected_experiment_cleanup_root")
+    if provider == "codex":
+        from laomedo.agents.agents.codex.utils import _split_profile
+
+        profile = _split_profile(root / "runner")
+        if docker.volumes.exists(profile):
+            docker.sdk.volumes.get(profile).remove()
+        return not docker.volumes.exists(profile)
+    if provider != "opencode":
+        raise RuntimeError("unexpected_experiment_provider")
+    profile = root / "profile"
+    if profile.is_symlink() or profile.resolve().parent != root:
+        raise RuntimeError("unexpected_experiment_profile_path")
+    if profile.exists():
+        shutil.rmtree(profile)
+    return not profile.exists()
 
 
 def main():
@@ -320,28 +345,29 @@ def main():
                     raise RuntimeError("agent_restart_reconciliation_failed")
                 successful = True
             finally:
-                if owner and owner.poll() is None:
-                    owner.terminate()
-                    owner.wait(timeout=15)
-                if log:
-                    log.close()
-                DockerRuntime.recover_receipts(
-                    docker,
-                    list((root / "runner/receipts").glob("*.json"))
-                    + list((root / "runner/runs").glob("*/docker-receipts/*.json")),
-                )
-                DockerRuntime.close_session(sentinel)
-                if agent is not None and args.provider == "codex":
-                    docker.sdk.volumes.get(agent.profile).remove()
+                try:
+                    if owner and owner.poll() is None:
+                        owner.terminate()
+                        owner.wait(timeout=15)
+                    if log:
+                        log.close()
+                    DockerRuntime.recover_receipts(
+                        docker,
+                        list((root / "runner/receipts").glob("*.json"))
+                        + list((root / "runner/runs").glob("*/docker-receipts/*.json")),
+                    )
+                    DockerRuntime.close_session(sentinel)
+                finally:
+                    removed = remove_temporary_profile(root, args.provider, docker)
                     print(
                         json.dumps(
-                            {
-                                "stage": "temporary_profile_cleanup",
-                                "removed": not docker.volumes.exists(agent.profile),
-                            }
+                            {"stage": "temporary_profile_cleanup", "removed": removed}
                         ),
                         flush=True,
                     )
+                    if not removed:
+                        raise RuntimeError("temporary_profile_cleanup_unconfirmed")
+
     finally:
         if successful:
             temporary.cleanup()
