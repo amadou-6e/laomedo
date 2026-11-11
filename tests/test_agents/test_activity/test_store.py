@@ -36,7 +36,9 @@ class ActivityTests(unittest.TestCase):
             invocation = capture_for(component)
             store, run = invocation.store, invocation.invocation_id
         component._vertex.display_name = "Renamed later"
-        summary = store.graph_runs("alice", "flow")[0]
+        summary = next(
+            row for row in store.graph_runs("alice", "flow") if row["id"] == run
+        )
         self.assertEqual(summary["node"], "stable-node")
         self.assertEqual(summary["node_label"], "Review PR")
         self.assertEqual(

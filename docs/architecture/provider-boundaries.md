@@ -303,5 +303,8 @@ OpenCode history retention. Shared Docker mechanics remain in `DockerRuntime`.
 The contract guard continues covering every remaining declared role, with no
 baseline or provider exceptions; retired classes/imports cannot return.
 
-This new retirement is fully unreviewed - reviewer pending. Earlier approvals
-cover Activity through3778e2714, not this subsequent native lifecycle change.
+Claude approved this retirement's code delta `98d130bb9..acc9c41ae`, selected
+specification and documentation, subject to this review-status update. Full Agent
+suite: 693 tests pass, four skipped. Real Codex fresh/resume/cancellation passed
+on that head. These scoped approvals do not cover later changes or establish
+Claude/OpenCode, host-loss or whole-PR acceptance.

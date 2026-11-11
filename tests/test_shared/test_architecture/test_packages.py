@@ -25,10 +25,30 @@ class PackageLayoutTests(unittest.TestCase):
         if source == installed:
             self.skipTest("Install the wheel and run outside the source checkout")
         modules = set()
+        manifest = json.loads((ROOT / "docker/images.json").read_text(encoding="utf-8"))
+        build_inputs = {Path("images.json"): ROOT / "docker/images.json"}
+        for registration in manifest.values():
+            for name in registration["files"]:
+                relative = Path(registration["context"]) / name
+                build_inputs[relative] = ROOT / "docker" / relative
+        installed_inputs = set()
         for artifact in installed.rglob("*"):
             if not artifact.is_file() or "__pycache__" in artifact.parts:
                 continue
             relative = artifact.relative_to(installed)
+            if relative.parts[:2] == ("container_images", "resources"):
+                resource = Path(*relative.parts[2:])
+                with self.subTest(build_input=resource.as_posix()):
+                    self.assertIn(
+                        resource,
+                        build_inputs,
+                        "Unregistered Docker input in installed wheel",
+                    )
+                    self.assertEqual(
+                        artifact.read_bytes(), build_inputs[resource].read_bytes()
+                    )
+                installed_inputs.add(resource)
+                continue
             current = source / relative
             with self.subTest(artifact=relative.as_posix()):
                 self.assertTrue(
@@ -46,6 +66,11 @@ class PackageLayoutTests(unittest.TestCase):
                         + str(relative),
                     )
         self.assertEqual(
+            installed_inputs,
+            set(build_inputs),
+            "Wheel must include every registered Docker input",
+        )
+        self.assertEqual(
             modules,
             {module.relative_to(source) for module in source.rglob("*.py")},
             "The installed wheel must contain every current Python module",
@@ -54,7 +79,7 @@ class PackageLayoutTests(unittest.TestCase):
     def test_package_root_has_only_shared_infrastructure(self):
         self.assertEqual(
             {p.name for p in package_root().iterdir() if p.is_file()} - {"README.md"},
-            {"__init__.py", "_paths.py"},
+            {"__init__.py", "_paths.py", "docker.py"},
         )
 
     def test_canonical_modules_import_without_forwarders(self):

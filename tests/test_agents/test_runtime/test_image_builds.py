@@ -1,6 +1,8 @@
 """Registered-image acquisition controls, independent of provider fixtures."""
 
 import json
+from importlib.util import find_spec
+import os
 from pathlib import Path
 import sys
 import tempfile
@@ -69,6 +71,10 @@ class ImageBuildTests(unittest.TestCase):
         self.published[repository + ":" + tag] = self.image
         return True
 
+    @unittest.skipUnless(
+        find_spec("py_docker") and find_spec("docker"),
+        "Requires optional runner dependencies",
+    )
     def test_missing_image_is_built_verified_and_pinned_on_the_selected_daemon(self):
         with patch.object(DockerRuntime, "_run_build") as build:
             actual = DockerRuntime.ensure_image(self.client, self.reference)
@@ -83,6 +89,10 @@ class ImageBuildTests(unittest.TestCase):
         self.assertEqual(self.published[self.reference], self.image)
         self.client.sdk.images.remove.assert_called_once()
 
+    @unittest.skipUnless(
+        find_spec("py_docker") and find_spec("docker"),
+        "Requires optional runner dependencies",
+    )
     def test_existing_verified_image_is_reused_without_build_or_probe(self):
         self.published[self.reference] = self.image
         with patch.object(DockerRuntime, "_run_build") as build:
@@ -92,6 +102,10 @@ class ImageBuildTests(unittest.TestCase):
         build.assert_not_called()
         self.client.jobs.run.assert_not_called()
 
+    @unittest.skipUnless(
+        find_spec("py_docker") and find_spec("docker"),
+        "Requires optional runner dependencies",
+    )
     def test_daemon_error_is_not_classified_as_missing(self):
         from docker.errors import APIError
         from py_docker.errors import ImageResolutionError
@@ -102,6 +116,10 @@ class ImageBuildTests(unittest.TestCase):
                 DockerRuntime.ensure_image(self.client, self.reference)
         build.assert_not_called()
 
+    @unittest.skipUnless(
+        find_spec("py_docker") and find_spec("docker"),
+        "Requires optional runner dependencies",
+    )
     def test_stale_present_image_is_not_overwritten(self):
         self.published[self.reference] = self.image
         self.image.labels = {}
@@ -111,6 +129,10 @@ class ImageBuildTests(unittest.TestCase):
         build.assert_not_called()
         self.image.tag.assert_not_called()
 
+    @unittest.skipUnless(
+        find_spec("py_docker") and find_spec("docker"),
+        "Requires optional runner dependencies",
+    )
     def test_wrong_version_never_publishes_the_final_tag(self):
         self.client.jobs.run.return_value.stdout = b"tool wrong-version"
         with patch.object(DockerRuntime, "_run_build"):
@@ -118,6 +140,10 @@ class ImageBuildTests(unittest.TestCase):
                 DockerRuntime.ensure_image(self.client, self.reference)
         self.assertNotIn(self.reference, self.published)
 
+    @unittest.skipUnless(
+        find_spec("py_docker") and find_spec("docker"),
+        "Requires optional runner dependencies",
+    )
     def test_explicit_pin_mismatch_is_never_weakened(self):
         from py_docker.errors import OwnershipConflictError
 
@@ -129,6 +155,10 @@ class ImageBuildTests(unittest.TestCase):
                 )
         build.assert_not_called()
 
+    @unittest.skipUnless(
+        find_spec("py_docker") and find_spec("docker"),
+        "Requires optional runner dependencies",
+    )
     def test_missing_explicit_pin_refuses_without_a_network_build(self):
         from py_docker.errors import ImageResolutionError
 
@@ -142,6 +172,10 @@ class ImageBuildTests(unittest.TestCase):
         self.client.jobs.run.assert_not_called()
         build.assert_not_called()
 
+    @unittest.skipUnless(
+        find_spec("py_docker") and find_spec("docker"),
+        "Requires optional runner dependencies",
+    )
     def test_failed_build_never_probes_or_publishes(self):
         with patch.object(
             DockerRuntime,
@@ -153,6 +187,10 @@ class ImageBuildTests(unittest.TestCase):
         self.assertNotIn(self.reference, self.published)
         self.client.jobs.run.assert_not_called()
 
+    @unittest.skipUnless(
+        find_spec("py_docker") and find_spec("docker"),
+        "Requires optional runner dependencies",
+    )
     def test_concurrent_callers_build_once_and_reuse_verified_result(self):
         results, failures = [], []
 
@@ -220,6 +258,10 @@ class ImageBuildTests(unittest.TestCase):
                 )
         launch.assert_not_called()
 
+    @unittest.skipUnless(
+        os.name != "nt" or find_spec("win32job"),
+        "Requires Windows runner process controls",
+    )
     def test_build_timeout_terminates_the_owned_process(self):
         started = time.monotonic()
         with self.assertRaises(ImageBuildError) as caught:

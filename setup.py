@@ -12,10 +12,17 @@ class DockerBuildPy(build_py):
     """Include manifest-declared inputs in wheels built from checkout or sdist."""
 
     def run(self):
+        build_root = Path(self.build_lib).resolve()
+        package = build_root / "laomedo"
+        package.resolve().relative_to(build_root)
+        source = (Path(__file__).resolve().parent / "src/laomedo").resolve()
+        if package == source or package in source.parents or source in package.parents:
+            raise ValueError("build_output_overlaps_source")
+        if package.exists():
+            shutil.rmtree(package)
         super().run()
         root = Path(__file__).resolve().parent / "docker"
         destination = Path(self.build_lib) / "laomedo/container_images/resources"
-        build_root = Path(self.build_lib).resolve()
         destination.resolve().relative_to(build_root)
         if destination.exists():
             shutil.rmtree(destination)

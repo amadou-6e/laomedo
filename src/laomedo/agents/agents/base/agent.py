@@ -180,23 +180,6 @@ class BaseAgent(ABC):
     ) -> ActivityPage:
         """Return common attempt-scoped replacement records without native execution."""
 
-    def _normalize_activity(
-        self,
-        run_id,
-        attempt_id,
-        *,
-        after,
-        limit,
-        projector,
-        complete_from_snapshot=False,
-    ):
-        """Borrow shared journaling mechanics while retaining native provider interpretation."""
-        from laomedo.agents.activity.normalizer import ActivityNormalizer
-
-        return ActivityNormalizer(
-            self, projector, complete_from_snapshot=complete_from_snapshot
-        ).read(run_id, attempt_id, after=after, limit=limit)
-
     @abstractmethod
     def preflight(self) -> dict:
         """Report this provider's readiness and isolation checks."""
@@ -219,46 +202,6 @@ class BaseAgent(ABC):
     @abstractmethod
     def readiness(self) -> ReadinessObservation:
         """Check scoped execution availability without inference; explain blocked/unknown results."""
-
-    def _validate_run_timeout(self, value) -> None:
-        """Refuse an unsupported override before allocating or dispatching a turn."""
-        if value is not None and not self._supports_run_timeout:
-            raise RunnerError("run_timeout_not_supported")
-
-    def _observe_readiness(
-        self, *, ready_on_success: bool | None, unverified_reason: str | None = None
-    ) -> ReadinessObservation:
-        """Normalize native admission failures without changing raw preflight callers."""
-        from laomedo.agents.registry import AgentProviderRegistry
-
-        scope = AgentProviderRegistry.descriptor(self.provider).readiness_scope
-        try:
-            payload = self.preflight()
-        except RunnerError as error:
-            return ReadinessObservation(
-                provider=self.provider,
-                ready=False,
-                reason=error.code,
-                scope=scope,
-                payload={"status": "blocked", "error_category": error.code},
-            )
-        status = payload.get("status")
-        if status == "blocked":
-            ready = False
-            reason = payload.get("error_category") or "execution_blocked"
-        elif status == "ready" and ready_on_success is True:
-            ready = True
-            reason = None
-        else:
-            ready = None
-            reason = unverified_reason or "readiness_not_verified"
-        return ReadinessObservation(
-            provider=self.provider,
-            ready=ready,
-            reason=reason,
-            scope=scope,
-            payload=deepcopy(payload),
-        )
 
     def editor_model_catalog(self):
         """Provider-owned refresh semantics for an explicit editor discovery request."""
@@ -424,6 +367,63 @@ class BaseAgent(ABC):
         if _hash_tree(snapshot) != record["post_run_hash"]:
             raise ArtifactError("artifact_source_changed_during_selection")
         return selections(result)
+
+    def _normalize_activity(
+        self,
+        run_id,
+        attempt_id,
+        *,
+        after,
+        limit,
+        projector,
+        complete_from_snapshot=False,
+    ):
+        """Borrow shared journaling mechanics while retaining native provider interpretation."""
+        from laomedo.agents.activity.normalizer import ActivityNormalizer
+
+        return ActivityNormalizer(
+            self, projector, complete_from_snapshot=complete_from_snapshot
+        ).read(run_id, attempt_id, after=after, limit=limit)
+
+    def _validate_run_timeout(self, value) -> None:
+        """Refuse an unsupported override before allocating or dispatching a turn."""
+        if value is not None and not self._supports_run_timeout:
+            raise RunnerError("run_timeout_not_supported")
+
+    def _observe_readiness(
+        self, *, ready_on_success: bool | None, unverified_reason: str | None = None
+    ) -> ReadinessObservation:
+        """Normalize native admission failures without changing raw preflight callers."""
+        from laomedo.agents.registry import AgentProviderRegistry
+
+        scope = AgentProviderRegistry.descriptor(self.provider).readiness_scope
+        try:
+            payload = self.preflight()
+        except RunnerError as error:
+            return ReadinessObservation(
+                provider=self.provider,
+                ready=False,
+                reason=error.code,
+                scope=scope,
+                payload={"status": "blocked", "error_category": error.code},
+            )
+        status = payload.get("status")
+        if status == "blocked":
+            ready = False
+            reason = payload.get("error_category") or "execution_blocked"
+        elif status == "ready" and ready_on_success is True:
+            ready = True
+            reason = None
+        else:
+            ready = None
+            reason = unverified_reason or "readiness_not_verified"
+        return ReadinessObservation(
+            provider=self.provider,
+            ready=ready,
+            reason=reason,
+            scope=scope,
+            payload=deepcopy(payload),
+        )
 
     @abstractmethod
     def _execute(self, run_id, task, *, resume, activity_attempt_id=None) -> dict:

@@ -228,7 +228,13 @@ class ErrorContractTests(unittest.TestCase):
                             self.assertEqual(restored.__dict__, error.__dict__)
                             self.assertEqual(str(restored), str(error))
                         continue  # Native timeout protocol differs from scalar domain errors.
-                    if cls.__name__ == "PushOutcomeUnknown":
+                    if cls.__name__ == "ImageBuildError":
+                        error = cls("image_version_verification_failed")
+                        code = "container_image_build_failed"
+                        self.assertEqual(
+                            error.phase, "image_version_verification_failed"
+                        )
+                    elif cls.__name__ == "PushOutcomeUnknown":
                         error = cls("timeout", None)
                         code = "push_outcome_unknown"
                     else:
