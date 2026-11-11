@@ -14,6 +14,8 @@ import {
 
 import { announceProfileChange } from "./ProfileSessionSync";
 
+type ProfileField = "name" | "pin" | "confirmation";
+
 type Screen =
 	| "picker"
 	| "create"
@@ -39,7 +41,7 @@ export default function ProfileEntry({
 	const [confirmation, setConfirmation] = useState("");
 	const [pending, setPending] = useState("");
 	const [error, setError] = useState("");
-	const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+	const [fieldErrors, setFieldErrors] = useState<Partial<Record<ProfileField, string>>>({});
 	const [wait, setWait] = useState(0);
 
 	useEffect(() => {
@@ -59,7 +61,7 @@ export default function ProfileEntry({
 		setPin("");
 		setConfirmation("");
 	};
-	const clearValidationError = (field: string) => {
+	const clearValidationError = (field: ProfileField) => {
 		setFieldErrors((current) => ({ ...current, [field]: "" }));
 		setError((current) =>
 			current === "profile_input_invalid" || current === "profile_pin_invalid"
@@ -106,7 +108,7 @@ export default function ProfileEntry({
 		setError("");
 		setFieldErrors({});
 		if (screen === "create") {
-			const invalid: Record<string, string> = {};
+			const invalid: Partial<Record<ProfileField, string>> = {};
 			if (!name.trim()) invalid.name = "profile_name_required";
 			if (!/^[0-9]{6}$/.test(pin)) invalid.pin = "profile_pin_invalid";
 			if (!confirmation) invalid.confirmation = "profile_confirmation_required";
@@ -188,7 +190,7 @@ export default function ProfileEntry({
 											: "No profiles yet"}
 				</h1>
 				<p className="mt-2 text-sm text-muted-foreground">
-					{screen === "picker" ? "Select a profile to continue." : "Use your six-digit PIN to access your local profile."}
+					{screen === "picker" ? "Select a profile to continue." : screen === "create" ? "Create a local profile with a six-digit PIN." : "Enter your PIN to continue."}
 				</p>
 				{screen === "picker" ? (
 					<div className="mt-6">
@@ -207,7 +209,7 @@ export default function ProfileEntry({
 								}}
 							>
 								<span aria-hidden="true" className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium text-muted-foreground">
-									{Array.from(profile.name.trim()).slice(0, 2).join("").toLocaleUpperCase()}
+									{profile.name.trim().split(/\s+/).slice(0, 2).map((word) => Array.from(word)[0]).join("").toLocaleUpperCase()}
 								</span>
 								<span className="min-w-0 flex-1 whitespace-normal break-words">{profile.name}</span>
 								<ChevronRight aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
@@ -236,14 +238,14 @@ export default function ProfileEntry({
 							This name is unavailable. Your profile has not been created.
 						</p>
 						<Button
-							onClick={() => {
+							onClick={() = ignoreTitleCase> {
 								setError("");
 								setScreen("create");
 							}}
 						>
 							Edit name
 						</Button>
-						<Button variant="outline" onClick={back}>
+						<Button variant="outline" onClick={back} ignoreTitleCase>
 							Back to profiles
 						</Button>
 					</div>
@@ -254,7 +256,7 @@ export default function ProfileEntry({
 							again.
 						</p>
 						<Button
-							onClick={() => {
+							onClick={() = ignoreTitleCase> {
 								setError("");
 								setScreen("enter");
 							}}
@@ -267,10 +269,10 @@ export default function ProfileEntry({
 						<p className="text-sm">
 							Check the profile list before trying to create it again.
 						</p>
-						<Button disabled={!!pending} onClick={reconcile}>
+						<Button disabled={!!pending} onClick={reconcile} ignoreTitleCase>
 							Check profile list
 						</Button>
-						<Button variant="outline" disabled={!!pending} onClick={back}>
+						<Button variant="outline" disabled={!!pending} onClick={back} ignoreTitleCase>
 							Back to profiles
 						</Button>
 					</div>
@@ -346,7 +348,7 @@ export default function ProfileEntry({
 							</label>
 						)}
 						<div className="flex flex-col gap-2 pt-2">
-							<Button type="submit" disabled={!!pending || !!wait}>
+							<Button type="submit" disabled={!!pending || !!wait} ignoreTitleCase>
 								{screen === "create" ? "Create profile" : "Open profile"}
 							</Button>
 							<Button
@@ -354,7 +356,7 @@ export default function ProfileEntry({
 								variant="outline"
 								disabled={!!pending}
 								onClick={back}
-							>
+							 ignoreTitleCase>
 								Back to profiles
 							</Button>
 						</div>
