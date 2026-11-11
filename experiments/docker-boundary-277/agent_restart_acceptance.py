@@ -108,79 +108,93 @@ def main():
 
     temporary = tempfile.TemporaryDirectory(prefix="laomedo-codex-restart-")
     root = Path(temporary.name)
-    source = root / "repository/source"
-    source.mkdir(parents=True)
-    subprocess.run(["git", "init", "--quiet", str(source.parent)], check=True)
-    (source / "task.txt").write_text("Disposable owner-loss acceptance workspace.\n")
-    if args.provider == "opencode":
-        from laomedo.agents.agents.opencode.auth.utils import console_provider
-        from laomedo.agents.agents.opencode.auth.transport import NoRedirect
-        from laomedo.agents.agents.base.utils import _json
-        from laomedo.host.private_state.utils import prepare_private_directory
-        from laomedo.host.private_state.models import DirectoryPermissionPolicy
-        from laomedo.host.private_state.windows import WindowsDirectorySecurity
-
-        system = WindowsDirectorySecurity().system_directory()
-        environment = {
-            key: value
-            for key, value in os.environ.items()
-            if key.upper()
-            in {"SYSTEMROOT", "WINDIR", "SYSTEMDRIVE", "TEMP", "TMP", "PATHEXT", "PATH"}
-        }
-        prepare_private_directory(
-            root / "profile",
-            policy=DirectoryPermissionPolicy(
-                whoami=system / "whoami.exe",
-                icacls=system / "icacls.exe",
-                environment=environment,
-                deadline=time.monotonic() + 60,
-            ),
-        )
-
-        def supported_config(url, headers):
-            with build_opener(NoRedirect()).open(
-                Request(url, headers=headers), timeout=30
-            ) as response:
-                remote = json.load(response)
-            provider = remote["config"]["provider"]["opencode-go"]
-            provider["models"] = {
-                name: value
-                for name, value in provider["models"].items()
-                if value.get("provider", {}).get("npm", "@ai-sdk/openai-compatible")
-                in {"@ai-sdk/openai", "@ai-sdk/openai-compatible", "@ai-sdk/anthropic"}
-            }
-            return remote
-
-        credential, org, routing, validity = console_provider(
-            Path.home() / ".local/share/opencode/opencode.db",
-            fetch=supported_config,
-            include_routing=True,
-            include_expiry=True,
-        )
-        _json(root / "profile/auth.json", {"opencode-go": credential})
-        _json(
-            root / "profile/auth-validity.json",
-            dict(
-                validity,
-                credential_sha256=hashlib.sha256(
-                    credential["key"].encode()
-                ).hexdigest(),
-            ),
-        )
-        _json(
-            root / "profile/provider-options.json",
-            {
-                "provider": {
-                    "opencode-go": dict(
-                        routing, options={"headers": {"x-opencode-org-id": org}}
-                    )
-                }
-            },
-        )
-        del credential, org, routing, validity
     owner = log = agent = sentinel = None
     successful = False
     try:
+        source = root / "repository/source"
+        source.mkdir(parents=True)
+        subprocess.run(["git", "init", "--quiet", str(source.parent)], check=True)
+        (source / "task.txt").write_text(
+            "Disposable owner-loss acceptance workspace.\n"
+        )
+        if args.provider == "opencode":
+            from laomedo.agents.agents.opencode.auth.utils import console_provider
+            from laomedo.agents.agents.opencode.auth.transport import NoRedirect
+            from laomedo.agents.agents.base.utils import _json
+            from laomedo.host.private_state.utils import prepare_private_directory
+            from laomedo.host.private_state.models import DirectoryPermissionPolicy
+            from laomedo.host.private_state.windows import WindowsDirectorySecurity
+
+            system = WindowsDirectorySecurity().system_directory()
+            environment = {
+                key: value
+                for key, value in os.environ.items()
+                if key.upper()
+                in {
+                    "SYSTEMROOT",
+                    "WINDIR",
+                    "SYSTEMDRIVE",
+                    "TEMP",
+                    "TMP",
+                    "PATHEXT",
+                    "PATH",
+                }
+            }
+            prepare_private_directory(
+                root / "profile",
+                policy=DirectoryPermissionPolicy(
+                    whoami=system / "whoami.exe",
+                    icacls=system / "icacls.exe",
+                    environment=environment,
+                    deadline=time.monotonic() + 60,
+                ),
+            )
+
+            def supported_config(url, headers):
+                with build_opener(NoRedirect()).open(
+                    Request(url, headers=headers), timeout=30
+                ) as response:
+                    remote = json.load(response)
+                provider = remote["config"]["provider"]["opencode-go"]
+                provider["models"] = {
+                    name: value
+                    for name, value in provider["models"].items()
+                    if value.get("provider", {}).get("npm", "@ai-sdk/openai-compatible")
+                    in {
+                        "@ai-sdk/openai",
+                        "@ai-sdk/openai-compatible",
+                        "@ai-sdk/anthropic",
+                    }
+                }
+                return remote
+
+            credential, org, routing, validity = console_provider(
+                Path.home() / ".local/share/opencode/opencode.db",
+                fetch=supported_config,
+                include_routing=True,
+                include_expiry=True,
+            )
+            _json(root / "profile/auth.json", {"opencode-go": credential})
+            _json(
+                root / "profile/auth-validity.json",
+                dict(
+                    validity,
+                    credential_sha256=hashlib.sha256(
+                        credential["key"].encode()
+                    ).hexdigest(),
+                ),
+            )
+            _json(
+                root / "profile/provider-options.json",
+                {
+                    "provider": {
+                        "opencode-go": dict(
+                            routing, options={"headers": {"x-opencode-org-id": org}}
+                        )
+                    }
+                },
+            )
+            del credential, org, routing, validity
         with DockerRuntime(None).client() as docker:
             if args.provider == "codex":
                 from laomedo.agents.agents.codex.settings import IMAGE
@@ -343,7 +357,6 @@ def main():
                     or not checks["cancel_confirmation_unchanged"]
                 ):
                     raise RuntimeError("agent_restart_reconciliation_failed")
-                successful = True
             finally:
                 try:
                     if owner and owner.poll() is None:
@@ -358,33 +371,56 @@ def main():
                     )
                     DockerRuntime.close_session(sentinel)
                 finally:
-                    removed = remove_temporary_profile(root, args.provider, docker)
-                    print(
-                        json.dumps(
-                            {"stage": "temporary_profile_cleanup", "removed": removed}
-                        ),
-                        flush=True,
-                    )
-                    if not removed:
-                        raise RuntimeError("temporary_profile_cleanup_unconfirmed")
+                    if args.provider == "codex":
+                        removed = remove_temporary_profile(root, args.provider, docker)
+                        print(
+                            json.dumps(
+                                {
+                                    "stage": "temporary_profile_cleanup",
+                                    "removed": removed,
+                                }
+                            ),
+                            flush=True,
+                        )
+                        if not removed:
+                            raise RuntimeError("temporary_profile_cleanup_unconfirmed")
 
+        successful = True
     finally:
-        if successful:
-            temporary.cleanup()
-            print(
-                json.dumps(
-                    {"stage": "private_state_cleanup", "removed": not root.exists()}
-                ),
-                flush=True,
-            )
-        else:
-            temporary._finalizer.detach()
-            print(
-                json.dumps(
-                    {"stage": "failed_private_state_retained", "directory": str(root)}
-                ),
-                flush=True,
-            )
+        try:
+            if args.provider == "opencode":
+                removed = remove_temporary_profile(root, args.provider, None)
+                print(
+                    json.dumps(
+                        {"stage": "temporary_profile_cleanup", "removed": removed}
+                    ),
+                    flush=True,
+                )
+                if not removed:
+                    raise RuntimeError("temporary_profile_cleanup_unconfirmed")
+        except Exception:
+            successful = False
+            raise
+        finally:
+            if successful:
+                temporary.cleanup()
+                print(
+                    json.dumps(
+                        {"stage": "private_state_cleanup", "removed": not root.exists()}
+                    ),
+                    flush=True,
+                )
+            else:
+                temporary._finalizer.detach()
+                print(
+                    json.dumps(
+                        {
+                            "stage": "failed_private_state_retained",
+                            "directory": str(root),
+                        }
+                    ),
+                    flush=True,
+                )
 
 
 if __name__ == "__main__":
