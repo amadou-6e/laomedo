@@ -10,6 +10,36 @@ this alternative. No production Activity classes or storage schemas have changed
 We will change this file explicitly when a decision changes, keeping the method,
 models, call example and diagram consistent in the same edit.
 
+## Keep, replace and remove: explicit migration flags
+
+This section records intended changes if the proposed read_activity boundary is
+selected and completed. It does not authorize deleting working code now.
+Existing means present in production source today; proposed means draft only.
+
+| Object or path | Exists today? | Intended disposition |
+| --- | --- | --- |
+| ActivityStore, agents/activity/store.py | Yes; used by capture and authenticated app routes. | **KEEP.** Retain owner-scoped history, receipt deduplication and invocation metadata. Adapt ingestion/read payloads explicitly if common ActivityRecord values replace native wrappers; do not replace the store with another reader object. |
+| ActivityProjection, agents/activity/models.py | Yes; returned by current provider projector wrappers. | **KEEP as a display/aggregation result for now.** It is not ActivityRecord or ActivityPage: those describe source records and transport paging. The UI may still need assembled timelines/usage/cost. Its fields and future ownership require review; do not delete it merely because read_activity returns common records. |
+| BaseActivityProjector, agents/agents/base/base.py | Yes; implemented by the three provider projector classes. | **RETIRE as a public provider contract if the new boundary replaces it.** BaseAgent.read_activity becomes the public provider obligation. Remove this ABC only after all callers have migrated; do not leave two mandatory public Activity interfaces. |
+| Provider activity/projector.py and native parsing/usage helpers | Yes. | **KEEP necessary interpretation internally; refactor rather than discard it.** Existing functions may implement read_activity normalization or whole-history accounting. Do not remove parsing, baseline handling or late-snapshot logic before equivalent behavior exists. Whether the small wrapper classes remain useful internally is decided from their remaining callers. |
+| Application activity/projection.py provider selection on stored raw receipts | Yes. | **REPLACE this provider-specific read-time role.** Under the new boundary, application consumers receive common records. Shared presentation aggregation may remain, but must not require another provider parser to understand those records. Remove obsolete dispatch/wrappers only after capture, storage and detail callers have migrated. |
+| ActivityCapture | Yes. | **KEEP shared observation/persistence coordination.** Adapt it to the selected read interface without losing live updates, retries, attempt attribution or completeness facts. Do not silently move its current provider-specific completion rules without defining the replacement owner. |
+| Runner native/OTLP files and private evidence | Yes. | **KEEP until implementation proves what is still required.** They can remain internal evidence sources for providers. No removal or retention-policy change is selected by this draft. |
+| ActivityRecord, ActivityPage and the four event variants above | No production implementation; proposed here only. | **PROPOSED DATA.** Finalize their schema and streaming semantics before implementation; they are not new runtime services. |
+| RunnerActivityReader, ActivityReader, ActivityStore.read_detail, ActivityReadRequest | No implementation added by this work; withdrawn earlier proposals. | **REMOVE FROM THE DESIGN.** Nothing needs deleting from production for these names. Do not reintroduce them as forwarding layers. |
+
+The replacement goal is one public provider read contract, not a second projector
+contract alongside it. Persistence and presentation remain separate internal
+responsibilities. Keeping ActivityProjection does not retain the requirement
+for the application to interpret provider-native receipts.
+
+No production removal is selected yet. Before retiring the public projector or
+old application dispatch, prove that common records preserve incremental text,
+message updates, streamed tool output, late usage, resumed-attempt attribution
+and final closure. Port useful behavior checks; do not keep tests solely to
+assert a retired interface shape. Existing HTTP/persistence changes need explicit
+migration decisions. No personal saved graph migration layer is assumed.
+
 ## The proposed boundary
 
 Laomedo calls a method declared on the existing Python abstract class BaseAgent.
