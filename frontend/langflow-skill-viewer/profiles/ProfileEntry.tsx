@@ -194,7 +194,7 @@ export default function ProfileEntry({
 				</p>
 				{screen === "picker" ? (
 					<div className="mt-6">
-						<div className="divide-y divide-border overflow-hidden rounded-lg border">
+						<div className={profiles.length ? "divide-y divide-border overflow-hidden rounded-lg border" : undefined}>
 						{profiles.map((profile) => (
 							<Button
 								key={profile.id}
@@ -216,9 +216,9 @@ export default function ProfileEntry({
 							</Button>
 						))}
 						</div>
-						<div className="mt-4 border-t pt-3">
+						<div className={profiles.length ? "mt-4 border-t pt-3" : undefined}>
 						<Button
-							variant="ghost"
+							variant={profiles.length ? "ghost" : "default"}
 							ignoreTitleCase
 							className="w-full justify-start gap-3 px-4 font-normal"
 							onClick={() => {
