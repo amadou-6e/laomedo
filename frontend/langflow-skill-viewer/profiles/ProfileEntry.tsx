@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { UserRound } from "lucide-react";
+import { ChevronRight, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { describeNodeFailure } from "@/components/laomedoErrors/nodeErrors";
@@ -39,6 +39,7 @@ export default function ProfileEntry({
 	const [confirmation, setConfirmation] = useState("");
 	const [pending, setPending] = useState("");
 	const [error, setError] = useState("");
+	const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 	const [wait, setWait] = useState(0);
 
 	useEffect(() => {
@@ -54,10 +55,12 @@ export default function ProfileEntry({
 		? describeNodeFailure(error, undefined, { operation: "profile entry" })
 		: null;
 	const clearPin = () => {
+		setFieldErrors({});
 		setPin("");
 		setConfirmation("");
 	};
-	const clearValidationError = () => {
+	const clearValidationError = (field: string) => {
+		setFieldErrors((current) => ({ ...current, [field]: "" }));
 		setError((current) =>
 			current === "profile_input_invalid" || current === "profile_pin_invalid"
 				? ""
@@ -101,9 +104,15 @@ export default function ProfileEntry({
 	async function submit(event: React.FormEvent) {
 		event.preventDefault();
 		setError("");
+		setFieldErrors({});
 		if (screen === "create") {
-			if (!name.trim() || !/^[0-9]{6}$/.test(pin) || pin !== confirmation) {
-				setError("profile_input_invalid");
+			const invalid: Record<string, string> = {};
+			if (!name.trim()) invalid.name = "profile_name_required";
+			if (!/^[0-9]{6}$/.test(pin)) invalid.pin = "profile_pin_invalid";
+			if (!confirmation) invalid.confirmation = "profile_confirmation_required";
+			else if (pin !== confirmation) invalid.confirmation = "profile_pin_mismatch";
+			if (Object.keys(invalid).length) {
+				setFieldErrors(invalid);
 				return;
 			}
 			setPending("Creating profile…");
@@ -132,7 +141,7 @@ export default function ProfileEntry({
 			}
 		} else if (selected) {
 			if (!/^[0-9]{6}$/.test(pin)) {
-				setError("profile_pin_invalid");
+				setFieldErrors({ pin: "profile_pin_invalid" });
 				return;
 			}
 			await open(selected, pin);
@@ -179,14 +188,16 @@ export default function ProfileEntry({
 											: "No profiles yet"}
 				</h1>
 				<p className="mt-2 text-sm text-muted-foreground">
-					A setup on this machine. No email or administrator required.
+					{screen === "picker" ? "Select a profile to continue." : "Use your six-digit PIN to access your local profile."}
 				</p>
 				{screen === "picker" ? (
-					<div className="mt-6 flex flex-col gap-3">
+					<div className="mt-6">
+						<div className="divide-y divide-border overflow-hidden rounded-lg border">
 						{profiles.map((profile) => (
 							<Button
 								key={profile.id}
-								variant="outline"
+								variant="ghost"
+								className="h-auto min-h-16 w-full justify-start gap-3 rounded-none px-4 py-3 text-left font-normal focus-visible:ring-inset"
 								ignoreTitleCase
 								onClick={() => {
 									clearPin();
@@ -195,19 +206,29 @@ export default function ProfileEntry({
 									setScreen("enter");
 								}}
 							>
-								<UserRound aria-hidden="true" className="mr-2 size-4 shrink-0" />
-								{profile.name}
+								<span aria-hidden="true" className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium text-muted-foreground">
+									{Array.from(profile.name.trim()).slice(0, 2).join("").toLocaleUpperCase()}
+								</span>
+								<span className="min-w-0 flex-1 whitespace-normal break-words">{profile.name}</span>
+								<ChevronRight aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
 							</Button>
 						))}
+						</div>
+						<div className="mt-4 border-t pt-3">
 						<Button
+							variant="ghost"
+							ignoreTitleCase
+							className="w-full justify-start gap-3 px-4 font-normal"
 							onClick={() => {
 								clearPin();
 								setError("");
 								setScreen("create");
 							}}
 						>
-							{profiles.length ? "Create another profile" : "Create profile"}
+							<Plus aria-hidden="true" className="size-5 shrink-0" />
+							Create profile
 						</Button>
+						</div>
 					</div>
 				) : screen === "name-unavailable" ? (
 					<div className="mt-6 flex flex-col gap-4">
@@ -260,16 +281,19 @@ export default function ProfileEntry({
 								Profile name
 								<Input
 									className="mt-1"
-									value={name}
+									aria-label="Profile name" value={name}
 									onChange={(event) => {
 										setName(event.target.value);
-										clearValidationError();
+										clearValidationError("name");
 									}}
 									maxLength={40}
 									required
 									disabled={!!pending}
 									autoComplete="off"
+									aria-invalid={!!fieldErrors.name}
+									aria-describedby={fieldErrors.name ? "profile-name-error" : undefined}
 								/>
+								{fieldErrors.name && <p id="profile-name-error" role="alert" className="mt-2 text-sm text-red-600 dark:text-red-400">{describeNodeFailure(fieldErrors.name).title}</p>}
 							</label>
 						) : (
 							<p className="text-sm">
@@ -285,14 +309,18 @@ export default function ProfileEntry({
 								autoComplete="off"
 								maxLength={6}
 								pattern="[0-9]{6}"
-								value={pin}
+								aria-label="PIN (6 digits)" value={pin}
 								onChange={(event) => {
 									setPin(event.target.value);
-									clearValidationError();
+									clearValidationError("pin");
+									clearValidationError("confirmation");
 								}}
 								required
 								disabled={!!pending || !!wait}
+								aria-invalid={!!fieldErrors.pin}
+								aria-describedby={fieldErrors.pin ? "profile-pin-error" : undefined}
 							/>
+							{fieldErrors.pin && <p id="profile-pin-error" role="alert" className="mt-2 text-sm text-red-600 dark:text-red-400">{describeNodeFailure(fieldErrors.pin).title}</p>}
 						</label>
 						{screen === "create" && (
 							<label className="block text-sm">
@@ -304,14 +332,17 @@ export default function ProfileEntry({
 									autoComplete="off"
 									maxLength={6}
 									pattern="[0-9]{6}"
-									value={confirmation}
+									aria-label="Confirm PIN" value={confirmation}
 									onChange={(event) => {
 										setConfirmation(event.target.value);
-										clearValidationError();
+										clearValidationError("confirmation");
 									}}
 									required
 									disabled={!!pending}
+									aria-invalid={!!fieldErrors.confirmation}
+									aria-describedby={fieldErrors.confirmation ? "profile-confirmation-error" : undefined}
 								/>
+								{fieldErrors.confirmation && <p id="profile-confirmation-error" role="alert" className="mt-2 text-sm text-red-600 dark:text-red-400">{describeNodeFailure(fieldErrors.confirmation).title}</p>}
 							</label>
 						)}
 						<div className="flex flex-col gap-2 pt-2">

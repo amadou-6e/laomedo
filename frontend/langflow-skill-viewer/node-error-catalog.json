@@ -1903,5 +1903,20 @@
     "title": "Use a six-digit PIN",
     "description": "This profile uses a PIN of exactly six digits.",
     "recovery": "Enter all six digits. Leading zeroes are allowed."
+  },
+  "profile_name_required": {
+    "title": "Enter a profile name",
+    "description": "Enter a profile name.",
+    "recovery": ""
+  },
+  "profile_confirmation_required": {
+    "title": "Confirm your PIN",
+    "description": "Confirm your PIN.",
+    "recovery": ""
+  },
+  "profile_pin_mismatch": {
+    "title": "PINs don't match",
+    "description": "PINs don't match.",
+    "recovery": ""
   }
 }

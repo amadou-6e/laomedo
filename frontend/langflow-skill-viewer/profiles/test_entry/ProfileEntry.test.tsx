@@ -20,12 +20,14 @@ describe("profile entry validation recovery", () => {
 	it("removes stale validation feedback when a creation field is corrected", () => {
 		render(<ProfileEntry initial={{ profiles: [], pin_digits: 6 }} initialCreate />);
 		fireEvent.click(screen.getByRole("button", { name: "Create profile" }));
-		expect(screen.getByRole("alert").textContent).toContain("Check your details");
+		expect(screen.getByText("Enter a profile name")).toBeTruthy();
+		expect(screen.getByLabelText("Profile name").getAttribute("aria-invalid")).toBe("true");
 		expect(screen.queryByText("Technical details")).toBeNull();
 		fireEvent.change(screen.getByLabelText("Profile name"), {
 			target: { value: "Work" },
 		});
-		expect(screen.queryByRole("alert")).toBeNull();
+		expect(screen.queryByText("Enter a profile name")).toBeNull();
+		expect(screen.getByText("Use a six-digit PIN")).toBeTruthy();
 	});
 
 	it("starts another entry screen without the previous form error", () => {
@@ -40,5 +42,16 @@ describe("profile entry validation recovery", () => {
 		expect(profile.querySelector('svg[aria-hidden="true"]')).toBeTruthy();
 		fireEvent.click(profile);
 		expect(screen.queryByRole("alert")).toBeNull();
+	});
+
+	it("identifies mismatched PINs at confirmation and preserves the entered name", () => {
+		render(<ProfileEntry initial={{ profiles: [], pin_digits: 6 }} initialCreate />);
+		fireEvent.change(screen.getByLabelText("Profile name"), { target: { value: "Work" } });
+		fireEvent.change(screen.getByLabelText("PIN (6 digits)"), { target: { value: "012345" } });
+		fireEvent.change(screen.getByLabelText("Confirm PIN"), { target: { value: "012346" } });
+		fireEvent.click(screen.getByRole("button", { name: "Create profile" }));
+		expect(screen.getByText("PINs don't match")).toBeTruthy();
+		expect(screen.getByLabelText("Confirm PIN").getAttribute("aria-describedby")).toBe("profile-confirmation-error");
+		expect((screen.getByLabelText("Profile name") as HTMLInputElement).value).toBe("Work");
 	});
 });
