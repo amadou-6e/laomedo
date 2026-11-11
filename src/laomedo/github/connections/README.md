@@ -109,5 +109,8 @@ claim follows from this probe.
 
 Current verification also requires the stored repository location to match its
 verified numeric identity. A rename or transfer fails closed and needs deliberate
-reconnection and fresh repository consent. Whether consent should follow these
-changes is awaiting the owner's decision; reviewer finding T1 remains open.
+reconnection and fresh repository consent. The owner explicitly selected this
+policy on 2026-11-11; consent binds both numeric identity and confirmed location.
+Renewal requires reauthorization of the connection if any consented repository
+cannot be verified at that location. No automatic redirect or consent migration
+is permitted. Reviewer finding T1 awaits a focused contract recheck.

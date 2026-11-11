@@ -128,6 +128,28 @@ class GitHubRepositoryAccessTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(GitHubRepositoryAccessError):
             await self.access.verify(principal, repository)
 
+    async def test_renamed_or_transferred_repository_requires_fresh_consent(self):
+        """Retained numeric identity cannot silently move consent to a new location."""
+        principal = GitHubPrincipal(**self.user)
+        repository = GitHubRepositoryIdentity(**self.repository)
+        for response in (
+            Response(
+                301,
+                headers={"Location": "https://api.github.com/repos/new-owner/private"},
+            ),
+            {**self.repository, "full_name": "synthetic/renamed"},
+            {**self.repository, "full_name": "new-owner/private"},
+        ):
+            with self.subTest(response=response):
+                self.requests.clear()
+                self.responses["/repos/synthetic/private"] = response
+                with self.assertRaises(GitHubRepositoryAccessError):
+                    await self.access.verify(principal, repository)
+                self.assertEqual(
+                    [request.url.path for request in self.requests],
+                    ["/user", "/repos/synthetic/private"],
+                )
+
     async def test_wrong_app_and_incomplete_or_excess_inventory_refuse(self):
         """A candidate list must establish its installation origin and completeness."""
         for payload in (
