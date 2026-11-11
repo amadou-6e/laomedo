@@ -28,3 +28,8 @@ Native parsing remains here; the final response composes the shared
 and retains absent diagnostics. No provider-specific envelope model or new native
 validation is introduced. See the shared Activity README for method vocabulary,
 reference preservation and the internal-only byte compatibility controls.
+
+Per-thread cost follows the same completeness rule as token usage: `project`
+returns an unknown thread amount when any included assistant message has missing
+or invalid counters, aborts, or belongs to an incomplete native export. Confirmed
+request estimates do not substitute for the full thread amount.
