@@ -184,7 +184,10 @@ class PackageLayoutTests(unittest.TestCase):
         accessors form one section; public class/static methods remain public.
         Class fields and decorators retain their separate runtime semantics.
         """
-        paths = list(ROOT.joinpath("src/laomedo/agents").rglob("*.py"))
+        agent_root = ROOT / "src/laomedo/agents"
+        paths = list(agent_root.rglob("*.py"))
+        self.assertTrue(paths, "Agent class ordering scan must find source files")
+        agent_classes = 0
         paths.extend(
             ROOT.joinpath("components/laomedo", name + ".py")
             for name in ("bounded_controller", "github_pr", "output_contract", "skill")
@@ -194,6 +197,8 @@ class PackageLayoutTests(unittest.TestCase):
             for definition in ast.walk(tree):
                 if not isinstance(definition, ast.ClassDef):
                     continue
+                if path.is_relative_to(agent_root):
+                    agent_classes += 1
                 sections = []
                 dunders = []
                 for method in definition.body:
@@ -221,3 +226,6 @@ class PackageLayoutTests(unittest.TestCase):
                     )
                     if "__init__" in dunders:
                         self.assertEqual(dunders[0], "__init__")
+        self.assertGreater(
+            agent_classes, 0, "Agent scan must inspect class definitions"
+        )
