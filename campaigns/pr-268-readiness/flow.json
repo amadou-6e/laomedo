@@ -1,5 +1,5 @@
 {
-  "id": "409ccf21-21e8-46c0-b7a7-404072e500bb",
+  "id": "67fde4f1-5285-4fcb-b89c-81dd059b982d",
   "name": "PR268 title-only readiness (approval pending)",
   "description": "Production components with an explicit selected reference. Building does not execute a model or GitHub operation.",
   "last_tested_version": "1.12.3",
@@ -996,7 +996,7 @@
                 "tool_mode": false,
                 "trace_as_metadata": true,
                 "options": [
-                  "sha256:4082bd7c57935f1f71bc57899eba51469c81d3d7722813f2a8e42259a837f54f"
+                  "sha256:8169c5abfa5eb5636304fb8119ad05ce9d4ee4a08e851d02e6dc83041f22fae5"
                 ],
                 "options_metadata": [],
                 "combobox": true,
@@ -1007,7 +1007,7 @@
                 "placeholder": "",
                 "show": true,
                 "name": "revision_id",
-                "value": "sha256:4082bd7c57935f1f71bc57899eba51469c81d3d7722813f2a8e42259a837f54f",
+                "value": "sha256:8169c5abfa5eb5636304fb8119ad05ce9d4ee4a08e851d02e6dc83041f22fae5",
                 "display_name": "Revision",
                 "advanced": true,
                 "api_editable": false,
@@ -1025,7 +1025,7 @@
                 "tool_mode": false,
                 "trace_as_metadata": true,
                 "options": [
-                  "pr-feedback-readiness-268-e3bc3f2f9e944eaea596f9b4d645d366"
+                  "pr-feedback-readiness-268-7ec3296915a94548be582a279a550238"
                 ],
                 "options_metadata": [],
                 "combobox": true,
@@ -1036,7 +1036,7 @@
                 "placeholder": "",
                 "show": true,
                 "name": "skill_id",
-                "value": "pr-feedback-readiness-268-e3bc3f2f9e944eaea596f9b4d645d366",
+                "value": "pr-feedback-readiness-268-7ec3296915a94548be582a279a550238",
                 "display_name": "Skill",
                 "advanced": false,
                 "api_editable": false,

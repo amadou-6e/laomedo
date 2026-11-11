@@ -1,5 +1,5 @@
 ---
-name: pr-feedback-readiness-268
+name: pr-feedback-readiness-268-7ec3296915a94548be582a279a550238
 description: Return the approved title-only readiness proposal.
 ---
 
