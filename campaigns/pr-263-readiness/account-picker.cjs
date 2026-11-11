@@ -20,6 +20,14 @@ const out = path.join(process.cwd(), '.tools/pr-readiness');
         new Set(alignment.map(row => row.name)).size !== 1 ||
         alignment.some(row => row.rowHeight < 64)) throw Error('List alignment/size failed');
     await page.screenshot({ path: path.join(out, '263-account-picker-wide.png') });
+    await avatars.first().locator('..').click();
+    await page.getByRole('heading', { name: 'Log in', exact: true }).waitFor();
+    await page.getByRole('button', { name: 'Log in', exact: true }).waitFor();
+    const back = page.getByRole('button', { name: 'Back to profiles', exact: true });
+    if (!(await back.locator('svg.lucide-arrow-left').count()) || (await back.innerText()).trim()) throw Error('Back control is not an accessible icon-only arrow');
+    await page.screenshot({ path: path.join(out, '263-login-arrow.png') });
+    await back.click();
+    await page.getByRole('heading', { name: 'Choose profile', exact: true }).waitFor();
     await page.setViewportSize({ width: 390, height: 844 });
     await page.screenshot({ path: path.join(out, '263-account-picker-narrow.png') });
     if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)) throw Error('Horizontal overflow');
