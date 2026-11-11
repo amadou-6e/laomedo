@@ -96,8 +96,18 @@ class PrivateBrowserRuntime:
             commit_lock=self.policy.lock,
         )
         app.state.private_github_connections = connections
+        from laomedo.integrations.langflow.authentication.private_skills import (
+            private_skill_router,
+        )
+        from laomedo.skills.private.service import PrivateSkillAccess
+        from laomedo.skills.private.store import PrivateSkillStore
+
+        app.state.private_skill_access = PrivateSkillAccess(
+            connections, PrivateSkillStore(self.root / "skills")
+        )
         app.include_router(router)
         app.include_router(connection_router)
+        app.include_router(private_skill_router)
         app.add_middleware(PrivateSessionAdapter, store=store, policy=self.policy)
         app.add_middleware(
             PrivateResponseBoundary,

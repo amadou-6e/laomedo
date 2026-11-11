@@ -101,3 +101,10 @@ manual Pydantic validation, so validation errors never echo a token or app secre
 attempt, and redirects to the fixed manager without code/state query parameters.
 `connection_capability` exposes only whether this explicit private runtime exists.
 No public service bearer token can call these controls as a human owner.
+
+`private_skills.py` owns `private_skill_action`, the fixed discover/revisions/
+inspect/history/compare browser adapter. It reuses admission and bounded manual
+validation before invoking `PrivateSkillAccess`; the upstream authenticated user
+supplies the owner. Successful replies are fully buffered JSON and carry the
+exact read authorization into the existing release fence. No public dispatcher,
+private editing, materialization or streaming path is added.
