@@ -26,6 +26,11 @@ const out = path.join(process.cwd(), '.tools/pr-readiness');
     const back = page.getByRole('button', { name: 'Back to profiles', exact: true });
     if (!(await back.locator('svg.lucide-arrow-left').count()) || (await back.innerText()).trim()) throw Error('Back control is not an accessible icon-only arrow');
     await page.screenshot({ path: path.join(out, '263-login-arrow.png') });
+    await page.getByRole('button', { name: 'Log in', exact: true }).click();
+    await page.getByText('Login failed', { exact: true }).waitFor();
+    if (await page.getByText('Use a six-digit PIN', { exact: true }).count()) throw Error('Registration wording leaked into login refusal');
+    await page.screenshot({ path: path.join(out, '263-login-failed.png') });
+
     await back.click();
     await page.getByRole('heading', { name: 'Choose profile', exact: true }).waitFor();
     await page.setViewportSize({ width: 390, height: 844 });
