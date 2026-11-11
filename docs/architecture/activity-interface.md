@@ -5,9 +5,12 @@ The selected boundary is implemented on the existing Python `BaseAgent` ABC.
 Claude approved the code delta `ebf74f27..3778e2714` and the selected Activity
 specification section, then read this complete document and approved it subject
 to this review-status correction. Later edits here only record that verdict.
-Native acceptance at the corrected head is not established: one fresh run failed
-for an unknown reason, and a later diagnostic was blocked at discovery with
-`docker_control_failed`. Earlier native success does not cover the corrections.
+Codex fresh execution, successful resume and resumed-prompt cancellation now
+pass on this reviewed executable code through real HTTP capture/store/display,
+with complete closure and stable replay. See [sanitized acceptance evidence](https://github.com/amadou-6e/laomedo/blob/324579336/experiments/docker-boundary-277/evidence/2026-11-11-activity-current.md).
+This later evidence and the experiment-only cancellation option have not been
+independently reviewed. Earlier failed observations remain preserved; their
+causes were not established. Claude/OpenCode and host-loss acceptance remain open.
 PR #250 remains draft; this scoped review does not approve the whole PR.
 
 ## Public method and caller

@@ -283,5 +283,9 @@ All three providers return shared normalized pages; application capture retains
 common records and a revisioned shared display snapshot. The former public
 projector ABC and forwarding wrappers are retired. Existing saved native history
 keeps a private read-only interpretation path. See [the complete method, data and
-streaming contract](activity-interface.md). This implementation is fully
-unreviewed ? reviewer pending; native acceptance is reported separately in PR250.
+streaming contract](activity-interface.md). Claude approved the Activity code
+and selected specification at `3778e2714`, then the full interface document.
+Current-code Codex fresh/resume/cancellation acceptance passes; Claude/OpenCode
+and host-loss acceptance remain open. Later experiment evidence is not part of
+that independent review. PR250 remains draft with the existing runtime guard
+and other broad-PR review/acceptance gaps.
