@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import ErrorExplanation from "@/components/laomedoErrors/ErrorExplanation";
 import { describeNodeFailure } from "@/components/laomedoErrors/nodeErrors";
 import {
 	createProfile,
@@ -350,7 +349,8 @@ export default function ProfileEntry({
 						className="mt-4 rounded border border-red-200 p-3 text-sm"
 					>
 						<p className="font-medium">{failure.title}</p>
-						<ErrorExplanation failure={failure} />
+						<p>{failure.description}</p>
+						{failure.recovery && <p className="mt-2">{failure.recovery}</p>}
 					</div>
 				)}
 			</section>
