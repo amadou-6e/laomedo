@@ -14,6 +14,7 @@ export default function RecoveryPopup({ message, context, onDismiss }: {
   const [loadingModels, setLoadingModels] = useState(false);
   const catalogue = failure.diagnostics.code === "runner_model_catalog_unavailable_check_runner_connection";
   useEffect(() => {
+    setLoadingModels(false);
     if (!catalogue || !context.nodeId) return;
     const loaded = (event: Event) => {
       if ((event as CustomEvent).detail?.nodeId === context.nodeId) dismissRef.current();
@@ -28,8 +29,13 @@ export default function RecoveryPopup({ message, context, onDismiss }: {
       window.removeEventListener("laomedo-model-catalog-settled", settled);
     };
   }, [catalogue, context.nodeId]);
+  const refreshModels = () => {
+    if (!catalogue || !context.nodeId) return;
+    setLoadingModels(true);
+    window.dispatchEvent(new CustomEvent("laomedo-refresh-model-catalog", {detail: {nodeId: context.nodeId}}));
+  };
   const buttonStyle = popupButtonStyle;
-  return <RunnerRecovery message={message}>{recovery => {
+  return <RunnerRecovery key={context.nodeId} message={message} onReady={refreshModels}>{recovery => {
     const checking = !recovery.state && !recovery.error;
     const busy = checking || recovery.waiting || recovery.cancelling;
     const close = async () => { if (!busy || await recovery.cancel()) dismissRef.current(); };
@@ -40,7 +46,7 @@ export default function RecoveryPopup({ message, context, onDismiss }: {
       heading={<><h3 className="text-sm font-bold">{recovery.title || failure.title}</h3><span className="min-w-0 break-words text-sm text-muted-foreground">{"\u00b7"} {name}{failure.diagnostics.operation ? ` / ${failure.diagnostics.operation}` : ""}</span></>}
       footer={<>
         {catalogue && context.nodeId && recovery.state === "ready" && <button type="button" disabled={loadingModels}
-          onClick={() => { setLoadingModels(true); window.dispatchEvent(new CustomEvent("laomedo-refresh-model-catalog", {detail: {nodeId: context.nodeId}})); }}
+          onClick={refreshModels}
           style={{...buttonStyle, width: 196}}>{loadingModels ? "Loading models..." : "Refresh models"}</button>}
         {(recovery.canStart || recovery.waiting) && <button type="button" onClick={recovery.restart} disabled={recovery.waiting} style={{ ...buttonStyle, width: 196, maxWidth: "100%" }}
           className="disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2">
@@ -51,7 +57,7 @@ export default function RecoveryPopup({ message, context, onDismiss }: {
         <button type="button" onClick={() => void close()} disabled={recovery.cancelling} style={{ ...buttonStyle, width: 112, maxWidth: "100%" }} className="focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2">{recovery.cancelling ? "Cancelling..." : busy ? "Cancel" : "Dismiss"}</button>
 
       </>}>
-        <p role="status" aria-busy={busy} className="flex items-center gap-2">{busy && <svg aria-hidden="true" className="h-4 w-4 shrink-0 animate-spin motion-reduce:animate-none" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" opacity="0.25" /><path d="M12 3a9 9 0 0 1 9 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>}<span>{recovery.cancelling ? "Cancelling runner startup..." : recovery.message}</span></p>
+        <p role="status" aria-busy={busy || loadingModels} className="flex items-center gap-2">{(busy || loadingModels) && <svg aria-hidden="true" className="h-4 w-4 shrink-0 animate-spin motion-reduce:animate-none" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" opacity="0.25" /><path d="M12 3a9 9 0 0 1 9 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>}<span>{loadingModels ? "Loading available models..." : recovery.cancelling ? "Cancelling runner startup..." : recovery.message}</span></p>
         {!busy && recovery.guidance && <p className="mt-2">{recovery.guidance}</p>}
         {!busy && failure.diagnostics.code !== "runner_model_catalog_unavailable_check_runner_connection" && PREREQUISITE_CODES.includes(recovery.reason ?? "") && <p className="mt-2">The previous run's outcome is unconfirmed.</p>}
         {!busy && recovery.error && <p role="alert" className="mt-2">{recovery.error}</p>}
