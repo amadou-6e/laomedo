@@ -1907,16 +1907,16 @@
   "profile_name_required": {
     "title": "Enter a profile name",
     "description": "Enter a profile name.",
-    "recovery": ""
+    "recovery": "Choose a name for this profile."
   },
   "profile_confirmation_required": {
     "title": "Confirm your PIN",
     "description": "Confirm your PIN.",
-    "recovery": ""
+    "recovery": "Enter the same PIN again."
   },
   "profile_pin_mismatch": {
     "title": "PINs don't match",
     "description": "PINs don't match.",
-    "recovery": ""
+    "recovery": "Enter the same PIN in both fields."
   }
 }
