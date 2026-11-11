@@ -1,4 +1,4 @@
-# Isolated Claude native Activity acceptance ? 2026-11-11
+# Isolated Claude native Activity acceptance - 2026-11-11
 
 Implementation runtime code: acc9c41ae94ebd623df341620c1c75a2854502b4. The working tree also contained the BaseAgent method-order-only move subsequently committed as 68415e3dd; AST identity was checked. Model sonnet, effort low; registered Claude image shown below. User approved existing access-only login mirror into a uniquely named temporary Docker volume. No refresh credentials or private state are retained here.
 
@@ -82,4 +82,4 @@ Fresh execution, resume and cancellation after an observed common tool-call all 
 
 The auth volume was removed successfully. The initial harness then exited with a Windows PermissionError while deleting its temporary supervisor log, because its outer finally had not yet closed that log. The harness teardown was corrected to stop its supervisor and close its log before TemporaryDirectory.cleanup; the exact remaining owned directory was removed after containment checks. No inference was repeated merely to verify that teardown edit. Consequently all model-flow assertions passed, but the original overall process exit was not successful. Current harness cleanup changes are not claimed as live-tested.
 
-Runtime retirement code/specification is independently approved at 98d130bb9..acc9c41ae; Activity at ebf74f27..3778e2714. This new harness and acceptance interpretation are fully unreviewed ? reviewer pending. No whole-PR, host-loss or daemon-wide cleanup acceptance follows from these observations. No production authorization gates or turn caps were added.
+Runtime retirement code/specification is independently approved at 98d130bb9..acc9c41ae; Activity at ebf74f27..3778e2714. Claude independently approved the harness delta c11976467..271f9058c and supported these acceptance conclusions as disclosed. Optional harness notes do not invalidate the logged results; this later status correction changes no executable code. No whole-PR, host-loss or daemon-wide cleanup acceptance follows from these observations. No production authorization gates or turn caps were added.

@@ -1,4 +1,4 @@
-# Explicit OpenCode native Activity acceptance ? 2026-11-11
+# Explicit OpenCode native Activity acceptance - 2026-11-11
 
 Implementation: 68415e3dd, no production changes during these runs. Explicit experiment transport_factory supplies OpenCodeAgentRuntime with a uniquely owned temporary private profile. Default production OpenCode host composition remains gated; preflight correctly reported unknown readiness / transport_configuration_only, not authenticated readiness. Native discovery returned49 connected models; selected opencode-go/claude-haiku-5-5, effort default.
 
@@ -144,4 +144,4 @@ The corrected trigger requires the backend prompt flag still bound and an exact 
 ]
 ```
 
-The latter process completed successfully and deleted its temporary profile. Cancellation status/confirmation, complete Activity closure/capture, common display and replay all passed. The output field active_tool_observed=true in this run refers to the stronger independently observed running worker trigger; it is not merely a projected historical tool-call. Host-loss, daemon-wide cleanup and unsupported-model routes remain unverified. New experiment harnesses and this interpretation are fully unreviewed ? reviewer pending. No whole-PR approval is claimed.
+The latter process completed successfully and deleted its temporary profile. Cancellation status/confirmation, complete Activity closure/capture, common display and replay all passed. The output field active_tool_observed=true in this run refers to the stronger independently observed running worker trigger; it is not merely a projected historical tool-call. Host-loss, daemon-wide cleanup and unsupported-model routes remain unverified. Claude independently approved the harness delta c11976467..271f9058c and supported these acceptance conclusions as disclosed. Optional harness notes do not invalidate the logged results; this later status correction changes no executable code. No whole-PR approval is claimed.
