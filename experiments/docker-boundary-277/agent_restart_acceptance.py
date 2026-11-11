@@ -1,6 +1,9 @@
-"""Actual Codex split Agent owner loss and constructor restart reconciliation."""
+"""Actual explicitly composed Agent owner loss and constructor reconciliation."""
 
 import argparse
+import hashlib
+import os
+from urllib.request import Request, build_opener
 import json
 from pathlib import Path
 import subprocess
@@ -15,6 +18,7 @@ def main():
     parser.add_argument("--implementation", type=Path, required=True)
     parser.add_argument("--child", action="store_true")
     parser.add_argument("--root", type=Path)
+    parser.add_argument("--provider", choices=("codex", "opencode"), default="codex")
     args = parser.parse_args()
     sys.path.insert(0, str(args.implementation / "src"))
     from acceptance import session_login
@@ -26,15 +30,38 @@ def main():
     from py_docker.streams.models import StreamLimits
     from docker.errors import NotFound
 
-    if args.child:
-        agent = CodexAgent(
-            args.root / "runner",
-            args.root / "registry",
-            args.root / "repository/source",
-            **session_login(),
+    def construct(root):
+        if args.provider == "codex":
+            return CodexAgent(
+                root / "runner",
+                root / "registry",
+                root / "repository/source",
+                **session_login(),
+            )
+        from laomedo.agents.agents.opencode.agent import OpenCodeAgent
+        from laomedo.agents.agents.opencode.runtime import OpenCodeAgentRuntime
+
+        def transport_factory(workspace, evidence):
+            return OpenCodeAgentRuntime(workspace, evidence, profile=root / "profile")
+
+        return OpenCodeAgent(
+            root / "runner",
+            root / "registry",
+            root / "repository/source",
+            transport_factory=transport_factory,
         )
+
+    if args.child:
+        agent = construct(args.root)
         models = agent.model_catalog(refresh=True)["models"]
-        selected = next((m for m in models if "gpt-5" in m["id"]), models[0])
+        if args.provider == "codex":
+            selected = next((m for m in models if "gpt-5" in m["id"]), models[0])
+        else:
+            selected = next(
+                m
+                for m in models
+                if m["id"].startswith("opencode-go/") and "claude-haiku" in m["id"]
+            )
         effort = "low" if "low" in selected.get("efforts", []) else "default"
         (args.root / "selection.json").write_text(
             json.dumps({"model": selected["id"], "effort": effort})
@@ -60,11 +87,80 @@ def main():
     source.mkdir(parents=True)
     subprocess.run(["git", "init", "--quiet", str(source.parent)], check=True)
     (source / "task.txt").write_text("Disposable owner-loss acceptance workspace.\n")
+    if args.provider == "opencode":
+        from laomedo.agents.agents.opencode.auth.utils import console_provider
+        from laomedo.agents.agents.opencode.auth.transport import NoRedirect
+        from laomedo.agents.agents.base.utils import _json
+        from laomedo.host.private_state.utils import prepare_private_directory
+        from laomedo.host.private_state.models import DirectoryPermissionPolicy
+        from laomedo.host.private_state.windows import WindowsDirectorySecurity
+
+        system = WindowsDirectorySecurity().system_directory()
+        environment = {
+            key: value
+            for key, value in os.environ.items()
+            if key.upper()
+            in {"SYSTEMROOT", "WINDIR", "SYSTEMDRIVE", "TEMP", "TMP", "PATHEXT", "PATH"}
+        }
+        prepare_private_directory(
+            root / "profile",
+            policy=DirectoryPermissionPolicy(
+                whoami=system / "whoami.exe",
+                icacls=system / "icacls.exe",
+                environment=environment,
+                deadline=time.monotonic() + 60,
+            ),
+        )
+
+        def supported_config(url, headers):
+            with build_opener(NoRedirect()).open(
+                Request(url, headers=headers), timeout=30
+            ) as response:
+                remote = json.load(response)
+            provider = remote["config"]["provider"]["opencode-go"]
+            provider["models"] = {
+                name: value
+                for name, value in provider["models"].items()
+                if value.get("provider", {}).get("npm", "@ai-sdk/openai-compatible")
+                in {"@ai-sdk/openai", "@ai-sdk/openai-compatible", "@ai-sdk/anthropic"}
+            }
+            return remote
+
+        credential, org, routing, validity = console_provider(
+            Path.home() / ".local/share/opencode/opencode.db",
+            fetch=supported_config,
+            include_routing=True,
+            include_expiry=True,
+        )
+        _json(root / "profile/auth.json", {"opencode-go": credential})
+        _json(
+            root / "profile/auth-validity.json",
+            dict(
+                validity,
+                credential_sha256=hashlib.sha256(
+                    credential["key"].encode()
+                ).hexdigest(),
+            ),
+        )
+        _json(
+            root / "profile/provider-options.json",
+            {
+                "provider": {
+                    "opencode-go": dict(
+                        routing, options={"headers": {"x-opencode-org-id": org}}
+                    )
+                }
+            },
+        )
+        del credential, org, routing, validity
     owner = log = agent = sentinel = None
     successful = False
     try:
         with DockerRuntime(None).client() as docker:
-            from laomedo.agents.agents.codex.settings import IMAGE
+            if args.provider == "codex":
+                from laomedo.agents.agents.codex.settings import IMAGE
+            else:
+                from laomedo.agents.agents.opencode.settings import IMAGE
 
             image = DockerRuntime.ensure_image(docker, IMAGE)
             sentinel = DockerRuntime.start_session(
@@ -92,6 +188,8 @@ def main():
                         "--implementation",
                         str(args.implementation),
                         "--child",
+                        "--provider",
+                        args.provider,
                         "--root",
                         str(root),
                     ],
@@ -124,7 +222,9 @@ def main():
                     time.sleep(0.2)
                 if not record:
                     raise RuntimeError("actual_model_command_not_observed")
-                receipts = list((root / "runner/receipts").glob("*.json"))
+                receipts = list((root / "runner/receipts").glob("*.json")) + list(
+                    (root / "runner/runs").glob("*/docker-receipts/*.json")
+                )
                 identities = [
                     json.loads(path.read_text())["observed_id"] for path in receipts
                 ]
@@ -139,9 +239,10 @@ def main():
                             "model_command_marker_observed": True,
                             "owned_receipt_count": len(receipts),
                             "owned_running_count": sum(running_before),
-                            "split_mode_unsupervised": not record[
-                                "container_ownership"
-                            ]["supervised"],
+                            "provider": args.provider,
+                            "split_mode_unsupervised": not record.get(
+                                "container_ownership", {}
+                            ).get("supervised", False),
                         }
                     ),
                     flush=True,
@@ -162,9 +263,7 @@ def main():
                     except NotFound:
                         pass
                 before_cancel = record.get("cancel_confirmed")
-                agent = CodexAgent(
-                    root / "runner", root / "registry", source, **session_login()
-                )
+                agent = construct(root)
                 after = agent.status(record["run_id"])
                 absent = 0
                 for identity in identities:
@@ -190,6 +289,7 @@ def main():
                 )
                 checks = {
                     "stage": "agent_restart_reconciliation",
+                    "provider": args.provider,
                     "running_orphans_after_owner_exit": observed_orphans,
                     "record_status": after["status"],
                     "error": after.get("error_category"),
@@ -198,6 +298,7 @@ def main():
                     "exact_owned_absent_count": absent,
                     "pending_receipts": len(
                         list((root / "runner/receipts").glob("*.json"))
+                        + list((root / "runner/runs").glob("*/docker-receipts/*.json"))
                     ),
                     "foreign_sentinel_alive": docker.sdk.containers.get(
                         sentinel.identity.id
@@ -225,10 +326,12 @@ def main():
                 if log:
                     log.close()
                 DockerRuntime.recover_receipts(
-                    docker, list((root / "runner/receipts").glob("*.json"))
+                    docker,
+                    list((root / "runner/receipts").glob("*.json"))
+                    + list((root / "runner/runs").glob("*/docker-receipts/*.json")),
                 )
                 DockerRuntime.close_session(sentinel)
-                if agent is not None:
+                if agent is not None and args.provider == "codex":
                     docker.sdk.volumes.get(agent.profile).remove()
                     print(
                         json.dumps(

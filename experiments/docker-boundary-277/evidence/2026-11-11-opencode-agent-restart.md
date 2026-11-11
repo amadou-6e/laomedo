@@ -1,0 +1,15 @@
+# Real explicitly composed OpenCode Agent restart - 2026-11-11
+
+Production0fdacaa78, no executable production changes during probes. An explicitly supplied OpenCodeAgentRuntime used an ACL-restricted temporary profile outside Git, access-only active Console credentials and only the existing supported SDK route subset. Selected native model opencode-go/claude-haiku-5-5, effort default; default OpenCode composition and unsupported Google routing remain gated. No refresh token, account identifier, private receipt or native conversation is retained here.
+
+The first probe's parent harness incorrectly expected Codex-specific container_ownership metadata from an OpenCode record. After actual model command execution it failed with KeyError before the intended restart sequence. Its finally terminated the exact child owner, recovered the owned receipts and closed the sentinel. The remaining owned private directory (including auth) was removed after checking its resolved path was the generated direct child of TEMP and no pending Docker receipts remained. That first probe is not claimed as restart acceptance; no production defect was involved.
+
+The corrected provider-aware harness started another actual invocation, observed the disposable shell marker and two running owned resources/receipts, terminated only its child Python owner, then constructed a new OpenCodeAgent on the same state with the same explicit transport/profile. Both orphaned containers were still running after owner exit; constructor reconciliation removed only those exact resources and their receipts. Status became interrupted/runner_restarted, cancellation confirmation stayed unchanged, resume was refused, and the independently owned sentinel survived. The whole temporary directory and profile were removed after cleanup.
+
+```json
+{"stage": "active_native_execution", "model_command_marker_observed": true, "owned_receipt_count": 2, "owned_running_count": 2, "provider": "opencode", "split_mode_unsupervised": true}
+{"stage": "agent_restart_reconciliation", "provider": "opencode", "running_orphans_after_owner_exit": 2, "record_status": "interrupted", "error": "runner_restarted", "cancel_confirmation_unchanged": true, "exact_owned_absent_count": 2, "pending_receipts": 0, "foreign_sentinel_alive": true, "resume_refusal": "resume_binding_mismatch", "activity_closed": false, "activity_complete": null, "activity_reason": null}
+{"stage": "private_state_cleanup", "removed": true}
+```
+
+Activity correctly remains closed=false, complete=null because the lost owner never sealed its two feeds. This does not establish terminal Activity-stream recovery. The split_mode_unsupervised output describes this explicit lease_service=None composition; it is not a general provider readiness claim. This establishes a real explicitly composed OpenCode constructor-restart path, not default production composition, lease-supervisor loss, physical host/daemon restart, automatic recovery without reconstruction or Claude recovery. New experiment changes/conclusions remain fully unreviewed - reviewer pending. No whole-PR approval or merge.
