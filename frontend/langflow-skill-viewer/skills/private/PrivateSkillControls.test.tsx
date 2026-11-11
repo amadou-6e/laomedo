@@ -12,6 +12,7 @@ jest.mock("@/stores/flowStore", () => {
 jest.mock("@/components/laomedoGitHubConnections/api", () => ({ connectionCapability: async () => true, connectionRequest: jest.fn(), ConnectionFailure: class extends Error { constructor(public code: string) { super(code); } } }));
 jest.mock("./api", () => ({ privateSkillRequest: jest.fn(), subscribePrivateInvalidation: () => () => {} }));
 jest.mock("@/components/laomedoErrors/ErrorExplanation", () => ({ __esModule: true, default: () => <p>Access refused</p> }));
+jest.mock("@/components/laomedoErrors/NodeErrorNotice", () => ({ __esModule: true, default: () => <p>Access refused</p> }));
 jest.mock("@/components/laomedoErrors/nodeErrors", () => ({ describeNodeFailure: (code: string) => ({ code }) }));
 const chosen = "synthetic | skills/synthetic";
 const commit = "a".repeat(40), hash = "sha256:" + "b".repeat(64);

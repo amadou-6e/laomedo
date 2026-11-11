@@ -2,8 +2,7 @@
 import useFlowStore from "@/stores/flowStore";
 import { connectionCapability, connectionRequest, ConnectionFailure } from "@/components/laomedoGitHubConnections/api";
 import type { ConnectionIndex } from "@/components/laomedoGitHubConnections/types";
-import ErrorExplanation from "@/components/laomedoErrors/ErrorExplanation";
-import { describeNodeFailure } from "@/components/laomedoErrors/nodeErrors";
+import NodeErrorNotice from "@/components/laomedoErrors/NodeErrorNotice";
 import { privateSkillRequest, subscribePrivateInvalidation } from "./api";
 import type { PrivateDiscovery, PrivateOrigin } from "./models";
 
@@ -103,7 +102,9 @@ export default function PrivateSkillControls({ data }: { data: any }) {
       <button type="button" className="rounded border px-2 py-1" disabled={busy || !enabled || !source} onClick={() => void load("skills")}>Refresh private source</button>
     </>}
     {busy && <p role="status">Checking access…</p>}
-    {error && <ErrorExplanation failure={describeNodeFailure(error, undefined)} />}
+    {error && <div role="alert" className="text-destructive"><NodeErrorNotice message={error}
+      label="Access to this repository could not be confirmed."
+      context={{ nodeId: data.id, nodeType: "LaomedoSkill", operation: "Private source" }} /></div>}
     <a className="text-primary underline" href="/settings/github" target="_blank" rel="noreferrer">Manage GitHub connections</a>
   </section>;
 }
