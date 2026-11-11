@@ -1860,9 +1860,9 @@
     "recovery": "Use a different profile name, or go back and select the existing profile."
   },
   "profile_input_invalid": {
-    "title": "Check the profile name and PIN",
-    "description": "The profile details are incomplete or do not match the local profile format.",
-    "recovery": "Use a name of up to 40 characters and enter the same six-digit PIN in both fields. Leading zeroes are allowed."
+    "title": "Check your details",
+    "description": "Enter a profile name and a six-digit PIN.",
+    "recovery": "Make sure both PINs match."
   },
   "profile_creation_unconfirmed": {
     "title": "The profile save could not be confirmed",

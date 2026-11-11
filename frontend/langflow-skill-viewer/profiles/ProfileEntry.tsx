@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import ErrorExplanation from "@/components/laomedoErrors/ErrorExplanation";
@@ -56,6 +57,13 @@ export default function ProfileEntry({
 	const clearPin = () => {
 		setPin("");
 		setConfirmation("");
+	};
+	const clearValidationError = () => {
+		setError((current) =>
+			current === "profile_input_invalid" || current === "profile_pin_invalid"
+				? ""
+				: current,
+		);
 	};
 	const back = () => {
 		clearPin();
@@ -182,16 +190,20 @@ export default function ProfileEntry({
 								variant="outline"
 								ignoreTitleCase
 								onClick={() => {
+									clearPin();
+									setError("");
 									setSelected(profile);
 									setScreen("enter");
 								}}
 							>
+								<UserRound aria-hidden="true" className="mr-2 size-4 shrink-0" />
 								{profile.name}
 							</Button>
 						))}
 						<Button
 							onClick={() => {
 								clearPin();
+								setError("");
 								setScreen("create");
 							}}
 						>
@@ -250,7 +262,10 @@ export default function ProfileEntry({
 								<Input
 									className="mt-1"
 									value={name}
-									onChange={(event) => setName(event.target.value)}
+									onChange={(event) => {
+										setName(event.target.value);
+										clearValidationError();
+									}}
 									maxLength={40}
 									required
 									disabled={!!pending}
@@ -272,7 +287,10 @@ export default function ProfileEntry({
 								maxLength={6}
 								pattern="[0-9]{6}"
 								value={pin}
-								onChange={(event) => setPin(event.target.value)}
+								onChange={(event) => {
+									setPin(event.target.value);
+									clearValidationError();
+								}}
 								required
 								disabled={!!pending || !!wait}
 							/>
@@ -288,7 +306,10 @@ export default function ProfileEntry({
 									maxLength={6}
 									pattern="[0-9]{6}"
 									value={confirmation}
-									onChange={(event) => setConfirmation(event.target.value)}
+									onChange={(event) => {
+										setConfirmation(event.target.value);
+										clearValidationError();
+									}}
 									required
 									disabled={!!pending}
 								/>

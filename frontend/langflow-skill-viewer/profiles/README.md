@@ -37,3 +37,5 @@ Profile name buttons opt out of the native Button's title-case conversion so
 the picker preserves the exact stored name. The sign-out notice offers an
 accessible Close control during waiting and failure; closing dismisses the
 notice only and never claims to cancel a request or confirm sign-out.
+
+Picker rows include a decorative UserRound icon beside each profile name. ProfileEntry clears local validation feedback when its fields change and clears previous-screen errors on picker navigation. Shared catalogue copy uses plain entry guidance; uncertain save and sign-out outcomes retain their recovery paths.
