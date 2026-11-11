@@ -281,6 +281,10 @@ class MessageActivity(BaseModel):
     model_config = ConfigDict(
         strict=True, frozen=True, extra="forbid", hide_input_in_errors=True
     )
+    removed: bool = Field(
+        default=False,
+        description="Retract this previously emitted identity; false restores or updates it.",
+    )
     kind: Literal["message"] = Field(
         default="message", description="Common event discriminator."
     )
@@ -299,6 +303,10 @@ class ToolCallActivity(BaseModel):
 
     model_config = ConfigDict(
         strict=True, frozen=True, extra="forbid", hide_input_in_errors=True
+    )
+    removed: bool = Field(
+        default=False,
+        description="Retract this previously emitted identity; false restores or updates it.",
     )
     kind: Literal["tool_call"] = Field(
         default="tool_call", description="Common event discriminator."
@@ -323,6 +331,10 @@ class ToolResultActivity(BaseModel):
     model_config = ConfigDict(
         strict=True, frozen=True, extra="forbid", hide_input_in_errors=True
     )
+    removed: bool = Field(
+        default=False,
+        description="Retract this previously emitted identity; false restores or updates it.",
+    )
     kind: Literal["tool_result"] = Field(
         default="tool_result", description="Common event discriminator."
     )
@@ -345,6 +357,10 @@ class UsageActivity(BaseModel):
 
     model_config = ConfigDict(
         strict=True, frozen=True, extra="forbid", hide_input_in_errors=True
+    )
+    removed: bool = Field(
+        default=False,
+        description="Retract this previously emitted identity; false restores or updates it.",
     )
     kind: Literal["usage"] = Field(
         default="usage", description="Common event discriminator."
@@ -457,12 +473,18 @@ class ActivityPage(BaseModel):
             positions and self.next_after != positions[-1]
         ):
             raise ValueError("invalid_activity_cursor")
+        if self.has_more and not positions:
+            raise ValueError("invalid_activity_cursor")
         if not self.available and (
             self.records or self.closed or self.complete is not None or self.has_more
         ):
             raise ValueError("activity_attempt_identity_mismatch")
         if self.closed != (self.complete is not None):
             raise ValueError("activity_attempt_identity_mismatch")
+        if self.projection is not None and (
+            not self.available or self.projection_revision < 1
+        ):
+            raise ValueError("activity_projection_not_available")
         if self.complete is False and not self.reason:
             raise ValueError("activity_capture_reason_required")
         return self

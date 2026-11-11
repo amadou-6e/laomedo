@@ -194,7 +194,6 @@ class ProviderInterfaceContractTests(unittest.TestCase):
                 "BaseSplitCommandExecutor",
                 "BaseCredentialProvider",
                 "BaseModelCatalog",
-                "BaseActivityProjector",
             )
         }
         violations = contract_violations(sources, contracts)

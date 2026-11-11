@@ -34,8 +34,8 @@ The wider application's interface remains `agents/interface/`.
 | `BaseSplitCommandExecutor` | `check_health`, `assert_controller_isolated` | Codex's optional persistent native exec-server requires its reader/liveness and credential-controller isolation gate. Other providers do not emulate a persistent service to satisfy this capability. |
 | `BaseCredentialProvider` / `{Provider}CredentialProvider` | `prepare`, `validate`, `borrow`, `release` | Provider-owned admission/refresh and exact temporary-state lifetime. Public bindings contain no secrets; borrowed material stays host-only. Releasing a borrowed profile does not revoke or delete host login. |
 | `BaseModelCatalog` / `{Provider}ModelCatalog` | `discover(refresh=False)`, `snapshot`, `wait_until_idle` | Zero-turn discovery, provider-specific freshness and in-flight sharing. A snapshot is the last observed account catalogue, possibly stale, never a refresh or a selection change. Waiting observes discovery cleanup, not run admission. |
-| `BaseActivityProjector` / `{Provider}ActivityProjector` | `accepts`, `project` | Recognize unqualified native observations and convert them to shared `ActivityProjection`; persisted provider identity takes precedence. Unknown usage remains unknown. Native pricing belongs to its provider. |
-| `AgentProviderRegistry` | `descriptor`, `create_agent`, `activity_projector` | Trusted built-in registrations and typed `AgentProviderDescriptor` capabilities. External inputs can select only registered IDs, never imports, executables or credential locations. |
+| `BaseAgent` activity boundary | `read_activity` | Return typed, paged common records and a shared display snapshot for one explicit attempt. Provider interpretation and pricing stay internal. |
+| `AgentProviderRegistry` | `descriptor`, `create_agent` | Trusted built-in registrations and typed `AgentProviderDescriptor` capabilities. External inputs can select only registered IDs, never imports, executables or credential locations. |
 
 Readiness, process health and isolation return distinct typed observations; none
 implies another. An unsupported check is unknown/unsupported, never success. No

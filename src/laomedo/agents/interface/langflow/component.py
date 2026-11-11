@@ -32,6 +32,10 @@ from laomedo.agents.interface.utils import terminal_record as _terminal_record
 _STOP_TASKS = set()
 _TERMINAL = {"completed", "cancelled", "failed", "timeout", "interrupted"}
 _ROUTABLE_ERRORS = {
+    "activity_normalization_failed",
+    "activity_journal_unavailable",
+    "activity_projection_limit",
+    "activity_run_not_found",
     "run_timeout_not_supported",
     "authentication_not_verified",
     "execution_blocked",

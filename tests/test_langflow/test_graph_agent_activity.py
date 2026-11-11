@@ -1,3 +1,11 @@
+from laomedo.agents.activity.models import (
+    ActivityPage,
+    ActivityRecord,
+    ActivityProjection,
+    MessageActivity,
+)
+from datetime import datetime, timezone
+
 """Internal tests only; real graph acceptance is recorded separately."""
 
 from laomedo.agents.activity.models import CaptureIdentity
@@ -351,10 +359,17 @@ class GraphActivityTests(unittest.TestCase):
             capture.done = threading.Event()
             capture.done.set()
             capture.outcome = "failed"
-            capture.feed = lambda *args: {
-                "accepted": False,
-                "events": [{"event": {"method": "turn/completed"}}],
-            }
+            capture.feed = lambda *args: ActivityPage(
+                run_id="runner",
+                attempt_id=capture.attempt_id,
+                available=False,
+                records=[],
+                next_after=0,
+                has_more=False,
+                closed=False,
+                complete=None,
+                reason="activity_attempt_not_available",
+            )
             capture.observe("runner")
             page = store.read("alice", "flow", "refused", invocation)
             self.assertEqual(page["events"], [])
@@ -377,39 +392,60 @@ class GraphActivityTests(unittest.TestCase):
             capture.refused = threading.Event()
             capture.done = threading.Event()
             capture.outcome = None
-            capture.feed = lambda *args: {
-                "accepted": True,
-                "attempt": {
-                    "id": capture.attempt_id,
-                    "native_start": 10,
-                    "native_end": 11,
-                    "otel_start": 3,
-                    "otel_end": 3,
-                    "usage_baseline": {},
-                    "fresh_thread": True,
-                    "status": "completed",
-                    "ended_at": "2026-10-15T00:00:01Z",
-                },
-                "events": [
-                    {
-                        "cursor": 11,
-                        "received_at": "2026-10-15T00:00:00Z",
-                        "event": {"method": "turn/completed"},
-                    }
+            projection = ActivityProjection(
+                turns=[],
+                items=[],
+                threads=[],
+                telemetry=[],
+                telemetry_coverage="not observed",
+                uncorrelated_thread_count=0,
+                usage=None,
+                usage_by_thread={},
+                usage_points=[],
+                clock="receipt time",
+                cost={"amount": None},
+                cost_reason="unobserved",
+            )
+            capture.feed = lambda *args: ActivityPage(
+                run_id="runner",
+                attempt_id=capture.attempt_id,
+                available=True,
+                records=[
+                    ActivityRecord(
+                        sequence=1,
+                        occurred_at=None,
+                        observed_at=datetime.now(timezone.utc),
+                        event=MessageActivity(
+                            message_id="message",
+                            thread_id="thread",
+                            role="assistant",
+                            text="done",
+                        ),
+                    )
                 ],
-                "next_after": 11,
-                "telemetry": {"events": [], "next_after": 3},
-                "thread_id": "thread",
-                "model": "gpt-6-luna",
-            }
+                next_after=1,
+                has_more=False,
+                closed=True,
+                complete=True,
+                reason=None,
+                projection=projection,
+                projection_revision=1,
+                status="completed",
+                thread_id="thread",
+                model="gpt-6-luna",
+                ended_at="2026-10-15T00:00:01Z",
+            )
             capture.observe("runner")
             page = store.read("alice", "flow", "agent", invocation)
             self.assertEqual(page["run"]["status"], "completed")
             self.assertEqual(page["run"]["ended"], "2026-10-15T00:00:01Z")
             self.assertEqual(
                 len(page["events"]), 2
-            )  # baseline plus this attempt's terminal
-            self.assertIs(page["events"][0]["raw"]["fresh_thread"], True)
+            )  # shared projection plus common message record
+            self.assertEqual(page["events"][0]["raw"]["method"], "activity/projection")
+            self.assertEqual(
+                page["events"][1]["raw"]["record"]["event"]["text"], "done"
+            )
             other = store.start(
                 CaptureIdentity.from_values(
                     "alice", "flow", "duplicate", execution="other"
@@ -433,62 +469,37 @@ class GraphActivityTests(unittest.TestCase):
             capture.refused = threading.Event()
             capture.done = threading.Event()
             capture.outcome = None
-            capture.feed = lambda *args: {
-                "accepted": True,
-                "attempt": {
-                    "id": capture.attempt_id,
-                    "native_start": 0,
-                    "native_end": 1,
-                    "otel_start": 0,
-                    "otel_end": 0,
-                    "usage_baseline": {},
-                    "fresh_thread": True,
-                    "status": "completed",
-                    "capture_error": "claude_telemetry_capture_failed",
-                    "ended_at": "2026-10-27T00:00:01Z",
-                },
-                "events": [
-                    {
-                        "cursor": 1,
-                        "received_at": "2026-10-27T00:00:00Z",
-                        "event": {"method": "turn/completed"},
-                    }
-                ],
-                "next_after": 1,
-                "telemetry": {"events": [], "next_after": 0},
-                "thread_id": "thread",
-                "model": "claude-sonnet-test",
-            }
+            capture.feed = lambda *args: ActivityPage(
+                run_id="runner",
+                attempt_id=capture.attempt_id,
+                available=True,
+                records=[],
+                next_after=0,
+                has_more=False,
+                closed=True,
+                complete=False,
+                reason="claude_telemetry_capture_failed",
+                status="completed",
+                thread_id="thread",
+                model="claude-sonnet-test",
+                ended_at="2026-10-27T00:00:01Z",
+            )
             capture.observe("runner")
             page = store.read("alice", "flow", "agent", invocation)
             self.assertEqual(page["run"]["status"], "completed")
             self.assertEqual(page["run"]["stream_state"], "partial")
             self.assertEqual(page["run"]["reason"], "claude_telemetry_capture_failed")
 
-    def test_opencode_acp_completeness_is_authoritative_with_legacy_fallback(self):
+    def test_capture_uses_reported_completeness_without_provider_component_names(self):
         from laomedo.agents.activity.capture import ActivityCapture
 
-        cases = [
-            ({"capture_complete": True}, "complete", None),
-            ({"native_stream_complete": True}, "complete", None),
-            (
-                {"capture_complete": False, "native_stream_complete": True},
-                "partial",
-                "native_message_snapshot_only",
-            ),
-            (
-                {
-                    "capture_complete": True,
-                    "capture_error": "opencode_native_snapshot_unavailable",
-                },
-                "partial",
-                "opencode_native_snapshot_unavailable",
-            ),
-            ({}, "partial", "native_message_snapshot_only"),
-        ]
-        for fields, state, reason in cases:
+        for complete, reason in (
+            (True, None),
+            (False, "native_message_snapshot_only"),
+            (False, "opencode_native_snapshot_unavailable"),
+        ):
             with (
-                self.subTest(fields=fields),
+                self.subTest(complete=complete, reason=reason),
                 tempfile.TemporaryDirectory() as directory,
             ):
                 store = ActivityStore(Path(directory) / "activity.db")
@@ -502,31 +513,26 @@ class GraphActivityTests(unittest.TestCase):
                 capture.timeout = 1
                 capture.accepted = False
                 capture.attempt_id = "11111111-1111-4111-8111-111111111111"
-                capture.component = SimpleNamespace(name="LaomedoOpenCodeAgent")
                 capture.refused = threading.Event()
                 capture.done = threading.Event()
                 capture.outcome = None
-                capture.feed = lambda *args: {
-                    "accepted": True,
-                    "attempt": {
-                        "native_start": 0,
-                        "native_end": 0,
-                        "otel_start": 0,
-                        "otel_end": 0,
-                        "usage_baseline": {},
-                        "fresh_thread": True,
-                        "status": "completed",
-                        "ended_at": "2026-10-29T12:00:00Z",
-                        **fields,
-                    },
-                    "events": [],
-                    "next_after": 0,
-                    "telemetry": {"events": [], "next_after": 0},
-                    "thread_id": "native-session",
-                    "model": "native-model",
-                }
+                capture.feed = lambda *args: ActivityPage(
+                    run_id="runner",
+                    attempt_id=capture.attempt_id,
+                    available=True,
+                    records=[],
+                    next_after=0,
+                    has_more=False,
+                    closed=True,
+                    complete=complete,
+                    reason=reason,
+                    status="completed",
+                    thread_id="native-session",
+                )
                 capture.observe("runner")
                 page = store.read("alice", "flow", "agent", invocation)
                 self.assertEqual(page["run"]["status"], "completed")
-                self.assertEqual(page["run"]["stream_state"], state)
+                self.assertEqual(
+                    page["run"]["stream_state"], "complete" if complete else "partial"
+                )
                 self.assertEqual(page["run"]["reason"], reason)

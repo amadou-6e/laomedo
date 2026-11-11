@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from laomedo.agents.activity.models import ActivityPage
 from pathlib import Path
 from urllib.request import ProxyHandler
 from urllib.request import Request
@@ -41,20 +42,18 @@ class ActivityCapture:
                 )
                 raise
 
-    def feed(self, run_id, after, otel_after):
-        url = f"{self.base}/v1/runs/{run_id}/events?attempt={self.attempt_id}&after={after}&otel_after={otel_after}&limit=200"
+    def feed(self, run_id, after):
+        """Read the provider's common Activity page, not its private source feeds."""
+        url = f"{self.base}/v1/runs/{run_id}/activity?attempt={self.attempt_id}&after={after}&limit=200"
         with self.opener.open(
             Request(url, headers={"Authorization": "Bearer " + self.token}), timeout=10
         ) as response:
-            value = json.load(response)
-        if value.get("run_id") != run_id:
+            page = ActivityPage.model_validate_json(response.read())
+        if page.run_id != run_id:
             raise ValueError("activity_runner_identity_mismatch")
-        if (
-            value.get("accepted")
-            and value.get("attempt", {}).get("id") != self.attempt_id
-        ):
+        if page.attempt_id != self.attempt_id:
             raise ValueError("activity_attempt_identity_mismatch")
-        return value
+        return page
 
     def bind(self, run_id, attempt_id=None):
         if not self.capture or self.started:
@@ -72,18 +71,18 @@ class ActivityCapture:
         ).start()
 
     def observe(self, run_id):
+        """Retain common records and display snapshots without provider interpretation."""
         store = self.capture.store
         invocation = self.capture.invocation_id
-        after = otel_after = 0
+        after = 0
         deadline = time.monotonic() + self.timeout
         failures = 0
-        terminal_native = False
         try:
             while time.monotonic() < deadline:
                 if self.refused.is_set():
                     return
                 try:
-                    page = self.feed(run_id, after, otel_after)
+                    page = self.feed(run_id, after)
                     failures = 0
                 except Exception:
                     failures += 1
@@ -91,7 +90,7 @@ class ActivityCapture:
                         raise
                     time.sleep(0.3)
                     continue
-                if not page.get("accepted"):
+                if not page.available:
                     if self.done.is_set() and self.outcome in {
                         "completed",
                         "failed",
@@ -104,7 +103,6 @@ class ActivityCapture:
                         return
                     time.sleep(0.25)
                     continue
-                attempt = page["attempt"]
                 if not self.accepted:
                     if not store.claim_attempt(invocation, run_id, self.attempt_id):
                         store.finish(
@@ -114,91 +112,60 @@ class ActivityCapture:
                         )
                         return
                     self.accepted = True
-                    after = attempt["native_start"]
-                    otel_after = attempt["otel_start"]
-                    store.append(
-                        invocation,
-                        {
-                            "method": "capture/usageBaseline",
-                            "threads": attempt["usage_baseline"],
-                            "fresh_thread": attempt.get("fresh_thread") is True,
-                        },
-                    )
                 store.bind(
-                    invocation,
-                    run_id,
-                    native_session=page.get("thread_id"),
-                    model=page.get("model"),
+                    invocation, run_id, native_session=page.thread_id, model=page.model
                 )
-                for item in page["events"]:
+                source = run_id + ":" + self.attempt_id
+                if page.projection is not None:
                     store.append(
                         invocation,
                         {
-                            "method": "native/receipt",
-                            "received_at": item["received_at"],
-                            "event": item["event"],
+                            "method": "activity/projection",
+                            "projection": page.projection.to_payload(),
+                            "revision": page.projection_revision,
+                            "run_id": run_id,
+                            "attempt_id": self.attempt_id,
                         },
-                        source="native",
-                        cursor=item["cursor"],
+                        source="projection:" + source,
+                        cursor=page.projection_revision,
                     )
-                    terminal_native = (
-                        terminal_native
-                        or item["event"].get("method") == "turn/completed"
-                    )
-                after = page["next_after"]
-                telemetry = page.get("telemetry", {})
-                for item in telemetry.get("events", []):
+                for record in page.records:
                     store.append(
                         invocation,
                         {
-                            "method": "otel/receipt",
-                            "received_at": item["received_at"],
-                            "event": item["event"],
+                            "method": "activity/record",
+                            "record": record.model_dump(mode="json"),
                         },
-                        source="otel",
-                        cursor=item["cursor"],
+                        source="normalized:" + source,
+                        cursor=record.sequence,
                     )
-                otel_after = telemetry.get("next_after", otel_after)
-                if (
-                    attempt.get("native_end") is not None
-                    and after >= attempt["native_end"]
-                    and otel_after >= attempt["otel_end"]
-                ):
-                    status = attempt["status"]
-                    if (
-                        getattr(getattr(self, "component", None), "name", None)
-                        == "LaomedoOpenCodeAgent"
-                    ):
-                        terminal_native = (
-                            attempt.get(
-                                "capture_complete",
-                                attempt.get("native_stream_complete"),
-                            )
-                            is True
+                if page.next_after < after:
+                    raise ValueError("invalid_activity_cursor")
+                after = page.next_after
+                if page.closed and not page.has_more:
+                    status = (
+                        "timed_out"
+                        if page.status in {"timeout", "timed_out"}
+                        else (
+                            page.status
+                            if page.status in {"completed", "failed", "cancelled"}
+                            else "failed"
                         )
-                    if status in {"completed", "failed", "cancelled", "timeout"}:
-                        store.finish(
-                            invocation,
-                            "timed_out" if status == "timeout" else status,
-                            complete=terminal_native
-                            and not attempt.get("capture_error"),
-                            reason=attempt.get("capture_error")
-                            or (
-                                None
-                                if terminal_native
-                                else (
-                                    "native_message_snapshot_only"
-                                    if getattr(
-                                        getattr(self, "component", None), "name", None
-                                    )
-                                    == "LaomedoOpenCodeAgent"
-                                    else "native_terminal_event_not_observed"
-                                )
-                            ),
-                            ended_at=attempt["ended_at"],
-                        )
-                        return
-                if not page.get("has_more") and not telemetry.get("has_more"):
+                    )
+                    store.finish(
+                        invocation,
+                        status,
+                        complete=page.complete is True,
+                        reason=page.reason
+                        or (
+                            "remote_outcome_unknown"
+                            if page.status == "unknown"
+                            else None
+                        ),
+                        ended_at=page.ended_at,
+                    )
+                    return
+                if not page.has_more:
                     time.sleep(0.25)
             store.finish(
                 invocation,

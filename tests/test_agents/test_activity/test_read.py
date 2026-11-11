@@ -10,6 +10,15 @@ import unittest
 from laomedo.agents.agents.codex.agent import CodexAgent
 from laomedo.agents.agents.base.utils import _json
 from laomedo.agents.errors import RunnerError
+from laomedo.agents.agents.opencode.agent import OpenCodeAgent
+from laomedo.agents.activity.store import ActivityStore
+from laomedo.agents.activity.models import CaptureIdentity, ActivityInvocation
+from laomedo.agents.activity.capture import ActivityCapture
+from laomedo.agents.activity.projection import project
+from laomedo.host.runner.http.server import RunnerServer
+from unittest.mock import patch
+from urllib.request import build_opener, ProxyHandler
+import threading
 
 
 class ActivityReadTests(unittest.TestCase):
@@ -148,3 +157,187 @@ class ActivityReadTests(unittest.TestCase):
         page = self.read()
         self.assertEqual([row.event.text for row in page.records], ["first"])
         self.assertFalse(page.closed)
+
+    def test_partial_tool_output_and_usage_revisions_are_replacements(self):
+        self.append(
+            "item/started",
+            {
+                "threadId": "thread",
+                "turnId": "turn",
+                "item": {
+                    "id": "tool",
+                    "type": "commandExecution",
+                    "command": "pytest",
+                    "aggregatedOutput": "a",
+                },
+            },
+        )
+        first = self.read()
+        self.append(
+            "item/commandExecution/outputDelta",
+            {"threadId": "thread", "itemId": "tool", "delta": "b"},
+        )
+        second = self.read(after=first.next_after)
+        result = next(
+            row.event for row in second.records if row.event.kind == "tool_result"
+        )
+        self.assertEqual((result.output, result.status), ("ab", "running"))
+        for amount in (3, 5):
+            self.append(
+                "thread/tokenUsage/updated",
+                {
+                    "threadId": "thread",
+                    "tokenUsage": {
+                        "total": {
+                            "inputTokens": amount,
+                            "outputTokens": 0,
+                            "cachedInputTokens": 0,
+                            "cacheWriteInputTokens": 0,
+                            "reasoningOutputTokens": 0,
+                            "totalTokens": amount,
+                        }
+                    },
+                },
+            )
+            page = self.read(after=second.next_after)
+            usage = next(row.event for row in page.records if row.event.kind == "usage")
+            self.assertEqual(usage.input_tokens, amount)
+            second = page
+
+    def test_sealed_missing_evidence_is_partial_and_boundary_cannot_be_rewritten(self):
+        self.message("first")
+        self.append(
+            "turn/completed",
+            {"threadId": "thread", "turn": {"id": "turn", "status": "completed"}},
+        )
+        self.boundary.update(native_end=3, otel_end=0, status="completed")
+        self.save_boundary()
+        page = self.read()
+        self.assertTrue(page.closed)
+        self.assertFalse(page.complete)
+        self.assertEqual(page.reason, "activity_capture_incomplete")
+        self.boundary["native_start"] = 1
+        self.save_boundary()
+        with self.assertRaisesRegex(RunnerError, "activity_attempt_identity_mismatch"):
+            self.read()
+
+    def test_opencode_completeness_is_decided_by_its_provider_read(self):
+        agent = object.__new__(OpenCodeAgent)
+        agent.state = self.agent.state
+        self.boundary.update(native_end=0, otel_end=0, status="completed")
+        for fields, complete, reason in (
+            ({"capture_complete": True}, True, None),
+            ({"capture_complete": False}, False, "native_message_snapshot_only"),
+            (
+                {
+                    "capture_complete": True,
+                    "capture_error": "opencode_native_snapshot_unavailable",
+                },
+                False,
+                "opencode_native_snapshot_unavailable",
+            ),
+        ):
+            with self.subTest(fields=fields):
+                self.boundary.pop("capture_error", None)
+                self.boundary.update(fields)
+                self.save_boundary()
+                page = agent.read_activity(self.run, self.attempt)
+                self.assertEqual((page.complete, page.reason), (complete, reason))
+
+    def test_actual_http_capture_store_and_display_need_no_application_parser(self):
+        self.message("saved common message")
+        self.append(
+            "turn/completed",
+            {"threadId": "thread", "turn": {"id": "turn", "status": "completed"}},
+        )
+        self.boundary.update(native_end=2, otel_end=0, status="completed")
+        self.save_boundary()
+        self.agent.api_token = "a" * 64
+        server = RunnerServer(self.agent, port=0)
+        worker = threading.Thread(target=server.serve_forever, daemon=True)
+        worker.start()
+        try:
+            store = ActivityStore(self.agent.state / "application.db")
+            invocation = store.start(
+                CaptureIdentity.from_values(
+                    "alice", "flow", "node", provider="codex-cli"
+                )
+            )
+            capture = ActivityCapture.__new__(ActivityCapture)
+            capture.capture = ActivityInvocation(store=store, invocation_id=invocation)
+            capture.timeout = 3
+            capture.attempt_id = self.attempt
+            capture.accepted = False
+            capture.refused = threading.Event()
+            capture.done = threading.Event()
+            capture.outcome = None
+            capture.base = "http://127.0.0.1:" + str(server.server_port)
+            capture.token = self.agent.api_token
+            capture.opener = build_opener(ProxyHandler({}))
+            capture.observe(self.run)
+            saved = store.read("alice", "flow", "node", invocation)
+            self.assertEqual(saved["run"]["stream_state"], "complete")
+            with patch(
+                "laomedo.agents.activity.legacy.project_retained",
+                side_effect=AssertionError(
+                    "application must not parse native evidence"
+                ),
+            ):
+                payload = project(
+                    saved["events"], provider="not-needed-for-normalized-history"
+                )
+            self.assertEqual(
+                payload["items"][0]["item"]["text"], "saved common message"
+            )
+            with self.assertRaises(LookupError):
+                store.read("bob", "flow", "node", invocation)
+        finally:
+            server.shutdown()
+            worker.join(timeout=5)
+            server.server_close()
+
+    def test_retraction_and_metadata_only_revision_preserve_old_records(self):
+        from laomedo.agents.activity.normalizer import ActivityNormalizer
+        from laomedo.agents.activity.models import ActivityProjection
+        import sqlite3
+
+        normalizer = ActivityNormalizer(self.agent, None)
+        with sqlite3.connect(":memory:") as db:
+            db.execute("CREATE TABLE records(attempt,sequence,body)")
+            db.execute(
+                "CREATE TABLE snapshots(attempt PRIMARY KEY,state,projection,revision)"
+            )
+            empty = self.agent.read_activity(self.run, self.attempt).projection
+            initial = empty.model_copy(
+                update={
+                    "items": [
+                        {
+                            "id": "message",
+                            "thread": "thread",
+                            "item": {"type": "agentMessage", "text": "first"},
+                        }
+                    ]
+                }
+            )
+            self.assertEqual(normalizer._publish(db, self.attempt, initial), (1, 1))
+            self.assertEqual(normalizer._publish(db, self.attempt, empty), (2, 2))
+            records = [
+                json.loads(row[0])
+                for row in db.execute("SELECT body FROM records ORDER BY sequence")
+            ]
+            self.assertFalse(records[0]["event"]["removed"])
+            self.assertTrue(records[1]["event"]["removed"])
+            changed = empty.model_copy(update={"diagnostics": {"capture": "late"}})
+            self.assertEqual(normalizer._publish(db, self.attempt, changed), (2, 3))
+
+    def test_malformed_source_and_corrupt_journal_are_explicit_failures(self):
+        source = self.root / "activity-events.jsonl"
+        source.write_text("not json\n", encoding="utf-8")
+        with self.assertRaises(RunnerError) as caught:
+            self.agent.read_activity(self.run, self.attempt)
+        self.assertEqual(caught.exception.code, "activity_normalization_failed")
+        source.write_text("", encoding="utf-8")
+        (self.root / "activity-normalized.db").write_bytes(b"not a database")
+        with self.assertRaises(RunnerError) as caught:
+            self.agent.read_activity(self.run, self.attempt)
+        self.assertEqual(caught.exception.code, "activity_journal_unavailable")

@@ -14,7 +14,6 @@ from laomedo.agents.agents.base.base import (
     BaseSplitCommandExecutor,
     BaseCredentialProvider,
     BaseModelCatalog,
-    BaseActivityProjector,
 )
 from laomedo.agents.agents.base.models import (
     CommandRequest,
@@ -133,7 +132,6 @@ class ProviderRoleTests(unittest.TestCase):
             BaseCommandExecutor,
             BaseCredentialProvider,
             BaseModelCatalog,
-            BaseActivityProjector,
         ):
             with self.subTest(role=role.__name__):
                 with self.assertRaises(TypeError):
@@ -219,10 +217,3 @@ class ProviderRoleTests(unittest.TestCase):
         self.assertIsNotNone(estimate("gpt-6-luna", usage)["amount"])
         self.assertIsNone(claude_estimate("gpt-6-luna", usage)["amount"])
         self.assertIsNone(estimate_native("gpt-6-luna", usage, None)["amount"])
-        self.assertIsInstance(
-            AgentProviderRegistry.activity_projector("claude-code"),
-            BaseActivityProjector,
-        )
-        self.assertIsInstance(
-            AgentProviderRegistry.activity_projector("codex-cli"), BaseActivityProjector
-        )

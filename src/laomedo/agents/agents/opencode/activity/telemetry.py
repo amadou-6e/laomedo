@@ -16,7 +16,7 @@ def export_attempt(root, start, session, model):
     from opentelemetry.trace import set_span_in_context
     import requests
     from laomedo.agents.activity.runner.telemetry import LaunchTelemetry
-    from laomedo.agents.activity.projection import project
+    from laomedo.agents.agents.opencode.activity.projection import project
 
     records = []
     cursor = start

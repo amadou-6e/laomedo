@@ -130,6 +130,11 @@ SDK_FAILURE_OPERATIONS = frozenset(
 RUNNER_FAILURE_CODES = frozenset(
     (
         "activity_attempt_already_exists",
+        "activity_journal_unavailable",
+        "activity_normalization_failed",
+        "activity_capture_incomplete",
+        "activity_projection_limit",
+        "activity_run_not_found",
         "app_owned_auth_requires_split_executor",
         "auth_revoked_during_turn",
         "auth_store_overlaps_runner_state",

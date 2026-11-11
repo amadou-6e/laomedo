@@ -9,9 +9,10 @@ Vocabulary: `start` reserves capture identity; `bind` binds the actual remote ru
 read methods inspect retained evidence without running a model. Exact method names
 are listed below; record schemas and provider IDs do not change during renaming.
 
-`projection.py` resolves the stored provider through `AgentProviderRegistry` and
-adapts its canonical `ActivityProjection` to the existing response. Provider
-`activity/projector.py` implementations own native interpretation and pricing.
+`projection.py` reads the highest retained common display snapshot. The private
+`legacy.py` path interprets only already-saved native receipt history. New capture
+uses `BaseAgent.read_activity` and stores normalized records plus display revisions;
+provider native interpretation remains inside that read implementation.
 `timeline.py` assembles normalized thread/turn/item observations using explicit
 provider callbacks; it imports no provider implementation or pricing catalogue.
 The pinned OpenAI API-equivalent catalogue belongs to Codex. Claude and OpenCode

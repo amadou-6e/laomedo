@@ -4,6 +4,7 @@ from contextlib import closing
 from datetime import datetime, timezone
 import json
 import sqlite3
+from pydantic import ValidationError
 
 from laomedo.agents.activity.models import (
     ActivityPage,
@@ -24,6 +25,7 @@ class ActivityNormalizer:
 
     MAX_RECEIPTS = 20000
     MAX_BYTES = 20 * 1024 * 1024
+    MAX_JOURNAL_BYTES = 128 * 1024 * 1024
 
     def __init__(self, agent, projector, *, complete_from_snapshot=False):
         """Borrow the admitted Agent and its defining native projection function."""
@@ -40,9 +42,19 @@ class ActivityNormalizer:
             or not 1 <= limit <= 200
         ):
             raise RunnerError("invalid_activity_cursor")
-        record = self.agent.status(run_id)
+        try:
+            _id(run_id)
+        except (ValueError, TypeError, AttributeError):
+            raise RunnerError("invalid_run_id") from None
+        try:
+            record = self.agent.status(run_id)
+        except FileNotFoundError:
+            raise RunnerError("activity_run_not_found") from None
         root = self.agent._run_dir(run_id)
-        _id(attempt_id)
+        try:
+            _id(attempt_id)
+        except (ValueError, TypeError, AttributeError):
+            raise RunnerError("invalid_activity_attempt_id") from None
         path = root / "activity-attempts" / (attempt_id + ".json")
         if not path.is_file():
             return ActivityPage(
@@ -57,34 +69,69 @@ class ActivityNormalizer:
                 reason="activity_attempt_not_available",
             )
         try:
-            with closing(
-                sqlite3.connect(root / "activity-normalized.db", timeout=15)
-            ) as db:
+            journal = root / "activity-normalized.db"
+            if journal.exists() and journal.stat().st_size > self.MAX_JOURNAL_BYTES:
+                raise RunnerError("activity_projection_limit")
+            with closing(sqlite3.connect(journal, timeout=15)) as db:
+                db.execute("PRAGMA max_page_count=32768")
                 db.execute(
                     "CREATE TABLE IF NOT EXISTS records (attempt TEXT NOT NULL, sequence INTEGER NOT NULL, body TEXT NOT NULL, PRIMARY KEY(attempt,sequence))"
                 )
                 db.execute(
                     "CREATE TABLE IF NOT EXISTS snapshots (attempt TEXT PRIMARY KEY, state TEXT NOT NULL, projection TEXT NOT NULL, revision INTEGER NOT NULL)"
                 )
+                db.execute(
+                    "CREATE TABLE IF NOT EXISTS boundaries (attempt TEXT PRIMARY KEY, starts TEXT NOT NULL, ends TEXT NOT NULL)"
+                )
                 with db:
                     db.execute("BEGIN IMMEDIATE")
                     attempt = _read(path)
                     self._validate_attempt(attempt, attempt_id)
-                    native = self._source(
+                    starts = (attempt["native_start"], attempt["otel_start"])
+                    native, native_position = self._source(
                         root / "activity-events.jsonl",
                         attempt["native_start"],
                         attempt.get("native_end"),
                     )
-                    telemetry = self._source(
+                    telemetry, otel_position = self._source(
                         root / "otel-events.jsonl",
                         attempt["otel_start"],
                         attempt.get("otel_end"),
                     )
+                    initial_ends = (attempt.get("native_end"), attempt.get("otel_end"))
                     # Native writers publish both ends together. A concurrent seal
                     # must constrain observations read while the initial record was open.
                     attempt = _read(path)
                     self._validate_attempt(attempt, attempt_id)
+                    if starts != (attempt["native_start"], attempt["otel_start"]):
+                        raise RunnerError("activity_attempt_identity_mismatch")
                     closed = attempt.get("native_end") is not None
+                    ends = (attempt.get("native_end"), attempt.get("otel_end"))
+                    published = db.execute(
+                        "SELECT starts,ends FROM boundaries WHERE attempt=?",
+                        (attempt_id,),
+                    ).fetchone()
+                    if published and (
+                        json.loads(published[0]) != list(starts)
+                        or (
+                            json.loads(published[1])[0] is not None
+                            and json.loads(published[1]) != list(ends)
+                        )
+                    ):
+                        raise RunnerError("activity_attempt_identity_mismatch")
+                    db.execute(
+                        "INSERT OR REPLACE INTO boundaries VALUES (?,?,?)",
+                        (attempt_id, json.dumps(starts), json.dumps(ends)),
+                    )
+                    if initial_ends[0] is not None and ends != initial_ends:
+                        raise RunnerError("activity_attempt_identity_mismatch")
+                    if closed and ends != initial_ends:
+                        native, native_position = self._source(
+                            root / "activity-events.jsonl", starts[0], ends[0]
+                        )
+                        telemetry, otel_position = self._source(
+                            root / "otel-events.jsonl", starts[1], ends[1]
+                        )
                     if closed:
                         native = [
                             row
@@ -118,14 +165,21 @@ class ActivityNormalizer:
                             }
                             for row in source
                         )
-                    projection = self.projector(
-                        rows,
-                        root_thread=record.get("thread_id"),
-                        model=record.get("effective_model"),
-                    )
-                    if not isinstance(projection, ActivityProjection):
-                        projection = ActivityProjection.model_validate(projection)
+                    try:
+                        projection = self.projector(
+                            rows,
+                            root_thread=record.get("thread_id"),
+                            model=record.get("effective_model"),
+                        )
+                        if not isinstance(projection, ActivityProjection):
+                            projection = ActivityProjection.model_validate(projection)
+                    except (ValidationError, ValueError, TypeError, KeyError):
+                        raise RunnerError("activity_normalization_failed") from None
                     complete, reason = self._completion(attempt, native, closed)
+                    if closed and (
+                        native_position < ends[0] or otel_position < ends[1]
+                    ):
+                        complete, reason = False, "activity_capture_incomplete"
                     total, revision = self._publish(db, attempt_id, projection)
                     if after > total:
                         raise RunnerError("invalid_activity_cursor")
@@ -153,7 +207,7 @@ class ActivityNormalizer:
                         model=record.get("effective_model"),
                         ended_at=attempt.get("ended_at"),
                     )
-        except sqlite3.Error:
+        except (sqlite3.Error, json.JSONDecodeError):
             raise RunnerError("activity_journal_unavailable") from None
 
     def _validate_attempt(self, attempt, identity):
@@ -175,7 +229,10 @@ class ActivityNormalizer:
         """Retain independent physical positions; never combine native/OTLP offsets."""
         rows, cursor, size = [], start, 0
         while True:
-            page = read_feed(path, after=cursor, limit=200, before=end)
+            try:
+                page = read_feed(path, after=cursor, limit=200, before=end)
+            except (ValueError, TypeError, UnicodeError):
+                raise RunnerError("activity_normalization_failed") from None
             rows.extend(page["events"])
             size += sum(
                 len(json.dumps(row, ensure_ascii=False).encode("utf-8"))
@@ -185,17 +242,14 @@ class ActivityNormalizer:
                 raise RunnerError("activity_projection_limit")
             cursor = page["next_after"]
             if not page["has_more"]:
-                return rows
+                return rows, cursor
 
     def _completion(self, attempt, native, closed):
         """Provider capture attestation is distinct from run success and resource cleanup."""
         if not closed:
             return None, None
         if self.complete_from_snapshot:
-            terminal = (
-                attempt.get("capture_complete", attempt.get("native_stream_complete"))
-                is True
-            )
+            terminal = attempt.get("capture_complete") is True
         else:
             terminal = any(
                 row["event"].get("method") == "turn/completed" for row in native
@@ -224,6 +278,8 @@ class ActivityNormalizer:
         encoded = json.dumps(
             payload, sort_keys=True, ensure_ascii=False, separators=(",", ":")
         )
+        if len(encoded.encode("utf-8")) > self.MAX_BYTES:
+            raise RunnerError("activity_projection_limit")
         revision = previous[2] if previous else 0
         total = db.execute(
             "SELECT COALESCE(MAX(sequence),0) FROM records WHERE attempt=?", (attempt,)
@@ -235,17 +291,22 @@ class ActivityNormalizer:
         # Late evidence can revoke an earlier known usage value. Publish unknown
         # instead of leaving the consumer's last known total looking authoritative.
         for key, value in state.items():
-            if key not in current and value.get("kind") == "usage":
-                current[key] = {
-                    name: item if name in {"kind", "thread_id"} else None
-                    for name, item in value.items()
-                }
+            if key not in current:
+                if value.get("kind") == "usage":
+                    current[key] = {
+                        name: item if name in {"kind", "thread_id", "removed"} else None
+                        for name, item in value.items()
+                    }
+                else:
+                    current[key] = {**value, "removed": True}
         for key, event in current.items():
             if state.get(key) != event:
                 total += 1
                 row = ActivityRecord(
                     sequence=total, occurred_at=None, observed_at=observed, event=event
                 )
+                if len(row.model_dump_json().encode("utf-8")) > 2 * 1024 * 1024:
+                    raise RunnerError("activity_projection_limit")
                 db.execute(
                     "INSERT INTO records VALUES (?,?,?)",
                     (attempt, total, row.model_dump_json()),

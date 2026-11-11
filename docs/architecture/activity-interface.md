@@ -1,118 +1,13 @@
-# Activity interface ? discussion draft 1
+# Activity interface
 
-This file is the single reference for our discussion. It records the last
-explicit read_activity proposal from the conversation; it does not silently
-choose between that proposal and the older read-time projector design.
+The selected boundary is implemented on the existing Python `BaseAgent` ABC.
+**Fully unreviewed ? reviewer pending.** The same Claude session was quota-blocked
+on 2026-11-11 until 14:10 Berlin. Earlier projector-design recommendations do not
+approve this implementation. PR #250 remains draft.
 
-**Status: proposed, not implemented, fully unreviewed ? reviewer pending.**
-Claude's earlier recommendation to retain the existing projector does not approve
-this alternative. No production Activity classes or storage schemas have changed.
-We will change this file explicitly when a decision changes, keeping the method,
-models, call example and diagram consistent in the same edit.
-
-## Keep, replace and remove: explicit migration flags
-
-This section records intended changes if the proposed read_activity boundary is
-selected and completed. It does not authorize deleting working code now.
-Existing means present in production source today; proposed means draft only.
-
-| Object or path | Exists today? | Intended disposition |
-| --- | --- | --- |
-| ActivityStore, agents/activity/store.py | Yes; used by capture and authenticated app routes. | **KEEP.** Retain owner-scoped history, receipt deduplication and invocation metadata. Adapt ingestion/read payloads explicitly if common ActivityRecord values replace native wrappers; do not replace the store with another reader object. |
-| ActivityProjection, agents/activity/models.py | Yes; returned by current provider projector wrappers. | **KEEP as a display/aggregation result for now.** It is not ActivityRecord or ActivityPage: those describe source records and transport paging. The UI may still need assembled timelines/usage/cost. Its fields and future ownership require review; do not delete it merely because read_activity returns common records. |
-| BaseActivityProjector, agents/agents/base/base.py | Yes; implemented by the three provider projector classes. | **RETIRE as a public provider contract if the new boundary replaces it.** BaseAgent.read_activity becomes the public provider obligation. Remove this ABC only after all callers have migrated; do not leave two mandatory public Activity interfaces. |
-| Provider activity/projector.py and native parsing/usage helpers | Yes. | **KEEP necessary interpretation internally; refactor rather than discard it.** Existing functions may implement read_activity normalization or whole-history accounting. Do not remove parsing, baseline handling or late-snapshot logic before equivalent behavior exists. Whether the small wrapper classes remain useful internally is decided from their remaining callers. |
-| Application activity/projection.py provider selection on stored raw receipts | Yes. | **REPLACE this provider-specific read-time role.** Under the new boundary, application consumers receive common records. Shared presentation aggregation may remain, but must not require another provider parser to understand those records. Remove obsolete dispatch/wrappers only after capture, storage and detail callers have migrated. |
-| ActivityCapture | Yes. | **KEEP shared observation/persistence coordination.** Adapt it to the selected read interface without losing live updates, retries, attempt attribution or completeness facts. Do not silently move its current provider-specific completion rules without defining the replacement owner. |
-| Runner native/OTLP files and private evidence | Yes. | **KEEP until implementation proves what is still required.** They can remain internal evidence sources for providers. No removal or retention-policy change is selected by this draft. |
-| ActivityRecord, ActivityPage and the four event variants above | No production implementation; proposed here only. | **PROPOSED DATA.** Finalize their schema and streaming semantics before implementation; they are not new runtime services. |
-| RunnerActivityReader, ActivityReader, ActivityStore.read_detail, ActivityReadRequest | No implementation added by this work; withdrawn earlier proposals. | **REMOVE FROM THE DESIGN.** Nothing needs deleting from production for these names. Do not reintroduce them as forwarding layers. |
-
-The replacement goal is one public provider read contract, not a second projector
-contract alongside it. Persistence and presentation remain separate internal
-responsibilities. Keeping ActivityProjection does not retain the requirement
-for the application to interpret provider-native receipts.
-
-No production removal is selected yet. Before retiring the public projector or
-old application dispatch, prove that common records preserve incremental text,
-message updates, streamed tool output, late usage, resumed-attempt attribution
-and final closure. Port useful behavior checks; do not keep tests solely to
-assert a retired interface shape. Existing HTTP/persistence changes need explicit
-migration decisions. No personal saved graph migration layer is assumed.
-
-## The proposed boundary
-
-Laomedo calls a method declared on the existing Python abstract class BaseAgent.
-The selected provider implements that method. The returned records are intended
-to be Laomedo-format data, not raw provider events requiring another public
-projector call. The provider can keep existing parsers/projectors internally.
-
-The code below is an interface sketch, not executable production implementation.
-It adds one proposed operation to the existing BaseAgent, not another Agent class.
-The other classes are proposed data values, not extra services or collaborators.
+## Public method and caller
 
 ```python
-from abc import ABC, abstractmethod
-from datetime import datetime
-from typing import Annotated, Literal
-
-from pydantic import BaseModel, Field
-
-
-class MessageActivity(BaseModel):
-    kind: Literal["message"] = "message"
-    message_id: str
-    thread_id: str
-    role: Literal["user", "assistant"]
-    text: str
-
-
-class ToolCallActivity(BaseModel):
-    kind: Literal["tool_call"] = "tool_call"
-    tool_call_id: str
-    thread_id: str
-    name: str
-    arguments: dict
-
-
-class ToolResultActivity(BaseModel):
-    kind: Literal["tool_result"] = "tool_result"
-    tool_call_id: str
-    status: Literal["completed", "failed", "cancelled", "unknown"]
-    output: str | None
-
-
-class UsageActivity(BaseModel):
-    kind: Literal["usage"] = "usage"
-    thread_id: str
-    input_tokens: int | None
-    output_tokens: int | None
-    cached_input_tokens: int | None
-    reasoning_output_tokens: int | None
-
-
-class ActivityRecord(BaseModel):
-    sequence: int
-    occurred_at: datetime | None
-    observed_at: datetime
-    event: Annotated[
-        MessageActivity | ToolCallActivity | ToolResultActivity | UsageActivity,
-        Field(discriminator="kind"),
-    ]
-
-
-class ActivityPage(BaseModel):
-    run_id: str
-    attempt_id: str
-    available: bool
-    records: list[ActivityRecord]
-    next_after: int
-    has_more: bool
-    closed: bool
-    complete: bool | None
-    reason: str | None
-
-
 class BaseAgent(ABC):
     @abstractmethod
     def read_activity(
@@ -123,155 +18,174 @@ class BaseAgent(ABC):
         after: int = 0,
         limit: int = 100,
     ) -> ActivityPage:
-        """Read Laomedo-format activity for one explicit execution attempt."""
+        """Read normalized activity for one explicit execution attempt."""
 ```
 
-These data definitions preserve the latest conversational sketch; they are not
-being presented as a completed common schema. For example, cache-write tokens,
-parent/child threads and streamed tool output are not represented yet. The open
-decisions below must be resolved before turning this code into production models.
-
-## Caller and callee
-
-| Caller | Callee | Operation crossing the proposed boundary |
-| --- | --- | --- |
-| Shared Laomedo ActivityCapture | ClaudeAgent / CodexAgent / OpenCodeAgent, through BaseAgent | read_activity(run_id, attempt_id, after=..., limit=...) |
-| Same provider Agent | Same calling ActivityCapture | Returns ActivityPage containing ActivityRecord values. |
-
-The provider's native Docker protocol stays internal. Converting it into common
-records is the provider's responsibility under this proposal. The physical
-native/OTLP file cursors are also internal; after is a proposed stable common
-record sequence, not either physical cursor or the SQL receipt sequence.
-
-That common sequence does not currently exist merely because this declaration
-names it. Its production, replay stability and interaction with late evidence
-must be designed and verified; see the open decisions.
-
-## Exact example of the proposed call
+`ClaudeAgent`, `CodexAgent` and `OpenCodeAgent` implement this method. The caller
+supplies an admitted run UUID and the explicit attempt UUID returned by execution;
+resume has a different attempt even when the native conversation is unchanged.
+There is no public Activity reader, projector service or observation lifecycle.
 
 ```python
-page = agent.read_activity(
-    run_id,
-    attempt_id,
-    after=0,
-    limit=100,
-)
-
-if page.available:
-    for record in page.records:
-        display(record.event)
-
-    next_page = agent.read_activity(
-        run_id,
-        attempt_id,
-        after=page.next_after,
-        limit=100,
-    )
+page = agent.read_activity(run_id, attempt_id, after=0, limit=100)
+for record in page.records:
+    display(record.event)
+# Poll later when open; read immediately while has_more is true.
+page = agent.read_activity(run_id, attempt_id, after=page.next_after)
 ```
 
-display is application code in this example, not another proposed interface.
-This shows only the provider read boundary. It does not pretend the existing
-ActivityStore.append already accepts the proposed ActivityRecord format.
+`display` represents application code. Reading never starts a model, checks login,
+launches Docker, cancels work or closes resources. It can publish new normalized
+versions into the provider's private durable journal. The journal must be retained
+with the run: deleting it invalidates previously issued cursor meanings.
 
-## Paging and lifecycle guarantees proposed so far
+## Exact data contract
 
-| Situation | Proposed result or behavior |
+The canonical executable declarations are in
+[`models.py`](../../src/laomedo/agents/activity/models.py). All new models forbid
+extra fields, validate types and hide inputs in validation errors. These are
+shared Pydantic data values, not additional services.
+
+| Value | Fields | Meaning |
+| --- | --- | --- |
+| `MessageActivity` | `kind="message"`, `message_id`, `thread_id`, `role` (`user`/`assistant`), `text`, `removed=False` | Full current text, including incremental updates; keyed by thread and message ID. |
+| `ToolCallActivity` | `kind="tool_call"`, `tool_call_id`, `thread_id`, `name`, JSON `arguments`, `removed=False` | Current call description; keyed by thread and call ID. |
+| `ToolResultActivity` | `kind="tool_result"`, `tool_call_id`, `thread_id`, `status`, nullable `output`, `removed=False` | Full current output; status is running/completed/failed/cancelled/unknown. Streamed output replaces the earlier snapshot. |
+| `UsageActivity` | `kind="usage"`, `thread_id`, six nullable counters, `removed=False` | Attempt-to-date usage for that thread, after provider baseline accounting. |
+| `ActivityRecord` | positive `sequence`, nullable `occurred_at`, `observed_at`, discriminated `event` union above | One immutable observed version. Unknown provider occurrence time stays null. |
+
+Usage counters are `input_tokens`, `output_tokens`, `cached_input_tokens`,
+`reasoning_output_tokens`, `cache_write_input_tokens`, `total_tokens`. Known
+values are nonnegative integers; null means unknown. **Replace usage by thread;
+do not sum successive usage records or overlapping token categories.** Existing
+provider accounting retains child-thread and resumed-attempt attribution.
+
+`ActivityPage` contains these exact fields:
+
+| Field | Type | Guarantee |
+| --- | --- | --- |
+| `run_id`, `attempt_id` | str | Exact requested identities. |
+| `available` | bool | This attempt's source boundary exists. |
+| `records` | list[ActivityRecord] | Strictly increasing sequences greater than requested after. |
+| `next_after` | int | Last returned sequence, or unchanged requested after for an empty page. |
+| `has_more` | bool | More published records exist; true requires a nonempty page. |
+| `closed` | bool | Both native and telemetry source end positions are sealed. |
+| `complete` | bool or None | Null while open/unavailable; final evidence completeness once closed. |
+| `reason` | str or None | Stable unavailability or incomplete-capture category; required when incomplete. |
+| `projection` | ActivityProjection or None | Already assembled shared display snapshot, preserving thread topology, telemetry, diagnostics, pricing and rich items. |
+| `projection_revision` | int, default 0 | Positive, monotonic revision when a projection is supplied. Can advance without a new common event. |
+| `status`, `thread_id`, `model`, `ended_at` | str or None, default None | Observed execution outcome and bindings, distinct from completeness. |
+
+The projection/revision and outcome fields extend the conversational sketch
+explicitly. Four message/tool/usage variants alone do not represent the existing
+rich display envelope. Returning that shared data preserves display without
+adding a second provider interface or parsing native evidence in the application.
+
+## Streaming, replay and closure
+
+The internal `ActivityNormalizer` reads the provider's retained native/telemetry
+intervals, invokes that provider's existing interpretation functions, and commits
+changed common snapshots to `activity-normalized.db` in the run directory.
+SQLite serializes readers' publication transactions. Each attempt has its own
+append-only sequence; independent native/OTLP physical positions are never merged
+into that public cursor. Source starts and sealed ends cannot change after being
+published. A concurrent seal triggers a bounded re-read of both source intervals.
+
+A changed message/tool snapshot appends a new record with the same identity.
+Consumers replace the earlier value, rather than concatenating full snapshots.
+`removed=True` retracts a previously published identity. Disappearing known usage
+becomes an unknown-counter replacement. Prior records never change. A restarted
+reader reuses the durable journal; retries do not consume evidence. Late evidence
+or metadata can append versions and revise the display snapshot even after a
+prior read. Capture stops following only after the sealed sources are drained.
+
+| Situation | Result |
 | --- | --- |
-| First read | after=0. |
-| Later read | Use next_after from the previous page for the same run and attempt. |
-| Ordering | Returned sequence values are strictly increasing and greater than after. |
-| Retry | Reading does not consume evidence or execute a model; sequence attribution stays stable. |
-| More retained records available | has_more=True; read again immediately. |
-| No more records yet, capture open | has_more=False, closed=False; poll later. |
-| Attempt not available yet | available=False, records=[], next_after=after, has_more=False, closed=False, complete=None, reason explains why. |
-| Capture closed and fully recorded | closed=True, complete=True. This is not task success or resource cleanup. |
-| Capture closed with missing evidence | closed=True, complete=False, reason names the stable category. |
-| Capture open | complete=None; final completeness is not yet known. |
-| Closed capture with unread records | closed=True, has_more=True; continue reading until drained. |
-| Resume | Use its explicit new attempt_id; do not switch to the latest attempt automatically. |
-| Observation stops | No cancellation, native process closure or execution side effect. |
+| First read | after=0; limit defaults to100. |
+| Missing attempt on a known run | available=False, no records, unchanged cursor, open, complete=None, activity_attempt_not_available. |
+| No records yet, open capture | has_more=False; poll later. |
+| More records retained | has_more=True; continue immediately with next_after. |
+| Closed, unread records | closed=True can coexist with has_more=True; drain all pages. |
+| Closed with complete evidence | complete=True; does not imply successful execution or cleanup. |
+| Closed, missing/truncated evidence or capture error | complete=False with reason; never upgraded from task success. |
+| Observer stops | Does not cancel execution or clean resources. |
 
-The latest sketch named ActivityReadError without defining it. This draft does
-not introduce that exception as an approved object. Exact existing exception
-reuse, stable error categories and HTTP mapping are still an open decision.
+Claude/Codex require a retained terminal native event and no capture error;
+OpenCode requires explicit native snapshot `capture_complete=True` and no capture
+error. Both source intervals must be sealed for closed=True. Reads that cannot
+reach sealed end positions are incomplete. Application capture consumes these
+facts without branching on provider names.
 
-## Data flow with the actual proposed method visible
+## Transport, persistence and display
 
 ```mermaid
 flowchart TD
     Native["Docker native agent"]
-    Provider["ClaudeAgent / CodexAgent / OpenCodeAgent
-implements BaseAgent.read_activity"]
-    Capture["Laomedo ActivityCapture"]
-    Store["Existing ActivityStore"]
-    UI["Existing authenticated history route and UI"]
-
-    Native -->|"Native evidence; private provider protocol"| Provider
-    Capture -->|"Calls read_activity(run_id, attempt_id, after, limit)"| Provider
-    Provider -->|"Returns ActivityPage: common ActivityRecord values"| Capture
-    Capture -->|"Persistence adaptation NOT DEFINED YET"| Store
-    Store -->|"Saved owner-scoped history; read payload migration undecided"| UI
+    Provider["ClaudeAgent / CodexAgent / OpenCodeAgent"]
+    HTTP["Runner HTTP: GET /v1/runs/{run}/activity"]
+    Capture["Laomedo ActivityCapture.feed / observe"]
+    Store["ActivityStore.append / finish"]
+    Display["Authenticated history route: projection.project and UI"]
+    Native -->|"Retained private native and telemetry evidence"| Provider
+    HTTP -->|"read_activity(run_id, attempt_id, after, limit)"| Provider
+    Provider -->|"ActivityPage: common records and shared display snapshot"| HTTP
+    Capture -->|"Authenticated GET with attempt, after, limit"| HTTP
+    HTTP -->|"Typed ActivityPage JSON"| Capture
+    Capture -->|"Common record receipts and revisioned display snapshots"| Store
+    Store -->|"Owner-scoped retained common data"| Display
 ```
 
-The arrows returning pages and requesting reads are deliberately separate. No
-unlabelled reader or projector service is hidden between them. Internal native
-capture/files may remain; the sketch does not imply their removal.
+`ActivityCapture` validates JSON and exact run/attempt identities, claims the
+attempt once, stores the display revision first, then common records. Store
+receipt deduplication uses separate sources containing run/attempt and record
+sequence or projection revision. Invocation ownership, flow/node scope and the
+existing SQLite schema remain. The store is Laomedo persistence, not a provider
+capability; historical display needs no live Agent, Docker or authentication
+check against the provider.
 
-## Why storage still exists
+Application `projection.project` selects the highest retained common display
+revision. New normalized ingestion never calls a provider parser. Existing saved
+Activity databases containing native receipts retain a **read-only historical
+path** in `activity/legacy.py`; that path uses native helpers for those old rows
+only. This is not personal graph migration or a requirement for new providers.
+The private raw `/events` transport remains for evidence readers; new Activity
+capture uses `/activity`.
 
-The proposed method is the source of provider activity. ActivityStore is the
-application's retained owner/flow/node-scoped copy, so historical display need
-not construct or contact a live Agent. It also owns ingestion deduplication and
-invocation metadata. These are not the same job.
+## Validation, limits and failures
 
-However, today's store holds native receipt wrappers, not the proposed common
-records. Connecting this API to persistence requires an explicit adapter or
-storage-format migration. We have not selected one. No read_detail method or
-new reader class is proposed to disguise that missing decision.
+Cursor and limit must be exact integers: after>=0, limit1..200. Future cursors
+are refused, not silently reset. Invalid UUIDs, unknown runs, mismatched source
+boundaries and journal failures raise the existing `RunnerError` with stable
+categories. No new Activity exception hierarchy is introduced.
 
-## What this changes from the existing implementation
+Each source interpretation is bounded to20,000 receipts/20MiB. Individual source
+lines and common records are bounded to2MiB; the shared display snapshot to20MiB;
+the durable SQLite journal to128MiB with its normal4096-byte pages. Limits fail
+explicitly rather than truncate and claim completeness. Error categories include
+invalid_activity_cursor, invalid_activity_attempt_id, activity_run_not_found,
+activity_attempt_identity_mismatch, activity_normalization_failed,
+activity_projection_limit and activity_journal_unavailable. A corrupt journal is
+not deleted/replayed automatically because that could change cursor meanings.
 
-Today the existing provider BaseActivityProjector translates accumulated stored
-native receipts at application read time. This draft instead proposes returning
-common records from BaseAgent.read_activity. Existing projector functions may
-remain internal implementation helpers, but they cannot simply be renamed into
-a per-page converter: some interpretation requires complete history/baselines
-and post-shutdown metadata.
+## Removed and retained objects
 
-These are two different designs. Claude previously recommended the existing
-read-time approach as the smallest change. This alternative has not been
-reviewed or selected as a final replacement. A later decision to reject it must
-be written here explicitly rather than silently switching the explanation back.
+| Object | Implementation disposition |
+| --- | --- |
+| ActivityStore | Kept: owner-scoped retention, deduplication and invocation metadata. |
+| ActivityProjection | Kept: shared rich display data returned by the provider read boundary. |
+| BaseActivityProjector and three activity/projector.py forwarding classes | Removed; read_activity is the public provider obligation. |
+| Provider native interpretation and usage helpers | Kept internally to preserve full-history/baseline accounting. |
+| Registry activity_projector/projector_for_events methods | Removed; no application dispatch for new normalized history. |
+| ActivityCapture | Kept; follows typed common pages instead of private raw streams. |
+| Native/telemetry evidence | Kept; no retention policy change. |
+| RunnerActivityReader, ActivityReader, ActivityStore.read_detail, ActivityReadRequest | Withdrawn design names; not introduced. |
 
-## Decisions that are genuinely still missing
+## Acceptance scope
 
-1. **Common sequence production:** persisted normalized log versus stable replay
-   of native evidence; how late snapshots and metadata can revise earlier facts
-   without changing old cursor meanings. Do not merge physical source cursors.
-2. **Complete record schema:** thread parentage, message edits/deltas, partial
-   tool output, attachments, diagnostics, cache-write/total counters, units,
-   missing versus partial evidence, costs and source provenance.
-3. **Update semantics:** the earlier sketch proposed replacing a displayed
-   message by message_id. Revision ordering, deletion and duplicate handling
-   still need a precise definition; sequence alone is not a message revision.
-4. **Usage accounting:** attempt-only usage versus cumulative snapshots, multiple
-   usage records, inclusive child totals, baseline subtraction and unknown
-   counters. No per-record summation rule has been defined.
-5. **Capture closure:** which component publishes closed/complete and reason,
-   when both native and telemetry sources are sealed, and how observer failure
-   differs from execution failure or resource cleanup uncertainty.
-6. **Invocation binding and persistence:** how existing invocation_id/owner/flow/
-   node relates to run_id/attempt_id and each normalized record; ingestion API,
-   deduplication key, stored format and existing HTTP compatibility.
-7. **Errors and validation:** unknown run versus not-yet-created attempt,
-   malformed IDs, invalid/future cursors, limit and byte bounds, unreadable or
-   corrupt evidence, unknown record kinds and model versioning.
-8. **Provider feasibility:** prove the same guarantees for Claude, Codex and
-   OpenCode while preserving their differing native history and finalization.
-9. **Read-only history:** confirm that application reads of retained data do not
-   instantiate a live provider or invoke Docker/auth checks. Specify any helper
-   needed by the provider implementation without making it a public collaborator.
-
-Do not implement before these decisions are resolved and reviewed. This file
-fixes the names and visible boundary so discussion can refer to exact sections;
-it does not claim unfinished semantics are a complete interface.
+Retained-evidence tests exercise stable replay, concurrent readers, resumed
+intervals, incremental tool output, replacement usage, completeness, invalid
+cursors, and real HTTP capture/store/display with owner isolation. Synthetic
+source fixtures are not real agent execution acceptance. Real native execution
+and reviewer coverage must be reported separately in the PR; this document does
+not establish them. The existing runtime-interface guard and broader PR blockers
+remain separately scoped.

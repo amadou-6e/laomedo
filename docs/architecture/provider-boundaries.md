@@ -275,3 +275,13 @@ Unified Docker dispatch does not establish real-provider acceptance or complete
 the other four boundary contracts. The shared SDK dispatch implementation was
 reviewed separately from image acquisition. Neither review establishes full
 provider acceptance or resolves the remaining CLI migrations and runtime contracts.
+
+## Activity read boundary
+
+Implemented on `BaseAgent.read_activity(run_id, attempt_id, *, after=0, limit=100)`.
+All three providers return shared normalized pages; application capture retains
+common records and a revisioned shared display snapshot. The former public
+projector ABC and forwarding wrappers are retired. Existing saved native history
+keeps a private read-only interpretation path. See [the complete method, data and
+streaming contract](activity-interface.md). This implementation is fully
+unreviewed ? reviewer pending; native acceptance is reported separately in PR250.

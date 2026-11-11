@@ -19,7 +19,6 @@ from laomedo.agents.agents.base.models import (
     ProcessHealthObservation,
     IsolationObservation,
 )
-from laomedo.agents.activity.models import ActivityProjection
 
 
 class BaseAgentRuntime(ABC):
@@ -167,18 +166,3 @@ class BaseModelCatalog(ABC):
     @abstractmethod
     def list_models(self, *, refresh: bool = False) -> ModelCatalog:
         """Discover or refresh choices; never change the caller's selected model."""
-
-
-class BaseActivityProjector(ABC):
-    """Interpret one provider's observations into canonical shared Activity values."""
-
-    usage_first_payload = False
-
-    @classmethod
-    @abstractmethod
-    def accepts(cls, events) -> bool:
-        """Recognize unqualified native receipts without selecting an execution provider."""
-
-    @abstractmethod
-    def project(self, events, *, root_thread=None, model=None) -> ActivityProjection:
-        """Project observed evidence; absent usage or pricing remains unknown."""

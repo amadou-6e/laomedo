@@ -1,4 +1,64 @@
 {
+  "activity_normalization_failed": {
+    "title": "Retained activity could not be normalized",
+    "description": "The provider evidence could not be converted to the common activity contract.",
+    "recovery": "Keep the retained evidence and original run identity for inspection. Do not repeat the agent task merely to rebuild the view."
+  },
+  "activity_capture_incomplete": {
+    "title": "Some sealed activity evidence is missing",
+    "description": "The retained files do not reach the capture's published end positions.",
+    "recovery": "Inspect the retained evidence and runner storage. Capture closure does not establish that all activity was recorded."
+  },
+  "invalid_activity_cursor": {
+    "title": "The activity position is invalid",
+    "description": "The selected cursor or page bound cannot be used for this capture.",
+    "recovery": "Restart observation from a valid server-returned cursor for the same attempt; do not restart the agent task."
+  },
+  "invalid_activity_attempt_id": {
+    "title": "The activity capture identity is invalid",
+    "description": "The attempt identifier is missing or malformed.",
+    "recovery": "Use the capture identity returned by the selected execution; do not substitute the native conversation ID."
+  },
+  "activity_attempt_not_available": {
+    "title": "Activity capture is not available yet",
+    "description": "The selected run has not published this capture boundary.",
+    "recovery": "Wait and read again using the same run and capture identities. Do not adopt another resumed attempt."
+  },
+  "activity_capture_reason_required": {
+    "title": "Activity completeness evidence is inconsistent",
+    "description": "An incomplete capture was reported without a reason.",
+    "recovery": "Keep the existing run reference and inspect the runner capture metadata; do not infer successful capture."
+  },
+  "activity_projection_not_available": {
+    "title": "The saved activity display is not available",
+    "description": "Normalized records were retained without their shared display snapshot.",
+    "recovery": "Keep the retained records and inspect capture persistence before refreshing the view."
+  },
+  "unregistered_activity_provider": {
+    "title": "The saved activity provider is unknown",
+    "description": "The retained evidence names an unsupported provider.",
+    "recovery": "Use the correct registered provider for this retained history; do not guess a parser from its timestamps."
+  },
+  "remote_outcome_unknown": {
+    "title": "The remote execution outcome is unknown",
+    "description": "Activity observation ended without a confirmed task outcome.",
+    "recovery": "Inspect the original run status before retrying any action. Do not automatically replay the task."
+  },
+  "activity_journal_unavailable": {
+    "title": "Activity normalization history is unavailable",
+    "description": "The private activity journal could not be read or updated reliably.",
+    "recovery": "Inspect runner storage access before retrying the activity read. Do not restart or replay the agent task merely to restore the view."
+  },
+  "activity_projection_limit": {
+    "title": "Activity evidence exceeds the read limit",
+    "description": "This capture cannot be normalized within the bounded evidence budget.",
+    "recovery": "Retain the existing evidence for inspection. Missing display data does not establish task failure or authorize replaying the task."
+  },
+  "activity_run_not_found": {
+    "title": "The activity run is unavailable",
+    "description": "No retained runner record was found for this run identity.",
+    "recovery": "Check the selected runner and retained run reference. Do not create a replacement task to reconcile missing history."
+  },
   "run_timeout_not_supported": {
     "title": "This provider does not support a per-run timeout override",
     "description": "The requested timeout override was refused before model dispatch.",

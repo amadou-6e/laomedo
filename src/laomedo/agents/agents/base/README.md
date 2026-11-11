@@ -186,3 +186,10 @@ create was sent. Unknown subclasses and operation strings remain omitted.
 The catalog declares `include_model_names` for the existing HTTP projection.
 Claude enables native display/alias names; the shared model never selects a
 provider by name. This serialization policy does not change typed discovery.
+
+## Activity boundary
+
+`BaseAgent.read_activity(run_id, attempt_id, *, after=0, limit=100)` is abstract.
+Providers return shared `ActivityPage` values with stable common records and a
+revisioned display snapshot. Native interpretation stays internal; callers do not
+supply another projector. See [the exact contract](../../../../../docs/architecture/activity-interface.md).
