@@ -1,9 +1,11 @@
 # Activity interface
 
 The selected boundary is implemented on the existing Python `BaseAgent` ABC.
-**Fully unreviewed ? reviewer pending.** The same Claude session was quota-blocked
-on 2026-11-11 until 14:10 Berlin. Earlier projector-design recommendations do not
-approve this implementation. PR #250 remains draft.
+**Implementation REVISE at dea9eadc; corrections await focused recheck.**
+Claude reviewed the Activity code delta from ebf74f27. Specification/evidence
+coverage was incomplete in that first pass. Current corrections and the retained
+limits are documented below; PR #250 remains draft. Earlier reviews of other
+boundaries do not approve this delta.
 
 ## Public method and caller
 
@@ -53,6 +55,15 @@ shared Pydantic data values, not additional services.
 | `ToolResultActivity` | `kind="tool_result"`, `tool_call_id`, `thread_id`, `status`, nullable `output`, `removed=False` | Full current output; status is running/completed/failed/cancelled/unknown. Streamed output replaces the earlier snapshot. |
 | `UsageActivity` | `kind="usage"`, `thread_id`, six nullable counters, `removed=False` | Attempt-to-date usage for that thread, after provider baseline accounting. |
 | `ActivityRecord` | positive `sequence`, nullable `occurred_at`, `observed_at`, discriminated `event` union above | One immutable observed version. Unknown provider occurrence time stays null. |
+
+Reasoning items remain available in the rich display snapshot but are not
+misrepresented as assistant-answer MessageActivity records. Native non-message
+operations (file changes, searches, plans and collaboration included) currently
+use generic tool-call/result records with their native type as name; consumers
+must not assume these all represent a provider function-call protocol.
+All shared snapshots use the common `to_payload()` JSON key order, including
+OpenCode; JSON field values and diagnostics omission are preserved. Key ordering
+is not a semantic distinction between providers.
 
 Usage counters are `input_tokens`, `output_tokens`, `cached_input_tokens`,
 `reasoning_output_tokens`, `cache_write_input_tokens`, `total_tokens`. Known
@@ -137,9 +148,15 @@ flowchart TD
 
 `ActivityCapture` validates JSON and exact run/attempt identities, claims the
 attempt once, stores the display revision first, then common records. Store
-receipt deduplication uses separate sources containing run/attempt and record
-sequence or projection revision. Invocation ownership, flow/node scope and the
-existing SQLite schema remain. The store is Laomedo persistence, not a provider
+receipt deduplication uses sources containing run/attempt and record sequence.
+The store atomically replaces its single display snapshot for the invocation
+when a higher projection revision arrives; stale/repeated revisions cannot replace
+it. This mutable display slot is separate from immutable normalized records and
+the provider's public cursor. The authenticated detail route uses this latest
+snapshot directly and omits duplicate snapshot/common record bodies from its
+`events`; the bounded raw-receipt endpoint remains available. The latest view does
+not depend on traversing the20,000-receipt historical detail limit. Invocation ownership, flow/node scope and the
+existing receipt schema remain; a small snapshot revision index identifies the mutable display slot. The store is Laomedo persistence, not a provider
 capability; historical display needs no live Agent, Docker or authentication
 check against the provider.
 
@@ -159,9 +176,16 @@ boundaries and journal failures raise the existing `RunnerError` with stable
 categories. No new Activity exception hierarchy is introduced.
 
 Each source interpretation is bounded to20,000 receipts/20MiB. Individual source
-lines and common records are bounded to2MiB; the shared display snapshot to20MiB;
-the durable SQLite journal to128MiB with its normal4096-byte pages. Limits fail
-explicitly rather than truncate and claim completeness. Error categories include
+lines and common records are bounded to2MiB; the shared display snapshot to20MiB.
+The durable journal has a128MiB logical data budget **per attempt**, including
+record bodies, current normalized state and the current display snapshot; SQLite
+page overhead and independent resumed attempts are not a run-wide failure gate.
+At a source bound, the retained prefix remains readable; at a publication budget,
+previously published versions remain readable. A page reports
+`reason="activity_projection_limit"`; it remains open with complete=None until
+both source ends are sealed, then becomes closed with complete=False. It never
+claims source closure merely because a budget was reached. Later resumed attempts
+have independent budgets. Partial totals are not complete accounting evidence. Error categories include
 invalid_activity_cursor, invalid_activity_attempt_id, activity_run_not_found,
 activity_attempt_identity_mismatch, activity_normalization_failed,
 activity_projection_limit and activity_journal_unavailable. A corrupt journal is

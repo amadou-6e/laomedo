@@ -63,7 +63,7 @@ class RunnerRequestHandler(BaseHTTPRequestHandler):
                 page = self.server.runner.read_activity(
                     parts[2], query.get("attempt", [""])[0], after=after, limit=limit
                 )
-                self._reply(200, page.model_dump(mode="json"))
+                self._reply(200, page.to_payload())
                 return
             if len(parts) == 4 and parts[:2] == ["v1", "runs"] and parts[3] == "events":
                 from laomedo.agents.activity.runner.feed import read_feed

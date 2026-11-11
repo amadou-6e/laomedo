@@ -342,10 +342,136 @@ class ActivityReadTests(unittest.TestCase):
             self.agent.read_activity(self.run, self.attempt)
         self.assertEqual(caught.exception.code, "activity_journal_unavailable")
 
-    def test_projection_budget_failure_keeps_its_stable_category(self):
+    def test_projection_budget_keeps_a_partial_readable_page(self):
         with patch(
             "laomedo.agents.activity.normalizer.ActivityNormalizer.MAX_BYTES", 1
         ):
-            with self.assertRaises(RunnerError) as caught:
-                self.agent.read_activity(self.run, self.attempt)
-        self.assertEqual(caught.exception.code, "activity_projection_limit")
+            page = self.read()
+        self.assertFalse(page.closed)
+        self.assertIsNone(page.complete)
+        self.assertEqual(page.reason, "activity_projection_limit")
+
+    def test_long_source_preserves_prefix_and_sealed_incompleteness(self):
+        self.message("a")
+        event = {
+            "received_at": "2026-11-11T08:00:00+00:00",
+            "event": {
+                "method": "item/agentMessage/delta",
+                "params": {"threadId": "thread", "itemId": "message", "delta": "b"},
+            },
+        }
+        with (self.root / "activity-events.jsonl").open(
+            "a", encoding="utf-8"
+        ) as stream:
+            stream.write((json.dumps(event) + "\n") * 20001)
+        self.boundary.update(native_end=20002, otel_end=0, status="completed")
+        self.save_boundary()
+        page = self.read()
+        self.assertTrue(page.closed)
+        self.assertFalse(page.complete)
+        self.assertEqual(page.reason, "activity_projection_limit")
+        self.assertEqual(len(page.records[0].event.text), 20000)
+        self.assertEqual(page.records, self.read().records)
+
+    def test_journal_budget_keeps_replay_and_does_not_block_resume(self):
+        from laomedo.agents.activity.normalizer import ActivityNormalizer
+
+        self.message("a")
+        initial = self.read()
+        self.append(
+            "item/agentMessage/delta",
+            {
+                "threadId": "thread",
+                "itemId": "message",
+                "delta": "much longer replacement",
+            },
+        )
+        with patch.object(ActivityNormalizer, "MAX_JOURNAL_BYTES", 1):
+            partial = self.read()
+        self.assertEqual(partial.records, initial.records)
+        self.assertEqual(partial.reason, "activity_projection_limit")
+        self.attempt = str(uuid4())
+        self.boundary.update(id=self.attempt, native_start=2)
+        self.save_boundary()
+        self.message("new resumed attempt")
+        resumed = self.read()
+        self.assertEqual(resumed.records[0].sequence, 1)
+        self.assertEqual(resumed.records[0].event.text, "new resumed attempt")
+        self.assertIsNone(resumed.reason)
+
+    def test_wire_diagnostics_omission_and_reasoning_not_an_answer(self):
+        self.append(
+            "item/started",
+            {
+                "threadId": "thread",
+                "turnId": "turn",
+                "item": {
+                    "id": "reason",
+                    "type": "reasoning",
+                    "text": "private reasoning",
+                },
+            },
+        )
+        self.message("actual answer")
+        page = self.read()
+        self.assertEqual([row.event.text for row in page.records], ["actual answer"])
+        from laomedo.agents.activity.models import ActivityPage
+
+        wire = page.to_payload()
+        self.assertEqual(
+            "diagnostics" in wire["projection"],
+            "diagnostics" in page.projection.to_payload(),
+        )
+        self.assertEqual(
+            ActivityPage.model_validate_json(json.dumps(wire)).projection.to_payload(),
+            page.projection.to_payload(),
+        )
+
+    def test_resumed_usage_record_subtracts_cumulative_baseline(self):
+        self.boundary.update(
+            fresh_thread=False,
+            usage_baseline={
+                "thread": {"total": {"inputTokens": 100, "outputTokens": 20}}
+            },
+        )
+        self.save_boundary()
+        self.append(
+            "thread/tokenUsage/updated",
+            {
+                "threadId": "thread",
+                "tokenUsage": {"total": {"inputTokens": 130, "outputTokens": 25}},
+            },
+        )
+        usage = [row.event for row in self.read().records if row.event.kind == "usage"][
+            0
+        ]
+        self.assertEqual((usage.input_tokens, usage.output_tokens), (30, 5))
+
+    def test_http_page_projection_preserves_omitted_and_explicit_diagnostics(self):
+        from laomedo.agents.activity.models import ActivityProjection, ActivityPage
+
+        page = self.read()
+        payload = page.projection.to_payload()
+        payload.pop("diagnostics", None)
+        omitted = page.model_copy(
+            update={"projection": ActivityProjection.model_validate(payload)}
+        )
+        wire = omitted.to_payload()
+        self.assertNotIn("diagnostics", wire["projection"])
+        self.assertNotIn(
+            "diagnostics",
+            ActivityPage.model_validate_json(json.dumps(wire)).projection.to_payload(),
+        )
+        explicit = page.model_copy(
+            update={
+                "projection": ActivityProjection.model_validate(
+                    {**payload, "diagnostics": None}
+                )
+            }
+        )
+        self.assertIn(
+            "diagnostics",
+            ActivityPage.model_validate_json(
+                json.dumps(explicit.to_payload())
+            ).projection.to_payload(),
+        )

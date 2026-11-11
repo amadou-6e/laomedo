@@ -52,6 +52,10 @@ class ActivityStore:
             db.execute("""CREATE TABLE IF NOT EXISTS agent_activity_attempts (
                 runner_run TEXT NOT NULL, attempt TEXT NOT NULL, invocation TEXT NOT NULL,
                 PRIMARY KEY(runner_run,attempt))""")
+            db.execute(
+                """CREATE TABLE IF NOT EXISTS agent_activity_snapshots (
+                run TEXT PRIMARY KEY, sequence INTEGER NOT NULL, revision INTEGER NOT NULL)"""
+            )
 
     @contextmanager
     def db(self):
@@ -102,11 +106,32 @@ class ActivityStore:
             raise ValueError("agent_activity_event_invalid")
         raw = json.dumps(event, ensure_ascii=False)
         with self.db() as db:
+            db.execute("BEGIN IMMEDIATE")
             record = db.execute(
                 "SELECT ended FROM agent_activity_runs WHERE id=?", (run,)
             ).fetchone()
             if record is None or record["ended"] is not None:
                 raise ValueError("agent_activity_closed")
+            snapshot = event.get("method") == "activity/projection"
+            if snapshot:
+                revision = event.get("revision")
+                if type(revision) is not int or revision < 1:
+                    raise ValueError("agent_activity_cursor_invalid")
+                previous = db.execute(
+                    "SELECT sequence,revision FROM agent_activity_snapshots WHERE run=?",
+                    (run,),
+                ).fetchone()
+                if previous:
+                    if revision > previous["revision"]:
+                        db.execute(
+                            "UPDATE agent_activity_receipts SET received=?,raw=? WHERE run=? AND sequence=?",
+                            (now(), raw, run, previous["sequence"]),
+                        )
+                        db.execute(
+                            "UPDATE agent_activity_snapshots SET revision=? WHERE run=?",
+                            (revision, run),
+                        )
+                    return
             if source is not None:
                 if not isinstance(cursor, int) or cursor < 1:
                     raise ValueError("agent_activity_cursor_invalid")
@@ -124,6 +149,11 @@ class ActivityStore:
                 "INSERT INTO agent_activity_receipts VALUES (?,?,?,?)",
                 (run, seq, now(), raw),
             )
+            if snapshot:
+                db.execute(
+                    "INSERT INTO agent_activity_snapshots VALUES (?,?,?)",
+                    (run, seq, revision),
+                )
             if event.get("type") == "thread.started" and isinstance(
                 event.get("thread_id"), str
             ):

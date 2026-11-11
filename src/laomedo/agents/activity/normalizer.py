@@ -35,6 +35,7 @@ class ActivityNormalizer:
 
     def read(self, run_id, attempt_id, *, after=0, limit=100):
         """Publish immutable versions atomically and read a bounded normalized page."""
+        self.limited = False
         if (
             type(after) is not int
             or after < 0
@@ -70,10 +71,7 @@ class ActivityNormalizer:
             )
         try:
             journal = root / "activity-normalized.db"
-            if journal.exists() and journal.stat().st_size > self.MAX_JOURNAL_BYTES:
-                raise RunnerError("activity_projection_limit")
             with closing(sqlite3.connect(journal, timeout=15)) as db:
-                db.execute("PRAGMA max_page_count=32768")
                 db.execute(
                     "CREATE TABLE IF NOT EXISTS records (attempt TEXT NOT NULL, sequence INTEGER NOT NULL, body TEXT NOT NULL, PRIMARY KEY(attempt,sequence))"
                 )
@@ -182,10 +180,30 @@ class ActivityNormalizer:
                         complete, reason = False, "activity_capture_incomplete"
                     try:
                         total, revision = self._publish(db, attempt_id, projection)
-                    except RunnerError:
-                        raise
+                    except RunnerError as error:
+                        if error.code != "activity_projection_limit":
+                            raise
+                        self.limited = True
+                        saved = db.execute(
+                            "SELECT projection,revision FROM snapshots WHERE attempt=?",
+                            (attempt_id,),
+                        ).fetchone()
+                        projection = (
+                            ActivityProjection.model_validate_json(saved[0])
+                            if saved
+                            else None
+                        )
+                        revision = saved[1] if saved else 0
+                        total = db.execute(
+                            "SELECT COALESCE(MAX(sequence),0) FROM records WHERE attempt=?",
+                            (attempt_id,),
+                        ).fetchone()[0]
                     except (ValidationError, TypeError, ValueError):
                         raise RunnerError("activity_normalization_failed") from None
+                    if self.limited:
+                        complete, reason = (
+                            False if closed else None
+                        ), "activity_projection_limit"
                     if after > total:
                         raise RunnerError("invalid_activity_cursor")
                     values = db.execute(
@@ -236,15 +254,20 @@ class ActivityNormalizer:
         while True:
             try:
                 page = read_feed(path, after=cursor, limit=200, before=end)
-            except (ValueError, TypeError, UnicodeError):
+            except ValueError as error:
+                if str(error) == "activity_record_too_large":
+                    self.limited = True
+                    return rows, cursor
                 raise RunnerError("activity_normalization_failed") from None
-            rows.extend(page["events"])
-            size += sum(
-                len(json.dumps(row, ensure_ascii=False).encode("utf-8"))
-                for row in page["events"]
-            )
-            if len(rows) > self.MAX_RECEIPTS or size > self.MAX_BYTES:
-                raise RunnerError("activity_projection_limit")
+            except (TypeError, UnicodeError):
+                raise RunnerError("activity_normalization_failed") from None
+            for row in page["events"]:
+                row_bytes = len(json.dumps(row, ensure_ascii=False).encode("utf-8"))
+                if len(rows) >= self.MAX_RECEIPTS or size + row_bytes > self.MAX_BYTES:
+                    self.limited = True
+                    return rows, rows[-1]["cursor"] if rows else start
+                rows.append(row)
+                size += row_bytes
             cursor = page["next_after"]
             if not page["has_more"]:
                 return rows, cursor
@@ -304,6 +327,7 @@ class ActivityNormalizer:
                     }
                 else:
                     current[key] = {**value, "removed": True}
+        pending = []
         for key, event in current.items():
             if state.get(key) != event:
                 total += 1
@@ -312,14 +336,29 @@ class ActivityNormalizer:
                 )
                 if len(row.model_dump_json().encode("utf-8")) > 2 * 1024 * 1024:
                     raise RunnerError("activity_projection_limit")
-                db.execute(
-                    "INSERT INTO records VALUES (?,?,?)",
-                    (attempt, total, row.model_dump_json()),
-                )
+                pending.append((attempt, total, row.model_dump_json()))
+        state_json = json.dumps(current, sort_keys=True)
+        retained_bytes = db.execute(
+            "SELECT COALESCE(SUM(LENGTH(CAST(body AS BLOB))),0) FROM records WHERE attempt=?",
+            (attempt,),
+        ).fetchone()[0]
+        if (
+            retained_bytes
+            + sum(len(row[2].encode("utf-8")) for row in pending)
+            + len(state_json.encode("utf-8"))
+            + len(encoded.encode("utf-8"))
+            > self.MAX_JOURNAL_BYTES
+        ):
+            raise RunnerError("activity_projection_limit")
+        for row in pending:
+            db.execute(
+                "INSERT INTO records VALUES (?,?,?)",
+                row,
+            )
         revision += 1
         db.execute(
             "INSERT OR REPLACE INTO snapshots VALUES (?,?,?,?)",
-            (attempt, json.dumps(current, sort_keys=True), encoded, revision),
+            (attempt, state_json, encoded, revision),
         )
         return total, revision
 
@@ -338,7 +377,9 @@ class ActivityNormalizer:
                 continue
             key = json.dumps([thread, identity])
             kind = item.get("type")
-            if kind in {"userMessage", "agentMessage", "reasoning"}:
+            if kind == "reasoning":
+                continue
+            if kind in {"userMessage", "agentMessage"}:
                 text = item.get("text")
                 if isinstance(text, str):
                     event = MessageActivity(

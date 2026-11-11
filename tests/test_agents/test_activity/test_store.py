@@ -243,3 +243,60 @@ class ActivityTests(unittest.TestCase):
             response = TestClient(app).get(self.base)
         self.assertEqual(response.status_code, 503)
         self.assertFalse(missing.parent.exists())
+
+    @unittest.skipIf(FastAPI is None, "optional FastAPI integration is not installed")
+    def test_latest_snapshot_survives_long_detail_without_duplicate_payloads(self):
+        from laomedo.agents.agents.codex.activity.projection import project
+        import json
+
+        view = project([]).to_payload()
+        first = {"method": "activity/projection", "revision": 1, "projection": view}
+        self.store.append(self.run, first, source="projection:test", cursor=1)
+        with self.store.db() as db:
+            db.executemany(
+                "INSERT INTO agent_activity_receipts VALUES (?,?,?,?)",
+                [
+                    (
+                        self.run,
+                        n,
+                        "2026-11-11",
+                        json.dumps(
+                            {"method": "activity/record", "record": {"sequence": n}}
+                        ),
+                    )
+                    for n in range(2, 20003)
+                ],
+            )
+        updated = {**view, "clock": "latest projection beyond detail limit"}
+        for revision in range(2, 8):
+            self.store.append(
+                self.run,
+                {
+                    "method": "activity/projection",
+                    "revision": revision,
+                    "projection": updated,
+                },
+                source="projection:test",
+                cursor=revision,
+            )
+        self.store.append(self.run, first, source="projection:test", cursor=1)
+        saved = self.store.read("alice", "flow", "agent", self.run)
+        self.assertEqual(saved["events"][0]["raw"]["revision"], 7)
+        with self.store.db() as db:
+            self.assertEqual(
+                db.execute(
+                    "SELECT COUNT(*) FROM agent_activity_receipts WHERE run=?",
+                    (self.run,),
+                ).fetchone()[0],
+                20002,
+            )
+        response = self.client.get(
+            "/api/v1/laomedo/agent-executions/flow/agent/" + self.run,
+            headers={"Authorization": "alice"},
+        )
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["projection"]["clock"], updated["clock"])
+        self.assertFalse(body["truncated"])
+        self.assertEqual(body["events"], [])
+        self.assertLess(len(response.content), 10000)

@@ -94,3 +94,13 @@ an execution record. ActivityCapture consumes /activity, retains common records
 and display snapshots with attempt-scoped deduplication and seals only drained
 closed pages. Application projection reads common snapshots without provider
 selection. Native parser helpers remain internal to providers.
+
+## Bounded retention and display revisions
+
+Provider journal budgets apply per attempt; a reached budget preserves published
+records and returns an explicit partial reason rather than failing all history or
+blocking later attempts. Closed still means both source bounds are sealed.
+Application `ActivityStore.append` replaces one invocation display snapshot using
+its revision index, without mutating normalized record receipts. Detail routes use
+that latest snapshot and omit duplicate record/snapshot bodies; raw receipt paging
+remains available. See the architecture contract for byte/source limits.

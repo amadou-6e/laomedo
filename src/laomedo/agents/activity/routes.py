@@ -67,16 +67,22 @@ def install_activity_routes(app, authenticate, store=None):
                 page = store.read(identity, flow, node, run, after, 200)
                 events.extend(page["events"])
                 after = page["next_after"]
-                if not page["has_more"] or len(events) >= 20000:
+                snapshots = [
+                    item
+                    for item in events
+                    if item.get("raw", {}).get("method") == "activity/projection"
+                ]
+                if snapshots or not page["has_more"] or len(events) >= 20000:
                     projection = project(
-                        events,
+                        snapshots or events,
                         provider=page["run"].get("provider"),
                         root_thread=page["run"]["native_session"],
                         model=page["run"]["model"],
                     )
                     if (
-                        page["has_more"]
+                        (page["has_more"] and not snapshots)
                         or page["run"].get("reason") == "invocation_boundary_unverified"
+                        or page["run"].get("reason") == "activity_projection_limit"
                     ):
                         projection["usage"] = None
                         projection["usage_by_thread"] = {}
@@ -100,12 +106,20 @@ def install_activity_routes(app, authenticate, store=None):
                             if page["has_more"]
                             else "Invocation boundary is unverified; retained receipts are partial evidence."
                         )
+                        if page["run"].get("reason") == "activity_projection_limit":
+                            projection["cost"][
+                                "reason"
+                            ] = "Activity capture limit reached."
+                            projection["cost_reason"] = (
+                                "Activity capture limit reached; complete token and cost totals are unavailable."
+                            )
                     return {
                         **page,
                         "run": {**page["run"], "node": node},
-                        "events": events,
+                        "events": [] if snapshots else events,
+                        "has_more": False if snapshots else page["has_more"],
                         "projection": projection,
-                        "truncated": page["has_more"],
+                        "truncated": bool(page["has_more"] and not snapshots),
                     }
 
         try:

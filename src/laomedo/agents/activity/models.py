@@ -488,3 +488,11 @@ class ActivityPage(BaseModel):
         if self.complete is False and not self.reason:
             raise ValueError("activity_capture_reason_required")
         return self
+
+    def to_payload(self) -> dict:
+        """Serialize the display view through its explicit omission-preserving boundary."""
+        value = self.model_dump(mode="json", exclude={"projection"})
+        value["projection"] = (
+            self.projection.to_payload() if self.projection is not None else None
+        )
+        return value
