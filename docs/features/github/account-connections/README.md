@@ -1,6 +1,13 @@
 # GitHub account connections for private Skill sources
 
 Status: IMPLEMENTATION IN PROGRESS; private connections are not available yet.
+
+Current increment: private owner/connection/repository storage and buffered
+discover/revisions/inspect/history/compare routes are implemented with fresh
+online admission for every read. The graph's Advanced settings connection
+selector and private read-only viewer are being validated. Private Agent
+execution remains refused; no public registry fallback is permitted. Real
+GitHub App/PAT acceptance and final owner inspection remain outstanding.
 Owner: [issue #251](https://github.com/amadou-6e/laomedo/issues/251).
 Baseline: develop `bb25013523e37fbb108b51638be171e879eb3883`.
 This approach brief accompanies [canonical spec PR #411](https://github.com/amadou-6e/specs/pull/411)

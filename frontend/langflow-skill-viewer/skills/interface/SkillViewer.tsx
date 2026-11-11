@@ -1,7 +1,8 @@
 import { createContext, lazy, Suspense, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 
 const SkillFilesModal = lazy(() => import("../workspace/SkillFilesModal"));
-type Selection = { skillId: string; revision: string };
+const PrivateSkillViewer = lazy(() => import("../private/PrivateSkillViewer"));
+type Selection = { skillId: string; revision: string; privateSelection?: { connectionId: string; repositoryId: number } };
 const SkillViewerContext = createContext<((selection: Selection) => void) | null>(null);
 
 /** Own the workspace above canvas/toolbars; reconnecting must not discard edits. */
@@ -11,21 +12,24 @@ export default function SkillViewerProvider({ children }: { children: ReactNode 
   return <SkillViewerContext.Provider value={request}>
     {children}
     <Suspense fallback={<div role="status">Loading Skill files...</div>}>
-      {selection && <SkillFilesModal open skillId={selection.skillId} revision={selection.revision}
-        setOpen={(value) => { if (!value) setSelection(null); }} />}
+      {selection && (selection.privateSelection ? <PrivateSkillViewer
+        key={`${selection.privateSelection.connectionId}:${selection.privateSelection.repositoryId}:${selection.skillId}:${selection.revision}`}
+        selection={selection.privateSelection} skillId={selection.skillId} revision={selection.revision}
+        setOpen={(value) => { if (!value) setSelection(null); }} /> : <SkillFilesModal open skillId={selection.skillId} revision={selection.revision}
+        setOpen={(value) => { if (!value) setSelection(null); }} />)}
     </Suspense>
   </SkillViewerContext.Provider>;
 }
 
 /** Capture the exact requested identity, then release the transient toolbar. */
-export function SkillViewerRequest({ open, setOpen, skillId, revision }: Selection & {
+export function SkillViewerRequest({ open, setOpen, skillId, revision, privateSelection }: Selection & {
   open: boolean; setOpen: (value: boolean) => void;
 }) {
   const request = useContext(SkillViewerContext);
   useEffect(() => {
     if (!open || !request) return;
-    request({ skillId, revision });
+    request({ skillId, revision, privateSelection });
     setOpen(false);
-  }, [open, request, revision, setOpen, skillId]);
+  }, [open, request, revision, setOpen, skillId, privateSelection?.connectionId, privateSelection?.repositoryId]);
   return null;
 }

@@ -1954,6 +1954,11 @@
     "description": "This profile uses a PIN of exactly six digits.",
     "recovery": "Enter all six digits. Leading zeroes are allowed."
   },
+  "private_skill_execution_unsupported": {
+    "title": "Private Skill files are read only",
+    "description": "This connection allows browsing private files. It does not allow an Agent to use or change them.",
+    "recovery": "Open Skill files to inspect the selected revision. Use an independently available public Skill for Agent runs."
+  },
   "github_connection_input_invalid": {
     "title": "Check the connection request",
     "description": "A connection control received an unsupported value or request shape. Credential input is not included in this message.",

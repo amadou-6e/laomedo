@@ -81,6 +81,21 @@ class LaomedoSkill(Component):
             info="Legacy saved feedback request. New edits use Operation or the Skill files editor.",
         ),
         StrInput(
+            name="github_connection",
+            display_name="Connection",
+            value="",
+            show=False,
+            track_in_telemetry=False,
+            info="Explicit private read connection; not Agent execution permission.",
+        ),
+        StrInput(
+            name="private_repository_id",
+            display_name="Private Repository",
+            value="",
+            show=False,
+            track_in_telemetry=False,
+        ),
+        StrInput(
             name="resolved_skill_id",
             display_name="Resolved Skill ID",
             value="",
@@ -279,6 +294,8 @@ class LaomedoSkill(Component):
         return Message(text=json.dumps(result["skill"]))
 
     def skill_output(self) -> Data:
+        if getattr(self, "github_connection", ""):
+            raise ValueError("private_skill_execution_unsupported")
         if getattr(self, "source", ""):
             reference = source_request(
                 "resolve",
@@ -303,6 +320,23 @@ class LaomedoSkill(Component):
     async def update_build_config(self, build_config, field_value, field_name=None):
         for item in self.inputs:
             build_config.setdefault(item.name, item.to_dict())
+        if build_config["github_connection"].get("value"):
+            if field_name in {"source", "skill_id", "revision_id"}:
+                build_config[field_name]["value"] = field_value
+            if field_name == "source":
+                for key in ("skill_id", "revision_id"):
+                    build_config[key].update(value="", options=[])
+                for key in (
+                    "resolved_skill_id",
+                    "resolved_revision_id",
+                    "resolved_selection",
+                    "private_repository_id",
+                ):
+                    build_config[key]["value"] = ""
+            build_config["discovery_status"][
+                "value"
+            ] = "Use the selected connection to browse private Skill files."
+            return build_config
         changed = (
             field_name in {"source", "skill_id", "revision_id"}
             and build_config[field_name].get("value") != field_value

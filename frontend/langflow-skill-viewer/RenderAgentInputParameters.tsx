@@ -15,6 +15,7 @@ import AgentAdvancedControls, { advancedAgentFields, isAgentControlHidden } from
 import { advancedSkillFields, isConnectedSkillSetting, isSkillControlHidden, isSkillNode, skillFieldInfo, skillSourceError, SKILL_SOURCE_ERROR_CODE } from "./SkillNodeControls";
 import { isPRControlHidden, isVisiblePRState, prFieldRank, prFeedback, PR_DISCOVERY_ERROR_CODE } from "./PRNodeControls";
 import NodeErrorNotice from "@/components/laomedoErrors/NodeErrorNotice";
+import PrivateSkillControls from "@/modals/skillFilesModal/private/PrivateSkillControls";
 
 const RenderInputParameters = ({
   data,
@@ -199,6 +200,7 @@ const RenderInputParameters = ({
       {advancedFields.length > 0 && <AgentAdvancedControls nodeId={data.id} visible={showNode}
         label={isSkillNode(data) ? "Advanced settings" : "Advanced controls"}>
         {renderInputParameters(advancedFields, true)}
+        {isSkillNode(data) && <PrivateSkillControls data={data} />}
       </AgentAdvancedControls>}
     </>
   );
