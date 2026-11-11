@@ -6,12 +6,21 @@
   waitFor,
 } from "@testing-library/react";
 import ConnectionManager from "./ConnectionManager";
-import { connectionCapability, connectionRequest } from "./api";
+import {
+  connectionCapability,
+  connectionRequest,
+  ConnectionFailure,
+} from "./api";
 
 jest.mock("./api", () => ({
   connectionCapability: jest.fn(),
   connectionRequest: jest.fn(),
-  ConnectionFailure: class extends Error {},
+  ConnectionFailure: class extends Error {
+    constructor(public code: string) {
+      super(code);
+      Object.setPrototypeOf(this, new.target.prototype);
+    }
+  },
 }));
 jest.mock("@/components/ui/button", () => ({
   Button: ({ children, variant, ...props }: any) => (
@@ -138,3 +147,36 @@ it("invalidates an in-flight result from another document without restoring stal
     screen.queryByRole("button", { name: "Connect GitHub" }),
   ).not.toBeInTheDocument();
 });
+
+it.each([
+  "github_connection_input_invalid",
+  "github_token_unsupported",
+  "private_request_refused",
+  "github_connection_unavailable",
+  "private_session_required",
+])(
+  "distinguishes definite refusal from an uncertain mutation outcome: %s",
+  async (code) => {
+    (connectionRequest as jest.Mock).mockImplementation((action?: string) =>
+      action
+        ? Promise.reject(new ConnectionFailure(code))
+        : Promise.resolve({ index: initial }),
+    );
+    render(<ConnectionManager />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Connect GitHub" }),
+    );
+    await screen.findByText("Error notice");
+    const uncertain = screen.queryByText(/The request may still be completing/);
+    if (
+      ["github_connection_unavailable", "private_session_required"].includes(
+        code,
+      )
+    )
+      expect(uncertain).toBeVisible();
+    else expect(uncertain).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Connect GitHub" }),
+    ).not.toBeInTheDocument();
+  },
+);

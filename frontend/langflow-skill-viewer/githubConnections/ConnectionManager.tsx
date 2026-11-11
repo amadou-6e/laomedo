@@ -56,7 +56,14 @@ export default function ConnectionManager() {
         }
       } catch (failure) {
         if (epoch.current === current) {
-          if (action)
+          const definiteRefusal =
+            failure instanceof ConnectionFailure &&
+            [
+              "github_connection_input_invalid",
+              "github_token_unsupported",
+              "private_request_refused",
+            ].includes(failure.code);
+          if (action && !definiteRefusal)
             setNotice(
               "The request may still be completing. Check current state before starting another action.",
             );
