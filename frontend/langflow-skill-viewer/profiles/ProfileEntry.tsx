@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
+import { ArrowLeft, ChevronRight, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import ErrorExplanation from "@/components/laomedoErrors/ErrorExplanation";
 import { describeNodeFailure } from "@/components/laomedoErrors/nodeErrors";
 import {
 	createProfile,
@@ -13,6 +13,8 @@ import {
 } from "./api";
 
 import { announceProfileChange } from "./ProfileSessionSync";
+
+type ProfileField = "name" | "pin" | "confirmation";
 
 type Screen =
 	| "picker"
@@ -39,6 +41,7 @@ export default function ProfileEntry({
 	const [confirmation, setConfirmation] = useState("");
 	const [pending, setPending] = useState("");
 	const [error, setError] = useState("");
+	const [fieldErrors, setFieldErrors] = useState<Partial<Record<ProfileField, string>>>({});
 	const [wait, setWait] = useState(0);
 
 	useEffect(() => {
@@ -54,8 +57,17 @@ export default function ProfileEntry({
 		? describeNodeFailure(error, undefined, { operation: "profile entry" })
 		: null;
 	const clearPin = () => {
+		setFieldErrors({});
 		setPin("");
 		setConfirmation("");
+	};
+	const clearValidationError = (field: ProfileField) => {
+		setFieldErrors((current) => ({ ...current, [field]: "" }));
+		setError((current) =>
+			current === "profile_input_invalid" || current === "profile_pin_invalid"
+				? ""
+				: current,
+		);
 	};
 	const back = () => {
 		clearPin();
@@ -94,9 +106,15 @@ export default function ProfileEntry({
 	async function submit(event: React.FormEvent) {
 		event.preventDefault();
 		setError("");
+		setFieldErrors({});
 		if (screen === "create") {
-			if (!name.trim() || !/^[0-9]{6}$/.test(pin) || pin !== confirmation) {
-				setError("profile_input_invalid");
+			const invalid: Partial<Record<ProfileField, string>> = {};
+			if (!name.trim()) invalid.name = "profile_name_required";
+			if (!/^[0-9]{6}$/.test(pin)) invalid.pin = "profile_pin_invalid";
+			if (!confirmation) invalid.confirmation = "profile_confirmation_required";
+			else if (pin !== confirmation) invalid.confirmation = "profile_pin_mismatch";
+			if (Object.keys(invalid).length) {
+				setFieldErrors(invalid);
 				return;
 			}
 			setPending("Creating profile…");
@@ -125,7 +143,7 @@ export default function ProfileEntry({
 			}
 		} else if (selected) {
 			if (!/^[0-9]{6}$/.test(pin)) {
-				setError("profile_pin_invalid");
+				setFieldErrors({ pin: "profile_pin_rejected" });
 				return;
 			}
 			await open(selected, pin);
@@ -156,6 +174,12 @@ export default function ProfileEntry({
 				className="mx-auto my-auto w-full max-w-md shrink-0 rounded-xl border bg-background p-6 shadow-sm"
 				aria-labelledby="profile-title"
 			>
+				<div className="flex items-center gap-3">
+					{screen === "enter" && (
+						<Button type="button" variant="ghost" size="icon" aria-label="Back to profiles" disabled={!!pending} onClick={back}>
+							<ArrowLeft aria-hidden="true" className="size-5" />
+						</Button>
+					)}
 				<h1 id="profile-title" className="text-xl font-semibold">
 					{screen === "create"
 						? "Create profile"
@@ -166,37 +190,54 @@ export default function ProfileEntry({
 								: screen === "uncertain"
 									? "Profile save not confirmed"
 									: screen === "enter"
-										? "Open profile"
+										? "Log in"
 										: profiles.length
 											? "Choose profile"
 											: "No profiles yet"}
 				</h1>
+				</div>
 				<p className="mt-2 text-sm text-muted-foreground">
-					A setup on this machine. No email or administrator required.
+					{screen === "picker" ? "Select a profile to continue." : screen === "create" ? "Create a local profile with a six-digit PIN." : "Enter your PIN to continue."}
 				</p>
 				{screen === "picker" ? (
-					<div className="mt-6 flex flex-col gap-3">
+					<div className="mt-6">
+						<div className={profiles.length ? "divide-y divide-border overflow-hidden rounded-lg border" : undefined}>
 						{profiles.map((profile) => (
 							<Button
 								key={profile.id}
-								variant="outline"
+								variant="ghost"
+								className="h-auto min-h-16 w-full justify-start gap-3 rounded-none px-4 py-3 text-left font-normal focus-visible:ring-inset"
 								ignoreTitleCase
 								onClick={() => {
+									clearPin();
+									setError("");
 									setSelected(profile);
 									setScreen("enter");
 								}}
 							>
-								{profile.name}
+								<span aria-hidden="true" className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium text-muted-foreground">
+									{profile.name.trim().split(/\s+/).slice(0, 2).map((word) => Array.from(word)[0]).join("").toLocaleUpperCase()}
+								</span>
+								<span className="min-w-0 flex-1 whitespace-normal break-words">{profile.name}</span>
+								<ChevronRight aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
 							</Button>
 						))}
+						</div>
+						<div className={profiles.length ? "mt-4 border-t pt-3" : undefined}>
 						<Button
+							variant={profiles.length ? "ghost" : "default"}
+							ignoreTitleCase
+							className="w-full justify-start gap-3 px-4 font-normal"
 							onClick={() => {
 								clearPin();
+								setError("");
 								setScreen("create");
 							}}
 						>
-							{profiles.length ? "Create another profile" : "Create profile"}
+							<Plus aria-hidden="true" className="size-5 shrink-0" />
+							Create profile
 						</Button>
+						</div>
 					</div>
 				) : screen === "name-unavailable" ? (
 					<div className="mt-6 flex flex-col gap-4">
@@ -204,6 +245,7 @@ export default function ProfileEntry({
 							This name is unavailable. Your profile has not been created.
 						</p>
 						<Button
+							ignoreTitleCase
 							onClick={() => {
 								setError("");
 								setScreen("create");
@@ -211,7 +253,7 @@ export default function ProfileEntry({
 						>
 							Edit name
 						</Button>
-						<Button variant="outline" onClick={back}>
+						<Button variant="outline" onClick={back} ignoreTitleCase>
 							Back to profiles
 						</Button>
 					</div>
@@ -222,6 +264,7 @@ export default function ProfileEntry({
 							again.
 						</p>
 						<Button
+							ignoreTitleCase
 							onClick={() => {
 								setError("");
 								setScreen("enter");
@@ -235,10 +278,10 @@ export default function ProfileEntry({
 						<p className="text-sm">
 							Check the profile list before trying to create it again.
 						</p>
-						<Button disabled={!!pending} onClick={reconcile}>
+						<Button disabled={!!pending} onClick={reconcile} ignoreTitleCase>
 							Check profile list
 						</Button>
-						<Button variant="outline" disabled={!!pending} onClick={back}>
+						<Button variant="outline" disabled={!!pending} onClick={back} ignoreTitleCase>
 							Back to profiles
 						</Button>
 					</div>
@@ -249,13 +292,19 @@ export default function ProfileEntry({
 								Profile name
 								<Input
 									className="mt-1"
-									value={name}
-									onChange={(event) => setName(event.target.value)}
+									aria-label="Profile name" value={name}
+									onChange={(event) => {
+										setName(event.target.value);
+										clearValidationError("name");
+									}}
 									maxLength={40}
 									required
 									disabled={!!pending}
 									autoComplete="off"
+									aria-invalid={!!fieldErrors.name}
+									aria-describedby={fieldErrors.name ? "profile-name-error" : undefined}
 								/>
+								{fieldErrors.name && <p id="profile-name-error" role="alert" className="mt-2 text-sm text-red-600 dark:text-red-400">{describeNodeFailure(fieldErrors.name).title}</p>}
 							</label>
 						) : (
 							<p className="text-sm">
@@ -271,11 +320,18 @@ export default function ProfileEntry({
 								autoComplete="off"
 								maxLength={6}
 								pattern="[0-9]{6}"
-								value={pin}
-								onChange={(event) => setPin(event.target.value)}
+								aria-label="PIN (6 digits)" value={pin}
+								onChange={(event) => {
+									setPin(event.target.value);
+									clearValidationError("pin");
+									clearValidationError("confirmation");
+								}}
 								required
 								disabled={!!pending || !!wait}
+								aria-invalid={!!fieldErrors.pin}
+								aria-describedby={fieldErrors.pin ? "profile-pin-error" : undefined}
 							/>
+							{fieldErrors.pin && <p id="profile-pin-error" role="alert" className="mt-2 text-sm text-red-600 dark:text-red-400">{describeNodeFailure(fieldErrors.pin).title}</p>}
 						</label>
 						{screen === "create" && (
 							<label className="block text-sm">
@@ -287,25 +343,31 @@ export default function ProfileEntry({
 									autoComplete="off"
 									maxLength={6}
 									pattern="[0-9]{6}"
-									value={confirmation}
-									onChange={(event) => setConfirmation(event.target.value)}
+									aria-label="Confirm PIN" value={confirmation}
+									onChange={(event) => {
+										setConfirmation(event.target.value);
+										clearValidationError("confirmation");
+									}}
 									required
 									disabled={!!pending}
+									aria-invalid={!!fieldErrors.confirmation}
+									aria-describedby={fieldErrors.confirmation ? "profile-confirmation-error" : undefined}
 								/>
+								{fieldErrors.confirmation && <p id="profile-confirmation-error" role="alert" className="mt-2 text-sm text-red-600 dark:text-red-400">{describeNodeFailure(fieldErrors.confirmation).title}</p>}
 							</label>
 						)}
 						<div className="flex flex-col gap-2 pt-2">
-							<Button type="submit" disabled={!!pending || !!wait}>
-								{screen === "create" ? "Create profile" : "Open profile"}
+							<Button type="submit" disabled={!!pending || !!wait} ignoreTitleCase>
+								{screen === "create" ? "Create profile" : "Log in"}
 							</Button>
-							<Button
+							{screen === "create" && <Button
 								type="button"
 								variant="outline"
 								disabled={!!pending}
 								onClick={back}
-							>
+							 ignoreTitleCase>
 								Back to profiles
-							</Button>
+							</Button>}
 						</div>
 					</form>
 				)}
@@ -329,7 +391,8 @@ export default function ProfileEntry({
 						className="mt-4 rounded border border-red-200 p-3 text-sm"
 					>
 						<p className="font-medium">{failure.title}</p>
-						<ErrorExplanation failure={failure} />
+						<p>{failure.description}</p>
+						{failure.recovery && <p className="mt-2">{failure.recovery}</p>}
 					</div>
 				)}
 			</section>

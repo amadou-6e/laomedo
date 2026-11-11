@@ -1860,9 +1860,9 @@
     "recovery": "Use a different profile name, or go back and select the existing profile."
   },
   "profile_input_invalid": {
-    "title": "Check the profile name and PIN",
-    "description": "The profile details are incomplete or do not match the local profile format.",
-    "recovery": "Use a name of up to 40 characters and enter the same six-digit PIN in both fields. Leading zeroes are allowed."
+    "title": "Check your details",
+    "description": "Enter a profile name and a six-digit PIN.",
+    "recovery": "Make sure both PINs match."
   },
   "profile_creation_unconfirmed": {
     "title": "The profile save could not be confirmed",
@@ -1880,9 +1880,9 @@
     "recovery": "Check that the local app is running, then select the profile and enter its PIN again. A saved profile does not need to be created again."
   },
   "profile_pin_rejected": {
-    "title": "The profile could not be opened",
-    "description": "The app did not accept this profile and PIN.",
-    "recovery": "Check the selected profile and enter its PIN again. Forgotten-PIN recovery is not available in this release; saved data is preserved."
+    "title": "Login failed",
+    "description": "Check your PIN and try again.",
+    "recovery": "You can also go back and choose another profile."
   },
   "profile_rate_limited": {
     "title": "Wait before trying the PIN again",
@@ -1958,5 +1958,20 @@
     "title": "Check the connection request",
     "description": "A connection control received an unsupported value or request shape. Credential input is not included in this message.",
     "recovery": "Review the selected action and its fields in the connection manager. Do not retry an uncertain authorization exchange automatically."
+  },
+  "profile_name_required": {
+    "title": "Enter a profile name",
+    "description": "Enter a profile name.",
+    "recovery": "Choose a name for this profile."
+  },
+  "profile_confirmation_required": {
+    "title": "Confirm your PIN",
+    "description": "Confirm your PIN.",
+    "recovery": "Enter the same PIN again."
+  },
+  "profile_pin_mismatch": {
+    "title": "PINs don't match",
+    "description": "PINs don't match.",
+    "recovery": "Enter the same PIN in both fields."
   }
 }

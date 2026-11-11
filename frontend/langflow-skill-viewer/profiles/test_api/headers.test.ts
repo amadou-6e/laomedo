@@ -1,4 +1,4 @@
-﻿import { profileMode, readProfileSession } from "../api";
+import { enterProfile, profileMode, readProfileSession } from "../api";
 
 // Internal regressions for a browser-observed integration failure; not acceptance.
 describe("profile requests through Langflow's locale interceptor", () => {
@@ -37,6 +37,13 @@ describe("profile requests through Langflow's locale interceptor", () => {
 			} as unknown as Response;
 		});
 	}
+
+	it("classifies an incorrect PIN as a login rejection without fetching a session", async () => {
+        global.fetch = jest.fn(async () => ({ status: 401 }) as Response);
+        await expect(enterProfile({ id: "work", name: "Work" }, "012345"))
+            .rejects.toMatchObject({ code: "profile_pin_rejected" });
+        expect(global.fetch).toHaveBeenCalledTimes(1);
+    });
 
 	it("supplies mutable headers even for a plain GET", async () => {
 		intercepted({ enabled: false });

@@ -8,7 +8,7 @@ checks the authenticated identity before restoring the cookie session in a fresh
 document. This discards old query/mutation/store callbacks on profile entry. It does
 not store PINs, mint tokens or introduce another authentication protocol.
 
-Failures use the shared catalogue and ErrorExplanation. Unknown save outcomes
+Failures use the shared catalogue; profile forms show plain explanations without technical diagnostics. Unknown save outcomes
 require checking the list; they never automatically retry creation. A forgotten
 PIN blocks that profile; the first release has no PIN recovery or deletion.
 Private-session revocation remains a dependency on #259 before private access.
@@ -37,3 +37,11 @@ Profile name buttons opt out of the native Button's title-case conversion so
 the picker preserves the exact stored name. The sign-out notice offers an
 accessible Close control during waiting and failure; closing dismisses the
 notice only and never claims to cancel a request or confirm sign-out.
+
+Picker rows include decorative initials avatars beside left-aligned profile names. ProfileEntry clears local validation feedback when its fields change and clears previous-screen errors on picker navigation. Shared catalogue copy uses plain entry guidance; uncertain save and sign-out outcomes retain their recovery paths.
+
+Picker rows use fixed initials avatars, left-aligned names and chevrons; a divider separates the secondary Create profile action. Field-specific catalogue errors use aria-invalid/aria-describedby. Authentication and uncertain-outcome recovery are unchanged.
+
+The PIN-entry screen uses Log in and a heading-level back arrow labelled Back to profiles; the existing back handler clears PINs and pending requests still disable navigation.
+
+PIN-entry rejection says Login failed, including local format refusal; six-digit creation guidance remains confined to registration validation. Server rejection retains the existing profile_pin_rejected code.
