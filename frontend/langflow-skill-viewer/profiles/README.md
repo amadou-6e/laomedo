@@ -43,3 +43,5 @@ Picker rows include a decorative UserRound icon beside each profile name. Profil
 Picker rows use fixed initials avatars, left-aligned names and chevrons; a divider separates the secondary Create profile action. Field-specific catalogue errors use aria-invalid/aria-describedby. Authentication and uncertain-outcome recovery are unchanged.
 
 The PIN-entry screen uses Log in and a heading-level back arrow labelled Back to profiles; the existing back handler clears PINs and pending requests still disable navigation.
+
+PIN-entry rejection says Login failed, including local format refusal; six-digit creation guidance remains confined to registration validation. Server rejection retains the existing profile_pin_rejected code.

@@ -37,6 +37,8 @@ describe("profile entry validation recovery", () => {
 		fireEvent.click(screen.getByRole("button", { name: "Work" }));
 		fireEvent.click(screen.getByRole("button", { name: "Log in" }));
 		expect(screen.getByRole("alert")).toBeTruthy();
+		expect(screen.getByText("Login failed")).toBeTruthy();
+		expect(screen.queryByText("Use a six-digit PIN")).toBeNull();
 		fireEvent.click(screen.getByRole("button", { name: "Back to profiles" }));
 		const profile = screen.getByRole("button", { name: "Work" });
 		expect(profile.querySelector('svg[aria-hidden="true"]')).toBeTruthy();

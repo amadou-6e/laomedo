@@ -1880,9 +1880,9 @@
     "recovery": "Check that the local app is running, then select the profile and enter its PIN again. A saved profile does not need to be created again."
   },
   "profile_pin_rejected": {
-    "title": "The profile could not be opened",
-    "description": "The app did not accept this profile and PIN.",
-    "recovery": "Check the selected profile and enter its PIN again. Forgotten-PIN recovery is not available in this release; saved data is preserved."
+    "title": "Login failed",
+    "description": "Check your PIN and try again.",
+    "recovery": "You can also go back and choose another profile."
   },
   "profile_rate_limited": {
     "title": "Wait before trying the PIN again",

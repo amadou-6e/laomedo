@@ -143,7 +143,7 @@ export default function ProfileEntry({
 			}
 		} else if (selected) {
 			if (!/^[0-9]{6}$/.test(pin)) {
-				setFieldErrors({ pin: "profile_pin_invalid" });
+				setFieldErrors({ pin: "profile_pin_rejected" });
 				return;
 			}
 			await open(selected, pin);
