@@ -32,7 +32,9 @@ Replace the placeholders with the actual selected resource. Use `--kind pr` for
 a PR. Import the generated flow into the application, refresh discovery, select
 the existing resource and run its node. Open its viewer; the normalized content
 must match the independently read GitHub resource. No operation is connected,
-so Operation Result reports `not_requested`.
+so the Issue Operation Result, or the PR output operation status, reports
+`not_requested`. The PR node has one optional PR input and one PR output containing
+the snapshot and outcome; the Agent formats that structured context as text.
 
 See [Issue controls](../../docs/features/github/issues/walkthrough.md) and
 [PR controls](../../docs/features/github/pull-requests/walkthrough.md). Filters
@@ -79,7 +81,7 @@ for service and grant setup. Credentials belong outside the graph and Git.
 python examples/github/build_flow.py --repository OWNER/REPO --number NUMBER --title "Current title" --feedback --runner-url http://host.docker.internal:PORT --skill-id pr-feedback-title --revision sha256:REVISION --output pr-flow.json
 ```
 
-The two operation participants are `PR → Agent → same PR.Operation`; an
+The two operation participants are `PR → Agent → same PR.PR`; an
 independent read-only Skill supplies the trusted instruction. Run the PR node
 once. The Agent proposes content-only JSON; the host validates the selected
 identity, scope and current content before applying it. The sample Skill asks for

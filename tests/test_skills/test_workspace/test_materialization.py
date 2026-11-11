@@ -11,8 +11,8 @@ from laomedo.git.models import GitEnvironmentProfile, GitExecutionContext
 from laomedo.git.repository import GitRepository
 from laomedo.skills.registry.errors import SkillStoreError
 from laomedo.skills.registry.store import SkillStore
-from laomedo.skills.registry.files import inventory
-from laomedo.skills.registry.hashing import tree_hash
+from laomedo.skills.registry.utils.files import inventory
+from laomedo.skills.registry.utils.hashing import tree_hash
 from laomedo.agents.workspace.skills.utils import install
 from laomedo.agents.workspace.skills.utils import remove_owned_tree
 from laomedo.agents.workspace.skills.utils import verify

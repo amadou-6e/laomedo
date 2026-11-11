@@ -1,5 +1,5 @@
 /** GitHub PR presentation, including saved templates. Never rewrites saved values. */
-const ORDER = ["repository_url", "state", "labels", "pr_choice", "pr_reference", "operation"];
+const ORDER = ["repository_url", "state", "labels", "pr_choice", "pr_context"];
 export const PR_DISCOVERY_ERROR = "GitHub discovery failed. Check connection and refresh.";
 export const PR_DISCOVERY_ERROR_CODE = "pr_discovery_failed";
 
@@ -46,4 +46,24 @@ export function prChoicePlaceholder(data: any, name: string, fallback?: string):
   if (status === "Discovering GitHub PRs...") return name === "labels" ? "Loading labels..." : "Loading PRs...";
   if (!template?.[name]?.options?.length) return name === "labels" ? "No labels available" : "No matching PRs.";
   return name === "labels" ? "Select labels" : "Select a PR";
+}
+/** Admit only the declared two-node PR/Agent feedback topology in the canvas.
+ * The backend still validates input scope, identity and every write grant.
+ */
+export function isPRFeedbackConnection(connection: any, nodes: any[], edges: any[], parse: (value: string) => any): boolean {
+  try {
+    const source = parse(connection.sourceHandle);
+    const target = parse(connection.targetHandle);
+    const sourceNode = nodes.find(node => node.id === connection.source);
+    const targetNode = nodes.find(node => node.id === connection.target);
+    const agent = (node: any) => ["LaomedoCodexAgent", "LaomedoClaudeAgent", "LaomedoOpenCodeAgent"].includes(
+      String(node?.data?.node?.name || node?.data?.type || "").replace(/^ext:[^:]+:([^@]+)@.+$/, "$1"));
+    const forward = isPRNode(sourceNode?.data) && source.name === "pr" && agent(targetNode) && target.fieldName === "task";
+    const backward = agent(sourceNode) && source.name === "answer" && isPRNode(targetNode?.data) && target.fieldName === "pr_context";
+    if (!forward && !backward) return false;
+    return edges.filter(edge => edge.source === connection.target && edge.target === connection.source).some(edge => {
+      const from = parse(edge.sourceHandle), to = parse(edge.targetHandle);
+      return forward ? from.name === "answer" && to.fieldName === "pr_context" : from.name === "pr" && to.fieldName === "task";
+    });
+  } catch { return false; }
 }

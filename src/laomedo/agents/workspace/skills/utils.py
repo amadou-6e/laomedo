@@ -10,9 +10,9 @@ from laomedo.git.repository import GitRepository
 from pathlib import Path
 import hashlib
 from laomedo.skills.registry.settings import NAME
-from laomedo.skills.registry.files import is_link
-from laomedo.skills.registry.hashing import tree_hash
-from laomedo.skills.registry.files import inventory
+from laomedo.skills.registry.utils.files import is_link
+from laomedo.skills.registry.utils.hashing import tree_hash
+from laomedo.skills.registry.utils.files import inventory
 from laomedo.agents.workspace.skills.errors import WorkspaceSkillError
 import os
 import shutil

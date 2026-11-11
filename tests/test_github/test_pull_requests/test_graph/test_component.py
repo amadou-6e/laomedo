@@ -48,41 +48,100 @@ class NativeGitHubPRTests(unittest.TestCase):
 
     def test_outputs_share_execution_and_reference_drives_downstream(self):
         self.component.set(
-            operation=Data(
+            pr_context=Data(
                 data={"action": "close", "request_id": "once", "grant_ref": "grant"}
             )
         )
         self.component._pre_run_setup()
-        self.assertEqual(self.component.pr_output().data["state"], "closed")
         self.assertEqual(
-            self.component.result_output().data["operation"]["status"], "succeeded"
+            asyncio.run(self.component.context_output()).data["pr"]["state"], "closed"
         )
-        self.assertIn("PR:", self.component.task_output().text)
+        self.assertEqual(
+            asyncio.run(self.component.context_output()).data["operation"]["status"],
+            "succeeded",
+        )
         self.assertEqual(self.mock.call_count, 1)
         self.assertEqual(len(self.case.provider.writes), 1)
 
     def test_reference_conflict_never_dispatches(self):
         self.component.set(
-            pr_reference=Data(data={"repository": "owner/repo", "number": 2})
+            pr_context=Data(data={"pr": {"repository": "owner/repo", "number": 2}})
         )
         self.component._pre_run_setup()
         self.assertEqual(
-            self.component.result_output().data["operation"]["error_category"],
+            asyncio.run(self.component.context_output()).data["operation"][
+                "error_category"
+            ],
             "pr_reference_mismatch",
         )
         self.mock.assert_not_called()
 
     def test_normal_operation_accepts_message_json(self):
         self.component.set(
-            operation=Message(
+            pr_context=Message(
                 text='{"action":"close","request_id":"message-once","grant_ref":"grant"}'
             )
         )
         self.component._pre_run_setup()
         self.assertEqual(
-            self.component.result_output().data["operation"]["status"], "succeeded"
+            asyncio.run(self.component.context_output()).data["operation"]["status"],
+            "succeeded",
         )
         self.assertEqual(len(self.case.provider.writes), 1)
+
+    def test_single_data_input_and_output_carry_current_snapshot_and_outcome(self):
+        self.assertEqual(
+            [
+                i.name
+                for i in self.component.inputs
+                if i.to_dict().get("type") == "other"
+            ],
+            ["pr_context"],
+        )
+        self.assertEqual([o.name for o in self.component.outputs], ["pr"])
+        result = asyncio.run(self.component.context_output()).data
+        self.assertEqual(result["pr"]["number"], 1)
+        self.assertEqual(result["operation"]["status"], "not_requested")
+        self.assertIn("content_digest", result)
+
+    def test_upstream_result_revalidates_identity_without_replaying_write(self):
+        result = self.case.gateway.execute(self.case.url, [], "open", 1)
+        result["operation"]["status"] = "succeeded"
+        self.component.set(pr_context=Data(data=result), pr_choice="")
+        self.assertEqual(
+            asyncio.run(self.component.context_output()).data["pr"]["number"], 1
+        )
+        self.assertIsNone(self.mock.call_args.kwargs["operation"])
+        self.assertEqual(self.case.provider.writes, [])
+
+    def test_failed_or_unknown_upstream_stops_before_gateway(self):
+        for status in ("failed", "unknown"):
+            result = self.case.gateway.execute(self.case.url, [], "open", 1)
+            result["operation"]["status"] = status
+            self.component.set(pr_context=Data(data=result))
+            self.component._pre_run_setup()
+            output = asyncio.run(self.component.context_output()).data
+            self.assertEqual(output["operation"]["status"], "failed")
+            self.assertEqual(
+                output["operation"]["error_category"], "pr_context_upstream_failed"
+            )
+        self.mock.assert_not_called()
+
+    def test_malformed_explicit_operation_fields_are_not_dropped_to_allow_a_write(self):
+        operation = {
+            "action": "close",
+            "request_id": "invalid-fields",
+            "grant_ref": "grant",
+        }
+        for value in (
+            {"operation": {**operation, "changes": None}},
+            {"operation": operation, "content_digest": ""},
+        ):
+            self.component.set(pr_context=Data(data=value))
+            self.component._pre_run_setup()
+            result = asyncio.run(self.component.context_output()).data
+            self.assertEqual(result["operation"]["status"], "failed")
+            self.assertEqual(self.case.provider.writes, [])
 
     def test_filters_clear_selection_and_refresh_preserves_number(self):
         config = {item.name: item.to_dict() for item in self.component.inputs}
@@ -104,12 +163,10 @@ class NativeGitHubPRTests(unittest.TestCase):
         )
         self.assertEqual(config["pr_choice"]["value"], "#1 New title")
 
-    def test_refresh_updates_legacy_metadata_and_separates_failure_from_empty(self):
+    def test_refresh_preserves_selection_and_separates_failure_from_empty(self):
         config = {item.name: item.to_dict() for item in self.component.inputs}
         config["repository_url"]["value"] = self.case.url
-        config["state"].update(
-            advanced=True, options=["open", "closed", "all"], value="closed"
-        )
+        config["state"]["value"] = "closed"
         config = asyncio.run(
             self.component.update_build_config(config, "closed", "state")
         )
@@ -130,15 +187,15 @@ class NativeGitHubPRTests(unittest.TestCase):
 
     def test_failure_stops_task_and_unknown_is_routable(self):
         self.component.set(
-            operation=Data(
+            pr_context=Data(
                 data={"action": "close", "request_id": "once", "grant_ref": "grant"}
             )
         )
         self.mock.side_effect = TimeoutError("dummy-secret")
         self.component._pre_run_setup()
-        self.assertEqual(self.component.task_output().text, "")
         self.assertEqual(
-            self.component.result_output().data["operation"]["status"], "unknown"
+            asyncio.run(self.component.context_output()).data["operation"]["status"],
+            "unknown",
         )
 
 

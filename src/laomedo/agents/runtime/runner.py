@@ -22,8 +22,8 @@ import laomedo.agents.workspace.errors as _agents_workspace_errors
 import laomedo.agents.workspace.git as _workspace_git
 import laomedo.host.mediation.errors as _mediation_errors
 from laomedo.skills.registry.store import SkillStore
-from laomedo.skills.registry.hashing import tree_hash
-from laomedo.skills.registry.files import inventory
+from laomedo.skills.registry.utils.hashing import tree_hash
+from laomedo.skills.registry.utils.files import inventory
 from laomedo.agents.workspace.skills.errors import WorkspaceSkillError
 from laomedo.agents.workspace.skills.utils import install
 from laomedo.agents.workspace.skills.utils import initialize

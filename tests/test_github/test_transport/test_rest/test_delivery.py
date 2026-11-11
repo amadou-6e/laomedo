@@ -7,7 +7,7 @@ import unittest
 from urllib import error
 from urllib.request import HTTPSHandler
 
-from laomedo.http.redirect import NoRedirect
+from laomedo.host.http import NoRedirect
 
 from laomedo.host.mediation.errors import KnownRejected
 from laomedo.github.transport.rest.transport import GitHubRestTransport

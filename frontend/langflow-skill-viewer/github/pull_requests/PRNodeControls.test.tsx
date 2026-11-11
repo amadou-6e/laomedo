@@ -8,7 +8,7 @@ const node = (status = PR_DISCOVERY_ERROR) => ({ id: "pr", type: "LaomedoGitHubP
   labels: { ...scalar, value: ["backend"], options: ["backend"] },
   pr_choice: { ...scalar, value: "#42 Saved title", options: ["#42 Saved title"] },
   state: { ...scalar, advanced: true, value: "closed", options: ["open", "closed", "all"] },
-  pr_reference: { ...scalar, type: "other" }, operation: { ...scalar, type: "other" },
+  pr_context: { ...scalar, type: "other" },
   discovery_status: { ...scalar, value: status },
 } } });
 jest.mock("@/stores/flowStore", () => ({ __esModule: true, default: (select: any) => select({ edges: [] }) }));
@@ -17,7 +17,7 @@ jest.mock("@/CustomNodes/helpers/get-node-input-colors-name", () => ({ getNodeIn
 jest.mock("@/CustomNodes/helpers/sort-tool-mode-field", () => ({ sortToolModeFields: () => 0 }));
 jest.mock("@/CustomNodes/utils/get-field-title", () => ({ __esModule: true, default: (_: any, name: string) => name }));
 jest.mock("@/utils/reactflowUtils", () => ({ scapedJSONStringfy: JSON.stringify }));
-jest.mock("./utils", () => ({ findPrimaryInput: () => ({ displayHandleMap: new Map([["pr_reference", true], ["operation", true]]), primaryInputFieldName: "operation" }) }));
+jest.mock("./utils", () => ({ findPrimaryInput: () => ({ displayHandleMap: new Map([["pr_context", true]]), primaryInputFieldName: "pr_context" }) }));
 jest.mock("../NodeInputField", () => ({ __esModule: true, default: (props: any) => <input aria-label={props.name} data-handle={String(props.displayHandle)} defaultValue={props.data.node.template[props.name].value || ""} /> }));
 jest.mock("@/components/laomedoErrors/NodeErrorNotice", () => ({ __esModule: true, default: ({ label }: any) => <button>{label}</button> }));
 function draw(data: any, showNode = true) {
@@ -26,12 +26,12 @@ function draw(data: any, showNode = true) {
 test("saved graphs display State before Labels, inline error after URL, and original sockets without rewriting values", () => {
   const data = node(); const saved = JSON.stringify(data);
   render(draw(data));
-  expect(screen.getAllByRole("textbox").map(el => el.getAttribute("aria-label"))).toEqual(["repository_url", "state", "labels", "pr_choice", "pr_reference", "operation"]);
+  expect(screen.getAllByRole("textbox").map(el => el.getAttribute("aria-label"))).toEqual(["repository_url", "state", "labels", "pr_choice", "pr_context"]);
   expect(screen.getByRole("textbox", { name: "repository_url" }).nextElementSibling).toBe(screen.getByRole("alert"));
   expect(screen.getByRole("alert")).toHaveTextContent(PR_DISCOVERY_ERROR);
   expect(screen.queryByRole("textbox", { name: "discovery_status" })).toBeNull();
   expect(screen.getByRole("textbox", { name: "state" })).toHaveValue("closed");
-  for (const name of ["pr_reference", "operation"]) expect(screen.getByRole("textbox", { name })).toHaveAttribute("data-handle", "true");
+  for (const name of ["pr_context"]) expect(screen.getByRole("textbox", { name })).toHaveAttribute("data-handle", "true");
   expect(JSON.stringify(data)).toBe(saved);
 });
 test("empty, loading, failed, no matches and successful discovery remain distinguishable without raw messages", () => {

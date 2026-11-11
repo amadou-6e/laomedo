@@ -25,8 +25,8 @@ import laomedo.host.credentials.claude.errors as _claude_errors
 import laomedo.host.credentials.claude.utils as _host_credentials_claude_utils
 import laomedo.host.leases.models as _leases_models
 import laomedo.host.leases.utils as _leases_utils
-from laomedo.skills.registry.hashing import tree_hash
-from laomedo.skills.registry.files import inventory
+from laomedo.skills.registry.utils.hashing import tree_hash
+from laomedo.skills.registry.utils.files import inventory
 from laomedo.agents.workspace.skills.utils import verify
 from laomedo.agents.workspace.skills.utils import remove_owned_tree
 import os

@@ -1432,7 +1432,7 @@
   "agent_component_migration_required": {
     "title": "This saved Agent node needs an update",
     "description": "This node inherits an older provider component. It was stopped before sending a request because its provider routing could be incorrect.",
-    "recovery": "Replace the node with its current provider component, or migrate a copy of the saved flow with the module migration tool before loading it. Custom Agent subclasses must extend the shared AgentComponent."
+    "recovery": "Use the current provider component. Custom Agent subclasses must extend the shared AgentComponent."
   },
   "discovered_skill_required": {
     "title": "Choose a Skill from this source",
@@ -1648,6 +1648,16 @@
     "title": "A selected label is no longer available",
     "description": "The repository does not currently advertise every selected label.",
     "recovery": "Refresh Labels and remove or replace unavailable selections."
+  },
+  "pr_context_invalid": {
+    "title": "The PR context is invalid",
+    "description": "The input does not contain a supported PR identity, snapshot or operation request.",
+    "recovery": "Connect a PR context output or supply a valid identity and explicit operation request."
+  },
+  "pr_context_upstream_failed": {
+    "title": "The earlier PR operation is not confirmed",
+    "description": "A failed or uncertain upstream PR result cannot trigger another read, write or Agent task.",
+    "recovery": "Inspect and reconcile the earlier operation before providing new PR context."
   },
   "pr_discovery_failed": {
     "title": "GitHub PR discovery failed",
