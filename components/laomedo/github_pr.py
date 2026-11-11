@@ -34,6 +34,14 @@ class LaomedoGitHubPR(Component):
             info="GitHub repository URL. The connection is configured on the host.",
             track_in_telemetry=False,
         ),
+        DropdownInput(
+            name="state",
+            display_name="State",
+            value="open",
+            options=["open", "closed", "merged", "all"],
+            info="Closed includes merged PRs. Merged shows only merged PRs (read-only).",
+            real_time_refresh=True,
+        ),
         MultiselectInput(
             name="labels",
             display_name="Labels",
@@ -51,14 +59,6 @@ class LaomedoGitHubPR(Component):
             options=[],
             combobox=False,
             refresh_button=True,
-            real_time_refresh=True,
-        ),
-        DropdownInput(
-            name="state",
-            display_name="State",
-            value="open",
-            options=["open", "closed", "all"],
-            advanced=True,
             real_time_refresh=True,
         ),
         DataInput(
@@ -277,6 +277,11 @@ class LaomedoGitHubPR(Component):
     async def update_build_config(self, build_config, field_value, field_name=None):
         for item in self.inputs:
             build_config.setdefault(item.name, item.to_dict())
+        build_config["state"].update(
+            advanced=False, options=["open", "closed", "merged", "all"]
+        )
+        for name in ("labels", "pr_choice"):
+            build_config[name]["combobox"] = False
         old = build_config.get(field_name, {}).get("value")
         if field_name in {"repository_url", "labels", "state", "pr_choice"}:
             build_config[field_name]["value"] = field_value
@@ -315,6 +320,7 @@ class LaomedoGitHubPR(Component):
                 f"{len(choices)} matching PRs." if choices else "No matching PRs."
             )
         except ValueError:
+            build_config["labels"]["options"] = []
             build_config["pr_choice"].update(value="", options=[])
             build_config["discovery_status"][
                 "value"
