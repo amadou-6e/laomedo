@@ -653,6 +653,9 @@ def apply(checkout):
         if mode:
             command.append(mode)
         subprocess.run(command + [str(github_outcome_patch)], check=True)
+    from apply_langflow_local_profiles import apply_profiles
+
+    apply_profiles(checkout, overlay)
     print("pinned_skill_viewer_overlay_applied")
 
 

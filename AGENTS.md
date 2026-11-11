@@ -112,6 +112,17 @@
   the implementation but must document their contract; do not leave pass-only
   placeholders. User-facing explanations/recovery belong to the shared catalogue.
 
+## UI change handoff
+
+- After implementing a user-requested UI change, build or reload the updated
+  application and proactively open the changed screen in the user's VS Code
+  integrated browser. Navigate to the affected state and verify that the updated
+  UI is actually visible before handing it back. Do not wait for the user to ask
+  to open, reopen, refresh or advance to each changed screen.
+- Preserve the user's workspace, unsaved work and session. If opening the updated
+  screen is blocked, explain the concrete blocker and provide the direct preview
+  link; do not claim the UI is open without verifying it.
+
 ## Commit and push checkpoints
 
 - After each coherent, reviewable block of work, commit and push the task branch
