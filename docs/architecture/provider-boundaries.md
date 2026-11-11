@@ -319,16 +319,31 @@ implementation/documentation APPROVE.
 ## Latest review accounting
 
 The recorded Codex rollout-export delta `9bcb0149c..0fdacaa78`, its selected
-specification and documentation received Claude APPROVE. The actual export and
-owner-restart probes have separate, limited evidence; cleanup harness corrections
-through exp `9d255453` also received APPROVE. Neither establishes physical host
-loss or terminal Activity recovery: interrupted feeds remain unsealed.
+specification and documentation received Claude APPROVE. Recovery/export/restart
+harness corrections through exp `9d255453` also received APPROVE. These do not
+establish physical host loss or terminal Activity recovery: interrupted feeds
+remain unsealed.
 
-Layout code/metadata `620ad13a..089f71aa` and the nonvacuous architecture guard
-correction `0fdacaa78..cc02e68b` received APPROVE with declared import-order audit
-limits. Actual UI captures are on exp `9477b4da`; visual recheck is pending.
-Initial provider-role extraction and surviving integration still have uncovered
-portions: fully unreviewed — reviewer pending. All five required CI checks pass
-at `cc02e68b`. These status-only notes do not claim review of subsequent code.
-PR250 remains draft; canonical specification and owner graph acceptance remain
-separate gates.
+Layout code/metadata `620ad13a..089f71aa` and the architecture guard correction
+`0fdacaa78..cc02e68b` received APPROVE with declared import-order audit limits.
+Actual Skill default/Advanced and connected Prior Run captures received visual
+APPROVE; the view-only harness also received APPROVE. Exact binary images are
+on exp `53b23132`, superseding the initial text-normalized screenshot blobs.
+Codex diagram path correction `c7a65ce0..2f0d5ffa` received visual APPROVE.
+
+The remaining role review approved current shared contracts/models, credentials,
+executors, native runtimes/policy, catalogs, caller hunks, Activity projection,
+structural checker, CI and read migration-map hunks. Current-state approval does
+not establish exact historical equivalence; remaining edited tests, docs,
+settings, migration entries and other declared unread hunks remain fully
+unreviewed — reviewer pending. The unsupported relative-import case is optional
+checker hardening; current providers use absolute imports.
+
+Review finding AB-01 identified an older OpenCode per-thread cost overstatement
+when usage is incomplete. Correction `2f0d5ffa..6cff259a` passes 84 OpenCode and
+49 shared Activity tests plus pinned Black. Its required focused recheck remains
+pending: Claude reported a weekly quota limit, resetting at 08:00 Berlin time.
+No approval or whole-PR readiness is inferred from those checks.
+
+PR250 remains draft. Canonical specification and owner final graph acceptance
+remain separate gates. These status notes introduce no execution behavior.
