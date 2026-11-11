@@ -49,6 +49,22 @@ class RunnerRequestHandler(BaseHTTPRequestHandler):
                     },
                 )
                 return
+            if (
+                len(parts) == 4
+                and parts[:2] == ["v1", "runs"]
+                and parts[3] == "activity"
+            ):
+                query = parse_qs(parsed.query)
+                try:
+                    after = int(query.get("after", ["0"])[0])
+                    limit = int(query.get("limit", ["100"])[0])
+                except ValueError:
+                    raise RunnerError("invalid_activity_cursor") from None
+                page = self.server.runner.read_activity(
+                    parts[2], query.get("attempt", [""])[0], after=after, limit=limit
+                )
+                self._reply(200, page.model_dump(mode="json"))
+                return
             if len(parts) == 4 and parts[:2] == ["v1", "runs"] and parts[3] == "events":
                 from laomedo.agents.activity.runner.feed import read_feed
 

@@ -74,3 +74,22 @@ Literal projector input/output cases live in
 `tests/test_agents/test_activity/data/projector-records.json`; the envelope tests
 check their exact projections and serialization. These are internal compatibility
 controls, not a working graph demonstration or live provider acceptance.
+
+## Normalized provider read boundary
+
+BaseAgent.read_activity returns ActivityPage and append-only ActivityRecord values.
+Provider Agents pass their native projection function to internal ActivityNormalizer
+(normalizer.py), which reads only retained, attempt-bounded evidence. SQLite
+transaction ownership serializes normalized sequence allocation across processes;
+unchanged replacement snapshots do not append another record. Messages/tool output
+replace prior versions by thread/ID, usage is an absolute attempt snapshot (never
+summed across revisions). Full shared ActivityProjection travels with a monotonic
+projection_revision so telemetry/cost/thread-only changes survive ingestion.
+
+ActivityNormalizer.read validates the run/attempt, clips both physical sources,
+normalizes and journals atomically, then returns bounded records. It starts no
+container/model/auth operation. The private journal is a normalization cache, not
+an execution record. ActivityCapture consumes /activity, retains common records
+and display snapshots with attempt-scoped deduplication and seals only drained
+closed pages. Application projection reads common snapshots without provider
+selection. Native parser helpers remain internal to providers.

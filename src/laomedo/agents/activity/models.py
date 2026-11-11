@@ -2,6 +2,9 @@
 
 from pydantic import BaseModel, ConfigDict, Field, SkipValidation
 from pydantic import JsonValue
+from pydantic import model_validator
+from datetime import datetime
+from typing import Annotated, Literal
 from laomedo.agents.activity.store import ActivityStore
 
 
@@ -270,3 +273,196 @@ class TokenUsage(BaseModel):
     def to_payload(self) -> dict[str, int]:
         """Project the exact normalized counter names expected by Activity consumers."""
         return self.model_dump(by_alias=True)
+
+
+class MessageActivity(BaseModel):
+    """Replacement text snapshot for one message, scoped by native thread and ID."""
+
+    model_config = ConfigDict(
+        strict=True, frozen=True, extra="forbid", hide_input_in_errors=True
+    )
+    kind: Literal["message"] = Field(
+        default="message", description="Common event discriminator."
+    )
+    message_id: str = Field(min_length=1, description="Stable source message identity.")
+    thread_id: str = Field(
+        min_length=1, description="Native conversation identity, not authorization."
+    )
+    role: Literal["user", "assistant"] = Field(description="Observed message role.")
+    text: str = Field(
+        description="Full text so far; replaces the previous version, never a delta."
+    )
+
+
+class ToolCallActivity(BaseModel):
+    """Replacement invocation metadata for one thread-scoped tool call."""
+
+    model_config = ConfigDict(
+        strict=True, frozen=True, extra="forbid", hide_input_in_errors=True
+    )
+    kind: Literal["tool_call"] = Field(
+        default="tool_call", description="Common event discriminator."
+    )
+    tool_call_id: str = Field(
+        min_length=1, description="Stable call identity within the thread."
+    )
+    thread_id: str = Field(
+        min_length=1, description="Native conversation containing the call."
+    )
+    name: str = Field(
+        min_length=1, description="Reported tool name or observed operation type."
+    )
+    arguments: dict[str, JsonValue] = Field(
+        description="Observed JSON arguments, not instructions to execute."
+    )
+
+
+class ToolResultActivity(BaseModel):
+    """Full observed tool output, including running partial output replacements."""
+
+    model_config = ConfigDict(
+        strict=True, frozen=True, extra="forbid", hide_input_in_errors=True
+    )
+    kind: Literal["tool_result"] = Field(
+        default="tool_result", description="Common event discriminator."
+    )
+    tool_call_id: str = Field(
+        min_length=1, description="Call identity matching ToolCallActivity."
+    )
+    thread_id: str = Field(
+        min_length=1, description="Thread scope prevents collisions between call IDs."
+    )
+    status: Literal["running", "completed", "failed", "cancelled", "unknown"] = Field(
+        description="Observed tool outcome; running permits incremental output."
+    )
+    output: str | None = Field(
+        description="Full output so far; null means unobserved, not empty."
+    )
+
+
+class UsageActivity(BaseModel):
+    """Absolute attempt-to-date per-thread counters; revisions must never be summed."""
+
+    model_config = ConfigDict(
+        strict=True, frozen=True, extra="forbid", hide_input_in_errors=True
+    )
+    kind: Literal["usage"] = Field(
+        default="usage", description="Common event discriminator."
+    )
+    thread_id: str = Field(
+        min_length=1,
+        description="Native thread to which these exclusive counters belong.",
+    )
+    input_tokens: int | None = Field(
+        ge=0, description="Observed attempt input tokens, or unknown."
+    )
+    output_tokens: int | None = Field(
+        ge=0, description="Observed attempt output tokens, or unknown."
+    )
+    cached_input_tokens: int | None = Field(
+        ge=0, description="Observed cached input category, or unknown."
+    )
+    reasoning_output_tokens: int | None = Field(
+        ge=0, description="Observed reasoning output category, or unknown."
+    )
+    cache_write_input_tokens: int | None = Field(
+        ge=0, description="Observed cache write category, or unknown."
+    )
+    total_tokens: int | None = Field(
+        ge=0,
+        description="Reported attempt total, not a sum of potentially overlapping categories.",
+    )
+
+
+class ActivityRecord(BaseModel):
+    """One immutable normalized version in an attempt-scoped stable sequence."""
+
+    model_config = ConfigDict(
+        strict=True, frozen=True, extra="forbid", hide_input_in_errors=True
+    )
+    sequence: int = Field(
+        gt=0, description="Append-only position within this run/attempt."
+    )
+    occurred_at: datetime | None = Field(
+        description="Provider occurrence time when separately attested; otherwise null."
+    )
+    observed_at: datetime = Field(
+        description="Time this normalized version was observed."
+    )
+    event: Annotated[
+        MessageActivity | ToolCallActivity | ToolResultActivity | UsageActivity,
+        Field(discriminator="kind"),
+    ] = Field(
+        description="Common replacement snapshot; no provider parsing required by the consumer."
+    )
+
+
+class ActivityPage(BaseModel):
+    """Bounded normalized records plus the shared display view at a published revision."""
+
+    model_config = ConfigDict(
+        strict=True, frozen=True, extra="forbid", hide_input_in_errors=True
+    )
+    run_id: str = Field(description="Admitted durable runner run identity.")
+    attempt_id: str = Field(
+        description="Explicit capture identity; never guessed from the latest run."
+    )
+    available: bool = Field(description="Whether this exact capture boundary exists.")
+    records: list[ActivityRecord] = Field(
+        description="Increasing records strictly after the requested sequence."
+    )
+    next_after: int = Field(
+        ge=0, description="Continuation position in the normalized sequence."
+    )
+    has_more: bool = Field(
+        description="Additional normalized records exist after this page."
+    )
+    closed: bool = Field(
+        description="Both physical source bounds are sealed, independently of task success."
+    )
+    complete: bool | None = Field(
+        description="Final capture completeness; null while open or unavailable."
+    )
+    reason: str | None = Field(
+        description="Stable unavailability or incomplete-capture category."
+    )
+    projection: ActivityProjection | None = Field(
+        default=None,
+        description="Shared display snapshot preserving threads, telemetry, diagnostics and cost.",
+    )
+    projection_revision: int = Field(
+        default=0,
+        ge=0,
+        description="Monotonic display revision, including changes without new message records.",
+    )
+    status: str | None = Field(
+        default=None,
+        description="Selected capture's execution status; not inferred from closure.",
+    )
+    thread_id: str | None = Field(
+        default=None, description="Observed root native thread binding."
+    )
+    model: str | None = Field(
+        default=None, description="Observed effective model binding."
+    )
+    ended_at: str | None = Field(
+        default=None, description="Observed capture end time when present."
+    )
+
+    @model_validator(mode="after")
+    def consistent_page(self):
+        """Reject fabricated closure and malformed normalized ordering."""
+        positions = [row.sequence for row in self.records]
+        if positions != sorted(set(positions)) or (
+            positions and self.next_after != positions[-1]
+        ):
+            raise ValueError("invalid_activity_cursor")
+        if not self.available and (
+            self.records or self.closed or self.complete is not None or self.has_more
+        ):
+            raise ValueError("activity_attempt_identity_mismatch")
+        if self.closed != (self.complete is not None):
+            raise ValueError("activity_attempt_identity_mismatch")
+        if self.complete is False and not self.reason:
+            raise ValueError("activity_capture_reason_required")
+        return self

@@ -1,6 +1,7 @@
 """Isolated Claude Code runner with persistent sessions and streamed native events."""
 
 from __future__ import annotations
+from laomedo.agents.activity.models import ActivityPage
 from laomedo.agents.agents.base.models import ReadinessObservation
 from laomedo.agents.agents.claude.catalog import ClaudeModelCatalog
 from laomedo.agents.agents.claude.credentials import ClaudeCredentialProvider
@@ -144,6 +145,16 @@ class ClaudeAgent(BaseAgent):
             owner.update(cleanup_verified=verified, cleanup_detail=detail)
             if not verified:
                 record["error_category"] = "container_cleanup_unverified"
+
+    def read_activity(
+        self, run_id: str, attempt_id: str, *, after: int = 0, limit: int = 100
+    ) -> ActivityPage:
+        """Normalize retained claude evidence behind the common Activity boundary."""
+        from laomedo.agents.agents.claude.activity.projection import project
+
+        return self._normalize_activity(
+            run_id, attempt_id, after=after, limit=limit, projector=project
+        )
 
     def readiness(self) -> ReadinessObservation:
         """Return the actual native check's availability, reason and scope without inference."""

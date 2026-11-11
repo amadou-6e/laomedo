@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from laomedo.agents.activity.models import ActivityPage
 from pathlib import Path
 from urllib.request import ProxyHandler, build_opener
 from uuid import uuid4
@@ -172,6 +173,29 @@ class BaseAgent(ABC):
         return self.catalog.list_models(refresh=refresh).to_payload(
             include_model_names=self.catalog.include_model_names
         )
+
+    @abstractmethod
+    def read_activity(
+        self, run_id: str, attempt_id: str, *, after: int = 0, limit: int = 100
+    ) -> ActivityPage:
+        """Return common attempt-scoped replacement records without native execution."""
+
+    def _normalize_activity(
+        self,
+        run_id,
+        attempt_id,
+        *,
+        after,
+        limit,
+        projector,
+        complete_from_snapshot=False,
+    ):
+        """Borrow shared journaling mechanics while retaining native provider interpretation."""
+        from laomedo.agents.activity.normalizer import ActivityNormalizer
+
+        return ActivityNormalizer(
+            self, projector, complete_from_snapshot=complete_from_snapshot
+        ).read(run_id, attempt_id, after=after, limit=limit)
 
     @abstractmethod
     def preflight(self) -> dict:
