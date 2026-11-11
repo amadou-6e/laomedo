@@ -1,0 +1,64 @@
+// Actual native browser, disposable in-memory QA PIN. No GitHub credential or graph run.
+const fs = require('fs'), path = require('path'), crypto = require('crypto');
+const root = 'C:/CodeWorkspace/laomedo';
+const runtime = path.join(process.env.TEMP, 'laomedo-graph-20261107');
+const { chromium } = require(path.join(runtime, 'upstream-langflow/src/frontend/node_modules/@playwright/test'));
+(async () => {
+  const browser = await chromium.launch({ channel: 'msedge', headless: true });
+  try {
+    const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+    let builds = 0;
+    page.on('request', request => { if (request.method() === 'POST' && /\/(build|run)\//.test(new URL(request.url()).pathname)) builds++; });
+    await page.goto('http://127.0.0.1:17867/login');
+    await page.getByRole('heading', { name: 'Choose profile', exact: true }).waitFor();
+    await page.getByRole('button', { name: /^Create profile$/i }).click();
+    const pin = '0' + String(crypto.randomInt(10000, 100000));
+    await page.getByLabel('Profile name', { exact: true }).fill('Private viewer QA ' + Date.now().toString().slice(-6));
+    await page.getByLabel('PIN (6 digits)', { exact: true }).fill(pin);
+    await page.getByLabel('Confirm PIN', { exact: true }).fill(pin);
+    await page.getByRole('button', { name: /^Create profile$/i }).click();
+    await page.waitForURL('http://127.0.0.1:17867/', { timeout: 60000 });
+    const flow = JSON.parse(fs.readFileSync(path.join(root, '.tools/pr-readiness/257-private-flow.json'), 'utf8'));
+    flow.id = crypto.randomUUID();
+    const create = async () => page.evaluate(async flow => {
+      const response = await fetch('/api/v1/flows/', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(flow) });
+      const result = await response.json(); return { status: response.status, id: result.id };
+    }, flow);
+    const created = await create();
+    if (!created.id) throw new Error('QA graph creation refused: ' + created.status);
+    await page.goto('http://127.0.0.1:17867/flow/' + created.id);
+    const node = page.locator('.react-flow__node[data-id="skill"]');
+    await node.waitFor({ timeout: 60000 });
+    await page.screenshot({ path: path.join(root, '.tools/pr-readiness/257-private-node-initial.png'), fullPage: true });
+    await node.getByRole('button', { name: 'Advanced settings', exact: true }).click();
+    await page.getByTestId('canvas_controls_dropdown').click();
+    await page.getByTestId('fit_view').click();
+    await page.keyboard.press('Escape');
+    await node.getByLabel('Connection', { exact: true }).waitFor();
+    await node.getByLabel('Connection', { exact: true }).focus();
+    await page.waitForTimeout(1000);
+    await page.screenshot({ path: path.join(root, '.tools/pr-readiness/257-private-connection-anonymous.png'), fullPage: true });
+    const anonymous = await node.getByLabel('Connection', { exact: true }).inputValue();
+    if (anonymous !== '') throw new Error('Connection inferred instead of Anonymous');
+    flow.id = crypto.randomUUID(); flow.name = 'Private Skill locked selection QA';
+    const template = flow.data.nodes[0].data.node.template;
+    template.github_connection.value = crypto.randomUUID();
+    template.private_repository_id.value = '456';
+    template.source.value = 'https://github.com/synthetic/private';
+    const locked = await create();
+    if (!locked.id) throw new Error('Locked QA graph creation refused');
+    await page.goto('http://127.0.0.1:17867/flow/' + locked.id);
+    await node.waitFor({ timeout: 60000 });
+    await node.getByRole('button', { name: 'Advanced settings', exact: true }).click();
+    await page.getByTestId('canvas_controls_dropdown').click();
+    await page.getByTestId('fit_view').click();
+    await page.keyboard.press('Escape');
+    await node.getByText('Private files are read only. Agent execution is unavailable.', { exact: true }).waitFor();
+    await page.screenshot({ path: path.join(root, '.tools/pr-readiness/257-private-connection-locked.png'), fullPage: true });
+    await node.getByText('Laomedo Skill', { exact: true }).click();
+    await page.getByText('Skill files', { exact: true }).last().click();
+    await page.getByText('Private content is hidden. Source and revision selections are preserved.', { exact: true }).waitFor({ timeout: 15000 });
+    await page.screenshot({ path: path.join(root, '.tools/pr-readiness/257-private-viewer-locked.png'), fullPage: true });
+    console.log(JSON.stringify({ anonymous: true, actualNativeLockedView: true, syntheticUnconfiguredConnectionOnly: true, actualPrivateFiles: false, builds, flow: locked.id }));
+  } finally { await browser.close(); }
+})().catch(error => { console.error(error.message); process.exit(1); });

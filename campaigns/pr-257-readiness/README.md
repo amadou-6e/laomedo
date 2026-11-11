@@ -72,3 +72,36 @@ production build1m37s pass. The actual native invalid-synthetic-token400 refusal
 shows no uncertain notice and clears credential DOM. No GitHub credential was
 used. Claude subsequently approved M6 at4d65fe99. Full private Skill functionality,
 positive App/PAT integration, T1/Q1/Q3, SC10 and owner acceptance remain unfinished.
+
+## Private Skill access increment, 2026-11-11
+
+Implementation17869d63 added private owner/connection/repository storage and
+buffered discovery/revisions/inspection/history/compare; Claude scoped APPROVE.
+7521d06f connected private controls/viewer and graph execution refusal; Claude
+scoped code/spec-fit APPROVE, actual design/visual coverage incomplete. Later
+native-dropdown/compact-error changes and provider ownership correction through
+f134979e require a separate focused review. These are not whole-feature approvals.
+
+private_flow.py projects the maintained native Skill component without building
+or running it. private_ui.cjs creates a disposable profile with an in-memory PIN,
+creates fresh QA graph identities, checks Anonymous and a synthetic unconfigured
+private selection, and opens the real locked viewer. Earlier actual run passed
+with zero graph builds, no GitHub credential/request and no positive private-file
+claim. Initial harness attempts used the wrong projection envelope and reused an
+owned flow ID; both failed before useful inspection and were corrected. Final
+fit-to-view capture additionally closes its canvas menu before opening the viewer.
+
+sync_templates.py updates the five maintained Skill example code/hash payloads
+and adds empty nonsecret private input defaults, updating their graph contract
+fingerprints. It does not operate on personal saved graphs. CI caught stale
+embedded code and Skills importing a provider; the feature moved under
+GitHub/connections/skills without weakening the ownership rule.
+
+Local checks:90 authentication tests pass;23 architecture checks pass with1skip;
+private domain6 and HTTP3 controls pass;8 source-node tests pass. Private UI13
+controls in3suites pass. Compatible Node22 production build passes; global upstream
+TypeScript baseline still fails, no new private diagnostics after ref initialization.
+Real App/PAT, private files, completeSC10, final owner acceptance and final CI/review
+remain separate gates. Runtime state, credentials, PINs and desktop captures stay
+outside Git. The integrated VSCode browser is opened under a disposable QA profile;
+no human PIN is requested or retained.
