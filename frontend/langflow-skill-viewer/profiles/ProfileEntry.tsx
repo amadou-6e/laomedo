@@ -238,7 +238,8 @@ export default function ProfileEntry({
 							This name is unavailable. Your profile has not been created.
 						</p>
 						<Button
-							onClick={() = ignoreTitleCase> {
+							ignoreTitleCase
+                            onClick={() => {
 								setError("");
 								setScreen("create");
 							}}
@@ -256,7 +257,8 @@ export default function ProfileEntry({
 							again.
 						</p>
 						<Button
-							onClick={() = ignoreTitleCase> {
+							ignoreTitleCase
+                            onClick={() => {
 								setError("");
 								setScreen("enter");
 							}}
