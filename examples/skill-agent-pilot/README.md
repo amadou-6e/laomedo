@@ -78,7 +78,7 @@ After a completed run, export only its matching native Codex rollout for local
 AGENTVIZ inspection:
 
 ```powershell
-python -m laomedo.activity.rollout_export --state $state --run-id '<run-id>'
+python -m laomedo.agents.agents.codex.activity.rollout_export --state $state --run-id '<run-id>'
 ```
 
 This reads the existing Docker volume read-only, matches the native thread ID

@@ -176,9 +176,11 @@ The architecture check scans every Laomedo source file for native Client imports
 and direct SDK dispatch/recovery calls. It does not prove the absence of indirect
 aliases or Docker CLI subprocesses.
 
-Codex `activity/rollout_export.py` still launches three Docker CLI jobs for its
-selected native history export. It uses local-only image lookup (`--pull=never`)
-but does not use shared receipts or pin the daemon with `--host`. Outside Agents,
+Codex `activity/rollout_export.py` runs its three bounded private history reads
+through the shared job owner. Export requires the recorded daemon, profile and
+immutable image; missing bindings are refused, never replaced by local defaults.
+It reconciles exact export receipts before dispatch and refuses publication on
+uncertain cleanup. Images and profiles must already exist. Outside Agents,
 `work_graph/docker_stage.py` and host publication bundle staging/ownership also
 retain their own Docker CLI operations. These paths remain migration work;
 the current extraction is not complete consolidation of all Docker handling.
@@ -263,8 +265,9 @@ does not resolve or authorize behavioral changes to any of these questions.
 ## Completion checks
 
 - [ ] All agent and worker container launch/close/recovery dispatch paths use
-      shared mechanisms. Codex native rollout export still bypasses this owner.
-      Native SDK image/volume/inspection policy stays explicit.
+      shared mechanisms. Codex native rollout export is now migrated; final
+      independent review and acceptance are pending. Native SDK image/volume/
+      inspection policy stays explicit.
 - [ ] Existing endpoint, image, deadline, output, receipt and error semantics hold.
 - [ ] Partial startup, cancellation, uncertain cleanup and recovery are covered.
 - [ ] Provider resource ordering and thread ownership are explicit.

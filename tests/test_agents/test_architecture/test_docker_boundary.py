@@ -9,6 +9,23 @@ from support.paths import repository_root
 class DockerBoundaryTests(unittest.TestCase):
     """Detect bypasses in any current or newly added agent provider."""
 
+    def test_native_rollout_export_cannot_restore_cli_subprocess_dispatch(self):
+        path = (
+            repository_root()
+            / "src/laomedo/agents/agents/codex/activity/rollout_export.py"
+        )
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        imports = {
+            alias.name
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Import)
+            for alias in node.names
+        }
+        imports.update(
+            node.module for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)
+        )
+        self.assertNotIn("subprocess", imports)
+
     def test_only_shared_runtime_constructs_clients_or_dispatches_container_work(self):
         root = repository_root() / "src/laomedo"
         owner = root / "docker.py"
