@@ -1,3 +1,6 @@
+> Historical proposal, superseded by [direct provider boundaries](provider-boundaries.md).
+> Its runtime ABC and migration instructions are not the selected implementation.
+
 # Agent provider parity plan
 
 Status: proposed; awaiting Claude review before implementation. This document

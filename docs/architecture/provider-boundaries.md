@@ -289,3 +289,19 @@ Current-code Codex fresh/resume/cancellation acceptance passes; Claude/OpenCode
 and host-loss acceptance remain open. Later experiment evidence is not part of
 that independent review. PR250 remains draft with the existing runtime guard
 and other broad-PR review/acceptance gaps.
+
+## Native runtime ownership
+
+The former `BaseAgentRuntime`, `RuntimeLaunch` and unused runtime observation
+wrappers are retired. No shared Laomedo caller consumed that nominal role; only
+provider code used its divergent native methods. Providers construct their native
+runtimes directly. Codex awaits native `close()`; OpenCode keeps its current
+synchronous backend `close()` and `cancel()` factory protocol; Claude keeps its
+creator-thread context manager. No external factory protocol or saved record
+changes. Cleanup still precedes Codex freezing/cancellation confirmation and
+OpenCode history retention. Shared Docker mechanics remain in `DockerRuntime`.
+The contract guard continues covering every remaining declared role, with no
+baseline or provider exceptions; retired classes/imports cannot return.
+
+This new retirement is fully unreviewed - reviewer pending. Earlier approvals
+cover Activity through3778e2714, not this subsequent native lifecycle change.

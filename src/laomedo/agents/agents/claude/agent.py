@@ -613,13 +613,12 @@ class ClaudeAgent(BaseAgent):
                 if time.monotonic() >= deadline:
                     raise RunnerError("claude_turn_timeout")
             with (
-                ClaudeAgentRuntime.start(
+                ClaudeAgentRuntime(
                     self.container,
                     spec,
                     self.container.receipts.joinpath("claude-" + name + ".json"),
                     max(1, deadline - time.monotonic()) + 10,
-                    cancelled=flag,
-                ).runtime as session,
+                ) as session,
                 session.stop_on(
                     lambda: time.monotonic() >= deadline + 5 or bool(service.error_code)
                 ),

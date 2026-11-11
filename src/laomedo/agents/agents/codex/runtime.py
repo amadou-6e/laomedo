@@ -14,11 +14,7 @@ from laomedo.agents.agents.codex.controller.models import CodexLaunch, CodexTurn
 from laomedo.agents.agents.codex.controller.settings import Settings
 from laomedo.agents.errors import RunnerError
 from laomedo.docker import DockerRuntime
-from laomedo.agents.agents.base.base import BaseAgentRuntime
 from laomedo.agents.agents.base.models import (
-    RuntimeObservation,
-    CancellationObservation,
-    CleanupObservation,
     CommandRequest,
     ProcessHealthObservation,
     IsolationObservation,
@@ -26,7 +22,7 @@ from laomedo.agents.agents.base.models import (
 from laomedo.agents.agents.base.utils import failure_observation
 
 
-class CodexAgentRuntime(BaseAgentRuntime):
+class CodexAgentRuntime:
     """Own a controller and optional executor without implementing another wire.
 
     Native events remain the authority for item identities and terminal status.
@@ -477,36 +473,6 @@ class CodexAgentRuntime(BaseAgentRuntime):
                 raise RunnerError("model_list_invalid_cursor")
             seen.add(cursor)
         raise RunnerError("model_list_page_limit")
-
-    def observe(self) -> RuntimeObservation:
-        """Report launch separately from the independently completed ACP handshake."""
-        return RuntimeObservation(
-            provider="codex",
-            launched=self.session is not None and not self._closed,
-            ready=(
-                (getattr(self, "_protocol_ready", False) or None)
-                if not self._closed
-                else None
-            ),
-            native_session=self.active_thread_id,
-        )
-
-    def request_cancel(self) -> CancellationObservation:
-        """Signal the owned prompt flag; acknowledgement remains native evidence."""
-        flag = getattr(self, "_cancelled", None)
-        if flag is not None:
-            flag.set()
-        return CancellationObservation(
-            requested=flag is not None,
-            confirmed=(
-                True if flag is not None and self.interrupt_acknowledged else None
-            ),
-        )
-
-    async def shutdown(self) -> CleanupObservation:
-        """Await the existing fail-closed exact cleanup without retrying execution."""
-        await self.close()
-        return CleanupObservation(confirmed=True, scope="codex_controller_and_executor")
 
     def _native_event(self, method, event):
         """Retain redacted original native events before ACP prompt returns."""

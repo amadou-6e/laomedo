@@ -188,7 +188,6 @@ class ProviderInterfaceContractTests(unittest.TestCase):
         contracts = {
             "laomedo.agents.agents.base.base." + name
             for name in (
-                "BaseAgentRuntime",
                 "BaseCommandExecutor",
                 "BaseInterruptibleCommandExecutor",
                 "BaseSplitCommandExecutor",
@@ -203,3 +202,24 @@ class ProviderInterfaceContractTests(unittest.TestCase):
             "Provider interface violations:\n"
             + "\n".join("src/" + violation for violation in violations),
         )
+
+    def test_shared_roles_do_not_reintroduce_provider_private_runtime_abstractions(
+        self,
+    ):
+        """Native lifecycles remain provider-owned instead of an unused nominal role."""
+        import ast
+
+        retired = {"BaseAgentRuntime", "RuntimeLaunch", "RuntimeObservation"}
+        root = repository_root() / "src" / "laomedo"
+        violations = []
+        for path in root.rglob("*.py"):
+            for node in ast.walk(ast.parse(path.read_text(encoding="utf-8-sig"))):
+                if isinstance(node, ast.ClassDef) and node.name in retired:
+                    violations.append(str(path.relative_to(root)) + ":" + node.name)
+                elif isinstance(node, ast.ImportFrom):
+                    violations.extend(
+                        str(path.relative_to(root)) + ":" + name.name
+                        for name in node.names
+                        if name.name in retired
+                    )
+        self.assertEqual(violations, [])

@@ -6,7 +6,6 @@ from copy import deepcopy
 import threading
 import time
 from laomedo.agents.agents.base.models import (
-    RuntimeObservation,
     CancellationObservation,
     CleanupObservation,
     CommandRequest,
@@ -15,36 +14,9 @@ from laomedo.agents.agents.base.models import (
     CredentialBinding,
     CredentialMaterial,
     ModelCatalog,
-    RuntimeLaunch,
     ProcessHealthObservation,
     IsolationObservation,
 )
-
-
-class BaseAgentRuntime(ABC):
-    """Own exact process/session lifecycle; ACP communication remains composed."""
-
-    @classmethod
-    def start(cls, *args, **kwargs) -> RuntimeLaunch:
-        """Construct the provider's configured scope and return an opaque owned handle.
-
-        Only trusted host factories supply constructor arguments. Existing native
-        startup/admission failures propagate; launch does not imply ACP readiness.
-        """
-        runtime = cls(*args, **kwargs)
-        return RuntimeLaunch(runtime=runtime, observation=runtime.observe())
-
-    @abstractmethod
-    def observe(self) -> RuntimeObservation:
-        """Read known process and native-session facts without launching a turn."""
-
-    @abstractmethod
-    def request_cancel(self) -> CancellationObservation:
-        """Request interruption without claiming native acknowledgement or cleanup."""
-
-    @abstractmethod
-    async def shutdown(self) -> CleanupObservation:
-        """Close owned resources or preserve provider's fail-closed cleanup error."""
 
 
 class BaseCommandExecutor(ABC):

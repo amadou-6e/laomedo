@@ -428,27 +428,6 @@ class AttemptFailureRecord(BaseModel):
         return self.model_dump()
 
 
-class RuntimeObservation(BaseModel):
-    """Separate launch, readiness and native identity observations for one scope."""
-
-    model_config = ConfigDict(
-        strict=True, frozen=True, extra="forbid", hide_input_in_errors=True
-    )
-    provider: str = Field(
-        description="Registered native provider for the observed scope."
-    )
-    launched: bool = Field(
-        description="Whether this runtime allocated its owned process/session scope."
-    )
-    ready: bool | None = Field(
-        description="Observed protocol readiness; None means not yet established."
-    )
-    native_session: str | None = Field(
-        default=None,
-        description="Observed native session ID, never fabricated from a Laomedo run ID.",
-    )
-
-
 class CancellationObservation(BaseModel):
     """Cancellation admission is distinct from native interruption confirmation."""
 
@@ -708,22 +687,6 @@ class ModelCatalog(BaseModel):
             if value is not None:
                 payload[name] = value
         return payload
-
-
-class RuntimeLaunch(BaseModel):
-    """Host-only owned runtime handle and its separate launch/readiness evidence."""
-
-    model_config = ConfigDict(
-        strict=True, frozen=True, extra="forbid", hide_input_in_errors=True
-    )
-    runtime: SkipValidation[object] = Field(
-        exclude=True,
-        repr=False,
-        description="Opaque host-owned runtime; never serialized or supplied by graph input.",
-    )
-    observation: RuntimeObservation = Field(
-        description="Actual launch and readiness facts at construction, not execution success."
-    )
 
 
 class ReadinessObservation(BaseModel):

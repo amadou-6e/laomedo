@@ -47,7 +47,6 @@ from laomedo.agents.agents.codex.controller.settings import Settings
 from laomedo.agents.interface.output.utils import evaluate
 from laomedo.agents.errors import RunnerError
 from laomedo.agents.agents.codex.runtime import CodexAgentRuntime
-from laomedo.agents.agents.base.base import BaseAgentRuntime
 from laomedo.agents.workspaces.utils import _hash_tree
 from laomedo.agents.agents.base.utils import _id
 from laomedo.agents.agents.base.utils import _json
@@ -538,7 +537,7 @@ class CodexAgent(BaseAgent):
                 if self.split_executor
                 else None
             )
-            return self.transport.start(
+            return self.transport(
                 launch,
                 root,
                 env=self.docker_environment,
@@ -550,7 +549,7 @@ class CodexAgent(BaseAgent):
                     if capability is not None
                     else ()
                 ),
-            ).runtime
+            )
         return self.transport(launch, root)
 
     async def _model_catalog(self):
@@ -578,11 +577,7 @@ class CodexAgent(BaseAgent):
         finally:
             try:
                 if server is not None:
-                    await (
-                        server.shutdown()
-                        if isinstance(server, BaseAgentRuntime)
-                        else server.close()
-                    )
+                    await server.close()
             finally:
                 if not self._pending_receipts(root):
                     shutil.rmtree(root, ignore_errors=True)
@@ -649,11 +644,7 @@ class CodexAgent(BaseAgent):
             }
         finally:
             if server is not None:
-                await (
-                    server.shutdown()
-                    if isinstance(server, BaseAgentRuntime)
-                    else server.close()
-                )
+                await server.close()
 
     def _execute(
         self,
@@ -1158,11 +1149,7 @@ class CodexAgent(BaseAgent):
                         record["precheck"]["installed"] = record["precheck"][
                             "installed"
                         ] or bool(getattr(server, "verified_precheck_calls", set()))
-                    await (
-                        server.shutdown()
-                        if isinstance(server, BaseAgentRuntime)
-                        else server.close()
-                    )
+                    await server.close()
                     if record is not None:
                         record["controller_cleanup"] = "confirmed"
                         if not self.supervise_containers and getattr(

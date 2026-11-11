@@ -30,12 +30,6 @@ from laomedo.container_images.errors import ImageBuildError
 from laomedo.agents.agents.opencode.settings import IMAGE
 from laomedo.agents.agents.opencode.credentials import OpenCodeCredentialProvider
 from laomedo.agents.agents.base.models import CredentialRequest
-from laomedo.agents.agents.base.base import BaseAgentRuntime
-from laomedo.agents.agents.base.models import (
-    RuntimeObservation,
-    CancellationObservation,
-    CleanupObservation,
-)
 from laomedo.agents.agents.base.utils import _json
 from laomedo.agents.agents.base.utils import _private
 from laomedo.agents.agents.base.utils import failure_observation
@@ -44,7 +38,7 @@ from laomedo.agents.agents.base.utils import failure_observation
 from laomedo.agents.agents.opencode.executor import OpenCodeCommandExecutor
 
 
-class OpenCodeAgentRuntime(BaseAgentRuntime):
+class OpenCodeAgentRuntime:
     """One controller per turn, persistent session profile, independent workers."""
 
     def __init__(
@@ -449,30 +443,6 @@ class OpenCodeAgentRuntime(BaseAgentRuntime):
     def check_auth_fresh(self):
         """Validate the dedicated profile's existing bounded credential grant."""
         OpenCodeCredentialProvider(self.profile).validate(CredentialRequest())
-
-    def observe(self) -> RuntimeObservation:
-        """Do not infer a controller process or ACP readiness from a prepared environment."""
-        return RuntimeObservation(
-            provider="opencode",
-            launched=self.session is not None and not self.closing,
-            ready=None,
-            native_session=getattr(self, "_native_session", None),
-        )
-
-    def request_cancel(self) -> CancellationObservation:
-        """Stop the command executor and signal the current ACP prompt when present."""
-        self.cancel()
-        flag = getattr(self, "_cancelled", None)
-        if flag is not None:
-            flag.set()
-        return CancellationObservation(
-            requested=flag is not None or self.broker is not None, confirmed=None
-        )
-
-    async def shutdown(self) -> CleanupObservation:
-        """Confirm every allocated controller/worker receipt before returning success."""
-        self.close()
-        return CleanupObservation(confirmed=True, scope="opencode_owned_resources")
 
     async def _run_acp(self, task, model, session_id, cancelled, capture, on_session):
         """Validate agent identity, load the same native session and await its prompt."""

@@ -8,7 +8,6 @@ from laomedo.agents.agents.opencode.catalog import OpenCodeModelCatalog
 
 from uuid import uuid4
 import hashlib
-import asyncio
 import re
 import shutil
 import threading
@@ -21,7 +20,6 @@ from laomedo.agents.activity.utils import now
 from laomedo.agents.activity.runner.feed import line_count
 from laomedo.agents.agents.opencode.settings import CLI_VERSION
 from laomedo.agents.errors import RunnerError
-from laomedo.agents.agents.base.base import BaseAgentRuntime
 from laomedo.agents.agents.base.agent import BaseAgent
 from laomedo.agents.agents.base.models import RuntimeBinding
 from laomedo.agents.workspaces.utils import _hash_tree
@@ -216,11 +214,7 @@ class OpenCodeAgent(BaseAgent):
                     "cancel_acknowledged": False,
                     "termination_verified": False,
                 }
-            (
-                backend.request_cancel()
-                if isinstance(backend, BaseAgentRuntime)
-                else backend.cancel()
-            )
+            backend.cancel()
             # An acknowledgement is not proof that a native child command terminated.
             return {
                 **record,
@@ -510,11 +504,7 @@ class OpenCodeAgent(BaseAgent):
         finally:
             try:
                 if backend:
-                    (
-                        asyncio.run(backend.shutdown())
-                        if isinstance(backend, BaseAgentRuntime)
-                        else backend.close()
-                    )
+                    backend.close()
                     if metadata_cleanup_unverified:
                         backend.termination_verified = False
                         raise RunnerError("opencode_container_cleanup_unverified")
