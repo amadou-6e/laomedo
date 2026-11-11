@@ -23,7 +23,7 @@ export default function PrivateSkillViewer({ selection, skillId, revision, setOp
   const [busy, setBusy] = useState(false);
   const [reload, setReload] = useState(0);
   const epoch = useRef(0);
-  const request = useRef<AbortController>();
+  const request = useRef<AbortController | undefined>(undefined);
   const clear = (code: string) => {
     ++epoch.current; request.current?.abort(); setSnapshot(undefined); setHistory([]); setPatch(undefined); setBusy(false); setError(code);
   };
