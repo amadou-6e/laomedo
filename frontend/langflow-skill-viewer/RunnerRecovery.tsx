@@ -28,11 +28,12 @@ export function isRunnerConnectionError(message: unknown): boolean {
 
 export type RecoveryState = { message: string; guidance: string; title?: string; installDocker: boolean; error: string; waiting: boolean; canStart: boolean; state?: string; reason?: string; cancel: () => Promise<boolean>; cancelling: boolean; restart: () => Promise<void> };
 
-function LocalBackendRecovery({ children, catalogue = false }: { children?: (state: RecoveryState) => ReactNode; catalogue?: boolean }) {
+function LocalBackendRecovery({ children, catalogue = false, onReady }: { children?: (state: RecoveryState) => ReactNode; catalogue?: boolean; onReady?: () => void }) {
   const [service, setService] = useState<Service | null>(null);
   const [error, setError] = useState("");
   const [starting, setStarting] = useState(false);
   const pending = useRef(false);
+  const discoverAfterStart = useRef(false);
   const [cancelling, setCancelling] = useState(false);
   const startRequest = useRef<Promise<{ data: Service }> | null>(null);
   const completedStart = useRef<Service | null>(null);
@@ -54,6 +55,7 @@ function LocalBackendRecovery({ children, catalogue = false }: { children?: (sta
         }
       } catch {
         if (!controller.signal.aborted && version === generation.current) {
+          discoverAfterStart.current = false;
           setService(null);
           setStarting(false);
           setError(describeNodeFailure("runner_service_configuration_unavailable", undefined).description);
@@ -65,8 +67,18 @@ function LocalBackendRecovery({ children, catalogue = false }: { children?: (sta
     return () => { controller.abort(); clearInterval(timer); };
   }, [endpoint, cancelling]);
 
+  useEffect(() => {
+    if (service?.state === "ready" && !cancelling && discoverAfterStart.current) {
+      discoverAfterStart.current = false;
+      onReady?.();
+    } else if (service?.state === "offline" && !starting) {
+      discoverAfterStart.current = false;
+    }
+  }, [service?.state, starting, cancelling, onReady]);
+
   const restart = async () => {
     if (pending.current || !service?.can_start || service.state !== "offline") return;
+    discoverAfterStart.current = catalogue && Boolean(onReady);
     pending.current = true; generation.current += 1;
     setStarting(true); setError(""); completedStart.current = null;
     try {
@@ -77,12 +89,14 @@ function LocalBackendRecovery({ children, catalogue = false }: { children?: (sta
       if (data.state !== "starting") setStarting(false);
     } catch {
       setStarting(false); setService(null);
+      discoverAfterStart.current = false;
       setError("The local runner startup could not be confirmed.");
     } finally { pending.current = false; startRequest.current = null; }
   };
 
   const cancel = async () => {
     if (cancelling) return false;
+    discoverAfterStart.current = false;
     if (!starting && !["starting", "cancelling"].includes(service?.state ?? "")) return true;
     setCancelling(true); generation.current += 1; setError("");
     try {
@@ -129,9 +143,9 @@ function LocalBackendRecovery({ children, catalogue = false }: { children?: (sta
   const guidance = service?.state === "unmanaged"
     ? "Close this notice and restart the app with its local runner configuration. Model refresh is available after the configured runner is online."
     : catalogue && service?.reason === "runner_local_offline"
-    ? "Starting the runner does not submit an agent task. Once it is online, open Model and use Refresh."
+    ? "Starting the runner does not submit an agent task. Its model list will refresh automatically when it is ready."
     : prerequisite ? prerequisite.recovery : service?.state === "ready" ? ""
-    : catalogue ? "Starting the runner does not submit an agent task. Once it is online, open Model and use Refresh."
+    : catalogue ? "Starting the runner does not submit an agent task. Its model list will refresh automatically when it is ready."
     : "Starting the runner does not rerun the graph. Check any existing run before starting new work.";
   const installDocker = service?.reason === "runner_docker_not_installed";
   if (children) return children({ message, guidance, title: prerequisite?.title, installDocker, error, waiting, cancel, cancelling, canStart: Boolean(service?.can_start), state: service?.state, reason: service?.reason, restart });
@@ -146,6 +160,6 @@ function LocalBackendRecovery({ children, catalogue = false }: { children?: (sta
   </section>;
 }
 
-export default function RunnerRecovery({ message, children }: { message: unknown; children?: (state: RecoveryState) => ReactNode }) {
-  return isRunnerConnectionError(message) ? <LocalBackendRecovery catalogue={describeNodeFailure(message, undefined).diagnostics.code === "runner_model_catalog_unavailable_check_runner_connection"}>{children}</LocalBackendRecovery> : null;
+export default function RunnerRecovery({ message, children, onReady }: { message: unknown; children?: (state: RecoveryState) => ReactNode; onReady?: () => void }) {
+  return isRunnerConnectionError(message) ? <LocalBackendRecovery onReady={onReady} catalogue={describeNodeFailure(message, undefined).diagnostics.code === "runner_model_catalog_unavailable_check_runner_connection"}>{children}</LocalBackendRecovery> : null;
 }
