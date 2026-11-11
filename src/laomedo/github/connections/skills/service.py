@@ -8,8 +8,8 @@ from laomedo.github.connections.errors import (
     GitHubRepositoryAccessError,
 )
 from laomedo.github.connections.repository import GitHubRepositoryReader
-from laomedo.skills.private.models import PrivateSkillResult
-from laomedo.skills.private.store import PrivateSkillStore
+from laomedo.github.connections.skills.models import PrivateSkillResult
+from laomedo.github.connections.skills.store import PrivateSkillStore
 from laomedo.skills.registry.utils.diff import patch_for
 
 

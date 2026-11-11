@@ -26,7 +26,7 @@
           "has_code_hash": true
         }
       ],
-      "graph_values_sha256": "7ed2fbdb3aa5ca5737fda8dab57dbccb381b0c49b72a7c40f6d8b38778cfb166"
+      "graph_values_sha256": "bd8291f6857527e42d1ee3d368d535e9a2916e956eeb9b0eb25fdafedca6ad3c"
     },
     {
       "path": "examples/native-codex-node/flow.json",
@@ -42,7 +42,7 @@
           "has_code_hash": true
         }
       ],
-      "graph_values_sha256": "666d1b06948909b9cda7a02f8f806be188f27bde65af3cd2fda8c287b83eec37"
+      "graph_values_sha256": "1e099a730e3c30398b180d709dab1c32d50e5cf8d0b0704f9bc6cbc98e46a217"
     },
     {
       "path": "examples/opencode-node/flow.json",
@@ -58,7 +58,7 @@
           "has_code_hash": true
         }
       ],
-      "graph_values_sha256": "6ba26922193b1bd5ea730ff56d883a17b444c9ef2964d33200d0ded844fbecbe"
+      "graph_values_sha256": "93472574c8a66297bb2c3962927506582794ea34ac242e758e53a5724c3af690"
     },
     {
       "path": "examples/skill-agent-pilot/pilot-flow.json",
@@ -125,7 +125,7 @@
           "has_code_hash": true
         }
       ],
-      "graph_values_sha256": "5443b278a9401d14a88975b04e4fcb3fcd0ca3a322b0bfe075ae2b3478559eb1"
+      "graph_values_sha256": "b8d0576923ef25a07434e5ea5d42846784bcb4fe4e6746145c773c6cf12956f2"
     },
     {
       "path": "examples/langflow-contract-routing/flow.json",
@@ -171,7 +171,7 @@
           "has_code_hash": true
         }
       ],
-      "graph_values_sha256": "f9845431b3e53015ebec0a71d4af976040252e1fbb3db34756e3487538232324"
+      "graph_values_sha256": "95c188cdd8de45003003d12c77a805399fd85844d7b8c6f332793462f5237274"
     }
   ]
 }

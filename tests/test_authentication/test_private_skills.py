@@ -21,7 +21,7 @@ from laomedo.integrations.langflow.authentication.errors import PrivateRequestRe
 from laomedo.integrations.langflow.authentication.private_skills import (
     private_skill_action,
 )
-from laomedo.skills.private.models import PrivateSkillResult
+from laomedo.github.connections.skills.models import PrivateSkillResult
 
 
 class PrivateSkillHttpTests(unittest.IsolatedAsyncioTestCase):

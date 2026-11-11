@@ -11,7 +11,7 @@ from laomedo.github.connections.models import (
     GitHubReadAuthorization,
     GitHubSkillRevision,
 )
-from laomedo.skills.private.models import PrivateSkillOrigin
+from laomedo.github.connections.skills.models import PrivateSkillOrigin
 from laomedo.skills.registry.store import SkillStore
 from laomedo.skills.registry.utils.files import is_link, read_json, write_json
 from laomedo.skills.registry.utils.inspection import inspect_skill

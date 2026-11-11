@@ -99,8 +99,8 @@ class PrivateBrowserRuntime:
         from laomedo.integrations.langflow.authentication.private_skills import (
             private_skill_router,
         )
-        from laomedo.skills.private.service import PrivateSkillAccess
-        from laomedo.skills.private.store import PrivateSkillStore
+        from laomedo.github.connections.skills.service import PrivateSkillAccess
+        from laomedo.github.connections.skills.store import PrivateSkillStore
 
         app.state.private_skill_access = PrivateSkillAccess(
             connections, PrivateSkillStore(self.root / "skills")

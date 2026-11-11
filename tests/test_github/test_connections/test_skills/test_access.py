@@ -19,8 +19,8 @@ from laomedo.github.connections.models import (
     GitHubRepositoryIdentity,
     GitHubSkillRevision,
 )
-from laomedo.skills.private.service import PrivateSkillAccess
-from laomedo.skills.private.store import PrivateSkillStore
+from laomedo.github.connections.skills.service import PrivateSkillAccess
+from laomedo.github.connections.skills.store import PrivateSkillStore
 from laomedo.skills.sources.models import PendingSkillImport, SkillSourceChoice
 
 

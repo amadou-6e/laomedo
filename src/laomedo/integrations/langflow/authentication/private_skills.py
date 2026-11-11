@@ -13,7 +13,7 @@ from laomedo.integrations.langflow.authentication.connections import (
     _failure,
     _parse,
 )
-from laomedo.skills.private.models import (
+from laomedo.github.connections.skills.models import (
     PrivateSkillChoiceRequest,
     PrivateSkillCompareRequest,
     PrivateSkillHistoryRequest,

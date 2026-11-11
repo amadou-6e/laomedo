@@ -2,6 +2,13 @@
 
 This capability owns deliberate GitHub authorization and repository read consent.
 It never imports host Git, gh, environment or credential-helper authentication.
+
+`skills/` owns connection-authorized private Skill orchestration, provenance and
+read routes' buffered results. Its `PrivateSkillAccess` composes the general
+Skill registry and source validators without making the Skills domain import
+GitHub or browser authority. The namespace is private owner/connection/repository;
+no public service or Agent dispatcher constructs it. See its README for methods
+and response-release guarantees.
 The authenticated browser integration supplies the verified local profile and
 private lease; browser JSON cannot choose an owner. This feature is in progress.
 
