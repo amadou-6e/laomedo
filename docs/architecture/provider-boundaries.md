@@ -265,9 +265,9 @@ does not resolve or authorize behavioral changes to any of these questions.
 ## Completion checks
 
 - [ ] All agent and worker container launch/close/recovery dispatch paths use
-      shared mechanisms. Codex native rollout export is now migrated; final
-      independent review and acceptance are pending. Native SDK image/volume/
-      inspection policy stays explicit.
+      shared mechanisms. Codex native rollout export is migrated and independently
+      approved at `0fdacaa78`; real native export acceptance passed. Whole-boundary
+      acceptance remains open. Native SDK image/volume/inspection policy stays explicit.
 - [ ] Existing endpoint, image, deadline, output, receipt and error semantics hold.
 - [ ] Partial startup, cancellation, uncertain cleanup and recovery are covered.
 - [ ] Provider resource ordering and thread ownership are explicit.
@@ -315,3 +315,20 @@ on that head. These scoped approvals do not cover later changes or establish hos
 whole-PR acceptance. Separate native-provider evidence and its review are
 recorded above; installed-wheel CI corrections acc9c41ae..68415e3dd also received
 implementation/documentation APPROVE.
+
+## Latest review accounting
+
+The recorded Codex rollout-export delta `9bcb0149c..0fdacaa78`, its selected
+specification and documentation received Claude APPROVE. The actual export and
+owner-restart probes have separate, limited evidence; cleanup harness corrections
+through exp `9d255453` also received APPROVE. Neither establishes physical host
+loss or terminal Activity recovery: interrupted feeds remain unsealed.
+
+Layout code/metadata `620ad13a..089f71aa` and the nonvacuous architecture guard
+correction `0fdacaa78..cc02e68b` received APPROVE with declared import-order audit
+limits. Actual UI captures are on exp `9477b4da`; visual recheck is pending.
+Initial provider-role extraction and surviving integration still have uncovered
+portions: fully unreviewed ? reviewer pending. All five required CI checks pass
+at `cc02e68b`. These status-only notes do not claim review of subsequent code.
+PR250 remains draft; canonical specification and owner graph acceptance remain
+separate gates.
