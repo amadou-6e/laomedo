@@ -59,3 +59,16 @@ checks failed, were diagnosed and rerun with the matching catalogue and actual
 shared-presenter description. Current manager.cjs records the successful check.
 Screenshots/logs remain outsideGit. M1-M4focusedrecheckpending: same reviewer
 hitquota on nextpacket, resets21:00Berlin. Private Skillaccess stillunfinished.
+
+
+## Manager recheck, 2026-11-11
+
+Claude verified M1-M4 fixed at base a0e04a96/head8a858b30 and approved the
+captured setup/refusal screens. It found nonblocking M6: definite pre-dispatch
+refusals also displayed the unknown-outcome notice. Correction4d65fe99 omits
+that notice only for input-invalid, token-unsupported and CSRF-refused; a session
+refusal after a possible commit remains uncertain. Ten UI controls and the
+production build1m37s pass. The actual native invalid-synthetic-token400 refusal
+shows no uncertain notice and clears credential DOM. No GitHub credential was
+used. Claude subsequently approved M6 at4d65fe99. Full private Skill functionality,
+positive App/PAT integration, T1/Q1/Q3, SC10 and owner acceptance remain unfinished.

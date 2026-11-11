@@ -38,3 +38,32 @@ service. No successful feedback acceptance is claimed. The two single-task
 approvals are consumed; do not issue another task under either old approval.
 A preliminary missing native graph run-context error submitted no task; the
 harness now supplies the owner and run context required by the real executor.
+
+
+## Fresh selector and viewer observations, 2026-11-11
+
+A separate native QA app on7861 and grant-free PR read service on8786 use final
+PR268 source db2c43f3 and the pinned frontend. The maintained builder produced a
+new PR-only flow: no stale-component banners, no Agent and no graph execution.
+The complete fresh-selectors.cjs run passed actual state choices, ten discovered
+labels, selecting and explicitly clearing bug, fuzzy recovry matching264, no-match
+and an unconfigured-repository refusal directly beneath Repository URL. It then
+opened the real PR264 viewer and verified its exact external GitHub URL.
+
+The separate viewer-final.cjs check delays forwarding the unchanged readonly
+inspection request by2500ms, captures the real pending UI, then verifies the real
+GitHub snapshot. This is controlled latency, not a fixture response or a normal
+latency measurement. The uncontrolled fast case did not capture loading. Earlier
+harness retries fixed duplicate QA IDs, unsupported .git URL spelling, transient
+combobox selection and selecting the node before invoking its toolbar. Those
+failed harness paths are not successful product acceptance. The final complete
+harness and the separate loading check both pass. No PR mutation grant or model
+task was issued; isolated mediation counts remain zero.
+
+Claude approved the full PR266 own diff at ce89c388 -> dc6383df and the PR268
+consumer guard at dc6383df -> db2c43f3. It approved the inspected current state,
+refusal, labels/search/no-match/viewer captures. V-Q1 stale code is resolved. New
+V-L1 loading and V-L2 label-cleared captures await their focused visual recheck: the
+same session hit quota before that request, reset14:10Berlin2026-11-11. No verdict
+exists for that pending request. Actual title-only feedback remains blocked by
+runner401 and its two consumed approvals; no third Agent task is authorized.

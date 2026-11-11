@@ -50,6 +50,7 @@ const { chromium } = require(path.join(runtime, 'upstream-langflow/src/frontend/
     await page.getByText(/This entry is not a supported fine-grained personal access token/).waitFor();
     if (tokenStatus !== 400 || await page.getByText(/changed in another tab/).count()) throw new Error('Initiating tab discarded its mutation result');
     if (await page.getByLabel('Fine-grained token').count()) throw new Error('Credential DOM retained');
+    if (await page.getByText(/The request may still be completing/).count()) throw new Error('Definite refusal described as uncertain');
     await page.screenshot({ path: path.join(process.cwd(), '.tools/pr-readiness/257-manager-mutation-refused.png'), fullPage: true });
     console.log(JSON.stringify({ ...response, nativeManager: true, githubRequests: 0, invalidTokenStatus: tokenStatus, initiatingTabDisplayedError: true, credentialDomCleared: true }));
   } finally { await context.close(); await browser.close(); }
