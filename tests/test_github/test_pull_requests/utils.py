@@ -1,6 +1,6 @@
 from pathlib import Path
 from laomedo.github.pull_requests.gateway import GitHubPRGateway
-from laomedo.github.transport.rest.transport import GitHubRestTransport
+from laomedo.github.transport.rest import GitHubRestTransport
 from laomedo.host.mediation.store import MediationStore
 
 from test_github.test_pull_requests.models import PullRequestCase

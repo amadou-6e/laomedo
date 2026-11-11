@@ -7,7 +7,7 @@ from datetime import timezone
 from typing import Callable
 import json
 from laomedo.github.issues.errors import IssueContextError
-from laomedo.github.contract import validate_repository
+from laomedo.github.utils import validate_repository
 import re
 import subprocess
 

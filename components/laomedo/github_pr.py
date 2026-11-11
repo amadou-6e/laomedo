@@ -11,9 +11,9 @@ from lfx.io import StrInput
 from lfx.schema import Data
 from lfx.schema import Message
 from laomedo.github.interface.pull_requests.client import pr_request
-from laomedo.github.contract import repository_from_url
-from laomedo.github.pull_requests.contract import ERROR_CODES
-from laomedo.github.pull_requests.contract import PRE_DISPATCH_ERRORS
+from laomedo.github.utils import repository_from_url
+from laomedo.github.pull_requests.settings import ERROR_CODES
+from laomedo.github.pull_requests.settings import PRE_DISPATCH_ERRORS
 from laomedo.integrations.langflow.feedback.pr import feedback_edge
 from laomedo.integrations.langflow.feedback.pr import agent_operation
 from laomedo.integrations.langflow.feedback.pr import bind_feedback_parameters

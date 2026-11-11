@@ -7,7 +7,7 @@ credential lookup, mediation and publication admission.
 
 ```text
 github/
-  contract.py                 shared repository/label admission and resource digest
+  utils.py                    shared repository/label admission and resource digest
   models.py                   canonical operation-intent and grant-binding records
   interface/                  public loopback HTTP adapters and trusted startup
     issues/                   client, handler, server, settings and CLI
@@ -19,8 +19,7 @@ github/
   transport/
     mediated.py               dispatcher composing existing Git and REST paths
     git/                      GitHub branch/ref/publication policy
-    rest/                     narrow GitHub REST delivery
-  workflows/                  pure workflow-path classification
+    rest.py                   narrow GitHub REST delivery
 ```
 
 ## Object and method nomenclature
@@ -31,9 +30,9 @@ github/
 | `pull_requests/` | `GitHubPRGateway`: `discover`, `execute`, `prepare_feedback`, `apply_feedback`; `GitHubPullRequest`: canonical PR value. |
 | `transport/` | `GitHubRestTransport`, `GitHubGitTransport`: deliver admitted operations through `__call__`; Git additionally exposes `classify_workflow_diff`. `GitHubMediatedTransport` binds matching repositories in `__init__` and forwards exact operation/binding arguments in `__call__`. |
 | `interface/` | Clients are the supported app boundary. `*Server` owns endpoint lifetime/state; `*RequestHandler` owns HTTP parsing, authentication and response policy. Explicit startup CLIs compose host/domain implementations. |
-| `contract.py` | `repository_from_url`, `validate_repository`, `labels_value`, `issue_digest`: independent admission/hash functions, with no I/O or authority. |
+| `utils.py` | `repository_from_url`, `validate_repository`, `labels_value`, `issue_digest`: independent admission/hash functions, with no I/O or authority. |
 | `issues/context_reader.py` | `fetch_context`: read issue/timeline evidence and confirm issue stability; discovered PRs remain candidates. `context.main` owns arguments, JSON output and exit status. |
-| `workflows/` | `touches_workflows`: pure classification, with no Git execution. |
+| `utils.py` | `touches_workflows`: pure classification of already-inspected path bytes. |
 
 Use `Base` only for a genuine abstract contract, meaningful adjectives for actual
 variants, and a final responsibility noun. Gateway means effect admission;
@@ -64,3 +63,11 @@ migration; a reference never grants authority or permission to retry unknown wri
 These boundaries preserve payloads, argument shapes, errors, authorization
 and unknown outcomes. Leaf READMEs document the supported interfaces. Product acceptance requires
 real workflow verification and the requesting owner’s graph validation.
+
+## Consolidated layout
+
+Shared repository/label admission, digest and workflow-path functions live in
+utils.py. Each resource owns its gateway/models, utils.py and fixed settings.py.
+The central settings.py exposes explicit Issue/PR service class and error-set
+names without constructing instances. REST delivery is transport/rest.py;
+Git transport retains its settings, errors and implementation package.

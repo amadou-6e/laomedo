@@ -5,7 +5,7 @@ Nothing here reads an agent checkout, provider credential, or remote."""
 
 from __future__ import annotations
 
-from laomedo.github.workflows.utils import touches_workflows
+from laomedo.github.utils import touches_workflows
 from pathlib import Path
 from laomedo.git.command import GitCommandRunner
 from laomedo.git.models import GitExecutionContext

@@ -122,8 +122,8 @@ def install_routes(app, root: Path, authenticate):
     )
     async def read_issue(payload: dict):
         from laomedo.github.interface.issues.client import issue_request
-        from laomedo.github.contract import repository_from_url, labels_value
-        from laomedo.github.issues.contract import ERROR_CODES as ISSUE_ERROR_CODES
+        from laomedo.github.utils import repository_from_url, labels_value
+        from laomedo.github.issues.settings import ERROR_CODES as ISSUE_ERROR_CODES
 
         try:
             if set(payload) != {"repository_url", "issue_number", "labels", "state"}:
@@ -163,9 +163,9 @@ def install_routes(app, root: Path, authenticate):
     )
     async def read_pr(payload: dict):
         from laomedo.github.interface.pull_requests.client import pr_request
-        from laomedo.github.contract import repository_from_url, labels_value
-        from laomedo.github.issues.contract import ERROR_CODES as ISSUE_ERROR_CODES
-        from laomedo.github.pull_requests.contract import ERROR_CODES as PR_ERROR_CODES
+        from laomedo.github.utils import repository_from_url, labels_value
+        from laomedo.github.issues.settings import ERROR_CODES as ISSUE_ERROR_CODES
+        from laomedo.github.pull_requests.settings import ERROR_CODES as PR_ERROR_CODES
 
         try:
             if set(payload) != {"repository_url", "pr_number", "labels", "state"}:

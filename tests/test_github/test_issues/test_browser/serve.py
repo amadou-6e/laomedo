@@ -26,7 +26,7 @@ from test_github.test_issues.provider import FakeGitHub
 from laomedo.github.issues.gateway import GitHubIssueGateway
 from laomedo.github.interface.issues.server import IssueServer as server
 from laomedo.host.mediation.store import MediationStore
-from laomedo.github.transport.rest.transport import GitHubRestTransport
+from laomedo.github.transport.rest import GitHubRestTransport
 
 root = Path(tempfile.mkdtemp(prefix="laomedo-live-issue-fixture-"))
 store = MediationStore(

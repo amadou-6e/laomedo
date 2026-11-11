@@ -11,9 +11,9 @@ from lfx.io import StrInput
 from lfx.schema import Data
 from lfx.schema import Message
 from laomedo.github.interface.issues.client import issue_request
-from laomedo.github.contract import repository_from_url
-from laomedo.github.issues.contract import ERROR_CODES
-from laomedo.github.issues.contract import PRE_DISPATCH_ERRORS
+from laomedo.github.utils import repository_from_url
+from laomedo.github.issues.settings import ERROR_CODES
+from laomedo.github.issues.settings import PRE_DISPATCH_ERRORS
 
 
 class LaomedoGitHubIssue(Component):

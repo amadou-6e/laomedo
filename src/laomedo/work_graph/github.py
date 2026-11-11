@@ -1,6 +1,6 @@
 """Read-only native GitHub dependencies through the user's existing gh login."""
 
-from laomedo.github.contract import validate_repository
+from laomedo.github.utils import validate_repository
 from datetime import datetime
 from datetime import timezone
 from typing import Callable

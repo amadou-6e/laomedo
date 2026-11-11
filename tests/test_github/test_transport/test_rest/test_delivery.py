@@ -6,8 +6,8 @@ import unittest
 from urllib import error
 
 from laomedo.host.mediation.errors import KnownRejected
-from laomedo.github.transport.rest.transport import GitHubRestTransport
-from laomedo.github.transport.rest.transport import ISSUE_GRAPHQL_QUERY
+from laomedo.github.transport.rest import GitHubRestTransport
+from laomedo.github.transport.settings import ISSUE_GRAPHQL_QUERY
 
 
 class _Response(io.BytesIO):

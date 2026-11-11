@@ -97,7 +97,7 @@ def _validate_effect(
         ):
             raise _mediation_errors.MediationError("issue_review_denied")
     if operation == "issue_update":
-        from laomedo.github.issues.contract import validate_patch
+        from laomedo.github.issues.utils import validate_patch
 
         try:
             if (
@@ -120,7 +120,7 @@ def _validate_effect(
         ):
             raise _mediation_errors.MediationError("issue_target_denied")
     if operation == "pr_node_update":
-        import laomedo.github.pull_requests.contract as _pull_requests_contract
+        import laomedo.github.pull_requests.utils as _pull_requests_contract
 
         try:
             if (
@@ -152,7 +152,7 @@ def _validate_effect(
 
 def _validate_read(operation: str, payload: dict, repository: str, grant, db) -> None:
     if operation in {"label_list", "issue_query", "issue_read"}:
-        from laomedo.github.contract import labels_value
+        from laomedo.github.utils import labels_value
 
         try:
             if operation == "label_list" and payload != {}:

@@ -1,5 +1,10 @@
 # Windows Git process containment
 
+Current wiring: this helper has no production caller in this checkout. The
+shared command runner currently uses its existing process-group/taskkill cleanup
+path. The mechanism below describes this helper, not a containment guarantee
+provided by the active runner. Wiring or retiring it is a separate change.
+
 This leaf owns Windows Job Object lifetime for budgeted Git reads only. The
 `GitCommandRunner` is the single native launcher. No second
 launcher, provider controller or general process framework is introduced.

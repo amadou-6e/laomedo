@@ -1,7 +1,7 @@
 """Typed PR-node records; public identities never authorize a write."""
 
-from laomedo.github.contract import issue_digest
-from laomedo.github.contract import labels_value
+from laomedo.github.utils import issue_digest
+from laomedo.github.utils import labels_value
 from laomedo.github.pull_requests.models import GitHubPullRequest, PullRequestHead
 import re
 
@@ -9,6 +9,12 @@ pr_digest = issue_digest
 
 
 def pr_value(raw, repository, number):
+    """Validate a provider pull request and project its existing normalized payload.
+
+    raw is the provider response; repository and number bind the expected target.
+    Invalid identity, shape or field values raise the existing safe ValueError
+    category. No network request, authorization or write occurs here.
+    """
     if (
         not isinstance(raw, dict)
         or type(number) is not int
@@ -66,6 +72,11 @@ def pr_value(raw, repository, number):
 
 
 def validate_patch(value):
+    """Admit the existing bounded close or field-update dictionary unchanged.
+
+    Reject unsupported combinations or values with the resource-specific patch
+    error. This validates content only and does not grant write authority.
+    """
     if (
         not isinstance(value, dict)
         or not value
@@ -87,52 +98,3 @@ def validate_patch(value):
     if "labels" in value:
         labels_value(value["labels"])
     return value
-
-
-ERROR_CODES = frozenset(
-    {
-        "repository_url_invalid",
-        "repository_connection_unavailable",
-        "labels_invalid",
-        "selected_label_unavailable",
-        "pr_state_invalid",
-        "selected_pr_invalid",
-        "pr_operation_invalid",
-        "pr_operation_conflict",
-        "pr_grant_unavailable",
-        "selected_pr_no_longer_matches",
-        "github_discovery_incomplete",
-        "pr_response_invalid",
-        "pr_patch_invalid",
-        "selected_pr_required",
-        "pr_reference_mismatch",
-        "pr_service_not_configured",
-        "github_pr_unavailable",
-        "pr_write_unknown",
-        "invalid_request",
-        "unauthorized",
-    }
-)
-PRE_DISPATCH_ERRORS = ERROR_CODES - {
-    "github_pr_unavailable",
-    "pr_write_unknown",
-    "pr_response_invalid",
-    "github_discovery_incomplete",
-}
-ERROR_CODES = ERROR_CODES | {
-    "pr_agent_loop_invalid",
-    "pr_agent_failed",
-    "pr_agent_cancelled",
-    "pr_changed_since_agent_read",
-}
-PRE_DISPATCH_ERRORS = PRE_DISPATCH_ERRORS | {
-    "pr_agent_loop_invalid",
-    "pr_agent_failed",
-    "pr_agent_cancelled",
-    "pr_changed_since_agent_read",
-}
-ERROR_CODES = ERROR_CODES | {"pr_feedback_not_configured", "pr_feedback_ticket_invalid"}
-PRE_DISPATCH_ERRORS = PRE_DISPATCH_ERRORS | {
-    "pr_feedback_not_configured",
-    "pr_feedback_ticket_invalid",
-}

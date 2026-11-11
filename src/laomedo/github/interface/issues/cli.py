@@ -4,7 +4,7 @@ from pathlib import Path
 import argparse
 import json
 from laomedo.github.issues.gateway import GitHubIssueGateway
-from laomedo.github.transport.rest.transport import GitHubRestTransport
+from laomedo.github.transport.rest import GitHubRestTransport
 from laomedo.host.credentials.token.connection import HostTokenConnection
 from laomedo.host.mediation.store import MediationStore
 import os

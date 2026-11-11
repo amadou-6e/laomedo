@@ -8,8 +8,8 @@ from unittest.mock import Mock, patch
 from urllib.error import HTTPError
 
 from laomedo.github.interface.pull_requests.client import pr_request
-from laomedo.github.issues.contract import ERROR_CODES as ISSUE_CODES
-from laomedo.github.pull_requests.contract import ERROR_CODES as PR_CODES
+from laomedo.github.issues.settings import ERROR_CODES as ISSUE_CODES
+from laomedo.github.pull_requests.settings import ERROR_CODES as PR_CODES
 
 
 class PRClientErrorContractTests(unittest.TestCase):

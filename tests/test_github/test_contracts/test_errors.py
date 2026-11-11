@@ -5,8 +5,8 @@ import json
 import unittest
 
 from support.paths import repository_root, error_catalogue_path
-from laomedo.github.issues.contract import ERROR_CODES as ISSUE_CODES
-from laomedo.github.pull_requests.contract import ERROR_CODES as PR_CODES
+from laomedo.github.issues.settings import ERROR_CODES as ISSUE_CODES
+from laomedo.github.pull_requests.settings import ERROR_CODES as PR_CODES
 
 
 class GitHubErrorCatalogueTests(unittest.TestCase):

@@ -2,7 +2,7 @@
 
 from pydantic import BaseModel, ConfigDict, Field
 from laomedo.host.mediation.store import MediationStore
-from laomedo.github.transport.rest.transport import GitHubRestTransport
+from laomedo.github.transport.rest import GitHubRestTransport
 from laomedo.github.pull_requests.gateway import GitHubPRGateway
 
 

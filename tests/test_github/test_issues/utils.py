@@ -1,6 +1,6 @@
 from pathlib import Path
 from laomedo.github.issues.gateway import GitHubIssueGateway
-from laomedo.github.transport.rest.transport import GitHubRestTransport
+from laomedo.github.transport.rest import GitHubRestTransport
 from laomedo.host.mediation.store import MediationStore
 
 from test_github.test_issues.models import IssueCase
