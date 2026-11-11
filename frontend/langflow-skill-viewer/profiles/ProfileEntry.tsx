@@ -246,7 +246,7 @@ export default function ProfileEntry({
 						</p>
 						<Button
 							ignoreTitleCase
-                            onClick={() => {
+							onClick={() => {
 								setError("");
 								setScreen("create");
 							}}
@@ -265,7 +265,7 @@ export default function ProfileEntry({
 						</p>
 						<Button
 							ignoreTitleCase
-                            onClick={() => {
+							onClick={() => {
 								setError("");
 								setScreen("enter");
 							}}
