@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ChevronRight, Plus } from "lucide-react";
+import { ArrowLeft, ChevronRight, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { describeNodeFailure } from "@/components/laomedoErrors/nodeErrors";
@@ -174,6 +174,12 @@ export default function ProfileEntry({
 				className="mx-auto my-auto w-full max-w-md shrink-0 rounded-xl border bg-background p-6 shadow-sm"
 				aria-labelledby="profile-title"
 			>
+				<div className="flex items-center gap-3">
+					{screen === "enter" && (
+						<Button type="button" variant="ghost" size="icon" aria-label="Back to profiles" disabled={!!pending} onClick={back}>
+							<ArrowLeft aria-hidden="true" className="size-5" />
+						</Button>
+					)}
 				<h1 id="profile-title" className="text-xl font-semibold">
 					{screen === "create"
 						? "Create profile"
@@ -184,11 +190,12 @@ export default function ProfileEntry({
 								: screen === "uncertain"
 									? "Profile save not confirmed"
 									: screen === "enter"
-										? "Open profile"
+										? "Log in"
 										: profiles.length
 											? "Choose profile"
 											: "No profiles yet"}
 				</h1>
+				</div>
 				<p className="mt-2 text-sm text-muted-foreground">
 					{screen === "picker" ? "Select a profile to continue." : screen === "create" ? "Create a local profile with a six-digit PIN." : "Enter your PIN to continue."}
 				</p>
@@ -351,16 +358,16 @@ export default function ProfileEntry({
 						)}
 						<div className="flex flex-col gap-2 pt-2">
 							<Button type="submit" disabled={!!pending || !!wait} ignoreTitleCase>
-								{screen === "create" ? "Create profile" : "Open profile"}
+								{screen === "create" ? "Create profile" : "Log in"}
 							</Button>
-							<Button
+							{screen === "create" && <Button
 								type="button"
 								variant="outline"
 								disabled={!!pending}
 								onClick={back}
 							 ignoreTitleCase>
 								Back to profiles
-							</Button>
+							</Button>}
 						</div>
 					</form>
 				)}

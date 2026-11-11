@@ -41,3 +41,5 @@ notice only and never claims to cancel a request or confirm sign-out.
 Picker rows include a decorative UserRound icon beside each profile name. ProfileEntry clears local validation feedback when its fields change and clears previous-screen errors on picker navigation. Shared catalogue copy uses plain entry guidance; uncertain save and sign-out outcomes retain their recovery paths.
 
 Picker rows use fixed initials avatars, left-aligned names and chevrons; a divider separates the secondary Create profile action. Field-specific catalogue errors use aria-invalid/aria-describedby. Authentication and uncertain-outcome recovery are unchanged.
+
+The PIN-entry screen uses Log in and a heading-level back arrow labelled Back to profiles; the existing back handler clears PINs and pending requests still disable navigation.

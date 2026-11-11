@@ -35,7 +35,7 @@ describe("profile entry validation recovery", () => {
 			<ProfileEntry initial={{ profiles: [{ id: "work", name: "Work" }], pin_digits: 6 }} />,
 		);
 		fireEvent.click(screen.getByRole("button", { name: "Work" }));
-		fireEvent.click(screen.getByRole("button", { name: "Open profile" }));
+		fireEvent.click(screen.getByRole("button", { name: "Log in" }));
 		expect(screen.getByRole("alert")).toBeTruthy();
 		fireEvent.click(screen.getByRole("button", { name: "Back to profiles" }));
 		const profile = screen.getByRole("button", { name: "Work" });
