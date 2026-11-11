@@ -105,3 +105,11 @@ Real App/PAT, private files, completeSC10, final owner acceptance and final CI/r
 remain separate gates. Runtime state, credentials, PINs and desktop captures stay
 outside Git. The integrated VSCode browser is opened under a disposable QA profile;
 no human PIN is requested or retained.
+
+Final sourcef134979e: all10remoteCIchecks pass. Exactfinalnativecapture23:04Berlin
+passes with Anonymous plus synthetic-unconfigured-connection locked viewer and
+zero builds. Generator now includes declared input order. FinalTSCexit2 remains
+the upstreambaseline; private-pathdiagnostics0. Finalfocusedreview failed with a
+confirmed weeklyquota refusal (reported8amEurope/Berlin), no verdict recovered;
+prior scoped approvals do not cover the final correction delta. Appsetup is
+visibly open in VSCode, awaiting explicit human provisioning; no secrets entered.

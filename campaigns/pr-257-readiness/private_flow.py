@@ -13,6 +13,7 @@ from skill import LaomedoSkill
 
 component = LaomedoSkill()
 projected = component.to_frontend_node()["data"]["node"]
+projected["field_order"] = [field.name for field in component.inputs]
 flow = {
     "id": str(uuid4()),
     "name": "Private Skill read-only QA",
