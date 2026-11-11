@@ -95,7 +95,7 @@ class PRReadinessHarness:
             + json.dumps(expected) + "\n", encoding="utf-8",
         )
         record = SkillStore(self.runtime / "registry").import_skill(
-            "pr-feedback-readiness-268", instruction
+            "pr-feedback-readiness-268-" + uuid4().hex, instruction
         )
         token = (self.runtime / "runner/api-token").read_text(encoding="utf-8").strip()
         opener = build_opener(ProxyHandler({}), NoRedirect())

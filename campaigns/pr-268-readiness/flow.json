@@ -1,5 +1,5 @@
 {
-  "id": "563c02a0-fcd6-4ee1-99d0-f66836955601",
+  "id": "409ccf21-21e8-46c0-b7a7-404072e500bb",
   "name": "PR268 title-only readiness (approval pending)",
   "description": "Production components with an explicit selected reference. Building does not execute a model or GitHub operation.",
   "last_tested_version": "1.12.3",
@@ -1025,7 +1025,7 @@
                 "tool_mode": false,
                 "trace_as_metadata": true,
                 "options": [
-                  "pr-feedback-readiness-268"
+                  "pr-feedback-readiness-268-e3bc3f2f9e944eaea596f9b4d645d366"
                 ],
                 "options_metadata": [],
                 "combobox": true,
@@ -1036,7 +1036,7 @@
                 "placeholder": "",
                 "show": true,
                 "name": "skill_id",
-                "value": "pr-feedback-readiness-268",
+                "value": "pr-feedback-readiness-268-e3bc3f2f9e944eaea596f9b4d645d366",
                 "display_name": "Skill",
                 "advanced": false,
                 "api_editable": false,

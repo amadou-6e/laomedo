@@ -67,3 +67,9 @@ V-L1 loading and V-L2 label-cleared captures await their focused visual recheck:
 same session hit quota before that request, reset14:10Berlin2026-11-11. No verdict
 exists for that pending request. Actual title-only feedback remains blocked by
 runner401 and its two consumed approvals; no third Agent task is authorized.
+
+## Renewed acceptance attempt, 2026-11-11
+
+The owner authorized as many scoped checks as necessary, retaining title-only temporary modification and exact restoration, and approved the shared specification dependency update. Implementation 5a7c1c607d4f53e266c93d8bdc1694689575c75a integrates merged develop/#266; its own patch is byte-for-byte unchanged. Eight final CI checks pass, 72 focused PR tests and three subtests pass. Specs #417 clean parent integration 1de8c867 has unchanged own patch, validator zero errors/one existing warning, and both final CI checks pass.
+
+Preparation now imports a unique synthetic Skill identity for each fresh proposal instead of conflicting with a prior registry import. Preparation submits no task and performs no GitHub writes. A local approval-file BOM was corrected before any task execution. The ensuing authorized single-task graph failed with 401 invalid_jwt/pr_agent_failed: zero PATCH attempts, independently unchanged original title. No immediate replay. Dedicated volume login status reports ChatGPT but does not establish inference authentication. Opened device login in the owner's VS Code terminal; interactive completion is pending. No credentials, login codes, raw login state or private runtime captures are retained here.
