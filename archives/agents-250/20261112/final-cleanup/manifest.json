@@ -1,0 +1,23 @@
+[
+  {
+    "path": "tools/migrations/protected-graphs.json",
+    "source_commit": "b6f6dbfb9e6380d3c175c8928f7f204b2f3f1a1d",
+    "sha256": "564828bb28a2d70e78b9449fdaf1169ee69cd3f26b24abe23c9e8ffe50386fb3",
+    "bytes": 379,
+    "reason": "A-01/A-02 final review cleanup; archived before production edits"
+  },
+  {
+    "path": "tests/support/import_contracts.py",
+    "source_commit": "b6f6dbfb9e6380d3c175c8928f7f204b2f3f1a1d",
+    "sha256": "805236c51be0cf6196f00bf9eb95fa87bcf230ec262abd3b3fff7946d4f24431",
+    "bytes": 3437,
+    "reason": "A-01/A-02 final review cleanup; archived before production edits"
+  },
+  {
+    "path": "tests/test_shared/test_migration/README.md",
+    "source_commit": "b6f6dbfb9e6380d3c175c8928f7f204b2f3f1a1d",
+    "sha256": "aef55a9488e1722e318e744eff0115cc5fd143bb4e89d2ec33174433038719a5",
+    "bytes": 1671,
+    "reason": "A-01/A-02 final review cleanup; archived before production edits"
+  }
+]
