@@ -1,0 +1,7 @@
+provider-interface-contracts	Check provider interfaces and override compatibility without native runtimes	2026-11-12T09:56:03.1272989Z Ran 14 tests in 0.972s
+docker-runtime-controls	Test runner lifecycle and Docker boundary controls without a daemon	2026-11-12T09:56:55.1438879Z Ran 701 tests in 43.684s
+docker-runtime-controls	Test runner lifecycle and Docker boundary controls without a daemon	2026-11-12T09:56:55.1439140Z OK (skipped=28)
+package-and-test (3.10)	Test installed wheel outside checkout	2026-11-12T09:57:35.7673348Z Ran 1373 tests in 81.199s
+package-and-test (3.10)	Test installed wheel outside checkout	2026-11-12T09:57:35.7673717Z OK (skipped=260)
+package-and-test (3.13)	Test installed wheel outside checkout	2026-11-12T09:57:34.3958738Z Ran 1373 tests in 80.123s
+package-and-test (3.13)	Test installed wheel outside checkout	2026-11-12T09:57:34.3959300Z OK (skipped=260)

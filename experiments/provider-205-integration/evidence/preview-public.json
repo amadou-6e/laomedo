@@ -1,0 +1,12 @@
+{
+  "url": "http://127.0.0.1:17876/flow/eabb6807-f090-4b7a-818a-ed6e8d673912",
+  "viewport": {
+    "width": 1600,
+    "height": 1300
+  },
+  "graph": "view-graph.json",
+  "origin": "repository saved nodes, view-only composition, no execution",
+  "execution": false,
+  "implementation_head": "d3d06e3aa624beae0968d3d8824d9bfabf47a573",
+  "later_changes": "f38e4b70 tests only; 97ea2c3c documentation only"
+}

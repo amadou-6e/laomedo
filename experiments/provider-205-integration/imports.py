@@ -140,6 +140,11 @@ def main():
         'laomedo.git.credentials': 'laomedo.git.credential_helper',
         'laomedo.github.workflows.utils': 'laomedo.github.workflows',
         'laomedo.host.credentials.token.connection': 'laomedo.host.credentials.token',
+        'laomedo.skills.inspection.utils': 'laomedo.skills.registry.utils.inspection',
+        'laomedo.skills.inspection.errors': 'laomedo.skills.registry.errors',
+        'laomedo.skills.inspection.settings': 'laomedo.skills.registry.settings',
+        'laomedo.skills.authoring.summary': 'laomedo.skills.operations.utils.summary',
+        'laomedo.skills.registry.diff': 'laomedo.skills.registry.utils.diff',
         **{'laomedo.skills.registry.' + name: 'laomedo.skills.registry.utils.' + target for name,target in [('files','files'),('hashing','hashing'),('paths','paths'),('policy','policy'),('patch','diff')]},
     })
     symbols['laomedo.skills.operations.utils.proposal'] = 'laomedo.skills.operations.utils.proposal.proposal'
@@ -159,6 +164,7 @@ def main():
                 changed.append(str(path.relative_to(root)))
     for filename, values in maps.items():
         resolved = {key:resolve(value,root,modules,symbols,module=filename=='module-paths.json') for key,value in values.items()}
+        resolved = {key:value for key,value in resolved.items() if owner(value,root)[0] is not None and (not owner(value,root)[1] if filename=='module-paths.json' else len(owner(value,root)[1])<=1)}
         (root/'tools/migrations'/filename).write_text(json.dumps(resolved,indent=2)+'\n',encoding='utf-8')
     print(json.dumps({'changed':changed,'refused':refused},indent=2))
 
