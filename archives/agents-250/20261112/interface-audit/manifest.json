@@ -110,5 +110,19 @@
     "bytes": 12747,
     "sha256": "47834e09ba26e53d2dca68daf400b4ac1678334efe82ef54d66db65450238f03",
     "reason": "Preserve old native database projection test and dispatcher fixtures before selected retirement"
+  },
+  {
+    "path": "tools/migrations/module-paths.json",
+    "source_commit": "4bf245a74d2bc1adf3414a2caf241392e13a2797",
+    "bytes": 24164,
+    "sha256": "83a743ae0072f32d1eb39bf767afc3e24b5c309bbcf57c69f954cbbbd907e408",
+    "reason": "Preserve map entries before removing targets retired by this audit"
+  },
+  {
+    "path": "tools/migrations/symbol-paths.json",
+    "source_commit": "4bf245a74d2bc1adf3414a2caf241392e13a2797",
+    "bytes": 177042,
+    "sha256": "42ff8997293e886d83b05ca577f1f5dd5c9952486ec68601f71dcd961cebe8bb",
+    "reason": "Preserve map entries before removing targets retired by this audit"
   }
 ]
