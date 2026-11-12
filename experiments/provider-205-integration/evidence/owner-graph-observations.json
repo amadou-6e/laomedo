@@ -1,0 +1,114 @@
+[
+  {
+    "attempt": 1,
+    "observations": [
+      {
+        "stage": "graph_start",
+        "revision": "a046a07e4175aabdbd1dd3e22b933cbbef1187dd",
+        "nodes": 2,
+        "edges": 1,
+        "model": "gpt-6-luna"
+      },
+      {
+        "stage": "failed",
+        "type": "AssertionError",
+        "code": null
+      }
+    ],
+    "powershell_stderr_wrapper": true
+  },
+  {
+    "attempt": 2,
+    "observations": [
+      {
+        "stage": "graph_start",
+        "revision": "a046a07e4175aabdbd1dd3e22b933cbbef1187dd",
+        "nodes": 2,
+        "edges": 1,
+        "model": "gpt-6-luna"
+      },
+      {
+        "stage": "run_summary",
+        "run_count": 1,
+        "statuses": [
+          "completed"
+        ],
+        "marker_in_record": [
+          true
+        ]
+      },
+      {
+        "stage": "failed",
+        "type": "AssertionError",
+        "code": null,
+        "assertion": "capture_incomplete"
+      }
+    ],
+    "powershell_stderr_wrapper": true
+  },
+  {
+    "attempt": 3,
+    "observations": [
+      {
+        "stage": "failed",
+        "type": "RunnerError",
+        "code": "docker_control_failed",
+        "assertion": null
+      }
+    ],
+    "powershell_stderr_wrapper": false
+  },
+  {
+    "attempt": 4,
+    "observations": [
+      {
+        "stage": "graph_start",
+        "revision": "a046a07e4175aabdbd1dd3e22b933cbbef1187dd",
+        "nodes": 2,
+        "edges": 1,
+        "model": "gpt-6-luna"
+      },
+      {
+        "stage": "run_summary",
+        "run_count": 1,
+        "statuses": [
+          "completed"
+        ],
+        "marker_in_record": [
+          true
+        ]
+      },
+      {
+        "stage": "capture_summary",
+        "runs": [
+          {
+            "node": "agent",
+            "status": "completed",
+            "stream_state": "complete"
+          },
+          {
+            "node": "follow-up",
+            "status": "completed",
+            "stream_state": "complete"
+          }
+        ],
+        "receipts": 10
+      },
+      {
+        "stage": "graph_complete",
+        "status": "completed",
+        "same_run": true,
+        "marker_ok": true,
+        "activity_invocations": 2,
+        "activity_receipts": 10,
+        "all_streams_complete": true
+      },
+      {
+        "stage": "graph_stop",
+        "status": "cancelled",
+        "cancel_confirmed": true
+      }
+    ],
+    "powershell_stderr_wrapper": true
+  }
+]
