@@ -370,6 +370,11 @@ acceptance. Actual Skill default/Advanced, Prior Run and PR layout captures reta
 visual APPROVE; profile/recovery and live GitHub states are outside that scope.
 
 Canonical spec PR403 is merged at `3d6ff82338b32d920ab044f3510fc8d044db3501`.
-The owner's final real-graph validation remains open. PR250 stays draft;
-no implementation merge or issue closure is authorized. Later edits to this
-review-status paragraph introduce no execution behavior.
+The owner delegated graph selection. At `a046a07e`, the maintained Codex graph
+completed fresh/resume on one native run with two complete retained Activity
+captures; stopping a separate active graph reached confirmed native cancellation.
+Claude accepted this bounded real-graph evidence. It is not browser acceptance
+or fresh acceptance for other providers. The evidence uses aggregate observations;
+native process exit was not separately captured, and the harness does not
+explicitly assert each capture's runner-run link. PR250 stays draft; no merge or
+issue closure is authorized. Later review-status edits add no execution behavior.
