@@ -177,7 +177,7 @@ class RunnerServiceTests(unittest.TestCase):
         ):
             self.assertEqual(self.service.start(self.url)["state"], "starting")
         command = spawn.call_args.args[0]
-        self.assertIn("laomedo.agents.providers.codex.cli", command)
+        self.assertIn("laomedo.agents.agents.codex.cli", command)
         self.assertEqual(
             command[command.index("--image-id") + 1], self.config["image_id"]
         )
