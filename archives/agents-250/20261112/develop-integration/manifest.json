@@ -50,5 +50,21 @@
     "bytes": 67007,
     "reason": "exact pre-integration source retains retired migration-tool/legacy-port reconstruction assertions; current supported assertions remain in production tests",
     "archival_timing": "recorded after merge resolution from exact immutable Git source"
+  },
+  {
+    "path": "docker/codex/Dockerfile",
+    "source_commit": "3150ce03d6a6164180abd0f1061c526170f662d9",
+    "sha256": "9d7ef3aa45f4bbeace1549af33bc7377bf661aa0af63ae2c5b2586bf9718dc37",
+    "bytes": 462,
+    "reason": "bare CLI image recipe reintroduced by develop; current Codex runtime requires registered ACP adapter image, local app documentation will use the current registered recipe",
+    "archival_timing": "exact archival before production removal"
+  },
+  {
+    "path": "docker/codex/README.md",
+    "source_commit": "3150ce03d6a6164180abd0f1061c526170f662d9",
+    "sha256": "3510e03b0a8e30ddcc2389dc5a8f620e055eba3da709a57d181a6d543ef11359",
+    "bytes": 1205,
+    "reason": "bare CLI image recipe reintroduced by develop; current Codex runtime requires registered ACP adapter image, local app documentation will use the current registered recipe",
+    "archival_timing": "exact archival before production removal"
   }
 ]
