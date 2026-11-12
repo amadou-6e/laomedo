@@ -12,11 +12,9 @@ from unittest.mock import Mock, patch
 from laomedo.agents.activity.acp.capture import AcpCapture
 from laomedo.agents.activity.projection import project
 from laomedo.agents.activity.runner.feed import read_feed
-from laomedo.agents.agents.opencode.history.models import (
-    HistorySource,
-    NativeExport,
-    NativeHistory,
-)
+from laomedo.agents.agents.opencode.history.models import HistorySource
+from laomedo.agents.agents.opencode.history.models import NativeExport
+from laomedo.agents.agents.opencode.history.models import NativeHistory
 from laomedo.agents.agents.opencode.history.reader import HistoryReader
 
 

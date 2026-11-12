@@ -29,7 +29,7 @@ test("native model discovery failure offers managed startup without dispatch", a
 test("model discovery failure on a ready backend offers refresh without restart", async () => {
   (api.get as jest.Mock).mockResolvedValue({data:{state:"ready",can_start:false}});
   render(<RunnerRecovery message="runner_model_catalog_unavailable_check_runner_connection" />);
-  await screen.findByText(/Open Model and use Refresh/);
+  await screen.findByText(/Use Refresh models/);
   expect(screen.queryByRole("button")).toBeNull();
   expect(api.post).not.toHaveBeenCalled();
 });
@@ -37,7 +37,7 @@ test("model discovery failure on a ready backend offers refresh without restart"
 test.each(["offline", "ready"])("prefixed catalogue errors keep discovery guidance on %s backends", async state => {
   (api.get as jest.Mock).mockResolvedValue({data:{state,can_start:state==="offline",...(state==="offline"?{reason:"runner_local_offline"}:{})}});
   render(<RunnerRecovery message={"Error building Component Laomedo Claude Agent:\n\nrunner_model_catalog_unavailable_check_runner_connection"} />);
-  await screen.findByText(state==="ready" ? /Open Model and use Refresh/ : /Starting the runner does not submit an agent task/);
+  await screen.findByText(state==="ready" ? /Use Refresh models/ : /Starting the runner does not submit an agent task/);
   expect(document.body.textContent).not.toContain("Check the existing run");
   expect(api.post).not.toHaveBeenCalled();
 });
@@ -62,6 +62,15 @@ test("unconfigured or unidentified services cannot be started", async () => {
   render(<RunnerRecovery message={failure} />);
   await screen.findByText(/recovery is not configured/);
   expect(screen.queryByRole("button")).toBeNull();
+  expect(api.post).not.toHaveBeenCalled();
+});
+
+test.each([failure, "runner_model_catalog_unavailable_check_runner_connection"])("unmanaged recovery gives configuration advice without an absent start action: %s", async message => {
+  (api.get as jest.Mock).mockResolvedValue({data:{state:"unmanaged",can_start:false}});
+  render(<RunnerRecovery message={message} />);
+  await screen.findByText(/restart the app with its local runner configuration/);
+  expect(screen.queryByText(/Starting the runner/)).toBeNull();
+  expect(screen.queryByRole("button", {name:"Start local runner"})).toBeNull();
   expect(api.post).not.toHaveBeenCalled();
 });
 
@@ -165,4 +174,77 @@ test("a client promise that never settles cannot keep restarting forever", async
   expect(screen.queryByRole("button",{name:"Starting local runner..."})).toBeNull();
   expect(screen.getByRole("alert")).toHaveTextContent("startup could not be confirmed");
  } finally {jest.useRealTimers()}
+});
+
+
+test("a transient status failure preserves the explicit catalogue recovery intent",async()=>{
+ jest.useFakeTimers();
+ try {
+  const ready=jest.fn();(api.get as jest.Mock).mockResolvedValue({data:{state:"offline",can_start:true}});
+  (api.post as jest.Mock).mockResolvedValue({data:{state:"starting",can_start:false,startup_id:"one"}});
+  render(<RunnerRecovery message="runner_model_catalog_unavailable_check_runner_connection" onReady={ready}/>);
+  await act(async()=>{});fireEvent.click(screen.getByRole("button",{name:"Start local runner"}));await act(async()=>{});
+  (api.get as jest.Mock).mockRejectedValue(new Error("network unavailable"));
+  await act(async()=>{jest.advanceTimersByTime(2000);});
+  (api.get as jest.Mock).mockResolvedValue({data:{state:"ready",can_start:false}});
+  await act(async()=>{jest.advanceTimersByTime(2000);});
+  expect(ready).toHaveBeenCalledTimes(1);
+ } finally {jest.useRealTimers();}
+});
+
+
+test("unconfirmed start reconciles readiness without a second start request",async()=>{
+ jest.useFakeTimers();try{
+  const ready=jest.fn();(api.get as jest.Mock).mockResolvedValue({data:{state:"offline",can_start:true}});
+  (api.post as jest.Mock).mockRejectedValue(new Error("start timed out"));
+  render(<RunnerRecovery message="runner_model_catalog_unavailable_check_runner_connection" onReady={ready}/>);
+  await act(async()=>{});fireEvent.click(screen.getByRole("button",{name:"Start local runner"}));await act(async()=>{});
+  expect(screen.getByText(/Readiness checking will continue/)).toBeVisible();
+  expect(screen.queryByRole("button",{name:"Start local runner"})).toBeNull();
+  (api.get as jest.Mock).mockResolvedValue({data:{state:"ready",can_start:false}});
+  await act(async()=>{jest.advanceTimersByTime(2000);});
+  expect(ready).toHaveBeenCalledTimes(1);expect(api.post).toHaveBeenCalledTimes(1);
+ }finally{jest.useRealTimers();}
+});
+
+test("late readiness after the catalogue reconciliation window never auto refreshes",async()=>{
+ jest.useFakeTimers();try{
+  const ready=jest.fn();(api.get as jest.Mock).mockResolvedValue({data:{state:"offline",can_start:true}});
+  (api.post as jest.Mock).mockRejectedValue(new Error("start timed out"));
+  render(<RunnerRecovery message="runner_model_catalog_unavailable_check_runner_connection" onReady={ready}/>);
+  await act(async()=>{});fireEvent.click(screen.getByRole("button",{name:"Start local runner"}));await act(async()=>{});
+  await act(async()=>{jest.advanceTimersByTime(120001);});
+  (api.get as jest.Mock).mockResolvedValue({data:{state:"ready",can_start:false}});
+  await act(async()=>{jest.advanceTimersByTime(2000);});
+  expect(ready).not.toHaveBeenCalled();expect(api.post).toHaveBeenCalledTimes(1);
+ }finally{jest.useRealTimers();}
+});
+
+
+test("a previous failure during an unconfirmed new start cannot discard recovery",async()=>{
+ jest.useFakeTimers();try{
+  const ready=jest.fn();(api.get as jest.Mock).mockResolvedValue({data:{state:"offline",can_start:true,reason:"runner_start_failed"}});
+  (api.post as jest.Mock).mockRejectedValue(new Error("start response unconfirmed"));
+  render(<RunnerRecovery message="runner_model_catalog_unavailable_check_runner_connection" onReady={ready}/>);
+  await act(async()=>{});fireEvent.click(screen.getByRole("button",{name:"Start local runner"}));await act(async()=>{});
+  await act(async()=>{jest.advanceTimersByTime(2000);});
+  expect(api.post).toHaveBeenCalledTimes(1);expect(ready).not.toHaveBeenCalled();
+  (api.get as jest.Mock).mockResolvedValue({data:{state:"ready",can_start:false}});
+  await act(async()=>{jest.advanceTimersByTime(2000);});
+  expect(ready).toHaveBeenCalledTimes(1);expect(api.post).toHaveBeenCalledTimes(1);
+ }finally{jest.useRealTimers();}
+});
+
+test("a confirmed current attempt failing suppresses automatic discovery",async()=>{
+ jest.useFakeTimers();try{
+  const ready=jest.fn();(api.get as jest.Mock).mockResolvedValue({data:{state:"offline",can_start:true}});
+  (api.post as jest.Mock).mockResolvedValue({data:{state:"starting",can_start:false,startup_id:"current-attempt"}});
+  render(<RunnerRecovery message="runner_model_catalog_unavailable_check_runner_connection" onReady={ready}/>);
+  await act(async()=>{});fireEvent.click(screen.getByRole("button",{name:"Start local runner"}));await act(async()=>{});
+  (api.get as jest.Mock).mockResolvedValue({data:{state:"offline",can_start:true,reason:"runner_start_failed"}});
+  await act(async()=>{jest.advanceTimersByTime(2000);});
+  (api.get as jest.Mock).mockResolvedValue({data:{state:"ready",can_start:false}});
+  await act(async()=>{jest.advanceTimersByTime(2000);});
+  expect(ready).not.toHaveBeenCalled();expect(api.post).toHaveBeenCalledTimes(1);
+ }finally{jest.useRealTimers();}
 });

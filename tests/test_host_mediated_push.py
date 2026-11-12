@@ -9,7 +9,7 @@ import unittest
 from laomedo.github.transport.git.transport import GitHubGitTransport
 from laomedo.host.mediation.errors import MediationError
 from laomedo.host.mediation.store import MediationStore
-from laomedo.host.credentials.token.connection import HostTokenConnection
+from laomedo.host.credentials.token import HostTokenConnection
 
 
 class HostMediatedPushTests(unittest.TestCase):

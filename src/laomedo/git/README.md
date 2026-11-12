@@ -12,7 +12,7 @@ Agent workspace policy and publication decisions belong to callers.
 | `models.py` | `GitCommand`, `GitExecutionContext`, `GitCredential`, `GitEnvironmentProfile` | Canonical Pydantic command/isolation values; credentials and environment overrides excluded from ordinary dumps and reprs |
 | `errors.py` | `GitOperationError`, `GitCommandTimeout` | Safe operation code or deadline with a separate `cleanup_verified` observation |
 | `settings.py` | Fixed protocol values | Thirty-second default, five-second cleanup substep bound and private credential variable name |
-| [credentials/](credentials/README.md) | Standard-library helper | GitHub-only credential projection for the selected connection, independently executable by Git |
+| `credential_helper.py` | Standard-library helper | GitHub-only credential projection for the selected connection, independently executable by Git |
 
 Runner means native execution, Repository means object metadata, and WorkingTree
 means checked-out state. Objects compose; none grants a remote effect. Feature
@@ -49,3 +49,7 @@ is unsupported: callers must migrate explicitly; there is no callable adapter or
 second production process path. Retired procedural environment/argv helpers also
 require manual migration. Archived execution evidence retains its original bytes;
 only explicitly identified migrated copies may execute against the new interface.
+
+The credential helper runs independently with only the standard library. Git
+passes the admitted GitHub credential through its private process environment;
+protocol output is credential transfer and must not be logged.

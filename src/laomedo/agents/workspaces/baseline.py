@@ -8,9 +8,10 @@ import stat
 from laomedo.agents.workspaces.skills.errors import WorkspaceSkillError
 from laomedo.git.command import GitCommandRunner
 from laomedo.git.errors import GitCommandTimeout
-from laomedo.git.models import GitEnvironmentProfile, GitExecutionContext
+from laomedo.git.models import GitEnvironmentProfile
+from laomedo.git.models import GitExecutionContext
 from laomedo.git.repository import GitRepository
-from laomedo.skills.registry.files import is_link
+from laomedo.skills.registry.utils.files import is_link
 
 
 def initialize(workspace: Path) -> None:

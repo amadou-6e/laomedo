@@ -2,7 +2,9 @@
 
 from laomedo.github.contract import issue_digest
 from laomedo.github.contract import labels_value
-from laomedo.github.pull_requests.models import GitHubPullRequest, PullRequestHead
+from laomedo.github.pull_requests.models import GitHubPullRequest
+from laomedo.github.pull_requests.models import PullRequestHead
+from datetime import datetime
 import re
 
 pr_digest = issue_digest
@@ -46,6 +48,8 @@ def pr_value(raw, repository, number):
         labels = labels_value([label["name"] for label in raw["labels"]])
     except (KeyError, TypeError, ValueError):
         raise ValueError("pr_response_invalid") from None
+    if raw.get("merged_at") is not None and not merged_value(raw):
+        raise ValueError("pr_response_invalid")
     return GitHubPullRequest(
         repository=repository,
         number=number,
@@ -56,13 +60,32 @@ def pr_value(raw, repository, number):
         labels=labels,
         state=raw["state"],
         draft=raw["draft"],
-        merged=bool(raw.get("merged_at")),
+        merged=merged_value(raw),
         updated_at=raw["updated_at"],
         head=PullRequestHead(
             repository=head_repository, branch=head["ref"], sha=head["sha"]
         ),
         base=base["ref"],
     ).to_payload()
+
+
+def merged_value(raw):
+    """Only closed records with a valid provider merge timestamp qualify."""
+    timestamp = raw.get("merged_at")
+    if raw.get("state") != "closed" or not isinstance(timestamp, str):
+        return False
+    try:
+        parsed = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+        return "T" in timestamp and parsed.tzinfo is not None
+    except ValueError:
+        return False
+
+
+def matches_state(pr, state):
+    """Apply the same normalized PR filter at discovery and execution."""
+    if state == "merged":
+        return pr["state"] == "closed" and pr.get("merged") is True
+    return state == "all" or pr["state"] == state
 
 
 def validate_patch(value):
@@ -92,6 +115,8 @@ def validate_patch(value):
 ERROR_CODES = frozenset(
     {
         "repository_url_invalid",
+        "pr_context_invalid",
+        "pr_context_upstream_failed",
         "repository_connection_unavailable",
         "labels_invalid",
         "selected_label_unavailable",

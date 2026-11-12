@@ -10,7 +10,7 @@ from urllib.error import HTTPError
 from urllib.request import build_opener
 
 from support.http_server import RunningHTTPServer
-from laomedo.http.redirect import NoRedirect
+from laomedo.host.http import NoRedirect
 from laomedo.agents.agents.opencode.auth.transport import NoRedirect as OpenCodeRedirect
 from laomedo.host.credentials.siwc.connection import _NoRedirect as ChatGPTRedirect
 from laomedo.host.credentials.siwc.errors import AuthError
@@ -72,7 +72,7 @@ class SharedHTTPTests(unittest.TestCase):
         self.assertEqual(
             owners,
             {
-                "src/laomedo/http/redirect.py",
+                "src/laomedo/host/http.py",
                 # Self-contained components and credential-specific refusals are deliberate.
                 "src/laomedo/agents/interface/langflow/component.py",
                 "components/laomedo/pr_publisher.py",

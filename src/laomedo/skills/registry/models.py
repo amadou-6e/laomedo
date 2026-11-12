@@ -1,8 +1,8 @@
 """Canonical registry references, revision metadata, drafts and review records."""
 
-from laomedo.skills.registry.diff import patch_for
-from laomedo.skills.registry.hashing import file_hashes
-from laomedo.skills.registry.hashing import tree_hash
+from laomedo.skills.registry.utils.diff import patch_for
+from laomedo.skills.registry.utils.hashing import file_hashes
+from laomedo.skills.registry.utils.hashing import tree_hash
 
 from typing import Literal
 from datetime import datetime, timezone

@@ -18,13 +18,13 @@ class ManagedServiceTests(unittest.TestCase):
             for service, selected, other in (
                 (
                     "host-services",
-                    "laomedo.host.host_services.main",
-                    "laomedo.host.publication.cli.main",
+                    "laomedo.host.managed_service.host_services_main",
+                    "laomedo.host.managed_service.publication_main",
                 ),
                 (
                     "bundle-verifier",
-                    "laomedo.host.publication.cli.main",
-                    "laomedo.host.host_services.main",
+                    "laomedo.host.managed_service.publication_main",
+                    "laomedo.host.managed_service.host_services_main",
                 ),
             ):
                 with (

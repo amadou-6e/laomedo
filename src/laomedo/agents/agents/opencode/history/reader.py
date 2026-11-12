@@ -19,11 +19,9 @@ from laomedo.agents.agents.opencode.history.settings import MAX_EXPORT_BYTES
 from laomedo.agents.agents.opencode.history.settings import MAX_SESSIONS
 from laomedo.agents.agents.opencode.history.settings import Settings
 from laomedo.agents.agents.opencode.history.errors import HistoryError
-from laomedo.agents.agents.opencode.history.models import (
-    HistorySource,
-    NativeExport,
-    NativeHistory,
-)
+from laomedo.agents.agents.opencode.history.models import HistorySource
+from laomedo.agents.agents.opencode.history.models import NativeExport
+from laomedo.agents.agents.opencode.history.models import NativeHistory
 from laomedo.agents.errors import RunnerError
 
 

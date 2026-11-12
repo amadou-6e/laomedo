@@ -12,7 +12,8 @@ from laomedo.agents.agents.base.utils import _json
 from laomedo.agents.errors import RunnerError
 from laomedo.agents.agents.opencode.agent import OpenCodeAgent
 from laomedo.agents.activity.store import ActivityStore
-from laomedo.agents.activity.models import CaptureIdentity, ActivityInvocation
+from laomedo.agents.activity.models import CaptureIdentity
+from laomedo.agents.activity.models import ActivityInvocation
 from laomedo.agents.activity.capture import ActivityCapture
 from laomedo.agents.activity.projection import project
 from laomedo.host.runner.http.server import RunnerServer
@@ -448,7 +449,8 @@ class ActivityReadTests(unittest.TestCase):
         self.assertEqual((usage.input_tokens, usage.output_tokens), (30, 5))
 
     def test_http_page_projection_preserves_omitted_and_explicit_diagnostics(self):
-        from laomedo.agents.activity.models import ActivityProjection, ActivityPage
+        from laomedo.agents.activity.models import ActivityProjection
+        from laomedo.agents.activity.models import ActivityPage
 
         page = self.read()
         payload = page.projection.to_payload()

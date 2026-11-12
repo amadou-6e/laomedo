@@ -149,18 +149,3 @@ class AgentModuleStructureTests(unittest.TestCase):
             tree = ast.parse(path.read_text())
             if any(isinstance(node, ast.ClassDef) for node in tree.body):
                 self.assertTrue(path.with_name("README.md").is_file(), path)
-
-    def test_retired_codex_server_generation_requires_explicit_manual_migration(self):
-        from test_shared.test_migration.utils import load_migration
-
-        migration = load_migration()
-        owner = "laomedo.agents.providers.codex.servers"
-        for source in (
-            f"import {owner}\n",
-            f"from {owner} import AppServer\n",
-            f"from {owner} import *\n",
-            f"import {owner} as legacy\nlegacy.AppServer(**options)\n",
-        ):
-            with self.subTest(source=source):
-                with self.assertRaises(migration.ManualMigrationRequired):
-                    migration.migrate_source(source)

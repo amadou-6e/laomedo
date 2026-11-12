@@ -14,7 +14,8 @@ from laomedo.agents.agents.base.base import BaseModelCatalog
 from laomedo.agents.agents.codex.catalog import CodexModelCatalog
 from laomedo.agents.agents.claude.catalog import ClaudeModelCatalog
 from laomedo.agents.agents.opencode.catalog import OpenCodeModelCatalog
-from laomedo.agents.agents.base.models import ModelCatalog, ModelOption
+from laomedo.agents.agents.base.models import ModelCatalog
+from laomedo.agents.agents.base.models import ModelOption
 
 
 class CatalogContractTests(unittest.TestCase):

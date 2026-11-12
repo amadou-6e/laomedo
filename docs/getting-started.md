@@ -117,6 +117,11 @@ Do not replace another listener.
 
 ## 5. Start the app and check the connection
 
+For a prepared **Codex** installation, use the
+[managed local app command](features/agents/runner/local-app.md) to bind recovery,
+the Agent token path and the runner address from one host configuration. The
+Claude walkthrough below remains a separate manual setup path.
+
 In **Terminal C**, set the step-1 variables, then configure the app. The bootstrap
 extends the custom-component category's import path, as required for the current
 Agent components; it does not add a compatibility facade to the core package.

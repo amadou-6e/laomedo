@@ -8,19 +8,25 @@ their work. Production service-manager installation remains deployment work.
 
 from __future__ import annotations
 
+from laomedo._paths import package_root
+from laomedo.github.transport.git.transport import GitHubGitTransport
+from laomedo.github.transport.rest.transport import GitHubRestTransport
+from laomedo.host.credentials.token import HostTokenConnection
+from laomedo.host.leases.service import LeaseService
+from laomedo.host.mediation.authority import RunGrantAuthority
+from laomedo.host.mediation.service import JournaledTransport
+from laomedo.host.mediation.service import MediationHTTPService
+from laomedo.host.mediation.store import MediationStore
+from laomedo.host.publication.verified.utils import classify_verified_workflow
+from laomedo.host.publication.verified.utils import make_grant_bundle_freezer
+from laomedo.host.publication.verified.utils import make_grant_stage_resolver
+
 from laomedo.github.transport.mediated import GitHubMediatedTransport
 from pathlib import Path
 import argparse
 import json
-import laomedo._paths as _package_paths
-import laomedo.github.transport.git.transport as _git_transport
-import laomedo.github.transport.rest.transport as _rest_transport
-import laomedo.host.credentials.token.connection as _token_connection
-import laomedo.host.leases.service as _leases_service
-import laomedo.host.mediation.authority as _mediation_authority
-import laomedo.host.mediation.service as _mediation_service
-import laomedo.host.mediation.store as _mediation_store
-import laomedo.host.publication.verified.utils as _verified_utils
+
+
 import os
 import threading
 import time
@@ -39,11 +45,11 @@ def build_services(
     token_key: str = "GH",
     runner_state: Path | None = None,
     private_stage: Path | None = None,
-) -> tuple[_leases_service.LeaseService, _mediation_service.MediationHTTPService]:
+) -> tuple[LeaseService, MediationHTTPService]:
     state = state.expanduser().resolve()
     state.mkdir(parents=True, exist_ok=True)
     (state / "mediator").mkdir(exist_ok=True)
-    connection = _token_connection.HostTokenConnection(
+    connection = HostTokenConnection(
         connection_id=connection_id,
         generation=connection_generation,
         repository=repository,
@@ -54,14 +60,12 @@ def build_services(
     if (runner_state is None) != (private_stage is None):
         raise ValueError("verified_stage_roots_incomplete")
     resolver = (
-        _verified_utils.make_grant_stage_resolver(
-            runner_state, private_stage, agent_mount
-        )
+        make_grant_stage_resolver(runner_state, private_stage, agent_mount)
         if runner_state is not None
         else None
     )
     freezer = (
-        _verified_utils.make_grant_bundle_freezer(
+        make_grant_bundle_freezer(
             runner_state,
             private_stage,
             agent_mount,
@@ -72,37 +76,37 @@ def build_services(
         if runner_state is not None
         else None
     )
-    git_transport = _git_transport.GitHubGitTransport(
+    git_transport = GitHubGitTransport(
         repository, checkout, baseline, connection.token, require_verified_stage=True
     )
-    rest_transport = _rest_transport.GitHubRestTransport(repository, connection.token)
-    store = _mediation_store.MediationStore(
+    rest_transport = GitHubRestTransport(repository, connection.token)
+    store = MediationStore(
         state / "mediator" / "mediator.sqlite",
         verified_stage_resolver=resolver,
         stage_freezer=freezer,
         verified_workflow_classifier=(
-            _verified_utils.classify_verified_workflow if resolver is not None else None
+            classify_verified_workflow if resolver is not None else None
         ),
         connection_is_current=connection.current,
     )
-    authority = _mediation_authority.RunGrantAuthority(
+    authority = RunGrantAuthority(
         state / "authority.sqlite", connection_authorizer=connection.authorize
     )
-    lease = _leases_service.LeaseService(
+    lease = LeaseService(
         state / "lease", mediator=store, mediation_authority=authority.authorize_lease
     )
-    transport = _mediation_service.JournaledTransport(
+    transport = JournaledTransport(
         GitHubMediatedTransport(git_transport, rest_transport),
         state / "mediator" / "provider-attempts.jsonl",
         state / "mediator" / "push-diagnostics.jsonl",
     )
-    mediator = _mediation_service.MediationHTTPService(store, transport)
+    mediator = MediationHTTPService(store, transport)
     return lease, mediator
 
 
 def serve_services(
-    lease: _leases_service.LeaseService,
-    mediator: _mediation_service.MediationHTTPService,
+    lease: LeaseService,
+    mediator: MediationHTTPService,
     state: Path,
     *,
     repository: str,
@@ -119,7 +123,7 @@ def serve_services(
             {
                 "pid": os.getpid(),
                 "port": mediator.port,
-                "module_root": str(_package_paths.package_root()),
+                "module_root": str(package_root()),
                 "instance": mediator.instance,
                 "started_at": time.time(),
                 "connection_id": connection_id,

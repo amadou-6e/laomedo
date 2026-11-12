@@ -7,7 +7,8 @@ import unittest
 from pydantic import BaseModel, ValidationError
 
 from laomedo.host.leases.models import ContainerIdentity
-from laomedo.work_graph.models import Dependency, GraphSnapshot
+from laomedo.work_graph.models import Dependency
+from laomedo.work_graph.models import GraphSnapshot
 from laomedo.agents.interface.models import AgentRequest as RunnerRequest
 
 

@@ -4,10 +4,13 @@ Opt-in host composition only. It supplies no credential, ambient gh fallback,
 or grant-issuing endpoint. The normal runner's behavior remains unchanged.
 """
 
+from laomedo.agents.interface.output.utils import evaluate_envelope
+from laomedo.host.mediation.errors import MediationError
+
 from copy import deepcopy
 import json
-import laomedo.agents.interface.output.utils as _contracts_output
-import laomedo.host.mediation.errors as _mediation_errors
+
+
 import math
 import threading
 
@@ -46,7 +49,7 @@ class PublicationController:
         token = lease.grant_secret()
         with self.lock:
             if record["run_id"] in self.owned:
-                raise _mediation_errors.MediationError("handoff_already_registered")
+                raise MediationError("handoff_already_registered")
             handoff_id = self.store.begin_publication_handoff(
                 token=token,
                 repository=repository,
@@ -56,7 +59,7 @@ class PublicationController:
             )
             if handoff_id != lease.grant_id:
                 self.store.end_publication_handoff(handoff_id, "failed")
-                raise _mediation_errors.MediationError("handoff_lease_mismatch")
+                raise MediationError("handoff_lease_mismatch")
             self.owned[record["run_id"]] = (lease, token, repository, handoff_id)
             record["publication_handoff"] = {
                 "handoff_id": handoff_id,
@@ -100,9 +103,7 @@ class PublicationController:
                     "evidence_complete": record.get("evidence_complete", "unknown"),
                     "requirements_revision": record.get("requirements_revision"),
                 }
-                checked = _contracts_output.evaluate_envelope(
-                    record["output_requirements"], envelope
-                )
+                checked = evaluate_envelope(record["output_requirements"], envelope)
                 if (
                     checked["contract_status"] != "accepted"
                     or envelope["task_outcome"] != "success"
@@ -138,7 +139,7 @@ class PublicationController:
         with self.lock:
             owned = self.owned.get(run_id)
             if owned is None:
-                raise _mediation_errors.MediationError("handoff_not_owned")
+                raise MediationError("handoff_not_owned")
             lease, token, repository, handoff_id = owned
             current = self.store.publication_handoff(handoff_id)
             if run_id in self.publishing or current["phase"] != "validation_pending":

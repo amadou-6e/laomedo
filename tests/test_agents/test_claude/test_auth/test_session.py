@@ -12,7 +12,8 @@ from unittest.mock import MagicMock, patch
 from laomedo.agents.agents.claude.auth.errors import LocalClaudeLoginError
 from laomedo.agents.agents.claude.auth.resources.write_login import write_login
 from laomedo.agents.agents.claude.auth.settings import COPY_SECONDS
-from laomedo.agents.agents.claude.auth.utils import _local_endpoint, mirror_login
+from laomedo.agents.agents.claude.auth.utils import _local_endpoint
+from laomedo.agents.agents.claude.auth.utils import mirror_login
 
 try:
     import py_docker

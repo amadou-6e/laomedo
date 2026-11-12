@@ -12,10 +12,8 @@ import threading
 
 from laomedo.docker import DockerRuntime
 from laomedo.container_images.errors import ImageBuildError
-from laomedo.agents.agents.opencode.models import (
-    OpenCodeConfig,
-    OpenCodeRuntimeIdentity,
-)
+from laomedo.agents.agents.opencode.models import OpenCodeConfig
+from laomedo.agents.agents.opencode.models import OpenCodeRuntimeIdentity
 from laomedo.agents.agents.opencode.settings import CLI_VERSION
 from laomedo.agents.agents.opencode.settings import CONTROLLER_LIFETIME_SECONDS
 from laomedo.agents.agents.opencode.settings import WORKER_IMAGE
@@ -32,12 +30,10 @@ from laomedo.agents.agents.base.utils import failure_observation
 
 
 from laomedo.agents.agents.base.base import BaseInterruptibleCommandExecutor
-from laomedo.agents.agents.base.models import (
-    CommandRequest,
-    CommandResult,
-    CleanupObservation,
-    CancellationObservation,
-)
+from laomedo.agents.agents.base.models import CommandRequest
+from laomedo.agents.agents.base.models import CommandResult
+from laomedo.agents.agents.base.models import CleanupObservation
+from laomedo.agents.agents.base.models import CancellationObservation
 from laomedo.agents.agents.opencode.http.broker import OpenCodeCommandBroker
 
 

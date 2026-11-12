@@ -7,7 +7,8 @@ from laomedo.docker import DockerRuntime
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 import json
-from laomedo.host.leases.settings import LEASE_SECONDS, POST_LOSS_WATCH_SECONDS
+from laomedo.host.leases.settings import LEASE_SECONDS
+from laomedo.host.leases.settings import POST_LOSS_WATCH_SECONDS
 from laomedo.host.leases.models import ContainerIdentity
 
 

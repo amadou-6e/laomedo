@@ -14,12 +14,10 @@ from uuid import uuid4
 
 from laomedo.agents.agents.claude.auth.errors import LocalClaudeLoginError
 from laomedo.agents.agents.claude.auth.models import ClaudeAccessLoginRecord
-from laomedo.agents.agents.claude.auth.settings import (
-    CLEANUP_SECONDS,
-    COPY_SECONDS,
-    MIRROR_LOCK,
-    Settings,
-)
+from laomedo.agents.agents.claude.auth.settings import CLEANUP_SECONDS
+from laomedo.agents.agents.claude.auth.settings import COPY_SECONDS
+from laomedo.agents.agents.claude.auth.settings import MIRROR_LOCK
+from laomedo.agents.agents.claude.auth.settings import Settings
 from laomedo.host.private_state.models import DirectoryPermissionPolicy
 from laomedo.host.private_state.utils import prepare_private_directory
 from laomedo.host.private_state.windows import WindowsDirectorySecurity

@@ -227,7 +227,7 @@ class ManualSkillEditorTests(unittest.TestCase):
             )
 
     def test_manual_catalogue_covers_the_closed_public_failure_set(self):
-        from laomedo.skills.operations.contract import MANUAL_ERROR_CODES
+        from laomedo.skills.operations.settings import MANUAL_ERROR_CODES
 
         catalog = json.loads(error_catalogue_path().read_text(encoding="utf-8"))
         for code in MANUAL_ERROR_CODES:

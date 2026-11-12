@@ -13,12 +13,10 @@ from unittest.mock import MagicMock, patch
 from pydantic import SecretStr, ValidationError
 from laomedo.git.command import GitCommandRunner
 from laomedo.git.errors import GitCommandTimeout
-from laomedo.git.models import (
-    GitCommand,
-    GitCredential,
-    GitEnvironmentProfile,
-    GitExecutionContext,
-)
+from laomedo.git.models import GitCommand
+from laomedo.git.models import GitCredential
+from laomedo.git.models import GitEnvironmentProfile
+from laomedo.git.models import GitExecutionContext
 from laomedo.git.settings import MEDIATED_TOKEN_ENV
 
 

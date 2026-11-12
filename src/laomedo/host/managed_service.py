@@ -6,6 +6,9 @@ The host service retains custody of its explicitly selected token file.
 
 from __future__ import annotations
 
+from laomedo.host.host_services import main as host_services_main
+from laomedo.host.publication.cli import main as publication_main
+
 from pathlib import Path
 import argparse
 import json
@@ -66,13 +69,11 @@ def main() -> None:
     # Run in the Scheduler-owned process, not as a runner child. Argparse in
     # the concrete service still checks required fields before any startup.
     if args.service == "host-services":
-        import laomedo.host.host_services as _host_host_services
 
-        start = _host_host_services.main
+        start = host_services_main
     else:
-        import laomedo.host.publication.cli as _publication_cli
 
-        start = _publication_cli.main
+        start = publication_main
     sys.argv = [sys.argv[0], *argv]
     start()
 

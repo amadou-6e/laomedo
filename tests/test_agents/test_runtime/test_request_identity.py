@@ -18,7 +18,7 @@ from laomedo.agents.agents.codex.agent import CodexAgent as LocalRunner
 from laomedo.agents.errors import RunnerError
 from laomedo.agents.agents.base.utils import _json
 from laomedo.host.runner.http.server import RunnerServer as serve
-import laomedo.agents.agents.codex.cli as runner_module
+
 from laomedo.agents.interface.bridge import HttpAgentBridge
 from laomedo.agents.activity.runner.trace_bridge import RunnerTraceBridge
 from laomedo.work_graph.runs.errors import LaunchError

@@ -57,10 +57,8 @@ def capture_for(component):
     if not execution:
         raise ValueError("agent_activity_execution_required")
     label = getattr(component._vertex, "display_name", None)
-    from laomedo.agents.activity.models import (
-        CaptureIdentity,
-        ActivityInvocation,
-    )
+    from laomedo.agents.activity.models import CaptureIdentity
+    from laomedo.agents.activity.models import ActivityInvocation
 
     identity = CaptureIdentity.from_values(
         str(component._user_id or ""),

@@ -9,6 +9,7 @@ from urllib.request import ProxyHandler
 from urllib.request import Request
 from urllib.request import build_opener
 import json
+import re
 import socket
 import subprocess
 import sys
@@ -16,7 +17,7 @@ import threading
 import time
 import uuid
 
-from laomedo.http.redirect import NoRedirect
+from laomedo.host.http import NoRedirect
 from laomedo._paths import import_root
 from laomedo.host.runner.prerequisites import check_docker
 from laomedo.host.runner.models import DockerReadiness
@@ -72,8 +73,17 @@ class RunnerService:
             "mediator_state",
             "git_workspace",
             "mirror_host_claude_login",
+            "lease_service",
+            "image_id",
         }
         if not required <= set(value) or set(value) - required - optional:
+            raise ValueError("invalid_runner_service_config")
+        if "image_id" in value and (
+            value["provider"] != "codex"
+            or value.get("git_workspace", False)
+            or not isinstance(value["image_id"], str)
+            or not re.fullmatch(r"sha256:[0-9a-f]{64}", value["image_id"])
+        ):
             raise ValueError("invalid_runner_service_config")
         sources = value.get("artifact_sources", {})
         if (
@@ -195,6 +205,8 @@ class RunnerService:
                         config["profile_volume"],
                     ]
                 )
+            if "image_id" in config:
+                command.extend(["--image-id", config["image_id"]])
             for provider, state in sorted(config.get("artifact_sources", {}).items()):
                 command.extend(["--artifact-source", provider + "=" + state])
             if "github_authority_store" in config:

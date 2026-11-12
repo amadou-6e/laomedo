@@ -14,7 +14,8 @@ from unittest.mock import Mock, patch
 
 from laomedo.container_images.errors import ImageBuildError
 from laomedo.container_images.lock import ImageBuildLock
-from laomedo.container_images.models import ImageRecipe, ImageRegistration
+from laomedo.container_images.models import ImageRecipe
+from laomedo.container_images.models import ImageRegistration
 from laomedo.container_images.registry import ImageRegistry
 from laomedo.docker import DockerRuntime
 

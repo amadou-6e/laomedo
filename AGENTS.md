@@ -17,6 +17,30 @@
   are explicit scope constraints, not examples to follow for new production work.
   The GitHub-owned EXP-100 broker dependency remains separately scoped.
 
+## Test lifecycle
+
+- Tests must protect current supported behavior, an ongoing invariant, or an
+  explicitly scoped point-in-time verification purpose. Do not retain tests only
+  because they passed before a refactor.
+- When code, ports, module paths or contracts are retired, remove tests that
+  reconstruct those retired states solely to exercise migration, compatibility
+  or rejection. Update maintained examples to the current method; personal saved
+  graphs do not create a compatibility requirement.
+- Keep compatibility tests only when support for that older state is an explicit
+  current requirement. Identify that requirement and the condition for retiring
+  the test. Persisted operational data recovery requires its own scope decision;
+  it is not equivalent to preserving personal graph exports.
+- When retiring a compatibility tool, remove its executable entry points and
+  documentation too. Keep tests for any current file-writing or routing behavior
+  that remains supported.
+- Keep regression tests that exercise current behavior and architecture rules
+  that still apply. In mixed tests, remove obsolete setup and assertions while
+  preserving meaningful coverage of the current contract. Do not pin historical
+  refactor counts or retired filenames unless they express an ongoing rule.
+- Keep explicitly requested historical or point-in-time evidence with its owning
+  experiment or archive and revision. Do not make normal production verification
+  depend on recreating retired implementations merely to keep that evidence green.
+
 ## Python formatting
 
 - Install the pinned formatter with `python -m pip install -e '.[dev]'`.
@@ -105,6 +129,17 @@
   exception arguments and boundary categories. Specialized subclasses may inherit
   the implementation but must document their contract; do not leave pass-only
   placeholders. User-facing explanations/recovery belong to the shared catalogue.
+
+## UI change handoff
+
+- After implementing a user-requested UI change, build or reload the updated
+  application and proactively open the changed screen in the user's VS Code
+  integrated browser. Navigate to the affected state and verify that the updated
+  UI is actually visible before handing it back. Do not wait for the user to ask
+  to open, reopen, refresh or advance to each changed screen.
+- Preserve the user's workspace, unsaved work and session. If opening the updated
+  screen is blocked, explain the concrete blocker and provide the direct preview
+  link; do not claim the UI is open without verifying it.
 
 ## Commit and push checkpoints
 

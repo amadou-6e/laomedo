@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from laomedo.work_graph.serialization import _canonical
+
 from datetime import datetime
 from functools import total_ordering
 from hashlib import sha256
@@ -10,7 +12,7 @@ from pydantic import BaseModel
 from pydantic import ConfigDict
 from pydantic import model_validator
 import json
-import laomedo.work_graph.serialization as _work_graph_serialization
+
 import os
 import tempfile
 
@@ -123,9 +125,7 @@ class GraphSnapshot(BaseModel):
     def snapshot_id(self) -> str:
         return (
             "sha256:"
-            + sha256(
-                _work_graph_serialization._canonical(self.model_dump()).encode("utf-8")
-            ).hexdigest()
+            + sha256(_canonical(self.model_dump()).encode("utf-8")).hexdigest()
         )
 
     def to_dict(self) -> dict:

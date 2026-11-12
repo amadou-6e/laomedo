@@ -5,8 +5,8 @@ No runner/provider credentials are used by this route.
 """
 
 from pathlib import Path
-from laomedo.skills.inspection.errors import InspectionError
-from laomedo.skills.inspection.utils import inspect_skill
+from laomedo.skills.registry.errors import InspectionError
+from laomedo.skills.registry.utils.inspection import inspect_skill
 from laomedo.integrations.langflow.settings import Settings
 
 
@@ -122,7 +122,8 @@ def install_routes(app, root: Path, authenticate):
     )
     async def read_issue(payload: dict):
         from laomedo.github.interface.issues.client import issue_request
-        from laomedo.github.contract import repository_from_url, labels_value
+        from laomedo.github.contract import repository_from_url
+        from laomedo.github.contract import labels_value
         from laomedo.github.issues.contract import ERROR_CODES as ISSUE_ERROR_CODES
 
         try:
@@ -163,7 +164,8 @@ def install_routes(app, root: Path, authenticate):
     )
     async def read_pr(payload: dict):
         from laomedo.github.interface.pull_requests.client import pr_request
-        from laomedo.github.contract import repository_from_url, labels_value
+        from laomedo.github.contract import repository_from_url
+        from laomedo.github.contract import labels_value
         from laomedo.github.issues.contract import ERROR_CODES as ISSUE_ERROR_CODES
         from laomedo.github.pull_requests.contract import ERROR_CODES as PR_ERROR_CODES
 
@@ -175,7 +177,7 @@ def install_routes(app, root: Path, authenticate):
             if (
                 type(payload["pr_number"]) is not int
                 or not 0 < payload["pr_number"] <= 2**53 - 1
-                or payload["state"] not in {"open", "closed", "all"}
+                or payload["state"] not in {"open", "closed", "merged", "all"}
             ):
                 raise ValueError("selected_pr_invalid")
             result = await run_in_threadpool(
@@ -197,7 +199,8 @@ def install_routes(app, root: Path, authenticate):
         )
 
 
-def create_app():
+def create_app(profile_runtime=None):
+    from laomedo.integrations.langflow.local_profiles.routes import profile_mode
     from langflow.main import create_app as upstream_app
     from langflow.main import setup_static_files
     from langflow.services.auth.utils import get_current_active_user
@@ -206,7 +209,10 @@ def create_app():
     root = Path(settings.required_path("skill_store"))
     frontend = Path(settings.required_path("frontend"))
     app = upstream_app()
+    app.add_api_route("/api/v1/laomedo/profile-mode", profile_mode, methods=["GET"])
     install_routes(app, root, get_current_active_user)
+    if profile_runtime is not None:
+        profile_runtime.configure(app)
     # Register the API before the installed runtime's catch-all SPA routes.
     setup_static_files(app, frontend)
     return app

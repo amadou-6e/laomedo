@@ -3,7 +3,8 @@
 from pathlib import Path
 from laomedo.git.command import GitCommandRunner
 from laomedo.git.errors import GitCommandTimeout
-from laomedo.git.models import GitEnvironmentProfile, GitExecutionContext
+from laomedo.git.models import GitEnvironmentProfile
+from laomedo.git.models import GitExecutionContext
 from laomedo.git.repository import GitRepository
 from laomedo.agents.workspaces.errors import GitWorkspaceError
 import re

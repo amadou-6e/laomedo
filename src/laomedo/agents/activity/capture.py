@@ -7,7 +7,7 @@ from pathlib import Path
 from urllib.request import ProxyHandler
 from urllib.request import Request
 from urllib.request import build_opener
-from laomedo.http.redirect import NoRedirect
+from laomedo.host.http import NoRedirect
 from uuid import UUID
 import json
 from laomedo.agents.activity.utils import capture_for

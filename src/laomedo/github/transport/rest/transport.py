@@ -7,13 +7,14 @@ mediator capability. Unsupported operations fail explicitly.
 
 from __future__ import annotations
 
-from laomedo.http.redirect import NoRedirect
+from laomedo.host.http import NoRedirect
 from laomedo.github.contract import issue_digest
 from laomedo.github.issues.contract import issue_value
 from laomedo.github.contract import labels_value
 from laomedo.github.issues.contract import validate_patch
 from laomedo.github.contract import issue_digest as pr_digest
 from laomedo.github.pull_requests.contract import pr_value
+from laomedo.github.pull_requests.contract import matches_state
 from laomedo.github.pull_requests.contract import validate_patch as pr_validate_patch
 from laomedo.host.mediation.errors import KnownRejected
 
@@ -22,7 +23,9 @@ from urllib import parse
 from urllib import request
 import json
 import re
+import ssl
 import time
+from truststore import SSLContext
 
 _REPOSITORY = re.compile(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+\Z")
 ISSUE_GRAPHQL_QUERY = "query($owner:String!,$name:String!){repository(owner:$owner,name:$name){issues(first:30,states:OPEN){nodes{number title body}}}}"
@@ -38,7 +41,14 @@ class GitHubRestTransport:
             raise ValueError("credential_supplier_required")
         self.repository = repository
         self.token_supplier = token_supplier
-        self.opener = opener or request.build_opener(NoRedirect)
+        self.opener = (
+            opener
+            if opener is not None
+            else request.build_opener(
+                NoRedirect,
+                request.HTTPSHandler(context=SSLContext(ssl.PROTOCOL_TLS_CLIENT)),
+            )
+        )
 
     def __call__(
         self,
@@ -58,6 +68,7 @@ class GitHubRestTransport:
             if set(payload) != {"labels", "state"} or payload["state"] not in {
                 "open",
                 "closed",
+                "merged",
                 "all",
             }:
                 raise KnownRejected("prs_request_invalid")
@@ -66,10 +77,21 @@ class GitHubRestTransport:
                 prefix + "/pulls",
                 connection_id,
                 connection_generation,
-                query={"state": payload["state"]},
+                query={
+                    "state": (
+                        "closed" if payload["state"] == "merged" else payload["state"]
+                    )
+                },
             )
             prs = [pr_value(item, repository, item["number"]) for item in raw]
-            return {"items": [item for item in prs if selected <= set(item["labels"])]}
+            return {
+                "items": [
+                    item
+                    for item in prs
+                    if selected <= set(item["labels"])
+                    and matches_state(item, payload["state"])
+                ]
+            }
         if operation == "pr_node_read":
             if (
                 set(payload) != {"number"}

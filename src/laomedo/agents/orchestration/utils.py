@@ -5,13 +5,11 @@ from __future__ import annotations
 from uuid import uuid4
 from laomedo.agents.artifacts.utils import selections
 from laomedo.agents.orchestration.errors import HandoffError
-from laomedo.agents.orchestration.models import (
-    AgentHandoff,
-    HandoffPrior,
-    HandoffSkillReference,
-    HandoffSource,
-    HandoffTarget,
-)
+from laomedo.agents.orchestration.models import AgentHandoff
+from laomedo.agents.orchestration.models import HandoffPrior
+from laomedo.agents.orchestration.models import HandoffSkillReference
+from laomedo.agents.orchestration.models import HandoffSource
+from laomedo.agents.orchestration.models import HandoffTarget
 from laomedo.agents.artifacts.models import ArtifactReference
 import re
 

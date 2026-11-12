@@ -37,6 +37,64 @@ class LiveGitHubPRTests(unittest.TestCase):
             len(self.case.gateway.discover(self.case.url, [], "all")["prs"]), 3
         )
 
+    def test_merged_filter_uses_closed_pages_and_revalidates_metadata(self):
+        self.case.provider.prs[4] = raw_pr(4, ["backend"], "closed")
+        self.case.provider.prs[4]["merged_at"] = "2026-10-13T00:00:00Z"
+        self.assertEqual(
+            [
+                p["number"]
+                for p in self.case.gateway.discover(self.case.url, [], "closed")["prs"]
+            ],
+            [3, 4],
+        )
+        self.assertEqual(
+            [
+                p["number"]
+                for p in self.case.gateway.discover(
+                    self.case.url, ["backend"], "merged"
+                )["prs"]
+            ],
+            [4],
+        )
+        self.assertEqual(
+            self.case.gateway.execute(self.case.url, [], "merged", 4)["pr"]["state"],
+            "closed",
+        )
+        self.case.provider.prs[4]["merged_at"] = None
+        self.assertEqual(
+            self.case.gateway.discover(self.case.url, [], "merged")["prs"], []
+        )
+        with self.assertRaisesRegex(ValueError, "no_longer_matches"):
+            self.case.gateway.execute(self.case.url, [], "merged", 4)
+        for timestamp in ("invalid", "2026-02-30T00:00:00Z", True):
+            self.case.provider.prs[4]["merged_at"] = timestamp
+            with self.assertRaisesRegex(ValueError, "pr_response_invalid"):
+                self.case.gateway.discover(self.case.url, [], "merged")
+            with self.assertRaisesRegex(ValueError, "pr_response_invalid"):
+                self.case.gateway.execute(self.case.url, [], "merged", 4)
+        self.case.provider.prs[4]["merged_at"] = "2026-10-13T00:00:00Z"
+        self.case.provider.prs[4]["state"] = "open"
+        with self.assertRaisesRegex(ValueError, "pr_response_invalid"):
+            self.case.gateway.execute(self.case.url, [], "merged", 4)
+        self.assertEqual(self.case.provider.writes, [])
+
+    def test_merged_and_invalid_merge_metadata_never_allow_writes(self):
+        self.case.provider.prs[1].update(
+            state="closed", merged_at="2026-10-13T00:00:00Z"
+        )
+        operation = {"action": "close", "request_id": "merged", "grant_ref": "grant"}
+        result = self.case.gateway.execute(self.case.url, [], "merged", 1, operation)
+        self.assertEqual(result["operation"]["status"], "failed")
+        self.case.provider.prs[1].update(state="open", merged_at="now")
+        with self.assertRaisesRegex(ValueError, "pr_response_invalid"):
+            self.execute(request_id="invalid-merge")
+        self.assertEqual(self.case.provider.writes, [])
+
+    def test_merged_discovery_refuses_truncated_closed_pages(self):
+        self.case.provider.full_pages = True
+        with self.assertRaisesRegex(ValueError, "github_discovery_incomplete"):
+            self.case.gateway.discover(self.case.url, [], "merged")
+
     def test_refresh_reads_current_content_and_refuses_stale_filters(self):
         self.case.provider.prs[1]["body"] = "Changed"
         self.assertEqual(
@@ -108,7 +166,6 @@ class LiveGitHubPRTests(unittest.TestCase):
     def test_fork_merged_changed_branch_and_changed_head_refused(self):
         for mutate in (
             lambda pr: pr["head"]["repo"].update(full_name="foreign/fork"),
-            lambda pr: pr.update(merged_at="now"),
             lambda pr: pr["head"].update(ref="other"),
         ):
             self.case.provider.prs[1] = raw_pr(1, ["backend"])

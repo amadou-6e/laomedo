@@ -13,6 +13,7 @@ import NodeInputField from "../NodeInputField";
 import { findPrimaryInput } from "./utils";
 import AgentAdvancedControls, { advancedAgentFields, isAgentControlHidden } from "./AgentAdvancedControls";
 import { advancedSkillFields, isConnectedSkillSetting, isSkillControlHidden, isSkillNode, skillFieldInfo, skillSourceError, SKILL_SOURCE_ERROR_CODE } from "./SkillNodeControls";
+import { isPRControlHidden, isVisiblePRState, prFieldRank, prFeedback, PR_DISCOVERY_ERROR_CODE } from "./PRNodeControls";
 import NodeErrorNotice from "@/components/laomedoErrors/NodeErrorNotice";
 
 const RenderInputParameters = ({
@@ -24,12 +25,13 @@ const RenderInputParameters = ({
   showHiddenOutputs,
 }) => {
   const edges = useFlowStore((state) => state.edges);
+  const feedback = prFeedback(data);
 
   const templateFields = useMemo(() => {
     return Object.keys(data.node?.template || {})
-      .filter((templateField) => !isInternalField(templateField) && !isAgentControlHidden(data, templateField, edges) && !isSkillControlHidden(data, templateField))
+      .filter((templateField) => !isInternalField(templateField) && !isAgentControlHidden(data, templateField, edges) && !isSkillControlHidden(data, templateField) && !isPRControlHidden(data, templateField))
       .sort((a, b) =>
-        sortToolModeFields(
+        prFieldRank(data, a) - prFieldRank(data, b) || sortToolModeFields(
           a,
           b,
           data.node!.template,
@@ -46,7 +48,7 @@ const RenderInputParameters = ({
   const shownTemplateFields = useMemo(() => {
     return templateFields.filter((templateField) => {
       const template = data.node?.template[templateField];
-      return !advancedFields.includes(templateField) && (isCanvasVisible(template, isToolMode) ||
+      return !advancedFields.includes(templateField) && (isVisiblePRState(data, templateField, isToolMode) || isCanvasVisible(template, isToolMode) ||
         (template?.show && isConnectedSkillSetting(data, templateField, edges)));
     });
   }, [templateFields, data, isToolMode, advancedFields, edges]);
@@ -164,6 +166,13 @@ const RenderInputParameters = ({
           <div role="alert" data-testid="skill-source-error" className="px-5 pb-2 text-sm text-destructive">
             <NodeErrorNotice message={SKILL_SOURCE_ERROR_CODE} label={skillSourceError(data)}
               context={{ nodeId: data.id, nodeType: "LaomedoSkill" }} />
+          </div>
+        )}
+        {showNode && templateField === "repository_url" && feedback && (
+          <div role={feedback.error ? "alert" : "status"} data-testid="pr-source-feedback"
+            className={`px-5 pb-2 text-sm ${feedback.error ? "text-destructive" : "text-muted-foreground"}`}>
+            {feedback.error ? <NodeErrorNotice message={PR_DISCOVERY_ERROR_CODE} label={feedback.message}
+              context={{ nodeId: data.id, nodeType: "LaomedoGitHubPR" }} /> : feedback.message}
           </div>
         )}
         </Fragment>

@@ -38,6 +38,7 @@ force-exclude = '''
 '''
 
 [project.scripts]
+laomedo-app = "laomedo.integrations.langflow.launch.cli:main"
 laomedo-work-graph = "laomedo.work_graph.__main__:main"
 
 [tool.setuptools.packages.find]

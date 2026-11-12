@@ -8,15 +8,13 @@ from stat import S_ISREG
 import subprocess
 import tempfile
 import time
-from laomedo.skills.inspection.settings import MAX_FILE_BYTES
+from laomedo.skills.registry.settings import MAX_FILE_BYTES
 from laomedo.skills.registry.errors import SkillStoreError
-from laomedo.skills.registry.paths import validate_relative_path
+from laomedo.skills.registry.utils.paths import validate_relative_path
 from laomedo.skills.sources.errors import SourceError
-from laomedo.skills.sources.models import (
-    SkillRepositoryRef,
-    SkillRepositoryState,
-    SkillRepositoryEntry,
-)
+from laomedo.skills.sources.models import SkillRepositoryRef
+from laomedo.skills.sources.models import SkillRepositoryState
+from laomedo.skills.sources.models import SkillRepositoryEntry
 from laomedo.skills.sources.settings import MAX_ENTRIES
 from laomedo.skills.sources.utils import excluded_parts
 

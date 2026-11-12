@@ -1,9 +1,7 @@
-from laomedo.agents.activity.models import (
-    ActivityPage,
-    ActivityRecord,
-    ActivityProjection,
-    MessageActivity,
-)
+from laomedo.agents.activity.models import ActivityPage
+from laomedo.agents.activity.models import ActivityRecord
+from laomedo.agents.activity.models import ActivityProjection
+from laomedo.agents.activity.models import MessageActivity
 from datetime import datetime, timezone
 
 """Internal tests only; real graph acceptance is recorded separately."""

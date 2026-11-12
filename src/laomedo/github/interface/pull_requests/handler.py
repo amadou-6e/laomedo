@@ -3,7 +3,8 @@
 from http.server import BaseHTTPRequestHandler
 import json
 import secrets
-from laomedo.github.pull_requests.contract import ERROR_CODES, PRE_DISPATCH_ERRORS
+from laomedo.github.pull_requests.contract import ERROR_CODES
+from laomedo.github.pull_requests.contract import PRE_DISPATCH_ERRORS
 from laomedo.host.mediation.errors import KnownRejected
 
 

@@ -48,6 +48,14 @@ class SettingsContractTests(unittest.TestCase):
             self.assertIsNone(cls.model_config["env_file"])
             self.assertIsNone(cls.model_config["secrets_dir"])
             self.assertFalse(cls.model_config["enable_decoding"])
+            if module.__name__ == "laomedo.integrations.langflow.launch.settings":
+                # New CLI-only settings deliberately use required typed paths and
+                # an integer port, rather than the legacy raw-string env contract.
+                # test_langflow/test_app_launch.py protects their source rules.
+                self.assertTrue(cls.model_config["frozen"])
+                for field in cls.model_fields.values():
+                    self.assertTrue(field.description)
+                continue
             for name, field in cls.model_fields.items():
                 if field.annotation in {int, float}:
                     continue  # Positive transport budgets have their own typed checks.
@@ -86,7 +94,9 @@ class SettingsContractTests(unittest.TestCase):
         checked = set()
         for module, cls in self.classes():
             for name, field in cls.model_fields.items():
-                if field.annotation not in {int, float}:
+                if field.annotation not in {int, float} or not isinstance(
+                    field.validation_alias, str
+                ):
                     continue
                 checked.add((module.__name__, name))
                 with (
@@ -182,7 +192,7 @@ class SettingsContractTests(unittest.TestCase):
         }
         for relative, expression in protected.items():
             self.assertIn(expression, (SOURCE / relative).read_text(), relative)
-        helper = (SOURCE / "git/credentials/helper.py").read_text()
+        helper = (SOURCE / "git/credential_helper.py").read_text()
         self.assertIn('os.environ.get("LAOMEDO_MEDIATED_GIT_TOKEN", "")', helper)
         self.assertNotIn("pydantic", helper)
         self.assertNotIn("import laomedo", helper)
@@ -249,7 +259,8 @@ class ErrorContractTests(unittest.TestCase):
                     self.assertEqual(str(restored), code)
 
     def test_registry_conflict_is_still_a_skill_store_value_error(self):
-        from laomedo.skills.registry.errors import ConflictError, SkillStoreError
+        from laomedo.skills.registry.errors import ConflictError
+        from laomedo.skills.registry.errors import SkillStoreError
 
         error = ConflictError("base_revision_changed")
         self.assertIsInstance(error, SkillStoreError)

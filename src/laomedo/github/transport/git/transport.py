@@ -10,9 +10,10 @@ from __future__ import annotations
 from contextlib import ExitStack
 from pydantic import SecretStr
 from laomedo.git.command import GitCommandRunner
-from laomedo.git.models import GitCredential, GitExecutionContext
+from laomedo.git.models import GitCredential
+from laomedo.git.models import GitExecutionContext
 from laomedo.git.repository import GitRepository
-from laomedo.github.workflows.utils import touches_workflows
+from laomedo.github.workflows import touches_workflows
 from pathlib import Path
 import base64
 from laomedo.github.transport.git.settings import _REPOSITORY

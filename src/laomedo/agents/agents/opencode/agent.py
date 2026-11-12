@@ -13,8 +13,8 @@ import shutil
 import threading
 import time
 
-from laomedo.skills.registry.files import inventory
-from laomedo.skills.registry.hashing import tree_hash
+from laomedo.skills.registry.utils.files import inventory
+from laomedo.skills.registry.utils.hashing import tree_hash
 from laomedo.agents.activity.models import ActivityAttemptRecord
 from laomedo.agents.activity.utils import now
 from laomedo.agents.activity.runner.feed import line_count

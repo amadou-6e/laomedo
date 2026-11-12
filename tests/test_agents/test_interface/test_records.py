@@ -3,7 +3,8 @@
 import json
 from pathlib import Path
 import unittest
-from laomedo.agents.interface.models import AgentRunReference, RunnerStatusRecord
+from laomedo.agents.interface.models import AgentRunReference
+from laomedo.agents.interface.models import RunnerStatusRecord
 
 
 class AgentReferenceRecordTests(unittest.TestCase):

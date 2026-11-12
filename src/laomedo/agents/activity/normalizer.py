@@ -6,17 +6,16 @@ import json
 import sqlite3
 from pydantic import ValidationError
 
-from laomedo.agents.activity.models import (
-    ActivityPage,
-    ActivityProjection,
-    ActivityRecord,
-    MessageActivity,
-    ToolCallActivity,
-    ToolResultActivity,
-    UsageActivity,
-)
+from laomedo.agents.activity.models import ActivityPage
+from laomedo.agents.activity.models import ActivityProjection
+from laomedo.agents.activity.models import ActivityRecord
+from laomedo.agents.activity.models import MessageActivity
+from laomedo.agents.activity.models import ToolCallActivity
+from laomedo.agents.activity.models import ToolResultActivity
+from laomedo.agents.activity.models import UsageActivity
 from laomedo.agents.activity.runner.feed import read_feed
-from laomedo.agents.agents.base.utils import _id, _read
+from laomedo.agents.agents.base.utils import _id
+from laomedo.agents.agents.base.utils import _read
 from laomedo.agents.errors import RunnerError
 
 

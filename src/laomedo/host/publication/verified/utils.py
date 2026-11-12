@@ -2,21 +2,23 @@
 
 from __future__ import annotations
 
+from laomedo.host.publication.bundle.settings import MAX_OUTPUT_BYTES
+from laomedo.host.publication.bundle.settings import PINNED_IMAGE_ID
+
 from laomedo.git.command import GitCommandRunner
 from laomedo.host.publication.verified.models import VerifiedStage
 from laomedo.host.publication.verified.settings import _COMMIT
-from laomedo.host.publication.verified.errors import (
-    VerifiedGitStageError,
-    VerifiedStageError,
-)
-from laomedo.host.publication.bundle.stage import _single_bundle_commit, _read_frozen
+from laomedo.host.publication.verified.errors import VerifiedGitStageError
+from laomedo.host.publication.verified.errors import VerifiedStageError
+from laomedo.host.publication.bundle.stage import _single_bundle_commit
+from laomedo.host.publication.bundle.stage import _read_frozen
 from laomedo.host.publication.bundle.errors import BundleStageError
 
 from contextlib import contextmanager
 from pathlib import Path
 import hashlib
 import json
-import laomedo.host.publication.bundle.settings as _bundle_settings
+
 from laomedo.host.publication.ingestion.settings import MAX_RECORD_BYTES
 from laomedo.host.publication.ingestion.settings import RUN_IDENTITY
 from laomedo.host.publication.ingestion.errors import BundleIngestError
@@ -285,7 +287,7 @@ def resolve_verified_stage(
         or verification.get("source_bundle_sha256") != frozen["bundle_sha256"]
         or verification.get("baseline") != binding["baseline"]
         or verification.get("commit") != commit
-        or verification.get("image_id") != _bundle_settings.PINNED_IMAGE_ID
+        or verification.get("image_id") != PINNED_IMAGE_ID
         or not isinstance(verification.get("baseline_bundle_sha256"), str)
         or len(verification["baseline_bundle_sha256"]) != 64
         or any(
@@ -300,9 +302,7 @@ def resolve_verified_stage(
         or container.get("export_class") != "ok"
     ):
         raise VerifiedStageError("stage_verification_invalid")
-    bundle = _read_regular(
-        attempt / "verified.bundle", _bundle_settings.MAX_OUTPUT_BYTES
-    )
+    bundle = _read_regular(attempt / "verified.bundle", MAX_OUTPUT_BYTES)
     digest = hashlib.sha256(bundle).hexdigest()
     if (
         container.get("output_sha256") != digest

@@ -7,7 +7,7 @@ import shutil
 import stat
 
 from laomedo.agents.workspaces.skills.errors import WorkspaceSkillError
-from laomedo.skills.registry.files import is_link
+from laomedo.skills.registry.utils.files import is_link
 
 
 def remove_owned_tree(path: Path, state: Path) -> None:

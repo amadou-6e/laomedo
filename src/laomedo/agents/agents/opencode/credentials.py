@@ -1,11 +1,9 @@
 """OpenCode-native validity policy over the explicitly admitted private profile."""
 
 from laomedo.agents.agents.base.base import BaseCredentialProvider
-from laomedo.agents.agents.base.models import (
-    CredentialBinding,
-    CredentialRequest,
-    CleanupObservation,
-)
+from laomedo.agents.agents.base.models import CredentialBinding
+from laomedo.agents.agents.base.models import CredentialRequest
+from laomedo.agents.agents.base.models import CleanupObservation
 from laomedo.agents.agents.opencode.utils import check_auth_fresh
 from laomedo.agents.errors import RunnerError
 

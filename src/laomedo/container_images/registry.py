@@ -4,7 +4,8 @@ import json
 from pathlib import Path
 
 from laomedo.container_images.errors import ImageBuildError
-from laomedo.container_images.models import ImageRecipe, ImageRegistration
+from laomedo.container_images.models import ImageRecipe
+from laomedo.container_images.models import ImageRegistration
 
 
 class ImageRegistry:

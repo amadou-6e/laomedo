@@ -11,10 +11,8 @@ import secrets
 import shutil
 import threading
 
-from laomedo.agents.agents.opencode.models import (
-    OpenCodeConfig,
-    OpenCodeRuntimeIdentity,
-)
+from laomedo.agents.agents.opencode.models import OpenCodeConfig
+from laomedo.agents.agents.opencode.models import OpenCodeRuntimeIdentity
 from laomedo.agents.agents.opencode.settings import CLI_VERSION
 from laomedo.agents.agents.opencode.settings import CONTROLLER_LIFETIME_SECONDS
 from laomedo.agents.agents.opencode.settings import WORKER_IMAGE
