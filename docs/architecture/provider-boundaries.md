@@ -378,3 +378,20 @@ or fresh acceptance for other providers. The evidence uses aggregate observation
 native process exit was not separately captured, and the harness does not
 explicitly assert each capture's runner-run link. PR250 stays draft; no merge or
 issue closure is authorized. Later review-status edits add no execution behavior.
+
+
+## Interface cleanup audit
+
+The user selected retirement of old Activity-database reading and ten targeted
+boundary/dead-code audit passes. The shared display now reads common snapshots
+only; raw evidence HTTP goes through declared `BaseAgent.read_events`. The unused
+trace bridge and Console database loader, obsolete tests, imports, error entries
+and ownership targets are removed. Current native parsers, dedicated-profile
+credentials, raw evidence cursors and durable request/store invariants remain.
+
+Claude reviewed `4bf245a7..42954ed4`: cleanup code and docs APPROVE, with no
+unresolved findings. The structural guard now includes `BaseAgent`, explicit
+application receivers and provider-import boundaries; it is not a general Python
+type checker. Final status/README edits are non-executable documentation only.
+Earlier real-graph acceptance remains tied to its recorded revision; this cleanup
+has no fresh live acceptance. Graph investigation follows this cleanup as requested.

@@ -16,7 +16,7 @@ publication. Valid JSONL is published atomically only after exact thread/path
 and size checks. No raw Docker output is included in error messages.
 
 Provider `projection.py` interprets native evidence behind `read_activity`.
-Shared application projection consumes the common display for new captures;
-its native interpretation fallback is only for read-only legacy history. This
-leaf defines no additional interface, projector or cost engine. Unknown or
-partial usage remains unknown or partial.
+Shared application projection consumes only the retained common display; old
+native-only Activity databases are unsupported. This leaf defines no additional
+interface, projector or cost engine. Unknown or partial usage remains unknown
+or partial.
