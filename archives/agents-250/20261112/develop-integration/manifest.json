@@ -26,5 +26,29 @@
     "sha256": "207225b50dfb7bf3eb065d12bdcbe2053286361d35dc4173b0e118d78a7fb6d0",
     "bytes": 6638,
     "reason": "already retired by selected Agent migration; develop changes only registry helper import locations"
+  },
+  {
+    "path": "tests/test_agents/test_architecture/test_interfaces.py",
+    "source_commit": "8fe9e364adfbb3e8144f1d55a4830d452aca0d70",
+    "sha256": "0b24f422de887d08919de416a30f6172e4453fe8563faf54c35c20c7fe058858",
+    "bytes": 7120,
+    "reason": "exact pre-integration source retains retired migration-tool/legacy-port reconstruction assertions; current supported assertions remain in production tests",
+    "archival_timing": "recorded after merge resolution from exact immutable Git source"
+  },
+  {
+    "path": "tests/test_langflow/test_claude_component.py",
+    "source_commit": "8fe9e364adfbb3e8144f1d55a4830d452aca0d70",
+    "sha256": "0d6af1c1026a51aa10ef486412919769b71770d9008462d0c8248624fbcc0c4c",
+    "bytes": 16767,
+    "reason": "exact pre-integration source retains retired migration-tool/legacy-port reconstruction assertions; current supported assertions remain in production tests",
+    "archival_timing": "recorded after merge resolution from exact immutable Git source"
+  },
+  {
+    "path": "tests/test_langflow/test_codex_component.py",
+    "source_commit": "8fe9e364adfbb3e8144f1d55a4830d452aca0d70",
+    "sha256": "c2fa114aa46575d9565c9881fadd5fe2219ba9ff8d38111ea2ad1d99bf56031c",
+    "bytes": 67007,
+    "reason": "exact pre-integration source retains retired migration-tool/legacy-port reconstruction assertions; current supported assertions remain in production tests",
+    "archival_timing": "recorded after merge resolution from exact immutable Git source"
   }
 ]

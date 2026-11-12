@@ -1,0 +1,5 @@
+Implementation97ea2c3cecf10ec462ae0773061dc90f93bc3807
+Optional-runtime pytest summary:1595passed,13skipped,81warnings,1805subtests passed in387.39s.
+Selected frontend:5suites33tests plus4suites47tests,80total passes.
+Required CI:all5green on97ea2c3c.
+Independent review:partialcore only; remaining integration and visual review pending, quota reset14:30Berlin.

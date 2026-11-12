@@ -1,0 +1,62 @@
+[
+  {
+    "graph": "examples/langflow-workgraph-demo/flow.json",
+    "path": "/data/edges/0/data/targetHandle/inputTypes",
+    "old_length": 1,
+    "new_length": 2
+  },
+  {
+    "graph": "examples/langflow-workgraph-demo/flow.json",
+    "path": "/data/edges/0/targetHandle",
+    "old": "{\"fieldName\": \"task\", \"id\": \"agent\", \"inputTypes\": [\"Message\"], \"type\": \"str\"}",
+    "new": "{\"fieldName\": \"task\", \"id\": \"agent\", \"inputTypes\": [\"Message\", \"Data\"], \"type\": \"str\"}"
+  },
+  {
+    "graph": "examples/langflow-workgraph-demo/flow.json",
+    "path": "/data/nodes/3/data/node/template/task/_input_type",
+    "old": "MessageTextInput",
+    "new": "StrInput"
+  },
+  {
+    "graph": "examples/langflow-workgraph-demo/flow.json",
+    "path": "/data/nodes/3/data/node/template/task/input_types",
+    "old_length": 1,
+    "new_length": 2
+  },
+  {
+    "graph": "examples/langflow-workgraph-demo/flow.json",
+    "path": "/data/nodes/3/data/node/template/task/trace_as_input",
+    "old": true,
+    "new": null
+  },
+  {
+    "graph": "examples/langflow-contract-routing/flow.json",
+    "path": "/data/edges/0/data/targetHandle/inputTypes",
+    "old_length": 1,
+    "new_length": 2
+  },
+  {
+    "graph": "examples/langflow-contract-routing/flow.json",
+    "path": "/data/edges/0/targetHandle",
+    "old": "{\"fieldName\": \"task\", \"id\": \"agent\", \"inputTypes\": [\"Message\"], \"type\": \"str\"}",
+    "new": "{\"fieldName\": \"task\", \"id\": \"agent\", \"inputTypes\": [\"Message\", \"Data\"], \"type\": \"str\"}"
+  },
+  {
+    "graph": "examples/langflow-contract-routing/flow.json",
+    "path": "/data/nodes/2/data/node/template/task/_input_type",
+    "old": "MessageTextInput",
+    "new": "StrInput"
+  },
+  {
+    "graph": "examples/langflow-contract-routing/flow.json",
+    "path": "/data/nodes/2/data/node/template/task/input_types",
+    "old_length": 1,
+    "new_length": 2
+  },
+  {
+    "graph": "examples/langflow-contract-routing/flow.json",
+    "path": "/data/nodes/2/data/node/template/task/trace_as_input",
+    "old": true,
+    "new": null
+  }
+]

@@ -4,7 +4,7 @@ Production merge d3d06e3aa624beae0968d3d8824d9bfabf47a573 integrates develop6077
 
 All five required CI checks pass atf38e4b70. Exact totals in ci-final-totals.txt:14interface tests,701Docker-boundary tests/28skips;1373installed-wheel tests/260skips on Python3.10 and3.13. Hosted run43195814745. Frontend overlay applies to upstreamfec71dca901949c09ed4d63315804337cd2eb13d; actual Vite build succeeds, five selected Jest suites33tests pass. Windows Jest testMatch escaped the hidden .tools path; an ignored testRegex configuration fixes discovery without changing production config.
 
-Optional-runtime complete suite atd3:1590passes/13skips/7failures. Stale binding/namespace corrections pass54targeted tests/32subtests and4real-Graph stage controls. Final complete optional-runtime rerun remains in progress at this checkpoint.
+Optional-runtime complete suite atd3:1590passes/13skips/7failures. Stale binding/namespace corrections pass54targeted tests/32subtests and4real-Graph stage controls. Final complete optional-runtime rerun at97ea2c3c reports1,595passes,13skips and1,805passing subtests in387.39seconds, with no failure summary. PowerShell reported wrapper exit1 after redirected native stderr warnings; a separate stderr control returns native_exit0 with one PowerShell error record. Independent hosted test jobs exit successfully. No failed test is hidden by the wrapper result.
 
 ## Review status
 
@@ -18,4 +18,10 @@ Binary PNGs show the actual combined build. Skill default/Advanced and connected
 
 Earlier live provider/recovery evidence retains its exact source revisions and limits on exp. No new live model calls were spent for this merge. Owner real-graph acceptance and final integration review remain open. No implementation merge/issue closure authorized.
 
-The archived develop sources have been verified against every exact byte count and SHA256 in archives/agents-250/20261112/develop-integration/manifest.json. Import-relocation helper and preview harnesses belong only on exp, not production.
+The four archived develop sources have been verified against every exact byte count and SHA256 in archives/agents-250/20261112/develop-integration/manifest.json. Import-relocation helper and preview harnesses belong only on exp, not production.
+
+Three exact pre-integration test sources were also archived from immutable 8fe9e364 after resolution, retaining the retired legacy-port/migration assertions without putting them back into production. Their manifest states that archival timing explicitly.
+
+Additional recovery/profile frontend checks: four suites, 47 tests pass. Together with the first five suites, 80 selected frontend tests pass. All five final documentation-head CI checks also pass at97ea2c3c (Work Graph43196480251, Black43196480235). No new source changes were made.
+
+Regenerated maintained graph metadata differs in ten non-code locations only: Task accepts Data as well as Message, StrInput replaces MessageTextInput and its inherited trace_as_input flag is absent; serialized connection handles follow the actual current input schema. The two graph invariant digests were refreshed accordingly. Reviewer confirmation of those details remains pending.

@@ -1,0 +1,438 @@
+[
+  {
+    "path": "src/laomedo/git/README.md",
+    "kind": "non-Python; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/git/command.py",
+    "kind": "non-import AST changes; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/git/credential_helper.py",
+    "kind": "added-or-removed; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/git/credentials/README.md",
+    "kind": "non-Python; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/git/credentials/__init__.py",
+    "kind": "added-or-removed; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/github/README.md",
+    "kind": "non-Python; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/github/interface/README.md",
+    "kind": "non-Python; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/github/interface/issues/cli.py",
+    "kind": "imports only; all non-import AST unchanged"
+  },
+  {
+    "path": "src/laomedo/github/interface/issues/client.py",
+    "kind": "imports only; all non-import AST unchanged"
+  },
+  {
+    "path": "src/laomedo/github/interface/issues/handler.py",
+    "kind": "imports only; all non-import AST unchanged"
+  },
+  {
+    "path": "src/laomedo/github/interface/pull_requests/cli.py",
+    "kind": "imports only; all non-import AST unchanged"
+  },
+  {
+    "path": "src/laomedo/github/interface/pull_requests/client.py",
+    "kind": "imports only; all non-import AST unchanged"
+  },
+  {
+    "path": "src/laomedo/github/interface/pull_requests/handler.py",
+    "kind": "imports only; all non-import AST unchanged"
+  },
+  {
+    "path": "src/laomedo/github/issues/gateway.py",
+    "kind": "imports only; all non-import AST unchanged"
+  },
+  {
+    "path": "src/laomedo/github/pull_requests/context.py",
+    "kind": "added-or-removed; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/github/pull_requests/contract.py",
+    "kind": "non-import AST changes; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/github/pull_requests/gateway.py",
+    "kind": "non-import AST changes; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/github/pull_requests/models.py",
+    "kind": "non-import AST changes; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/github/transport/git/transport.py",
+    "kind": "imports only; all non-import AST unchanged"
+  },
+  {
+    "path": "src/laomedo/github/transport/rest/README.md",
+    "kind": "non-Python; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/github/transport/rest/transport.py",
+    "kind": "non-import AST changes; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/github/workflows.py",
+    "kind": "added-or-removed; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/github/workflows/README.md",
+    "kind": "non-Python; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/github/workflows/__init__.py",
+    "kind": "added-or-removed; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/host/README.md",
+    "kind": "non-Python; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/host/__init__.py",
+    "kind": "non-import AST changes; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/host/credentials/siwc/browser.py",
+    "kind": "non-import AST changes; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/host/credentials/siwc/cli.py",
+    "kind": "non-import AST changes; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/host/credentials/siwc/connection.py",
+    "kind": "non-import AST changes; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/host/credentials/siwc/utils.py",
+    "kind": "non-import AST changes; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/host/credentials/token.py",
+    "kind": "added-or-removed; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/host/credentials/token/__init__.py",
+    "kind": "added-or-removed; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/host/host_services.py",
+    "kind": "non-import AST changes; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/host/http.py",
+    "kind": "added-or-removed; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/host/leases/client.py",
+    "kind": "imports only; all non-import AST unchanged"
+  },
+  {
+    "path": "src/laomedo/host/leases/grants.py",
+    "kind": "imports only; all non-import AST unchanged"
+  },
+  {
+    "path": "src/laomedo/host/leases/models.py",
+    "kind": "imports only; all non-import AST unchanged"
+  },
+  {
+    "path": "src/laomedo/host/leases/service.py",
+    "kind": "imports only; all non-import AST unchanged"
+  },
+  {
+    "path": "src/laomedo/host/leases/utils.py",
+    "kind": "imports only; all non-import AST unchanged"
+  },
+  {
+    "path": "src/laomedo/host/managed_service.py",
+    "kind": "non-import AST changes; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/host/mediation/agent_cli.py",
+    "kind": "imports only; all non-import AST unchanged"
+  },
+  {
+    "path": "src/laomedo/host/mediation/authority.py",
+    "kind": "non-import AST changes; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/host/mediation/cli.py",
+    "kind": "non-import AST changes; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/host/mediation/service.py",
+    "kind": "non-import AST changes; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/host/mediation/store.py",
+    "kind": "non-import AST changes; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/host/mediation/utils.py",
+    "kind": "non-import AST changes; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/host/private_state/utils.py",
+    "kind": "imports only; all non-import AST unchanged"
+  },
+  {
+    "path": "src/laomedo/host/publication/bundle/settings.py",
+    "kind": "non-import AST changes; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/host/publication/bundle/stage.py",
+    "kind": "non-import AST changes; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/host/publication/cli.py",
+    "kind": "non-import AST changes; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/host/publication/controller.py",
+    "kind": "non-import AST changes; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/host/publication/handoff/store.py",
+    "kind": "non-import AST changes; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/host/publication/verified/git.py",
+    "kind": "imports only; all non-import AST unchanged"
+  },
+  {
+    "path": "src/laomedo/host/publication/verified/utils.py",
+    "kind": "non-import AST changes; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/host/publication/verifier.py",
+    "kind": "non-import AST changes; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/http/README.md",
+    "kind": "non-Python; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/http/__init__.py",
+    "kind": "added-or-removed; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/http/redirect.py",
+    "kind": "added-or-removed; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/skills/README.md",
+    "kind": "non-Python; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/skills/authoring/README.md",
+    "kind": "non-Python; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/skills/authoring/__init__.py",
+    "kind": "added-or-removed; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/skills/inspection/README.md",
+    "kind": "non-Python; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/skills/inspection/__init__.py",
+    "kind": "added-or-removed; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/skills/inspection/errors.py",
+    "kind": "added-or-removed; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/skills/inspection/settings.py",
+    "kind": "added-or-removed; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/skills/interface/README.md",
+    "kind": "non-Python; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/skills/interface/operations/client.py",
+    "kind": "imports only; all non-import AST unchanged"
+  },
+  {
+    "path": "src/laomedo/skills/interface/operations/handler.py",
+    "kind": "imports only; all non-import AST unchanged"
+  },
+  {
+    "path": "src/laomedo/skills/interface/sources/client.py",
+    "kind": "imports only; all non-import AST unchanged"
+  },
+  {
+    "path": "src/laomedo/skills/operations/README.md",
+    "kind": "non-Python; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/skills/operations/manual.py",
+    "kind": "imports only; all non-import AST unchanged"
+  },
+  {
+    "path": "src/laomedo/skills/operations/models.py",
+    "kind": "added-or-removed; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/skills/operations/models/__init__.py",
+    "kind": "added-or-removed; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/skills/operations/models/history.py",
+    "kind": "added-or-removed; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/skills/operations/models/manual.py",
+    "kind": "added-or-removed; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/skills/operations/models/proposal.py",
+    "kind": "added-or-removed; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/skills/operations/models/provenance.py",
+    "kind": "added-or-removed; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/skills/operations/service.py",
+    "kind": "imports only; all non-import AST unchanged"
+  },
+  {
+    "path": "src/laomedo/skills/operations/settings.py",
+    "kind": "added-or-removed; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/skills/operations/utils/__init__.py",
+    "kind": "added-or-removed; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/skills/operations/utils/proposal.py",
+    "kind": "added-or-removed; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/skills/operations/utils/summary.py",
+    "kind": "added-or-removed; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/skills/registry/README.md",
+    "kind": "non-Python; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/skills/registry/errors.py",
+    "kind": "non-import AST changes; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/skills/registry/models.py",
+    "kind": "imports only; all non-import AST unchanged"
+  },
+  {
+    "path": "src/laomedo/skills/registry/settings.py",
+    "kind": "non-import AST changes; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/skills/registry/store.py",
+    "kind": "imports only; all non-import AST unchanged"
+  },
+  {
+    "path": "src/laomedo/skills/registry/utils/__init__.py",
+    "kind": "added-or-removed; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/skills/registry/utils/diff.py",
+    "kind": "added-or-removed; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/skills/registry/utils/files.py",
+    "kind": "added-or-removed; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/skills/registry/utils/hashing.py",
+    "kind": "added-or-removed; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/skills/registry/utils/inspection.py",
+    "kind": "added-or-removed; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/skills/registry/utils/paths.py",
+    "kind": "added-or-removed; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/skills/registry/utils/policy.py",
+    "kind": "added-or-removed; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/skills/settings.py",
+    "kind": "added-or-removed; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/skills/sources/bundle.py",
+    "kind": "imports only; all non-import AST unchanged"
+  },
+  {
+    "path": "src/laomedo/skills/sources/local.py",
+    "kind": "imports only; all non-import AST unchanged"
+  },
+  {
+    "path": "src/laomedo/skills/sources/repository.py",
+    "kind": "imports only; all non-import AST unchanged"
+  },
+  {
+    "path": "src/laomedo/skills/sources/service.py",
+    "kind": "imports only; all non-import AST unchanged"
+  },
+  {
+    "path": "src/laomedo/work_graph/__main__.py",
+    "kind": "non-import AST changes; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/work_graph/client.py",
+    "kind": "imports only; all non-import AST unchanged"
+  },
+  {
+    "path": "src/laomedo/work_graph/docker_stage.py",
+    "kind": "non-import AST changes; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/work_graph/github.py",
+    "kind": "non-import AST changes; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/work_graph/grant_utils.py",
+    "kind": "non-import AST changes; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/work_graph/grants.py",
+    "kind": "non-import AST changes; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/work_graph/launch.py",
+    "kind": "non-import AST changes; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/work_graph/local_launch.py",
+    "kind": "non-import AST changes; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/work_graph/models.py",
+    "kind": "non-import AST changes; inspect full diff"
+  },
+  {
+    "path": "src/laomedo/work_graph/stage_worker.py",
+    "kind": "non-import AST changes; inspect full diff"
+  }
+]
