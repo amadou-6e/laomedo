@@ -1,17 +1,15 @@
-﻿"""Profile installer controls on local files; no app, network or model execution."""
+"""Profile installer controls on local files; no app, network or model execution."""
 
-import importlib.util
+from runpy import run_path
 from pathlib import Path
 import tempfile
 import unittest
 
 from support.paths import repository_root
 
-spec = importlib.util.spec_from_file_location(
-    "profile_overlay", repository_root() / "tools/apply_langflow_local_profiles.py"
-)
-overlay = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(overlay)
+apply_profiles = run_path(
+    str(repository_root() / "tools/apply_langflow_local_profiles.py")
+)["apply_profiles"]
 
 
 class ProfileOverlayTests(unittest.TestCase):
@@ -60,7 +58,7 @@ class ProfileOverlayTests(unittest.TestCase):
                     p: p.read_bytes() for p in self.frontend.rglob("*") if p.is_file()
                 }
                 with self.assertRaisesRegex(SystemExit, "^" + code + "$"):
-                    overlay.apply_profiles(self.root / "checkout", self.source)
+                    apply_profiles(self.root / "checkout", self.source)
                 self.assertEqual(
                     {
                         p: p.read_bytes()
@@ -75,7 +73,7 @@ class ProfileOverlayTests(unittest.TestCase):
                 path.write_bytes(original)
 
     def test_valid_overlay_writes_routes_and_exact_profile_assets(self):
-        overlay.apply_profiles(self.root / "checkout", self.source)
+        apply_profiles(self.root / "checkout", self.source)
         self.assertIn(
             "<ProfileEntryGate><LoginPage />",
             (self.frontend / "routes.tsx").read_text(),
