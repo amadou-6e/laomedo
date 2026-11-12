@@ -23,3 +23,7 @@ never creates or changes a GitHub App. Source-read consent grants no Agent or
 write permission. Private Skill browsing is a separate access boundary.
 
 All controls require browser validation and independent review before delivery.
+
+The connection screen leads with Connect GitHub and repository selection. Advanced
+contains one-time GitHub App setup, callback details and optional token entry.
+Missing setup opens that disclosure explicitly; credentials remain transient.

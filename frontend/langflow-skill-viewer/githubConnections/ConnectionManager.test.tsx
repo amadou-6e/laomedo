@@ -94,7 +94,7 @@ it("keeps its initiating mutation busy and displays the response despite same-do
     await screen.findByRole("button", { name: "Connect GitHub" }),
   );
   expect(
-    screen.getByRole("button", { name: "Check current state" }),
+    screen.getByRole("button", { name: "Refresh" }),
   ).toBeDisabled();
   expect(screen.queryByText(/changed in another tab/)).not.toBeInTheDocument();
   await act(async () =>

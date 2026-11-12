@@ -25,14 +25,13 @@ export default function ConnectionForms({
       }}
     >
       <h2 className="text-lg font-semibold">
-        {mode === "setup" ? "Set up GitHub sign-in" : "Use a token"}
+        {mode === "setup" ? "GitHub App setup" : "Use a token"}
       </h2>
       {mode === "setup" ? (
         <>
           <p>
-            Register a GitHub App with repository Contents read access, expiring
-            user tokens and the exact callback shown above. Registration and
-            installation remain actions you confirm on GitHub.
+            First, register a GitHub App with Contents read-only access and expiring
+            user tokens. Use the callback URL below. Then enter its credentials here.
           </p>
           <a
             className="text-primary underline underline-offset-4"
@@ -40,10 +39,10 @@ export default function ConnectionForms({
             target="_blank"
             rel="noreferrer"
           >
-            Open GitHub App registration
+            1. Register an App on GitHub
           </a>
           <label>
-            App client ID
+            2. Client ID
             <Input
               name="client_id"
               required
@@ -53,7 +52,7 @@ export default function ConnectionForms({
             />
           </label>
           <label>
-            App slug
+            3. App slug
             <Input
               name="slug"
               required
@@ -63,7 +62,7 @@ export default function ConnectionForms({
             />
           </label>
           <label>
-            App client secret
+            4. Client secret
             <Input
               name="secret"
               type="password"

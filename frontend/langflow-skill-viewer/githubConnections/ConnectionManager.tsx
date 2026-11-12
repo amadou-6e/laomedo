@@ -18,6 +18,7 @@ export default function ConnectionManager() {
   const [enabled, setEnabled] = useState<boolean>();
   const [index, setIndex] = useState<ConnectionIndex>();
   const [form, setForm] = useState<"setup" | "token">();
+  const [advanced, setAdvanced] = useState(false);
   const [target, setTarget] = useState<string>();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -126,10 +127,14 @@ export default function ConnectionManager() {
       : undefined;
   return (
     <main className="grid w-full max-w-3xl gap-5 p-4">
-      <h1 className="text-xl font-semibold">GitHub connections</h1>
-      <p>
-        Private Skill source reads for the current local profile. No Agent
-        execution or repository writes.
+      <div className="flex items-center justify-between gap-4">
+        <h1 className="text-xl font-semibold">GitHub connections</h1>
+        <Button variant="outline" disabled={busy} onClick={() => void run()}>
+          Refresh
+        </Button>
+      </div>
+      <p className="text-muted-foreground">
+        Connect your GitHub account, then choose repositories to browse private skills.
       </p>
       {error && (
         <ErrorExplanation
@@ -149,23 +154,30 @@ export default function ConnectionManager() {
       {profile.notice}
       {notice && <p role="status">{notice}</p>}
       {busy && <p role="status">Checking…</p>}
-      <div className="flex flex-wrap gap-2">
-        <Button variant="outline" disabled={busy} onClick={() => void run()}>
-          Check current state
-        </Button>
-        <Button
-          variant="outline"
-          onClick={() => window.location.assign("/settings/general")}
-        >
-          Close
-        </Button>
-      </div>
       {index && (
         <>
-          <p className="break-all">
-            Registered callback: <code>{index.callback_uri}</code>
-          </p>
-          {form ? (
+          {!form && (
+            <section className="grid gap-3 rounded-lg border p-5">
+              <h2 className="font-semibold">Connect your account</h2>
+              <p className="text-sm text-muted-foreground">
+                You choose which repositories Laomedo can read. This does not grant write access.
+              </p>
+              <div>
+                <Button disabled={busy} onClick={() => {
+                  if (index.app) void run("begin", {});
+                  else { setAdvanced(true); setForm("setup"); }
+                }}>Connect GitHub</Button>
+              </div>
+              {!index.app && <p className="text-sm text-muted-foreground">
+                GitHub sign-in needs a one-time setup on this local installation.
+              </p>}
+            </section>
+          )}
+          <details open={advanced} onToggle={(event) => setAdvanced(event.currentTarget.open)}
+            className="rounded-lg border p-4">
+            <summary className="cursor-pointer font-medium">Advanced</summary>
+            <div className="mt-4 grid gap-4">
+              {form ? (
             <ConnectionForms
               key={form + (target ?? "")}
               mode={form}
@@ -184,34 +196,25 @@ export default function ConnectionManager() {
                 setTarget(undefined);
               }}
             />
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              {index.app ? (
-                <Button disabled={busy} onClick={() => void run("begin", {})}>
-                  Connect GitHub
-                </Button>
               ) : (
-                <Button disabled={busy} onClick={() => setForm("setup")}>
-                  View app setup
-                </Button>
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="outline" disabled={busy} onClick={() => setForm("setup")}>
+                    GitHub App setup
+                  </Button>
+                  <Button variant="outline" disabled={busy} onClick={() => {
+                    setTarget(undefined); setForm("token");
+                  }}>Use a token instead</Button>
+                </div>
               )}
-              <Button
-                variant="outline"
-                disabled={busy}
-                onClick={() => {
-                  setTarget(undefined);
-                  setForm("token");
-                }}
-              >
-                Use a token instead
-              </Button>
+              <div className="grid gap-1 text-sm text-muted-foreground">
+                <span>Callback URL for GitHub App setup</span>
+                <code className="break-all select-all">{index.callback_uri}</code>
+              </div>
+              {install && <a className="text-sm underline" href={install} target="_blank" rel="noreferrer">
+                Manage GitHub App installation
+              </a>}
             </div>
-          )}
-          {install && (
-            <a href={install} target="_blank" rel="noreferrer">
-              Install / manage app repositories
-            </a>
-          )}
+          </details>
           {index.pending.map((attempt) =>
             attempt.phase === "consent" ? (
               <ConnectionInventory
@@ -291,6 +294,7 @@ export default function ConnectionManager() {
                             void run("begin", { connection_id: connection.id });
                           else {
                             setTarget(connection.id);
+                            setAdvanced(true);
                             setForm("token");
                           }
                         }}
