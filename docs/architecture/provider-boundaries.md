@@ -358,12 +358,18 @@ lease-supervisor loss, terminal Activity-stream recovery, default OpenCode
 composition, native GitHub mediation and independent isolation certification are
 not established by these results; separately gated capabilities stay gated.
 
-The preceding approvals cover the revisions listed above. Canonical spec PR403
-is now merged at `3d6ff82338b32d920ab044f3510fc8d044db3501`. Integration of
-`develop` at `6077e79a` is published at `d3d06e3a`, with current-interface test
-bindings corrected at `f38e4b70`; all five required CI checks pass at that head.
-Claude reviewed part of the new core delta without confirmed findings, but the
-remaining integration is fully unreviewed ? reviewer pending. These later
-changes are outside the earlier scoped approvals. The whole-boundary completion
-checklist and owner's final real-graph validation remain open. PR250 stays draft;
-no implementation merge or issue closure is authorized.
+The preceding scoped approvals are complemented by Claude's completed integration
+review against develop `6077e79a0ac0d8f1d0a6a8e7074eb0e64fca876f` through
+`3ebc4a34`: implementation coverage APPROVE, with no remaining code findings.
+C-01, M-01, T-01 and the numeric-settings coverage correction were verified;
+A-01/A-02 obsolete metadata and documentation cleanup received focused APPROVE.
+The symbol map was covered by targeted searches and target-resolution tests,
+not individual review of every removed key. Earlier native acceptance remains
+bound to its recorded revisions; this integration review is not fresh native
+acceptance. Actual Skill default/Advanced, Prior Run and PR layout captures retain
+visual APPROVE; profile/recovery and live GitHub states are outside that scope.
+
+Canonical spec PR403 is merged at `3d6ff82338b32d920ab044f3510fc8d044db3501`.
+The owner's final real-graph validation remains open. PR250 stays draft;
+no implementation merge or issue closure is authorized. Later edits to this
+review-status paragraph introduce no execution behavior.
