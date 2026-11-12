@@ -15,7 +15,7 @@ from support.paths import repository_root
 
 
 @unittest.skipUnless(
-    importlib.util.find_spec("lfx"), "Requires the declared Langflow runtime"
+    importlib.util.find_spec("langflow"), "Requires the declared Langflow runtime"
 )
 class GraphBuilderTests(unittest.TestCase):
     def test_cli_bootstraps_runtime_in_a_fresh_interpreter(self):
