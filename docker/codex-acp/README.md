@@ -3,8 +3,15 @@
 This image adapts the Codex app server to the shared ACP runner interface.
 The native-event extension preserves raw receipts and host-owned policy.
 
-Build from this directory with `docker build -t laomedo-codex-acp:0.159.2-2.1.1 .`.
-Record the resulting immutable image ID before testing or configuring a runner.
+Normal runner startup uses this recipe's registration in `../images.json`.
+The shared Docker runtime builds it on the selected daemon when the registered
+tag is missing, verifies its version and resolves its immutable ID. No manual
+build is required. Existing-tag recipe mismatches and explicit pins follow the
+[shared acquisition policy](../README.md).
+
+For a host-reviewed manual rebuild, run
+`docker build -t laomedo-codex-acp:0.159.2-2.1.1 .` from this directory and record
+the resulting immutable ID for the runner's explicit `image_id` override.
 The Dockerfile pins the Node base, upstream adapter commit/archive checksum and
 Codex package lock. The runtime includes the upstream Apache-2.0 licence and
 checksums of the patch, extension and compiled adapter. The Laomedo extension
