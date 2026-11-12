@@ -23,6 +23,7 @@ jest.mock("./api", () => ({
   },
 }));
 jest.mock("@/components/ui/button", () => ({
+  buttonVariants: () => "button-style",
   Button: ({ children, variant, ...props }: any) => (
     <button {...props}>{children}</button>
   ),
@@ -180,3 +181,15 @@ it.each([
     ).not.toBeInTheDocument();
   },
 );
+
+it("keeps required setup outside Advanced and the connection action visible", async () => {
+  (connectionRequest as jest.Mock).mockResolvedValue({ index: { ...initial, app: null } });
+  render(<ConnectionManager />);
+  fireEvent.click(await screen.findByRole("button", { name: "Connect GitHub" }));
+  const registration = screen.getByRole("link", { name: "Register GitHub App" });
+  expect(registration).toHaveAttribute("href", "https://github.com/settings/apps/new");
+  expect(registration).toHaveClass("button-style");
+  expect(registration.closest("details")).toBeNull();
+  expect(screen.getByLabelText("Client secret")).toHaveAttribute("type", "password");
+  expect(screen.getByRole("button", { name: "Connect GitHub" })).toBeVisible();
+});

@@ -156,7 +156,7 @@ export default function ConnectionManager() {
       {busy && <p role="status">Checking…</p>}
       {index && (
         <>
-          {!form && (
+          {(
             <section className="grid gap-3 rounded-lg border p-5">
               <h2 className="font-semibold">Connect your account</h2>
               <p className="text-sm text-muted-foreground">
@@ -165,7 +165,7 @@ export default function ConnectionManager() {
               <div>
                 <Button disabled={busy} onClick={() => {
                   if (index.app) void run("begin", {});
-                  else { setAdvanced(true); setForm("setup"); }
+                  else { setForm("setup"); }
                 }}>Connect GitHub</Button>
               </div>
               {!index.app && <p className="text-sm text-muted-foreground">
@@ -173,11 +173,8 @@ export default function ConnectionManager() {
               </p>}
             </section>
           )}
-          <details open={advanced} onToggle={(event) => setAdvanced(event.currentTarget.open)}
-            className="rounded-lg border p-4">
-            <summary className="cursor-pointer font-medium">Advanced</summary>
-            <div className="mt-4 grid gap-4">
-              {form ? (
+          {form && (
+            <section className="grid gap-4 rounded-lg border p-5">
             <ConnectionForms
               key={form + (target ?? "")}
               mode={form}
@@ -196,19 +193,26 @@ export default function ConnectionManager() {
                 setTarget(undefined);
               }}
             />
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  <Button variant="outline" disabled={busy} onClick={() => setForm("setup")}>
-                    GitHub App setup
-                  </Button>
-                  <Button variant="outline" disabled={busy} onClick={() => {
-                    setTarget(undefined); setForm("token");
-                  }}>Use a token instead</Button>
+
+              {form === "setup" && (
+                <div className="grid gap-1 text-sm text-muted-foreground">
+                  <span>Callback URL ? copy this into your GitHub App</span>
+                  <code className="break-all select-all">{index.callback_uri}</code>
                 </div>
               )}
-              <div className="grid gap-1 text-sm text-muted-foreground">
-                <span>Callback URL for GitHub App setup</span>
-                <code className="break-all select-all">{index.callback_uri}</code>
+            </section>
+          )}
+          <details open={advanced} onToggle={(event) => setAdvanced(event.currentTarget.open)}
+            className="rounded-lg border p-4">
+            <summary className="cursor-pointer font-medium">Advanced</summary>
+            <div className="mt-4 grid gap-4">
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" disabled={busy} onClick={() => setForm("setup")}>
+                  GitHub App setup
+                </Button>
+                <Button variant="outline" disabled={busy} onClick={() => {
+                  setTarget(undefined); setForm("token");
+                }}>Use a token instead</Button>
               </div>
               {install && <a className="text-sm underline" href={install} target="_blank" rel="noreferrer">
                 Manage GitHub App installation

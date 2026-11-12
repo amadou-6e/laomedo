@@ -27,3 +27,7 @@ All controls require browser validation and independent review before delivery.
 The connection screen leads with Connect GitHub and repository selection. Advanced
 contains one-time GitHub App setup, callback details and optional token entry.
 Missing setup opens that disclosure explicitly; credentials remain transient.
+
+Required App setup renders as a standalone panel outside Advanced. The primary
+connection action remains visible while setup is open. Advanced holds optional
+configuration actions; registration uses a button-styled external link.

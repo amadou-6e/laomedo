@@ -1,4 +1,4 @@
-﻿import { Button } from "@/components/ui/button";
+﻿import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 export default function ConnectionForms({
@@ -34,15 +34,15 @@ export default function ConnectionForms({
             user tokens. Use the callback URL below. Then enter its credentials here.
           </p>
           <a
-            className="text-primary underline underline-offset-4"
+            className={buttonVariants({ className: "w-fit" })}
             href="https://github.com/settings/apps/new"
             target="_blank"
             rel="noreferrer"
           >
-            1. Register an App on GitHub
+            Register GitHub App
           </a>
           <label>
-            2. Client ID
+            Client ID
             <Input
               name="client_id"
               required
@@ -52,7 +52,7 @@ export default function ConnectionForms({
             />
           </label>
           <label>
-            3. App slug
+            App slug
             <Input
               name="slug"
               required
@@ -62,7 +62,7 @@ export default function ConnectionForms({
             />
           </label>
           <label>
-            4. Client secret
+            Client secret
             <Input
               name="secret"
               type="password"
