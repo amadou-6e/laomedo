@@ -358,7 +358,12 @@ lease-supervisor loss, terminal Activity-stream recovery, default OpenCode
 composition, native GitHub mediation and independent isolation certification are
 not established by these results; separately gated capabilities stay gated.
 
-Implementation, tests and visuals have scoped APPROVE verdicts. Full integration
-acceptance remains open: the whole-boundary completion checklist, canonical spec
-PR403 and the owner's final real-graph validation have not been signed off. PR250
-remains draft. No merge or issue closure is authorized.
+The preceding approvals cover the revisions listed above. Canonical spec PR403
+is now merged at `3d6ff82338b32d920ab044f3510fc8d044db3501`. Integration of
+`develop` at `6077e79a` is published at `d3d06e3a`, with current-interface test
+bindings corrected at `f38e4b70`; all five required CI checks pass at that head.
+Claude reviewed part of the new core delta without confirmed findings, but the
+remaining integration is fully unreviewed ? reviewer pending. These later
+changes are outside the earlier scoped approvals. The whole-boundary completion
+checklist and owner's final real-graph validation remain open. PR250 stays draft;
+no implementation merge or issue closure is authorized.
