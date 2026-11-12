@@ -380,7 +380,6 @@ class NodeErrorCatalogueTests(unittest.TestCase):
         for filename in (
             "claude_container.py",
             "langflow_join.py",
-            "runner_trace_bridge.py",
             "handoff_http.py",
             "agent_activity_capture.py",
             "agent_activity.py",

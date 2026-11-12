@@ -61,61 +61,44 @@ def install_activity_routes(app, authenticate, store=None):
         def load():
             """Read retained evidence and apply the selected owner-scoped projection without native execution."""
             store = configured()
-            events = []
-            after = 0
-            while True:
-                page = store.read(identity, flow, node, run, after, 200)
-                events.extend(page["events"])
-                after = page["next_after"]
-                snapshots = [
-                    item
-                    for item in events
-                    if item.get("raw", {}).get("method") == "activity/projection"
+            page = store.read(identity, flow, node, run, 0, 200)
+            projection = project(page["events"])
+            reason = page["run"].get("reason")
+            if reason in {
+                "invocation_boundary_unverified",
+                "activity_projection_limit",
+            }:
+                projection["usage"] = None
+                projection["usage_by_thread"] = {}
+                projection["turns"] = [
+                    {**turn, "usage": None, "cost": {"amount": None}}
+                    for turn in projection["turns"]
                 ]
-                if snapshots or not page["has_more"] or len(events) >= 20000:
-                    projection = project(snapshots or events)
-                    if (
-                        (page["has_more"] and not snapshots)
-                        or page["run"].get("reason") == "invocation_boundary_unverified"
-                        or page["run"].get("reason") == "activity_projection_limit"
-                    ):
-                        projection["usage"] = None
-                        projection["usage_by_thread"] = {}
-                        projection["turns"] = [
-                            {**turn, "usage": None, "cost": {"amount": None}}
-                            for turn in projection["turns"]
-                        ]
-                        projection["usage_points"] = []
-                        projection["cost"] = {
-                            **projection["cost"],
-                            "amount": None,
-                            "per_thread": {},
-                            "reason": (
-                                "Detail limit reached."
-                                if page["has_more"]
-                                else "Invocation boundary is unverified."
-                            ),
-                        }
-                        projection["cost_reason"] = (
-                            "Detail limit reached; complete token and cost totals are unavailable."
-                            if page["has_more"]
-                            else "Invocation boundary is unverified; retained receipts are partial evidence."
-                        )
-                        if page["run"].get("reason") == "activity_projection_limit":
-                            projection["cost"][
-                                "reason"
-                            ] = "Activity capture limit reached."
-                            projection["cost_reason"] = (
-                                "Activity capture limit reached; complete token and cost totals are unavailable."
-                            )
-                    return {
-                        **page,
-                        "run": {**page["run"], "node": node},
-                        "events": [] if snapshots else events,
-                        "has_more": False if snapshots else page["has_more"],
-                        "projection": projection,
-                        "truncated": bool(page["has_more"] and not snapshots),
-                    }
+                projection["usage_points"] = []
+                detail = (
+                    "Activity capture limit reached."
+                    if reason == "activity_projection_limit"
+                    else "Invocation boundary is unverified."
+                )
+                projection["cost"] = {
+                    **projection["cost"],
+                    "amount": None,
+                    "per_thread": {},
+                    "reason": detail,
+                }
+                projection["cost_reason"] = (
+                    "Activity capture limit reached; complete token and cost totals are unavailable."
+                    if reason == "activity_projection_limit"
+                    else "Invocation boundary is unverified; retained receipts are partial evidence."
+                )
+            return {
+                **page,
+                "run": {**page["run"], "node": node},
+                "events": [],
+                "has_more": False,
+                "projection": projection,
+                "truncated": False,
+            }
 
         try:
             result = await run_in_threadpool(load)

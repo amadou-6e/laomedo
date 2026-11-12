@@ -255,3 +255,42 @@ class ActivityTests(unittest.TestCase):
         self.assertFalse(body["truncated"])
         self.assertEqual(body["events"], [])
         self.assertLess(len(response.content), 10000)
+
+    @unittest.skipIf(FastAPI is None, "optional FastAPI integration is not installed")
+    def test_incomplete_current_snapshot_never_claims_known_usage_or_cost(self):
+        from laomedo.agents.activity.models import ActivityProjection
+
+        for reason in ("invocation_boundary_unverified", "activity_projection_limit"):
+            with self.subTest(reason=reason):
+                run = self.store.start(
+                    CaptureIdentity.from_values("alice", "flow", "agent")
+                )
+                view = ActivityProjection.empty().to_payload()
+                view.update(
+                    usage={"inputTokens": 10},
+                    usage_by_thread={"root": {"inputTokens": 10}},
+                    usage_points=[{"usage": {"inputTokens": 10}}],
+                )
+                view["cost"] = {"amount": 1, "per_thread": {"root": {"amount": 1}}}
+                self.store.append(
+                    run,
+                    {
+                        "method": "activity/projection",
+                        "revision": 1,
+                        "projection": view,
+                    },
+                    source="projection:test",
+                    cursor=1,
+                )
+                self.store.finish(run, "failed", reason=reason)
+                response = self.client.get(
+                    "/api/v1/laomedo/agent-executions/flow/agent/" + run,
+                    headers={"Authorization": "alice"},
+                )
+                self.assertEqual(response.status_code, 200)
+                projection = response.json()["projection"]
+                self.assertIsNone(projection["usage"])
+                self.assertEqual(projection["usage_by_thread"], {})
+                self.assertEqual(projection["usage_points"], [])
+                self.assertIsNone(projection["cost"]["amount"])
+                self.assertEqual(projection["cost"]["per_thread"], {})

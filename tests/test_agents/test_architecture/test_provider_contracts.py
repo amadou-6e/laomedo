@@ -270,12 +270,16 @@ class ProviderInterfaceContractTests(unittest.TestCase):
                     if isinstance(node, ast.Import)
                     else [node.module or ""] if isinstance(node, ast.ImportFrom) else []
                 )
+                if (
+                    isinstance(node, ast.ImportFrom)
+                    and node.module == "laomedo.agents.agents"
+                ):
+                    names.extend(node.module + "." + item.name for item in node.names)
                 for name in names:
-                    if name.startswith(
-                        tuple(
-                            "laomedo.agents.agents." + provider + "."
-                            for provider in ("codex", "claude", "opencode")
-                        )
+                    if any(
+                        name == "laomedo.agents.agents." + provider
+                        or name.startswith("laomedo.agents.agents." + provider + ".")
+                        for provider in ("codex", "claude", "opencode")
                     ):
                         # Startup may select fixed provider configuration, never behavior.
                         self.assertTrue(
