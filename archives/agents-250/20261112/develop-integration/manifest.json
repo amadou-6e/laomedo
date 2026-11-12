@@ -1,0 +1,30 @@
+[
+  {
+    "path": "examples/opencode-agent/acceptance.py",
+    "source_commit": "6077e79a0ac0d8f1d0a6a8e7074eb0e64fca876f",
+    "sha256": "1f048f9c9fb641f7067162f7d8cd76f203a5f5c03e376e64da2bc4af106916ba",
+    "bytes": 9711,
+    "reason": "already retired by selected Agent migration; develop changes only registry helper import locations"
+  },
+  {
+    "path": "src/laomedo/agents/providers/opencode/runner.py",
+    "source_commit": "6077e79a0ac0d8f1d0a6a8e7074eb0e64fca876f",
+    "sha256": "c5cf02bb4d8c35371dc8bc670f2626464bbeb1fad4936b4ab4b9fbc0d377d2f6",
+    "bytes": 33294,
+    "reason": "already retired by selected Agent migration; develop changes only registry helper import locations"
+  },
+  {
+    "path": "src/laomedo/agents/runtime/runner.py",
+    "source_commit": "6077e79a0ac0d8f1d0a6a8e7074eb0e64fca876f",
+    "sha256": "d8277cd781dc5e1dc614bd06ccefbf5b56ddc21fda50a63095115907d46c333c",
+    "bytes": 29448,
+    "reason": "already retired by selected Agent migration; develop changes only registry helper import locations"
+  },
+  {
+    "path": "src/laomedo/agents/workspace/skills/utils.py",
+    "source_commit": "6077e79a0ac0d8f1d0a6a8e7074eb0e64fca876f",
+    "sha256": "207225b50dfb7bf3eb065d12bdcbe2053286361d35dc4173b0e118d78a7fb6d0",
+    "bytes": 6638,
+    "reason": "already retired by selected Agent migration; develop changes only registry helper import locations"
+  }
+]
