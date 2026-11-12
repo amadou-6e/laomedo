@@ -331,19 +331,34 @@ APPROVE; the view-only harness also received APPROVE. Exact binary images are
 on exp `53b23132`, superseding the initial text-normalized screenshot blobs.
 Codex diagram path correction `c7a65ce0..2f0d5ffa` received visual APPROVE.
 
-The remaining role review approved current shared contracts/models, credentials,
-executors, native runtimes/policy, catalogs, caller hunks, Activity projection,
-structural checker, CI and read migration-map hunks. Current-state approval does
-not establish exact historical equivalence; remaining edited tests, docs,
-settings, migration entries and other declared unread hunks remain fully
-unreviewed — reviewer pending. The unsupported relative-import case is optional
-checker hardening; current providers use absolute imports.
+The completed role review covers shared contracts/models, credentials, executors,
+native runtimes/policy, catalogs/caller hunks, Activity projections, the structural
+checker and CI, edited tests, JSON fixtures, settings and all changed migration
+map targets. Current-state runtime approval does not establish exact historical
+equivalence. Optional limitations remain: the structural checker resolves current
+absolute imports, and the older malformed-MCP error path is unchanged.
 
 Review finding AB-01 identified an older OpenCode per-thread cost overstatement
 when usage is incomplete. Correction `2f0d5ffa..6cff259a` passes 84 OpenCode and
-49 shared Activity tests plus pinned Black. Its required focused recheck remains
-pending: Claude reported a weekly quota limit, resetting at 08:00 Berlin time.
-No approval or whole-PR readiness is inferred from those checks.
+49 shared Activity tests plus pinned Black. Claude verified the correction and
+approved the implementation and tests. The Codex model payload question is closed:
+its existing HTTP `id`/`efforts` fields remain unchanged.
 
-PR250 remains draft. Canonical specification and owner final graph acceptance
-remain separate gates. These status notes introduce no execution behavior.
+The last substantive reviewed head is `6cff259a`. Later `341c68f3` only corrects
+requested documentation: historical plans no longer claim the runtime/projector
+ABCs are delivered, and the live catalog vocabulary is `list_models`. Those
+non-executable corrections passed all five required CI checks without another
+wording recheck. Later review-status notes introduce no execution behavior.
+
+Real-image fresh/resume/cancellation evidence exists for Codex, Claude and the
+explicitly composed OpenCode route. Actual split Codex and explicitly composed
+OpenCode constructor-restart cases are recorded, with their exact limits.
+Interrupted feeds remain unsealed. Physical host/daemon loss, a second daemon,
+lease-supervisor loss, terminal Activity-stream recovery, default OpenCode
+composition, native GitHub mediation and independent isolation certification are
+not established by these results; separately gated capabilities stay gated.
+
+Implementation, tests and visuals have scoped APPROVE verdicts. Full integration
+acceptance remains open: the whole-boundary completion checklist, canonical spec
+PR403 and the owner's final real-graph validation have not been signed off. PR250
+remains draft. No merge or issue closure is authorized.

@@ -11,7 +11,7 @@ The role objects introduced by #275 exposed native operations beyond their base
 contracts. The CI guard reported those gaps at that interim stage. The analysis
 called for moving
 responsibilities and actual callers, rather than adding every native method to a
-large base or rename external calls to private helpers.
+large base or renaming external calls to private helpers.
 
 ## Aligned operations
 
