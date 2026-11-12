@@ -2,11 +2,13 @@
 
 import importlib.util
 import json
+import os
 from hashlib import sha256
 import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 from support.paths import repository_root
@@ -52,6 +54,28 @@ class GraphBuilderTests(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        """Build with real runtime services isolated from host application secrets."""
+        configuration = tempfile.TemporaryDirectory(prefix="laomedo-graph-tests-")
+        cls.addClassCleanup(configuration.cleanup)
+        environment = patch.dict(
+            os.environ,
+            {
+                "LANGFLOW_CONFIG_DIR": configuration.name,
+                "LFX_CONFIG_DIR": configuration.name,
+            },
+        )
+        environment.start()
+        cls.addClassCleanup(environment.stop)
+        # Langflow must install its compatibility bindings before importing LFX.
+        import langflow
+        from lfx.services.manager import get_service_manager
+        from lfx.services.schema import ServiceType
+
+        manager = get_service_manager()
+        services = patch.dict(manager.services)
+        services.start()
+        cls.addClassCleanup(services.stop)
+        manager.services.pop(ServiceType.SETTINGS_SERVICE, None)
         spec = importlib.util.spec_from_file_location(
             "maintained_agent_graph",
             repository_root() / "examples/agents/build_flow.py",
