@@ -193,3 +193,7 @@ provider by name. This serialization policy does not change typed discovery.
 Providers return shared `ActivityPage` values with stable common records and a
 revisioned display snapshot. Native interpretation stays internal; callers do not
 supply another projector. See [the exact contract](../../../../../docs/architecture/activity-interface.md).
+
+## Raw evidence boundary
+
+`BaseAgent.read_events(run_id, attempt_id, after=0, otel_after=0, limit=100, tail=False)` reads bounded native and telemetry receipts for evidence readers. Shared code owns its recorded-file layout; HTTP only adapts query values and serializes the result. `read_activity` remains the normalized application interface.

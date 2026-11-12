@@ -278,15 +278,7 @@ class ActivityReadTests(unittest.TestCase):
             capture.observe(self.run)
             saved = store.read("alice", "flow", "node", invocation)
             self.assertEqual(saved["run"]["stream_state"], "complete")
-            with patch(
-                "laomedo.agents.activity.legacy.project_retained",
-                side_effect=AssertionError(
-                    "application must not parse native evidence"
-                ),
-            ):
-                payload = project(
-                    saved["events"], provider="not-needed-for-normalized-history"
-                )
+            payload = project(saved["events"])
             self.assertEqual(
                 payload["items"][0]["item"]["text"], "saved common message"
             )

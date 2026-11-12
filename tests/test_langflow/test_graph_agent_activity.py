@@ -13,11 +13,10 @@ from pathlib import Path
 import tempfile
 import unittest
 import threading
-from types import SimpleNamespace
 from concurrent.futures import ThreadPoolExecutor
 
 from laomedo.agents.activity.store import ActivityStore
-from laomedo.agents.activity.projection import project
+from laomedo.agents.agents.codex.activity.projection import project
 from laomedo.agents.agents.codex.activity.cost import estimate
 from laomedo.agents.activity.runner.feed import notification
 from laomedo.agents.activity.runner.feed import read_feed
@@ -92,7 +91,9 @@ class GraphActivityTests(unittest.TestCase):
                 },
             ]
         )
-        result = project([receipt(raw) for raw in events], root_thread="root")
+        result = project(
+            [receipt(raw) for raw in events], root_thread="root"
+        ).to_payload()
         self.assertEqual(
             [turn["usage"]["inputTokens"] for turn in result["turns"]], [45, 10]
         )
@@ -124,7 +125,7 @@ class GraphActivityTests(unittest.TestCase):
                 ),
             ],
             root_thread="root",
-        )
+        ).to_payload()
         self.assertIsNone(missing["turns"][0]["usage"])
         self.assertIsNone(missing["usage_points"][0]["turn_usage"])
 
@@ -150,7 +151,7 @@ class GraphActivityTests(unittest.TestCase):
         result = project(
             [{"raw": event, "received_at": "2026-10-24T18:00:00Z"} for event in raw],
             root_thread="root",
-        )
+        ).to_payload()
         self.assertIsNone(result["turns"][0]["usage"])
         self.assertIsNone(result["turns"][0]["cost"]["amount"])
 
@@ -241,7 +242,7 @@ class GraphActivityTests(unittest.TestCase):
             }
             for value in [100, 50, 120]
         ]
-        result = project(events, root_thread="thread", model="gpt-6-luna")
+        result = project(events, root_thread="thread", model="gpt-6-luna").to_payload()
         self.assertIsNone(result["usage"])
         self.assertIsNone(result["cost"]["amount"])
 
@@ -281,7 +282,7 @@ class GraphActivityTests(unittest.TestCase):
             [{"raw": raw, "received_at": "2026-10-15T00:00:00Z"} for raw in events],
             root_thread="thread",
             model="gpt-6-luna",
-        )
+        ).to_payload()
         self.assertEqual(result["usage"]["inputTokens"], 50)
         self.assertEqual(result["usage"]["cachedInputTokens"], 20)
         self.assertEqual(result["usage"]["outputTokens"], 10)
@@ -317,7 +318,9 @@ class GraphActivityTests(unittest.TestCase):
             }
             for text in ("first", "different")
         ]
-        self.assertTrue(project(events)["items"][0]["conflicting_receipts"])
+        self.assertTrue(
+            project(events).to_payload()["items"][0]["conflicting_receipts"]
+        )
 
     def test_resume_initial_usage_does_not_invent_previous_turn(self):
         raw = {
@@ -335,7 +338,10 @@ class GraphActivityTests(unittest.TestCase):
             },
         }
         self.assertEqual(
-            project([{"raw": raw, "received_at": "2026-10-15T00:00:00Z"}])["turns"], []
+            project([{"raw": raw, "received_at": "2026-10-15T00:00:00Z"}]).to_payload()[
+                "turns"
+            ],
+            [],
         )
 
     def test_refused_attempt_cannot_adopt_another_resume(self):

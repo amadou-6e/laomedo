@@ -4,14 +4,12 @@ from support.paths import repository_root
 
 import ast
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from pathlib import Path
 import unittest
 from urllib.error import HTTPError
 from urllib.request import build_opener
 
 from support.http_server import RunningHTTPServer
 from laomedo.host.http import NoRedirect
-from laomedo.agents.agents.opencode.auth.transport import NoRedirect as OpenCodeRedirect
 from laomedo.host.credentials.siwc.connection import _NoRedirect as ChatGPTRedirect
 from laomedo.host.credentials.siwc.errors import AuthError
 
@@ -43,8 +41,6 @@ class SharedHTTPTests(unittest.TestCase):
             self.assertEqual(server.requests, ["/source", "/source"])
 
     def test_credential_domains_keep_their_distinct_error_codes(self):
-        with self.assertRaisesRegex(ValueError, "^opencode_auth_redirect_rejected$"):
-            OpenCodeRedirect().redirect_request()
         with self.assertRaisesRegex(AuthError, "^auth_redirect_rejected$"):
             ChatGPTRedirect().redirect_request()
 
@@ -76,7 +72,6 @@ class SharedHTTPTests(unittest.TestCase):
                 # Self-contained components and credential-specific refusals are deliberate.
                 "src/laomedo/agents/interface/langflow/component.py",
                 "components/laomedo/pr_publisher.py",
-                "src/laomedo/agents/agents/opencode/auth/transport.py",
                 "src/laomedo/host/credentials/siwc/connection.py",
             },
         )

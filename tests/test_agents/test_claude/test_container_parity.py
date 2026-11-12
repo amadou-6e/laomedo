@@ -6,7 +6,6 @@ import threading
 import time
 import tempfile
 from pathlib import Path
-from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 from uuid import uuid4
@@ -15,7 +14,7 @@ from laomedo.agents.agents.claude.agent import ClaudeAgent
 from laomedo.agents.agents.claude.models import ClaudePolicy
 from laomedo.agents.agents.claude.policy import ClaudeRuntimePolicy
 from laomedo.agents.agents.claude.executor import ClaudeCommandExecutor
-from laomedo.agents.activity.projection import project
+from laomedo.agents.agents.claude.activity.projection import project
 from laomedo.agents.errors import RunnerError
 from laomedo.agents.orchestration.utils import envelope
 import test_agents.test_claude.test_runner as controls
@@ -228,7 +227,7 @@ class ClaudeContainerParityTests(unittest.TestCase):
         ]
         result = project(
             [{"raw": row["event"], "received_at": row["received_at"]} for row in rows]
-        )
+        ).to_payload()
         self.assertEqual(len(result["items"]), 2)
         self.assertFalse(
             any(item.get("conflicting_receipts") for item in result["items"])
@@ -278,7 +277,7 @@ class ClaudeContainerParityTests(unittest.TestCase):
         ]
         result = project(
             [{"raw": row["event"], "received_at": row["received_at"]} for row in rows]
-        )
+        ).to_payload()
         self.assertEqual(
             [lane["item"]["type"] for lane in result["items"]],
             ["reasoning", "agentMessage"],
@@ -347,7 +346,7 @@ class ClaudeContainerParityTests(unittest.TestCase):
         ]
         result = project(
             [{"raw": row["event"], "received_at": row["received_at"]} for row in rows]
-        )
+        ).to_payload()
         self.assertEqual(result["items"][0]["item"]["text"], "visible now")
         self.assertIsNone(result["items"][0]["ended"])
 

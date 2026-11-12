@@ -42,12 +42,9 @@ from laomedo.agents.agents.base.models import RuntimeBinding
 from laomedo.agents.agents.base.models import CredentialRequest
 from laomedo.agents.workspaces.utils import _hash_tree
 from laomedo.agents.agents.base.utils import _json
-from laomedo.agents.agents.claude.auth.errors import LocalClaudeLoginError
-from laomedo.agents.agents.claude.auth.utils import mirror_login
 from laomedo.host.leases.models import ContainerIdentity
 from laomedo.host.leases.utils import cleanup_exact
 from laomedo.agents.workspaces.skills.utils import verify
-from laomedo.agents.agents.claude.auth.settings import Settings
 
 
 class ClaudeAgent(BaseAgent):

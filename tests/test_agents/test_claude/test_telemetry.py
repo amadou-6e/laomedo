@@ -8,7 +8,7 @@ from urllib.request import Request
 from urllib.request import urlopen
 from urllib.error import HTTPError
 from laomedo.agents.agents.claude.activity.telemetry import ClaudeTelemetry
-from laomedo.agents.activity.projection import project
+from laomedo.agents.agents.claude.activity.projection import project
 
 try:
     from opentelemetry.proto.collector.logs.v1.logs_service_pb2 import (
@@ -103,7 +103,7 @@ class ClaudeTelemetryTests(unittest.TestCase):
         view = project(
             [{"raw": r, "received_at": r["received_at"]} for r in records],
             root_thread="session",
-        )
+        ).to_payload()
         self.assertEqual(len(view["telemetry"]), 3)
         self.assertIsNone(view["usage"])
 

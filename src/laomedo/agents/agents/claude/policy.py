@@ -20,7 +20,6 @@ from laomedo.agents.agents.claude.settings import PROFILE
 from laomedo.agents.errors import RunnerError
 from laomedo.docker import DockerRuntime
 from laomedo.container_images.errors import ImageBuildError
-from laomedo.agents.agents.claude.http.server import CommandHttpServer
 from laomedo.host.leases.client import LeaseClient
 from laomedo.host.leases.settings import LABEL_RUN
 from laomedo.host.leases.settings import LABEL_TOKEN

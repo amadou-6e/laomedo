@@ -1,7 +1,7 @@
 [
   {
-    "name": "shared-empty",
-    "projector": "shared",
+    "name": "codex-empty",
+    "projector": "codex",
     "events": [],
     "kwargs": {},
     "keys": [
@@ -22,8 +22,8 @@
     "expected_json": "{\"turns\": [], \"items\": [], \"threads\": [], \"diagnostics\": [], \"telemetry\": [], \"telemetry_coverage\": \"not observed\", \"uncorrelated_thread_count\": 0, \"usage\": null, \"usage_by_thread\": {}, \"usage_points\": [], \"clock\": \"runner receipt time\", \"cost\": {\"currency\": \"USD\", \"catalog_date\": \"2026-10-15\", \"model\": null, \"basis\": \"API-equivalent token estimate; assumes Standard tier, no regional premium; excludes tool fees; not a subscription charge\", \"source\": null, \"source_record\": null, \"amount\": null, \"reason\": \"Effective model has no verified price entry.\", \"per_thread\": {}, \"model_provenance\": {}}, \"cost_reason\": \"Effective model has no verified price entry.\"}"
   },
   {
-    "name": "shared-root-empty",
-    "projector": "shared",
+    "name": "codex-root-empty",
+    "projector": "codex",
     "events": [],
     "kwargs": {
       "root_thread": "root"
@@ -46,8 +46,8 @@
     "expected_json": "{\"turns\": [], \"items\": [], \"threads\": [], \"diagnostics\": [], \"telemetry\": [], \"telemetry_coverage\": \"not observed\", \"uncorrelated_thread_count\": 0, \"usage\": null, \"usage_by_thread\": {}, \"usage_points\": [], \"clock\": \"runner receipt time\", \"cost\": {\"currency\": \"USD\", \"catalog_date\": \"2026-10-15\", \"model\": null, \"basis\": \"API-equivalent token estimate; assumes Standard tier, no regional premium; excludes tool fees; not a subscription charge\", \"source\": null, \"source_record\": null, \"amount\": null, \"reason\": \"Effective model has no verified price entry.\", \"per_thread\": {\"root\": {\"currency\": \"USD\", \"catalog_date\": \"2026-10-15\", \"model\": null, \"basis\": \"API-equivalent token estimate; assumes Standard tier, no regional premium; excludes tool fees; not a subscription charge\", \"source\": null, \"source_record\": null, \"amount\": null, \"reason\": \"Effective model has no verified price entry.\"}}, \"model_provenance\": {}}, \"cost_reason\": \"Effective model has no verified price entry.\"}"
   },
   {
-    "name": "shared-partial-native",
-    "projector": "shared",
+    "name": "claude-partial-native",
+    "projector": "claude",
     "events": [
       {
         "received_at": "2026-10-30T10:00:00+00:00",
@@ -173,8 +173,8 @@
     "expected_json": "{\"turns\": [{\"id\": \"turn\", \"thread\": \"root\", \"started\": \"2026-10-30T10:00:00+00:00\", \"ended\": \"2026-10-30T10:00:00+00:00\", \"status\": \"completed\", \"usage\": null, \"cost\": {\"currency\": \"USD\", \"catalog_date\": null, \"model\": null, \"basis\": \"Claude-native pricing is not independently verified; not a subscription invoice\", \"source\": null, \"source_record\": null, \"amount\": null, \"reason\": \"Claude-native pricing is unavailable.\"}}], \"items\": [{\"id\": \"item\", \"thread\": \"root\", \"turn\": \"turn\", \"started\": \"2026-10-30T10:00:00+00:00\", \"ended\": \"2026-10-30T10:00:00+00:00\", \"item\": {\"id\": \"item\", \"type\": \"agentMessage\", \"text\": \"h\\u00e9llo\", \"extension\": {\"unknown\": [null, false, 1.25]}}}], \"threads\": [{\"id\": \"root\", \"parent\": null, \"title\": \"R\\u00e9sum\\u00e9 \\u65e5\\u672c\\u8a9e\"}], \"diagnostics\": [{\"threadId\": \"root\", \"extension\": {\"opaque\": true}}], \"telemetry\": [{\"attributes\": {\"thread.id\": \"root\", \"future.attribute\": [null, \"\\u00e9\"], \"conversation.id\": \"root\"}, \"future_field\": {\"retained\": 1}}], \"telemetry_coverage\": \"observed; exporter flush completeness unverified\", \"uncorrelated_thread_count\": 0, \"usage\": {\"inputTokens\": 7}, \"usage_by_thread\": {\"root\": {\"inputTokens\": 7}}, \"usage_points\": [{\"at\": \"2026-10-30T10:00:00+00:00\", \"thread\": \"root\", \"turn\": \"turn\", \"turn_usage\": null, \"usage\": {\"inputTokens\": 7}, \"cost\": {\"currency\": \"USD\", \"catalog_date\": null, \"model\": null, \"basis\": \"Claude-native pricing is not independently verified; not a subscription invoice\", \"source\": null, \"source_record\": null, \"amount\": null, \"reason\": \"Claude-native pricing is unavailable.\"}, \"turn_cost\": {\"currency\": \"USD\", \"catalog_date\": null, \"model\": null, \"basis\": \"Claude-native pricing is not independently verified; not a subscription invoice\", \"source\": null, \"source_record\": null, \"amount\": null, \"reason\": \"Claude-native pricing is unavailable.\"}}], \"clock\": \"runner receipt time\", \"cost\": {\"currency\": \"USD\", \"catalog_date\": null, \"model\": null, \"basis\": \"Claude-native pricing is not independently verified; not a subscription invoice\", \"source\": null, \"source_record\": null, \"amount\": null, \"reason\": \"Claude-native pricing is unavailable.\", \"per_thread\": {\"root\": {\"currency\": \"USD\", \"catalog_date\": null, \"model\": null, \"basis\": \"Claude-native pricing is not independently verified; not a subscription invoice\", \"source\": null, \"source_record\": null, \"amount\": null, \"reason\": \"Claude-native pricing is unavailable.\"}}, \"model_provenance\": {}}, \"cost_reason\": \"Claude-native pricing is unavailable.\"}"
   },
   {
-    "name": "shared-unknown-usage",
-    "projector": "shared",
+    "name": "claude-unknown-usage",
+    "projector": "claude",
     "events": [
       {
         "received_at": "2026-10-30T10:00:00+00:00",
@@ -440,67 +440,5 @@
       "cost_reason"
     ],
     "expected_json": "{\"turns\": [], \"items\": [], \"threads\": [{\"id\": \"root\", \"parent\": null}], \"usage\": null, \"usage_by_thread\": {\"root\": null}, \"usage_points\": [], \"telemetry\": [], \"telemetry_coverage\": \"not observed; historical/native OpenCode HTTP message snapshots may have no telemetry\", \"uncorrelated_thread_count\": 0, \"clock\": \"native message timestamps; runner receipt fallback\", \"cost\": {\"currency\": \"USD\", \"model\": null, \"catalog_date\": null, \"source\": null, \"basis\": \"API-equivalent estimate from the pinned OpenCode runtime catalog; not a Go subscription charge or invoice\", \"source_record\": {\"endpoint\": \"/provider\", \"runtime\": \"1.18.33\", \"provenance\": \"runtime-reported catalog\"}, \"amount\": null, \"reason\": \"Inclusive token usage is incomplete.\", \"per_thread\": {\"root\": {\"currency\": \"USD\", \"model\": null, \"catalog_date\": null, \"source\": null, \"basis\": \"API-equivalent estimate from the pinned OpenCode runtime catalog; not a Go subscription charge or invoice\", \"source_record\": {\"endpoint\": \"/provider\", \"runtime\": \"1.18.33\", \"provenance\": \"runtime-reported catalog\"}, \"amount\": null, \"reason\": \"Every included request requires observed model, token categories and matching price metadata.\"}}, \"model_provenance\": {}}, \"cost_reason\": \"Inclusive token usage is incomplete.\"}"
-  },
-  {
-    "name": "shared-opencode-dispatch",
-    "projector": "shared",
-    "events": [
-      {
-        "received_at": "2026-10-30T10:00:00+00:00",
-        "raw": {
-          "method": "opencode/messageSnapshot",
-          "params": {
-            "sessionID": "root",
-            "messages": [
-              {
-                "info": {
-                  "id": "assistant",
-                  "role": "assistant",
-                  "sessionID": "root",
-                  "parentID": "user",
-                  "time": {
-                    "created": 1000,
-                    "completed": 2000
-                  },
-                  "tokens": {
-                    "input": 4,
-                    "output": 2,
-                    "reasoning": 0,
-                    "cache": {
-                      "read": 1,
-                      "write": 0
-                    }
-                  }
-                },
-                "parts": [
-                  {
-                    "type": "text",
-                    "text": "Résumé 日本語"
-                  }
-                ]
-              }
-            ]
-          }
-        }
-      }
-    ],
-    "kwargs": {
-      "root_thread": "root"
-    },
-    "keys": [
-      "turns",
-      "items",
-      "threads",
-      "usage",
-      "usage_by_thread",
-      "usage_points",
-      "telemetry",
-      "telemetry_coverage",
-      "uncorrelated_thread_count",
-      "clock",
-      "cost",
-      "cost_reason"
-    ],
-    "expected_json": "{\"turns\": [{\"id\": \"user\", \"thread\": \"root\", \"started\": \"1970-01-01T00:00:01+00:00\", \"ended\": \"1970-01-01T00:00:02+00:00\", \"status\": \"completed\", \"usage\": {\"inputTokens\": 5, \"cachedInputTokens\": 1, \"cacheWriteInputTokens\": 0, \"outputTokens\": 2, \"reasoningOutputTokens\": 0, \"totalTokens\": 7}, \"cost\": {\"currency\": \"USD\", \"model\": null, \"catalog_date\": null, \"source\": null, \"basis\": \"API-equivalent estimate from the pinned OpenCode runtime catalog; not a Go subscription charge or invoice\", \"source_record\": {\"endpoint\": \"/provider\", \"runtime\": \"1.18.33\", \"provenance\": \"runtime-reported catalog\"}, \"amount\": null, \"reason\": \"Every included request requires observed model, token categories and matching price metadata.\"}}], \"items\": [{\"id\": \"assistant\", \"thread\": \"root\", \"turn\": \"user\", \"started\": \"1970-01-01T00:00:01+00:00\", \"ended\": \"1970-01-01T00:00:02+00:00\", \"item\": {\"id\": \"assistant\", \"type\": \"agentMessage\", \"text\": \"R\\u00e9sum\\u00e9 \\u65e5\\u672c\\u8a9e\", \"native\": {\"info\": {\"id\": \"assistant\", \"role\": \"assistant\", \"sessionID\": \"root\", \"parentID\": \"user\", \"time\": {\"created\": 1000, \"completed\": 2000}, \"tokens\": {\"input\": 4, \"output\": 2, \"reasoning\": 0, \"cache\": {\"read\": 1, \"write\": 0}}}, \"parts\": [{\"type\": \"text\", \"text\": \"R\\u00e9sum\\u00e9 \\u65e5\\u672c\\u8a9e\"}]}, \"provider\": \"opencode\"}}], \"threads\": [{\"id\": \"root\", \"parent\": null}], \"usage\": {\"inputTokens\": 5, \"cachedInputTokens\": 1, \"cacheWriteInputTokens\": 0, \"outputTokens\": 2, \"reasoningOutputTokens\": 0, \"totalTokens\": 7}, \"usage_by_thread\": {\"root\": {\"inputTokens\": 5, \"cachedInputTokens\": 1, \"cacheWriteInputTokens\": 0, \"outputTokens\": 2, \"reasoningOutputTokens\": 0, \"totalTokens\": 7}}, \"usage_points\": [{\"at\": \"1970-01-01T00:00:02+00:00\", \"thread\": \"root\", \"turn\": \"user\", \"usage\": {\"inputTokens\": 5, \"cachedInputTokens\": 1, \"cacheWriteInputTokens\": 0, \"outputTokens\": 2, \"reasoningOutputTokens\": 0, \"totalTokens\": 7}, \"cost\": {\"currency\": \"USD\", \"model\": null, \"catalog_date\": null, \"source\": null, \"basis\": \"API-equivalent estimate from the pinned OpenCode runtime catalog; not a Go subscription charge or invoice\", \"source_record\": {\"endpoint\": \"/provider\", \"runtime\": \"1.18.33\", \"provenance\": \"runtime-reported catalog\"}, \"amount\": null, \"reason\": \"Every included request requires observed model, token categories and matching price metadata.\"}, \"turn_usage\": {\"inputTokens\": 5, \"cachedInputTokens\": 1, \"cacheWriteInputTokens\": 0, \"outputTokens\": 2, \"reasoningOutputTokens\": 0, \"totalTokens\": 7}, \"turn_cost\": {\"currency\": \"USD\", \"model\": null, \"catalog_date\": null, \"source\": null, \"basis\": \"API-equivalent estimate from the pinned OpenCode runtime catalog; not a Go subscription charge or invoice\", \"source_record\": {\"endpoint\": \"/provider\", \"runtime\": \"1.18.33\", \"provenance\": \"runtime-reported catalog\"}, \"amount\": null, \"reason\": \"Every included request requires observed model, token categories and matching price metadata.\"}}], \"telemetry\": [], \"telemetry_coverage\": \"not observed; historical/native OpenCode HTTP message snapshots may have no telemetry\", \"uncorrelated_thread_count\": 0, \"clock\": \"native message timestamps; runner receipt fallback\", \"cost\": {\"currency\": \"USD\", \"model\": null, \"catalog_date\": null, \"source\": null, \"basis\": \"API-equivalent estimate from the pinned OpenCode runtime catalog; not a Go subscription charge or invoice\", \"source_record\": {\"endpoint\": \"/provider\", \"runtime\": \"1.18.33\", \"provenance\": \"runtime-reported catalog\"}, \"amount\": null, \"reason\": \"Every included request requires observed model, token categories and matching price metadata.\", \"per_thread\": {\"root\": {\"currency\": \"USD\", \"model\": null, \"catalog_date\": null, \"source\": null, \"basis\": \"API-equivalent estimate from the pinned OpenCode runtime catalog; not a Go subscription charge or invoice\", \"source_record\": {\"endpoint\": \"/provider\", \"runtime\": \"1.18.33\", \"provenance\": \"runtime-reported catalog\"}, \"amount\": null, \"reason\": \"Every included request requires observed model, token categories and matching price metadata.\"}}, \"model_provenance\": {\"root\": \"native OpenCode assistant response metadata\"}}, \"cost_reason\": \"Every included request requires observed model, token categories and matching price metadata.\"}"
   }
 ]

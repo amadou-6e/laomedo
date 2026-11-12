@@ -17,7 +17,6 @@ from lfx.custom.custom_component.component import Component
 from lfx.io import DataInput
 from lfx.io import DropdownInput
 from lfx.io import IntInput
-from lfx.io import MessageTextInput
 from lfx.io import Output
 from lfx.io import StrInput
 from lfx.schema import Data
@@ -82,14 +81,7 @@ _ROUTABLE_ERRORS = {
     "command_wrapper_changed",
     "repository_invalid",
     "branch_invalid",
-    "opencode_auth_redirect_rejected",
-    "opencode_active_console_account_required",
-    "opencode_console_models_required",
-    "opencode_console_origin_not_allowed",
-    "opencode_model_endpoint_not_allowed",
-    "opencode_model_sdk_not_allowed",
     "opencode_organization_context_mismatch",
-    "opencode_real_credential_required",
     "pr_context_invalid",
     "pr_context_upstream_failed",
     "agent_component_migration_required",

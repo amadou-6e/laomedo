@@ -1,7 +1,7 @@
 """Dependency-light CI regressions; genuine graph acceptance is separate."""
 
 import unittest
-from laomedo.agents.activity.projection import project
+from laomedo.agents.agents.codex.activity.projection import project
 
 
 def event(method, **params):
@@ -40,7 +40,7 @@ class CodexActivityParityTests(unittest.TestCase):
                     },
                 )
             )
-        result = project(data, root_thread="root", model="gpt-6-luna")
+        result = project(data, root_thread="root", model="gpt-6-luna").to_payload()
         self.assertEqual(result["turns"][0]["usage"]["inputTokens"], 170)
         self.assertEqual(result["usage"]["inputTokens"], 170)
         self.assertIsNotNone(result["turns"][0]["cost"]["amount"])
@@ -67,7 +67,9 @@ class CodexActivityParityTests(unittest.TestCase):
                     },
                 ),
             ]
-            self.assertIsNone(project(data, root_thread="root")["turns"][0]["usage"])
+            self.assertIsNone(
+                project(data, root_thread="root").to_payload()["turns"][0]["usage"]
+            )
 
     def test_streamed_message_and_command_are_provisional_completed_item_wins(self):
         data = [
@@ -102,7 +104,7 @@ class CodexActivityParityTests(unittest.TestCase):
                 delta="line\n",
             ),
         ]
-        result = project(data, root_thread="root")
+        result = project(data, root_thread="root").to_payload()
         self.assertEqual(result["items"][0]["item"]["text"], "Hello")
         self.assertEqual(result["items"][1]["item"]["aggregatedOutput"], "line\n")
         final = event(
@@ -119,9 +121,9 @@ class CodexActivityParityTests(unittest.TestCase):
             delta="obsolete",
         )
         self.assertEqual(
-            project([*data, final, late], root_thread="root")["items"][0]["item"][
-                "text"
-            ],
+            project([*data, final, late], root_thread="root").to_payload()["items"][0][
+                "item"
+            ]["text"],
             "Complete answer",
         )
         self.assertEqual(
@@ -153,7 +155,7 @@ class CodexActivityParityTests(unittest.TestCase):
             event("turn/started", threadId="child", turnId="child-turn"),
             event("turn/failed", threadId="child", turnId="child-turn"),
         ]
-        result = project(data, root_thread="root")
+        result = project(data, root_thread="root").to_payload()
         self.assertEqual(
             result["threads"], [{"id": "child", "parent": "root", "title": "Reader"}]
         )
@@ -169,7 +171,7 @@ class CodexActivityParityTests(unittest.TestCase):
         ]
         result = project(
             [event("otel/record", **r) for r in records], root_thread="root"
-        )
+        ).to_payload()
         self.assertEqual(
             result["telemetry"][0]["attributes"]["conversation.id"], "root"
         )
@@ -226,7 +228,7 @@ class CodexActivityParityTests(unittest.TestCase):
                 },
             ),
         ]
-        result = project(data, root_thread="root")
+        result = project(data, root_thread="root").to_payload()
         child = next(t for t in result["turns"] if t["thread"] == "child")
         self.assertEqual(child["usage"]["inputTokens"], 150)
         self.assertEqual(result["threads"][0]["title"], "reader")
@@ -254,7 +256,7 @@ class CodexActivityParityTests(unittest.TestCase):
         ]
         child = next(
             t
-            for t in project(data, root_thread="root")["turns"]
+            for t in project(data, root_thread="root").to_payload()["turns"]
             if t["thread"] == "child"
         )
         self.assertIsNone(child["usage"])

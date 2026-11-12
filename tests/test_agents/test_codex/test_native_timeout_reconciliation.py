@@ -12,7 +12,6 @@ from uuid import uuid4
 from laomedo.work_graph.runs.store import WorkflowRunStore
 from laomedo.work_graph.runs.errors import LaunchError
 from laomedo.agents.interface.bridge import HttpAgentBridge
-from laomedo.agents.activity.runner.trace_bridge import RunnerTraceBridge
 from laomedo.agents.orchestration.errors import HandoffError
 from laomedo.agents.orchestration.utils import envelope
 
@@ -186,44 +185,6 @@ class NativeTimeoutReconciliationTests(unittest.TestCase):
             ):
                 adapter.status("codex", self.native)
 
-    def test_bridge_reconciles_without_replay_and_forwards_confirmation(self):
-        self.store.record_runner_wait_uncertain(self.run, self.inv)
-        adapter = self.adapter()
-        bridge = RunnerTraceBridge(self.store, adapter)
-        with patch.object(
-            adapter,
-            "status",
-            return_value={
-                "run_id": self.native,
-                "status": "cancelled",
-                "cancel_confirmed": False,
-            },
-        ) as status:
-            bridge.observe_terminal(self.run, self.inv)
-            status.assert_called_once_with("codex", self.native)
-        self.assertFalse(
-            self.store.trace_snapshot(self.run)["receipts"][-1]["payload"][
-                "cancel_confirmed"
-            ]
-        )
-        with patch.object(
-            adapter,
-            "status",
-            return_value={
-                "run_id": self.native,
-                "status": "cancelled",
-                "cancel_confirmed": True,
-            },
-        ):
-            bridge.observe_terminal(self.run, self.inv)
-        self.assert_retained("incomplete", observed=False)
-        with patch.object(adapter, "status") as status:
-            with self.assertRaisesRegex(
-                LaunchError, "runner_observation_not_correlated"
-            ):
-                bridge.observe_terminal(self.run, str(uuid4()))
-            status.assert_not_called()
-
     def test_unknown_receipt_requires_finished_attempt_and_survives_restart(self):
         for marker in (False, "true", 1):
             with self.subTest(marker=marker):
@@ -261,25 +222,6 @@ class NativeTimeoutReconciliationTests(unittest.TestCase):
                 attempt_finished=True,
             )
         )
-
-    def test_bridge_passes_finished_marker_through_authenticated_status_allowlist(self):
-        adapter = self.adapter()
-        bridge = RunnerTraceBridge(self.store, adapter)
-        raw = {
-            "run_id": self.native,
-            "status": "unknown",
-            "attempt_finished": True,
-            "task": "PRIVATE",
-            "auth": "SECRET",
-        }
-        with patch(
-            "laomedo.agents.interface.bridge.HttpAgentBridge._open",
-            return_value=io.BytesIO(json.dumps(raw).encode()),
-        ):
-            result = bridge.observe_terminal(self.run, self.inv)
-        self.assertIs(result["attempt_finished"], True)
-        self.assertNotIn("SECRET", str(result))
-        self.assertEqual(self.store.get(self.run)["status"], "unknown")
 
     def test_poll_timeout_preserves_uncertainty_before_and_after_deadline(self):
         handoff = envelope(

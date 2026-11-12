@@ -9,7 +9,8 @@ import unittest
 from pydantic import ValidationError
 
 from laomedo.agents.activity.models import ActivityProjection
-from laomedo.agents.activity.projection import project
+from laomedo.agents.agents.codex.activity.projection import project as project_codex
+from laomedo.agents.agents.claude.activity.projection import project as project_claude
 from laomedo.agents.agents.opencode.activity.projection import (
     project as project_opencode,
 )
@@ -26,14 +27,20 @@ class ActivityProjectionEnvelopeTests(unittest.TestCase):
         )
         for case in cases:
             with self.subTest(case=case["name"]):
-                writer = project if case["projector"] == "shared" else project_opencode
+                writer = {
+                    "codex": project_codex,
+                    "claude": project_claude,
+                    "opencode": project_opencode,
+                }[case["projector"]]
                 actual = writer(case["events"], **case["kwargs"])
+                if isinstance(actual, ActivityProjection):
+                    actual = actual.to_payload()
                 self.assertEqual(list(actual), case["keys"])
                 self.assertEqual(json.dumps(actual), case["expected_json"])
 
     def test_observations_keep_identity_and_partial_unknown_values(self):
         """Do not copy, coerce or validate existing external native snapshots."""
-        payload = project([], root_thread="root")
+        payload = ActivityProjection.empty().to_payload()
         payload.update(
             turns=[{"extension": {"opaque": [None, "native-marker"]}}],
             items=[{"arbitrary": "native-marker"}],
@@ -86,7 +93,7 @@ class ActivityProjectionEnvelopeTests(unittest.TestCase):
         for _ in range(300):
             cursor["nested"] = {}
             cursor = cursor["nested"]
-        payload = project([])
+        payload = ActivityProjection.empty().to_payload()
         payload["telemetry"] = [{"attributes": native}]
         envelope = ActivityProjection(**payload)
         self.assertIs(envelope.to_payload()["telemetry"][0]["attributes"], native)
@@ -101,7 +108,7 @@ class ActivityProjectionEnvelopeTests(unittest.TestCase):
             ("unknown", "value"),
         ):
             with self.subTest(field=field):
-                payload = project([])
+                payload = ActivityProjection.empty().to_payload()
                 payload[field] = invalid
                 with self.assertRaises(ValidationError):
                     ActivityProjection(**payload)

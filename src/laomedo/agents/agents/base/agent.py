@@ -178,6 +178,59 @@ class BaseAgent(ABC):
     ) -> ActivityPage:
         """Return common attempt-scoped replacement records without native execution."""
 
+    def read_events(
+        self,
+        run_id: str,
+        attempt_id: str,
+        *,
+        after: int = 0,
+        otel_after: int = 0,
+        limit: int = 100,
+        tail: bool = False,
+    ) -> dict:
+        """Read bounded retained raw evidence through the shared storage owner."""
+        from laomedo.agents.activity.runner.feed import read_feed
+
+        record = self.status(run_id)
+        root = self._run_dir(run_id)
+        path = (
+            root / "activity-attempts" / (_id(attempt_id) + ".json")
+            if attempt_id
+            else None
+        )
+        attempt = _read(path) if path and path.is_file() else None
+        if not attempt:
+            return {"run_id": run_id, "accepted": False, "events": []}
+        if attempt.get("id") != attempt_id:
+            raise RunnerError("activity_attempt_identity_mismatch")
+        boundary = attempt if attempt.get("native_end") is not None else None
+        feed = read_feed(
+            root / "activity-events.jsonl",
+            after=max(after, attempt["native_start"]),
+            limit=limit,
+            tail=tail,
+            before=boundary["native_end"] if boundary else None,
+        )
+        telemetry = read_feed(
+            root / "otel-events.jsonl",
+            after=max(otel_after, attempt["otel_start"]),
+            limit=200,
+            tail=tail,
+            before=boundary["otel_end"] if boundary else None,
+        )
+        return {
+            **feed,
+            "run_id": run_id,
+            "accepted": True,
+            "attempt": attempt,
+            "telemetry": telemetry,
+            "closed_boundary": boundary,
+            "status": record.get("status"),
+            "thread_id": record.get("thread_id"),
+            "model": record.get("effective_model"),
+            "attempt_finished": record.get("attempt_finished", False),
+        }
+
     @abstractmethod
     def preflight(self) -> dict:
         """Report this provider's readiness and isolation checks."""

@@ -174,11 +174,10 @@ and cost totals for `activity_projection_limit` or `invocation_boundary_unverifi
 The store is Laomedo persistence, not a provider capability; historical display needs no live Agent, Docker or authentication
 check against the provider.
 
-Application `projection.project` selects the highest retained common display
-revision. New normalized ingestion never calls a provider parser. Existing saved
-Activity databases containing native receipts retain a **read-only historical
-path** in `activity/legacy.py`; that path uses native helpers for those old rows
-only. This is not personal graph migration or a requirement for new providers.
+Application `projection.project(events)` selects the highest retained common
+snapshot revision. Empty invocations have an unknown empty view. Native-only
+historical Activity databases are unsupported; application display never imports
+or chooses a provider parser.
 The private raw `/events` transport remains for evidence readers; new Activity
 capture uses `/activity`.
 

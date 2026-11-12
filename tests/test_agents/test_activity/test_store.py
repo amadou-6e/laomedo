@@ -1,5 +1,4 @@
 from laomedo.agents.activity.models import CaptureIdentity
-from laomedo.agents.activity.models import ActivityInvocation
 import tempfile
 import unittest
 import os
@@ -181,52 +180,6 @@ class ActivityTests(unittest.TestCase):
         )
         self.assertEqual(response.json()["run"]["node"], "agent")
         self.assertEqual(response.headers["cache-control"], "no-store")
-
-    @unittest.skipIf(FastAPI is None, "optional FastAPI integration is not installed")
-    def test_truncated_projection_does_not_claim_full_usage_or_cost(self):
-        event = {
-            "sequence": 1,
-            "received_at": "2026-10-15T00:00:00Z",
-            "raw": {
-                "method": "thread/tokenUsage/updated",
-                "params": {
-                    "threadId": "thread",
-                    "tokenUsage": {
-                        "total": {
-                            "inputTokens": 100,
-                            "cachedInputTokens": 0,
-                            "outputTokens": 1,
-                        }
-                    },
-                },
-            },
-        }
-
-        def page(*args):
-            after = args[4]
-            return {
-                "run": {"native_session": "thread", "model": "gpt-6-luna"},
-                "events": [event] * 200,
-                "next_after": after + 200,
-                "has_more": True,
-            }
-
-        with patch.object(self.store, "read", side_effect=page):
-            value = self.client.get(
-                "/api/v1/laomedo/agent-executions/flow/agent/" + self.run,
-                headers={"Authorization": "alice"},
-            ).json()
-        self.assertTrue(value["truncated"])
-        self.assertIsNone(value["projection"]["usage"])
-        self.assertIsNone(value["projection"]["cost"]["amount"])
-        self.assertEqual(value["projection"]["usage_points"], [])
-        self.assertEqual(value["projection"]["usage_by_thread"], {})
-        self.assertTrue(
-            all(
-                turn["usage"] is None and turn["cost"]["amount"] is None
-                for turn in value["projection"]["turns"]
-            )
-        )
 
     def test_read_only_store_uses_existing_database_without_schema_writes(self):
         original = self.store.path.read_bytes()

@@ -73,12 +73,7 @@ def install_activity_routes(app, authenticate, store=None):
                     if item.get("raw", {}).get("method") == "activity/projection"
                 ]
                 if snapshots or not page["has_more"] or len(events) >= 20000:
-                    projection = project(
-                        snapshots or events,
-                        provider=page["run"].get("provider"),
-                        root_thread=page["run"]["native_session"],
-                        model=page["run"]["model"],
-                    )
+                    projection = project(snapshots or events)
                     if (
                         (page["has_more"] and not snapshots)
                         or page["run"].get("reason") == "invocation_boundary_unverified"

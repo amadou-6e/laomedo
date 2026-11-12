@@ -9,9 +9,8 @@ Vocabulary: `start` reserves capture identity; `bind` binds the actual remote ru
 read methods inspect retained evidence without running a model. Exact method names
 are listed below; record schemas and provider IDs do not change during renaming.
 
-`projection.py` reads the highest retained common display snapshot. The private
-`legacy.py` path interprets only already-saved native receipt history. New capture
-uses `BaseAgent.read_activity` and stores normalized records plus display revisions;
+`projection.py` reads the highest retained common display snapshot.
+New capture uses `BaseAgent.read_activity` and stores normalized records plus display revisions;
 provider native interpretation remains inside that read implementation.
 `timeline.py` assembles normalized thread/turn/item observations using explicit
 provider callbacks; it imports no provider implementation or pricing catalogue.
@@ -104,3 +103,7 @@ Application `ActivityStore.append` replaces one invocation display snapshot usin
 its revision index, without mutating normalized record receipts. Detail routes use
 that latest snapshot and omit duplicate record/snapshot bodies; raw receipt paging
 remains available. See the architecture contract for byte/source limits.
+
+## Current display boundary
+
+`projection.project(events)` reads retained normalized display snapshots only. It returns an empty shared projection before any receipt exists; it never selects a native provider parser. Old native-only Activity databases are unsupported. Provider parser tests call their defining modules directly.

@@ -18,9 +18,6 @@ from laomedo.agents.agents.opencode.settings import CONTROLLER_LIFETIME_SECONDS
 from laomedo.agents.agents.opencode.settings import WORKER_IMAGE
 from laomedo.agents.agents.opencode.settings import WORKER_IMAGE_ID
 from laomedo.agents.agents.opencode.utils import _credential_binding
-from laomedo.agents.agents.opencode.utils import (
-    check_auth_fresh as opencode_check_auth_fresh,
-)
 from laomedo.agents.agents.opencode.utils import model_metadata
 from laomedo.agents.errors import RunnerError
 from laomedo.docker import DockerRuntime

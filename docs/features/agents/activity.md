@@ -85,7 +85,7 @@ A captured native terminal event closes native stream evidence, not task success
 OTLP exporter flush completeness remains unverified and is labeled separately.
 Failures and cancellation retain partial evidence. A hard app crash can leave a
 capture marked running; automatic recovery and retention/deletion policies remain
-unimplemented. Existing RunnerTraceBridge and WorkflowRunStore stay independent.
+unimplemented. WorkflowRunStore remains a separate durable workflow concern.
 
 ## Cost
 

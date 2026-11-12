@@ -20,9 +20,6 @@ from laomedo.agents.agents.base.utils import _json
 from laomedo.host.runner.http.server import RunnerServer as serve
 
 from laomedo.agents.interface.bridge import HttpAgentBridge
-from laomedo.agents.activity.runner.trace_bridge import RunnerTraceBridge
-from laomedo.work_graph.runs.errors import LaunchError
-from laomedo.work_graph.runs.store import WorkflowRunStore
 from laomedo.agents.orchestration.errors import HandoffError
 from laomedo.agents.orchestration.utils import envelope
 from laomedo.skills.registry.store import SkillStore
@@ -285,219 +282,36 @@ class EarlyRunnerTests(unittest.TestCase):
         self.assertTrue(self.runner.status(run_id)["cancel_confirmed"])
         self.assertEqual(BlockingServer.turn_starts, 1)
 
-    def test_trace_bridge_binds_real_local_http_ack_and_cancel(self):
-        base = self.start_http()
-        adapter = HttpAgentBridge(
-            {"codex": base.rsplit("/v1/runs", 1)[0]},
-            {"codex": self.state / "api-token"},
-        )
-        trace_path = Path(self.temp.name) / "trace.sqlite3"
-        trace = WorkflowRunStore(trace_path)
-        run = trace.reserve(
-            graph={"nodes": [{"id": "agent"}]},
-            component_code={"agent": "synthetic"},
-            resolved_config={"model": "test-model"},
-            trigger={"type": "direct"},
-        )
-        handoff = envelope(
-            None,
-            {"provider": "codex", "model": "test-model", "effort": "low"},
-            "Synthetic task",
-            skills=[self.body["skill_ref"]],
-        )
-        bridge = RunnerTraceBridge(trace, adapter)
-        cancelled = threading.Event()
-        outcome = {}
-
-        def submit():
-            outcome["value"] = bridge.dispatch(
-                run["run_id"],
-                "agent",
-                handoff,
-                deadline=time.monotonic() + 5,
-                cancelled=cancelled,
-            )
-
-        worker = threading.Thread(target=submit)
-        worker.start()
-        try:
-            self.assertTrue(BlockingServer.entered.wait(3))
-            ack_deadline = time.monotonic() + 3
-            snapshot = WorkflowRunStore(trace_path).trace_snapshot(run["run_id"])
-            while (
-                snapshot["invocation"]["runner_run_id"] is None
-                and time.monotonic() < ack_deadline
-            ):
-                time.sleep(0.01)
-                snapshot = WorkflowRunStore(trace_path).trace_snapshot(run["run_id"])
-            binding = snapshot["invocation"]
-            self.assertEqual(binding["runner_request_id"], binding["invocation_id"])
-            self.assertEqual(
-                binding["runner_run_id"], adapter.active[handoff["execution_id"]][1]
-            )
-            self.assertEqual(
-                self.runner.status(binding["runner_run_id"])["client_request_id"],
-                binding["runner_request_id"],
-            )
-            accepted = bridge.cancel(
-                run["run_id"], binding["invocation_id"], handoff["execution_id"]
-            )
-            self.assertTrue(accepted["cancel_requested"])
-            cancelled.set()
-            worker.join(5)
-            self.assertFalse(worker.is_alive())
-            self.assertEqual(outcome["value"][0], binding["invocation_id"])
-            reopened = WorkflowRunStore(trace_path).trace_snapshot(run["run_id"])
-            kinds = [row["kind"] for row in reopened["receipts"]]
-            self.assertIn("runner_acknowledged", kinds)
-            self.assertIn("runner_cancel", kinds)
-            self.assertIn("runner_status", kinds)
-            self.assertEqual(reopened["dispatch_attempts"], 1)
-            self.assertEqual(BlockingServer.turn_starts, 1)
-        finally:
-            cancelled.set()
-            adapter.cancel(handoff["execution_id"])
-            worker.join(5)
-
-    def test_lost_ack_reconciles_by_get_without_second_start(self):
-        # This test checks lost acknowledgement reconciliation, not a provider
-        # timeout. Keep the fake turn alive through the bounded database/HTTP
-        # checks and explicitly cancel it, with a finite failsafe.
+    def test_lost_ack_lookup_never_repeats_native_start(self):
         BlockingServer.wait_seconds = 30
-        base = self.start_http()
-
-        class DroppedAckAdapter(HttpAgentBridge):
-            def dispatch(self, handoff, **kwargs):
-                kwargs["on_ack"] = lambda _: None
-                return super().dispatch(handoff, **kwargs)
-
-        adapter = DroppedAckAdapter(
-            {"codex": base.rsplit("/v1/runs", 1)[0]},
-            {"codex": self.state / "api-token"},
-        )
-        trace_path = Path(self.temp.name) / "lost-ack.sqlite3"
-        trace = WorkflowRunStore(trace_path)
-        run = trace.reserve(
-            graph={"nodes": [{"id": "agent"}]},
-            component_code={"agent": "synthetic"},
-            resolved_config={"model": "test-model"},
-            trigger={"type": "direct"},
-        )
+        base = self.start_http().rsplit("/v1/runs", 1)[0]
+        adapter = HttpAgentBridge({"codex": base}, {"codex": self.state / "api-token"})
         handoff = envelope(
             None,
             {"provider": "codex", "model": "test-model", "effort": "low"},
             "Synthetic task",
             skills=[self.body["skill_ref"]],
         )
-        bridge = RunnerTraceBridge(trace, adapter)
+        request_id = str(uuid4())
+        _, request_hash = adapter.fresh_request(handoff, request_id)
         try:
             with self.assertRaisesRegex(HandoffError, "runner_result_pending"):
-                bridge.dispatch(
-                    run["run_id"],
-                    "agent",
+                adapter.dispatch(
                     handoff,
-                    # Leave room for CI database writes and HTTP setup;
-                    # the synthetic turn remains blocked until cancellation.
                     deadline=time.monotonic() + 3,
                     cancelled=threading.Event(),
+                    early_start=True,
+                    runner_request_id=request_id,
+                    expected_request_hash=request_hash,
+                    on_ack=lambda _: None,
                 )
-            before = WorkflowRunStore(trace_path).trace_snapshot(run["run_id"])
-            invocation = before["invocation"]
-            self.assertEqual(before["run_status"], "incomplete")
-            self.assertIsNone(invocation["runner_run_id"])
-            self.assertTrue(BlockingServer.entered.wait(3))
+            first = adapter.lookup_request("codex", request_id)
+            second = adapter.lookup_request("codex", request_id)
+            self.assertEqual(first["run_id"], second["run_id"])
+            self.assertEqual(first["request_hash"], request_hash)
+            self.assertNotIn("task", first)
+            self.assertNotIn("profile", first)
             self.assertEqual(BlockingServer.turn_starts, 1)
-            native_id = adapter.active[handoff["execution_id"]][1]
-            code, lookup = self.call(
-                base.rsplit("/v1/runs", 1)[0]
-                + "/v1/requests/"
-                + invocation["runner_request_id"],
-                method="GET",
-            )
-            self.assertEqual(code, 200)
-            self.assertEqual(lookup["run_id"], native_id)
-            self.assertNotIn("task", lookup)
-            self.assertNotIn("profile", lookup)
-            self.assertEqual(lookup["request_hash"], invocation["runner_request_hash"])
-            bridge = RunnerTraceBridge(WorkflowRunStore(trace_path), adapter)
-            found = bridge.reconcile(
-                run["run_id"], invocation["invocation_id"], handoff["execution_id"]
-            )
-            self.assertEqual(found["run_id"], native_id)
-            again = bridge.reconcile(
-                run["run_id"], invocation["invocation_id"], handoff["execution_id"]
-            )
-            self.assertEqual(again["run_id"], native_id)
-            self.assertEqual(BlockingServer.turn_starts, 1)
-            after = WorkflowRunStore(trace_path).trace_snapshot(run["run_id"])
-            self.assertEqual(after["invocation"]["runner_run_id"], native_id)
-            self.assertEqual(
-                sum(r["kind"] == "runner_acknowledged" for r in after["receipts"]), 1
-            )
-            bridge.cancel(
-                run["run_id"], invocation["invocation_id"], handoff["execution_id"]
-            )
-        finally:
-            adapter.cancel(handoff["execution_id"])
-
-    def test_binding_write_failure_can_reconcile_same_native_run(self):
-        base = self.start_http()
-        adapter = HttpAgentBridge(
-            {"codex": base.rsplit("/v1/runs", 1)[0]},
-            {"codex": self.state / "api-token"},
-        )
-        trace_path = Path(self.temp.name) / "binding-failure.sqlite3"
-        trace = WorkflowRunStore(trace_path)
-        run = trace.reserve(
-            graph={"nodes": [{"id": "agent"}]},
-            component_code={"agent": "synthetic"},
-            resolved_config={"model": "test-model"},
-            trigger={"type": "direct"},
-        )
-        handoff = envelope(
-            None,
-            {"provider": "codex", "model": "test-model", "effort": "low"},
-            "Synthetic task",
-            skills=[self.body["skill_ref"]],
-        )
-        bridge = RunnerTraceBridge(trace, adapter)
-        try:
-            with patch.object(
-                trace,
-                "bind_runner_ack",
-                side_effect=LaunchError("injected_write_failure"),
-            ):
-                with self.assertRaisesRegex(LaunchError, "injected_write_failure"):
-                    bridge.dispatch(
-                        run["run_id"],
-                        "agent",
-                        handoff,
-                        deadline=time.monotonic() + 5,
-                        cancelled=threading.Event(),
-                    )
-            before = WorkflowRunStore(trace_path).trace_snapshot(run["run_id"])
-            invocation = before["invocation"]
-            self.assertEqual(before["run_status"], "incomplete")
-            self.assertEqual(
-                before["receipts"][-1]["payload"]["category"],
-                "runner_binding_write_error",
-            )
-            self.assertIsNone(invocation["runner_run_id"])
-            native_id = adapter.active[handoff["execution_id"]][1]
-            bridge.reconcile(
-                run["run_id"], invocation["invocation_id"], handoff["execution_id"]
-            )
-            self.assertEqual(
-                WorkflowRunStore(trace_path).trace_snapshot(run["run_id"])[
-                    "invocation"
-                ]["runner_run_id"],
-                native_id,
-            )
-            self.assertTrue(BlockingServer.entered.wait(3))
-            self.assertEqual(BlockingServer.turn_starts, 1)
-            bridge.cancel(
-                run["run_id"], invocation["invocation_id"], handoff["execution_id"]
-            )
         finally:
             adapter.cancel(handoff["execution_id"])
 

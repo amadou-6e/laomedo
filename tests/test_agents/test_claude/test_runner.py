@@ -12,11 +12,10 @@ from uuid import uuid4
 
 import test_agents.test_runtime.test_lifecycle as controls
 from laomedo.agents.agents.claude.agent import ClaudeAgent
-from laomedo.agents.agents.claude.settings import CLI_VERSION
 from laomedo.agents.agents.claude.models import ClaudePolicy
 from laomedo.agents.agents.claude.utils import terminal_result
 from laomedo.agents.agents.claude.utils import activity_usage
-from laomedo.agents.activity.projection import project
+from laomedo.agents.agents.claude.activity.projection import project
 from laomedo.agents.errors import RunnerError
 from laomedo.agents.interface.output.utils import requirements
 
@@ -121,7 +120,7 @@ class ClaudeRunnerTests(unittest.TestCase):
                 ),
             ],
             root_thread="session",
-        )
+        ).to_payload()
         self.assertEqual(projected["usage"]["inputTokens"], 10)
         self.assertEqual(projected["usage"]["outputTokens"], 5)
         self.assertEqual(projected["usage"]["cachedInputTokens"], 0)
@@ -143,7 +142,7 @@ class ClaudeRunnerTests(unittest.TestCase):
         result = project(
             [first, event({"tokenUsage": {"last": {"inputTokens": 2}}})],
             root_thread="session",
-        )
+        ).to_payload()
         self.assertEqual(result["usage"]["inputTokens"], 10)
         result = project(
             [
@@ -156,7 +155,7 @@ class ClaudeRunnerTests(unittest.TestCase):
                 ),
             ],
             root_thread="session",
-        )
+        ).to_payload()
         self.assertIsNone(result["usage"])
 
     def test_activity_contains_prompt_answer_and_unknown_usage_without_guessing(self):
@@ -172,7 +171,7 @@ class ClaudeRunnerTests(unittest.TestCase):
             {"raw": value.get("event", value), "received_at": value["received_at"]}
             for value in receipts
         ]
-        projected = project(events, root_thread=result["thread_id"])
+        projected = project(events, root_thread=result["thread_id"]).to_payload()
         self.assertEqual(
             [lane["item"]["type"] for lane in projected["items"]],
             ["userMessage", "agentMessage"],
@@ -225,7 +224,7 @@ class ClaudeRunnerTests(unittest.TestCase):
                 for value in receipts
             ],
             root_thread=result["thread_id"],
-        )
+        ).to_payload()
         self.assertEqual(projected["turns"][0]["status"], "failed")
         self.assertIsNotNone(projected["turns"][0]["ended"])
         self.assertIsNone(projected["usage"])
@@ -279,7 +278,7 @@ class ClaudeRunnerTests(unittest.TestCase):
                 {"raw": row["event"], "received_at": row["received_at"]}
                 for row in rows[fresh["native_start"] : fresh["native_end"]]
             ]
-            projected = project(events, root_thread=first["thread_id"])
+            projected = project(events, root_thread=first["thread_id"]).to_payload()
             self.assertEqual(projected["turns"][0]["usage"]["inputTokens"], 13)
             self.assertEqual(projected["turns"][0]["usage"]["outputTokens"], 5)
             result = self.runner.resume(
@@ -313,7 +312,7 @@ class ClaudeRunnerTests(unittest.TestCase):
             {"raw": row["event"], "received_at": row["received_at"]}
             for row in rows[attempt["native_start"] : attempt["native_end"]]
         ]
-        projected = project(events, root_thread=result["thread_id"])
+        projected = project(events, root_thread=result["thread_id"]).to_payload()
         self.assertEqual(projected["usage"]["inputTokens"], 13)
         self.assertEqual(projected["usage"]["outputTokens"], 5)
         self.assertEqual(projected["usage"]["reasoningOutputTokens"], 0)

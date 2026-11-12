@@ -190,6 +190,25 @@ class ActivityProjection(BaseModel):
         description="Application explanation of the projected cost basis or uncertainty."
     )
 
+    @classmethod
+    def empty(cls):
+        """Represent an invocation with no retained observations or known usage."""
+        return cls(
+            turns=[],
+            items=[],
+            threads=[],
+            diagnostics=[],
+            telemetry=[],
+            telemetry_coverage="not observed",
+            uncorrelated_thread_count=0,
+            usage=None,
+            usage_by_thread={},
+            usage_points=[],
+            clock="runner receipt time",
+            cost={"amount": None, "per_thread": {}, "reason": "No activity observed."},
+            cost_reason="No activity observed.",
+        )
+
     def to_payload(self) -> dict[str, JsonValue]:
         """Return shared wire order and original references, preserving omission."""
         value = {"turns": self.turns, "items": self.items, "threads": self.threads}

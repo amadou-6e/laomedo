@@ -11,8 +11,6 @@ import threading
 from laomedo.agents.artifacts.errors import ArtifactError
 from laomedo.agents.agents.base.settings import MAX_BODY
 from laomedo.agents.errors import RunnerError
-from laomedo.agents.agents.base.utils import _id
-from laomedo.agents.agents.base.utils import _read
 from laomedo.skills.registry.errors import SkillStoreError
 
 if TYPE_CHECKING:
@@ -66,67 +64,17 @@ class RunnerRequestHandler(BaseHTTPRequestHandler):
                 self._reply(200, page.to_payload())
                 return
             if len(parts) == 4 and parts[:2] == ["v1", "runs"] and parts[3] == "events":
-                from laomedo.agents.activity.runner.feed import read_feed
-
                 query = parse_qs(parsed.query)
-                record = self.server.runner.status(parts[2])
-                attempt_id = query.get("attempt", [""])[0]
-                attempt_path = (
-                    self.server.runner._run_dir(parts[2])
-                    / "activity-attempts"
-                    / (_id(attempt_id) + ".json")
-                    if attempt_id
-                    else None
-                )
-                attempt = (
-                    _read(attempt_path)
-                    if attempt_path and attempt_path.is_file()
-                    else None
-                )
-                if not attempt:
-                    self._reply(
-                        200,
-                        {"run_id": parts[2], "accepted": False, "events": []},
-                    )
-                    return
-                if attempt.get("id") != attempt_id:
-                    raise RunnerError("activity_attempt_identity_mismatch")
-                boundary = attempt if attempt.get("native_end") is not None else None
-                native_after = max(
-                    int(query.get("after", ["0"])[0]), attempt["native_start"]
-                )
-                otel_after = max(
-                    int(query.get("otel_after", ["0"])[0]),
-                    attempt["otel_start"],
-                )
-                feed = read_feed(
-                    self.server.runner._run_dir(parts[2]) / "activity-events.jsonl",
-                    after=native_after,
-                    limit=int(query.get("limit", ["100"])[0]),
-                    tail=query.get("tail", ["0"])[0] == "1",
-                    before=boundary["native_end"] if boundary else None,
-                )
-                telemetry = read_feed(
-                    self.server.runner._run_dir(parts[2]) / "otel-events.jsonl",
-                    after=otel_after,
-                    limit=200,
-                    tail=query.get("tail", ["0"])[0] == "1",
-                    before=boundary["otel_end"] if boundary else None,
-                )
                 self._reply(
                     200,
-                    {
-                        **feed,
-                        "run_id": parts[2],
-                        "accepted": True,
-                        "attempt": attempt,
-                        "telemetry": telemetry,
-                        "closed_boundary": boundary,
-                        "status": record.get("status"),
-                        "thread_id": record.get("thread_id"),
-                        "model": record.get("effective_model"),
-                        "attempt_finished": record.get("attempt_finished", False),
-                    },
+                    self.server.runner.read_events(
+                        parts[2],
+                        query.get("attempt", [""])[0],
+                        after=int(query.get("after", ["0"])[0]),
+                        otel_after=int(query.get("otel_after", ["0"])[0]),
+                        limit=int(query.get("limit", ["100"])[0]),
+                        tail=query.get("tail", ["0"])[0] == "1",
+                    ),
                 )
                 return
             if len(parts) != 3:

@@ -1,10 +1,9 @@
 # Runner activity transport
 
-`LaunchTelemetry` owns the bounded telemetry listener; `RunnerTraceBridge`
-transports correlated trace evidence. `feed.py` exposes paginated retained data.
+`LaunchTelemetry` owns the bounded telemetry listener. `feed.py` exposes
+paginated retained data.
 Construction / `close` own listener lifetime; `arguments` projects native launch
-arguments. Trace `dispatch`, `reconcile`, `cancel` and `observe_terminal` retain actual native
-identity rather than correlating by timing. The handler lives under `http/`
+arguments. The handler lives under `http/`
 with an explicit server/owner object, keeping wire and cleanup behavior unchanged.
 
 `Settings` loads configured observation flags at point of use. It must not turn
@@ -20,4 +19,3 @@ roles. Full signatures and detailed parameter contracts remain in source.
 | --- | --- | --- |
 | `Settings` | `settings.py` | `settings_customise_sources` |
 | `LaunchTelemetry` | `telemetry.py` | `__init__`, `arguments`, `close` |
-| `RunnerTraceBridge` | `trace_bridge.py` | `__init__`, `dispatch`, `reconcile`, `cancel`, `observe_terminal` |
