@@ -93,16 +93,17 @@ class SettingsContractTests(unittest.TestCase):
 
         checked = set()
         for module, cls in self.classes():
+            if module.__name__ == "laomedo.integrations.langflow.launch.settings":
+                continue  # This launcher accepts explicit CLI arguments only.
             for name, field in cls.model_fields.items():
-                if field.annotation not in {int, float} or not isinstance(
-                    field.validation_alias, str
-                ):
+                if field.annotation not in {int, float}:
                     continue
                 checked.add((module.__name__, name))
                 with (
                     self.subTest(module=module.__name__, field=name),
                     patch.dict(os.environ, {}, clear=True),
                 ):
+                    self.assertIsInstance(field.validation_alias, str)
                     self.assertGreater(getattr(cls(), name), 0)
                     expected = field.default + 1
                     os.environ[field.validation_alias] = str(expected)
