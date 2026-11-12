@@ -3,20 +3,21 @@
 
 # Provider interface alignment
 
-The reviewed target and completion criteria are tracked in [#277](https://github.com/amadou-6e/laomedo/issues/277) and [the canonical draft design](https://github.com/amadou-6e/specs/blob/feat/shared-acp-agent-protocol/projects/laomedo/subsystems/agent-execution/design/provider-roles.md). The analysis below describes the interim implementation, not the approved final object boundaries. In particular the target retains `BaseAgentRuntime` with shared Docker mechanisms; it separates drivers from resource scopes and removes symmetry-only capabilities.
+The reviewed target and completion criteria are tracked in [#277](https://github.com/amadou-6e/laomedo/issues/277) and [the canonical draft design](https://github.com/amadou-6e/specs/blob/feat/shared-acp-agent-protocol/projects/laomedo/subsystems/agent-execution/design/provider-roles.md). The analysis below describes the interim implementation, not the approved final object boundaries. That historical proposal retained `BaseAgentRuntime` and separated drivers from resource scopes. The selected implementation instead retires that ABC, keeps native runtime protocols internal and shares Docker mechanics directly.
 
-The initial exception-aware-cleanup rationale below is incomplete: `AcpSession.close` currently closes Docker before the later context exit. The target gives process cleanup exclusively to runtime and exposes a stream without close access to ACP. SDK disconnect cancels tasks; controller EOF is required before the owning `asyncio.run` shuts its blocking-reader executor down.
+The historical exception-aware-cleanup rationale below is incomplete: `AcpSession.close` currently closes Docker before the later context exit. The superseded proposal assigned process cleanup exclusively to a runtime and exposed a stream without close access to ACP; it is not a current implementation requirement. SDK disconnect cancels tasks; controller EOF is required before the owning `asyncio.run` shuts its blocking-reader executor down.
 
 The role objects introduced by #275 exposed native operations beyond their base
-contracts. The CI guard intentionally reports those gaps. Alignment must move
-responsibilities and actual callers, rather than add every native method to a
+contracts. The CI guard reported those gaps at that interim stage. The analysis
+called for moving
+responsibilities and actual callers, rather than adding every native method to a
 large base or rename external calls to private helpers.
 
 ## Aligned operations
 
 | Concern | Shared contract | Native difference retained |
 | --- | --- | --- |
-| Model catalogue | `discover`, `snapshot`, `wait_until_idle` | Codex/OpenCode retain 30-second caches; Claude retains its 300-second cache and shared in-flight Future. A snapshot may be stale; waiting does not certify success or reserve admission. |
+| Model catalogue | `list_models`, `snapshot`, `wait_until_idle` | Codex/OpenCode retain 30-second caches; Claude retains its 300-second cache and shared in-flight Future. A snapshot may be stale; waiting does not certify success or reserve admission. |
 | Credential source | `prepare`, `validate`, `borrow`, `release` | Codex borrows an inline host access token. Claude/OpenCode keep native volume/profile secrets in place. `CredentialMaterial` represents either binding without forcing token copies. Authentication outcomes retain their native scope. |
 | Activity | `accepts`, `project` | Recognition and interpretation remain native; canonical output and unknown usage/cost semantics are shared. Stored provider identity takes precedence. |
 | Command execution | `execute`, `shutdown` | Claude/OpenCode run isolated transient workers; Codex's optional split mode owns a persistent native exec-server. Cleanup confirms only the named owned scope. Public `close` aliases are removed and callers use `shutdown`. |

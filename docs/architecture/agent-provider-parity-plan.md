@@ -3,8 +3,10 @@
 
 # Agent provider parity plan
 
-Status: proposed; awaiting Claude review before implementation. This document
-does not establish runtime acceptance or authorize a merge.
+Status: superseded historical proposal. The target tree and migration steps below
+record the rejected design; they are not instructions for current implementation.
+The selected contracts are in [direct provider boundaries](provider-boundaries.md).
+This document establishes neither runtime acceptance nor merge authorization.
 
 Owner: issue #205 / draft PR #250. Baseline: `refactor/205` at `19c7f1f`.
 Reuse the assembled implementation and its provenance; do not create a parallel
@@ -33,8 +35,11 @@ to a new image, credential binding, policy or execution mode.
 ## Verified gaps and retained native differences
 
 The baseline column records the starting architecture, not an assertion that
-retired objects still exist. Issue #275 delivers explicit runtime, command,
-credential, discovery and Activity roles, with host-owned registration; see the
+retired objects still exist. Issue #275 introduced command, credential and
+discovery roles with host-owned registration. Its runtime ABC and public Activity
+projector roles were subsequently withdrawn: shared Docker owns container
+mechanics, native runtimes remain provider-internal, and `BaseAgent.read_activity`
+is the Activity boundary. See the
 [implemented contracts](../../src/laomedo/agents/agents/README.md#provider-role-contracts-275).
 Provider deployment parity and whole-pipeline lifecycle consolidation remain
 separate work. New fixture/structural coverage does not establish live parity.
