@@ -25,3 +25,11 @@ Three exact pre-integration test sources were also archived from immutable 8fe9e
 Additional recovery/profile frontend checks: four suites, 47 tests pass. Together with the first five suites, 80 selected frontend tests pass. All five final documentation-head CI checks also pass at97ea2c3c (Work Graph43196480251, Black43196480235). No new source changes were made.
 
 Regenerated maintained graph metadata differs in ten non-code locations only: Task accepts Data as well as Message, StrInput replaces MessageTextInput and its inherited trace_as_input flag is absent; serialized connection handles follow the actual current input schema. The two graph invariant digests were refreshed accordingly. Reviewer confirmation of those details remains pending.
+
+## Reviewer resumed, later checkpoint
+
+Same reviewer completed two additional core packets. Read reviews/core-remaining-resume-verdict.md and reviews/core-final-unread-verdict.md for actual coverage. The three existing captures are independently APPROVE for Skilldefault/Advanced, connectedPriorRun and PRlayout only. Profile/recovery/liveGitHub states remain uncaptured.
+
+C01lowprofile-installer defect corrected atproduction2a8a7642: validate all existing anchors before its profile-stage writes. Negative controls preserve everyfile and create noassets for fourlateanchor failures. A real pinned-source transform gives17byte-identicalgenerated files compared with priorinstaller. Two newtests plus14interface checks pass; projectBlack894files passes. Requested docsD01/D02 corrected. Tests-only3150ce03 uses the declared function directly; two tests and no-cacheBlack rechecked successfully. No UI output changed, so existingcaptures remain applicable within their scope.
+
+Genericimports packet then hit another five-hour rate_limit (reset19:30BerlinNov12). The pendingrequest state/transcript were preserved privately; no completedverdict was recovered. Imports/tests/maps/docs remain fully unreviewed ? reviewer pending; C01correction recheck pending. No quota workaround, replacement reviewer conversation, permission weakening or model probes occurred. CI at2a8a7642 had passingtest jobs/Black with an additional queuedduplicateBlackjob; latest3150ce03checks pending at thischeckpoint. Owner realgraphacceptance and implementationmerge remain unapproved.
