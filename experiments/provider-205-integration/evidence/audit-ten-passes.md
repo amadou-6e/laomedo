@@ -1,0 +1,24 @@
+# Ten targeted interface/dead-code audit passes
+
+Base4bf245a7; checkpoint5acf38ce. User selected removal of legacy Activity databases and fixes to remaining findings, ten audit passes before returning to graph. No change to exp-only lifecycle or separately scoped GitHubEXP100. These are targeted concern passes, not a claim that arbitrary Python dead code is decidable.
+
+1. Re-enumerate five provider boundaries, abstract contracts and production imports. Identified raw HTTP private storage access and unused feature paths; distinguished normalizer internals from application callers.
+2. Trace shared Activity display/legacy parsing. Removed old-native DB fallback and its module; shared project(events) only accepts common snapshots or empty current invocations. Current native-parser tests call their defining providers; removed duplicate dispatcher fixture and old-native truncation test. No tests reconstruct unsupported DBs to assert rejection.
+3. Trace raw evidence HTTP interface. Moved unchanged attempt/cursor/feed/telemetry shape into BaseAgent.read_events; handler only adapts HTTP. Existing raw-feed HTTP lifecycle assertions preserved.
+4. Trace RunnerTraceBridge consumers and mixed tests. No production entrypoint. Removed bridge and tests solely exercising it; retained store terminal/cancellation invariants; ported lost-ack no-redispatch regression to current HttpAgentBridge.lookup_request.
+5. Trace OpenCode credentials. Removed test-only Console DB loader/auth transport and tests; retained actual dedicated-profile credential provider and error behavior, current shared HTTP credential-domain checks.
+6. AST unused-binding scan over reworked providers. Removed unused imports in Claude and OpenCode; retained TYPE_CHECKING/framework hooks. No speculative removals of callback methods.
+7. Contract and call-site enforcement. Added BaseAgent to inherited-surface/signature guard; added explicit application Agent receiver/private/undeclared/alias/reflection checks with negative controls; application behavior imports cannot reach concrete provider internals except registry composition. Fixed provider settings remain startup inputs. Guard intentionally does not claim full dynamic type inference.
+8. Error-routing scan. Removed seven routeable error strings with no remaining producer after retired Console loader; retained still-produced Console routing/expiry codes and profile validity checks.
+9. Documentation/examples pass. Removed old DB and bridge claims. Kept maintained Graph builder, shared capture and live Activity read interface; updated module interface READMEs before implementation. No personal graph compatibility requirement introduced.
+10. Repeat current caller/import/metadata/test scan. Removed ownership-map targets of retired code; source hashes archived before removal on exp98283a66 (earlier sourcearchive da9f6344, fixtures a3a85cb5). Corrected UTF8 fixture edit from exact Git bytes. Ran affected provider/HTTP/activity/graph suites405pass281subtests; sharedarchitecture/maps29pass1optional skip584subtests; focused architecture/envelope79pass104subtests. Black888maintainedfiles check running. Full CI pending. No model prompts or graph reruns for this cleanup; earlier Codexgraph acceptance does not cover new source.
+
+Reviewer completion: code/docs APPROVE for4bf245a7..42954ed4. F01orphanerrorcatalogue, F02staleproducer and F03deadtruncation branch fixed; finalverdict includes all previously unread hunks. Added current normalizedpartialusage/cost regression, closed package-root importguard spelling hole, fixed test CLI_VERSION via definingmodule. Laterb41d6c4c contains only scope/statusdocs. Earlier complete implementation/graph approval retains earlier scope only. Do not merge or close issues. Graph review is the next user discussion after requested cleanup.
+
+
+## Final verification and limits
+
+- Affected suites405pass281subtests; sharedarchitecture/maps29pass1optional skip584subtests; corrections109pass91subtests; no-cache Black888Pythonfilespass.
+- Initial full local suite1586pass13skip13fail,1797passingsubtests. Two cleanup failures (testmoduleCLI_VERSIONalias and staleerrorproducer) corrected with affectedchecks passing. The remaining11Graphbuilderfailures reproduce identically on a clean ZIP snapshot of4bf245a7 under the same installed runtime: Settings service must be initialized before validating flows. Baseline targeted run11fail2pass. No new graph model execution; these pre-existing runtime/example failures remain for next graph investigation.
+- All5requiredCI pass at42954ed4; finaldocs-onlyb41d6c4c checksrunning. No freshliveacceptance claimed. InitialCIredcorrected rather thanwaived.
+- Exactarchivalmanifest checked against originalGitblobs before finalhandoff; no productionverificationdepends onexp. No sourcechangesafterreviewotherthanstatusdocs. No merge/issueclosure authorized.

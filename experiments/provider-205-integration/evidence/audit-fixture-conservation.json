@@ -1,0 +1,51 @@
+[
+  {
+    "name": "codex-empty",
+    "events_unchanged": true,
+    "expected_json_unchanged": true,
+    "keys_unchanged": true,
+    "kwargs_unchanged": true
+  },
+  {
+    "name": "codex-root-empty",
+    "events_unchanged": true,
+    "expected_json_unchanged": true,
+    "keys_unchanged": true,
+    "kwargs_unchanged": true
+  },
+  {
+    "name": "claude-partial-native",
+    "events_unchanged": true,
+    "expected_json_unchanged": true,
+    "keys_unchanged": true,
+    "kwargs_unchanged": true
+  },
+  {
+    "name": "claude-unknown-usage",
+    "events_unchanged": true,
+    "expected_json_unchanged": true,
+    "keys_unchanged": true,
+    "kwargs_unchanged": true
+  },
+  {
+    "name": "opencode-empty",
+    "events_unchanged": true,
+    "expected_json_unchanged": true,
+    "keys_unchanged": true,
+    "kwargs_unchanged": true
+  },
+  {
+    "name": "opencode-native",
+    "events_unchanged": true,
+    "expected_json_unchanged": true,
+    "keys_unchanged": true,
+    "kwargs_unchanged": true
+  },
+  {
+    "name": "opencode-unknown",
+    "events_unchanged": true,
+    "expected_json_unchanged": true,
+    "keys_unchanged": true,
+    "kwargs_unchanged": true
+  }
+]
