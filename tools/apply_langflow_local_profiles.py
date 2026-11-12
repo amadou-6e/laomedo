@@ -59,19 +59,15 @@ def apply_profiles(checkout: Path, source: Path):
     header_text = header_text.replace(
         "    onClick={onClick}", "    onClick={onClick}\n    disabled={disabled}", 1
     )
-    header.write_text(header_text, encoding="utf-8")
     logout = frontend / "controllers/API/queries/auth/use-post-logout.ts"
     logout_text = logout.read_text(encoding="utf-8")
     if logout_text.count("console.error(error);") != 1:
         raise SystemExit("profile_logout_anchor_missing")
-    logout.write_text(
-        logout_text.replace(
-            "console.error(error);", 'console.error("Sign-out request failed.");'
-        ).replace(
-            'api.post(`${getURL("LOGOUT")}`)',
-            'api.post(`${getURL("LOGOUT")}`, undefined, { timeout: 15000 })',
-        ),
-        encoding="utf-8",
+    logout_text = logout_text.replace(
+        "console.error(error);", 'console.error("Sign-out request failed.");'
+    ).replace(
+        'api.post(`${getURL("LOGOUT")}`)',
+        'api.post(`${getURL("LOGOUT")}`, undefined, { timeout: 15000 })',
     )
     auth_context = frontend / "contexts/authContext.tsx"
     auth_text = auth_context.read_text(encoding="utf-8")
@@ -85,7 +81,6 @@ def apply_profiles(checkout: Path, source: Path):
     auth_text = auth_text.replace(
         auth_anchor, "      <ProfileSessionSync />\n" + auth_anchor
     )
-    auth_context.write_text(auth_text, encoding="utf-8")
     password_gate = (
         frontend / "customization/components/custom-settings-password-form-gate.tsx"
     )
@@ -100,7 +95,6 @@ def apply_profiles(checkout: Path, source: Path):
         "  return <>{children}</>;",
         "  return <ProfileIdentityMutationGate>{children}</ProfileIdentityMutationGate>;",
     )
-    password_gate.write_text(gate_text, encoding="utf-8")
     general = frontend / "pages/SettingsPage/pages/GeneralPage/index.tsx"
     general_text = general.read_text(encoding="utf-8")
     for before, after in (
@@ -120,7 +114,6 @@ def apply_profiles(checkout: Path, source: Path):
         'import ProfileIdentityMutationGate from "@/components/laomedoProfiles/ProfileIdentityMutationGate";\n'
         + general_text
     )
-    general.write_text(general_text, encoding="utf-8")
     empty_page = frontend / "pages/MainPage/pages/empty-page.tsx"
     empty_text = empty_page.read_text(encoding="utf-8")
     tracking_anchor = "  const handleUserTrack = (key: string) => () => {"
@@ -135,7 +128,15 @@ def apply_profiles(checkout: Path, source: Path):
             "    if (await profileMode().catch(() => true)) return;",
         )
     )
-    empty_page.write_text(empty_text, encoding="utf-8")
     shutil.copytree(source / "profiles", target)
-    routes.write_text(text, encoding="utf-8")
-    menu.write_text(menu_text, encoding="utf-8")
+    for path, contents in (
+        (routes, text),
+        (menu, menu_text),
+        (header, header_text),
+        (logout, logout_text),
+        (auth_context, auth_text),
+        (password_gate, gate_text),
+        (general, general_text),
+        (empty_page, empty_text),
+    ):
+        path.write_text(contents, encoding="utf-8")

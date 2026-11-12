@@ -16,7 +16,8 @@ The startup adapter admits owned state before migrations and verifies the
 internal actor before serving. Profile creation delegates to upstream user
 creation; login, hashing and token validation stay upstream-owned. The authentication adapter refuses the internal actor without replacing ordinary
 profile authentication. `runtime.py` composes these adaptations around the upstream
-lifespan only for the opt-in local profile app. The React entry UI is unfinished.
+lifespan only for the opt-in local profile app. The React entry UI is implemented;
+real registration, switching and restoration acceptance remain unverified.
 
 ## Object interfaces
 
