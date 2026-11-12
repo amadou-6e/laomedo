@@ -1,0 +1,100 @@
+[
+  {
+    "path": "src/laomedo/agents/activity/legacy.py",
+    "source_commit": "4bf245a74d2bc1adf3414a2caf241392e13a2797",
+    "bytes": 1443,
+    "sha256": "ef66ae7974897b362d17c6d81a020098ce7babfdb8a23e38467d9fcd1bae2b83",
+    "reason": "User-selected retirement of legacy Activity, unconnected bridge and obsolete Console loader; preserve mixed-test originals before editing"
+  },
+  {
+    "path": "src/laomedo/agents/activity/projection.py",
+    "source_commit": "4bf245a74d2bc1adf3414a2caf241392e13a2797",
+    "bytes": 1086,
+    "sha256": "d6715e306c9f1d56d5936f94d4f5c3f0cd5d23071114448535a276b18154f8b7",
+    "reason": "User-selected retirement of legacy Activity, unconnected bridge and obsolete Console loader; preserve mixed-test originals before editing"
+  },
+  {
+    "path": "src/laomedo/agents/activity/runner/trace_bridge.py",
+    "source_commit": "4bf245a74d2bc1adf3414a2caf241392e13a2797",
+    "bytes": 8848,
+    "sha256": "8680894c5bb8d4c4bb8c949652e4b5e5611335c73f27d448bbc4e1aa3927043f",
+    "reason": "User-selected retirement of legacy Activity, unconnected bridge and obsolete Console loader; preserve mixed-test originals before editing"
+  },
+  {
+    "path": "tests/test_agents/test_runtime/test_request_identity.py",
+    "source_commit": "4bf245a74d2bc1adf3414a2caf241392e13a2797",
+    "bytes": 28131,
+    "sha256": "0e5f78ed73c4394c6043cf9a74c5c5e4f31515b1706ce25e22afe2fc3ee960e6",
+    "reason": "User-selected retirement of legacy Activity, unconnected bridge and obsolete Console loader; preserve mixed-test originals before editing"
+  },
+  {
+    "path": "tests/test_agents/test_codex/test_native_timeout_reconciliation.py",
+    "source_commit": "4bf245a74d2bc1adf3414a2caf241392e13a2797",
+    "bytes": 13036,
+    "sha256": "143f04e46c946f6cbe46fc9d594a2436661d2ad94fa46f9b8e407d7ab35cb796",
+    "reason": "User-selected retirement of legacy Activity, unconnected bridge and obsolete Console loader; preserve mixed-test originals before editing"
+  },
+  {
+    "path": "tests/test_agents/test_opencode/test_auth.py",
+    "source_commit": "4bf245a74d2bc1adf3414a2caf241392e13a2797",
+    "bytes": 7462,
+    "sha256": "e831147544201566d056c9073d7d8672b2005b2670fdf61023df6b1addb1ad2f",
+    "reason": "User-selected retirement of legacy Activity, unconnected bridge and obsolete Console loader; preserve mixed-test originals before editing"
+  },
+  {
+    "path": "tests/test_shared/test_http/test_redirects.py",
+    "source_commit": "4bf245a74d2bc1adf3414a2caf241392e13a2797",
+    "bytes": 3695,
+    "sha256": "9038a8bae5dd708490281794d3036b41f7a9200bf6a5f742dc91e7a7a7b9fc9a",
+    "reason": "User-selected retirement of legacy Activity, unconnected bridge and obsolete Console loader; preserve mixed-test originals before editing"
+  },
+  {
+    "path": "tests/test_agents/test_activity/test_envelope.py",
+    "source_commit": "4bf245a74d2bc1adf3414a2caf241392e13a2797",
+    "bytes": 5599,
+    "sha256": "a32502bc13e16e1bfb25475be129ec71c83647a8df013236fb050d147902fea1",
+    "reason": "User-selected retirement of legacy Activity, unconnected bridge and obsolete Console loader; preserve mixed-test originals before editing"
+  },
+  {
+    "path": "tests/test_agents/test_activity/test_acp/test_capture.py",
+    "source_commit": "4bf245a74d2bc1adf3414a2caf241392e13a2797",
+    "bytes": 2721,
+    "sha256": "56f03d20d046b4eb911d9b9075cf5c814139e5c7115907aed1a62e052a02e346",
+    "reason": "User-selected retirement of legacy Activity, unconnected bridge and obsolete Console loader; preserve mixed-test originals before editing"
+  },
+  {
+    "path": "tests/test_agents/test_activity/test_read.py",
+    "source_commit": "4bf245a74d2bc1adf3414a2caf241392e13a2797",
+    "bytes": 19364,
+    "sha256": "02136e4f9ef76013521ef9fbfbd73889d37d49e6633596bb347360113f62558d",
+    "reason": "User-selected retirement of legacy Activity, unconnected bridge and obsolete Console loader; preserve mixed-test originals before editing"
+  },
+  {
+    "path": "src/laomedo/agents/agents/opencode/auth/README.md",
+    "source_commit": "4bf245a74d2bc1adf3414a2caf241392e13a2797",
+    "bytes": 1249,
+    "sha256": "08274125ed5dbbe89804290a9498eb35a7f3adf1937d544f8f6ae4d455297788",
+    "reason": "User-selected retirement of legacy Activity, unconnected bridge and obsolete Console loader; preserve mixed-test originals before editing"
+  },
+  {
+    "path": "src/laomedo/agents/agents/opencode/auth/transport.py",
+    "source_commit": "4bf245a74d2bc1adf3414a2caf241392e13a2797",
+    "bytes": 309,
+    "sha256": "38a9c5f3acabe79a151dc03554895a1546b821346c7618011ee6c4d1400cf271",
+    "reason": "User-selected retirement of legacy Activity, unconnected bridge and obsolete Console loader; preserve mixed-test originals before editing"
+  },
+  {
+    "path": "src/laomedo/agents/agents/opencode/auth/utils.py",
+    "source_commit": "4bf245a74d2bc1adf3414a2caf241392e13a2797",
+    "bytes": 5423,
+    "sha256": "1482fa5b2008bd3826920d5d36c000bb283d2684cc74a7bf4315049bbd804f90",
+    "reason": "User-selected retirement of legacy Activity, unconnected bridge and obsolete Console loader; preserve mixed-test originals before editing"
+  },
+  {
+    "path": "src/laomedo/agents/agents/opencode/auth/__init__.py",
+    "source_commit": "4bf245a74d2bc1adf3414a2caf241392e13a2797",
+    "bytes": 32,
+    "sha256": "8dbeaec8dbd0af53bfa100f397a84fbcbe67659418bf8a12f7e2b33b4d0ed15a",
+    "reason": "User-selected retirement of legacy Activity, unconnected bridge and obsolete Console loader; preserve mixed-test originals before editing"
+  }
+]
