@@ -1,0 +1,9 @@
+# Completed suite repair
+
+- User requested fixing the suite after the ten-pass cleanup. Final branchrefactor/205 headbca47f11; draftPR250. No productioncode or dependency changes.
+- Rootcause: real Langflow settings initialization used inaccessible existing hostsecret-key state. The lowlevelread PermissionError/WindowsACLerror was suppressed by upstream lfxget_service toNone, surfaced by actualGraph validation as missing settings service. Diagnostic output contained only exception type/stackfunctions, no secretvalues. No hostACL/config changes performed.
+- Testrepair2ed58e5e: GraphBuilderTests uses real services with temporaryLANGFLOW/LFX_CONFIG_DIR, scopedsettingscachemapping and LIFOrestoration (services/environment/directory). GitHub documentedCLI receives isolatedconfigdir in testtemp. ExistingrealGraph validation/assertions preserved, nofakevalidator/newskip. Followupbca47f11 only aligns optionalruntimeguardwith actualLangflowdependency.
+- Targetedrealbuilderchecks5passed8subtests, nativeexit0. Full local suite1592passed13skipped81warnings1808passingsubtests,371.14seconds, nativeexit0. Fullrunstartedat2ed58e5e; onlylaterdelta is optionalruntimeguardlfx->langflow. Bothpackagesinstalled, so selection/executionunchanged here. No need to claim a second identicalfullrun.
+- Finalheadall5requiredchecksSUCCESS: Black43315717926; WorkGraph43315717716 providerinterfaces,Dockercontrols,installedwheelsPython3.10/3.13. PinnedBlack888maintainedfilespass.
+- SameClaude session: initialb41d6c4c..2ed58e5eAPPROVE; S01optionalguardimplementedandrechecked. Combinedb41d6c4c..bca47f11codeAPPROVE,noopenfindings. Bothverdicts adjacent. No pendingreviewrequest. Earlierimplementation/cleanupapprovalremainsvalidwithinrecordedscopes.
+- Earlier11baselineexamplefailuresarenowresolved. No modelprompts/livegraph/UIacceptance claimed. Rootcleanexceptpreservednestedmy-skills/specs. No merge/issueclosure authorized.
