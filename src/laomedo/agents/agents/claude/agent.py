@@ -893,6 +893,14 @@ class ClaudeAgent(BaseAgent):
                         else None
                     )
             elif block.get("type") in {"text", "thinking"}:
+                if (
+                    event.get("type") != "assistant"
+                    or (event.get("message") or {}).get("role", "assistant")
+                    != "assistant"
+                ):
+                    # The host prompt already owns the user display entry.
+                    # Keep native user echoes in raw evidence, never as answers.
+                    continue
                 text = block.get("text", block.get("thinking", ""))
                 if block["type"] == "text":
                     record["_last_streamed_text"] = text

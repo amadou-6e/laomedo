@@ -234,6 +234,54 @@ class ClaudeContainerParityTests(unittest.TestCase):
         )
         self.assertEqual(record["_last_streamed_text"], "final answer")
 
+    def test_native_user_echo_is_retained_without_becoming_an_assistant_answer(self):
+        record = self.runner._prepare(self.payload)
+        record.update(thread_id=str(uuid4()), active_host_turn=str(uuid4()))
+        root = self.runner._run_dir(record["run_id"])
+        prompt = json.dumps(
+            {"task": "Read the validation marker", "workspace": "/draft"}
+        )
+        self.runner._event(
+            root,
+            "item/completed",
+            {
+                "threadId": record["thread_id"],
+                "turnId": record["active_host_turn"],
+                "item": {"id": "prompt", "type": "userMessage", "text": prompt},
+            },
+        )
+        for role, text in [("assistant", "marker reply"), ("user", prompt)]:
+            self.runner._native_event(
+                root,
+                record,
+                {
+                    "type": role,
+                    "message": {
+                        "id": role + "-receipt",
+                        "role": role,
+                        "content": [{"type": "text", "text": text}],
+                    },
+                },
+            )
+        rows = [
+            json.loads(line)
+            for line in (root / "activity-events.jsonl").read_text().splitlines()
+        ]
+        result = project(
+            [{"raw": row["event"], "received_at": row["received_at"]} for row in rows]
+        ).to_payload()
+        self.assertEqual(
+            [lane["item"]["type"] for lane in result["items"]],
+            ["userMessage", "agentMessage"],
+        )
+        self.assertEqual(record["_last_streamed_text"], "marker reply")
+        raw = [
+            json.loads(line)["event"]
+            for line in (root / "raw-events.jsonl").read_text().splitlines()
+        ]
+        self.assertEqual(raw[-1]["type"], "user")
+        self.assertEqual(raw[-1]["message"]["content"][0]["text"], prompt)
+
     def test_native_receipt_before_block_stop_reuses_live_text_identity(self):
         record = self.runner._prepare(self.payload)
         record.update(thread_id=str(uuid4()), active_host_turn=str(uuid4()))

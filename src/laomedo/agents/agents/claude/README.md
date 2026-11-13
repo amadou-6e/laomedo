@@ -4,6 +4,11 @@
 `agent.py` owns Claude preparation, execution and finalization alongside the
 inherited lifecycle hooks.
 
+Native Activity text and thinking blocks are assistant output only when their
+receipt identifies an assistant message. The host-submitted prompt supplies the
+user entry; native user echoes remain in raw evidence without a second display
+entry. User-carried tool results still complete their corresponding tool calls.
+
 A container opens and closes per turn. Output correction resumes the native session in a new turn scope with correction tools disabled.
 
 | Method vocabulary | Provider contract |
