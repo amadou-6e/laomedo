@@ -1,5 +1,10 @@
-"""Launch an isolated, runnable Codex graph for interactive human validation."""
+"""Launch isolated Codex or Claude graphs without submitting model tasks.
 
+--provider claude uses its own app port, private state and dedicated login mirror.
+--resume preserves the selected provider's existing graph and runner address.
+"""
+
+import argparse
 import json
 import os
 from pathlib import Path
@@ -15,14 +20,20 @@ REPO = Path("C:/CodeWorkspace/laomedo")
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--provider", choices=("codex", "claude"), default="codex")
+    parser.add_argument("--resume", action="store_true")
+    args = parser.parse_args()
+    provider = args.provider
+    app_port = 17876 if provider == "codex" else 17877
+    metadata_name = (
+        "interactive-validation" + ("-claude" if provider == "claude" else "") + ".json"
+    )
     metadata_path = (
-        REPO
-        / ".tools/review/provider-composition/develop-integration/interactive-validation.json"
+        REPO / ".tools/review/provider-composition/develop-integration" / metadata_name
     )
     previous = (
-        json.loads(metadata_path.read_text(encoding="utf-8"))
-        if "--resume" in sys.argv
-        else None
+        json.loads(metadata_path.read_text(encoding="utf-8")) if args.resume else None
     )
     root = (
         Path(previous["state"])
@@ -59,6 +70,7 @@ def main():
     )
     lease = root / "lease"
     log = (root / "lease.log").open("wb")
+    supervisor_started_at = time.time()
     supervisor = subprocess.Popen(
         [
             sys.executable,
@@ -76,41 +88,77 @@ def main():
     agent = None
     try:
         deadline = time.monotonic() + 30
-        while not (lease / "service.json").exists():
+        while True:
+            try:
+                info = json.loads((lease / "service.json").read_text())
+                if info.get("started_at", 0) >= supervisor_started_at:
+                    break
+            except (OSError, ValueError):
+                pass
             if supervisor.poll() is not None or time.monotonic() > deadline:
                 raise RuntimeError("lease_service_unavailable")
             time.sleep(0.1)
-        from laomedo.agents.agents.codex.agent import CodexAgent
         from laomedo.host.runner.http.server import RunnerServer
 
-        native = runpy.run_path(
-            str(
-                REPO
-                / ".tools/worktrees/docker-acceptance-exp/experiments/docker-boundary-277/acceptance.py"
+        if provider == "claude":
+            from laomedo.agents.agents.claude.agent import ClaudeAgent
+
+            profile = (
+                previous["profile"]
+                if previous
+                else "laomedo-claude-validation-"
+                + root.name.rsplit("-", 1)[-1].replace("_", "-")
             )
-        )
-        agent = CodexAgent(
-            root / "runner",
-            registry,
-            source,
-            lease_service=lease,
-            **native["session_login"](),
-        )
+            os.environ["LAOMEDO_CLAUDE_MIRROR_HOST_LOGIN"] = "1"
+            agent = ClaudeAgent(
+                root / "runner",
+                registry,
+                source,
+                lease_service=lease,
+                profile_volume=profile,
+            )
+            ready = agent.readiness()
+            if not ready.ready:
+                raise RuntimeError("claude_validation_not_ready:" + str(ready.reason))
+        else:
+            from laomedo.agents.agents.codex.agent import CodexAgent
+
+            native = runpy.run_path(
+                str(
+                    REPO
+                    / ".tools/worktrees/docker-acceptance-exp/experiments/docker-boundary-277/acceptance.py"
+                )
+            )
+            agent = CodexAgent(
+                root / "runner",
+                registry,
+                source,
+                lease_service=lease,
+                **native["session_login"](),
+            )
         runner = RunnerServer(
             agent, port=urlparse(previous["runner_url"]).port if previous else 0
         )
         threading.Thread(target=runner.serve_forever, daemon=True).start()
         os.environ["LAOMEDO_RUNNER_TOKEN_FILE"] = str(agent.state / "api-token")
+        if provider == "claude":
+            os.environ["LAOMEDO_CLAUDE_RUNNER_TOKEN_FILE"] = str(
+                agent.state / "api-token"
+            )
         catalogue = agent.catalog.list_models()
         selected = next(
-            (model for model in catalogue.models if model.id == "gpt-6-luna"),
+            (
+                model
+                for model in catalogue.models
+                if model.id == ("sonnet" if provider == "claude" else "gpt-6-luna")
+            ),
             catalogue.models[0],
         )
         efforts = selected.reasoning_efforts
         effort = "low" if "low" in efforts else (efforts[0] if efforts else "default")
         build = runpy.run_path(str(REPO / "examples/agents/build_flow.py"))["build"]
         flow = build(
-            provider="codex",
+            provider=provider,
             model=selected.id,
             effort=effort,
             runner_url="http://127.0.0.1:" + str(runner.server_port),
@@ -118,7 +166,7 @@ def main():
             workflow="resume",
             follow_up="What validation marker did you just read? Reply only with it, without tools or delegation.",
         )
-        flow["name"] = "Codex validation - fresh and resume"
+        flow["name"] = provider.title() + " validation - fresh and resume"
         flow["description"] = (
             "Runnable validation on the current branch. Run the graph to check fresh/resume and retained Activity. Opening this graph does not submit a task."
         )
@@ -129,7 +177,7 @@ def main():
         graph_path = root / "validation-graph.json"
         graph_path.write_text(json.dumps(flow, ensure_ascii=False), encoding="utf-8")
         metadata = {
-            "base": "http://127.0.0.1:17876",
+            "base": "http://127.0.0.1:" + str(app_port),
             "graph_file": str(graph_path),
             "state": str(root),
             "runner_url": "http://127.0.0.1:" + str(runner.server_port),
@@ -138,11 +186,11 @@ def main():
                 ["git", "rev-parse", "HEAD"], cwd=REPO, text=True
             ).strip(),
             "executed": False,
+            "provider": provider,
         }
-        (
-            REPO
-            / ".tools/review/provider-composition/develop-integration/interactive-validation.json"
-        ).write_text(json.dumps(metadata, indent=2), encoding="utf-8")
+        if provider == "claude":
+            metadata["profile"] = profile
+        metadata_path.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
         import laomedo
         import uvicorn
 
@@ -163,7 +211,7 @@ def main():
             "laomedo.integrations.langflow.viewer:create_app",
             factory=True,
             host="127.0.0.1",
-            port=17876,
+            port=app_port,
         )
     finally:
         if agent is not None:
