@@ -1,5 +1,6 @@
 import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import GraphAgents from "./GraphAgents";
+import type { Lane } from "./models";
 import { messageText, commandTitle, activityTitle, aggregateUsagePoints, conversationRows, scopedProjection, turnPosition, conversationMatches, conversationDocument, telemetryDocument } from "./utils";
 import { HighlightedJson, MessageMarkdown } from "./components";
 import { RuntimeRecords } from "./telemetry";
@@ -129,6 +130,29 @@ test("execution selection separates repeated node invocations and exposes unknow
   await screen.findByRole("button",{name:"node-two · completed"});
   expect(screen.queryByRole("button",{name:"node-one · completed"})).toBeNull();
   await waitFor(()=>expect(api.get).toHaveBeenCalledWith(expect.stringContaining("/node-two/two"),expect.anything()));
+});
+
+test("an active main conversation waits for its first turn then shows the observed state",async()=>{
+ jest.useFakeTimers();
+ let view:ReturnType<typeof render>|undefined;
+ try {
+  let current={...run("live","execution"),status:"running",ended:null as string|null};
+  let value={...projection,threads:[{id:"live",parent:null}],turns:[] as Lane[]};
+  (api.get as jest.Mock).mockImplementation((url:string)=>Promise.resolve({data:url.endsWith("/flow")?{runs:[current]}:{run:current,projection:value,truncated:false}}));
+  view=render(<GraphAgents flowId="flow"/>);
+  await act(async()=>{await Promise.resolve()});
+  expect(screen.getByRole("button",{name:"node-live · Waiting for turn"})).toHaveTextContent("Waiting for turn");
+  expect(screen.queryByText("unknown")).toBeNull();
+  value={...value,turns:[{id:"turn",thread:"live",started:current.started,ended:null,status:"running"}]};
+  await act(async()=>{jest.advanceTimersByTime(2000)});
+  expect(screen.queryByText("Waiting for turn")).toBeNull();
+  expect(screen.getByRole("button",{name:"node-live · running"})).toHaveTextContent("running");
+  current={...current,status:"failed",ended:"2026-10-15T10:00:02Z"};
+  value={...value,turns:[{...value.turns[0],ended:current.ended,status:"failed"}]};
+  await act(async()=>{jest.advanceTimersByTime(2000)});
+  expect(screen.queryByText("Waiting for turn")).toBeNull();
+  expect(screen.getByRole("button",{name:"node-live · failed"})).toBeInTheDocument();
+ } finally {view?.unmount();jest.clearAllTimers();jest.useRealTimers()}
 });
 
 test("live summary updates do not restart a slower detail request",async()=>{

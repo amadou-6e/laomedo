@@ -22,7 +22,7 @@ export default function GraphAgents({flowId}:{flowId?:string}) {
   useEffect(()=>()=>useAgentActivityStore.getState().clearTarget(),[]);
   useEffect(()=>{setExecution("");setSelected("")},[targetNode]);
   const label=(run:Run)=>run.node_label?.trim()||nodes.find(node=>node.id===run.node)?.data.node?.display_name||run.node;
-  const statusBadge=(status:string)=><Badge size="tag" variant={status==="completed"?"successStatic":status==="running"?"secondaryStatic":"errorStatic"}>{status}</Badge>;
+  const statusBadge=(status:string)=><Badge size="tag" variant={status==="completed"?"successStatic":status==="running"||status==="waiting"?"secondaryStatic":"errorStatic"}>{status==="waiting"?"Waiting for turn":status}</Badge>;
   const [runs,setRuns]=useState<Run[]>([]),[execution,setExecution]=useState("");
   const [details,setDetails]=useState<Record<string,Detail>>({}),[selected,setSelected]=useState("");
   const [scope,setScope]=useState<ActivityScope>({});
@@ -98,8 +98,8 @@ export default function GraphAgents({flowId}:{flowId?:string}) {
     const isRoot=thread.id===run.native_session;
     const name=isRoot?label(run):thread.title;
     const active=selected===run.id&&scope.thread===thread.id;
-    const status=thread.lane?.status??"unknown";
-    const rowLabel=isRoot?`${name} · ${run.status}`:`${name} · ${thread.turns.length} ${thread.turns.length===1?"turn":"turns"} · ${status}`;
+    const status=thread.lane?.status??(isRoot&&run.status==="running"?"waiting":"unknown");
+    const rowLabel=isRoot?`${name} · ${status==="waiting"?"Waiting for turn":run.status}`:`${name} · ${thread.turns.length} ${thread.turns.length===1?"turn":"turns"} · ${status}`;
     return <div key={`${run.id}:${thread.id}`} data-testid="agent-timeline-row" data-thread={thread.id} className={`grid min-w-[900px] grid-cols-[360px_1fr] items-center border-b border-border last:border-b-0 ${active?"bg-muted/50":""}`}>
       <button className="flex min-w-0 items-center gap-2 px-3 py-2 text-left text-sm font-medium hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring" style={{paddingLeft:12+Math.min(thread.depth,8)*16}} onClick={()=>selectScope(run.id,{thread:thread.id})} title={rowLabel} aria-label={rowLabel} aria-pressed={active&&!scope.turn}>
         <IconComponent name={isRoot?"Bot":"MessageSquare"} className="h-4 w-4 shrink-0 text-muted-foreground"/>
@@ -129,7 +129,7 @@ export default function GraphAgents({flowId}:{flowId?:string}) {
     {!error&&!runs.length&&<p>No captured agent runs yet.</p>}
     {targetNode&&runs.length>0&&!visible.some(run=>run.node===targetNode)&&<p className="mb-4 text-sm text-muted-foreground">No captured activity for the selected node in this graph execution.</p>}
     {visible.length>0&&<><div className="overflow-x-auto rounded-md border border-border"><div data-testid="agent-timeline-axis" data-start={start} data-end={end} title="Execution bounds use runner receipt times; turn segments use captured provider timestamps." className="flex min-w-[900px] justify-between border-b bg-muted/40 py-2 pl-[372px] pr-3 text-xs tabular-nums text-muted-foreground"><span>{time(new Date(start).toISOString())}</span><span>{((end-start)/1000).toFixed(1)} seconds</span><span>{time(new Date(end).toISOString())}</span></div>
-      {visible.map(run=>rowsByRun[run.id]?.length?rowsByRun[run.id].map(thread=>agentRow(run,thread)):<div key={run.id} data-testid="agent-timeline-row" className="grid min-w-[900px] grid-cols-[360px_1fr] border-b border-border"><button className="px-3 py-2 text-left text-sm font-medium" aria-label={`${label(run)} · ${run.status}`} onClick={()=>selectScope(run.id)}>{label(run)}</button><span className="px-3 py-2 text-xs text-muted-foreground">{details[run.id]?"No captured turns":"Loading captured turns…"}</span></div>)}
+      {visible.map(run=>rowsByRun[run.id]?.length?rowsByRun[run.id].map(thread=>agentRow(run,thread)):<div key={run.id} data-testid="agent-timeline-row" className="grid min-w-[900px] grid-cols-[360px_1fr] border-b border-border"><button className="px-3 py-2 text-left text-sm font-medium" aria-label={`${label(run)} · ${run.status}`} onClick={()=>selectScope(run.id)}>{label(run)}</button><span className="px-3 py-2 text-xs text-muted-foreground">{details[run.id]?(run.status==="running"?"Waiting for turn":"No captured turns"):"Loading captured turns…"}</span></div>)}
       </div>
       </>}
     {detail&&<article key={detail.run.id} className="mt-8 space-y-6" aria-label="Selected agent run">
