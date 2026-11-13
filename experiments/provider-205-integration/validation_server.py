@@ -1,4 +1,4 @@
-"""Launch isolated Codex or Claude graphs without submitting model tasks.
+"""Launch isolated provider graphs without submitting model tasks.
 
 --provider claude uses its own app port, private state and dedicated login mirror.
 --resume preserves the selected provider's existing graph and runner address.
@@ -21,13 +21,17 @@ REPO = Path("C:/CodeWorkspace/laomedo")
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--provider", choices=("codex", "claude"), default="codex")
+    parser.add_argument(
+        "--provider", choices=("codex", "claude", "opencode"), default="codex"
+    )
     parser.add_argument("--resume", action="store_true")
     args = parser.parse_args()
     provider = args.provider
-    app_port = 17876 if provider == "codex" else 17877
+    app_port = {"codex": 17876, "claude": 17877, "opencode": 17878}[provider]
     metadata_name = (
-        "interactive-validation" + ("-claude" if provider == "claude" else "") + ".json"
+        "interactive-validation"
+        + ("-" + provider if provider != "codex" else "")
+        + ".json"
     )
     metadata_path = (
         REPO / ".tools/review/provider-composition/develop-integration" / metadata_name
@@ -120,6 +124,21 @@ def main():
             ready = agent.readiness()
             if not ready.ready:
                 raise RuntimeError("claude_validation_not_ready:" + str(ready.reason))
+        elif provider == "opencode":
+            from opencode_profile import prepare_profile
+            from laomedo.agents.agents.opencode.agent import OpenCodeAgent
+            from laomedo.agents.agents.opencode.runtime import OpenCodeAgentRuntime
+
+            profile = root / "profile"
+            if not previous:
+                prepare_profile(profile)
+
+            def transport_factory(workspace, evidence):
+                return OpenCodeAgentRuntime(workspace, evidence, profile=profile)
+
+            agent = OpenCodeAgent(
+                root / "runner", registry, source, transport_factory=transport_factory
+            )
         else:
             from laomedo.agents.agents.codex.agent import CodexAgent
 
@@ -145,17 +164,26 @@ def main():
             os.environ["LAOMEDO_CLAUDE_RUNNER_TOKEN_FILE"] = str(
                 agent.state / "api-token"
             )
+        elif provider == "opencode":
+            os.environ["LAOMEDO_OPENCODE_RUNNER_TOKEN_FILE"] = str(
+                agent.state / "api-token"
+            )
         catalogue = agent.catalog.list_models()
         selected = next(
             (
                 model
                 for model in catalogue.models
-                if model.id == ("sonnet" if provider == "claude" else "gpt-6-luna")
+                if (provider == "opencode" and "haiku" in model.id)
+                or model.id == ("sonnet" if provider == "claude" else "gpt-6-luna")
             ),
             catalogue.models[0],
         )
         efforts = selected.reasoning_efforts
-        effort = "low" if "low" in efforts else (efforts[0] if efforts else "default")
+        effort = (
+            "default"
+            if provider == "opencode"
+            else "low" if "low" in efforts else (efforts[0] if efforts else "default")
+        )
         build = runpy.run_path(str(REPO / "examples/agents/build_flow.py"))["build"]
         flow = build(
             provider=provider,
