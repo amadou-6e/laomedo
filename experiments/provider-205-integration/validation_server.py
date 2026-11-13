@@ -9,16 +9,30 @@ import sys
 import tempfile
 import threading
 import time
+from urllib.parse import urlparse
 
 REPO = Path("C:/CodeWorkspace/laomedo")
 
 
 def main():
-    root = Path(tempfile.mkdtemp(prefix="laomedo-interactive-validation-"))
+    metadata_path = (
+        REPO
+        / ".tools/review/provider-composition/develop-integration/interactive-validation.json"
+    )
+    previous = (
+        json.loads(metadata_path.read_text(encoding="utf-8"))
+        if "--resume" in sys.argv
+        else None
+    )
+    root = (
+        Path(previous["state"])
+        if previous
+        else Path(tempfile.mkdtemp(prefix="laomedo-interactive-validation-"))
+    )
     config = root / "langflow"
-    config.mkdir()
+    config.mkdir(exist_ok=True)
     registry = root / "registry"
-    registry.mkdir()
+    registry.mkdir(exist_ok=True)
     os.environ.update(
         {
             "PYTHONPATH": str(REPO / "src"),
@@ -38,7 +52,7 @@ def main():
     )
     sys.path.insert(0, str(REPO / "src"))
     source = root / "repository/source"
-    source.mkdir(parents=True)
+    source.mkdir(parents=True, exist_ok=True)
     subprocess.run(["git", "init", "--quiet", str(source.parent)], check=True)
     (source / "task.txt").write_text(
         "Validation marker: amber-205.\n", encoding="utf-8"
@@ -82,7 +96,9 @@ def main():
             lease_service=lease,
             **native["session_login"](),
         )
-        runner = RunnerServer(agent, port=0)
+        runner = RunnerServer(
+            agent, port=urlparse(previous["runner_url"]).port if previous else 0
+        )
         threading.Thread(target=runner.serve_forever, daemon=True).start()
         os.environ["LAOMEDO_RUNNER_TOKEN_FILE"] = str(agent.state / "api-token")
         catalogue = agent.catalog.list_models()
@@ -167,6 +183,23 @@ if __name__ == "__main__":
     try:
         main()
     except Exception as error:
+        import traceback
+
+        print(
+            json.dumps(
+                {
+                    "frames": [
+                        {
+                            "file": Path(frame.filename).name,
+                            "line": frame.lineno,
+                            "function": frame.name,
+                        }
+                        for frame in traceback.extract_tb(error.__traceback__)
+                    ]
+                }
+            ),
+            flush=True,
+        )
         print(
             json.dumps(
                 {

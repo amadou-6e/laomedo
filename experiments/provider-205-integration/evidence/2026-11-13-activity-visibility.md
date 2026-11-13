@@ -1,0 +1,13 @@
+# Activity visibility verification
+
+Production change: bca47f112c19568c3eb5d9575fb30af99145e0c3 to 44509c2261a3278a069b5ff64eb268b23ee91bdd (PR250, issue205).
+
+Conversation now precedes usage and telemetry; its transcript uses the main Activity scroll area. Flex containers explicitly permit shrinking. Search, export, source disclosure, scoped data, polling and model execution are unchanged.
+
+35 concern-owned frontend tests pass, Node22 Vite build passes, git diff --check passes. All888 tracked Python files pass pinned Black in Windows-sized batches. The plain root Black invocation also traversed separate untracked my-skills/specs repositories and reported60 foreign files; none were changed. Final-head CI is green for Black, provider-interface-contracts, Docker runtime controls and Python3.10/3.13 package tests. Earlier1592-test suite remains revision-bound to the preceding suite repair; no full suite rerun is claimed for this layout change.
+
+Actual owner-shared VSCode integrated-browser graph was discovered, status checked, read and screenshot inspected through CoBrowse. The second recorded invocation was selected: both prompt and assistant reply were visibly rendered above Usage and diagnostics in the shared viewport. This reused retained execution; no inference was submitted. Earlier standalone scroll checks did not establish the owner's actual render and the exact original failure was not proven. Owner acceptance is not inferred.
+
+Same Claude reviewer, low effort,300s bounded packet: code APPROVE, docs APPROVE, visual APPROVE limited to layout for the full four-file diff. Two real standalone773x714 screenshots had message bodies masked before retention. They establish conversation ordering and reachable reply after scrolling, not message-content rendering, first-load visibility in every viewport or independent inspection of the owner's browser. Implementing agent directly inspected the unretained owner screenshot with the answer visible. No review blockers. Low uncertainty remains for wide markdown tables; unchanged pre/code styles explicitly wrap/scroll code, while table behavior was not tested.
+
+The disposable validation launcher supports --resume, preserving the prior isolated database, graph address and runner port. Launched as a separate hidden background process after the prior tool-session server stopped; health and graph endpoint checks passed. Operational launcher changes are experiment-only and not covered by production layout review. No private Activity response, credential, profile or owner screenshot is published. Nothing merged or closed.
