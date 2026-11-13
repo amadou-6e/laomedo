@@ -1,9 +1,22 @@
 # Prepare a local GitHub App
 
-Status: setup design for [#251](https://github.com/amadou-6e/laomedo/issues/251),
-not a working installation guide. The connection UI and secure entry are not
-implemented yet. No existing app is assumed; the owner corrected that on
-2026-11-07. Creating an app or changing its settings needs explicit owner action.
+Status: local deployment provisioning for [#251](https://github.com/amadou-6e/laomedo/issues/251).
+Open `/settings/github?deployment=1` deliberately as the deployment owner.
+Continue on GitHub sends a prefilled App manifest; confirm creation and choose
+repositories on GitHub. The bound return exchanges the one-use registration code
+and stores only the client secret in Windows vault. Ordinary Add Connection never
+enters registration or asks for App identifiers or secrets.
+
+Registration is profile-scoped in this local increment. It is not a distributed
+shared-App deployment or multi-user administrator capability. App installation
+does not create a saved connection: return to connections, Add Connection, authorize
+the App and confirm repository choices. No live success is implied by this guide.
+
+If registration cannot be confirmed, inspect your GitHub Apps before retrying:
+GitHub may have created an App even when conversion or local custody failed.
+Automatic registration retries are intentionally absent. Restart, logout, expiry
+or another profile/lease cannot resume a pending registration. Remove an unused
+remote App deliberately in GitHub; local cancellation does not delete it.
 
 The opt-in native implementation targets Python 3.11 or newer (the inspected
 local runtime is 3.12). Its `private-sources` extra pins Authlib and its supported
@@ -25,13 +38,15 @@ these dependencies does not configure an app or connect an account. Core Python
 | Device flow | Disabled; not an implicit fallback |
 | Installation scope | Only the repository or repositories selected for Skill reads |
 | App slug | Non-secret name from the registered app URL; validate before deriving its GitHub installation link |
-| Client secret | Generated deliberately, entered once into the secure local setup UI and stored in Windows vault; never pasted into chat |
+| Client secret | Returned directly to the host by manifest conversion and stored in Windows vault; never copied into chat or the browser UI |
 
 GitHub account authorization and app installation are different. Private repository
 access requires both the user and app installation to have access. No Issues,
 Pull requests, Workflows or Contents write permission is needed for discovery.
-GitHub App private keys/installation-token signing are not required by the proposed
-user-access-token flow; do not generate or collect unrelated credentials.
+GitHub manifest conversion also returns signing material and a webhook secret.
+Neither is used by this user-token flow; they are discarded, never persisted or
+returned to the browser. The webhook is disabled. Expiring user tokens are required;
+the manifest uses GitHub's default expiration and does not disable it.
 
 ## Intended one-time path
 

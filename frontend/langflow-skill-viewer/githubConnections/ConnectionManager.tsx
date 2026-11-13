@@ -4,6 +4,7 @@ import useProfileSessionActions from "@/components/laomedoProfiles/useProfileSes
 import ConnectionAccounts from "./ConnectionAccounts";
 import ConnectionForms from "./ConnectionForms";
 import ConnectionInventory from "./ConnectionInventory";
+import DeploymentSetup from "./DeploymentSetup";
 import {
   authorizationUrl,
   connectionCapability,
@@ -16,6 +17,12 @@ import "./connections.css";
 const channelName = "laomedo-private-connections";
 
 export default function ConnectionManager() {
+  if (new URLSearchParams(window.location.search).get("deployment") === "1")
+    return <DeploymentSetup />;
+  return <ConnectionWorkspace />;
+}
+
+function ConnectionWorkspace() {
   const [enabled, setEnabled] = useState<boolean>();
   const [index, setIndex] = useState<ConnectionIndex>();
   const [view, setView] = useState<

@@ -116,7 +116,13 @@ class GitHubConnectionService:
         return credential
 
     async def configure_app(
-        self, scope: GitHubConnectionScope, *, client_id, slug, secret
+        self,
+        scope: GitHubConnectionScope,
+        *,
+        client_id,
+        slug,
+        secret,
+        require_absent=False,
     ):
         """Version deliberate app setup without rebinding existing ready connections."""
         try:
@@ -130,6 +136,8 @@ class GitHubConnectionService:
             raise GitHubConnectionInputError() from None
         async with self.lock, self.commit_lock:
             await scope.revalidate()
+            if require_absent and self.journal.app(scope.owner_id) is not None:
+                raise GitHubConnectionChanged()
             app_id = uuid4()
             reference = self.journal.reserve_secret(scope.owner_id, "app", app_id)
             self.vault.store(reference.id, settings.client_secret)

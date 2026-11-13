@@ -8,6 +8,10 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 GITHUB_AUTHORIZE_URL = "https://github.com/login/oauth/authorize"
 GITHUB_TOKEN_URL = "https://github.com/login/oauth/access_token"
 GITHUB_CALLBACK_PATH = "/api/v1/laomedo/github-connections/callback"
+GITHUB_PROVISION_CALLBACK_PATH = (
+    "/api/v1/laomedo/github-connections/app-registration/callback"
+)
+GITHUB_MANIFEST_URL = "https://github.com/settings/apps/new"
 OAUTH_RESPONSE_LIMIT = 65536
 OAUTH_DEADLINE_SECONDS = 30
 GITHUB_API_ORIGIN = "https://api.github.com"

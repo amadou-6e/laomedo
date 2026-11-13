@@ -30,6 +30,7 @@ export type ConnectionIndex = {
 };
 export type ConnectionResult = { index: ConnectionIndex; outcome: unknown };
 export type ConnectionAction =
+  | "provision"
   | "setup"
   | "begin"
   | "edit"

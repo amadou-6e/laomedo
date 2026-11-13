@@ -31,7 +31,10 @@ from laomedo.github.connections.models import (
     GitHubConnectionScope,
     GitHubResponseBinding,
 )
-from laomedo.github.connections.settings import GITHUB_CALLBACK_PATH
+from laomedo.github.connections.settings import (
+    GITHUB_CALLBACK_PATH,
+    GITHUB_PROVISION_CALLBACK_PATH,
+)
 
 
 class PrivateAccessPolicy:
@@ -192,7 +195,7 @@ class PrivateAccessPolicy:
         ):
             raise PrivateRequestRefused()
 
-    async def callback(self, request):
+    async def callback(self, request, *, provisioning=False):
         """Admit only a fixed top-level return with upstream identity and a live lease."""
         self.verify_runtime()
         headers = {}
@@ -212,7 +215,10 @@ class PrivateAccessPolicy:
             request.method != "GET"
             or request.scope.get("scheme") != "http"
             or request.scope.get("root_path")
-            or request.scope.get("path") != GITHUB_CALLBACK_PATH
+            or request.scope.get("path")
+            != (
+                GITHUB_PROVISION_CALLBACK_PATH if provisioning else GITHUB_CALLBACK_PATH
+            )
             or headers.get("host") != self.host
             or headers.get("origin") not in {None, self.settings.origin}
             or headers.get("sec-fetch-site")

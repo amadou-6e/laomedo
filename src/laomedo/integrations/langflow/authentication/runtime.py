@@ -96,6 +96,9 @@ class PrivateBrowserRuntime:
             commit_lock=self.policy.lock,
         )
         app.state.private_github_connections = connections
+        from laomedo.github.connections.provisioning import GitHubAppProvisioner
+
+        app.state.private_github_provisioner = GitHubAppProvisioner(connections)
         from laomedo.integrations.langflow.authentication.private_skills import (
             private_skill_router,
         )

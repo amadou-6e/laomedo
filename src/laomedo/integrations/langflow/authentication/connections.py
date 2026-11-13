@@ -158,6 +158,7 @@ async def connection_index(request: Request, user: CurrentActiveUser):
 async def connection_action(
     action: Literal[
         "setup",
+        "provision",
         "begin",
         "edit",
         "token",
@@ -175,7 +176,11 @@ async def connection_action(
         scope = await _admit(request, user, mutating=True)
         payload = await _body(request)
         service = request.app.state.private_github_connections
-        if action == "setup":
+        if action == "provision":
+            if payload:
+                raise GitHubConnectionInputError()
+            outcome = await request.app.state.private_github_provisioner.begin(scope)
+        elif action == "setup":
             data = _parse(GitHubAppSetupRequest, payload)
             outcome = await service.configure_app(
                 scope, client_id=data.client_id, slug=data.slug, secret=data.secret
@@ -233,6 +238,27 @@ async def connection_callback(request: Request):
         pass
     return RedirectResponse(
         "/settings/github?" + urlencode(query),
+        status_code=303,
+        headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"},
+    )
+
+
+@connection_router.get("/github-connections/app-registration/callback")
+async def app_registration_callback(request: Request):
+    """Store App credentials on a bound registration return, then open installation."""
+    destination = "/settings/github?deployment=1&registration=unconfirmed"
+    try:
+        policy = request.app.state.private_access_policy
+        context = await policy.callback(request, provisioning=True)
+        request.state.private_browser_context = context
+        scope = PrivateGitHubAdmission(policy, context).scope()
+        destination = await request.app.state.private_github_provisioner.complete(
+            scope, SecretStr(str(request.url))
+        )
+    except Exception:
+        pass
+    return RedirectResponse(
+        destination,
         status_code=303,
         headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"},
     )

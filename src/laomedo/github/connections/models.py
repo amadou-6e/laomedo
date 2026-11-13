@@ -11,6 +11,20 @@ from laomedo.github.connections.settings import GITHUB_REPOSITORY_LIMIT
 from laomedo.skills.sources.models import PendingSkillImport
 
 
+class GitHubAppProvisioningAttempt(BaseModel):
+    """Single-use registration proof, tied to the initiating local profile lease."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid", hide_input_in_errors=True)
+    owner_id: UUID = Field(description="Verified initiating local profile.")
+    lease_binding: SecretStr = Field(
+        exclude=True, repr=False, description="Initiating browser lease proof."
+    )
+    state: SecretStr = Field(
+        exclude=True, repr=False, description="Unpredictable registration CSRF proof."
+    )
+    expires_at: float = Field(description="Registration deadline in Unix seconds.")
+
+
 class GitHubOAuthAttempt(BaseModel):
     """Keep pending state and verifier in broker memory, never graph payloads."""
 

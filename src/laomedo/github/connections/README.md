@@ -3,6 +3,15 @@
 This capability owns deliberate GitHub authorization and repository read consent.
 It never imports host Git, gh, environment or credential-helper authentication.
 
+`provisioning.py` owns one-time local deployment App manifest registration.
+`GitHubAppProvisioner.begin` creates a bounded profile/lease-bound registration;
+`complete` consumes its state before exchanging the one-use code and delegates
+credential custody to `configure_app`. Unused signing material is never persisted.
+`GitHubManifestClient.convert` accepts only a fixed GitHub conversion destination,
+bounded response and no redirects/retries. Normal connection sign-in stays separate.
+`GitHubAppProvisioningAttempt` in `models.py` holds only masked in-memory state,
+trusted owner/lease and expiry. Restart abandons outstanding registrations.
+
 `skills/` owns connection-authorized private Skill orchestration, provenance and
 read routes' buffered results. Its `PrivateSkillAccess` composes the general
 Skill registry and source validators without making the Skills domain import
