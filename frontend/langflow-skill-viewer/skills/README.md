@@ -17,6 +17,12 @@ preserves these package boundaries under Langflow's skillFilesModal directory;
 the node adapter is copied to upstream input rendering. No legacy forwarding
 files remain at the overlay root.
 
+`private/` owns explicit connection-bound read-only discovery and viewing.
+`interface/selection.ts` keeps private selections bound to connection and source;
+`SkillViewer` routes them directly to `PrivateSkillViewer`, bypassing public edit,
+publication and inspection hooks. Node Advanced settings includes
+`PrivateSkillControls`. Private graphs grant no Agent materialization authority.
+
 ## Keyboard and failure boundaries
 
 Source text and navigation keys reach Monaco without triggering canvas shortcuts.

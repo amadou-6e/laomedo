@@ -1,0 +1,110 @@
+# Private browser session admission
+
+This package supplements upstream authentication with the revocable private
+browser lease required by SC01 of the GitHub account-connection contract. It
+does not authenticate passwords or validate upstream JWTs. The opt-in native
+runtime installs the upstream login, refresh and logout adapter. GitHub connection
+and private content integration remain unfinished.
+
+`models.py` defines `PrivateSession` (owner and lifetime) and
+`IssuedPrivateSession` (the session plus a masked, nonserializable cookie).
+`store.py` defines `PrivateSessionStore`, the durable SQLite lease authority:
+
+- `issue` creates an unpredictable cookie and persists only its SHA-256 digest.
+- `resolve` returns a live lease only for the authenticated matching owner.
+- `renew` extends a live lease after upstream refresh; it cannot revive an
+  expired, missing or revoked lease.
+- `revoke` durably fences that browser lease; other leases remain independent.
+- `revoke_browser` invalidates the exact incoming browser capability without
+  requiring a still-valid access JWT, so expired-login logout remains possible.
+- `is_revoked` checks a retained fence before forwarding refresh.
+
+`adapter.py` owns `PrivateSessionAdapter`, the ASGI login/refresh/logout adapter.
+It observes response headers without reading password bodies or replacing
+upstream authentication. Successful login requires an outgoing access cookie
+validated by the supplied upstream policy; lease expiry follows the outgoing
+refresh cookie. A process-local policy lock serializes authentication responses
+and logout. Refresh never mints a missing lease; known revoked leases are refused
+before upstream refresh. Logout fences its incoming lease before upstream work;
+failure stays unconfirmed. The opt-in runtime installs this adapter in the app.
+
+`PrivateSessionAdapter._refresh_expiry` parses only the outgoing refresh cookie's
+absolute expiry; `_cookie_headers` creates a persistent, HttpOnly, SameSite=Lax
+loopback cookie or its deletion. `_refuse` emits a safe no-store failure.
+
+`settings.py` defines `PrivateBrowserSettings`, explicit trusted origin and runtime
+paths without dotenv or credential loading. `policy.py` defines
+`PrivateAccessPolicy`: `verify_runtime` admits the native PIN-profile deployment;
+`same_origin` checks browser request origin; `owner_from_token` delegates to the
+upstream authentication service; `authorize` binds that validated profile to a
+live private lease; `revalidate` repeats upstream activity and lease checks before
+release. `_ordinary_profile` excludes the internal startup actor and superusers.
+`PrivateBrowserContext` retains masked request credentials in process only and
+serializes the safe session projection. No browser-supplied owner is admitted.
+
+Writes serialize through SQLite transactions across store instances. Refresh
+cannot overwrite a committed revocation. The adapter additionally serializes
+authentication responses against logout; the store alone does not provide that
+response ordering. The opt-in readiness route uses private authorization and
+response-release checks. Connection-specific consent and generation checks must
+also be installed before any private content is exposed.
+
+`errors.py` contains the stable domain exception. Trusted callers provide an
+absolute database path outside Git and public registry roots. The runtime owner
+must additionally admit its private directory before constructing this store.
+No cookie, credential or upstream token belongs in graphs, logs or settings.
+
+Concern-owned tests cover persistence, owner/lifetime checks and concurrent
+refresh/revocation. They are internal controls, not real browser acceptance.
+
+The private cookie uses SameSite=Lax so a top-level GitHub OAuth return can
+carry its initiating browser lease. Private reads still require exact same-origin
+request metadata; the OAuth callback additionally requires its one-use state and
+lease binding. New mutating controls require their separate CSRF proof. Cookie
+SameSite alone does not authorize a read, callback or mutation.
+
+`boundary.py` owns `PrivateResponseBoundary`. Its `_private_path` recognizes only
+the owned private API namespaces. Before a successful response starts, the guard
+requires the route's `PrivateBrowserContext`, revalidates it under the shared
+policy lock, and holds that lock until the response finishes. `_refuse` replaces
+an unauthorized response with a safe no-store error and discards its body.
+This does not authorize a connection mutation: its service must recheck session,
+consent and generation before committing as well as before response release.
+
+`runtime.py` owns opt-in `PrivateBrowserRuntime`: `configure` installs the policy,
+adapters and status route before the SPA fallback; `_admit_directory` admits only
+the marked private directory, disjoint from declared public roots/agent mounts;
+`_claim_process` and `_release_process` hold one native Windows broker lock;
+`lifespan` verifies the final upstream profile adapter before serving.
+`PrivateRuntimeMarker` binds persistent private state to its exact loopback origin.
+`routes.py` owns the authenticated `private_session_status` safe readiness check.
+The host must declare every configured public source root and Agent mount; the
+isolated profile launcher clears external bindings and declares its public registry.
+Unknown external deployments are not admitted by this setup recipe.
+
+`PrivateGitHubAdmission` projects a verified browser context into the connection
+service's trusted scope, binding the exact lease digest and a host revalidation
+method. `PrivateAccessPolicy.csrf` derives a private mutation proof; `mutation`
+requires it plus exact browser origin. `callback` separately admits only a fixed
+top-level return with a current upstream profile and live initiating lease; the
+connection service still must validate and consume one-use state/PKCE.
+`PrivateGitHubResponsePolicy` checks owner metadata revisions, connection results,
+pending attempts and read authorization before releasing private responses.
+The shared commit lock orders these checks against logout and connection changes.
+
+`connections.py` owns the authenticated connection HTTP adapter. `connection_index`
+returns only the current profile/lease's broker metadata; `connection_action`
+dispatches the fixed setup/begin/token/confirm/cancel/refresh/disconnect/cleanup
+actions after browser admission and CSRF verification. `_body` bounds JSON before
+manual Pydantic validation, so validation errors never echo a token or app secret.
+`connection_callback` admits the fixed top-level OAuth return, consumes its bound
+attempt, and redirects to the fixed manager without code/state query parameters.
+`connection_capability` exposes only whether this explicit private runtime exists.
+No public service bearer token can call these controls as a human owner.
+
+`private_skills.py` owns `private_skill_action`, the fixed discover/revisions/
+inspect/history/compare browser adapter. It reuses admission and bounded manual
+validation before invoking `PrivateSkillAccess`; the upstream authenticated user
+supplies the owner. Successful replies are fully buffered JSON and carry the
+exact read authorization into the existing release fence. No public dispatcher,
+private editing, materialization or streaming path is added.

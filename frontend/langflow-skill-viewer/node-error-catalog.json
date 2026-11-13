@@ -1899,10 +1899,70 @@
     "description": "Required local profile coordination features are unavailable in this browser context.",
     "recovery": "Use a supported local browser setup. Existing profiles and their data have not been deleted."
   },
+  "private_session_required": {
+    "title": "Sign in again for private access",
+    "description": "The app could not confirm a live private session for this profile.",
+    "recovery": "Use the profile menu to sign out, then open your profile again. If sign-out fails, private access stays locked until it can be confirmed."
+  },
+  "private_session_unavailable": {
+    "title": "Private access could not be confirmed",
+    "description": "The local app could not verify this profile's private access.",
+    "recovery": "Check that the local app is running and try again. If sign-in is still required, sign out and open your profile again."
+  },
+  "private_request_refused": {
+    "title": "This private control request was refused",
+    "description": "The request did not match the local app's browser origin, mutation proof or authorization-return route. No connection change was admitted.",
+    "recovery": "Reload the local connection control and use its current buttons. Do not replay a captured request or paste authorization details into another page."
+  },
+  "github_credential_unavailable": {
+    "title": "GitHub credential storage could not be confirmed",
+    "description": "The app could not confirm secure Windows storage or removal of this connection's credential.",
+    "recovery": "Use the native Windows app and retry once secure storage is available. An unconfirmed removal does not establish that the credential was deleted or revoked at GitHub."
+  },
+  "github_oauth_unavailable": {
+    "title": "GitHub authorization could not be confirmed",
+    "description": "The app could not confirm this GitHub authorization or credential renewal. Your previous connection has not been replaced by this attempt.",
+    "recovery": "Open the connection manager and start a new sign-in. An uncertain renewal requires reconnecting; it is not safe to replay the previous exchange."
+  },
+  "github_connection_unavailable": {
+    "title": "The GitHub connection could not be confirmed",
+    "description": "The app could not verify or save its private connection state. Private content stays locked.",
+    "recovery": "Check the local app and retry the connection manager read. Preserve the runtime folder; do not delete state or reuse an uncertain authorization exchange."
+  },
+  "github_connection_changed": {
+    "title": "This GitHub connection has changed",
+    "description": "The selected connection no longer matches the owner or generation checked by this request.",
+    "recovery": "Reload the connection manager and select the current connection. Reconnect if required; a stale request cannot replace or reopen it."
+  },
+  "github_repository_access_unconfirmed": {
+    "title": "GitHub repository access could not be confirmed",
+    "description": "The app could not verify the current account and repository read access online. This does not establish whether the repository exists or is private.",
+    "recovery": "Check the selected connection and its repository access in the connection manager. Reconnect or update repository consent if needed; private files stay locked until verification succeeds."
+  },
+  "github_reauthorization_required": {
+    "title": "Reconnect this GitHub account",
+    "description": "The selected connection's credential is missing, expired or could not be renewed safely.",
+    "recovery": "Open the connection manager and reconnect the selected account. Keep the same account and confirm repository reads again; the app will not replay an uncertain renewal or choose another login."
+  },
+  "github_token_unsupported": {
+    "title": "Use a supported fine-grained GitHub token",
+    "description": "This entry is not a supported fine-grained personal access token. No connection was replaced.",
+    "recovery": "Use browser sign-in, or deliberately enter a fine-grained token through the masked connection control. Classic tokens and borrowed installation credentials are not supported."
+  },
   "profile_pin_invalid": {
     "title": "Use a six-digit PIN",
     "description": "This profile uses a PIN of exactly six digits.",
     "recovery": "Enter all six digits. Leading zeroes are allowed."
+  },
+  "private_skill_execution_unsupported": {
+    "title": "Private Skill files are read only",
+    "description": "This connection allows browsing private files. It does not allow an Agent to use or change them.",
+    "recovery": "Open Skill files to inspect the selected revision. Use an independently available public Skill for Agent runs."
+  },
+  "github_connection_input_invalid": {
+    "title": "Check the connection request",
+    "description": "A connection control received an unsupported value or request shape. Credential input is not included in this message.",
+    "recovery": "Review the selected action and its fields in the connection manager. Do not retry an uncertain authorization exchange automatically."
   },
   "profile_name_required": {
     "title": "Enter a profile name",

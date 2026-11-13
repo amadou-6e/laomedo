@@ -303,7 +303,7 @@ index fa16114..eb5a2a6 100644
 +            ) : nodeKind(data.type) === "LaomedoSkill" ? (
 +              <Suspense fallback={<div role="status">Loading Skill files...</div>}>
 +                <SkillFilesModal open={openModal} setOpen={setOpenModal}
-+                  skillId={inspectionSelection(data.node?.template).skillId}
++                  {...inspectionSelection(data.node?.template)}
 +                  revision={inspectionSelection(data.node?.template).revision} />
 +              </Suspense>
 +            ) : (

@@ -139,3 +139,42 @@ def apply_profiles(checkout: Path, source: Path):
     shutil.copytree(source / "profiles", target)
     routes.write_text(text, encoding="utf-8")
     menu.write_text(menu_text, encoding="utf-8")
+    apply_connections(checkout, source)
+
+
+def apply_connections(checkout: Path, source: Path):
+    """Bind private Settings controls to exact native routes, gated by capability."""
+    frontend = checkout / "src/frontend/src"
+    target = frontend / "components/laomedoGitHubConnections"
+    routes = frontend / "routes.tsx"
+    text = routes.read_text(encoding="utf-8")
+    anchor = '<Route path="shortcuts" element={<ShortcutsPage />} />'
+    if target.exists() or text.count(anchor) != 1:
+        raise SystemExit("connection_route_anchor_missing")
+    text = (
+        'import ConnectionManager from "@/components/laomedoGitHubConnections/ConnectionManager";\n'
+        + text.replace(
+            anchor, '<Route path="github" element={<ConnectionManager />} />\n' + anchor
+        )
+    )
+    settings = frontend / "pages/SettingsPage/index.tsx"
+    settings_text = settings.read_text(encoding="utf-8")
+    anchor = "  const { t } = useTranslation();"
+    nav_anchor = (
+        '  sidebarNavItems.push(\n    {\n      title: t("settings.nav.mcpServers"),'
+    )
+    if settings_text.count(anchor) != 1 or settings_text.count(nav_anchor) != 1:
+        raise SystemExit("connection_settings_anchor_missing")
+    settings_text = 'import { useEffect, useState } from "react";\n' 'import { connectionCapability } from "@/components/laomedoGitHubConnections/api";\n' + settings_text.replace(
+        anchor,
+        anchor
+        + "\n  const [privateConnections, setPrivateConnections] = useState(false);\n"
+        "  useEffect(() => { let active = true; connectionCapability().then(value => { if (active) setPrivateConnections(value); }); return () => { active = false; }; }, []);",
+    ).replace(
+        nav_anchor,
+        '  if (privateConnections) sidebarNavItems.push({ title: "GitHub connections", href: "/settings/github", icon: <ForwardedIconComponent name="Github" className="w-4" /> });\n'
+        + nav_anchor,
+    )
+    shutil.copytree(source / "githubConnections", target)
+    routes.write_text(text, encoding="utf-8")
+    settings.write_text(settings_text, encoding="utf-8")
