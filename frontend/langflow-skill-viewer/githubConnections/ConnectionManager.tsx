@@ -315,22 +315,23 @@ export default function ConnectionManager() {
             />
           ) : view === "unavailable" ? (
             <section className="gc-panel gc-focus">
-              <h2>GitHub is unavailable</h2>
+              <h2>GitHub sign-in isn't set up</h2>
               <p className="gc-muted">
-                We could not connect to GitHub right now. Your saved connections
-                have not changed.
+                GitHub sign-in hasn't been set up for this installation. Your
+                saved connections haven't changed.
               </p>
+              <Button disabled={busy} onClick={returnToConnection}>
+                Go back
+              </Button>
               <Button
+                variant="outline"
                 disabled={busy}
                 onClick={async () => {
                   const result = await run();
                   if (result?.index.app) setView("list");
                 }}
               >
-                Try again
-              </Button>
-              <Button variant="ghost" onClick={returnToConnection}>
-                Go back
+                Check again
               </Button>
               <button
                 className="gc-link gc-muted"

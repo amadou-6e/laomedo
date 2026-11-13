@@ -30,7 +30,7 @@ export default function ConnectionAccounts({
     const ready = availability === "ready";
     return (
       <section className="gc-panel gc-detail">
-        <button className="gc-link gc-back" onClick={back}>
+        <button className="gc-link gc-back" disabled={busy} onClick={back}>
           ← GitHub connections
         </button>
         <div className="gc-identity">
@@ -140,11 +140,9 @@ export default function ConnectionAccounts({
                 <Button
                   variant="outline"
                   disabled={busy}
-                  onClick={() =>
-                    ready ? select(connection.id) : reconnect(connection.id)
-                  }
+                  onClick={() => select(connection.id)}
                 >
-                  {ready ? "View connection" : "Sign in again"}
+                  View connection
                 </Button>
               </div>
             );

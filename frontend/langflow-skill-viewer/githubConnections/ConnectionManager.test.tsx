@@ -195,8 +195,11 @@ it("shows unavailable sign-in without requiring app credentials", async () => {
     await screen.findByRole("button", { name: "+ Add connection" }),
   );
   expect(
-    screen.getByRole("heading", { name: "GitHub is unavailable" }),
+    screen.getByRole("heading", { name: "GitHub sign-in isn't set up" }),
   ).toBeVisible();
+  expect(
+    screen.queryByRole("button", { name: "Try again" }),
+  ).not.toBeInTheDocument();
   expect(screen.queryByLabelText("Client secret")).not.toBeInTheDocument();
   expect(connectionRequest).toHaveBeenCalledTimes(1);
   fireEvent.click(
@@ -313,4 +316,72 @@ it("keeps an unconfirmed callback visible after initial state reconciliation", a
   expect(
     screen.queryByRole("button", { name: "+ Add connection" }),
   ).not.toBeInTheDocument();
+});
+
+it("keeps disconnect reachable for an account needing sign-in without App setup", async () => {
+  const connection = {
+    id: "stale-account",
+    generation: 7,
+    mode: "browser",
+    state: "reauthorization_required",
+    principal: { id: 99, login: "old-account" },
+    repositories: [],
+  };
+  (connectionRequest as jest.Mock).mockImplementation((action?: string) =>
+    Promise.resolve({
+      index: {
+        ...initial,
+        app: null,
+        connections:
+          action === "disconnect"
+            ? []
+            : [
+                {
+                  connection,
+                  availability: "reauthorization_required",
+                  credential_cleanup_pending: false,
+                },
+              ],
+      },
+    }),
+  );
+  render(<ConnectionManager />);
+  fireEvent.click(
+    await screen.findByRole("button", { name: "View connection" }),
+  );
+  expect(screen.getByRole("button", { name: "Sign in again" })).toBeVisible();
+  fireEvent.click(screen.getByRole("button", { name: "Disconnect" }));
+  await screen.findByRole("heading", { name: "Connection removed" });
+  expect(connectionRequest).toHaveBeenCalledWith("disconnect", {
+    connection_id: "stale-account",
+    generation: 7,
+  });
+  expect(
+    (connectionRequest as jest.Mock).mock.calls.some(
+      ([action]) => action === "begin",
+    ),
+  ).toBe(false);
+});
+
+it("checks missing sign-in configuration without starting or replaying authorization", async () => {
+  (connectionRequest as jest.Mock).mockResolvedValue({
+    index: { ...initial, app: null },
+  });
+  render(<ConnectionManager />);
+  fireEvent.click(
+    await screen.findByRole("button", { name: "+ Add connection" }),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Check again" }));
+  await waitFor(() =>
+    expect(screen.getByRole("button", { name: "Go back" })).toBeEnabled(),
+  );
+  expect(
+    (connectionRequest as jest.Mock).mock.calls.every(
+      ([action]) => action === undefined,
+    ),
+  ).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "Go back" }));
+  expect(
+    screen.getByRole("button", { name: "+ Add connection" }),
+  ).toBeVisible();
 });
