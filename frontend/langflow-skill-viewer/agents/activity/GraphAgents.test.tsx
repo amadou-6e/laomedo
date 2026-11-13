@@ -150,7 +150,7 @@ test("live summary updates do not restart a slower detail request",async()=>{
 });
 
 
-test("conversation precedes diagnostics, roles differ and command evidence starts collapsed",async()=>{
+test("conversation follows diagnostics, roles differ and command evidence starts collapsed",async()=>{
  const first=run("one","execution");
  const items=[{id:"user",thread:"one",started:first.started,ended:first.ended,item:{type:"userMessage",text:"Read the file"}},{id:"tool",thread:"one",started:first.started,ended:first.ended,item:{type:"commandExecution",command:"cat README.md",exitCode:0,aggregatedOutput:"output evidence",commandActions:[{type:"read",name:"README.md"}]}},{id:"answer",thread:"one",started:first.started,ended:first.ended,item:{type:"agentMessage",text:"**Done**"}},{id:"child",thread:"child-unique-thread",started:first.started,ended:first.ended,item:{type:"agentMessage",text:"Child answer"}}];
  (api.get as jest.Mock).mockImplementation((url:string)=>Promise.resolve({data:url.endsWith("/flow")?{runs:[first]}:{run:first,projection:{...projection,items},truncated:true}}));
@@ -159,7 +159,7 @@ test("conversation precedes diagnostics, roles differ and command evidence start
  await screen.findByRole("navigation",{name:"Activity selection"});
  fireEvent.click(screen.getByRole("button",{name:"All activity"}));
  const conversation=await screen.findByRole("region",{name:"Conversation messages and tools"});
- expect(conversation.compareDocumentPosition(screen.getByRole("region",{name:"Usage and diagnostics"}))&Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+ expect(screen.getByRole("region",{name:"Usage and diagnostics"}).compareDocumentPosition(conversation)&Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
  expect(conversation).toHaveAttribute("tabindex","0");
  expect(container.querySelector('[data-message-role="user"]')).toHaveClass("items-end");
  expect(container.querySelector('[data-message-role="agent"]')).toHaveClass("items-start");
