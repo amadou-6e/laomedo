@@ -227,7 +227,7 @@ export default function ConnectionManager() {
                   ? "Check your fine-grained personal access token and try again."
                   : error === "private_session_required"
                     ? "Log in to your local profile to continue."
-                    : "Your saved connections are still available. Check current state to continue."}
+                    : "We could not finish this request. Check current state to continue."}
               </p>
               <Button
                 disabled={busy}
