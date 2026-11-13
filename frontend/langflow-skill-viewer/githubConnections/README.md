@@ -6,6 +6,11 @@ repository consent, advanced token entry, unavailable sign-in or cleanup recover
 Normal users never enter GitHub App configuration. Browser sign-in requires an
 operator-configured App; missing provisioning is shown honestly as unavailable.
 
+`DeploymentSetup.tsx` owns the deliberate local deployment entry
+`/settings/github?deployment=1`. Its button requests a CSRF-admitted manifest and
+POSTs it only to GitHub's fixed personal App registration endpoint. It never
+receives the returned App credential and is not part of ordinary Add Connection.
+
 `ConnectionManager.tsx` owns navigation, request epochs, invalidation and automatic
 browser launch. It reconciles waiting attempts using read-only checks on return
 and while the waiting view is visible; mutations are never retried automatically.

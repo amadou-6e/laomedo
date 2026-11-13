@@ -53,15 +53,15 @@ the manifest uses GitHub's default expiration and does not disable it.
 1. Configure normal Laomedo sign-in for private access, as selected by the owner.
    Do not disable a running
    preview's auto-login as part of registration.
-2. Start the eventual configured local connection UI; it displays its exact
-   registered callback. Do not use a guessed preview port or wildcard callback.
-3. Review the configuration above, open GitHub registration and create the app.
+2. Start the configured local connection UI. Open the deliberate deployment
+   entry described above; callbacks derive from the trusted fixed app origin.
+3. Continue on GitHub and confirm the prefilled private App registration.
 4. Install it on only the intended repositories through its Install App page
    (`https://github.com/apps/APP-NAME/installations/new`, derived from its trusted
    slug). A private app installs only on its owning account; GitHub controls
-   account/repository permission checks. Copy the non-secret client ID and slug
-   and enter the client secret through the local masked setup field.
-5. Use Connect GitHub; verify the returned account, then explicitly consent to
+   account/repository permission checks. The host receives and stores the App
+   credentials directly; nothing needs to be copied.
+5. Use Add Connection; verify the returned account, then explicitly consent to
    the repositories Laomedo may read. Sign-in alone does not select every repository.
 6. Enter the private HTTPS repository URL on the Skill node, choose the connection,
    discover a Skill/revision and inspect its real files. This is future acceptance,
@@ -80,12 +80,9 @@ access or ambiguous 404 says access could not be confirmed. Cancel invalidates
 this attempt only. Disconnect stops new local access and hides private views but
 cannot retract previously delivered files or prove GitHub consent was revoked.
 
-No registration URL with live callback or command is presented as runnable yet.
-Normal Laomedo sign-in is selected; the exact local app origin and secure
-registration setup are still pending. The
-implementation will derive the fixed callback from trusted configuration; the
+The implementation derives the fixed callback from trusted configuration; the
 browser cannot substitute an arbitrary callback or token endpoint.
 
-See GitHub's [registration parameters](https://docs.github.com/en/apps/sharing-github-apps/registering-a-github-app-using-url-parameters),
+See GitHub's [manifest registration](https://docs.github.com/en/apps/sharing-github-apps/registering-a-github-app-from-a-manifest),
 [user authorization](https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/generating-a-user-access-token-for-a-github-app)
 and [callback requirements](https://docs.github.com/en/apps/creating-github-apps/registering-a-github-app/about-the-user-authorization-callback-url).

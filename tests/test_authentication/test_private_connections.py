@@ -13,6 +13,7 @@ if find_spec("langflow") is None:
 from starlette.requests import Request
 
 from laomedo.integrations.langflow.authentication.connections import (
+    app_registration_callback,
     connection_action,
     connection_callback,
     connection_index,
@@ -84,6 +85,28 @@ class PrivateConnectionHttpTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status_code, 200)
         self.service.edit.assert_awaited_once_with(self.scope, connection_id)
         self.policy.mutation.assert_called_once()
+
+    async def test_provision_requires_mutation_and_returns_bound_metadata(self):
+        provisioner = SimpleNamespace(
+            begin=AsyncMock(return_value={"manifest": {"public": False}})
+        )
+        self.app.state.private_github_provisioner = provisioner
+        response = await connection_action("provision", self.request(), object())
+        self.assertEqual(response.status_code, 200)
+        self.policy.mutation.assert_called_once()
+        provisioner.begin.assert_awaited_once_with(self.scope)
+
+    async def test_registration_failure_has_fixed_safe_return(self):
+        self.policy.callback.side_effect = PrivateRequestRefused()
+        response = await app_registration_callback(
+            self.request(method="GET", query=b"code=sensitive-example&state=secret")
+        )
+        self.assertEqual(response.status_code, 303)
+        self.assertEqual(
+            response.headers["location"],
+            "/settings/github?deployment=1&registration=unconfirmed",
+        )
+        self.assertEqual(response.headers["referrer-policy"], "no-referrer")
 
     async def test_csrf_failure_precedes_secret_body_ingestion(self):
         request = self.request(b'{"token":"sensitive-example"}')
