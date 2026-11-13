@@ -7,6 +7,24 @@ export class ConnectionFailure extends Error {
   }
 }
 
+/** Admit only GitHub's fixed authorization endpoint before opening a browser tab. */
+export function authorizationUrl(value?: string | null): string | undefined {
+  if (!value) return;
+  try {
+    const url = new URL(value);
+    if (
+      url.origin === "https://github.com" &&
+      url.pathname === "/login/oauth/authorize" &&
+      !url.username &&
+      !url.password &&
+      !url.hash
+    )
+      return url.href;
+  } catch {
+    return;
+  }
+}
+
 async function request(path: string, options: RequestInit = {}) {
   // The pinned native interceptor writes locale headers in place, including GET.
   const headers = Object.fromEntries(new Headers(options.headers).entries());

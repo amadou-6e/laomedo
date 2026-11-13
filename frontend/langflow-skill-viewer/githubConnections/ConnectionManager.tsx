@@ -1,40 +1,50 @@
-﻿import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import ErrorExplanation from "@/components/laomedoErrors/ErrorExplanation";
-import { describeNodeFailure } from "@/components/laomedoErrors/nodeErrors";
 import useProfileSessionActions from "@/components/laomedoProfiles/useProfileSessionActions";
+import ConnectionAccounts from "./ConnectionAccounts";
 import ConnectionForms from "./ConnectionForms";
 import ConnectionInventory from "./ConnectionInventory";
 import {
+  authorizationUrl,
   connectionCapability,
   connectionRequest,
   ConnectionFailure,
 } from "./api";
 import type { ConnectionAction, ConnectionIndex } from "./types";
+import "./connections.css";
 
 const channelName = "laomedo-private-connections";
 
 export default function ConnectionManager() {
   const [enabled, setEnabled] = useState<boolean>();
   const [index, setIndex] = useState<ConnectionIndex>();
-  const [form, setForm] = useState<"setup" | "token">();
-  const [advanced, setAdvanced] = useState(false);
+  const [view, setView] = useState<
+    "list" | "detail" | "waiting" | "token" | "unavailable" | "cleanup"
+  >("list");
   const [target, setTarget] = useState<string>();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const epoch = useRef(0);
+  const inFlight = useRef(false);
   const [source] = useState(() => crypto.randomUUID());
   const profile = useProfileSessionActions();
   const run = useCallback(
-    async (action?: ConnectionAction, payload?: Record<string, unknown>) => {
+    async (
+      action?: ConnectionAction,
+      payload?: Record<string, unknown>,
+      quiet = false,
+    ) => {
+      if (inFlight.current) return;
       const current = ++epoch.current;
+      inFlight.current = true;
       setBusy(true);
       setError("");
-      setNotice("");
-      setIndex(undefined);
+      if (!quiet) {
+        setNotice("");
+        setIndex(undefined);
+      }
       if (action) {
-        // Invalidate before sending: an unknown response can still have committed.
         const channel = new BroadcastChannel(channelName);
         channel.postMessage({ type: "invalidate", source });
         channel.close();
@@ -49,37 +59,38 @@ export default function ConnectionManager() {
           channel.postMessage({ type: "invalidate", source });
           channel.close();
           window.dispatchEvent(new Event("laomedo-private-data-invalidated"));
-          setNotice(
-            action === "disconnect"
-              ? "Local disconnect checked. This does not revoke consent on GitHub."
-              : "Current connection state checked.",
-          );
         }
+        return result.index;
       } catch (failure) {
         if (epoch.current === current) {
-          const definiteRefusal =
-            failure instanceof ConnectionFailure &&
-            [
+          setIndex(undefined);
+          const code =
+            failure instanceof ConnectionFailure
+              ? failure.code
+              : "github_connection_unavailable";
+          setError(code);
+          if (
+            action &&
+            ![
               "github_connection_input_invalid",
               "github_token_unsupported",
               "private_request_refused",
-            ].includes(failure.code);
-          if (action && !definiteRefusal)
+            ].includes(code)
+          )
             setNotice(
-              "The request may still be completing. Check current state before starting another action.",
+              "The request may still be completing. Check current state before trying again.",
             );
-          setError(
-            failure instanceof ConnectionFailure
-              ? failure.code
-              : "github_connection_unavailable",
-          );
         }
       } finally {
-        if (epoch.current === current) setBusy(false);
+        if (epoch.current === current) {
+          inFlight.current = false;
+          setBusy(false);
+        }
       }
     },
     [source],
   );
+
   useEffect(() => {
     let active = true;
     connectionCapability().then((value) => {
@@ -93,8 +104,10 @@ export default function ConnectionManager() {
       if (event.data?.type !== "invalidate" || event.data?.source === source)
         return;
       ++epoch.current;
+      inFlight.current = false;
       setIndex(undefined);
-      setForm(undefined);
+      setTarget(undefined);
+      setView("list");
       setBusy(false);
       setNotice(
         "A connection changed in another tab. Check current state before continuing.",
@@ -103,11 +116,8 @@ export default function ConnectionManager() {
     };
     const query = new URLSearchParams(window.location.search);
     if (query.has("outcome")) {
-      setNotice(
-        query.get("outcome") === "consent"
-          ? "GitHub returned. Check the verified account and select repository reads."
-          : "Authorization was not confirmed. Check current state before starting a new sign-in.",
-      );
+      if (query.get("outcome") !== "consent")
+        setError("github_authorization_unconfirmed");
       window.history.replaceState(null, "", window.location.pathname);
     }
     return () => {
@@ -116,224 +126,311 @@ export default function ConnectionManager() {
       channel.close();
     };
   }, [run, source]);
-  if (enabled === undefined) return <p>Checking connection availability…</p>;
-  if (!enabled)
-    return (
-      <p>Private GitHub connections are not enabled in this deployment.</p>
+
+  const attempt = index?.pending[0];
+  // Only read status while waiting. Never replay an exchange or mutation.
+  useEffect(() => {
+    if (attempt?.phase !== "authorize" || error) return;
+    const check = () => {
+      if (document.visibilityState === "visible")
+        void run(undefined, undefined, true);
+    };
+    window.addEventListener("focus", check);
+    const timer = window.setInterval(check, 3000);
+    return () => {
+      window.removeEventListener("focus", check);
+      window.clearInterval(timer);
+    };
+  }, [attempt?.phase, error, run]);
+
+  const returnToConnection = () => setView(target ? "detail" : "list");
+  const begin = async (id?: string) => {
+    setTarget(id);
+    const selected = index?.connections.find(
+      (item) => item.connection.id === id,
     );
-  const install =
-    index?.app && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(index.app.slug)
-      ? `https://github.com/apps/${index.app.slug}/installations/new`
-      : undefined;
+    if (selected?.connection.mode === "token") {
+      setView("token");
+      return;
+    }
+    if (!index?.app) {
+      setView("unavailable");
+      return;
+    }
+    // Reserve a tab within the user gesture so async CSRF/network work does not block opening it.
+    const popup = window.open("about:blank", "_blank");
+    if (popup) popup.opener = null;
+    setView("waiting");
+    const result = await run("begin", id ? { connection_id: id } : {});
+    const pending = result?.pending.find(
+      (item) =>
+        item.connection_id === id || (!id && item.phase === "authorize"),
+    );
+    const url = authorizationUrl(pending?.authorization_url);
+    if (url && popup && !popup.closed) popup.location.replace(url);
+    else if (popup && !popup.closed) popup.close();
+  };
+
+  const entries =
+    index?.connections.filter((item) => item.connection.state !== "revoked") ??
+    [];
+  const waiting = attempt?.phase === "authorize";
+  const focus =
+    error ||
+    view === "token" ||
+    view === "unavailable" ||
+    view === "cleanup" ||
+    attempt;
   return (
-    <main className="grid w-full max-w-3xl gap-5 p-4">
-      <div className="flex items-center justify-between gap-4">
-        <h1 className="text-xl font-semibold">GitHub connections</h1>
-        <Button variant="outline" disabled={busy} onClick={() => void run()}>
-          Refresh
-        </Button>
-      </div>
-      <p className="text-muted-foreground">
-        Connect your GitHub account, then choose repositories to browse private skills.
-      </p>
-      {error && (
-        <ErrorExplanation
-          failure={describeNodeFailure(error, undefined, {
-            operation: "GitHub connection",
-          })}
-        />
+    <main className={`github-connections ${focus ? "gc-centered" : ""}`}>
+      {enabled === undefined && (
+        <p role="status">Checking connection availability…</p>
       )}
-      {error === "private_session_required" && (
-        <Button
-          disabled={profile.busy}
-          onClick={() => profile.signOut("logout")}
-        >
-          Sign in again
-        </Button>
+      {enabled === false && (
+        <section className="gc-panel gc-focus">
+          <h2>GitHub connections unavailable</h2>
+          <p className="gc-muted">
+            Connections are not enabled in this installation.
+          </p>
+        </section>
       )}
-      {profile.notice}
-      {notice && <p role="status">{notice}</p>}
-      {busy && <p role="status">Checking…</p>}
-      {index && (
+      {enabled && (
         <>
-          {(
-            <section className="grid gap-3 rounded-lg border p-5">
-              <h2 className="font-semibold">Connect your account</h2>
-              <p className="text-sm text-muted-foreground">
-                You choose which repositories Laomedo can read. This does not grant write access.
-              </p>
+          {!focus && (
+            <header className="gc-heading">
               <div>
-                <Button disabled={busy} onClick={() => {
-                  if (index.app) void run("begin", {});
-                  else { setForm("setup"); }
-                }}>Connect GitHub</Button>
+                <h1>GitHub connections</h1>
+                <p className="gc-muted">
+                  Manage the GitHub accounts Laomedo can use.
+                </p>
               </div>
-              {!index.app && <p className="text-sm text-muted-foreground">
-                GitHub sign-in needs a one-time setup on this local installation.
-              </p>}
-            </section>
+              <Button disabled={busy || !index} onClick={() => void begin()}>
+                + Add connection
+              </Button>
+            </header>
           )}
-          {form && (
-            <section className="grid gap-4 rounded-lg border p-5">
-            <ConnectionForms
-              key={form + (target ?? "")}
-              mode={form}
+          {notice && (
+            <p role="status" className="gc-notice">
+              {notice}
+            </p>
+          )}
+          {profile.notice}
+          {error ? (
+            <section className="gc-panel gc-focus" role="alert">
+              <h2>
+                {error === "private_session_required"
+                  ? "Login required"
+                  : "We couldn’t complete that"}
+              </h2>
+              <p className="gc-muted">
+                {error === "github_token_unsupported"
+                  ? "Check your fine-grained personal access token and try again."
+                  : error === "private_session_required"
+                    ? "Log in to your local profile to continue."
+                    : "Your saved connections are still available. Check current state to continue."}
+              </p>
+              <Button
+                disabled={busy}
+                onClick={() =>
+                  error === "private_session_required"
+                    ? profile.signOut("logout")
+                    : void run()
+                }
+              >
+                {error === "private_session_required"
+                  ? "Log in"
+                  : "Check current state"}
+              </Button>
+            </section>
+          ) : attempt?.phase === "consent" ? (
+            <ConnectionInventory
+              key={attempt.request_id}
+              attempt={attempt}
               busy={busy}
-              close={() => {
-                setForm(undefined);
-                setTarget(undefined);
+              confirm={async (ids) => {
+                const result = await run("confirm", {
+                  request_id: attempt.request_id,
+                  repository_ids: ids,
+                });
+                if (result) {
+                  setView(target ? "detail" : "list");
+                  setNotice("Connection saved.");
+                }
               }}
-              submit={(payload) => {
-                const action = form;
-                setForm(undefined);
-                void run(action === "setup" ? "setup" : "token", {
+              cancel={async () => {
+                if (await run("cancel", { request_id: attempt.request_id }))
+                  returnToConnection();
+              }}
+            />
+          ) : view === "token" ? (
+            <ConnectionForms
+              key={target ?? "new"}
+              busy={busy}
+              close={returnToConnection}
+              submit={async (payload) => {
+                const result = await run("token", {
                   ...payload,
                   ...(target ? { connection_id: target } : {}),
                 });
-                setTarget(undefined);
+                if (result) setView("waiting");
               }}
             />
-
-              {form === "setup" && (
-                <div className="grid gap-1 text-sm text-muted-foreground">
-                  <span>Callback URL ? copy this into your GitHub App</span>
-                  <code className="break-all select-all">{index.callback_uri}</code>
-                </div>
-              )}
+          ) : view === "unavailable" ? (
+            <section className="gc-panel gc-focus">
+              <h2>GitHub is unavailable</h2>
+              <p className="gc-muted">
+                We could not connect to GitHub right now. Your saved connections
+                have not changed.
+              </p>
+              <Button
+                disabled={busy}
+                onClick={async () => {
+                  const result = await run();
+                  if (result?.app) setView("list");
+                }}
+              >
+                Try again
+              </Button>
+              <Button variant="ghost" onClick={returnToConnection}>
+                Go back
+              </Button>
+              <button
+                className="gc-link gc-muted"
+                onClick={() => setView("token")}
+              >
+                Advanced: use a personal access token
+              </button>
             </section>
-          )}
-          <details open={advanced} onToggle={(event) => setAdvanced(event.currentTarget.open)}
-            className="rounded-lg border p-4">
-            <summary className="cursor-pointer font-medium">Advanced</summary>
-            <div className="mt-4 grid gap-4">
-              <div className="flex flex-wrap gap-2">
-                <Button variant="outline" disabled={busy} onClick={() => setForm("setup")}>
-                  GitHub App setup
+          ) : view === "cleanup" ? (
+            <section className="gc-panel gc-focus">
+              <h2>
+                {index?.credential_cleanup_pending
+                  ? "Disconnected"
+                  : "Connection removed"}
+              </h2>
+              <p className="gc-muted">
+                {index?.credential_cleanup_pending
+                  ? "Laomedo has stopped using this account. Some saved credentials could not be removed."
+                  : "Laomedo no longer uses this connection."}
+              </p>
+              {index?.credential_cleanup_pending && (
+                <Button disabled={busy} onClick={() => void run("cleanup", {})}>
+                  Retry cleanup
                 </Button>
-                <Button variant="outline" disabled={busy} onClick={() => {
-                  setTarget(undefined); setForm("token");
-                }}>Use a token instead</Button>
-              </div>
-              {install && <a className="text-sm underline" href={install} target="_blank" rel="noreferrer">
-                Manage GitHub App installation
-              </a>}
-            </div>
-          </details>
-          {index.pending.map((attempt) =>
-            attempt.phase === "consent" ? (
-              <ConnectionInventory
-                key={attempt.request_id}
-                attempt={attempt}
+              )}
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setTarget(undefined);
+                  setView("list");
+                }}
+              >
+                Close
+              </Button>
+            </section>
+          ) : waiting ? (
+            <section className="gc-panel gc-focus">
+              <h2>Continue on GitHub</h2>
+              <p className="gc-muted">
+                We opened GitHub to finish connecting your account. Return here
+                after you authorize access.
+              </p>
+              <Button
+                disabled={busy || !authorizationUrl(attempt.authorization_url)}
+                onClick={() => {
+                  const url = authorizationUrl(attempt.authorization_url);
+                  if (url) window.open(url, "_blank", "noopener,noreferrer");
+                }}
+              >
+                Open GitHub again
+              </Button>
+              <p className="gc-muted gc-small">
+                If GitHub did not open, use the button above.
+              </p>
+              <button
+                className="gc-link"
+                disabled={busy}
+                onClick={async () => {
+                  if (await run("cancel", { request_id: attempt.request_id }))
+                    setView("token");
+                }}
+              >
+                Advanced: use a personal access token
+              </button>
+              <Button
+                variant="ghost"
+                disabled={busy}
+                onClick={async () => {
+                  if (await run("cancel", { request_id: attempt.request_id }))
+                    returnToConnection();
+                }}
+              >
+                Cancel
+              </Button>
+            </section>
+          ) : index ? (
+            <>
+              <ConnectionAccounts
+                entries={entries}
+                selected={view === "detail" ? target : undefined}
                 busy={busy}
-                confirm={(ids) =>
-                  void run("confirm", {
-                    request_id: attempt.request_id,
-                    repository_ids: ids,
-                  })
-                }
-                cancel={() =>
-                  void run("cancel", { request_id: attempt.request_id })
-                }
-              />
-            ) : (
-              <section
-                key={attempt.request_id}
-                className="grid gap-3 rounded border p-4"
-              >
-                <h2>Waiting for GitHub</h2>
-                <p>
-                  Return here after authorizing. Receiving a callback alone does
-                  not grant repository reads.
-                </p>
-                {attempt.authorization_url && (
-                  <Button
-                    disabled={busy}
-                    onClick={() => {
-                      const url = new URL(attempt.authorization_url!);
-                      if (
-                        url.origin === "https://github.com" &&
-                        url.pathname === "/login/oauth/authorize"
-                      )
-                        window.location.assign(url.href);
-                    }}
-                  >
-                    Continue to GitHub
-                  </Button>
-                )}
-                <Button
-                  variant="outline"
-                  disabled={busy}
-                  onClick={() =>
-                    void run("cancel", { request_id: attempt.request_id })
+                select={(id) => {
+                  setTarget(id);
+                  setView("detail");
+                }}
+                back={() => {
+                  setTarget(undefined);
+                  setView("list");
+                }}
+                reconnect={(id) => void begin(id)}
+                token={(id) => {
+                  setTarget(id);
+                  setView("token");
+                }}
+                edit={async (id) => {
+                  setTarget(id);
+                  const result = await run("edit", { connection_id: id });
+                  if (result) setView("waiting");
+                }}
+                disconnect={async ({ connection }) => {
+                  const result = await run("disconnect", {
+                    connection_id: connection.id,
+                    generation: connection.generation,
+                  });
+                  if (result) {
+                    setTarget(undefined);
+                    setView("cleanup");
                   }
+                }}
+              />
+              {index.credential_cleanup_pending && (
+                <button
+                  className="gc-link"
+                  disabled={busy}
+                  onClick={() => setView("cleanup")}
                 >
-                  Cancel sign-in
-                </Button>
-              </section>
-            ),
+                  Review credential cleanup
+                </button>
+              )}
+            </>
+          ) : (
+            !busy && (
+              <Button onClick={() => void run()}>Check current state</Button>
+            )
           )}
-          {index.connections.map(
-            ({ connection, availability, credential_cleanup_pending }) => (
-              <section
-                key={connection.id}
-                className="grid gap-2 rounded border p-4"
-              >
-                <h2 className="font-semibold">{connection.principal.login}</h2>
-                <p>
-                  {availability} · {connection.mode}
-                </p>
-                <ul>
-                  {connection.repositories.map((repository) => (
-                    <li key={repository.id}>{repository.full_name}</li>
-                  ))}
-                </ul>
-                <div className="flex flex-wrap gap-2">
-                  {connection.state !== "revoked" && (
-                    <>
-                      <Button
-                        variant="outline"
-                        disabled={busy}
-                        onClick={() => {
-                          if (connection.mode === "browser")
-                            void run("begin", { connection_id: connection.id });
-                          else {
-                            setTarget(connection.id);
-                            setAdvanced(true);
-                            setForm("token");
-                          }
-                        }}
-                      >
-                        Reconnect / edit read access
-                      </Button>
-                      <Button
-                        variant="outline"
-                        disabled={busy}
-                        onClick={() =>
-                          void run("disconnect", {
-                            connection_id: connection.id,
-                            generation: connection.generation,
-                          })
-                        }
-                      >
-                        Disconnect locally
-                      </Button>
-                    </>
-                  )}
-                  {credential_cleanup_pending && (
-                    <p>Local credential removal is incomplete.</p>
-                  )}
-                </div>
-              </section>
-            ),
+          {busy && (
+            <p role="status" className="gc-muted">
+              Checking…
+            </p>
           )}
-          {index.credential_cleanup_pending && (
-            <Button
-              variant="outline"
+          {!focus && (
+            <button
+              className="gc-link gc-refresh"
               disabled={busy}
-              onClick={() => void run("cleanup", {})}
+              onClick={() => void run()}
             >
-              Retry local credential cleanup
-            </Button>
+              Refresh
+            </button>
           )}
         </>
       )}

@@ -126,6 +126,38 @@ class GitHubConnectionServiceTests(unittest.IsolatedAsyncioTestCase):
         )
         return UUID(record["id"])
 
+    async def test_edit_saved_token_stages_explicit_consent_without_new_login(self):
+        connection_id = await self.ready()
+        before = self.journal.get(self.owner, connection_id)
+        attempt = await self.service.edit(self.scope, connection_id)
+        self.assertEqual(attempt["phase"], "consent")
+        self.assertIsNone(attempt["authorization_url"])
+        self.assertEqual(attempt["inventory"]["principal"]["id"], before.principal.id)
+        self.assertEqual(self.journal.get(self.owner, connection_id), before)
+        await self.service.cancel(self.scope, UUID(attempt["request_id"]))
+        self.assertEqual(self.journal.get(self.owner, connection_id), before)
+
+    async def test_edit_saved_browser_preserves_app_binding_and_commits_new_generation(
+        self,
+    ):
+        connection_id = await self.ready("browser")
+        before = self.journal.get(self.owner, connection_id)
+        attempt = await self.service.edit(self.scope, connection_id)
+        updated = await self.service.confirm(
+            self.scope, UUID(attempt["request_id"]), (456,)
+        )
+        self.assertEqual(updated["generation"], before.generation + 1)
+        self.assertEqual(updated["app_id"], str(before.app_id))
+        self.assertEqual(updated["principal"]["id"], before.principal.id)
+
+    async def test_edit_refuses_changed_account_without_replacing_saved_access(self):
+        connection_id = await self.ready()
+        before = self.journal.get(self.owner, connection_id)
+        self.user = {"id": 999, "login": "another-account"}
+        with self.assertRaises(GitHubRepositoryAccessError):
+            await self.service.edit(self.scope, connection_id)
+        self.assertEqual(self.journal.get(self.owner, connection_id), before)
+
     async def test_candidates_are_not_read_consent_and_secrets_stay_excluded(self):
         attempt = await self.token_attempt()
         self.assertEqual(self.journal.list(self.owner), ())

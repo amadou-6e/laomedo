@@ -159,6 +159,7 @@ async def connection_action(
     action: Literal[
         "setup",
         "begin",
+        "edit",
         "token",
         "confirm",
         "cancel",
@@ -185,6 +186,9 @@ async def connection_action(
         elif action == "token":
             data = _parse(GitHubTokenConnectRequest, payload)
             outcome = await service.begin_token(scope, data.token, data.connection_id)
+        elif action == "edit":
+            data = _parse(GitHubConnectionRequest, payload)
+            outcome = await service.edit(scope, data.connection_id)
         elif action == "confirm":
             data = _parse(GitHubConsentRequest, payload)
             outcome = await service.confirm(scope, data.request_id, data.repository_ids)

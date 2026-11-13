@@ -13,6 +13,7 @@ import {
 } from "./api";
 
 jest.mock("./api", () => ({
+  authorizationUrl: jest.requireActual("./api").authorizationUrl,
   connectionCapability: jest.fn(),
   connectionRequest: jest.fn(),
   ConnectionFailure: class extends Error {
@@ -68,6 +69,7 @@ const initial = {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  jest.spyOn(window, "open").mockReturnValue(null);
   BrowserChannel.channels = [];
   Object.defineProperty(globalThis, "BroadcastChannel", {
     configurable: true,
@@ -92,11 +94,9 @@ it("keeps its initiating mutation busy and displays the response despite same-do
   );
   render(<ConnectionManager />);
   fireEvent.click(
-    await screen.findByRole("button", { name: "Connect GitHub" }),
+    await screen.findByRole("button", { name: "+ Add connection" }),
   );
-  expect(
-    screen.getByRole("button", { name: "Refresh" }),
-  ).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Refresh" })).toBeDisabled();
   expect(screen.queryByText(/changed in another tab/)).not.toBeInTheDocument();
   await act(async () =>
     complete({
@@ -118,7 +118,7 @@ it("keeps its initiating mutation busy and displays the response despite same-do
     }),
   );
   expect(
-    await screen.findByRole("button", { name: "Continue to GitHub" }),
+    await screen.findByRole("button", { name: "Open GitHub again" }),
   ).toBeEnabled();
   expect(connectionRequest).toHaveBeenCalledWith("begin", {});
 });
@@ -133,7 +133,7 @@ it("invalidates an in-flight result from another document without restoring stal
   );
   render(<ConnectionManager />);
   fireEvent.click(
-    await screen.findByRole("button", { name: "Connect GitHub" }),
+    await screen.findByRole("button", { name: "+ Add connection" }),
   );
   act(() => {
     const other = new BrowserChannel("laomedo-private-connections");
@@ -145,7 +145,10 @@ it("invalidates an in-flight result from another document without restoring stal
     expect(screen.getByText(/changed in another tab/)).toBeVisible(),
   );
   expect(
-    screen.queryByRole("button", { name: "Connect GitHub" }),
+    screen.getByRole("button", { name: "+ Add connection" }),
+  ).toBeDisabled();
+  expect(
+    screen.queryByRole("button", { name: "Open GitHub again" }),
   ).not.toBeInTheDocument();
 });
 
@@ -165,9 +168,9 @@ it.each([
     );
     render(<ConnectionManager />);
     fireEvent.click(
-      await screen.findByRole("button", { name: "Connect GitHub" }),
+      await screen.findByRole("button", { name: "+ Add connection" }),
     );
-    await screen.findByText("Error notice");
+    await screen.findByRole("alert");
     const uncertain = screen.queryByText(/The request may still be completing/);
     if (
       ["github_connection_unavailable", "private_session_required"].includes(
@@ -177,19 +180,111 @@ it.each([
       expect(uncertain).toBeVisible();
     else expect(uncertain).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "Connect GitHub" }),
+      screen.queryByRole("button", { name: "+ Add connection" }),
     ).not.toBeInTheDocument();
   },
 );
 
-it("keeps required setup outside Advanced and the connection action visible", async () => {
-  (connectionRequest as jest.Mock).mockResolvedValue({ index: { ...initial, app: null } });
+it("shows unavailable sign-in without requiring app credentials", async () => {
+  (connectionRequest as jest.Mock).mockResolvedValue({
+    index: { ...initial, app: null },
+  });
   render(<ConnectionManager />);
-  fireEvent.click(await screen.findByRole("button", { name: "Connect GitHub" }));
-  const registration = screen.getByRole("link", { name: "Register GitHub App" });
-  expect(registration).toHaveAttribute("href", "https://github.com/settings/apps/new");
-  expect(registration).toHaveClass("button-style");
-  expect(registration.closest("details")).toBeNull();
-  expect(screen.getByLabelText("Client secret")).toHaveAttribute("type", "password");
-  expect(screen.getByRole("button", { name: "Connect GitHub" })).toBeVisible();
+  fireEvent.click(
+    await screen.findByRole("button", { name: "+ Add connection" }),
+  );
+  expect(
+    screen.getByRole("heading", { name: "GitHub is unavailable" }),
+  ).toBeVisible();
+  expect(screen.queryByLabelText("Client secret")).not.toBeInTheDocument();
+  expect(connectionRequest).toHaveBeenCalledTimes(1);
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: "Advanced: use a personal access token",
+    }),
+  );
+  expect(screen.getByLabelText("Personal access token")).toHaveAttribute(
+    "type",
+    "password",
+  );
+});
+
+it("opens the returned authorization URL automatically in the reserved browser tab", async () => {
+  const replace = jest.fn();
+  jest
+    .spyOn(window, "open")
+    .mockReturnValue({
+      opener: null,
+      closed: false,
+      close: jest.fn(),
+      location: { replace },
+    } as any);
+  (connectionRequest as jest.Mock).mockImplementation((action?: string) =>
+    Promise.resolve({
+      index: action
+        ? {
+            ...initial,
+            pending: [
+              {
+                request_id: "pending",
+                connection_id: "new",
+                phase: "authorize",
+                expires_at: 9999999999,
+                inventory: null,
+                authorization_url:
+                  "https://github.com/login/oauth/authorize?client_id=qa",
+              },
+            ],
+          }
+        : initial,
+    }),
+  );
+  render(<ConnectionManager />);
+  fireEvent.click(
+    await screen.findByRole("button", { name: "+ Add connection" }),
+  );
+  await waitFor(() =>
+    expect(replace).toHaveBeenCalledWith(
+      "https://github.com/login/oauth/authorize?client_id=qa",
+    ),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Open GitHub again" }));
+  expect(connectionRequest).toHaveBeenCalledTimes(2);
+  expect(window.open).toHaveBeenLastCalledWith(
+    "https://github.com/login/oauth/authorize?client_id=qa",
+    "_blank",
+    "noopener,noreferrer",
+  );
+});
+
+it("edits repository consent using the selected saved account without beginning a new login", async () => {
+  (connectionRequest as jest.Mock).mockResolvedValue({
+    index: {
+      ...initial,
+      connections: [
+        {
+          connection: {
+            id: "saved",
+            generation: 1,
+            mode: "browser",
+            state: "ready",
+            principal: { id: 1, login: "qa" },
+            repositories: [],
+          },
+          availability: "ready",
+          credential_cleanup_pending: false,
+        },
+      ],
+    },
+  });
+  render(<ConnectionManager />);
+  fireEvent.click(
+    await screen.findByRole("button", { name: "View connection" }),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Change repositories" }));
+  await waitFor(() =>
+    expect(connectionRequest).toHaveBeenCalledWith("edit", {
+      connection_id: "saved",
+    }),
+  );
 });

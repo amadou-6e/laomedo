@@ -221,6 +221,27 @@ class GitHubConnectionService:
             self.pending[staged.id] = staged
         return staged.public()
 
+    async def edit(self, scope: GitHubConnectionScope, connection_id: UUID):
+        """Verify a saved account and stage repository choices without a new login.
+
+        The existing connection remains active until explicit consent commits its
+        replacement generation. Missing custody or a changed principal requires
+        deliberate recovery; provider failures never trigger authorization.
+        """
+        async with self.lock:
+            await scope.revalidate()
+            record = self.journal.get(scope.owner_id, connection_id)
+            if record is None or record.state != "ready":
+                raise GitHubReauthorizationRequired()
+            if (
+                record.access_expires_at is not None
+                and record.access_expires_at <= self.clock()
+            ):
+                record = await self._refresh(scope, record)
+            attempt = await self._new_attempt(scope, record.mode, connection_id)
+            attempt = attempt.model_copy(update={"app_id": record.app_id})
+            return await self._stage(scope, attempt, self._credential(record))
+
     async def begin_token(
         self, scope: GitHubConnectionScope, token, connection_id: UUID | None = None
     ):

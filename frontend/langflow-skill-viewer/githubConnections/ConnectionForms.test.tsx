@@ -14,18 +14,11 @@ jest.mock("@/components/ui/input", () => ({
 describe("private connection entry", () => {
   it("clears the credential DOM before handing input to the request owner", () => {
     const submit = jest.fn((value) => {
-      expect(screen.getByLabelText("Fine-grained token")).toHaveValue("");
+      expect(screen.getByLabelText("Personal access token")).toHaveValue("");
       expect(value).toEqual({ token: "synthetic-credential" });
     });
-    render(
-      <ConnectionForms
-        mode="token"
-        busy={false}
-        submit={submit}
-        close={jest.fn()}
-      />,
-    );
-    fireEvent.change(screen.getByLabelText("Fine-grained token"), {
+    render(<ConnectionForms busy={false} submit={submit} close={jest.fn()} />);
+    fireEvent.change(screen.getByLabelText("Personal access token"), {
       target: { value: "synthetic-credential" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Verify token" }));
@@ -35,17 +28,10 @@ describe("private connection entry", () => {
   it("clears credential input before cancelling without submission", () => {
     const submit = jest.fn();
     const close = jest.fn(() =>
-      expect(screen.getByLabelText("Fine-grained token")).toHaveValue(""),
+      expect(screen.getByLabelText("Personal access token")).toHaveValue(""),
     );
-    render(
-      <ConnectionForms
-        mode="token"
-        busy={false}
-        submit={submit}
-        close={close}
-      />,
-    );
-    fireEvent.change(screen.getByLabelText("Fine-grained token"), {
+    render(<ConnectionForms busy={false} submit={submit} close={close} />);
+    fireEvent.change(screen.getByLabelText("Personal access token"), {
       target: { value: "synthetic-credential" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
@@ -74,7 +60,7 @@ describe("private connection entry", () => {
       />,
     );
     const button = screen.getByRole("button", {
-      name: "Confirm selected reads",
+      name: "Save access",
     });
     expect(button).toBeDisabled();
     fireEvent.click(screen.getByRole("checkbox"));

@@ -1,33 +1,28 @@
-﻿# Private GitHub connection manager
+# GitHub connections
 
-`ConnectionManager` renders the canonical C01-C14 connection states inside native
-Settings. It owns temporary form values and selected repository consent, clears
-credential fields before awaiting a request, and never stores them in browser
-storage. `ConnectionForms` owns masked app and token entry. `ConnectionInventory`
-shows verified candidates and explicit consent; no repository starts selected.
-`types.ts` defines public wire records, separately from rendering. `api.ts` owns
-bounded same-origin requests, obtains a private-session CSRF proof in memory and
-projects only catalogued error codes. No mutation is automatically retried.
+The approved editable screens and user stories live in specs PR #411. The manager
+shows one active screen at a time: saved accounts, account details, GitHub waiting,
+repository consent, advanced token entry, unavailable sign-in or cleanup recovery.
+Normal users never enter GitHub App configuration. Browser sign-in requires an
+operator-configured App; missing provisioning is shown honestly as unavailable.
 
-The manager clears its private metadata on failure, unmount, profile change and
-connection-change notification. Explicit reload reconciles uncertain outcomes.
-A successful mutation broadcasts invalidation without identity or credentials;
-late results cannot replace a newer local request. The server independently
-revalidates session and resource generation before response release.
+`ConnectionManager.tsx` owns navigation, request epochs, invalidation and automatic
+browser launch. It reconciles waiting attempts using read-only checks on return
+and while the waiting view is visible; mutations are never retried automatically.
+`ConnectionAccounts.tsx` renders the account list and selected account details.
+`ConnectionForms.tsx` owns masked advanced token entry and clears it synchronously
+before submitting or cancelling. `ConnectionInventory.tsx` owns explicit repository
+selection and search. `connections.css` scopes the approved spacing and responsive
+panels to this feature. `types.ts` owns wire records; `api.ts` owns bounded requests,
+CSRF acquisition and fixed-origin authorization URL validation.
 
-The overlay installer registers `/settings/github` and an authenticated Settings
-entry only when the deployment capability is enabled. Normal previews retain
-their existing settings. OAuth returns navigate to this fixed manager; code and
-state are not forwarded. App registration remains a human action; local setup
-never creates or changes a GitHub App. Source-read consent grants no Agent or
-write permission. Private Skill browsing is a separate access boundary.
+Private metadata is cleared on failed requests, unmount and cross-tab invalidation.
+Late requests cannot restore stale state. The server revalidates the profile lease
+and resource generations independently. UI status is saved metadata, never proof
+of present GitHub permission. Repository editing verifies the existing credential
+and account before creating a new consent attempt; it does not request sign-in
+unless that credential needs replacement. Disconnect fences access before cleanup.
 
-All controls require browser validation and independent review before delivery.
-
-The connection screen leads with Connect GitHub and repository selection. Advanced
-contains one-time GitHub App setup, callback details and optional token entry.
-Missing setup opens that disclosure explicitly; credentials remain transient.
-
-Required App setup renders as a standalone panel outside Advanced. The primary
-connection action remains visible while setup is open. Advanced holds optional
-configuration actions; registration uses a button-styled external link.
+The preview and independent review must distinguish rendered UI checks from real
+GitHub authorization acceptance. Secure automatic deployment provisioning remains
+unimplemented; the UI must not pretend to have established a GitHub connection.

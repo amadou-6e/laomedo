@@ -32,6 +32,7 @@ export type ConnectionResult = { index: ConnectionIndex; outcome: unknown };
 export type ConnectionAction =
   | "setup"
   | "begin"
+  | "edit"
   | "token"
   | "confirm"
   | "cancel"
