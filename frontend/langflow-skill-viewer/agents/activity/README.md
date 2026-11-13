@@ -5,6 +5,6 @@
 The main Activity scroll area ends with a muted MIT copyright footer, separated
 from the conversation by generous spacing and followed by bottom padding.
 
-An active invocation's main conversation shows "Waiting for turn" until its first
+An active invocation's main conversation shows "starting" until its first
 turn is captured. Observed turn states and terminal invocation failures retain
 their own status; an absent turn is not itself a failure.
