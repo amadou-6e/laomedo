@@ -155,6 +155,9 @@ export default function GraphAgents({flowId}:{flowId?:string}) {
       <RuntimeRecords key={`records:${selected}:${scope.thread??""}:${scope.turn??""}`} records={projection!.telemetry} coverage={projection!.telemetry_coverage} context={exportContext!}/>
       <Conversation key={`conversation:${selected}:${scope.thread??""}:${scope.turn??""}`} projection={projection!} context={exportContext!}/>
     </article>}
+    <footer className="mt-12 border-t pt-6 pb-16 text-center text-xs text-muted-foreground">
+      © {new Date().getFullYear()} Laomedo contributors. MIT License.
+    </footer>
     </div></div>
   </section>;
 }
