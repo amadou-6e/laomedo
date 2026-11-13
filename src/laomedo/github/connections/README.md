@@ -72,6 +72,10 @@ one-use callback; `begin_token` verifies deliberately supplied token candidates.
 `confirm` rechecks selected repository identities and commits explicit consent
 with generation CAS. `cancel` abandons only its pending attempt, preserving ready
 state. `refresh` fences uncertainty before exchange and verifies the same account;
+`edit` verifies the saved credential and principal before staging repository
+choices, preserving the active connection until new consent commits. It renews
+an expired browser credential through the same fenced refresh path and never
+starts a new sign-in automatically.
 `disconnect` fences before deleting and reports unconfirmed cleanup accurately.
 `authorize_read` checks current generation, consent and online access; `current`
 is its synchronous response-release fence. `cleanup` handles only journaled

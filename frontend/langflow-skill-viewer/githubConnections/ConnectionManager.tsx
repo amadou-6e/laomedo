@@ -22,6 +22,10 @@ export default function ConnectionManager() {
     "list" | "detail" | "waiting" | "token" | "unavailable" | "cleanup"
   >("list");
   const [target, setTarget] = useState<string>();
+  const [requestId, setRequestId] = useState<string | undefined>(
+    () =>
+      new URLSearchParams(window.location.search).get("request") ?? undefined,
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -54,13 +58,28 @@ export default function ConnectionManager() {
         const result = await connectionRequest(action, payload);
         if (epoch.current !== current) return;
         setIndex(result.index);
+        if (action && ["begin", "token", "edit"].includes(action)) {
+          const outcome = result.outcome;
+          if (
+            typeof outcome === "object" &&
+            outcome !== null &&
+            "request_id" in outcome &&
+            typeof outcome.request_id === "string" &&
+            result.index.pending.some(
+              (item) => item.request_id === outcome.request_id,
+            )
+          )
+            setRequestId(outcome.request_id);
+        }
+        if (action === "confirm" || action === "cancel")
+          setRequestId(undefined);
         if (action) {
           const channel = new BroadcastChannel(channelName);
           channel.postMessage({ type: "invalidate", source });
           channel.close();
           window.dispatchEvent(new Event("laomedo-private-data-invalidated"));
         }
-        return result.index;
+        return result;
       } catch (failure) {
         if (epoch.current === current) {
           setIndex(undefined);
@@ -93,10 +112,16 @@ export default function ConnectionManager() {
 
   useEffect(() => {
     let active = true;
-    connectionCapability().then((value) => {
+    const query = new URLSearchParams(window.location.search);
+    const outcome = query.get("outcome");
+    connectionCapability().then(async (value) => {
       if (active) {
         setEnabled(value);
-        if (value) void run();
+        if (value) {
+          await run();
+          if (active && outcome && outcome !== "consent")
+            setError("github_authorization_unconfirmed");
+        }
       }
     });
     const channel = new BroadcastChannel(channelName);
@@ -107,6 +132,7 @@ export default function ConnectionManager() {
       inFlight.current = false;
       setIndex(undefined);
       setTarget(undefined);
+      setRequestId(undefined);
       setView("list");
       setBusy(false);
       setNotice(
@@ -114,10 +140,7 @@ export default function ConnectionManager() {
       );
       window.dispatchEvent(new Event("laomedo-private-data-invalidated"));
     };
-    const query = new URLSearchParams(window.location.search);
     if (query.has("outcome")) {
-      if (query.get("outcome") !== "consent")
-        setError("github_authorization_unconfirmed");
       window.history.replaceState(null, "", window.location.pathname);
     }
     return () => {
@@ -127,7 +150,18 @@ export default function ConnectionManager() {
     };
   }, [run, source]);
 
-  const attempt = index?.pending[0];
+  const attempt = requestId
+    ? index?.pending.find((item) => item.request_id === requestId)
+    : index?.pending[0];
+  useEffect(() => {
+    if (view === "waiting" && index && !attempt && !busy) {
+      setRequestId(undefined);
+      setView(target ? "detail" : "list");
+      setNotice(
+        "This sign-in attempt is no longer available. Start again to continue.",
+      );
+    }
+  }, [view, index, attempt, busy, target]);
   // Only read status while waiting. Never replay an exchange or mutation.
   useEffect(() => {
     if (attempt?.phase !== "authorize" || error) return;
@@ -162,9 +196,13 @@ export default function ConnectionManager() {
     if (popup) popup.opener = null;
     setView("waiting");
     const result = await run("begin", id ? { connection_id: id } : {});
-    const pending = result?.pending.find(
-      (item) =>
-        item.connection_id === id || (!id && item.phase === "authorize"),
+    const outcome = result?.outcome;
+    const newRequestId =
+      typeof outcome === "object" && outcome !== null && "request_id" in outcome
+        ? outcome.request_id
+        : undefined;
+    const pending = result?.index.pending.find(
+      (item) => item.request_id === newRequestId,
     );
     const url = authorizationUrl(pending?.authorization_url);
     if (url && popup && !popup.closed) popup.location.replace(url);
@@ -286,7 +324,7 @@ export default function ConnectionManager() {
                 disabled={busy}
                 onClick={async () => {
                   const result = await run();
-                  if (result?.app) setView("list");
+                  if (result?.index.app) setView("list");
                 }}
               >
                 Try again

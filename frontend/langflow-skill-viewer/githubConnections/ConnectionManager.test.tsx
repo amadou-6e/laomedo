@@ -69,6 +69,7 @@ const initial = {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  window.history.replaceState(null, "", "/settings/github");
   jest.spyOn(window, "open").mockReturnValue(null);
   BrowserChannel.channels = [];
   Object.defineProperty(globalThis, "BroadcastChannel", {
@@ -211,20 +212,28 @@ it("shows unavailable sign-in without requiring app credentials", async () => {
 
 it("opens the returned authorization URL automatically in the reserved browser tab", async () => {
   const replace = jest.fn();
-  jest
-    .spyOn(window, "open")
-    .mockReturnValue({
-      opener: null,
-      closed: false,
-      close: jest.fn(),
-      location: { replace },
-    } as any);
+  jest.spyOn(window, "open").mockReturnValue({
+    opener: null,
+    closed: false,
+    close: jest.fn(),
+    location: { replace },
+  } as any);
   (connectionRequest as jest.Mock).mockImplementation((action?: string) =>
     Promise.resolve({
+      outcome: action ? { request_id: "pending" } : null,
       index: action
         ? {
             ...initial,
             pending: [
+              {
+                request_id: "older",
+                connection_id: "older-account",
+                phase: "authorize",
+                expires_at: 9999999999,
+                inventory: null,
+                authorization_url:
+                  "https://github.com/login/oauth/authorize?client_id=older",
+              },
               {
                 request_id: "pending",
                 connection_id: "new",
@@ -287,4 +296,21 @@ it("edits repository consent using the selected saved account without beginning 
       connection_id: "saved",
     }),
   );
+});
+
+it("keeps an unconfirmed callback visible after initial state reconciliation", async () => {
+  window.history.replaceState(
+    null,
+    "",
+    "/settings/github?outcome=authorization-unconfirmed",
+  );
+  render(<ConnectionManager />);
+  await screen.findByRole("alert");
+  expect(window.location.search).toBe("");
+  expect(
+    screen.getByRole("button", { name: "Check current state" }),
+  ).toBeVisible();
+  expect(
+    screen.queryByRole("button", { name: "+ Add connection" }),
+  ).not.toBeInTheDocument();
 });

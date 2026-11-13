@@ -73,6 +73,18 @@ class PrivateConnectionHttpTests(unittest.IsolatedAsyncioTestCase):
             self.receive,
         )
 
+    async def test_edit_uses_admitted_owner_and_explicit_connection(self):
+        connection_id = uuid4()
+        self.service.edit = AsyncMock(return_value={"phase": "consent"})
+        response = await connection_action(
+            "edit",
+            self.request(json.dumps({"connection_id": str(connection_id)}).encode()),
+            object(),
+        )
+        self.assertEqual(response.status_code, 200)
+        self.service.edit.assert_awaited_once_with(self.scope, connection_id)
+        self.policy.mutation.assert_called_once()
+
     async def test_csrf_failure_precedes_secret_body_ingestion(self):
         request = self.request(b'{"token":"sensitive-example"}')
         self.policy.mutation.side_effect = PrivateRequestRefused()
