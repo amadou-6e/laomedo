@@ -48,7 +48,7 @@
     "verify_output": "1.18.33"
   },
   "opencode-worker": {
-    "image": "laomedo-opencode-worker:codex-0.159.2-2.1.1",
+    "image": "laomedo-opencode-worker:codex-0.159.2-2.1.1-mcp",
     "context": "codex-acp",
     "files": [
       "Dockerfile",
