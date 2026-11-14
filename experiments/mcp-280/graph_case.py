@@ -1,6 +1,7 @@
 """Execute one real native graph/provider/transport case; no credential output."""
 
 import argparse
+import copy
 import json
 from pathlib import Path
 import runpy
@@ -21,9 +22,13 @@ def main():
     parser.add_argument("--transport", choices=("http", "stdio"), required=True)
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--cancel", action="store_true")
+    parser.add_argument("--with-skill", action="store_true")
+    parser.add_argument("--two-servers", action="store_true")
     args = parser.parse_args()
     if args.resume and args.cancel:
         parser.error("Use one lifecycle check at a time.")
+    if args.two_servers and (args.transport != "stdio" or args.cancel or args.resume):
+        parser.error("Combined-server acceptance uses fresh STDIO execution.")
     root = args.implementation.resolve()
     sys.path.insert(0, str(root / "src"))
     metadata = json.loads(args.metadata.read_text(encoding="utf-8"))
@@ -81,6 +86,38 @@ def main():
             base + "/api/v2/mcp/servers/" + name, json=config, timeout=30
         )
         response.raise_for_status()
+        states = [state]
+        second_name = None
+        if args.two_servers:
+            second_name = name + "-second"
+            second_state = private / ("mcp-case-" + case + "-second.json")
+            second_state.write_text(state.read_text(encoding="utf-8"), encoding="utf-8")
+            states.append(second_state)
+            second_config = {
+                "command": sys.executable,
+                "args": [str(server_file), "--state", str(second_state)],
+            }
+            response = session.post(
+                base + "/api/v2/mcp/servers/" + second_name,
+                json=second_config,
+                timeout=30,
+            )
+            response.raise_for_status()
+        reference = None
+        if args.with_skill:
+            from laomedo.skills.registry.store import SkillStore
+
+            skill_source = private / ("mcp-skill-" + case)
+            skill_source.mkdir()
+            (skill_source / "SKILL.md").write_text(
+                "---\nname: mcp-validation\ndescription: Harmless acceptance guidance.\n---\n"
+                "Use only the selected external marker readers requested by the user. "
+                "Do not edit files or delegate. Reply only with the marker.\n",
+                encoding="utf-8",
+            )
+            reference = SkillStore(private / "registry").import_skill(
+                "mcp-validation-" + case, skill_source
+            )
 
         import langflow
         from lfx.services.manager import get_service_manager
@@ -103,12 +140,24 @@ def main():
                 model=metadata["model"],
                 effort=effort,
                 runner_url=metadata["runner_url"],
-                task="Use the connected external MCP tool whose description reads the validation marker. Call it exactly once, with no arguments. Reply only with the returned marker. Do not run commands, edit files, delegate or call any other tool.",
+                task=(
+                    "Use both connected external MCP marker reader tools, one from each server. "
+                    "Call each exactly once, with no arguments. Both return the same marker. "
+                    "Reply only with that marker. Follow the connected Skill. "
+                    "Do not run commands, edit files, delegate or call any other tool."
+                    if args.two_servers
+                    else "Use the connected external MCP tool whose description reads the validation marker. Call it exactly once, with no arguments. Reply only with the returned marker. Do not run commands, edit files, delegate or call any other tool."
+                ),
+                reference=reference,
                 workflow="resume" if args.resume else "fresh",
                 follow_up="Call the connected external MCP marker tool exactly once again. Reply only with its returned marker. Do not use commands, files or delegation.",
             )
             agent = flow["data"]["nodes"][0]
-            agents = list(flow["data"]["nodes"])
+            agents = [
+                node
+                for node in flow["data"]["nodes"]
+                if "mcp_tools" in node["data"]["node"]["template"]
+            ]
             if not args.resume:
                 agent["data"]["node"]["template"]["operation"]["value"] = "start"
             component = MCPToolsComponent()
@@ -149,6 +198,18 @@ def main():
                 flow["data"]["edges"].append(
                     edge(mcp, native["outputs"][0]["name"], target, "mcp_tools")
                 )
+            if second_name:
+                second = copy.deepcopy(mcp)
+                second["id"] = second["data"]["id"] = "mcp-server-second"
+                second["position"] = {"x": -400, "y": 500}
+                second["data"]["node"]["template"]["mcp_server"]["value"] = {
+                    "name": second_name
+                }
+                flow["data"]["nodes"].insert(1, second)
+                for target in agents:
+                    flow["data"]["edges"].append(
+                        edge(second, native["outputs"][0]["name"], target, "mcp_tools")
+                    )
         flow["name"] = f"MCP {metadata['provider']} {args.transport} validation"
         flow.pop("id", None)
         created = session.post(base + "/api/v1/flows/", json=flow, timeout=30)
@@ -227,18 +288,22 @@ def main():
         else:
             print(json.dumps({"stage": "runner_wait_expired"}))
             return 1
-        observed = json.loads(state.read_text())
+        observations = [json.loads(path.read_text()) for path in states]
+        observed = observations[0]
         result = {
             "stage": "case_result",
             "provider": metadata["provider"],
             "transport": args.transport,
             "status": record["status"],
             "error_category": record.get("error_category"),
-            "selected_calls": observed["calls"],
-            "unselected_calls": observed["unselected_calls"],
+            "selected_calls": sum(item["calls"] for item in observations),
+            "selected_calls_per_server": [item["calls"] for item in observations],
+            "unselected_calls": sum(item["unselected_calls"] for item in observations),
             "marker_matches": (record.get("answer") or "").strip() == marker,
             "manifest_tools": len(record["mcp_manifest"]["tools"]),
             "resume": args.resume,
+            "with_skill": args.with_skill,
+            "server_count": len(states),
             "cancel_requested": cancel_sent,
             "tool_entered": observed.get("entered", 0),
             "native_session_present": bool(record.get("thread_id")),
@@ -259,10 +324,11 @@ def main():
         return (
             0
             if result["status"] == "completed"
-            and result["selected_calls"] == (2 if args.resume else 1)
+            and result["selected_calls_per_server"]
+            == [2 if args.resume else 1] * len(states)
             and result["unselected_calls"] == 0
             and result["marker_matches"]
-            and result["manifest_tools"] == 1
+            and result["manifest_tools"] == len(states)
             and (
                 not args.resume
                 or (result["native_session_present"] and result["attempt_count"] == 2)

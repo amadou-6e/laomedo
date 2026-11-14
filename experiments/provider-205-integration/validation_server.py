@@ -81,6 +81,30 @@ def main():
     sys.path.insert(0, str(REPO / "src"))
     if args.trace_mcp_rpc:
         from laomedo.agents.agents.base.acp.session import AcpSession
+        from laomedo.host.runner.http.handler import RunnerRequestHandler
+
+        original_reply = RunnerRequestHandler._reply
+
+        def observed_reply(self, code, value):
+            category = value.get("error_category")
+            if code >= 400:
+                import re
+
+                safe = (
+                    category
+                    if isinstance(category, str)
+                    and re.fullmatch(r"[a-z][a-z0-9_]{0,90}", category)
+                    else "non_code_error"
+                )
+                print(
+                    json.dumps(
+                        {"stage": "runner_refusal", "code": code, "category": safe}
+                    ),
+                    flush=True,
+                )
+            return original_reply(self, code, value)
+
+        RunnerRequestHandler._reply = observed_reply
 
         original_request = AcpSession._request
 
