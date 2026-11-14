@@ -1,0 +1,58 @@
+# MCP #280 real graph validation, 2026-11-14
+
+Implementation: `amadou-6e/laomedo`, branch `feat/280`, head `ead50c23`;
+intended base `feadd5fbccdebbe7bf1d5614c5bad187b9ad975d`.
+The isolated services loaded the HTTP discriminator correction before its
+commit; launcher metadata can therefore still name preceding head `9809025b`.
+This is real integration evidence, not a fixture test or a merge approval.
+
+## Fresh execution
+
+Each provider passed over both HTTP and STDIO: Codex, Claude and OpenCode.
+Every case registered a native Langflow MCP server, selected only `read_marker`,
+connected the native Toolset output to the Agent MCP Tools input, and submitted
+the graph through the app session API. Each completed with one selected upstream
+call, zero unselected calls, one manifest tool, and the correct random marker.
+The marker was absent from the prompt; a private counter confirmed upstream use.
+
+## Resume
+
+Each provider passed a STDIO graph with fresh and resume Agent nodes sharing the
+MCP Toolset. Each completed with two selected calls, zero unselected calls, the
+correct marker, two execution attempts and a native session reference present.
+The harness did not independently compare the two native session identifiers.
+
+## In-flight cancellation
+
+Each provider entered the selected STDIO tool once before cancellation was sent.
+All three reached cancelled status with zero completed tool calls and zero
+unselected calls. Codex category was `cancelled_by_user`, Claude category was
+`claude_cancelled`; OpenCode reported no error category. No tool result completed.
+These checks establish observed runner cancellation after dispatch; they do not
+prove arbitrary upstream tool side effects can be rolled back.
+
+An earlier harness attempt omitted the cancel API's required empty JSON body.
+It failed request validation, was corrected, and is excluded from these results.
+
+## Rendered graph
+
+The owner-shared VS Code integrated browser displayed the actual Codex STDIO
+graph. READ_MARKER was selected and the Toolset edge reached Agent MCP Tools.
+Skill References remained a distinct input above MCP Tools. A dedicated
+`mcp-280.localhost` host resolved cookie collisions between independent local
+app instances on the same `127.0.0.1` hostname. The screenshot contains no auth
+error. Browser visibility is transient: a shared tab can later be backgrounded.
+
+## Limits and review
+
+Actual rendered screenshot and sanitized logs are in ignored local review
+evidence; private profiles, markers, server configuration, credentials and raw
+agent history are not published. HTTP acceptance server processes end after
+their checks, so completed HTTP graph links are not reusable demonstrations.
+STDIO graphs retain their app-owned server configuration for owner inspection.
+
+The HTTP discriminator correction received focused Claude APPROVE. Full PR
+own-diff review remains incomplete. Live evidence and actual visual review are
+pending. Multiple servers plus Skill References coexistence is not established
+by this matrix. Required CI passed at `ead50c23`; specification PR #419 remains
+open and dependent on its ACP specification branch. No merge is authorized.

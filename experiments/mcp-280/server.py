@@ -1,6 +1,7 @@
 """Harmless read-only tools with private acceptance counters."""
 
 import argparse
+import asyncio
 import json
 from pathlib import Path
 
@@ -14,9 +15,14 @@ server = FastMCP("mcp-280-acceptance", host="127.0.0.1", port=args.port or 8000)
 
 
 @server.tool()
-def read_marker() -> str:
+async def read_marker() -> str:
     """Read the validation marker. Takes no arguments and has no external effects."""
     state = json.loads(args.state.read_text(encoding="utf-8"))
+    state["entered"] = state.get("entered", 0) + 1
+    args.state.write_text(json.dumps(state), encoding="utf-8")
+    if state.get("hold"):
+        # Bounded only in this acceptance server, never in the normal runner.
+        await asyncio.sleep(120)
     state["calls"] += 1
     args.state.write_text(json.dumps(state), encoding="utf-8")
     return state["marker"]

@@ -2,7 +2,6 @@
 
 import argparse
 import json
-import os
 from pathlib import Path
 import runpy
 import socket
@@ -20,7 +19,11 @@ def main():
     parser.add_argument("--implementation", type=Path, required=True)
     parser.add_argument("--metadata", type=Path, required=True)
     parser.add_argument("--transport", choices=("http", "stdio"), required=True)
+    parser.add_argument("--resume", action="store_true")
+    parser.add_argument("--cancel", action="store_true")
     args = parser.parse_args()
+    if args.resume and args.cancel:
+        parser.error("Use one lifecycle check at a time.")
     root = args.implementation.resolve()
     sys.path.insert(0, str(root / "src"))
     metadata = json.loads(args.metadata.read_text(encoding="utf-8"))
@@ -30,7 +33,11 @@ def main():
     case = uuid4().hex[:12]
     state = private / ("mcp-case-" + case + ".json")
     marker = "mcp-280-" + uuid4().hex
-    state.write_text(json.dumps({"marker": marker, "calls": 0, "unselected_calls": 0}))
+    state.write_text(
+        json.dumps(
+            {"marker": marker, "calls": 0, "unselected_calls": 0, "hold": args.cancel}
+        )
+    )
     server_file = Path(__file__).with_name("server.py")
     config = {
         "command": sys.executable,
@@ -97,9 +104,13 @@ def main():
                 effort=effort,
                 runner_url=metadata["runner_url"],
                 task="Use the connected external MCP tool whose description reads the validation marker. Call it exactly once, with no arguments. Reply only with the returned marker. Do not run commands, edit files, delegate or call any other tool.",
+                workflow="resume" if args.resume else "fresh",
+                follow_up="Call the connected external MCP marker tool exactly once again. Reply only with its returned marker. Do not use commands, files or delegation.",
             )
             agent = flow["data"]["nodes"][0]
-            agent["data"]["node"]["template"]["operation"]["value"] = "start"
+            agents = list(flow["data"]["nodes"])
+            if not args.resume:
+                agent["data"]["node"]["template"]["operation"]["value"] = "start"
             component = MCPToolsComponent()
             native = component.to_frontend_node()["data"]["node"]
             native["tool_mode"] = True
@@ -134,9 +145,10 @@ def main():
             # Native Toolset output uses output_types in its serialized definition.
             native["outputs"][0]["types"] = ["Tool"]
             flow["data"]["nodes"].insert(0, mcp)
-            flow["data"]["edges"].append(
-                edge(mcp, native["outputs"][0]["name"], agent, "mcp_tools")
-            )
+            for target in agents:
+                flow["data"]["edges"].append(
+                    edge(mcp, native["outputs"][0]["name"], target, "mcp_tools")
+                )
         flow["name"] = f"MCP {metadata['provider']} {args.transport} validation"
         flow.pop("id", None)
         created = session.post(base + "/api/v1/flows/", json=flow, timeout=30)
@@ -179,6 +191,7 @@ def main():
             )
             return 1
         deadline = time.monotonic() + 240
+        cancel_sent = False
         while time.monotonic() < deadline:
             records = [json.loads(p.read_text()) for p in runs.glob("*/record.json")]
             matching = [
@@ -188,6 +201,20 @@ def main():
             ]
             if matching:
                 record = max(matching, key=lambda r: r.get("created_at", ""))
+                observed = json.loads(state.read_text())
+                if args.cancel and not cancel_sent and observed.get("entered"):
+                    token = (private / "runner/api-token").read_text().strip()
+                    cancelled = requests.post(
+                        metadata["runner_url"]
+                        + "/v1/runs/"
+                        + record["run_id"]
+                        + "/cancel",
+                        headers={"Authorization": "Bearer " + token},
+                        json={},
+                        timeout=20,
+                    )
+                    cancelled.raise_for_status()
+                    cancel_sent = True
                 if record["status"] in {
                     "completed",
                     "failed",
@@ -211,15 +238,35 @@ def main():
             "unselected_calls": observed["unselected_calls"],
             "marker_matches": (record.get("answer") or "").strip() == marker,
             "manifest_tools": len(record["mcp_manifest"]["tools"]),
+            "resume": args.resume,
+            "cancel_requested": cancel_sent,
+            "tool_entered": observed.get("entered", 0),
+            "native_session_present": bool(record.get("thread_id")),
+            "attempt_count": len(
+                list((runs / record["run_id"] / "activity-attempts").glob("*.json"))
+            ),
         }
         print(json.dumps(result), flush=True)
+        if args.cancel:
+            return (
+                0
+                if cancel_sent
+                and result["status"] == "cancelled"
+                and result["tool_entered"] == 1
+                and result["unselected_calls"] == 0
+                else 1
+            )
         return (
             0
             if result["status"] == "completed"
-            and result["selected_calls"] == 1
+            and result["selected_calls"] == (2 if args.resume else 1)
             and result["unselected_calls"] == 0
             and result["marker_matches"]
             and result["manifest_tools"] == 1
+            and (
+                not args.resume
+                or (result["native_session_present"] and result["attempt_count"] == 2)
+            )
             else 1
         )
     finally:
