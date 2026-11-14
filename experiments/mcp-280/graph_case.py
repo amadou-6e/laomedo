@@ -24,6 +24,7 @@ def main():
     parser.add_argument("--cancel", action="store_true")
     parser.add_argument("--with-skill", action="store_true")
     parser.add_argument("--two-servers", action="store_true")
+    parser.add_argument("--audit-cleanup", action="store_true")
     args = parser.parse_args()
     if args.resume and args.cancel:
         parser.error("Use one lifecycle check at a time.")
@@ -109,14 +110,15 @@ def main():
 
             skill_source = private / ("mcp-skill-" + case)
             skill_source.mkdir()
+            skill_id = "mcp-validation-" + case
             (skill_source / "SKILL.md").write_text(
-                "---\nname: mcp-validation\ndescription: Harmless acceptance guidance.\n---\n"
+                f"---\nname: {skill_id}\ndescription: Harmless acceptance guidance.\n---\n"
                 "Use only the selected external marker readers requested by the user. "
                 "Do not edit files or delegate. Reply only with the marker.\n",
                 encoding="utf-8",
             )
             reference = SkillStore(private / "registry").import_skill(
-                "mcp-validation-" + case, skill_source
+                skill_id, skill_source
             )
 
         import langflow
@@ -253,7 +255,17 @@ def main():
             return 1
         deadline = time.monotonic() + 240
         cancel_sent = False
+        capabilities = {}
         while time.monotonic() < deadline:
+            if args.audit_cleanup:
+                for connection_file in (private / "mcp").glob("*.json"):
+                    try:
+                        connection = json.loads(
+                            connection_file.read_text(encoding="utf-8")
+                        )
+                    except FileNotFoundError:
+                        continue
+                    capabilities[connection_file] = connection
             records = [json.loads(p.read_text()) for p in runs.glob("*/record.json")]
             matching = [
                 r
@@ -312,6 +324,40 @@ def main():
             ),
         }
         print(json.dumps(result), flush=True)
+        if args.audit_cleanup:
+            deadline = time.monotonic() + 15
+            while (
+                any(path.exists() for path in capabilities)
+                and time.monotonic() < deadline
+            ):
+                time.sleep(0.1)
+            refused = []
+            for path, connection in capabilities.items():
+                endpoint = (
+                    f"http://{connection['bind']}:{connection['port']}/"
+                    + connection["registration"]["registration_id"]
+                    + "/mcp"
+                )
+                response = requests.get(
+                    endpoint,
+                    headers={"Authorization": "Bearer " + connection["token"]},
+                    timeout=10,
+                )
+                refused.append(
+                    response.status_code == 403
+                    and response.json().get("code") == "mcp_registration_unavailable"
+                    and not path.exists()
+                )
+            audit = {
+                "stage": "cleanup_audit",
+                "provider": metadata["provider"],
+                "captured_capabilities": len(capabilities),
+                "all_files_removed_and_capabilities_refused": bool(refused)
+                and all(refused),
+            }
+            print(json.dumps(audit), flush=True)
+            if not audit["all_files_removed_and_capabilities_refused"]:
+                return 1
         if args.cancel:
             return (
                 0

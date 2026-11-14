@@ -56,6 +56,32 @@ The HTTP discriminator correction received focused Claude APPROVE. Full PR
 own-diff review remains incomplete. Claude accepted the single static render and
 confirmed the bounded evidence claims. The logs do not independently establish
 source-byte provenance, live lease revocation or upstream termination. Multiple
-servers plus Skill References coexistence is not established
-by this matrix. Required CI passed at `ead50c23`; specification PR #419 remains
+servers plus Skill References coexistence was initially outside this matrix;
+the subsequent checks below cover it. Required CI passed at `ead50c23`; specification PR #419 remains
 open and dependent on its ACP specification branch. No merge is authorized.
+
+## Subsequent composition and cancellation audit
+
+Codex, Claude and OpenCode each completed a real STDIO graph containing two native
+MCP server nodes and one pinned Skill Reference. Each returned the marker with
+exactly one selected upstream call per server, two manifest tools and zero
+unselected calls. This establishes coexistence of connected Skill and MCP inputs;
+it does not prove the model read or followed the Skill text. Two earlier Codex
+attempts were refused before dispatch because the harness supplied a Skill
+frontmatter name differing from its registered ID. Correcting that test input
+resolved the refusal, without production changes.
+
+All three providers then passed another in-flight STDIO cancellation check with
+a live capability audit. The harness retained the private scoped capability in
+memory while the run was active. After terminal cancellation it verified both
+that the rendezvous file was removed and that an authenticated GET using that
+same old capability returned 403 `mcp_registration_unavailable`. Each captured
+one capability and passed both assertions. No capability was printed or saved
+as evidence. These are cancellation revocation checks, not app-shutdown or
+completion revocation checks.
+
+Claude reviewed every own-diff hunk across bounded packets against the stated
+base/head, including the corrected nonempty catalogue diff. Code coverage is
+closed with low advisories; overall PR approval remains incomplete for live
+privacy/shutdown and UI interaction evidence and the specification dependency.
+The new composition and revocation evidence awaits independent recheck.
