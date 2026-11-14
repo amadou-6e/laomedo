@@ -95,7 +95,9 @@ previously valid capability with 403 `mcp_registration_unavailable`.
 
 The harness compared the actual captured scoped capability and the isolated
 runner API token, in memory, against five blobs per provider: the graph export
-plus existing durable record/activity/attempt/diagnostic JSON or JSONL files.
+plus existing durable record/activity/attempt JSON or JSONL files. The harness
+also scans diagnostics if present; no diagnostic JSON files existed in these
+three successful runs, so these results establish no diagnostic-file coverage.
 Neither value appeared. This is a targeted known-secret scan, not proof about
 every possible credential or every private diagnostic writer. The acceptance
 upstream servers have no real upstream credentials. Native private config is
@@ -109,3 +111,7 @@ App-shutdown behavior, broader deployment reachability, provenance comparisons,
 status/cancel with dead native upstreams and editor interactions remain separate
 acceptance gaps. Existing controlled native transport/graph tests cover some of
 these invariants but are not substituted for live provider acceptance.
+
+Claude independently reviewed the updated harness and nine composition/audit
+logs: the bounded claims are supported, with the diagnostic coverage wording
+corrected above. Overall acceptance remains incomplete for the named gaps.
