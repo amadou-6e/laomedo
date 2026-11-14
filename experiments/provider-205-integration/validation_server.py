@@ -25,6 +25,7 @@ def main():
     parser.add_argument("--implementation", type=Path, default=REPO)
     parser.add_argument("--port", type=int)
     parser.add_argument("--metadata-name")
+    parser.add_argument("--trace-mcp-rpc", action="store_true")
     parser.add_argument(
         "--provider", choices=("codex", "claude", "opencode"), default="codex"
     )
@@ -78,6 +79,62 @@ def main():
         }
     )
     sys.path.insert(0, str(REPO / "src"))
+    if args.trace_mcp_rpc:
+        from laomedo.agents.agents.base.acp.session import AcpSession
+
+        original_request = AcpSession._request
+
+        async def observed_request(self, request, method, seconds):
+            try:
+                return await original_request(self, request, method, seconds)
+            except Exception as error:
+                cause = error.__context__
+                diagnostic = (
+                    str(cause) + " " + repr(getattr(cause, "data", None))
+                ).lower()
+                print(
+                    json.dumps(
+                        {
+                            "stage": "mcp_rpc_failure",
+                            "method": method,
+                            "type": type(error).__name__,
+                            "cause_type": type(cause).__name__,
+                            "rpc_code": getattr(cause, "code", None),
+                            "terms": [
+                                term
+                                for term in (
+                                    "mcp",
+                                    "http",
+                                    "unsupported",
+                                    "invalid",
+                                    "auth",
+                                    "login",
+                                    "configuration",
+                                    "enabled_tools",
+                                    "environment",
+                                    "not found",
+                                    "permission",
+                                    "connection",
+                                    "deserialize",
+                                    "model",
+                                    "header",
+                                    "invalid laomedo session scope",
+                                    "external mcp grant mismatch",
+                                    "external mcp endpoint required",
+                                    "invalid external mcp capability",
+                                    "executor selection mismatch",
+                                    "invalid type",
+                                    "unknown field",
+                                )
+                                if term in diagnostic
+                            ],
+                        }
+                    ),
+                    flush=True,
+                )
+                raise
+
+        AcpSession._request = observed_request
     source = root / "repository/source"
     source.mkdir(parents=True, exist_ok=True)
     subprocess.run(["git", "init", "--quiet", str(source.parent)], check=True)
