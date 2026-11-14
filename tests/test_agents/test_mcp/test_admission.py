@@ -1,6 +1,7 @@
 """Current request identity and frozen external-grant admission contracts."""
 
 from pathlib import Path
+from importlib.util import find_spec
 import json
 import unittest
 from unittest.mock import Mock, patch
@@ -9,7 +10,12 @@ from uuid import uuid4
 from pydantic import ValidationError
 
 from laomedo.agents.mcp.client import McpAccess
-from laomedo.agents.mcp.models import McpManifest, McpTool
+from laomedo.agents.mcp.models import (
+    McpConnection,
+    McpManifest,
+    McpRegistration,
+    McpTool,
+)
 from laomedo.agents.mcp.settings import McpSettings
 from laomedo.agents.errors import RunnerError
 from test_agents.test_runtime.models import RunnerCase
@@ -63,6 +69,35 @@ class McpAdmissionTests(unittest.TestCase):
         self.assertNotEqual(
             McpAccess.semantic_request(request), McpAccess.semantic_request(changed)
         )
+
+    @unittest.skipUnless(find_spec("acp"), "Requires optional ACP runner SDK")
+    def test_http_projection_survives_native_new_and_load_session_validation(self):
+        """The native SDK requires the concrete transport discriminator on the wire."""
+        from acp.schema import NewSessionRequest, LoadSessionRequest
+
+        access = object.__new__(McpAccess)
+        access.connection = McpConnection(
+            registration=McpRegistration(
+                registration_id=uuid4(), manifest=self.manifest
+            ),
+            port=12345,
+            bind="127.0.0.1",
+            controller_host="host.docker.internal",
+            token="x" * 43,
+        )
+        for model, extra in (
+            (NewSessionRequest, {}),
+            (LoadSessionRequest, {"session_id": "native-session"}),
+        ):
+            with self.subTest(request=model.__name__):
+                request = model(
+                    cwd="/draft", mcp_servers=[access.acp_server()], **extra
+                )
+                payload = request.model_dump(
+                    mode="json", by_alias=True, exclude_none=True
+                )
+                self.assertEqual(payload["mcpServers"][0]["type"], "http")
+                self.assertEqual(payload["mcpServers"][0]["name"], "external")
 
     def test_wildcard_and_public_bind_addresses_are_refused(self):
         """Never turn a Docker reachability failure into all-interface exposure."""

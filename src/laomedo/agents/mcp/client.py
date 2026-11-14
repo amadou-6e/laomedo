@@ -130,9 +130,10 @@ class McpAccess:
 
     def acp_server(self):
         """Project one scoped HTTP MCP server into private ACP session setup."""
-        from acp.schema import McpServerHttp, HttpHeader
+        from acp.schema import HttpMcpServer, HttpHeader
 
-        return McpServerHttp(
+        return HttpMcpServer(
+            type="http",
             name="external",
             url=self.connection.endpoint(controller=True),
             headers=[
