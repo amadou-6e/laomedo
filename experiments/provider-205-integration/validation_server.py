@@ -20,21 +20,31 @@ REPO = Path("C:/CodeWorkspace/laomedo")
 
 
 def main():
+    global REPO
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--implementation", type=Path, default=REPO)
+    parser.add_argument("--port", type=int)
+    parser.add_argument("--metadata-name")
     parser.add_argument(
         "--provider", choices=("codex", "claude", "opencode"), default="codex"
     )
     parser.add_argument("--resume", action="store_true")
     args = parser.parse_args()
+    workspace = REPO
+    REPO = args.implementation.resolve()
     provider = args.provider
-    app_port = {"codex": 17876, "claude": 17877, "opencode": 17878}[provider]
-    metadata_name = (
+    app_port = (
+        args.port or {"codex": 17876, "claude": 17877, "opencode": 17878}[provider]
+    )
+    metadata_name = args.metadata_name or (
         "interactive-validation"
         + ("-" + provider if provider != "codex" else "")
         + ".json"
     )
     metadata_path = (
-        REPO / ".tools/review/provider-composition/develop-integration" / metadata_name
+        workspace
+        / ".tools/review/provider-composition/develop-integration"
+        / metadata_name
     )
     previous = (
         json.loads(metadata_path.read_text(encoding="utf-8")) if args.resume else None
@@ -55,7 +65,8 @@ def main():
             "LFX_CONFIG_DIR": str(config),
             "LANGFLOW_DATABASE_URL": "sqlite:///" + (config / "flow.db").as_posix(),
             "LANGFLOW_FRONTEND_PATH": str(
-                REPO / ".tools/275/provider-integration-upstream/src/frontend/build"
+                workspace
+                / ".tools/275/provider-integration-upstream/src/frontend/build"
             ),
             "LANGFLOW_COMPONENTS_PATH": str(REPO / "components"),
             "LAOMEDO_COMPONENT_DIR": str(REPO / "components/laomedo"),
@@ -63,6 +74,7 @@ def main():
             "LANGFLOW_DO_NOT_TRACK": "true",
             "LAOMEDO_SKILL_STORE": str(registry),
             "LAOMEDO_AGENT_ACTIVITY_DB": str(root / "activity.db"),
+            "LAOMEDO_MCP_DIRECTORY": str(root / "mcp"),
         }
     )
     sys.path.insert(0, str(REPO / "src"))
@@ -144,7 +156,7 @@ def main():
 
             native = runpy.run_path(
                 str(
-                    REPO
+                    workspace
                     / ".tools/worktrees/docker-acceptance-exp/experiments/docker-boundary-277/acceptance.py"
                 )
             )
