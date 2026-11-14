@@ -533,6 +533,29 @@
                 "type": "other",
                 "_input_type": "JSONInput"
               },
+              "mcp_tools": {
+                "trace_as_metadata": true,
+                "list": true,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "mcp_tools",
+                "value": "",
+                "display_name": "MCP Tools",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Tool"
+                ],
+                "dynamic": false,
+                "info": "Connect selected tools from existing MCP server nodes.",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "other",
+                "_input_type": "HandleInput"
+              },
               "output_requirements": {
                 "tool_mode": false,
                 "trace_as_metadata": true,
@@ -935,32 +958,9 @@
                 "track_in_telemetry": true,
                 "type": "int",
                 "_input_type": "IntInput"
-              },
-              "mcp_tools": {
-                "trace_as_metadata": true,
-                "list": true,
-                "list_add_label": "Add More",
-                "override_skip": false,
-                "required": false,
-                "placeholder": "",
-                "show": true,
-                "name": "mcp_tools",
-                "value": "",
-                "display_name": "MCP Tools",
-                "advanced": false,
-                "api_editable": false,
-                "input_types": [
-                  "Tool"
-                ],
-                "dynamic": false,
-                "info": "Connect selected tools from existing MCP server nodes.",
-                "title_case": false,
-                "track_in_telemetry": false,
-                "type": "other",
-                "_input_type": "HandleInput"
               }
             },
-            "description": "Start, run, resume or cancel a Codex task with optional pinned skills through the local Docker runner.",
+            "description": "Start, run, resume or cancel a Codex task with optional pinned skills and selected MCP tools through the local Docker runner.",
             "icon": "Bot",
             "base_classes": [
               "JSON",

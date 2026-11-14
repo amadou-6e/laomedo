@@ -119,6 +119,9 @@ class McpRegistry:
         ):
             raise McpError("mcp_registration_unavailable")
         if method == "DELETE":
+            expected = str(lease.run_id) if lease.run_id else "unclaimed"
+            if not isinstance(body, dict) or body.get("run_id") != expected:
+                raise McpError("mcp_run_binding_mismatch")
             self.release(identifier)
             return {}
         lease.expires = time.monotonic() + self.settings.lease_seconds

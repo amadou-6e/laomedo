@@ -112,6 +112,8 @@ class McpRequestHandler(BaseHTTPRequestHandler):
                 ):
                     raise McpError("mcp_protocol_invalid")
                 body = json.loads(self.rfile.read(length))
+            elif method == "DELETE":
+                body = {"run_id": self.headers.get("X-Laomedo-Run-Id")}
             future = asyncio.run_coroutine_threadsafe(
                 registry.request(identifier, token, method, body), registry.loop
             )

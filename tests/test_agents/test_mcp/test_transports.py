@@ -95,7 +95,21 @@ class NativeTransportTests(unittest.IsolatedAsyncioTestCase):
                         settings=settings,
                     )
                     connection = access.connection
+                    stale = await asyncio.to_thread(
+                        McpAccess,
+                        str(registration.registration_id),
+                        registration.manifest.model_dump(mode="json"),
+                        settings=settings,
+                    )
+                    self.assertIsNone(stale.run_id)
                     await asyncio.to_thread(access.claim, str(uuid4()))
+                    # Reproduce a replay cleanup racing with another run's claim.
+                    # Its earlier GET saw no owner; DELETE must check the live owner.
+                    with self.assertRaisesRegex(
+                        RunnerError, "mcp_connection_unavailable"
+                    ):
+                        await asyncio.to_thread(stale.close)
+                    self.assertIn(str(registration.registration_id), registry.leases)
                     registry.release_unclaimed(registration.registration_id)
                     self.assertIn(str(registration.registration_id), registry.leases)
                     with self.assertRaisesRegex(

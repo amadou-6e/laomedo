@@ -163,6 +163,11 @@ class McpAccess:
             headers={
                 "Authorization": "Bearer " + self.connection.token.get_secret_value(),
                 "Content-Type": "application/json",
+                **(
+                    {"X-Laomedo-Run-Id": self.run_id or "unclaimed"}
+                    if method == "DELETE"
+                    else {}
+                ),
             },
         )
         try:

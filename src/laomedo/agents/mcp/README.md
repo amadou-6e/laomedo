@@ -36,9 +36,12 @@ Graph and durable task identity contain only the frozen manifest. An opaque loca
 registration reference is transient admission, verified against that manifest and
 excluded from semantic request hashes. Native bearer capabilities remain in
 host-private state/configuration and are never upstream server credentials.
-Resume requires the same frozen manifest with fresh live registration. Status and
-cancel omit their MCP dependency edges from the request-local execution graph
-before native output execution. `integrations/langflow/mcp_graph.py` owns
+Resume requires the same frozen manifest with fresh live registration.
+Runner revocation includes its observed run identity, checked atomically against
+the current claim. Releasing an unclaimed registration cannot revoke one claimed
+in the meantime; native MCP session deletion cannot revoke runner-owned access.
+Status and cancel omit their MCP dependency edges from the request-local execution
+graph before native output execution. `integrations/langflow/mcp_graph.py` owns
 `McpGraphPolicy`: `install` verifies and installs the pinned scheduling adapter;
 `sort_vertices` applies the effective operation and explicit play target;
 `initialize` and `restore` restore the full graph before reuse;
