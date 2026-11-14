@@ -358,6 +358,34 @@ def main():
             print(json.dumps(audit), flush=True)
             if not audit["all_files_removed_and_capabilities_refused"]:
                 return 1
+            exported = session.get(base + "/api/v1/flows/" + flow_id, timeout=20)
+            exported.raise_for_status()
+            run_directory = runs / record["run_id"]
+            public_files = [
+                run_directory / name
+                for name in ("record.json", "raw-events.jsonl", "activity-events.jsonl")
+            ]
+            for concern in ("activity-attempts", "diagnostics"):
+                public_files.extend((run_directory / concern).glob("*.json"))
+            blobs = [exported.content] + [
+                path.read_bytes() for path in public_files if path.is_file()
+            ]
+            secrets = [value["token"].encode() for value in capabilities.values()]
+            secrets.append((private / "runner/api-token").read_bytes().strip())
+            clean = all(secret not in blob for secret in secrets for blob in blobs)
+            print(
+                json.dumps(
+                    {
+                        "stage": "privacy_audit",
+                        "provider": metadata["provider"],
+                        "export_and_record_blobs": len(blobs),
+                        "scoped_capabilities_and_runner_token_absent": clean,
+                    }
+                ),
+                flush=True,
+            )
+            if not clean:
+                return 1
         if args.cancel:
             return (
                 0

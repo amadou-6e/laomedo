@@ -85,3 +85,27 @@ base/head, including the corrected nonempty catalogue diff. Code coverage is
 closed with low advisories; overall PR approval remains incomplete for live
 privacy/shutdown and UI interaction evidence and the specification dependency.
 The new composition and revocation evidence awaits independent recheck.
+
+## Completion and targeted privacy audit
+
+All three providers completed another real HTTP graph, returned the correct
+marker with one selected call and no unselected calls, and passed the same live
+revocation audit after completion. Each removed its grant file and refused the
+previously valid capability with 403 `mcp_registration_unavailable`.
+
+The harness compared the actual captured scoped capability and the isolated
+runner API token, in memory, against five blobs per provider: the graph export
+plus existing durable record/activity/attempt/diagnostic JSON or JSONL files.
+Neither value appeared. This is a targeted known-secret scan, not proof about
+every possible credential or every private diagnostic writer. The acceptance
+upstream servers have no real upstream credentials. Native private config is
+deliberately outside these public/durable projection checks.
+
+Separate sanitized inspection of completed two-server records confirmed one
+retained Skill receipt in each provider's `skills` collection. This establishes
+materialization evidence rather than proof of model compliance with instructions.
+
+App-shutdown behavior, broader deployment reachability, provenance comparisons,
+status/cancel with dead native upstreams and editor interactions remain separate
+acceptance gaps. Existing controlled native transport/graph tests cover some of
+these invariants but are not substituted for live provider acceptance.
