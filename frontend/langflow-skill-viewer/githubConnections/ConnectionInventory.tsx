@@ -30,12 +30,14 @@ export default function ConnectionInventory({
         </span>
         <strong>@{inventory.principal.login}</strong>
       </div>
-      <Input
-        aria-label="Search repositories"
-        placeholder="Search repositories"
-        value={query}
-        onChange={(event) => setQuery(event.target.value)}
-      />
+      {inventory.repositories.length > 5 && (
+        <Input
+          aria-label="Search repositories"
+          placeholder="Search repositories"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+        />
+      )}
       <div className="gc-choices">
         {inventory.repositories
           .filter((repo) =>

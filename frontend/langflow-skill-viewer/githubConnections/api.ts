@@ -25,6 +25,12 @@ export function authorizationUrl(value?: string | null): string | undefined {
   }
 }
 
+/** Keep the browser return in this tab and admit only GitHub authorization. */
+export function navigateToAuthorization(value?: string | null): void {
+  const url = authorizationUrl(value);
+  if (url) window.location.assign(url);
+}
+
 async function request(path: string, options: RequestInit = {}) {
   // The pinned native interceptor writes locale headers in place, including GET.
   const headers = Object.fromEntries(new Headers(options.headers).entries());

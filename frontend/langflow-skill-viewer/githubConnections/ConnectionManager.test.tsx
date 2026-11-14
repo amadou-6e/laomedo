@@ -9,6 +9,7 @@ import ConnectionManager from "./ConnectionManager";
 import {
   connectionCapability,
   connectionRequest,
+  navigateToAuthorization,
   ConnectionFailure,
 } from "./api";
 
@@ -16,6 +17,7 @@ jest.mock("./api", () => ({
   authorizationUrl: jest.requireActual("./api").authorizationUrl,
   connectionCapability: jest.fn(),
   connectionRequest: jest.fn(),
+  navigateToAuthorization: jest.fn(),
   ConnectionFailure: class extends Error {
     constructor(public code: string) {
       super(code);
@@ -119,7 +121,7 @@ it("keeps its initiating mutation busy and displays the response despite same-do
     }),
   );
   expect(
-    await screen.findByRole("button", { name: "Open GitHub again" }),
+    await screen.findByRole("button", { name: "Continue to GitHub" }),
   ).toBeEnabled();
   expect(connectionRequest).toHaveBeenCalledWith("begin", {});
 });
@@ -213,14 +215,7 @@ it("shows unavailable sign-in without requiring app credentials", async () => {
   );
 });
 
-it("opens the returned authorization URL automatically in the reserved browser tab", async () => {
-  const replace = jest.fn();
-  jest.spyOn(window, "open").mockReturnValue({
-    opener: null,
-    closed: false,
-    close: jest.fn(),
-    location: { replace },
-  } as any);
+it("continues the returned request in this tab without opening another tab", async () => {
   (connectionRequest as jest.Mock).mockImplementation((action?: string) =>
     Promise.resolve({
       outcome: action ? { request_id: "pending" } : null,
@@ -256,17 +251,16 @@ it("opens the returned authorization URL automatically in the reserved browser t
     await screen.findByRole("button", { name: "+ Add connection" }),
   );
   await waitFor(() =>
-    expect(replace).toHaveBeenCalledWith(
+    expect(navigateToAuthorization).toHaveBeenCalledWith(
       "https://github.com/login/oauth/authorize?client_id=qa",
     ),
   );
-  fireEvent.click(screen.getByRole("button", { name: "Open GitHub again" }));
+  fireEvent.click(screen.getByRole("button", { name: "Continue to GitHub" }));
   expect(connectionRequest).toHaveBeenCalledTimes(2);
-  expect(window.open).toHaveBeenLastCalledWith(
+  expect(navigateToAuthorization).toHaveBeenLastCalledWith(
     "https://github.com/login/oauth/authorize?client_id=qa",
-    "_blank",
-    "noopener,noreferrer",
   );
+  expect(window.open).not.toHaveBeenCalled();
 });
 
 it("edits repository consent using the selected saved account without beginning a new login", async () => {

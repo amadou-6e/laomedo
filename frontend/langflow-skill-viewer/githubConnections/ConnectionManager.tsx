@@ -7,6 +7,7 @@ import ConnectionInventory from "./ConnectionInventory";
 import DeploymentSetup from "./DeploymentSetup";
 import {
   authorizationUrl,
+  navigateToAuthorization,
   connectionCapability,
   connectionRequest,
   ConnectionFailure,
@@ -198,9 +199,6 @@ function ConnectionWorkspace() {
       setView("unavailable");
       return;
     }
-    // Reserve a tab within the user gesture so async CSRF/network work does not block opening it.
-    const popup = window.open("about:blank", "_blank");
-    if (popup) popup.opener = null;
     setView("waiting");
     const result = await run("begin", id ? { connection_id: id } : {});
     const outcome = result?.outcome;
@@ -211,9 +209,7 @@ function ConnectionWorkspace() {
     const pending = result?.index.pending.find(
       (item) => item.request_id === newRequestId,
     );
-    const url = authorizationUrl(pending?.authorization_url);
-    if (url && popup && !popup.closed) popup.location.replace(url);
-    else if (popup && !popup.closed) popup.close();
+    navigateToAuthorization(pending?.authorization_url);
   };
 
   const entries =
@@ -378,20 +374,19 @@ function ConnectionWorkspace() {
             <section className="gc-panel gc-focus">
               <h2>Continue on GitHub</h2>
               <p className="gc-muted">
-                We opened GitHub to finish connecting your account. Return here
-                after you authorize access.
+                Continue to GitHub to authorize access. You’ll return here to
+                choose repositories.
               </p>
               <Button
                 disabled={busy || !authorizationUrl(attempt.authorization_url)}
                 onClick={() => {
-                  const url = authorizationUrl(attempt.authorization_url);
-                  if (url) window.open(url, "_blank", "noopener,noreferrer");
+                  navigateToAuthorization(attempt.authorization_url);
                 }}
               >
-                Open GitHub again
+                Continue to GitHub
               </Button>
               <p className="gc-muted gc-small">
-                If GitHub did not open, use the button above.
+                Authorization continues in this tab.
               </p>
               <button
                 className="gc-link"

@@ -14,6 +14,9 @@ receives the returned App credential and is not part of ordinary Add Connection.
 `ConnectionManager.tsx` owns navigation, request epochs, invalidation and automatic
 browser launch. It reconciles waiting attempts using read-only checks on return
 and while the waiting view is visible; mutations are never retried automatically.
+Authorization navigates the current tab; GitHub returns directly to repository
+consent without leaving a second Laomedo tab. Repository search is shown only
+when more than five repositories are available.
 `ConnectionAccounts.tsx` renders the account list and selected account details.
 `ConnectionForms.tsx` owns masked advanced token entry and clears it synchronously
 before submitting or cancelling. `ConnectionInventory.tsx` owns explicit repository
