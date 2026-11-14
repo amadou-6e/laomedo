@@ -25,9 +25,10 @@ The harness did not independently compare the two native session identifiers.
 ## In-flight cancellation
 
 Each provider entered the selected STDIO tool once before cancellation was sent.
-All three reached cancelled status with zero completed tool calls and zero
+All three reached cancelled status with zero completed tool calls observed and zero
 unselected calls. Codex category was `cancelled_by_user`, Claude category was
-`claude_cancelled`; OpenCode reported no error category. No tool result completed.
+`claude_cancelled`; OpenCode reported no error category. No result was delivered
+before cancellation. The upstream outcome after the observation is unknown.
 These checks establish observed runner cancellation after dispatch; they do not
 prove arbitrary upstream tool side effects can be rolled back.
 
@@ -52,7 +53,9 @@ their checks, so completed HTTP graph links are not reusable demonstrations.
 STDIO graphs retain their app-owned server configuration for owner inspection.
 
 The HTTP discriminator correction received focused Claude APPROVE. Full PR
-own-diff review remains incomplete. Live evidence and actual visual review are
-pending. Multiple servers plus Skill References coexistence is not established
+own-diff review remains incomplete. Claude accepted the single static render and
+confirmed the bounded evidence claims. The logs do not independently establish
+source-byte provenance, live lease revocation or upstream termination. Multiple
+servers plus Skill References coexistence is not established
 by this matrix. Required CI passed at `ead50c23`; specification PR #419 remains
 open and dependent on its ACP specification branch. No merge is authorized.
