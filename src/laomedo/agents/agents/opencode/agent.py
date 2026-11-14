@@ -1,24 +1,25 @@
 """OpenCode provider adapter. Production Docker/auth deployment is intentionally gated."""
 
 from __future__ import annotations
+from laomedo.agents.activity.models import ActivityPage
+from laomedo.agents.agents.base.models import ReadinessObservation
+from laomedo.docker import DockerRuntime
 from laomedo.agents.agents.opencode.catalog import OpenCodeModelCatalog
 
 from uuid import uuid4
 import hashlib
-import asyncio
 import re
 import shutil
 import threading
 import time
 
-from laomedo.skills.registry.files import inventory
-from laomedo.skills.registry.hashing import tree_hash
+from laomedo.skills.registry.utils.files import inventory
+from laomedo.skills.registry.utils.hashing import tree_hash
 from laomedo.agents.activity.models import ActivityAttemptRecord
 from laomedo.agents.activity.utils import now
 from laomedo.agents.activity.runner.feed import line_count
 from laomedo.agents.agents.opencode.settings import CLI_VERSION
 from laomedo.agents.errors import RunnerError
-from laomedo.agents.agents.base.base import BaseAgentRuntime
 from laomedo.agents.agents.base.agent import BaseAgent
 from laomedo.agents.agents.base.models import RuntimeBinding
 from laomedo.agents.workspaces.utils import _hash_tree
@@ -85,6 +86,27 @@ class OpenCodeAgent(BaseAgent):
     def recover_interrupted(self, record):
         """Constructor recovery reconciles receipts across prior runs before dispatch."""
 
+    def read_activity(
+        self, run_id: str, attempt_id: str, *, after: int = 0, limit: int = 100
+    ) -> ActivityPage:
+        """Normalize retained opencode evidence behind the common Activity boundary."""
+        from laomedo.agents.agents.opencode.activity.projection import project
+
+        return self._normalize_activity(
+            run_id,
+            attempt_id,
+            after=after,
+            limit=limit,
+            projector=project,
+            complete_from_snapshot=True,
+        )
+
+    def readiness(self) -> ReadinessObservation:
+        """Return the actual native check's availability, reason and scope without inference."""
+        return self._observe_readiness(
+            ready_on_success=None, unverified_reason="opencode_transport_not_verified"
+        )
+
     def preflight(self):
         """Report transport configuration without launching an authenticated backend.
 
@@ -109,16 +131,18 @@ class OpenCodeAgent(BaseAgent):
 
     def resume(
         self,
-        run_id,
-        task,
+        run_id: str,
+        task: str,
         *,
-        expected_post_run_hash,
-        expected_thread_id,
-        model,
-        effort,
-        activity_attempt_id=None,
-    ):
+        expected_post_run_hash: str,
+        expected_thread_id: str,
+        model: str,
+        effort: str,
+        activity_attempt_id: str | None = None,
+        run_timeout_seconds: int | None = None,
+    ) -> dict:
         """Admit an existing session/workspace binding before continuing it; failures never create a fresh session."""
+        self._validate_run_timeout(run_timeout_seconds)
         self._validate_provider(model, effort)
         record = self.status(run_id)
         if (
@@ -150,7 +174,7 @@ class OpenCodeAgent(BaseAgent):
             run_id, task, resume=True, activity_attempt_id=activity_attempt_id
         )
 
-    def cancel(self, run_id):
+    def cancel(self, run_id: str) -> dict:
         """Request cancellation of the selected existing run; acknowledgement does not establish native cleanup."""
         record = self.status(run_id)
         if record["status"] == "prepared":
@@ -190,11 +214,7 @@ class OpenCodeAgent(BaseAgent):
                     "cancel_acknowledged": False,
                     "termination_verified": False,
                 }
-            (
-                backend.request_cancel()
-                if isinstance(backend, BaseAgentRuntime)
-                else backend.cancel()
-            )
+            backend.cancel()
             # An acknowledgement is not proof that a native child command terminated.
             return {
                 **record,
@@ -216,14 +236,13 @@ class OpenCodeAgent(BaseAgent):
         if not pending:
             return
         try:
-            from py_docker import Client
             from py_docker.errors import DockerOperationError
         except ImportError:
             raise RunnerError("opencode_container_cleanup_unverified") from None
         try:
-            with Client() as docker:
+            with DockerRuntime(environment=None).connect() as docker:
                 for receipt in pending:
-                    docker.sessions.recover(receipt)
+                    DockerRuntime.recover_receipts(docker, [receipt], kind="session")
         except DockerOperationError:
             raise RunnerError("opencode_container_cleanup_unverified") from None
 
@@ -233,6 +252,7 @@ class OpenCodeAgent(BaseAgent):
         """Validate the request and persist its prepared identity/workspace binding before native dispatch."""
         if not isinstance(request, dict):
             raise RunnerError("invalid_request")
+        self._validate_run_timeout(request.get("run_timeout_seconds"))
         self._validate_provider(request.get("model"), request.get("effort"))
         if self.transport_factory is None:
             raise RunnerError("opencode_isolated_transport_required")
@@ -495,11 +515,7 @@ class OpenCodeAgent(BaseAgent):
         finally:
             try:
                 if backend:
-                    (
-                        asyncio.run(backend.shutdown())
-                        if isinstance(backend, BaseAgentRuntime)
-                        else backend.close()
-                    )
+                    backend.close()
                     if metadata_cleanup_unverified:
                         backend.termination_verified = False
                         raise RunnerError("opencode_container_cleanup_unverified")

@@ -87,6 +87,14 @@ class RunnerSandboxPolicyTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp, patch("py_docker.Client") as client:
             selected = {"DOCKER_HOST": "unix:///selected.sock"}
             docker = client.return_value.__enter__.return_value
+            from laomedo.container_images.registry import ImageRegistry
+            from laomedo.agents.agents.codex.settings import IMAGE
+
+            recipe = ImageRegistry.load().find(IMAGE, max_bytes=32 * 1024 * 1024)
+            docker.sdk.images.get.return_value.id = "sha256:" + "a" * 64
+            docker.sdk.images.get.return_value.labels = {
+                "laomedo.image.recipe": recipe.fingerprint
+            }
             docker.volumes.exists.return_value = False
             docker.images.resolve.return_value = "sha256:" + "a" * 64
             docker.jobs.run.return_value.exit_code = 1

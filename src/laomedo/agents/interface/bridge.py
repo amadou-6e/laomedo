@@ -15,7 +15,7 @@ import time
 
 from laomedo.agents.interface.models import AgentDispatchResult
 from laomedo.agents.orchestration.errors import HandoffError
-from laomedo.http.redirect import NoRedirect
+from laomedo.host.http import NoRedirect
 
 
 class HttpAgentBridge:

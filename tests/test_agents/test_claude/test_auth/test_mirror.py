@@ -160,7 +160,7 @@ class LoginMirrorTests(TestCase):
             self.client.sessions.open.call_args.args[0].spec.network_mode, "none"
         )
         self.assertEqual(
-            self.factory.call_args.args[0].endpoint,
+            self.factory.call_args.kwargs["settings"].endpoint,
             "npipe:////./pipe/dockerDesktopLinuxEngine",
         )
         self.assertNotIn("DOCKER_CONTEXT", self.factory.call_args.kwargs["environment"])
@@ -185,7 +185,7 @@ class LoginMirrorTests(TestCase):
         self.assertEqual(run.call_count, 1)
         self.assertEqual(run.call_args.args[0], ["docker", "context", "inspect"])
         self.assertEqual(
-            self.factory.call_args.args[0].endpoint,
+            self.factory.call_args.kwargs["settings"].endpoint,
             "npipe:////./pipe/dockerDesktopLinuxEngine",
         )
         self.assertNotIn("DOCKER_CONTEXT", self.factory.call_args.kwargs["environment"])

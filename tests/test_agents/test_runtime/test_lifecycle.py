@@ -473,14 +473,15 @@ class LocalRunnerTests(unittest.TestCase):
         "Requires optional Docker runtime",
     )
     def test_git_image_trusts_only_fixed_workspace_for_native_git(self):
-        from laomedo.agents.agents.codex.settings import GIT_IMAGE, GIT_IMAGE_ID
+        from laomedo.agents.agents.codex.settings import GIT_IMAGE
 
-        for image in (GIT_IMAGE, GIT_IMAGE_ID):
+        for image in (GIT_IMAGE, "sha256:" + "a" * 64):
             spec = CodexLaunch(
                 workspace=self.root,
                 canonical=self.root,
                 store_mount=self.root,
                 image=image,
+                managed_image=True,
             ).to_container_spec()
             values = {
                 k: v.get_secret_value()
@@ -939,8 +940,8 @@ class LocalRunnerTests(unittest.TestCase):
         self.assertEqual(
             FakeServer.calls[-1].image,
             __import__(
-                "laomedo.agents.agents.codex.settings", fromlist=["GIT_IMAGE_ID"]
-            ).GIT_IMAGE_ID,
+                "laomedo.agents.agents.codex.settings", fromlist=["GIT_IMAGE"]
+            ).GIT_IMAGE,
         )
         self.assertEqual(result["git_baseline"], baseline)
         self.assertTrue(result["skill_git_exclusion"]["enabled"])

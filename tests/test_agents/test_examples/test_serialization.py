@@ -5,7 +5,7 @@ from pathlib import Path
 from support.paths import repository_root
 import unittest
 
-from laomedo.skills.registry.hashing import tree_hash
+from laomedo.skills.registry.utils.hashing import tree_hash
 
 
 class NativeFlowTests(unittest.TestCase):

@@ -2,8 +2,12 @@
 
 import io
 import json
+import ssl
 import unittest
 from urllib import error
+from urllib.request import HTTPSHandler
+
+from laomedo.host.http import NoRedirect
 
 from laomedo.host.mediation.errors import KnownRejected
 from laomedo.github.transport.rest.transport import GitHubRestTransport
@@ -34,6 +38,19 @@ class _Opener:
 
 
 class GitHubRestTransportTests(unittest.TestCase):
+    def test_default_https_verifies_host_and_chain_and_refuses_redirects(self):
+        adapter = GitHubRestTransport("example/disposable", lambda: "synthetic-secret")
+        https = next(
+            handler
+            for handler in adapter.opener.handlers
+            if isinstance(handler, HTTPSHandler)
+        )
+        self.assertEqual(https._context.verify_mode, ssl.CERT_REQUIRED)
+        self.assertTrue(https._context.check_hostname)
+        self.assertTrue(
+            any(isinstance(handler, NoRedirect) for handler in adapter.opener.handlers)
+        )
+
     def setUp(self):
         self.opener = _Opener()
         self.adapter = GitHubRestTransport(

@@ -30,7 +30,7 @@ class PreflightBoundaryTests(unittest.TestCase):
         code = """
 import sys
 import laomedo.work_graph.stage_worker
-import laomedo.git.credentials.helper
+import laomedo.git.credential_helper
 import laomedo.agents.agents.codex.agent
 assert not any(n == 'py_docker' or n.startswith('py_docker.') for n in sys.modules)
 assert 'docker' not in sys.modules
@@ -109,6 +109,7 @@ assert 'docker' not in sys.modules
         self.assertEqual(
             codes,
             {
+                "container_image_build_failed",
                 "docker_image_digest_changed",
                 "unsupported_codex_cli_version",
                 "runner_docker_check_unconfirmed",

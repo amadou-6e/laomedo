@@ -20,7 +20,7 @@ Clients and handlers have narrow feature dependencies. They do not import graph
 frameworks or execute provider commands. CLI modules compose SkillStore,
 SkillSources or SkillOperations explicitly. Credentials, listener binding and
 editing policy come from trusted startup configuration, never graph content.
-Redirect refusal uses `laomedo.http.redirect.NoRedirect`.
+Redirect refusal uses `laomedo.host.http.NoRedirect`.
 
 Selected external saved consumers use the explicit offline module/symbol/CLI maps.
 Dynamic or ambiguous access requires manual migration; no runtime import hook or

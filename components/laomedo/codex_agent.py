@@ -2,6 +2,7 @@
 
 from copy import deepcopy
 from laomedo.integrations.langflow.agent.component import AgentComponent
+from laomedo.integrations.langflow.settings import Settings
 
 
 class LaomedoCodexAgent(AgentComponent):
@@ -26,5 +27,5 @@ class LaomedoCodexAgent(AgentComponent):
     inputs = [deepcopy(item) for item in AgentComponent.inputs]
     for _field in inputs:
         if _field.name == "runner_url":
-            _field.value = "http://host.docker.internal:8765"
+            _field.value = Settings().codex_runner_url
     del _field

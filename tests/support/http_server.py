@@ -37,10 +37,17 @@ class RecordingJSONHandler(BaseHTTPRequestHandler):
     """Return caller-supplied internal test data; record no headers or secrets."""
 
     def do_GET(self):
+        length = int(self.headers.get("Content-Length", "0"))
+        if not 0 <= length <= 1024 * 1024:
+            self.send_error(413)
+            return
+        if length:
+            self.rfile.read(length)
         self.server.requests.append((self.command, self.path))
         if self.server.redirect:
             self.send_response(302)
             self.send_header("Location", self.server.redirect)
+            self.send_header("Content-Length", "0")
             self.end_headers()
             return
         self.send_response(getattr(self.server, "response_status", 200))

@@ -230,7 +230,7 @@ class WorkGraphLaunchTests(unittest.TestCase):
 
     def test_github_entrypoint_refreshes_before_any_reservation(self):
         changed = snapshot(self.corpus, "content_changed")
-        with patch("laomedo.work_graph.github.fetch", return_value=changed) as fetch:
+        with patch("laomedo.work_graph.launch.fetch", return_value=changed) as fetch:
             with self.assertRaisesRegex(LaunchError, "stale_unacknowledged"):
                 launch_github_work_stage(
                     frozen=self.frozen,
@@ -327,7 +327,7 @@ class WorkGraphLaunchTests(unittest.TestCase):
             max_turns=0,
         )
         with patch(
-            "laomedo.work_graph.grant_utils._host_principal", return_value="other-user"
+            "laomedo.work_graph.grants._host_principal", return_value="other-user"
         ):
             with self.assertRaisesRegex(LaunchError, "grant_operator_mismatch"):
                 authority(ref, binding)

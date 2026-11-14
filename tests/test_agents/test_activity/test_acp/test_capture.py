@@ -6,7 +6,7 @@ import tempfile
 import unittest
 
 from laomedo.agents.activity.acp.capture import AcpCapture
-from laomedo.agents.activity.projection import project
+from laomedo.agents.agents.codex.activity.projection import project
 
 
 class AcpCaptureTests(unittest.TestCase):
@@ -36,7 +36,7 @@ class AcpCaptureTests(unittest.TestCase):
                     {"raw": row["event"], "received_at": row["received_at"]}
                     for row in raw
                 ]
-                live = project(events, root_thread="session")
+                live = project(events, root_thread="session").to_payload()
                 items = [
                     row for row in live["items"] if row["item"].get("type") == item_type
                 ]

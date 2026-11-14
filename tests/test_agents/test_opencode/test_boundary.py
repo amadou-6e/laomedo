@@ -19,7 +19,6 @@ from urllib import request
 from laomedo.agents.agents.opencode.executor import OpenCodeCommandExecutor
 from laomedo.agents.agents.opencode.runtime import OpenCodeAgentRuntime
 from laomedo.agents.agents.opencode.utils import check_auth_fresh
-from laomedo.agents.agents.codex.settings import IMAGE_ID
 from laomedo.agents.errors import RunnerError
 
 if find_spec("py_docker"):
@@ -30,6 +29,34 @@ ENDPOINT = "npipe:////./pipe/dockerDesktopLinuxEngine"
 
 
 class BoundaryTests(unittest.TestCase):
+    @unittest.skipUnless(find_spec("py_docker"), "Requires optional Docker runtime")
+    def test_worker_image_admission_preserves_errors_before_starting_broker(self):
+        from py_docker.errors import ImageResolutionError, OwnershipConflictError
+
+        for error, expected in (
+            (
+                ImageResolutionError("inspect image"),
+                "opencode_controller_image_unavailable",
+            ),
+            (OwnershipConflictError("pin mismatch"), "opencode_image_pin_mismatch"),
+        ):
+            with (
+                self.subTest(expected=expected),
+                patch(
+                    "laomedo.agents.agents.opencode.executor.DockerRuntime"
+                ) as runtime,
+                patch(
+                    "laomedo.agents.agents.opencode.executor.OpenCodeCommandBroker"
+                ) as broker,
+            ):
+                runtime.ensure_image.side_effect = error
+                with self.assertRaises(RunnerError) as caught:
+                    OpenCodeCommandExecutor(
+                        None, None, None, None, docker_endpoint=ENDPOINT
+                    )
+                self.assertEqual(caught.exception.code, expected)
+                broker.assert_not_called()
+
     def test_cancel_stops_owned_broker_without_claiming_termination(self):
         boundary = OpenCodeAgentRuntime.__new__(OpenCodeAgentRuntime)
         boundary.broker = None
@@ -130,6 +157,7 @@ class BoundaryTests(unittest.TestCase):
                             profile=profile,
                             image="controller",
                             image_id=CONTROLLER_ID,
+                            worker_image_id="sha256:" + "b" * 64,
                         )
                     client.return_value.sessions.open.assert_not_called()
 
@@ -189,6 +217,7 @@ class BoundaryTests(unittest.TestCase):
                         profile=profile,
                         image="controller",
                         image_id=CONTROLLER_ID,
+                        worker_image_id="sha256:" + "b" * 64,
                     )
                 broker.return_value.shutdown.assert_called_once()
                 client.return_value.sessions.open.assert_not_called()
@@ -221,6 +250,7 @@ class BoundaryTests(unittest.TestCase):
                     profile=profile,
                     image="controller",
                     image_id=CONTROLLER_ID,
+                    worker_image_id="sha256:" + "b" * 64,
                 )
                 self.addCleanup(backend.close)
                 spec = backend.spec
@@ -276,6 +306,7 @@ class BoundaryTests(unittest.TestCase):
                     image="controller",
                     image_id=CONTROLLER_ID,
                     configure_agents=configure,
+                    worker_image_id="sha256:" + "b" * 64,
                 )
                 self.addCleanup(backend.close)
                 config = json.loads(
@@ -297,7 +328,12 @@ class BoundaryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             broker = OpenCodeCommandExecutor(
-                root, root, root, root, docker_endpoint=ENDPOINT
+                root,
+                root,
+                root,
+                root,
+                docker_endpoint=ENDPOINT,
+                worker_image_id="sha256:" + "b" * 64,
             )
             self.addCleanup(broker.shutdown)
             entered, release = threading.Event(), threading.Event()
@@ -336,7 +372,12 @@ class BoundaryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             broker = OpenCodeCommandExecutor(
-                root, root, root, root, docker_endpoint=ENDPOINT
+                root,
+                root,
+                root,
+                root,
+                docker_endpoint=ENDPOINT,
+                worker_image_id="sha256:" + "b" * 64,
             )
             broker.capacity.acquire()
             closed = threading.Event()
@@ -379,7 +420,12 @@ class BoundaryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             broker = OpenCodeCommandExecutor(
-                root, root, root, root, docker_endpoint=ENDPOINT
+                root,
+                root,
+                root,
+                root,
+                docker_endpoint=ENDPOINT,
+                worker_image_id="sha256:" + "b" * 64,
             )
             with patch("py_docker.Client") as client:
                 client.return_value.__enter__.return_value.jobs.run.side_effect = (
@@ -441,7 +487,9 @@ class BoundaryTests(unittest.TestCase):
     def test_mcp_requires_bearer_capability_and_rejects_unknown_tools(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp)
-            broker = OpenCodeCommandExecutor(path, path, path, path)
+            broker = OpenCodeCommandExecutor(
+                path, path, path, path, worker_image_id="sha256:" + "b" * 64
+            )
             self.addCleanup(broker.shutdown)
             url = "http://127.0.0.1:" + str(broker.broker.server.server_port) + "/mcp"
             payload = json.dumps(

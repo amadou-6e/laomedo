@@ -10,23 +10,18 @@ from laomedo.agents.interface.output.utils import precheck_response
 from laomedo.agents.interface.output.utils import verify_requirements
 from laomedo.agents.agents.codex.settings import NATIVE_RECEIPT_FILENAME
 from laomedo.agents.agents.codex.settings import Settings as CodexSettings
-from laomedo.agents.agents.codex.controller.models import CodexLaunch, CodexTurn
+from laomedo.agents.agents.codex.controller.models import CodexLaunch
+from laomedo.agents.agents.codex.controller.models import CodexTurn
 from laomedo.agents.agents.codex.controller.settings import Settings
 from laomedo.agents.errors import RunnerError
-from laomedo.agents.agents.base.runtime import AgentDockerMechanism
-from laomedo.agents.agents.base.base import BaseAgentRuntime
-from laomedo.agents.agents.base.models import (
-    RuntimeObservation,
-    CancellationObservation,
-    CleanupObservation,
-    CommandRequest,
-    ProcessHealthObservation,
-    IsolationObservation,
-)
+from laomedo.docker import DockerRuntime
+from laomedo.agents.agents.base.models import CommandRequest
+from laomedo.agents.agents.base.models import ProcessHealthObservation
+from laomedo.agents.agents.base.models import IsolationObservation
 from laomedo.agents.agents.base.utils import failure_observation
 
 
-class CodexAgentRuntime(BaseAgentRuntime):
+class CodexAgentRuntime:
     """Own a controller and optional executor without implementing another wire.
 
     Native events remain the authority for item identities and terminal status.
@@ -45,14 +40,13 @@ class CodexAgentRuntime(BaseAgentRuntime):
         split=None,
     ):
         """Bind admitted configuration and owned state; provider startup errors propagate before use."""
-        from py_docker import Client
         from py_docker.connection.settings import ConnectionSettings
         from py_docker.sessions.models import ContainerSession
         from py_docker.streams.models import StreamLimits
 
-        self.client = Client(
+        self.client = DockerRuntime(
             settings=ConnectionSettings(timeout_seconds=15), environment=env
-        )
+        ).connect()
         self.container_name = launch.name
         self._session_scope = ExitStack()
         self.session = self.acp = self.executor = self.telemetry = None
@@ -135,7 +129,7 @@ class CodexAgentRuntime(BaseAgentRuntime):
             )
             self.logs.append(self.activity_log)
             self.session = self._session_scope.enter_context(
-                AgentDockerMechanism.session(
+                DockerRuntime.session(
                     self.client,
                     ContainerSession(
                         spec=spec,
@@ -466,7 +460,23 @@ class CodexAgentRuntime(BaseAgentRuntime):
                 if not all(isinstance(level, str) and level for level in efforts):
                     raise RunnerError("model_list_invalid_entry")
                 ids.add(item["id"])
-                models.append({"id": item["id"], "efforts": efforts})
+                model = {"id": item["id"], "efforts": efforts}
+                for native_name, name in (
+                    ("displayName", "display_name"),
+                    ("defaultReasoningEffort", "default_reasoning_effort"),
+                ):
+                    value = item.get(native_name)
+                    if value is not None:
+                        if not isinstance(value, str) or not value.strip():
+                            raise RunnerError("model_list_invalid_entry")
+                        if name == "default_reasoning_effort" and value not in efforts:
+                            raise RunnerError("model_list_invalid_entry")
+                        model[name] = value
+                if "isDefault" in item:
+                    if type(item["isDefault"]) is not bool:
+                        raise RunnerError("model_list_invalid_entry")
+                    model["is_default"] = item["isDefault"]
+                models.append(model)
             cursor = result.get("nextCursor")
             if not cursor:
                 return models
@@ -474,36 +484,6 @@ class CodexAgentRuntime(BaseAgentRuntime):
                 raise RunnerError("model_list_invalid_cursor")
             seen.add(cursor)
         raise RunnerError("model_list_page_limit")
-
-    def observe(self) -> RuntimeObservation:
-        """Report launch separately from the independently completed ACP handshake."""
-        return RuntimeObservation(
-            provider="codex",
-            launched=self.session is not None and not self._closed,
-            ready=(
-                (getattr(self, "_protocol_ready", False) or None)
-                if not self._closed
-                else None
-            ),
-            native_session=self.active_thread_id,
-        )
-
-    def request_cancel(self) -> CancellationObservation:
-        """Signal the owned prompt flag; acknowledgement remains native evidence."""
-        flag = getattr(self, "_cancelled", None)
-        if flag is not None:
-            flag.set()
-        return CancellationObservation(
-            requested=flag is not None,
-            confirmed=(
-                True if flag is not None and self.interrupt_acknowledged else None
-            ),
-        )
-
-    async def shutdown(self) -> CleanupObservation:
-        """Await the existing fail-closed exact cleanup without retrying execution."""
-        await self.close()
-        return CleanupObservation(confirmed=True, scope="codex_controller_and_executor")
 
     def _native_event(self, method, event):
         """Retain redacted original native events before ACP prompt returns."""

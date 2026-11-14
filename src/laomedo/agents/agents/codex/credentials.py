@@ -1,12 +1,10 @@
 """Codex credential admission composed with the host-owned ChatGPT connection."""
 
 from laomedo.agents.agents.base.base import BaseCredentialProvider
-from laomedo.agents.agents.base.models import (
-    CredentialBinding,
-    CredentialMaterial,
-    CredentialRequest,
-    CleanupObservation,
-)
+from laomedo.agents.agents.base.models import CredentialBinding
+from laomedo.agents.agents.base.models import CredentialMaterial
+from laomedo.agents.agents.base.models import CredentialRequest
+from laomedo.agents.agents.base.models import CleanupObservation
 from pydantic import SecretStr
 from laomedo.agents.errors import RunnerError
 

@@ -4,11 +4,9 @@ import hashlib
 import json
 import time
 from laomedo.agents.agents.base.base import BaseCredentialProvider
-from laomedo.agents.agents.base.models import (
-    CredentialBinding,
-    CredentialRequest,
-    CleanupObservation,
-)
+from laomedo.agents.agents.base.models import CredentialBinding
+from laomedo.agents.agents.base.models import CredentialRequest
+from laomedo.agents.agents.base.models import CleanupObservation
 from laomedo.agents.agents.claude.auth.settings import Settings
 from laomedo.agents.agents.claude.auth.errors import LocalClaudeLoginError
 from laomedo.agents.agents.claude.auth.utils import mirror_login

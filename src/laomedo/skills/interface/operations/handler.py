@@ -4,7 +4,7 @@ from http.server import BaseHTTPRequestHandler
 import json
 import secrets
 from pydantic import ValidationError
-from laomedo.skills.operations.contract import MANUAL_ERROR_CODES
+from laomedo.skills.operations.settings import MANUAL_ERROR_CODES
 from laomedo.skills.registry.errors import SkillStoreError
 
 

@@ -11,29 +11,20 @@ import secrets
 import shutil
 import threading
 
-from laomedo.agents.agents.opencode.models import (
-    OpenCodeConfig,
-    OpenCodeRuntimeIdentity,
-)
+from laomedo.agents.agents.opencode.models import OpenCodeConfig
+from laomedo.agents.agents.opencode.models import OpenCodeRuntimeIdentity
 from laomedo.agents.agents.opencode.settings import CLI_VERSION
 from laomedo.agents.agents.opencode.settings import CONTROLLER_LIFETIME_SECONDS
 from laomedo.agents.agents.opencode.settings import WORKER_IMAGE
 from laomedo.agents.agents.opencode.settings import WORKER_IMAGE_ID
 from laomedo.agents.agents.opencode.utils import _credential_binding
-from laomedo.agents.agents.opencode.utils import (
-    check_auth_fresh as opencode_check_auth_fresh,
-)
 from laomedo.agents.agents.opencode.utils import model_metadata
 from laomedo.agents.errors import RunnerError
-from laomedo.agents.agents.base.runtime import AgentDockerMechanism
+from laomedo.docker import DockerRuntime
+from laomedo.container_images.errors import ImageBuildError
+from laomedo.agents.agents.opencode.settings import IMAGE
 from laomedo.agents.agents.opencode.credentials import OpenCodeCredentialProvider
 from laomedo.agents.agents.base.models import CredentialRequest
-from laomedo.agents.agents.base.base import BaseAgentRuntime
-from laomedo.agents.agents.base.models import (
-    RuntimeObservation,
-    CancellationObservation,
-    CleanupObservation,
-)
 from laomedo.agents.agents.base.utils import _json
 from laomedo.agents.agents.base.utils import _private
 from laomedo.agents.agents.base.utils import failure_observation
@@ -42,7 +33,7 @@ from laomedo.agents.agents.base.utils import failure_observation
 from laomedo.agents.agents.opencode.executor import OpenCodeCommandExecutor
 
 
-class OpenCodeAgentRuntime(BaseAgentRuntime):
+class OpenCodeAgentRuntime:
     """One controller per turn, persistent session profile, independent workers."""
 
     def __init__(
@@ -51,8 +42,8 @@ class OpenCodeAgentRuntime(BaseAgentRuntime):
         evidence,
         *,
         profile,
-        image,
-        image_id,
+        image=IMAGE,
+        image_id=None,
         worker_image_id=None,
         configure_agents=None,
         receipt_directory=None,
@@ -73,17 +64,7 @@ class OpenCodeAgentRuntime(BaseAgentRuntime):
         identity_path = self.profile / "identity.json"
         if not identity_path.exists():
             _json(identity_path, {"profile_id": str(uuid4())})
-        self.identity = OpenCodeRuntimeIdentity(
-            runtime_version=CLI_VERSION,
-            image=image,
-            image_id=image_id,
-            profile_id=json.loads(identity_path.read_text())["profile_id"],
-            worker_image=WORKER_IMAGE,
-            worker_image_id=selected_worker_id,
-            credential_binding=_credential_binding(self.profile),
-        )
         try:
-            from py_docker import Client
             from py_docker.errors import (
                 CleanupUnconfirmedError,
                 ConnectionConfigurationError,
@@ -94,10 +75,14 @@ class OpenCodeAgentRuntime(BaseAgentRuntime):
         except ImportError:
             raise RunnerError("opencode_controller_startup_failed") from None
         try:
-            with Client() as docker:
+            with DockerRuntime(environment=None).connect() as docker:
                 self.docker_endpoint = docker.connection.endpoint
-                docker.images.resolve(image, expected_id=image_id)
-                docker.images.resolve(WORKER_IMAGE, expected_id=selected_worker_id)
+                image_id = DockerRuntime.ensure_image(
+                    docker, image, expected_id=image_id
+                )
+                selected_worker_id = DockerRuntime.ensure_image(
+                    docker, WORKER_IMAGE, expected_id=selected_worker_id
+                )
                 receipts = (
                     Path(receipt_directory)
                     if receipt_directory is not None
@@ -106,7 +91,9 @@ class OpenCodeAgentRuntime(BaseAgentRuntime):
                 receipts.mkdir(mode=0o700, parents=True, exist_ok=True)
                 self.receipts = receipts
                 for receipt in receipts.glob("*.json"):
-                    docker.sessions.recover(receipt)
+                    DockerRuntime.recover_receipts(docker, [receipt], kind="session")
+        except ImageBuildError:
+            raise RunnerError("container_image_build_failed") from None
         except OwnershipConflictError:
             raise RunnerError("opencode_image_pin_mismatch") from None
         except ImageResolutionError:
@@ -117,6 +104,15 @@ class OpenCodeAgentRuntime(BaseAgentRuntime):
             raise RunnerError("opencode_container_configuration_invalid") from None
         except DockerOperationError:
             raise RunnerError("opencode_controller_startup_failed") from None
+        self.identity = OpenCodeRuntimeIdentity(
+            runtime_version=CLI_VERSION,
+            image=image,
+            image_id=image_id,
+            profile_id=json.loads(identity_path.read_text())["profile_id"],
+            worker_image=WORKER_IMAGE,
+            worker_image_id=selected_worker_id,
+            credential_binding=_credential_binding(self.profile),
+        )
         root = evidence / ("controller-" + uuid4().hex)
         root.mkdir()
         view = root / "view"
@@ -238,7 +234,9 @@ class OpenCodeAgentRuntime(BaseAgentRuntime):
             ],
         )
         try:
-            self.docker = Client(environment={"DOCKER_HOST": self.docker_endpoint})
+            self.docker = DockerRuntime(
+                environment={"DOCKER_HOST": self.docker_endpoint}
+            ).connect()
         except Exception as error:
             observation = failure_observation(
                 error, stage="startup", code="opencode_controller_startup_failed"
@@ -269,7 +267,8 @@ class OpenCodeAgentRuntime(BaseAgentRuntime):
         receipt_path = self.receipts.joinpath(name + ".json")
         self.allocated_receipts.add(receipt_path)
         try:
-            result = self.docker.jobs.run(
+            result = DockerRuntime.execute_job(
+                self.docker,
                 ContainerJob(
                     spec=self.spec.model_copy(
                         update={
@@ -288,7 +287,7 @@ class OpenCodeAgentRuntime(BaseAgentRuntime):
                     limits=StreamLimits(seconds=70, max_bytes=8 * 1024 * 1024),
                     wait_timeout_seconds=10.0,
                     receipt_path=receipt_path,
-                )
+                ),
             )
             if result.exit_code:
                 raise RunnerError("opencode_model_not_connected")
@@ -332,7 +331,7 @@ class OpenCodeAgentRuntime(BaseAgentRuntime):
         receipt_path = self.receipts.joinpath(self.name + ".json")
         self.allocated_receipts.add(receipt_path)
         self.session = self._session_scope.enter_context(
-            AgentDockerMechanism.session(
+            DockerRuntime.session(
                 self.docker,
                 ContainerSession(
                     spec=self.spec,
@@ -411,7 +410,9 @@ class OpenCodeAgentRuntime(BaseAgentRuntime):
             elif paths:
                 for receipt in paths:
                     try:
-                        self.docker.sessions.recover(receipt)
+                        DockerRuntime.recover_receipts(
+                            self.docker, [receipt], kind="session"
+                        )
                     except Exception as error:
                         failed, recovered = True, False
                         observation = observation or failure_observation(
@@ -439,30 +440,6 @@ class OpenCodeAgentRuntime(BaseAgentRuntime):
     def check_auth_fresh(self):
         """Validate the dedicated profile's existing bounded credential grant."""
         OpenCodeCredentialProvider(self.profile).validate(CredentialRequest())
-
-    def observe(self) -> RuntimeObservation:
-        """Do not infer a controller process or ACP readiness from a prepared environment."""
-        return RuntimeObservation(
-            provider="opencode",
-            launched=self.session is not None and not self.closing,
-            ready=None,
-            native_session=getattr(self, "_native_session", None),
-        )
-
-    def request_cancel(self) -> CancellationObservation:
-        """Stop the command executor and signal the current ACP prompt when present."""
-        self.cancel()
-        flag = getattr(self, "_cancelled", None)
-        if flag is not None:
-            flag.set()
-        return CancellationObservation(
-            requested=flag is not None or self.broker is not None, confirmed=None
-        )
-
-    async def shutdown(self) -> CleanupObservation:
-        """Confirm every allocated controller/worker receipt before returning success."""
-        self.close()
-        return CleanupObservation(confirmed=True, scope="opencode_owned_resources")
 
     def _configure_mcp(self, access):
         """Extend private config with exact external grants before controller launch."""

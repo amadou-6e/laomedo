@@ -11,7 +11,7 @@ from urllib import request
 from urllib.parse import urlsplit
 import json
 
-from laomedo.http.redirect import NoRedirect
+from laomedo.host.http import NoRedirect
 
 
 class RunnerHTTPTransport:

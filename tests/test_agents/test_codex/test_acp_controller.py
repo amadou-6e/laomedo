@@ -34,6 +34,7 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
         self.docker = Mock()
         native = MagicMock()
         native.__enter__.return_value = native
+        native.close.return_value = None
         native.__exit__.side_effect = lambda *args: native.close()
         self.docker.sessions.open.return_value = native
         with patch("py_docker.Client", return_value=self.docker):
@@ -354,3 +355,13 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaisesRegex(RunnerError, "container_termination_unverified"):
             await self.controller.close()
         self.assertFalse(self.controller.streams_closed)
+
+    async def test_repeated_close_preserves_session_cleanup_failure(self):
+        self.controller.session.close.side_effect = RuntimeError("cleanup uncertain")
+        with self.assertRaises(RunnerError) as first:
+            await self.controller.close()
+        with self.assertRaises(RunnerError) as second:
+            await self.controller.close()
+        self.assertIs(second.exception, first.exception)
+        self.assertFalse(self.controller.cleanup_confirmed)
+        self.controller.session.close.assert_called_once()

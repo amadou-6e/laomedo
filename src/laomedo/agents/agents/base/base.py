@@ -5,47 +5,16 @@ from concurrent.futures import TimeoutError as FutureTimeout
 from copy import deepcopy
 import threading
 import time
-from laomedo.agents.agents.base.models import (
-    RuntimeObservation,
-    CancellationObservation,
-    CleanupObservation,
-    CommandRequest,
-    CommandResult,
-    CredentialRequest,
-    CredentialBinding,
-    CredentialMaterial,
-    ModelCatalogSnapshot,
-    RuntimeLaunch,
-    ProcessHealthObservation,
-    IsolationObservation,
-)
-from laomedo.agents.activity.models import ActivityProjection
-
-
-class BaseAgentRuntime(ABC):
-    """Own exact process/session lifecycle; ACP communication remains composed."""
-
-    @classmethod
-    def start(cls, *args, **kwargs) -> RuntimeLaunch:
-        """Construct the provider's configured scope and return an opaque owned handle.
-
-        Only trusted host factories supply constructor arguments. Existing native
-        startup/admission failures propagate; launch does not imply ACP readiness.
-        """
-        runtime = cls(*args, **kwargs)
-        return RuntimeLaunch(runtime=runtime, observation=runtime.observe())
-
-    @abstractmethod
-    def observe(self) -> RuntimeObservation:
-        """Read known process and native-session facts without launching a turn."""
-
-    @abstractmethod
-    def request_cancel(self) -> CancellationObservation:
-        """Request interruption without claiming native acknowledgement or cleanup."""
-
-    @abstractmethod
-    async def shutdown(self) -> CleanupObservation:
-        """Close owned resources or preserve provider's fail-closed cleanup error."""
+from laomedo.agents.agents.base.models import CancellationObservation
+from laomedo.agents.agents.base.models import CleanupObservation
+from laomedo.agents.agents.base.models import CommandRequest
+from laomedo.agents.agents.base.models import CommandResult
+from laomedo.agents.agents.base.models import CredentialRequest
+from laomedo.agents.agents.base.models import CredentialBinding
+from laomedo.agents.agents.base.models import CredentialMaterial
+from laomedo.agents.agents.base.models import ModelCatalog
+from laomedo.agents.agents.base.models import ProcessHealthObservation
+from laomedo.agents.agents.base.models import IsolationObservation
 
 
 class BaseCommandExecutor(ABC):
@@ -117,13 +86,16 @@ class BaseCredentialProvider(ABC):
 class BaseModelCatalog(ABC):
     """Discover model choices without inference, preserving native cache policy."""
 
+    include_model_names: bool = False
+    """Whether the existing HTTP projection includes native display/alias names."""
+
     def __init__(self):
         """Own cache observation synchronization without native discovery effects."""
         self._lock = threading.Lock()
         self._cached = None
         self._pending = None
 
-    def snapshot(self) -> ModelCatalogSnapshot | None:
+    def snapshot(self) -> ModelCatalog | None:
         """Copy last observed choices, including stale values, without refreshing.
 
         A missing catalogue remains None. This observation never substitutes a
@@ -131,7 +103,7 @@ class BaseModelCatalog(ABC):
         """
         with self._lock:
             return (
-                ModelCatalogSnapshot.model_validate(deepcopy(self._cached[1]))
+                ModelCatalog.from_payload(deepcopy(self._cached[1]))
                 if self._cached is not None
                 else None
             )
@@ -162,20 +134,5 @@ class BaseModelCatalog(ABC):
         return True
 
     @abstractmethod
-    def discover(self, *, refresh: bool = False) -> ModelCatalogSnapshot:
+    def list_models(self, *, refresh: bool = False) -> ModelCatalog:
         """Discover or refresh choices; never change the caller's selected model."""
-
-
-class BaseActivityProjector(ABC):
-    """Interpret one provider's observations into canonical shared Activity values."""
-
-    usage_first_payload = False
-
-    @classmethod
-    @abstractmethod
-    def accepts(cls, events) -> bool:
-        """Recognize unqualified native receipts without selecting an execution provider."""
-
-    @abstractmethod
-    def project(self, events, *, root_thread=None, model=None) -> ActivityProjection:
-        """Project observed evidence; absent usage or pricing remains unknown."""

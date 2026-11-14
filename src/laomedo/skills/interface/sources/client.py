@@ -16,7 +16,7 @@ import urllib.error
 def source_request(action, **body):
     """Send a configured loopback source request and validate its response using safe client errors."""
     settings = SkillSourceSettings()
-    from laomedo.http.redirect import NoRedirect
+    from laomedo.host.http import NoRedirect
 
     url = settings.url
     parsed = urlsplit(url)

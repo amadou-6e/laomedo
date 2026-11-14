@@ -8,7 +8,7 @@ remove its whole-pipeline overrides.
 exact native session. `OpenCodeCommandExecutor` in `executor.py` owns workers;
 `http/broker.py` only adapts MCP. `OpenCodeCredentialProvider` in `credentials.py`
 validates the borrowed native profile. `OpenCodeModelCatalog` in `catalog.py` owns
-zero-turn discovery; `OpenCodeActivityProjector` in `activity/projector.py` owns
+zero-turn discovery; `read_activity` with internal `activity/projection.py` helpers owns
 native interpretation and pricing. See the [role methods](../README.md#provider-role-contracts-275).
 
 The controller and broker span an attempt. Native history export follows confirmed closure and precedes the final freeze. Output requirements are currently unsupported.

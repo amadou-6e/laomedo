@@ -8,10 +8,8 @@ import subprocess
 import time
 
 from laomedo.host.private_state.errors import PrivateStateError
-from laomedo.host.private_state.models import (
-    DirectoryPermissionPolicy,
-    DirectoryPermissionResult,
-)
+from laomedo.host.private_state.models import DirectoryPermissionPolicy
+from laomedo.host.private_state.models import DirectoryPermissionResult
 from laomedo.host.private_state.windows import WindowsDirectorySecurity
 
 

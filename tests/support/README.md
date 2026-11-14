@@ -20,3 +20,5 @@ controls. The loader is not a production compatibility facade. Historical code,
 the declared dependency inventory and its refusal behavior are not reorganized.
 
 `assert_secrets_excluded(testcase, model, secrets)` in `model_assertions.py` checks ordinary repr, string, dump and JSON forms. Callers supply only test secrets; expected domain payloads remain independent in their owning tests.
+
+`agent_access_violations(source, roots, members)` in `interface_contracts.py` checks declared Agent receivers and their direct assignment aliases for private or undeclared member access, including literal `getattr`. This bounded AST guard does not infer arbitrary runtime types or dynamic calls. Provider-composition imports are separately checked outside provider owners.

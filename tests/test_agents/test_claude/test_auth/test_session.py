@@ -12,7 +12,8 @@ from unittest.mock import MagicMock, patch
 from laomedo.agents.agents.claude.auth.errors import LocalClaudeLoginError
 from laomedo.agents.agents.claude.auth.resources.write_login import write_login
 from laomedo.agents.agents.claude.auth.settings import COPY_SECONDS
-from laomedo.agents.agents.claude.auth.utils import _local_endpoint, mirror_login
+from laomedo.agents.agents.claude.auth.utils import _local_endpoint
+from laomedo.agents.agents.claude.auth.utils import mirror_login
 
 try:
     import py_docker
@@ -162,7 +163,7 @@ class AccessLoginSessionTests(unittest.TestCase):
         self.assertLessEqual(
             client.sessions.open.call_args.kwargs["deadline"], 100.0 + COPY_SECONDS
         )
-        self.assertLessEqual(factory.call_args.args[0].timeout_seconds, 20.0)
+        self.assertLessEqual(factory.call_args.kwargs["settings"].timeout_seconds, 20.0)
         self.assertLessEqual(session.wait.call_args.kwargs["timeout"], 20.0)
         written = session.write.call_args.args[0]
         self.assertEqual(json.loads(written)["claudeAiOauth"]["refreshToken"], "")

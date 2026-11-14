@@ -8,7 +8,7 @@ from urllib import parse
 from urllib import request
 import json
 from laomedo.work_graph.runs.errors import LaunchError
-from laomedo.http.redirect import NoRedirect
+from laomedo.host.http import NoRedirect
 
 
 class LangflowLocalClient:

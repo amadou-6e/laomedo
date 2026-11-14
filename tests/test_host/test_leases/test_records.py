@@ -7,13 +7,11 @@ from unittest.mock import patch
 import hashlib
 import json
 
-from laomedo.host.leases.models import (
-    ContainerIdentity,
-    GrantWindow,
-    LeaseClock,
-    LeaseGrant,
-    LeaseRevocationRecord,
-)
+from laomedo.host.leases.models import ContainerIdentity
+from laomedo.host.leases.models import GrantWindow
+from laomedo.host.leases.models import LeaseClock
+from laomedo.host.leases.models import LeaseGrant
+from laomedo.host.leases.models import LeaseRevocationRecord
 from laomedo.host.leases.grants import GrantBook
 from support.model_assertions import assert_secrets_excluded
 

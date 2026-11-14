@@ -18,13 +18,13 @@ from lfx.io import DataInput
 from lfx.io import HandleInput
 from lfx.io import DropdownInput
 from lfx.io import IntInput
-from lfx.io import MessageTextInput
 from lfx.io import Output
 from lfx.io import StrInput
 from lfx.schema import Data
 from lfx.schema import Message
 
-from laomedo.agents.interface.models import AgentRunReference, AgentSubmission
+from laomedo.agents.interface.models import AgentRunReference
+from laomedo.agents.interface.models import AgentSubmission
 from laomedo.agents.interface.langflow.errors import RunnerResultError
 from laomedo.agents.mcp.client import McpAccess
 from laomedo.agents.mcp.settings import MCP_ERROR_CODES
@@ -35,6 +35,15 @@ from laomedo.agents.interface.utils import terminal_record as _terminal_record
 _STOP_TASKS = set()
 _TERMINAL = {"completed", "cancelled", "failed", "timeout", "interrupted"}
 _ROUTABLE_ERRORS = {
+    "activity_normalization_failed",
+    "activity_journal_unavailable",
+    "activity_projection_limit",
+    "activity_run_not_found",
+    "run_timeout_not_supported",
+    "authentication_not_verified",
+    "execution_blocked",
+    "readiness_not_verified",
+    "opencode_transport_not_verified",
     "invalid_join_body",
     "external_git_directory_unsupported",
     "invalid_skill_id",
@@ -75,14 +84,9 @@ _ROUTABLE_ERRORS = {
     "command_wrapper_changed",
     "repository_invalid",
     "branch_invalid",
-    "opencode_auth_redirect_rejected",
-    "opencode_active_console_account_required",
-    "opencode_console_models_required",
-    "opencode_console_origin_not_allowed",
-    "opencode_model_endpoint_not_allowed",
-    "opencode_model_sdk_not_allowed",
     "opencode_organization_context_mismatch",
-    "opencode_real_credential_required",
+    "pr_context_invalid",
+    "pr_context_upstream_failed",
     "agent_component_migration_required",
     "auth_revoked_during_turn",
     "cancel_native_unconfirmed",
@@ -258,7 +262,7 @@ class AgentComponent(Component):
     runner_token_default = ""
 
     inputs = [
-        MessageTextInput(name="task", display_name="Task"),
+        StrInput(name="task", display_name="Task", input_types=["Message", "Data"]),
         DropdownInput(
             name="operation",
             display_name="Operation",
@@ -746,7 +750,26 @@ class AgentComponent(Component):
             raise ValueError("invalid_operation")
         if self._bridge_base() and operation not in {"fresh", "start"}:
             raise ValueError("join_bridge_requires_fresh_start")
-        task = str(getattr(self.task, "text", self.task) or "")
+        structured_task = (
+            self.task.data
+            if isinstance(self.task, Data) and not isinstance(self.task, Message)
+            else self.task
+        )
+        if isinstance(structured_task, dict) and (
+            isinstance(self.task, Data)
+            or any(
+                key in structured_task for key in ("pr", "operation", "schema_version")
+            )
+        ):
+            from laomedo.github.pull_requests.context import task_text
+
+            task = task_text(structured_task)
+        elif isinstance(structured_task, dict):
+            task = str(Message(**structured_task).text or "")
+        else:
+            if self.task is not None and not isinstance(self.task, (str, Message)):
+                raise ValueError("pr_context_invalid")
+            task = str(getattr(self.task, "text", self.task) or "")
         if operation in {"fresh", "start", "resume"} and not task.strip():
             raise ValueError("task_required")
         model, effort = str(self.model), str(self.effort)

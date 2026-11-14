@@ -34,13 +34,18 @@ class NativeCommandsTests(unittest.TestCase):
         "opt-in Docker development fixture",
     )
     def test_native_git_and_gh_protocol_in_pinned_image(self):
-        from laomedo.agents.agents.codex.settings import GIT_IMAGE_ID
+        from laomedo.agents.agents.codex.settings import GIT_IMAGE
+        from laomedo.docker import DockerRuntime
+
+        with DockerRuntime(None).client() as client:
+            image_id = DockerRuntime.ensure_image(client, GIT_IMAGE)
+            docker = ["docker", "--host", client.connection.endpoint]
 
         with tempfile.TemporaryDirectory() as temporary:
             wrappers = prepare_commands(Path(temporary), REPO, "run-branch")
             name = "laomedo-native-dev-" + uuid4().hex
             command = [
-                "docker",
+                *docker,
                 "run",
                 "--rm",
                 "--name",
@@ -83,13 +88,13 @@ class NativeCommandsTests(unittest.TestCase):
                 command.extend(
                     ["--mount", f"type=bind,source={source},target={target},readonly"]
                 )
-            command.extend([GIT_IMAGE_ID, "node", "/run/laomedo/test.mjs"])
+            command.extend([image_id, "node", "/run/laomedo/test.mjs"])
             try:
                 result = subprocess.run(command, capture_output=True, timeout=60)
             finally:
                 inspected = subprocess.run(
                     [
-                        "docker",
+                        *docker,
                         "inspect",
                         name,
                         "--format",
@@ -101,7 +106,7 @@ class NativeCommandsTests(unittest.TestCase):
                 if inspected.returncode == 0:
                     self.assertEqual(inspected.stdout.strip(), b"true")
                     subprocess.run(
-                        ["docker", "rm", "-f", name],
+                        [*docker, "rm", "-f", name],
                         check=True,
                         capture_output=True,
                         timeout=15,

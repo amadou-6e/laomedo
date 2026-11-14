@@ -9,9 +9,9 @@ Vocabulary: `start` reserves capture identity; `bind` binds the actual remote ru
 read methods inspect retained evidence without running a model. Exact method names
 are listed below; record schemas and provider IDs do not change during renaming.
 
-`projection.py` resolves the stored provider through `AgentProviderRegistry` and
-adapts its canonical `ActivityProjection` to the existing response. Provider
-`activity/projector.py` implementations own native interpretation and pricing.
+`projection.py` reads the highest retained common display snapshot.
+New capture uses `BaseAgent.read_activity` and stores normalized records plus display revisions;
+provider native interpretation remains inside that read implementation.
 `timeline.py` assembles normalized thread/turn/item observations using explicit
 provider callbacks; it imports no provider implementation or pricing catalogue.
 The pinned OpenAI API-equivalent catalogue belongs to Codex. Claude and OpenCode
@@ -74,3 +74,36 @@ Literal projector input/output cases live in
 `tests/test_agents/test_activity/data/projector-records.json`; the envelope tests
 check their exact projections and serialization. These are internal compatibility
 controls, not a working graph demonstration or live provider acceptance.
+
+## Normalized provider read boundary
+
+BaseAgent.read_activity returns ActivityPage and append-only ActivityRecord values.
+Provider Agents pass their native projection function to internal ActivityNormalizer
+(normalizer.py), which reads only retained, attempt-bounded evidence. SQLite
+transaction ownership serializes normalized sequence allocation across processes;
+unchanged replacement snapshots do not append another record. Messages/tool output
+replace prior versions by thread/ID, usage is an absolute attempt snapshot (never
+summed across revisions). Full shared ActivityProjection travels with a monotonic
+projection_revision so telemetry/cost/thread-only changes survive ingestion.
+
+ActivityNormalizer.read validates the run/attempt, clips both physical sources,
+normalizes and journals atomically, then returns bounded records. It starts no
+container/model/auth operation. The private journal is a normalization cache, not
+an execution record. ActivityCapture consumes /activity, retains common records
+and display snapshots with attempt-scoped deduplication and seals only drained
+closed pages. Application projection reads common snapshots without provider
+selection. Native parser helpers remain internal to providers.
+
+## Bounded retention and display revisions
+
+Provider journal budgets apply per attempt; a reached budget preserves published
+records and returns an explicit partial reason rather than failing all history or
+blocking later attempts. Closed still means both source bounds are sealed.
+Application `ActivityStore.append` replaces one invocation display snapshot using
+its revision index, without mutating normalized record receipts. Detail routes use
+that latest snapshot and omit duplicate record/snapshot bodies; raw receipt paging
+remains available. See the architecture contract for byte/source limits.
+
+## Current display boundary
+
+`projection.project(events)` reads retained normalized display snapshots only. It returns an empty shared projection before any receipt exists; it never selects a native provider parser. Old native-only Activity databases are unsupported. Provider parser tests call their defining modules directly.

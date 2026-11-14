@@ -14,8 +14,8 @@ Git commits. Explicit registry promotion and later Git publication remain separa
 | Source discovery and immutable choices | [sources/](sources/README.md) | `SkillSources`: discover, revisions, resolve; concrete LocalSkillSource and GitSkillSource retain admission/read policy |
 | Immutable bundles and drafts | [registry/](registry/README.md) | `SkillStore`: import_skill, revision, read_file, create_draft, draft_workspace, freeze_draft, promote_draft |
 | Atomic edits and history | [operations/](operations/README.md) | `SkillOperations`: prepare, apply, history, diff, compare; one authorization/replay/journal transaction |
-| Read-only verification | `inspection/` | `inspect_skill`; verify exact immutable bytes without constructing a mutable store |
-| Description authoring contract | `authoring/` | has_description, summary_authoring; load the packaged instructions without executing skill content |
+| Read-only verification | `registry/utils/inspection.py` | `inspect_skill`; verify exact immutable bytes without constructing a mutable store |
+| Description authoring contract | `operations/utils/summary.py` | has_description, summary_authoring; load the packaged instructions without executing skill content |
 
 The interface directories contain the actual public adapters, not forwarding
 facades. Core domain services/models do not import an optional graph framework.
@@ -56,3 +56,12 @@ GitHub, work_graph or a graph framework.
 Structural/protocol checks, CI and review support this boundary. Real source
 selection/pinning, multi-file editing, history/diff browsing, errors/recovery and
 requesting-user validation remain separate browser/graph acceptance gates.
+
+## Central settings access
+
+`skills/settings.py` exposes the submodule-owned constants and settings classes
+for callers that need a central entry point. `SourceServiceSettings` and
+`OperationServiceSettings` distinguish the two HTTP adapters' local `Settings`
+classes. Construct them at the point of use; importing the central module neither
+loads settings instances nor reads credentials. Definitions and their environment
+rules remain with the submodules, and constants are re-exported without copying.

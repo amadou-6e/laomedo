@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from laomedo.agents.activity.models import ActivityPage
 from pathlib import Path
 from urllib.request import ProxyHandler, build_opener
 from uuid import uuid4
+from copy import deepcopy
 import hashlib
 import json
 import os
@@ -13,24 +15,23 @@ import re
 import secrets
 import threading
 
-from laomedo.skills.registry.files import inventory
-from laomedo.skills.registry.hashing import tree_hash
-from laomedo.http.redirect import NoRedirect
+from laomedo.skills.registry.utils.files import inventory
+from laomedo.skills.registry.utils.hashing import tree_hash
+from laomedo.host.http import NoRedirect
 from laomedo.agents.artifacts.errors import ArtifactError
 from laomedo.agents.artifacts.utils import import_selected
 from laomedo.agents.artifacts.utils import relative_path
 from laomedo.agents.artifacts.utils import selections
 from laomedo.agents.interface.output.utils import verify_requirements
 from laomedo.agents.interface.models import SUPPORTED_PROVIDERS
-from laomedo.agents.agents.base.models import (
-    RuntimeBinding,
-    PreparedRunRecord,
-    PreparedWorkspaceState,
-    AgentSkillBinding,
-    SkillGitExclusion,
-    AgentGitHubScope,
-    AttemptFailureRecord,
-)
+from laomedo.agents.agents.base.models import ReadinessObservation
+from laomedo.agents.agents.base.models import RuntimeBinding
+from laomedo.agents.agents.base.models import PreparedRunRecord
+from laomedo.agents.agents.base.models import PreparedWorkspaceState
+from laomedo.agents.agents.base.models import AgentSkillBinding
+from laomedo.agents.agents.base.models import SkillGitExclusion
+from laomedo.agents.agents.base.models import AgentGitHubScope
+from laomedo.agents.agents.base.models import AttemptFailureRecord
 from laomedo.agents.agents.base.settings import RUNNER_FAILURE_CODES
 from laomedo.agents.artifacts.models import ArtifactReference
 from laomedo.agents.orchestration.models import HandoffProvenance
@@ -58,11 +59,14 @@ from laomedo.agents.workspaces.cleanup import remove_owned_tree
 from laomedo.agents.workspaces.skills.utils import verify
 
 
+from laomedo.agents.agents.base.base import BaseModelCatalog
 from laomedo.agents.agents.base.settings import ROLE_INIT_LOCK
 
 
 class BaseAgent(ABC):
     """Template-method lifecycle; concrete providers own protocol and runtime policy."""
+
+    _supports_run_timeout = False
 
     def __init__(
         self,
@@ -138,7 +142,7 @@ class BaseAgent(ABC):
             return self._credential_service
 
     @property
-    def catalog(self):
+    def catalog(self) -> BaseModelCatalog:
         """Lazily compose the declared provider catalog without native effects."""
         # Construction and tests may query metadata before provider startup ends.
         with ROLE_INIT_LOCK:
@@ -226,29 +230,91 @@ class BaseAgent(ABC):
 
     def model_catalog(self, *, refresh=False) -> dict:
         """Project typed provider discovery into the unchanged application payload."""
-        return self.catalog.discover(refresh=refresh).model_dump(exclude_unset=True)
+        return self.catalog.list_models(refresh=refresh).to_payload(
+            include_model_names=self.catalog.include_model_names
+        )
+
+    @abstractmethod
+    def read_activity(
+        self, run_id: str, attempt_id: str, *, after: int = 0, limit: int = 100
+    ) -> ActivityPage:
+        """Return common attempt-scoped replacement records without native execution."""
+
+    def read_events(
+        self,
+        run_id: str,
+        attempt_id: str,
+        *,
+        after: int = 0,
+        otel_after: int = 0,
+        limit: int = 100,
+        tail: bool = False,
+    ) -> dict:
+        """Read bounded retained raw evidence through the shared storage owner."""
+        from laomedo.agents.activity.runner.feed import read_feed
+
+        record = self.status(run_id)
+        root = self._run_dir(run_id)
+        path = (
+            root / "activity-attempts" / (_id(attempt_id) + ".json")
+            if attempt_id
+            else None
+        )
+        attempt = _read(path) if path and path.is_file() else None
+        if not attempt:
+            return {"run_id": run_id, "accepted": False, "events": []}
+        if attempt.get("id") != attempt_id:
+            raise RunnerError("activity_attempt_identity_mismatch")
+        boundary = attempt if attempt.get("native_end") is not None else None
+        feed = read_feed(
+            root / "activity-events.jsonl",
+            after=max(after, attempt["native_start"]),
+            limit=limit,
+            tail=tail,
+            before=boundary["native_end"] if boundary else None,
+        )
+        telemetry = read_feed(
+            root / "otel-events.jsonl",
+            after=max(otel_after, attempt["otel_start"]),
+            limit=200,
+            tail=tail,
+            before=boundary["otel_end"] if boundary else None,
+        )
+        return {
+            **feed,
+            "run_id": run_id,
+            "accepted": True,
+            "attempt": attempt,
+            "telemetry": telemetry,
+            "closed_boundary": boundary,
+            "status": record.get("status"),
+            "thread_id": record.get("thread_id"),
+            "model": record.get("effective_model"),
+            "attempt_finished": record.get("attempt_finished", False),
+        }
 
     @abstractmethod
     def preflight(self) -> dict:
         """Report this provider's readiness and isolation checks."""
 
     @abstractmethod
-    def resume(self, run_id, task, **binding) -> dict:
+    def resume(
+        self,
+        run_id: str,
+        task: str,
+        *,
+        expected_post_run_hash: str,
+        expected_thread_id: str,
+        model: str,
+        effort: str,
+        activity_attempt_id: str | None = None,
+        run_timeout_seconds: int | None = None,
+    ) -> dict:
         """Validate the provider binding before resuming its existing execution."""
 
-    def readiness(self):
-        """Observe the provider's scoped preflight without conflating health/isolation."""
-        from laomedo.agents.agents.base.models import ReadinessObservation
-        from laomedo.agents.registry import AgentProviderRegistry
-
-        payload = self.preflight()
-        status = payload.get("status")
-        return ReadinessObservation(
-            provider=self.provider,
-            ready=True if status == "ready" else False if status == "blocked" else None,
-            scope=AgentProviderRegistry.descriptor(self.provider).readiness_scope,
-            payload=payload,
-        )
+    @abstractmethod
+    def readiness(self) -> ReadinessObservation:
+        """Check scoped execution availability without inference; explain blocked/unknown results."""
 
     def editor_model_catalog(self):
         """Provider-owned refresh semantics for an explicit editor discovery request."""
@@ -256,6 +322,7 @@ class BaseAgent(ABC):
 
     def prepare_resume(self, run_id, body):
         """Validate provider extensions and refresh authentication before HTTP resume."""
+        self._validate_run_timeout(body.get("run_timeout_seconds"))
         self._mirror_host_login()
         return {}
 
@@ -346,7 +413,9 @@ class BaseAgent(ABC):
         finally:
             self.release_mcp(record["run_id"])
 
-    def start_async(self, request: dict, *, response_gate=None) -> dict:
+    def start_async(
+        self, request: dict, *, response_gate: threading.Event | None = None
+    ) -> dict:
         """Reserve one request identity, then run only after the HTTP reply."""
         if not isinstance(request, dict):
             raise RunnerError("invalid_request")
@@ -460,6 +529,63 @@ class BaseAgent(ABC):
             )
         except McpError as exc:
             raise RunnerError(exc.code) from None
+
+    def _normalize_activity(
+        self,
+        run_id,
+        attempt_id,
+        *,
+        after,
+        limit,
+        projector,
+        complete_from_snapshot=False,
+    ):
+        """Borrow shared journaling mechanics while retaining native provider interpretation."""
+        from laomedo.agents.activity.normalizer import ActivityNormalizer
+
+        return ActivityNormalizer(
+            self, projector, complete_from_snapshot=complete_from_snapshot
+        ).read(run_id, attempt_id, after=after, limit=limit)
+
+    def _validate_run_timeout(self, value) -> None:
+        """Refuse an unsupported override before allocating or dispatching a turn."""
+        if value is not None and not self._supports_run_timeout:
+            raise RunnerError("run_timeout_not_supported")
+
+    def _observe_readiness(
+        self, *, ready_on_success: bool | None, unverified_reason: str | None = None
+    ) -> ReadinessObservation:
+        """Normalize native admission failures without changing raw preflight callers."""
+        from laomedo.agents.registry import AgentProviderRegistry
+
+        scope = AgentProviderRegistry.descriptor(self.provider).readiness_scope
+        try:
+            payload = self.preflight()
+        except RunnerError as error:
+            return ReadinessObservation(
+                provider=self.provider,
+                ready=False,
+                reason=error.code,
+                scope=scope,
+                payload={"status": "blocked", "error_category": error.code},
+            )
+        status = payload.get("status")
+        if status == "blocked":
+            ready = False
+            reason = payload.get("error_category") or "execution_blocked"
+        elif status == "ready" and ready_on_success is True:
+            ready = True
+            reason = None
+        else:
+            ready = None
+            reason = unverified_reason or "readiness_not_verified"
+        return ReadinessObservation(
+            provider=self.provider,
+            ready=ready,
+            reason=reason,
+            scope=scope,
+            payload=deepcopy(payload),
+        )
 
     @abstractmethod
     def _execute(self, run_id, task, *, resume, activity_attempt_id=None) -> dict:
@@ -595,6 +721,7 @@ class BaseAgent(ABC):
         if not isinstance(request, dict):
             raise RunnerError("invalid_request")
         self._mcp_manifest(request)
+        self._validate_run_timeout(request.get("run_timeout_seconds"))
         task = request.get("task")
         if not isinstance(task, str) or not task.strip() or len(task) > 16000:
             raise RunnerError("invalid_task")

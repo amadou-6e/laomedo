@@ -4,7 +4,7 @@ import asyncio
 import time
 from laomedo.agents.agents.codex.settings import MODEL_CATALOG_TTL_SECONDS
 from laomedo.agents.agents.base.base import BaseModelCatalog
-from laomedo.agents.agents.base.models import ModelCatalogSnapshot
+from laomedo.agents.agents.base.models import ModelCatalog
 
 
 class CodexModelCatalog(BaseModelCatalog):
@@ -15,7 +15,7 @@ class CodexModelCatalog(BaseModelCatalog):
         self.agent = agent
         super().__init__()
 
-    def discover(self, *, refresh: bool = False) -> ModelCatalogSnapshot:
+    def list_models(self, *, refresh: bool = False) -> ModelCatalog:
         """Serialize and briefly cache metadata discovery; never submit a turn."""
         with self._lock:
             cached = self._cached
@@ -24,7 +24,8 @@ class CodexModelCatalog(BaseModelCatalog):
                 and cached
                 and time.monotonic() - cached[0] < MODEL_CATALOG_TTL_SECONDS
             ):
-                return ModelCatalogSnapshot.model_validate(cached[1])
+                return ModelCatalog.from_payload(cached[1])
             result = asyncio.run(self.agent._model_catalog())
+            catalog = ModelCatalog.from_payload(result)
             self._cached = (time.monotonic(), result)
-            return ModelCatalogSnapshot.model_validate(result)
+            return catalog

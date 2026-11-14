@@ -32,17 +32,17 @@ class WorkGraphCliSummaryTests(unittest.TestCase):
                     return_value=object(),
                 ),
                 patch(
-                    "laomedo.work_graph.grants.LocalGrantAuthority",
+                    "laomedo.work_graph.local_launch.LocalGrantAuthority",
                     return_value=Mock(path=grant_path),
                 ),
                 patch(
-                    "laomedo.work_graph.grant_utils._private_path",
+                    "laomedo.work_graph.local_launch._private_path",
                     return_value=run_path,
                 ),
-                patch("laomedo.work_graph.runs.store.WorkflowRunStore"),
-                patch("laomedo.work_graph.client.LangflowLocalClient"),
+                patch("laomedo.work_graph.local_launch.WorkflowRunStore"),
+                patch("laomedo.work_graph.local_launch.LangflowLocalClient"),
                 patch(
-                    "laomedo.work_graph.launch.launch_github_docker_saved_flow_stage",
+                    "laomedo.work_graph.local_launch.launch_github_docker_saved_flow_stage",
                     return_value=(record, "PRIVATE RESULT"),
                 ),
             ):

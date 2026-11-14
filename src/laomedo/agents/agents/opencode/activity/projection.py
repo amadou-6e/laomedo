@@ -359,11 +359,14 @@ def project(events, *, root_thread=None, model=None):
     cost = sum_costs(costs, model)
     if usage is None:
         cost.update(amount=None, reason="Inclusive token usage is incomplete.")
+    estimates_by_thread = {}
+    for thread in parents:
+        estimate = sum_costs(thread_costs.get(thread, []), models.get(thread))
+        if per_thread.get(thread) is None and estimate["amount"] is not None:
+            estimate.update(amount=None, reason="Thread token usage is incomplete.")
+        estimates_by_thread[thread] = estimate
     cost.update(
-        per_thread={
-            thread: sum_costs(thread_costs.get(thread, []), models.get(thread))
-            for thread in parents
-        },
+        per_thread=estimates_by_thread,
         model_provenance={
             thread: "native OpenCode assistant response metadata" for thread in models
         },

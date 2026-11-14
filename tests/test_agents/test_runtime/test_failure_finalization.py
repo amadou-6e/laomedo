@@ -2,6 +2,7 @@ from test_agents.test_runtime.utils import prepare_runner
 
 """Internal producer and finalization controls; no native or Docker dispatch."""
 
+from contextlib import ExitStack
 from importlib.util import find_spec
 import json
 from pathlib import Path
@@ -34,6 +35,7 @@ class OpenCodeReceiptTests(unittest.TestCase):
 
     def make_backend(self, directory):
         backend = OpenCodeAgentRuntime.__new__(OpenCodeAgentRuntime)
+        backend._session_scope = ExitStack()
         backend.receipts = Path(directory)
         backend.allocated_receipts = set()
         backend.docker = Mock()
@@ -138,10 +140,25 @@ class OpenCodeReceiptTests(unittest.TestCase):
                 if phase != "partial":
                     docker.close.assert_called_once()
 
+    def test_repeated_close_preserves_session_cleanup_uncertainty(self):
+        with tempfile.TemporaryDirectory() as directory:
+            backend = self.make_backend(directory)
+            backend.session = Mock()
+            backend.session.close.side_effect = RuntimeError("cleanup uncertain")
+            backend._session_scope.callback(backend.session.close)
+            for _ in range(2):
+                with self.assertRaisesRegex(
+                    RunnerError, "opencode_container_cleanup_unverified"
+                ):
+                    backend.close()
+                self.assertFalse(backend.termination_verified)
+            backend.session.close.assert_called_once()
+
     def test_stop_failure_still_attempts_session_broker_and_client_cleanup(self):
         with tempfile.TemporaryDirectory() as directory:
             backend = self.make_backend(directory)
             backend.session = Mock()
+            backend._session_scope.callback(backend.session.close)
             backend.broker = SimpleNamespace(
                 request_cancel=Mock(side_effect=RuntimeError("PRIVATE")),
                 shutdown=Mock(),

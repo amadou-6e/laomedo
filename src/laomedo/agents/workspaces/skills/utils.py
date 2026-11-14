@@ -7,8 +7,9 @@ import hashlib
 import os
 
 from laomedo.agents.workspaces.skills.errors import WorkspaceSkillError
-from laomedo.skills.registry.files import inventory, is_link
-from laomedo.skills.registry.hashing import tree_hash
+from laomedo.skills.registry.utils.files import inventory
+from laomedo.skills.registry.utils.files import is_link
+from laomedo.skills.registry.utils.hashing import tree_hash
 from laomedo.skills.registry.settings import NAME
 
 

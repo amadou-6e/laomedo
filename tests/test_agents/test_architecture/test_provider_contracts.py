@@ -3,6 +3,8 @@
 import unittest
 
 from support.interface_contracts import contract_violations
+from support.interface_contracts import agent_access_violations
+import ast
 from support.paths import repository_root
 
 
@@ -18,6 +20,21 @@ class ProviderContractCheckerTests(unittest.TestCase):
                 + implementation,
             },
             {"example.base.BaseRole"},
+        )
+
+    def test_agent_calls_reject_private_and_undeclared_members_through_aliases(self):
+        source = "def consume(agent):\n alias = agent\n alias.start({})\n alias._run_dir('id')\n getattr(alias, 'native_prompt')()\n"
+        errors = agent_access_violations(source, {"agent"}, {"start"})
+        self.assertEqual(len(errors), 2)
+        self.assertTrue(any("_run_dir" in item for item in errors))
+        self.assertTrue(any("native_prompt" in item for item in errors))
+        self.assertEqual(
+            agent_access_violations(
+                "def consume(agent):\n agent.read_activity('run','attempt')\n",
+                {"agent"},
+                {"read_activity"},
+            ),
+            [],
         )
 
     def test_declared_operations_and_private_helpers_pass(self):
@@ -188,15 +205,14 @@ class ProviderInterfaceContractTests(unittest.TestCase):
         contracts = {
             "laomedo.agents.agents.base.base." + name
             for name in (
-                "BaseAgentRuntime",
                 "BaseCommandExecutor",
                 "BaseInterruptibleCommandExecutor",
                 "BaseSplitCommandExecutor",
                 "BaseCredentialProvider",
                 "BaseModelCatalog",
-                "BaseActivityProjector",
             )
         }
+        contracts.add("laomedo.agents.agents.base.agent.BaseAgent")
         violations = contract_violations(sources, contracts)
         self.assertEqual(
             violations,
@@ -204,3 +220,89 @@ class ProviderInterfaceContractTests(unittest.TestCase):
             "Provider interface violations:\n"
             + "\n".join("src/" + violation for violation in violations),
         )
+
+    def test_application_consumers_use_declared_agent_members(self):
+        root = repository_root() / "src/laomedo"
+        base = ast.parse((root / "agents/agents/base/agent.py").read_text())
+        agent = next(
+            n
+            for n in base.body
+            if isinstance(n, ast.ClassDef) and n.name == "BaseAgent"
+        )
+        members = {
+            n.name
+            for n in agent.body
+            if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and not n.name.startswith("_")
+        }
+        for node in ast.walk(agent):
+            if (
+                isinstance(node, ast.Attribute)
+                and isinstance(node.ctx, ast.Store)
+                and isinstance(node.value, ast.Name)
+                and node.value.id == "self"
+                and not node.attr.startswith("_")
+            ):
+                members.add(node.attr)
+        consumers = {
+            "host/runner/http/handler.py": {"self.server.runner"},
+            "integrations/langflow/join/controller.py": {"runner", "self.runner"},
+        }
+        for path, roots in consumers.items():
+            with self.subTest(path=path):
+                self.assertEqual(
+                    agent_access_violations((root / path).read_text(), roots, members),
+                    [],
+                )
+
+    def test_application_imports_do_not_reach_provider_implementations(self):
+        root = repository_root() / "src/laomedo"
+        for path in root.rglob("*.py"):
+            relative = path.relative_to(root).as_posix()
+            if (
+                relative.startswith("agents/agents/")
+                or relative == "agents/registry.py"
+            ):
+                continue  # Provider internals and the explicit composition root.
+            for node in ast.walk(ast.parse(path.read_text(encoding="utf-8-sig"))):
+                names = (
+                    [i.name for i in node.names]
+                    if isinstance(node, ast.Import)
+                    else [node.module or ""] if isinstance(node, ast.ImportFrom) else []
+                )
+                if (
+                    isinstance(node, ast.ImportFrom)
+                    and node.module == "laomedo.agents.agents"
+                ):
+                    names.extend(node.module + "." + item.name for item in node.names)
+                for name in names:
+                    if any(
+                        name == "laomedo.agents.agents." + provider
+                        or name.startswith("laomedo.agents.agents." + provider + ".")
+                        for provider in ("codex", "claude", "opencode")
+                    ):
+                        # Startup may select fixed provider configuration, never behavior.
+                        self.assertTrue(
+                            name.endswith(".settings"), (relative, node.lineno, name)
+                        )
+
+    def test_shared_roles_do_not_reintroduce_provider_private_runtime_abstractions(
+        self,
+    ):
+        """Native lifecycles remain provider-owned instead of an unused nominal role."""
+        import ast
+
+        retired = {"BaseAgentRuntime", "RuntimeLaunch", "RuntimeObservation"}
+        root = repository_root() / "src" / "laomedo"
+        violations = []
+        for path in root.rglob("*.py"):
+            for node in ast.walk(ast.parse(path.read_text(encoding="utf-8-sig"))):
+                if isinstance(node, ast.ClassDef) and node.name in retired:
+                    violations.append(str(path.relative_to(root)) + ":" + node.name)
+                elif isinstance(node, ast.ImportFrom):
+                    violations.extend(
+                        str(path.relative_to(root)) + ":" + name.name
+                        for name in node.names
+                        if name.name in retired
+                    )
+        self.assertEqual(violations, [])

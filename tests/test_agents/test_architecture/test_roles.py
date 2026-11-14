@@ -1,27 +1,20 @@
 """Provider role outcomes protect current lifecycle/privacy/capability semantics."""
 
 import asyncio
-from contextlib import nullcontext
 import threading
 from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock, patch
 from pydantic import SecretStr, ValidationError
-from laomedo.agents.agents.base.base import (
-    BaseAgentRuntime,
-    BaseCommandExecutor,
-    BaseInterruptibleCommandExecutor,
-    BaseSplitCommandExecutor,
-    BaseCredentialProvider,
-    BaseModelCatalog,
-    BaseActivityProjector,
-)
-from laomedo.agents.agents.base.models import (
-    CommandRequest,
-    CredentialRequest,
-    CredentialMaterial,
-    CredentialBinding,
-)
+from laomedo.agents.agents.base.base import BaseCommandExecutor
+from laomedo.agents.agents.base.base import BaseInterruptibleCommandExecutor
+from laomedo.agents.agents.base.base import BaseSplitCommandExecutor
+from laomedo.agents.agents.base.base import BaseCredentialProvider
+from laomedo.agents.agents.base.base import BaseModelCatalog
+from laomedo.agents.agents.base.models import CommandRequest
+from laomedo.agents.agents.base.models import CredentialRequest
+from laomedo.agents.agents.base.models import CredentialMaterial
+from laomedo.agents.agents.base.models import CredentialBinding
 from laomedo.agents.agents.codex.runtime import CodexAgentRuntime
 from laomedo.agents.agents.claude.runtime import ClaudeAgentRuntime
 from laomedo.agents.agents.claude.executor import ClaudeCommandExecutor
@@ -129,11 +122,9 @@ class ProviderRoleTests(unittest.TestCase):
     def test_role_contracts_are_actual_abstract_boundaries(self):
         """An incomplete provider cannot silently inherit a success implementation."""
         for role in (
-            BaseAgentRuntime,
             BaseCommandExecutor,
             BaseCredentialProvider,
             BaseModelCatalog,
-            BaseActivityProjector,
         ):
             with self.subTest(role=role.__name__):
                 with self.assertRaises(TypeError):
@@ -152,29 +143,8 @@ class ProviderRoleTests(unittest.TestCase):
                     CommandRequest(**value)
         self.assertEqual(CommandRequest(argv=["pwd"]).argv, ["pwd"])
 
-    def test_turn_launch_cancellation_and_cleanup_are_distinct(self):
-        """A native session handle does not establish handshake, cancel or global cleanup."""
-        native = object()
-        policy = SimpleNamespace(_session_context=lambda *args: nullcontext(native))
-        cancelled = threading.Event()
-        launched = ClaudeAgentRuntime.start(
-            policy, object(), "receipt", 10, cancelled=cancelled
-        )
-        self.assertNotIn("runtime", launched.model_dump())
-        self.assertIsNone(launched.observation.ready)
-        self.assertTrue(launched.observation.launched)
-        request = launched.runtime.request_cancel()
-        self.assertTrue(cancelled.is_set())
-        self.assertTrue(request.requested)
-        self.assertIsNone(request.confirmed)
-        self.assertTrue(asyncio.run(launched.runtime.shutdown()).confirmed)
-        self.assertFalse(launched.runtime.observe().launched)
-        cancelled.clear()
-        self.assertFalse(launched.runtime.request_cancel().requested)
-        self.assertFalse(cancelled.is_set())
-
-    def test_cleanup_uncertainty_survives_repeated_shutdown(self):
-        """Already-closed is not evidence that a prior failed cleanup succeeded."""
+    def test_native_cleanup_uncertainty_survives_repeated_close(self):
+        """A repeated close must preserve the prior exact resource cleanup failure."""
         runtime = CodexAgentRuntime.__new__(CodexAgentRuntime)
         runtime._closed = True
         runtime._close_failure = RunnerError("container_termination_unverified")
@@ -182,12 +152,51 @@ class ProviderRoleTests(unittest.TestCase):
             with self.assertRaisesRegex(
                 RunnerError, "container_termination_unverified"
             ):
-                asyncio.run(runtime.shutdown())
-        runtime = ClaudeAgentRuntime.__new__(ClaudeAgentRuntime)
-        runtime._closed = True
-        runtime._cleanup_confirmed = None
+                asyncio.run(runtime.close())
+        from laomedo.agents.agents.opencode.runtime import OpenCodeAgentRuntime
+
+        runtime = OpenCodeAgentRuntime.__new__(OpenCodeAgentRuntime)
+        runtime.closing = True
+        runtime.termination_verified = False
+        for _ in range(2):
+            with self.assertRaisesRegex(
+                RunnerError, "opencode_container_cleanup_unverified"
+            ):
+                runtime.close()
+
+    def test_claude_native_context_propagates_body_and_cleanup_failures(self):
+        """Context exit retains original exception delivery and cleanup failures."""
+        from contextlib import contextmanager
+
+        observed = []
+
+        @contextmanager
+        def scope(*args):
+            try:
+                yield "native session"
+            except ValueError as error:
+                observed.append(str(error))
+                raise
+
+        policy = SimpleNamespace(_session_context=scope)
+        with self.assertRaisesRegex(ValueError, "body failure"):
+            with ClaudeAgentRuntime(policy, object(), "receipt", 10) as session:
+                self.assertEqual(session, "native session")
+                raise ValueError("body failure")
+        self.assertEqual(observed, ["body failure"])
+
+        @contextmanager
+        def broken_scope(*args):
+            try:
+                yield "session"
+            finally:
+                raise RunnerError("container_termination_unverified")
+
         with self.assertRaisesRegex(RunnerError, "container_termination_unverified"):
-            asyncio.run(runtime.shutdown())
+            with ClaudeAgentRuntime(
+                SimpleNamespace(_session_context=broken_scope), object(), "receipt", 10
+            ):
+                pass
 
     def test_credentials_are_private_and_unsupported_constraints_refuse_before_refresh(
         self,
@@ -219,10 +228,3 @@ class ProviderRoleTests(unittest.TestCase):
         self.assertIsNotNone(estimate("gpt-6-luna", usage)["amount"])
         self.assertIsNone(claude_estimate("gpt-6-luna", usage)["amount"])
         self.assertIsNone(estimate_native("gpt-6-luna", usage, None)["amount"])
-        self.assertIsInstance(
-            AgentProviderRegistry.activity_projector("claude-code"),
-            BaseActivityProjector,
-        )
-        self.assertIsInstance(
-            AgentProviderRegistry.activity_projector("codex-cli"), BaseActivityProjector
-        )

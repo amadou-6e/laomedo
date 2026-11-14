@@ -2,7 +2,9 @@
 
 from decimal import Decimal
 
-from laomedo.agents.agents.codex.activity.settings import CATALOG_DATE, RATES, SOURCES
+from laomedo.agents.agents.codex.activity.settings import CATALOG_DATE
+from laomedo.agents.agents.codex.activity.settings import RATES
+from laomedo.agents.agents.codex.activity.settings import SOURCES
 
 
 def estimate(model, usage):

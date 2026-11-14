@@ -1,6 +1,6 @@
 """Backend-only pr client, with no graph credential inputs."""
 
-from laomedo.http.redirect import NoRedirect
+from laomedo.host.http import NoRedirect
 from laomedo.github.pull_requests.contract import ERROR_CODES
 from laomedo.github.pull_requests.contract import PRE_DISPATCH_ERRORS
 from laomedo.github.interface.pull_requests.settings import Settings

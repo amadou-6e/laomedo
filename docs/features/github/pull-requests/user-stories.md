@@ -54,7 +54,8 @@ As a workflow author, I want an Agent to return a scoped operation to the select
 PR node, so the host can validate and apply it to the intended PR.
 
 **Status: Implemented for existing targets.** PR context goes to the existing
-Agent, which returns its proposal to Operation on the same PR node.
+Agent, which returns its proposal to the single PR input on the same node.
+The single PR output contains both the snapshot and operation outcome.
 
 Acceptance criteria:
 
@@ -62,7 +63,7 @@ Acceptance criteria:
 - The host validates identity and authorization; an Agent cannot supply its own authority.
 - Confirmed, failed and unknown outcomes remain distinct; uncertain writes are not blindly resent.
 
-Visual: [the actual PR Operation input and Operation Result output](assets/pr-node.png).
+Historical visual (before unified ports): [the former PR Operation input and Operation Result output](assets/pr-node.png).
 Recorded real example: [original Agent PR feedback](https://github.com/amadou-6e/laomedo/blob/714db418243bc17fff1c2a5bed5181006e21fdee/archives/github-244/files/examples/github-pr/original-agent/README.md)
 and its [evidence](https://github.com/amadou-6e/laomedo/blob/714db418243bc17fff1c2a5bed5181006e21fdee/archives/github-244/files/examples/github-pr/original-agent/evidence.json), dated
 2026-10-15. No new GitHub write was made for these stories.

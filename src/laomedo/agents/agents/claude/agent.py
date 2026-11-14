@@ -1,6 +1,8 @@
 """Isolated Claude Code runner with persistent sessions and streamed native events."""
 
 from __future__ import annotations
+from laomedo.agents.activity.models import ActivityPage
+from laomedo.agents.agents.base.models import ReadinessObservation
 from laomedo.agents.agents.claude.catalog import ClaudeModelCatalog
 from laomedo.agents.agents.claude.credentials import ClaudeCredentialProvider
 
@@ -16,8 +18,8 @@ import subprocess
 import threading
 import time
 
-from laomedo.skills.registry.files import inventory
-from laomedo.skills.registry.hashing import tree_hash
+from laomedo.skills.registry.utils.files import inventory
+from laomedo.skills.registry.utils.hashing import tree_hash
 from laomedo.agents.activity.models import ActivityAttemptRecord
 from laomedo.agents.activity.utils import now
 from laomedo.agents.activity.runner.feed import line_count
@@ -36,19 +38,19 @@ from laomedo.agents.agents.claude.utils import normalize_models
 from laomedo.agents.agents.claude.utils import terminal_result
 from laomedo.agents.errors import RunnerError
 from laomedo.agents.agents.base.agent import BaseAgent
-from laomedo.agents.agents.base.models import RuntimeBinding, CredentialRequest
+from laomedo.agents.agents.base.models import RuntimeBinding
+from laomedo.agents.agents.base.models import CredentialRequest
 from laomedo.agents.workspaces.utils import _hash_tree
 from laomedo.agents.agents.base.utils import _json
-from laomedo.agents.agents.claude.auth.errors import LocalClaudeLoginError
-from laomedo.agents.agents.claude.auth.utils import mirror_login
 from laomedo.host.leases.models import ContainerIdentity
 from laomedo.host.leases.utils import cleanup_exact
 from laomedo.agents.workspaces.skills.utils import verify
-from laomedo.agents.agents.claude.auth.settings import Settings
 
 
 class ClaudeAgent(BaseAgent):
     """Own Claude admission, native turn orchestration and durable run finalization."""
+
+    _supports_run_timeout = True
 
     credential_type = ClaudeCredentialProvider
     catalog_type = ClaudeModelCatalog
@@ -142,6 +144,20 @@ class ClaudeAgent(BaseAgent):
             if not verified:
                 record["error_category"] = "container_cleanup_unverified"
 
+    def read_activity(
+        self, run_id: str, attempt_id: str, *, after: int = 0, limit: int = 100
+    ) -> ActivityPage:
+        """Normalize retained claude evidence behind the common Activity boundary."""
+        from laomedo.agents.agents.claude.activity.projection import project
+
+        return self._normalize_activity(
+            run_id, attempt_id, after=after, limit=limit, projector=project
+        )
+
+    def readiness(self) -> ReadinessObservation:
+        """Return the actual native check's availability, reason and scope without inference."""
+        return self._observe_readiness(ready_on_success=True)
+
     def preflight(self):
         """Check native authentication after constructor image/version validation.
 
@@ -162,16 +178,16 @@ class ClaudeAgent(BaseAgent):
 
     def resume(
         self,
-        run_id,
-        task,
+        run_id: str,
+        task: str,
         *,
-        expected_post_run_hash,
-        expected_thread_id,
-        model,
-        effort,
-        activity_attempt_id=None,
-        run_timeout_seconds=None,
-    ):
+        expected_post_run_hash: str,
+        expected_thread_id: str,
+        model: str,
+        effort: str,
+        activity_attempt_id: str | None = None,
+        run_timeout_seconds: int | None = None,
+    ) -> dict:
         """Admit an existing session/workspace binding before continuing it; failures never create a fresh session."""
         if run_timeout_seconds is not None and (
             type(run_timeout_seconds) is not int
@@ -224,7 +240,7 @@ class ClaudeAgent(BaseAgent):
             run_timeout_seconds=run_timeout_seconds,
         )
 
-    def cancel(self, run_id):
+    def cancel(self, run_id: str) -> dict:
         """Request cancellation of the selected existing run; acknowledgement does not establish native cleanup."""
         with self.control_lock:
             record = self.status(run_id)
@@ -362,7 +378,9 @@ class ClaudeAgent(BaseAgent):
         # refuses promptly until background discovery or explicit refresh completes.
         observed_catalog = self.catalog.snapshot()
         selected_catalog = (
-            observed_catalog.model_dump(exclude_unset=True)
+            observed_catalog.to_payload(
+                include_model_names=self.catalog.include_model_names
+            )
             if observed_catalog is not None
             else None
         )
@@ -599,13 +617,12 @@ class ClaudeAgent(BaseAgent):
                 if time.monotonic() >= deadline:
                     raise RunnerError("claude_turn_timeout")
             with (
-                ClaudeAgentRuntime.start(
+                ClaudeAgentRuntime(
                     self.container,
                     spec,
                     self.container.receipts.joinpath("claude-" + name + ".json"),
                     max(1, deadline - time.monotonic()) + 10,
-                    cancelled=flag,
-                ).runtime as session,
+                ) as session,
                 session.stop_on(
                     lambda: time.monotonic() >= deadline + 5 or bool(service.error_code)
                 ),
@@ -897,6 +914,14 @@ class ClaudeAgent(BaseAgent):
                         else None
                     )
             elif block.get("type") in {"text", "thinking"}:
+                if (
+                    event.get("type") != "assistant"
+                    or (event.get("message") or {}).get("role", "assistant")
+                    != "assistant"
+                ):
+                    # The host prompt already owns the user display entry.
+                    # Keep native user echoes in raw evidence, never as answers.
+                    continue
                 text = block.get("text", block.get("thinking", ""))
                 if block["type"] == "text":
                     record["_last_streamed_text"] = text

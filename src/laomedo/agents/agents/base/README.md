@@ -1,5 +1,47 @@
 # Abstract Agent lifecycle
 
+## Model discovery boundary
+
+`base.py` declares `BaseModelCatalog.list_models(refresh=False) -> ModelCatalog`.
+`models.py` defines `ModelCatalog` and `ModelOption`. Laomedo consumes this typed
+result; each provider owns discovery, authentication, caching and exact cleanup.
+`snapshot()` observes the last catalog without discovery, and `wait_until_idle()`
+observes discovery completion without declaring readiness or success.
+
+```python
+from laomedo.agents.agents.base.base import BaseModelCatalog
+
+def show_models(catalog: BaseModelCatalog):
+    model_catalog = catalog.list_models()
+    for model in model_catalog.models:
+        print(model.id, model.display_name, model.reasoning_efforts)
+```
+
+| Value | Meaning |
+| --- | --- |
+| `ModelOption.id` | Exact provider selection ID; never a synthesized display name. |
+| `display_name` | Provider-reported label, or `None` when unavailable. |
+| `reasoning_efforts` | Supported execution-setting IDs. The existing `"default"` sentinel means omit an override; it does not establish a native default. |
+| `default_reasoning_effort` | Explicitly reported default, or `None`; never the first available choice. |
+| `resolved_model` | Reported native model behind an alias, when available. |
+| `ModelCatalog.default_model_id` | Explicitly reported default selection ID, or `None`. |
+
+Provider normalization retains Claude picker labels and resolved IDs, Codex
+reported labels/defaults, and OpenCode reported labels. Unselected provider
+metadata stays inside the provider. Catalog methods never submit a model prompt.
+
+`ModelOption.from_payload()` and `ModelCatalog.from_payload()` translate the
+existing provider-owned discovery records into canonical values. Their
+`to_payload(include_model_names=...)` projection is the explicit existing HTTP boundary: `/v1/models`
+keeps `id`/`efforts`, Claude `name`/`resolved_model`, and current catalog metadata.
+New Python-only labels/defaults do not silently change that wire format.
+Cached values and returned catalogs must be detached, including reasoning lists.
+
+Claude retains shared in-flight refresh and stale observation for admission;
+Codex retains serialized TTL discovery; OpenCode retains runner exclusion,
+authentication checks and cleanup-before-publication. Failures must not replace
+a prior successful cache. Readiness remains the separate existing Agent check.
+
 `agent.py` defines abstract `BaseAgent`. It owns common run admission, file-backed records, request identity,
 workspace freezing and artifact selection. It composes provider execution hooks;
 it must not import concrete providers or their credential implementations.
@@ -8,23 +50,76 @@ it must not import concrete providers or their credential implementations.
 These are public identity metadata, never login material. `settings.py` owns
 shared bounds. `acp/` owns protocol communication; native policy stays local.
 
-## Shared Docker mechanisms (#277 checkpoint)
+## Agent interaction
 
-`runtime.py` defines concrete `AgentDockerMechanism`. `client()` owns one
-py-docker client context; `run_job()` collects one typed native job with unchanged
-cancellation/deadline/cleanup bounds; `recover()` reconciles exact receipts using
-the selected native job or session service. Each call owns its client, so worker
-threads and recovery do not borrow an attempt's creator-thread session.
-The mechanism snapshots supplied host environment overrides and accepts native
-connection settings. Callers pin an already selected endpoint where available;
-initial daemon discovery retains py-docker's existing selection behavior.
-Provider code retains spec construction, admission and stable failure mapping.
-The unimplemented target ABCs have been withdrawn. See
-[provider boundaries and container requirements](../../../../../docs/architecture/provider-boundaries.md).
-`session(client, request)` owns one native session context on an explicitly
-caller-owned client. It closes the session before returning control to outer
-resource cleanup and preserves native exception/cleanup behavior. The caller
-keeps client ownership so existing broker/worker/log cleanup order is unchanged.
+`BaseAgent` declares the complete run-oriented interaction methods: `start`,
+`start_async`, `resume`, `status`, `cancel` and `lookup_request`. Providers use
+shared durable admission and observations; their resume implementations retain
+native binding checks. `start_async` is a background-thread method, not a
+coroutine. Requests and returned full records keep their current dictionary
+payloads. Cancellation request and final confirmation remain distinct.
+
+`resume` explicitly declares run/task, expected snapshot hash/thread ID,
+model/effort, optional activity capture ID and optional run timeout. Claude
+supports timeout overrides; Codex/OpenCode reject a non-None override before
+native dispatch in fresh/resume paths, including HTTP admission. No public
+session object or close method bypasses provider finalization. See the
+[full contract and examples](../../../../../docs/architecture/agent-interaction.md).
+
+## Execution readiness
+
+`BaseAgent.readiness() -> ReadinessObservation` is the Python abstract boundary.
+The existing provider Agents implement it; no separate checker object is needed.
+`preflight()` retains the native diagnostic payload and exception behavior.
+Readiness performs that same zero-turn check and normalizes declared admission
+failures into a result with `ready`, `reason`, `provider` and `scope`.
+
+```python
+from laomedo.agents.agents.base import BaseAgent
+
+def show_readiness(agent: BaseAgent):
+    result = agent.readiness()
+    print(result.ready, result.reason, result.scope)
+```
+
+`ready=True` means the provider's stated execution prerequisite check passed at
+that moment, not that a later turn will succeed. `False` means a known blocker;
+`None` means execution remains unverified. Both False and None require a stable
+reason code; presentation/recovery text stays in the shared error catalogue.
+Unexpected programming errors propagate rather than masquerading as a blocker.
+There is no cached readiness, inference request, retry or automatic login.
+Constructor failures still occur before an Agent exists to query.
+
+| Provider | Check performed | Successful result | Blocked result |
+| --- | --- | --- | --- |
+| Claude | Existing native subscription auth check, including the explicitly configured login mirror | True, scope `native_subscription_authentication` | False with the original admission error code |
+| Codex | Existing ACP initialization and sandbox permission probes, followed by native cleanup | None, reason `authentication_not_verified`; these probes do not authenticate a session | False with the original admission/authentication error code |
+| OpenCode | Existing transport configuration inspection; no backend startup | None, reason `opencode_transport_not_verified` | False, reason `opencode_isolated_transport_required` when no factory is configured |
+
+`payload` retains detached native preflight details for existing explicit
+consumers, including the CLI, but is excluded from generic model serialization
+and representations. A diagnostic payload's `status=ready` never overrides the
+provider's narrower typed conclusion. Cleanup errors cannot produce a ready
+result. Process health and model discovery remain independent observations.
+
+## Shared Docker handling
+
+`laomedo/docker.py` defines concrete `DockerRuntime`, the shared owner of
+native client construction, session/job/command dispatch and receipt recovery.
+See [container requirements and method ownership](../../../../../docs/architecture/provider-boundaries.md).
+`client()` scopes a connection; `connect()` supports existing explicit cleanup
+order. `run_job()` owns a client; `execute_job(client, job)` borrows one.
+`session()` scopes a native interactive session; `start_session()` and
+`close_session()` support persistent executor ownership. `run_command()` executes
+inside an exact container. `recover()` owns a client; `recover_receipts()` borrows
+one and never broadens the caller-selected receipts. SDK models stay canonical.
+
+Providers retain image/volume policy, immutable launch configuration, native
+readiness, credential phases, broker/lease coordination and stable error mapping.
+They do not construct Docker clients or dispatch jobs/sessions/recovery directly.
+ACP requests container closure through this module before reader disconnect;
+repeated closure remains owned and cached by native py-docker Session.
+An architecture regression scans all Agent sources for lifecycle bypasses.
 
 | Interface / vocabulary | Contract and effects |
 | --- | --- |
@@ -87,3 +182,18 @@ SDK privacy literals follow the exact declared `py-docker` revision. Its
 `CreateNotSentDeadlineError` is a distinct trusted class with the existing
 `docker_deadline_exceeded` code; a generic deadline does not establish that no
 create was sent. Unknown subclasses and operation strings remain omitted.
+
+The catalog declares `include_model_names` for the existing HTTP projection.
+Claude enables native display/alias names; the shared model never selects a
+provider by name. This serialization policy does not change typed discovery.
+
+## Activity boundary
+
+`BaseAgent.read_activity(run_id, attempt_id, *, after=0, limit=100)` is abstract.
+Providers return shared `ActivityPage` values with stable common records and a
+revisioned display snapshot. Native interpretation stays internal; callers do not
+supply another projector. See [the exact contract](../../../../../docs/architecture/activity-interface.md).
+
+## Raw evidence boundary
+
+`BaseAgent.read_events(run_id, attempt_id, after=0, otel_after=0, limit=100, tail=False)` reads bounded native and telemetry receipts for evidence readers. Shared code owns its recorded-file layout; HTTP only adapts query values and serializes the result. `read_activity` remains the normalized application interface.

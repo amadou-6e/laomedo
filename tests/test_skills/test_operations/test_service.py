@@ -11,7 +11,7 @@ from laomedo.skills.registry.store import SkillStore
 from laomedo.skills.registry.errors import SkillStoreError
 from laomedo.skills.registry.errors import ConflictError
 from laomedo.skills.operations.service import SkillOperations
-from laomedo.skills.operations.utils import proposal
+from laomedo.skills.operations.utils.proposal import proposal
 from test_skills.test_operations.utils import make_operation_case
 from support.http_server import RunningHTTPServer
 from laomedo.skills.interface.operations.server import SkillOperationServer as server

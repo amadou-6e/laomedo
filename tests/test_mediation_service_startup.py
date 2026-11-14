@@ -134,11 +134,8 @@ class MediationServiceStartupTests(unittest.TestCase):
 
                 state = self.state / entry.__name__.split(".")[-1]
                 with (
-                    patch(
-                        "laomedo.host.publication.verified.utils.make_grant_bundle_freezer",
-                        factory,
-                    ),
-                    patch("laomedo.host.mediation.store.MediationStore", store_factory),
+                    patch.object(entry, "make_grant_bundle_freezer", factory),
+                    patch.object(entry, "MediationStore", store_factory),
                 ):
                     if entry is host_services:
                         lease, mediator = entry.build_services(

@@ -1,6 +1,6 @@
 """Backend-only issue client, with no graph credential inputs."""
 
-from laomedo.http.redirect import NoRedirect
+from laomedo.host.http import NoRedirect
 from laomedo.github.issues.contract import ERROR_CODES
 from laomedo.github.issues.contract import PRE_DISPATCH_ERRORS
 from laomedo.github.interface.issues.settings import Settings

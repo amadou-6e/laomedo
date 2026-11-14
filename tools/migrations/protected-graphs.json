@@ -1,9 +1,0 @@
-[
-  "examples/claude-agent/activity-flow.json",
-  "examples/claude-agent/executed-flow.json",
-  "examples/claude-agent/first-executed-flow.json",
-  "examples/claude-agent/no-skill-flow.json",
-  "examples/github-pr/original-agent/historical-flow-before-agent-module-refactor.json",
-  "examples/skill-operations/executed-flow.json",
-  "examples/skill-summary/executed-flow.json"
-]

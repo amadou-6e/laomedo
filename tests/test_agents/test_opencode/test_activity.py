@@ -46,6 +46,60 @@ class OpenCodeActivityTests(unittest.TestCase):
         self.assertIsNone(value["usage"])
         self.assertIsNone(value["cost"]["amount"])
 
+    def test_thread_cost_stays_unknown_when_a_priced_message_has_incomplete_peers(self):
+        """A priced completed request cannot conceal missing usage in the same thread."""
+        tokens = {
+            "input": 4,
+            "output": 3,
+            "reasoning": 0,
+            "cache": {"read": 0, "write": 0},
+        }
+        completed = message(
+            "completed",
+            "assistant",
+            "Done",
+            parentID="u1",
+            providerID="test",
+            modelID="model",
+            tokens=tokens,
+        )
+        catalog = {
+            "received_at": "2026-10-23T10:00:00+00:00",
+            "raw": {
+                "method": "opencode/modelCatalog",
+                "params": {
+                    "model": "test/model",
+                    "rates": {
+                        "input": 1,
+                        "output": 5,
+                        "cache": {"read": 0.1, "write": 1.25},
+                    },
+                },
+            },
+        }
+        baseline = project([catalog, event([completed])], root_thread="ses_root")
+        self.assertIsNotNone(baseline["cost"]["per_thread"]["ses_root"]["amount"])
+        for changes in (
+            {"error": {"name": "MessageAbortedError"}},
+            {"time": {"created": 1000}},
+            {"tokens": {"input": "invalid"}},
+        ):
+            with self.subTest(changes=changes):
+                incomplete = message(
+                    "incomplete", "assistant", "", parentID="u2", tokens=tokens
+                )
+                incomplete["info"].update(changes)
+                value = project(
+                    [catalog, event([completed, incomplete])], root_thread="ses_root"
+                )
+                self.assertIsNone(value["usage_by_thread"]["ses_root"])
+                self.assertIsNone(value["cost"]["per_thread"]["ses_root"]["amount"])
+                self.assertEqual(
+                    value["cost"]["per_thread"]["ses_root"]["reason"],
+                    "Thread token usage is incomplete.",
+                )
+                self.assertIsNone(value["cost"]["amount"])
+
     def test_cli_catalog_provenance_does_not_claim_an_http_request(self):
         rates = {"input": 1, "output": 5, "cache": {"read": 0.1, "write": 1.25}}
         usage = {

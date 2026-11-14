@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+from laomedo.host.credentials.siwc.browser import browser_connect
+from laomedo.host.credentials.siwc.errors import AuthError
+
 from pathlib import Path
 import json
-import laomedo.host.credentials.siwc.browser as _siwc_browser
-import laomedo.host.credentials.siwc.errors as _siwc_errors
 
 
 def main() -> None:
@@ -26,7 +27,7 @@ def main() -> None:
     try:
         store = _siwc_connection.ChatGPTConnection(args.store)
         if args.action == "connect":
-            result = _siwc_browser.browser_connect(store, client_id=args.client_id)
+            result = browser_connect(store, client_id=args.client_id)
         elif args.action == "status":
             result = store.summary(store.active())
         elif args.action == "list":
@@ -42,7 +43,7 @@ def main() -> None:
         else:
             result = store.sign_out()
         print(json.dumps(result, sort_keys=True))
-    except _siwc_errors.AuthError as exc:
+    except AuthError as exc:
         print(json.dumps({"auth_outcome": "failed", "error_category": str(exc)}))
         raise SystemExit(1) from None
 

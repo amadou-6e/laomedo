@@ -9,11 +9,9 @@ import secrets
 import threading
 import time
 
-from laomedo.host.leases.models import (
-    LeaseCleanupObservation,
-    LeaseRefusalRecord,
-    LeaseRevocationRecord,
-)
+from laomedo.host.leases.models import LeaseCleanupObservation
+from laomedo.host.leases.models import LeaseRefusalRecord
+from laomedo.host.leases.models import LeaseRevocationRecord
 from laomedo.host.leases.server import LeaseHTTPServer
 from laomedo.host.leases.settings import GRANT_TTL_SECONDS
 from laomedo.host.leases.settings import LOSS_SECONDS

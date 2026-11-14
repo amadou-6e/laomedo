@@ -18,8 +18,8 @@ from laomedo.agents.agents.claude.settings import EXECUTION_GUARD
 from laomedo.agents.agents.claude.settings import IMAGE
 from laomedo.agents.agents.claude.settings import PROFILE
 from laomedo.agents.errors import RunnerError
-from laomedo.agents.agents.base.runtime import AgentDockerMechanism
-from laomedo.agents.agents.claude.http.server import CommandHttpServer
+from laomedo.docker import DockerRuntime
+from laomedo.container_images.errors import ImageBuildError
 from laomedo.host.leases.client import LeaseClient
 from laomedo.host.leases.settings import LABEL_RUN
 from laomedo.host.leases.settings import LABEL_TOKEN
@@ -46,7 +46,6 @@ class ClaudeRuntimePolicy:
         self.profile, self.lease_service = profile, lease_service
         self.check_supervisor()
         try:
-            from py_docker import Client
             from py_docker.errors import (
                 CleanupUnconfirmedError,
                 ConnectionConfigurationError,
@@ -56,18 +55,20 @@ class ClaudeRuntimePolicy:
         except ImportError:
             raise RunnerError("claude_container_unavailable") from None
         try:
-            with Client() as docker:
+            with DockerRuntime(environment=None).connect() as docker:
                 self.docker_endpoint = docker.connection.endpoint
-                self.image_id = docker.images.resolve(image)
+                self.image_id = DockerRuntime.ensure_image(docker, image)
                 self.receipts = Path(lease_service).parent.joinpath("receipts")
                 self.receipts.mkdir(mode=0o700, parents=True, exist_ok=True)
                 for receipt in self.receipts.glob("claude-*.json"):
-                    docker.sessions.recover(receipt)
+                    DockerRuntime.recover_receipts(docker, [receipt], kind="session")
                 labels = {"laomedo.provider": "claude"}
                 if not docker.volumes.exists(profile):
                     docker.volumes.create(name=profile, labels=labels)
                 if not docker.volumes.has_labels(profile, labels):
                     raise RunnerError("claude_container_profile_unavailable")
+        except ImageBuildError:
+            raise RunnerError("container_image_build_failed") from None
         except CleanupUnconfirmedError:
             raise RunnerError("container_termination_unverified") from None
         except ConnectionConfigurationError:
@@ -111,7 +112,7 @@ class ClaudeRuntimePolicy:
                     ),
                     "environment": {},
                 }
-            with AgentDockerMechanism(**options).client() as docker:
+            with DockerRuntime(**options).client() as docker:
                 yield docker
         except CleanupUnconfirmedError:
             raise RunnerError("container_termination_unverified") from None
@@ -216,7 +217,8 @@ class ClaudeRuntimePolicy:
         with self.client(
             **({"deadline": deadline} if deadline is not None else {})
         ) as docker:
-            return docker.jobs.run(
+            return DockerRuntime.execute_job(
+                docker,
                 ContainerJob(
                     spec=spec,
                     limits=StreamLimits(
@@ -305,7 +307,7 @@ class ClaudeRuntimePolicy:
         from py_docker.streams.models import StreamLimits
 
         with self.client(output_code="claude_receipt_too_large") as docker:
-            with AgentDockerMechanism.session(
+            with DockerRuntime.session(
                 docker,
                 ContainerSession(
                     spec=spec,

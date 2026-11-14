@@ -10,33 +10,19 @@ import secrets
 import shutil
 import threading
 
-from laomedo.agents.agents.base.runtime import AgentDockerMechanism
-from laomedo.agents.agents.opencode.models import (
-    OpenCodeConfig,
-    OpenCodeRuntimeIdentity,
-)
-from laomedo.agents.agents.opencode.settings import CLI_VERSION
-from laomedo.agents.agents.opencode.settings import CONTROLLER_LIFETIME_SECONDS
+from laomedo.docker import DockerRuntime
+from laomedo.container_images.errors import ImageBuildError
 from laomedo.agents.agents.opencode.settings import WORKER_IMAGE
 from laomedo.agents.agents.opencode.settings import WORKER_IMAGE_ID
-from laomedo.agents.agents.opencode.utils import _credential_binding
-from laomedo.agents.agents.opencode.utils import (
-    check_auth_fresh as opencode_check_auth_fresh,
-)
-from laomedo.agents.agents.opencode.utils import model_metadata
 from laomedo.agents.errors import RunnerError
-from laomedo.agents.agents.base.utils import _json
-from laomedo.agents.agents.base.utils import _private
 from laomedo.agents.agents.base.utils import failure_observation
 
 
 from laomedo.agents.agents.base.base import BaseInterruptibleCommandExecutor
-from laomedo.agents.agents.base.models import (
-    CommandRequest,
-    CommandResult,
-    CleanupObservation,
-    CancellationObservation,
-)
+from laomedo.agents.agents.base.models import CommandRequest
+from laomedo.agents.agents.base.models import CommandResult
+from laomedo.agents.agents.base.models import CleanupObservation
+from laomedo.agents.agents.base.models import CancellationObservation
 from laomedo.agents.agents.opencode.http.broker import OpenCodeCommandBroker
 
 
@@ -62,6 +48,28 @@ class OpenCodeCommandExecutor(BaseInterruptibleCommandExecutor):
         self.stopping = threading.Event()
         self.worker_image_id = worker_image_id or WORKER_IMAGE_ID
         self.docker_endpoint = docker_endpoint
+        if self.worker_image_id is None:
+            from py_docker.errors import (
+                DockerOperationError,
+                ImageResolutionError,
+                OwnershipConflictError,
+            )
+
+            try:
+                with DockerRuntime(
+                    environment={"DOCKER_HOST": self.docker_endpoint}
+                ).client() as client:
+                    self.worker_image_id = DockerRuntime.ensure_image(
+                        client, WORKER_IMAGE
+                    )
+            except ImageBuildError:
+                raise RunnerError("container_image_build_failed") from None
+            except OwnershipConflictError:
+                raise RunnerError("opencode_image_pin_mismatch") from None
+            except ImageResolutionError:
+                raise RunnerError("opencode_controller_image_unavailable") from None
+            except DockerOperationError:
+                raise RunnerError("opencode_workspace_command_failed") from None
         self.receipts = (
             Path(receipt_directory)
             if receipt_directory is not None
@@ -143,7 +151,7 @@ class OpenCodeCommandExecutor(BaseInterruptibleCommandExecutor):
             with self.lock:
                 self.allocated_receipts.add(receipt_path)
             try:
-                result = AgentDockerMechanism(
+                result = DockerRuntime(
                     environment={"DOCKER_HOST": self.docker_endpoint}
                 ).run_job(
                     ContainerJob(

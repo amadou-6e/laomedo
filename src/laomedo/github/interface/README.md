@@ -23,7 +23,7 @@ not import graph frameworks or execute provider commands. Trusted CLI compositio
 is the explicit exception that may load host credential/mediation and native
 transport owners. Existing exception identities required by the handler boundary
 stay direct imports; they do not authorize broader host access. The neutral shared
-redirect policy remains `laomedo.http.redirect.NoRedirect`.
+redirect policy remains `laomedo.host.http.NoRedirect`.
 
 CLI commands and maintained component imports migrate through explicit flat
 module/symbol/CLI maps. No old-package runtime facade or import hook is installed.

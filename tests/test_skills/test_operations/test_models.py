@@ -4,8 +4,10 @@ import json
 import unittest
 from pydantic import ValidationError
 
-from laomedo.skills.operations.models import EditorProvenance, FileEdit, SkillProposal
-from laomedo.skills.operations.utils import proposal
+from laomedo.skills.operations.models.provenance import EditorProvenance
+from laomedo.skills.operations.models.proposal import FileEdit
+from laomedo.skills.operations.models.proposal import SkillProposal
+from laomedo.skills.operations.utils.proposal import proposal
 from laomedo.skills.registry.errors import SkillStoreError
 
 

@@ -1,7 +1,7 @@
 """Authenticated viewer writes; service capabilities never reach the browser."""
 
 from laomedo.skills.interface.operations.client import skill_request
-from laomedo.skills.operations.contract import MANUAL_ERROR_CODES
+from laomedo.skills.operations.settings import MANUAL_ERROR_CODES
 from urllib.parse import urlsplit
 
 

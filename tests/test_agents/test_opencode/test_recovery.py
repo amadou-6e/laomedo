@@ -77,7 +77,12 @@ class ProviderRecoveryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             broker = OpenCodeCommandExecutor(
-                root, root, root, root, docker_endpoint="unix:///internal.sock"
+                root,
+                root,
+                root,
+                root,
+                docker_endpoint="unix:///internal.sock",
+                worker_image_id="sha256:" + "b" * 64,
             )
             self.addCleanup(broker.shutdown)
             with patch("py_docker.Client") as client:

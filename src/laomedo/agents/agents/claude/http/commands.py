@@ -52,7 +52,7 @@ class ClaudeCommandTransport:
         """Forward one admitted effect to the existing host mediator; unknown outcomes stop commands and are never resent."""
         from urllib.request import Request
         from urllib.request import ProxyHandler, build_opener
-        from laomedo.http.redirect import NoRedirect
+        from laomedo.host.http import NoRedirect
         from urllib.error import HTTPError
 
         if (

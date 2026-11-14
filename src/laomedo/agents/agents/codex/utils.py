@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 from laomedo.agents.agents.codex.settings import IMAGE
-from laomedo.agents.agents.codex.settings import IMAGE_ID
 from laomedo.agents.agents.codex.settings import NATIVE_ERROR_KINDS
 from laomedo.agents.agents.codex.settings import NATIVE_HTTP_ERROR_KINDS
 
@@ -91,21 +90,24 @@ def _ensure_split_profile(name: str, *, state: Path, env=None) -> None:
     The one-shot container keeps its own durable cleanup receipt in runner state.
     """
     from docker.errors import DockerException
-    from laomedo.agents.agents.base.runtime import AgentDockerMechanism
+    from laomedo.docker import DockerRuntime
     from py_docker.containers.models import ContainerSpec, Mount
     from py_docker.jobs.models import ContainerJob
     from py_docker.streams.models import StreamLimits
     from py_docker.errors import CleanupUnconfirmedError
 
     try:
-        with AgentDockerMechanism(environment=env).client() as client:
-            client.jobs.recover(state.joinpath("profile-init.json"))
-            image = client.images.resolve(IMAGE, expected_id=IMAGE_ID)
+        with DockerRuntime(environment=env).client() as client:
+            DockerRuntime.recover_receipts(
+                client, [state.joinpath("profile-init.json")], kind="job"
+            )
+            image = DockerRuntime.ensure_image(client, IMAGE)
             created = False
             if not client.volumes.exists(name):
                 client.volumes.create(name=name)
                 created = True
-            result = client.jobs.run(
+            result = DockerRuntime.execute_job(
+                client,
                 ContainerJob(
                     spec=ContainerSpec(
                         image=image,
@@ -129,7 +131,7 @@ def _ensure_split_profile(name: str, *, state: Path, env=None) -> None:
                     limits=StreamLimits(seconds=30, max_bytes=65536),
                     wait_timeout_seconds=30,
                     receipt_path=state.joinpath("profile-init.json"),
-                )
+                ),
             )
             if result.exit_code or (not created and result.stdout.strip() != b"10001"):
                 raise RunnerError("docker_control_failed")

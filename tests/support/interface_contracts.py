@@ -236,3 +236,62 @@ def contract_violations(sources, contracts):
                     for error in _signature_errors(expected[name][1], method):
                         diagnostics.append(location + ": " + error)
     return sorted(set(diagnostics))
+
+
+def agent_access_violations(source, roots, members):
+    """Check known Agent receivers and direct aliases without executing source.
+
+    Roots are explicit consumer-owned receiver expressions, not inferred types.
+    Aliases are local to each function. Dynamic reflection is not resolved.
+    """
+    tree = ast.parse(source)
+    errors = []
+    for function in ast.walk(tree):
+        if not isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        aliases = set(roots)
+        nodes = []
+        pending = list(function.body)
+        while pending:
+            node = pending.pop()
+            nodes.append(node)
+            if not isinstance(
+                node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
+            ):
+                pending.extend(ast.iter_child_nodes(node))
+        # Follow simple local aliases; this is intentionally not full dataflow.
+        changed = True
+        while changed:
+            changed = False
+            for node in nodes:
+                if (
+                    isinstance(node, (ast.Assign, ast.AnnAssign))
+                    and node.value is not None
+                    and ast.unparse(node.value) in aliases
+                ):
+                    targets = (
+                        node.targets if isinstance(node, ast.Assign) else [node.target]
+                    )
+                    for target in targets:
+                        if isinstance(target, ast.Name) and target.id not in aliases:
+                            aliases.add(target.id)
+                            changed = True
+        for node in nodes:
+            name = None
+            if isinstance(node, ast.Attribute) and ast.unparse(node.value) in aliases:
+                name = node.attr
+            elif (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Name)
+                and node.func.id in {"getattr", "setattr", "hasattr", "delattr"}
+                and len(node.args) >= 2
+                and ast.unparse(node.args[0]) in aliases
+                and isinstance(node.args[1], ast.Constant)
+                and isinstance(node.args[1].value, str)
+            ):
+                name = node.args[1].value
+            if name is not None and (name.startswith("_") or name not in members):
+                errors.append(
+                    f"{node.lineno}: Agent member {name} is private or undeclared"
+                )
+    return sorted(set(errors))

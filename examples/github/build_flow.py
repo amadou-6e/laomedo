@@ -78,8 +78,8 @@ def build(
         nodes.extend([agent, skill])
         edges.extend(
             [
-                graph.edge(resource, "task", agent, "task"),
-                graph.edge(agent, "answer", resource, "operation"),
+                graph.edge(resource, "pr", agent, "task"),
+                graph.edge(agent, "answer", resource, "pr_context"),
                 graph.edge(skill, "skill", agent, "skill_reference"),
             ]
         )

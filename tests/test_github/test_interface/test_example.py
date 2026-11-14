@@ -1,6 +1,7 @@
 """Exercise the documented builder in a fresh interpreter, without a graph run."""
 
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -37,6 +38,11 @@ class GitHubExampleTests(unittest.TestCase):
                             str(target),
                         ],
                         cwd=root,
+                        env={
+                            **os.environ,
+                            "LANGFLOW_CONFIG_DIR": str(Path(directory) / "runtime"),
+                            "LFX_CONFIG_DIR": str(Path(directory) / "runtime"),
+                        },
                         capture_output=True,
                         text=True,
                         timeout=90,

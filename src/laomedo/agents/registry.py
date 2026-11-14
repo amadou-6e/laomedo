@@ -79,52 +79,6 @@ class AgentProviderRegistry:
         return factory(*args, **kwargs)
 
     @classmethod
-    def activity_projector(cls, provider: str):
-        """Compose a registered native projector without optional process startup."""
-        descriptor = next(
-            (
-                item
-                for item in cls.descriptors()
-                if provider in (item.provider, item.activity_provider)
-            ),
-            None,
-        )
-        if descriptor is None:
-            raise ValueError("unregistered_activity_provider")
-        provider = descriptor.provider
-        if provider == "codex":
-            from laomedo.agents.agents.codex.activity.projector import (
-                CodexActivityProjector,
-            )
-
-            return CodexActivityProjector()
-        if provider == "claude":
-            from laomedo.agents.agents.claude.activity.projector import (
-                ClaudeActivityProjector,
-            )
-
-            return ClaudeActivityProjector()
-        from laomedo.agents.agents.opencode.activity.projector import (
-            OpenCodeActivityProjector,
-        )
-
-        return OpenCodeActivityProjector()
-
-    @classmethod
-    def projector_for_events(cls, events):
-        """Resolve provider-native markers for internal callers lacking stored identity.
-
-        Stored invocation identity must be preferred by application routes. The
-        final built-in handles the established normalized receipt vocabulary;
-        this never selects a runtime, credential source or executable.
-        """
-        for descriptor in reversed(cls.descriptors()):
-            projector = cls.activity_projector(descriptor.provider)
-            if projector.accepts(events):
-                return projector
-        raise ValueError("unregistered_activity_provider")
-
-    @classmethod
     def supports(cls, provider: str, capability: str) -> bool:
         """Read a declared capability; unknown identities never acquire support."""
         if capability not in {"managed_startup", "join_bridge", "output_requirements"}:

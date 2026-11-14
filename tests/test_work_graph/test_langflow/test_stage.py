@@ -225,7 +225,7 @@ class LangflowStageAdapterTests(unittest.TestCase):
             "outputs": ["ChatOutput-exp03"],
             "now": datetime.now(timezone.utc),
         }
-        with patch("laomedo.work_graph.github.fetch", return_value=current) as fetch:
+        with patch("laomedo.work_graph.launch.fetch", return_value=current) as fetch:
             with self.assertRaisesRegex(LaunchError, "grant_authority_required"):
                 launch_github_saved_flow_stage(**arguments)
             fetch.assert_called_once_with("verify/exp16")
@@ -242,7 +242,7 @@ class LangflowStageAdapterTests(unittest.TestCase):
         )
         arguments["grant_ref"] = ref
         arguments["grant_authority"] = authority
-        with patch("laomedo.work_graph.github.fetch", return_value=current) as fetch:
+        with patch("laomedo.work_graph.launch.fetch", return_value=current) as fetch:
             record, result = launch_github_saved_flow_stage(**arguments)
             fetch.assert_called_once_with("verify/exp16")
         self.assertIn("TASK|BEFORE", str(result))

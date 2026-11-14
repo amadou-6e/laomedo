@@ -22,3 +22,15 @@ Run `python -m unittest discover -s tests/test_agents -t tests -v` with the decl
 runner dependencies. No campaign, model turn or experiment checkout is required.
 
 Preparation/status compatibility uses data/prepared-records.json and the existing owned RunnerCase; only a random private Git hooksPath hash is recomputed. These are internal compatibility fixtures, not real provider acceptance.
+
+## Real Docker acceptance without model execution
+
+`test_docker_integration.py` is opt-in. Set `LAOMEDO_TEST_DOCKER_IMAGE` to an
+already installed image with `/bin/sh` and run
+`python -m unittest tests.test_agents.test_runtime.test_docker_integration -v`
+with `PYTHONPATH=src;tests` and the runner dependencies installed.
+It overrides the image entrypoint, uses no network or mounts, and runs as
+10001:10001 with a read-only root. It checks job output/exit/removal, interactive
+I/O, in-container exec, repeated close and receipt recovery through
+`laomedo.docker.DockerRuntime`. It never starts the image's ordinary service or
+an AI agent. These checks establish Docker mechanics, not native-agent acceptance.

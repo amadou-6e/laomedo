@@ -5,7 +5,8 @@ import unittest
 from unittest.mock import Mock, patch
 
 from laomedo.host.leases.models import ContainerIdentity
-from laomedo.host.leases.utils import cleanup_after_loss, inspect_exact
+from laomedo.host.leases.utils import cleanup_after_loss
+from laomedo.host.leases.utils import inspect_exact
 
 
 @unittest.skipUnless(find_spec("py_docker"), "Requires declared Docker runtime")

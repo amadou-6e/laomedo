@@ -7,7 +7,8 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from laomedo.skills.operations.models import FileEdit, SkillProposal
+from laomedo.skills.operations.models.proposal import FileEdit
+from laomedo.skills.operations.models.proposal import SkillProposal
 from laomedo.skills.registry.errors import SkillStoreError
 from test_skills.test_operations.utils import make_operation_case
 

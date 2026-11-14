@@ -1,6 +1,10 @@
 """Codex adapter for the provider-neutral Agent lifecycle."""
 
 from __future__ import annotations
+from laomedo.agents.activity.models import ActivityPage
+from laomedo.agents.agents.base.models import ReadinessObservation
+from laomedo.docker import DockerRuntime
+from laomedo.container_images.errors import ImageBuildError
 from laomedo.agents.agents.codex.catalog import CodexModelCatalog
 from laomedo.agents.agents.codex.credentials import CodexCredentialProvider
 
@@ -43,7 +47,6 @@ from laomedo.agents.agents.codex.controller.settings import Settings
 from laomedo.agents.interface.output.utils import evaluate
 from laomedo.agents.errors import RunnerError
 from laomedo.agents.agents.codex.runtime import CodexAgentRuntime
-from laomedo.agents.agents.base.base import BaseAgentRuntime
 from laomedo.agents.workspaces.utils import _hash_tree
 from laomedo.agents.agents.base.utils import _id
 from laomedo.agents.agents.base.utils import _json
@@ -92,6 +95,7 @@ class CodexAgent(BaseAgent):
         artifact_sources=None,
     ):
         """Bind admitted configuration and owned state; provider startup errors propagate before use."""
+        self._managed_image = image_id is None
         self.image = GIT_IMAGE if git_workspace else IMAGE
         self.image_id = GIT_IMAGE_ID if git_workspace else IMAGE_ID
         if image_id is not None:
@@ -178,9 +182,9 @@ class CodexAgent(BaseAgent):
                     self.profile, state=self.state, env=self.docker_environment
                 )
             else:
-                from py_docker import Client
-
-                with Client(environment=self.docker_environment) as docker:
+                with DockerRuntime(
+                    environment=self.docker_environment
+                ).connect() as docker:
                     if not docker.volumes.exists(VOLUME):
                         raise RunnerError("docker_control_failed")
 
@@ -226,6 +230,31 @@ class CodexAgent(BaseAgent):
             if not verified:
                 record["error_category"] = "container_cleanup_unverified"
 
+    def read_activity(
+        self, run_id: str, attempt_id: str, *, after: int = 0, limit: int = 100
+    ) -> ActivityPage:
+        """Normalize retained codex evidence behind the common Activity boundary."""
+        from laomedo.agents.agents.codex.activity.projection import project
+
+        return self._normalize_activity(
+            run_id, attempt_id, after=after, limit=limit, projector=project
+        )
+
+    def readiness(self) -> ReadinessObservation:
+        """Return the actual native check's availability, reason and scope without inference."""
+        try:
+            return self._observe_readiness(
+                ready_on_success=None, unverified_reason="authentication_not_verified"
+            )
+        except AuthError as error:
+            return ReadinessObservation(
+                provider=self.provider,
+                ready=False,
+                reason=error.code,
+                scope="native_handshake_and_policy_probes",
+                payload={"status": "blocked", "error_category": error.code},
+            )
+
     def preflight(self) -> dict:
         """Run provider handshake and policy probes without a model request."""
         return asyncio.run(self._preflight())
@@ -240,8 +269,10 @@ class CodexAgent(BaseAgent):
         model: str,
         effort: str,
         activity_attempt_id: str | None = None,
+        run_timeout_seconds: int | None = None,
     ) -> dict:
         """Admit an existing session/workspace binding before continuing it; failures never create a fresh session."""
+        self._validate_run_timeout(run_timeout_seconds)
         record = self.status(run_id)
         if (
             self.publication_controller is not None
@@ -323,7 +354,6 @@ class CodexAgent(BaseAgent):
         try:
             from docker.errors import DockerException
             from requests.exceptions import RequestException
-            from py_docker import Client
             from py_docker.connection.settings import ConnectionSettings
             from py_docker.containers.models import ContainerSpec
             from py_docker.errors import (
@@ -343,20 +373,23 @@ class CodexAgent(BaseAgent):
             raise RunnerError("runner_docker_check_unconfirmed") from None
         snapshot = ConnectionSettings.environment_snapshot(None)
         try:
-            with Client(
+            with DockerRuntime(
                 settings=ConnectionSettings(
                     timeout_seconds=PREFLIGHT_API_TIMEOUT_SECONDS
                 ),
                 environment=snapshot,
-            ) as client:
+            ).connect() as client:
                 receipt = self.state.joinpath(PREFLIGHT_RECEIPT_FILENAME)
-                client.jobs.recover(receipt)
+                DockerRuntime.recover_receipts(client, [receipt], kind="job")
                 self._recover_containers(client)
                 try:
-                    client.images.resolve(self.image, expected_id=self.image_id)
+                    self.image_id = DockerRuntime.ensure_image(
+                        client, self.image, expected_id=self.image_id
+                    )
                 except OwnershipConflictError:
                     raise RunnerError("docker_image_digest_changed") from None
-                result = client.jobs.run(
+                result = DockerRuntime.execute_job(
+                    client,
                     ContainerJob(
                         spec=ContainerSpec(
                             image=self.image_id,
@@ -370,7 +403,7 @@ class CodexAgent(BaseAgent):
                         ),
                         receipt_path=receipt,
                         wait_timeout_seconds=PREFLIGHT_WAIT_SECONDS,
-                    )
+                    ),
                 )
                 try:
                     version = result.stdout.decode("utf-8").strip()
@@ -387,6 +420,8 @@ class CodexAgent(BaseAgent):
                 return pinned
         except RunnerError:
             raise
+        except ImageBuildError:
+            raise RunnerError("container_image_build_failed") from None
         except CleanupUnconfirmedError:
             raise RunnerError("container_termination_unverified") from None
         except ConnectionConfigurationError:
@@ -417,10 +452,10 @@ class CodexAgent(BaseAgent):
             Endpoint-bound client; recovery refuses uncertain or active receipts.
         """
         for pending in self.state.joinpath("receipts").glob("*.json"):
-            client.sessions.recover(pending)
+            DockerRuntime.recover_receipts(client, [pending], kind="session")
         for folder in ("runs", "catalog", "preflight"):
             for pending in self.state.joinpath(folder).glob("*/*receipt*.json"):
-                client.sessions.recover(pending)
+                DockerRuntime.recover_receipts(client, [pending], kind="session")
 
     def _receipt_path(self, root: Path) -> Path:
         """Keep lifecycle intent outside disposable metadata and evidence folders."""
@@ -471,7 +506,8 @@ class CodexAgent(BaseAgent):
             workspace=workspace,
             canonical=canonical,
             store_mount=store_mount,
-            image=self.image_id,
+            image=self.image_id or self.image,
+            managed_image=self._managed_image,
             profile=self.profile,
             run_id=run_id,
             launch_token=launch_token,
@@ -501,7 +537,7 @@ class CodexAgent(BaseAgent):
                 if self.split_executor
                 else None
             )
-            return self.transport.start(
+            return self.transport(
                 launch,
                 root,
                 env=self.docker_environment,
@@ -513,7 +549,7 @@ class CodexAgent(BaseAgent):
                     if capability is not None
                     else ()
                 ),
-            ).runtime
+            )
         return self.transport(launch, root)
 
     async def _model_catalog(self):
@@ -530,15 +566,18 @@ class CodexAgent(BaseAgent):
                 lifetime_seconds=60 + Settings.load().startup_margin,
             )
             await server.initialize()
-            return {"models": await server.models(), "submitted_turns": 0}
+            models = await server.models()
+            defaults = [item["id"] for item in models if item.get("is_default") is True]
+            if len(defaults) > 1:
+                raise RunnerError("model_list_invalid_entry")
+            result = {"models": models, "submitted_turns": 0}
+            if defaults:
+                result["default_model_id"] = defaults[0]
+            return result
         finally:
             try:
                 if server is not None:
-                    await (
-                        server.shutdown()
-                        if isinstance(server, BaseAgentRuntime)
-                        else server.close()
-                    )
+                    await server.close()
             finally:
                 if not self._pending_receipts(root):
                     shutil.rmtree(root, ignore_errors=True)
@@ -605,11 +644,7 @@ class CodexAgent(BaseAgent):
             }
         finally:
             if server is not None:
-                await (
-                    server.shutdown()
-                    if isinstance(server, BaseAgentRuntime)
-                    else server.close()
-                )
+                await server.close()
 
     def _execute(
         self,
@@ -1116,11 +1151,7 @@ class CodexAgent(BaseAgent):
                         record["precheck"]["installed"] = record["precheck"][
                             "installed"
                         ] or bool(getattr(server, "verified_precheck_calls", set()))
-                    await (
-                        server.shutdown()
-                        if isinstance(server, BaseAgentRuntime)
-                        else server.close()
-                    )
+                    await server.close()
                     if record is not None:
                         record["controller_cleanup"] = "confirmed"
                         if not self.supervise_containers and getattr(

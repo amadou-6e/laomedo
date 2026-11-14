@@ -1,21 +1,18 @@
-"""Compose registered Activity interpretation at the existing wire boundary."""
+"""Read common display snapshots without importing provider implementations."""
 
-from laomedo.agents.registry import AgentProviderRegistry
+from laomedo.agents.activity.models import ActivityProjection
 
 
-def project(events, *, root_thread=None, model=None, provider=None):
-    """Return the current payload using stored identity or native receipt markers.
-
-    Stored provider identity takes precedence over content. Internal unqualified
-    callers retain native-marker selection for existing normalized observations.
-    No provider-native parsing or pricing is implemented in this shared path.
-    """
-    projector = (
-        AgentProviderRegistry.activity_projector(provider)
-        if provider is not None
-        else AgentProviderRegistry.projector_for_events(events)
-    )
-    value = projector.project(events, root_thread=root_thread, model=model)
-    if projector.usage_first_payload:
-        return value.to_usage_first_payload()
-    return value.to_payload()
+def project(events):
+    """Return the latest common snapshot, or an unknown empty invocation view."""
+    snapshots = [
+        row["raw"]
+        for row in events
+        if row.get("raw", {}).get("method") == "activity/projection"
+    ]
+    if snapshots:
+        value = max(snapshots, key=lambda row: row["revision"])["projection"]
+        return ActivityProjection.model_validate(value).to_payload()
+    if not events:
+        return ActivityProjection.empty().to_payload()
+    raise ValueError("activity_projection_not_available")

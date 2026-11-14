@@ -10,6 +10,7 @@ from unittest.mock import patch
 from laomedo.agents.agents.base.agent import BaseAgent
 from laomedo.agents.agents.codex.agent import CodexAgent
 from laomedo.agents.agents.claude.agent import ClaudeAgent
+from laomedo.agents.agents.claude.settings import CLI_VERSION
 from laomedo.agents.agents.opencode.agent import OpenCodeAgent
 from laomedo.agents.errors import RunnerError
 from laomedo.agents.agents.codex import settings as codex_settings
@@ -222,7 +223,7 @@ class ProviderBoundaryTests(unittest.TestCase):
                 "image": control.runner.image,
                 "image_id": control.runner.image_id,
                 "execution_mode": "claude_container",
-                "cli_version": "Claude Code " + claude_controls.CLI_VERSION,
+                "cli_version": "Claude Code " + CLI_VERSION,
                 "credential": None,
             },
         )

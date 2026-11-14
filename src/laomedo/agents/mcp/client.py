@@ -9,7 +9,7 @@ from uuid import UUID
 from laomedo.agents.mcp.errors import McpError
 from laomedo.agents.mcp.models import McpConnection, McpManifest
 from laomedo.agents.mcp.settings import McpSettings, MAX_REGISTRATION_BYTES
-from laomedo.http.redirect import NoRedirect
+from laomedo.host.http import NoRedirect
 from laomedo.host.private_state.utils import prepare_private_directory
 
 

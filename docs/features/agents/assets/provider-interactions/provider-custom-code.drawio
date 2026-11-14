@@ -745,7 +745,7 @@
           <mxGeometry x="2650.0" y="333" width="280" height="25" as="geometry" />
         </mxCell>
         <mxCell id="codex__filemap_row_4" parent="codex__row" vertex="1" value="runtime.py" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Consolas;fontSize=13;fontColor=#455869;fontStyle=0;" inventoryKind="file" filePath="src/laomedo/agents/agents/codex/runtime.py" ownership="custom" graphReferences="C">
-          <mxGeometry x="2235.0" y="359" width="405" height="25" as="geometry" />
+          <mxGeometry x="2215.0" y="359" width="405" height="25" as="geometry" />
         </mxCell>
         <mxCell id="codex__filemap_tag_4" parent="codex__row" vertex="1" value="CUSTOM  [C]" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontColor=#75589C;fontStyle=1;">
           <mxGeometry x="2650.0" y="359" width="280" height="25" as="geometry" />
@@ -1348,9 +1348,6 @@
         </mxCell>
         <mxCell id="codex__filemap_tag_17" parent="codex__row" vertex="1" value="CUSTOM  [D]" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontColor=#75589C;fontStyle=1;">
           <mxGeometry x="2650.0" y="697" width="280" height="25" as="geometry" />
-        </mxCell>
-        <mxCell id="codex__filemap_row_18" parent="codex__row" vertex="1" value="controller/" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Consolas;fontSize=13;fontColor=#20384A;fontStyle=1;" inventoryKind="directory" filePath="src/laomedo/agents/agents/codex/controller">
-          <mxGeometry x="2235.0" y="723" width="405" height="25" as="geometry" />
         </mxCell>
         <mxCell id="codex__filemap_row_19" parent="codex__row" vertex="1" value="runtime.py" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Consolas;fontSize=13;fontColor=#455869;fontStyle=0;" inventoryKind="file" filePath="src/laomedo/agents/agents/codex/runtime.py" ownership="custom" graphReferences="E">
           <mxGeometry x="2235.0" y="749" width="405" height="25" as="geometry" />

@@ -28,26 +28,25 @@ The wider application's interface remains `agents/interface/`.
 
 | Role | Required vocabulary | Ownership and side effects |
 | --- | --- | --- |
-| `BaseAgentRuntime` / `{Provider}AgentRuntime` | `start`, `request_cancel`, `shutdown` | Launch/initialize the configured scope, retain exact native handles, request interruption, and close only owned resources. Results separate launched/ready, requested/confirmed cancellation, and confirmed/unknown cleanup. Codex/OpenCode scope is an attempt; Claude sessions are turn-scoped. ACP messaging is composed, not a lifecycle superclass. |
 | `BaseCommandExecutor` / `{Provider}CommandExecutor` | `execute`, `shutdown` | Admit one typed command/deadline/cancellation context and report native exit/output separately from cleanup. HTTP/MCP command handlers adapt wire requests; they do not define the execution contract. Existing provider limits and mediation authority remain local. |
 | `BaseInterruptibleCommandExecutor` | `request_cancel` | Claude/OpenCode own interruptible worker jobs. Stop admission, signal owned active jobs and return requested/unknown acknowledgement; `shutdown` separately waits for exact cleanup. |
 | `BaseSplitCommandExecutor` | `check_health`, `assert_controller_isolated` | Codex's optional persistent native exec-server requires its reader/liveness and credential-controller isolation gate. Other providers do not emulate a persistent service to satisfy this capability. |
 | `BaseCredentialProvider` / `{Provider}CredentialProvider` | `prepare`, `validate`, `borrow`, `release` | Provider-owned admission/refresh and exact temporary-state lifetime. Public bindings contain no secrets; borrowed material stays host-only. Releasing a borrowed profile does not revoke or delete host login. |
-| `BaseModelCatalog` / `{Provider}ModelCatalog` | `discover(refresh=False)`, `snapshot`, `wait_until_idle` | Zero-turn discovery, provider-specific freshness and in-flight sharing. A snapshot is the last observed account catalogue, possibly stale, never a refresh or a selection change. Waiting observes discovery cleanup, not run admission. |
-| `BaseActivityProjector` / `{Provider}ActivityProjector` | `accepts`, `project` | Recognize unqualified native observations and convert them to shared `ActivityProjection`; persisted provider identity takes precedence. Unknown usage remains unknown. Native pricing belongs to its provider. |
-| `AgentProviderRegistry` | `descriptor`, `create_agent`, `activity_projector` | Trusted built-in registrations and typed `AgentProviderDescriptor` capabilities. External inputs can select only registered IDs, never imports, executables or credential locations. |
+| `BaseModelCatalog` / `{Provider}ModelCatalog` | `list_models(refresh=False)`, `snapshot`, `wait_until_idle` | Zero-turn discovery, provider-specific freshness and in-flight sharing. A snapshot is the last observed account catalogue, possibly stale, never a refresh or a selection change. Waiting observes discovery cleanup, not run admission. |
+| `BaseAgent` activity boundary | `read_activity` | Return typed, paged common records and a shared display snapshot for one explicit attempt. Provider interpretation and pricing stay internal. |
+| `AgentProviderRegistry` | `descriptor`, `create_agent` | Trusted built-in registrations and typed `AgentProviderDescriptor` capabilities. External inputs can select only registered IDs, never imports, executables or credential locations. |
 
 Readiness, process health and isolation return distinct typed observations; none
 implies another. An unsupported check is unknown/unsupported, never success. No
 interchangeable check coordinator exists, so no generic health-check ABC is added.
 `AcpSession` remains the shared wire implementation without a redundant ABC.
 
-`start` is a host-only class factory returning `RuntimeLaunch`: an opaque owned
-runtime plus its initial observation. `shutdown` is asynchronous so exact native
-session cleanup can finish before a confirmed result. OpenCode construction only
-prepares an environment; launch becomes observed when its session is allocated.
-Claude owns a turn session, with ACP readiness and native identity still owned by
-the composed Agent communication path. Unknown observations do not certify either.
+Provider runtimes are concrete native implementation details, not a shared
+`BaseAgentRuntime` contract. Codex is constructed directly and uses async
+`close()`; OpenCode's injected backend keeps its existing synchronous `close()`
+and `cancel()` protocol; Claude uses its native context manager. These calls keep
+provider cleanup order and uncertainty; they do not establish an interchangeable
+runtime API. Shared Docker mechanics remain in `DockerRuntime`.
 
 The concrete runtime/executor/credential roles live in each provider's
 `runtime.py`, `executor.py` (Codex: `split/executor.py`) and `credentials.py`.

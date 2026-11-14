@@ -1,5 +1,6 @@
 """Opt-in local access-only mirror through py-docker's owned Session lifecycle."""
 
+from laomedo.docker import DockerRuntime
 from importlib.resources import files
 import json
 import math
@@ -13,12 +14,10 @@ from uuid import uuid4
 
 from laomedo.agents.agents.claude.auth.errors import LocalClaudeLoginError
 from laomedo.agents.agents.claude.auth.models import ClaudeAccessLoginRecord
-from laomedo.agents.agents.claude.auth.settings import (
-    CLEANUP_SECONDS,
-    COPY_SECONDS,
-    MIRROR_LOCK,
-    Settings,
-)
+from laomedo.agents.agents.claude.auth.settings import CLEANUP_SECONDS
+from laomedo.agents.agents.claude.auth.settings import COPY_SECONDS
+from laomedo.agents.agents.claude.auth.settings import MIRROR_LOCK
+from laomedo.agents.agents.claude.auth.settings import Settings
 from laomedo.host.private_state.models import DirectoryPermissionPolicy
 from laomedo.host.private_state.utils import prepare_private_directory
 from laomedo.host.private_state.windows import WindowsDirectorySecurity
@@ -195,7 +194,6 @@ def _mirror_login(
     client = None
     failure = None
     try:
-        from py_docker import Client
         from py_docker.connection.settings import ConnectionSettings
         from py_docker.containers.models import ContainerSpec, Mount
         from py_docker.sessions.models import ContainerSession
@@ -214,14 +212,14 @@ def _mirror_login(
             "DOCKER_TLS_VERIFY",
         ):
             docker_environment.pop(key, None)
-        client = Client(
-            ConnectionSettings(
+        client = DockerRuntime(
+            settings=ConnectionSettings(
                 endpoint=endpoint,
                 context=None,
                 timeout_seconds=_remaining(normal_deadline),
             ),
             environment=docker_environment,
-        )
+        ).connect()
         if not client.volumes.has_labels(profile, {"laomedo.provider": "claude"}):
             raise LocalClaudeLoginError("claude_local_login_copy_failed")
         _remaining(normal_deadline)
@@ -267,8 +265,11 @@ def _mirror_login(
             ),
             receipt_path=state / (profile + ".json"),
         )
-        with client.sessions.open(
-            request, deadline=float(normal_deadline), cleanup_seconds=CLEANUP_SECONDS
+        with DockerRuntime.session(
+            client,
+            request,
+            deadline=float(normal_deadline),
+            cleanup_seconds=CLEANUP_SECONDS,
         ) as session:
             session.write(payload)
             while session.read_frame() is not None:

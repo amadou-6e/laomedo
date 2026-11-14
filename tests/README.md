@@ -98,9 +98,8 @@ in the concern's `utils.py` makes fresh files/state; it does not reuse a TestCas
 Raw policy/proposal dictionaries deliberately remain raw inputs for rejection
 tests; they are not alternative production contracts or derived expectations.
 
-`test_shared.test_migration.utils.load_migration()` loads the actual checkout-owned offline
-migration tool and restores the temporary import path. Migration assertions stay
-in the test modules. `support.retained` and `support.git` own the existing
+`test_shared.test_migration.utils.load_owner_maps()` reads static ownership maps
+for current import checks. No source-rewriting tool is loaded. `support.retained` and `support.git` own the existing
 hash-pinned historical loader and Git command seams used across these concerns
 and deferred Agent/GitHub controls. Their callers import defining helpers
 directly; no root forwarding modules remain. Historical dependencies are retained.

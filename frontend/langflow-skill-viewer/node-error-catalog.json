@@ -1,4 +1,89 @@
 {
+  "activity_normalization_failed": {
+    "title": "Retained activity could not be normalized",
+    "description": "The provider evidence could not be converted to the common activity contract.",
+    "recovery": "Keep the retained evidence and original run identity for inspection. Do not repeat the agent task merely to rebuild the view."
+  },
+  "activity_capture_incomplete": {
+    "title": "Some sealed activity evidence is missing",
+    "description": "The retained files do not reach the capture's published end positions.",
+    "recovery": "Inspect the retained evidence and runner storage. Capture closure does not establish that all activity was recorded."
+  },
+  "invalid_activity_cursor": {
+    "title": "The activity position is invalid",
+    "description": "The selected cursor or page bound cannot be used for this capture.",
+    "recovery": "Restart observation from a valid server-returned cursor for the same attempt; do not restart the agent task."
+  },
+  "invalid_activity_attempt_id": {
+    "title": "The activity capture identity is invalid",
+    "description": "The attempt identifier is missing or malformed.",
+    "recovery": "Use the capture identity returned by the selected execution; do not substitute the native conversation ID."
+  },
+  "activity_attempt_not_available": {
+    "title": "Activity capture is not available yet",
+    "description": "The selected run has not published this capture boundary.",
+    "recovery": "Wait and read again using the same run and capture identities. Do not adopt another resumed attempt."
+  },
+  "activity_capture_reason_required": {
+    "title": "Activity completeness evidence is inconsistent",
+    "description": "An incomplete capture was reported without a reason.",
+    "recovery": "Keep the existing run reference and inspect the runner capture metadata; do not infer successful capture."
+  },
+  "activity_projection_not_available": {
+    "title": "The saved activity display is not available",
+    "description": "Normalized records were retained without their shared display snapshot.",
+    "recovery": "Keep the retained records and inspect capture persistence before refreshing the view."
+  },
+  "unregistered_activity_provider": {
+    "title": "The saved activity provider is unknown",
+    "description": "The retained evidence names an unsupported provider.",
+    "recovery": "Use the correct registered provider for this retained history; do not guess a parser from its timestamps."
+  },
+  "remote_outcome_unknown": {
+    "title": "The remote execution outcome is unknown",
+    "description": "Activity observation ended without a confirmed task outcome.",
+    "recovery": "Inspect the original run status before retrying any action. Do not automatically replay the task."
+  },
+  "activity_journal_unavailable": {
+    "title": "Activity normalization history is unavailable",
+    "description": "The private activity journal could not be read or updated reliably.",
+    "recovery": "Inspect runner storage access before retrying the activity read. Do not restart or replay the agent task merely to restore the view."
+  },
+  "activity_projection_limit": {
+    "title": "Activity evidence exceeds the read limit",
+    "description": "This capture cannot be normalized within the bounded evidence budget.",
+    "recovery": "Retain the existing evidence for inspection. Missing display data does not establish task failure or authorize replaying the task."
+  },
+  "activity_run_not_found": {
+    "title": "The activity run is unavailable",
+    "description": "No retained runner record was found for this run identity.",
+    "recovery": "Check the selected runner and retained run reference. Do not create a replacement task to reconcile missing history."
+  },
+  "run_timeout_not_supported": {
+    "title": "This provider does not support a per-run timeout override",
+    "description": "The requested timeout override was refused before model dispatch.",
+    "recovery": "Remove run_timeout_seconds from this request, or use a provider that supports the override. No model turn was submitted by this refusal."
+  },
+  "authentication_not_verified": {
+    "title": "Execution authentication is unverified",
+    "description": "The protocol and permission checks passed, but they did not verify authenticated session creation.",
+    "recovery": "Validate the configured native account before relying on execution availability. Model discovery alone does not verify account access."
+  },
+  "opencode_transport_not_verified": {
+    "title": "The OpenCode transport is configured but unverified",
+    "description": "A transport factory is configured; backend health and authentication have not been checked.",
+    "recovery": "Complete the isolated OpenCode backend setup and its native authentication checks. Configuration alone does not establish execution availability."
+  },
+  "readiness_not_verified": {
+    "title": "Execution readiness is unverified",
+    "description": "The provider check did not establish whether execution is available.",
+    "recovery": "Inspect the reported readiness scope and complete the provider's missing prerequisite checks. Do not infer readiness from process health or model discovery."
+  },
+  "execution_blocked": {
+    "title": "Execution is blocked",
+    "description": "The provider reported a blocker without a more specific category.",
+    "recovery": "Inspect the provider's native prerequisite checks before starting another run."
+  },
   "prior_run_required": {
     "title": "No previous run is available",
     "description": "This operation needs a reference to an earlier run.",
@@ -957,7 +1042,7 @@
   "fresh_codex_request_required": {
     "title": "A new agent run is required",
     "description": "This handoff route accepts only Fresh operations targeting Codex or Claude.",
-    "recovery": "Choose Fresh and a supported target agent. Resume must use that agent's original completed Run Reference."
+    "recovery": "Choose Fresh and a supported target agent. Resume must use that agentÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢s original completed Run Reference."
   },
   "runner_token_file_required": {
     "title": "The handoff runner is not connected",
@@ -1432,7 +1517,7 @@
   "agent_component_migration_required": {
     "title": "This saved Agent node needs an update",
     "description": "This node inherits an older provider component. It was stopped before sending a request because its provider routing could be incorrect.",
-    "recovery": "Replace the node with its current provider component, or migrate a copy of the saved flow with the module migration tool before loading it. Custom Agent subclasses must extend the shared AgentComponent."
+    "recovery": "Use the current provider component. Custom Agent subclasses must extend the shared AgentComponent."
   },
   "credential_constraints_unsupported": {
     "title": "Credential requirements are unsupported",
@@ -1619,30 +1704,10 @@
     "description": "Local Git could not read the fixed origin configuration safely.",
     "recovery": "Check the run repository configuration before continuing. Keep provider credentials out of remotes and graph inputs."
   },
-  "opencode_active_console_account_required": {
-    "title": "No active OpenCode account is selected",
-    "description": "The local OpenCode Console account store has no active account with an organization selected.",
-    "recovery": "Check the active account and organization in OpenCode Console, then refresh the local runner account configuration."
-  },
-  "opencode_auth_redirect_rejected": {
-    "title": "OpenCode account configuration redirected unexpectedly",
-    "description": "The account configuration request redirected to another address. The local authentication adapter refused to forward the credential.",
-    "recovery": "Check the locally configured OpenCode Console address and resolve the unexpected redirect before loading account configuration again."
-  },
   "opencode_command_service_closed": {
     "title": "The workspace command service has stopped",
     "description": "This run no longer accepts workspace commands because its command service is closing or closed.",
     "recovery": "Check the existing run status and workspace before deciding whether to start new work."
-  },
-  "opencode_console_models_required": {
-    "title": "OpenCode returned an unusable model catalogue",
-    "description": "The selected Console provider configuration contained no models or unsupported model identifiers.",
-    "recovery": "Check the selected account and its provider model configuration before refreshing the catalogue. Do not substitute an unverified model identifier."
-  },
-  "opencode_console_origin_not_allowed": {
-    "title": "The OpenCode Console address is not supported",
-    "description": "The locally selected account points to a Console address outside the supported HTTPS service boundary.",
-    "recovery": "Correct the local account configuration to use the supported OpenCode Console service. Keep credentials out of graph inputs."
   },
   "opencode_container_configuration_invalid": {
     "title": "The local OpenCode Docker connection is invalid",
@@ -1674,25 +1739,10 @@
     "description": "The dedicated OpenCode session database is larger than the configured host memory budget, so native history export was refused. Existing history is preserved and activity evidence is incomplete.",
     "recovery": "The local user can raise LAOMEDO_OPENCODE_HISTORY_MAX_DATABASE_BYTES within the supported 512 MiB limit in runner startup configuration. For larger stores, preserve an archive and configure a separate dedicated session store for new work. Do not delete active history or replay the Agent request."
   },
-  "opencode_model_endpoint_not_allowed": {
-    "title": "An OpenCode model uses an unsupported endpoint",
-    "description": "A model in the Console configuration selected an endpoint outside the permitted OpenCode inference boundary.",
-    "recovery": "Check the local provider model configuration and its inference endpoint before loading it again. Do not bypass endpoint validation."
-  },
-  "opencode_model_sdk_not_allowed": {
-    "title": "An OpenCode model uses an unsupported SDK",
-    "description": "A model in the Console configuration requested a provider SDK that this local adapter does not support.",
-    "recovery": "Use a supported SDK in the local provider model configuration or update the adapter through a reviewed change."
-  },
   "opencode_organization_context_mismatch": {
     "title": "The OpenCode organizations do not match",
     "description": "The returned provider configuration belongs to a different organization from the locally selected Console account.",
     "recovery": "Check the active account and organization in OpenCode Console before refreshing the local runner account configuration."
-  },
-  "opencode_real_credential_required": {
-    "title": "The OpenCode account credential is missing or invalid",
-    "description": "The authentication adapter received an empty credential or a placeholder instead of a usable account credential.",
-    "recovery": "Sign in through the supported OpenCode account flow and refresh the local runner account configuration. Do not paste credentials into the graph."
   },
   "opencode_workspace_command_failed": {
     "title": "The isolated workspace command could not finish",
@@ -1944,6 +1994,21 @@
     "description": "The repository does not currently advertise every selected label.",
     "recovery": "Refresh Labels and remove or replace unavailable selections."
   },
+  "pr_context_invalid": {
+    "title": "The PR context is invalid",
+    "description": "The input does not contain a supported PR identity, snapshot or operation request.",
+    "recovery": "Connect a PR context output or supply a valid identity and explicit operation request."
+  },
+  "pr_context_upstream_failed": {
+    "title": "The earlier PR operation is not confirmed",
+    "description": "A failed or uncertain upstream PR result cannot trigger another read, write or Agent task.",
+    "recovery": "Inspect and reconcile the earlier operation before providing new PR context."
+  },
+  "pr_discovery_failed": {
+    "title": "GitHub PR discovery failed",
+    "description": "The node could not load repository labels and pull requests from the host GitHub connection.",
+    "recovery": "Check the host GitHub connection and repository access, then use Refresh on Labels or PR. Keep credentials out of the graph."
+  },
   "github_discovery_incomplete": {
     "title": "The complete GitHub selection could not be loaded",
     "description": "Discovery reached its response, page or time limit and cannot safely present a complete list.",
@@ -2123,6 +2188,86 @@
     "title": "The selected pull request could not be loaded",
     "description": "The viewer could not confirm the current pull request content. The cause has not been established.",
     "recovery": "Refresh PR repeats only this read. It does not edit GitHub, run the graph or start an Agent. Check the current selection and local GitHub connection if the read still fails."
+  },
+  "profile_setup_unavailable": {
+    "title": "The local profile setup could not be verified",
+    "description": "The app refused to start or change profile state because its local configuration or stored identity could not be verified. Your existing data has not been reset.",
+    "recovery": "Preserve the runtime folder and check the local startup log. Do not delete profiles or enable automatic login to bypass this check."
+  },
+  "profile_list_unavailable": {
+    "title": "Profiles could not be loaded",
+    "description": "The app could not read the profiles saved in this local setup.",
+    "recovery": "Check that the local app is running, then reload the profile list. Saved profiles have not been deleted."
+  },
+  "profile_name_unavailable": {
+    "title": "Choose another profile name",
+    "description": "This name is already in use or reserved for the app.",
+    "recovery": "Use a different profile name, or go back and select the existing profile."
+  },
+  "profile_input_invalid": {
+    "title": "Check your details",
+    "description": "Enter a profile name and a six-digit PIN.",
+    "recovery": "Make sure both PINs match."
+  },
+  "profile_creation_unconfirmed": {
+    "title": "The profile save could not be confirmed",
+    "description": "The app could not confirm whether the new profile was saved.",
+    "recovery": "Check the profile list before trying to create it again. If the profile is listed, select it and enter its PIN."
+  },
+  "profile_request_refused": {
+    "title": "This profile request was refused",
+    "description": "The request did not match the local profile entry route or tried to change profile details outside the supported controls.",
+    "recovery": "Open the configured local app address and use its profile controls. This release does not support renaming profiles, changing PINs or deleting profiles."
+  },
+  "profile_entry_unconfirmed": {
+    "title": "Profile sign-in could not be confirmed",
+    "description": "The app could not confirm an authenticated session for the selected profile.",
+    "recovery": "Check that the local app is running, then select the profile and enter its PIN again. A saved profile does not need to be created again."
+  },
+  "profile_pin_rejected": {
+    "title": "Login failed",
+    "description": "Check your PIN and try again.",
+    "recovery": "You can also go back and choose another profile."
+  },
+  "profile_rate_limited": {
+    "title": "Wait before trying the PIN again",
+    "description": "The local app temporarily limited sign-in attempts.",
+    "recovery": "Wait for the displayed server-provided delay, if available, before trying again."
+  },
+  "app_signout_unconfirmed": {
+    "title": "Sign-out could not be confirmed",
+    "description": "The app could not confirm whether the current session ended.",
+    "recovery": "Retry sign-out or check the current profile. Your saved profiles and workspace have not been deleted."
+  },
+  "profile_browser_unsupported": {
+    "title": "This browser cannot manage local profiles",
+    "description": "Required local profile coordination features are unavailable in this browser context.",
+    "recovery": "Use a supported local browser setup. Existing profiles and their data have not been deleted."
+  },
+  "profile_pin_invalid": {
+    "title": "Use a six-digit PIN",
+    "description": "This profile uses a PIN of exactly six digits.",
+    "recovery": "Enter all six digits. Leading zeroes are allowed."
+  },
+  "profile_name_required": {
+    "title": "Enter a profile name",
+    "description": "Enter a profile name.",
+    "recovery": "Choose a name for this profile."
+  },
+  "profile_confirmation_required": {
+    "title": "Confirm your PIN",
+    "description": "Confirm your PIN.",
+    "recovery": "Enter the same PIN again."
+  },
+  "profile_pin_mismatch": {
+    "title": "PINs don't match",
+    "description": "PINs don't match.",
+    "recovery": "Enter the same PIN in both fields."
+  },
+  "container_image_build_failed": {
+    "title": "Container image could not be prepared",
+    "description": "A registered image could not be built or verified and was not admitted for use.",
+    "recovery": "Check Docker availability, network access and image-build progress. A stale existing image tag must be reviewed and removed before startup can rebuild it."
   },
   "mcp_app_lifetime_required": {
     "title": "The MCP app owner is unavailable",

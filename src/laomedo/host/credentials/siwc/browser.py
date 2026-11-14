@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from laomedo.host.credentials.siwc.errors import AuthError
+
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -12,7 +14,7 @@ from laomedo.host.credentials.siwc.callback import CallbackHandler
 from http.server import HTTPServer
 from urllib.parse import parse_qs
 from urllib.parse import urlsplit
-import laomedo.host.credentials.siwc.errors as _siwc_errors
+
 import webbrowser
 
 
@@ -33,8 +35,8 @@ def browser_connect(
         )
         # Authorization URL may contain id_token_hint. Never print or log it.
         if not webbrowser.open(attempt["url"]):
-            raise _siwc_errors.AuthError("auth_browser_unavailable")
+            raise AuthError("auth_browser_unavailable")
         server.handle_request()
     if not received:
-        raise _siwc_errors.AuthError("auth_callback_timeout")
+        raise AuthError("auth_callback_timeout")
     return store.finish(attempt, received)

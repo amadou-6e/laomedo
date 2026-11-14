@@ -6,7 +6,6 @@ import threading
 import time
 import tempfile
 from pathlib import Path
-from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 from uuid import uuid4
@@ -15,7 +14,7 @@ from laomedo.agents.agents.claude.agent import ClaudeAgent
 from laomedo.agents.agents.claude.models import ClaudePolicy
 from laomedo.agents.agents.claude.policy import ClaudeRuntimePolicy
 from laomedo.agents.agents.claude.executor import ClaudeCommandExecutor
-from laomedo.agents.activity.projection import project
+from laomedo.agents.agents.claude.activity.projection import project
 from laomedo.agents.errors import RunnerError
 from laomedo.agents.orchestration.utils import envelope
 import test_agents.test_claude.test_runner as controls
@@ -229,12 +228,60 @@ class ClaudeContainerParityTests(unittest.TestCase):
         ]
         result = project(
             [{"raw": row["event"], "received_at": row["received_at"]} for row in rows]
-        )
+        ).to_payload()
         self.assertEqual(len(result["items"]), 2)
         self.assertFalse(
             any(item.get("conflicting_receipts") for item in result["items"])
         )
         self.assertEqual(record["_last_streamed_text"], "final answer")
+
+    def test_native_user_echo_is_retained_without_becoming_an_assistant_answer(self):
+        record = self.runner._prepare(self.payload)
+        record.update(thread_id=str(uuid4()), active_host_turn=str(uuid4()))
+        root = self.runner._run_dir(record["run_id"])
+        prompt = json.dumps(
+            {"task": "Read the validation marker", "workspace": "/draft"}
+        )
+        self.runner._event(
+            root,
+            "item/completed",
+            {
+                "threadId": record["thread_id"],
+                "turnId": record["active_host_turn"],
+                "item": {"id": "prompt", "type": "userMessage", "text": prompt},
+            },
+        )
+        for role, text in [("assistant", "marker reply"), ("user", prompt)]:
+            self.runner._native_event(
+                root,
+                record,
+                {
+                    "type": role,
+                    "message": {
+                        "id": role + "-receipt",
+                        "role": role,
+                        "content": [{"type": "text", "text": text}],
+                    },
+                },
+            )
+        rows = [
+            json.loads(line)
+            for line in (root / "activity-events.jsonl").read_text().splitlines()
+        ]
+        result = project(
+            [{"raw": row["event"], "received_at": row["received_at"]} for row in rows]
+        ).to_payload()
+        self.assertEqual(
+            [lane["item"]["type"] for lane in result["items"]],
+            ["userMessage", "agentMessage"],
+        )
+        self.assertEqual(record["_last_streamed_text"], "marker reply")
+        raw = [
+            json.loads(line)["event"]
+            for line in (root / "raw-events.jsonl").read_text().splitlines()
+        ]
+        self.assertEqual(raw[-1]["type"], "user")
+        self.assertEqual(raw[-1]["message"]["content"][0]["text"], prompt)
 
     def test_native_receipt_before_block_stop_reuses_live_text_identity(self):
         record = self.runner._prepare(self.payload)
@@ -279,7 +326,7 @@ class ClaudeContainerParityTests(unittest.TestCase):
         ]
         result = project(
             [{"raw": row["event"], "received_at": row["received_at"]} for row in rows]
-        )
+        ).to_payload()
         self.assertEqual(
             [lane["item"]["type"] for lane in result["items"]],
             ["reasoning", "agentMessage"],
@@ -348,7 +395,7 @@ class ClaudeContainerParityTests(unittest.TestCase):
         ]
         result = project(
             [{"raw": row["event"], "received_at": row["received_at"]} for row in rows]
-        )
+        ).to_payload()
         self.assertEqual(result["items"][0]["item"]["text"], "visible now")
         self.assertIsNone(result["items"][0]["ended"])
 

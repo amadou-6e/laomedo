@@ -1,5 +1,4 @@
 from laomedo.agents.activity.models import CaptureIdentity
-from laomedo.agents.activity.models import ActivityInvocation
 import tempfile
 import unittest
 import os
@@ -36,7 +35,9 @@ class ActivityTests(unittest.TestCase):
             invocation = capture_for(component)
             store, run = invocation.store, invocation.invocation_id
         component._vertex.display_name = "Renamed later"
-        summary = store.graph_runs("alice", "flow")[0]
+        summary = next(
+            row for row in store.graph_runs("alice", "flow") if row["id"] == run
+        )
         self.assertEqual(summary["node"], "stable-node")
         self.assertEqual(summary["node_label"], "Review PR")
         self.assertEqual(
@@ -180,52 +181,6 @@ class ActivityTests(unittest.TestCase):
         self.assertEqual(response.json()["run"]["node"], "agent")
         self.assertEqual(response.headers["cache-control"], "no-store")
 
-    @unittest.skipIf(FastAPI is None, "optional FastAPI integration is not installed")
-    def test_truncated_projection_does_not_claim_full_usage_or_cost(self):
-        event = {
-            "sequence": 1,
-            "received_at": "2026-10-15T00:00:00Z",
-            "raw": {
-                "method": "thread/tokenUsage/updated",
-                "params": {
-                    "threadId": "thread",
-                    "tokenUsage": {
-                        "total": {
-                            "inputTokens": 100,
-                            "cachedInputTokens": 0,
-                            "outputTokens": 1,
-                        }
-                    },
-                },
-            },
-        }
-
-        def page(*args):
-            after = args[4]
-            return {
-                "run": {"native_session": "thread", "model": "gpt-6-luna"},
-                "events": [event] * 200,
-                "next_after": after + 200,
-                "has_more": True,
-            }
-
-        with patch.object(self.store, "read", side_effect=page):
-            value = self.client.get(
-                "/api/v1/laomedo/agent-executions/flow/agent/" + self.run,
-                headers={"Authorization": "alice"},
-            ).json()
-        self.assertTrue(value["truncated"])
-        self.assertIsNone(value["projection"]["usage"])
-        self.assertIsNone(value["projection"]["cost"]["amount"])
-        self.assertEqual(value["projection"]["usage_points"], [])
-        self.assertEqual(value["projection"]["usage_by_thread"], {})
-        self.assertTrue(
-            all(
-                turn["usage"] is None and turn["cost"]["amount"] is None
-                for turn in value["projection"]["turns"]
-            )
-        )
-
     def test_read_only_store_uses_existing_database_without_schema_writes(self):
         original = self.store.path.read_bytes()
         reader = ActivityStore(self.store.path, read_only=True)
@@ -243,3 +198,99 @@ class ActivityTests(unittest.TestCase):
             response = TestClient(app).get(self.base)
         self.assertEqual(response.status_code, 503)
         self.assertFalse(missing.parent.exists())
+
+    @unittest.skipIf(FastAPI is None, "optional FastAPI integration is not installed")
+    def test_latest_snapshot_survives_long_detail_without_duplicate_payloads(self):
+        from laomedo.agents.agents.codex.activity.projection import project
+        import json
+
+        view = project([]).to_payload()
+        first = {"method": "activity/projection", "revision": 1, "projection": view}
+        self.store.append(self.run, first, source="projection:test", cursor=1)
+        with self.store.db() as db:
+            db.executemany(
+                "INSERT INTO agent_activity_receipts VALUES (?,?,?,?)",
+                [
+                    (
+                        self.run,
+                        n,
+                        "2026-11-11",
+                        json.dumps(
+                            {"method": "activity/record", "record": {"sequence": n}}
+                        ),
+                    )
+                    for n in range(2, 20003)
+                ],
+            )
+        updated = {**view, "clock": "latest projection beyond detail limit"}
+        for revision in range(2, 8):
+            self.store.append(
+                self.run,
+                {
+                    "method": "activity/projection",
+                    "revision": revision,
+                    "projection": updated,
+                },
+                source="projection:test",
+                cursor=revision,
+            )
+        self.store.append(self.run, first, source="projection:test", cursor=1)
+        saved = self.store.read("alice", "flow", "agent", self.run)
+        self.assertEqual(saved["events"][0]["raw"]["revision"], 7)
+        with self.store.db() as db:
+            self.assertEqual(
+                db.execute(
+                    "SELECT COUNT(*) FROM agent_activity_receipts WHERE run=?",
+                    (self.run,),
+                ).fetchone()[0],
+                20002,
+            )
+        response = self.client.get(
+            "/api/v1/laomedo/agent-executions/flow/agent/" + self.run,
+            headers={"Authorization": "alice"},
+        )
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["projection"]["clock"], updated["clock"])
+        self.assertFalse(body["truncated"])
+        self.assertEqual(body["events"], [])
+        self.assertLess(len(response.content), 10000)
+
+    @unittest.skipIf(FastAPI is None, "optional FastAPI integration is not installed")
+    def test_incomplete_current_snapshot_never_claims_known_usage_or_cost(self):
+        from laomedo.agents.activity.models import ActivityProjection
+
+        for reason in ("invocation_boundary_unverified", "activity_projection_limit"):
+            with self.subTest(reason=reason):
+                run = self.store.start(
+                    CaptureIdentity.from_values("alice", "flow", "agent")
+                )
+                view = ActivityProjection.empty().to_payload()
+                view.update(
+                    usage={"inputTokens": 10},
+                    usage_by_thread={"root": {"inputTokens": 10}},
+                    usage_points=[{"usage": {"inputTokens": 10}}],
+                )
+                view["cost"] = {"amount": 1, "per_thread": {"root": {"amount": 1}}}
+                self.store.append(
+                    run,
+                    {
+                        "method": "activity/projection",
+                        "revision": 1,
+                        "projection": view,
+                    },
+                    source="projection:test",
+                    cursor=1,
+                )
+                self.store.finish(run, "failed", reason=reason)
+                response = self.client.get(
+                    "/api/v1/laomedo/agent-executions/flow/agent/" + run,
+                    headers={"Authorization": "alice"},
+                )
+                self.assertEqual(response.status_code, 200)
+                projection = response.json()["projection"]
+                self.assertIsNone(projection["usage"])
+                self.assertEqual(projection["usage_by_thread"], {})
+                self.assertEqual(projection["usage_points"], [])
+                self.assertIsNone(projection["cost"]["amount"])
+                self.assertEqual(projection["cost"]["per_thread"], {})
