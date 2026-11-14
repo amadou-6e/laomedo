@@ -85,7 +85,7 @@ A captured native terminal event closes native stream evidence, not task success
 OTLP exporter flush completeness remains unverified and is labeled separately.
 Failures and cancellation retain partial evidence. A hard app crash can leave a
 capture marked running; automatic recovery and retention/deletion policies remain
-unimplemented. Existing RunnerTraceBridge and WorkflowRunStore stay independent.
+unimplemented. WorkflowRunStore remains a separate durable workflow concern.
 
 ## Cost
 
@@ -184,9 +184,9 @@ session cost estimate, clearly separate from an invocation cost or subscription
 charge. No Claude prices are invented for the shared verified price catalog.
 
 Usage semantics: https://code.claude.com/docs/en/agent-sdk/cost-tracking
-The original proposal verification precedes this capture extension. Its receipts
-verify normalization. The separately approved one-turn
-[activity proof](../../../examples/claude-agent/activity-proof.json) verifies fresh
+Historical verification predates this assembled Agent cut. Its receipts describe
+that tested revision only. The separately approved one-turn
+[activity proof](https://github.com/amadou-6e/laomedo/blob/f6112286/archives/agents-205/remaining-provider-examples/files/examples/claude-agent/activity-proof.json) verifies fresh
 successful capture through the real Langflow graph; live correction, failed-turn
 and resumed-capture scenarios remain outside that additional verification.
 
@@ -195,13 +195,13 @@ pagination, retry deduplication, conflicting receipts, resume baselines, counter
 regressions, pricing unknowns and invocation boundaries. They are not real
 integration acceptance.
 
-Real verification uses the original Docker CLI 0.159.2 on the reviewed rebuilt
+The historical verification used the original Docker CLI 0.159.2 on the reviewed rebuilt
 image, real README reads, concurrent runners and a resumed thread. Exact graph
 executions and source revisions are recorded separately. Other providers, OTLP
 metrics, historical-image parity, hard-crash recovery and cross-machine collector
-setups remain outside this verified implementation.
+setups remain outside that recorded verification.
 
-The real [competing-resume check](../../../examples/agent-activity/resume-contention-evidence.json)
+The historical real [competing-resume check](https://github.com/amadou-6e/laomedo/blob/f6112286/archives/agents-205/remaining-provider-examples/files/examples/agent-activity/resume-contention-evidence.json)
 adds the adversarial case: two original nodes target one completed run, one resume
 is accepted and the refused node has zero events/turns and unassigned usage/cost.
 The source hashes identify the tested controller mechanism. This is separate from

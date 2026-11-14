@@ -11,7 +11,8 @@ from unittest.mock import patch
 from laomedo.skills.operations.models.provenance import ImportedSkillEditor
 from laomedo.skills.operations.models.history import SkillCommit
 from laomedo.skills.operations.service import SkillOperations
-from laomedo.skills.registry.errors import ConflictError, SkillStoreError
+from laomedo.skills.registry.errors import ConflictError
+from laomedo.skills.registry.errors import SkillStoreError
 from laomedo.skills.registry.utils.files import write_json
 from test_skills.test_operations.utils import make_operation_case
 

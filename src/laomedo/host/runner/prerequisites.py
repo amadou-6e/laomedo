@@ -3,6 +3,7 @@
 import re
 import shutil
 import subprocess
+from laomedo.host.runner.settings import DOCKER_CHECK_TIMEOUT_SECONDS
 
 ERROR_CODES = frozenset(
     {
@@ -26,7 +27,7 @@ def check_docker(environment):
             stdin=subprocess.DEVNULL,
             capture_output=True,
             text=True,
-            timeout=5,
+            timeout=DOCKER_CHECK_TIMEOUT_SECONDS,
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
         )
     except FileNotFoundError:

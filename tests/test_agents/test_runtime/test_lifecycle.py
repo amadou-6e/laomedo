@@ -1,0 +1,1858 @@
+from test_agents.test_runtime.transport import FakeServer
+from test_agents.test_runtime.utils import prepare_runner
+
+from support.paths import repository_root
+
+"""Credential-free runner and pinned-skill contract tests."""
+
+from pathlib import Path
+from laomedo.host.leases.models import ContainerIdentity
+from contextlib import nullcontext
+from importlib.util import find_spec
+import io
+import json
+import multiprocessing
+import os
+import queue
+import tempfile
+import threading
+import time
+import unittest
+from types import SimpleNamespace
+from unittest.mock import Mock
+from unittest.mock import patch
+from urllib import request as http_request
+from urllib import error as http_error
+
+from laomedo.agents.agents.codex.runtime import CodexAgentRuntime as AppServer
+from laomedo.agents.agents.codex.agent import CodexAgent as LocalRunner
+from laomedo.agents.errors import RunnerError
+from laomedo.agents.agents.codex.controller.models import CodexLaunch
+from laomedo.agents.workspaces.utils import _hash_tree
+from laomedo.agents.workspaces.utils import _copy_tree
+from laomedo.agents.agents.codex.utils import _native_error_summary
+from laomedo.host.runner.http.server import RunnerServer as serve
+from laomedo.host.credentials.siwc.errors import AuthError
+from laomedo.skills.registry.store import SkillStore
+from laomedo.host.mediation.authority import RunGrantAuthority
+
+
+def _serve_synthetic_host_services(state: str, token_file: str, checkout: str) -> None:
+    """Real lease/mediator processes, but no Docker or provider call."""
+    from unittest.mock import patch as child_patch
+    from laomedo.host.host_services import build_services
+    from laomedo.host.host_services import serve_services
+    import laomedo.host.leases.service as lease_service
+
+    root = Path(state)
+    lease, mediator = build_services(
+        state=root,
+        repository="example/disposable",
+        checkout=Path(checkout),
+        baseline="a" * 40,
+        agent_mount=Path(checkout),
+        connection_id="synthetic",
+        connection_generation=1,
+        token_file=Path(token_file),
+    )
+    with child_patch(
+        "laomedo.host.leases.service.inspect_exact", return_value=("absent", None)
+    ):
+        serve_services(
+            lease,
+            mediator,
+            root,
+            repository="example/disposable",
+            connection_id="synthetic",
+            connection_generation=1,
+        )
+
+
+class LocalRunnerTests(unittest.TestCase):
+    def test_snapshot_includes_native_shutdown_changes_and_remains_resumable(self):
+        class LateDirectory(FakeServer):
+            async def close(inner):
+                await super().close()
+                (inner.evidence / "workspace/.aws").mkdir(exist_ok=True)
+
+        self.runner.transport = LateDirectory
+        first = self.runner.start(self.request())
+        self.assertEqual(first["status"], "completed")
+        root = self.runner._run_dir(first["run_id"])
+        self.assertTrue((root / "post-run/.aws").is_dir())
+        self.assertEqual(_hash_tree(root / "workspace"), first["post_run_hash"])
+        resumed = self.runner.resume(
+            first["run_id"],
+            "Continue",
+            expected_post_run_hash=first["post_run_hash"],
+            expected_thread_id=first["thread_id"],
+            model="test-model",
+            effort="low",
+        )
+        self.assertEqual(resumed["status"], "completed")
+
+    def test_late_pinned_skill_change_blocks_snapshot_without_claiming_cleanup_failed(
+        self,
+    ):
+        class LateSkillChange(FakeServer):
+            async def close(inner):
+                await super().close()
+                (
+                    inner.evidence / "workspace/.agents/skills/sample/SKILL.md"
+                ).write_text("changed during shutdown")
+
+        self.runner.transport = LateSkillChange
+        result = self.runner.start(self.request())
+        self.assertEqual(result["status"], "failed")
+        self.assertEqual(result["controller_cleanup"], "confirmed")
+        self.assertFalse(result["snapshot_ready"])
+        self.assertIsNone(result["output_ref"])
+
+    def test_snapshot_io_error_is_not_reported_as_container_cleanup_failure(self):
+        freeze = self.runner._freeze_workspace
+
+        def denied(root, record):
+            with patch(
+                "laomedo.agents.agents.base.agent._copy_tree",
+                side_effect=PermissionError("private local path"),
+            ):
+                return freeze(root, record)
+
+        with patch.object(self.runner, "_freeze_workspace", side_effect=denied):
+            result = self.runner.start(self.request())
+        self.assertEqual(result["error_category"], "workspace_copy_mismatch")
+        self.assertEqual(result["controller_cleanup"], "confirmed")
+        self.assertFalse(result["snapshot_ready"])
+
+    def test_diagnostic_counter_survives_restart_and_corruption_never_gates(self):
+        from laomedo.agents.agents.codex.agent import CodexAgent as NormalRunner
+        from laomedo.agents.agents.base.utils import _json
+
+        runner = object.__new__(NormalRunner)
+        runner.state = self.root / "diagnostic-counter"
+        runner.state.mkdir()
+        self.assertEqual(runner._reserve_turn(), 1)
+        restarted = object.__new__(NormalRunner)
+        restarted.state = runner.state
+        self.assertEqual(restarted._reserve_turn(), 2)
+        (runner.state / "runs/prior").mkdir(parents=True)
+        _json(runner.state / "runs/prior/record.json", {"attempt_number": 7})
+        (runner.state / "attempt-count.json").write_text("broken accounting")
+        self.assertEqual(restarted._reserve_turn(), 8)
+        with patch(
+            "laomedo.agents.agents.base.agent._json",
+            side_effect=PermissionError("unwritable diagnostic"),
+        ):
+            self.assertEqual(restarted._reserve_turn(), 9)
+
+    def test_output_continuation_is_same_thread_feedback_only_and_ledger_counted(self):
+        record, transport = self._output_run(
+            [{}, {"report": "fixed", "task_outcome": "success"}]
+        )
+        self.assertEqual(record["status"], "completed")
+        self.assertEqual(record["output_validation"]["contract_status"], "accepted")
+        self.assertEqual(record["output_correction_count"], 1)
+        self.assertEqual(record["attempt_number"], 2)
+        self.assertEqual(len(record["turns"]), 2)
+        self.assertEqual(
+            [item["threadId"] for item in transport.inputs], ["native-thread"] * 2
+        )
+        self.assertNotIn(
+            "Use the sample skill", transport.inputs[1]["input"][0]["text"]
+        )
+        self.assertEqual(
+            transport.thread_params[0]["dynamicTools"][0]["name"],
+            "laomedo_output_precheck",
+        )
+
+    def test_output_correction_exhaustion_remains_rejected_without_third_turn(self):
+        record, transport = self._output_run([{}, {}])
+        self.assertEqual(len(transport.inputs), 2)
+        self.assertEqual(record["output_validation"]["contract_status"], "rejected")
+
+    def test_explicit_agent_failure_does_not_trigger_output_retry(self):
+        record, transport = self._output_run([{"task_outcome": "failure"}])
+        self.assertEqual(len(transport.inputs), 1)
+        self.assertEqual(record["output_validation"]["contract_status"], "rejected")
+
+    def test_side_effect_prevents_continuation(self):
+        record, transport = self._output_run([{}], effects=True)
+        self.assertEqual(len(transport.inputs), 1)
+        self.assertEqual(
+            record["output_correction_blocked"], "side_effect_safety_unverified"
+        )
+
+    def test_empty_continuation_never_uses_previous_turn_answer(self):
+        record, transport = self._output_run([{}, None])
+        self.assertEqual(record["status"], "failed")
+        self.assertEqual(record["error_category"], "completed_without_agent_message")
+
+    def test_old_exhausted_ledger_does_not_block_output_correction(self):
+        ledger = self.runner.state / "turn-ledger.json"
+        ledger.write_text(
+            json.dumps({"attempted_turns": 500, "max_authorized_turns": 1})
+        )
+        record, transport = self._output_run([{}, {"report": "fixed"}])
+        self.assertEqual(len(transport.inputs), 2)
+        self.assertEqual(record["output_validation"]["contract_status"], "accepted")
+        self.assertEqual(
+            json.loads(ledger.read_text()),
+            {"attempted_turns": 500, "max_authorized_turns": 1},
+        )
+
+    def test_unrecognized_dynamic_tool_receipt_blocks_continuation(self):
+        record, transport = self._output_run(
+            [{}],
+            native_item={
+                "type": "dynamicToolCall",
+                "tool": "unrecognized_write",
+                "id": "call",
+            },
+        )
+        self.assertEqual(len(transport.inputs), 1)
+        self.assertEqual(
+            record["output_correction_blocked"], "side_effect_safety_unverified"
+        )
+
+    def test_realistic_user_message_bound_precheck_then_agent_can_continue(self):
+        record, transport = self._output_run(
+            [{}, {"report": "fixed", "task_outcome": "success"}], native_precheck=True
+        )
+        self.assertEqual(len(transport.inputs), 2)
+        self.assertEqual(record["output_correction_count"], 1)
+        self.assertEqual(record["precheck"], {"installed": True, "call_count": 2})
+        self.assertEqual(record["output_validation"]["contract_status"], "accepted")
+
+    def test_failed_native_wait_keeps_observed_precheck_count(self):
+        record, transport = self._output_run(
+            [{}], native_precheck=True, failed_wait=True
+        )
+        self.assertEqual(len(transport.inputs), 1)
+        self.assertEqual(record["status"], "failed")
+        self.assertEqual(record["precheck"], {"installed": True, "call_count": 1})
+
+    def test_legacy_prepared_record_without_precheck_fields_is_dispatchable(self):
+        record = self.runner._prepare(self.request())
+        record.pop("precheck")
+        path = self.runner._run_dir(record["run_id"]) / "record.json"
+        path.write_text(json.dumps(record), encoding="utf-8")
+        result = self.runner._execute(
+            record["run_id"], "Use the sample skill", resume=False
+        )
+        self.assertEqual(result["status"], "completed")
+        self.assertEqual(result["precheck"], {"installed": False, "call_count": 0})
+
+    def test_zero_correction_count_and_no_fabricated_precheck_call(self):
+        record, transport = self._output_run([{}], retry_count=0)
+        self.assertEqual(len(transport.inputs), 1)
+        self.assertEqual(record["precheck"], {"installed": True, "call_count": 0})
+
+    def test_exact_run_capability_is_redacted_before_trace_persistence(self):
+        app = AppServer.__new__(AppServer)
+        app.secret_redactions = ("synthetic-run-capability",)
+        output = app._redact('{"text":"synthetic-run-capability"}\n')
+        self.assertEqual(output, '{"text":"[REDACTED_RUN_CAPABILITY]"}\n')
+
+    def test_real_lease_mediated_execute_and_stale_mediator_refusal(self):
+        host_state = self.runner.state / "host-services"
+        token_file = self.runner.state / "private.env"
+        token_file.write_text("GH=synthetic-provider-secret\n", encoding="utf-8")
+        child = multiprocessing.get_context("spawn").Process(
+            target=_serve_synthetic_host_services,
+            args=(str(host_state), str(token_file), str(self.source)),
+        )
+        child.start()
+        try:
+            # This bounds cold Windows child-process setup, not runner latency.
+            deadline = time.monotonic() + 30
+            while not all(
+                path.exists()
+                for path in (
+                    host_state / "lease" / "service.json",
+                    host_state / "lease" / "service.alive",
+                    host_state / "lease" / "service.alive.monotonic",
+                    host_state / "mediator" / "mediator.json",
+                )
+            ):
+                if time.monotonic() > deadline or not child.is_alive():
+                    self.fail(
+                        f"internal host services did not start (child exit={child.exitcode})"
+                    )
+                time.sleep(0.02)
+            authority = RunGrantAuthority(
+                host_state / "authority.sqlite",
+                connection_authorizer=lambda cid, gen, repo, reviewer: (
+                    cid,
+                    gen,
+                    repo,
+                    reviewer,
+                )
+                == ("synthetic", 1, "example/disposable", "operator"),
+            )
+            mediated = LocalRunner(
+                self.runner.state,
+                self.runner.store.root,
+                self.source,
+                transport=FakeServer,
+                check_docker=False,
+                supervise_containers=True,
+                lease_service=host_state / "lease",
+                github_authority=authority,
+                mediator_state=host_state / "mediator",
+            )
+            mediated.docker_environment = {
+                "DOCKER_HOST": "unix:///internal-lease-control.sock"
+            }
+
+            def prepare(number):
+                reference = authority.approve(
+                    invocation_id=f"invocation-{number}",
+                    repository="example/disposable",
+                    branch=f"branch-{number}",
+                    operations={"actions_read"},
+                    reviewed_by="operator",
+                    connection_id="synthetic",
+                    connection_generation=1,
+                )
+                request = self.request()
+                request["github_authorization_ref"] = reference
+                return mediated._prepare(request)
+
+            FakeServer.calls.clear()
+            FakeServer.turn_inputs.clear()
+            if os.name != "nt":
+                # The CI success path below substitutes a fake route. First
+                # assert that the actual Linux route fails before dispatch.
+                unverified = prepare("unverified")
+                with patch(
+                    "laomedo.agents.agents.codex.agent.cleanup_exact",
+                    return_value=(True, "absent"),
+                ):
+                    refused = mediated._execute(
+                        unverified["run_id"], "Synthetic task", resume=False
+                    )
+                self.assertEqual(refused["status"], "failed")
+                self.assertEqual(
+                    refused["error_category"], "mediator_container_route_unverified"
+                )
+                self.assertEqual(FakeServer.calls, [])
+
+            # Linux CI has no verified container-to-host route. Exercise the
+            # real lease/runner path with a fake transport while preserving
+            # the same live instance check; Windows tests the actual route.
+            def ci_route():
+                status = json.loads(
+                    (host_state / "mediator" / "mediator.json").read_text()
+                )
+                with http_request.urlopen(
+                    f"http://127.0.0.1:{status['port']}/v1/health", timeout=2
+                ) as response:
+                    health = json.load(response)
+                if health != {"status": "ready", "instance": status["instance"]}:
+                    raise RunnerError("mediator_unavailable")
+                return (
+                    f"http://host.docker.internal:{status['port']}/v1/mediate",
+                    status["instance"],
+                )
+
+            mediated.docker_environment = {
+                "DOCKER_HOST": "unix:///internal-lease-control.sock"
+            }
+            route_check = (
+                nullcontext()
+                if os.name == "nt"
+                else patch.object(mediated, "_mediator_route", side_effect=ci_route)
+            )
+            with route_check:
+                prepared = prepare(1)
+                with patch(
+                    "laomedo.agents.agents.codex.agent.cleanup_exact",
+                    return_value=(True, "absent"),
+                ):
+                    result = mediated._execute(
+                        prepared["run_id"], "Synthetic task", resume=False
+                    )
+                self.assertEqual(
+                    result["status"], "completed", result.get("error_category")
+                )
+                self.assertEqual(len(FakeServer.calls), 1)
+                launch = FakeServer.calls[0]
+                self.assertTrue(launch.capability.is_file())
+                self.assertIn("host.docker.internal", launch.mediator_url)
+                self.assertNotIn("synthetic-provider-secret", launch.model_dump_json())
+                self.assertIn(
+                    "node /run/laomedo/mediate.mjs", FakeServer.turn_inputs[0]
+                )
+                lease_dir = (
+                    host_state
+                    / "lease"
+                    / "leases"
+                    / result["container_ownership"]["launch_token"]
+                )
+                self.assertEqual(
+                    json.loads((lease_dir / "result.json").read_text())["reason"],
+                    "done",
+                )
+
+                prepared = prepare(2)
+                status_path = host_state / "mediator" / "mediator.json"
+                status = json.loads(status_path.read_text(encoding="utf-8"))
+                status_path.write_text(
+                    json.dumps({**status, "instance": "0" * 32}), encoding="utf-8"
+                )
+                with patch(
+                    "laomedo.agents.agents.codex.agent.cleanup_exact",
+                    return_value=(True, "absent"),
+                ):
+                    result = mediated._execute(
+                        prepared["run_id"], "Synthetic task", resume=False
+                    )
+                self.assertEqual(result["status"], "failed")
+                self.assertEqual(result["error_category"], "mediator_unavailable")
+                self.assertEqual(len(FakeServer.calls), 1)
+                lease_dir = (
+                    host_state
+                    / "lease"
+                    / "leases"
+                    / result["container_ownership"]["launch_token"]
+                )
+                self.assertEqual(
+                    json.loads((lease_dir / "result.json").read_text())["reason"],
+                    "done",
+                )
+        finally:
+            child.terminate()
+            child.join(timeout=5)
+
+    @unittest.skipUnless(
+        __import__("importlib.util").util.find_spec("py_docker"),
+        "Requires optional Docker runtime",
+    )
+    def test_mediator_mount_contains_capability_not_provider_token(self):
+        capability = self.runner.state / "grant.secret"
+        capability.write_text("synthetic-run-capability")
+        spec = CodexLaunch(
+            workspace=self.root,
+            canonical=self.root,
+            store_mount=self.runner.state,
+            image="sha256:" + "a" * 64,
+            capability=capability,
+            mediator_url="http://host.docker.internal:1234/v1/mediate",
+            mediator_instance="a" * 32,
+        ).to_container_spec()
+        mount = next(m for m in spec.mounts if m.target == "/run/laomedo/capability")
+        self.assertEqual(mount.source, str(capability))
+        self.assertTrue(mount.read_only)
+        self.assertEqual(
+            spec.environment["LAOMEDO_MEDIATOR_INSTANCE"].get_secret_value(), "a" * 32
+        )
+        self.assertNotIn("synthetic-run-capability", spec.model_dump_json())
+        self.assertNotIn("GH_TOKEN", spec.environment)
+        with self.assertRaisesRegex(RunnerError, "incomplete_mediator_mount"):
+            CodexLaunch(
+                workspace=self.root,
+                canonical=self.root,
+                store_mount=self.root,
+                image="sha256:" + "a" * 64,
+                capability=capability,
+            ).to_container_spec()
+
+    def test_split_executor_cannot_claim_legacy_container_lease(self):
+        with self.assertRaisesRegex(RunnerError, "split_executor_lease_unavailable"):
+            LocalRunner(
+                self.runner.state,
+                self.runner.store.root,
+                self.source,
+                check_docker=False,
+                split_executor=True,
+                supervise_containers=True,
+            )
+
+    @unittest.skipUnless(
+        __import__("importlib.util").util.find_spec("py_docker"),
+        "Requires optional Docker runtime",
+    )
+    def test_git_image_trusts_only_fixed_workspace_for_native_git(self):
+        from laomedo.agents.agents.codex.settings import GIT_IMAGE
+
+        for image in (GIT_IMAGE, "sha256:" + "a" * 64):
+            spec = CodexLaunch(
+                workspace=self.root,
+                canonical=self.root,
+                store_mount=self.root,
+                image=image,
+                managed_image=True,
+            ).to_container_spec()
+            values = {
+                k: v.get_secret_value()
+                for k, v in spec.environment.items()
+                if k.startswith("GIT_CONFIG_")
+            }
+            self.assertEqual(
+                values,
+                {
+                    "GIT_CONFIG_COUNT": "1",
+                    "GIT_CONFIG_KEY_0": "safe.directory",
+                    "GIT_CONFIG_VALUE_0": "/draft",
+                },
+            )
+        spec = CodexLaunch(
+            workspace=self.root,
+            canonical=self.root,
+            store_mount=self.root,
+            image="sha256:" + "a" * 64,
+        ).to_container_spec()
+        self.assertNotIn("GIT_CONFIG_COUNT", spec.environment)
+
+    def test_container_identity_is_saved_before_transport_launch(self):
+        class InspectReservation(FakeServer):
+            def __init__(self, command, evidence):
+                saved = json.loads(
+                    (evidence / "record.json").read_text(encoding="utf-8")
+                )
+                owner = saved["container_ownership"]
+                assert saved["status"] == "running"
+                assert command.name == owner["name"]
+                assert command.run_id == saved["run_id"]
+                assert command.launch_token.get_secret_value() == owner["launch_token"]
+                super().__init__(command, evidence)
+
+        self.runner.transport = InspectReservation
+        result = self.runner.start(self.request())
+        self.assertEqual(result["status"], "completed")
+        self.assertEqual(result["container_ownership"]["supervised"], False)
+
+    def test_supervised_launch_refuses_without_independent_lease_service(self):
+        launched = []
+
+        class Recording(FakeServer):
+            def __init__(self, command, evidence):
+                launched.append(command)
+                super().__init__(command, evidence)
+
+        self.runner.transport = Recording
+        self.runner.supervise_containers = True
+        result = self.runner.start(self.request())
+        self.assertEqual(result["status"], "failed")
+        self.assertEqual(result["error_category"], "lease_service_required")
+        self.assertEqual(launched, [])
+
+    def test_mediated_scope_requires_trusted_one_run_authorization(self):
+        authority = RunGrantAuthority(self.runner.state / "github-authority.sqlite")
+        reference = authority.approve(
+            invocation_id="approved-invocation",
+            repository="example/disposable",
+            branch="approved-branch",
+            operations={"actions_read"},
+            reviewed_by="test-operator",
+        )
+        request = self.request()
+        request["github_scope"] = {"repository": "other/repo"}
+        with self.assertRaisesRegex(
+            RunnerError, "github_scope_must_come_from_authority"
+        ):
+            self.runner._prepare(request)
+        request.pop("github_scope")
+        request["github_authorization_ref"] = reference
+        with self.assertRaisesRegex(RunnerError, "mediated_lease_required"):
+            self.runner._prepare(request)
+
+        mediated = LocalRunner(
+            self.runner.state,
+            self.runner.store.root,
+            self.source,
+            transport=FakeServer,
+            check_docker=False,
+            supervise_containers=True,
+            lease_service=self.root / "lease-state",
+            github_authority=authority,
+            mediator_state=self.runner.state / "mediator-state",
+        )
+        prepared = mediated._prepare(request)
+        self.assertEqual(
+            prepared["github_scope"],
+            {
+                "invocation_id": "approved-invocation",
+                "repository": "example/disposable",
+                "branch": "approved-branch",
+            },
+        )
+        self.assertNotIn(reference, json.dumps(prepared))
+        with self.assertRaisesRegex(RunnerError, "authorization_unavailable"):
+            mediated._prepare(request)
+
+        push_ref = authority.approve(
+            invocation_id="push-invocation",
+            repository="example/disposable",
+            branch="approved-branch",
+            operations={"git_push"},
+            reviewed_by="test-operator",
+        )
+        request["github_authorization_ref"] = push_ref
+        with self.assertRaisesRegex(RunnerError, "operation_unavailable_in_runner"):
+            mediated._prepare(request)
+
+    def test_restart_sweep_preserves_unverified_cleanup(self):
+        record = self.runner._prepare(self.request())
+        path = self.runner._run_dir(record["run_id"]) / "record.json"
+        saved = json.loads(path.read_text(encoding="utf-8"))
+        saved["status"] = "running"
+        saved["container_ownership"] = {
+            "name": "exact-name",
+            "launch_token": "token-one",
+            "supervised": True,
+            "cleanup_verified": False,
+        }
+        path.write_text(json.dumps(saved), encoding="utf-8")
+        with patch(
+            "laomedo.agents.agents.codex.agent.cleanup_exact",
+            return_value=(False, "conflict"),
+        ) as cleanup:
+            restarted = LocalRunner(
+                self.runner.state,
+                self.runner.store.root,
+                self.source,
+                transport=FakeServer,
+                check_docker=False,
+            )
+        after = restarted.status(record["run_id"])
+        self.assertEqual(after["status"], "interrupted")
+        self.assertEqual(after["error_category"], "container_cleanup_unverified")
+        self.assertFalse(after["container_ownership"]["cleanup_verified"])
+        cleanup.assert_called_once_with(
+            ContainerIdentity(
+                name="exact-name", run_id=record["run_id"], token="token-one"
+            )
+        )
+
+    def test_native_error_summary_only_exposes_schema_codes(self):
+        secret = "SECRET_LOGIN_TOKEN_and_https://private.example/path"
+        events = [
+            {
+                "method": "error",
+                "params": {
+                    "turnId": "wanted",
+                    "willRetry": True,
+                    "error": {
+                        "message": secret,
+                        "additionalDetails": secret,
+                        "codexErrorInfo": {
+                            "httpConnectionFailed": {
+                                "httpStatusCode": 401,
+                                "url": secret,
+                            }
+                        },
+                    },
+                },
+            },
+            {
+                "method": "error",
+                "params": {
+                    "turnId": "wanted",
+                    "willRetry": False,
+                    "error": {"message": secret, "codexErrorInfo": secret},
+                },
+            },
+            {
+                "method": "error",
+                "params": {
+                    "turnId": "other",
+                    "error": {"codexErrorInfo": "unauthorized", "message": secret},
+                },
+            },
+        ]
+        summary = _native_error_summary(events, "wanted")
+        self.assertEqual(
+            summary,
+            {
+                "schema_version": 1,
+                "error_events": 2,
+                "retry_events": 1,
+                "categories": {"httpConnectionFailed": 1, "unknown": 1},
+                "http_status_codes": [401],
+                "last_category": "unknown",
+            },
+        )
+        self.assertNotIn(secret, json.dumps(summary))
+
+    def test_failed_native_turn_exposes_only_allowlisted_category(self):
+        class Failed(FakeServer):
+            def wait_turn(self, turn_id, timeout, cancelled):
+                self.events.append(
+                    {
+                        "method": "error",
+                        "params": {
+                            "turnId": turn_id,
+                            "willRetry": False,
+                            "error": {
+                                "codexErrorInfo": "unauthorized",
+                                "message": "SECRET_LOGIN_TOKEN_and_https://private.example/path",
+                            },
+                        },
+                    }
+                )
+                return "failed", None
+
+        self.runner.transport = Failed
+        result = self.runner.start(self.request())
+        self.assertEqual(result["status"], "failed")
+        self.assertEqual(result["error_category"], "codex_unauthorized")
+        self.assertEqual(
+            result["native_error_summary"]["categories"], {"unauthorized": 1}
+        )
+        self.assertNotIn("SECRET_LOGIN_TOKEN", json.dumps(result))
+        self.assertEqual(self.runner._observed_turns, 1)
+
+    def test_missing_app_owned_consent_refuses_before_model_turn(self):
+        class MissingAccount:
+            def access_token(self):
+                raise AuthError("auth_account_missing")
+
+        self.runner.auth = MissingAccount()
+        result = self.runner.start(self.request())
+        self.assertEqual(result["status"], "failed")
+        self.assertEqual(result["error_category"], "auth_missing")
+        self.assertEqual(result["credential"]["credential_mode"], "chatgpt_plan_oauth")
+        self.assertEqual(result["credential"]["auth_outcome"], "missing")
+        self.assertEqual(result["turns"], [])
+        self.assertFalse((self.runner.state / "turn-ledger.json").exists())
+
+    def test_mid_turn_revocation_retains_turn_ledger_and_partial_trace(self):
+        state = {"active": True}
+
+        class ConnectedAccount:
+            def access_token(self):
+                return "SYNTHETIC", {
+                    "credential_ref": "chatgpt:fixture",
+                    "provider_subject_hash": "sha256:fixture",
+                    "generation": 1,
+                    "auth_outcome": "active",
+                }
+
+            def active(self):
+                return {"state": "active" if state["active"] else "revoked"}
+
+            def summary(self, _account):
+                return {
+                    "credential_ref": "chatgpt:fixture",
+                    "provider_subject_hash": "sha256:fixture",
+                    "generation": 1,
+                    "auth_outcome": "active",
+                }
+
+        class RevokedDuringTurn(FakeServer):
+            def wait_turn(self, turn_id, timeout, cancelled):
+                self.events.append(
+                    {
+                        "method": "item/completed",
+                        "params": {"item": {"type": "commandExecution", "exitCode": 0}},
+                    }
+                )
+                self.log.write('{"method":"item/completed"}\n')
+                self.log.flush()
+                state["active"] = False
+                assert not self.authorization_probe()
+                return "unknown", "auth_revoked_during_turn"
+
+        self.runner.transport = RevokedDuringTurn
+        self.runner.auth = ConnectedAccount()
+        result = self.runner.start(self.request())
+        self.assertEqual(result["status"], "unknown")
+        self.assertEqual(result["error_category"], "auth_revoked_during_turn")
+        self.assertEqual(result["credential"]["auth_outcome"], "revoked")
+        self.assertEqual(result["attempt_number"], 1)
+        self.assertEqual(result["turns"][0]["status"], "unknown")
+        self.assertTrue(
+            (self.runner._run_dir(result["run_id"]) / "raw-events.jsonl").exists()
+        )
+        self.assertEqual(self.runner._observed_turns, 1)
+
+    def test_mid_turn_account_or_generation_change_is_not_reported_as_revocation(self):
+        for change, expected_error, expected_outcome in (
+            ("account", "auth_account_changed_during_turn", "account_mismatch"),
+            ("generation", "auth_generation_changed_during_turn", "generation_changed"),
+        ):
+            state = {"credential_ref": "chatgpt:fixture", "generation": 1}
+
+            class ConnectedAccount:
+                def access_token(self):
+                    return "SYNTHETIC", {
+                        "credential_ref": "chatgpt:fixture",
+                        "provider_subject_hash": "sha256:fixture",
+                        "generation": 1,
+                        "auth_outcome": "active",
+                    }
+
+                def active(self):
+                    return {"state": "active"}
+
+                def summary(self, _account):
+                    return {
+                        "credential_ref": state["credential_ref"],
+                        "provider_subject_hash": "sha256:fixture",
+                        "generation": state["generation"],
+                        "auth_outcome": "active",
+                    }
+
+            class ChangedDuringTurn(FakeServer):
+                def wait_turn(self, turn_id, timeout, cancelled):
+                    self.events.append(
+                        {
+                            "method": "item/completed",
+                            "params": {
+                                "item": {"type": "commandExecution", "exitCode": 0}
+                            },
+                        }
+                    )
+                    state["credential_ref" if change == "account" else "generation"] = (
+                        "chatgpt:other" if change == "account" else 2
+                    )
+                    assert not self.authorization_probe()
+                    return "unknown", "auth_revoked_during_turn"
+
+            self.runner.transport = ChangedDuringTurn
+            self.runner.auth = ConnectedAccount()
+            result = self.runner.start(self.request())
+            with self.subTest(change=change):
+                self.assertEqual(result["status"], "unknown")
+                self.assertEqual(result["error_category"], expected_error)
+                self.assertEqual(result["credential"]["auth_outcome"], expected_outcome)
+                self.assertEqual(result["turns"][0]["error_category"], expected_error)
+        self.assertEqual(self.runner._observed_turns, 2)
+
+    def test_generation_change_before_turn_refuses_without_model_submission(self):
+        class ChangedBeforeTurn(FakeServer):
+            turn_starts = 0
+
+            def request(self, method, params, timeout=30):
+                if method == "turn/start":
+                    type(self).turn_starts += 1
+                return super().request(method, params, timeout)
+
+        class Account:
+            def access_token(self):
+                return "SYNTHETIC", {
+                    "credential_ref": "chatgpt:fixture",
+                    "provider_subject_hash": "sha256:fixture",
+                    "generation": 1,
+                    "auth_outcome": "active",
+                }
+
+            def active(self):
+                return {"state": "active"}
+
+            def summary(self, _account):
+                return {
+                    "credential_ref": "chatgpt:fixture",
+                    "provider_subject_hash": "sha256:fixture",
+                    "generation": 2,
+                    "auth_outcome": "active",
+                }
+
+        self.runner.transport = ChangedBeforeTurn
+        self.runner.auth = Account()
+        result = self.runner.start(self.request())
+        self.assertEqual(result["status"], "failed")
+        self.assertEqual(result["error_category"], "auth_generation_changed")
+        self.assertEqual(result["credential"]["auth_outcome"], "generation_changed")
+        self.assertEqual(result["turns"], [])
+        self.assertEqual(ChangedBeforeTurn.turn_starts, 0)
+
+    def test_mid_turn_refresh_uncertainty_stays_distinct_from_revocation(self):
+        state = {"value": "active"}
+
+        class Account:
+            def access_token(self):
+                return "SYNTHETIC", {
+                    "credential_ref": "chatgpt:fixture",
+                    "provider_subject_hash": "sha256:fixture",
+                    "generation": 1,
+                    "auth_outcome": "active",
+                }
+
+            def active(self):
+                return {"state": state["value"]}
+
+            def summary(self, _account):
+                return {
+                    "credential_ref": "chatgpt:fixture",
+                    "provider_subject_hash": "sha256:fixture",
+                    "generation": 1,
+                    "auth_outcome": state["value"],
+                }
+
+        class RefreshUnknown(FakeServer):
+            def wait_turn(self, turn_id, timeout, cancelled):
+                state["value"] = "refresh_unknown"
+                assert not self.authorization_probe()
+                return "unknown", "auth_revoked_during_turn"
+
+        self.runner.transport = RefreshUnknown
+        self.runner.auth = Account()
+        result = self.runner.start(self.request())
+        self.assertEqual(result["status"], "unknown")
+        self.assertEqual(result["error_category"], "auth_refresh_failed_during_turn")
+        self.assertEqual(result["credential"]["auth_outcome"], "refresh_unknown")
+        self.assertEqual(result["attempt_number"], 1)
+
+    def setUp(self):
+        prepare_runner(self)
+
+    def request(self):
+        return self.case.request()
+
+    def test_opt_in_git_workspace_preserves_agent_history_without_snapshotting_it(self):
+        repository = self.root / "git-source"
+        repository.mkdir()
+        (repository / "task.txt").write_text("source input", encoding="utf-8")
+
+        def git(*args, cwd=repository):
+            result = __import__("subprocess").run(
+                ["git", "-C", str(cwd), *args], capture_output=True, timeout=10
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            return result.stdout.decode().strip()
+
+        git("init", "-q")
+        git("add", "task.txt")
+        git(
+            "-c",
+            "user.name=Fixture",
+            "-c",
+            "user.email=fixture@example.invalid",
+            "commit",
+            "-qm",
+            "baseline",
+        )
+        baseline = git("rev-parse", "HEAD")
+        runner = LocalRunner(
+            self.runner.state,
+            self.runner.store.root,
+            repository,
+            transport=FakeServer,
+            check_docker=False,
+            git_workspace=True,
+        )
+        result = runner.start(self.request())
+        self.assertEqual(result["status"], "completed")
+        self.assertEqual(result["workspace_mode"], "git")
+        self.assertEqual(result["image"], "laomedo-codex-acp:0.159.2-2.1.1")
+        self.assertEqual(
+            FakeServer.calls[-1].image,
+            __import__(
+                "laomedo.agents.agents.codex.settings", fromlist=["GIT_IMAGE"]
+            ).GIT_IMAGE,
+        )
+        self.assertEqual(result["git_baseline"], baseline)
+        self.assertTrue(result["skill_git_exclusion"]["enabled"])
+        self.assertEqual(result["post_run_hash_scope"], "working_files_only")
+        run_dir = runner._run_dir(result["run_id"])
+        self.assertEqual(git("rev-parse", "HEAD", cwd=run_dir / "workspace"), baseline)
+        self.assertEqual(git("remote", cwd=run_dir / "workspace"), "")
+        self.assertFalse((run_dir / "canonical" / ".git").exists())
+        self.assertFalse((run_dir / "post-run" / ".git").exists())
+        self.assertTrue((run_dir / "workspace" / ".git").is_dir())
+        status = git("status", "--porcelain", cwd=run_dir / "workspace")
+        self.assertIn("agent.txt", status)
+        self.assertNotIn(".agents/skills", status)
+        self.assertFalse((repository / "agent.txt").exists())
+        resumed = runner.resume(
+            result["run_id"],
+            "Continue in the same repository",
+            expected_post_run_hash=result["post_run_hash"],
+            expected_thread_id=result["thread_id"],
+            model="test-model",
+            effort="low",
+        )
+        self.assertEqual(resumed["status"], "completed")
+        self.assertTrue((run_dir / "workspace" / ".git").is_dir())
+
+        authority = RunGrantAuthority(self.runner.state / "git-authority.sqlite")
+        reference = authority.approve(
+            invocation_id="approved-git",
+            repository="example/disposable",
+            branch="run-branch",
+            operations={"git_push"},
+            reviewed_by="test-operator",
+        )
+        mediated = LocalRunner(
+            self.runner.state,
+            self.runner.store.root,
+            repository,
+            transport=FakeServer,
+            check_docker=False,
+            git_workspace=True,
+            supervise_containers=True,
+            lease_service=self.runner.state / "lease-state",
+            github_authority=authority,
+            mediator_state=self.runner.state / "mediator-state",
+        )
+        request = self.request()
+        request["github_authorization_ref"] = reference
+        prepared = mediated._prepare(request)
+        self.assertEqual(prepared["github_scope"]["branch"], "run-branch")
+        self.assertEqual(prepared["workspace_mode"], "git")
+        private_lease = self.runner.state / "fixture-lease"
+        private_lease.mkdir()
+        (private_lease / "grant.secret").write_text(
+            "synthetic-capability", encoding="utf-8"
+        )
+        lease = SimpleNamespace(
+            instance="fixture-instance",
+            grant_id="fixture-grant",
+            dir=private_lease,
+            lost=threading.Event(),
+            finish=Mock(),
+        )
+        with (
+            patch("laomedo.agents.agents.codex.agent.LeaseClient", return_value=lease),
+            patch.object(
+                mediated,
+                "_mediator_route",
+                return_value=(
+                    "http://host.docker.internal:1234/v1/mediate",
+                    "fixture-instance",
+                ),
+            ),
+            patch(
+                "laomedo.agents.agents.codex.agent.cleanup_exact",
+                return_value=(True, "absent"),
+            ),
+        ):
+            completed = mediated._execute(
+                prepared["run_id"], "Synthetic task", resume=False
+            )
+            self.assertEqual(
+                completed["status"], "completed", completed.get("error_category")
+            )
+            exclusion = completed["skill_git_exclusion"]
+            self.assertTrue(exclusion["enabled"])
+            owned_workspace = mediated._run_dir(completed["run_id"]) / "workspace"
+            before = (owned_workspace / ".git/info/exclude").read_bytes()
+            self.assertIn(b"/.laomedo-handoff.bundle", before.splitlines())
+            self.assertEqual(
+                completed["container_ownership"]["grant_id"], "fixture-grant"
+            )
+            resumed = mediated.resume(
+                completed["run_id"],
+                "Continue synthetic task",
+                expected_post_run_hash=completed["post_run_hash"],
+                expected_thread_id=completed["thread_id"],
+                model="test-model",
+                effort="low",
+            )
+            self.assertEqual(
+                resumed["status"], "completed", resumed.get("error_category")
+            )
+            self.assertEqual(resumed["skill_git_exclusion"], exclusion)
+            self.assertEqual(
+                (owned_workspace / ".git/info/exclude").read_bytes(), before
+            )
+
+        # These are mocked grants/transports, not acceptance of real renewed
+        # mediated grants or a model invocation's resume lifecycle.
+
+    def test_git_workspace_snapshot_refuses_oversized_file_before_reading_it(self):
+        root = self.root / "oversized"
+        root.mkdir()
+        with (root / "oversized.bin").open("wb") as stream:
+            stream.truncate(65 * 1024 * 1024)
+        with self.assertRaisesRegex(RunnerError, "git_workspace_snapshot_limit"):
+            _hash_tree(root, exclude_root_git=True)
+
+    def test_git_snapshot_excludes_only_exact_metadata_directory(self):
+        root = self.root / "case-variant"
+        root.mkdir()
+        variant = root / ".GIT"
+        variant.mkdir()
+        payload = variant / "ordinary.txt"
+        payload.write_text("one", encoding="utf-8")
+        first = _hash_tree(root, exclude_root_git=True)
+        payload.write_text("two", encoding="utf-8")
+        self.assertNotEqual(first, _hash_tree(root, exclude_root_git=True))
+        copied = self.root / "case-variant-copy"
+        _copy_tree(root, copied, exclude_root_git=True)
+        self.assertEqual((copied / ".GIT" / "ordinary.txt").read_text(), "two")
+
+    def auth_headers(self, *, content_type="application/json"):
+        return {
+            "Authorization": "Bearer " + self.runner.api_token,
+            "Content-Type": content_type,
+        }
+
+    def test_start_resume_and_fresh_workspace(self):
+        first = self.runner.start(self.request())
+        first_attempt = (
+            self.runner._run_dir(first["run_id"])
+            / "activity-attempts"
+            / (first["activity_attempt_id"] + ".json")
+        )
+        self.assertIs(json.loads(first_attempt.read_text())["fresh_thread"], True)
+        self.assertEqual(first["status"], "completed")
+        self.assertEqual(first["thread_id"], "native-thread")
+        self.assertEqual(
+            first["effective_model_source"], "host_requested_adapter_asserted"
+        )
+        self.assertEqual(
+            first["effective_effort_source"], "host_requested_adapter_asserted"
+        )
+        self.assertEqual(first["skill"]["use_evidence"], "offered")
+        self.assertEqual(first["answer"], "synthetic answer")
+        command = FakeServer.calls[-1]
+        self.assertEqual(command.profile, "laomedo-122-docker-auth")
+        self.assertNotIn("auth.json", command.model_dump_json())
+        output = self.runner._run_dir(first["run_id"]) / "post-run"
+        self.assertEqual(_hash_tree(output), first["post_run_hash"])
+        self.assertFalse((self.source / "agent.txt").exists())
+        self.assertEqual(
+            (output / ".agents/skills/sample/SKILL.md").read_text(),
+            (self.skill_source / "SKILL.md").read_text(),
+        )
+        second = self.runner.start(self.request())
+        self.assertNotEqual(second["run_id"], first["run_id"])
+        restarted = LocalRunner(
+            self.runner.state,
+            self.runner.store.root,
+            self.source,
+            transport=FakeServer,
+            check_docker=False,
+        )
+        resumed = restarted.resume(
+            first["run_id"],
+            "continue",
+            expected_post_run_hash=first["post_run_hash"],
+            expected_thread_id=first["thread_id"],
+            model="test-model",
+            effort="low",
+        )
+        self.assertEqual(resumed["status"], "completed")
+        resumed_attempt = (
+            self.runner._run_dir(resumed["run_id"])
+            / "activity-attempts"
+            / (resumed["activity_attempt_id"] + ".json")
+        )
+        self.assertIs(json.loads(resumed_attempt.read_text())["fresh_thread"], False)
+        self.assertIs(json.loads(first_attempt.read_text())["fresh_thread"], True)
+        self.assertEqual(len(resumed["turns"]), 2)
+        self.assertEqual(self.runner._observed_turns, 2)
+
+    def test_creator_owned_cleanup_records_confirmation_only_after_all_resources_close(
+        self,
+    ):
+        original_close = FakeServer.close
+        for fail_executor in (False, True):
+            with self.subTest(fail_executor=fail_executor):
+
+                async def close(server):
+                    await original_close(server)
+                    server.cleanup_confirmed = True  # Controller removed.
+                    if fail_executor:
+                        raise RunnerError("executor_termination_unverified")
+
+                with patch.object(FakeServer, "close", close):
+                    result = self.runner.start(self.request())
+                self.assertEqual(
+                    result["container_ownership"]["cleanup_verified"], not fail_executor
+                )
+                self.assertEqual(
+                    result["controller_cleanup"],
+                    "unverified" if fail_executor else "confirmed",
+                )
+                if fail_executor:
+                    self.assertEqual(result["status"], "failed")
+                    self.assertEqual(
+                        result["error_category"], "executor_termination_unverified"
+                    )
+
+    def test_app_owned_resume_refuses_changed_account_and_runner_restart(self):
+        completed = self.runner.start(self.request())
+        record_path = self.runner._run_dir(completed["run_id"]) / "record.json"
+        record = json.loads(record_path.read_text())
+        record["credential"] = {
+            "credential_mode": "chatgpt_plan_oauth",
+            "credential_ref": "chatgpt:first",
+            "provider_subject_hash": "sha256:first",
+        }
+        record_path.write_text(json.dumps(record))
+
+        class OtherAccount:
+            def access_token(self):
+                return "synthetic", {
+                    "credential_ref": "chatgpt:second",
+                    "provider_subject_hash": "sha256:second",
+                }
+
+        self.runner.auth = OtherAccount()
+        args = dict(
+            expected_post_run_hash=completed["post_run_hash"],
+            expected_thread_id=completed["thread_id"],
+            model="test-model",
+            effort="low",
+        )
+        with self.assertRaisesRegex(RunnerError, "resume_auth_identity_mismatch"):
+            self.runner.resume(completed["run_id"], "continue", **args)
+        restarted = LocalRunner(
+            self.runner.state,
+            self.runner.store.root,
+            self.source,
+            transport=FakeServer,
+            check_docker=False,
+        )
+        restarted.auth = OtherAccount()
+        with self.assertRaisesRegex(
+            RunnerError, "resume_after_runner_restart_forbidden"
+        ):
+            restarted.resume(completed["run_id"], "continue", **args)
+        self.assertEqual(self.runner._observed_turns, 1)
+
+    def test_zero_skills_prepare_without_registry_lookup_and_validate_explicit_inputs(
+        self,
+    ):
+        for explicit in (False, True):
+            request = self.request()
+            request.pop("skill_ref")
+            if explicit:
+                request["skill_refs"] = []
+            with patch.object(
+                self.runner.store,
+                "revision",
+                side_effect=AssertionError("no skill lookup"),
+            ):
+                record = self.runner._prepare(request)
+            self.assertEqual(record["skills"], [])
+            self.assertIsNone(record["skill"])
+            workspace = self.runner._run_dir(record["run_id"]) / "workspace"
+            self.assertEqual(list((workspace / ".agents/skills").iterdir()), [])
+        for supplied in (
+            {"skill_ref": None},
+            {"skill_refs": None},
+            {"skill_refs": [None]},
+            {"skill_refs": [], "skill_ref": self.request()["skill_ref"]},
+        ):
+            request = self.request()
+            request.pop("skill_ref")
+            request.update(supplied)
+            with self.subTest(supplied=supplied), self.assertRaises(RunnerError):
+                self.runner._prepare(request)
+
+    def test_zero_skills_refuses_unselected_source_skills_and_invalid_paths_before_dispatch(
+        self,
+    ):
+        request = self.request()
+        request.pop("skill_ref")
+        target = self.source / ".agents"
+        target.mkdir()
+        (target / "skills").write_text("not a directory")
+        with self.assertRaisesRegex(RunnerError, "unsafe_materialized_skill_path"):
+            self.runner._prepare(request)
+        (target / "skills").unlink()
+        (target / "skills" / "unselected").mkdir(parents=True)
+        with self.assertRaisesRegex(RunnerError, "unexpected_materialized_skill"):
+            self.runner._prepare(request)
+        self.assertEqual(list((self.runner.state / "runs").iterdir()), [])
+        self.assertFalse((self.runner.state / "turn-ledger.json").exists())
+
+    def test_zero_skills_can_complete_and_resume_with_empty_bound_skill_set(self):
+        request = self.request()
+        request.pop("skill_ref")
+        result = self.runner.start(request)
+        self.assertEqual(result["status"], "completed")
+        self.assertEqual(result["skills"], [])
+        resumed = self.runner.resume(
+            result["run_id"],
+            "continue",
+            expected_post_run_hash=result["post_run_hash"],
+            expected_thread_id=result["thread_id"],
+            model="test-model",
+            effort="low",
+        )
+        self.assertEqual(resumed["status"], "completed")
+        self.assertEqual(resumed["skills"], [])
+
+    def test_multiple_skills_materialize_and_resume_as_one_bound_snapshot(self):
+        second_source = self.root / "second-skill-source"
+        second_source.mkdir()
+        (second_source / "SKILL.md").write_text("---\nname: second\n---\nUse amber.\n")
+        second = self.runner.store.import_skill("second", second_source)
+        request = self.request()
+        first_ref = request.pop("skill_ref")
+        request["skill_refs"] = [
+            first_ref,
+            {
+                "skill_id": "second",
+                "revision_id": second["revision_id"],
+                "tree_hash": second["tree_hash"],
+            },
+        ]
+        result = self.runner.start(request)
+        self.assertEqual(
+            [s["skill_id"] for s in result["skills"]], ["sample", "second"]
+        )
+        self.assertIsNone(result["skill"])
+        for name in ("sample", "second"):
+            self.assertTrue(
+                (
+                    self.runner._run_dir(result["run_id"])
+                    / "post-run/.agents/skills"
+                    / name
+                    / "SKILL.md"
+                ).is_file()
+            )
+        resumed = self.runner.resume(
+            result["run_id"],
+            "continue",
+            expected_post_run_hash=result["post_run_hash"],
+            expected_thread_id=result["thread_id"],
+            model="test-model",
+            effort="low",
+        )
+        self.assertEqual(resumed["skills"], result["skills"])
+
+    def test_frontmatter_name_collision_fails_before_dispatch(self):
+        duplicate = self.runner.store.import_skill("other-id", self.skill_source)
+        request = self.request()
+        request["skill_ref"] = {
+            "skill_id": "other-id",
+            "revision_id": duplicate["revision_id"],
+            "tree_hash": duplicate["tree_hash"],
+        }
+        before = len(FakeServer.calls)
+        with self.assertRaisesRegex(RunnerError, "skill_frontmatter_name_mismatch"):
+            self.runner.start(request)
+        self.assertEqual(len(FakeServer.calls), before)
+
+    def test_multiple_skill_failure_cleans_partial_materialization_without_dispatch(
+        self,
+    ):
+        request = self.request()
+        ref = request.pop("skill_ref")
+        before = len(FakeServer.calls)
+        request["skill_refs"] = [ref, {**ref, "skill_id": "missing"}]
+        with self.assertRaises(Exception):
+            self.runner.start(request)
+        self.assertEqual(len(FakeServer.calls), before)
+        self.assertEqual(list((self.runner.state / "runs").iterdir()), [])
+        request["skill_refs"] = [ref, ref]
+        with self.assertRaisesRegex(RunnerError, "duplicate_skill_id"):
+            self.runner.start(request)
+
+    def test_production_runners_cannot_restore_a_verification_turn_cap(self):
+        import inspect
+        from laomedo.agents.agents.claude.agent import ClaudeAgent
+        from laomedo.agents.agents.opencode.agent import OpenCodeAgent
+
+        for runner in (LocalRunner, ClaudeAgent, OpenCodeAgent):
+            self.assertNotIn("max_model_turns", inspect.signature(runner).parameters)
+        for name in ("local_runner.py", "claude_runner.py", "opencode_runner.py"):
+            root = repository_root()
+            layout = json.loads(
+                (root / "tools/migrations/module-paths.json").read_text()
+            )
+            module = layout["laomedo." + Path(name).stem]
+            source = (
+                root.joinpath("src", *module.split(".")).with_suffix(".py").read_text()
+            )
+            self.assertNotIn("model_turn_cap_reached", source)
+            self.assertNotIn("--max-model-turns", source)
+
+    def test_corrupt_or_exhausted_experiment_ledger_cannot_block_normal_runs(self):
+        ledger = self.runner.state / "turn-ledger.json"
+        for data in (
+            "not-json",
+            '{"attempted_turns":-1}',
+            '{"attempted_turns":true}',
+            '{"attempted_turns":999999,"max_authorized_turns":0}',
+        ):
+            ledger.write_text(data)
+            result = self.runner.start(self.request())
+            self.assertEqual(result["status"], "completed")
+            self.assertEqual(ledger.read_text(), data)
+
+    def test_default_runner_ignores_exhausted_verification_ledger_across_restart(self):
+        ledger = self.runner.state / "turn-ledger.json"
+        ledger.write_text(
+            json.dumps({"attempted_turns": 500, "max_authorized_turns": 1})
+        )
+        for _ in range(2):
+            runner = LocalRunner(
+                self.runner.state,
+                self.runner.store.root,
+                self.source,
+                transport=FakeServer,
+                check_docker=False,
+            )
+            result = runner.start(self.request())
+            self.assertEqual(result["status"], "completed")
+        self.assertEqual(
+            json.loads(ledger.read_text()),
+            {"attempted_turns": 500, "max_authorized_turns": 1},
+        )
+
+    def test_restart_marks_incomplete_run_interrupted_without_losing_trace(self):
+        first = self.runner.start(self.request())
+        run_dir = self.runner._run_dir(first["run_id"])
+        record = json.loads((run_dir / "record.json").read_text())
+        record["status"] = "running"
+        (run_dir / "record.json").write_text(json.dumps(record))
+        before = (run_dir / "raw-events.jsonl").read_bytes()
+        restarted = LocalRunner(
+            self.runner.state,
+            self.runner.store.root,
+            self.source,
+            transport=FakeServer,
+            check_docker=False,
+        )
+        after = restarted.status(first["run_id"])
+        self.assertEqual(after["status"], "interrupted")
+        self.assertEqual(after["error_category"], "runner_restarted")
+        self.assertEqual((run_dir / "raw-events.jsonl").read_bytes(), before)
+
+    def test_missing_or_changed_snapshot_refused(self):
+        first = self.runner.start(self.request())
+        args = dict(
+            expected_post_run_hash=first["post_run_hash"],
+            expected_thread_id=first["thread_id"],
+            model="test-model",
+            effort="low",
+        )
+        with self.assertRaisesRegex(RunnerError, "resume_binding_mismatch"):
+            self.runner.resume(
+                first["run_id"], "continue", **{**args, "model": "other"}
+            )
+        (self.runner._run_dir(first["run_id"]) / "post-run/task.txt").write_text(
+            "tampered"
+        )
+        with self.assertRaisesRegex(RunnerError, "post_run_snapshot_mismatch"):
+            self.runner.resume(first["run_id"], "continue", **args)
+
+    def test_missing_post_run_snapshot_refused(self):
+        first = self.runner.start(self.request())
+        snapshot = self.runner._run_dir(first["run_id"]) / "post-run"
+        __import__("shutil").rmtree(snapshot)
+        with self.assertRaisesRegex(RunnerError, "post_run_snapshot_mismatch"):
+            self.runner.resume(
+                first["run_id"],
+                "continue",
+                expected_post_run_hash=first["post_run_hash"],
+                expected_thread_id=first["thread_id"],
+                model="test-model",
+                effort="low",
+            )
+
+    def test_resume_binding_refusals_do_not_open_transport_or_spend_a_turn(self):
+        first = self.runner.start(self.request())
+        args = dict(
+            expected_post_run_hash=first["post_run_hash"],
+            expected_thread_id=first["thread_id"],
+            model="test-model",
+            effort="low",
+        )
+        record_path = self.runner._run_dir(first["run_id"]) / "record.json"
+        original = record_path.read_bytes()
+        ledger_before = self.runner._observed_turns
+        calls_before = len(FakeServer.calls)
+        for field, replacement in (
+            ("profile", "another-private-profile"),
+            ("thread_id", "another-thread"),
+            ("post_run_hash", "sha256:" + "0" * 64),
+        ):
+            with self.subTest(field=field):
+                record = json.loads(original)
+                record[field] = replacement
+                record_path.write_text(json.dumps(record))
+                try:
+                    with self.assertRaisesRegex(RunnerError, "resume_binding_mismatch"):
+                        self.runner.resume(first["run_id"], "continue", **args)
+                    self.assertEqual(len(FakeServer.calls), calls_before)
+                    self.assertEqual(self.runner._observed_turns, ledger_before)
+                finally:
+                    record_path.write_bytes(original)
+
+    def test_empty_directory_change_invalidates_workspace_hash(self):
+        first = self.runner.start(self.request())
+        snapshot = self.runner._run_dir(first["run_id"]) / "post-run"
+        (snapshot / "new-empty-directory").mkdir()
+        self.assertNotEqual(_hash_tree(snapshot), first["post_run_hash"])
+
+    def test_changed_canonical_mount_refuses_resume(self):
+        first = self.runner.start(self.request())
+        canonical = self.runner._run_dir(first["run_id"]) / "canonical/task.txt"
+        canonical.write_text("changed")
+        with self.assertRaisesRegex(RunnerError, "protected_mount_changed"):
+            self.runner.resume(
+                first["run_id"],
+                "continue",
+                expected_post_run_hash=first["post_run_hash"],
+                expected_thread_id=first["thread_id"],
+                model="test-model",
+                effort="low",
+            )
+
+    def test_missing_and_changed_skill_revision_fail_before_turn(self):
+        original = self.runner.start(self.request())
+        delivered = (
+            self.runner._run_dir(original["run_id"])
+            / "post-run/.agents/skills/sample/SKILL.md"
+        ).read_bytes()
+        request = self.request()
+        request["skill_ref"]["revision_id"] = "sha256:" + "0" * 64
+        with self.assertRaises(RunnerError):
+            self.runner.start(request)
+        request = self.request()
+        bundle = (
+            self.runner.store._revision_dir("sample", self.revision["revision_id"])
+            / "bundle"
+        )
+        (bundle / "SKILL.md").write_text("tampered")
+        with self.assertRaises(Exception):
+            self.runner.start(request)
+        self.assertEqual(
+            (
+                self.runner._run_dir(original["run_id"])
+                / "post-run/.agents/skills/sample/SKILL.md"
+            ).read_bytes(),
+            delivered,
+        )
+
+    def test_skill_path_escape_refused(self):
+        request = self.request()
+        request["skill_ref"]["skill_id"] = "../outside"
+        with self.assertRaises(Exception):
+            self.runner.start(request)
+
+    def test_http_start_and_status_keep_private_paths_out(self):
+        server = serve(self.runner, port=0)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        self.addCleanup(
+            lambda: (server.shutdown(), server.server_close(), thread.join(2))
+        )
+        base = f"http://127.0.0.1:{server.server_port}/v1/runs"
+        request = http_request.Request(
+            base, data=json.dumps(self.request()).encode(), headers=self.auth_headers()
+        )
+        with http_request.urlopen(request) as response:
+            result = json.load(response)
+        with http_request.urlopen(
+            http_request.Request(
+                base + "/" + result["run_id"], headers=self.auth_headers()
+            )
+        ) as response:
+            status = json.load(response)
+        self.assertEqual(status["status"], "completed")
+        self.assertEqual(
+            status["raw_event_ref"], f"laomedo:run:{result['run_id']}:events"
+        )
+        self.assertNotIn(str(self.root), json.dumps(status))
+
+    def test_http_rejects_unauthenticated_worker_before_read_or_turn(self):
+        server = serve(self.runner, port=0)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        self.addCleanup(
+            lambda: (server.shutdown(), server.server_close(), thread.join(2))
+        )
+        base = f"http://127.0.0.1:{server.server_port}/v1/runs"
+        for request in (
+            http_request.Request(base + "/" + str(__import__("uuid").uuid4())),
+            http_request.Request(
+                base,
+                data=json.dumps(self.request()).encode(),
+                headers={"Content-Type": "application/json"},
+            ),
+        ):
+            with self.assertRaises(http_error.HTTPError) as caught:
+                http_request.urlopen(request)
+            self.assertEqual(caught.exception.code, 401)
+            self.assertEqual(
+                json.load(caught.exception)["error_category"], "unauthorized"
+            )
+        self.assertEqual(list((self.runner.state / "runs").iterdir()), [])
+        self.assertFalse((self.runner.state / "turn-ledger.json").exists())
+
+    def test_api_token_persists_across_runner_restart(self):
+        again = LocalRunner(
+            self.runner.state,
+            self.runner.store.root,
+            self.source,
+            transport=FakeServer,
+            check_docker=False,
+        )
+        self.assertEqual(again.api_token, self.runner.api_token)
+        self.assertEqual(len(self.runner.api_token), 64)
+
+    def test_corrupt_record_does_not_hold_runner_lock(self):
+        completed = self.runner.start(self.request())
+        (self.runner._run_dir(completed["run_id"]) / "record.json").write_text("{")
+        with self.assertRaises(ValueError):
+            self.runner._execute(completed["run_id"], "retry", resume=True)
+        self.assertTrue(self.runner.lock.acquire(blocking=False))
+        self.runner.lock.release()
+
+    def test_http_rejects_simple_cross_origin_content_type(self):
+        server = serve(self.runner, port=0)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        self.addCleanup(
+            lambda: (server.shutdown(), server.server_close(), thread.join(2))
+        )
+        req = http_request.Request(
+            f"http://127.0.0.1:{server.server_port}/v1/runs",
+            data=json.dumps(self.request()).encode(),
+            headers=self.auth_headers(content_type="text/plain"),
+        )
+        with self.assertRaises(http_error.HTTPError) as caught:
+            http_request.urlopen(req)
+        self.assertEqual(caught.exception.code, 400)
+        self.assertEqual(
+            json.load(caught.exception)["error_category"], "json_content_type_required"
+        )
+
+    def test_activity_feed_requires_exact_accepted_attempt(self):
+        record = self.runner.start(self.request())
+        directory = self.runner._run_dir(record["run_id"])
+        identity = record["activity_attempt_id"]
+        path = directory / "activity-attempts" / (identity + ".json")
+        attempt = json.loads(path.read_text())
+        attempt.update(native_start=0, native_end=2)
+        path.write_text(json.dumps(attempt))
+        (directory / "activity-events.jsonl").write_text(
+            "".join(
+                json.dumps(
+                    {
+                        "received_at": "2026-10-15T00:00:00Z",
+                        "event": {"method": "turn/completed", "attempt": value},
+                    }
+                )
+                + "\n"
+                for value in ["owned", "owned", "other-resume"]
+            )
+        )
+        server = serve(self.runner, port=0)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        self.addCleanup(
+            lambda: (server.shutdown(), server.server_close(), thread.join(2))
+        )
+        base = f'http://127.0.0.1:{server.server_port}/v1/runs/{record["run_id"]}/events?attempt='
+
+        def get(value):
+            with http_request.urlopen(
+                http_request.Request(base + value, headers=self.auth_headers())
+            ) as response:
+                return json.load(response)
+
+        owned = get(identity)
+        self.assertEqual(
+            [event["event"]["attempt"] for event in owned["events"]], ["owned", "owned"]
+        )
+        self.assertEqual(owned["next_after"], 2)
+        refused = get("22222222-2222-4222-8222-222222222222")
+        self.assertFalse(refused["accepted"])
+        self.assertEqual(refused["events"], [])
+
+    def test_http_failure_preserves_run_id_and_partial_events(self):
+        class TimedOut(FakeServer):
+            def wait_turn(self, turn_id, timeout, cancelled):
+                self.log.write('{"method":"item/started"}\n')
+                self.log.flush()
+                return "timeout", "turn_timeout"
+
+        self.runner.transport = TimedOut
+        server = serve(self.runner, port=0)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        self.addCleanup(
+            lambda: (server.shutdown(), server.server_close(), thread.join(2))
+        )
+        req = http_request.Request(
+            f"http://127.0.0.1:{server.server_port}/v1/runs",
+            data=json.dumps(self.request()).encode(),
+            headers=self.auth_headers(),
+        )
+        with self.assertRaises(http_error.HTTPError) as caught:
+            http_request.urlopen(req)
+        self.assertEqual(caught.exception.code, 502)
+        result = json.load(caught.exception)
+        self.assertEqual(result["status"], "timeout")
+        self.assertEqual(result["error_category"], "turn_timeout")
+        self.assertIsNone(result["answer"])
+        self.assertIn(
+            "item/started",
+            (self.runner._run_dir(result["run_id"]) / "raw-events.jsonl").read_text(),
+        )
+
+    def test_http_cancel_marks_running_turn_and_retains_partial_events(self):
+        started = threading.Event()
+
+        class Blocking(FakeServer):
+            def wait_turn(self, turn_id, timeout, cancelled):
+                self.log.write('{"method":"item/started"}\n')
+                self.log.flush()
+                started.set()
+                assert cancelled.wait(15)
+                return "cancelled", "cancelled_by_user"
+
+        self.runner.transport = Blocking
+        server = serve(self.runner, port=0)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        self.addCleanup(
+            lambda: (server.shutdown(), server.server_close(), thread.join(2))
+        )
+        base = f"http://127.0.0.1:{server.server_port}/v1/runs"
+        result = {}
+
+        def submit():
+            req = http_request.Request(
+                base,
+                data=json.dumps(self.request()).encode(),
+                headers=self.auth_headers(),
+            )
+            try:
+                http_request.urlopen(req)
+            except http_error.HTTPError as exc:
+                result.update(json.load(exc))
+
+        submitting = threading.Thread(target=submit)
+        submitting.start()
+        # Wait for the actual transport phase; workspace preparation/file scanning
+        # is not the cancellation behavior this internal test measures.
+        self.assertTrue(started.wait(15), f"internal transport not reached: {result}")
+        run_dir = next((self.runner.state / "runs").iterdir())
+        req = http_request.Request(
+            base + "/" + run_dir.name + "/cancel",
+            data=b"{}",
+            method="POST",
+            headers=self.auth_headers(),
+        )
+        with http_request.urlopen(req) as response:
+            self.assertEqual(response.status, 202)
+            self.assertTrue(json.load(response)["cancel_requested"])
+        submitting.join(15)
+        self.assertEqual(result["status"], "cancelled")
+        self.assertEqual(result["run_id"], run_dir.name)
+        self.assertIn("item/started", (run_dir / "raw-events.jsonl").read_text())
+
+    def _output_run(
+        self,
+        answers,
+        *,
+        effects=False,
+        retry_count=1,
+        native_item=None,
+        native_precheck=False,
+        failed_wait=False,
+    ):
+        from laomedo.agents.interface.output.utils import requirements
+
+        pinned = requirements(
+            {
+                "schema_version": 1,
+                "fields": [{"name": "report", "type": "string", "required": True}],
+            }
+        )
+
+        class OutputServer(FakeServer):
+            inputs, thread_params = [], []
+
+            def request(inner, method, params, timeout=30):
+                if method == "thread/start":
+                    inner.thread_params.append(params)
+                if method == "turn/start":
+                    inner.inputs.append(params)
+                    return {
+                        "result": {"turn": {"id": "output-" + str(len(inner.inputs))}}
+                    }
+                return super().request(method, params, timeout)
+
+            def wait_turn(inner, turn_id, timeout, cancelled):
+                if native_precheck:
+                    inner.events.append(
+                        {
+                            "method": "item/completed",
+                            "params": {
+                                "turnId": turn_id,
+                                "item": {
+                                    "type": "userMessage",
+                                    "id": "user-message",
+                                    "content": [],
+                                },
+                            },
+                        }
+                    )
+                    inner.process = SimpleNamespace(stdin=io.StringIO())
+                    AppServer._precheck(
+                        inner,
+                        {
+                            "threadId": "native-thread",
+                            "turnId": turn_id,
+                            "callId": "precheck-" + turn_id,
+                            "tool": "laomedo_output_precheck",
+                            "namespace": None,
+                            "arguments": {
+                                "requirements_revision": pinned[
+                                    "requirements_revision"
+                                ],
+                                "submission": {},
+                            },
+                        },
+                    )
+                    inner.events.append(
+                        {
+                            "method": "item/completed",
+                            "params": {
+                                "turnId": turn_id,
+                                "item": {
+                                    "type": "dynamicToolCall",
+                                    "id": "precheck-" + turn_id,
+                                    "tool": "laomedo_output_precheck",
+                                    "namespace": None,
+                                },
+                            },
+                        }
+                    )
+                if failed_wait:
+                    raise RunnerError("request_timeout:turn/start")
+                if native_item:
+                    inner.events.append(
+                        {
+                            "method": "item/completed",
+                            "params": {"turnId": turn_id, "item": native_item},
+                        }
+                    )
+                if effects:
+                    inner.events.append(
+                        {
+                            "method": "item/completed",
+                            "params": {
+                                "turnId": turn_id,
+                                "item": {"type": "fileChange", "id": "effect"},
+                            },
+                        }
+                    )
+                answer = answers[min(len(inner.inputs) - 1, len(answers) - 1)]
+                if answer is not None:
+                    inner.events.append(
+                        {
+                            "method": "item/completed",
+                            "params": {
+                                "threadId": "native-thread",
+                                "turnId": turn_id,
+                                "item": {
+                                    "type": "agentMessage",
+                                    "text": json.dumps(answer),
+                                },
+                            },
+                        }
+                    )
+                return "completed", None
+
+        self.runner.transport = OutputServer
+        request = self.request()
+        request.update(output_requirements=pinned, output_retries=retry_count)
+        return self.runner.start(request), OutputServer
+
+
+if __name__ == "__main__":
+    unittest.main()

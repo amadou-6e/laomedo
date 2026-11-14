@@ -38,9 +38,12 @@ the picker preserves the exact stored name. The sign-out notice offers an
 accessible Close control during waiting and failure; closing dismisses the
 notice only and never claims to cancel a request or confirm sign-out.
 
-Picker rows include decorative initials avatars beside left-aligned profile names. ProfileEntry clears local validation feedback when its fields change and clears previous-screen errors on picker navigation. Shared catalogue copy uses plain entry guidance; uncertain save and sign-out outcomes retain their recovery paths.
-
-Picker rows use fixed initials avatars, left-aligned names and chevrons; a divider separates the secondary Create profile action. Field-specific catalogue errors use aria-invalid/aria-describedby. Authentication and uncertain-outcome recovery are unchanged.
+Picker rows use decorative initials avatars, left-aligned names and chevrons;
+a divider separates the secondary Create profile action. Field-specific catalogue
+errors use aria-invalid/aria-describedby. ProfileEntry clears local validation
+feedback when fields change and previous-screen errors on picker navigation.
+Shared catalogue copy uses plain entry guidance; authentication and uncertain
+save/sign-out recovery paths remain unchanged.
 
 The PIN-entry screen uses Log in and a heading-level back arrow labelled Back to profiles; the existing back handler clears PINs and pending requests still disable navigation.
 

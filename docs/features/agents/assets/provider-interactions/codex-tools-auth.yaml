@@ -1,0 +1,227 @@
+version: 1
+title: "2. Tools and credentials"
+header: "Codex | 2. Tools and credentials"
+note: "OPTIONAL SPLIT PATH. Normal mode uses native execution. App-owned login is only one credential source. | Provider roles #275. Paths are repository/package-relative as shown."
+matrix:
+  rows: 1
+  columns: 5
+  cells: [["col_0", "col_1", "col_2", "col_3", "col_4"]]
+  origin: [45, 150]
+  column_gaps: [110, 110, 110, 110]
+nodes:
+  source:
+    label_html: "<b>[A] Host credential source</b><br/>host/credentials/siwc/<br/><br/>Optional app-owned login supplies the admitted access credential via CodexAgent; currently allowed only with Codex split mode."
+    style:
+      width: 285
+      height: 150
+      fill: "#EAF0FA"
+      stroke: "#8193A5"
+      font_size: 14
+      rounded: true
+    source_files: ["src/laomedo/host/credentials/siwc/connection.py"]
+    graph_reference: "A"
+  docker:
+    label_html: "<b>[B] Docker lifecycle</b><br/>py-docker -&gt; Docker SDK -&gt; Engine<br/><br/>Create/attach owned containers, execute jobs, retain receipts and reconcile cleanup."
+    style:
+      width: 285
+      height: 150
+      fill: "#E7F3EC"
+      stroke: "#8193A5"
+      font_size: 14
+      rounded: true
+    source_files: []
+    graph_reference: "B"
+    external_source: "Separate dependencies: py-docker -> Docker SDK -> Docker Engine."
+  runtime:
+    label_html: "<b>[C] Controller lifecycle</b><br/>CodexAgentRuntime<br/>codex/runtime.py<br/><br/>Own the ACP session, native callbacks, output precheck and exact controller lifetime."
+    style:
+      width: 285
+      height: 150
+      fill: "#F0EAF8"
+      stroke: "#8193A5"
+      font_size: 14
+      rounded: true
+    source_files: ["src/laomedo/agents/agents/codex/runtime.py", "src/laomedo/agents/agents/codex/controller/models.py"]
+    graph_reference: "C"
+  executor:
+    label_html: "<b>[D] Worker lifecycle</b><br/>Optional split executor<br/>codex/split/executor.py; models.py<br/><br/>Controller creates/registers this separate execution resource. Native isolation remains unverified."
+    style:
+      width: 285
+      height: 150
+      fill: "#F0EAF8"
+      stroke: "#8193A5"
+      font_size: 14
+      rounded: true
+    source_files: ["src/laomedo/agents/agents/codex/split/executor.py", "src/laomedo/agents/agents/codex/split/models.py"]
+    graph_reference: "D"
+  profile:
+    label_html: "<b>[E] Controller credentials and state</b><br/>SplitLaunch; profile / environment<br/><br/>Access may be launch-only. Bind native session state separately; no access credential reaches the executor."
+    style:
+      width: 285
+      height: 150
+      fill: "#E7F3EC"
+      stroke: "#8193A5"
+      font_size: 14
+      rounded: true
+    source_files: []
+    graph_reference: "E"
+    external_source: "Admitted private profile/config/session state. Never tracked as source."
+  cli:
+    label_html: "<b>[F] Native agent runtime</b><br/>codex app-server<br/><br/>Upstream native threads, reasoning, model requests and admitted tool execution."
+    style:
+      width: 285
+      height: 150
+      fill: "#E7F3EC"
+      stroke: "#8193A5"
+      font_size: 14
+      rounded: true
+    source_files: []
+    graph_reference: "F"
+    external_source: "Upstream native codex runtime installed in its Docker image."
+  server:
+    label_html: "<b>[G] Command worker</b><br/>Separate codex exec-server container<br/><br/>Capability-authenticated WebSocket. Bridge networking; native sandbox isolation remains unverified."
+    style:
+      width: 285
+      height: 150
+      fill: "#E7F3EC"
+      stroke: "#8193A5"
+      font_size: 14
+      rounded: true
+    source_files: []
+    graph_reference: "G"
+    external_source: "Upstream codex exec-server in a separate owned container."
+groups:
+  col_0:
+    title: "Optional host login / Docker"
+    layout: "column"
+    children: ["source", "docker"]
+    gap: 80
+    style:
+      padding: [60, 20, 25, 20]
+      min_height: 520
+      fill: "#F5F7FA"
+      font_size: 15
+  col_1:
+    title: "Provider split resource owners"
+    layout: "column"
+    children: ["runtime", "executor"]
+    gap: 80
+    style:
+      padding: [60, 20, 25, 20]
+      min_height: 520
+      fill: "#F5F7FA"
+      font_size: 15
+  col_2:
+    title: "Controller admitted state"
+    layout: "column"
+    children: ["profile"]
+    gap: 80
+    style:
+      padding: [60, 20, 25, 20]
+      min_height: 520
+      fill: "#F5F7FA"
+      font_size: 15
+  col_3:
+    title: "Controller process"
+    layout: "column"
+    children: ["cli"]
+    gap: 80
+    style:
+      padding: [60, 20, 25, 20]
+      min_height: 520
+      fill: "#F5F7FA"
+      font_size: 15
+  col_4:
+    title: "Separate command executor"
+    layout: "column"
+    children: ["server"]
+    gap: 80
+    style:
+      padding: [60, 20, 25, 20]
+      min_height: 520
+      fill: "#F5F7FA"
+      font_size: 15
+edges:
+  edge_0:
+    from: "source"
+    to: "runtime"
+    label: "via Agent binding"
+    style:
+      stroke: "#A37537"
+      dashed: true
+      width: 2
+      end_arrow: "classic"
+    from_port: [1, 0.5]
+    to_port: [0, 0.5]
+    waypoints: [[425.0, 285.0], [425.0, 285.0]]
+  edge_1:
+    from: "runtime"
+    to: "profile"
+    label: "admitted policy"
+    style:
+      stroke: "#A37537"
+      dashed: true
+      width: 2
+      end_arrow: "classic"
+    from_port: [1, 0.5]
+    to_port: [0, 0.5]
+    waypoints: [[860.0, 285.0], [860.0, 285.0]]
+  edge_2:
+    from: "profile"
+    to: "cli"
+    label: "controller only"
+    style:
+      stroke: "#A37537"
+      dashed: true
+      width: 2
+      end_arrow: "classic"
+    from_port: [1, 0.5]
+    to_port: [0, 0.5]
+    waypoints: [[1295.0, 285.0], [1295.0, 285.0]]
+  edge_3:
+    from: "cli"
+    to: "server"
+    label: "registered WebSocket"
+    style:
+      stroke: "#218168"
+      dashed: false
+      width: 2
+      end_arrow: "classic"
+    from_port: [1, 0.5]
+    to_port: [0, 0.5]
+    waypoints: [[1730.0, 285.0], [1730.0, 285.0]]
+  edge_4:
+    from: "runtime"
+    to: "executor"
+    label: "create / monitor"
+    style:
+      stroke: "#42699A"
+      dashed: false
+      width: 2
+      end_arrow: "classic"
+    from_port: [0.5, 1]
+    to_port: [0.5, 0]
+  edge_5:
+    from: "executor"
+    to: "docker"
+    label: "owned session"
+    style:
+      stroke: "#42699A"
+      dashed: false
+      width: 2
+      end_arrow: "classic"
+    from_port: [0, 0.5]
+    to_port: [1, 0.5]
+    waypoints: [[425.0, 515.0], [425.0, 515.0]]
+  edge_6:
+    from: "docker"
+    to: "server"
+    label: "launch / cleanup"
+    style:
+      stroke: "#42699A"
+      dashed: false
+      width: 2
+      end_arrow: "classic"
+    from_port: [0.5, 1]
+    to_port: [0.5, 1]
+    waypoints: [[207.5, 750], [1947.5, 750]]

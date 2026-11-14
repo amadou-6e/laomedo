@@ -74,9 +74,9 @@ native sessions; do not substitute a full personal profile mount.
 
 ```powershell
 docker info
-docker build -t laomedo-claude-controller:2.1.310 docker/claude
+docker build -t laomedo-claude-controller:2.1.310-acp0.98.0 docker/claude
 docker volume create --label laomedo.provider=claude laomedo-claude-quickstart-profile
-docker run --rm -it --mount type=volume,source=laomedo-claude-quickstart-profile,target=/profile laomedo-claude-controller:2.1.310 auth login
+docker run --rm -it --mount type=volume,source=laomedo-claude-quickstart-profile,target=/profile laomedo-claude-controller:2.1.310-acp0.98.0 auth login
 ```
 
 Complete the native subscription sign-in. The controller image's CLI is pinned;
@@ -101,12 +101,12 @@ Laomedo vision document directory within this Git checkout, not a synthetic
 project. It exposes `README.md` at the root of the Agent's private draft.
 
 ```powershell
-& $pythonExe -m laomedo.agents.providers.claude.cli `
+& $pythonExe -m laomedo.agents.agents.claude.cli `
   --state "$runtimeRoot/runner" `
   --skill-store "$runtimeRoot/registry" `
   --source "$repoPath/docs/vision-and-goals" `
   --lease-service "$runtimeRoot/lease" `
-  --image laomedo-claude-controller:2.1.310 `
+  --image laomedo-claude-controller:2.1.310-acp0.98.0 `
   --profile-volume laomedo-claude-quickstart-profile `
   --port 8769
 ```

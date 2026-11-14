@@ -12,7 +12,7 @@ from laomedo import __path__
 
 __path__.append(str(Path(__file__).resolve().parents[2] / "components/laomedo"))
 from laomedo.claude_agent import LaomedoClaudeAgent
-from laomedo.agents.contracts.output import requirements
+from laomedo.agents.interface.output.utils import requirements
 
 
 class ClaudeComponentTests(unittest.IsolatedAsyncioTestCase):
@@ -91,7 +91,7 @@ class ClaudeComponentTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("handoff_reference", config)
 
     def test_model_refresh_uses_claude_runner_token_not_codex_token(self):
-        import laomedo.integrations.langflow.agent.component as codex
+        import laomedo.agents.interface.langflow.component as codex
 
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -124,7 +124,7 @@ class ClaudeComponentTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(http.call_args.kwargs["timeout"], 75)
 
     def test_resolved_model_efforts_follow_first_native_match_like_runner(self):
-        import laomedo.integrations.langflow.agent.component as codex
+        import laomedo.agents.interface.langflow.component as codex
 
         body = {
             "provider": "claude",
@@ -163,7 +163,7 @@ class ClaudeComponentTests(unittest.IsolatedAsyncioTestCase):
     async def test_native_labels_and_all_efforts_reach_dropdown_and_dispatch_payload(
         self,
     ):
-        import laomedo.integrations.langflow.agent.component as codex
+        import laomedo.agents.interface.langflow.component as codex
 
         node = self.node(model="fable", effort="max")
         catalog = codex._ModelCatalog()
@@ -201,7 +201,7 @@ class ClaudeComponentTests(unittest.IsolatedAsyncioTestCase):
     async def test_imported_resolved_model_keeps_native_efforts_and_pin_without_duplicate_picker_rows(
         self,
     ):
-        import laomedo.integrations.langflow.agent.component as codex
+        import laomedo.agents.interface.langflow.component as codex
 
         node = self.node(model="claude-sonnet-test", effort="max")
         catalog = codex._ModelCatalog()
@@ -337,7 +337,7 @@ class ClaudeComponentTests(unittest.IsolatedAsyncioTestCase):
         self,
     ):
         from urllib.error import HTTPError
-        import laomedo.integrations.langflow.agent.component as common
+        import laomedo.agents.interface.langflow.component as common
 
         for code in (
             "claude_host_login_unavailable",
@@ -358,7 +358,7 @@ class ClaudeComponentTests(unittest.IsolatedAsyncioTestCase):
             )
             with (
                 patch.object(node, "_token", return_value="internal"),
-                patch.object(common.request, "urlopen", side_effect=error),
+                patch.object(common._HTTP, "open", side_effect=error),
             ):
                 expected = (
                     code

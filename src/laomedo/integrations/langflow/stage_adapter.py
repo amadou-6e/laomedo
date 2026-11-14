@@ -2,6 +2,9 @@
 
 The same in-memory graph whose executable vertices are checked is dispatched.
 Posting a flow ID to Langflow's run API would load mutable saved flow state again.
+The pinned upstream umbrella depends on langflow-base, which supplies the app
+and depends on lfx. Either app distribution is admitted, with all present app
+distributions and lfx required to match the pinned version.
 """
 
 from copy import deepcopy
@@ -9,34 +12,17 @@ from hashlib import sha256
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version
 import asyncio
-import laomedo.agents.workflow.errors as _workflow_errors
-import laomedo.agents.workflow.store as _workflow_store
+from laomedo.work_graph.runs.errors import LaunchError
+from laomedo.work_graph.runs.store import WorkflowRunStore
 
 PINNED_LANGFLOW = "1.12.3"
 
 
 class FrozenLangflowStage:
-    @classmethod
-    def from_saved_flow(cls, flow_id, fetch_export):
-        """Fetch one saved revision immediately before building its graph."""
-        if not isinstance(flow_id, str) or not flow_id or not callable(fetch_export):
-            raise _workflow_errors.LaunchError("unresolved_graph_identity")
-        exported = fetch_export(flow_id)
-        if not isinstance(exported, dict) or exported.get("id") != flow_id:
-            raise _workflow_errors.LaunchError("saved_flow_identity_mismatch")
-        return cls(exported)
-
     def __init__(self, exported_flow):
-        try:
-            if (
-                version("langflow") != PINNED_LANGFLOW
-                or version("lfx") != PINNED_LANGFLOW
-            ):
-                raise _workflow_errors.LaunchError("unsupported_langflow_revision")
-        except PackageNotFoundError as exc:
-            raise _workflow_errors.LaunchError("langflow_runtime_unavailable") from exc
+        self._require_pinned_runtime()
         if not isinstance(exported_flow, dict):
-            raise _workflow_errors.LaunchError("unresolved_graph_identity")
+            raise LaunchError("unresolved_graph_identity")
         self.export = deepcopy(exported_flow)
         graph_data = self.export.get("data")
         if (
@@ -44,7 +30,7 @@ class FrozenLangflowStage:
             or not isinstance(graph_data.get("nodes"), list)
             or not graph_data["nodes"]
         ):
-            raise _workflow_errors.LaunchError("unresolved_graph_identity")
+            raise LaunchError("unresolved_graph_identity")
         self.component_code = {}
         for node in graph_data["nodes"]:
             if (
@@ -52,19 +38,17 @@ class FrozenLangflowStage:
                 or not isinstance(node.get("id"), str)
                 or not node["id"]
             ):
-                raise _workflow_errors.LaunchError("unresolved_graph_identity")
+                raise LaunchError("unresolved_graph_identity")
             try:
                 code = node["data"]["node"]["template"]["code"]["value"]
             except (KeyError, TypeError):
-                raise _workflow_errors.LaunchError(
-                    "unresolved_component_identity"
-                ) from None
+                raise LaunchError("unresolved_component_identity") from None
             if (
                 not isinstance(code, str)
                 or not code.strip()
                 or node["id"] in self.component_code
             ):
-                raise _workflow_errors.LaunchError("unresolved_component_identity")
+                raise LaunchError("unresolved_component_identity")
             self.component_code[node["id"]] = code
         try:
             from lfx.graph.graph.base import Graph
@@ -75,18 +59,18 @@ class FrozenLangflowStage:
                 or self.graph.raw_graph_data.get("nodes") != graph_data["nodes"]
                 or self.graph.raw_graph_data.get("edges") != graph_data.get("edges")
             ):
-                raise _workflow_errors.LaunchError("runtime_graph_mismatch")
+                raise LaunchError("runtime_graph_mismatch")
             for node_id, code in self.component_code.items():
                 vertex = self.graph.get_vertex(node_id)
                 if (
                     vertex.data["node"]["template"]["code"]["value"] != code
                     or vertex.custom_component is None
                 ):
-                    raise _workflow_errors.LaunchError("runtime_component_mismatch")
-        except _workflow_errors.LaunchError:
+                    raise LaunchError("runtime_component_mismatch")
+        except LaunchError:
             raise
         except Exception as exc:
-            raise _workflow_errors.LaunchError("runtime_graph_unresolved") from exc
+            raise LaunchError("runtime_graph_unresolved") from exc
         self.graph_data = deepcopy(graph_data)
         self._reserved = False
         self.component_revisions = {
@@ -94,11 +78,19 @@ class FrozenLangflowStage:
             for node_id, code in self.component_code.items()
         }
 
-    def reserve(
-        self, store: _workflow_store.WorkflowRunStore, *, resolved_config, trigger
-    ):
+    @classmethod
+    def from_saved_flow(cls, flow_id, fetch_export):
+        """Fetch one saved revision immediately before building its graph."""
+        if not isinstance(flow_id, str) or not flow_id or not callable(fetch_export):
+            raise LaunchError("unresolved_graph_identity")
+        exported = fetch_export(flow_id)
+        if not isinstance(exported, dict) or exported.get("id") != flow_id:
+            raise LaunchError("saved_flow_identity_mismatch")
+        return cls(exported)
+
+    def reserve(self, store: WorkflowRunStore, *, resolved_config, trigger):
         if self._reserved:
-            raise _workflow_errors.LaunchError("stage_already_reserved")
+            raise LaunchError("stage_already_reserved")
         self._reserved = True
         record = store.reserve(
             graph=self.graph_data,
@@ -107,12 +99,12 @@ class FrozenLangflowStage:
             trigger=trigger,
         )
         if record["component_revisions"] != self.component_revisions:
-            raise _workflow_errors.LaunchError("recorded_component_mismatch")
+            raise LaunchError("recorded_component_mismatch")
         return record
 
     def execute(
         self,
-        store: _workflow_store.WorkflowRunStore,
+        store: WorkflowRunStore,
         *,
         resolved_config,
         trigger,
@@ -126,7 +118,7 @@ class FrozenLangflowStage:
         except RuntimeError:
             pass
         else:
-            raise _workflow_errors.LaunchError("synchronous_worker_required")
+            raise LaunchError("synchronous_worker_required")
         record = self.reserve(store, resolved_config=resolved_config, trigger=trigger)
         result = store.dispatch(
             record["run_id"],
@@ -135,3 +127,25 @@ class FrozenLangflowStage:
             ),
         )
         return store.get(record["run_id"]), result
+
+    @staticmethod
+    def _require_pinned_runtime():
+        """Admit the pinned base app or umbrella and reject mixed revisions."""
+        found_app = False
+        missing_app = None
+        for distribution in ("langflow", "langflow-base"):
+            try:
+                installed_version = version(distribution)
+            except PackageNotFoundError as exc:
+                missing_app = exc
+                continue
+            found_app = True
+            if installed_version != PINNED_LANGFLOW:
+                raise LaunchError("unsupported_langflow_revision")
+        if not found_app:
+            raise LaunchError("langflow_runtime_unavailable") from missing_app
+        try:
+            if version("lfx") != PINNED_LANGFLOW:
+                raise LaunchError("unsupported_langflow_revision")
+        except PackageNotFoundError as exc:
+            raise LaunchError("langflow_runtime_unavailable") from exc

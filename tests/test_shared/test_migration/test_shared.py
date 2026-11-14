@@ -23,12 +23,18 @@ class SharedMigrationTests(unittest.TestCase):
             if target.startswith(
                 (
                     "laomedo.skills.",
-                    "laomedo.agents.workspace.skills.",
+                    "laomedo.agents.workspaces.skills.",
                     "laomedo.host.publication.ingestion.",
                 )
             )
         }
-        self.assertTrue(targets)
+        for prefix in (
+            "laomedo.skills.",
+            "laomedo.agents.workspaces.skills.",
+            "laomedo.host.publication.ingestion.",
+        ):
+            with self.subTest(prefix=prefix):
+                self.assertTrue(any(target.startswith(prefix) for target in targets))
         for target in targets:
             with self.subTest(target=target):
                 target_path = ROOT.joinpath("src", *target.split("."))

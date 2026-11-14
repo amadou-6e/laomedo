@@ -204,7 +204,10 @@ class LiveGraphTests(unittest.IsolatedAsyncioTestCase):
             token.write_text("not-a-credential")
             with (
                 patch.dict(os.environ, {"LAOMEDO_RUNNER_TOKEN_FILE": str(token)}),
-                patch("urllib.request.urlopen", side_effect=respond),
+                patch(
+                    "laomedo.agents.interface.langflow.component._HTTP.open",
+                    side_effect=respond,
+                ),
                 patch("urllib.request.OpenerDirector.open", new=publish),
             ):
                 result = await Graph.from_payload(flow).arun(

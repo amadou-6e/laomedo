@@ -1,0 +1,60 @@
+# Codex ACP runtime
+
+This image adapts the Codex app server to the shared ACP runner interface.
+The native-event extension preserves raw receipts and host-owned policy.
+
+Normal runner startup uses this recipe's registration in `../images.json`.
+The shared Docker runtime builds it on the selected daemon when the registered
+tag is missing, verifies its version and resolves its immutable ID. No manual
+build is required. Existing-tag recipe mismatches and explicit pins follow the
+[shared acquisition policy](../README.md).
+
+For a host-reviewed manual rebuild, run
+`docker build -t laomedo-codex-acp:0.159.2-2.1.1 .` from this directory and record
+the resulting immutable ID for the runner's explicit `image_id` override.
+The Dockerfile pins the Node base, upstream adapter commit/archive checksum and
+Codex package lock. The runtime includes the upstream Apache-2.0 licence and
+checksums of the patch, extension and compiled adapter. The Laomedo extension
+source is maintained here; `native-events.patch` contains the minimal upstream
+hooks needed to activate it.
+
+The optional extension is enabled only by `LAOMEDO_CODEX_NATIVE_EVENTS=1`. It
+advertises `_meta.laomedo` version 1 with rawEvents and hostPolicy true during
+initialize. The host rejects an absent or incompatible capability before creating
+a session, preventing a stock adapter from ignoring the host policy metadata. It
+preserves allowlisted native notifications on the same ACP connection and flushes
+them before the prompt response. Raw capture failure terminates native execution.
+Host-owned session metadata supplies normal or split policy, model, effort and
+the one supported output-precheck definition. Normal mode inherits the reviewed
+permission profile without per-turn sandbox/approval overrides; split mode uses
+only its registered external executor. Typed skill items come from host metadata,
+never prompt parsing. ACP slash-command interception is disabled for these runs.
+Native session roots remain explicitly untrusted, so model-writable project
+configuration cannot become a runner-policy or provider-routing source.
+
+`LAOMEDO_CODEX_ARGS` carries host-owned native configuration arguments into the
+Codex subprocess. The adapter validates alternating `-c`/`--enable`/`--disable`
+flags and bounded string values, passes argv directly without a shell, and fails
+closed for malformed data or a missing explicit Linux Codex executable. This
+preserves deferred-executor, telemetry and trusted provider routing configuration.
+It is not a model- or graph-supplied command interface.
+
+Container namespace support depends on the checksum-verified Codex seccomp
+policy. The runner keeps exact image and policy bindings, and refuses unknown
+cleanup or unsupported host-policy capabilities. Historical probe observations
+are retained on `exp`; they do not establish current graph, provider or policy
+acceptance. App-owned OAuth, split execution and mediation have separate checks.
+
+Saved runs retain exact image, policy and execution-mode bindings. Pre-ACP runs
+with different bindings fail with `resume_binding_mismatch`; they are not silently
+migrated or restarted. Historical activity remains readable. Native thread-history
+compatibility is a separate observation from saved-run migration.
+
+Named extensions provide model/skill metadata, fixed-enum permission preflight,
+one pre-prompt executor registration/status and pure output precheck. They expose
+no arbitrary method/command passthrough. Requests outside their scope fail closed.
+The host must still enforce skill search-path isolation, safe secret redaction,
+native terminal status, auth revocation, executor monitoring and exact-ID cleanup.
+
+Laomedo does not enable upstream payload debug logging (`APP_SERVER_LOGS`), and
+private credentials or capabilities must never be written to build inputs.

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from laomedo.host.publication.verifier import BundleVerifier
+
 from pathlib import Path
 import argparse
 import json
@@ -13,7 +15,6 @@ import time
 
 def main():
     # Explicitly refuse ambient provider overrides rather than falling back.
-    import laomedo.host.publication.verifier as _publication_verifier
 
     if any(
         key in os.environ
@@ -27,7 +28,7 @@ def main():
     parser.add_argument("--baseline-bundle", type=Path, required=True)
     parser.add_argument("--baseline-sha256", required=True)
     args = parser.parse_args()
-    worker = _publication_verifier.BundleVerifier(**vars(args))
+    worker = BundleVerifier(**vars(args))
     try:
         worker.serve(threading.Event())
     except KeyboardInterrupt:

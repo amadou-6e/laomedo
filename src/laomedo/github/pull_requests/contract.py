@@ -2,7 +2,8 @@
 
 from laomedo.github.contract import issue_digest
 from laomedo.github.contract import labels_value
-from laomedo.github.pull_requests.models import GitHubPullRequest, PullRequestHead
+from laomedo.github.pull_requests.models import GitHubPullRequest
+from laomedo.github.pull_requests.models import PullRequestHead
 from datetime import datetime
 import re
 

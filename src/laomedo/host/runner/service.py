@@ -10,16 +10,21 @@ from urllib.request import Request
 from urllib.request import build_opener
 import json
 import re
-import laomedo._paths as _package_paths
-import laomedo.host.runner.prerequisites as _runner_prerequisites
-import laomedo.host.runner.startup as _runner_startup
-import laomedo.host.runner.utils as _runner_utils
 import socket
 import subprocess
 import sys
 import threading
 import time
 import uuid
+
+from laomedo.host.http import NoRedirect
+from laomedo._paths import import_root
+from laomedo.host.runner.prerequisites import check_docker
+from laomedo.host.runner.models import DockerReadiness
+from laomedo.host.runner.settings import DOCKER_CHECK_TIMEOUT_SECONDS
+from laomedo.host.runner.startup import startup_gate
+from laomedo.host.runner.utils import service_environment
+from laomedo.agents.registry import AgentProviderRegistry
 
 
 class RunnerService:
@@ -31,10 +36,9 @@ class RunnerService:
         self.startup_id = None
         self.startup_gate_path = None
         self.cancel_requested = False
-        self.opener = build_opener(ProxyHandler({}))
+        self.opener = build_opener(ProxyHandler({}), NoRedirect())
         self.docker_lock = threading.Lock()
-        self.docker_checked_at = None
-        self.docker_reason = None
+        self.docker_observation = None
 
     def config(self, url=None):
         if self.config_path is None:
@@ -42,20 +46,26 @@ class RunnerService:
         value = json.loads(self.config_path.read_text(encoding="utf-8"))
         required = {"provider", "state", "skill_store", "source", "port"}
         if not isinstance(value, dict) or value.get("provider") not in {
-            "codex",
-            "claude",
+            item.provider
+            for item in AgentProviderRegistry.descriptors()
+            if item.managed_startup
         }:
             raise ValueError("invalid_runner_service_config")
         # Retire persisted preview-only ceilings when reading older host configs.
         value = dict(value)
         value.pop("max_model_turns", None)
+        if not required <= set(value):
+            raise ValueError("invalid_runner_service_config")
+        if not isinstance(value["state"], str):
+            raise ValueError("absolute_runner_service_paths_required")
+        value.setdefault("lease_service", str(Path(value["state"]).parent / "lease"))
+        required.add("lease_service")
         if value["provider"] == "claude":
+            from laomedo.agents.agents.claude.settings import IMAGE
+
             value.pop("executable", None)  # Retired host-runtime configuration.
-            value.setdefault("image", "laomedo-claude-controller:2.1.310")
+            value.setdefault("image", IMAGE)
             value.setdefault("profile_volume", "laomedo-claude-profile")
-            value.setdefault(
-                "lease_service", str(Path(value["state"]).parent / "lease")
-            )
             required.update({"image", "profile_volume", "lease_service"})
         optional = {
             "artifact_sources",
@@ -79,7 +89,7 @@ class RunnerService:
         if (
             not isinstance(sources, dict)
             or any(
-                provider not in {"codex", "claude", "opencode"}
+                provider not in AgentProviderRegistry.provider_ids()
                 or not isinstance(path, str)
                 or not Path(path).is_absolute()
                 for provider, path in sources.items()
@@ -99,9 +109,7 @@ class RunnerService:
                 raise ValueError("absolute_runner_service_paths_required")
         if type(value["port"]) is not int or not 1 <= value["port"] <= 65535:
             raise ValueError("invalid_runner_service_port")
-        for key in ("state", "skill_store", "source") + (
-            ("lease_service",) if "lease_service" in value else ()
-        ):
+        for key in ("state", "skill_store", "source", "lease_service"):
             if not isinstance(value[key], str) or not Path(value[key]).is_absolute():
                 raise ValueError("absolute_runner_service_paths_required")
         if url is not None and url != f"http://127.0.0.1:{value['port']}":
@@ -151,6 +159,123 @@ class RunnerService:
         except (URLError, TimeoutError, OSError):
             return self._probe_listener(config, refresh=refresh)
 
+    def start(self, url=None):
+        with self.lock:
+            # A stale successful poll cannot authorize starting without Docker.
+            current = self.status(url, refresh=True)
+            if current["state"] != "offline" or not current["can_start"]:
+                return current
+            config = self.config(url)
+            module = (
+                "laomedo.agents.agents.claude.cli"
+                if config["provider"] == "claude"
+                else "laomedo.agents.agents.codex.cli"
+            )
+            # Load this installation even when Python is embedded/isolated and
+            # ignores PYTHONPATH. Both bootstrap and module choice are fixed;
+            # neither comes from a browser request or model output.
+            bootstrap = (
+                "import runpy,sys; sys.path.insert(0,sys.argv.pop(1)); "
+                "module=sys.argv.pop(1); sys.argv[0]=module; "
+                'runpy.run_module(module,run_name="__main__")'
+            )
+            command = [
+                sys.executable,
+                "-c",
+                bootstrap,
+                str(import_root()),
+                module,
+                "--state",
+                config["state"],
+                "--skill-store",
+                config["skill_store"],
+                "--source" if config["provider"] == "claude" else "--source-workspace",
+                config["source"],
+                "--lease-service",
+                config["lease_service"],
+                "--port",
+                str(config["port"]),
+            ]
+            if config["provider"] == "claude":
+                command.extend(
+                    [
+                        "--image",
+                        config["image"],
+                        "--profile-volume",
+                        config["profile_volume"],
+                    ]
+                )
+            if "image_id" in config:
+                command.extend(["--image-id", config["image_id"]])
+            for provider, state in sorted(config.get("artifact_sources", {}).items()):
+                command.extend(["--artifact-source", provider + "=" + state])
+            if "github_authority_store" in config:
+                command.extend(
+                    [
+                        "--github-authority-store",
+                        config["github_authority_store"],
+                        "--mediator-state",
+                        config["mediator_state"],
+                    ]
+                )
+            if config.get("git_workspace"):
+                command.append("--git-workspace")
+            # The trusted host supplies all paths.
+            # Neither browser inputs nor model outputs become process arguments.
+            env = service_environment(config["provider"])
+            if (
+                config.get("mirror_host_claude_login") is True
+                and config["provider"] == "claude"
+            ):
+                env["LAOMEDO_CLAUDE_MIRROR_HOST_LOGIN"] = "1"
+            self.cancel_requested = False
+            self.startup_id = str(uuid.uuid4())
+            self.startup_gate_path = (
+                Path(config["state"]) / "startup-control" / (self.startup_id + ".lock")
+            )
+            env["LAOMEDO_STARTUP_GATE"] = str(self.startup_gate_path)
+            log_path = Path(config["state"]) / "service-startup.log"
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            with log_path.open("ab") as log:
+                self.process = subprocess.Popen(
+                    command,
+                    cwd=import_root(),
+                    env=env,
+                    stdin=subprocess.DEVNULL,
+                    stdout=log,
+                    stderr=log,
+                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+                )
+            return {
+                "state": "starting",
+                "can_start": False,
+                "startup_id": self.startup_id,
+            }
+
+    def cancel_start(self, startup_id):
+        with self.lock:
+            current = self.status()
+            if (
+                not startup_id
+                or startup_id != self.startup_id
+                or current["state"] != "starting"
+                or self.process is None
+                or self.ready_process is self.process
+            ):
+                return current
+            if self.startup_gate_path is None:
+                return current
+            # The API takes this same OS lock before binding its listener. It
+            # cannot publish a listener after cancellation wins this lock.
+            with startup_gate(self.startup_gate_path) as listening:
+                if listening.exists():
+                    return self.status()
+                # Cooperative: the child finishes its bounded initialization
+                # and cleanup, then refuses to bind. Never orphan its children.
+                listening.with_suffix(".cancel").touch()
+                self.cancel_requested = True
+                return self._offline_state()
+
     def _probe_listener(self, config, *, refresh=False):
         # A health timeout does not prove the process is offline. Never replace
         # a listener whose identity/response cannot be established.
@@ -173,32 +298,45 @@ class RunnerService:
     def _with_docker(self, state, *, refresh=False):
         if state["state"] not in {"ready", "offline"}:
             return state
+        observation = self.docker_observation
         if (
             refresh
-            or self.docker_checked_at is None
-            or time.monotonic() - self.docker_checked_at >= 2
+            or observation is None
+            or time.monotonic() - observation.checked_at >= 2
         ):
-            # Do not queue overlapping checks behind a slow CLI and exceed the
-            # request deadline. Unknown prerequisites never permit a new spawn.
-            if not self.docker_lock.acquire(blocking=False):
-                return {
-                    "state": "prerequisite",
-                    "can_start": False,
-                    "reason": "runner_docker_check_unconfirmed",
-                    "runner_state": state["state"],
-                }
-            try:
-                self.docker_reason = _runner_prerequisites.check_docker(
-                    _runner_utils.service_environment("codex")
-                )
-                self.docker_checked_at = time.monotonic()
-            finally:
-                self.docker_lock.release()
-        if self.docker_reason is not None:
+            unconfirmed = {
+                "state": "prerequisite",
+                "can_start": False,
+                "reason": "runner_docker_check_unconfirmed",
+                "runner_state": state["state"],
+            }
+            if self.docker_lock.acquire(blocking=False):
+                try:
+                    reason = check_docker(service_environment("codex"))
+                    observation = DockerReadiness(
+                        reason=reason, checked_at=time.monotonic()
+                    )
+                    self.docker_observation = observation
+                finally:
+                    self.docker_lock.release()
+            elif refresh and self.docker_lock.acquire(
+                timeout=DOCKER_CHECK_TIMEOUT_SECONDS
+            ):
+                try:
+                    # Start joins the in-flight check. Only a newly completed
+                    # observation may admit it; never reuse the old healthy poll.
+                    if self.docker_observation is observation:
+                        return unconfirmed
+                    observation = self.docker_observation
+                finally:
+                    self.docker_lock.release()
+            else:
+                return unconfirmed
+        if observation.reason is not None:
             value = {
                 "state": "prerequisite",
                 "can_start": False,
-                "reason": self.docker_reason,
+                "reason": observation.reason,
                 "runner_state": state["state"],
             }
             if state.get("reason") == "runner_start_cancelled":
@@ -234,120 +372,3 @@ class RunnerService:
                 )
             ),
         }
-
-    def start(self, url=None):
-        with self.lock:
-            # A stale successful poll cannot authorize starting without Docker.
-            current = self.status(url, refresh=True)
-            if current["state"] != "offline" or not current["can_start"]:
-                return current
-            config = self.config(url)
-            module = (
-                "laomedo.agents.providers.claude.cli"
-                if config["provider"] == "claude"
-                else "laomedo.agents.providers.codex.cli"
-            )
-            # Load this installation even when Python is embedded/isolated and
-            # ignores PYTHONPATH. Both bootstrap and module choice are fixed;
-            # neither comes from a browser request or model output.
-            bootstrap = (
-                "import runpy,sys; sys.path.insert(0,sys.argv.pop(1)); "
-                "module=sys.argv.pop(1); sys.argv[0]=module; "
-                'runpy.run_module(module,run_name="__main__")'
-            )
-            command = [
-                sys.executable,
-                "-c",
-                bootstrap,
-                str(_package_paths.import_root()),
-                module,
-                "--state",
-                config["state"],
-                "--skill-store",
-                config["skill_store"],
-                "--source" if config["provider"] == "claude" else "--source-workspace",
-                config["source"],
-                "--port",
-                str(config["port"]),
-            ]
-            if config["provider"] == "claude":
-                command.extend(
-                    [
-                        "--image",
-                        config["image"],
-                        "--profile-volume",
-                        config["profile_volume"],
-                    ]
-                )
-            if "lease_service" in config:
-                command.extend(["--lease-service", config["lease_service"]])
-            if "image_id" in config:
-                command.extend(["--image-id", config["image_id"]])
-            for provider, state in sorted(config.get("artifact_sources", {}).items()):
-                command.extend(["--artifact-source", provider + "=" + state])
-            if "github_authority_store" in config:
-                command.extend(
-                    [
-                        "--github-authority-store",
-                        config["github_authority_store"],
-                        "--mediator-state",
-                        config["mediator_state"],
-                    ]
-                )
-            if config.get("git_workspace"):
-                command.append("--git-workspace")
-            # The trusted host supplies all paths.
-            # Neither browser inputs nor model outputs become process arguments.
-            env = _runner_utils.service_environment(config["provider"])
-            if (
-                config.get("mirror_host_claude_login") is True
-                and config["provider"] == "claude"
-            ):
-                env["LAOMEDO_CLAUDE_MIRROR_HOST_LOGIN"] = "1"
-            self.cancel_requested = False
-            self.startup_id = str(uuid.uuid4())
-            self.startup_gate_path = (
-                Path(config["state"]) / "startup-control" / (self.startup_id + ".lock")
-            )
-            env["LAOMEDO_STARTUP_GATE"] = str(self.startup_gate_path)
-            log_path = Path(config["state"]) / "service-startup.log"
-            log_path.parent.mkdir(parents=True, exist_ok=True)
-            with log_path.open("ab") as log:
-                self.process = subprocess.Popen(
-                    command,
-                    cwd=_package_paths.import_root(),
-                    env=env,
-                    stdin=subprocess.DEVNULL,
-                    stdout=log,
-                    stderr=log,
-                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-                )
-            return {
-                "state": "starting",
-                "can_start": False,
-                "startup_id": self.startup_id,
-            }
-
-    def cancel_start(self, startup_id):
-        with self.lock:
-            current = self.status()
-            if (
-                not startup_id
-                or startup_id != self.startup_id
-                or current["state"] != "starting"
-                or self.process is None
-                or self.ready_process is self.process
-            ):
-                return current
-            if self.startup_gate_path is None:
-                return current
-            # The API takes this same OS lock before binding its listener. It
-            # cannot publish a listener after cancellation wins this lock.
-            with _runner_startup.startup_gate(self.startup_gate_path) as listening:
-                if listening.exists():
-                    return self.status()
-                # Cooperative: the child finishes its bounded initialization
-                # and cleanup, then refuses to bind. Never orphan its children.
-                listening.with_suffix(".cancel").touch()
-                self.cancel_requested = True
-                return self._offline_state()

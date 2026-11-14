@@ -5,7 +5,8 @@ from hashlib import sha256
 import json
 import tempfile
 import unittest
-from laomedo.github.models import GitHubGrantBinding, GitHubOperationIntent
+from laomedo.github.models import GitHubGrantBinding
+from laomedo.github.models import GitHubOperationIntent
 from test_github.test_issues.utils import create_case as create_issue_case
 from test_github.test_pull_requests.utils import create_case as create_pr_case
 

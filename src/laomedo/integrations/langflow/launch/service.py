@@ -30,10 +30,6 @@ class AppLauncher:
             raise ValueError(
                 "This app launch command currently requires a Codex runner."
             )
-        if "lease_service" not in config:
-            raise ValueError(
-                "Configure the independent Codex lease service before launch."
-            )
         if not Path(config["source"]).is_dir():
             raise ValueError("The configured Codex source directory does not exist.")
         if settings.port == config["port"]:

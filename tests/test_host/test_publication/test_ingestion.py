@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import stat
 import tempfile
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
@@ -40,16 +41,6 @@ class BundleIngestTests(unittest.TestCase):
         self._save_record()
         self.bundle = self.workspace / HANDOFF_NAME
         self.bundle.write_bytes(b"synthetic bundle bytes")
-
-    def _save_record(self):
-        (self.run_dir / "record.json").write_text(
-            json.dumps(self.record), encoding="utf-8"
-        )
-
-    def _freeze(self, attempt="attempt-1"):
-        return freeze_run_bundle(
-            self.runner, self.private, run_id="run-a", attempt_id=attempt
-        )
 
     def test_freezes_only_fixed_run_file_with_hash_and_reserved_result(self):
         self.record["agent_selected_path"] = str(self.root / "wrong.bundle")
@@ -190,6 +181,27 @@ class BundleIngestTests(unittest.TestCase):
         self.assertEqual(result["status"], "refused")
         self.assertEqual(result["reason"], "bundle_not_regular")
 
+    def test_bundle_changed_after_open_is_not_frozen(self):
+        before = self.bundle.stat()
+        after = SimpleNamespace(
+            st_dev=before.st_dev,
+            st_ino=before.st_ino + 1,
+            st_size=before.st_size,
+            st_mtime_ns=before.st_mtime_ns,
+        )
+        with patch(
+            "laomedo.host.publication.ingestion.utils.os.fstat",
+            side_effect=[before, after],
+        ):
+            result = self._freeze()
+        self.assertEqual(
+            (result["status"], result["reason"]),
+            ("refused", "bundle_changed_or_oversized"),
+        )
+        self.assertFalse((self.private / "run-a/attempt-1/input.bundle").exists())
+        with self.assertRaisesRegex(BundleIngestError, "attempt_already_reserved"):
+            self._freeze()
+
     def test_hardlinked_bundle_is_refused(self):
         other = self.root / "same-inode.bundle"
         try:
@@ -256,6 +268,16 @@ class BundleIngestTests(unittest.TestCase):
         (self.root / ".git").mkdir()
         with self.assertRaisesRegex(BundleIngestError, "stage_boundary_invalid"):
             self._freeze()
+
+    def _save_record(self):
+        (self.run_dir / "record.json").write_text(
+            json.dumps(self.record), encoding="utf-8"
+        )
+
+    def _freeze(self, attempt="attempt-1"):
+        return freeze_run_bundle(
+            self.runner, self.private, run_id="run-a", attempt_id=attempt
+        )
 
 
 if __name__ == "__main__":

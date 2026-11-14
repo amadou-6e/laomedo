@@ -1,10 +1,14 @@
 """No-network checks of exact-commit pushes and host-credential isolation."""
 
+from laomedo.git.credential_helper import __file__ as credential_helper_file
+
 from pathlib import Path
 from pydantic import SecretStr
 from support.git import CallbackGitRunner
 from laomedo.git.command import GitCommandRunner
-from laomedo.git.models import GitCommand, GitCredential, GitExecutionContext
+from laomedo.git.models import GitCommand
+from laomedo.git.models import GitCredential
+from laomedo.git.models import GitExecutionContext
 import os
 import shlex
 import subprocess
@@ -21,7 +25,6 @@ from laomedo.git.errors import GitCommandTimeout
 from laomedo.host.mediation.errors import KnownRejected
 from laomedo.host.mediation.store import MediationStore
 from laomedo.host.mediation.service import JournaledTransport
-import laomedo.git.credential_helper as git_credential_helper
 
 REPOSITORY = "example/disposable"
 
@@ -678,7 +681,7 @@ class GitHubGitTransportTests(unittest.TestCase):
             "!"
             + shlex.quote(sys.executable)
             + " "
-            + shlex.quote(str(Path(git_credential_helper.__file__)))
+            + shlex.quote(str(Path(credential_helper_file)))
         )
         environment = {
             key: value

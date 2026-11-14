@@ -1,0 +1,318 @@
+"""Claude launch policy and credential-free workspace command mediation."""
+
+from __future__ import annotations
+
+from contextlib import contextmanager
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from uuid import uuid4
+import json
+import math
+import re
+import secrets
+import threading
+import time
+
+from laomedo.agents.agents.claude.settings import CLI_VERSION
+from laomedo.agents.agents.claude.settings import EXECUTION_GUARD
+from laomedo.agents.agents.claude.settings import IMAGE
+from laomedo.agents.agents.claude.settings import PROFILE
+from laomedo.agents.errors import RunnerError
+from laomedo.docker import DockerRuntime
+from laomedo.container_images.errors import ImageBuildError
+from laomedo.host.leases.client import LeaseClient
+from laomedo.host.leases.settings import LABEL_RUN
+from laomedo.host.leases.settings import LABEL_TOKEN
+from laomedo.host.leases.settings import SERVICE_STALE_SECONDS
+
+
+class ClaudeRuntimePolicy:
+    """Keep provider policy here; delegate Docker lifecycle and receipts to py-docker."""
+
+    def __init__(
+        self,
+        image=IMAGE,
+        profile=PROFILE,
+        lease_service=None,
+    ):
+        """Verify the local image, supervised cleanup and dedicated profile before use."""
+        if (
+            not isinstance(image, str)
+            or not re.fullmatch(r"[A-Za-z0-9_./:@-]+", image)
+            or not isinstance(profile, str)
+            or not re.fullmatch(r"laomedo-claude-[a-z0-9-]+", profile)
+        ):
+            raise RunnerError("claude_container_configuration_invalid")
+        self.profile, self.lease_service = profile, lease_service
+        self.check_supervisor()
+        try:
+            from py_docker.errors import (
+                CleanupUnconfirmedError,
+                ConnectionConfigurationError,
+                DockerOperationError,
+                ImageResolutionError,
+            )
+        except ImportError:
+            raise RunnerError("claude_container_unavailable") from None
+        try:
+            with DockerRuntime(environment=None).connect() as docker:
+                self.docker_endpoint = docker.connection.endpoint
+                self.image_id = DockerRuntime.ensure_image(docker, image)
+                self.receipts = Path(lease_service).parent.joinpath("receipts")
+                self.receipts.mkdir(mode=0o700, parents=True, exist_ok=True)
+                for receipt in self.receipts.glob("claude-*.json"):
+                    DockerRuntime.recover_receipts(docker, [receipt], kind="session")
+                labels = {"laomedo.provider": "claude"}
+                if not docker.volumes.exists(profile):
+                    docker.volumes.create(name=profile, labels=labels)
+                if not docker.volumes.has_labels(profile, labels):
+                    raise RunnerError("claude_container_profile_unavailable")
+        except ImageBuildError:
+            raise RunnerError("container_image_build_failed") from None
+        except CleanupUnconfirmedError:
+            raise RunnerError("container_termination_unverified") from None
+        except ConnectionConfigurationError:
+            raise RunnerError("claude_container_configuration_invalid") from None
+        except ImageResolutionError:
+            raise RunnerError("claude_container_image_missing") from None
+        except DockerOperationError:
+            raise RunnerError("claude_container_unavailable") from None
+        version = self.control(["--version"], timeout=60)
+        if (
+            version.exit_code
+            or version.stdout.decode().strip() != CLI_VERSION + " (Claude Code)"
+        ):
+            raise RunnerError("unsupported_claude_cli_version")
+
+    @contextmanager
+    def client(
+        self, *, output_code="workspace_command_output_too_large", deadline=None
+    ):
+        """Pin the daemon and translate library failures at the provider boundary."""
+        from py_docker.connection.settings import ConnectionSettings
+        from py_docker.errors import (
+            CleanupUnconfirmedError,
+            JobCancelledError,
+            DeadlineError,
+            DockerOperationError,
+            OutputLimitError,
+        )
+
+        try:
+            options = {"environment": {"DOCKER_HOST": self.docker_endpoint}}
+            if deadline is not None:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise RunnerError("claude_turn_timeout")
+                options = {
+                    "settings": ConnectionSettings(
+                        endpoint=self.docker_endpoint,
+                        context=None,
+                        timeout_seconds=min(30.0, remaining),
+                    ),
+                    "environment": {},
+                }
+            with DockerRuntime(**options).client() as docker:
+                yield docker
+        except CleanupUnconfirmedError:
+            raise RunnerError("container_termination_unverified") from None
+        except JobCancelledError:
+            raise RunnerError("claude_cancelled") from None
+        except OutputLimitError:
+            raise RunnerError(output_code) from None
+        except DeadlineError:
+            raise RunnerError("claude_turn_timeout") from None
+        except DockerOperationError:
+            raise RunnerError("claude_container_unavailable") from None
+
+    def spec(
+        self,
+        command,
+        *,
+        name=None,
+        run_id=None,
+        token=None,
+        workspace=None,
+        worker=False,
+        environment=None,
+        mounts=(),
+        extra_hosts=None,
+    ):
+        """Build the canonical sandbox policy for a controller or isolated worker."""
+        from py_docker.containers.models import ContainerSpec, Mount
+
+        selected = list(mounts)
+        env = dict(environment or {})
+        if worker:
+            env.update(HOME="/tmp", CLAUDE_CONFIG_DIR="/tmp/unused")
+        else:
+            selected.append(
+                Mount(type="volume", source=self.profile, target="/profile")
+            )
+        if workspace is not None:
+            skills = str(workspace.joinpath(".agents/skills"))
+            selected.extend(
+                [
+                    Mount(type="bind", source=str(workspace), target="/draft"),
+                    Mount(
+                        type="bind",
+                        source=skills,
+                        target="/draft/.agents/skills",
+                        read_only=True,
+                    ),
+                    Mount(
+                        type="bind",
+                        source=skills,
+                        target="/draft/.claude/skills",
+                        read_only=True,
+                    ),
+                ]
+            )
+        return ContainerSpec(
+            image=self.image_id,
+            name=name or "laomedo-claude-control-" + uuid4().hex,
+            entrypoint=command[:1],
+            command=command[1:],
+            init=True,
+            nano_cpus=2_000_000_000,
+            working_dir="/draft",
+            network_mode="none" if worker else "bridge",
+            tmpfs={"/tmp": "rw,nosuid,nodev,size=256m"},
+            mounts=selected,
+            environment=env,
+            extra_hosts=extra_hosts or {},
+            labels=(
+                {
+                    LABEL_RUN: run_id,
+                    LABEL_TOKEN: token,
+                }
+                if run_id
+                else {}
+            ),
+        )
+
+    def guarded(self, command, deadline):
+        """Bound the process tree inside the container even if its host disappears."""
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise RunnerError("claude_turn_timeout")
+        return [
+            "python3",
+            "-c",
+            EXECUTION_GUARD,
+            str(time.time() + remaining),
+            str(remaining),
+            *command,
+        ]
+
+    def job(self, spec, *, timeout, cancelled=None, deadline=None):
+        """Collect one bounded binary result only after exact cleanup is confirmed."""
+        from py_docker.jobs.models import ContainerJob
+        from py_docker.streams.models import StreamLimits
+        from laomedo.agents.agents.claude.auth.settings import CLEANUP_SECONDS
+
+        options = {}
+        if deadline is not None:
+            options = {"deadline": float(deadline), "cleanup_seconds": CLEANUP_SECONDS}
+        with self.client(
+            **({"deadline": deadline} if deadline is not None else {})
+        ) as docker:
+            return DockerRuntime.execute_job(
+                docker,
+                ContainerJob(
+                    spec=spec,
+                    limits=StreamLimits(
+                        seconds=timeout + 10, max_bytes=36 * 1024 * 1024
+                    ),
+                    receipt_path=self.receipts.joinpath(
+                        "claude-" + spec.name + ".json"
+                    ),
+                    wait_timeout_seconds=10.0,
+                ),
+                cancelled=cancelled,
+                **options,
+            )
+
+    def control(self, args, *, input=None, timeout=45, deadline=None):
+        """Run a zero-turn CLI request; input files avoid Windows pipe half-close."""
+        from py_docker.containers.models import Mount
+
+        with TemporaryDirectory(prefix="claude-input-", dir=self.receipts) as directory:
+            mounts = []
+            command = ["claude", *args]
+            if input is not None:
+                source = Path(directory).joinpath("input")
+                source.write_bytes(input)
+                source.chmod(0o600)
+                mounts = [
+                    Mount(
+                        type="bind",
+                        source=str(source),
+                        target="/run/laomedo/input",
+                        read_only=True,
+                    )
+                ]
+                command = ["sh", "-c", 'exec "$@" < /run/laomedo/input', "sh", *command]
+            until = time.monotonic() + timeout
+            if deadline is not None:
+                until = min(until, deadline)
+            spec = self.spec(self.guarded(command, until), mounts=mounts)
+            options = {"deadline": until} if deadline is not None else {}
+            return self.job(spec, timeout=timeout, **options)
+
+    def check_supervisor(self):
+        """Never advertise a runnable API without independent cleanup supervision."""
+        from pathlib import Path
+
+        if self.lease_service is None:
+            raise RunnerError("lease_service_required")
+        try:
+            root = Path(self.lease_service)
+            info = json.loads((root / "service.json").read_text())
+            wall = float((root / "service.alive").read_text())
+            monotonic = float((root / "service.alive.monotonic").read_text())
+            if (
+                not isinstance(info.get("pid"), int)
+                or not info.get("instance")
+                or not math.isfinite(wall)
+                or not math.isfinite(monotonic)
+                or not -1 <= time.time() - wall <= SERVICE_STALE_SECONDS
+                or not -1 <= time.monotonic() - monotonic <= SERVICE_STALE_SECONDS
+            ):
+                raise ValueError()
+        except (OSError, ValueError, TypeError, AttributeError):
+            raise RunnerError("lease_service_unavailable") from None
+
+    def lease(self, run_id, name, token, cancelled, scope=None):
+        """Bind the exact resource/run capability to its independent supervisor; missing or stale supervision refuses."""
+        if self.lease_service is None:
+            raise RunnerError("lease_service_required")
+        try:
+            return LeaseClient(
+                self.lease_service,
+                run_id=run_id,
+                docker_endpoint=self.docker_endpoint,
+                name=name,
+                token=token,
+                cancelled=cancelled,
+                mediation_request=scope,
+            )
+        except (OSError, RuntimeError):
+            raise RunnerError("lease_service_unavailable") from None
+
+    @contextmanager
+    def _session_context(self, spec, receipt, seconds):
+        """Keep output and durable cleanup on the launcher's creator thread."""
+        from py_docker.sessions.models import ContainerSession
+        from py_docker.streams.models import StreamLimits
+
+        with self.client(output_code="claude_receipt_too_large") as docker:
+            with DockerRuntime.session(
+                docker,
+                ContainerSession(
+                    spec=spec,
+                    receipt_path=receipt,
+                    limits=StreamLimits(seconds=seconds, max_bytes=36 * 1024 * 1024),
+                ),
+            ) as session:
+                yield session

@@ -7,6 +7,18 @@ resolution-markers = [
 ]
 
 [[package]]
+name = "agent-client-protocol"
+version = "0.12.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pydantic" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/9d/95/2c28ca34e545ce0282e88272aa3a8abdf8f3f926a0492f567ea11acd071b/agent_client_protocol-0.12.1.tar.gz", hash = "sha256:9963ccb590ed96d7dc542c9c023e90676fc76b1c6562e21a9ee112f4fbcb0095", size = 130605, upload-time = "2026-08-16T14:08:22.545Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/21/61/0a2186c8ca53cf464767d4c4fb7fd9e23f48ce4547c2fa0d1c83a4d52410/agent_client_protocol-0.12.1-py3-none-any.whl", hash = "sha256:aaf3cc301ed87d9e2c4ccb91adfe1cd58784355f6ce7e513f50e7ca2391862ef", size = 85929, upload-time = "2026-08-16T14:08:21.307Z" },
+]
+
+[[package]]
 name = "annotated-types"
 version = "0.8.0"
 source = { registry = "https://pypi.org/simple" }
@@ -486,19 +498,23 @@ observability = [
     { name = "opentelemetry-sdk" },
 ]
 runner = [
+    { name = "agent-client-protocol" },
     { name = "py-docker" },
+    { name = "pywin32", marker = "sys_platform == 'win32'" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "agent-client-protocol", marker = "extra == 'runner'", specifier = "==0.12.1" },
     { name = "black", marker = "extra == 'dev'", specifier = "==26.10.1" },
     { name = "opentelemetry-exporter-otlp-proto-http", marker = "extra == 'observability'", specifier = "==1.45.1" },
     { name = "opentelemetry-proto", marker = "extra == 'observability'", specifier = "==1.45.1" },
     { name = "opentelemetry-sdk", marker = "extra == 'observability'", specifier = "==1.45.1" },
-    { name = "py-docker", marker = "extra == 'runner'", git = "https://github.com/amadou-6e/py-docker.git?rev=1a904eb901a3381737685340a90ec4a5d2841ceb" },
+    { name = "py-docker", marker = "extra == 'runner'", git = "https://github.com/amadou-6e/py-docker.git?rev=49652f4281b37e62fb43404532a376a3f1f2e07d" },
     { name = "pydantic", specifier = ">=2.13,<2.14" },
     { name = "pydantic-settings", specifier = ">=2.14.2,<2.16" },
     { name = "pyjwt", extras = ["crypto"], specifier = "==2.15.1" },
+    { name = "pywin32", marker = "sys_platform == 'win32' and extra == 'runner'", specifier = ">=304" },
     { name = "truststore", specifier = "==0.10.4" },
 ]
 provides-extras = ["dev", "runner", "observability"]
@@ -683,8 +699,8 @@ wheels = [
 
 [[package]]
 name = "py-docker"
-version = "0.1.0a2"
-source = { git = "https://github.com/amadou-6e/py-docker.git?rev=1a904eb901a3381737685340a90ec4a5d2841ceb#1a904eb901a3381737685340a90ec4a5d2841ceb" }
+version = "0.1.0a3"
+source = { git = "https://github.com/amadou-6e/py-docker.git?rev=49652f4281b37e62fb43404532a376a3f1f2e07d#49652f4281b37e62fb43404532a376a3f1f2e07d" }
 dependencies = [
     { name = "docker" },
     { name = "filelock" },

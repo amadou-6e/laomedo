@@ -16,7 +16,11 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["black==26.10.1"]
-runner = ["py-docker @ git+https://github.com/amadou-6e/py-docker.git@1a904eb901a3381737685340a90ec4a5d2841ceb"]
+runner = [
+    "py-docker @ git+https://github.com/amadou-6e/py-docker.git@49652f4281b37e62fb43404532a376a3f1f2e07d",
+    "agent-client-protocol==0.12.1",
+    "pywin32>=304; sys_platform == 'win32'",
+]
 observability = ["opentelemetry-proto==1.45.1", "opentelemetry-sdk==1.45.1", "opentelemetry-exporter-otlp-proto-http==1.45.1"]
 
 [tool.black]
@@ -42,7 +46,7 @@ where = ["src"]
 include = ["laomedo*"]
 
 [tool.setuptools.package-data]
-"laomedo.agents" = ["resources/mediation/*.mjs"]
-"laomedo.agents.providers.codex" = ["resources/*.toml", "resources/*.json", "resources/*.md", "resources/*LICENSE"]
+"laomedo.host.mediation" = ["resources/*.mjs"]
+"laomedo.agents.agents.codex" = ["resources/*.toml", "resources/*.json", "resources/*.md", "resources/*LICENSE"]
 "laomedo.skills" = ["resources/*/SKILL.md"]
 "laomedo.host.publication" = ["resources/*.sh"]

@@ -139,12 +139,17 @@ class BundleVerifierTests(unittest.TestCase):
         worker = self.worker()
 
         def broken(*_args, **_kwargs):
-            raise TypeError("synthetic-malformed-record")
+            raise TypeError("PRIVATE malformed record and payload")
 
         worker.verify = broken
         statuses = worker.scan_once()
         self.assertEqual(len(statuses), 2)
         self.assertEqual({item["status"] for item in statuses}, {"unknown"})
+        for run, attempt in (("run-a", "attempt-a"), ("run-b", "attempt-b")):
+            saved = (self.private / run / attempt / "verification.json").read_text()
+            self.assertNotIn("PRIVATE", saved)
+            self.assertNotIn("payload", saved)
+            self.assertEqual(json.loads(saved)["error_class"], "TypeError")
         self.assertEqual(worker.scan_once(), [])
 
     def test_tampered_frozen_bytes_or_completed_run_never_reaches_stage(self):

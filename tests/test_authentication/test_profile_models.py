@@ -5,11 +5,9 @@ from uuid import uuid4
 
 from pydantic import ValidationError
 
-from laomedo.integrations.langflow.local_profiles.models import (
-    ProfileCreateRequest,
-    ProfileIndex,
-    ProfileSummary,
-)
+from laomedo.integrations.langflow.local_profiles.models import ProfileCreateRequest
+from laomedo.integrations.langflow.local_profiles.models import ProfileIndex
+from laomedo.integrations.langflow.local_profiles.models import ProfileSummary
 
 
 class ProfileBoundaryTests(unittest.TestCase):

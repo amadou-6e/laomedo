@@ -40,7 +40,7 @@ class PRAgentInputTests(unittest.TestCase):
             ):
                 node = component(task=value)
                 with patch(
-                    "laomedo.integrations.langflow.agent.component._HTTP.open"
+                    "laomedo.agents.interface.langflow.component._HTTP.open"
                 ) as transport:
                     with self.assertRaisesRegex(
                         ValueError, "pr_context_(upstream_failed|invalid)"
@@ -52,7 +52,7 @@ class PRAgentInputTests(unittest.TestCase):
         for value in (17, object()):
             node = component(task=value)
             with patch(
-                "laomedo.integrations.langflow.agent.component._HTTP.open"
+                "laomedo.agents.interface.langflow.component._HTTP.open"
             ) as transport:
                 with self.assertRaisesRegex(ValueError, "pr_context_invalid"):
                     node._prepare_request()

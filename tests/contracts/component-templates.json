@@ -1,8 +1,8 @@
 {
-  "scope": "Current maintained graph sources and recognized LFX source hashes follow the formatted develop components; digest protects every other graph value. No old component bodies, revision chain, fixture/live acceptance or historical export mutation.",
+  "scope": "Current maintained graphs and internal saved-wire inputs use canonical component source and recognized source hashes. Digests preserve all other graph values. Historical execution originals remain unchanged on exp; these are not new acceptance records.",
   "files": [
     {
-      "path": "examples/claude-agent/current-template-flow.json",
+      "path": "tests/test_agents/test_examples/data/claude-template.json",
       "nodes": [
         {
           "node_id": "agent",
@@ -13,7 +13,7 @@
       "graph_values_sha256": "27c2ed4bb2adb83e1a5f8ac6b37a6955c9235311f6f6c5d07e2c8953f6123df2"
     },
     {
-      "path": "examples/claude-agent/flow.json",
+      "path": "tests/test_agents/test_examples/data/claude.json",
       "nodes": [
         {
           "node_id": "skill",
@@ -29,7 +29,7 @@
       "graph_values_sha256": "7ed2fbdb3aa5ca5737fda8dab57dbccb381b0c49b72a7c40f6d8b38778cfb166"
     },
     {
-      "path": "examples/native-codex-node/flow.json",
+      "path": "tests/test_agents/test_examples/data/codex.json",
       "nodes": [
         {
           "node_id": "LaomedoSkill-native",
@@ -45,7 +45,7 @@
       "graph_values_sha256": "666d1b06948909b9cda7a02f8f806be188f27bde65af3cd2fda8c287b83eec37"
     },
     {
-      "path": "examples/opencode-node/flow.json",
+      "path": "tests/test_agents/test_examples/data/opencode.json",
       "nodes": [
         {
           "node_id": "OpenCode-pinned-skill",
@@ -125,7 +125,7 @@
           "has_code_hash": true
         }
       ],
-      "graph_values_sha256": "5443b278a9401d14a88975b04e4fcb3fcd0ca3a322b0bfe075ae2b3478559eb1"
+      "graph_values_sha256": "1e294a77e68ed44591d6919055cd48d14cf785a90063a781cf24639350a29d33"
     },
     {
       "path": "examples/langflow-contract-routing/flow.json",
@@ -171,7 +171,7 @@
           "has_code_hash": true
         }
       ],
-      "graph_values_sha256": "f9845431b3e53015ebec0a71d4af976040252e1fbb3db34756e3487538232324"
+      "graph_values_sha256": "ad31a32c2c19d2a0982d35d2e181cf86ef02a9b26a7ced30a1552a017af804df"
     }
   ]
 }

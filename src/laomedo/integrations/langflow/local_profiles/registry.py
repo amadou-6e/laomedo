@@ -9,11 +9,9 @@ from langflow.services.deps import session_scope
 from sqlmodel import select
 
 from laomedo.integrations.langflow.local_profiles.errors import ProfileError
-from laomedo.integrations.langflow.local_profiles.models import (
-    ProfileCreateRequest,
-    ProfileIndex,
-    ProfileSummary,
-)
+from laomedo.integrations.langflow.local_profiles.models import ProfileCreateRequest
+from laomedo.integrations.langflow.local_profiles.models import ProfileIndex
+from laomedo.integrations.langflow.local_profiles.models import ProfileSummary
 from laomedo.integrations.langflow.local_profiles.settings import SYSTEM_PROFILE_NAME
 
 

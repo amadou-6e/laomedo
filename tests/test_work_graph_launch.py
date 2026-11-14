@@ -21,11 +21,11 @@ from laomedo.work_graph.launch import launch_github_work_stage
 from laomedo.work_graph.launch import launch_work_stage
 from laomedo.work_graph.launch import preflight
 from laomedo.work_graph.launch import relevant_content_digest
-from laomedo.agents.workflow.errors import ExternalOutcomeUnknown
-from laomedo.agents.workflow.errors import LaunchError
-from laomedo.agents.workflow.store import WorkflowRunStore
+from laomedo.work_graph.runs.errors import ExternalOutcomeUnknown
+from laomedo.work_graph.runs.errors import LaunchError
+from laomedo.work_graph.runs.store import WorkflowRunStore
 
-CORPUS = Path(__file__).resolve().parents[1] / "experiments" / "exp16" / "corpus.json"
+CORPUS = Path(__file__).parent / "test_work_graph" / "fixtures" / "corpus.json"
 REPO = "verify/exp16"
 WORK = "github:S-20"
 TIME = datetime(2026, 10, 5, 10, 0, tzinfo=timezone.utc)
@@ -230,7 +230,7 @@ class WorkGraphLaunchTests(unittest.TestCase):
 
     def test_github_entrypoint_refreshes_before_any_reservation(self):
         changed = snapshot(self.corpus, "content_changed")
-        with patch("laomedo.work_graph.github.fetch", return_value=changed) as fetch:
+        with patch("laomedo.work_graph.launch.fetch", return_value=changed) as fetch:
             with self.assertRaisesRegex(LaunchError, "stale_unacknowledged"):
                 launch_github_work_stage(
                     frozen=self.frozen,
@@ -327,7 +327,7 @@ class WorkGraphLaunchTests(unittest.TestCase):
             max_turns=0,
         )
         with patch(
-            "laomedo.work_graph.grant_utils._host_principal", return_value="other-user"
+            "laomedo.work_graph.grants._host_principal", return_value="other-user"
         ):
             with self.assertRaisesRegex(LaunchError, "grant_operator_mismatch"):
                 authority(ref, binding)

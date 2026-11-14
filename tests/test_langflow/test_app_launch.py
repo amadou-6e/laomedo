@@ -93,12 +93,14 @@ class AppLaunchTests(unittest.TestCase):
             settings = Settings(**self.settings.model_dump())
         self.assertEqual(settings.port, 7860)
 
-    def test_missing_supervisor_binding_is_a_setup_error(self):
-        """A recoverable API must also have its normal run supervision binding."""
+    def test_default_supervisor_binding_uses_the_same_runner_configuration(self):
+        """The app honors the runner's supervised default without another config rule."""
         del self.config["lease_service"]
         self.path.write_text(json.dumps(self.config))
-        with self.assertRaisesRegex(ValueError, "independent Codex lease service"):
-            AppLauncher(self.settings).environment()
+        environment = AppLauncher(self.settings).environment()
+        self.assertEqual(
+            environment["LAOMEDO_RUNNER_SERVICE_FILE"], str(self.path.resolve())
+        )
 
     def test_port_collision_refuses_app_startup(self):
         """An app cannot occupy the managed runner endpoint even while it is offline."""

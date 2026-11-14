@@ -10,7 +10,8 @@ import tempfile
 import threading
 import time
 
-from laomedo.skills.registry.settings import MAX_FILES, MAX_BUNDLE_BYTES
+from laomedo.skills.registry.settings import MAX_FILES
+from laomedo.skills.registry.settings import MAX_BUNDLE_BYTES
 from laomedo.skills.registry.utils.inspection import inspect_skill
 from laomedo.skills.registry.errors import SkillStoreError
 from laomedo.skills.registry.utils.files import is_link
@@ -18,14 +19,13 @@ from laomedo.skills.registry.utils.hashing import tree_hash
 from laomedo.skills.registry.models import SkillReference
 from laomedo.skills.registry.utils.paths import validate_relative_path
 from laomedo.skills.registry.store import SkillStore
-from laomedo.skills.sources.bundle import validate_bundle, validate_bundle_path
+from laomedo.skills.sources.bundle import validate_bundle
+from laomedo.skills.sources.bundle import validate_bundle_path
 from laomedo.skills.sources.errors import SourceError
 from laomedo.skills.sources.local import LocalSkillSource
-from laomedo.skills.sources.models import (
-    AdmittedSkillSource,
-    SkillSourceChoice,
-    PendingSkillImport,
-)
+from laomedo.skills.sources.models import AdmittedSkillSource
+from laomedo.skills.sources.models import SkillSourceChoice
+from laomedo.skills.sources.models import PendingSkillImport
 from laomedo.skills.sources.repository import GitSkillSource
 from laomedo.skills.sources.utils import skill_name
 

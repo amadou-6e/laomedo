@@ -14,7 +14,7 @@ def install_routes(app, root: Path, authenticate):
     from laomedo.integrations.langflow.skill_editing import install_skill_editing_routes
 
     install_skill_editing_routes(app, authenticate)
-    from laomedo.activity.agent_activity.routes import install_activity_routes
+    from laomedo.agents.activity.routes import install_activity_routes
 
     install_activity_routes(app, authenticate)
     from laomedo.host.runner.routes import install_runner_service_routes
@@ -122,7 +122,8 @@ def install_routes(app, root: Path, authenticate):
     )
     async def read_issue(payload: dict):
         from laomedo.github.interface.issues.client import issue_request
-        from laomedo.github.contract import repository_from_url, labels_value
+        from laomedo.github.contract import repository_from_url
+        from laomedo.github.contract import labels_value
         from laomedo.github.issues.contract import ERROR_CODES as ISSUE_ERROR_CODES
 
         try:
@@ -163,7 +164,8 @@ def install_routes(app, root: Path, authenticate):
     )
     async def read_pr(payload: dict):
         from laomedo.github.interface.pull_requests.client import pr_request
-        from laomedo.github.contract import repository_from_url, labels_value
+        from laomedo.github.contract import repository_from_url
+        from laomedo.github.contract import labels_value
         from laomedo.github.issues.contract import ERROR_CODES as ISSUE_ERROR_CODES
         from laomedo.github.pull_requests.contract import ERROR_CODES as PR_ERROR_CODES
 

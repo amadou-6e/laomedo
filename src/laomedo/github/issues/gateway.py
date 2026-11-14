@@ -1,6 +1,7 @@
 """Live issue discovery and graph operations through existing mediation grants."""
 
-from laomedo.github.models import GitHubOperationIntent, GitHubGrantBinding
+from laomedo.github.models import GitHubOperationIntent
+from laomedo.github.models import GitHubGrantBinding
 
 from contextlib import closing
 from datetime import datetime

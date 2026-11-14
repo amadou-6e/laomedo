@@ -1,7 +1,6 @@
 """Protect canonical ownership, packaged resources and executable entrypoints."""
 
-from support.paths import repository_root
-
+import ast
 import importlib
 import json
 import os
@@ -10,6 +9,8 @@ import subprocess
 import sys
 import tempfile
 import unittest
+
+from support.paths import repository_root
 from laomedo._paths import import_root
 from laomedo._paths import package_root
 
@@ -24,10 +25,30 @@ class PackageLayoutTests(unittest.TestCase):
         if source == installed:
             self.skipTest("Install the wheel and run outside the source checkout")
         modules = set()
+        manifest = json.loads((ROOT / "docker/images.json").read_text(encoding="utf-8"))
+        build_inputs = {Path("images.json"): ROOT / "docker/images.json"}
+        for registration in manifest.values():
+            for name in registration["files"]:
+                relative = Path(registration["context"]) / name
+                build_inputs[relative] = ROOT / "docker" / relative
+        installed_inputs = set()
         for artifact in installed.rglob("*"):
             if not artifact.is_file() or "__pycache__" in artifact.parts:
                 continue
             relative = artifact.relative_to(installed)
+            if relative.parts[:2] == ("container_images", "resources"):
+                resource = Path(*relative.parts[2:])
+                with self.subTest(build_input=resource.as_posix()):
+                    self.assertIn(
+                        resource,
+                        build_inputs,
+                        "Unregistered Docker input in installed wheel",
+                    )
+                    self.assertEqual(
+                        artifact.read_bytes(), build_inputs[resource].read_bytes()
+                    )
+                installed_inputs.add(resource)
+                continue
             current = source / relative
             with self.subTest(artifact=relative.as_posix()):
                 self.assertTrue(
@@ -45,6 +66,11 @@ class PackageLayoutTests(unittest.TestCase):
                         + str(relative),
                     )
         self.assertEqual(
+            installed_inputs,
+            set(build_inputs),
+            "Wheel must include every registered Docker input",
+        )
+        self.assertEqual(
             modules,
             {module.relative_to(source) for module in source.rglob("*.py")},
             "The installed wheel must contain every current Python module",
@@ -52,8 +78,8 @@ class PackageLayoutTests(unittest.TestCase):
 
     def test_package_root_has_only_shared_infrastructure(self):
         self.assertEqual(
-            {p.name for p in package_root().iterdir() if p.is_file()},
-            {"__init__.py", "_paths.py"},
+            {p.name for p in package_root().iterdir() if p.is_file()} - {"README.md"},
+            {"__init__.py", "_paths.py", "docker.py"},
         )
 
     def test_canonical_modules_import_without_forwarders(self):
@@ -61,9 +87,20 @@ class PackageLayoutTests(unittest.TestCase):
         for canonical in mapping.values():
             with self.subTest(module=canonical):
                 try:
+                    if canonical.startswith(
+                        (
+                            "laomedo.integrations.langflow.",
+                            "laomedo.agents.interface.langflow.",
+                        )
+                    ):
+                        # Bootstrap the installed compatibility shim before its
+                        # LFX plugins, as the real app and graph CLI do. Core
+                        # modules do not acquire a framework dependency.
+                        importlib.import_module("langflow")
                     module = importlib.import_module(canonical)
                 except ModuleNotFoundError as error:
                     if (error.name or "").split(".")[0] in {
+                        "acp",
                         "fastapi",
                         "starlette",
                         "lfx",
@@ -75,9 +112,9 @@ class PackageLayoutTests(unittest.TestCase):
                 self.assertNotIn("alias_module", Path(module.__file__).read_text())
 
     def test_resource_owners_and_bytes(self):
-        from laomedo.agents.providers.codex.settings import CONFIG
-        from laomedo.agents.providers.codex.settings import SECCOMP
-        from laomedo.agents.providers.codex.settings import MEDIATION_CLIENT
+        from laomedo.agents.agents.codex.settings import CONFIG
+        from laomedo.agents.agents.codex.settings import SECCOMP
+        from laomedo.agents.agents.codex.settings import MEDIATION_CLIENT
         from laomedo.host.publication.bundle.settings import SCRIPT
 
         paths = [
@@ -96,11 +133,11 @@ class PackageLayoutTests(unittest.TestCase):
                 (ROOT / "src/laomedo" / path.relative_to(package_root())).read_bytes(),
             )
         self.assertEqual(
-            CONFIG.parent, package_root() / "agents/providers/codex/resources"
+            CONFIG.parent, package_root() / "agents/agents/codex/resources"
         )
         self.assertEqual(SECCOMP.parent, CONFIG.parent)
         self.assertEqual(
-            MEDIATION_CLIENT.parent, package_root() / "agents/resources/mediation"
+            MEDIATION_CLIENT.parent, package_root() / "host/mediation/resources"
         )
         self.assertEqual(SCRIPT.parent, package_root() / "host/publication/resources")
 
@@ -108,8 +145,8 @@ class PackageLayoutTests(unittest.TestCase):
         env = dict(os.environ, PYTHONPATH=str(import_root()))
         modules = [
             "laomedo.host.managed_service",
-            "laomedo.agents.providers.codex.cli",
-            "laomedo.agents.providers.claude.cli",
+            "laomedo.agents.agents.codex.cli",
+            "laomedo.agents.agents.claude.cli",
             "laomedo.host.leases.process_cli",
             "laomedo.host.leases.service_cli",
             "laomedo.work_graph",
@@ -139,3 +176,56 @@ class PackageLayoutTests(unittest.TestCase):
             DockerLangflowStage(flow, source_root=ROOT).source_root, ROOT / "src"
         )
         self.assertEqual(DockerLangflowStage(flow).source_root, import_root())
+
+    def test_agent_class_members_follow_public_api_order(self):
+        """Keep provider entrypoints discoverable before implementation helpers.
+
+        Inspect source without importing optional runtimes. Properties and their
+        accessors form one section; public class/static methods remain public.
+        Class fields and decorators retain their separate runtime semantics.
+        """
+        agent_root = ROOT / "src/laomedo/agents"
+        paths = list(agent_root.rglob("*.py"))
+        self.assertTrue(paths, "Agent class ordering scan must find source files")
+        agent_classes = 0
+        paths.extend(
+            ROOT.joinpath("components/laomedo", name + ".py")
+            for name in ("bounded_controller", "github_pr", "output_contract", "skill")
+        )
+        for path in paths:
+            tree = ast.parse(path.read_text(encoding="utf-8-sig"))
+            for definition in ast.walk(tree):
+                if not isinstance(definition, ast.ClassDef):
+                    continue
+                if path.is_relative_to(agent_root):
+                    agent_classes += 1
+                sections = []
+                dunders = []
+                for method in definition.body:
+                    if not isinstance(method, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                        continue
+                    if method.name.startswith("__") and method.name.endswith("__"):
+                        section = 0
+                        dunders.append(method.name)
+                    elif any(
+                        isinstance(decorator, ast.Name)
+                        and decorator.id == "property"
+                        or isinstance(decorator, ast.Attribute)
+                        and decorator.attr in {"setter", "getter", "deleter"}
+                        for decorator in method.decorator_list
+                    ):
+                        section = 1
+                    else:
+                        section = 3 if method.name.startswith("_") else 2
+                    sections.append(section)
+                with self.subTest(path=path.relative_to(ROOT), cls=definition.name):
+                    self.assertEqual(
+                        sections,
+                        sorted(sections),
+                        "Expected dunders, properties, public methods, private helpers",
+                    )
+                    if "__init__" in dunders:
+                        self.assertEqual(dunders[0], "__init__")
+        self.assertGreater(
+            agent_classes, 0, "Agent scan must inspect class definitions"
+        )
