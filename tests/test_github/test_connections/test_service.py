@@ -199,6 +199,26 @@ class GitHubConnectionServiceTests(unittest.IsolatedAsyncioTestCase):
                 self.scope, UUID(browser["request_id"])
             )
 
+    async def test_pending_installation_slug_remains_bound_to_original_app_version(
+        self,
+    ):
+        connection_id = await self.ready("browser")
+        attempt = await self.service.edit(self.scope, connection_id)
+        request_id = UUID(attempt["request_id"])
+        app_id = self.service.pending[request_id].app_id
+        await self.service.configure_app(
+            self.scope,
+            client_id="Iv1.newer",
+            slug="newer-app",
+            secret=SecretStr("newer-secret"),
+        )
+        status = await self.service.status(self.scope)
+        self.assertEqual(status["app"]["slug"], "newer-app")
+        self.assertEqual(status["pending"][0]["app_slug"], "synthetic-app")
+        refreshed = await self.service.inspect_inventory(self.scope, request_id)
+        self.assertEqual(refreshed["inventory"]["repositories"][0]["id"], 456)
+        self.assertEqual(self.service.pending[request_id].app_id, app_id)
+
     async def test_inventory_reinspection_refuses_inconsistent_candidate_custody(self):
         connection_id = await self.ready("browser")
         attempt = await self.service.edit(self.scope, connection_id)

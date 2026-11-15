@@ -70,6 +70,7 @@ describe("private connection entry", () => {
           connection_id: "connection",
           expires_at: 1,
           phase: "consent",
+          app_slug: "qa",
           mode: "browser",
           authorization_url: null,
           inventory: {

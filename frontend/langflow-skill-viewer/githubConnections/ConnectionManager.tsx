@@ -68,7 +68,7 @@ function ConnectionWorkspace() {
         setNotice("");
         setIndex(undefined);
       }
-      if (action && action !== "cleanup") {
+      if (action && !["cleanup", "inventory"].includes(action)) {
         const channel = new BroadcastChannel(channelName);
         channel.postMessage({ type: "invalidate", source });
         channel.close();
@@ -93,7 +93,7 @@ function ConnectionWorkspace() {
         }
         if (action === "confirm" || action === "cancel")
           setRequestId(undefined);
-        if (action && action !== "cleanup") {
+        if (action && !["cleanup", "inventory"].includes(action)) {
           const channel = new BroadcastChannel(channelName);
           channel.postMessage({ type: "invalidate", source });
           channel.close();
@@ -332,7 +332,10 @@ function ConnectionWorkspace() {
               attempt={attempt}
               manageAccess={
                 attempt.mode === "browser"
-                  ? installationUrl(index?.app?.slug, attempt.request_id)
+                  ? installationUrl(
+                      attempt.app_slug ?? undefined,
+                      attempt.request_id,
+                    )
                   : undefined
               }
               refresh={

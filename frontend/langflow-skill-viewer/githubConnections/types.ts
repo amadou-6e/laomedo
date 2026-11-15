@@ -6,6 +6,7 @@ export type PendingConnection = {
   expires_at: number;
   phase: "authorize" | "consent";
   mode: "browser" | "token";
+  app_slug: string | null;
   authorization_url: string | null;
   inventory: { principal: Principal; repositories: Repository[] } | null;
 };

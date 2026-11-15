@@ -635,6 +635,15 @@ class GitHubConnectionService:
         reader.read_bytes = authorization.consumed_bytes
         return reader
 
+    def _pending_status(self, scope, attempt):
+        """Project navigation metadata from this attempt's exact owned App version."""
+        app = (
+            self.journal.app(scope.owner_id, attempt.app_id)
+            if attempt.app_id is not None
+            else None
+        )
+        return {**attempt.public(), "app_slug": app.slug if app else None}
+
     async def status(self, scope: GitHubConnectionScope):
         """Expose only this profile/lease's metadata, not a cached permission claim."""
         async with self.lock, self.commit_lock:
@@ -678,7 +687,7 @@ class GitHubConnectionService:
                 "callback_uri": self.callback_uri,
                 "connections": connections,
                 "pending": [
-                    attempt.public()
+                    self._pending_status(scope, attempt)
                     for attempt in self.pending.values()
                     if self._same_lease(scope, attempt)
                     and attempt.expires_at > self.clock()
