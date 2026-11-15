@@ -25,9 +25,12 @@ def main():
     parser.add_argument("--with-skill", action="store_true")
     parser.add_argument("--two-servers", action="store_true")
     parser.add_argument("--audit-cleanup", action="store_true")
+    parser.add_argument("--shutdown", action="store_true")
     args = parser.parse_args()
     if args.resume and args.cancel:
         parser.error("Use one lifecycle check at a time.")
+    if args.shutdown and (args.resume or args.cancel or not args.audit_cleanup):
+        parser.error("Shutdown requires a separate preview with cleanup audit enabled.")
     if args.two_servers and (args.transport != "stdio" or args.cancel or args.resume):
         parser.error("Combined-server acceptance uses fresh STDIO execution.")
     root = args.implementation.resolve()
@@ -41,7 +44,12 @@ def main():
     marker = "mcp-280-" + uuid4().hex
     state.write_text(
         json.dumps(
-            {"marker": marker, "calls": 0, "unselected_calls": 0, "hold": args.cancel}
+            {
+                "marker": marker,
+                "calls": 0,
+                "unselected_calls": 0,
+                "hold": args.cancel or args.shutdown,
+            }
         )
     )
     server_file = Path(__file__).with_name("server.py")
@@ -255,6 +263,8 @@ def main():
             return 1
         deadline = time.monotonic() + 240
         cancel_sent = False
+        shutdown_sent = False
+        shutdown_observed = False
         capabilities = {}
         while time.monotonic() < deadline:
             if args.audit_cleanup:
@@ -275,6 +285,22 @@ def main():
             if matching:
                 record = max(matching, key=lambda r: r.get("created_at", ""))
                 observed = json.loads(state.read_text())
+                if args.shutdown and not shutdown_sent and observed.get("entered"):
+                    (private / "stop-preview").write_text(
+                        "graceful shutdown acceptance\n"
+                    )
+                    shutdown_sent = True
+                if (
+                    args.shutdown
+                    and shutdown_sent
+                    and capabilities
+                    and all(not path.exists() for path in capabilities)
+                ):
+                    try:
+                        requests.get(base + "/health", timeout=1)
+                    except requests.ConnectionError:
+                        shutdown_observed = True
+                        break
                 if args.cancel and not cancel_sent and observed.get("entered"):
                     token = (private / "runner/api-token").read_text().strip()
                     cancelled = requests.post(
@@ -317,6 +343,8 @@ def main():
             "with_skill": args.with_skill,
             "server_count": len(states),
             "cancel_requested": cancel_sent,
+            "shutdown_requested": shutdown_sent,
+            "shutdown_observed": shutdown_observed,
             "tool_entered": observed.get("entered", 0),
             "native_session_present": bool(record.get("thread_id")),
             "attempt_count": len(
@@ -338,16 +366,20 @@ def main():
                     + connection["registration"]["registration_id"]
                     + "/mcp"
                 )
-                response = requests.get(
-                    endpoint,
-                    headers={"Authorization": "Bearer " + connection["token"]},
-                    timeout=10,
-                )
-                refused.append(
-                    response.status_code == 403
-                    and response.json().get("code") == "mcp_registration_unavailable"
-                    and not path.exists()
-                )
+                try:
+                    response = requests.get(
+                        endpoint,
+                        headers={"Authorization": "Bearer " + connection["token"]},
+                        timeout=10,
+                    )
+                    refused.append(
+                        response.status_code == 403
+                        and response.json().get("code")
+                        == "mcp_registration_unavailable"
+                        and not path.exists()
+                    )
+                except requests.ConnectionError:
+                    refused.append(args.shutdown and not path.exists())
             audit = {
                 "stage": "cleanup_audit",
                 "provider": metadata["provider"],
@@ -358,6 +390,8 @@ def main():
             print(json.dumps(audit), flush=True)
             if not audit["all_files_removed_and_capabilities_refused"]:
                 return 1
+            if args.shutdown:
+                return 0 if shutdown_observed and result["tool_entered"] == 1 else 1
             exported = session.get(base + "/api/v1/flows/" + flow_id, timeout=20)
             exported.raise_for_status()
             run_directory = runs / record["run_id"]

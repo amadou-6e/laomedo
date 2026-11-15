@@ -26,6 +26,7 @@ def main():
     parser.add_argument("--port", type=int)
     parser.add_argument("--metadata-name")
     parser.add_argument("--trace-mcp-rpc", action="store_true")
+    parser.add_argument("--allow-stop-file", action="store_true")
     parser.add_argument(
         "--provider", choices=("codex", "claude", "opencode"), default="codex"
     )
@@ -328,12 +329,33 @@ def main():
             ),
             flush=True,
         )
-        uvicorn.run(
-            "laomedo.integrations.langflow.viewer:create_app",
-            factory=True,
-            host="127.0.0.1",
-            port=app_port,
+        server = uvicorn.Server(
+            uvicorn.Config(
+                "laomedo.integrations.langflow.viewer:create_app",
+                factory=True,
+                host="127.0.0.1",
+                port=app_port,
+            )
         )
+        if args.allow_stop_file:
+            stop_file = root / "stop-preview"
+            stop_file.unlink(missing_ok=True)
+
+            def stop_preview():
+                while not server.should_exit:
+                    if stop_file.exists():
+                        stop_file.unlink()
+                        print(
+                            json.dumps({"stage": "preview_graceful_stop_requested"}),
+                            flush=True,
+                        )
+                        server.should_exit = True
+                        return
+                    time.sleep(0.2)
+
+            threading.Thread(target=stop_preview, daemon=True).start()
+        server.run()
+        print(json.dumps({"stage": "preview_lifespan_stopped"}), flush=True)
     finally:
         if agent is not None:
             for path in (agent.state / "runs").glob("*/record.json"):
