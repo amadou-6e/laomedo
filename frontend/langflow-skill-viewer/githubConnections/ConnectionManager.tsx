@@ -1,4 +1,5 @@
-import { ArrowLeft, RefreshCw } from "lucide-react";
+import ConnectionNavigation from "./ConnectionNavigation";
+import { ChevronDown, ChevronRight, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import useProfileSessionActions from "@/components/laomedoProfiles/useProfileSessionActions";
@@ -266,38 +267,37 @@ function ConnectionWorkspace() {
           )}
           {profile.notice}
           {error ? (
-            <section className="gc-panel gc-focus" role="alert">
-              <h2>
-                {error === "github_connection_attempt_expired"
-                  ? catalogue.github_connection_attempt_expired.title
-                  : error === "private_session_required"
-                    ? "Login required"
-                    : "We couldn’t complete that"}
-              </h2>
-              <p className="gc-muted">
-                {error === "github_connection_attempt_expired"
-                  ? catalogue.github_connection_attempt_expired.description
-                  : error === "github_token_unsupported"
-                    ? "Check your fine-grained personal access token and try again."
+            <div className="gc-screen">
+              <section className="gc-panel gc-focus" role="alert">
+                <h2>
+                  {error === "github_connection_attempt_expired"
+                    ? catalogue.github_connection_attempt_expired.title
                     : error === "private_session_required"
-                      ? "Log in to your local profile to continue."
-                      : "We could not finish this request. Check current state to continue."}
-              </p>
-              <Button
-                disabled={busy}
-                onClick={() =>
-                  error === "private_session_required"
-                    ? profile.signOut("logout")
-                    : void run()
-                }
-              >
-                {error === "github_connection_attempt_expired"
-                  ? "Back to connections"
-                  : error === "private_session_required"
-                    ? "Log in"
-                    : "Check current state"}
-              </Button>
-            </section>
+                      ? "Login required"
+                      : "We couldn’t complete that"}
+                </h2>
+                <p className="gc-muted">
+                  {error === "github_connection_attempt_expired"
+                    ? catalogue.github_connection_attempt_expired.description
+                    : error === "github_token_unsupported"
+                      ? "Check your fine-grained personal access token and try again."
+                      : error === "private_session_required"
+                        ? "Log in to your local profile to continue."
+                        : "We could not finish this request. Check current state to continue."}
+                </p>
+                {error === "private_session_required" && (
+                  <Button
+                    disabled={busy}
+                    onClick={() => profile.signOut("logout")}
+                  >
+                    Log in
+                  </Button>
+                )}
+              </section>
+              {error !== "private_session_required" && (
+                <ConnectionNavigation busy={busy} back={() => void run()} />
+              )}
+            </div>
           ) : attempt?.phase === "consent" ? (
             <ConnectionInventory
               key={attempt.request_id}
@@ -313,7 +313,7 @@ function ConnectionWorkspace() {
                 });
                 if (result) {
                   setView(target ? "detail" : "list");
-                  setNotice("Connection saved.");
+                  setNotice("");
                 }
               }}
               cancel={async () => {
@@ -338,144 +338,163 @@ function ConnectionWorkspace() {
               }}
             />
           ) : view === "unavailable" ? (
-            <section className="gc-panel gc-focus">
-              <h2>GitHub sign-in isn't set up</h2>
-              <p className="gc-muted">
-                GitHub sign-in hasn't been set up for this installation. Your
-                saved connections haven't changed.
-              </p>
-              <Button disabled={busy} onClick={returnToConnection}>
-                Go back
-              </Button>
-              <Button
-                variant="outline"
-                disabled={busy}
-                onClick={async () => {
+            <div className="gc-screen">
+              <section className="gc-panel gc-focus">
+                <h2>GitHub sign-in isn't set up</h2>
+                <p className="gc-muted">
+                  GitHub sign-in hasn't been set up for this installation. Your
+                  saved connections haven't changed.
+                </p>
+                <div className="gc-advanced">
+                  <button
+                    type="button"
+                    className="gc-link"
+                    aria-expanded={tokenOpen}
+                    aria-controls="gc-token-entry"
+                    onClick={() => setTokenOpen(!tokenOpen)}
+                  >
+                    {tokenOpen ? (
+                      <ChevronDown size={16} aria-hidden="true" />
+                    ) : (
+                      <ChevronRight size={16} aria-hidden="true" />
+                    )}{" "}
+                    Use a personal access token instead
+                  </button>
+                  {tokenOpen && (
+                    <ConnectionForms
+                      id="gc-token-entry"
+                      inline
+                      busy={busy}
+                      close={() => setTokenOpen(false)}
+                      submit={async (payload) => {
+                        const result = await run("token", {
+                          ...payload,
+                          ...(target ? { connection_id: target } : {}),
+                        });
+                        if (result) {
+                          setTokenOpen(false);
+                          setView("waiting");
+                        }
+                      }}
+                    />
+                  )}
+                </div>
+              </section>
+              <ConnectionNavigation
+                busy={busy}
+                back={returnToConnection}
+                refresh={async () => {
                   const result = await run();
                   if (result?.index.app) setView("list");
                 }}
-              >
-                Check again
-              </Button>
-              <details
-                className="gc-advanced"
-                open={tokenOpen}
-                onToggle={(event) => setTokenOpen(event.currentTarget.open)}
-              >
-                <summary>Use a personal access token instead</summary>
-                {tokenOpen && (
-                  <ConnectionForms
-                    inline
-                    busy={busy}
-                    close={() => setTokenOpen(false)}
-                    submit={async (payload) => {
-                      const result = await run("token", {
-                        ...payload,
-                        ...(target ? { connection_id: target } : {}),
-                      });
-                      if (result) {
-                        setTokenOpen(false);
-                        setView("waiting");
-                      }
-                    }}
-                  />
-                )}
-              </details>
-            </section>
+              />
+            </div>
           ) : view === "cleanup" ? (
-            <section className="gc-panel gc-focus">
-              <h2>
-                {target
-                  ? cleanupPending
-                    ? "Disconnected"
-                    : "Connection removed"
-                  : cleanupPending
-                    ? "Credential cleanup"
-                    : "Cleanup complete"}
-              </h2>
-              <p className="gc-muted">
-                {target
-                  ? cleanupPending
-                    ? "Laomedo has stopped using this account. Some saved credentials could not be removed."
-                    : "Laomedo no longer uses this connection."
-                  : cleanupPending
-                    ? "Some credentials from earlier connections or sign-in attempts still need to be removed."
-                    : "The saved credentials have been removed."}
-              </p>
-              {cleanupPending && (
-                <Button disabled={busy} onClick={() => void run("cleanup", {})}>
-                  Retry cleanup
-                </Button>
-              )}
-              <Button
-                variant="ghost"
-                onClick={() => {
+            <div className="gc-screen">
+              <section className="gc-panel gc-focus">
+                <h2>
+                  {target
+                    ? cleanupPending
+                      ? "Disconnected"
+                      : "Connection removed"
+                    : cleanupPending
+                      ? "Credential cleanup"
+                      : "Cleanup complete"}
+                </h2>
+                <p className="gc-muted">
+                  {target
+                    ? cleanupPending
+                      ? "Laomedo has stopped using this account. Some saved credentials could not be removed."
+                      : "Laomedo no longer uses this connection."
+                    : cleanupPending
+                      ? "Some credentials from earlier connections or sign-in attempts still need to be removed."
+                      : "The saved credentials have been removed."}
+                </p>
+                {cleanupPending && (
+                  <Button
+                    disabled={busy}
+                    onClick={() => void run("cleanup", {})}
+                  >
+                    Retry cleanup
+                  </Button>
+                )}
+              </section>
+              <ConnectionNavigation
+                busy={busy}
+                back={() => {
                   setTarget(undefined);
                   setView("list");
                 }}
-              >
-                Close
-              </Button>
-            </section>
+              />
+            </div>
           ) : waiting ? (
-            <section className="gc-panel gc-focus">
-              <Button
-                variant="ghost"
-                className="gc-back gc-icon"
-                aria-label="Back to connections"
-                title="Back to connections"
-                disabled={busy}
-                onClick={async () => {
+            <div className="gc-screen">
+              <section className="gc-panel gc-focus">
+                <h2>Continue on GitHub</h2>
+                <p className="gc-muted">
+                  Continue to GitHub to authorize access. You’ll return here to
+                  choose repositories.
+                </p>
+                <Button
+                  disabled={
+                    busy || !authorizationUrl(attempt.authorization_url)
+                  }
+                  onClick={() => {
+                    navigateToAuthorization(attempt.authorization_url);
+                  }}
+                >
+                  Continue to GitHub
+                </Button>
+                <div className="gc-advanced">
+                  <button
+                    type="button"
+                    className="gc-link"
+                    aria-expanded={tokenOpen}
+                    aria-controls="gc-token-entry"
+                    onClick={() => setTokenOpen(!tokenOpen)}
+                  >
+                    {tokenOpen ? (
+                      <ChevronDown size={16} aria-hidden="true" />
+                    ) : (
+                      <ChevronRight size={16} aria-hidden="true" />
+                    )}{" "}
+                    Use a personal access token instead
+                  </button>
+                  {tokenOpen && (
+                    <ConnectionForms
+                      id="gc-token-entry"
+                      inline
+                      busy={busy}
+                      close={() => setTokenOpen(false)}
+                      submit={async (payload) => {
+                        if (
+                          !(await run("cancel", {
+                            request_id: attempt.request_id,
+                          }))
+                        )
+                          return;
+                        const result = await run("token", {
+                          ...payload,
+                          ...(target ? { connection_id: target } : {}),
+                        });
+                        if (result) {
+                          setTokenOpen(false);
+                          setView("waiting");
+                        }
+                      }}
+                    />
+                  )}
+                </div>
+              </section>
+              <ConnectionNavigation
+                busy={busy}
+                refresh={() => void run()}
+                back={async () => {
                   if (await run("cancel", { request_id: attempt.request_id }))
                     returnToConnection();
                 }}
-              >
-                <ArrowLeft size={20} aria-hidden="true" />
-              </Button>
-              <h2>Continue on GitHub</h2>
-              <p className="gc-muted">
-                Continue to GitHub to authorize access. You’ll return here to
-                choose repositories.
-              </p>
-              <Button
-                disabled={busy || !authorizationUrl(attempt.authorization_url)}
-                onClick={() => {
-                  navigateToAuthorization(attempt.authorization_url);
-                }}
-              >
-                Continue to GitHub
-              </Button>
-              <details
-                className="gc-advanced"
-                open={tokenOpen}
-                onToggle={(event) => setTokenOpen(event.currentTarget.open)}
-              >
-                <summary>Use a personal access token instead</summary>
-                {tokenOpen && (
-                  <ConnectionForms
-                    inline
-                    busy={busy}
-                    close={() => setTokenOpen(false)}
-                    submit={async (payload) => {
-                      if (
-                        !(await run("cancel", {
-                          request_id: attempt.request_id,
-                        }))
-                      )
-                        return;
-                      const result = await run("token", {
-                        ...payload,
-                        ...(target ? { connection_id: target } : {}),
-                      });
-                      if (result) {
-                        setTokenOpen(false);
-                        setView("waiting");
-                      }
-                    }}
-                  />
-                )}
-              </details>
-            </section>
+              />
+            </div>
           ) : index ? (
             <>
               <ConnectionAccounts

@@ -1,4 +1,6 @@
 import { Button } from "@/components/ui/button";
+import { Pencil } from "lucide-react";
+import ConnectionNavigation from "./ConnectionNavigation";
 import type { ConnectionIndex } from "./types";
 
 type Entry = ConnectionIndex["connections"][number];
@@ -29,71 +31,78 @@ export default function ConnectionAccounts({
     const { connection, availability } = entry;
     const ready = availability === "ready";
     return (
-      <section className="gc-panel gc-detail">
-        <button className="gc-link gc-back" disabled={busy} onClick={back}>
-          ← GitHub connections
-        </button>
-        <div className="gc-identity">
-          <span className="gc-avatar" aria-hidden="true">
-            {connection.principal.login[0]?.toUpperCase()}
-          </span>
-          <h2>@{connection.principal.login}</h2>
-          <span className={`gc-status ${ready ? "gc-ready" : "gc-attention"}`}>
-            {ready ? "Connected" : "Sign-in required"}
-          </span>
-        </div>
-        <p className="gc-muted">
-          {ready
-            ? "Access is maintained automatically when supported."
-            : "Sign in again to restore access for this account."}
-        </p>
-        {!ready && (
-          <Button disabled={busy} onClick={() => reconnect(connection.id)}>
-            Sign in again
-          </Button>
-        )}
-        <div className="gc-section">
-          <h3>Repository access</h3>
-          <ul className="gc-repositories">
-            {connection.repositories.map((repo) => (
-              <li key={repo.id}>{repo.full_name}</li>
-            ))}
-          </ul>
-          {ready && (
+      <div className="gc-screen gc-detail">
+        <section className="gc-panel gc-detail-card">
+          <div className="gc-identity">
+            <span className="gc-avatar" aria-hidden="true">
+              {connection.principal.login[0]?.toUpperCase()}
+            </span>
+            <h2>@{connection.principal.login}</h2>
+            <span
+              className={`gc-status ${ready ? "gc-ready" : "gc-attention"}`}
+            >
+              {ready ? "Connected" : "Sign-in required"}
+            </span>
+          </div>
+          <p className="gc-muted">
+            {ready
+              ? "Access is maintained automatically when supported."
+              : "Sign in again to restore access for this account."}
+          </p>
+          {!ready && (
+            <Button disabled={busy} onClick={() => reconnect(connection.id)}>
+              Sign in again
+            </Button>
+          )}
+          <div className="gc-section">
+            <div className="gc-section-heading">
+              <h3>Repository access</h3>
+              {ready && (
+                <Button
+                  variant="ghost"
+                  className="gc-icon"
+                  aria-label="Change repositories"
+                  title="Change repositories"
+                  disabled={busy}
+                  onClick={() => edit(connection.id)}
+                >
+                  <Pencil size={18} aria-hidden="true" />
+                </Button>
+              )}
+            </div>
+            <ul className="gc-repositories">
+              {connection.repositories.map((repo) => (
+                <li key={repo.id}>{repo.full_name}</li>
+              ))}
+            </ul>
+          </div>
+          {connection.mode === "token" && (
+            <details className="gc-advanced">
+              <summary>Advanced</summary>
+              <button
+                className="gc-link"
+                disabled={busy}
+                onClick={() => token(connection.id)}
+              >
+                Replace token
+              </button>
+            </details>
+          )}
+          <div className="gc-footer">
+            <p className="gc-muted">
+              Removing this connection stops Laomedo access.
+            </p>
             <Button
               variant="outline"
               disabled={busy}
-              onClick={() => edit(connection.id)}
+              onClick={() => disconnect(entry)}
             >
-              Change repositories
+              Disconnect
             </Button>
-          )}
-        </div>
-        {connection.mode === "token" && (
-          <details className="gc-advanced">
-            <summary>Advanced</summary>
-            <button
-              className="gc-link"
-              disabled={busy}
-              onClick={() => token(connection.id)}
-            >
-              Replace token
-            </button>
-          </details>
-        )}
-        <div className="gc-footer">
-          <p className="gc-muted">
-            Removing this connection stops Laomedo access.
-          </p>
-          <Button
-            variant="outline"
-            disabled={busy}
-            onClick={() => disconnect(entry)}
-          >
-            Disconnect
-          </Button>
-        </div>
-      </section>
+          </div>
+        </section>
+        <ConnectionNavigation busy={busy} back={back} />
+      </div>
     );
   }
   return (

@@ -43,3 +43,9 @@ unless that credential needs replacement. Disconnect fences access before cleanu
 The preview and independent review must distinguish rendered UI checks from real
 GitHub authorization acceptance. Secure automatic deployment provisioning remains
 unimplemented; the UI must not pretend to have established a GitHub connection.
+
+`ConnectionNavigation.tsx` supplies the same accessible Back arrow below each
+connection card, with Refresh beside it where available. Account details use a
+pencil beside repository access; spacing separates sections without heavy rules.
+Token hints live in the masked input placeholder while its accessible name remains.
+Saved connections update in place without a persistent success banner.

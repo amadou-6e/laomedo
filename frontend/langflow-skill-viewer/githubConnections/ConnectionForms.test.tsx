@@ -51,7 +51,9 @@ describe("private connection entry", () => {
     fireEvent.change(screen.getByLabelText("Personal access token"), {
       target: { value: "synthetic-credential" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Back to connections" }),
+    );
     expect(close).toHaveBeenCalledTimes(1);
     expect(submit).not.toHaveBeenCalled();
   });

@@ -302,7 +302,7 @@ it("keeps an unconfirmed callback visible after initial state reconciliation", a
   await screen.findByRole("alert");
   expect(window.location.search).toBe("");
   expect(
-    screen.getByRole("button", { name: "Check current state" }),
+    screen.getByRole("button", { name: "Back to connections" }),
   ).toBeVisible();
   expect(
     screen.queryByRole("button", { name: "+ Add connection" }),
@@ -394,7 +394,9 @@ it.each([false, true])(
     expect(
       Boolean(screen.queryByRole("button", { name: "Retry cleanup" })),
     ).toBe(failed);
-    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Back to connections" }),
+    );
     fireEvent.click(
       screen.getByRole("button", {
         name: "Some saved sign-in details could not be removed. Retry cleanup",
@@ -475,16 +477,18 @@ it("checks missing sign-in configuration without starting or replaying authoriza
   fireEvent.click(
     await screen.findByRole("button", { name: "+ Add connection" }),
   );
-  fireEvent.click(screen.getByRole("button", { name: "Check again" }));
+  fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
   await waitFor(() =>
-    expect(screen.getByRole("button", { name: "Go back" })).toBeEnabled(),
+    expect(
+      screen.getByRole("button", { name: "Back to connections" }),
+    ).toBeEnabled(),
   );
   expect(
     (connectionRequest as jest.Mock).mock.calls.every(
       ([action]) => action === undefined,
     ),
   ).toBe(true);
-  fireEvent.click(screen.getByRole("button", { name: "Go back" }));
+  fireEvent.click(screen.getByRole("button", { name: "Back to connections" }));
   expect(
     screen.getByRole("button", { name: "+ Add connection" }),
   ).toBeVisible();
@@ -529,4 +533,40 @@ it("does not invalidate another tab when automatically cleaning inactive credent
     expect(connectionRequest).toHaveBeenCalledWith("cleanup", {}),
   );
   expect(receive).not.toHaveBeenCalled();
+});
+
+it("discards an inline token when collapsed without cancelling or navigating", async () => {
+  (connectionRequest as jest.Mock).mockResolvedValue({
+    index: {
+      ...initial,
+      pending: [
+        {
+          request_id: "active",
+          connection_id: "new",
+          expires_at: 9999999999,
+          phase: "authorize",
+          inventory: null,
+          authorization_url:
+            "https://github.com/login/oauth/authorize?client_id=qa",
+        },
+      ],
+    },
+  });
+  render(<ConnectionManager />);
+  const toggle = await screen.findByRole("button", {
+    name: "Use a personal access token instead",
+  });
+  expect(toggle).toHaveAttribute("aria-expanded", "false");
+  fireEvent.click(toggle);
+  const token = screen.getByLabelText("Personal access token");
+  expect(token).toHaveAttribute("type", "password");
+  fireEvent.change(token, { target: { value: "non-secret-test-value" } });
+  fireEvent.click(toggle);
+  expect(
+    screen.queryByLabelText("Personal access token"),
+  ).not.toBeInTheDocument();
+  fireEvent.click(toggle);
+  expect(screen.getByLabelText("Personal access token")).toHaveValue("");
+  expect(navigateToAuthorization).not.toHaveBeenCalled();
+  expect(connectionRequest).toHaveBeenCalledTimes(1);
 });
