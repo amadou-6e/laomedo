@@ -59,7 +59,7 @@ function ConnectionWorkspace() {
         setNotice("");
         setIndex(undefined);
       }
-      if (action) {
+      if (action && action !== "cleanup") {
         const channel = new BroadcastChannel(channelName);
         channel.postMessage({ type: "invalidate", source });
         channel.close();
@@ -84,7 +84,7 @@ function ConnectionWorkspace() {
         }
         if (action === "confirm" || action === "cancel")
           setRequestId(undefined);
-        if (action) {
+        if (action && action !== "cleanup") {
           const channel = new BroadcastChannel(channelName);
           channel.postMessage({ type: "invalidate", source });
           channel.close();
@@ -331,7 +331,10 @@ function ConnectionWorkspace() {
                   ...payload,
                   ...(target ? { connection_id: target } : {}),
                 });
-                if (result) setView("waiting");
+                if (result) {
+                  setTokenOpen(false);
+                  setView("waiting");
+                }
               }}
             />
           ) : view === "unavailable" ? (
@@ -366,8 +369,14 @@ function ConnectionWorkspace() {
                     busy={busy}
                     close={() => setTokenOpen(false)}
                     submit={async (payload) => {
-                      const result = await run("token", payload);
-                      if (result) setView("waiting");
+                      const result = await run("token", {
+                        ...payload,
+                        ...(target ? { connection_id: target } : {}),
+                      });
+                      if (result) {
+                        setTokenOpen(false);
+                        setView("waiting");
+                      }
                     }}
                   />
                 )}
@@ -458,7 +467,10 @@ function ConnectionWorkspace() {
                         ...payload,
                         ...(target ? { connection_id: target } : {}),
                       });
-                      if (result) setView("waiting");
+                      if (result) {
+                        setTokenOpen(false);
+                        setView("waiting");
+                      }
                     }}
                   />
                 )}
@@ -486,7 +498,10 @@ function ConnectionWorkspace() {
                 edit={async (id) => {
                   setTarget(id);
                   const result = await run("edit", { connection_id: id });
-                  if (result) setView("waiting");
+                  if (result) {
+                    setTokenOpen(false);
+                    setView("waiting");
+                  }
                 }}
                 disconnect={async ({ connection }) => {
                   const result = await run("disconnect", {

@@ -516,3 +516,17 @@ it("cleans inactive sign-in details once on entry without retrying failures on p
     ),
   ).toHaveLength(1);
 });
+
+it("does not invalidate another tab when automatically cleaning inactive credentials", async () => {
+  const observer = new BrowserChannel("laomedo-private-connections");
+  const receive = jest.fn();
+  observer.onmessage = receive;
+  (connectionRequest as jest.Mock).mockResolvedValue({
+    index: { ...initial, credential_cleanup_pending: true },
+  });
+  render(<ConnectionManager />);
+  await waitFor(() =>
+    expect(connectionRequest).toHaveBeenCalledWith("cleanup", {}),
+  );
+  expect(receive).not.toHaveBeenCalled();
+});
