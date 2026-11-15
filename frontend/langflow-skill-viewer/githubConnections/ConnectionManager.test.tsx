@@ -570,3 +570,39 @@ it("discards an inline token when collapsed without cancelling or navigating", a
   expect(navigateToAuthorization).not.toHaveBeenCalled();
   expect(connectionRequest).toHaveBeenCalledTimes(1);
 });
+
+it("keeps background waiting checks silent while retaining explicit request progress", async () => {
+  let complete!: (value: unknown) => void;
+  const waiting = {
+    ...initial,
+    pending: [
+      {
+        request_id: "active",
+        connection_id: "new",
+        expires_at: 9999999999,
+        phase: "authorize",
+        inventory: null,
+        authorization_url:
+          "https://github.com/login/oauth/authorize?client_id=qa",
+      },
+    ],
+  };
+  (connectionRequest as jest.Mock)
+    .mockResolvedValueOnce({ index: waiting })
+    .mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          complete = resolve;
+        }),
+    );
+  render(<ConnectionManager />);
+  await screen.findByRole("button", { name: "Continue to GitHub" });
+  act(() => window.dispatchEvent(new Event("focus")));
+  await waitFor(() => expect(connectionRequest).toHaveBeenCalledTimes(2));
+  expect(screen.queryByText("Checking?")).not.toBeInTheDocument();
+  expect(
+    screen.getByRole("heading", { name: "Continue on GitHub" }),
+  ).toBeVisible();
+  expect(navigateToAuthorization).not.toHaveBeenCalled();
+  await act(async () => complete({ index: waiting }));
+});

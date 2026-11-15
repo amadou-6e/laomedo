@@ -38,6 +38,7 @@ function ConnectionWorkspace() {
       new URLSearchParams(window.location.search).get("request") ?? undefined,
   );
   const [busy, setBusy] = useState(false);
+  const [showProgress, setShowProgress] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [tokenOpen, setTokenOpen] = useState(false);
@@ -55,6 +56,7 @@ function ConnectionWorkspace() {
       const current = ++epoch.current;
       inFlight.current = true;
       setBusy(true);
+      setShowProgress(!quiet);
       setError("");
       if (!quiet) {
         setNotice("");
@@ -117,6 +119,7 @@ function ConnectionWorkspace() {
         if (epoch.current === current) {
           inFlight.current = false;
           setBusy(false);
+          setShowProgress(false);
         }
       }
     },
@@ -155,6 +158,7 @@ function ConnectionWorkspace() {
       setView("list");
       setTokenOpen(false);
       setBusy(false);
+      setShowProgress(false);
       setNotice(
         "A connection changed in another tab. Check current state before continuing.",
       );
@@ -561,7 +565,7 @@ function ConnectionWorkspace() {
               </Button>
             )
           )}
-          {busy && (
+          {busy && showProgress && (
             <p role="status" className="gc-muted">
               Checking…
             </p>
