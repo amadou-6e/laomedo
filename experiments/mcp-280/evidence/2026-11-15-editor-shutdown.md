@@ -51,7 +51,8 @@ An earlier harness version incorrectly waited for that stopped runner to persist
 a terminal result. Its polling process was stopped after confirming recovery,
 and its result is excluded from the passing corrected shutdown audit. Restarting
 the isolated runner recovered its first record as interrupted/runner_restarted.
-The second record's final recovery is checked separately.
+Restarting again also recovered the second record as interrupted/runner_restarted.
+The separate preview was then gracefully stopped without another model run.
 
 ## Immutable Codex image provenance
 
@@ -67,7 +68,32 @@ claim about every provider image or historical loaded Python memory.
 
 ## Remaining limits
 
-New shutdown and checksum evidence awaits independent review. Status/cancel with
-dead native upstreams, broader private-interface deployments, two-server editor
-rendering, wider privacy/log scopes and specification PR #419 remain separate
-acceptance constraints. No merge or issue closure is authorized.
+Claude independently reviewed the shutdown and checksum evidence and supports
+those bounded claims. It did not inspect the Docker job's sandbox defaults;
+those defaults were inspected separately by the implementer. The evidence does
+not claim coverage of all images or loaded historical Python memory.
+
+## Status and cancel with an unavailable upstream
+
+`control_case.py` used the actual native graph/session API for all three
+providers, reusing harmless HTTP server registrations whose processes had ended.
+A counted HTTP listener on that same owned endpoint returned 503. Status and
+cancel each returned the existing completed run reference with zero upstream
+attempts. No new agent run was created.
+
+As a comparison, running that same native MCP component's direct Response
+operation against the unavailable endpoint failed with HTTP 500 and made three
+upstream attempts for each provider. This comparison performs native MCP
+discovery/direct-tool setup, not an agent inference. The earlier standalone
+Toolset-only comparison opened no connection and is not used as a falsifier.
+The harness also corrected PowerShell UTF-16 log decoding and requested explicit
+component output before asserting the returned reference. Failed harness
+iterations do not establish acceptance.
+
+The local actual deployment uses loopback forwarding exposed to Docker controllers
+through host.docker.internal, as exercised by the real tool calls. Other private
+interface configurations are not claimed as tested.
+
+New unavailable-upstream control evidence awaits independent review. Two-server
+editor rendering, wider privacy/log scopes and specification PR #419 remain
+separate acceptance constraints. No merge or issue closure is authorized.
