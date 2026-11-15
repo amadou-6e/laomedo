@@ -599,7 +599,7 @@ it("keeps background waiting checks silent while retaining explicit request prog
   await screen.findByRole("button", { name: "Continue to GitHub" });
   act(() => window.dispatchEvent(new Event("focus")));
   await waitFor(() => expect(connectionRequest).toHaveBeenCalledTimes(2));
-  expect(screen.queryByText("Checking?")).not.toBeInTheDocument();
+  expect(screen.queryByText(/Checking/)).not.toBeInTheDocument();
   expect(
     screen.getByRole("heading", { name: "Continue on GitHub" }),
   ).toBeVisible();
