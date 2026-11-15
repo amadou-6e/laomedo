@@ -102,6 +102,7 @@ class GitHubOAuthClient:
                 state=state,
                 code_verifier=verifier,
                 allow_signup="false",
+                prompt="select_account",
             )
         if not compare_digest(state, returned_state):
             raise GitHubOAuthError()

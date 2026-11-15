@@ -83,6 +83,7 @@ class GitHubOAuthTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(query["code_challenge"], [challenge])
         self.assertEqual(query["code_challenge_method"], ["S256"])
         self.assertEqual(query["scope"], ["offline_access"])
+        self.assertEqual(query["prompt"], ["select_account"])
         self.assertEqual(query["redirect_uri"], [self.settings.callback_uri])
         credential = await self.client.complete(attempt, self.callback(attempt))
         self.assertEqual(len(self.requests), 1)

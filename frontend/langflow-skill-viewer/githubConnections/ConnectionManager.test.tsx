@@ -357,6 +357,61 @@ it("keeps disconnect reachable for an account needing sign-in without App setup"
   ).toBe(false);
 });
 
+it.each([false, true])(
+  "keeps disconnected account cleanup separate from older pending cleanup (%s)",
+  async (failed) => {
+    const connection = {
+      id: "selected",
+      generation: 1,
+      mode: "browser",
+      state: "ready",
+      principal: { id: 99, login: "account" },
+      repositories: [],
+    };
+    (connectionRequest as jest.Mock).mockImplementation((action?: string) =>
+      Promise.resolve({
+        index: {
+          ...initial,
+          credential_cleanup_pending: true,
+          connections: [
+            {
+              connection: {
+                ...connection,
+                state: action === "disconnect" ? "revoked" : "ready",
+              },
+              availability: action === "disconnect" ? "revoked" : "ready",
+              credential_cleanup_pending: action === "disconnect" && failed,
+            },
+          ],
+        },
+      }),
+    );
+    render(<ConnectionManager />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "View connection" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Disconnect" }));
+    await screen.findByRole("heading", {
+      name: failed ? "Disconnected" : "Connection removed",
+    });
+    expect(
+      Boolean(screen.queryByRole("button", { name: "Retry cleanup" })),
+    ).toBe(failed);
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Review credential cleanup" }),
+    );
+    expect(
+      screen.getByRole("heading", { name: "Credential cleanup" }),
+    ).toBeVisible();
+    expect(
+      screen.getByText(
+        "Some credentials from earlier connections or sign-in attempts still need to be removed.",
+      ),
+    ).toBeVisible();
+  },
+);
+
 it("checks missing sign-in configuration without starting or replaying authorization", async () => {
   (connectionRequest as jest.Mock).mockResolvedValue({
     index: { ...initial, app: null },

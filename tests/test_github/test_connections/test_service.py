@@ -268,6 +268,25 @@ class GitHubConnectionServiceTests(unittest.IsolatedAsyncioTestCase):
             (await self.service.cleanup(self.scope))["credential_cleanup_confirmed"]
         )
 
+    async def test_disconnect_reports_own_cleanup_separately_from_abandoned_attempt(
+        self,
+    ):
+        """A retired unrelated reservation must not imply this disconnect failed."""
+        connection_id = await self.ready()
+        abandoned = self.journal.reserve_secret(self.owner, "connection", uuid4())
+        self.vault.store(abandoned.id, SecretStr("synthetic-abandoned"))
+        result = await self.service.disconnect(self.scope, connection_id, 1)
+        self.assertTrue(result["credential_cleanup_confirmed"])
+        status = await self.service.status(self.scope)
+        self.assertTrue(status["credential_cleanup_pending"])
+        selected = next(
+            item
+            for item in status["connections"]
+            if item["connection"]["id"] == str(connection_id)
+        )
+        self.assertFalse(selected["credential_cleanup_pending"])
+        self.assertIsNotNone(self.vault.load(abandoned.id))
+
     async def test_callback_consumed_once_and_wrong_lease_cannot_exchange(self):
         await self.service.configure_app(
             self.scope,

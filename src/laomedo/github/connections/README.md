@@ -36,6 +36,9 @@ explicit secret-bearing projection, used only for Windows vault custody.
 `oauth.py` defines `GitHubOAuthClient`: `begin` creates unpredictable state and
 S256 PKCE using Authlib; `complete` validates the exact callback and state before
 exchanging its one-use code; `refresh` requires a newly rotated refresh credential.
+Browser authorization requests GitHub's account picker explicitly, including when
+GitHub remembers earlier consent. Reconnect still verifies the saved numeric
+principal before accepting any returned credential.
 The service, not this protocol client, must consume pending attempts and durably
 fence refresh before either exchange. No automatic retry is permitted.
 `GitHubOAuthTransport` permits only POST to the fixed HTTPS token endpoint,

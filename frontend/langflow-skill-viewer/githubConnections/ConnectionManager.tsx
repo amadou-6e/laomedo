@@ -215,6 +215,10 @@ function ConnectionWorkspace() {
   const entries =
     index?.connections.filter((item) => item.connection.state !== "revoked") ??
     [];
+  const cleanupPending = target
+    ? (index?.connections.find((item) => item.connection.id === target)
+        ?.credential_cleanup_pending ?? index?.credential_cleanup_pending)
+    : index?.credential_cleanup_pending;
   const waiting = attempt?.phase === "authorize";
   const focus =
     error ||
@@ -346,16 +350,24 @@ function ConnectionWorkspace() {
           ) : view === "cleanup" ? (
             <section className="gc-panel gc-focus">
               <h2>
-                {index?.credential_cleanup_pending
-                  ? "Disconnected"
-                  : "Connection removed"}
+                {target
+                  ? cleanupPending
+                    ? "Disconnected"
+                    : "Connection removed"
+                  : cleanupPending
+                    ? "Credential cleanup"
+                    : "Cleanup complete"}
               </h2>
               <p className="gc-muted">
-                {index?.credential_cleanup_pending
-                  ? "Laomedo has stopped using this account. Some saved credentials could not be removed."
-                  : "Laomedo no longer uses this connection."}
+                {target
+                  ? cleanupPending
+                    ? "Laomedo has stopped using this account. Some saved credentials could not be removed."
+                    : "Laomedo no longer uses this connection."
+                  : cleanupPending
+                    ? "Some credentials from earlier connections or sign-in attempts still need to be removed."
+                    : "The saved credentials have been removed."}
               </p>
-              {index?.credential_cleanup_pending && (
+              {cleanupPending && (
                 <Button disabled={busy} onClick={() => void run("cleanup", {})}>
                   Retry cleanup
                 </Button>
@@ -439,7 +451,7 @@ function ConnectionWorkspace() {
                     generation: connection.generation,
                   });
                   if (result) {
-                    setTarget(undefined);
+                    setTarget(connection.id);
                     setView("cleanup");
                   }
                 }}
@@ -448,7 +460,10 @@ function ConnectionWorkspace() {
                 <button
                   className="gc-link"
                   disabled={busy}
-                  onClick={() => setView("cleanup")}
+                  onClick={() => {
+                    setTarget(undefined);
+                    setView("cleanup");
+                  }}
                 >
                   Review credential cleanup
                 </button>

@@ -17,6 +17,9 @@ and while the waiting view is visible; mutations are never retried automatically
 Authorization navigates the current tab; GitHub returns directly to repository
 consent without leaving a second Laomedo tab. Repository search is shown only
 when more than five repositories are available.
+Disconnect confirmation uses that connection's cleanup status. Profile-wide
+leftovers from other connections or abandoned attempts remain a separate cleanup
+notice, without labelling the selected account's successful deletion a failure.
 `ConnectionAccounts.tsx` renders the account list and selected account details.
 `ConnectionForms.tsx` owns masked advanced token entry and clears it synchronously
 before submitting or cancelling. `ConnectionInventory.tsx` owns explicit repository
