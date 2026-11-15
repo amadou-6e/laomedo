@@ -11,8 +11,8 @@ operator-configured App; missing provisioning is shown honestly as unavailable.
 POSTs it only to GitHub's fixed personal App registration endpoint. It never
 receives the returned App credential and is not part of ordinary Add Connection.
 
-`ConnectionManager.tsx` owns navigation, request epochs, invalidation and automatic
-browser launch. It reconciles waiting attempts using read-only checks on return
+`ConnectionManager.tsx` owns navigation, request epochs, invalidation and explicit
+Continue navigation. It reconciles waiting attempts using read-only checks on return
 and while the waiting view is visible; mutations are never retried automatically.
 Add prepares an attempt and waits on the local Continue to GitHub screen. Only
 pressing Continue navigates the current tab; GitHub returns directly to repository
