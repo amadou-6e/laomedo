@@ -27,6 +27,12 @@ def service_environment(provider):
         "HOMEPATH",
         "PROGRAMDATA",
         "USERNAME",
+        "LAOMEDO_MCP_DIRECTORY",
+        "LAOMEDO_MCP_BIND",
+        "LAOMEDO_MCP_CONTROLLER_HOST",
+        "LAOMEDO_MCP_LEASE_SECONDS",
+        "LAOMEDO_MCP_MAX_REGISTRATIONS",
+        "LAOMEDO_MCP_MAX_CALLS",
     }
     if provider in {"codex", "claude"}:
         allowed.update(

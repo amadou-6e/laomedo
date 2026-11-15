@@ -20,6 +20,9 @@ class ClaudePolicy(BaseModel):
     output_only: bool = Field(
         default=False, description="Correction scope with all execution tools disabled."
     )
+    external_tools: tuple[str, ...] = Field(
+        default=(), description="Exact frozen external MCP tool names, never wildcards."
+    )
 
     def sdk_options(self):
         """Return exactly the policy passed through the Claude ACP adapter."""
@@ -33,6 +36,7 @@ class ClaudePolicy(BaseModel):
                     "mcp__laomedo__exec_command",
                     "mcp__laomedo__github_operation",
                     *["Skill(laomedo-pinned:" + item + ")" for item in self.skill_ids],
+                    *["mcp__external__" + item for item in self.external_tools],
                 ]
             ),
             "disallowedTools": [

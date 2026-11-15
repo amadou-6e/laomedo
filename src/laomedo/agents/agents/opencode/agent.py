@@ -346,6 +346,7 @@ class OpenCodeAgent(BaseAgent):
                     return record
                 if record["status"] != ("completed" if resume else "prepared"):
                     raise RunnerError("run_not_dispatchable")
+                self.check_mcp(record)
                 # Refusal must preserve a completed run and its resume snapshot.
                 attempt_id = (
                     activity_attempt_id
@@ -395,6 +396,10 @@ class OpenCodeAgent(BaseAgent):
                 raise RunnerError("opencode_cancelled_before_dispatch")
             launch_attempted = True
             backend = self.transport_factory(root / "workspace", root)
+            if self.mcp_access(run_id):
+                if not hasattr(backend, "_configure_mcp"):
+                    raise RunnerError("mcp_provider_unsupported")
+                backend._configure_mcp(self.mcp_access(run_id))
             self.active_backends[run_id] = backend
             identity = getattr(
                 backend,
@@ -431,7 +436,13 @@ class OpenCodeAgent(BaseAgent):
                     record["evidence_complete"] = "partial"
             from laomedo.agents.activity.acp.capture import AcpCapture
 
-            capture = AcpCapture(root, attempt_id)
+            capture = AcpCapture(
+                root,
+                attempt_id,
+                redactor=(
+                    self.mcp_access(run_id).redact if self.mcp_access(run_id) else None
+                ),
+            )
 
             def bind(session_id):
                 """Persist the actual native binding before submitting the prompt."""

@@ -209,6 +209,12 @@ def create_app(profile_runtime=None):
     root = Path(settings.required_path("skill_store"))
     frontend = Path(settings.required_path("frontend"))
     app = upstream_app()
+    from laomedo.integrations.langflow.mcp_graph import McpGraphPolicy
+    from laomedo.agents.mcp.registry import McpRegistry
+    from laomedo.agents.mcp.settings import McpSettings
+
+    McpGraphPolicy.install()
+    McpRegistry.install(app, McpSettings())
     app.add_api_route("/api/v1/laomedo/profile-mode", profile_mode, methods=["GET"])
     install_routes(app, root, get_current_active_user)
     if profile_runtime is not None:

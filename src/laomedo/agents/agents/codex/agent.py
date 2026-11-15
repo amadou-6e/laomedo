@@ -693,6 +693,7 @@ class CodexAgent(BaseAgent):
                     resume and record["status"] != "completed"
                 ):
                     raise RunnerError("run_not_dispatchable")
+                self.check_mcp(record)
                 cancelled = threading.Event()
                 evidence_offset = (run_dir / "raw-events.jsonl").stat().st_size
                 attempt_turn_offset = len(record["turns"])
@@ -842,6 +843,7 @@ class CodexAgent(BaseAgent):
                     cancel_requested=True,
                 )
                 return record
+            server.mcp_access = self.mcp_access(run_id)
             native_id = await server.open(record, resume=resume)
             record["thread_id"] = native_id
             record["precheck"]["installed"] = bool(record.get("output_requirements"))

@@ -203,7 +203,10 @@ class ClaudeAgent(BaseAgent):
             or record.get("profile") != self.profile
             or record.get("config_sha256")
             != configuration_hash(
-                record.get("resolved_model"), effort, record.get("skills", [])
+                record.get("resolved_model"),
+                effort,
+                record.get("skills", []),
+                external_tools=self.mcp_names(record),
             )
             or record.get("permission_grant")
             != {
@@ -470,7 +473,10 @@ class ClaudeAgent(BaseAgent):
             image_id=self.image_id,
             cli_version="Claude Code " + CLI_VERSION,
             config_sha256=configuration_hash(
-                choice["resolved_model"], request["effort"], record["skills"]
+                choice["resolved_model"],
+                request["effort"],
+                record["skills"],
+                external_tools=self.mcp_names(record),
             ),
             native_tools=(["Skill"] if record["skills"] else [])
             + ["mcp__laomedo__exec_command"],
@@ -759,6 +765,7 @@ class ClaudeAgent(BaseAgent):
                 effort=record["requested_effort"],
                 skill_ids=tuple(item["skill_id"] for item in record["skills"]),
                 output_only=output_only,
+                external_tools=self.mcp_names(record),
             ).sdk_options()
             await client.open(
                 session_id=record["thread_id"] if resume else None,
@@ -771,7 +778,12 @@ class ClaudeAgent(BaseAgent):
                             command="python3",
                             args=["/opt/laomedo/command_mcp.py"],
                             env=[],
-                        )
+                        ),
+                        *(
+                            [self.mcp_access(record.get("run_id")).acp_server()]
+                            if self.mcp_access(record.get("run_id"))
+                            else []
+                        ),
                     ]
                 ),
                 metadata={
@@ -820,7 +832,14 @@ class ClaudeAgent(BaseAgent):
                 raise RunnerError("claude_cancelled")
             record["_prompt_dispatched"] = True
             outcome = await client.prompt(
-                prompt, cancelled=flag, seconds=max(0.001, deadline - time.monotonic())
+                prompt,
+                cancelled=flag,
+                seconds=max(0.001, deadline - time.monotonic()),
+                check_health=(
+                    self.mcp_access(record.get("run_id")).check_health
+                    if self.mcp_access(record.get("run_id"))
+                    else None
+                ),
             )
             if flag.is_set() or outcome.stop_reason == "cancelled":
                 raise RunnerError("claude_cancelled")
@@ -834,6 +853,8 @@ class ClaudeAgent(BaseAgent):
 
     def _native_event(self, root, record, event):
         """Retain admitted native events with their actual identities, never inferred display-label correlation."""
+        if self.mcp_access(record.get("run_id")):
+            event = self.mcp_access(record.get("run_id")).redact(event)
         if (
             not isinstance(event, dict)
             or event.get("session_id", record["thread_id"]) != record["thread_id"]
@@ -1022,6 +1043,7 @@ class ClaudeAgent(BaseAgent):
                 if candidate["status"] != ("completed" if resume else "prepared"):
                     raise RunnerError("run_not_dispatchable")
                 record = candidate
+                self.check_mcp(record)
                 if run_timeout_seconds is not None:
                     record["turn_timeout"] = run_timeout_seconds
                 self.cancel_flags[run_id] = flag

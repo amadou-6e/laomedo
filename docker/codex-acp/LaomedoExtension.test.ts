@@ -17,6 +17,25 @@ function setup() {
 }
 
 describe("Laomedo ACP policy", () => {
+    it("admits only scoped external HTTP MCP endpoints with exact tool grants", () => {
+        const {extension, request} = setup();
+        const external = {
+            type: "http" as const, name: "external",
+            url: "http://host.docker.internal:12345/11111111-1111-4111-8111-111111111111/mcp",
+            headers: [{name: "Authorization", value: "Bearer " + "x".repeat(43)}],
+        };
+        const externalTools = ["external_" + "a".repeat(32)];
+        const configured = {...request, mcpServers: [external],
+            _meta: {laomedo: {...request._meta!["laomedo"] as object, externalTools}}};
+        expect(extension.sessionParameters(configured).approvalPolicy).toBe("never");
+        expect(extension.mcpToolNames(configured)).toEqual(externalTools);
+        expect(() => extension.sessionParameters({...configured,
+            mcpServers: [{...external, url: "https://upstream.example/mcp"}]})).toThrow();
+        expect(() => extension.sessionParameters({...configured,
+            mcpServers: [{...external, name: "laomedo"}]})).toThrow();
+        expect(() => extension.sessionParameters({...configured, mcpServers: []})).toThrow();
+        expect(() => extension.sessionParameters({...request, mcpServers: [external]})).toThrow();
+    });
     it("advertises the versioned raw-event and host-policy contract", () => {
         expect(LaomedoExtension.capabilities).toEqual({version: 1, rawEvents: true, hostPolicy: true});
     });

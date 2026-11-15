@@ -20,6 +20,21 @@ from laomedo.container_images.registry import ImageRegistry
 from laomedo.docker import DockerRuntime
 
 
+class ProviderImageRegistrationTests(unittest.TestCase):
+    def test_default_provider_images_have_packaged_build_recipes(self):
+        """A clean machine can acquire every default provider image by its tag."""
+        from laomedo.agents.agents.codex.settings import IMAGE as codex_image
+        from laomedo.agents.agents.claude.settings import IMAGE as claude_image
+        from laomedo.agents.agents.opencode.settings import IMAGE as opencode_image
+        from laomedo.agents.agents.opencode.settings import WORKER_IMAGE
+
+        registry = ImageRegistry.load()
+        for reference in (codex_image, claude_image, opencode_image, WORKER_IMAGE):
+            with self.subTest(image=reference):
+                recipe = registry.find(reference, max_bytes=16 * 1024 * 1024)
+                self.assertIsNotNone(recipe)
+
+
 class ImageBuildTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()

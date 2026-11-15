@@ -11,7 +11,7 @@ from langflow.io import IntInput
 
 class LaomedoClaudeAgent(Component):
     display_name = "Laomedo Claude Agent"
-    description = "Run Claude Code in an isolated container with optional pinned skills and validated operations."
+    description = "Run Claude Code in an isolated container with optional pinned skills, selected MCP tools and validated operations."
     name = "LaomedoClaudeAgent"
     provider_id = "claude"
     activity_provider = "claude-code"
