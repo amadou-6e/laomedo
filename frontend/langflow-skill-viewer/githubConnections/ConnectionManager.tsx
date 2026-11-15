@@ -102,6 +102,7 @@ function ConnectionWorkspace() {
             ![
               "github_connection_input_invalid",
               "github_token_unsupported",
+              "github_connection_attempt_expired",
               "private_request_refused",
             ].includes(code)
           )

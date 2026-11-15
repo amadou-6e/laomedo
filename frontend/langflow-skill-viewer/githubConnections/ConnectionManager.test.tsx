@@ -419,10 +419,10 @@ it("explains an expired sign-in and returns to saved connections without replayi
     "/settings/github?outcome=signin-expired",
   );
   render(<ConnectionManager />);
-  await screen.findByRole("heading", { name: "Sign-in expired" });
+  await screen.findByRole("heading", { name: "Connection request expired" });
   expect(
     screen.getByText(
-      "This sign-in took too long. Your saved connections have not changed.",
+      "This step took too long. Your saved connections have not changed.",
     ),
   ).toBeVisible();
   fireEvent.click(screen.getByRole("button", { name: "Back to connections" }));
@@ -432,6 +432,40 @@ it("explains an expired sign-in and returns to saved connections without replayi
       ([action]) => action === undefined,
     ),
   ).toBe(true);
+});
+
+it("treats an expired consent save as a definite refusal, never an uncertain completion", async () => {
+  (connectionRequest as jest.Mock).mockImplementation((action?: string) => {
+    if (action === "confirm")
+      return Promise.reject(
+        new ConnectionFailure("github_connection_attempt_expired"),
+      );
+    return Promise.resolve({
+      index: {
+        ...initial,
+        pending: [
+          {
+            request_id: "pending",
+            connection_id: "new",
+            phase: "consent",
+            expires_at: 9999999999,
+            authorization_url: null,
+            inventory: {
+              principal: { id: 1, login: "account" },
+              repositories: [
+                { id: 7, full_name: "account/repo", private: true },
+              ],
+            },
+          },
+        ],
+      },
+    });
+  });
+  render(<ConnectionManager />);
+  fireEvent.click(await screen.findByRole("checkbox"));
+  fireEvent.click(screen.getByRole("button", { name: "Save access" }));
+  await screen.findByRole("heading", { name: "Connection request expired" });
+  expect(screen.queryByText(/may still be completing/)).not.toBeInTheDocument();
 });
 
 it("checks missing sign-in configuration without starting or replaying authorization", async () => {

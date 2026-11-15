@@ -1930,9 +1930,9 @@
     "recovery": "Check the local app and retry the connection manager read. Preserve the runtime folder; do not delete state or reuse an uncertain authorization exchange."
   },
   "github_connection_attempt_expired": {
-    "title": "Sign-in expired",
-    "description": "This sign-in took too long. Your saved connections have not changed.",
-    "recovery": "Go back to your connections and start signing in again."
+    "title": "Connection request expired",
+    "description": "This step took too long. Your saved connections have not changed.",
+    "recovery": "Go back to your connections and start again."
   },
   "github_connection_changed": {
     "title": "This GitHub connection has changed",
