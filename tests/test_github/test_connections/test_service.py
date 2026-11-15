@@ -26,7 +26,10 @@ from laomedo.github.connections.errors import (
     GitHubTokenUnsupported,
 )
 from laomedo.github.connections.journal import GitHubConnectionJournal
-from laomedo.github.connections.models import GitHubConnectionScope
+from laomedo.github.connections.models import (
+    GitHubConnectionScope,
+    GitHubConnectionCredential,
+)
 from laomedo.github.connections.service import GitHubConnectionService
 from laomedo.github.connections.settings import GITHUB_CALLBACK_PATH
 from laomedo.host.credentials.github.errors import GitHubVaultError
@@ -126,6 +129,86 @@ class GitHubConnectionServiceTests(unittest.IsolatedAsyncioTestCase):
             self.scope, UUID(attempt["request_id"]), (456,)
         )
         return UUID(record["id"])
+
+    async def test_inventory_reinspection_updates_candidates_without_consent_or_custody(
+        self,
+    ):
+        connection_id = await self.ready("browser")
+        before = self.journal.get(self.owner, connection_id)
+        attempt = await self.service.edit(self.scope, connection_id)
+        request_id = UUID(attempt["request_id"])
+        custody = dict(self.vault.values)
+        exchanges = self.oauth.exchanges
+        self.repo = {"id": 789, "full_name": "synthetic/another", "private": True}
+        updated = await self.service.inspect_inventory(self.scope, request_id)
+        self.assertEqual(updated["mode"], "browser")
+        self.assertEqual(updated["inventory"]["repositories"][0]["id"], 789)
+        self.assertEqual(self.vault.values, custody)
+        self.assertEqual(self.oauth.exchanges, exchanges)
+        self.assertEqual(self.journal.get(self.owner, connection_id), before)
+        self.assertEqual(updated["expires_at"], attempt["expires_at"])
+
+    async def test_inventory_reinspection_rejects_principal_change_without_replacing_candidates(
+        self,
+    ):
+        connection_id = await self.ready("browser")
+        attempt = await self.service.edit(self.scope, connection_id)
+        request_id = UUID(attempt["request_id"])
+        before = self.service.pending[request_id]
+        self.user = {"id": 999, "login": "other"}
+        with self.assertRaises(GitHubRepositoryAccessError):
+            await self.service.inspect_inventory(self.scope, request_id)
+        self.assertEqual(self.service.pending[request_id], before)
+
+    async def test_inventory_reinspection_fences_expiry_lease_and_saved_generation(
+        self,
+    ):
+        connection_id = await self.ready("browser")
+        attempt = await self.service.edit(self.scope, connection_id)
+        request_id = UUID(attempt["request_id"])
+        before = self.service.pending[request_id]
+        other = self.scope.model_copy(update={"lease_binding": SecretStr("other")})
+        requests = len(self.requests)
+        with self.assertRaises(GitHubConnectionChanged):
+            await self.service.inspect_inventory(other, request_id)
+        self.assertEqual(len(self.requests), requests)
+        self.now = attempt["expires_at"]
+        with self.assertRaises(GitHubConnectionAttemptExpired):
+            await self.service.inspect_inventory(self.scope, request_id)
+        self.assertEqual(len(self.requests), requests)
+        self.now = 1000.0
+        record = self.journal.get(self.owner, connection_id)
+        self.journal.disconnect(self.owner, connection_id, record.generation)
+        with self.assertRaises(GitHubConnectionChanged):
+            await self.service.inspect_inventory(self.scope, request_id)
+        self.assertEqual(self.service.pending[request_id], before)
+
+    async def test_inventory_reinspection_rejects_token_and_authorization_stages(self):
+        token = await self.token_attempt()
+        with self.assertRaises(GitHubConnectionChanged):
+            await self.service.inspect_inventory(self.scope, UUID(token["request_id"]))
+        await self.service.configure_app(
+            self.scope,
+            client_id="Iv1.synthetic",
+            slug="synthetic-app",
+            secret=SecretStr("synthetic"),
+        )
+        browser = await self.service.begin(self.scope)
+        with self.assertRaises(GitHubConnectionChanged):
+            await self.service.inspect_inventory(
+                self.scope, UUID(browser["request_id"])
+            )
+
+    async def test_inventory_reinspection_refuses_inconsistent_candidate_custody(self):
+        connection_id = await self.ready("browser")
+        attempt = await self.service.edit(self.scope, connection_id)
+        request_id = UUID(attempt["request_id"])
+        pending = self.service.pending[request_id]
+        token = GitHubConnectionCredential.from_token(SecretStr("github_pat_synthetic"))
+        self.vault.values[pending.secret_reference] = token.to_vault_value()
+        with self.assertRaises(GitHubReauthorizationRequired):
+            await self.service.inspect_inventory(self.scope, request_id)
+        self.assertEqual(self.service.pending[request_id], pending)
 
     async def test_edit_saved_token_stages_explicit_consent_without_new_login(self):
         connection_id = await self.ready()

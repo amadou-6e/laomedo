@@ -10,12 +10,16 @@ export default function ConnectionInventory({
   confirm,
   cancel,
   initialRepositoryIds = [],
+  manageAccess,
+  refresh,
 }: {
   attempt: PendingConnection;
   busy: boolean;
   confirm: (ids: number[]) => void;
   cancel: () => void;
   initialRepositoryIds?: number[];
+  manageAccess?: string;
+  refresh?: () => void;
 }) {
   const [selected, setSelected] = useState<number[]>(() =>
     initialRepositoryIds.filter((id) =>
@@ -25,6 +29,9 @@ export default function ConnectionInventory({
   const [query, setQuery] = useState("");
   const inventory = attempt.inventory;
   if (!inventory) return null;
+  const availableSelection = selected.filter((id) =>
+    inventory.repositories.some((repo) => repo.id === id),
+  );
   return (
     <div className="gc-screen gc-consent">
       <section className="gc-panel gc-consent">
@@ -57,7 +64,7 @@ export default function ConnectionInventory({
                 <input
                   type="checkbox"
                   disabled={busy}
-                  checked={selected.includes(repo.id)}
+                  checked={availableSelection.includes(repo.id)}
                   onChange={(event) =>
                     setSelected((ids) =>
                       event.target.checked
@@ -82,17 +89,24 @@ export default function ConnectionInventory({
           !inventory.repositories.some((repo) =>
             repo.full_name.toLowerCase().includes(query.toLowerCase()),
           ) && <p className="gc-muted">No repositories match your search.</p>}
+        {manageAccess && (
+          <a className="gc-link" href={manageAccess}>
+            {inventory.repositories.length
+              ? "Manage repository access on GitHub"
+              : "Choose repositories on GitHub"}
+          </a>
+        )}
         <div className="gc-footer">
           <Button
             ignoreTitleCase
-            disabled={busy || !selected.length}
-            onClick={() => confirm(selected)}
+            disabled={busy || !availableSelection.length}
+            onClick={() => confirm(availableSelection)}
           >
             Save access
           </Button>
         </div>
       </section>
-      <ConnectionNavigation busy={busy} back={cancel} />
+      <ConnectionNavigation busy={busy} back={cancel} refresh={refresh} />
     </div>
   );
 }

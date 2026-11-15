@@ -97,3 +97,23 @@ export async function connectionRequest(
     throw new ConnectionFailure("github_connection_unavailable");
   return value;
 }
+
+/** Construct only the configured GitHub App installation destination. */
+export function installationUrl(
+  slug?: string,
+  requestId?: string,
+): string | undefined {
+  if (
+    !slug ||
+    !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) ||
+    slug.length > 100 ||
+    !requestId ||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      requestId,
+    )
+  )
+    return;
+  const url = new URL(`https://github.com/apps/${slug}/installations/new`);
+  url.searchParams.set("state", requestId);
+  return url.href;
+}

@@ -162,6 +162,7 @@ async def connection_action(
         "provision",
         "begin",
         "edit",
+        "inventory",
         "token",
         "confirm",
         "cancel",
@@ -195,6 +196,9 @@ async def connection_action(
         elif action == "edit":
             data = _parse(GitHubConnectionRequest, payload)
             outcome = await service.edit(scope, data.connection_id)
+        elif action == "inventory":
+            data = _parse(GitHubPendingRequest, payload)
+            outcome = await service.inspect_inventory(scope, data.request_id)
         elif action == "confirm":
             data = _parse(GitHubConsentRequest, payload)
             outcome = await service.confirm(scope, data.request_id, data.repository_ids)

@@ -75,6 +75,18 @@ class PrivateConnectionHttpTests(unittest.IsolatedAsyncioTestCase):
             self.receive,
         )
 
+    async def test_inventory_uses_csrf_admission_and_exact_pending_identity(self):
+        request_id = uuid4()
+        self.service.inspect_inventory = AsyncMock(return_value={"phase": "consent"})
+        response = await connection_action(
+            "inventory",
+            self.request(json.dumps({"request_id": str(request_id)}).encode()),
+            object(),
+        )
+        self.assertEqual(response.status_code, 200)
+        self.service.inspect_inventory.assert_awaited_once_with(self.scope, request_id)
+        self.policy.mutation.assert_called_once()
+
     async def test_edit_uses_admitted_owner_and_explicit_connection(self):
         connection_id = uuid4()
         self.service.edit = AsyncMock(return_value={"phase": "consent"})

@@ -17,6 +17,7 @@ test("editing preserves only saved repositories still present in the verified in
     connection_id: "saved",
     expires_at: 9999999999,
     phase: "consent",
+    mode: "browser",
     authorization_url: null,
     inventory: {
       principal: { id: 1, login: "owner" },
@@ -51,6 +52,7 @@ test.each([1, 5, 6])(
       connection_id: "connection",
       expires_at: 9999999999,
       phase: "consent",
+      mode: "browser",
       authorization_url: null,
       inventory: { principal: { id: 1, login: "owner" }, repositories },
     };

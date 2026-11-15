@@ -267,6 +267,70 @@ class GitHubConnectionService:
             attempt = attempt.model_copy(update={"app_id": record.app_id})
             return await self._stage(scope, attempt, self._credential(record))
 
+    async def inspect_inventory(self, scope: GitHubConnectionScope, request_id: UUID):
+        """Reinspect one browser consent inventory without new custody or consent."""
+        async with self.lock:
+            await scope.revalidate()
+            attempt = self._attempt(scope, request_id)
+            if (
+                attempt.mode != "browser"
+                or attempt.oauth is not None
+                or attempt.inventory is None
+                or attempt.secret_reference is None
+                or attempt.app_id is None
+            ):
+                raise GitHubConnectionChanged()
+            app = self.journal.app(scope.owner_id, attempt.app_id)
+            if app is None:
+                raise GitHubConnectionChanged()
+            self._inventory_target(scope, attempt)
+            value = self.vault.load(attempt.secret_reference)
+            if value is None:
+                raise GitHubReauthorizationRequired()
+            try:
+                credential = GitHubConnectionCredential.from_vault_value(value)
+            except ValueError:
+                raise GitHubReauthorizationRequired() from None
+            if (
+                credential.mode != "browser"
+                or credential.access_expires_at is None
+                or credential.access_expires_at <= self.clock()
+            ):
+                raise GitHubReauthorizationRequired()
+            reader = self.read_client(credential)
+            try:
+                inventory = await GitHubRepositoryAccess(reader).inventory(
+                    "browser", app_slug=app.slug
+                )
+                if inventory.principal.id != attempt.inventory.principal.id:
+                    raise GitHubRepositoryAccessError()
+            finally:
+                await reader.close()
+            async with self.commit_lock:
+                await scope.revalidate()
+                self._attempt(scope, request_id)
+                if self.journal.app(scope.owner_id, attempt.app_id) != app:
+                    raise GitHubConnectionChanged()
+                self._inventory_target(scope, attempt)
+                updated = attempt.model_copy(update={"inventory": inventory})
+                self.journal.touch(scope.owner_id)
+                self.pending[request_id] = updated
+            return updated.public()
+
+    def _inventory_target(self, scope, attempt):
+        """Fence the unchanged selected connection before and after discovery."""
+        record = self.journal.get(scope.owner_id, attempt.connection_id)
+        if (
+            attempt.expected_generation != 0
+            and (
+                record is None
+                or record.state != "ready"
+                or record.generation != attempt.expected_generation
+                or record.principal.id != attempt.inventory.principal.id
+            )
+        ) or (attempt.expected_generation == 0 and record is not None):
+            raise GitHubConnectionChanged()
+
     async def begin_token(
         self, scope: GitHubConnectionScope, token, connection_id: UUID | None = None
     ):

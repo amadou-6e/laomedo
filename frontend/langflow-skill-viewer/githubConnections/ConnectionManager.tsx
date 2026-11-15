@@ -9,6 +9,7 @@ import ConnectionInventory from "./ConnectionInventory";
 import DeploymentSetup from "./DeploymentSetup";
 import {
   authorizationUrl,
+  installationUrl,
   navigateToAuthorization,
   connectionCapability,
   connectionRequest,
@@ -33,10 +34,15 @@ function ConnectionWorkspace() {
     "list" | "detail" | "waiting" | "token" | "unavailable" | "cleanup"
   >("list");
   const [target, setTarget] = useState<string>();
-  const [requestId, setRequestId] = useState<string | undefined>(
-    () =>
-      new URLSearchParams(window.location.search).get("request") ?? undefined,
-  );
+  const [requestId, setRequestId] = useState<string | undefined>(() => {
+    const query = new URLSearchParams(window.location.search);
+    return (
+      query.get("request") ??
+      (query.has("setup_action")
+        ? (query.get("state") ?? undefined)
+        : undefined)
+    );
+  });
   const [busy, setBusy] = useState(false);
   const [showProgress, setShowProgress] = useState(false);
   const [error, setError] = useState("");
@@ -135,6 +141,19 @@ function ConnectionWorkspace() {
         setEnabled(value);
         if (value) {
           const loaded = await run();
+          const installationReturn = query.get("state");
+          if (
+            active &&
+            ["install", "update"].includes(query.get("setup_action") ?? "") &&
+            installationReturn &&
+            loaded?.index.pending.some(
+              (item) =>
+                item.request_id === installationReturn &&
+                item.mode === "browser" &&
+                item.phase === "consent",
+            )
+          )
+            await run("inventory", { request_id: installationReturn }, true);
           if (active && loaded?.index.credential_cleanup_pending)
             await run("cleanup", {}, true);
           if (active && outcome && outcome !== "consent")
@@ -164,7 +183,7 @@ function ConnectionWorkspace() {
       );
       window.dispatchEvent(new Event("laomedo-private-data-invalidated"));
     };
-    if (query.has("outcome")) {
+    if (query.has("outcome") || query.has("setup_action")) {
       window.history.replaceState(null, "", window.location.pathname);
     }
     return () => {
@@ -311,6 +330,17 @@ function ConnectionWorkspace() {
             <ConnectionInventory
               key={attempt.request_id}
               attempt={attempt}
+              manageAccess={
+                attempt.mode === "browser"
+                  ? installationUrl(index?.app?.slug, attempt.request_id)
+                  : undefined
+              }
+              refresh={
+                attempt.mode === "browser"
+                  ? () =>
+                      void run("inventory", { request_id: attempt.request_id })
+                  : undefined
+              }
               initialRepositoryIds={index?.connections
                 .find((item) => item.connection.id === attempt.connection_id)
                 ?.connection.repositories.map((repo) => repo.id)}

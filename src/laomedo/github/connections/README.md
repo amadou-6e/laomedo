@@ -1,6 +1,11 @@
 # Private GitHub connections
 
 This capability owns deliberate GitHub authorization and repository read consent.
+`GitHubConnectionService.inspect_inventory` rechecks a browser consent attempt's
+available repositories after installation. It preserves its exact owner, lease,
+deadline, App version, principal, custody and connection generation; it neither
+exchanges credentials nor grants access. Failure leaves the staged inventory
+unchanged. The authenticated `inventory` action accepts only its request ID.
 It never imports host Git, gh, environment or credential-helper authentication.
 When Add verifies an account already connected to this profile, `_stage` binds
 the attempt to the existing connection and its current generation. Consent can

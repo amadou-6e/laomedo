@@ -49,3 +49,8 @@ connection card, with Refresh beside it where available. Account details use a
 pencil beside repository access; spacing separates sections without heavy rules.
 Token hints live in the masked input placeholder while its accessible name remains.
 Saved connections update in place without a persistent success banner.
+
+Browser consent offers the configured App installation page for missing repository
+access. The fixed GitHub URL carries only the pending request identifier. Returning
+from GitHub refreshes that same lease-bound browser inventory; provider query
+parameters never grant access. Save remains the explicit local consent boundary.

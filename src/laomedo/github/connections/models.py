@@ -369,6 +369,7 @@ class GitHubConnectionAttempt(BaseModel):
     def public(self):
         """Return safe UI state with explicit authorization navigation only when pending."""
         return {
+            "mode": self.mode,
             "request_id": str(self.id),
             "connection_id": str(self.connection_id),
             "expires_at": self.expires_at,

@@ -5,6 +5,7 @@ export type PendingConnection = {
   connection_id: string;
   expires_at: number;
   phase: "authorize" | "consent";
+  mode: "browser" | "token";
   authorization_url: string | null;
   inventory: { principal: Principal; repositories: Repository[] } | null;
 };
@@ -34,6 +35,7 @@ export type ConnectionAction =
   | "setup"
   | "begin"
   | "edit"
+  | "inventory"
   | "token"
   | "confirm"
   | "cancel"

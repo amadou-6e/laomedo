@@ -15,6 +15,7 @@ import {
 
 jest.mock("./api", () => ({
   authorizationUrl: jest.requireActual("./api").authorizationUrl,
+  installationUrl: jest.requireActual("./api").installationUrl,
   connectionCapability: jest.fn(),
   connectionRequest: jest.fn(),
   navigateToAuthorization: jest.fn(),
@@ -112,6 +113,7 @@ it("keeps its initiating mutation busy and displays the response despite same-do
             connection_id: "connection",
             expires_at: 1,
             phase: "authorize",
+            mode: "browser",
             inventory: null,
             authorization_url:
               "https://github.com/login/oauth/authorize?client_id=qa",
@@ -223,6 +225,7 @@ it("waits for Continue to GitHub before navigating this tab to the exact returne
                 request_id: "older",
                 connection_id: "older-account",
                 phase: "authorize",
+                mode: "browser",
                 expires_at: 9999999999,
                 inventory: null,
                 authorization_url:
@@ -232,6 +235,7 @@ it("waits for Continue to GitHub before navigating this tab to the exact returne
                 request_id: "pending",
                 connection_id: "new",
                 phase: "authorize",
+                mode: "browser",
                 expires_at: 9999999999,
                 inventory: null,
                 authorization_url:
@@ -449,6 +453,7 @@ it("treats an expired consent save as a definite refusal, never an uncertain com
             request_id: "pending",
             connection_id: "new",
             phase: "consent",
+            mode: "browser",
             expires_at: 9999999999,
             authorization_url: null,
             inventory: {
@@ -545,6 +550,7 @@ it("discards an inline token when collapsed without cancelling or navigating", a
           connection_id: "new",
           expires_at: 9999999999,
           phase: "authorize",
+          mode: "browser",
           inventory: null,
           authorization_url:
             "https://github.com/login/oauth/authorize?client_id=qa",
@@ -581,6 +587,7 @@ it("keeps background waiting checks silent while retaining explicit request prog
         connection_id: "new",
         expires_at: 9999999999,
         phase: "authorize",
+        mode: "browser",
         inventory: null,
         authorization_url:
           "https://github.com/login/oauth/authorize?client_id=qa",
@@ -606,3 +613,47 @@ it("keeps background waiting checks silent while retaining explicit request prog
   expect(navigateToAuthorization).not.toHaveBeenCalled();
   await act(async () => complete({ index: waiting }));
 });
+
+it.each(["matched-browser", "unknown", "token"])(
+  "refreshes installation return only for the bound browser consent: %s",
+  async (kind) => {
+    const id = "04c5b5b0-3859-4bf3-999c-08a189be7f06";
+    window.history.replaceState(
+      null,
+      "",
+      `/settings/github?setup_action=install&state=${id}&installation_id=123`,
+    );
+    (connectionRequest as jest.Mock).mockResolvedValue({
+      index: {
+        ...initial,
+        pending: [
+          {
+            request_id: kind === "unknown" ? "other" : id,
+            connection_id: "new",
+            expires_at: 9999999999,
+            phase: "consent",
+            mode: kind === "token" ? "token" : "browser",
+            authorization_url: null,
+            inventory: {
+              principal: { id: 1, login: "account" },
+              repositories: [],
+            },
+          },
+        ],
+      },
+    });
+    render(<ConnectionManager />);
+    if (kind === "unknown")
+      await screen.findByRole("button", { name: "+ Add connection" });
+    else await screen.findByRole("heading", { name: "Choose repositories" });
+    await act(async () => {});
+    const refreshes = (connectionRequest as jest.Mock).mock.calls.filter(
+      ([action]) => action === "inventory",
+    );
+    if (kind === "matched-browser")
+      expect(refreshes).toEqual([["inventory", { request_id: id }]]);
+    else expect(refreshes).toHaveLength(0);
+    expect(navigateToAuthorization).not.toHaveBeenCalled();
+    expect(window.location.search).toBe("");
+  },
+);
