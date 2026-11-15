@@ -206,16 +206,7 @@ function ConnectionWorkspace() {
       return;
     }
     setView("waiting");
-    const result = await run("begin", id ? { connection_id: id } : {});
-    const outcome = result?.outcome;
-    const newRequestId =
-      typeof outcome === "object" && outcome !== null && "request_id" in outcome
-        ? outcome.request_id
-        : undefined;
-    const pending = result?.index.pending.find(
-      (item) => item.request_id === newRequestId,
-    );
-    navigateToAuthorization(pending?.authorization_url);
+    await run("begin", id ? { connection_id: id } : {});
   };
 
   const entries =

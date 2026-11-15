@@ -215,7 +215,7 @@ it("shows unavailable sign-in without requiring app credentials", async () => {
   );
 });
 
-it("continues the returned request in this tab without opening another tab", async () => {
+it("waits for Continue to GitHub before navigating this tab to the exact returned request", async () => {
   (connectionRequest as jest.Mock).mockImplementation((action?: string) =>
     Promise.resolve({
       outcome: action ? { request_id: "pending" } : null,
@@ -250,16 +250,17 @@ it("continues the returned request in this tab without opening another tab", asy
   fireEvent.click(
     await screen.findByRole("button", { name: "+ Add connection" }),
   );
-  await waitFor(() =>
-    expect(navigateToAuthorization).toHaveBeenCalledWith(
-      "https://github.com/login/oauth/authorize?client_id=qa",
-    ),
-  );
-  fireEvent.click(screen.getByRole("button", { name: "Continue to GitHub" }));
+  const continueButton = await screen.findByRole("button", {
+    name: "Continue to GitHub",
+  });
+  expect(navigateToAuthorization).not.toHaveBeenCalled();
+  expect(window.open).not.toHaveBeenCalled();
+  fireEvent.click(continueButton);
   expect(connectionRequest).toHaveBeenCalledTimes(2);
   expect(navigateToAuthorization).toHaveBeenLastCalledWith(
     "https://github.com/login/oauth/authorize?client_id=qa",
   );
+  expect(navigateToAuthorization).toHaveBeenCalledTimes(1);
   expect(window.open).not.toHaveBeenCalled();
 });
 
