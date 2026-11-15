@@ -2,6 +2,11 @@
 
 This capability owns deliberate GitHub authorization and repository read consent.
 It never imports host Git, gh, environment or credential-helper authentication.
+When Add verifies an account already connected to this profile, `_stage` binds
+the attempt to the existing connection and its current generation. Consent can
+replace that connection only after Save; Cancel preserves it. `commit_connection`
+also refuses a concurrent new duplicate under its SQLite transaction. Matching
+uses verified numeric account identity, never a login name or another profile.
 
 `provisioning.py` owns one-time local deployment App manifest registration.
 `GitHubAppProvisioner.begin` creates a bounded profile/lease-bound registration;

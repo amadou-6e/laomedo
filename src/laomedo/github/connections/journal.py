@@ -203,6 +203,17 @@ class GitHubConnectionJournal:
                     current.generation if current is not None else 0
                 ) != expected_generation:
                     raise GitHubConnectionChanged()
+                if current is None:
+                    for row in db.execute(
+                        "SELECT id FROM github_connections WHERE owner_id=?",
+                        (str(record.owner_id),),
+                    ).fetchall():
+                        other = self._connection(db, record.owner_id, UUID(row[0]))
+                        if (
+                            other.state != "revoked"
+                            and other.principal.id == record.principal.id
+                        ):
+                            raise GitHubConnectionChanged()
                 # An ID belonging to another owner must never be overwritten.
                 if (
                     current is None

@@ -206,6 +206,27 @@ class GitHubConnectionServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.journal.get(self.owner, connection_id), old)
         self.assertEqual(len(self.vault.values), 1)
 
+    async def test_add_same_account_reviews_existing_and_cancel_preserves_it(self):
+        """Repeated Add is a consent review, not another saved account row."""
+        connection_id = await self.ready()
+        before = self.journal.get(self.owner, connection_id)
+        attempt = await self.token_attempt()
+        self.assertEqual(attempt["connection_id"], str(connection_id))
+        await self.service.cancel(self.scope, UUID(attempt["request_id"]))
+        self.assertEqual(self.journal.get(self.owner, connection_id), before)
+        attempt = await self.token_attempt()
+        await self.service.confirm(self.scope, UUID(attempt["request_id"]), (456,))
+        self.assertEqual(len(self.journal.list(self.owner)), 1)
+        self.assertTrue(self.journal.current(self.owner, connection_id, 2))
+
+    async def test_concurrent_new_attempts_cannot_commit_duplicate_accounts(self):
+        """Two pre-consent inventories cannot evade account uniqueness at commit."""
+        first, second = await self.token_attempt(), await self.token_attempt()
+        await self.service.confirm(self.scope, UUID(first["request_id"]), (456,))
+        with self.assertRaises(GitHubConnectionChanged):
+            await self.service.confirm(self.scope, UUID(second["request_id"]), (456,))
+        self.assertEqual(len(self.journal.list(self.owner)), 1)
+
     async def test_failed_provisional_store_retains_exact_crash_cleanup_target(self):
         self.vault.fail_store = True
         with self.assertRaises(GitHubVaultError):

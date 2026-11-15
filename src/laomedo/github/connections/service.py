@@ -214,6 +214,24 @@ class GitHubConnectionService:
             await scope.revalidate()
             if attempt.expires_at <= self.clock():
                 raise GitHubConnectionChanged()
+            if attempt.expected_generation == 0:
+                existing = next(
+                    (
+                        record
+                        for record in self.journal.list(scope.owner_id)
+                        if record.state != "revoked"
+                        and record.principal.id == inventory.principal.id
+                    ),
+                    None,
+                )
+                if existing is not None:
+                    attempt = attempt.model_copy(
+                        update={
+                            "connection_id": existing.id,
+                            "expected_generation": existing.generation,
+                            "expected_principal_id": existing.principal.id,
+                        }
+                    )
             reference = self.journal.reserve_secret(
                 scope.owner_id, "connection", attempt.connection_id
             )
