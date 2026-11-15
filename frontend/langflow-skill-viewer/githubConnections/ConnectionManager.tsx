@@ -255,7 +255,11 @@ function ConnectionWorkspace() {
                   Manage the GitHub accounts Laomedo can use.
                 </p>
               </div>
-              <Button disabled={busy || !index} onClick={() => void begin()}>
+              <Button
+                ignoreTitleCase
+                disabled={busy || !index}
+                onClick={() => void begin()}
+              >
                 + Add connection
               </Button>
             </header>
@@ -287,6 +291,7 @@ function ConnectionWorkspace() {
                 </p>
                 {error === "private_session_required" && (
                   <Button
+                    ignoreTitleCase
                     disabled={busy}
                     onClick={() => profile.signOut("logout")}
                   >
@@ -412,6 +417,7 @@ function ConnectionWorkspace() {
                 </p>
                 {cleanupPending && (
                   <Button
+                    ignoreTitleCase
                     disabled={busy}
                     onClick={() => void run("cleanup", {})}
                   >
@@ -436,6 +442,7 @@ function ConnectionWorkspace() {
                   choose repositories.
                 </p>
                 <Button
+                  ignoreTitleCase
                   disabled={
                     busy || !authorizationUrl(attempt.authorization_url)
                   }
@@ -549,7 +556,9 @@ function ConnectionWorkspace() {
             </>
           ) : (
             !busy && (
-              <Button onClick={() => void run()}>Check current state</Button>
+              <Button ignoreTitleCase onClick={() => void run()}>
+                Check current state
+              </Button>
             )
           )}
           {busy && (

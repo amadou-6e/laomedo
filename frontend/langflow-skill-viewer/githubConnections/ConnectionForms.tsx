@@ -47,7 +47,12 @@ export default function ConnectionForms({
           disabled={busy}
         />
       </label>
-      <Button type="submit" disabled={busy}>
+      <Button
+        ignoreTitleCase
+        variant={inline ? "outline" : "default"}
+        type="submit"
+        disabled={busy}
+      >
         Verify token
       </Button>
     </form>

@@ -52,7 +52,11 @@ export default function ConnectionAccounts({
               : "Sign in again to restore access for this account."}
           </p>
           {!ready && (
-            <Button disabled={busy} onClick={() => reconnect(connection.id)}>
+            <Button
+              ignoreTitleCase
+              disabled={busy}
+              onClick={() => reconnect(connection.id)}
+            >
               Sign in again
             </Button>
           )}
@@ -61,6 +65,7 @@ export default function ConnectionAccounts({
               <h3>Repository access</h3>
               {ready && (
                 <Button
+                  ignoreTitleCase
                   variant="ghost"
                   className="gc-icon"
                   aria-label="Change repositories"
@@ -95,6 +100,7 @@ export default function ConnectionAccounts({
               Removing this connection stops Laomedo access.
             </p>
             <Button
+              ignoreTitleCase
               variant="outline"
               disabled={busy}
               onClick={() => disconnect(entry)}
@@ -149,6 +155,7 @@ export default function ConnectionAccounts({
                   {ready ? "Connected" : "Sign-in required"}
                 </span>
                 <Button
+                  ignoreTitleCase
                   variant="outline"
                   disabled={busy}
                   onClick={() => select(connection.id)}

@@ -31,7 +31,7 @@ export default function ConnectionInventory({
         <h2>Choose repositories</h2>
         <p className="gc-muted">
           Choose what Laomedo may read. You can change this later. Only
-          repositories available to this GitHub account and the app are shown.
+          repositories this connection can access are shown.
         </p>
         <div className="gc-identity">
           <span className="gc-avatar" aria-hidden="true">
@@ -84,6 +84,7 @@ export default function ConnectionInventory({
           ) && <p className="gc-muted">No repositories match your search.</p>}
         <div className="gc-footer">
           <Button
+            ignoreTitleCase
             disabled={busy || !selected.length}
             onClick={() => confirm(selected)}
           >
