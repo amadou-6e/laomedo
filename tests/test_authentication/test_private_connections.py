@@ -87,6 +87,17 @@ class PrivateConnectionHttpTests(unittest.IsolatedAsyncioTestCase):
         self.service.inspect_inventory.assert_awaited_once_with(self.scope, request_id)
         self.policy.mutation.assert_called_once()
 
+    async def test_browser_begin_uses_explicit_owned_app_selection(self):
+        app_id = uuid4()
+        self.service.begin = AsyncMock(return_value={"phase": "authorize"})
+        response = await connection_action(
+            "begin",
+            self.request(json.dumps({"app_id": str(app_id)}).encode()),
+            object(),
+        )
+        self.assertEqual(response.status_code, 200)
+        self.service.begin.assert_awaited_once_with(self.scope, None, app_id=app_id)
+
     async def test_edit_uses_admitted_owner_and_explicit_connection(self):
         connection_id = uuid4()
         self.service.edit = AsyncMock(return_value={"phase": "consent"})
@@ -117,7 +128,7 @@ class PrivateConnectionHttpTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status_code, 303)
         self.assertEqual(
             response.headers["location"],
-            "/settings/github?deployment=1&registration=unconfirmed",
+            "/settings/github?registration=unconfirmed",
         )
         self.assertEqual(response.headers["referrer-policy"], "no-referrer")
 

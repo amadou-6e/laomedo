@@ -6,7 +6,7 @@ import useProfileSessionActions from "@/components/laomedoProfiles/useProfileSes
 import ConnectionAccounts from "./ConnectionAccounts";
 import ConnectionForms from "./ConnectionForms";
 import ConnectionInventory from "./ConnectionInventory";
-import DeploymentSetup from "./DeploymentSetup";
+import ConnectionRegistration from "./ConnectionRegistration";
 import {
   authorizationUrl,
   installationUrl,
@@ -22,8 +22,6 @@ import catalogue from "@/components/laomedoErrors/node-error-catalog.json";
 const channelName = "laomedo-private-connections";
 
 export default function ConnectionManager() {
-  if (new URLSearchParams(window.location.search).get("deployment") === "1")
-    return <DeploymentSetup />;
   return <ConnectionWorkspace />;
 }
 
@@ -31,8 +29,13 @@ function ConnectionWorkspace() {
   const [enabled, setEnabled] = useState<boolean>();
   const [index, setIndex] = useState<ConnectionIndex>();
   const [view, setView] = useState<
-    "list" | "detail" | "waiting" | "token" | "unavailable" | "cleanup"
-  >("list");
+    "list" | "detail" | "waiting" | "token" | "register" | "cleanup"
+  >(() =>
+    new URLSearchParams(window.location.search).get("registration") ===
+    "unconfirmed"
+      ? "register"
+      : "list",
+  );
   const [target, setTarget] = useState<string>();
   const [requestId, setRequestId] = useState<string | undefined>(() => {
     const query = new URLSearchParams(window.location.search);
@@ -142,6 +145,21 @@ function ConnectionWorkspace() {
         if (value) {
           const loaded = await run();
           const installationReturn = query.get("state");
+          const registeredAttempt = loaded?.index.pending.find(
+            (item) =>
+              item.request_id === installationReturn &&
+              item.onboarding &&
+              item.phase === "authorize" &&
+              item.mode === "browser",
+          );
+          if (
+            active &&
+            query.get("setup_action") === "install" &&
+            registeredAttempt
+          ) {
+            navigateToAuthorization(registeredAttempt.authorization_url);
+            return;
+          }
           if (
             active &&
             ["install", "update"].includes(query.get("setup_action") ?? "") &&
@@ -233,8 +251,9 @@ function ConnectionWorkspace() {
       setView("token");
       return;
     }
-    if (!index?.app) {
-      setView("unavailable");
+    if (!id) {
+      setTokenOpen(false);
+      setView("register");
       return;
     }
     setView("waiting");
@@ -252,7 +271,7 @@ function ConnectionWorkspace() {
   const focus =
     error ||
     view === "token" ||
-    view === "unavailable" ||
+    view === "register" ||
     view === "cleanup" ||
     attempt;
   return (
@@ -379,58 +398,14 @@ function ConnectionWorkspace() {
                 }
               }}
             />
-          ) : view === "unavailable" ? (
-            <div className="gc-screen">
-              <section className="gc-panel gc-focus">
-                <h2>GitHub sign-in isn't set up</h2>
-                <p className="gc-muted">
-                  GitHub sign-in hasn't been set up for this installation. Your
-                  saved connections haven't changed.
-                </p>
-                <div className="gc-advanced">
-                  <button
-                    type="button"
-                    className="gc-link"
-                    aria-expanded={tokenOpen}
-                    aria-controls="gc-token-entry"
-                    onClick={() => setTokenOpen(!tokenOpen)}
-                  >
-                    {tokenOpen ? (
-                      <ChevronDown size={16} aria-hidden="true" />
-                    ) : (
-                      <ChevronRight size={16} aria-hidden="true" />
-                    )}{" "}
-                    Use a personal access token instead
-                  </button>
-                  {tokenOpen && (
-                    <ConnectionForms
-                      id="gc-token-entry"
-                      inline
-                      busy={busy}
-                      close={() => setTokenOpen(false)}
-                      submit={async (payload) => {
-                        const result = await run("token", {
-                          ...payload,
-                          ...(target ? { connection_id: target } : {}),
-                        });
-                        if (result) {
-                          setTokenOpen(false);
-                          setView("waiting");
-                        }
-                      }}
-                    />
-                  )}
-                </div>
-              </section>
-              <ConnectionNavigation
-                busy={busy}
-                back={returnToConnection}
-                refresh={async () => {
-                  const result = await run();
-                  if (result?.index.app) setView("list");
-                }}
-              />
-            </div>
+          ) : view === "register" ? (
+            <ConnectionRegistration
+              close={returnToConnection}
+              token={async (payload) => {
+                const result = await run("token", payload);
+                if (result) setView("waiting");
+              }}
+            />
           ) : view === "cleanup" ? (
             <div className="gc-screen">
               <section className="gc-panel gc-focus">

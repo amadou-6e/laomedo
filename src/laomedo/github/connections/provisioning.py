@@ -1,4 +1,4 @@
-"""One-time local App registration, separate from ordinary GitHub sign-in."""
+"""Account-owned private App registration and its bound installation/sign-in."""
 
 import asyncio
 import json
@@ -17,7 +17,11 @@ from laomedo.github.connections.errors import (
     GitHubConnectionError,
     GitHubConnectionChanged,
 )
-from laomedo.github.connections.models import GitHubAppProvisioningAttempt
+from laomedo.github.connections.models import (
+    GitHubAppProvisioningAttempt,
+    GitHubPrincipal,
+)
+from uuid import UUID
 from laomedo.github.connections.settings import (
     CONNECTION_ATTEMPT_SECONDS,
     CONNECTION_PENDING_LIMIT,
@@ -70,16 +74,25 @@ class GitHubManifestClient:
                         if not isinstance(value, dict):
                             raise GitHubConnectionError()
                         # Deliberately drop PEM/webhook secret and all unrelated fields.
+                        owner = GitHubPrincipal.model_validate(
+                            {
+                                "id": value["owner"]["id"],
+                                "login": value["owner"]["login"],
+                            }
+                        )
                         return {
-                            key: value[key]
-                            for key in ("client_id", "client_secret", "slug")
+                            "owner": owner,
+                            **{
+                                key: value[key]
+                                for key in ("client_id", "client_secret", "slug")
+                            },
                         }
         except Exception:
             raise GitHubConnectionError() from None
 
 
 class GitHubAppProvisioner:
-    """Fence deployment registration by profile, live lease, state and expiry."""
+    """Fence each account's registration by profile, live lease, state and expiry."""
 
     def __init__(
         self, service, *, client_factory=GitHubManifestClient, clock=time.time
@@ -90,7 +103,7 @@ class GitHubAppProvisioner:
         self.lock = asyncio.Lock()
 
     async def begin(self, scope):
-        """Prepare a personal, read-only App manifest after explicit operator action."""
+        """Prepare a personal, read-only App manifest after explicit Add action."""
         async with self.lock, self.service.commit_lock:
             await scope.revalidate()
             self.pending = {
@@ -98,10 +111,7 @@ class GitHubAppProvisioner:
                 for key, value in self.pending.items()
                 if value.expires_at > self.clock()
             }
-            if (
-                len(self.pending) >= CONNECTION_PENDING_LIMIT
-                or self.service.journal.app(scope.owner_id) is not None
-            ):
+            if len(self.pending) >= CONNECTION_PENDING_LIMIT:
                 raise GitHubConnectionChanged()
             state = secrets.token_urlsafe(32)
             self.pending[state] = GitHubAppProvisioningAttempt(
@@ -179,11 +189,18 @@ class GitHubAppProvisioner:
             client_secret=SecretStr(app["client_secret"]),
             callback_uri=self.service.callback_uri,
         )
-        await self.service.configure_app(
+        configured = await self.service.configure_app(
             scope,
             client_id=settings.client_id,
             slug=settings.slug,
             secret=settings.client_secret,
-            require_absent=True,
+            principal=app["owner"],
         )
-        return settings.installation_url
+        pending = await self.service.begin(
+            scope, app_id=UUID(configured["id"]), onboarding=True
+        )
+        return (
+            settings.installation_url
+            + "?"
+            + urlencode({"state": pending["request_id"]})
+        )

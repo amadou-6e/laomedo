@@ -189,7 +189,7 @@ async def connection_action(
             )
         elif action == "begin":
             data = _parse(GitHubBrowserConnectRequest, payload)
-            outcome = await service.begin(scope, data.connection_id)
+            outcome = await service.begin(scope, data.connection_id, app_id=data.app_id)
         elif action == "token":
             data = _parse(GitHubTokenConnectRequest, payload)
             outcome = await service.begin_token(scope, data.token, data.connection_id)
@@ -253,7 +253,7 @@ async def connection_callback(request: Request):
 @connection_router.get("/github-connections/app-registration/callback")
 async def app_registration_callback(request: Request):
     """Store App credentials on a bound registration return, then open installation."""
-    destination = "/settings/github?deployment=1&registration=unconfirmed"
+    destination = "/settings/github?registration=unconfirmed"
     try:
         policy = request.app.state.private_access_policy
         context = await policy.callback(request, provisioning=True)

@@ -1,5 +1,14 @@
 # Private GitHub connections
 
+Each connected GitHub account owns its own private App. `configure_app` appends
+immutable owned records; `journal.apps` lists them for deliberate resumption.
+`begin` requires an explicit App for a new connection and uses the saved App on
+reconnect. Provisioning validates GitHub's returned owner, stores only the client
+secret, and creates a lease-bound onboarding attempt before opening installation.
+Only that onboarding return may automatically continue its stored authorization;
+ordinary Add remains an explicit Continue action. Verified account identity must
+match the App owner when known. No App is made public or deleted automatically.
+
 This capability owns deliberate GitHub authorization and repository read consent.
 `GitHubConnectionService.inspect_inventory` rechecks a browser consent attempt's
 available repositories after installation. It preserves its exact owner, lease,
@@ -18,7 +27,7 @@ After Save, `confirm` removes retired credentials for that connection through
 the existing cleanup fence. Active and live pending custody are excluded; a
 deletion failure leaves the saved connection ready and cleanup retryable.
 
-`provisioning.py` owns one-time local deployment App manifest registration.
+`provisioning.py` owns private App manifest registration for each GitHub account.
 `GitHubAppProvisioner.begin` creates a bounded profile/lease-bound registration;
 `complete` consumes its state before exchanging the one-use code and delegates
 credential custody to `configure_app`. Unused signing material is never persisted.
@@ -36,7 +45,7 @@ and response-release guarantees.
 The authenticated browser integration supplies the verified local profile and
 private lease; browser JSON cannot choose an owner. This feature is in progress.
 
-`settings.py` defines init-only `GitHubAppSettings`: an operator-entered app
+`settings.py` defines init-only `GitHubAppSettings`: an explicitly configured app
 identity, masked client secret and exact fixed native callback. Its
 `installation_url` constructs only the configured GitHub app's installation page.
 Protocol endpoints and bounds are single-owner fixed values in that module.

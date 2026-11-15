@@ -25,7 +25,10 @@ from laomedo.github.connections.settings import (
     GITHUB_CALLBACK_PATH,
     GITHUB_PROVISION_CALLBACK_PATH,
 )
-from test_github.test_connections.fixtures import ConnectionVaultFixture
+from test_github.test_connections.fixtures import (
+    ConnectionVaultFixture,
+    ConnectionOAuthFactory,
+)
 
 
 class AppProvisioningTests(unittest.IsolatedAsyncioTestCase):
@@ -47,6 +50,8 @@ class AppProvisioningTests(unittest.IsolatedAsyncioTestCase):
             self.vault,
             callback_uri="http://127.0.0.1:17867" + GITHUB_CALLBACK_PATH,
             commit_lock=asyncio.Lock(),
+            oauth_client=ConnectionOAuthFactory(),
+            clock=lambda: self.now,
         )
         self.provisioner = GitHubAppProvisioner(
             self.service,
@@ -70,6 +75,10 @@ class AppProvisioningTests(unittest.IsolatedAsyncioTestCase):
                 "client_id": "Iv1.synthetic",
                 "client_secret": "synthetic-client-secret",
                 "slug": "synthetic-local-app",
+                "owner": {
+                    "id": 123 if len(self.requests) == 1 else 999,
+                    "login": "synthetic" if len(self.requests) == 1 else "second",
+                },
                 "pem": "unused-signing-material",
                 "webhook_secret": "unused-hook-material",
             },
@@ -95,7 +104,15 @@ class AppProvisioningTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(manifest["manifest"]["public"])
         result = await self.provisioner.complete(self.scope, self.callback(manifest))
         self.assertEqual(
-            result, "https://github.com/apps/synthetic-local-app/installations/new"
+            urlsplit(result).path, "/apps/synthetic-local-app/installations/new"
+        )
+        request_id = parse_qs(urlsplit(result).query)["state"][0]
+        status = await self.service.status(self.scope)
+        self.assertEqual(status["pending"][0]["request_id"], request_id)
+        self.assertTrue(status["pending"][0]["onboarding"])
+        self.assertEqual(status["pending"][0]["phase"], "authorize")
+        self.assertEqual(
+            status["apps"][0]["principal"], {"id": 123, "login": "synthetic"}
         )
         self.assertEqual(
             [value.get_secret_value() for value in self.vault.values.values()],
@@ -118,6 +135,26 @@ class AppProvisioningTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(GitHubConnectionChanged):
             await self.provisioner.complete(self.scope, self.callback(manifest))
         self.assertFalse(self.requests)
+
+    async def test_second_private_app_registration_keeps_first_binding(self):
+        first = await self.provisioner.begin(self.scope)
+        await self.provisioner.complete(self.scope, self.callback(first))
+        first_pending = tuple(self.service.pending.values())[0]
+        second = await self.provisioner.begin(self.scope)
+        self.assertFalse(second["manifest"]["public"])
+        await self.provisioner.complete(self.scope, self.callback(second))
+        self.assertEqual(len(self.service.journal.apps(self.scope.owner_id)), 2)
+        self.assertEqual(self.service.pending[first_pending.id], first_pending)
+        self.assertEqual(
+            [
+                app.principal.id
+                for app in self.service.journal.apps(self.scope.owner_id)
+            ],
+            [123, 999],
+        )
+        second_pending = tuple(self.service.pending.values())[1]
+        self.assertNotEqual(first_pending.app_id, second_pending.app_id)
+        self.assertEqual(second_pending.expected_principal_id, 999)
 
     async def test_lost_exchange_is_not_replayed(self):
         manifest = await self.provisioner.begin(self.scope)

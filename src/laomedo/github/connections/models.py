@@ -195,6 +195,10 @@ class GitHubAppRecord(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid", hide_input_in_errors=True)
     id: UUID = Field(description="Broker-generated immutable app configuration ID.")
     owner_id: UUID = Field(description="Authenticated local profile owning this setup.")
+    principal: GitHubPrincipal | None = Field(
+        default=None,
+        description="Verified GitHub App owner, when supplied by manifest conversion.",
+    )
     client_id: str = Field(
         strict=True, min_length=1, description="Configured app client ID."
     )
@@ -342,6 +346,11 @@ class GitHubConnectionAttempt(BaseModel):
     mode: Literal["browser", "token"] = Field(
         description="Deliberately chosen connection mode."
     )
+    onboarding: bool = Field(
+        default=False,
+        strict=True,
+        description="Fresh private App onboarding; ordinary authorization remains explicit.",
+    )
     app_id: UUID | None = Field(
         default=None, description="Immutable browser-app setup version."
     )
@@ -370,6 +379,7 @@ class GitHubConnectionAttempt(BaseModel):
         """Return safe UI state with explicit authorization navigation only when pending."""
         return {
             "mode": self.mode,
+            "onboarding": self.onboarding,
             "request_id": str(self.id),
             "connection_id": str(self.connection_id),
             "expires_at": self.expires_at,
@@ -538,6 +548,10 @@ class GitHubBrowserConnectRequest(BaseModel):
     connection_id: UUID | None = Field(
         default=None,
         description="Existing owned reference for reconnect, or new when absent.",
+    )
+    app_id: UUID | None = Field(
+        default=None,
+        description="Explicit owned App for a new account; reconnect retains its saved App.",
     )
 
 

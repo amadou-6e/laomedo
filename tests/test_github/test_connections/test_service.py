@@ -29,6 +29,7 @@ from laomedo.github.connections.journal import GitHubConnectionJournal
 from laomedo.github.connections.models import (
     GitHubConnectionScope,
     GitHubConnectionCredential,
+    GitHubPrincipal,
 )
 from laomedo.github.connections.service import GitHubConnectionService
 from laomedo.github.connections.settings import GITHUB_CALLBACK_PATH
@@ -115,7 +116,9 @@ class GitHubConnectionServiceTests(unittest.IsolatedAsyncioTestCase):
                 slug="synthetic-app",
                 secret=SecretStr("synthetic-app-secret"),
             )
-            attempt = await self.service.begin(self.scope)
+            attempt = await self.service.begin(
+                self.scope, app_id=self.journal.app(self.owner).id
+            )
             state = parse_qs(urlsplit(attempt["authorization_url"]).query)["state"][0]
             callback = SecretStr(
                 self.service.callback_uri
@@ -193,11 +196,45 @@ class GitHubConnectionServiceTests(unittest.IsolatedAsyncioTestCase):
             slug="synthetic-app",
             secret=SecretStr("synthetic"),
         )
-        browser = await self.service.begin(self.scope)
+        browser = await self.service.begin(
+            self.scope, app_id=self.journal.app(self.owner).id
+        )
         with self.assertRaises(GitHubConnectionChanged):
             await self.service.inspect_inventory(
                 self.scope, UUID(browser["request_id"])
             )
+
+    async def test_reconnect_keeps_its_private_app_after_another_account_is_configured(
+        self,
+    ):
+        connection_id = await self.ready("browser")
+        original = self.journal.get(self.owner, connection_id)
+        newer = await self.service.configure_app(
+            self.scope,
+            client_id="Iv1.second",
+            slug="second-private-app",
+            secret=SecretStr("second-secret"),
+            principal=GitHubPrincipal(id=999, login="second"),
+        )
+        attempt = await self.service.begin(self.scope, connection_id)
+        pending = self.service.pending[UUID(attempt["request_id"])]
+        self.assertEqual(pending.app_id, original.app_id)
+        self.assertFalse(attempt["onboarding"])
+        second = await self.service.begin(self.scope, app_id=UUID(newer["id"]))
+        self.assertEqual(
+            self.service.pending[UUID(second["request_id"])].expected_principal_id, 999
+        )
+        state = parse_qs(urlsplit(second["authorization_url"]).query)["state"][0]
+        with self.assertRaises(GitHubRepositoryAccessError):
+            await self.service.complete(
+                self.scope,
+                SecretStr(
+                    self.service.callback_uri
+                    + "?"
+                    + urlencode({"code": "synthetic", "state": state})
+                ),
+            )
+        self.assertEqual(self.journal.get(self.owner, connection_id), original)
 
     async def test_pending_installation_slug_remains_bound_to_original_app_version(
         self,
@@ -370,7 +407,8 @@ class GitHubConnectionServiceTests(unittest.IsolatedAsyncioTestCase):
         self,
     ):
         """Delayed account selection has an actionable outcome without replay."""
-        connection_id = await self.ready()
+        connection_id = await self.ready("browser")
+        initial_exchanges = self.oauth.exchanges
         await self.service.configure_app(
             self.scope,
             client_id="Iv1.synthetic",
@@ -387,7 +425,7 @@ class GitHubConnectionServiceTests(unittest.IsolatedAsyncioTestCase):
         )
         with self.assertRaises(GitHubConnectionAttemptExpired):
             await self.service.complete(self.scope, callback)
-        self.assertEqual(self.oauth.exchanges, 0)
+        self.assertEqual(self.oauth.exchanges, initial_exchanges)
         self.assertTrue(self.journal.current(self.owner, connection_id, 1))
 
     async def test_stale_reconnect_cannot_replace_newer_explicit_consent(self):
@@ -461,7 +499,9 @@ class GitHubConnectionServiceTests(unittest.IsolatedAsyncioTestCase):
             slug="synthetic-app",
             secret=SecretStr("synthetic-app-secret"),
         )
-        attempt = await self.service.begin(self.scope)
+        attempt = await self.service.begin(
+            self.scope, app_id=self.journal.app(self.owner).id
+        )
         state = parse_qs(urlsplit(attempt["authorization_url"]).query)["state"][0]
         callback = SecretStr(
             self.service.callback_uri

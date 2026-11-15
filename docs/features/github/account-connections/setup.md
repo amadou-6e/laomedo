@@ -1,16 +1,17 @@
-# Prepare a local GitHub App
+# Connect a GitHub account
 
-Status: local deployment provisioning for [#251](https://github.com/amadou-6e/laomedo/issues/251).
-Open `/settings/github?deployment=1` deliberately as the deployment owner.
-Continue on GitHub sends a prefilled App manifest; confirm creation and choose
-repositories on GitHub. The bound return exchanges the one-use registration code
-and stores only the client secret in Windows vault. Ordinary Add Connection never
-enters registration or asks for App identifiers or secrets.
+Status: per-account private App onboarding for [#251](https://github.com/amadou-6e/laomedo/issues/251).
+Open GitHub connections and choose Add connection, then Continue on GitHub.
+Laomedo prepares a private App registration for the account being connected; GitHub
+asks for creation, repository installation and authorization approvals. Confirm
+that GitHub shows the intended account before approving registration.
 
-Registration is profile-scoped in this local increment. It is not a distributed
-shared-App deployment or multi-user administrator capability. App installation
-does not create a saved connection: return to connections, Add Connection, authorize
-the App and confirm repository choices. No live success is implied by this guide.
+Each GitHub account owns its own private App. Existing connections retain their
+original App and credentials. No App is made public, and users never copy an App
+ID, client secret or signing key into Laomedo. Completing registration stores the
+credential in native custody, begins the exact new App's authorization attempt,
+and carries installation back to that attempt. Final repository access in Laomedo
+still requires Save access. Live acceptance is recorded separately from this guide.
 
 If registration cannot be confirmed, inspect your GitHub Apps before retrying:
 GitHub may have created an App even when conversion or local custody failed.
@@ -48,24 +49,18 @@ Neither is used by this user-token flow; they are discarded, never persisted or
 returned to the browser. The webhook is disabled. Expiring user tokens are required;
 the manifest uses GitHub's default expiration and does not disable it.
 
-## Intended one-time path
+## Connection path
 
-1. Configure normal Laomedo sign-in for private access, as selected by the owner.
-   Do not disable a running
-   preview's auto-login as part of registration.
-2. Start the configured local connection UI. Open the deliberate deployment
-   entry described above; callbacks derive from the trusted fixed app origin.
-3. Continue on GitHub and confirm the prefilled private App registration.
-4. Install it on only the intended repositories through its Install App page
-   (`https://github.com/apps/APP-NAME/installations/new`, derived from its trusted
-   slug). A private app installs only on its owning account; GitHub controls
-   account/repository permission checks. The host receives and stores the App
-   credentials directly; nothing needs to be copied.
-5. Use Add Connection; verify the returned account, then explicitly consent to
-   the repositories Laomedo may read. Sign-in alone does not select every repository.
-6. Enter the private HTTPS repository URL on the Skill node, choose the connection,
-   discover a Skill/revision and inspect its real files. This is future acceptance,
-   not a result established by these instructions.
+1. Log into the local Laomedo profile and open GitHub connections.
+2. Choose Add connection and Continue on GitHub.
+3. On GitHub, use the account being connected and approve the prefilled private
+   App registration. The App remains owned by that account.
+4. Approve installation for the intended repositories. The bound return continues
+   authorization for that same App; no other connection's App is selected.
+5. Verify the returned account and Save access for the repositories Laomedo may read.
+6. Existing accounts are managed through View connection: edit repository access or
+   sign in again using that connection's saved App. Do not create another App merely
+   to refresh an existing account.
 
 Do not use the host gh token, GCM, .env token or another application's client ID
 as a shortcut. The explicit token alternative accepts a deliberately supplied

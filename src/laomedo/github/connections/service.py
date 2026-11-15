@@ -121,7 +121,7 @@ class GitHubConnectionService:
         client_id,
         slug,
         secret,
-        require_absent=False,
+        principal=None,
     ):
         """Version deliberate app setup without rebinding existing ready connections."""
         try:
@@ -135,8 +135,6 @@ class GitHubConnectionService:
             raise GitHubConnectionInputError() from None
         async with self.lock, self.commit_lock:
             await scope.revalidate()
-            if require_absent and self.journal.app(scope.owner_id) is not None:
-                raise GitHubConnectionChanged()
             app_id = uuid4()
             reference = self.journal.reserve_secret(scope.owner_id, "app", app_id)
             self.vault.store(reference.id, settings.client_secret)
@@ -145,6 +143,7 @@ class GitHubConnectionService:
                 owner_id=scope.owner_id,
                 client_id=settings.client_id,
                 slug=settings.slug,
+                principal=principal,
                 secret_reference=reference.id,
             )
             self.journal.save_app(record)
@@ -176,16 +175,43 @@ class GitHubConnectionService:
         )
 
     async def begin(
-        self, scope: GitHubConnectionScope, connection_id: UUID | None = None
+        self,
+        scope: GitHubConnectionScope,
+        connection_id: UUID | None = None,
+        *,
+        app_id: UUID | None = None,
+        onboarding=False,
     ):
         """Start one browser-default attempt; previous ready state remains untouched."""
         async with self.lock:
             attempt = await self._new_attempt(scope, "browser", connection_id)
-            app, settings = self._app_settings(scope.owner_id)
+            if connection_id is not None:
+                record = self.journal.get(scope.owner_id, connection_id)
+                if record.mode != "browser" or (
+                    app_id is not None and app_id != record.app_id
+                ):
+                    raise GitHubConnectionChanged()
+                app_id = record.app_id
+            if app_id is None:
+                raise GitHubConnectionInputError()
+            app, settings = self._app_settings(scope.owner_id, app_id)
+            if app.principal is not None and attempt.expected_principal_id not in (
+                None,
+                app.principal.id,
+            ):
+                raise GitHubConnectionChanged()
             oauth = await self.oauth_client(settings).begin()
             async with self.commit_lock:
                 await scope.revalidate()
-                attempt = attempt.model_copy(update={"app_id": app.id, "oauth": oauth})
+                attempt = attempt.model_copy(
+                    update={
+                        "app_id": app.id,
+                        "oauth": oauth,
+                        "onboarding": onboarding,
+                        "expected_principal_id": attempt.expected_principal_id
+                        or (app.principal.id if app.principal else None),
+                    }
+                )
                 self.journal.touch(scope.owner_id)
                 self.pending[attempt.id] = attempt
             return attempt.public()
@@ -684,6 +710,10 @@ class GitHubConnectionService:
             return {
                 "revision": self.journal.revision(scope.owner_id),
                 "app": app.model_dump(mode="json") if app else None,
+                "apps": [
+                    item.model_dump(mode="json")
+                    for item in self.journal.apps(scope.owner_id)
+                ],
                 "callback_uri": self.callback_uri,
                 "connections": connections,
                 "pending": [

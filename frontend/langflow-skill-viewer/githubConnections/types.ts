@@ -7,6 +7,7 @@ export type PendingConnection = {
   phase: "authorize" | "consent";
   mode: "browser" | "token";
   app_slug: string | null;
+  onboarding: boolean;
   authorization_url: string | null;
   inventory: { principal: Principal; repositories: Repository[] } | null;
 };

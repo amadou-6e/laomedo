@@ -159,6 +159,21 @@ class GitHubConnectionJournal:
         except sqlite3.Error:
             raise GitHubConnectionError() from None
 
+    def apps(self, owner_id: UUID):
+        """List only this profile's immutable private App configurations."""
+        try:
+            with closing(self._connect()) as db:
+                rows = db.execute(
+                    "SELECT payload FROM github_apps WHERE owner_id=? ORDER BY rowid",
+                    (str(owner_id),),
+                ).fetchall()
+            records = tuple(GitHubAppRecord.model_validate_json(row[0]) for row in rows)
+            if any(record.owner_id != owner_id for record in records):
+                raise GitHubConnectionError()
+            return records
+        except (sqlite3.Error, ValueError):
+            raise GitHubConnectionError() from None
+
     def app(self, owner_id: UUID, app_id: UUID | None = None):
         """Return an exact owner-owned app version, or the latest configured version."""
         try:
