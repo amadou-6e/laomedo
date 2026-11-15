@@ -94,9 +94,10 @@ The local actual deployment uses loopback forwarding exposed to Docker controlle
 through host.docker.internal, as exercised by the real tool calls. Other private
 interface configurations are not claimed as tested.
 
-New unavailable-upstream control evidence awaits independent review. Two-server
-editor rendering, wider privacy/log scopes and specification PR #419 remain
-separate acceptance constraints. No merge or issue closure is authorized.
+Claude independently reviewed the unavailable-upstream controls and supports
+their bounded claims. The actual two-server/Skill editor topology received
+bounded visual ACCEPT. Wider privacy/log scopes remain unclaimed; specification
+PR #419 remains a separate merge prerequisite. No merge or issue closure is authorized.
 
 ## Upstream-credential canary
 
@@ -118,8 +119,20 @@ nonempty-request guard. It is excluded from the passing corrected three cases.
 The actual header still reached the upstream; that earlier result did not
 establish task-payload privacy. No production changes were made.
 
-This closes the concrete missing-upstream-credential scenario pending independent
-review. It does not claim exhaustive scans of every process log or private store.
+Claude's focused recheck closed I-1, the concrete missing-upstream-credential
+scenario. It does not claim exhaustive scans of every process log or private store.
 The combined two-server/Skill topology was also captured in the real editor;
 an initial model-list notice recovered through a successful refresh (eight models)
 and did not recur on reload. Its initial cause is not established.
+
+## Reviewed checkpoint
+
+Claude reconciled all bounded code, integration and visual packets against
+`feadd5fb` to `ead50c23`: own-diff coverage closed, bounded implementation APPROVE,
+live evidence supported, and reviewed renders accepted. Low code/visual
+advisories and the specification's alias-identity question remain acknowledged.
+STDIO environment credentials and endpoint URLs were not separately canaried;
+the header scenario and by-construction manifest boundary are the demonstrated
+coverage. Keyboard/accessibility and exhaustive log scans are not claimed.
+The implementation PR now targets the exact reviewed develop base after its
+parent PR merged. Specification PR #419 and human merge approval remain required.
