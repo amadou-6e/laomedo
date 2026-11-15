@@ -39,6 +39,8 @@ exchanging its one-use code; `refresh` requires a newly rotated refresh credenti
 Browser authorization requests GitHub's account picker explicitly, including when
 GitHub remembers earlier consent. Reconnect still verifies the saved numeric
 principal before accepting any returned credential.
+Matched sign-ins past the pending deadline report explicit expiry without an
+exchange; recovery returns to the connection list for a deliberate new attempt.
 The service, not this protocol client, must consume pending attempts and durably
 fence refresh before either exchange. No automatic retry is permitted.
 `GitHubOAuthTransport` permits only POST to the fixed HTTPS token endpoint,

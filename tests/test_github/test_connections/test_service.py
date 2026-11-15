@@ -19,6 +19,7 @@ from pydantic import SecretStr
 from laomedo.github.connections.client import GitHubReadClient
 from laomedo.github.connections.errors import (
     GitHubConnectionChanged,
+    GitHubConnectionAttemptExpired,
     GitHubOAuthError,
     GitHubReauthorizationRequired,
     GitHubRepositoryAccessError,
@@ -222,6 +223,30 @@ class GitHubConnectionServiceTests(unittest.IsolatedAsyncioTestCase):
         self.now += 601
         await self.service.cleanup(self.scope)
         self.assertEqual(self.vault.values, {})
+
+    async def test_matched_expired_callback_never_exchanges_or_changes_ready_connection(
+        self,
+    ):
+        """Delayed account selection has an actionable outcome without replay."""
+        connection_id = await self.ready()
+        await self.service.configure_app(
+            self.scope,
+            client_id="Iv1.synthetic",
+            slug="synthetic-app",
+            secret=SecretStr("synthetic-app-secret"),
+        )
+        attempt = await self.service.begin(self.scope, connection_id)
+        state = parse_qs(urlsplit(attempt["authorization_url"]).query)["state"][0]
+        self.now += 601
+        callback = SecretStr(
+            self.service.callback_uri
+            + "?"
+            + urlencode({"code": "synthetic", "state": state})
+        )
+        with self.assertRaises(GitHubConnectionAttemptExpired):
+            await self.service.complete(self.scope, callback)
+        self.assertEqual(self.oauth.exchanges, 0)
+        self.assertTrue(self.journal.current(self.owner, connection_id, 1))
 
     async def test_stale_reconnect_cannot_replace_newer_explicit_consent(self):
         connection_id = await self.ready()

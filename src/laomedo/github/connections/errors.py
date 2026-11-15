@@ -47,6 +47,16 @@ class GitHubConnectionChanged(GitHubConnectionError):
     code = "github_connection_changed"
 
 
+class GitHubConnectionAttemptExpired(GitHubConnectionChanged):
+    """A matched owner/lease-bound sign-in passed its pending deadline.
+
+    No exchange or consent commit is permitted. Existing saved connections stay
+    unchanged; recovery requires a deliberate new attempt, never replaying this one.
+    """
+
+    code = "github_connection_attempt_expired"
+
+
 class GitHubRepositoryAccessError(GitHubConnectionError):
     """Current account or repository read access could not be confirmed online.
 

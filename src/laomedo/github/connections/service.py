@@ -9,6 +9,7 @@ from uuid import UUID, uuid4
 from laomedo.github.connections.client import GitHubReadClient, GitHubRepositoryAccess
 from laomedo.github.connections.errors import (
     GitHubConnectionChanged,
+    GitHubConnectionAttemptExpired,
     GitHubConnectionError,
     GitHubConnectionInputError,
     GitHubOAuthError,
@@ -66,12 +67,10 @@ class GitHubConnectionService:
     def _attempt(self, scope, request_id):
         """Refuse guessed, expired or other-session pending identities."""
         attempt = self.pending.get(request_id)
-        if (
-            attempt is None
-            or not self._same_lease(scope, attempt)
-            or attempt.expires_at <= self.clock()
-        ):
+        if attempt is None or not self._same_lease(scope, attempt):
             raise GitHubConnectionChanged()
+        if attempt.expires_at <= self.clock():
+            raise GitHubConnectionAttemptExpired()
         return attempt
 
     def _selected(self, scope, connection_id):

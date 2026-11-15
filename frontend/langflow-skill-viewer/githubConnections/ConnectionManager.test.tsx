@@ -412,6 +412,28 @@ it.each([false, true])(
   },
 );
 
+it("explains an expired sign-in and returns to saved connections without replaying it", async () => {
+  window.history.replaceState(
+    null,
+    "",
+    "/settings/github?outcome=signin-expired",
+  );
+  render(<ConnectionManager />);
+  await screen.findByRole("heading", { name: "Sign-in expired" });
+  expect(
+    screen.getByText(
+      "This sign-in took too long. Your saved connections have not changed.",
+    ),
+  ).toBeVisible();
+  fireEvent.click(screen.getByRole("button", { name: "Back to connections" }));
+  await screen.findByRole("button", { name: "+ Add connection" });
+  expect(
+    (connectionRequest as jest.Mock).mock.calls.every(
+      ([action]) => action === undefined,
+    ),
+  ).toBe(true);
+});
+
 it("checks missing sign-in configuration without starting or replaying authorization", async () => {
   (connectionRequest as jest.Mock).mockResolvedValue({
     index: { ...initial, app: null },

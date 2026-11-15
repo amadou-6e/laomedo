@@ -11,6 +11,33 @@ jest.mock("@/components/ui/input", () => ({
   Input: (props: any) => <input {...props} />,
 }));
 
+test("editing preserves only saved repositories still present in the verified inventory", () => {
+  const attempt: PendingConnection = {
+    request_id: "edit",
+    connection_id: "saved",
+    expires_at: 9999999999,
+    phase: "consent",
+    authorization_url: null,
+    inventory: {
+      principal: { id: 1, login: "owner" },
+      repositories: [{ id: 7, full_name: "owner/allowed", private: true }],
+    },
+  };
+  const confirm = jest.fn();
+  render(
+    <ConnectionInventory
+      attempt={attempt}
+      busy={false}
+      confirm={confirm}
+      cancel={jest.fn()}
+      initialRepositoryIds={[7, 99]}
+    />,
+  );
+  expect(screen.getByRole("checkbox")).toBeChecked();
+  fireEvent.click(screen.getByRole("button", { name: "Save access" }));
+  expect(confirm).toHaveBeenCalledWith([7]);
+});
+
 test.each([1, 5, 6])(
   "repository search is available only above five choices (%i)",
   (count) => {

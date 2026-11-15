@@ -8,13 +8,19 @@ export default function ConnectionInventory({
   busy,
   confirm,
   cancel,
+  initialRepositoryIds = [],
 }: {
   attempt: PendingConnection;
   busy: boolean;
   confirm: (ids: number[]) => void;
   cancel: () => void;
+  initialRepositoryIds?: number[];
 }) {
-  const [selected, setSelected] = useState<number[]>([]);
+  const [selected, setSelected] = useState<number[]>(() =>
+    initialRepositoryIds.filter((id) =>
+      attempt.inventory?.repositories.some((repo) => repo.id === id),
+    ),
+  );
   const [query, setQuery] = useState("");
   const inventory = attempt.inventory;
   if (!inventory) return null;

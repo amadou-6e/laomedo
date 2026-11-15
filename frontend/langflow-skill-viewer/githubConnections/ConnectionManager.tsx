@@ -14,6 +14,7 @@ import {
 } from "./api";
 import type { ConnectionAction, ConnectionIndex } from "./types";
 import "./connections.css";
+import catalogue from "@/components/laomedoErrors/node-error-catalog.json";
 
 const channelName = "laomedo-private-connections";
 
@@ -128,7 +129,11 @@ function ConnectionWorkspace() {
         if (value) {
           await run();
           if (active && outcome && outcome !== "consent")
-            setError("github_authorization_unconfirmed");
+            setError(
+              outcome === "signin-expired"
+                ? "github_connection_attempt_expired"
+                : "github_authorization_unconfirmed",
+            );
         }
       }
     });
@@ -263,16 +268,20 @@ function ConnectionWorkspace() {
           {error ? (
             <section className="gc-panel gc-focus" role="alert">
               <h2>
-                {error === "private_session_required"
-                  ? "Login required"
-                  : "We couldn’t complete that"}
+                {error === "github_connection_attempt_expired"
+                  ? catalogue.github_connection_attempt_expired.title
+                  : error === "private_session_required"
+                    ? "Login required"
+                    : "We couldn’t complete that"}
               </h2>
               <p className="gc-muted">
-                {error === "github_token_unsupported"
-                  ? "Check your fine-grained personal access token and try again."
-                  : error === "private_session_required"
-                    ? "Log in to your local profile to continue."
-                    : "We could not finish this request. Check current state to continue."}
+                {error === "github_connection_attempt_expired"
+                  ? catalogue.github_connection_attempt_expired.description
+                  : error === "github_token_unsupported"
+                    ? "Check your fine-grained personal access token and try again."
+                    : error === "private_session_required"
+                      ? "Log in to your local profile to continue."
+                      : "We could not finish this request. Check current state to continue."}
               </p>
               <Button
                 disabled={busy}
@@ -282,15 +291,20 @@ function ConnectionWorkspace() {
                     : void run()
                 }
               >
-                {error === "private_session_required"
-                  ? "Log in"
-                  : "Check current state"}
+                {error === "github_connection_attempt_expired"
+                  ? "Back to connections"
+                  : error === "private_session_required"
+                    ? "Log in"
+                    : "Check current state"}
               </Button>
             </section>
           ) : attempt?.phase === "consent" ? (
             <ConnectionInventory
               key={attempt.request_id}
               attempt={attempt}
+              initialRepositoryIds={index?.connections
+                .find((item) => item.connection.id === attempt.connection_id)
+                ?.connection.repositories.map((repo) => repo.id)}
               busy={busy}
               confirm={async (ids) => {
                 const result = await run("confirm", {

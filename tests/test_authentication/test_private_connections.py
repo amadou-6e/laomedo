@@ -20,6 +20,7 @@ from laomedo.integrations.langflow.authentication.connections import (
 )
 from laomedo.integrations.langflow.authentication.errors import PrivateRequestRefused
 from laomedo.github.connections.settings import CONNECTION_BODY_BYTES
+from laomedo.github.connections.errors import GitHubConnectionAttemptExpired
 
 
 class PrivateConnectionHttpTests(unittest.IsolatedAsyncioTestCase):
@@ -170,6 +171,16 @@ class PrivateConnectionHttpTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(response.headers["referrer-policy"], "no-referrer")
         self.service.complete.assert_not_awaited()
+
+    async def test_expired_signin_has_explicit_safe_recovery(self):
+        self.service.complete.side_effect = GitHubConnectionAttemptExpired()
+        response = await connection_callback(
+            self.request(method="GET", query=b"code=sensitive-example&state=secret")
+        )
+        self.assertEqual(
+            response.headers["location"], "/settings/github?outcome=signin-expired"
+        )
+        self.assertNotIn("sensitive-example", response.headers["location"])
 
     async def test_callback_success_forwards_only_trusted_pending_reference(self):
         reference = str(uuid4())

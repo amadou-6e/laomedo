@@ -20,6 +20,9 @@ when more than five repositories are available.
 Disconnect confirmation uses that connection's cleanup status. Profile-wide
 leftovers from other connections or abandoned attempts remain a separate cleanup
 notice, without labelling the selected account's successful deletion a failure.
+Repository editing initially selects the saved repository IDs that remain in the
+verified inventory; new connections start unselected. Expired sign-in returns show
+explicit recovery rather than a generic failure, without replaying authorization.
 `ConnectionAccounts.tsx` renders the account list and selected account details.
 `ConnectionForms.tsx` owns masked advanced token entry and clears it synchronously
 before submitting or cancelling. `ConnectionInventory.tsx` owns explicit repository

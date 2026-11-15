@@ -11,6 +11,7 @@ from starlette.responses import JSONResponse, RedirectResponse
 
 from laomedo.github.connections.errors import (
     GitHubConnectionChanged,
+    GitHubConnectionAttemptExpired,
     GitHubConnectionError,
     GitHubConnectionInputError,
     GitHubOAuthError,
@@ -230,6 +231,8 @@ async def connection_callback(request: Request):
             scope, SecretStr(str(request.url))
         )
         query = {"outcome": "consent", "request": result["request_id"]}
+    except GitHubConnectionAttemptExpired:
+        query = {"outcome": "signin-expired"}
     except PrivateSessionRequired:
         query = {"outcome": "signin-required"}
     except Exception:
