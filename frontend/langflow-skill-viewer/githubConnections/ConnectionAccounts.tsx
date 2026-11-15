@@ -15,6 +15,7 @@ export default function ConnectionAccounts({
   reconnect,
   disconnect,
   token,
+  refresh,
 }: {
   entries: Entry[];
   selected?: string;
@@ -25,6 +26,7 @@ export default function ConnectionAccounts({
   reconnect: (id: string) => void;
   disconnect: (entry: Entry) => void;
   token: (id: string) => void;
+  refresh?: () => void;
 }) {
   const entry = entries.find(({ connection }) => connection.id === selected);
   if (entry) {
@@ -101,7 +103,7 @@ export default function ConnectionAccounts({
             </Button>
           </div>
         </section>
-        <ConnectionNavigation busy={busy} back={back} />
+        <ConnectionNavigation busy={busy} back={back} refresh={refresh} />
       </div>
     );
   }

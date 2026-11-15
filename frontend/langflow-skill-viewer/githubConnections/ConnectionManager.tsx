@@ -498,6 +498,7 @@ function ConnectionWorkspace() {
           ) : index ? (
             <>
               <ConnectionAccounts
+                refresh={() => void run()}
                 entries={entries}
                 selected={view === "detail" ? target : undefined}
                 busy={busy}
@@ -556,7 +557,7 @@ function ConnectionWorkspace() {
               Checking…
             </p>
           )}
-          {!focus && (
+          {!focus && view !== "detail" && (
             <button
               className="gc-link gc-refresh gc-icon"
               aria-label="Refresh"
