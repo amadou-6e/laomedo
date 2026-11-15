@@ -97,18 +97,24 @@
   overflow-wrap: anywhere;
 }
 .gc-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   white-space: nowrap;
-  border-radius: 6px;
-  padding: 4px 12px;
   font-size: 13px;
 }
+.gc-status::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
 .gc-ready {
-  background: #f0fdf4;
-  color: #15803d;
+  color: hsl(var(--foreground));
 }
 .gc-attention {
-  background: #fffbeb;
-  color: #92400e;
+  color: hsl(var(--muted-foreground));
 }
 .gc-centered {
   padding-top: 80px;
@@ -137,6 +143,15 @@
   width: fit-content !important;
   margin-bottom: 8px;
 }
+.gc-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px !important;
+  height: 44px;
+  padding: 0;
+  flex-shrink: 0;
+}
 .gc-link:hover {
   text-decoration: underline;
 }
@@ -155,6 +170,12 @@
   margin-top: 12px;
   font-size: 15px;
   font-weight: 500;
+}
+.gc-token-inline {
+  display: grid;
+  gap: 16px;
+  padding-top: 16px;
+  text-align: left;
 }
 .gc-small {
   font-size: 14px;
@@ -224,8 +245,10 @@
   align-items: center;
   gap: 16px;
   padding: 16px 4px;
-  border-bottom: 1px solid hsl(var(--border));
   cursor: pointer;
+}
+.gc-choice + .gc-choice {
+  border-top: 1px solid hsl(var(--border));
 }
 .gc-choice input {
   min-height: 20px;

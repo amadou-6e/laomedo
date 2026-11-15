@@ -1,3 +1,4 @@
+import { ArrowLeft, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import useProfileSessionActions from "@/components/laomedoProfiles/useProfileSessionActions";
@@ -38,6 +39,7 @@ function ConnectionWorkspace() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [tokenOpen, setTokenOpen] = useState(false);
   const epoch = useRef(0);
   const inFlight = useRef(false);
   const [source] = useState(() => crypto.randomUUID());
@@ -128,7 +130,9 @@ function ConnectionWorkspace() {
       if (active) {
         setEnabled(value);
         if (value) {
-          await run();
+          const loaded = await run();
+          if (active && loaded?.index.credential_cleanup_pending)
+            await run("cleanup", {}, true);
           if (active && outcome && outcome !== "consent")
             setError(
               outcome === "signin-expired"
@@ -148,6 +152,7 @@ function ConnectionWorkspace() {
       setTarget(undefined);
       setRequestId(undefined);
       setView("list");
+      setTokenOpen(false);
       setBusy(false);
       setNotice(
         "A connection changed in another tab. Check current state before continuing.",
@@ -191,7 +196,10 @@ function ConnectionWorkspace() {
     };
   }, [attempt?.phase, error, run]);
 
-  const returnToConnection = () => setView(target ? "detail" : "list");
+  const returnToConnection = () => {
+    setTokenOpen(false);
+    setView(target ? "detail" : "list");
+  };
   const begin = async (id?: string) => {
     setTarget(id);
     const selected = index?.connections.find(
@@ -346,12 +354,24 @@ function ConnectionWorkspace() {
               >
                 Check again
               </Button>
-              <button
-                className="gc-link gc-muted"
-                onClick={() => setView("token")}
+              <details
+                className="gc-advanced"
+                open={tokenOpen}
+                onToggle={(event) => setTokenOpen(event.currentTarget.open)}
               >
-                Advanced: use a personal access token
-              </button>
+                <summary>Use a personal access token instead</summary>
+                {tokenOpen && (
+                  <ConnectionForms
+                    inline
+                    busy={busy}
+                    close={() => setTokenOpen(false)}
+                    submit={async (payload) => {
+                      const result = await run("token", payload);
+                      if (result) setView("waiting");
+                    }}
+                  />
+                )}
+              </details>
             </section>
           ) : view === "cleanup" ? (
             <section className="gc-panel gc-focus">
@@ -390,6 +410,19 @@ function ConnectionWorkspace() {
             </section>
           ) : waiting ? (
             <section className="gc-panel gc-focus">
+              <Button
+                variant="ghost"
+                className="gc-back gc-icon"
+                aria-label="Back to connections"
+                title="Back to connections"
+                disabled={busy}
+                onClick={async () => {
+                  if (await run("cancel", { request_id: attempt.request_id }))
+                    returnToConnection();
+                }}
+              >
+                <ArrowLeft size={20} aria-hidden="true" />
+              </Button>
               <h2>Continue on GitHub</h2>
               <p className="gc-muted">
                 Continue to GitHub to authorize access. You’ll return here to
@@ -403,29 +436,33 @@ function ConnectionWorkspace() {
               >
                 Continue to GitHub
               </Button>
-              <p className="gc-muted gc-small">
-                Authorization continues in this tab.
-              </p>
-              <button
-                className="gc-link"
-                disabled={busy}
-                onClick={async () => {
-                  if (await run("cancel", { request_id: attempt.request_id }))
-                    setView("token");
-                }}
+              <details
+                className="gc-advanced"
+                open={tokenOpen}
+                onToggle={(event) => setTokenOpen(event.currentTarget.open)}
               >
-                Advanced: use a personal access token
-              </button>
-              <Button
-                variant="ghost"
-                disabled={busy}
-                onClick={async () => {
-                  if (await run("cancel", { request_id: attempt.request_id }))
-                    returnToConnection();
-                }}
-              >
-                Cancel
-              </Button>
+                <summary>Use a personal access token instead</summary>
+                {tokenOpen && (
+                  <ConnectionForms
+                    inline
+                    busy={busy}
+                    close={() => setTokenOpen(false)}
+                    submit={async (payload) => {
+                      if (
+                        !(await run("cancel", {
+                          request_id: attempt.request_id,
+                        }))
+                      )
+                        return;
+                      const result = await run("token", {
+                        ...payload,
+                        ...(target ? { connection_id: target } : {}),
+                      });
+                      if (result) setView("waiting");
+                    }}
+                  />
+                )}
+              </details>
             </section>
           ) : index ? (
             <>
@@ -471,7 +508,7 @@ function ConnectionWorkspace() {
                     setView("cleanup");
                   }}
                 >
-                  Review credential cleanup
+                  Some saved sign-in details could not be removed. Retry cleanup
                 </button>
               )}
             </>
@@ -487,11 +524,13 @@ function ConnectionWorkspace() {
           )}
           {!focus && (
             <button
-              className="gc-link gc-refresh"
+              className="gc-link gc-refresh gc-icon"
+              aria-label="Refresh"
+              title="Refresh connections"
               disabled={busy}
               onClick={() => void run()}
             >
-              Refresh
+              <RefreshCw size={20} aria-hidden="true" />
             </button>
           )}
         </>

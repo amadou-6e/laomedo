@@ -13,20 +13,22 @@ receives the returned App credential and is not part of ordinary Add Connection.
 
 `ConnectionManager.tsx` owns navigation, request epochs, invalidation and explicit
 Continue navigation. It reconciles waiting attempts using read-only checks on return
-and while the waiting view is visible; mutations are never retried automatically.
+and while the waiting view is visible; authorization mutations are never retried automatically. On page entry, inactive
+credentials are cleaned once through the admitted cleanup action; only unresolved
+removal failures show a recovery notice.
 Add prepares an attempt and waits on the local Continue to GitHub screen. Only
 pressing Continue navigates the current tab; GitHub returns directly to repository
 consent without leaving a second Laomedo tab. Repository search is shown only
 when more than five repositories are available.
 Disconnect confirmation uses that connection's cleanup status. Profile-wide
-leftovers from other connections or abandoned attempts remain a separate cleanup
-notice, without labelling the selected account's successful deletion a failure.
+cleanup failures remain a separate recovery notice, without labelling the selected account's successful deletion a failure.
 Repository editing initially selects the saved repository IDs that remain in the
 verified inventory; new connections start unselected. Expired sign-in returns show
 explicit recovery rather than a generic failure, without replaying authorization.
 `ConnectionAccounts.tsx` renders the account list and selected account details.
 `ConnectionForms.tsx` owns masked advanced token entry and clears it synchronously
-before submitting or cancelling. `ConnectionInventory.tsx` owns explicit repository
+before submitting or cancelling. Its inline variant is mounted only while the
+advanced disclosure is open, so collapsing it discards the secret. `ConnectionInventory.tsx` owns explicit repository
 selection and search. `connections.css` scopes the approved spacing and responsive
 panels to this feature. `types.ts` owns wire records; `api.ts` owns bounded requests,
 CSRF acquisition and fixed-origin authorization URL validation.

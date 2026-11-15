@@ -12,6 +12,23 @@ jest.mock("@/components/ui/input", () => ({
 }));
 
 describe("private connection entry", () => {
+  it("embeds masked token entry without a second panel or navigation", () => {
+    const submit = jest.fn(() =>
+      expect(screen.getByLabelText("Personal access token")).toHaveValue(""),
+    );
+    const { container } = render(
+      <ConnectionForms inline busy={false} submit={submit} close={jest.fn()} />,
+    );
+    expect(container.querySelector(".gc-panel")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Cancel" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Back/ })).toBeNull();
+    const input = screen.getByLabelText("Personal access token");
+    expect(input).toHaveAttribute("type", "password");
+    fireEvent.change(input, { target: { value: "synthetic-credential" } });
+    fireEvent.click(screen.getByRole("button", { name: "Verify token" }));
+    expect(submit).toHaveBeenCalledWith({ token: "synthetic-credential" });
+  });
+
   it("clears the credential DOM before handing input to the request owner", () => {
     const submit = jest.fn((value) => {
       expect(screen.getByLabelText("Personal access token")).toHaveValue("");

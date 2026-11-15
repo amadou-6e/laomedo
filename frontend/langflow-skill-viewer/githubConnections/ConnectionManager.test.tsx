@@ -204,12 +204,8 @@ it("shows unavailable sign-in without requiring app credentials", async () => {
   ).not.toBeInTheDocument();
   expect(screen.queryByLabelText("Client secret")).not.toBeInTheDocument();
   expect(connectionRequest).toHaveBeenCalledTimes(1);
-  fireEvent.click(
-    screen.getByRole("button", {
-      name: "Advanced: use a personal access token",
-    }),
-  );
-  expect(screen.getByLabelText("Personal access token")).toHaveAttribute(
+  fireEvent.click(screen.getByText("Use a personal access token instead"));
+  expect(await screen.findByLabelText("Personal access token")).toHaveAttribute(
     "type",
     "password",
   );
@@ -400,7 +396,9 @@ it.each([false, true])(
     ).toBe(failed);
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
     fireEvent.click(
-      screen.getByRole("button", { name: "Review credential cleanup" }),
+      screen.getByRole("button", {
+        name: "Some saved sign-in details could not be removed. Retry cleanup",
+      }),
     );
     expect(
       screen.getByRole("heading", { name: "Credential cleanup" }),
@@ -490,4 +488,31 @@ it("checks missing sign-in configuration without starting or replaying authoriza
   expect(
     screen.getByRole("button", { name: "+ Add connection" }),
   ).toBeVisible();
+});
+
+it("cleans inactive sign-in details once on entry without retrying failures on polls", async () => {
+  (connectionRequest as jest.Mock).mockResolvedValue({
+    index: { ...initial, credential_cleanup_pending: true },
+  });
+  render(<ConnectionManager />);
+  await waitFor(() =>
+    expect(connectionRequest).toHaveBeenCalledWith("cleanup", {}),
+  );
+  expect(
+    (connectionRequest as jest.Mock).mock.calls.filter(
+      ([action]) => action === "cleanup",
+    ),
+  ).toHaveLength(1);
+  expect(
+    await screen.findByRole("button", { name: /Some saved sign-in details/ }),
+  ).toBeVisible();
+  fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+  await waitFor(() =>
+    expect(screen.getByRole("button", { name: "Refresh" })).toBeEnabled(),
+  );
+  expect(
+    (connectionRequest as jest.Mock).mock.calls.filter(
+      ([action]) => action === "cleanup",
+    ),
+  ).toHaveLength(1);
 });

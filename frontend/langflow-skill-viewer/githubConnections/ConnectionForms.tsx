@@ -5,14 +5,16 @@ export default function ConnectionForms({
   busy,
   submit,
   close,
+  inline = false,
 }: {
   busy: boolean;
   submit: (value: Record<string, unknown>) => void;
   close: () => void;
+  inline?: boolean;
 }) {
   return (
     <form
-      className="gc-panel gc-focus"
+      className={inline ? "gc-token-inline" : "gc-panel gc-focus"}
       onSubmit={(event) => {
         event.preventDefault();
         const form = event.currentTarget;
@@ -21,18 +23,20 @@ export default function ConnectionForms({
         submit(values);
       }}
     >
-      <button
-        type="button"
-        className="gc-link gc-back"
-        disabled={busy}
-        onClick={(event) => {
-          event.currentTarget.form?.reset();
-          close();
-        }}
-      >
-        ← Back
-      </button>
-      <h2>Connect with a token</h2>
+      {!inline && (
+        <button
+          type="button"
+          className="gc-link gc-back"
+          disabled={busy}
+          onClick={(event) => {
+            event.currentTarget.form?.reset();
+            close();
+          }}
+        >
+          ← Back
+        </button>
+      )}
+      {!inline && <h2>Connect with a token</h2>}
       <p className="gc-muted">
         Use a fine-grained personal access token from GitHub. Laomedo will
         verify the account and its repository access.
@@ -51,17 +55,19 @@ export default function ConnectionForms({
       <Button type="submit" disabled={busy}>
         Verify token
       </Button>
-      <Button
-        type="button"
-        variant="ghost"
-        disabled={busy}
-        onClick={(event) => {
-          event.currentTarget.form?.reset();
-          close();
-        }}
-      >
-        Cancel
-      </Button>
+      {!inline && (
+        <Button
+          type="button"
+          variant="ghost"
+          disabled={busy}
+          onClick={(event) => {
+            event.currentTarget.form?.reset();
+            close();
+          }}
+        >
+          Cancel
+        </Button>
+      )}
     </form>
   );
 }

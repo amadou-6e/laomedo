@@ -28,7 +28,8 @@ export default function ConnectionInventory({
     <section className="gc-panel gc-consent">
       <h2>Choose repositories</h2>
       <p className="gc-muted">
-        Choose what Laomedo may read. You can change this later.
+        Choose what Laomedo may read. You can change this later. Only
+        repositories available to this GitHub account and the app are shown.
       </p>
       <div className="gc-identity">
         <span className="gc-avatar" aria-hidden="true">
