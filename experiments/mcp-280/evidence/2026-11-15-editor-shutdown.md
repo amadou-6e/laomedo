@@ -97,3 +97,29 @@ interface configurations are not claimed as tested.
 New unavailable-upstream control evidence awaits independent review. Two-server
 editor rendering, wider privacy/log scopes and specification PR #419 remain
 separate acceptance constraints. No merge or issue closure is authorized.
+
+## Upstream-credential canary
+
+Codex, Claude and OpenCode each completed another actual HTTP case with a unique
+dummy private upstream header. The harmless server required that exact header in
+its tool request and observed it. Each returned the correct marker, invoked the
+selected tool once, invoked no unselected tool, and passed completion revocation.
+
+A bounded loopback relay forwarded the actual authenticated runner request
+unchanged, checked its bytes in memory, and retained no body or auth header.
+Every case observed one `/v1/runs/async` task request; the dummy upstream value
+was absent. The five graph/export/retained-record/activity/attempt blobs per
+provider also contained neither the canary, scoped capability nor runner token.
+No diagnostic JSON files existed in these successful cases. The dummy value is
+not a real credential and remains only in private acceptance state/configuration.
+
+The initial Codex iteration counted the wrong async route and failed its own
+nonempty-request guard. It is excluded from the passing corrected three cases.
+The actual header still reached the upstream; that earlier result did not
+establish task-payload privacy. No production changes were made.
+
+This closes the concrete missing-upstream-credential scenario pending independent
+review. It does not claim exhaustive scans of every process log or private store.
+The combined two-server/Skill topology was also captured in the real editor;
+an initial model-list notice recovered through a successful refresh (eight models)
+and did not recur on reload. Its initial cause is not established.

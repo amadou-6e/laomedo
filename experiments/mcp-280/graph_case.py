@@ -10,6 +10,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import threading
 from uuid import uuid4
 
 import requests
@@ -26,11 +27,22 @@ def main():
     parser.add_argument("--two-servers", action="store_true")
     parser.add_argument("--audit-cleanup", action="store_true")
     parser.add_argument("--shutdown", action="store_true")
+    parser.add_argument("--upstream-auth", action="store_true")
     args = parser.parse_args()
     if args.resume and args.cancel:
         parser.error("Use one lifecycle check at a time.")
     if args.shutdown and (args.resume or args.cancel or not args.audit_cleanup):
         parser.error("Shutdown requires a separate preview with cleanup audit enabled.")
+    if args.upstream_auth and (
+        args.transport != "http"
+        or not args.audit_cleanup
+        or args.shutdown
+        or args.cancel
+        or args.resume
+    ):
+        parser.error(
+            "Upstream credential acceptance uses fresh HTTP with cleanup audit."
+        )
     if args.two_servers and (args.transport != "stdio" or args.cancel or args.resume):
         parser.error("Combined-server acceptance uses fresh STDIO execution.")
     root = args.implementation.resolve()
@@ -42,6 +54,7 @@ def main():
     case = uuid4().hex[:12]
     state = private / ("mcp-case-" + case + ".json")
     marker = "mcp-280-" + uuid4().hex
+    upstream_canary = "mcp-280-private-" + uuid4().hex if args.upstream_auth else None
     state.write_text(
         json.dumps(
             {
@@ -49,6 +62,7 @@ def main():
                 "calls": 0,
                 "unselected_calls": 0,
                 "hold": args.cancel or args.shutdown,
+                "upstream_canary": upstream_canary,
             }
         )
     )
@@ -76,6 +90,8 @@ def main():
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
         )
         config = {"url": f"http://127.0.0.1:{port}/mcp"}
+        if upstream_canary:
+            config["headers"] = {"X-MCP-Validation-Key": upstream_canary}
         for _ in range(100):
             try:
                 with socket.create_connection(("127.0.0.1", port), timeout=1):
@@ -86,6 +102,14 @@ def main():
             raise RuntimeError("acceptance_server_unavailable")
     session = requests.Session()
     base = metadata["base"]
+    proxy = None
+    runner_url = metadata["runner_url"]
+    if upstream_canary:
+        from proxy import TaskPayloadProxy
+
+        proxy = TaskPayloadProxy(runner_url, upstream_canary)
+        threading.Thread(target=proxy.serve_forever, daemon=True).start()
+        runner_url = "http://127.0.0.1:" + str(proxy.server_port)
     try:
         login = session.get(base + "/api/v1/auto_login", timeout=20)
         login.raise_for_status()
@@ -149,7 +173,7 @@ def main():
                 provider=metadata["provider"],
                 model=metadata["model"],
                 effort=effort,
-                runner_url=metadata["runner_url"],
+                runner_url=runner_url,
                 task=(
                     "Use both connected external MCP marker reader tools, one from each server. "
                     "Call each exactly once, with no arguments. Both return the same marker. "
@@ -345,6 +369,7 @@ def main():
             "cancel_requested": cancel_sent,
             "shutdown_requested": shutdown_sent,
             "shutdown_observed": shutdown_observed,
+            "upstream_auth_observed": observed.get("upstream_auth_observed", False),
             "tool_entered": observed.get("entered", 0),
             "native_session_present": bool(record.get("thread_id")),
             "attempt_count": len(
@@ -406,6 +431,8 @@ def main():
             ]
             secrets = [value["token"].encode() for value in capabilities.values()]
             secrets.append((private / "runner/api-token").read_bytes().strip())
+            if upstream_canary:
+                secrets.append(upstream_canary.encode())
             clean = all(secret not in blob for secret in secrets for blob in blobs)
             print(
                 json.dumps(
@@ -414,11 +441,22 @@ def main():
                         "provider": metadata["provider"],
                         "export_and_record_blobs": len(blobs),
                         "scoped_capabilities_and_runner_token_absent": clean,
+                        "upstream_canary_absent": clean if upstream_canary else None,
+                        "task_payload_requests": proxy.task_requests if proxy else 0,
+                        "task_payload_canary_absent": (
+                            not proxy.canary_leaked if proxy else None
+                        ),
                     }
                 ),
                 flush=True,
             )
             if not clean:
+                return 1
+            if upstream_canary and (
+                not observed.get("upstream_auth_observed")
+                or not proxy.task_requests
+                or proxy.canary_leaked
+            ):
                 return 1
         if args.cancel:
             return (
@@ -444,6 +482,9 @@ def main():
             else 1
         )
     finally:
+        if proxy is not None:
+            proxy.shutdown()
+            proxy.server_close()
         if process is not None:
             process.terminate()
             process.wait(timeout=10)

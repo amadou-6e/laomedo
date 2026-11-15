@@ -5,7 +5,7 @@ import asyncio
 import json
 from pathlib import Path
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server.fastmcp import Context, FastMCP
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--state", type=Path, required=True)
@@ -15,9 +15,16 @@ server = FastMCP("mcp-280-acceptance", host="127.0.0.1", port=args.port or 8000)
 
 
 @server.tool()
-async def read_marker() -> str:
+async def read_marker(ctx: Context) -> str:
     """Read the validation marker. Takes no arguments and has no external effects."""
     state = json.loads(args.state.read_text(encoding="utf-8"))
+    if state.get("upstream_canary"):
+        request = ctx.request_context.request
+        state["upstream_auth_observed"] = (
+            request.headers.get("X-MCP-Validation-Key") == state["upstream_canary"]
+        )
+        if not state["upstream_auth_observed"]:
+            raise ValueError("validation_upstream_auth_required")
     state["entered"] = state.get("entered", 0) + 1
     args.state.write_text(json.dumps(state), encoding="utf-8")
     if state.get("hold"):
