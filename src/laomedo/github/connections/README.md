@@ -7,6 +7,9 @@ the attempt to the existing connection and its current generation. Consent can
 replace that connection only after Save; Cancel preserves it. `commit_connection`
 also refuses a concurrent new duplicate under its SQLite transaction. Matching
 uses verified numeric account identity, never a login name or another profile.
+After Save, `confirm` removes retired credentials for that connection through
+the existing cleanup fence. Active and live pending custody are excluded; a
+deletion failure leaves the saved connection ready and cleanup retryable.
 
 `provisioning.py` owns one-time local deployment App manifest registration.
 `GitHubAppProvisioner.begin` creates a bounded profile/lease-bound registration;

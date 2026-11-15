@@ -218,6 +218,24 @@ class GitHubConnectionServiceTests(unittest.IsolatedAsyncioTestCase):
         await self.service.confirm(self.scope, UUID(attempt["request_id"]), (456,))
         self.assertEqual(len(self.journal.list(self.owner)), 1)
         self.assertTrue(self.journal.current(self.owner, connection_id, 2))
+        self.assertFalse(
+            (await self.service.status(self.scope))["credential_cleanup_pending"]
+        )
+        self.assertEqual(len(self.vault.values), 1)
+
+    async def test_saved_replacement_survives_retired_credential_cleanup_failure(self):
+        """Failed removal must stay retryable without undoing the explicit Save."""
+        connection_id = await self.ready()
+        attempt = await self.token_attempt()
+        self.vault.fail_remove = True
+        await self.service.confirm(self.scope, UUID(attempt["request_id"]), (456,))
+        self.assertTrue(self.journal.current(self.owner, connection_id, 2))
+        self.assertTrue(
+            (await self.service.status(self.scope))["credential_cleanup_pending"]
+        )
+        self.vault.fail_remove = False
+        await self.service.cleanup(self.scope)
+        self.assertEqual(len(self.vault.values), 1)
 
     async def test_concurrent_new_attempts_cannot_commit_duplicate_accounts(self):
         """Two pre-consent inventories cannot evade account uniqueness at commit."""

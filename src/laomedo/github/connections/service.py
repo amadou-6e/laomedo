@@ -381,6 +381,7 @@ class GitHubConnectionService:
                     record, expected_generation=attempt.expected_generation
                 )
                 self.pending.pop(request_id)
+                self._cleanup(scope.owner_id, resource_id=record.id)
             return record.model_dump(mode="json")
 
     async def cancel(self, scope: GitHubConnectionScope, request_id: UUID):
