@@ -16,11 +16,18 @@ try {
   await page.getByPlaceholder("Start chat…").waitFor({timeout:90000});
   await page.getByRole("button",{name:"Choose model and effort",exact:true}).click();
   await page.getByRole("radio",{name:"gpt-6-luna",exact:true}).locator("..").click();
+  const selectedCard = page.getByRole("radio", {name:"gpt-6-luna",exact:true});
+  if (!(await selectedCard.isChecked())) throw new Error("Model card selection failed");
+  await selectedCard.focus(); await page.keyboard.press("ArrowRight");
+  if (await selectedCard.isChecked()) throw new Error("Radio arrow key did not change model");
+  await page.keyboard.press("ArrowLeft");
+  if (!(await selectedCard.isChecked())) throw new Error("Radio arrow key did not restore model");
   await page.getByRole("slider",{name:"Reasoning effort"}).focus(); await page.keyboard.press("Home"); await page.keyboard.press("ArrowRight"); await page.keyboard.press("Escape");
   await page.screenshot({path:root + "/.tools/assistant-282-screens/composer-empty.png",fullPage:true,animations:"disabled"});
   await page.locator("main form").screenshot({path:root + "/.tools/assistant-282-screens/composer-crop.png",animations:"disabled"});
   await page.getByRole("button",{name:"Choose model and effort",exact:true}).click();
   await page.getByRole("slider",{name:"Reasoning effort"}).waitFor();
+  if (!(await selectedCard.evaluate(el => document.activeElement === el))) throw new Error("Picker did not focus selected card");
   if (await page.getByRole("button", {name:"Refresh models",exact:true}).count()) throw new Error("Retired refresh button is visible");
   await page.screenshot({path:root + "/.tools/assistant-282-screens/composer-popover.png",fullPage:true,animations:"disabled"});
   await page.keyboard.press("Escape");
@@ -85,5 +92,5 @@ try {
   });
   if (nodes !== 2 || edges !== 1 || !attachedEdges) throw new Error("Expected one rendered edge joining the two draft nodes");
   await editor.screenshot({path:root + "/.tools/assistant-282-screens/editor.png",fullPage:true,animations:"disabled"});
-  console.log(JSON.stringify({wideRenameField:true,noRefreshModelsButton:true,renameRetainedAcrossReload:true,sidebarTitleMatches:true,messageFontSizes:sizes,sliderKeyboardStepping:true,chatVisible:true,draftCardVisible:true,editorOpenedInSeparateTab:page.url().includes("/assistant"),nodes,edges,attachedEdges,failures}));
+  console.log(JSON.stringify({modelCardSelection:true,modelCardKeyboardArrows:true,reopenFocusMatchesSelection:true,wideRenameField:true,noRefreshModelsButton:true,renameRetainedAcrossReload:true,sidebarTitleMatches:true,messageFontSizes:sizes,sliderKeyboardStepping:true,chatVisible:true,draftCardVisible:true,editorOpenedInSeparateTab:page.url().includes("/assistant"),nodes,edges,attachedEdges,failures}));
 } finally { await browser.close(); }
