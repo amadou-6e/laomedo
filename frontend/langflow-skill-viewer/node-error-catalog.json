@@ -1,4 +1,24 @@
 {
+  "invalid_resume_request": {
+    "title": "The follow-up message could not be submitted",
+    "description": "The message or its recorded session binding is invalid. No resumed attempt was reserved.",
+    "recovery": "Keep the conversation and inspect its saved session information before sending again. Do not substitute a different session automatically."
+  },
+  "resume_already_active": {
+    "title": "A follow-up message is still unsettled",
+    "description": "This run already has an active or uncertain resumed attempt. Another prompt was not dispatched.",
+    "recovery": "Check the existing attempt and wait for its work and cleanup to settle. Do not send another prompt to bypass this state."
+  },
+  "resume_attempt_not_found": {
+    "title": "The follow-up attempt was not found",
+    "description": "The runner has no durable reservation matching this run and attempt identity.",
+    "recovery": "Reconcile the saved message and runner binding before submitting again. An absent response does not establish that another attempt is safe."
+  },
+  "resume_journal_unavailable": {
+    "title": "Follow-up dispatch history is unavailable",
+    "description": "The runner cannot safely access its private resumed-attempt journal.",
+    "recovery": "Preserve the runner state and restore access to its private storage. Check the existing attempt before retrying; native work may have occurred."
+  },
   "activity_normalization_failed": {
     "title": "Retained activity could not be normalized",
     "description": "The provider evidence could not be converted to the common activity contract.",

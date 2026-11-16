@@ -1,5 +1,21 @@
 # Abstract Agent lifecycle
 
+## Idempotent asynchronous resume
+
+`resume.py` owns `ResumeDispatcher`, a durable admission journal around the
+existing provider `resume` operation. `submit` reserves `(run, attempt)` and a
+canonical request digest before any MCP claim or native dispatch; duplicates
+return the existing observation. `lookup` reads that observation without replay.
+`models.py` owns `ResumeDispatchRequest`, which validates the new endpoint's
+bounded inputs and excludes transient MCP registration from semantic identity.
+
+`BaseAgent.resume_async` and `lookup_resume` expose that shared capability.
+The HTTP server offers POST `/v1/runs/{run}/resume/async` and authenticated GET
+`/v1/runs/{run}/resume/{attempt}`. The existing synchronous resume is unchanged.
+Unfinished reservations from another runner instance are reported unknown and
+never replayed. This dispatch journal does not relax provider continuation,
+workspace, authentication, resource-cleanup or native-session requirements.
+
 ## Model discovery boundary
 
 `base.py` declares `BaseModelCatalog.list_models(refresh=False) -> ModelCatalog`.

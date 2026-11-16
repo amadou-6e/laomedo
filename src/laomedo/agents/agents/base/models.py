@@ -5,12 +5,52 @@ from pydantic import JsonValue, SkipValidation, SecretStr
 from pydantic import model_validator
 from typing import ClassVar, Literal
 import hashlib
+import json
 from laomedo.agents.artifacts.models import ArtifactReference
 from laomedo.agents.interface.models import PrecheckEvidence
 from laomedo.agents.orchestration.models import HandoffProvenance
 from laomedo.agents.agents.base.settings import SDK_FAILURE_CODES
 from laomedo.agents.agents.base.settings import SDK_FAILURE_OPERATIONS
 from laomedo.agents.agents.base.settings import RUNNER_FAILURE_CODES
+
+
+class ResumeDispatchRequest(BaseModel):
+    """Bound one explicit resumed attempt without serializing its private grant."""
+
+    model_config = ConfigDict(strict=True, extra="forbid", hide_input_in_errors=True)
+    activity_attempt_id: str = Field(
+        pattern=r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    )
+    task: str = Field(min_length=1, max_length=16000, repr=False)
+    expected_post_run_hash: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    expected_thread_id: str = Field(min_length=1, max_length=256)
+    model: str = Field(min_length=1, max_length=256)
+    effort: str = Field(min_length=1, max_length=100)
+    run_timeout_seconds: float | None = Field(default=None, gt=0)
+    mcp_manifest: dict[str, JsonValue] | None = Field(default=None, repr=False)
+    mcp_registration: str | None = Field(default=None, repr=False, exclude=True)
+
+    @model_validator(mode="after")
+    def paired_grant(self):
+        """Reject partial MCP admission and blank prompts before reservation."""
+        if not self.task.strip():
+            raise ValueError("invalid_task")
+        if (self.mcp_manifest is None) != (self.mcp_registration is None):
+            raise ValueError("mcp_manifest_invalid")
+        return self
+
+    def digest(self):
+        """Hash canonical semantic bindings, never the transient registration."""
+        payload = self.model_dump(mode="json", exclude_none=True)
+        encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+        return "sha256:" + hashlib.sha256(encoded.encode()).hexdigest()
+
+    def to_request(self):
+        """Produce host-private dispatch input; the registration stays in memory."""
+        value = self.model_dump(mode="json", exclude_none=True)
+        if self.mcp_registration is not None:
+            value["mcp_registration"] = self.mcp_registration
+        return value
 
 
 class CredentialBinding(BaseModel):

@@ -47,6 +47,9 @@ class RunnerRequestHandler(BaseHTTPRequestHandler):
                     },
                 )
                 return
+            if len(parts) == 5 and parts[:2] == ["v1", "runs"] and parts[3] == "resume":
+                self._reply(200, self.server.runner.lookup_resume(parts[2], parts[4]))
+                return
             if (
                 len(parts) == 4
                 and parts[:2] == ["v1", "runs"]
@@ -111,6 +114,17 @@ class RunnerRequestHandler(BaseHTTPRequestHandler):
                 response_gate = threading.Event()
                 result = self.server.runner.start_async(
                     body, response_gate=response_gate
+                )
+                self._reply(202, result)
+                return
+            if (
+                len(parts) == 5
+                and parts[:2] == ["v1", "runs"]
+                and parts[3:] == ["resume", "async"]
+            ):
+                response_gate = threading.Event()
+                result = self.server.runner.resume_async(
+                    parts[2], body, response_gate=response_gate
                 )
                 self._reply(202, result)
                 return
