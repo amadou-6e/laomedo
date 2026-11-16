@@ -18,18 +18,20 @@ describe("uncertain assistant submission", () => {
     const conversation = {
       id: "conversation",
       title: "Original",
+      updated_at: 1,
       model: "fixture",
       effort: "low",
       state: "idle",
       active_message_id: null,
     };
     const mutations: unknown[] = [];
+    let detailReads = 0;
     jest
       .mocked(assistantRequest)
       .mockImplementation(async (path, body: any, _signal, method) => {
         if (method === "PATCH") {
           mutations.push(body);
-          return { ...conversation, title: body.title };
+          return { ...conversation, title: body.title, updated_at: 2 };
         }
         if (path === "/models")
           return {
@@ -38,6 +40,7 @@ describe("uncertain assistant submission", () => {
           };
         if (path === "/conversations")
           return { conversations: [conversation], next_cursor: null };
+        detailReads += 1;
         return { conversation, messages: [], drafts: [], next_cursor: null };
       });
     render(
@@ -55,6 +58,11 @@ describe("uncertain assistant submission", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await screen.findByRole("heading", { name: "Renamed" });
     expect(mutations).toEqual([{ title: "Renamed" }]);
+    await waitFor(() => expect(detailReads).toBeGreaterThan(1), {
+      timeout: 2500,
+    });
+    expect(screen.getByRole("heading", { name: "Renamed" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Renamed.*Codex/ })).toBeTruthy();
     fireEvent.doubleClick(screen.getByRole("heading", { name: "Renamed" }));
     fireEvent.keyDown(
       screen.getByRole("textbox", { name: "Conversation title" }),

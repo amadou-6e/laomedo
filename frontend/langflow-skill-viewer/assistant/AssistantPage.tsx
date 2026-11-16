@@ -42,6 +42,7 @@ export default function AssistantPage() {
   const [renaming, setRenaming] = useState<string>();
   const [titleDraft, setTitleDraft] = useState("");
   const [savingTitle, setSavingTitle] = useState(false);
+  const [renameError, setRenameError] = useState(false);
   const [loading, setLoading] = useState(false);
   const generation = useRef(0);
   const scroll = useRef<HTMLDivElement>(null);
@@ -52,6 +53,7 @@ export default function AssistantPage() {
   useEffect(() => {
     setRenaming(undefined);
     setTitleDraft("");
+    setRenameError(false);
   }, [selected, owner, locked]);
 
   const fail = useCallback(
@@ -162,7 +164,14 @@ export default function AssistantPage() {
       setIndex((current) => ({
         ...items,
         conversations: [
-          ...items.conversations,
+          ...items.conversations.map((row) => {
+            const retained = current.conversations.find(
+              (item) => item.id === row.id,
+            );
+            return retained && retained.updated_at > row.updated_at
+              ? retained
+              : row;
+          }),
           ...current.conversations.filter(
             (row) => !items.conversations.some((newer) => newer.id === row.id),
           ),
@@ -185,6 +194,11 @@ export default function AssistantPage() {
         )
           return;
         setDetail((current) => {
+          if (
+            current?.conversation.id === value.conversation.id &&
+            current.conversation.updated_at > value.conversation.updated_at
+          )
+            value.conversation = current.conversation;
           if (
             !current ||
             current.conversation.id !== value.conversation.id ||
@@ -563,6 +577,7 @@ export default function AssistantPage() {
                   const identifier = conversation.id;
                   const version = generation.current;
                   setSavingTitle(true);
+                  setRenameError(false);
                   try {
                     const renamed = await assistantRequest<Conversation>(
                       `/conversations/${identifier}`,
@@ -584,7 +599,17 @@ export default function AssistantPage() {
                     );
                     setRenaming(undefined);
                   } catch (error) {
-                    if (version === generation.current) fail(error);
+                    if (version === generation.current) {
+                      if (
+                        error instanceof AssistantFailure &&
+                        [
+                          "assistant_session_locked",
+                          "assistant_native_session_required",
+                        ].includes(error.code)
+                      )
+                        fail(error);
+                      else setRenameError(true);
+                    }
                   } finally {
                     setSavingTitle(false);
                   }
@@ -618,6 +643,11 @@ export default function AssistantPage() {
                 >
                   Cancel
                 </button>
+                {renameError && (
+                  <span role="alert" className="text-xs text-destructive">
+                    Could not rename. Try again.
+                  </span>
+                )}
               </form>
             ) : (
               <h1
