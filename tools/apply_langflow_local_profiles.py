@@ -172,7 +172,7 @@ def apply_connections(checkout: Path, source: Path):
         "  useEffect(() => { let active = true; connectionCapability().then(value => { if (active) setPrivateConnections(value); }); return () => { active = false; }; }, []);",
     ).replace(
         nav_anchor,
-        '  if (privateConnections) sidebarNavItems.push({ title: "GitHub connections", href: "/settings/github", icon: <ForwardedIconComponent name="Github" className="w-4" /> });\n'
+        '  if (privateConnections) sidebarNavItems.push({ title: "GitHub connections", href: "/settings/github", icon: <span className="inline-flex [&_path]:fill-current"><ForwardedIconComponent name="Github" className="w-4" /></span> });\n'
         + nav_anchor,
     )
     shutil.copytree(source / "githubConnections", target)
