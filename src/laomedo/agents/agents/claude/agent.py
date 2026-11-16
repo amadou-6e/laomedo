@@ -679,6 +679,7 @@ class ClaudeAgent(BaseAgent):
                 cleanup_verified=verified, cleanup_detail=detail
             )
             record["descendant_cleanup"] = "verified" if verified else "not_verified"
+            record["controller_cleanup"] = "confirmed" if verified else "unverified"
             _json(root / "record.json", record)
             telemetry_cleanup_failed = False
             if telemetry is not None:

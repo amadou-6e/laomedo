@@ -472,6 +472,7 @@ class ClaudeRunnerTests(unittest.TestCase):
                 root, record, "task", threading.Event(), resume=False
             )
         self.assertEqual(result["result"], "done")
+        self.assertEqual(record["controller_cleanup"], "confirmed")
         self.assertEqual(
             record["telemetry_capture"]["error_category"],
             "claude_telemetry_capture_failed",
@@ -498,6 +499,7 @@ class ClaudeRunnerTests(unittest.TestCase):
                 )
         secondary.assert_not_called()
         self.assertFalse(record["container_ownership"]["cleanup_verified"])
+        self.assertEqual(record["controller_cleanup"], "unverified")
 
     @unittest.skipUnless(
         OBSERVABILITY_AVAILABLE, "observability optional dependencies are not installed"
@@ -569,6 +571,7 @@ class ClaudeRunnerTests(unittest.TestCase):
                 root, record, "task", threading.Event(), resume=False
             )
         self.assertEqual(result["result"], "done")
+        self.assertEqual(record["controller_cleanup"], "confirmed")
         self.assertEqual(
             record["telemetry_capture"]["error_category"],
             "claude_telemetry_cleanup_unconfirmed",
