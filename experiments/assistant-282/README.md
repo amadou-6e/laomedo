@@ -91,3 +91,10 @@ message selection fields, preserving earlier conversations and receipts.
 passed. Real protocol discovery also checks tool-display aliases against the six
 actual MCP tools. Whole-upstream TypeScript checking retains baseline errors;
 no assistant-file diagnostics were reported. Evidence and screenshots stay local.
+
+Claude's cumulative feedback-delta review `8460657e` -> `4fb66109` is complete:
+Implementation, Spec fit and Visual APPROVE. The confirmed generic-tool-label
+finding V-M1 was corrected using the forwarding layer's canonical identity map
+and rechecked against fresh real-data screenshots. No blocking findings remain;
+the reviewer did not rerun the live probes. Spec PR424 remains unmerged and the
+implementation PR283 stays draft; no merge is authorized by this evidence.
