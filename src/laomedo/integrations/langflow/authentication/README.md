@@ -1,5 +1,22 @@
 # Private browser session admission
 
+`node_runs.py` owns `GitHubNodeRunAdmission`, the native graph projection for
+saved-account approval. `executable_graph` removes only known canvas geometry;
+`prepare` extracts account, repository, picker target and write-capable input
+edges from the same effective graph that will execute. It passes canonical
+`GitHubNodeSelection` values to the generic host run authority rather than
+accepting a browser-supplied target list. Edges use current native `data`
+handle objects; obsolete string handles are not supported by this new path.
+
+`PrivateGitHubRunAdmission` is minted only from an already JWT-admitted browser
+context. It retains the canonical `IssuedPrivateSession` lease/cookie projection,
+not that request's short-lived access JWT. Its `revalidate` delegates to
+`PrivateAccessPolicy.revalidate_run`: require the current durable lease and the
+same active ordinary profile from upstream's user lookup. This allows an admitted
+job to outlive access-token rotation while logout, lease expiry, profile removal
+or deactivation still prevents its next private request. New browser admissions
+and buffered browser responses retain their existing current-JWT checks.
+
 `private_nodes.py` owns buffered Issue/PR discovery and inspection at the private
 GitHub-node API. `private_node_read` requires the ordinary profile, live browser
 lease and CSRF proof before parsing `GitHubNodeReadRequest`; it binds the returned

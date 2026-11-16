@@ -185,7 +185,8 @@ from serialization. Normal profile history may retain results after disconnect;
 history is not live GitHub authority.
 
 `run_authority.py` owns `GitHubRunAuthority`. `digest_graph` fingerprints an
-effective JSON graph rather than accepting a supplied digest. `prepare` verifies each selection
+effective JSON graph rather than accepting a supplied digest. The native adapter
+owns graph projection and selection extraction. `prepare` verifies each derived selection
 online and creates an expiring, owner/lease-bound plan. `admit` consumes that plan
 once, after the caller has confirmed the listed modifications, and binds it to
 the exact flow, graph digest and native job. `resolve` revalidates its stored
