@@ -126,7 +126,7 @@ export default function ConnectionRegistration({
           </p>
         )}
         <Button ignoreTitleCase disabled={busy} onClick={() => void register()}>
-          {busy ? "Opening GitHub…" : "Continue to GitHub"}
+          {registering ? "Opening GitHub…" : "Continue to GitHub"}
         </Button>
         <p className="gc-muted gc-setup-note">
           Next, choose the repositories Laomedo can read.
