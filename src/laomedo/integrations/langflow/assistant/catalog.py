@@ -3,6 +3,7 @@
 from copy import deepcopy
 import json
 import math
+import re
 
 from laomedo.integrations.langflow.assistant.errors import AssistantError
 
@@ -123,6 +124,11 @@ class ComponentCatalog:
             isinstance(field, dict)
             and not name.startswith("_")
             and name not in forbidden
+            and field.get("show") is not False
+            and not re.search(
+                r"(^|_)(url|uri|endpoint|host|hostname|proxy|webhook|server|address|base|kwargs|config|settings|connection|environment|env|headers|authorization)(_|$)",
+                name.casefold(),
+            )
             and not field.get("password")
             and not field.get("load_from_db")
             and not field.get("real_time_refresh")
@@ -208,11 +214,31 @@ class ComponentCatalog:
                 if not isinstance(field, dict) or name == "code":
                     continue
                 if not self._writable(name, field):
+                    if field.get("value") is not None and field.get("value") not in (
+                        "",
+                        [],
+                        {},
+                    ):
+                        diagnostics.append(
+                            definition.key
+                            + "."
+                            + name
+                            + ": installed setting omitted; configure explicitly in the editor"
+                        )
                     field["value"] = None
                 elif "value" in field:
                     try:
                         field["value"] = self._value(name, field, field["value"])
                     except AssistantError:
+                        if field.get("value") is not None and field.get(
+                            "value"
+                        ) not in ("", [], {}):
+                            diagnostics.append(
+                                definition.key
+                                + "."
+                                + name
+                                + ": installed default unsupported; configure explicitly in the editor"
+                            )
                         field["value"] = None
             for name, value in definition.fields.items():
                 field = template["template"].get(name)
@@ -315,6 +341,7 @@ class ComponentCatalog:
                 continue
             metadata = self.template(matches[0])
             fields = {}
+            unresolved = []
             saved = node.get("data", {}).get("node", {}).get("template", {})
             for name, field in metadata["template"].items():
                 if self._writable(name, field) and isinstance(saved.get(name), dict):
@@ -323,11 +350,26 @@ class ComponentCatalog:
                             name, field, saved[name].get("value")
                         )
                     except AssistantError:
-                        pass
+                        if saved[name].get("value") is not None and saved[name].get(
+                            "value"
+                        ) not in ("", [], {}):
+                            unresolved.append(name)
+                elif (
+                    isinstance(saved.get(name), dict)
+                    and saved[name].get("value") is not None
+                    and saved[name].get("value") not in ("", [], {})
+                ):
+                    if name != "code" and not name.startswith("_"):
+                        unresolved.append(name)
             identifier = str(node.get("id", ""))[:200]
             identities[identifier] = True
             nodes.append(
-                {"key": identifier, "component_type": matches[0], "fields": fields}
+                {
+                    "key": identifier,
+                    "component_type": matches[0],
+                    "fields": fields,
+                    "unresolved_fields": unresolved,
+                }
             )
         edges = []
         for edge in (data or {}).get("edges", [])[:100]:

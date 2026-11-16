@@ -95,13 +95,14 @@ class WorkflowTests(unittest.IsolatedAsyncioTestCase):
                 "draft_key": "first",
                 "name": "My draft",
                 "spec": {
+                    "allow_incomplete": True,
                     "nodes": [
                         {
                             "key": "text",
                             "component_type": "test/Text",
                             "fields": {"text": "Hello"},
                         }
-                    ]
+                    ],
                 },
             }
         )

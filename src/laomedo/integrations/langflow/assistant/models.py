@@ -75,6 +75,15 @@ class MessageRequest(BaseModel):
         return self
 
 
+class StopRequest(BaseModel):
+    """Cancellation selects the exact active app attempt, never an arbitrary runner ID."""
+
+    model_config = ConfigDict(extra="forbid")
+    attempt_id: UUID = ModelField(
+        description="Exact active application attempt to stop."
+    )
+
+
 class DraftNode(BaseModel):
     """An installed component identity, local node key and explicit static settings."""
 
@@ -271,6 +280,15 @@ class AssistantMessage(SQLModel, table=True):
         description="Stable application attempt; subsequent prompts also use this as native Activity identity.",
     )
     digest: str = Field(description="Canonical semantic request digest.")
+    stop_requested: bool = Field(
+        default=False,
+        description="Durable cancellation intent, including dispatch whose response was lost.",
+    )
+    activity_snapshot: dict | None = Field(
+        default=None,
+        sa_column=Column(JSON),
+        description="Last validated normalized Activity page; private retained display works without a running provider.",
+    )
     text: str = Field(
         sa_column=Column(Text, nullable=False),
         description="Private retained user prompt.",

@@ -123,6 +123,36 @@ class PersistenceTests(unittest.IsolatedAsyncioTestCase):
                 session_key=self.key,
             )
 
+    async def test_restart_before_any_binding_cannot_silently_bind_new_session(self):
+        message, _ = await self.store.reserve(
+            self.owner,
+            self.identifier,
+            MessageRequest(client_message_id=uuid4(), text="Unobserved dispatch"),
+            session_key=self.key,
+        )
+        identifier = UUID(message["id"])
+        with self.assertRaisesRegex(AssistantError, "assistant_observation_invalid"):
+            await self.store.observe(
+                self.owner, self.identifier, identifier, state="completed"
+            )
+        await self.store.observe(
+            self.owner,
+            self.identifier,
+            identifier,
+            instance_id=str(uuid4()),
+            state="unknown",
+            settled=True,
+            reconciled=True,
+            error="assistant_runner_restarted",
+            thread_id="must-not-bind",
+            workspace_hash="sha256:" + "a" * 64,
+        )
+        detail = await self.store.detail(self.owner, self.identifier)
+        self.assertEqual(detail["conversation"]["state"], "attention")
+        self.assertIsNone(detail["conversation"]["runner_instance_id"])
+        self.assertIsNone(detail["conversation"]["thread_id"])
+        self.assertIsNone(detail["conversation"]["workspace_hash"])
+
     async def test_metadata_poll_preserves_unknown_reason_and_terminal_state_cannot_regress(
         self,
     ):

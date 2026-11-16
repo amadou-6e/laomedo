@@ -161,6 +161,20 @@ class WorkflowDrafts:
                     ).first()
                     if row is None or self.revision(row) != source.revision:
                         raise AssistantError("assistant_source_revision_changed")
+                    projected = self.catalog.project(row.data)
+                    for node in projected["nodes"]:
+                        for name in node.get("unresolved_fields", []):
+                            diagnostics.append(
+                                "Source "
+                                + str(source.workflow_id)
+                                + " "
+                                + node["key"]
+                                + "."
+                                + name
+                                + ": setting was not copied"
+                            )
+                if diagnostics and not request.spec.allow_incomplete:
+                    raise AssistantError("assistant_draft_incomplete", 422)
                 if request.draft_id:
                     owned = (
                         await session.exec(

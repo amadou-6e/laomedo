@@ -45,6 +45,7 @@ class CatalogTests(unittest.TestCase):
         }
         self.catalog = ComponentCatalog(self.snapshot)
         self.graph = {
+            "allow_incomplete": True,
             "nodes": [
                 {
                     "key": "text",
@@ -65,7 +66,9 @@ class CatalogTests(unittest.TestCase):
 
     def test_compiles_exact_ports_using_only_trusted_templates(self):
         data, diagnostics = self.catalog.compile(DraftGraph.model_validate(self.graph))
-        self.assertEqual(diagnostics, [])
+        self.assertEqual(len(diagnostics), 2)
+        self.assertTrue(any("api_key" in item for item in diagnostics))
+        self.assertTrue(any("dynamic" in item for item in diagnostics))
         self.assertEqual(
             data["nodes"][0]["data"]["node"]["template"]["code"]["value"],
             "TRUSTED_INSTALLED_CODE",
@@ -110,10 +113,55 @@ class CatalogTests(unittest.TestCase):
     def test_incomplete_requires_explicit_request_and_reports_diagnostics(self):
         graph = DraftGraph.model_validate(self.graph)
         graph.edges = []
+        graph.allow_incomplete = False
         with self.assertRaisesRegex(AssistantError, "assistant_draft_incomplete"):
             self.catalog.compile(graph)
         graph.allow_incomplete = True
         _, diagnostics = self.catalog.compile(graph)
-        self.assertEqual(
-            diagnostics, ["sink.input_value: required setting or connection missing"]
+        self.assertIn(
+            "sink.input_value: required setting or connection missing", diagnostics
         )
+
+    def test_source_projection_names_unresolved_settings_without_releasing_values(self):
+        data = {
+            "nodes": [
+                {
+                    "id": "original",
+                    "data": {"type": "Text", "node": self.snapshot["test"]["Text"]},
+                }
+            ],
+            "edges": [],
+        }
+        projected = self.catalog.project(data)
+        self.assertEqual(
+            set(projected["nodes"][0]["unresolved_fields"]), {"api_key", "dynamic"}
+        )
+        self.assertNotIn("SECRET_CANARY", json.dumps(projected))
+
+    def test_hidden_fields_and_host_selectors_are_not_model_writable(self):
+        for name, extra in (
+            ("hidden_value", {"show": False}),
+            ("base_url", {}),
+            ("api_base", {}),
+            ("endpoint", {}),
+            ("proxy", {}),
+        ):
+            with self.subTest(name=name):
+                self.snapshot["test"]["Text"]["template"][name] = {
+                    "type": "str",
+                    **extra,
+                }
+                graph = DraftGraph.model_validate(self.graph)
+                graph.nodes[0].fields[name] = "attacker supplied"
+                with self.assertRaisesRegex(
+                    AssistantError, "assistant_field_not_writable"
+                ):
+                    self.catalog.compile(graph)
+
+    def test_complete_graph_with_supported_metadata_needs_no_incomplete_override(self):
+        self.snapshot["test"]["Text"]["template"]["api_key"]["value"] = None
+        self.snapshot["test"]["Text"]["template"]["dynamic"]["value"] = None
+        graph = DraftGraph.model_validate(self.graph)
+        graph.allow_incomplete = False
+        _, diagnostics = self.catalog.compile(graph)
+        self.assertEqual(diagnostics, [])

@@ -169,7 +169,7 @@ class AssistantStore:
             return {
                 "conversation": conversation.model_dump(mode="json"),
                 "messages": [
-                    row.model_dump(mode="json", exclude={"digest"})
+                    row.model_dump(mode="json", exclude={"digest", "activity_snapshot"})
                     for row in reversed(messages[:30])
                 ],
                 "next_cursor": cursor + 30 if len(messages) > 30 else None,
@@ -259,6 +259,8 @@ class AssistantStore:
             raise AssistantError("assistant_observation_invalid")
         if settled and state not in terminal | {"unknown"}:
             raise AssistantError("assistant_observation_invalid")
+        if state in terminal and not settled:
+            raise AssistantError("assistant_observation_invalid")
         async with self.transaction() as session:
             conversation = await self.conversation(
                 session, owner, conversation_id, lock=True
@@ -266,7 +268,10 @@ class AssistantStore:
             message = await session.get(AssistantMessage, message_id)
             if message is None or message.conversation_id != conversation.id:
                 raise AssistantError("assistant_message_not_found", 404)
-            if message.state in terminal and state is not None:
+            if (
+                message.state in terminal
+                or conversation.active_message_id != message.id
+            ):
                 return  # Late observations cannot rewrite a settled outcome.
             if (
                 message.state == "unknown"
@@ -292,20 +297,19 @@ class AssistantStore:
                 if message.native_attempt_id not in (None, native_attempt_id):
                     raise AssistantError("assistant_native_identity_mismatch")
                 message.native_attempt_id = native_attempt_id
-            if instance_id:
+            uncertain_settlement = settled and state == "unknown"
+            if uncertain_settlement:
+                if not reconciled:
+                    raise AssistantError("assistant_reconciliation_required")
+                thread_id = workspace_hash = None
+            if instance_id and not uncertain_settlement:
                 if conversation.runner_instance_id not in (None, instance_id):
-                    if not (
-                        reconciled
-                        and settled
-                        and state == "unknown"
-                        and error == "assistant_runner_restarted"
-                    ):
-                        raise AssistantError("assistant_runner_restarted")
-                    thread_id = workspace_hash = None
-                else:
-                    conversation.runner_instance_id = instance_id
+                    raise AssistantError("assistant_runner_restarted")
+                conversation.runner_instance_id = instance_id
             if state:
                 message.state = state
+                if state == "stopping":
+                    message.stop_requested = True
             if response is not None:
                 message.response = response[:100000]
             if error is not None or settled:
@@ -348,6 +352,31 @@ class AssistantStore:
             conversation.workspace_hash = None
             session.add(conversation)
 
+    async def cache_activity(self, owner, conversation_id, message_id, payload):
+        """Retain a bounded validated normalized page, never provider-native private receipts."""
+        import json
+        from laomedo.agents.activity.models import ActivityPage
+
+        if len(json.dumps(payload).encode()) > 2097152:
+            raise AssistantError("assistant_activity_too_large")
+        page = ActivityPage.model_validate(payload)
+        if not page.available or page.projection is None:
+            return
+        async with self.transaction() as session:
+            await self.conversation(session, owner, conversation_id)
+            message = await session.get(AssistantMessage, message_id)
+            if message is None or message.conversation_id != conversation_id:
+                raise AssistantError("assistant_message_not_found", 404)
+            if (
+                page.run_id != message.run_id
+                or page.attempt_id != message.native_attempt_id
+            ):
+                raise AssistantError("assistant_native_identity_mismatch")
+            prior = message.activity_snapshot or {}
+            if prior.get("projection_revision", 0) <= page.projection_revision:
+                message.activity_snapshot = page.to_payload()
+                session.add(message)
+
     async def pending(self):
         """Read active reservations for restart reconciliation without dispatching them."""
         async with self.sessions() as session:
@@ -358,3 +387,25 @@ class AssistantStore:
                     .limit(100)
                 )
             ).all()
+
+    async def reconcile_receipts(self, owner, identifier, message_id):
+        """Observe committed save identities after host calls drain, without replaying a tool."""
+        async with self.sessions() as session:
+            await self.conversation(session, owner, identifier)
+            cursor = None
+            while True:
+                statement = select(AssistantDraftReceipt.id).where(
+                    AssistantDraftReceipt.owner_id == owner,
+                    AssistantDraftReceipt.conversation_id == identifier,
+                    AssistantDraftReceipt.message_id == message_id,
+                )
+                if cursor is not None:
+                    statement = statement.where(AssistantDraftReceipt.id > cursor)
+                rows = (
+                    await session.exec(
+                        statement.order_by(AssistantDraftReceipt.id).limit(100)
+                    )
+                ).all()
+                if len(rows) < 100:
+                    return
+                cursor = rows[-1]
