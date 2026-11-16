@@ -20,6 +20,10 @@ tests must not import or fetch these files.
   locally. It never attaches to or exports the user's browser session.
 - `verify.py` independently reads retained outcomes, canonical source-workflow
   revision, pre/post restart identities, native cleanup and browser observations.
+- `selection.py` creates a separate acceptance conversation and submits three
+  real turns with different model/effort choices, verifies recall, immutable
+  message selections and native effective configuration, and requires the same
+  native thread/run throughout. It never changes the presentation conversation.
 
 Runtime pointers, database files, tokens, capability files, raw logs and browser
 profiles remain outside this repository. They must never be committed. Only
@@ -73,3 +77,17 @@ coverage is complete. Live evidence was supplied by the implementation agent, no
 rerun by the reviewer. Low residual risks include bounded receipt/reconciliation
 windows, activity rereads and some test gaps. No merge approval is claimed;
 spec PR #424 is still an unmerged prerequisite.
+
+## Owner feedback acceptance
+
+The owner requested a chat-first empty state, per-turn model/effort selection,
+collapsible history and grouped readable tool calls with timestamps/durations.
+Real acceptance completed `gpt-6-luna/low`, `gpt-6-luna/medium`, then
+`gpt-5.6-luna/low` in one conversation: all three completed on the same native
+thread/run and recalled the marker. No workflow was run or published.
+The retained application database restarted successfully with the new nullable
+message selection fields, preserving earlier conversations and receipts.
+740 Agent tests passed (four skips), 40 assistant tests passed, and ten UI tests
+passed. Real protocol discovery also checks tool-display aliases against the six
+actual MCP tools. Whole-upstream TypeScript checking retains baseline errors;
+no assistant-file diagnostics were reported. Evidence and screenshots stay local.
