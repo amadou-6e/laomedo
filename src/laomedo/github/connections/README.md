@@ -118,6 +118,12 @@ starts a new sign-in automatically.
 `authorize_read` checks current generation, consent and online access; `current`
 is its synchronous response-release fence. `cleanup` handles only journaled
 inactive targets, excluding live pending attempts. `status` exposes safe metadata.
+`run_generation_current` additionally permits a live graph's original generation
+to reach the current one only through successful refresh commits recorded by
+this broker. An unrecorded transition (reconnect, consent change, revocation or
+uncertain refresh) cannot be bridged by matching metadata. Restart drops both
+this continuity proof and all run authority. Private buffered read responses keep
+their existing exact-generation release fence.
 
 `GitHubConnectionScope` is a trusted in-process projection supplied by the browser
 adapter: verified owner, masked lease binding and a bound revalidation callback.
@@ -192,3 +198,13 @@ parameters. `finish_job` releases terminal job bindings and their internal index
 `finish` removes live authority without deleting normal owner-profile history.
 The native adapter must supply trusted job/vertex identities and keep references
 out of graph parameters, persisted job metadata and Agent workspaces.
+
+`node_access.py` owns `GitHubNodeAccess`, the browser's selected-account read
+capability. `read` verifies the profile, exact consented repository and current
+account online, then composes the existing Issue/PR gateway with its unchanged
+filtering and projection rules. Its `GitHubNodeReadSession` supplies credentials
+only on a worker thread; every token lookup revalidates the original scope and
+connection generation on the broker loop. A finite read deadline cannot reset
+between requests. The read adapter has no grant resolver and cannot dispatch
+modify/close operations. Graph-run writes will use the separate run authority
+and existing mediation contracts; this read path never substitutes for them.

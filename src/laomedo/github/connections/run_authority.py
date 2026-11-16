@@ -131,14 +131,11 @@ class GitHubRunAuthority:
             ):
                 raise GitHubNodeAuthorizationError()
             for node in plan.nodes:
-                record = self.connections.journal.get(
-                    scope.owner_id, node.selection.connection_id
-                )
-                if (
-                    record is None
-                    or record.state != "ready"
-                    or record.generation != node.generation
-                    or node.selection.repository not in record.repositories
+                if not self.connections.run_generation_current(
+                    scope.owner_id,
+                    node.selection.connection_id,
+                    node.generation,
+                    node.selection.repository,
                 ):
                     raise GitHubNodeAuthorizationError()
             run = plan.model_copy(update={"job_id": job_id})
@@ -184,7 +181,12 @@ class GitHubRunAuthority:
         )
         if (
             self.runs.get(reference) is not run
-            or authorization.generation != node.generation
+            or not self.connections.run_generation_current(
+                run.scope.owner_id,
+                connection_id,
+                node.generation,
+                node.selection.repository,
+            )
             or authorization.repository != node.selection.repository
         ):
             raise GitHubNodeAuthorizationError()

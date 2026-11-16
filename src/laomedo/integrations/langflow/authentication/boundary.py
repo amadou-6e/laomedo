@@ -29,6 +29,7 @@ class PrivateResponseBoundary:
             for prefix in (
                 "/api/v1/laomedo/github-connections",
                 "/api/v1/laomedo/private-skills",
+                "/api/v1/laomedo/private-github-nodes",
             )
         )
 

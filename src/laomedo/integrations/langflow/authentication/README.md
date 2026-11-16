@@ -1,5 +1,13 @@
 # Private browser session admission
 
+`private_nodes.py` owns buffered Issue/PR discovery and inspection at the private
+GitHub-node API. `private_node_read` requires the ordinary profile, live browser
+lease and CSRF proof before parsing `GitHubNodeReadRequest`; it binds the returned
+payload to its exact authorized connection generation before response release.
+`runtime.py` composes `GitHubNodeAccess` and the existing mediation store under
+the admitted private root. This route cannot start a graph or authorize a write.
+The native workflow admission and graph writes remain unfinished in #286.
+
 This package supplements upstream authentication with the revocable private
 browser lease required by SC01 of the GitHub account-connection contract. It
 does not authenticate passwords or validate upstream JWTs. The opt-in native

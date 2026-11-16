@@ -47,6 +47,14 @@ class NodeConnectionFixture:
     def get(self, owner, connection):
         return self if owner == self.owner and connection == self.connection else None
 
+    def run_generation_current(self, owner, connection, generation, repository):
+        return (
+            self.get(owner, connection) is not None
+            and self.state == "ready"
+            and generation == self.generation
+            and repository in self.repositories
+        )
+
     async def authorize_read(self, scope, connection, repository):
         await scope.revalidate()
         self.reads += 1

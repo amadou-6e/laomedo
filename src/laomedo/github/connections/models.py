@@ -422,6 +422,50 @@ class GitHubReadAuthorization(BaseModel):
     )
 
 
+class GitHubNodeReadRequest(BaseModel):
+    """Private browser input; owner and credential authority are never accepted."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid", hide_input_in_errors=True)
+    connection_id: UUID = Field(
+        description="Explicit saved connection selected in this profile."
+    )
+    kind: Literal["issue", "pr"] = Field(description="Existing node read capability.")
+    repository_url: str = Field(
+        strict=True,
+        max_length=1024,
+        description="Exact selected GitHub repository URL; consent is revalidated on the host.",
+    )
+    labels: list[str] = Field(
+        max_length=100,
+        description="Current all-label filter, validated by the canonical gateway.",
+    )
+    state: Literal["open", "closed", "merged", "all"] = Field(
+        description="Current node state filter; merged is PR-only."
+    )
+    number: int | None = Field(
+        default=None,
+        strict=True,
+        gt=0,
+        le=2**53 - 1,
+        description="Exact selected target for inspection; absent for discovery.",
+    )
+
+
+class GitHubNodeReadResult(BaseModel):
+    """Buffered browser read and its exact host-only response release fence."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid", hide_input_in_errors=True)
+    authorization: GitHubReadAuthorization = Field(
+        exclude=True,
+        repr=False,
+        description="Current account/repository authority for response release only.",
+    )
+    payload: dict = Field(
+        repr=False,
+        description="Existing Issue/PR gateway read payload, containing no credential.",
+    )
+
+
 class GitHubNodeSelection(BaseModel):
     """One graph vertex's exact account/repository and potential write targets."""
 

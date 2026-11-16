@@ -11,6 +11,7 @@ from starlette.responses import JSONResponse, RedirectResponse
 
 from laomedo.github.connections.errors import (
     GitHubConnectionChanged,
+    GitHubNodeAuthorizationError,
     GitHubConnectionAttemptExpired,
     GitHubConnectionError,
     GitHubConnectionInputError,
@@ -72,6 +73,7 @@ def _failure(error):
         error,
         (
             GitHubConnectionChanged,
+            GitHubNodeAuthorizationError,
             GitHubReauthorizationRequired,
             GitHubRepositoryAccessError,
             PrivateSessionRequired,

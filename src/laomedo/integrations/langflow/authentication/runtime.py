@@ -108,9 +108,19 @@ class PrivateBrowserRuntime:
         app.state.private_skill_access = PrivateSkillAccess(
             connections, PrivateSkillStore(self.root / "skills")
         )
+        from laomedo.github.connections.node_access import GitHubNodeAccess
+        from laomedo.host.mediation.store import MediationStore
+        from laomedo.integrations.langflow.authentication.private_nodes import (
+            private_node_router,
+        )
+
+        app.state.private_github_nodes = GitHubNodeAccess(
+            connections, MediationStore(self.root / "node-effects.sqlite")
+        )
         app.include_router(router)
         app.include_router(connection_router)
         app.include_router(private_skill_router)
+        app.include_router(private_node_router)
         app.add_middleware(PrivateSessionAdapter, store=store, policy=self.policy)
         app.add_middleware(
             PrivateResponseBoundary,
