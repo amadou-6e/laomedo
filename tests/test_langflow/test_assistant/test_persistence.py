@@ -1,0 +1,116 @@
+"""Real SQLite reservations, owner isolation, retained history and session revocation."""
+
+import asyncio
+from pathlib import Path
+import tempfile
+import time
+import unittest
+from uuid import UUID, uuid4
+
+from sqlalchemy.ext.asyncio import create_async_engine
+
+from laomedo.integrations.langflow.assistant.errors import AssistantError
+from laomedo.integrations.langflow.assistant.models import (
+    ConversationRequest,
+    MessageRequest,
+)
+from laomedo.integrations.langflow.assistant.persistence import AssistantStore
+
+
+class PersistenceTests(unittest.IsolatedAsyncioTestCase):
+    async def asyncSetUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.engine = create_async_engine(
+            "sqlite+aiosqlite:///" + (Path(self.directory.name) / "app.db").as_posix()
+        )
+        self.store = AssistantStore(self.engine)
+        await self.store.initialize()
+        self.owner = uuid4()
+        self.key = "fixture-session-hash"
+        await self.store.admit_session(self.key, self.owner, time.time() + 1000)
+        self.conversation = await self.store.create(
+            self.owner, ConversationRequest(model="fixture", effort="low")
+        )
+        self.identifier = UUID(self.conversation["id"])
+
+    async def asyncTearDown(self):
+        await self.engine.dispose()
+        self.directory.cleanup()
+
+    async def test_duplicate_concurrent_messages_share_one_reservation(self):
+        request = MessageRequest(client_message_id=uuid4(), text="Create a draft")
+        results = await asyncio.gather(
+            *(
+                self.store.reserve(
+                    self.owner, self.identifier, request, session_key=self.key
+                )
+                for _ in range(5)
+            )
+        )
+        self.assertEqual(sum(created for _, created in results), 1)
+        self.assertEqual(len({message["id"] for message, _ in results}), 1)
+        self.assertEqual(
+            len((await self.store.detail(self.owner, self.identifier))["messages"]), 1
+        )
+        with self.assertRaisesRegex(AssistantError, "assistant_message_conflict"):
+            await self.store.reserve(
+                self.owner,
+                self.identifier,
+                request.model_copy(update={"text": "Different"}),
+                session_key=self.key,
+            )
+        with self.assertRaisesRegex(AssistantError, "assistant_turn_active"):
+            await self.store.reserve(
+                self.owner,
+                self.identifier,
+                request.model_copy(update={"client_message_id": uuid4()}),
+                session_key=self.key,
+            )
+
+    async def test_owner_cannot_read_or_reserve_another_conversation(self):
+        other = uuid4()
+        await self.store.admit_session("other-key", other, time.time() + 1000)
+        self.assertEqual((await self.store.list(other))["conversations"], [])
+        with self.assertRaisesRegex(AssistantError, "assistant_conversation_not_found"):
+            await self.store.detail(other, self.identifier)
+        with self.assertRaisesRegex(AssistantError, "assistant_conversation_not_found"):
+            await self.store.reserve(
+                other,
+                self.identifier,
+                MessageRequest(client_message_id=uuid4(), text="read"),
+                session_key="other-key",
+            )
+
+    async def test_reopen_retains_unknown_attempt_and_cannot_replay_it(self):
+        request = MessageRequest(client_message_id=uuid4(), text="Persist this message")
+        message, _ = await self.store.reserve(
+            self.owner, self.identifier, request, session_key=self.key
+        )
+        await self.store.observe(
+            self.owner,
+            self.identifier,
+            UUID(message["id"]),
+            state="unknown",
+            error="assistant_dispatch_unknown",
+        )
+        reopened = AssistantStore(self.engine)
+        result, created = await reopened.reserve(
+            self.owner, self.identifier, request, session_key=self.key
+        )
+        self.assertFalse(created)
+        self.assertEqual(result["state"], "unknown")
+        detail = await reopened.detail(self.owner, self.identifier)
+        self.assertEqual(detail["conversation"]["state"], "reconciling")
+        self.assertEqual(detail["messages"][0]["text"], request.text)
+
+    async def test_revoked_session_cannot_readmit_or_reserve(self):
+        await self.store.revoke(self.key)
+        with self.assertRaisesRegex(AssistantError, "assistant_session_locked"):
+            await self.store.admit_session(self.key, self.owner, time.time() + 2000)
+        with self.assertRaisesRegex(AssistantError, "assistant_session_locked"):
+            await self.store.reserve(
+                self.owner,
+                self.identifier,
+                MessageRequest(client_message_id=uuid4(), text="never dispatched"),
+                session_key=self.key,
+            )
