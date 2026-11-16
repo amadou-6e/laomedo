@@ -3,6 +3,7 @@
 import json
 import threading
 import time
+from functools import partial
 from pathlib import Path
 from uuid import UUID
 from urllib.parse import urlsplit
@@ -13,6 +14,7 @@ from laomedo.host.provider_connections.models import ControllerSlot
 from laomedo.host.runner.http.server import RunnerServer
 from laomedo.host.runner.http.handler import RunnerRequestHandler
 from laomedo.agents.errors import RunnerError
+from laomedo.agents.registry import AgentProviderRegistry
 from laomedo.host.credentials.siwc.utils import _outside_git
 
 
@@ -118,9 +120,7 @@ class ProviderControllers:
         self.skill_store = skill_store
         self.source = source
         if factory is None:
-            from laomedo.agents.agents.codex.agent import CodexAgent
-
-            factory = CodexAgent
+            factory = partial(AgentProviderRegistry.create_agent, "codex")
         self.factory = factory
         self.slots = {}
         self.root.mkdir(parents=True, exist_ok=True, mode=0o700)
