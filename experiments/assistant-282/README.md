@@ -1,0 +1,72 @@
+# Application assistant acceptance
+
+Production implementation: `amadou-6e/laomedo` issue #282, draft PR #283.
+This permanent `exp` concern owns disposable acceptance drivers. Production
+tests must not import or fetch these files.
+
+- `serve.py` starts a separate application database, private assistant workspace,
+  ordinary native Docker profile and owned lease service. `--resume` retains the
+  same state and origin for an explicit application-restart check. Opening the
+  app submits no prompt. A private stop file requests graceful teardown.
+- `check.py` signs into that isolated app and checks actual model discovery. Its
+  native app session token is written only to private temporary runtime state.
+- `turn.py` submits exactly one chosen user message and observes it. A stable
+  client ID is never retried automatically. `--linked` explicitly creates a
+  linked conversation; it does not rewrite or replay an uncertain predecessor.
+- `stop.py` observes a native session before requesting exact-attempt Stop and
+  then waits for settlement. Its polling bounds apply only to this experiment.
+- `browser.mjs` uses installed Chrome in a fresh independent context, verifies
+  the actual chat/card and explicit separate-tab editor, and retains screenshots
+  locally. It never attaches to or exports the user's browser session.
+- `verify.py` independently reads retained outcomes, canonical source-workflow
+  revision, pre/post restart identities, native cleanup and browser observations.
+
+Runtime pointers, database files, tokens, capability files, raw logs and browser
+profiles remain outside this repository. They must never be committed. Only
+sanitized conclusions and this harness belong here.
+
+## Observed on 2026-11-16
+
+Implementation head: `8460657ec0e2d41fb8b56c439e99107bd70da7b6`.
+Base: `2344408faf24570581cc61498ec9796059d7baaa`.
+
+The registered Codex image was built through shared acquisition, including its
+embedded TypeScript/Vitest controls. Its immutable ID was
+`sha256:a31dea3d18a56615562f9afe9cdd79341af8f77ea21e6c33949759c2d18d458a`.
+It approves only the exact host-admitted MCP tool names, preserving the global
+approval policy, sandbox and enabled-tool allowlist.
+
+Real Codex used the actual six-tool Laomedo MCP server to save an ordinary
+workflow draft. A follow-up recalled the draft. Active cancellation settled as
+cancelled on the same thread, and a following message completed. A separate copy
+was saved from an inspected workflow revision; an independent canonical revision
+read confirmed the source remained unchanged.
+
+After graceful application restart, the completed conversation resumed on the
+same native thread and run, retained identical draft receipts, correctly recalled
+the copy's name, and returned to idle. Native controller cleanup was confirmed and
+resource cleanup verified. No workflow was run or published.
+
+A fresh independent Chrome context verified the actual chat and receipt card,
+opened its two-node workflow in a separate editor tab, and recorded no JavaScript
+errors. The owner-shared VS Code integrated browser also showed the actual chat,
+tool lanes and card. Screenshot files remain local because they contain browser
+profile chrome; no session transfer was used.
+
+Controls: 739 Agent cases passed with four skips, all 39 optional-runtime assistant
+cases executed and passed, and all eight assistant UI cases passed. The production
+frontend build passed. Both GitHub Work Graph and Python formatting workflows
+passed for the exact implementation head. Full upstream TypeScript checking has
+baseline failures; no assistant-file diagnostics were reported.
+
+Earlier failed acceptance attempts remain recorded as uncertain. They exposed
+native tool-admission and resumed-attempt ownership issues that were corrected;
+they were not replayed or rewritten. A duplicate-name save returned an uncertain
+outcome and created no authoritative card in that conversation. Model prose was
+not treated as a save receipt. Later validation used an explicit linked
+conversation and distinct draft name.
+
+Reviewer status at this evidence checkpoint: earlier confirmed High/Medium
+findings are resolved in bounded rechecks through the implementation head. Final
+cumulative source and refreshed screenshot review is pending. No merge approval
+is claimed; spec PR #424 is still an unmerged prerequisite.
