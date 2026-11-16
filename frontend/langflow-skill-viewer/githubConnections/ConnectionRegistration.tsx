@@ -73,7 +73,7 @@ export default function ConnectionRegistration({
   }
   return (
     <div className="gc-screen">
-      <section className="gc-panel gc-focus">
+      <section className="gc-panel gc-focus gc-registration">
         <div className="gc-setup-heading">
           <span className="gc-avatar" aria-hidden="true">
             <Github size={24} />
@@ -84,8 +84,7 @@ export default function ConnectionRegistration({
           </div>
         </div>
         <p className="gc-muted">
-          Each account has its own private connection. Laomedo handles the
-          setup; you choose what it can access.
+          A private connection for this account. No credentials to copy.
         </p>
         <ol className="gc-setup-steps">
           <li>
@@ -127,8 +126,7 @@ export default function ConnectionRegistration({
           {busy ? "Opening GitHub…" : "Continue to GitHub"}
         </Button>
         <p className="gc-muted gc-setup-note">
-          After approval, choose the repositories Laomedo can read. No
-          credentials to copy.
+          Next, choose the repositories Laomedo can read.
         </p>
         {token && (
           <div className="gc-advanced">

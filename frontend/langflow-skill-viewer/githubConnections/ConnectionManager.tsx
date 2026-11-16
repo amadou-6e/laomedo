@@ -275,7 +275,9 @@ function ConnectionWorkspace() {
     view === "cleanup" ||
     attempt;
   return (
-    <main className={`github-connections ${focus ? "gc-centered" : ""}`}>
+    <main
+      className={`github-connections ${focus ? "gc-centered" : ""} ${view === "register" ? "gc-registration-page" : ""}`}
+    >
       {enabled === undefined && (
         <p role="status">Checking connection availability…</p>
       )}

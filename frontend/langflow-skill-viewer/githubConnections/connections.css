@@ -384,3 +384,14 @@
 .github-connections .gc-setup-note {
   font-size: 14px;
 }
+
+.github-connections.gc-registration-page {
+  padding-top: 32px;
+}
+.gc-registration {
+  gap: 20px;
+  padding: 32px;
+}
+.gc-setup-steps {
+  list-style-type: decimal;
+}
