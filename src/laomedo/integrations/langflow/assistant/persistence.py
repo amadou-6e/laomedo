@@ -44,6 +44,8 @@ class AssistantStore:
 
     def _upgrade_message_selection(self, connection):
         """Add nullable turn selections without rewriting existing operational history."""
+        if not inspect(connection).has_table("laomedo_assistant_message"):
+            return
         columns = {
             column["name"]
             for column in inspect(connection).get_columns("laomedo_assistant_message")
@@ -55,6 +57,11 @@ class AssistantStore:
                         f'ALTER TABLE laomedo_assistant_message ADD COLUMN "{name}" VARCHAR'
                     )
                 )
+
+    async def upgrade_retained(self):
+        """Upgrade existing owned columns before upstream's shared-metadata schema check."""
+        async with self.engine.begin() as connection:
+            await connection.run_sync(self._upgrade_message_selection)
 
     @asynccontextmanager
     async def transaction(self):

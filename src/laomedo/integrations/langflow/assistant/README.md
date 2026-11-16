@@ -14,6 +14,8 @@ selection is immutable after reservation and participates in retry identity.
 Conversation fields retain the latest admitted selection as composer defaults.
 Existing retained message rows receive nullable selection columns on startup;
 their original prompts, outcomes and idempotency digests are preserved.
+This runs before Langflow's shared-metadata consistency check; creation of fresh
+upstream tables remains upstream-owned.
 
 | Module | Objects and responsibilities |
 | --- | --- |

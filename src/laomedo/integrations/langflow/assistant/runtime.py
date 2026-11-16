@@ -70,13 +70,17 @@ class AssistantRuntime:
     @asynccontextmanager
     async def lifespan(self, app):
         """Enter the MCP session manager exactly once, revoke/drain before parent teardown."""
+        from langflow.services.deps import get_db_service
+
+        self.store = AssistantStore(get_db_service().engine)
+        # SQLModel metadata is shared with Langflow. Upgrade only already-owned
+        # retained columns before its Alembic consistency check; fresh upstream
+        # tables remain upstream's responsibility.
+        await self.store.upgrade_retained()
         async with self.upstream(app) as state:
             if self.mcp is None:
                 yield state
                 return
-            from langflow.services.deps import get_db_service
-
-            self.store = AssistantStore(get_db_service().engine)
             await self.store.initialize()
             async with self.mcp.server.session_manager.run():
                 self.ready = True
