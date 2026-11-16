@@ -568,7 +568,7 @@ export default function AssistantPage() {
       </div>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b px-5 py-4">
-          <div>
+          <div className="min-w-0 flex-1">
             {renaming === conversation?.id && conversation ? (
               <form
                 onSubmit={async (event) => {
@@ -614,7 +614,7 @@ export default function AssistantPage() {
                     setSavingTitle(false);
                   }
                 }}
-                className="flex items-center gap-2"
+                className="flex w-full items-center gap-2"
               >
                 <input
                   autoFocus
@@ -626,7 +626,7 @@ export default function AssistantPage() {
                   onKeyDown={(event) => {
                     if (event.key === "Escape") setRenaming(undefined);
                   }}
-                  className="rounded border bg-background px-2 py-1 text-sm"
+                  className="min-w-0 flex-1 rounded border bg-background px-2 py-1 text-sm"
                 />
                 <button
                   type="submit"
@@ -872,7 +872,6 @@ export default function AssistantPage() {
                     );
                   }}
                   onEffort={setEffort}
-                  onRefresh={() => void discover()}
                 />
                 {active ? (
                   <button

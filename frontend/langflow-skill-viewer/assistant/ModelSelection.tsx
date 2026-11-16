@@ -1,5 +1,5 @@
 import { useId, useState } from "react";
-import { Check, ChevronDown, RefreshCw } from "lucide-react";
+import { Check, ChevronDown } from "lucide-react";
 import {
   Popover,
   PopoverContent,
@@ -14,7 +14,6 @@ export default function ModelSelection({
   disabled,
   onModel,
   onEffort,
-  onRefresh,
 }: {
   models?: Models;
   model: string;
@@ -22,7 +21,6 @@ export default function ModelSelection({
   disabled: boolean;
   onModel: (value: string) => void;
   onEffort: (value: string) => void;
-  onRefresh: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const identity = useId();
@@ -77,7 +75,7 @@ export default function ModelSelection({
             ))}
             {!models?.models.length && (
               <p className="px-2 py-2 text-xs text-muted-foreground">
-                No models available. Refresh to check again.
+                No models available.
               </p>
             )}
           </div>
@@ -125,14 +123,6 @@ export default function ModelSelection({
             )}
           </div>
         </fieldset>
-        <button
-          type="button"
-          onClick={onRefresh}
-          className="mt-3 inline-flex items-center gap-1.5 rounded px-2 py-1 text-xs text-muted-foreground hover:bg-muted"
-        >
-          <RefreshCw size={12} />
-          Refresh models
-        </button>
       </PopoverContent>
     </Popover>
   );
