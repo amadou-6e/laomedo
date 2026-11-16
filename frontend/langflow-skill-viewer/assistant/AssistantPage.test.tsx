@@ -114,7 +114,7 @@ describe("uncertain assistant submission", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "Choose model and effort" }),
     );
-    fireEvent.click(screen.getByRole("radio", { name: "high", exact: true }));
+    fireEvent.click(screen.getByRole("radio", { name: "high" }));
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
     await screen.findByRole("button", { name: "Retry same submission" });
     const original = JSON.parse(
@@ -196,9 +196,9 @@ describe("uncertain assistant submission", () => {
       screen.getByRole("button", { name: "Choose model and effort" }),
     );
     fireEvent.click(
-      await screen.findByRole("radio", { name: "fixture", exact: true }),
+      await screen.findByRole("radio", { name: "fixture" }),
     );
-    fireEvent.click(screen.getByRole("radio", { name: "low", exact: true }));
+    fireEvent.click(screen.getByRole("radio", { name: "low" }));
     fireEvent.change(composer, { target: { value: "Create a draft" } });
     expect(calls.filter(([, body]) => body)).toHaveLength(0);
     fireEvent.click(screen.getByRole("button", { name: "Start chat" }));
