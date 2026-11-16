@@ -422,6 +422,82 @@ class GitHubReadAuthorization(BaseModel):
     )
 
 
+class GitHubNodeSelection(BaseModel):
+    """One graph vertex's exact account/repository and potential write targets."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid", hide_input_in_errors=True)
+    vertex_id: str = Field(
+        strict=True,
+        min_length=1,
+        max_length=256,
+        description="Exact native graph vertex ID.",
+    )
+    kind: Literal["issue", "pr"] = Field(description="Existing GitHub node capability.")
+    connection_id: UUID = Field(
+        description="Explicit saved account selection, never an ambient default."
+    )
+    repository: GitHubRepositoryIdentity = Field(
+        description="Consented numeric identity and confirmed repository location."
+    )
+    number: int | None = Field(
+        default=None,
+        strict=True,
+        gt=0,
+        le=2**53 - 1,
+        description="Exact Issue/PR target; absent only for discovery or untargeted reads.",
+    )
+    operations: tuple[Literal["modify", "close"], ...] = Field(
+        default=(),
+        description="Operation kinds shown in the one-per-run approval, not a grant.",
+    )
+
+    @model_validator(mode="after")
+    def exact_write_target(self):
+        """Refuse broad or duplicate operation approval without an exact target."""
+        if len(set(self.operations)) != len(self.operations) or (
+            self.operations and self.number is None
+        ):
+            raise ValueError("github_node_target_invalid")
+        return self
+
+
+class GitHubNodeAdmission(BaseModel):
+    """Selection plus online-verified generation; it contains no credential."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    selection: GitHubNodeSelection = Field(
+        description="Exact graph selection verified during preparation."
+    )
+    generation: int = Field(
+        strict=True,
+        gt=0,
+        description="Verified connection generation; reconnect requires a new run.",
+    )
+
+
+class GitHubNodeRun(BaseModel):
+    """In-memory native job binding, never parsed from browser or graph JSON."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid", hide_input_in_errors=True)
+    reference: SecretStr = Field(
+        exclude=True, repr=False, description="Broker-only opaque run reference."
+    )
+    scope: GitHubConnectionScope = Field(
+        exclude=True,
+        repr=False,
+        description="Trusted initiating owner/lease revalidation callback.",
+    )
+    flow_id: UUID = Field(description="Native flow admitted by its authenticated host.")
+    job_id: UUID = Field(description="Native job bound after explicit run admission.")
+    graph_digest: str = Field(
+        pattern=r"^[0-9a-f]{64}$",
+        description="Exact executable graph approved for this job.",
+    )
+    nodes: tuple[GitHubNodeAdmission, ...] = Field(
+        min_length=1, description="Verified exact node admissions for this graph."
+    )
+
+
 class GitHubReadPage(BaseModel):
     """Internal bounded provider JSON with a non-followed pagination signal."""
 

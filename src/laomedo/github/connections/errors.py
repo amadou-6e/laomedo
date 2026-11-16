@@ -57,6 +57,16 @@ class GitHubConnectionAttemptExpired(GitHubConnectionChanged):
     code = "github_connection_attempt_expired"
 
 
+class GitHubNodeAuthorizationError(GitHubConnectionError):
+    """A graph's saved-account admission is missing, expired, stale or mismatched.
+
+    No credential lookup or alternate account is authorized by this failure.
+    Preparing a new run is required; a saved graph or job ID is never authority.
+    """
+
+    code = "github_node_authorization_unavailable"
+
+
 class GitHubRepositoryAccessError(GitHubConnectionError):
     """Current account or repository read access could not be confirmed online.
 

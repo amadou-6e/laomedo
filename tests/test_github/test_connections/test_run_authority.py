@@ -1,0 +1,215 @@
+"""Run admission invariants with synthetic custody; not live GitHub acceptance."""
+
+import unittest
+from uuid import uuid4
+
+from pydantic import SecretStr, ValidationError
+
+from laomedo.github.connections.errors import GitHubNodeAuthorizationError
+from laomedo.github.connections.models import (
+    GitHubConnectionScope,
+    GitHubNodeSelection,
+    GitHubReadAuthorization,
+    GitHubPrincipal,
+    GitHubRepositoryIdentity,
+)
+from laomedo.github.connections.run_authority import GitHubRunAuthority
+
+
+class NodeConnectionFixture:
+    """Expose a single selected connection and observable online admissions."""
+
+    def __init__(self):
+        self.owner = uuid4()
+        self.connection = uuid4()
+        self.repository = GitHubRepositoryIdentity(
+            id=12, full_name="synthetic/private", private=True
+        )
+        self.principal = GitHubPrincipal(id=34, login="synthetic")
+        self.generation = 1
+        self.state = "ready"
+        self.repositories = (self.repository,)
+        self.revoked_lease = False
+        self.reads = 0
+        self.journal = self
+
+    async def check(self):
+        if self.revoked_lease:
+            raise GitHubNodeAuthorizationError()
+
+    def scope(self, *, owner=None, lease="lease-one"):
+        return GitHubConnectionScope(
+            owner_id=owner or self.owner,
+            lease_binding=SecretStr(lease),
+            check=self.check,
+        )
+
+    def get(self, owner, connection):
+        return self if owner == self.owner and connection == self.connection else None
+
+    async def authorize_read(self, scope, connection, repository):
+        await scope.revalidate()
+        self.reads += 1
+        if (
+            self.get(scope.owner_id, connection) is None
+            or repository != 12
+            or self.state != "ready"
+        ):
+            raise GitHubNodeAuthorizationError()
+        return GitHubReadAuthorization(
+            owner_id=self.owner,
+            connection_id=self.connection,
+            generation=self.generation,
+            repository=self.repository,
+            principal=self.principal,
+            deadline=60,
+        )
+
+
+class GitHubRunAuthorityTests(unittest.IsolatedAsyncioTestCase):
+    """An approved exact job remains dependent on its initiating lease and generation."""
+
+    def setUp(self):
+        self.connections = NodeConnectionFixture()
+        self.now = 0.0
+        self.authority = GitHubRunAuthority(self.connections, clock=lambda: self.now)
+        self.scope = self.connections.scope()
+        self.flow = uuid4()
+        self.job = uuid4()
+        self.digest = "a" * 64
+        self.selection = GitHubNodeSelection(
+            vertex_id="pr-1",
+            kind="pr",
+            connection_id=self.connections.connection,
+            repository=self.connections.repository,
+            number=5,
+            operations=("modify", "close"),
+        )
+
+    async def prepare(self, selection=None):
+        return await self.authority.prepare(
+            self.scope, self.flow, self.digest, [selection or self.selection]
+        )
+
+    async def admit(self, reference, **changes):
+        values = dict(
+            flow_id=self.flow, graph_digest=self.digest, job_id=self.job, approved=True
+        )
+        values.update(changes)
+        return await self.authority.admit(reference, self.scope, **values)
+
+    async def resolve(self, reference, **changes):
+        values = dict(
+            job_id=self.job,
+            vertex_id="pr-1",
+            connection_id=self.connections.connection,
+            repository="synthetic/private",
+        )
+        values.update(changes)
+        return await self.authority.resolve(reference, **values)
+
+    async def test_prepare_does_not_admit_and_write_approval_is_one_use(self):
+        reference, nodes = await self.prepare()
+        self.assertEqual(nodes[0].selection.operations, ("modify", "close"))
+        with self.assertRaises(GitHubNodeAuthorizationError):
+            await self.resolve(reference)
+        await self.admit(reference)
+        self.assertEqual((await self.resolve(reference))[0].generation, 1)
+        with self.assertRaises(GitHubNodeAuthorizationError):
+            await self.admit(reference)
+        self.assertEqual(self.connections.reads, 2)
+
+    async def test_changes_cancel_expiry_and_missing_approval_cannot_start_job(self):
+        for changes in (
+            {"flow_id": uuid4()},
+            {"graph_digest": "b" * 64},
+            {"approved": False},
+            {"job_id": uuid4()},
+        ):
+            reference, _ = await self.prepare()
+            if "job_id" in changes:
+                self.now += 301
+            with self.assertRaises(GitHubNodeAuthorizationError):
+                await self.admit(reference, **changes)
+            with self.assertRaises(GitHubNodeAuthorizationError):
+                await self.admit(reference)
+        self.assertEqual(self.authority.runs, {})
+
+    async def test_wrong_owner_or_lease_does_not_consume_another_profiles_plan(self):
+        reference, _ = await self.prepare()
+        for scope in (
+            self.connections.scope(owner=uuid4()),
+            self.connections.scope(lease="other"),
+        ):
+            with self.assertRaises(GitHubNodeAuthorizationError):
+                await self.authority.admit(
+                    reference,
+                    scope,
+                    flow_id=self.flow,
+                    graph_digest=self.digest,
+                    job_id=self.job,
+                    approved=True,
+                )
+        await self.admit(reference)
+
+    async def test_wrong_job_vertex_account_or_repository_never_reaches_credential_authorization(
+        self,
+    ):
+        reference, _ = await self.prepare()
+        await self.admit(reference)
+        for changes in (
+            {"job_id": uuid4()},
+            {"vertex_id": "other"},
+            {"connection_id": uuid4()},
+            {"repository": "other/private"},
+        ):
+            with self.assertRaises(GitHubNodeAuthorizationError):
+                await self.resolve(reference, **changes)
+        self.assertEqual(self.connections.reads, 1)
+
+    async def test_reconnect_revocation_lease_end_and_finished_job_stop_new_access(
+        self,
+    ):
+        for mutation in ("generation", "state", "lease", "finish"):
+            self.connections.generation = 1
+            self.connections.state = "ready"
+            self.connections.revoked_lease = False
+            self.job = uuid4()
+            reference, _ = await self.prepare()
+            await self.admit(reference)
+            if mutation == "generation":
+                self.connections.generation = 2
+            elif mutation == "state":
+                self.connections.state = "revoked"
+            elif mutation == "lease":
+                self.connections.revoked_lease = True
+            else:
+                self.authority.finish(reference)
+            with self.assertRaises(GitHubNodeAuthorizationError):
+                await self.resolve(reference)
+
+    async def test_read_only_run_needs_no_write_approval_and_run_reference_cannot_be_serialized(
+        self,
+    ):
+        reference, _ = await self.prepare(
+            self.selection.model_copy(update={"operations": ()})
+        )
+        run = await self.admit(reference, approved=False)
+        payload = run.model_dump_json()
+        self.assertNotIn(reference, payload)
+        self.assertNotIn("lease-one", payload)
+        self.assertNotIn("scope", run.model_dump())
+        self.assertEqual((await self.resolve(reference))[1].operations, ())
+        restarted = GitHubRunAuthority(self.connections)
+        with self.assertRaises(GitHubNodeAuthorizationError):
+            await restarted.resolve(
+                reference,
+                job_id=self.job,
+                vertex_id="pr-1",
+                connection_id=self.connections.connection,
+                repository="synthetic/private",
+            )
+
+    def test_modify_without_exact_target_is_refused(self):
+        with self.assertRaises(ValidationError):
+            GitHubNodeSelection(**{**self.selection.model_dump(), "number": None})

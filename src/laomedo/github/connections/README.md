@@ -163,3 +163,28 @@ policy on 2026-11-11; consent binds both numeric identity and confirmed location
 Renewal requires reauthorization of the connection if any consented repository
 cannot be verified at that location. No automatic redirect or consent migration
 is permitted. Reviewer finding T1 awaits a focused contract recheck.
+
+## Saved accounts in graph nodes (#286)
+
+The Issue/PR node bridge is being introduced on `feat/286`; it is not yet wired
+into the native canvas. Its specification is
+[specs PR427](https://github.com/amadou-6e/specs/pull/427).
+
+`models.py` owns `GitHubNodeSelection`, the exact vertex, selected connection,
+repository, target and requested operation kinds, and `GitHubNodeAdmission`, its
+online-verified connection generation. Neither is a reusable credential or grant.
+`GitHubNodeRun` holds an admitted job's trusted scope, exact graph digest and node
+admissions only in broker memory; its scope and opaque reference are excluded
+from serialization. Normal profile history may retain results after disconnect;
+history is not live GitHub authority.
+
+`run_authority.py` owns `GitHubRunAuthority`. `prepare` verifies each selection
+online and creates an expiring, owner/lease-bound plan. `admit` consumes that plan
+once, after the caller has confirmed the listed modifications, and binds it to
+the exact flow, graph digest and native job. `resolve` revalidates its stored
+scope and current connection generation before returning one exact node's
+repository authorization. It never chooses an account from ambient authentication,
+mints a mediation grant, dispatches a write or accepts a serialized run as proof.
+`finish` removes live authority without deleting normal owner-profile history.
+The native adapter must supply trusted job/vertex identities and keep references
+out of graph parameters, persisted job metadata and Agent workspaces.
