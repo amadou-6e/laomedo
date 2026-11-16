@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>GitHub connections · Laomedo pilot</title>
+  <link rel="stylesheet" href="./pilot.css">
+  <script type="module" src="./pilot.js"></script>
+</head>
+<body>
+  <main>
+    <header><span class="eyebrow">LAOMEDO · PILOT</span><h1>GitHub connections</h1>
+      <p class="muted">Each account owns its own private GitHub App.</p></header>
+    <p id="status" role="status" aria-live="polite">Loading your connections…</p>
+    <section id="accounts" aria-label="Your GitHub accounts"></section>
+    <section id="setup" class="panel" hidden aria-labelledby="setup-title">
+      <span class="eyebrow">ONE-TIME SETUP</span>
+      <h2 id="setup-title">Connect another account</h2>
+      <ol>
+        <li><strong>Choose the account on GitHub</strong>
+          <p>Open GitHub and use its profile menu to select the account that will own this connection. Then return here.</p>
+          <a class="button secondary" href="https://github.com/" target="_blank" rel="noopener noreferrer">Open GitHub <span aria-hidden="true">↗</span></a>
+        </li>
+        <li><strong>Create its private App</strong>
+          <p>Laomedo fills in the setup. Check the account named on GitHub’s Create button before approving.</p>
+          <button id="register" type="button">Continue to GitHub</button>
+        </li>
+      </ol>
+      <p class="note">Next: approve installation, then choose repository access in Laomedo. You won’t copy any credentials.</p>
+      <button id="back" class="back" type="button">← Back to connections</button>
+    </section>
+    <div id="actions" class="actions">
+      <button id="add" type="button">+ Set up another account</button>
+      <button id="refresh" class="secondary" type="button">Refresh</button>
+    </div>
+    <p id="error" role="alert" hidden></p>
+    <a id="login" class="button" href="/login" hidden>Log in to Laomedo</a>
+    <footer><a href="/settings/github">Open connection settings</a><p>First setup uses GitHub’s account menu. Later sign-in uses GitHub’s native account picker.</p></footer>
+  </main>
+</body>
+</html>

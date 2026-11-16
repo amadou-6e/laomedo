@@ -1,0 +1,188 @@
+:root {
+  color-scheme: dark;
+  font:
+    15px / 1.55 system-ui,
+    sans-serif;
+  color: #eceef2;
+  background: #111318;
+}
+* {
+  box-sizing: border-box;
+}
+[hidden] {
+  display: none !important;
+}
+body {
+  margin: 0;
+}
+main {
+  max-width: 680px;
+  padding: 52px 28px 32px;
+  margin: auto;
+}
+header {
+  margin-bottom: 28px;
+}
+h1 {
+  margin: 6px 0;
+  font-size: 28px;
+  letter-spacing: -0.6px;
+}
+h2 {
+  margin: 0;
+  font-size: 17px;
+}
+p {
+  margin: 6px 0 0;
+}
+.eyebrow {
+  font-size: 11px;
+  color: #a5afc0;
+  letter-spacing: 1.5px;
+  font-weight: 650;
+}
+.muted,
+#status {
+  color: #aab2c1;
+}
+#status {
+  margin-bottom: 20px;
+}
+.panel,
+.account {
+  background: #1a1e25;
+  border: 1px solid #323946;
+  border-radius: 12px;
+}
+.account {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 10px 0;
+  padding: 20px;
+}
+.account div {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.account p {
+  font-size: 13px;
+}
+.avatar {
+  display: grid;
+  place-items: center;
+  flex: 0 0 40px;
+  height: 40px;
+  background: #303948;
+  border-radius: 50%;
+  font-weight: 650;
+}
+.panel {
+  padding: 28px;
+}
+.panel h2 {
+  font-size: 22px;
+  margin: 7px 0 24px;
+}
+ol {
+  margin: 0;
+  padding-left: 24px;
+}
+li {
+  padding-left: 7px;
+  margin-bottom: 28px;
+}
+li p {
+  color: #adb6c5;
+  margin: 7px 0 15px;
+}
+li::marker {
+  color: #bdcaff;
+  font-weight: 700;
+}
+button,
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  min-height: 40px;
+  padding: 9px 16px;
+  background: #e8ecf6;
+  color: #11151b;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+.secondary {
+  border-color: #4a5363;
+  background: transparent;
+  color: #ecf0f7;
+}
+button:hover,
+.button:hover {
+  filter: brightness(0.92);
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+:focus-visible {
+  outline: 2px solid #a4b9ff;
+  outline-offset: 4px;
+}
+.actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 24px;
+}
+.note {
+  color: #adb6c5;
+  font-size: 13px;
+  margin-bottom: 20px;
+}
+.back {
+  padding-left: 0;
+  background: transparent;
+  color: #bbc6db;
+}
+#error {
+  margin: 22px 0 16px;
+  padding: 16px;
+  background: #342225;
+  border-radius: 8px;
+  color: #ffd5d5;
+}
+footer {
+  margin-top: 34px;
+  padding-top: 20px;
+  border-top: 1px solid #2d333f;
+  color: #949eaf;
+  font-size: 12px;
+}
+footer a {
+  color: #bac9ed;
+  font-size: 13px;
+}
+@media (max-width: 520px) {
+  main {
+    padding: 28px 18px;
+  }
+  .panel {
+    padding: 22px 18px;
+  }
+  .account {
+    flex-wrap: wrap;
+  }
+  .account button {
+    width: 100%;
+  }
+  .actions {
+    flex-wrap: wrap;
+  }
+}
