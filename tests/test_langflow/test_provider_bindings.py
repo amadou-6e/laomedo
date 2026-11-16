@@ -1,9 +1,10 @@
 """Request-principal and portable binding checks without native/provider requests."""
 
 import asyncio
+from contextlib import asynccontextmanager
 import unittest
 from types import SimpleNamespace
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 from uuid import uuid4
 
 from langflow.services.auth.context import (
@@ -23,6 +24,28 @@ from laomedo.integrations.langflow.provider_connections.exports import (
 
 class ProviderBindingTests(unittest.IsolatedAsyncioTestCase):
     """Never let flow-owner context stand in for the actual signed-in browser."""
+
+    @asynccontextmanager
+    async def _failing_startup(self, app):
+        self.assertIs(ProviderGraphBindings.service, app.state.provider_connections)
+        raise RuntimeError("startup failed")
+        yield  # pragma: no cover
+
+    async def test_startup_exposes_service_to_catalogue_and_cleans_failed_startup(self):
+        from laomedo.integrations.langflow.local_profiles.runtime import (
+            LocalProfileRuntime,
+        )
+
+        service = Mock(controllers=None)
+        app = SimpleNamespace(state=SimpleNamespace(provider_connections=service))
+        runtime = object.__new__(LocalProfileRuntime)
+        runtime._upstream_lifespan = self._failing_startup
+        with patch.object(ProviderGraphBindings, "service", None):
+            with self.assertRaisesRegex(RuntimeError, "startup failed"):
+                async with runtime.lifespan(app):
+                    self.fail("failed startup must not yield")
+            self.assertIsNone(ProviderGraphBindings.service)
+        service.close.assert_called_once_with()
 
     def setUp(self):
         self.profile = uuid4()

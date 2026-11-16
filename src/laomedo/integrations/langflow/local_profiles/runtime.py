@@ -63,7 +63,15 @@ class LocalProfileRuntime:
     @asynccontextmanager
     async def lifespan(self, app):
         """Upstream initializes first; its service registration cannot win afterward."""
+        from laomedo.integrations.langflow.provider_connections.bindings import (
+            ProviderGraphBindings,
+        )
+
         try:
+            # Upstream caches component templates during startup. Make the
+            # configured service visible before that cache is populated;
+            # account choices still require a verified browser request.
+            ProviderGraphBindings.install(app.state.provider_connections)
             async with self._upstream_lifespan(app) as state:
                 service = get_settings_service()
                 self.admission.verify_settings(service)
@@ -76,11 +84,6 @@ class LocalProfileRuntime:
                 manager.update(ServiceType.AUTH_SERVICE)
                 if not isinstance(get_auth_service(), LocalProfileAuthService):
                     raise ProfileError("profile_setup_unavailable")
-                from laomedo.integrations.langflow.provider_connections.bindings import (
-                    ProviderGraphBindings,
-                )
-
-                ProviderGraphBindings.install(app.state.provider_connections)
                 controllers = app.state.provider_connections.controllers
                 if controllers is not None:
                     from starlette.concurrency import run_in_threadpool
@@ -89,10 +92,6 @@ class LocalProfileRuntime:
                     controllers.install()
                 yield state
         finally:
-            from laomedo.integrations.langflow.provider_connections.bindings import (
-                ProviderGraphBindings,
-            )
-
             ProviderGraphBindings.release(app.state.provider_connections)
             controllers = app.state.provider_connections.controllers
             try:
