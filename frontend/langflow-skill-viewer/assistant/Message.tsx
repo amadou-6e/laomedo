@@ -14,7 +14,7 @@ export function AssistantText({ text }: { text: string }) {
       skipHtml
       disallowedElements={["img", "a"]}
       unwrapDisallowed
-      className="prose prose-sm max-w-none break-words dark:prose-invert [&_pre]:overflow-x-auto [&_pre]:whitespace-pre-wrap [&_code]:break-words"
+      className="prose prose-sm max-w-none break-words dark:prose-invert [&_pre]:overflow-x-auto [&_pre]:whitespace-pre-wrap [&_code]:break-words prose-code:before:content-none prose-code:after:content-none"
     >
       {text}
     </Markdown>
@@ -95,7 +95,7 @@ export default function MessageRow({
           })}
         </p>
         <div className="rounded-xl rounded-tr-sm border bg-muted/50 px-4 py-3">
-          <AssistantText text={message.text} />
+          <p className="whitespace-pre-wrap break-words">{message.text}</p>
         </div>
       </div>
       {items.map((lane) => {

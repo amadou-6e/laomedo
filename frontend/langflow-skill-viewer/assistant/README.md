@@ -14,6 +14,11 @@ authenticated application wrapper and fences the existing sign-out action.
 
 Selection/reopening/polling never sends a model prompt. Each submitted message
 retains one client key across a lost response. Unknown submissions reconcile;
-they do not automatically receive a new key. Profile changes discard private
+they do not automatically receive a new key. The tab's owner-scoped session
+storage retains that original key and text across reload. An explicit Retry
+same submission action reuses it; accepted submissions return their existing
+reservation without native dispatch. Lock and profile changes clear that local
+pending state. Unavailable session storage refuses before submitting a prompt.
+Profile changes discard private
 rendered state and reject stale responses. Draft links come only from database
 receipts, open a new tab after a click, and preserve the original editor.

@@ -1,0 +1,129 @@
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
+import AssistantPage from "./AssistantPage";
+import { assistantRequest, AssistantFailure } from "./api";
+
+jest.mock("./api", () => ({
+  ...jest.requireActual("./api"),
+  assistantRequest: jest.fn(),
+}));
+jest.mock("./Message", () => ({ __esModule: true, default: () => null }));
+jest.mock("@/stores/authStore", () => ({
+  __esModule: true,
+  default: (select: any) => select({ userData: { id: "owner" } }),
+}));
+
+describe("uncertain assistant submission", () => {
+  it("clears retained pending text and its key when the profile locks", async () => {
+    sessionStorage.setItem(
+      "laomedo.assistant.pending.owner",
+      JSON.stringify({
+        conversation: {
+          id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          text: "PRIVATE_PENDING_TEXT",
+        },
+      }),
+    );
+    jest
+      .mocked(assistantRequest)
+      .mockRejectedValue(new AssistantFailure("assistant_session_locked"));
+    render(
+      <MemoryRouter initialEntries={["/assistant?conversation=conversation"]}>
+        <AssistantPage />
+      </MemoryRouter>,
+    );
+    await screen.findByRole("heading", { name: "Profile locked" });
+    expect(screen.queryByText("PRIVATE_PENDING_TEXT")).toBeNull();
+    expect(
+      sessionStorage.getItem("laomedo.assistant.pending.owner"),
+    ).toBeNull();
+  });
+  beforeEach(() => {
+    sessionStorage.clear();
+    jest.clearAllMocks();
+  });
+  it("retains its key across reload and explicitly retries only that original submission", async () => {
+    const messages: any[] = [];
+    const posts: any[] = [];
+    const conversation = {
+      id: "conversation",
+      title: "Draft",
+      provider: "codex",
+      model: "fixture",
+      effort: "low",
+      state: "idle",
+      active_message_id: null,
+      error_code: null,
+      run_id: null,
+      thread_id: null,
+      updated_at: 1,
+      linked_conversation_id: null,
+    };
+    jest
+      .mocked(assistantRequest)
+      .mockImplementation(async (path, body: any) => {
+        if (path === "/conversations")
+          return { conversations: [conversation], next_cursor: null };
+        if (body) {
+          posts.push(body);
+          if (posts.length === 1)
+            throw new AssistantFailure("assistant_dispatch_unknown");
+          const message = {
+            ...body,
+            id: "accepted",
+            attempt_id: "attempt",
+            native_attempt_id: null,
+            state: "completed",
+            response: "Done",
+            error_code: null,
+            run_id: "run",
+            created_at: 1,
+            stop_requested: false,
+          };
+          messages.push(message);
+          return message;
+        }
+        return {
+          conversation,
+          messages: [...messages],
+          drafts: [],
+          next_cursor: null,
+        };
+      });
+    const mount = () =>
+      render(
+        <MemoryRouter initialEntries={["/assistant?conversation=conversation"]}>
+          <AssistantPage />
+        </MemoryRouter>,
+      );
+    const first = mount();
+    const composer = await screen.findByRole("textbox", {
+      name: "Message this assistant",
+    });
+    await waitFor(() =>
+      expect((composer as HTMLTextAreaElement).disabled).toBe(false),
+    );
+    fireEvent.change(composer, {
+      target: { value: "Keep this original text" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    await screen.findByRole("button", { name: "Retry same submission" });
+    const original = JSON.parse(
+      sessionStorage.getItem("laomedo.assistant.pending.owner")!,
+    );
+    expect(original.conversation.id).toBe(posts[0].client_message_id);
+    first.unmount();
+    mount();
+    const retry = await screen.findByRole("button", {
+      name: "Retry same submission",
+    });
+    fireEvent.click(retry);
+    await waitFor(() => expect(posts).toHaveLength(2));
+    expect(posts[1]).toEqual(posts[0]);
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("button", { name: "Retry same submission" }),
+      ).toBeNull(),
+    );
+  });
+});

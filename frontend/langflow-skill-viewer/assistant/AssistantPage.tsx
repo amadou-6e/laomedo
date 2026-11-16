@@ -31,6 +31,8 @@ export default function AssistantPage() {
   const [pending, setPending] = useState<
     Record<string, { id: string; text: string }>
   >({});
+  const [pendingOwner, setPendingOwner] = useState<string>();
+  const previousOwner = useRef<string | undefined>(undefined);
   const [error, setError] = useState<string>();
   const [locked, setLocked] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -42,24 +44,33 @@ export default function AssistantPage() {
   const currentSelection = useRef(selected);
   currentSelection.current = selected;
 
-  const fail = useCallback((failure: unknown) => {
-    const code =
-      failure instanceof AssistantFailure
-        ? failure.code
-        : "assistant_connection_unavailable";
-    setError(code);
-    if (
-      code === "assistant_session_locked" ||
-      code === "assistant_native_session_required"
-    ) {
-      generation.current += 1;
-      setLocked(true);
-      setIndex({ conversations: [], next_cursor: null });
-      setDetail(undefined);
-      setDrafts({});
-      setPending({});
-    }
-  }, []);
+  const fail = useCallback(
+    (failure: unknown) => {
+      const code =
+        failure instanceof AssistantFailure
+          ? failure.code
+          : "assistant_connection_unavailable";
+      setError(code);
+      if (
+        code === "assistant_session_locked" ||
+        code === "assistant_native_session_required"
+      ) {
+        generation.current += 1;
+        setLocked(true);
+        setIndex({ conversations: [], next_cursor: null });
+        setDetail(undefined);
+        setDrafts({});
+        setPending({});
+        try {
+          if (owner)
+            sessionStorage.removeItem(`laomedo.assistant.pending.${owner}`);
+        } catch {
+          /* Rendered private state is already cleared. */
+        }
+      }
+    },
+    [owner],
+  );
 
   const follow = useCallback(() => {
     if (pinned.current && scroll.current)
@@ -72,9 +83,55 @@ export default function AssistantPage() {
     setDetail(undefined);
     setDrafts({});
     setPending({});
+    setPendingOwner(undefined);
+    try {
+      if (previousOwner.current && previousOwner.current !== owner)
+        sessionStorage.removeItem(
+          `laomedo.assistant.pending.${previousOwner.current}`,
+        );
+    } catch {
+      /* No storage access may block a profile fence. */
+    }
+    previousOwner.current = owner;
+    if (owner) {
+      try {
+        const restored = JSON.parse(
+          sessionStorage.getItem(`laomedo.assistant.pending.${owner}`) ?? "{}",
+        );
+        if (
+          restored &&
+          typeof restored === "object" &&
+          !Array.isArray(restored) &&
+          Object.values(restored).every(
+            (row: any) =>
+              typeof row?.id === "string" &&
+              /^[0-9a-f-]{36}$/.test(row.id) &&
+              typeof row?.text === "string" &&
+              row.text.length <= 12000,
+          )
+        )
+          setPending(restored);
+      } catch {
+        /* Sending verifies stable retention before dispatch. */
+      }
+      setPendingOwner(owner);
+    }
     setError(undefined);
     setIndex({ conversations: [], next_cursor: null });
   }, [owner]);
+
+  useEffect(() => {
+    if (owner && pendingOwner === owner && !locked) {
+      try {
+        sessionStorage.setItem(
+          `laomedo.assistant.pending.${owner}`,
+          JSON.stringify(pending),
+        );
+      } catch {
+        /* Sending verifies retention. */
+      }
+    }
+  }, [owner, pendingOwner, pending, locked]);
 
   const refresh = useCallback(
     async (signal?: AbortSignal) => {
@@ -224,18 +281,33 @@ export default function AssistantPage() {
     }
   }
 
-  async function send() {
-    const text = drafts[selected] ?? "";
+  async function send(retry?: { id: string; text: string }) {
+    const text = retry?.text ?? drafts[selected] ?? "";
     if (
       !text.trim() ||
       !detail ||
       detail.conversation.active_message_id ||
-      pending[selected] ||
+      (pending[selected] && !retry) ||
       busy
     )
       return;
     const epoch = generation.current;
-    const identity = { id: crypto.randomUUID(), text };
+    const identity = retry ?? { id: crypto.randomUUID(), text };
+    if (
+      retry &&
+      (pending[selected]?.id !== retry.id ||
+        pending[selected]?.text !== retry.text)
+    )
+      return;
+    try {
+      sessionStorage.setItem(
+        `laomedo.assistant.pending.${owner}`,
+        JSON.stringify({ ...pending, [selected]: identity }),
+      );
+    } catch {
+      fail(new AssistantFailure("assistant_client_state_unavailable"));
+      return;
+    }
     setPending((value) => ({ ...value, [selected]: identity }));
     setBusy(true);
     setError(undefined);
@@ -313,6 +385,29 @@ export default function AssistantPage() {
             }
           : current,
       );
+    } catch (failure) {
+      if (epoch === generation.current) fail(failure);
+    }
+  }
+
+  async function olderConversations() {
+    if (index.next_cursor === null) return;
+    const epoch = generation.current;
+    try {
+      const page = await assistantRequest<ConversationIndex>(
+        `/conversations?cursor=${index.next_cursor}`,
+      );
+      if (epoch !== generation.current) return;
+      setIndex((current) => ({
+        ...page,
+        conversations: [
+          ...current.conversations,
+          ...page.conversations.filter(
+            (row) =>
+              !current.conversations.some((existing) => existing.id === row.id),
+          ),
+        ],
+      }));
     } catch (failure) {
       if (epoch === generation.current) fail(failure);
     }
@@ -405,6 +500,15 @@ export default function AssistantPage() {
             </button>
           ))}
         </nav>
+        {index.next_cursor !== null && (
+          <button
+            type="button"
+            className="mt-3 text-left text-sm underline"
+            onClick={() => void olderConversations()}
+          >
+            Load earlier conversations
+          </button>
+        )}
         <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
           Switching conversations does not stop active work.
         </p>
@@ -592,6 +696,18 @@ export default function AssistantPage() {
                       </p>
                       <p className="whitespace-pre-wrap text-sm">
                         {waiting.text}
+                      </p>
+                      <button
+                        type="button"
+                        disabled={busy || active}
+                        className="mt-3 text-sm underline"
+                        onClick={() => void send(waiting)}
+                      >
+                        Retry same submission
+                      </button>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Reuses its original message ID. Accepted messages are
+                        observed rather than dispatched again.
                       </p>
                     </div>
                   )}

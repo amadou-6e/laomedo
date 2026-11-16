@@ -10,7 +10,9 @@ export default function AssistantEntry() {
   useEffect(() => {
     const controller = new AbortController();
     setActive(false);
+    if (!owner) return () => controller.abort();
     const refresh = async () => {
+      if (document.hidden) return;
       try {
         const result = await assistantRequest<ConversationIndex>(
           "/conversations",

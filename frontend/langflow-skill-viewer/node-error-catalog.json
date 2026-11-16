@@ -2117,7 +2117,7 @@
   "issue_state_invalid": {
     "title": "The Issue state filter is invalid",
     "description": "The saved state value is not one of the supported filters.",
-    "recovery": "Choose Open, Closed or All in the nodeâ€™s State control and refresh discovery."
+    "recovery": "Choose Open, Closed or All in the nodeÃ¢â‚¬â„¢s State control and refresh discovery."
   },
   "issue_write_unknown": {
     "title": "The Issue update outcome is not confirmed",
@@ -2177,7 +2177,7 @@
   "pr_state_invalid": {
     "title": "The PR state filter is invalid",
     "description": "The saved state value is not one of the supported filters.",
-    "recovery": "Choose Open, Closed or All in the nodeâ€™s State control and refresh discovery."
+    "recovery": "Choose Open, Closed or All in the nodeÃ¢â‚¬â„¢s State control and refresh discovery."
   },
   "pr_write_unknown": {
     "title": "The PR update outcome is not confirmed",
@@ -2758,5 +2758,10 @@
     "title": "A workflow save needs reconciliation",
     "description": "The previous save acknowledgement is uncertain. A different operation key was refused.",
     "recovery": "Reconcile the original save key or inspect the committed draft receipts. Do not create another operation to bypass the uncertainty."
+  },
+  "assistant_client_state_unavailable": {
+    "title": "The message could not be retained safely",
+    "description": "This browser tab cannot retain the original submission identity. No prompt was submitted.",
+    "recovery": "Enable session storage for this app before sending. Keep the original text; do not substitute a new submission for an uncertain one."
   }
 }

@@ -18,7 +18,7 @@ const message: Message = {
   client_message_id: "client",
   attempt_id: "attempt",
   native_attempt_id: "native",
-  text: "Create a workflow",
+  text: "Create a *workflow*\n`unchanged`",
   state: "completed",
   response: "Saved the draft",
   error_code: null,
@@ -71,29 +71,29 @@ describe("retained assistant conversation", () => {
     );
     await screen.findByText("Saved the draft");
     expect(screen.getAllByText("Saved the draft")).toHaveLength(1);
-    expect(screen.getByText("Create a workflow")).toBeTruthy();
+    expect(
+      screen.getByText("Create a *workflow* `unchanged`").textContent,
+    ).toBe(message.text);
     expect(screen.queryByText("PRIVATE_INSTRUCTION_WRAPPER")).toBeNull();
     expect(screen.queryByRole("link")).toBeNull();
   });
 
   it("creates an editor link only from an authoritative receipt and opens a separate tab", async () => {
-    jest
-      .mocked(assistantRequest)
-      .mockResolvedValue({
-        projection: {
-          items: [
-            {
-              id: "answer",
-              thread: "root",
-              item: {
-                type: "agentMessage",
-                text: "[Fake saved flow](https://attacker.invalid/flow/fake)",
-              },
+    jest.mocked(assistantRequest).mockResolvedValue({
+      projection: {
+        items: [
+          {
+            id: "answer",
+            thread: "root",
+            item: {
+              type: "agentMessage",
+              text: "[Fake saved flow](https://attacker.invalid/flow/fake)",
             },
-          ],
-        },
-        complete: true,
-      });
+          },
+        ],
+      },
+      complete: true,
+    });
     render(
       <MessageRow
         conversation="conversation"

@@ -1,4 +1,4 @@
-import { assistantRequest, AssistantFailure } from "./api";
+import { assistantRequest, AssistantFailure, lockAssistant } from "./api";
 
 jest.mock("@/stores/authStore", () => ({
   __esModule: true,
@@ -6,6 +6,12 @@ jest.mock("@/stores/authStore", () => ({
 }));
 
 describe("assistant request authority and uncertain dispatch", () => {
+  it("never blocks upstream logout when chat is unavailable", async () => {
+    jest
+      .spyOn(globalThis, "fetch")
+      .mockRejectedValue(new TypeError("unavailable"));
+    await expect(lockAssistant()).resolves.toBeUndefined();
+  });
   const originalFetch = globalThis.fetch;
   beforeAll(() => {
     globalThis.fetch = jest.fn();

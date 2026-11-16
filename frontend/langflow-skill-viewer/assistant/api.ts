@@ -3,6 +3,7 @@ import useAuthStore from "@/stores/authStore";
 export class AssistantFailure extends Error {
   constructor(public code: string) {
     super(code);
+    Object.setPrototypeOf(this, new.target.prototype);
   }
 }
 
@@ -59,6 +60,20 @@ export async function assistantRequest<T>(
 
 export async function lockAssistant(): Promise<void> {
   // Sign-out must not skip chat revocation in upstream auto-login mode.
-  const status = await assistantRequest<{ available: boolean }>("/status");
-  if (status.available) await assistantRequest("/lock", {});
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), 3000);
+  try {
+    const status = await assistantRequest<{ available: boolean }>(
+      "/status",
+      undefined,
+      controller.signal,
+    );
+    if (status.available)
+      await assistantRequest("/lock", {}, controller.signal);
+  } catch {
+    // Native sign-out must continue even if chat is unavailable. The backend
+    // logout path independently fences chat authority.
+  } finally {
+    window.clearTimeout(timer);
+  }
 }
