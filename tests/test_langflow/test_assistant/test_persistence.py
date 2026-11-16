@@ -29,7 +29,9 @@ class PersistenceTests(unittest.IsolatedAsyncioTestCase):
         self.key = "fixture-session-hash"
         await self.store.admit_session(self.key, self.owner, time.time() + 1000)
         self.conversation = await self.store.create(
-            self.owner, ConversationRequest(model="fixture", effort="low")
+            self.owner,
+            ConversationRequest(model="fixture", effort="low"),
+            session_key=self.key,
         )
         self.identifier = UUID(self.conversation["id"])
 
@@ -114,3 +116,109 @@ class PersistenceTests(unittest.IsolatedAsyncioTestCase):
                 MessageRequest(client_message_id=uuid4(), text="never dispatched"),
                 session_key=self.key,
             )
+        with self.assertRaisesRegex(AssistantError, "assistant_session_locked"):
+            await self.store.create(
+                self.owner,
+                ConversationRequest(model="fixture", effort="low"),
+                session_key=self.key,
+            )
+
+    async def test_metadata_poll_preserves_unknown_reason_and_terminal_state_cannot_regress(
+        self,
+    ):
+        message, _ = await self.store.reserve(
+            self.owner,
+            self.identifier,
+            MessageRequest(client_message_id=uuid4(), text="Keep identity"),
+            session_key=self.key,
+        )
+        identifier = UUID(message["id"])
+        await self.store.observe(
+            self.owner,
+            self.identifier,
+            identifier,
+            state="unknown",
+            error="assistant_dispatch_unknown",
+        )
+        await self.store.observe(
+            self.owner, self.identifier, identifier, run_id=str(uuid4())
+        )
+        detail = await self.store.detail(self.owner, self.identifier)
+        self.assertEqual(
+            detail["messages"][0]["error_code"], "assistant_dispatch_unknown"
+        )
+        self.assertEqual(
+            detail["conversation"]["error_code"], "assistant_dispatch_unknown"
+        )
+        with self.assertRaisesRegex(
+            AssistantError, "assistant_reconciliation_required"
+        ):
+            await self.store.observe(
+                self.owner,
+                self.identifier,
+                identifier,
+                state="completed",
+                settled=True,
+                thread_id="thread",
+                workspace_hash="sha256:" + "a" * 64,
+            )
+        await self.store.observe(
+            self.owner,
+            self.identifier,
+            identifier,
+            state="completed",
+            settled=True,
+            reconciled=True,
+            thread_id="thread",
+            workspace_hash="sha256:" + "a" * 64,
+        )
+        await self.store.observe(
+            self.owner, self.identifier, identifier, state="running"
+        )
+        detail = await self.store.detail(self.owner, self.identifier)
+        self.assertEqual(detail["messages"][0]["state"], "completed")
+        self.assertEqual(detail["conversation"]["state"], "idle")
+
+    async def test_restart_reconciliation_settles_attention_without_rebinding_or_replay(
+        self,
+    ):
+        message, _ = await self.store.reserve(
+            self.owner,
+            self.identifier,
+            MessageRequest(client_message_id=uuid4(), text="Before restart"),
+            session_key=self.key,
+        )
+        identifier = UUID(message["id"])
+        original, restarted = str(uuid4()), str(uuid4())
+        await self.store.observe(
+            self.owner,
+            self.identifier,
+            identifier,
+            instance_id=original,
+            state="running",
+        )
+        with self.assertRaisesRegex(AssistantError, "assistant_runner_restarted"):
+            await self.store.observe(
+                self.owner,
+                self.identifier,
+                identifier,
+                instance_id=restarted,
+                state="running",
+            )
+        await self.store.observe(
+            self.owner,
+            self.identifier,
+            identifier,
+            instance_id=restarted,
+            state="unknown",
+            settled=True,
+            reconciled=True,
+            error="assistant_runner_restarted",
+            thread_id="never-rebind",
+            workspace_hash="sha256:" + "a" * 64,
+        )
+        detail = await self.store.detail(self.owner, self.identifier)
+        self.assertEqual(detail["conversation"]["state"], "attention")
+        self.assertEqual(detail["conversation"]["runner_instance_id"], original)
+        self.assertIsNone(detail["conversation"]["active_message_id"])
+        self.assertIsNone(detail["conversation"]["workspace_hash"])

@@ -52,7 +52,9 @@ class WorkflowTests(unittest.IsolatedAsyncioTestCase):
             session.add(Folder(name=DEFAULT_FOLDER_NAME, user_id=self.owner))
         await self.store.admit_session("fixture", self.owner, time.time() + 1000)
         conversation = await self.store.create(
-            self.owner, ConversationRequest(model="fixture", effort="low")
+            self.owner,
+            ConversationRequest(model="fixture", effort="low"),
+            session_key="fixture",
         )
         self.identifier = UUID(conversation["id"])
         message, _ = await self.store.reserve(

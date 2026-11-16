@@ -111,9 +111,10 @@ class AssistantStore:
                 row.revoked = True
                 session.add(row)
 
-    async def create(self, owner, request):
+    async def create(self, owner, request, *, session_key):
         """Persist model selection and optional owner-visible predecessor without inference."""
         async with self.transaction() as session:
+            await self.authorize(session, owner, session_key)
             if request.linked_conversation_id:
                 await self.conversation(session, owner, request.linked_conversation_id)
             conversation = AssistantConversation(owner_id=owner, **request.model_dump())
@@ -244,8 +245,20 @@ class AssistantStore:
         thread_id=None,
         workspace_hash=None,
         settled=False,
+        reconciled=False,
     ):
         """Retain observations for the exact reserved message; settlement never replays it."""
+        terminal = {"completed", "failed", "cancelled", "interrupted"}
+        if state is not None and state not in terminal | {
+            "reserved",
+            "starting",
+            "running",
+            "stopping",
+            "unknown",
+        }:
+            raise AssistantError("assistant_observation_invalid")
+        if settled and state not in terminal | {"unknown"}:
+            raise AssistantError("assistant_observation_invalid")
         async with self.transaction() as session:
             conversation = await self.conversation(
                 session, owner, conversation_id, lock=True
@@ -253,6 +266,21 @@ class AssistantStore:
             message = await session.get(AssistantMessage, message_id)
             if message is None or message.conversation_id != conversation.id:
                 raise AssistantError("assistant_message_not_found", 404)
+            if message.state in terminal and state is not None:
+                return  # Late observations cannot rewrite a settled outcome.
+            if (
+                message.state == "unknown"
+                and (state is not None or settled)
+                and not reconciled
+            ):
+                raise AssistantError("assistant_reconciliation_required")
+            if message.state in {"running", "stopping"} and state in {
+                "reserved",
+                "starting",
+            }:
+                return
+            if message.state == "stopping" and state == "running":
+                state = "stopping"
             if run_id:
                 if conversation.run_id not in (None, run_id) or message.run_id not in (
                     None,
@@ -266,18 +294,28 @@ class AssistantStore:
                 message.native_attempt_id = native_attempt_id
             if instance_id:
                 if conversation.runner_instance_id not in (None, instance_id):
-                    raise AssistantError("assistant_runner_restarted")
-                conversation.runner_instance_id = instance_id
+                    if not (
+                        reconciled
+                        and settled
+                        and state == "unknown"
+                        and error == "assistant_runner_restarted"
+                    ):
+                        raise AssistantError("assistant_runner_restarted")
+                    thread_id = workspace_hash = None
+                else:
+                    conversation.runner_instance_id = instance_id
             if state:
                 message.state = state
             if response is not None:
                 message.response = response[:100000]
-            message.error_code = error
+            if error is not None or settled:
+                message.error_code = error
             if conversation.active_message_id == message.id:
                 conversation.state = (
                     "reconciling" if state == "unknown" else state or conversation.state
                 )
-                conversation.error_code = error
+                if error is not None:
+                    conversation.error_code = error
                 if settled:
                     conversation.active_message_id = None
                     conversation.thread_id = thread_id
@@ -295,6 +333,19 @@ class AssistantStore:
                         conversation.error_code = "assistant_continuation_unavailable"
             conversation.updated_at = time.time()
             session.add(message)
+            session.add(conversation)
+
+    async def block(self, owner, identifier, code):
+        """Fence an idle conversation after binding loss while retaining its message history."""
+        async with self.transaction() as session:
+            conversation = await self.conversation(
+                session, owner, identifier, lock=True
+            )
+            if conversation.active_message_id is not None:
+                raise AssistantError("assistant_turn_active")
+            conversation.state = "attention"
+            conversation.error_code = code
+            conversation.workspace_hash = None
             session.add(conversation)
 
     async def pending(self):
