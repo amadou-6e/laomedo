@@ -96,7 +96,7 @@ class ChatGPTConnectionTests(unittest.TestCase):
                 ),
             )
         with self.assertRaisesRegex(AuthError, "auth_account_missing"):
-            self.store.active()
+            self.store.account("oaiapp_fixture")
 
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -131,7 +131,7 @@ class ChatGPTConnectionTests(unittest.TestCase):
         self.assertNotIn("synthetic-refresh", json.dumps(summary))
         restarted = ChatGPTConnection(self.root)
         self.assertEqual(restarted.host_id, self.store.host_id)
-        token, again = restarted.access_token()
+        token, again = restarted.access_token("oaiapp_fixture")
         self.assertEqual(token, "synthetic-access")
         self.assertEqual(again, summary)
         self.assertEqual(list(self.root.rglob("*.pending-*")), [])
@@ -212,7 +212,9 @@ class ChatGPTConnectionTests(unittest.TestCase):
                     "sub": "subject-b",
                 },
             )
-        self.assertEqual(self.store.access_token()[0], "synthetic-access")
+        self.assertEqual(
+            self.store.access_token("oaiapp_fixture")[0], "synthetic-access"
+        )
 
     def test_serial_refresh_and_ambiguous_response_refuses_reuse(self):
         self._connect(expiry=60)
@@ -231,7 +233,7 @@ class ChatGPTConnectionTests(unittest.TestCase):
         threads = [
             threading.Thread(
                 target=lambda: results.append(
-                    self.store.access_token(refresh=refresh)[0]
+                    self.store.access_token("oaiapp_fixture", refresh=refresh)[0]
                 )
             )
             for _ in range(2)
@@ -242,7 +244,7 @@ class ChatGPTConnectionTests(unittest.TestCase):
             thread.join()
         self.assertEqual(calls, ["synthetic-refresh"])
         self.assertEqual(results, ["replacement-access"] * 2)
-        account = self.store.active()
+        account = self.store.account("oaiapp_fixture")
         self.assertEqual(account["refresh_token"], "replacement-refresh")
         self.assertEqual(account["generation"], 2)
         account["expires_at"] = time.time() - 1
@@ -251,10 +253,11 @@ class ChatGPTConnectionTests(unittest.TestCase):
         _atomic_private(self.store._path(account["client_id"]), account)
         with self.assertRaisesRegex(AuthError, "auth_refresh_unknown"):
             self.store.access_token(
-                refresh=lambda *_args, **_kwargs: (_ for _ in ()).throw(TimeoutError())
+                "oaiapp_fixture",
+                refresh=lambda *_args, **_kwargs: (_ for _ in ()).throw(TimeoutError()),
             )
         with self.assertRaisesRegex(AuthError, "auth_refresh_unknown"):
-            self.store.access_token(refresh=refresh)
+            self.store.access_token("oaiapp_fixture", refresh=refresh)
         self.assertEqual(calls, ["synthetic-refresh"])
 
     def test_malformed_successful_refresh_is_not_retried(self):
@@ -271,10 +274,12 @@ class ChatGPTConnectionTests(unittest.TestCase):
             }
 
         with self.assertRaisesRegex(AuthError, "auth_refresh_unknown"):
-            self.store.access_token(refresh=malformed)
-        self.assertEqual(self.store.active()["state"], "refresh_unknown")
+            self.store.access_token("oaiapp_fixture", refresh=malformed)
+        self.assertEqual(
+            self.store.account("oaiapp_fixture")["state"], "refresh_unknown"
+        )
         with self.assertRaisesRegex(AuthError, "auth_refresh_unknown"):
-            self.store.access_token(refresh=malformed)
+            self.store.access_token("oaiapp_fixture", refresh=malformed)
         self.assertEqual(attempts, ["synthetic-refresh"])
 
     def test_ambiguous_refresh_requires_reconnect_and_does_not_switch_accounts(self):
@@ -282,7 +287,6 @@ class ChatGPTConnectionTests(unittest.TestCase):
             client_id="oaiapp_one", subject="one", token="old-access", expiry=60
         )
         self._connect(client_id="oaiapp_two", subject="two", token="other-access")
-        self.store.switch("oaiapp_one")
         calls = []
 
         def uncertain(_url, fields):
@@ -290,19 +294,18 @@ class ChatGPTConnectionTests(unittest.TestCase):
             raise TimeoutError("synthetic timeout")
 
         with self.assertRaisesRegex(AuthError, "^auth_refresh_unknown$"):
-            self.store.access_token(refresh=uncertain)
+            self.store.access_token("oaiapp_one", refresh=uncertain)
         restarted = ChatGPTConnection(self.root)
         with self.assertRaisesRegex(AuthError, "^auth_refresh_unknown$"):
-            restarted.access_token(refresh=uncertain)
+            restarted.access_token("oaiapp_one", refresh=uncertain)
         self.assertEqual(calls, ["synthetic-refresh"])
-        self.assertEqual(restarted.active()["client_id"], "oaiapp_one")
-        self.assertEqual(restarted.active()["state"], "refresh_unknown")
+        self.assertEqual(restarted.account("oaiapp_one")["client_id"], "oaiapp_one")
+        self.assertEqual(restarted.account("oaiapp_one")["state"], "refresh_unknown")
         self._connect(client_id="oaiapp_one", subject="one", token="reconnected-access")
-        self.assertEqual(restarted.access_token()[0], "reconnected-access")
-        self.assertEqual(restarted.active()["generation"], 2)
+        self.assertEqual(restarted.access_token("oaiapp_one")[0], "reconnected-access")
+        self.assertEqual(restarted.account("oaiapp_one")["generation"], 2)
         self.assertNotIn("old-access", restarted._path("oaiapp_one").read_text())
-        restarted.switch("oaiapp_two")
-        self.assertEqual(restarted.access_token()[0], "other-access")
+        self.assertEqual(restarted.access_token("oaiapp_two")[0], "other-access")
 
     def test_expiry_threshold_refreshes_once_across_runner_restart(self):
         self._connect(expiry=301)
@@ -317,31 +320,36 @@ class ChatGPTConnectionTests(unittest.TestCase):
             }
 
         self.assertEqual(
-            self.store.access_token(refresh=refresh)[0], "synthetic-access"
+            self.store.access_token("oaiapp_fixture", refresh=refresh)[0],
+            "synthetic-access",
         )
-        account = self.store.active()
+        account = self.store.account("oaiapp_fixture")
         account["expires_at"] = time.time() + 299
         from laomedo.host.credentials.siwc.utils import _atomic_private
 
         _atomic_private(self.store._path(account["client_id"]), account)
         restarted = ChatGPTConnection(self.root)
-        self.assertEqual(restarted.access_token(refresh=refresh)[0], "rotated-access")
-        self.assertEqual(self.store.access_token(refresh=refresh)[0], "rotated-access")
+        self.assertEqual(
+            restarted.access_token("oaiapp_fixture", refresh=refresh)[0],
+            "rotated-access",
+        )
+        self.assertEqual(
+            self.store.access_token("oaiapp_fixture", refresh=refresh)[0],
+            "rotated-access",
+        )
         self.assertEqual(refreshes, ["synthetic-refresh"])
 
-    def test_failed_remote_revocation_scrubs_local_tokens_and_refuses_switch(self):
+    def test_failed_remote_revocation_scrubs_only_selected_tokens(self):
         self._connect()
-        outcome = self.store.sign_out(revoke=lambda *_args: False)
+        outcome = self.store.sign_out("oaiapp_fixture", revoke=lambda *_args: False)
         self.assertEqual(
             outcome,
             {"auth_outcome": "signed_out", "remote_revocation_confirmed": False},
         )
         restarted = ChatGPTConnection(self.root)
-        with self.assertRaisesRegex(AuthError, "^auth_account_missing$"):
-            restarted.active()
-        with self.assertRaisesRegex(AuthError, "^auth_account_unavailable$"):
-            restarted.switch("oaiapp_fixture")
-        account = restarted._account("oaiapp_fixture")
+        with self.assertRaisesRegex(AuthError, "^auth_revoked$"):
+            restarted.access_token("oaiapp_fixture")
+        account = restarted.account("oaiapp_fixture")
         self.assertEqual(account["state"], "revoked")
         self.assertIsNone(account["access_token"])
         self.assertIsNone(account["refresh_token"])
@@ -372,29 +380,29 @@ class ChatGPTConnectionTests(unittest.TestCase):
                     "sub": "different",
                 },
             )
-        self.assertEqual(self.store.active()["subject"], "first")
+        self.assertEqual(self.store.account("oaiapp_fixture")["subject"], "first")
 
-    def test_switch_and_sign_out_clear_only_selected_account(self):
+    def test_explicit_accounts_and_sign_out_are_independent(self):
         self._connect(client_id="oaiapp_one", subject="one", token="first")
         self._connect(client_id="oaiapp_two", subject="two", token="second")
-        self.assertEqual(self.store.access_token()[0], "second")
-        self.store.switch("oaiapp_one")
-        self.assertEqual(self.store.access_token()[0], "first")
+        self.assertEqual(self.store.access_token("oaiapp_one")[0], "first")
+        self.assertEqual(self.store.access_token("oaiapp_two")[0], "second")
         seen = []
 
         def revoke(token, client):
-            with self.assertRaisesRegex(AuthError, "auth_account_missing"):
-                self.store.active()
+            with self.assertRaisesRegex(AuthError, "auth_revoked"):
+                self.store.access_token("oaiapp_one")
+            self.assertEqual(self.store.access_token("oaiapp_two")[0], "second")
             seen.append((token, client))
             return True
 
-        outcome = self.store.sign_out(revoke=revoke)
+        outcome = self.store.sign_out("oaiapp_one", revoke=revoke)
         self.assertTrue(outcome["remote_revocation_confirmed"])
         self.assertEqual(seen, [("synthetic-refresh", "oaiapp_one")])
+        self.assertEqual(self.store.access_token("oaiapp_two")[0], "second")
+        self.assertFalse((self.root / "active.json").exists())
         with self.assertRaisesRegex(AuthError, "auth_account_missing"):
-            self.store.active()
-        self.store.switch("oaiapp_two")
-        self.assertEqual(self.store.access_token()[0], "second")
+            self.store.access_token("oaiapp_missing")
 
     def _connect(
         self,

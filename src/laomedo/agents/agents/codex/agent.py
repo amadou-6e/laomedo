@@ -90,6 +90,7 @@ class CodexAgent(BaseAgent):
         split_provider_config=(),
         split_access_token=None,
         auth_store: Path | None = None,
+        auth_client_id: str | None = None,
         publication_controller=None,
         image_id: str | None = None,
         artifact_sources=None,
@@ -132,6 +133,9 @@ class CodexAgent(BaseAgent):
         self.split_executor = split_executor
         self.split_provider_config = tuple(split_provider_config)
         self.split_access_token = split_access_token
+        self.auth_client_id = auth_client_id
+        if (auth_store is None) != (auth_client_id is None):
+            raise RunnerError("auth_account_selection_required")
         if auth_store is not None and not split_executor:
             raise RunnerError("app_owned_auth_requires_split_executor")
         if auth_store is not None and (split_provider_config or split_access_token):
@@ -919,7 +923,7 @@ class CodexAgent(BaseAgent):
                 def still_authorized():
                     """Recheck the existing host grant/account binding while native work remains active."""
                     try:
-                        current = self.auth.active()
+                        current = self.auth.account(self.auth_client_id)
                         selected = self.auth.summary(current)
                     except AuthError as exc:
                         category, outcome = _auth_record_error(exc)

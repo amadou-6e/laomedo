@@ -11,7 +11,7 @@ outside every Git checkout and agent mount:
 ```powershell
 $chatgptStore = Join-Path $env:LOCALAPPDATA 'Laomedo/chatgpt'
 & $pythonExe -m laomedo.host.credentials.siwc.cli --store $chatgptStore connect
-& $pythonExe -m laomedo.host.credentials.siwc.cli --store $chatgptStore status
+& $pythonExe -m laomedo.host.credentials.siwc.cli --store $chatgptStore status oaiapp_YOUR_ACCOUNT
 ```
 
 Complete the browser sign-in and consent while the command is waiting. The CLI
@@ -52,3 +52,6 @@ or a node-owned browser sign-in experience.
 See the [official registration and sign-in flow](https://developers.openai.com/siwc/token-sharing-open-source/sign-in)
 for the provider protocol. GitHub uses its own
 [host connection and mediation setup](../../../github/connection.md).
+
+Select the exact account with `--auth-client-id` when starting an app-owned
+runner with `--auth-store`. Accounts are never selected through a global pointer.
