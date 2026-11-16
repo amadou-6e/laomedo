@@ -284,6 +284,21 @@ class ProviderConnectionsTests(unittest.TestCase):
             self.service.progress(self.profile, receipt.attempt_id).status, "cancelled"
         )
 
+    def test_terminal_cancel_does_not_wait_for_credential_cleanup(self):
+        """Cancelling an observed completion never acquires a credential lock."""
+        existing = self.connect()
+        receipt = self.connect(connection_id=existing.connection_id)
+        pending = self.service._attempts[receipt.attempt_id]
+        pending.superseded_scrubbed = False
+        with patch.object(
+            self.service,
+            "_scrub",
+            side_effect=AssertionError("cancellation must not wait for token cleanup"),
+        ):
+            result = self.service.cancel(self.profile, receipt.attempt_id)
+        self.assertEqual(result.status, "connected")
+        self.assertEqual(result.connection_id, existing.connection_id)
+
     def test_rotation_keeps_the_saved_identity_epoch_without_index_write(self):
         """Routine rotation cannot invalidate a selected connection generation."""
         from laomedo.host.credentials.siwc.connection import ChatGPTConnection

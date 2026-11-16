@@ -134,6 +134,11 @@ class PendingLogin(BaseModel):
         exclude=True,
         description="Proposed admission pointer retained for uncertain-write reconciliation.",
     )
+    superseded_scrubbed: bool = Field(
+        default=False,
+        exclude=True,
+        description="Whether this attempt's prior local token copy has been removed.",
+    )
     progress: LoginProgress = Field(
         description="Safe observation of the attempt lifecycle."
     )

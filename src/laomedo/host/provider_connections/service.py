@@ -291,12 +291,18 @@ class ProviderConnections:
         """Clean superseded tokens outside the global lifecycle lock before copying a receipt."""
         with self._lock:
             item = self._attempts[attempt_id]
-            previous = item.previous if item.progress.status == "connected" else None
+            previous = (
+                item.previous
+                if item.progress.status == "connected" and not item.superseded_scrubbed
+                else None
+            )
         if previous is not None:
             try:
                 self._scrub(
                     self._broker(profile_id, previous.credential_id), previous.client_id
                 )
+                with self._lock:
+                    item.superseded_scrubbed = True
             except (OSError, AuthError, ProviderConnectionError):
                 with self._lock:
                     item.progress.status = "failed"
@@ -338,8 +344,10 @@ class ProviderConnections:
     def cancel(self, profile_id: UUID, attempt_id: UUID) -> LoginProgress:
         """Fence a pending exchange before returning; a late result cannot commit."""
         with self._lock:
-            self.progress(profile_id, attempt_id)
-            item = self._attempts[attempt_id]
+            self._expire()
+            item = self._attempts.get(attempt_id)
+            if item is None or item.profile_id != profile_id:
+                raise ProviderConnectionError("provider_login_expired")
             if item.progress.status in {"connecting", "verifying"}:
                 item.progress.status = "cancelled"
             return item.progress.model_copy()
