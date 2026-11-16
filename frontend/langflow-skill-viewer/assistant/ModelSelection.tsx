@@ -89,27 +89,35 @@ export default function ModelSelection({
           <legend className="text-xs font-medium text-muted-foreground">
             Reasoning effort
           </legend>
-          <div className="mt-2 flex flex-wrap gap-1">
-            {choices.map((value) => (
-              <label
-                key={value}
-                className={`cursor-pointer rounded-md px-2 py-1.5 text-xs capitalize hover:bg-muted has-[:focus-visible]:outline has-[:focus-visible]:outline-2 ${effort === value ? "bg-muted text-foreground" : "text-muted-foreground"}`}
-              >
+          <div className="mt-3">
+            {choices.length > 0 && (
+              <>
                 <input
-                  type="radio"
-                  name={`${identity}-effort`}
-                  aria-label={value}
-                  value={value}
-                  checked={effort === value}
-                  className="sr-only"
-                  onChange={() => {
-                    onEffort(value);
-                    setOpen(false);
-                  }}
+                  type="range"
+                  aria-label="Reasoning effort"
+                  aria-valuetext={effort}
+                  min={0}
+                  max={Math.max(0, choices.length - 1)}
+                  step={1}
+                  value={Math.max(0, choices.indexOf(effort))}
+                  disabled={choices.length === 1}
+                  onChange={(event) =>
+                    onEffort(choices[Number(event.target.value)])
+                  }
+                  className="w-full cursor-pointer accent-primary"
                 />
-                {value}
-              </label>
-            ))}
+                <div className="mt-1 flex justify-between text-[10px] text-muted-foreground">
+                  {choices.map((value) => (
+                    <span
+                      key={value}
+                      className={`capitalize ${effort === value ? "font-medium text-foreground" : ""}`}
+                    >
+                      {value}
+                    </span>
+                  ))}
+                </div>
+              </>
+            )}
             {!choices.length && (
               <span className="text-xs text-muted-foreground">
                 Choose a model first.

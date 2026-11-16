@@ -53,6 +53,20 @@ class ConversationRequest(BaseModel):
     )
 
 
+class ConversationRenameRequest(BaseModel):
+    """A bounded explicit conversation title, independent of execution settings."""
+
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
+    title: str = ModelField(min_length=1, max_length=80)
+
+    @model_validator(mode="after")
+    def require_title(self):
+        """Reject blank titles without altering the user's chosen name."""
+        if not self.title.strip():
+            raise ValueError("assistant_title_empty")
+        return self
+
+
 class MessageRequest(BaseModel):
     """One stable client key denotes exactly one user message and its attempt."""
 

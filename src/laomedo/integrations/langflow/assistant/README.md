@@ -17,6 +17,12 @@ their original prompts, outcomes and idempotency digests are preserved.
 This runs before Langflow's shared-metadata consistency check; creation of fresh
 upstream tables remains upstream-owned.
 
+Conversation renaming uses an owner-scoped `PATCH /conversations/{id}` with a
+nonblank title of at most 80 characters. `AssistantStore.rename` rechecks session
+authority inside the write transaction and changes only the title and timestamp;
+it never starts or resumes inference. The chat heading supports double-click or
+keyboard activation, Enter to save and Escape to cancel.
+
 | Module | Objects and responsibilities |
 | --- | --- |
 | `models.py` | Typed requests/declarative graphs and concern-owned database rows. Conversation, message and draft receipt identities are durable; credentials are not. |

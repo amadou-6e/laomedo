@@ -53,20 +53,18 @@ describe("retained assistant conversation", () => {
         arguments: { query: "Chat Input" },
       },
     });
-    jest
-      .mocked(assistantRequest)
-      .mockResolvedValue({
-        tool_names: { external_abcdef1234: "search_components" },
-        projection: {
-          items: [
-            tool("private-call-1"),
-            tool("private-call-2"),
-            { id: "answer", item: { type: "agentMessage", text: "Done" } },
-            tool("private-call-3"),
-          ],
-        },
-        complete: true,
-      });
+    jest.mocked(assistantRequest).mockResolvedValue({
+      tool_names: { external_abcdef1234: "search_components" },
+      projection: {
+        items: [
+          tool("private-call-1"),
+          tool("private-call-2"),
+          { id: "answer", item: { type: "agentMessage", text: "Done" } },
+          tool("private-call-3"),
+        ],
+      },
+      complete: true,
+    });
     render(
       <MessageRow
         conversation="conversation"

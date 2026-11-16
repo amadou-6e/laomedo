@@ -10,6 +10,7 @@ import MessageRow from "./Message";
 import ModelSelection from "./ModelSelection";
 import type {
   ConversationDetail,
+  Conversation,
   ConversationIndex,
   Message,
   Models,
@@ -38,12 +39,20 @@ export default function AssistantPage() {
   const [locked, setLocked] = useState(false);
   const [busy, setBusy] = useState(false);
   const [history, setHistory] = useState(true);
+  const [renaming, setRenaming] = useState<string>();
+  const [titleDraft, setTitleDraft] = useState("");
+  const [savingTitle, setSavingTitle] = useState(false);
   const [loading, setLoading] = useState(false);
   const generation = useRef(0);
   const scroll = useRef<HTMLDivElement>(null);
   const pinned = useRef(true);
   const currentSelection = useRef(selected);
   currentSelection.current = selected;
+
+  useEffect(() => {
+    setRenaming(undefined);
+    setTitleDraft("");
+  }, [selected, owner, locked]);
 
   const fail = useCallback(
     (failure: unknown) => {
@@ -546,9 +555,96 @@ export default function AssistantPage() {
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b px-5 py-4">
           <div>
-            <h1 className="inline text-sm font-medium">
-              {conversation?.title ?? "Laomedo assistant"}
-            </h1>
+            {renaming === conversation?.id && conversation ? (
+              <form
+                onSubmit={async (event) => {
+                  event.preventDefault();
+                  if (savingTitle || !titleDraft.trim()) return;
+                  const identifier = conversation.id;
+                  const version = generation.current;
+                  setSavingTitle(true);
+                  try {
+                    const renamed = await assistantRequest<Conversation>(
+                      `/conversations/${identifier}`,
+                      { title: titleDraft },
+                      undefined,
+                      "PATCH",
+                    );
+                    if (version !== generation.current) return;
+                    setIndex((current) => ({
+                      ...current,
+                      conversations: current.conversations.map((row) =>
+                        row.id === identifier ? renamed : row,
+                      ),
+                    }));
+                    setDetail((current) =>
+                      current?.conversation.id === identifier
+                        ? { ...current, conversation: renamed }
+                        : current,
+                    );
+                    setRenaming(undefined);
+                  } catch (error) {
+                    if (version === generation.current) fail(error);
+                  } finally {
+                    setSavingTitle(false);
+                  }
+                }}
+                className="flex items-center gap-2"
+              >
+                <input
+                  autoFocus
+                  aria-label="Conversation title"
+                  value={titleDraft}
+                  maxLength={80}
+                  disabled={savingTitle}
+                  onChange={(event) => setTitleDraft(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") setRenaming(undefined);
+                  }}
+                  className="rounded border bg-background px-2 py-1 text-sm"
+                />
+                <button
+                  type="submit"
+                  disabled={savingTitle || !titleDraft.trim()}
+                  className="text-xs"
+                >
+                  {savingTitle ? "Saving…" : "Save"}
+                </button>
+                <button
+                  type="button"
+                  disabled={savingTitle}
+                  onClick={() => setRenaming(undefined)}
+                  className="text-xs text-muted-foreground"
+                >
+                  Cancel
+                </button>
+              </form>
+            ) : (
+              <h1
+                className="inline text-sm font-medium"
+                onDoubleClick={() => {
+                  if (conversation) {
+                    setTitleDraft(conversation.title);
+                    setRenaming(conversation.id);
+                  }
+                }}
+              >
+                <button
+                  type="button"
+                  disabled={!conversation}
+                  title="Double-click to rename conversation"
+                  onKeyDown={(event) => {
+                    if (conversation && ["Enter", " "].includes(event.key)) {
+                      event.preventDefault();
+                      setTitleDraft(conversation.title);
+                      setRenaming(conversation.id);
+                    }
+                  }}
+                >
+                  {conversation?.title ?? "Laomedo assistant"}
+                </button>
+              </h1>
+            )}
           </div>
         </header>
         {failure && (

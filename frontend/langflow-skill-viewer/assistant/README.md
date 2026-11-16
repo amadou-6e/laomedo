@@ -13,11 +13,14 @@ display names derived from the forwarding layer's canonical alias rule; it adds
 no capability and leaves common Activity payloads and retained snapshots unchanged.
 
 `ModelSelection.tsx` owns the compact composer control: a single model/effort
-trigger opens native radio choices in a popover. Selecting values changes only
+trigger opens model radio choices and a discrete annotated effort slider in a popover. Selecting values changes only
 the next submission; it never submits a prompt. The composer shares one rounded
 surface with its footer controls. History collapses from its full-height edge;
 new conversation sits at the sidebar bottom. Tool names themselves expand their
 retained input/output, with original Activity row styling and smaller type.
+User and assistant message bodies share the same small text size. Double-clicking
+the conversation heading edits its title; keyboard activation also opens editing.
+Enter saves through the owner-scoped rename endpoint and Escape cancels.
 
 `models.ts` owns wire types. `api.ts` makes one same-origin request without
 automatic inference replay or authentication-refresh retry. `AssistantPage.tsx`

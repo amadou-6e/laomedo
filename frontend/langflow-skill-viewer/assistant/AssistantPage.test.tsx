@@ -14,6 +14,57 @@ jest.mock("@/stores/authStore", () => ({
 }));
 
 describe("uncertain assistant submission", () => {
+  it("renames the conversation explicitly and Escape cancels without a request", async () => {
+    const conversation = {
+      id: "conversation",
+      title: "Original",
+      model: "fixture",
+      effort: "low",
+      state: "idle",
+      active_message_id: null,
+    };
+    const mutations: unknown[] = [];
+    jest
+      .mocked(assistantRequest)
+      .mockImplementation(async (path, body: any, _signal, method) => {
+        if (method === "PATCH") {
+          mutations.push(body);
+          return { ...conversation, title: body.title };
+        }
+        if (path === "/models")
+          return {
+            provider: "codex",
+            models: [{ id: "fixture", efforts: ["low"] }],
+          };
+        if (path === "/conversations")
+          return { conversations: [conversation], next_cursor: null };
+        return { conversation, messages: [], drafts: [], next_cursor: null };
+      });
+    render(
+      <MemoryRouter initialEntries={["/assistant?conversation=conversation"]}>
+        <AssistantPage />
+      </MemoryRouter>,
+    );
+    fireEvent.doubleClick(
+      await screen.findByRole("heading", { name: "Original" }),
+    );
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "Conversation title" }),
+      { target: { value: "Renamed" } },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await screen.findByRole("heading", { name: "Renamed" });
+    expect(mutations).toEqual([{ title: "Renamed" }]);
+    fireEvent.doubleClick(screen.getByRole("heading", { name: "Renamed" }));
+    fireEvent.keyDown(
+      screen.getByRole("textbox", { name: "Conversation title" }),
+      { key: "Escape" },
+    );
+    expect(
+      screen.queryByRole("textbox", { name: "Conversation title" }),
+    ).toBeNull();
+    expect(mutations).toHaveLength(1);
+  });
   it("clears retained pending text and its key when the profile locks", async () => {
     sessionStorage.setItem(
       "laomedo.assistant.pending.owner",
@@ -114,7 +165,9 @@ describe("uncertain assistant submission", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "Choose model and effort" }),
     );
-    fireEvent.click(screen.getByRole("radio", { name: "high" }));
+    fireEvent.change(screen.getByRole("slider", { name: "Reasoning effort" }), {
+      target: { value: "1" },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
     await screen.findByRole("button", { name: "Retry same submission" });
     const original = JSON.parse(
@@ -195,10 +248,10 @@ describe("uncertain assistant submission", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "Choose model and effort" }),
     );
-    fireEvent.click(
-      await screen.findByRole("radio", { name: "fixture" }),
-    );
-    fireEvent.click(screen.getByRole("radio", { name: "low" }));
+    fireEvent.click(await screen.findByRole("radio", { name: "fixture" }));
+    fireEvent.change(screen.getByRole("slider", { name: "Reasoning effort" }), {
+      target: { value: "0" },
+    });
     fireEvent.change(composer, { target: { value: "Create a draft" } });
     expect(calls.filter(([, body]) => body)).toHaveLength(0);
     fireEvent.click(screen.getByRole("button", { name: "Start chat" }));

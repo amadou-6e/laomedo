@@ -12,12 +12,34 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from laomedo.integrations.langflow.assistant.errors import AssistantError
 from laomedo.integrations.langflow.assistant.models import (
     ConversationRequest,
+    ConversationRenameRequest,
     MessageRequest,
 )
 from laomedo.integrations.langflow.assistant.persistence import AssistantStore
 
 
 class PersistenceTests(unittest.IsolatedAsyncioTestCase):
+    async def test_rename_is_retained_and_owner_session_scoped(self):
+        """Titles persist without a message or execution; other owners cannot rename."""
+        request = ConversationRenameRequest(title="My workflow assistant")
+        with self.assertRaises(AssistantError):
+            await self.store.rename(
+                uuid4(), self.identifier, request, session_key=self.key
+            )
+        renamed = await self.store.rename(
+            self.owner, self.identifier, request, session_key=self.key
+        )
+        self.assertEqual(renamed["title"], request.title)
+        detail = await AssistantStore(self.engine).detail(self.owner, self.identifier)
+        self.assertEqual(detail["conversation"]["title"], request.title)
+        self.assertEqual(detail["messages"], [])
+        self.assertIsNone(detail["conversation"]["run_id"])
+        await self.store.revoke(self.key)
+        with self.assertRaises(AssistantError):
+            await self.store.rename(
+                self.owner, self.identifier, request, session_key=self.key
+            )
+
     async def test_turn_selection_is_immutable_and_part_of_retry_identity(self):
         """A retry cannot silently change models; a following turn can choose another."""
         request = MessageRequest(

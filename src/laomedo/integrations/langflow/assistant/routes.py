@@ -9,6 +9,7 @@ from langflow.services.auth.utils import get_current_active_user
 from laomedo.integrations.langflow.assistant.errors import AssistantError
 from laomedo.integrations.langflow.assistant.models import (
     ConversationRequest,
+    ConversationRenameRequest,
     MessageRequest,
     StopRequest,
 )
@@ -77,6 +78,19 @@ async def list_conversations(
         return await release(
             runtime, owner, key, await runtime.store.list(owner, cursor)
         )
+    except AssistantError as error:
+        raise HTTPException(error.status, detail={"code": error.code}) from None
+
+
+@router.patch("/conversations/{identifier}")
+async def rename_conversation(
+    identifier: UUID, body: ConversationRenameRequest, context=Depends(access)
+):
+    """Persist an explicit title with the same owner and revocation fences as saves."""
+    runtime, owner, key = context
+    try:
+        result = await runtime.store.rename(owner, identifier, body, session_key=key)
+        return await release(runtime, owner, key, result)
     except AssistantError as error:
         raise HTTPException(error.status, detail={"code": error.code}) from None
 

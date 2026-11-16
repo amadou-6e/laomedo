@@ -11,6 +11,7 @@ export async function assistantRequest<T>(
   path: string,
   body?: unknown,
   signal?: AbortSignal,
+  method?: "PATCH",
 ): Promise<T> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -26,7 +27,7 @@ export async function assistantRequest<T>(
   let payload: any;
   try {
     response = await fetch(`/api/v1/laomedo/assistant${path}`, {
-      method: body === undefined ? "GET" : "POST",
+      method: method ?? (body === undefined ? "GET" : "POST"),
       credentials: "same-origin",
       cache: "no-store",
       headers,

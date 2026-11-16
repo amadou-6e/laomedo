@@ -143,6 +143,19 @@ class AssistantStore:
             await session.flush()
             return conversation.model_dump(mode="json")
 
+    async def rename(self, owner, identifier, request, *, session_key):
+        """Rename one owned conversation without touching its execution state."""
+        async with self.transaction() as session:
+            await self.authorize(session, owner, session_key)
+            conversation = await self.conversation(
+                session, owner, identifier, lock=True
+            )
+            conversation.title = request.title
+            conversation.updated_at = time.time()
+            session.add(conversation)
+            await session.flush()
+            return conversation.model_dump(mode="json")
+
     async def list(self, owner, cursor=0):
         """Return a bounded page without message bodies or other owners' summaries."""
         async with self.sessions() as session:

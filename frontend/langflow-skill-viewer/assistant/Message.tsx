@@ -106,7 +106,9 @@ export default function MessageRow({
           })}
         </p>
         <div className="rounded-xl rounded-tr-sm border bg-muted/50 px-4 py-3">
-          <p className="whitespace-pre-wrap break-words">{message.text}</p>
+          <p className="whitespace-pre-wrap break-words text-sm leading-[1.7142857]">
+            {message.text}
+          </p>
         </div>
       </div>
       {groups.map((group) => {
