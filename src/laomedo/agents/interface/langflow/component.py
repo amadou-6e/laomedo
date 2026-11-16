@@ -271,6 +271,7 @@ class AgentComponent(Component):
         DropdownInput(
             name="provider_connection",
             display_name="Connection",
+            advanced=True,
             options=[],
             value="",
             show=False,
@@ -421,6 +422,7 @@ class AgentComponent(Component):
             rows = await asyncio.to_thread(ProviderGraphBindings.choices, self)
             field.update(
                 show=True,
+                advanced=True,
                 options=[str(row.connection_id) for row in rows],
                 options_metadata=[
                     {
