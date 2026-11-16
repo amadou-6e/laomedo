@@ -27,6 +27,13 @@ test("starts collapsed and retains edited values through collapse and reopen", (
   expect(screen.getByRole("textbox")).toHaveValue("changed");
   expect(document.getElementById(toggle.getAttribute("aria-controls")!)).toBeVisible();
 });
+
+test("saved provider selection remains available in the advanced group", () => {
+  const selected = { ...data, node: { template: { provider_connection: { ...field, value: "saved-account" } } } };
+  expect(advancedAgentFields(selected, ["provider_connection"], [], false)).toEqual(["provider_connection"]);
+  const hidden = { ...selected, node: { template: { provider_connection: { ...field, show: false } } } };
+  expect(advancedAgentFields(hidden, ["provider_connection"], [], false)).toEqual([]);
+});
 test("the minimized node hides the entire disclosure", () => {
   render(<AgentAdvancedControls nodeId="a" visible={false}>Controls</AgentAdvancedControls>);
   expect(screen.queryByRole("button")).toBeNull();
