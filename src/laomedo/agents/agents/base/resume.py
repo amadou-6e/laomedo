@@ -3,7 +3,9 @@
 import json
 import sqlite3
 import threading
+import hashlib
 from contextlib import contextmanager
+from uuid import uuid4
 
 from pydantic import ValidationError
 
@@ -40,6 +42,7 @@ class ResumeDispatcher:
         digest = request.digest()
         with self._connection() as connection:
             connection.execute("BEGIN IMMEDIATE")
+            self._reconcile(connection, run_id)
             row = connection.execute(
                 "SELECT digest FROM attempts WHERE run_id=? AND attempt_id=?",
                 (run_id, request.activity_attempt_id),
@@ -54,7 +57,7 @@ class ResumeDispatcher:
             ).fetchone():
                 raise RunnerError("resume_already_active")
             connection.execute(
-                "INSERT INTO attempts VALUES (?,?,?,?,?,?,NULL)",
+                "INSERT INTO attempts VALUES (?,?,?,?,?,?,NULL,?)",
                 (
                     run_id,
                     request.activity_attempt_id,
@@ -62,6 +65,7 @@ class ResumeDispatcher:
                     self.runner.instance_id,
                     "reserved",
                     None,
+                    self._record_digest(self.runner.status(run_id)),
                 ),
             )
         gate = response_gate or threading.Event()
@@ -87,7 +91,49 @@ class ResumeDispatcher:
         _id(attempt_id)
         self.runner.status(run_id)
         with self._connection() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            self._reconcile(connection, run_id)
             return self._lookup(connection, run_id, attempt_id)
+
+    @contextmanager
+    def synchronous(self, run_id, attempt_id=None):
+        """Share atomic per-run admission with the existing synchronous HTTP path."""
+        _id(run_id)
+        attempt = attempt_id or str(uuid4())
+        _id(attempt)
+        with self._connection() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            self._reconcile(connection, run_id)
+            if connection.execute(
+                "SELECT 1 FROM attempts WHERE run_id=? AND "
+                "(state IN ('reserved','running','unknown') OR attempt_id=?)",
+                (run_id, attempt),
+            ).fetchone():
+                raise RunnerError("resume_already_active")
+            connection.execute(
+                "INSERT INTO attempts VALUES (?,?,?,?,?,?,NULL,?)",
+                (
+                    run_id,
+                    attempt,
+                    "synchronous",
+                    self.runner.instance_id,
+                    "running",
+                    None,
+                    self._record_digest(self.runner.status(run_id)),
+                ),
+            )
+        state, code, result = "unknown", "runner_runtime_unknown", None
+        try:
+            yield attempt
+            state, code, result = "finished", None, self.runner.status(run_id)
+        except BaseException as exc:
+            state = "failed" if self._unchanged(run_id, attempt) else "unknown"
+            code = (
+                exc.code if isinstance(exc, RunnerError) else "runner_runtime_unknown"
+            )
+            raise
+        finally:
+            self._finish(run_id, attempt, state, code, result)
 
     @contextmanager
     def _connection(self):
@@ -100,6 +146,7 @@ class ResumeDispatcher:
                 "CREATE TABLE IF NOT EXISTS attempts ("
                 "run_id TEXT NOT NULL, attempt_id TEXT NOT NULL, digest TEXT NOT NULL, "
                 "instance_id TEXT NOT NULL, state TEXT NOT NULL, error_code TEXT, result TEXT, "
+                "before_digest TEXT, "
                 "PRIMARY KEY(run_id,attempt_id))"
             )
             connection.commit()
@@ -122,12 +169,88 @@ class ResumeDispatcher:
         state = row[1]
         if row[0] != self.runner.instance_id and state in {"reserved", "running"}:
             state = "unknown"
+        elif state in {"reserved", "running"}:
+            record = self.runner.status(run_id)
+            if (
+                isinstance(record, dict)
+                and record.get("activity_attempt_id") == attempt_id
+                and record.get("attempt_finished")
+            ):
+                state = "unknown"
         return {
             "run_id": run_id,
             "activity_attempt_id": attempt_id,
             "status": state,
             "error_category": row[2],
             "result": json.loads(row[3]) if row[3] else None,
+        }
+
+    def _record_digest(self, record):
+        if not isinstance(record, dict):
+            return None
+        return hashlib.sha256(json.dumps(record, sort_keys=True).encode()).hexdigest()
+
+    def _unchanged(self, run_id, attempt_id):
+        """Require an identical completed record and no admission marker for refusal."""
+        record = self.runner.status(run_id)
+        if not isinstance(record, dict) or record.get("status") != "completed":
+            return False
+        if record.get("activity_attempt_id") == attempt_id:
+            return False
+        if (
+            self.runner.state
+            / "runs"
+            / run_id
+            / "activity-attempts"
+            / (attempt_id + ".json")
+        ).exists():
+            return False
+        with self._connection() as connection:
+            row = connection.execute(
+                "SELECT before_digest FROM attempts WHERE run_id=? AND attempt_id=?",
+                (run_id, attempt_id),
+            ).fetchone()
+        return bool(row and row[0] and row[0] == self._record_digest(record))
+
+    def _reconcile(self, connection, run_id):
+        """Resolve only a matching terminal attempt with attested resource settlement.
+
+        A prior completed record without the new attempt marker is insufficient:
+        another process's gated worker could still start. Never infer non-dispatch
+        or native cleanup just from an instance-id change.
+        """
+        record = self.runner.status(run_id)
+        if not isinstance(record, dict) or record.get("status") not in {
+            "completed",
+            "failed",
+            "cancelled",
+            "interrupted",
+        }:
+            return
+        if (
+            not record.get("attempt_finished")
+            or record.get("controller_cleanup") != "confirmed"
+        ):
+            return
+        if record.get("container_ownership", {}).get("cleanup_verified") is not True:
+            return
+        if self.runner.mcp_access(run_id) is not None or self.runner.lock.locked():
+            return
+        connection.execute(
+            "UPDATE attempts SET state='finished',error_code=NULL,result=? "
+            "WHERE run_id=? AND attempt_id=? AND state IN ('reserved','running','unknown')",
+            (
+                json.dumps(self._result(record)),
+                run_id,
+                record.get("activity_attempt_id"),
+            ),
+        )
+
+    def _result(self, result):
+        """Keep bounded identity/outcome metadata, not answers or native payloads."""
+        return {
+            key: result.get(key)
+            for key in ("status", "error_category", "thread_id", "post_run_hash")
         }
 
     def _execute(self, run_id, request, gate):
@@ -158,7 +281,12 @@ class ResumeDispatcher:
             )
             state, code = "finished", None
         except RunnerError as exc:
-            state, code = ("unknown" if dispatched else "failed"), exc.code
+            state = (
+                "failed"
+                if not dispatched or self._unchanged(run_id, attempt)
+                else "unknown"
+            )
+            code = exc.code
         except Exception:
             state, code = "unknown", "runner_runtime_unknown"
         finally:
@@ -167,7 +295,12 @@ class ResumeDispatcher:
                     self.runner.release_mcp(run_id, expected=access)
             except Exception:
                 state, code = "unknown", "runner_runtime_unknown"
-            self._finish(run_id, attempt, state, code, result)
+            try:
+                self._finish(run_id, attempt, state, code, result)
+            except RunnerError:
+                # Lookup can reconcile an attested terminal native attempt after
+                # storage recovery. Never dispatch again because this write failed.
+                pass
 
     def _finish(self, run_id, attempt_id, state, code=None, result=None):
         with self._connection() as connection:
@@ -177,7 +310,7 @@ class ResumeDispatcher:
                 (
                     state,
                     code,
-                    json.dumps(result) if result is not None else None,
+                    json.dumps(self._result(result)) if result is not None else None,
                     run_id,
                     attempt_id,
                 ),

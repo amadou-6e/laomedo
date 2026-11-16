@@ -34,6 +34,16 @@ class ResumeDispatchTests(unittest.TestCase):
         }
         self.runner = Mock(state=Path(self.directory.name), instance_id=str(uuid4()))
         self.runner._mcp_manifest.return_value = None
+        self.runner.status.return_value = {
+            "status": "completed",
+            "thread_id": "native-thread",
+            "activity_attempt_id": str(uuid4()),
+            "attempt_finished": True,
+            "controller_cleanup": "confirmed",
+            "container_ownership": {"cleanup_verified": True},
+        }
+        self.runner.mcp_access.return_value = None
+        self.runner.lock = threading.Lock()
         self.runner.bind_mcp_resume.return_value = None
         self.runner.prepare_resume.return_value = {}
         self.runner.resume.return_value = {"status": "completed", "answer": "done"}
@@ -59,7 +69,8 @@ class ResumeDispatchTests(unittest.TestCase):
         self.runner.bind_mcp_resume.assert_not_called()
         gate.set()
         result = self.terminal()
-        self.assertEqual(result["result"]["answer"], "done")
+        self.assertEqual(result["result"]["status"], "completed")
+        self.assertNotIn("answer", result["result"])
         self.assertEqual(self.dispatcher.submit(self.run_id, self.body), result)
         self.runner.resume.assert_called_once()
 
@@ -154,13 +165,114 @@ class ResumeDispatchTests(unittest.TestCase):
         self.terminal()
 
     def test_native_exception_stays_unknown_and_blocks_next_dispatch(self):
-        self.runner.resume.side_effect = RunnerError("container_termination_unverified")
+        def fail_after_dispatch(*args, **kwargs):
+            self.runner.status.return_value = {
+                "status": "running",
+                "activity_attempt_id": kwargs["activity_attempt_id"],
+                "attempt_finished": False,
+            }
+            raise RunnerError("container_termination_unverified")
+
+        self.runner.resume.side_effect = fail_after_dispatch
         self.dispatcher.submit(self.run_id, self.body)
         self.assertEqual(self.terminal()["status"], "unknown")
         with self.assertRaisesRegex(RunnerError, "resume_already_active"):
             self.dispatcher.submit(
                 self.run_id, {**self.body, "activity_attempt_id": str(uuid4())}
             )
+        self.runner.resume.assert_called_once()
+
+    def test_definite_refusal_leaves_next_attempt_dispatchable(self):
+        self.runner.resume.side_effect = RunnerError("resume_binding_mismatch")
+        self.dispatcher.submit(self.run_id, self.body)
+        self.assertEqual(self.terminal()["status"], "failed")
+        self.runner.resume.side_effect = None
+        self.body = {**self.body, "activity_attempt_id": str(uuid4())}
+        self.dispatcher.submit(self.run_id, self.body)
+        self.assertEqual(self.terminal()["status"], "finished")
+        self.assertEqual(self.runner.resume.call_count, 2)
+
+    def test_reconcile_requires_matching_terminal_attempt_and_verified_cleanup(self):
+        with self.dispatcher._connection() as connection:
+            connection.execute(
+                "INSERT INTO attempts VALUES (?,?,?,?,?,?,NULL,NULL)",
+                (
+                    self.run_id,
+                    self.body["activity_attempt_id"],
+                    "digest",
+                    "old-instance",
+                    "running",
+                    None,
+                ),
+            )
+        observed = self.dispatcher.lookup(self.run_id, self.body["activity_attempt_id"])
+        self.assertEqual(observed["status"], "unknown")
+        self.runner.status.return_value["activity_attempt_id"] = self.body[
+            "activity_attempt_id"
+        ]
+        self.runner.status.return_value["container_ownership"][
+            "cleanup_verified"
+        ] = False
+        self.assertEqual(
+            self.dispatcher.lookup(self.run_id, self.body["activity_attempt_id"])[
+                "status"
+            ],
+            "unknown",
+        )
+        self.runner.status.return_value["container_ownership"][
+            "cleanup_verified"
+        ] = True
+        observed = self.dispatcher.lookup(self.run_id, self.body["activity_attempt_id"])
+        self.assertEqual(observed["status"], "finished")
+        self.assertEqual(observed["result"]["status"], "completed")
+        self.runner.resume.assert_not_called()
+
+    def test_synchronous_and_asynchronous_admission_exclude_each_other(self):
+        gate = threading.Event()
+        self.addCleanup(gate.set)
+        with self.dispatcher.synchronous(self.run_id):
+            with self.assertRaisesRegex(RunnerError, "resume_already_active"):
+                self.dispatcher.submit(self.run_id, self.body)
+        self.dispatcher.submit(self.run_id, self.body, response_gate=gate)
+        with self.assertRaisesRegex(RunnerError, "resume_already_active"):
+            with self.dispatcher.synchronous(self.run_id):
+                self.fail("synchronous resume admitted competing work")
+        gate.set()
+        self.terminal()
+
+    def test_worker_start_failure_is_durable_and_never_calls_provider(self):
+        with patch(
+            "laomedo.agents.agents.base.resume.threading.Thread.start",
+            side_effect=RuntimeError("private detail"),
+        ):
+            with self.assertRaisesRegex(RunnerError, "runner_runtime_unknown"):
+                self.dispatcher.submit(self.run_id, self.body)
+        self.assertEqual(
+            self.dispatcher.lookup(self.run_id, self.body["activity_attempt_id"])[
+                "status"
+            ],
+            "failed",
+        )
+        self.runner.resume.assert_not_called()
+
+    def test_failed_final_write_reconciles_after_storage_recovers(self):
+        completed = threading.Event()
+
+        def completed_resume(*args, **kwargs):
+            self.runner.status.return_value["activity_attempt_id"] = kwargs[
+                "activity_attempt_id"
+            ]
+            return dict(self.runner.status.return_value)
+
+        def failed_write(*args, **kwargs):
+            completed.set()
+            raise RunnerError("resume_journal_unavailable")
+
+        self.runner.resume.side_effect = completed_resume
+        with patch.object(self.dispatcher, "_finish", side_effect=failed_write):
+            self.dispatcher.submit(self.run_id, self.body)
+            self.assertTrue(completed.wait(timeout=5))
+        self.assertEqual(self.terminal()["status"], "finished")
         self.runner.resume.assert_called_once()
 
     def test_completion_is_not_visible_until_owned_grant_release(self):
@@ -225,7 +337,7 @@ class ResumeDispatchHTTPTests(unittest.TestCase):
                     timeout=5,
                 ) as response:
                     observed = json.load(response)
-                if observed["status"] not in {"reserved", "running"}:
+                if observed["status"] in {"finished", "failed"}:
                     break
                 time.sleep(0.01)
             self.assertEqual(observed["status"], "finished", observed)
@@ -234,3 +346,38 @@ class ResumeDispatchHTTPTests(unittest.TestCase):
                 urlopen(base + "/" + body["activity_attempt_id"], timeout=5)
             self.assertEqual(failure.exception.code, 401)
             failure.exception.close()
+
+    def test_real_provider_stale_hash_refusal_does_not_brick_follow_up(self):
+        case = RunnerCase.create()
+        self.addCleanup(case.close)
+        initial = case.runner.start(case.request())
+        body = {
+            "task": "Continue",
+            "activity_attempt_id": str(uuid4()),
+            "expected_thread_id": initial["thread_id"],
+            "expected_post_run_hash": "sha256:" + "0" * 64,
+            "model": "test-model",
+            "effort": "low",
+        }
+        dispatcher = ResumeDispatcher(case.runner)
+        dispatcher.submit(initial["run_id"], body)
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            observed = dispatcher.lookup(initial["run_id"], body["activity_attempt_id"])
+            if observed["status"] in {"finished", "failed"}:
+                break
+            time.sleep(0.01)
+        self.assertEqual(observed["status"], "failed", observed)
+        self.assertEqual(observed["error_category"], "resume_binding_mismatch")
+        body.update(
+            activity_attempt_id=str(uuid4()),
+            expected_post_run_hash=initial["post_run_hash"],
+        )
+        dispatcher.submit(initial["run_id"], body)
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            observed = dispatcher.lookup(initial["run_id"], body["activity_attempt_id"])
+            if observed["status"] in {"finished", "failed"}:
+                break
+            time.sleep(0.01)
+        self.assertEqual(observed["status"], "finished", observed)

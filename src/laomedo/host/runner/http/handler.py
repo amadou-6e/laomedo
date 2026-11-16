@@ -133,18 +133,26 @@ class RunnerRequestHandler(BaseHTTPRequestHandler):
             elif (
                 len(parts) == 4 and parts[:2] == ["v1", "runs"] and parts[3] == "resume"
             ):
-                mcp_access = self.server.runner.bind_mcp_resume(parts[2], body)
-                extra = self.server.runner.prepare_resume(parts[2], body)
-                result = self.server.runner.resume(
-                    parts[2],
-                    body["task"],
-                    expected_post_run_hash=body["expected_post_run_hash"],
-                    expected_thread_id=body["expected_thread_id"],
-                    model=body["model"],
-                    effort=body["effort"],
-                    activity_attempt_id=body.get("activity_attempt_id"),
-                    **extra,
-                )
+                with self.server.runner.resume_guard(
+                    parts[2], body.get("activity_attempt_id")
+                ) as attempt_id:
+                    try:
+                        mcp_access = self.server.runner.bind_mcp_resume(parts[2], body)
+                        extra = self.server.runner.prepare_resume(parts[2], body)
+                        result = self.server.runner.resume(
+                            parts[2],
+                            body["task"],
+                            expected_post_run_hash=body["expected_post_run_hash"],
+                            expected_thread_id=body["expected_thread_id"],
+                            model=body["model"],
+                            effort=body["effort"],
+                            activity_attempt_id=attempt_id,
+                            **extra,
+                        )
+                    finally:
+                        if mcp_access is not None:
+                            owned, mcp_access = mcp_access, None
+                            self.server.runner.release_mcp(parts[2], expected=owned)
             elif (
                 len(parts) == 4 and parts[:2] == ["v1", "runs"] and parts[3] == "cancel"
             ):

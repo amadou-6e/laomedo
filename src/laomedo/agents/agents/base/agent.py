@@ -338,6 +338,12 @@ class BaseAgent(ABC):
 
         return ResumeDispatcher(self).lookup(run_id, attempt_id)
 
+    def resume_guard(self, run_id, attempt_id=None):
+        """Serialize synchronous HTTP resume against durable asynchronous attempts."""
+        from laomedo.agents.agents.base.resume import ResumeDispatcher
+
+        return ResumeDispatcher(self).synchronous(run_id, attempt_id)
+
     def status(self, run_id: str) -> dict:
         """Read an admitted retained run record without dispatching or repeating native work."""
         return _read(self._run_dir(run_id) / "record.json")

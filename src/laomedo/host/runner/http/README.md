@@ -12,7 +12,7 @@ The optional asynchronous resume operation is POST
 `/v1/runs/{run}/resume/async`, returning an attempt observation with HTTP 202.
 GET `/v1/runs/{run}/resume/{attempt}` reads the same durable observation.
 These endpoints delegate to the base Agent's idempotent `ResumeDispatcher`;
-they do not change synchronous resume admission or prove native integration
+synchronous resume shares their atomic per-run admission. These checks do not prove native integration
 acceptance. `finished` describes completion of the resume call: inspect its
 `result.status` for the provider outcome. `unknown` must not be replayed.
 `do_GET` / `do_POST` are framework-mandated names; domain methods retain start,

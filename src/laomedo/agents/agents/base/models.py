@@ -26,7 +26,7 @@ class ResumeDispatchRequest(BaseModel):
     expected_thread_id: str = Field(min_length=1, max_length=256)
     model: str = Field(min_length=1, max_length=256)
     effort: str = Field(min_length=1, max_length=100)
-    run_timeout_seconds: float | None = Field(default=None, gt=0)
+    run_timeout_seconds: int | None = Field(default=None, gt=0)
     mcp_manifest: dict[str, JsonValue] | None = Field(default=None, repr=False)
     mcp_registration: str | None = Field(default=None, repr=False, exclude=True)
 

@@ -213,3 +213,14 @@ supply another projector. See [the exact contract](../../../../../docs/architect
 ## Raw evidence boundary
 
 `BaseAgent.read_events(run_id, attempt_id, after=0, otel_after=0, limit=100, tail=False)` reads bounded native and telemetry receipts for evidence readers. Shared code owns its recorded-file layout; HTTP only adapts query values and serializes the result. `read_activity` remains the normalized application interface.
+
+## Durable resume admission
+
+ResumeDispatcher reserves a per-run slot before MCP binding or native dispatch.
+Both HTTP resume paths use that slot. Definite pre-dispatch refusals release it;
+uncertain work remains blocked against replay. Lookup may reconcile only a
+matching terminal attempt with confirmed controller cleanup, verified container
+cleanup, and no active MCP access or runner lock. An older completed attempt
+cannot establish that a newer reservation never started. The journal retains
+only semantic request digests and outcome/session/checkpoint metadata, excluding
+prompts, answers and transient MCP registration capabilities.
