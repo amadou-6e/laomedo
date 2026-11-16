@@ -19,7 +19,15 @@ export default function ConnectionRegistration({
   const inFlight = useRef(false);
   useEffect(() => {
     active.current = true;
+    const restore = (event: PageTransitionEvent) => {
+      if (event.persisted) {
+        inFlight.current = false;
+        setBusy(false);
+      }
+    };
+    window.addEventListener("pageshow", restore);
     return () => {
+      window.removeEventListener("pageshow", restore);
       active.current = false;
     };
   }, []);

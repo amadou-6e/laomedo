@@ -112,3 +112,29 @@ test("pending token verification prevents registration and back navigation", () 
     screen.getByRole("button", { name: "Use a personal access token instead" }),
   ).toBeDisabled();
 });
+
+test("restoring setup from browser Back re-enables explicit continuation", async () => {
+  const submit = jest
+    .spyOn(HTMLFormElement.prototype, "submit")
+    .mockImplementation(() => {});
+  (connectionRequest as jest.Mock).mockResolvedValue({
+    outcome: {
+      action: "https://github.com/settings/apps/new?state=synthetic",
+      manifest: { public: false },
+    },
+  });
+  render(<ConnectionRegistration close={jest.fn()} />);
+  fireEvent.click(screen.getByRole("button", { name: "Continue to GitHub" }));
+  await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
+  const restored = new Event("pageshow");
+  Object.defineProperty(restored, "persisted", { value: true });
+  fireEvent(window, restored);
+  expect(
+    screen.getByRole("button", { name: "Continue to GitHub" }),
+  ).toBeEnabled();
+  expect(
+    screen.getByRole("button", { name: "Back to connections" }),
+  ).toBeEnabled();
+  expect(connectionRequest).toHaveBeenCalledTimes(1);
+  submit.mockRestore();
+});

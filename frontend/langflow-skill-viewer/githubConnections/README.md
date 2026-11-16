@@ -62,7 +62,7 @@ an onboarding attempt created by a completed registration; ordinary waiting
 attempts still require Continue. Returning browser consent only refreshes candidates.
 
 First-time setup presents two numbered steps: choose the intended account using
-GitHub?s profile menu, then Continue to submit the private manifest. The external
+GitHub's profile menu, then Continue to submit the private manifest. The external
 GitHub link opens separately so setup stays available. Returning connections keep
-their saved App; setup never silently borrows another account?s App. Registration
+their saved App; setup never silently borrows another account's App. Registration
 uses the shared Button, navigation, theme tokens and responsive connection card.
