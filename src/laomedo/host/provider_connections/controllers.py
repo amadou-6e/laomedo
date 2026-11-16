@@ -52,6 +52,12 @@ class SavedRunnerRequestHandler(RunnerRequestHandler):
                 },
             )
             return
+        except (OSError, ValueError, KeyError):
+            self._reply(
+                409,
+                {"status": "failed", "error_category": "provider_runner_unavailable"},
+            )
+            return
         try:
             if method == "GET":
                 super().do_GET()
@@ -364,6 +370,9 @@ class ProviderControllers:
                     raise ProviderConnectionError(
                         "provider_cleanup_unconfirmed"
                     ) from None
+                if slot.creating or slot.runner is None:
+                    ready = False
+                    continue
             try:
                 for record in self._records(slot):
                     if record["status"] in {"prepared", "running"}:

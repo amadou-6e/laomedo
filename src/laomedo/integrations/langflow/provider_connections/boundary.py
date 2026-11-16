@@ -20,7 +20,7 @@ class ProviderSessionBoundary:
     async def __call__(self, scope, receive, send):
         """Fence the exact outgoing cookie before logout or a new profile login."""
         session = None
-        if scope["type"] == "http":
+        if scope["type"] == "http" and scope.get("path", "").startswith("/api/"):
             request = Request(scope)
             cookie = request.cookies.get("access_token_lf")
             if (

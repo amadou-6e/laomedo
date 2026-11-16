@@ -162,6 +162,40 @@ class ProviderControllerTests(unittest.TestCase):
             self.manager.admit_operation(slot, catalog=True)
         slot.operations = 0
 
+    def test_corrupt_inventory_refuses_catalog_with_a_safe_response(self):
+        endpoint, _token = self.manager.endpoint(self.profile, self.one)
+        slot = self.manager.slots[(self.profile, self.one, 1)]
+        record = slot.state / "runs" / str(uuid4()) / "record.json"
+        record.parent.mkdir()
+        record.write_text("{", encoding="utf-8")
+        request = Request(
+            endpoint + "/v1/models", headers={"Authorization": "Bearer " + "0" * 64}
+        )
+        try:
+            with self.assertRaises(HTTPError) as failure:
+                urlopen(request, timeout=3)
+            self.assertEqual(failure.exception.code, 409)
+            self.assertEqual(
+                json.load(failure.exception)["error_category"],
+                "provider_runner_unavailable",
+            )
+            self.assertEqual(slot.operations, 0)
+        finally:
+            record.unlink()
+
+    def test_cleanup_waits_if_failed_slot_retry_is_already_starting(self):
+        self.manager.endpoint(self.profile, self.one)
+        slot = self.manager.slots[(self.profile, self.one, 1)]
+        starting = slot.model_copy(
+            update={"runner": None, "server": None, "creating": True}
+        )
+        self.manager.slots[(self.profile, self.one, 1)] = slot.model_copy(
+            update={"runner": None, "server": None}
+        )
+        with unittest.mock.patch.object(self.manager, "_create", return_value=starting):
+            self.assertFalse(self.manager.stop(self.profile, self.one))
+        self.manager.slots[(self.profile, self.one, 1)] = slot
+
     def test_unavailable_recovered_runner_keeps_settings_and_cleanup_retryable(self):
         state = self.manager.root / str(self.profile) / str(self.one) / "g1"
         state.mkdir(parents=True)
