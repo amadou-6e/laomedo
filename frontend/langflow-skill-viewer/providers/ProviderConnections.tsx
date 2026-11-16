@@ -34,7 +34,7 @@ export default function ProviderConnections() {
       setRows(next);
       setSelected(current => next.find(row => row.connection_id === current?.connection_id));
       if (screen === "removing" && selected && !next.some(row => row.connection_id === selected.connection_id)) setScreen("removed");
-      const id = attempt?.attempt_id ?? new URLSearchParams(window.location.search).get("attempt") ?? sessionStorage.getItem(pendingKey);
+      const id = attempt?.attempt_id || new URLSearchParams(window.location.search).get("attempt") || sessionStorage.getItem(pendingKey);
       if (id) {
         let progress: LoginProgress;
         try { progress = await readProgress(id); }
@@ -56,7 +56,7 @@ export default function ProviderConnections() {
             setScreen(progress.status === "duplicate" ? "duplicate" : "details");
           } else if (progress.status !== "cancelled") setScreen("failure");
         }
-      }
+      } else if (attempt?.code === "provider_save_unconfirmed") setScreen("failure");
     } catch {
       if (revision === epoch.current) { setError("provider_connections_unavailable"); if (attempt?.code === "provider_save_unconfirmed") setScreen("failure"); }
     } finally {
@@ -147,7 +147,7 @@ export default function ProviderConnections() {
 
   async function back() {
     if (inFlight.current) return;
-    if (screen === "pending" && attempt) {
+    if (screen === "pending" && attempt?.attempt_id) {
       const revision = ++epoch.current;
       inFlight.current = revision; setBusy(true); setError("");
       try {

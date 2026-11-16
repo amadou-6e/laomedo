@@ -1,7 +1,7 @@
 import { StrictMode } from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import ProviderConnections from "./ProviderConnections";
-import { beginLogin, listConnections, readProgress, inspectDisconnect, disconnect, retryCleanup } from "./api";
+import { beginLogin, cancelLogin, listConnections, readProgress, inspectDisconnect, disconnect, retryCleanup } from "./api";
 
 jest.mock("@/components/ui/button", () => ({
   Button: ({ ignoreTitleCase, variant, children, ...props }) => <button {...props}>{children}</button>,
@@ -137,6 +137,34 @@ describe("saved provider Settings", () => {
     fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
     await screen.findByRole("heading", { name: "Sign-in failed" });
     expect(screen.getByRole("button", { name: "Try again" })).not.toBeDisabled();
+    expect(beginLogin).not.toHaveBeenCalled();
+  });
+
+  it("recovers an unconfirmed callback from its stored receipt after a failed read", async () => {
+    const id = "00000000-0000-4000-8000-000000000002";
+    window.history.replaceState(null, "", "/settings/providers?login=unconfirmed");
+    sessionStorage.setItem("laomedo.provider-attempt", id);
+    (listConnections as jest.Mock).mockRejectedValueOnce(new Error("temporary network failure")).mockResolvedValue([account]);
+    (readProgress as jest.Mock).mockResolvedValue({ attempt_id: id, status: "connected", connection_id: account.connection_id, code: null });
+    render(<ProviderConnections />);
+    await screen.findByRole("alert");
+    fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+    await screen.findByRole("heading", { name: "Work account" });
+    expect(readProgress).toHaveBeenCalledWith(id);
+    expect(beginLogin).not.toHaveBeenCalled();
+  });
+
+  it("keeps an unconfirmed callback without a receipt readable and lets Back leave", async () => {
+    window.history.replaceState(null, "", "/settings/providers?login=unconfirmed");
+    render(<ProviderConnections />);
+    await screen.findByRole("heading", { name: "Check connection" });
+    await waitFor(() => expect(screen.getByRole("button", { name: "Refresh" })).not.toBeDisabled());
+    fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+    await waitFor(() => expect(listConnections).toHaveBeenCalledTimes(2));
+    expect(screen.getByRole("button", { name: "Try again" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Back to connections" }));
+    await screen.findByRole("heading", { name: "Providers" });
+    expect(cancelLogin).not.toHaveBeenCalled();
     expect(beginLogin).not.toHaveBeenCalled();
   });
 });
