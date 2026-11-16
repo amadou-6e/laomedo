@@ -123,10 +123,18 @@ class PrivateAccessPolicyTests(unittest.IsolatedAsyncioTestCase):
             await scope.revalidate()
             lookup.assert_awaited_once_with(unittest.mock.ANY, self.owner)
             self.assertEqual(token.await_count, 1)
+            self.assertTrue(
+                self.store.renew(
+                    self.issued.cookie, self.owner, expires_at=time.time() + 7200
+                )
+            )
+            self.assertEqual(admission.context.cookie, self.issued.cookie)
+            await scope.revalidate()
+            self.assertEqual(lookup.await_count, 2)
             self.store.revoke_browser(self.issued.cookie)
             with self.assertRaises(PrivateSessionRequired):
                 await scope.revalidate()
-            self.assertEqual(lookup.await_count, 1)
+            self.assertEqual(lookup.await_count, 2)
 
     async def test_admitted_job_refuses_changed_or_inactive_upstream_owner(self):
         context = await self.policy.authorize(self.request(), self.user)

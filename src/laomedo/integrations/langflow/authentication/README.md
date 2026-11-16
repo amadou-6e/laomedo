@@ -7,6 +7,9 @@ edges from the same effective graph that will execute. It passes canonical
 `GitHubNodeSelection` values to the generic host run authority rather than
 accepting a browser-supplied target list. Edges use current native `data`
 handle objects; obsolete string handles are not supported by this new path.
+Static requests are also write-capable; earlier PR operation outcomes never
+become requests. Saved-account Issue/PR components have no Agent tool interface,
+so Tool Mode is refused rather than bypassing graph approval.
 
 `PrivateGitHubRunAdmission` is minted only from an already JWT-admitted browser
 context. It retains the canonical `IssuedPrivateSession` lease/cookie projection,
@@ -16,6 +19,8 @@ same active ordinary profile from upstream's user lookup. This allows an admitte
 job to outlive access-token rotation while logout, lease expiry, profile removal
 or deactivation still prevents its next private request. New browser admissions
 and buffered browser responses retain their existing current-JWT checks.
+Normal browser lease renewal retains the same cookie/digest, so it preserves the
+job's initiating lease. A new explicit login is a different admission.
 
 `private_nodes.py` owns buffered Issue/PR discovery and inspection at the private
 GitHub-node API. `private_node_read` requires the ordinary profile, live browser

@@ -120,3 +120,40 @@ class GitHubNodeRunAdmissionTests(unittest.IsolatedAsyncioTestCase):
             digest, self.authority.digest_graph(self.admission.executable_graph(graph))
         )
         self.assertIn("position", self.graph["nodes"][0])
+
+    async def test_static_pr_request_is_approved_but_previous_outcome_is_not_replayed(
+        self,
+    ):
+        template = self.graph["nodes"][0]["data"]["node"]["template"]
+        template["pr_context"] = {
+            "value": {
+                "action": "close",
+                "request_id": "effect",
+                "grant_ref": "reference",
+            }
+        }
+        _, nodes = await self.admission.prepare(self.scope, self.flow, self.graph)
+        self.assertEqual(nodes[0].selection.operations, ("close",))
+        template["pr_context"] = {
+            "value": {
+                "pr": {"repository": "synthetic/private", "number": 12},
+                "operation": {"status": "succeeded"},
+            }
+        }
+        _, nodes = await self.admission.prepare(self.scope, self.flow, self.graph)
+        self.assertEqual(nodes[0].selection.operations, ())
+
+    async def test_static_issue_operation_is_write_capable_and_tool_mode_is_refused(
+        self,
+    ):
+        data = self.graph["nodes"][0]["data"]
+        data["type"] = "LaomedoGitHubIssue"
+        data["node"]["template"]["issue_choice"] = {"value": "#8 Selected Issue"}
+        data["node"]["template"]["operation"] = {
+            "value": {"action": "modify", "changes": {"title": "Requested"}}
+        }
+        _, nodes = await self.admission.prepare(self.scope, self.flow, self.graph)
+        self.assertEqual(nodes[0].selection.operations, ("modify",))
+        data["node"]["tool_mode"] = True
+        with self.assertRaises(GitHubNodeAuthorizationError):
+            await self.admission.prepare(self.scope, self.flow, self.graph)

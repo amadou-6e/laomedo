@@ -7,6 +7,8 @@ from uuid import UUID
 from laomedo.github.connections.errors import GitHubNodeAuthorizationError
 from laomedo.github.connections.models import GitHubNodeSelection
 from laomedo.github.contract import repository_from_url
+from laomedo.github.pull_requests.context import context_value
+from laomedo.github.pull_requests.models import PRContextOperation
 
 
 class GitHubNodeRunAdmission:
@@ -69,6 +71,12 @@ class GitHubNodeRunAdmission:
                 connection = template.get("github_connection", {}).get("value", "")
                 if connection == "host":
                     continue
+                if (
+                    data.get("tool_mode")
+                    or data.get("node", {}).get("tool_mode")
+                    or node.get("tool_mode")
+                ):
+                    raise GitHubNodeAuthorizationError()
                 connection_id = UUID(connection)
                 repository = repository_from_url(template["repository_url"]["value"])
                 record = self.authority.connections.journal.get(
@@ -96,6 +104,25 @@ class GitHubNodeRunAdmission:
                     else None
                 )
                 operations = ()
+                static_operation = template.get(
+                    "operation" if resource == "issue" else "pr_context", {}
+                ).get("value")
+                if static_operation:
+                    if resource == "issue":
+                        action = (
+                            static_operation.get("action")
+                            if isinstance(static_operation, dict)
+                            else None
+                        )
+                        operations = (
+                            (action,)
+                            if action in {"modify", "close"}
+                            else ("modify", "close")
+                        )
+                    else:
+                        context = context_value(static_operation)
+                        if isinstance(context.operation, PRContextOperation):
+                            operations = (context.operation.action,)
                 for edge in edges:
                     if edge.get("target") != node["id"]:
                         continue
