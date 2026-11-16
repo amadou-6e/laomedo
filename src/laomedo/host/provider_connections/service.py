@@ -2,6 +2,8 @@
 
 import hashlib
 import json
+import os
+import re
 import secrets
 import threading
 import time
@@ -16,6 +18,7 @@ from laomedo.host.credentials.siwc.utils import (
     _atomic_private,
     _outside_git,
     _restrict_windows_directory,
+    _locked,
 )
 from laomedo.host.provider_connections.errors import ProviderConnectionError
 from laomedo.host.provider_connections.models import (
@@ -43,9 +46,97 @@ class ProviderConnections:
         _restrict_windows_directory(self.root)
         self._lock = threading.RLock()
         self._attempts: dict[UUID, PendingLogin] = {}
+        owner_path = self.root / "owner.lock"
+        try:
+            descriptor = os.open(
+                owner_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600
+            )
+        except FileExistsError:
+            pass
+        else:
+            with os.fdopen(descriptor, "wb") as stream:
+                stream.write(b"0")
+        self._ownership = _locked(owner_path)
+        self._ownership.__enter__()
+        try:
+            self._reconcile_stores()
+        except Exception:
+            self.close()
+            raise
+
+    def close(self) -> None:
+        """Fence pending callbacks and release this runtime's exclusive store lease."""
+        with self._lock:
+            for item in self._attempts.values():
+                if item.progress.status in {"connecting", "verifying"}:
+                    item.progress.status = "cancelled"
+            if self._ownership is not None:
+                self._ownership.__exit__(None, None, None)
+                self._ownership = None
+
+    def _scrub(self, broker: ChatGPTConnection, client_id: str) -> None:
+        """Remove an unadmitted or superseded token file under its refresh lock.
+
+        Do not remotely revoke a grant that may also back a committed revision.
+        Controllers holding the old broker fail their next authorization probe.
+        """
+        with _locked(broker.lock_path):
+            broker._path(client_id).unlink(missing_ok=True)
+
+    def _discard_stage(self, item: PendingLogin) -> None:
+        """Scrub this attempt's owned token files, including interrupted atomic writes."""
+        broker = ChatGPTConnection(item.stage)
+        with _locked(broker.lock_path):
+            for path in broker.accounts.iterdir():
+                if re.fullmatch(
+                    r"[0-9a-f]{64}\.json(?:\.pending-[0-9a-f]{32})?", path.name
+                ):
+                    path.unlink(missing_ok=True)
+
+    def _reconcile_stores(self) -> None:
+        """Scrub crash-left staging and superseded vaults; never replay sign-in.
+
+        Unreadable admission metadata prevents cleanup and startup, rather than
+        guessing that saved credentials are unowned. Only canonical UUID vaults
+        and this owner's pending directories are considered.
+        """
+        for profile in self.root.iterdir():
+            if not profile.is_dir():
+                continue
+            try:
+                profile_id = UUID(profile.name)
+                if str(profile_id) != profile.name:
+                    continue
+            except ValueError:
+                continue
+            active = {record.credential_id for record in self._records(profile_id)}
+            for vault in profile.iterdir():
+                if not vault.is_dir():
+                    continue
+                try:
+                    vault_id = UUID(vault.name.removeprefix("pending-"))
+                except ValueError:
+                    continue
+                broker = ChatGPTConnection(vault)
+                with _locked(broker.lock_path):
+                    for pending in broker.accounts.glob("*.json.pending-*"):
+                        if re.fullmatch(
+                            r"[0-9a-f]{64}\.json\.pending-[0-9a-f]{32}", pending.name
+                        ):
+                            pending.unlink()
+                if not vault.name.startswith("pending-") and vault_id in active:
+                    continue
+                for path in broker.accounts.glob("*.json"):
+                    account = json.loads(path.read_text(encoding="utf-8"))
+                    client_id = account["client_id"]
+                    if broker._path(client_id) != path:
+                        raise ProviderConnectionError("provider_cleanup_unconfirmed")
+                    self._scrub(broker, client_id)
 
     def _profile(self, profile_id: UUID) -> Path:
         """Resolve only a canonical profile identifier below the private root."""
+        if self._ownership is None:
+            raise ProviderConnectionError("provider_connections_unavailable")
         profile_id = UUID(str(profile_id))
         path = self.root / str(profile_id)
         path.mkdir(exist_ok=True, mode=0o700)
@@ -92,7 +183,12 @@ class ProviderConnections:
                     account = self._broker(profile_id, record.credential_id).account(
                         record.client_id
                     )
-                    if account["generation"] == record.generation:
+                    if (
+                        hashlib.sha256(
+                            (account["issuer"] + "\0" + account["subject"]).encode()
+                        ).hexdigest()
+                        == record.subject_hash
+                    ):
                         state = {
                             "active": "ready",
                             "revoked": "revoked",
@@ -187,7 +283,57 @@ class ProviderConnections:
             item = self._attempts.get(attempt_id)
             if item is None or item.profile_id != profile_id:
                 raise ProviderConnectionError("provider_login_expired")
+            if item.progress.code == "provider_save_unconfirmed":
+                self._reconcile_publication(item)
+        return self._settle(profile_id, attempt_id)
+
+    def _settle(self, profile_id: UUID, attempt_id: UUID) -> LoginProgress:
+        """Clean superseded tokens outside the global lifecycle lock before copying a receipt."""
+        with self._lock:
+            item = self._attempts[attempt_id]
+            previous = item.previous if item.progress.status == "connected" else None
+        if previous is not None:
+            try:
+                self._scrub(
+                    self._broker(profile_id, previous.credential_id), previous.client_id
+                )
+            except (OSError, AuthError, ProviderConnectionError):
+                with self._lock:
+                    item.progress.status = "failed"
+                    item.progress.code = "provider_save_unconfirmed"
+        with self._lock:
             return item.progress.model_copy()
+
+    def _reconcile_publication(self, item: PendingLogin) -> None:
+        """Read back an attempted pointer write before reporting or discarding it."""
+        self._discard_stage(item)
+        if item.publication is None:
+            item.progress.status = "failed"
+            item.progress.code = "provider_sign_in_failed"
+            return
+        item.progress.status = "failed"
+        item.progress.code = "provider_save_unconfirmed"
+        try:
+            records = self._records(item.profile_id)
+        except ProviderConnectionError:
+            item.progress.status = "failed"
+            item.progress.code = "provider_save_unconfirmed"
+            return
+        admitted = next(
+            (record for record in records if record.connection_id == item.candidate_id),
+            None,
+        )
+        if admitted == item.publication:
+            item.progress.status = "connected"
+            item.progress.connection_id = item.candidate_id
+            item.progress.code = None
+        else:
+            self._scrub(
+                self._broker(item.profile_id, item.publication.credential_id),
+                item.publication.client_id,
+            )
+            item.progress.status = "failed"
+            item.progress.code = "provider_sign_in_failed"
 
     def cancel(self, profile_id: UUID, attempt_id: UUID) -> LoginProgress:
         """Fence a pending exchange before returning; a late result cannot commit."""
@@ -219,6 +365,15 @@ class ProviderConnections:
                     item.progress.status = "cancelled"
 
     def complete(
+        self, profile_id: UUID, callback: dict, *, lease_hash: str = "", **verification
+    ) -> LoginProgress:
+        """Return a detached receipt only after the private exchange and cleanup settle."""
+        result = self._complete(
+            profile_id, callback, lease_hash=lease_hash, **verification
+        )
+        return self._settle(profile_id, result.attempt_id)
+
+    def _complete(
         self, profile_id: UUID, callback: dict, *, lease_hash: str = "", **verification
     ) -> LoginProgress:
         """Consume a matching callback once, verify privately and fence before commit.
@@ -254,7 +409,7 @@ class ProviderConnections:
             with self._lock:
                 self._expire()
                 if item.progress.status != "verifying":
-                    return item.progress.model_copy()
+                    return item.progress
                 records = self._records(profile_id)
                 subject_hash = hashlib.sha256(
                     (
@@ -273,7 +428,7 @@ class ProviderConnections:
                 if duplicate:
                     item.progress.status = "duplicate"
                     item.progress.connection_id = duplicate.connection_id
-                    return item.progress.model_copy()
+                    return item.progress
                 if item.previous:
                     current = self._record(profile_id, item.candidate_id)
                     if current != item.previous:
@@ -291,6 +446,7 @@ class ProviderConnections:
                     label=staged_account.get("email") or "ChatGPT account",
                 )
                 broker = self._broker(profile_id, record.credential_id)
+                item.publication = record
                 _atomic_private(
                     broker.host_path,
                     {"ext_agent_host_id": staged_account["ext_agent_host_id"]},
@@ -304,18 +460,28 @@ class ProviderConnections:
                 self._save(profile_id, records)
                 item.progress.status = "connected"
                 item.progress.connection_id = item.candidate_id
-                return item.progress.model_copy()
-        except (AuthError, ProviderConnectionError):
+                return item.progress
+        except Exception:
             with self._lock:
-                if item.progress.status == "verifying":
+                if item.publication is not None:
+                    try:
+                        self._reconcile_publication(item)
+                    except (OSError, AuthError):
+                        item.progress.status = "failed"
+                        item.progress.code = "provider_save_unconfirmed"
+                elif item.progress.status == "verifying":
                     item.progress.status = "failed"
                     item.progress.code = "provider_sign_in_failed"
-                return item.progress.model_copy()
+                return item.progress
         finally:
             # Erase the private staging copy even after cancellation or duplicate
             # admission. Revoking it here could revoke the newly committed grant.
-            if staged_account is not None:
-                stage._path(staged_account["client_id"]).unlink(missing_ok=True)
+            try:
+                self._discard_stage(item)
+            except (OSError, AuthError):
+                with self._lock:
+                    item.progress.status = "failed"
+                    item.progress.code = "provider_save_unconfirmed"
 
     def borrow(
         self, profile_id: UUID, connection_id: UUID, generation: int
@@ -325,16 +491,16 @@ class ProviderConnections:
             record = self._record(profile_id, connection_id)
             if record.generation != generation:
                 raise ProviderConnectionError("provider_connection_changed")
-            token, identity = self._broker(
-                profile_id, record.credential_id
-            ).access_token(record.client_id)
-            if identity["generation"] != generation:
-                updated = record.model_copy(
-                    update={"generation": identity["generation"]}
-                )
-                records = [
-                    updated if item.connection_id == connection_id else item
-                    for item in self._records(profile_id)
-                ]
-                self._save(profile_id, records)
+            broker = self._broker(profile_id, record.credential_id)
+        # Token rotation has its own broker lock/counter. It must not block
+        # unrelated logout/cancellation or change the stable connection epoch.
+        token, identity = broker.access_token(record.client_id)
+        with self._lock:
+            if self._record(profile_id, connection_id) != record:
+                raise ProviderConnectionError("provider_connection_changed")
+            identity = {
+                **identity,
+                "connection_generation": record.generation,
+                "credential_generation": identity["generation"],
+            }
             return token, identity

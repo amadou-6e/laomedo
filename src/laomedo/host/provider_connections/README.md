@@ -19,6 +19,16 @@ committed credential. Disconnect admission remains unavailable until the runner
 can report and fence every controller using that connection; local token deletion
 alone is not presented as successful disconnection.
 
-The selected draft is specs PR #426 at 94e81ad4. Implementation and live acceptance
+The selected draft is specs PR #426 at eb18f67. Implementation and live acceptance
 are separate gates. Existing single-runner startup can explicitly select a broker
 account, but graph-selected per-profile runtime dispatch is still being integrated.
+
+The runtime holds an exclusive store lease until `close()`. Startup scrubs only
+canonical unindexed vaults and crash-left staging; unreadable admission metadata
+blocks cleanup rather than guessing ownership. Failed publication is reconciled
+by reading the atomic index before reporting its result. Routine token rotation
+advances the broker `credential_generation`; the saved row's `generation` is the
+stable `connection_generation`. Borrowed metadata exposes both explicitly. Old
+local token files are scrubbed after reconnect; remote grant revocation is not
+claimed. Controller-aware disconnect and actual saved-connection dispatch remain
+unfinished, so no active-controller cleanup acceptance is claimed.

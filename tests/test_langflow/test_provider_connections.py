@@ -32,6 +32,7 @@ class ProviderRouteTests(unittest.TestCase):
         self.addCleanup(temporary.cleanup)
         self.profile = uuid4()
         self.service = ProviderConnections(Path(temporary.name) / "providers")
+        self.addCleanup(self.service.close)
         app = FastAPI()
 
         async def authenticate():
@@ -76,6 +77,16 @@ class ProviderRouteTests(unittest.TestCase):
         self.client.cookies.clear()
         self.assertEqual(
             self.client.get("/api/v1/laomedo/provider-connections").status_code, 401
+        )
+
+    def test_api_key_cannot_supply_an_identity_different_from_the_cookie_lease(self):
+        """Reject mixed upstream auth mechanisms instead of trusting their precedence."""
+        path = "/api/v1/laomedo/provider-connections"
+        self.assertEqual(
+            self.client.get(path, headers={"x-api-key": "fixture-key"}).status_code, 401
+        )
+        self.assertEqual(
+            self.client.get(path + "?x-api-key=fixture-key").status_code, 401
         )
 
     def test_unknown_methods_and_oversized_payloads_cannot_launch_login(self):

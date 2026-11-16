@@ -3,7 +3,7 @@ import { ArrowLeft, ChevronRight, Plus, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ErrorExplanation from "@/components/laomedoErrors/ErrorExplanation";
 import { describeNodeFailure } from "@/components/laomedoErrors/nodeErrors";
-import { beginLogin, cancelLogin, listConnections, readProgress, type LoginProgress, type ProviderConnection } from "./api";
+import { beginLogin, cancelLogin, listConnections, readProgress, ProviderFailure, type LoginProgress, type ProviderConnection } from "./api";
 import "./providers.css";
 
 type Screen = "list" | "type" | "method" | "pending" | "details" | "failure" | "duplicate";
@@ -26,6 +26,7 @@ export default function ProviderConnections() {
     const revision = ++epoch.current;
     inFlight.current = revision;
     setBusy(true); setError("");
+    if (attempt?.code === "provider_save_unconfirmed") setScreen("pending");
     try {
       const next = await listConnections();
       if (revision !== epoch.current) return;
@@ -33,7 +34,12 @@ export default function ProviderConnections() {
       setSelected(current => next.find(row => row.connection_id === current?.connection_id));
       const id = attempt?.attempt_id ?? new URLSearchParams(window.location.search).get("attempt") ?? sessionStorage.getItem(pendingKey);
       if (id) {
-        const progress = await readProgress(id);
+        let progress: LoginProgress;
+        try { progress = await readProgress(id); }
+        catch (failure) {
+          if (!(failure instanceof ProviderFailure) || failure.code !== "provider_login_expired") throw failure;
+          progress = { attempt_id: id, status: "expired", connection_id: null, code: null };
+        }
         if (revision !== epoch.current) return;
         setAttempt(progress);
         if (["connecting", "verifying"].includes(progress.status)) setScreen("pending");
@@ -46,7 +52,7 @@ export default function ProviderConnections() {
         }
       }
     } catch {
-      if (revision === epoch.current) setError("provider_connections_unavailable");
+      if (revision === epoch.current) { setError("provider_connections_unavailable"); if (attempt?.code === "provider_save_unconfirmed") setScreen("failure"); }
     } finally {
       if (inFlight.current === revision) inFlight.current = null;
       if (revision === epoch.current) setBusy(false);
@@ -55,6 +61,10 @@ export default function ProviderConnections() {
 
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get("login") === "failed") setScreen("failure");
+    if (new URLSearchParams(window.location.search).get("login") === "unconfirmed") {
+      setAttempt({ attempt_id: "", status: "failed", connection_id: null, code: "provider_save_unconfirmed" });
+      setScreen("failure");
+    }
     void refresh();
     return () => { ++epoch.current; inFlight.current = null; };
   }, []);
@@ -90,9 +100,10 @@ export default function ProviderConnections() {
       inFlight.current = revision; setBusy(true); setError("");
       try {
         const result = await cancelLogin(attempt.attempt_id);
+        if (revision !== epoch.current) return;
         if (["connecting", "verifying"].includes(result.status)) throw new Error();
         setAttempt(undefined); sessionStorage.removeItem(pendingKey);
-      } catch { setError("provider_cancel_unconfirmed"); return; }
+      } catch { if (revision === epoch.current) setError("provider_cancel_unconfirmed"); return; }
       finally { if (inFlight.current === revision) inFlight.current = null; if (revision === epoch.current) setBusy(false); }
     }
     ++epoch.current;
@@ -101,7 +112,8 @@ export default function ProviderConnections() {
     setScreen(screen === "method" ? (selected ? "details" : "type") : "list");
   }
 
-  const heading = screen === "list" ? "Providers" : screen === "type" ? "Add provider" : screen === "method" ? "Connect Codex" : screen === "pending" ? "Finish signing in" : screen === "failure" ? (attempt?.status === "expired" ? "Sign-in expired" : "Sign-in failed") : screen === "duplicate" ? "Already connected" : selected?.label ?? "Provider connection";
+  const unconfirmed = attempt?.code === "provider_save_unconfirmed";
+  const heading = screen === "list" ? "Providers" : screen === "type" ? "Add provider" : screen === "method" ? "Connect Codex" : screen === "pending" ? (unconfirmed ? "Check connection" : "Finish signing in") : screen === "failure" ? (unconfirmed ? "Check connection" : attempt?.status === "expired" ? "Sign-in expired" : "Sign-in failed") : screen === "duplicate" ? "Already connected" : selected?.label ?? "Provider connection";
 
   return <section className="pc-screen" aria-labelledby="provider-heading">
     <div className="pc-card">
@@ -124,8 +136,8 @@ export default function ProviderConnections() {
         <div className="pc-actions"><Button ignoreTitleCase className="normal-case" disabled={busy} onClick={() => void signIn()}>Continue to sign in</Button></div>
       </>}
       {screen === "pending" && <>
-        <p>Complete sign-in with the provider.<br />We’ll update this page when it finishes.</p>
-        <div className="pc-notice" role="status">{attempt?.status === "verifying" ? "Checking connection…" : "Waiting for sign-in…"}</div>
+        <p>{unconfirmed ? "Checking your saved connection…" : <>Complete sign-in with the provider.<br />We’ll update this page when it finishes.</>}</p>
+        <div className="pc-notice" role="status">{unconfirmed || attempt?.status === "verifying" ? "Checking connection…" : "Waiting for sign-in…"}</div>
       </>}
       {screen === "details" && selected && <>
         <p>Codex · ChatGPT plan<br />{selected.label}</p>
@@ -133,8 +145,8 @@ export default function ProviderConnections() {
         <div className="pc-actions"><Button ignoreTitleCase variant="outline" className="normal-case" disabled={busy} onClick={() => setScreen("method")}>Sign in again</Button><Button ignoreTitleCase variant="outline" className="normal-case" disabled title="Waiting for active-run cleanup integration">Disconnect</Button></div>
       </>}
       {screen === "failure" && <>
-        <p>{attempt?.status === "expired" ? "Your sign-in expired. Try again." : "We couldn’t finish signing you in."}<br />Your saved connection hasn’t changed.</p>
-        <div className="pc-actions"><Button ignoreTitleCase className="normal-case" disabled={busy} onClick={() => { setAttempt(undefined); sessionStorage.removeItem(pendingKey); window.history.replaceState(null, "", "/settings/providers"); setScreen("method"); }}>Try again</Button></div>
+        {unconfirmed ? <ErrorExplanation failure={describeNodeFailure("provider_save_unconfirmed", undefined)} /> : <p>{attempt?.status === "expired" ? "Your sign-in expired. Try again." : <>We couldn’t finish signing you in.<br />Your saved connection hasn’t changed.</>}</p>}
+        <div className="pc-actions"><Button ignoreTitleCase className="normal-case" disabled={busy || unconfirmed} onClick={() => { setAttempt(undefined); sessionStorage.removeItem(pendingKey); window.history.replaceState(null, "", "/settings/providers"); setScreen("method"); }}>Try again</Button></div>
       </>}
       {screen === "duplicate" && <>
         <p>This account is already connected.<br />Your existing connection hasn’t changed.</p>

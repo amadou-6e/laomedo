@@ -16,7 +16,12 @@ from laomedo.host.provider_connections.models import StartProviderLogin
 def session_lease(request: Request) -> str:
     """Require an authenticated browser cookie, without exposing it downstream."""
     cookie = request.cookies.get("access_token_lf")
-    if not cookie or request.headers.get("authorization"):
+    if (
+        not cookie
+        or request.headers.get("authorization")
+        or request.headers.get("x-api-key")
+        or "x-api-key" in request.query_params
+    ):
         raise HTTPException(401, detail={"code": "provider_session_required"})
     return hashlib.sha256(cookie.encode()).hexdigest()
 
@@ -125,8 +130,10 @@ def install_provider_routes(app, service, authenticate, *, origin: str):
                 service.complete, user.id, dict(query), lease_hash=lease
             )
             target = "/settings/providers?attempt=" + str(result.attempt_id)
-        except Exception:
+        except ProviderConnectionError:
             target = "/settings/providers?login=failed"
+        except Exception:
+            target = "/settings/providers?login=unconfirmed"
         return RedirectResponse(
             target,
             status_code=303,

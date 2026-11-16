@@ -1,4 +1,6 @@
 {
+  "provider_save_unconfirmed": {"title": "Check connection", "description": "We could not confirm whether your connection was saved.", "recovery": "Refresh to check before trying again."},
+  "provider_login_in_progress": {"title": "Sign-in is already in progress", "description": "Another sign-in is still waiting for a response.", "recovery": "Finish or cancel that sign-in, or wait for it to expire before trying again."},
   "provider_connections_unavailable": {"title": "Could not load providers", "description": "Your provider connections could not be checked.", "recovery": "Refresh to try again. Your saved connections have not been removed."},
   "provider_sign_in_failed": {"title": "Sign-in failed", "description": "We could not finish signing you in.", "recovery": "Try again. Your saved connection has not changed."},
   "provider_cancel_unconfirmed": {"title": "Could not cancel sign-in", "description": "We could not confirm that sign-in was cancelled.", "recovery": "Stay on this page and try going back again."},

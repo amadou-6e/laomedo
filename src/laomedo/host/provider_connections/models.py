@@ -25,7 +25,8 @@ class ConnectionRecord(BaseModel):
         description="Verified issuer subject digest for duplicate admission."
     )
     generation: int = Field(
-        ge=1, description="Committed credential revision required at dispatch."
+        ge=1,
+        description="Stable connection_generation changed by reconnect, not token rotation.",
     )
     label: str = Field(
         max_length=100,
@@ -53,7 +54,9 @@ class ConnectionSummary(BaseModel):
         default="chatgpt_plan_oauth", description="Explicit ChatGPT plan route."
     )
     label: str = Field(description="Verified account display identity when available.")
-    generation: int = Field(description="Observed committed credential generation.")
+    generation: int = Field(
+        description="Observed stable connection_generation, independent of broker rotation."
+    )
     auth_state: Literal[
         "ready", "expired", "reauthorization_required", "revoked", "unavailable"
     ] = Field(description="Credential observation only; runner state is independent.")
@@ -125,6 +128,11 @@ class PendingLogin(BaseModel):
         default=None,
         exclude=True,
         description="Exact prior generation for reconnect admission.",
+    )
+    publication: ConnectionRecord | None = Field(
+        default=None,
+        exclude=True,
+        description="Proposed admission pointer retained for uncertain-write reconciliation.",
     )
     progress: LoginProgress = Field(
         description="Safe observation of the attempt lifecycle."

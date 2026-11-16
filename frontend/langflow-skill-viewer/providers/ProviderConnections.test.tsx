@@ -6,7 +6,7 @@ import { beginLogin, listConnections, readProgress } from "./api";
 jest.mock("@/components/ui/button", () => ({
   Button: ({ ignoreTitleCase, variant, children, ...props }) => <button {...props}>{children}</button>,
 }));
-jest.mock("./api", () => ({ beginLogin: jest.fn(), cancelLogin: jest.fn(), listConnections: jest.fn(), readProgress: jest.fn() }));
+jest.mock("./api", () => ({ ...jest.requireActual("./api"), beginLogin: jest.fn(), cancelLogin: jest.fn(), listConnections: jest.fn(), readProgress: jest.fn() }));
 
 describe("saved provider Settings", () => {
   beforeEach(() => {
@@ -58,5 +58,20 @@ describe("saved provider Settings", () => {
     await screen.findByText("Waiting for sign-in…");
     expect(beginLogin).not.toHaveBeenCalled();
     expect(sessionStorage.length).toBe(1);
+  });
+
+  it("checks an uncertain save before enabling another sign-in", async () => {
+    const id = "00000000-0000-4000-8000-000000000002";
+    sessionStorage.setItem("laomedo.provider-attempt", id);
+    (readProgress as jest.Mock).mockResolvedValue({ attempt_id: id, status: "failed", connection_id: null, code: "provider_save_unconfirmed" });
+    render(<ProviderConnections />);
+    await screen.findByRole("heading", { name: "Check connection" });
+    expect(screen.getByRole("button", { name: "Try again" })).toBeDisabled();
+    expect(screen.queryByText(/Your saved connection hasn’t changed/)).toBeNull();
+    (readProgress as jest.Mock).mockResolvedValue({ attempt_id: id, status: "failed", connection_id: null, code: "provider_sign_in_failed" });
+    fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+    await screen.findByRole("heading", { name: "Sign-in failed" });
+    expect(screen.getByRole("button", { name: "Try again" })).not.toBeDisabled();
+    expect(beginLogin).not.toHaveBeenCalled();
   });
 });

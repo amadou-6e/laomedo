@@ -73,7 +73,9 @@ class ProviderRoleTests(unittest.TestCase):
             "private-test-token",
             {"credential_ref": "host-account", "auth_outcome": "authenticated"},
         )
-        codex = CodexCredentialProvider(SimpleNamespace(auth=connection))
+        codex = CodexCredentialProvider(
+            SimpleNamespace(auth=connection, auth_client_id="oaiapp_selected")
+        )
         claude = ClaudeCredentialProvider(SimpleNamespace())
         opencode = OpenCodeCredentialProvider("admitted-profile")
         with (
@@ -97,7 +99,7 @@ class ProviderRoleTests(unittest.TestCase):
                     else:
                         self.assertIsNone(material.token)
                     self.assertTrue(provider.release().confirmed)
-        connection.access_token.assert_called_once_with()
+        connection.access_token.assert_called_once_with("oaiapp_selected")
         check_profile.assert_called_once_with("admitted-profile")
 
     def test_runtime_check_results_preserve_scope_and_unsupported_unknown(self):

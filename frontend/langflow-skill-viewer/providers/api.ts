@@ -18,6 +18,10 @@ export type ProviderConnection = z.infer<typeof connectionSchema>;
 export type LoginProgress = z.infer<typeof progressSchema>;
 const prefix = "/api/v1/laomedo/provider-connections";
 
+export class ProviderFailure extends Error {
+  constructor(public code: string) { super(code); }
+}
+
 async function request(path = "", method = "GET", body?: unknown) {
   const response = await fetch(prefix + path, {
     method, credentials: "same-origin", cache: "no-store",
@@ -25,8 +29,12 @@ async function request(path = "", method = "GET", body?: unknown) {
     body: body === undefined ? undefined : JSON.stringify(body),
     signal: AbortSignal.timeout(15000),
   });
-  if (!response.ok) throw new Error("provider_connections_unavailable");
-  return response.json();
+  const value = await response.json().catch(() => null);
+  if (!response.ok) {
+    const code = value?.detail?.code;
+    throw new ProviderFailure(["provider_login_expired", "provider_login_in_progress"].includes(code) ? code : "provider_connections_unavailable");
+  }
+  return value;
 }
 
 export async function listConnections(): Promise<ProviderConnection[]> {

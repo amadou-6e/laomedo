@@ -54,16 +54,19 @@ class LocalProfileRuntime:
     @asynccontextmanager
     async def lifespan(self, app):
         """Upstream initializes first; its service registration cannot win afterward."""
-        async with self._upstream_lifespan(app) as state:
-            service = get_settings_service()
-            self.admission.verify_settings(service)
-            if self.admission.verify_database(service.auth_settings):
-                raise ProfileError("profile_setup_unavailable")
-            manager = get_service_manager()
-            manager.register_service_class(
-                ServiceType.AUTH_SERVICE, LocalProfileAuthService, override=True
-            )
-            manager.update(ServiceType.AUTH_SERVICE)
-            if not isinstance(get_auth_service(), LocalProfileAuthService):
-                raise ProfileError("profile_setup_unavailable")
-            yield state
+        try:
+            async with self._upstream_lifespan(app) as state:
+                service = get_settings_service()
+                self.admission.verify_settings(service)
+                if self.admission.verify_database(service.auth_settings):
+                    raise ProfileError("profile_setup_unavailable")
+                manager = get_service_manager()
+                manager.register_service_class(
+                    ServiceType.AUTH_SERVICE, LocalProfileAuthService, override=True
+                )
+                manager.update(ServiceType.AUTH_SERVICE)
+                if not isinstance(get_auth_service(), LocalProfileAuthService):
+                    raise ProfileError("profile_setup_unavailable")
+                yield state
+        finally:
+            app.state.provider_connections.close()
