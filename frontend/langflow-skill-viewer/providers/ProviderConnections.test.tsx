@@ -73,6 +73,37 @@ describe("saved provider Settings", () => {
     expect(screen.getByRole("heading", { name: "Add provider" })).toBeTruthy();
   });
 
+  it("does not claim removal or poll when Disconnect was not confirmed", async () => {
+    (listConnections as jest.Mock).mockResolvedValue([account]);
+    (inspectDisconnect as jest.Mock).mockResolvedValue({ connection_id: account.connection_id, generation: 1, active_runs: 0, revision: 1 });
+    (disconnect as jest.Mock).mockRejectedValue(new Error("network unavailable"));
+    render(<ProviderConnections />);
+    fireEvent.click(await screen.findByRole("button", { name: /Work account/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Disconnect" }));
+    await screen.findByRole("heading", { name: "Disconnect Codex?" });
+    fireEvent.click(screen.getByRole("button", { name: "Disconnect" }));
+    await screen.findByRole("heading", { name: "Check connection" });
+    expect(screen.getByRole("status")).toHaveTextContent("Disconnect wasn’t confirmed");
+    expect(screen.queryByText(/Stopping active work/)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+    await waitFor(() => expect(listConnections).toHaveBeenCalledTimes(2));
+    expect(screen.getByRole("heading", { name: "Check connection" })).toBeTruthy();
+  });
+
+  it("forgets a settled callback receipt before later Refresh", async () => {
+    const id = "00000000-0000-4000-8000-000000000002";
+    window.history.replaceState(null, "", "/settings/providers?attempt=" + id);
+    (listConnections as jest.Mock).mockResolvedValue([account]);
+    (readProgress as jest.Mock).mockResolvedValue({ attempt_id: id, status: "connected", connection_id: account.connection_id, code: null });
+    render(<ProviderConnections />);
+    await screen.findByRole("heading", { name: "Work account" });
+    expect(window.location.search).toBe("");
+    fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+    await waitFor(() => expect(listConnections).toHaveBeenCalledTimes(2));
+    expect(readProgress).toHaveBeenCalledTimes(1);
+    expect(beginLogin).not.toHaveBeenCalled();
+  });
+
   it("keeps saved rows visible if refresh fails", async () => {
     (listConnections as jest.Mock).mockResolvedValue([{ connection_id: "00000000-0000-4000-8000-000000000001", provider: "codex", method: "chatgpt_plan_oauth", label: "Work account", generation: 1, auth_state: "ready" }]);
     render(<ProviderConnections />);

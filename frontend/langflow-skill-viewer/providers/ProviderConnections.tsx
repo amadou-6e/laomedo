@@ -47,6 +47,10 @@ export default function ProviderConnections() {
         if (["connecting", "verifying"].includes(progress.status)) setScreen("pending");
         else {
           sessionStorage.removeItem(pendingKey);
+          if (progress.code !== "provider_save_unconfirmed") {
+            window.history.replaceState(null, "", "/settings/providers");
+            setAttempt({ ...progress, attempt_id: "" });
+          }
           if (progress.status === "connected" || progress.status === "duplicate") {
             setSelected(next.find(row => row.connection_id === progress.connection_id));
             setScreen(progress.status === "duplicate" ? "duplicate" : "details");
@@ -78,7 +82,7 @@ export default function ProviderConnections() {
   }, [screen, attempt?.attempt_id]);
 
   useEffect(() => {
-    if (screen !== "removing" || selected?.lifecycle === "cleanup_required") return;
+    if (screen !== "removing" || selected?.lifecycle !== "disconnecting") return;
     const timer = window.setInterval(() => { void refresh(); }, 1500);
     return () => window.clearInterval(timer);
   }, [screen, selected?.connection_id, selected?.lifecycle]);
@@ -199,7 +203,7 @@ export default function ProviderConnections() {
         <div className="pc-actions"><Button ignoreTitleCase variant="outline" className="normal-case" disabled={busy} onClick={() => setScreen("details")}>Cancel</Button><Button ignoreTitleCase className="normal-case" disabled={busy} onClick={() => void removeConnection()}>Disconnect</Button></div>
       </>}
       {screen === "removing" && <>
-        <p role="status">{selected?.lifecycle === "cleanup_required" ? "We couldn’t finish removing this connection. New runs are blocked." : "Stopping active work and removing this connection…"}</p>
+        <p role="status">{selected?.lifecycle === "cleanup_required" ? "We couldn’t finish removing this connection. New runs are blocked." : selected?.lifecycle === "connected" ? "Disconnect wasn’t confirmed. Refresh to check this connection." : "Stopping active work and removing this connection…"}</p>
         <p className="pc-muted">Your work and activity are kept.</p>
         {selected?.lifecycle === "cleanup_required" && <div className="pc-actions"><Button ignoreTitleCase className="normal-case" disabled={busy} onClick={() => void removeConnection(true)}>Retry cleanup</Button></div>}
       </>}
