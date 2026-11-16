@@ -100,3 +100,15 @@ test("setup stays local until Continue and rejects a public App manifest", async
   expect(submit).not.toHaveBeenCalled();
   submit.mockRestore();
 });
+
+test("pending token verification prevents registration and back navigation", () => {
+  const close = jest.fn();
+  render(<ConnectionRegistration close={close} busy token={jest.fn()} />);
+  fireEvent.click(screen.getByRole("button", { name: "Continue to GitHub" }));
+  fireEvent.click(screen.getByRole("button", { name: "Back to connections" }));
+  expect(connectionRequest).not.toHaveBeenCalled();
+  expect(close).not.toHaveBeenCalled();
+  expect(
+    screen.getByRole("button", { name: "Use a personal access token instead" }),
+  ).toBeDisabled();
+});

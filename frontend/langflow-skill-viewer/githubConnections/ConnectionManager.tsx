@@ -402,6 +402,7 @@ function ConnectionWorkspace() {
             />
           ) : view === "register" ? (
             <ConnectionRegistration
+              busy={busy}
               close={returnToConnection}
               token={async (payload) => {
                 const result = await run("token", payload);

@@ -9,7 +9,9 @@ import { connectionRequest } from "./api";
 export default function ConnectionRegistration({
   close,
   token,
+  busy: parentBusy = false,
 }: {
+  busy?: boolean;
   close: () => void;
   token?: (payload: Record<string, unknown>) => void;
 }) {
@@ -21,14 +23,15 @@ export default function ConnectionRegistration({
       active.current = false;
     };
   }, []);
-  const [busy, setBusy] = useState(false);
+  const [registering, setBusy] = useState(false);
+  const busy = registering || parentBusy;
   const [tokenOpen, setTokenOpen] = useState(false);
   const [failed, setFailed] = useState(
     new URLSearchParams(window.location.search).get("registration") ===
       "unconfirmed",
   );
   async function register() {
-    if (inFlight.current) return;
+    if (busy || inFlight.current) return;
     inFlight.current = true;
     setBusy(true);
     setFailed(false);
