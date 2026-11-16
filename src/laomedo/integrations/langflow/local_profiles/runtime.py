@@ -19,8 +19,9 @@ from laomedo.integrations.langflow.local_profiles.routes import router
 class LocalProfileRuntime:
     """Admit before migration and verify the final service before accepting traffic."""
 
-    def __init__(self, runtime_root):
+    def __init__(self, runtime_root, *, provider_source=None):
         self.admission = ProfileRuntimeAdmission(runtime_root)
+        self.provider_source = provider_source
         self._upstream_lifespan = None
 
     def configure(self, app):
@@ -38,6 +39,14 @@ class LocalProfileRuntime:
         from langflow.services.auth.utils import get_current_active_user
 
         providers = ProviderConnections(self.admission.root / "provider-connections")
+        from laomedo.host.provider_connections.controllers import ProviderControllers
+
+        ProviderControllers(
+            providers,
+            self.admission.root / "provider-runs",
+            self.admission.root / "registry",
+            self.provider_source,
+        )
         app.state.provider_connections = providers
         install_provider_routes(
             app,
@@ -67,6 +76,29 @@ class LocalProfileRuntime:
                 manager.update(ServiceType.AUTH_SERVICE)
                 if not isinstance(get_auth_service(), LocalProfileAuthService):
                     raise ProfileError("profile_setup_unavailable")
+                from laomedo.integrations.langflow.provider_connections.bindings import (
+                    ProviderGraphBindings,
+                )
+
+                ProviderGraphBindings.install(app.state.provider_connections)
+                controllers = app.state.provider_connections.controllers
+                if controllers is not None:
+                    from starlette.concurrency import run_in_threadpool
+
+                    await run_in_threadpool(controllers.recover)
+                    controllers.install()
                 yield state
         finally:
-            app.state.provider_connections.close()
+            from laomedo.integrations.langflow.provider_connections.bindings import (
+                ProviderGraphBindings,
+            )
+
+            ProviderGraphBindings.release(app.state.provider_connections)
+            controllers = app.state.provider_connections.controllers
+            try:
+                if controllers is not None:
+                    from starlette.concurrency import run_in_threadpool
+
+                    await run_in_threadpool(controllers.close)
+            finally:
+                app.state.provider_connections.close()

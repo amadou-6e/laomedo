@@ -10,6 +10,39 @@ def apply_providers(checkout: Path, source: Path):
     target = frontend / "components/laomedoProviders"
     if target.exists():
         raise SystemExit("provider_overlay_requires_fresh_checkout")
+    core = checkout / "src/backend/base/langflow/api/utils/core.py"
+    core_text = core.read_text(encoding="utf-8")
+    export_anchor = "    flow = copy.deepcopy(flow)"
+    if core_text.count(export_anchor) != 1:
+        raise SystemExit("provider_export_anchor_missing")
+    core_text = core_text.replace(
+        export_anchor,
+        "    from laomedo.integrations.langflow.provider_connections.exports import strip_local_bindings\n\n    flow = strip_local_bindings(flow)",
+    )
+    uploads = checkout / "src/backend/base/langflow/api/v1/flows.py"
+    upload_text = uploads.read_text(encoding="utf-8")
+    upload_anchor = (
+        "    # Normalise code fields: if exported with code-as-lines format, rejoin to"
+    )
+    if upload_text.count(upload_anchor) != 1:
+        raise SystemExit("provider_import_anchor_missing")
+    upload_text = upload_text.replace(
+        upload_anchor,
+        "    from laomedo.integrations.langflow.provider_connections.exports import strip_local_bindings\n\n    data = strip_local_bindings(data)\n\n"
+        + upload_anchor,
+    )
+    download = frontend / "customization/utils/custom-reactFlowUtils.ts"
+    download_text = download.read_text(encoding="utf-8")
+    download_anchor = "encodeURIComponent(sortedJsonString)"
+    if download_text.count(download_anchor) != 1:
+        raise SystemExit("provider_client_export_anchor_missing")
+    download_text = (
+        'import { stripLocalBindings } from "@/components/laomedoProviders/exports";\n'
+        + download_text.replace(
+            download_anchor,
+            "encodeURIComponent(JSON.stringify(stripLocalBindings(JSON.parse(sortedJsonString)), null, 2))",
+        )
+    )
     routes = frontend / "routes.tsx"
     text = routes.read_text(encoding="utf-8")
     anchor = 'import SettingsPage from "./pages/SettingsPage";'
@@ -38,3 +71,6 @@ def apply_providers(checkout: Path, source: Path):
     shutil.copytree(source / "providers", target)
     routes.write_text(text, encoding="utf-8")
     settings.write_text(settings_text, encoding="utf-8")
+    core.write_text(core_text, encoding="utf-8")
+    uploads.write_text(upload_text, encoding="utf-8")
+    download.write_text(download_text, encoding="utf-8")

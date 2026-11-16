@@ -27,6 +27,8 @@ from laomedo.host.provider_connections.models import (
     ConnectionSummary,
     LoginProgress,
     PendingLogin,
+    DisconnectInfo,
+    DisconnectProgress,
 )
 from laomedo.host.provider_connections.settings import ATTEMPT_SECONDS, MAX_CONNECTIONS
 
@@ -46,6 +48,8 @@ class ProviderConnections:
         _restrict_windows_directory(self.root)
         self._lock = threading.RLock()
         self._attempts: dict[UUID, PendingLogin] = {}
+        self.controllers = None
+        self.revoked_leases: set[str] = set()
         owner_path = self.root / "owner.lock"
         try:
             descriptor = os.open(
@@ -169,6 +173,114 @@ class ProviderConnections:
                 return record
         raise ProviderConnectionError("provider_connection_unavailable")
 
+    def admitted(
+        self, profile_id: UUID, connection_id: UUID, generation: int | None = None
+    ) -> ConnectionRecord:
+        """Check ownership and durable fence; callers hold the lifecycle lock."""
+        record = self._record(profile_id, connection_id)
+        if record.lifecycle != "connected":
+            raise ProviderConnectionError("provider_connection_disconnecting")
+        if generation is not None and record.generation != generation:
+            raise ProviderConnectionError("provider_connection_changed")
+        return record
+
+    def disconnect_info(self, profile_id: UUID, connection_id: UUID) -> DisconnectInfo:
+        """Inspect affected owned work without starting or stopping a controller."""
+        with self._lock:
+            record = self._record(profile_id, connection_id)
+            if self.controllers is None:
+                raise ProviderConnectionError("provider_runner_unavailable")
+            count, revision = self.controllers.inventory(profile_id, connection_id)
+            return DisconnectInfo(
+                connection_id=connection_id,
+                generation=record.generation,
+                active_runs=count,
+                revision=revision,
+            )
+
+    def disconnect(
+        self, profile_id: UUID, connection_id: UUID, generation: int, revision: int
+    ) -> DisconnectProgress:
+        """Persist a dispatch fence before cancellation; stale confirmations do nothing."""
+        with self._lock:
+            info = self.disconnect_info(profile_id, connection_id)
+            if info.generation != generation or info.revision != revision:
+                raise ProviderConnectionError("provider_confirmation_changed")
+            record = self._record(profile_id, connection_id)
+            fenced = record.model_copy(update={"lifecycle": "disconnecting"})
+            self._save(
+                profile_id,
+                [
+                    fenced if row.connection_id == connection_id else row
+                    for row in self._records(profile_id)
+                ],
+            )
+            for item in self._attempts.values():
+                if (
+                    item.profile_id == profile_id
+                    and item.candidate_id == connection_id
+                    and item.progress.status in {"connecting", "verifying"}
+                ):
+                    item.progress.status = "cancelled"
+        result = self.retry_cleanup(profile_id, connection_id)
+        if result.status == "disconnecting":
+            self.controllers.continue_cleanup(profile_id, connection_id)
+        return result
+
+    def retry_cleanup(
+        self, profile_id: UUID, connection_id: UUID
+    ) -> DisconnectProgress:
+        """Reconcile native stop, then erase only this connection's local token copies."""
+        with self._lock:
+            record = self._record(profile_id, connection_id)
+            if record.lifecycle == "connected" or self.controllers is None:
+                raise ProviderConnectionError("provider_request_refused")
+        try:
+            stopped = self.controllers.stop(profile_id, connection_id)
+            if not stopped:
+                return DisconnectProgress(
+                    connection_id=connection_id, status="disconnecting"
+                )
+            # A refresh admitted before the fence may still hold this broker lock.
+            # Wait outside the lifecycle lock, then remove its completed copy.
+            self._scrub(
+                self._broker(profile_id, record.credential_id), record.client_id
+            )
+            with self._lock:
+                current = self._record(profile_id, connection_id)
+                if current != record:
+                    raise ProviderConnectionError("provider_connection_changed")
+                self._save(
+                    profile_id,
+                    [
+                        row
+                        for row in self._records(profile_id)
+                        if row.connection_id != connection_id
+                    ],
+                )
+            return DisconnectProgress(connection_id=connection_id, status="removed")
+        except (OSError, AuthError, ProviderConnectionError):
+            with self._lock:
+                rows = self._records(profile_id)
+                if not any(row.connection_id == connection_id for row in rows):
+                    return DisconnectProgress(
+                        connection_id=connection_id, status="removed"
+                    )
+                self._save(
+                    profile_id,
+                    [
+                        (
+                            row.model_copy(update={"lifecycle": "cleanup_required"})
+                            if row.connection_id == connection_id
+                            else row
+                        )
+                        for row in rows
+                    ],
+                )
+            return DisconnectProgress(
+                connection_id=connection_id, status="cleanup_required"
+            )
+
     def _broker(self, profile_id: UUID, credential_id: UUID) -> ChatGPTConnection:
         """Open only this connection's private broker, outside tool mounts."""
         return ChatGPTConnection(self._profile(profile_id) / str(credential_id))
@@ -206,6 +318,7 @@ class ProviderConnections:
                         label=record.label,
                         generation=record.generation,
                         auth_state=state,
+                        lifecycle=record.lifecycle,
                     )
                 )
             return rows
@@ -233,7 +346,7 @@ class ProviderConnections:
             if connection_id is None and len(records) >= MAX_CONNECTIONS:
                 raise ProviderConnectionError("provider_connection_limit")
             previous = (
-                self._record(profile_id, connection_id) if connection_id else None
+                self.admitted(profile_id, connection_id) if connection_id else None
             )
             candidate = connection_id or uuid4()
             attempt_id = uuid4()
@@ -365,6 +478,7 @@ class ProviderConnections:
     def cancel_lease(self, lease_hash: str) -> None:
         """Fence an outgoing browser session without reading its raw credential."""
         with self._lock:
+            self.revoked_leases.add(lease_hash)
             for item in self._attempts.values():
                 if item.lease_hash == lease_hash and item.progress.status in {
                     "connecting",
@@ -438,7 +552,7 @@ class ProviderConnections:
                     item.progress.connection_id = duplicate.connection_id
                     return item.progress
                 if item.previous:
-                    current = self._record(profile_id, item.candidate_id)
+                    current = self.admitted(profile_id, item.candidate_id)
                     if current != item.previous:
                         raise ProviderConnectionError("provider_connection_changed")
                     if subject_hash != current.subject_hash:
@@ -496,15 +610,13 @@ class ProviderConnections:
     ) -> tuple[str, dict]:
         """Borrow exactly one admitted generation; never substitute another login."""
         with self._lock:
-            record = self._record(profile_id, connection_id)
-            if record.generation != generation:
-                raise ProviderConnectionError("provider_connection_changed")
+            record = self.admitted(profile_id, connection_id, generation)
             broker = self._broker(profile_id, record.credential_id)
         # Token rotation has its own broker lock/counter. It must not block
         # unrelated logout/cancellation or change the stable connection epoch.
         token, identity = broker.access_token(record.client_id)
         with self._lock:
-            if self._record(profile_id, connection_id) != record:
+            if self.admitted(profile_id, connection_id, generation) != record:
                 raise ProviderConnectionError("provider_connection_changed")
             identity = {
                 **identity,

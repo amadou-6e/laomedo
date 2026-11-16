@@ -10,7 +10,10 @@ from starlette.concurrency import run_in_threadpool
 from starlette.responses import JSONResponse, RedirectResponse
 
 from laomedo.host.provider_connections.errors import ProviderConnectionError
-from laomedo.host.provider_connections.models import StartProviderLogin
+from laomedo.host.provider_connections.models import (
+    StartProviderLogin,
+    DisconnectRequest,
+)
 
 
 def session_lease(request: Request) -> str:
@@ -87,6 +90,57 @@ def install_provider_routes(app, service, authenticate, *, origin: str):
             }
 
         return await respond(begin)
+
+    @app.get(prefix + "/{connection_id}/disconnect")
+    async def inspect_disconnect(
+        connection_id: UUID, request: Request, user=Depends(authenticate)
+    ):
+        """Inspect affected runs before an explicit connection-removal confirmation."""
+        session_lease(request)
+        return await respond(
+            lambda: service.disconnect_info(user.id, connection_id).model_dump(
+                mode="json"
+            )
+        )
+
+    @app.post(prefix + "/{connection_id}/disconnect")
+    async def disconnect(
+        connection_id: UUID, request: Request, user=Depends(authenticate)
+    ):
+        """Fence only the inspected local connection and reconcile its native cleanup."""
+        session_lease(request)
+        if request.headers.get("origin") != origin:
+            raise HTTPException(403, detail={"code": "provider_request_refused"})
+        data = bytearray()
+        try:
+            async for chunk in request.stream():
+                data.extend(chunk)
+                if len(data) > 1024:
+                    raise ValueError()
+            payload = DisconnectRequest.model_validate_json(bytes(data))
+        except (ValueError, TypeError, ValidationError):
+            raise HTTPException(
+                400, detail={"code": "provider_request_refused"}
+            ) from None
+        return await respond(
+            lambda: service.disconnect(
+                user.id, connection_id, payload.generation, payload.revision
+            ).model_dump(mode="json")
+        )
+
+    @app.post(prefix + "/{connection_id}/cleanup")
+    async def cleanup(
+        connection_id: UUID, request: Request, user=Depends(authenticate)
+    ):
+        """Retry an already-fenced cleanup; this never reauthorizes a connection."""
+        session_lease(request)
+        if request.headers.get("origin") != origin or await request.body() != b"{}":
+            raise HTTPException(403, detail={"code": "provider_request_refused"})
+        return await respond(
+            lambda: service.retry_cleanup(user.id, connection_id).model_dump(
+                mode="json"
+            )
+        )
 
     @app.get(prefix + "/attempts/{attempt_id}")
     async def login_progress(

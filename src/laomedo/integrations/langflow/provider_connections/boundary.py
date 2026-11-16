@@ -3,6 +3,9 @@
 import hashlib
 
 from starlette.requests import Request
+from laomedo.integrations.langflow.provider_connections.bindings import (
+    ProviderGraphBindings,
+)
 
 
 class ProviderSessionBoundary:
@@ -15,6 +18,17 @@ class ProviderSessionBoundary:
 
     async def __call__(self, scope, receive, send):
         """Fence the exact outgoing cookie before logout or a new profile login."""
+        lease = None
+        if scope["type"] == "http":
+            request = Request(scope)
+            cookie = request.cookies.get("access_token_lf")
+            if (
+                cookie
+                and not request.headers.get("authorization")
+                and not request.headers.get("x-api-key")
+                and "x-api-key" not in request.query_params
+            ):
+                lease = hashlib.sha256(cookie.encode()).hexdigest()
         if (
             scope["type"] == "http"
             and scope["method"] == "POST"
@@ -23,4 +37,8 @@ class ProviderSessionBoundary:
             cookie = Request(scope).cookies.get("access_token_lf")
             if cookie:
                 self.service.cancel_lease(hashlib.sha256(cookie.encode()).hexdigest())
-        await self.app(scope, receive, send)
+        context = ProviderGraphBindings.session_hash.set(lease)
+        try:
+            await self.app(scope, receive, send)
+        finally:
+            ProviderGraphBindings.session_hash.reset(context)

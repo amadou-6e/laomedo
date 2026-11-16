@@ -17,3 +17,8 @@ class LocalProfileSettings(BaseSettings):
     )
 
     runtime_root: Path = Field(validation_alias="LAOMEDO_LOCAL_PROFILE_RUNTIME")
+    provider_source: Path | None = Field(
+        default=None,
+        validation_alias="LAOMEDO_PROVIDER_SOURCE_WORKSPACE",
+        description="Operator-selected source workspace for saved-connection execution; never a graph field.",
+    )

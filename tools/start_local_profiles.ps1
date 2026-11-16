@@ -6,13 +6,15 @@ param(
     [Parameter(Mandatory=$true)][string]$PythonExe,
     [Parameter(Mandatory=$true)][string]$FrontendPath,
     [Parameter(Mandatory=$true)][string]$RuntimeRoot,
-    [ValidateRange(1024,65535)][int]$Port = 17866
+    [ValidateRange(1024,65535)][int]$Port = 17866,
+    [string]$ProviderSourceWorkspace
 )
 $ErrorActionPreference = 'Stop'
 if ([Environment]::OSVersion.Platform -ne 'Win32NT') { throw 'This setup supports native Windows only.' }
 $repoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $pythonPath = (Resolve-Path -LiteralPath $PythonExe).Path
 $frontend = (Resolve-Path -LiteralPath $FrontendPath).Path
+$providerSource = if ($ProviderSourceWorkspace) { (Resolve-Path -LiteralPath $ProviderSourceWorkspace).Path } else { $null }
 if (-not (Test-Path -LiteralPath (Join-Path $frontend 'index.html') -PathType Leaf)) {
     throw 'Frontend build is missing index.html. Build the matching frontend first.'
 }
@@ -89,6 +91,7 @@ $config = @{
     LANGFLOW_CORS_ALLOW_CREDENTIALS='true'
     LAOMEDO_LOCAL_PROFILE_PORT=[string]$Port
     LAOMEDO_LOCAL_PROFILE_RUNTIME=$runtime
+    LAOMEDO_PROVIDER_SOURCE_WORKSPACE=$providerSource
     PYTHONPATH=(Join-Path $repoRoot 'src')
 }
 $originalLocation = Get-Location
@@ -118,7 +121,8 @@ laomedo.__path__.append(os.environ['LAOMEDO_COMPONENT_DIR'])
 from laomedo.integrations.langflow.local_profiles.settings import LocalProfileSettings
 from laomedo.integrations.langflow.local_profiles.runtime import LocalProfileRuntime
 from laomedo.integrations.langflow.viewer import create_app
-app = create_app(profile_runtime=LocalProfileRuntime(LocalProfileSettings().runtime_root))
+profile_settings = LocalProfileSettings()
+app = create_app(profile_runtime=LocalProfileRuntime(profile_settings.runtime_root, provider_source=profile_settings.provider_source))
 uvicorn.run(app, host='127.0.0.1', port=int(os.environ['LAOMEDO_LOCAL_PROFILE_PORT']), access_log=False, workers=1)
 "@
         }

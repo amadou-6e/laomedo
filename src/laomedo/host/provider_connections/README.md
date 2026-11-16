@@ -8,6 +8,18 @@ app-owned Sign in with ChatGPT. Claude, OpenCode and API-key routes are unavaila
 opens one bounded loopback attempt, `complete()` verifies staged credentials and
 atomically admits metadata, `cancel()` fences late completion, and `borrow()`
 resolves an exact profile/connection/generation without an active-account fallback.
+`controllers.py` owns `ProviderControllers`, the trusted-local host orchestration
+of isolated native Codex runtimes per profile, connection and admitted generation.
+It inventories running turns and native cleanup receipts, cancels only owned
+runs, and confirms cleanup before removal. `credentials.py` defines the exact
+saved-connection broker facade used by those runtimes; native controller and
+model tools retain their existing separate Docker identities.
+`disconnect_info()` reports affected runs and a confirmation revision;
+`disconnect()` durably fences use before cancellation, and `retry_cleanup()`
+reconciles an interrupted removal without reopening authentication. A failed or
+unknown stop/erase remains visible and non-selectable. No provider-wide logout
+is implied. Local profiles remain convenience locks in a trusted single-user
+host, not isolation against arbitrary host Python or a hostile OS user.
 `models.py` defines persisted metadata and safe response contracts. `settings.py`
 owns fixed attempt policy; `errors.py` defines safe domain failures.
 

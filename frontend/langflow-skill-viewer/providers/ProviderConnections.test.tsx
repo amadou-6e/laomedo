@@ -1,14 +1,15 @@
 import { StrictMode } from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import ProviderConnections from "./ProviderConnections";
-import { beginLogin, listConnections, readProgress } from "./api";
+import { beginLogin, listConnections, readProgress, inspectDisconnect, disconnect, retryCleanup } from "./api";
 
 jest.mock("@/components/ui/button", () => ({
   Button: ({ ignoreTitleCase, variant, children, ...props }) => <button {...props}>{children}</button>,
 }));
-jest.mock("./api", () => ({ ...jest.requireActual("./api"), beginLogin: jest.fn(), cancelLogin: jest.fn(), listConnections: jest.fn(), readProgress: jest.fn() }));
+jest.mock("./api", () => ({ ...jest.requireActual("./api"), beginLogin: jest.fn(), cancelLogin: jest.fn(), listConnections: jest.fn(), readProgress: jest.fn(), inspectDisconnect: jest.fn(), disconnect: jest.fn(), retryCleanup: jest.fn() }));
 
 describe("saved provider Settings", () => {
+  const account = { connection_id: "00000000-0000-4000-8000-000000000001", provider: "codex", method: "chatgpt_plan_oauth", label: "Work account", generation: 1, auth_state: "ready", lifecycle: "connected" };
   beforeEach(() => {
     jest.clearAllMocks();
     sessionStorage.clear();
@@ -23,6 +24,39 @@ describe("saved provider Settings", () => {
     fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
     await waitFor(() => expect(listConnections).toHaveBeenCalledTimes(3));
     expect(beginLogin).not.toHaveBeenCalled();
+  });
+
+  it("discloses affected work and waits for explicit Disconnect confirmation", async () => {
+    (listConnections as jest.Mock).mockResolvedValue([account]);
+    (inspectDisconnect as jest.Mock).mockResolvedValue({ connection_id: account.connection_id, generation: 1, active_runs: 2, revision: 7 });
+    (disconnect as jest.Mock).mockResolvedValue({ connection_id: account.connection_id, status: "removed" });
+    render(<ProviderConnections />);
+    fireEvent.click(await screen.findByRole("button", { name: /Work account/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Disconnect" }));
+    await screen.findByRole("heading", { name: "Disconnect Codex?" });
+    expect(screen.getByText(/2 active runs will stop/)).toBeTruthy();
+    expect(disconnect).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Disconnect" }));
+    await screen.findByRole("heading", { name: "Disconnected" });
+    expect(disconnect).toHaveBeenCalledTimes(1);
+    expect(beginLogin).not.toHaveBeenCalled();
+  });
+
+  it("keeps failed cleanup visible and offers an explicit retry", async () => {
+    (listConnections as jest.Mock).mockResolvedValue([account]);
+    (inspectDisconnect as jest.Mock).mockResolvedValue({ connection_id: account.connection_id, generation: 1, active_runs: 0, revision: 1 });
+    (disconnect as jest.Mock).mockResolvedValue({ connection_id: account.connection_id, status: "cleanup_required" });
+    (retryCleanup as jest.Mock).mockResolvedValue({ connection_id: account.connection_id, status: "removed" });
+    render(<ProviderConnections />);
+    fireEvent.click(await screen.findByRole("button", { name: /Work account/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Disconnect" }));
+    await screen.findByRole("heading", { name: "Disconnect Codex?" });
+    fireEvent.click(screen.getByRole("button", { name: "Disconnect" }));
+    await screen.findByRole("heading", { name: "Cleanup required" });
+    expect(retryCleanup).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Retry cleanup" }));
+    await screen.findByRole("heading", { name: "Disconnected" });
+    expect(retryCleanup).toHaveBeenCalledWith(account.connection_id);
   });
 
   it("chooses type and method before an explicit sign-in action", async () => {

@@ -35,6 +35,12 @@ from laomedo.agents.interface.utils import terminal_record as _terminal_record
 _STOP_TASKS = set()
 _TERMINAL = {"completed", "cancelled", "failed", "timeout", "interrupted"}
 _ROUTABLE_ERRORS = {
+    "provider_connection_required",
+    "provider_connection_unavailable",
+    "provider_connection_changed",
+    "provider_connection_disconnecting",
+    "provider_runner_unavailable",
+    "provider_method_unavailable",
     "activity_normalization_failed",
     "activity_journal_unavailable",
     "activity_projection_limit",
@@ -262,6 +268,16 @@ class AgentComponent(Component):
     runner_token_default = ""
 
     inputs = [
+        DropdownInput(
+            name="provider_connection",
+            display_name="Connection",
+            options=[],
+            value="",
+            show=False,
+            real_time_refresh=True,
+            refresh_button=True,
+            info="Choose a saved account from Settings > Providers. This local binding is omitted from exports.",
+        ),
         StrInput(name="task", display_name="Task", input_types=["Message", "Data"]),
         DropdownInput(
             name="operation",
@@ -394,6 +410,34 @@ class AgentComponent(Component):
     ]
 
     async def update_build_config(self, build_config, field_value, field_name=None):
+        from laomedo.integrations.langflow.provider_connections.bindings import (
+            ProviderGraphBindings,
+        )
+
+        if ProviderGraphBindings.service is not None:
+            if self.provider_id != "codex":
+                return build_config
+            field = build_config.get("provider_connection", {})
+            rows = await asyncio.to_thread(ProviderGraphBindings.choices, self)
+            field.update(
+                show=True,
+                options=[str(row.connection_id) for row in rows],
+                options_metadata=[
+                    {
+                        "id": str(row.connection_id),
+                        "display_name": row.label,
+                        "laomedo_connection": True,
+                    }
+                    for row in rows
+                ],
+            )
+            if field_name == "provider_connection":
+                field["value"] = field_value
+                build_config.get("model", {})["value"] = ""
+                build_config.get("effort", {})["value"] = ""
+            for name in ("runner_url", "bridge_url"):
+                if name in build_config:
+                    build_config[name]["show"] = False
         # OpenCode has a separate provider/model and variant contract.
         if not self.discover_models_on_upgrade:
             return build_config
@@ -556,9 +600,24 @@ class AgentComponent(Component):
         return self._runner_token_file_path()
 
     def _model_catalog(self, build_config):
+        """Discover through the exact saved connection or the explicit operator runner."""
         self._validate_adapter()
+        from laomedo.integrations.langflow.provider_connections.bindings import (
+            ProviderGraphBindings,
+        )
+
+        saved = ProviderGraphBindings.service is not None
+        if saved:
+            selected = build_config.get("provider_connection", {}).get(
+                "value", getattr(self, "provider_connection", "")
+            )
+            if not selected:
+                return _ModelCatalog()
+            self._saved_endpoint = ProviderGraphBindings.endpoint(self, selected)
         base = str(
-            build_config.get("runner_url", {}).get("value") or self.runner_url
+            self._saved_endpoint[0]
+            if saved
+            else build_config.get("runner_url", {}).get("value") or self.runner_url
         ).rstrip("/")
         parsed = urlsplit(base)
         if (
@@ -730,6 +789,27 @@ class AgentComponent(Component):
         return endpoint, payload, method
 
     def _prepare_request(self):
+        from laomedo.integrations.langflow.provider_connections.bindings import (
+            ProviderGraphBindings,
+        )
+
+        if ProviderGraphBindings.service is not None:
+            prior = getattr(self.run_reference, "data", self.run_reference)
+            if prior in (None, "", []) and getattr(self, "run_reference_json", None):
+                try:
+                    prior = json.loads(self.run_reference_json)
+                except (ValueError, TypeError):
+                    raise ValueError("invalid_prior_run_json") from None
+            run_id = (
+                prior.get("run_id")
+                if isinstance(prior, dict)
+                and str(self.operation) in {"resume", "status", "cancel"}
+                else None
+            )
+            self._saved_endpoint = ProviderGraphBindings.endpoint(
+                self, getattr(self, "provider_connection", ""), run_id=run_id
+            )
+            self.runner_url = self._saved_endpoint[0]
         base = str(self.runner_url).rstrip("/")
         parsed = urlsplit(base)
         if (
@@ -874,6 +954,12 @@ class AgentComponent(Component):
         )
 
     def _bridge_base(self):
+        from laomedo.integrations.langflow.provider_connections.bindings import (
+            ProviderGraphBindings,
+        )
+
+        if ProviderGraphBindings.service is not None:
+            return ""
         self._validate_adapter()
         # Provider configuration must not redirect unrelated lifecycle
         # operations. Stop handling during a fresh/start invocation still uses
@@ -943,6 +1029,15 @@ class AgentComponent(Component):
 
     def _runner_token_file_path(self):
         """Activity always polls the runner, even when dispatch uses a bridge."""
+        from laomedo.integrations.langflow.provider_connections.bindings import (
+            ProviderGraphBindings,
+        )
+
+        if ProviderGraphBindings.service is not None:
+            endpoint = getattr(self, "_saved_endpoint", None)
+            if endpoint is None:
+                raise ValueError("provider_connection_required")
+            return endpoint[1]
         return os.environ.get(self.runner_token_env, self.runner_token_default)
 
     def _token(self):

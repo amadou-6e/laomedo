@@ -5,7 +5,7 @@ import tempfile
 import threading
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 from uuid import uuid4
 
 from laomedo.host.credentials.siwc.settings import NEEDED
@@ -298,6 +298,88 @@ class ProviderConnectionsTests(unittest.TestCase):
             result = self.service.cancel(self.profile, receipt.attempt_id)
         self.assertEqual(result.status, "connected")
         self.assertEqual(result.connection_id, existing.connection_id)
+
+    def test_disconnect_fences_before_stop_and_keeps_failed_cleanup_recoverable(self):
+        """A stopped controller is required before erasing an admitted local login."""
+        existing = self.connect()
+        controller = Mock()
+        controller.inventory.return_value = (1, 7)
+        controller.stop.return_value = False
+        self.service.controllers = controller
+        info = self.service.disconnect_info(self.profile, existing.connection_id)
+        self.assertEqual(info.active_runs, 1)
+        progress = self.service.disconnect(
+            self.profile, existing.connection_id, info.generation, info.revision
+        )
+        self.assertEqual(progress.status, "disconnecting")
+        with self.assertRaisesRegex(
+            ProviderConnectionError, "provider_connection_disconnecting"
+        ):
+            self.service.borrow(self.profile, existing.connection_id, 1)
+        with self.assertRaisesRegex(
+            ProviderConnectionError, "provider_connection_disconnecting"
+        ):
+            self.service.begin(
+                self.profile,
+                "http://127.0.0.1:17867/auth/callback",
+                existing.connection_id,
+            )
+        controller.stop.return_value = True
+        with patch.object(self.service, "_scrub", side_effect=OSError("locked")):
+            progress = self.service.retry_cleanup(self.profile, existing.connection_id)
+        self.assertEqual(progress.status, "cleanup_required")
+        self.assertEqual(
+            self.service.list(self.profile)[0].lifecycle, "cleanup_required"
+        )
+        progress = self.service.retry_cleanup(self.profile, existing.connection_id)
+        self.assertEqual(progress.status, "removed")
+        self.assertEqual(self.service.list(self.profile), [])
+
+    def test_stale_disconnect_confirmation_preserves_connection(self):
+        """Newly admitted work must be disclosed before the user confirms stopping it."""
+        existing = self.connect()
+        controller = Mock()
+        controller.inventory.return_value = (2, 8)
+        self.service.controllers = controller
+        with self.assertRaisesRegex(
+            ProviderConnectionError, "provider_confirmation_changed"
+        ):
+            self.service.disconnect(self.profile, existing.connection_id, 1, 7)
+        controller.stop.assert_not_called()
+        self.assertEqual(
+            self.service.borrow(self.profile, existing.connection_id, 1)[0],
+            "one-access",
+        )
+
+    def test_saved_probe_uses_connection_epoch_across_routine_rotation(self):
+        """Renewal changes credential evidence without pretending the account was replaced."""
+        from laomedo.host.credentials.siwc.utils import _atomic_private
+        from laomedo.host.provider_connections.credentials import (
+            SavedConnectionCredential,
+        )
+
+        existing = self.connect()
+        credential = SavedConnectionCredential(
+            self.service, self.profile, existing.connection_id, 1
+        )
+        before = credential.summary(credential.account(credential.client_id))
+        record = self.service._record(self.profile, existing.connection_id)
+        broker = self.service._broker(self.profile, record.credential_id)
+        account = broker.account(record.client_id)
+        account["generation"] += 1
+        _atomic_private(broker._path(record.client_id), account)
+        after = credential.summary(credential.account(credential.client_id))
+        self.assertNotEqual(before["generation"], after["generation"])
+        self.assertEqual(
+            before["connection_generation"], after["connection_generation"]
+        )
+        controller = Mock()
+        controller.inventory.return_value = (0, 0)
+        controller.stop.return_value = False
+        self.service.controllers = controller
+        self.service.disconnect(self.profile, existing.connection_id, 1, 0)
+        with self.assertRaisesRegex(ValueError, "auth_revoked"):
+            credential.account(credential.client_id)
 
     def test_rotation_keeps_the_saved_identity_epoch_without_index_write(self):
         """Routine rotation cannot invalidate a selected connection generation."""

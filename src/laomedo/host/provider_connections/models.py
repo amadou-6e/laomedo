@@ -1,6 +1,6 @@
 """Persisted connection identity and safe Settings projections."""
 
-from typing import Literal
+from typing import Any, Literal
 from uuid import UUID
 from pathlib import Path
 
@@ -32,6 +32,10 @@ class ConnectionRecord(BaseModel):
         max_length=100,
         description="Provider-verified display identity, not user proof.",
     )
+    lifecycle: Literal["connected", "disconnecting", "cleanup_required"] = Field(
+        default="connected",
+        description="Durable local removal fence; only connected permits credential use.",
+    )
 
 
 class ConnectionIndex(BaseModel):
@@ -60,6 +64,86 @@ class ConnectionSummary(BaseModel):
     auth_state: Literal[
         "ready", "expired", "reauthorization_required", "revoked", "unavailable"
     ] = Field(description="Credential observation only; runner state is independent.")
+    lifecycle: Literal["connected", "disconnecting", "cleanup_required"] = Field(
+        default="connected", description="Observed local removal and recovery phase."
+    )
+
+
+class DisconnectInfo(BaseModel):
+    """Nonsecret confirmation snapshot; new admissions invalidate its revision."""
+
+    connection_id: UUID = Field(description="Exact profile-owned connection to remove.")
+    generation: int = Field(
+        ge=1, description="Admitted connection generation to fence."
+    )
+    active_runs: int = Field(
+        ge=0, description="Affected active runs and discovery operations."
+    )
+    revision: int = Field(
+        ge=0, description="Controller admission revision for explicit confirmation."
+    )
+
+
+class DisconnectRequest(BaseModel):
+    """Explicit confirmation of the inspected connection and affected work."""
+
+    model_config = ConfigDict(extra="forbid")
+    generation: int = Field(
+        ge=1, description="Previously inspected identity generation."
+    )
+    revision: int = Field(
+        ge=0, description="Previously inspected controller admission revision."
+    )
+
+
+class DisconnectProgress(BaseModel):
+    """Local removal outcome without claiming remote/provider account logout."""
+
+    connection_id: UUID = Field(
+        description="Connection whose local removal was requested."
+    )
+    status: Literal["disconnecting", "cleanup_required", "removed"] = Field(
+        description="Removal is complete only after owned native and credential cleanup."
+    )
+
+
+class ControllerSlot(BaseModel):
+    """Host-only inventory entry; never serialize runner objects or private paths."""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    profile_id: UUID = Field(description="Authenticated local owner.")
+    connection_id: UUID = Field(description="Selected saved connection.")
+    generation: int = Field(
+        description="Identity epoch pinned to this runner and retained sessions."
+    )
+    state: Path = Field(
+        exclude=True,
+        repr=False,
+        description="Private runtime state outside Git and tool mounts.",
+    )
+    runner: Any = Field(
+        default=None,
+        exclude=True,
+        repr=False,
+        description="Trusted native Agent, absent while starting.",
+    )
+    server: Any = Field(
+        default=None,
+        exclude=True,
+        repr=False,
+        description="Owned loopback gateway for existing graph protocol.",
+    )
+    creating: bool = Field(
+        default=True, description="Startup/receipt reconciliation is still in flight."
+    )
+    operations: int = Field(
+        default=0,
+        description="Requests admitted before a disconnect fence and not yet returned.",
+    )
+    revision: int = Field(
+        default=0,
+        description="Monotonic admission counter for disconnect confirmation.",
+    )
 
 
 class LoginProgress(BaseModel):

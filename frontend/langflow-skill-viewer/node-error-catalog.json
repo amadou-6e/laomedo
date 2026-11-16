@@ -1,4 +1,12 @@
 {
+  "provider_connection_required": {"title": "Choose a connection", "description": "This agent needs a saved Codex account.", "recovery": "Choose a connection, or add one in Settings > Providers."},
+  "provider_connection_unavailable": {"title": "Connection unavailable", "description": "This connection is not available for this profile.", "recovery": "Choose an available connection or check Settings > Providers."},
+  "provider_connection_changed": {"title": "Connection changed", "description": "This run belongs to an earlier sign-in.", "recovery": "Start a new run with your current connection."},
+  "provider_connection_disconnecting": {"title": "Connection is disconnecting", "description": "New work is blocked while this connection is removed.", "recovery": "Choose another connection or check cleanup in Settings > Providers."},
+  "provider_runner_unavailable": {"title": "Runner unavailable", "description": "The local runtime could not start for this connection.", "recovery": "Check the local runner setup, then refresh. Your account stays connected."},
+  "provider_method_unavailable": {"title": "Provider unavailable", "description": "This connection method is not available yet.", "recovery": "Use an available provider connection."},
+  "provider_confirmation_changed": {"title": "Active work changed", "description": "More work started after this confirmation was opened.", "recovery": "Review the updated run count before disconnecting."},
+  "provider_cleanup_unconfirmed": {"title": "Check connection", "description": "We could not confirm that this connection was removed.", "recovery": "Refresh to check its status. Retry cleanup if it is still needed."},
   "provider_save_unconfirmed": {"title": "Check connection", "description": "We could not confirm whether your connection was saved.", "recovery": "Refresh to check before trying again."},
   "provider_login_in_progress": {"title": "Sign-in is already in progress", "description": "Another sign-in is still waiting for a response.", "recovery": "Finish or cancel that sign-in, or wait for it to expire before trying again."},
   "provider_connections_unavailable": {"title": "Could not load providers", "description": "Your provider connections could not be checked.", "recovery": "Refresh to try again. Your saved connections have not been removed."},
