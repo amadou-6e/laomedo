@@ -339,6 +339,78 @@ class AssistantStore:
             session.add(message)
             session.add(conversation)
 
+    async def completed_binding(self, owner, identifier):
+        """Allow only a completed native session to face the provider's restart admission guards."""
+        async with self.sessions() as session:
+            conversation = await self.conversation(session, owner, identifier)
+            statement = select(AssistantMessage).where(
+                AssistantMessage.conversation_id == identifier
+            )
+            if conversation.active_message_id:
+                statement = statement.where(
+                    AssistantMessage.id != conversation.active_message_id
+                )
+            previous = (
+                await session.exec(
+                    statement.order_by(
+                        AssistantMessage.created_at.desc(), AssistantMessage.id
+                    ).limit(1)
+                )
+            ).first()
+            return bool(
+                previous
+                and previous.state == "completed"
+                and conversation.thread_id
+                and conversation.workspace_hash
+            )
+
+    async def rebind_completed(self, owner, identifier, message_id, instance):
+        """Record a new owned runner only after its durable resume reservation accepts this message."""
+        async with self.transaction() as session:
+            conversation = await self.conversation(
+                session, owner, identifier, lock=True
+            )
+            if conversation.runner_instance_id in {None, instance}:
+                return
+            previous = (
+                await session.exec(
+                    select(AssistantMessage)
+                    .where(
+                        AssistantMessage.conversation_id == identifier,
+                        AssistantMessage.id != message_id,
+                    )
+                    .order_by(AssistantMessage.created_at.desc(), AssistantMessage.id)
+                    .limit(1)
+                )
+            ).first()
+            if (
+                conversation.active_message_id != message_id
+                or not previous
+                or previous.state != "completed"
+                or not conversation.thread_id
+                or not conversation.workspace_hash
+            ):
+                raise AssistantError("assistant_runner_restarted")
+            conversation.runner_instance_id = instance
+            session.add(conversation)
+
+    async def request_stop(self, owner, identifier, attempt):
+        """Persist exact stop intent without treating cancellation as reconciliation."""
+        async with self.transaction() as session:
+            conversation = await self.conversation(
+                session, owner, identifier, lock=True
+            )
+            message = await session.get(
+                AssistantMessage, conversation.active_message_id
+            )
+            if message is None or message.attempt_id != attempt:
+                raise AssistantError("assistant_native_identity_mismatch")
+            message.stop_requested = True
+            if message.state != "unknown":
+                message.state = conversation.state = "stopping"
+            session.add(message)
+            session.add(conversation)
+
     async def block(self, owner, identifier, code):
         """Fence an idle conversation after binding loss while retaining its message history."""
         async with self.transaction() as session:

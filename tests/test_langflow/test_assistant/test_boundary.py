@@ -78,6 +78,29 @@ class BoundaryTests(unittest.IsolatedAsyncioTestCase):
             hashlib.sha256(b"fixture-session").hexdigest()
         )
 
+    async def test_logout_remains_available_through_upstream_alias_when_revoke_fails(
+        self,
+    ):
+        self.runtime.lock_session.side_effect = RuntimeError("database unavailable")
+        response = await self.client.post(
+            "/api/v1/logout",
+            headers={
+                "Host": "custom.localhost:17881",
+                "Authorization": "Bearer fixture-session",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+
+    async def test_localhost_browser_origin_is_accepted_without_widening_host_trust(
+        self,
+    ):
+        response = await self.client.post(
+            "/api/v1/laomedo/assistant/conversations",
+            headers={"Host": "localhost:17881", "Origin": "http://localhost:17881"},
+            json={},
+        )
+        self.assertEqual(response.status_code, 200)
+
     async def test_private_mcp_has_separate_credential_gate_and_unrelated_routes_survive(
         self,
     ):

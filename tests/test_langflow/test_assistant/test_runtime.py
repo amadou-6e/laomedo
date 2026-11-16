@@ -249,6 +249,24 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
             ["/v1/runs/" + self.run_id + "/cancel"],
         )
 
+    async def test_stop_preserves_unknown_outcome_until_actual_reconciliation(self):
+        await self.store.observe(
+            self.owner,
+            self.identifier,
+            self.message_id,
+            state="unknown",
+            error="assistant_dispatch_unknown",
+            reconciled=True,
+        )
+        await self.runtime.stop(
+            self.owner, self.identifier, UUID(self.message["attempt_id"])
+        )
+        _, message = await self.store.message(
+            self.owner, self.identifier, self.message_id
+        )
+        self.assertEqual(message.state, "unknown")
+        self.assertTrue(message.stop_requested)
+
     async def test_retained_activity_reopens_without_starting_docker_or_a_provider(
         self,
     ):
@@ -270,6 +288,7 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
         await self.store.cache_activity(
             self.owner, self.identifier, self.message_id, page.to_payload()
         )
+        await self.runtime.reconcile(self.owner, self.identifier)
         self.runtime.runner.reset_mock()
         result = await self.runtime.activity(
             self.owner, self.identifier, UUID(self.message["attempt_id"]), 0
@@ -277,3 +296,33 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["projection_revision"], 1)
         self.assertTrue(result["closed"])
         self.runtime.runner.assert_not_awaited()
+
+    async def test_completed_session_reaches_native_restart_admission_but_stopped_checkpoint_does_not(
+        self,
+    ):
+        await self.bind()
+        await self.runtime.reconcile(self.owner, self.identifier)
+        self.assertTrue(await self.store.completed_binding(self.owner, self.identifier))
+        following, _ = await self.store.reserve(
+            self.owner,
+            self.identifier,
+            MessageRequest(client_message_id=uuid4(), text="Continue"),
+            session_key="fixture",
+        )
+        new_instance = str(uuid4())
+        await self.store.rebind_completed(
+            self.owner, self.identifier, UUID(following["id"]), new_instance
+        )
+        await self.store.observe(
+            self.owner,
+            self.identifier,
+            UUID(following["id"]),
+            state="cancelled",
+            settled=True,
+            thread_id="original-session",
+            workspace_hash="sha256:" + "b" * 64,
+            reconciled=True,
+        )
+        self.assertFalse(
+            await self.store.completed_binding(self.owner, self.identifier)
+        )

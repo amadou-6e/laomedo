@@ -4,10 +4,12 @@ import asyncio
 from contextlib import asynccontextmanager
 import hashlib
 import json
+import logging
 from pathlib import Path
 import re
 import secrets
 import time
+import traceback
 from uuid import UUID
 
 from sqlmodel import select
@@ -405,6 +407,10 @@ class AssistantRuntime:
         if (
             conversation.runner_instance_id
             and conversation.runner_instance_id != runner.instance_id
+            and not (
+                conversation.active_message_id is None
+                and await self.store.completed_binding(owner, conversation_id)
+            )
         ):
             if conversation.active_message_id:
                 await self.reconcile(owner, conversation_id)
@@ -534,6 +540,13 @@ class AssistantRuntime:
             )
             if not native_attempt:
                 raise AssistantError("assistant_native_identity_mismatch")
+            if conversation.run_id:
+                await self.store.rebind_completed(
+                    context.owner_id,
+                    context.conversation_id,
+                    context.message_id,
+                    runner.instance_id,
+                )
             await self.store.observe(
                 context.owner_id,
                 context.conversation_id,
@@ -557,6 +570,14 @@ class AssistantRuntime:
             await self._mark_unknown(context, "assistant_dispatch_unknown")
             raise
         except Exception as error:
+            logging.getLogger(__name__).warning(
+                "assistant_turn_observation_failed type=%s frames=%s",
+                type(error).__name__,
+                [
+                    (Path(frame.filename).name, frame.name, frame.lineno)
+                    for frame in traceback.extract_tb(error.__traceback__)
+                ],
+            )
             if dispatched:
                 await self._mark_unknown(
                     context,
@@ -734,7 +755,7 @@ class AssistantRuntime:
                     + record["run_id"]
                     + "/activity?attempt="
                     + native_attempt
-                    + "&after=0&limit=1",
+                    + "&after=0&limit=500",
                 )
                 await self.store.cache_activity(owner, identifier, message.id, activity)
             except AssistantError:
@@ -819,13 +840,17 @@ class AssistantRuntime:
             message = row.model_dump(mode="json") if row else None
         if message is None:
             raise AssistantError("assistant_message_not_found", 404)
-        if message.get("activity_snapshot"):
+        if message.get("activity_snapshot") and message["state"] in {
+            "completed",
+            "cancelled",
+            "failed",
+            "interrupted",
+        }:
             snapshot = dict(message["activity_snapshot"])
             snapshot["records"] = [
                 row for row in snapshot["records"] if row["sequence"] > after
             ]
             snapshot["next_after"] = max(after, snapshot["next_after"])
-            snapshot["has_more"] = False
             return snapshot
         if not message["run_id"] or not message["native_attempt_id"]:
             return {
@@ -862,9 +887,7 @@ class AssistantRuntime:
         )
         if message.attempt_id != attempt:
             raise AssistantError("assistant_native_identity_mismatch")
-        await self.store.observe(
-            owner, identifier, message.id, state="stopping", reconciled=True
-        )
+        await self.store.request_stop(owner, identifier, attempt)
         context = self.contexts.get(message.id)
         if context:
             for token, binding in list(self.host_tokens.items()):
@@ -894,7 +917,11 @@ class AssistantRuntime:
                     )
             elif conversation["run_id"] and not conversation["active_message_id"]:
                 runner = await self.runner(owner)
-                if conversation["runner_instance_id"] != runner.instance_id:
+                if conversation[
+                    "runner_instance_id"
+                ] != runner.instance_id and not await self.store.completed_binding(
+                    owner, identifier
+                ):
                     await self.store.block(
                         owner, identifier, "assistant_runner_restarted"
                     )
