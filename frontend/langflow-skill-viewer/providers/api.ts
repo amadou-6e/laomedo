@@ -36,7 +36,7 @@ async function request(path = "", method = "GET", body?: unknown) {
   const value = await response.json().catch(() => null);
   if (!response.ok) {
     const code = value?.detail?.code;
-    throw new ProviderFailure(["provider_login_expired", "provider_login_in_progress", "provider_confirmation_changed"].includes(code) ? code : "provider_connections_unavailable");
+    throw new ProviderFailure(["provider_login_expired", "provider_login_in_progress", "provider_confirmation_changed", "provider_connection_busy"].includes(code) ? code : "provider_connections_unavailable");
   }
   return value;
 }

@@ -111,7 +111,9 @@ export default function ProviderConnections() {
     } catch (failure) {
       if (revision === epoch.current) {
         if (failure instanceof ProviderFailure && failure.code === "provider_confirmation_changed") {
-          setRemoval(await inspectDisconnect(selected.connection_id));
+          const currentRemoval = await inspectDisconnect(selected.connection_id);
+          if (revision !== epoch.current) return;
+          setRemoval(currentRemoval);
           setError("provider_confirmation_changed"); setScreen("disconnect");
         } else { setError("provider_cleanup_unconfirmed"); setScreen("removing"); }
       }
@@ -131,8 +133,11 @@ export default function ProviderConnections() {
       // One explicit click starts native sign-in in this tab. No mount, polling
       // or Refresh operation opens a provider page.
       window.location.assign(result.authorization_url);
-    } catch {
-      if (revision === epoch.current) { setError("provider_sign_in_failed"); setScreen("failure"); }
+    } catch (failure) {
+      if (revision === epoch.current) {
+        if (failure instanceof ProviderFailure && failure.code === "provider_connection_busy") { setError(failure.code); setScreen("details"); }
+        else { setError("provider_sign_in_failed"); setScreen("failure"); }
+      }
     } finally { if (inFlight.current === revision) inFlight.current = null; if (revision === epoch.current) setBusy(false); }
   }
 
@@ -156,7 +161,7 @@ export default function ProviderConnections() {
   }
 
   const unconfirmed = attempt?.code === "provider_save_unconfirmed";
-  const heading = screen === "disconnect" ? "Disconnect Codex?" : screen === "removed" ? "Disconnected" : screen === "removing" ? (selected?.lifecycle === "cleanup_required" ? "Cleanup required" : "Disconnecting") : screen === "list" ? "Providers" : screen === "type" ? "Add provider" : screen === "method" ? "Connect Codex" : screen === "pending" ? (unconfirmed ? "Check connection" : "Finish signing in") : screen === "failure" ? (unconfirmed ? "Check connection" : attempt?.status === "expired" ? "Sign-in expired" : "Sign-in failed") : screen === "duplicate" ? "Already connected" : selected?.label ?? "Provider connection";
+  const heading = screen === "disconnect" ? "Disconnect Codex?" : screen === "removed" ? "Disconnected" : screen === "removing" ? (selected?.lifecycle === "cleanup_required" ? "Cleanup required" : selected?.lifecycle === "connected" ? "Check connection" : "Disconnecting") : screen === "list" ? "Providers" : screen === "type" ? "Add provider" : screen === "method" ? "Connect Codex" : screen === "pending" ? (unconfirmed ? "Check connection" : "Finish signing in") : screen === "failure" ? (unconfirmed ? "Check connection" : attempt?.status === "expired" ? "Sign-in expired" : "Sign-in failed") : screen === "duplicate" ? "Already connected" : selected?.label ?? "Provider connection";
 
   return <section className="pc-screen" aria-labelledby="provider-heading">
     <div className="pc-card">
@@ -166,7 +171,7 @@ export default function ProviderConnections() {
       {error && <div role="alert"><ErrorExplanation failure={describeNodeFailure(error, undefined)} /></div>}
       {screen === "list" && <>
         <p className="pc-muted">Settings / Providers</p>
-        {rows === undefined ? <p role="status">{error ? "Could not load providers." : "Loading providers…"}</p> : rows.length === 0 ? <p className="pc-empty">No providers connected</p> : <div className="pc-list">{rows.map(row => <button type="button" key={row.connection_id} className="pc-row" onClick={() => { setSelected(row); setScreen("details"); }}><span className="pc-avatar" aria-hidden="true">Co</span><span className="pc-row-label"><strong>{row.label}</strong><span className="pc-muted">Codex · ChatGPT plan</span></span><span className="pc-status">{statuses[row.auth_state]}</span><ChevronRight size={16} aria-hidden="true" /></button>)}</div>}
+        {rows === undefined ? <p role="status">{error ? "Could not load providers." : "Loading providers…"}</p> : rows.length === 0 ? <p className="pc-empty">No providers connected</p> : <div className="pc-list">{rows.map(row => <button type="button" key={row.connection_id} className="pc-row" onClick={() => { setSelected(row); setScreen("details"); }}><span className="pc-avatar" aria-hidden="true">Co</span><span className="pc-row-label"><strong>{row.label}</strong><span className="pc-muted">Codex · ChatGPT plan</span></span><span className="pc-status">{row.lifecycle === "connected" ? statuses[row.auth_state] : row.lifecycle === "cleanup_required" ? "Cleanup required" : "Disconnecting"}</span><ChevronRight size={16} aria-hidden="true" /></button>)}</div>}
       </>}
       {screen === "type" && <>
         <p>Choose the provider you want to connect.</p>

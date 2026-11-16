@@ -84,6 +84,18 @@ class DisconnectInfo(BaseModel):
     )
 
 
+class BrowserProviderSession(BaseModel):
+    """Verified native browser principal and nonreusable request lease digest."""
+
+    model_config = ConfigDict(frozen=True)
+    profile_id: UUID = Field(
+        description="Profile resolved by upstream native JWT verification."
+    )
+    lease_hash: str = Field(
+        repr=False, description="Cookie digest for logout fencing; never a credential."
+    )
+
+
 class DisconnectRequest(BaseModel):
     """Explicit confirmation of the inspected connection and affected work."""
 
@@ -140,6 +152,10 @@ class ControllerSlot(BaseModel):
         default=0,
         description="Requests admitted before a disconnect fence and not yet returned.",
     )
+    catalog_operations: int = Field(
+        default=0,
+        description="Native discovery requests currently borrowing this connection.",
+    )
     revision: int = Field(
         default=0,
         description="Monotonic admission counter for disconnect confirmation.",
@@ -186,6 +202,11 @@ class PendingLogin(BaseModel):
     """Process-local attempt secret, never serialized to Settings or persisted."""
 
     model_config = ConfigDict(extra="forbid")
+    exchanging: bool = Field(
+        default=False,
+        exclude=True,
+        description="Native exchange/cleanup is in flight even if its receipt was fenced.",
+    )
     profile_id: UUID = Field(
         exclude=True, description="Authenticated profile owning the attempt."
     )

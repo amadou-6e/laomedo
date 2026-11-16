@@ -7,7 +7,8 @@ param(
     [Parameter(Mandatory=$true)][string]$FrontendPath,
     [Parameter(Mandatory=$true)][string]$RuntimeRoot,
     [ValidateRange(1024,65535)][int]$Port = 17866,
-    [string]$ProviderSourceWorkspace
+    [string]$ProviderSourceWorkspace,
+    [string]$LangflowSourceRoot
 )
 $ErrorActionPreference = 'Stop'
 if ([Environment]::OSVersion.Platform -ne 'Win32NT') { throw 'This setup supports native Windows only.' }
@@ -15,6 +16,15 @@ $repoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $pythonPath = (Resolve-Path -LiteralPath $PythonExe).Path
 $frontend = (Resolve-Path -LiteralPath $FrontendPath).Path
 $providerSource = if ($ProviderSourceWorkspace) { (Resolve-Path -LiteralPath $ProviderSourceWorkspace).Path } else { $null }
+$pythonSources = @((Join-Path $repoRoot 'src'))
+if ($LangflowSourceRoot) {
+    $upstreamRoot = (Resolve-Path -LiteralPath $LangflowSourceRoot).Path
+    foreach ($modulePath in @('src/backend/base/langflow/__init__.py', 'src/lfx/src/lfx/__init__.py')) {
+        if (-not (Test-Path -LiteralPath (Join-Path $upstreamRoot $modulePath) -PathType Leaf)) { throw 'Pinned Langflow source checkout is incomplete.' }
+    }
+    $pythonSources += (Join-Path $upstreamRoot 'src/backend/base')
+    $pythonSources += (Join-Path $upstreamRoot 'src/lfx/src')
+}
 if (-not (Test-Path -LiteralPath (Join-Path $frontend 'index.html') -PathType Leaf)) {
     throw 'Frontend build is missing index.html. Build the matching frontend first.'
 }
@@ -92,7 +102,7 @@ $config = @{
     LAOMEDO_LOCAL_PROFILE_PORT=[string]$Port
     LAOMEDO_LOCAL_PROFILE_RUNTIME=$runtime
     LAOMEDO_PROVIDER_SOURCE_WORKSPACE=$providerSource
-    PYTHONPATH=(Join-Path $repoRoot 'src')
+    PYTHONPATH=($pythonSources -join [IO.Path]::PathSeparator)
 }
 $originalLocation = Get-Location
 try {

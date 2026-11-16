@@ -1330,7 +1330,15 @@ class AgentComponent(Component):
 
     async def _result(self):
         if getattr(self, "_dispatch_task", None) is None:
-            prepared = self._prepare()
+            from laomedo.integrations.langflow.provider_connections.bindings import (
+                ProviderGraphBindings,
+            )
+
+            prepared = (
+                await asyncio.to_thread(self._prepare)
+                if ProviderGraphBindings.service is not None
+                else self._prepare()
+            )
             if self.operation in {"fresh", "start", "resume"}:
                 connected = getattr(self, "mcp_tools", None)
                 if connected:

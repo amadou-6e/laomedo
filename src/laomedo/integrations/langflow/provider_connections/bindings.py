@@ -11,7 +11,7 @@ class ProviderGraphBindings:
     """Resolve opaque local selectors; never accept host paths or profile inputs."""
 
     service = None
-    session_hash = ContextVar("laomedo_provider_browser_lease", default=None)
+    session = ContextVar("laomedo_provider_browser_session", default=None)
 
     @classmethod
     def install(cls, service):
@@ -35,18 +35,21 @@ class ProviderGraphBindings:
         )
 
         authentication = get_current_auth_context()
-        lease = cls.session_hash.get()
+        session = cls.session.get()
         if (
             authentication is None
             or authentication.method != AUTH_METHOD_JWT
-            or not lease
-            or lease in cls.service.revoked_leases
+            or session is None
+            or session.lease_hash in cls.service.revoked_leases
         ):
             raise ProviderConnectionError("provider_session_required")
         try:
-            return UUID(str(component.user_id))
+            owner = UUID(str(component.user_id))
         except (AttributeError, ValueError, TypeError):
             raise ProviderConnectionError("provider_connection_unavailable") from None
+        if owner != session.profile_id:
+            raise ProviderConnectionError("provider_session_required")
+        return owner
 
     @classmethod
     def choices(cls, component):

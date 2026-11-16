@@ -1,4 +1,5 @@
 {
+  "provider_connection_busy": {"title": "Account is in use", "description": "An active run is using this connection.", "recovery": "Wait for it to finish or stop it before signing in again."},
   "provider_connection_required": {"title": "Choose a connection", "description": "This agent needs a saved Codex account.", "recovery": "Choose a connection, or add one in Settings > Providers."},
   "provider_connection_unavailable": {"title": "Connection unavailable", "description": "This connection is not available for this profile.", "recovery": "Choose an available connection or check Settings > Providers."},
   "provider_connection_changed": {"title": "Connection changed", "description": "This run belongs to an earlier sign-in.", "recovery": "Start a new run with your current connection."},

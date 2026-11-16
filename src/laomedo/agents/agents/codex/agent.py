@@ -136,7 +136,11 @@ class CodexAgent(BaseAgent):
         self.split_access_token = split_access_token
         self.auth_client_id = auth_client_id
         if auth_connection is not None and (
-            auth_store is not None or auth_client_id is not None or not split_executor
+            auth_store is not None
+            or auth_client_id is not None
+            or not split_executor
+            or split_provider_config
+            or split_access_token is not None
         ):
             raise RunnerError("conflicting_split_auth_sources")
         if (auth_store is None) != (auth_client_id is None):

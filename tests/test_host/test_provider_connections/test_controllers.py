@@ -8,6 +8,7 @@ from pathlib import Path
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 from uuid import uuid4
+from unittest.mock import Mock
 
 from laomedo.host.provider_connections.controllers import ProviderControllers
 from laomedo.host.provider_connections.errors import ProviderConnectionError
@@ -20,8 +21,8 @@ class FakeNativeAgent:
 
     def __init__(self, state, store, source, **kwargs):
         self.state = state
-        self.state.mkdir(parents=True)
-        (self.state / "runs").mkdir()
+        self.state.mkdir(parents=True, exist_ok=True)
+        (self.state / "runs").mkdir(exist_ok=True)
         self.api_token = "0" * 64
         (self.state / "api-token").write_text(self.api_token, encoding="utf-8")
         self.lock = threading.Lock()
@@ -106,6 +107,75 @@ class ProviderControllerTests(unittest.TestCase):
         ):
             self.manager.endpoint(uuid4(), self.one)
         self.assertEqual(len(self.manager.slots), 2)
+
+    def test_failed_native_startup_can_be_retried_without_restarting_the_app(self):
+        """A failed Docker prerequisite never strands dispatch and local removal."""
+        self.manager.factory = Mock(
+            side_effect=[OSError("Docker unavailable"), FakeNativeAgent]
+        )
+        with self.assertRaises(OSError):
+            self.manager.endpoint(self.profile, self.one)
+        self.manager.factory = FakeNativeAgent
+        endpoint, _token = self.manager.endpoint(self.profile, self.one)
+        self.assertTrue(endpoint.startswith("http://127.0.0.1:"))
+        self.assertTrue(self.manager.stop(self.profile, self.one))
+
+    def test_trailing_slash_routes_use_the_same_admission_fence(self):
+        """Every path accepted by the base handler is counted and fenced identically."""
+        endpoint, _token = self.manager.endpoint(self.profile, self.one)
+        slot = self.manager.slots[(self.profile, self.one, 1)]
+        self.service._save(
+            self.profile,
+            [
+                self.records[0].model_copy(update={"lifecycle": "disconnecting"}),
+                self.records[1],
+            ],
+        )
+        for path in (
+            "/v1/runs/",
+            "/v1/runs/async/",
+            "/v1/runs/" + str(uuid4()) + "/resume/",
+        ):
+            with self.assertRaises(HTTPError) as failure:
+                self.post(endpoint, path, {"request_id": str(uuid4())})
+            self.assertEqual(failure.exception.code, 409)
+            self.assertEqual(
+                json.load(failure.exception)["error_category"],
+                "provider_connection_disconnecting",
+            )
+        self.assertEqual(slot.operations, 0)
+        self.assertEqual(self.manager._records(slot), [])
+
+    def test_catalog_and_native_work_cannot_overlap_credential_rotation(self):
+        self.manager.endpoint(self.profile, self.one)
+        slot = self.manager.slots[(self.profile, self.one, 1)]
+        self.manager.admit_operation(slot, catalog=True)
+        with self.assertRaisesRegex(
+            ProviderConnectionError, "provider_connection_busy"
+        ):
+            self.manager.admit_operation(slot)
+        slot.operations = slot.catalog_operations = 0
+        self.manager.admit_operation(slot)
+        with self.assertRaisesRegex(
+            ProviderConnectionError, "provider_connection_busy"
+        ):
+            self.manager.admit_operation(slot, catalog=True)
+        slot.operations = 0
+
+    def test_unavailable_recovered_runner_keeps_settings_and_cleanup_retryable(self):
+        state = self.manager.root / str(self.profile) / str(self.one) / "g1"
+        state.mkdir(parents=True)
+        self.manager.source = None
+        self.manager.recover()
+        slot = self.manager.slots[(self.profile, self.one, 1)]
+        self.assertFalse(slot.creating)
+        self.assertIsNone(slot.runner)
+        with self.assertRaisesRegex(
+            ProviderConnectionError, "provider_cleanup_unconfirmed"
+        ):
+            self.manager.stop(self.profile, self.one)
+        self.manager.source = state.parent
+        self.assertTrue(self.manager.stop(self.profile, self.one))
 
     def test_reconnect_refuses_old_gateway_dispatch_but_preserves_evidence(self):
         endpoint, _token = self.manager.endpoint(self.profile, self.one)

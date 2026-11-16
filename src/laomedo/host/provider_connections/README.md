@@ -25,15 +25,21 @@ owns fixed attempt policy; `errors.py` defines safe domain failures.
 
 Private state must be outside Git and tool mounts. Each profile and opaque
 connection gets its own credential directory. Staging is never dispatchable.
-An interrupted attempt expires; it is never replayed after restart. No method
-imports a host login or submits a model request. Failed reconnects preserve the
-committed credential. Disconnect admission remains unavailable until the runner
-can report and fence every controller using that connection; local token deletion
-alone is not presented as successful disconnection.
+An interrupted attempt expires; it is never replayed after restart. Login,
+status, discovery and cleanup do not submit model requests. No method imports a
+host login. Failed reconnects preserve the committed credential. Disconnect
+requires native inventory and stop confirmation before erasing a local token.
 
 The selected draft is specs PR #426 at eb18f67. Implementation and live acceptance
 are separate gates. Existing single-runner startup can explicitly select a broker
-account, but graph-selected per-profile runtime dispatch is still being integrated.
+account. Graph-selected dispatch uses `ProviderGraphBindings`, the verified browser
+principal, and an opaque selector. Operator-only source configuration is supplied
+with `tools/start_local_profiles.ps1 -ProviderSourceWorkspace`; no source path is
+accepted from a graph. A source checkout root containing a `.git` directory is
+not supported by split mode; use a clean Git worktree or a tracked subtree.
+`-LangflowSourceRoot` optionally selects the matching pinned, overlaid backend/LFX
+for native development previews; dependencies must match that checkout. Frontend
+and backend overlays must both be installed for portable export/import policy.
 
 The runtime holds an exclusive store lease until `close()`. Startup scrubs only
 canonical unindexed vaults and crash-left staging; unreadable admission metadata
@@ -42,5 +48,6 @@ by reading the atomic index before reporting its result. Routine token rotation
 advances the broker `credential_generation`; the saved row's `generation` is the
 stable `connection_generation`. Borrowed metadata exposes both explicitly. Old
 local token files are scrubbed after reconnect; remote grant revocation is not
-claimed. Controller-aware disconnect and actual saved-connection dispatch remain
-unfinished, so no active-controller cleanup acceptance is claimed.
+claimed. Native saved-account dispatch, concurrent cancellation, two-account
+isolation and restart cleanup still need live acceptance; synthetic tests alone
+do not establish those outcomes.

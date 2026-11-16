@@ -6,6 +6,7 @@ from starlette.requests import Request
 from laomedo.integrations.langflow.provider_connections.bindings import (
     ProviderGraphBindings,
 )
+from laomedo.host.provider_connections.models import BrowserProviderSession
 
 
 class ProviderSessionBoundary:
@@ -18,7 +19,7 @@ class ProviderSessionBoundary:
 
     async def __call__(self, scope, receive, send):
         """Fence the exact outgoing cookie before logout or a new profile login."""
-        lease = None
+        session = None
         if scope["type"] == "http":
             request = Request(scope)
             cookie = request.cookies.get("access_token_lf")
@@ -28,7 +29,7 @@ class ProviderSessionBoundary:
                 and not request.headers.get("x-api-key")
                 and "x-api-key" not in request.query_params
             ):
-                lease = hashlib.sha256(cookie.encode()).hexdigest()
+                session = await self._session(cookie)
         if (
             scope["type"] == "http"
             and scope["method"] == "POST"
@@ -37,8 +38,25 @@ class ProviderSessionBoundary:
             cookie = Request(scope).cookies.get("access_token_lf")
             if cookie:
                 self.service.cancel_lease(hashlib.sha256(cookie.encode()).hexdigest())
-        context = ProviderGraphBindings.session_hash.set(lease)
+        context = ProviderGraphBindings.session.set(session)
         try:
             await self.app(scope, receive, send)
         finally:
-            ProviderGraphBindings.session_hash.reset(context)
+            ProviderGraphBindings.session.reset(context)
+
+    async def _session(self, cookie):
+        """Verify the browser principal independently of the flow execution owner."""
+        if ProviderGraphBindings.service is not self.service:
+            return None
+        from langflow.services.deps import get_auth_service, session_scope
+        from langflow.services.auth.exceptions import AuthenticationError
+
+        try:
+            async with session_scope() as db:
+                user = await get_auth_service()._authenticate_with_token(cookie, db)
+                return BrowserProviderSession(
+                    profile_id=user.id,
+                    lease_hash=hashlib.sha256(cookie.encode()).hexdigest(),
+                )
+        except AuthenticationError:
+            return None

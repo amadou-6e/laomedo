@@ -207,7 +207,14 @@ class ProviderConnections:
             if info.generation != generation or info.revision != revision:
                 raise ProviderConnectionError("provider_confirmation_changed")
             record = self._record(profile_id, connection_id)
-            fenced = record.model_copy(update={"lifecycle": "disconnecting"})
+            if record.lifecycle != "connected":
+                raise ProviderConnectionError("provider_request_refused")
+            fenced = record.model_copy(
+                update={
+                    "lifecycle": "disconnecting",
+                    "generation": record.generation + 1,
+                }
+            )
             self._save(
                 profile_id,
                 [
@@ -241,11 +248,32 @@ class ProviderConnections:
                 return DisconnectProgress(
                     connection_id=connection_id, status="disconnecting"
                 )
+            with self._lock:
+                attempts = [
+                    item
+                    for item in self._attempts.values()
+                    if item.profile_id == profile_id
+                    and item.candidate_id == connection_id
+                ]
+                if any(item.exchanging for item in attempts):
+                    return DisconnectProgress(
+                        connection_id=connection_id, status="disconnecting"
+                    )
+                revisions = {
+                    entry.credential_id: entry
+                    for item in attempts
+                    for entry in (item.previous, item.publication)
+                    if entry is not None
+                }
+                revisions[record.credential_id] = record
             # A refresh admitted before the fence may still hold this broker lock.
             # Wait outside the lifecycle lock, then remove its completed copy.
-            self._scrub(
-                self._broker(profile_id, record.credential_id), record.client_id
-            )
+            for item in attempts:
+                self._discard_stage(item)
+            for entry in revisions.values():
+                self._scrub(
+                    self._broker(profile_id, entry.credential_id), entry.client_id
+                )
             with self._lock:
                 current = self._record(profile_id, connection_id)
                 if current != record:
@@ -348,6 +376,12 @@ class ProviderConnections:
             previous = (
                 self.admitted(profile_id, connection_id) if connection_id else None
             )
+            if (
+                previous
+                and self.controllers is not None
+                and self.controllers.inventory(profile_id, connection_id)[0]
+            ):
+                raise ProviderConnectionError("provider_connection_busy")
             candidate = connection_id or uuid4()
             attempt_id = uuid4()
             stage = self._profile(profile_id) / ("pending-" + str(attempt_id))
@@ -385,6 +419,7 @@ class ProviderConnections:
             key
             for key, item in self._attempts.items()
             if item.progress.status not in {"connecting", "verifying"}
+            and not item.exchanging
         ]
         for key in terminal[:-64]:
             del self._attempts[key]
@@ -521,6 +556,7 @@ class ProviderConnections:
                 raise ProviderConnectionError("provider_login_expired")
             item = candidates[0]
             item.progress.status = "verifying"
+            item.exchanging = True
             oauth = json.loads(item.oauth.get_secret_value())
         stage = ChatGPTConnection(item.stage)
         staged_account = None
@@ -557,6 +593,11 @@ class ProviderConnections:
                         raise ProviderConnectionError("provider_connection_changed")
                     if subject_hash != current.subject_hash:
                         raise ProviderConnectionError("provider_account_mismatch")
+                    if (
+                        self.controllers is not None
+                        and self.controllers.inventory(profile_id, item.candidate_id)[0]
+                    ):
+                        raise ProviderConnectionError("provider_connection_busy")
                 generation = item.previous.generation + 1 if item.previous else 1
                 staged_account["generation"] = generation
                 record = ConnectionRecord(
@@ -604,6 +645,9 @@ class ProviderConnections:
                 with self._lock:
                     item.progress.status = "failed"
                     item.progress.code = "provider_save_unconfirmed"
+            finally:
+                with self._lock:
+                    item.exchanging = False
 
     def borrow(
         self, profile_id: UUID, connection_id: UUID, generation: int

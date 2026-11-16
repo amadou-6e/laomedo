@@ -4,20 +4,19 @@ from pathlib import Path
 import shutil
 
 
-def apply_providers(checkout: Path, source: Path):
-    """Check every upstream anchor before copying assets or changing entrypoints."""
+def provider_policy_edits(checkout: Path):
+    """Prepare exact pinned source edits for export/import and account labels."""
     frontend = checkout / "src/frontend/src"
-    target = frontend / "components/laomedoProviders"
-    if target.exists():
-        raise SystemExit("provider_overlay_requires_fresh_checkout")
     core = checkout / "src/backend/base/langflow/api/utils/core.py"
     core_text = core.read_text(encoding="utf-8")
-    export_anchor = "    flow = copy.deepcopy(flow)"
+    export_anchor = (
+        "    flow = copy.deepcopy(flow)\n\n    # Strip volatile top-level metadata"
+    )
     if core_text.count(export_anchor) != 1:
         raise SystemExit("provider_export_anchor_missing")
     core_text = core_text.replace(
         export_anchor,
-        "    from laomedo.integrations.langflow.provider_connections.exports import strip_local_bindings\n\n    flow = strip_local_bindings(flow)",
+        "    from laomedo.integrations.langflow.provider_connections.exports import strip_local_bindings\n\n    flow = strip_local_bindings(flow)\n\n    # Strip volatile top-level metadata",
     )
     uploads = checkout / "src/backend/base/langflow/api/v1/flows.py"
     upload_text = uploads.read_text(encoding="utf-8")
@@ -43,6 +42,52 @@ def apply_providers(checkout: Path, source: Path):
             "encodeURIComponent(JSON.stringify(stripLocalBindings(JSON.parse(sortedJsonString)), null, 2))",
         )
     )
+    edits = {core: core_text, uploads: upload_text, download: download_text}
+    dropdown = frontend / "components/core/dropdownComponent"
+    trigger = dropdown / "components/DropdownTrigger.tsx"
+    trigger_text = trigger.read_text(encoding="utf-8")
+    trigger_anchor = 'selectedMetadata?.laomedo_native_model === true && typeof selectedMetadata.display_name === "string"'
+    if trigger_text.count(trigger_anchor) != 1:
+        raise SystemExit("provider_label_trigger_anchor_missing")
+    edits[trigger] = trigger_text.replace(
+        trigger_anchor,
+        '(selectedMetadata?.laomedo_native_model === true || selectedMetadata?.laomedo_connection === true) && typeof selectedMetadata.display_name === "string"',
+    )
+    options = dropdown / "components/DropdownOptionsList.tsx"
+    options_text = options.read_text(encoding="utf-8")
+    options_anchor = '{filteredMetadata?.[index]?.laomedo_native_model === true && typeof filteredMetadata[index]?.display_name === "string" ? ('
+    if options_text.count(options_anchor) != 1:
+        raise SystemExit("provider_label_options_anchor_missing")
+    edits[options] = options_text.replace(
+        options_anchor,
+        '{filteredMetadata?.[index]?.laomedo_connection === true ? (<div className="truncate text-[13px]">{filteredMetadata[index].display_name}</div>) : filteredMetadata?.[index]?.laomedo_native_model === true && typeof filteredMetadata[index]?.display_name === "string" ? (',
+    )
+    footer_anchor = "filteredMetadata[index]?.laomedo_native_model !== true && ("
+    if edits[options].count(footer_anchor) != 1:
+        raise SystemExit("provider_label_metadata_anchor_missing")
+    edits[options] = edits[options].replace(
+        footer_anchor,
+        "filteredMetadata[index]?.laomedo_native_model !== true && filteredMetadata[index]?.laomedo_connection !== true && (",
+    )
+    search = dropdown / "hooks/useDropdownOptions.ts"
+    search_text = search.read_text(encoding="utf-8")
+    search_anchor = "item?.laomedo_native_model === true"
+    if search_text.count(search_anchor) != 2:
+        raise SystemExit("provider_label_search_anchor_missing")
+    edits[search] = search_text.replace(
+        search_anchor,
+        "(item?.laomedo_native_model === true || item?.laomedo_connection === true)",
+    )
+    return edits
+
+
+def apply_providers(checkout: Path, source: Path):
+    """Check every upstream anchor before copying assets or changing entrypoints."""
+    frontend = checkout / "src/frontend/src"
+    target = frontend / "components/laomedoProviders"
+    if target.exists():
+        raise SystemExit("provider_overlay_requires_fresh_checkout")
+    edits = provider_policy_edits(checkout)
     routes = frontend / "routes.tsx"
     text = routes.read_text(encoding="utf-8")
     anchor = 'import SettingsPage from "./pages/SettingsPage";'
@@ -71,6 +116,5 @@ def apply_providers(checkout: Path, source: Path):
     shutil.copytree(source / "providers", target)
     routes.write_text(text, encoding="utf-8")
     settings.write_text(settings_text, encoding="utf-8")
-    core.write_text(core_text, encoding="utf-8")
-    uploads.write_text(upload_text, encoding="utf-8")
-    download.write_text(download_text, encoding="utf-8")
+    for path, contents in edits.items():
+        path.write_text(contents, encoding="utf-8")

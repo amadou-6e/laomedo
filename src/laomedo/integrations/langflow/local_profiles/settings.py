@@ -16,7 +16,10 @@ class LocalProfileSettings(BaseSettings):
         env_file=None, secrets_dir=None, extra="ignore", frozen=True
     )
 
-    runtime_root: Path = Field(validation_alias="LAOMEDO_LOCAL_PROFILE_RUNTIME")
+    runtime_root: Path = Field(
+        validation_alias="LAOMEDO_LOCAL_PROFILE_RUNTIME",
+        description="Explicit private runtime directory admitted before serving local profiles.",
+    )
     provider_source: Path | None = Field(
         default=None,
         validation_alias="LAOMEDO_PROVIDER_SOURCE_WORKSPACE",

@@ -5,6 +5,7 @@ import threading
 import time
 from pathlib import Path
 from uuid import UUID
+from urllib.parse import urlsplit
 
 from laomedo.host.provider_connections.credentials import SavedConnectionCredential
 from laomedo.host.provider_connections.errors import ProviderConnectionError
@@ -22,22 +23,32 @@ class SavedRunnerRequestHandler(RunnerRequestHandler):
         """Track native-starting requests before crossing the lifecycle fence."""
         if not self._authorized():
             return
-        guarded = (method == "GET" and self.path == "/v1/models") or (
+        parsed = urlsplit(self.path)
+        parts = (parsed.path if method == "GET" else self.path).strip("/").split("/")
+        guarded = (
+            method == "GET" and parts == ["v1", "models"] and not parsed.query
+        ) or (
             method == "POST"
             and (
-                self.path in {"/v1/runs", "/v1/runs/async"}
-                or self.path.endswith("/resume")
+                parts in (["v1", "runs"], ["v1", "runs", "async"])
+                or (
+                    len(parts) == 4
+                    and parts[:2] == ["v1", "runs"]
+                    and parts[3] == "resume"
+                )
             )
         )
         try:
             if guarded:
-                self.server.manager.admit_operation(self.server.slot)
-        except ProviderConnectionError:
+                self.server.manager.admit_operation(
+                    self.server.slot, catalog=method == "GET"
+                )
+        except ProviderConnectionError as error:
             self._reply(
                 409,
                 {
                     "status": "failed",
-                    "error_category": "provider_connection_disconnecting",
+                    "error_category": error.code,
                 },
             )
             return
@@ -50,6 +61,8 @@ class SavedRunnerRequestHandler(RunnerRequestHandler):
             if guarded:
                 with self.server.manager.service._lock:
                     self.server.slot.operations -= 1
+                    if method == "GET":
+                        self.server.slot.catalog_operations -= 1
 
     def do_GET(self):
         """Allow evidence reads after fencing; guard native catalogue startup."""
@@ -161,13 +174,23 @@ class ProviderControllers:
         for profile in self.root.iterdir():
             if not profile.is_dir():
                 continue
-            profile_id = UUID(profile.name)
+            try:
+                profile_id = UUID(profile.name)
+            except ValueError:
+                continue
             for connection in profile.iterdir():
                 if not connection.is_dir():
                     continue
-                connection_id = UUID(connection.name)
+                try:
+                    connection_id = UUID(connection.name)
+                except ValueError:
+                    continue
                 for state in connection.glob("g[0-9]*"):
+                    if not state.is_dir() or not state.name[1:].isdigit():
+                        continue
                     generation = int(state.name[1:])
+                    if state.name != "g" + str(generation):
+                        continue
                     try:
                         self.service._record(profile_id, connection_id)
                     except ProviderConnectionError:
@@ -180,7 +203,14 @@ class ProviderControllers:
                         continue
                     # Existing state, including fenced rows, must be reconciled
                     # before borrowing. Agent startup recovers exact receipts.
-                    self._create(profile_id, connection_id, generation, recovery=True)
+                    try:
+                        self._create(
+                            profile_id, connection_id, generation, recovery=True
+                        )
+                    except (RunnerError, OSError, ValueError):
+                        # Keep the failed slot: Settings remains available, but
+                        # removal must retry recovery before confirming cleanup.
+                        continue
 
     def _create(self, profile_id, connection_id, generation, *, recovery=False):
         """Reserve startup before slow Docker work so disconnect cannot miss it."""
@@ -188,12 +218,10 @@ class ProviderControllers:
         with self.service._lock:
             if self.closed:
                 raise ProviderConnectionError("provider_runner_unavailable")
-            if self.source is None:
-                raise ProviderConnectionError("provider_runner_unavailable")
             if not recovery:
                 self.service.admitted(profile_id, connection_id, generation)
             existing = self.slots.get(key)
-            if existing:
+            if existing and (existing.creating or existing.server is not None):
                 return existing
             state = (
                 self.root
@@ -206,10 +234,12 @@ class ProviderControllers:
                 connection_id=connection_id,
                 generation=generation,
                 state=state,
-                revision=1,
+                revision=existing.revision + 1 if existing else 1,
             )
             self.slots[key] = slot
         try:
+            if self.source is None:
+                raise ProviderConnectionError("provider_runner_unavailable")
             auth = SavedConnectionCredential(
                 self.service, profile_id, connection_id, generation
             )
@@ -259,13 +289,27 @@ class ProviderControllers:
             slot.state / "api-token",
         )
 
-    def admit_operation(self, slot):
+    def admit_operation(self, slot, *, catalog=False):
         """Atomically fence work admission and increment the confirmation revision."""
         with self.service._lock:
             if self.closed:
                 raise ProviderConnectionError("provider_runner_unavailable")
             self.service.admitted(slot.profile_id, slot.connection_id, slot.generation)
+            if slot.catalog_operations or (
+                catalog
+                and (
+                    slot.operations
+                    or slot.runner.lock.locked()
+                    or any(
+                        record["status"] in {"prepared", "running"}
+                        for record in self._records(slot)
+                    )
+                )
+            ):
+                raise ProviderConnectionError("provider_connection_busy")
             slot.operations += 1
+            if catalog:
+                slot.catalog_operations += 1
             slot.revision += 1
 
     def inventory(self, profile_id, connection_id):
@@ -279,7 +323,11 @@ class ProviderControllers:
                 record["status"] in {"prepared", "running"}
                 for record in self._records(slot)
             )
-            count += max(running, slot.operations) + int(slot.creating)
+            count += max(
+                running,
+                slot.operations,
+                int(slot.runner is not None and slot.runner.lock.locked()),
+            ) + int(slot.creating)
         return count, revision
 
     def _records(self, slot):
@@ -303,8 +351,19 @@ class ProviderControllers:
                 ready = False
                 continue
             if slot.runner is None:
-                # Failed construction may have left a durable native receipt.
-                raise ProviderConnectionError("provider_cleanup_unconfirmed")
+                # Retry native construction to reconcile any receipt left by
+                # the failed attempt. Never discard a receipt or fake success.
+                try:
+                    slot = self._create(
+                        slot.profile_id,
+                        slot.connection_id,
+                        slot.generation,
+                        recovery=True,
+                    )
+                except (RunnerError, OSError, ValueError):
+                    raise ProviderConnectionError(
+                        "provider_cleanup_unconfirmed"
+                    ) from None
             try:
                 for record in self._records(slot):
                     if record["status"] in {"prepared", "running"}:

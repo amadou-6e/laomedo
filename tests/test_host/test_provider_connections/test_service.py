@@ -351,6 +351,25 @@ class ProviderConnectionsTests(unittest.TestCase):
             "one-access",
         )
 
+    def test_reconnect_waits_for_active_work_instead_of_interrupting_its_account(self):
+        """Reauthentication cannot replace credentials underneath an active controller."""
+        existing = self.connect()
+        controller = Mock()
+        controller.inventory.return_value = (1, 2)
+        self.service.controllers = controller
+        with self.assertRaisesRegex(
+            ProviderConnectionError, "provider_connection_busy"
+        ):
+            self.service.begin(
+                self.profile,
+                "http://127.0.0.1:17867/auth/callback",
+                existing.connection_id,
+            )
+        self.assertEqual(
+            self.service.borrow(self.profile, existing.connection_id, 1)[0],
+            "one-access",
+        )
+
     def test_saved_probe_uses_connection_epoch_across_routine_rotation(self):
         """Renewal changes credential evidence without pretending the account was replaced."""
         from laomedo.host.credentials.siwc.utils import _atomic_private

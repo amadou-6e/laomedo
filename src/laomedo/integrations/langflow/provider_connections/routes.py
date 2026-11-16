@@ -134,7 +134,14 @@ def install_provider_routes(app, service, authenticate, *, origin: str):
     ):
         """Retry an already-fenced cleanup; this never reauthorizes a connection."""
         session_lease(request)
-        if request.headers.get("origin") != origin or await request.body() != b"{}":
+        if request.headers.get("origin") != origin:
+            raise HTTPException(403, detail={"code": "provider_request_refused"})
+        body = bytearray()
+        async for chunk in request.stream():
+            if len(body) + len(chunk) > 2:
+                raise HTTPException(403, detail={"code": "provider_request_refused"})
+            body.extend(chunk)
+        if body != b"{}":
             raise HTTPException(403, detail={"code": "provider_request_refused"})
         return await respond(
             lambda: service.retry_cleanup(user.id, connection_id).model_dump(
