@@ -410,6 +410,21 @@ class AgentComponent(Component):
         ),
     ]
 
+    def _update_template(self, frontend_node):
+        from laomedo.integrations.langflow.provider_connections.bindings import (
+            ProviderGraphBindings,
+        )
+
+        frontend_node = super()._update_template(frontend_node)
+        field = frontend_node.get("template", {}).get("provider_connection")
+        if field is not None:
+            field.update(
+                show=self.provider_id == "codex"
+                and ProviderGraphBindings.service is not None,
+                advanced=True,
+            )
+        return frontend_node
+
     async def update_build_config(self, build_config, field_value, field_name=None):
         from laomedo.integrations.langflow.provider_connections.bindings import (
             ProviderGraphBindings,

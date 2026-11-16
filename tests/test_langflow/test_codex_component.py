@@ -93,6 +93,21 @@ def result(**changes):
 
 
 class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
+    def test_initial_connection_visibility_matches_provider_service(self):
+        from laomedo.integrations.langflow.provider_connections.bindings import (
+            ProviderGraphBindings,
+        )
+
+        for service, visible in ((None, False), (object(), True)):
+            with (
+                self.subTest(configured=visible),
+                patch.object(ProviderGraphBindings, "service", service),
+            ):
+                node = module.LaomedoCodexAgent().to_frontend_node()
+                field = node["data"]["node"]["template"]["provider_connection"]
+                self.assertEqual(field["show"], visible)
+                self.assertTrue(field["advanced"])
+
     def test_bridge_activity_capture_uses_runner_token(self):
         from laomedo.agents.activity.capture import ActivityCapture as RunnerCapture
 
