@@ -112,3 +112,5 @@ passes. Claude reviewed `4fb66109` -> `8918f8d8`, all six rendered states and th
 full UI delta: Implementation, Visual and Spec fit APPROVE with no blockers.
 The reviewer did not see the owner's reference bitmap, only its described
 geometry and the actual implementation renders. No new inference was needed.
+
+UI checkpoint0adee974: independent Chrome verifies the annotated effort slider with keyboard stepping, real conversation rename retained after reload with matching header/sidebar, and equal computed user/assistant font sizes (14px). The driver restores the original title, retains actual provider/MCP history and opens the draft separately (two nodes,one attached edge), with zero page errors. No inference submitted. Local screenshots/private runtime state are not committed. Native permissions were explicitly split into issue288 by the owner.

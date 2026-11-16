@@ -16,11 +16,11 @@ try {
   await page.getByPlaceholder("Start chat…").waitFor({timeout:90000});
   await page.getByRole("button",{name:"Choose model and effort",exact:true}).click();
   await page.getByRole("radio",{name:"gpt-6-luna",exact:true}).locator("..").click();
-  await page.getByRole("radio",{name:"medium",exact:true}).locator("..").click();
+  await page.getByRole("slider",{name:"Reasoning effort"}).focus(); await page.keyboard.press("Home"); await page.keyboard.press("ArrowRight"); await page.keyboard.press("Escape");
   await page.screenshot({path:root + "/.tools/assistant-282-screens/composer-empty.png",fullPage:true,animations:"disabled"});
   await page.locator("main form").screenshot({path:root + "/.tools/assistant-282-screens/composer-crop.png",animations:"disabled"});
   await page.getByRole("button",{name:"Choose model and effort",exact:true}).click();
-  await page.getByRole("radio",{name:"medium",exact:true}).waitFor({state:"attached"});
+  await page.getByRole("slider",{name:"Reasoning effort"}).waitFor();
   await page.screenshot({path:root + "/.tools/assistant-282-screens/composer-popover.png",fullPage:true,animations:"disabled"});
   await page.keyboard.press("Escape");
   const newConversation = await page.getByRole("button",{name:"New conversation",exact:true}).boundingBox();
@@ -33,6 +33,23 @@ try {
   await page.goto(metadata.base + "/assistant?conversation=" + metadata.conversation);
   await page.getByRole("main", {name:"Application assistant"}).waitFor({timeout:90000});
   await page.getByRole("article", {name:"Saved draft: Assistant restart proof draft"}).waitFor({timeout:30000});
+  const heading = page.locator("main h1");
+  const originalTitle = await heading.innerText();
+  await heading.dblclick();
+  await page.getByRole("textbox", {name:"Conversation title"}).fill("Workflow assistant validation");
+  await page.screenshot({path:root + "/.tools/assistant-282-screens/rename-edit.png",fullPage:true,animations:"disabled"});
+  await page.getByRole("button", {name:"Save",exact:true}).click();
+  await page.getByRole("heading", {name:"Workflow assistant validation",exact:true}).waitFor();
+  await page.reload();
+  await page.getByRole("heading", {name:"Workflow assistant validation",exact:true}).waitFor({timeout:30000});
+  await page.getByRole("complementary", {name:"Conversations"}).getByText("Workflow assistant validation", {exact:true}).waitFor();
+  await page.screenshot({path:root + "/.tools/assistant-282-screens/rename-saved.png",fullPage:true,animations:"disabled"});
+  await page.locator("main h1").dblclick();
+  await page.getByRole("textbox", {name:"Conversation title"}).fill(originalTitle);
+  await page.getByRole("button", {name:"Save",exact:true}).click();
+  await page.getByRole("heading", {name:originalTitle,exact:true}).waitFor();
+  const sizes = await page.locator('section[aria-label="Message and response"]').first().evaluate(section => ({user:getComputedStyle(section.querySelector("p.whitespace-pre-wrap")).fontSize,assistant:getComputedStyle(section.querySelector(".prose")).fontSize}));
+  if (sizes.user !== sizes.assistant) throw new Error("Message font sizes differ: " + JSON.stringify(sizes));
   await mkdir(root + "/.tools/assistant-282-screens", {recursive:true});
   if (await page.getByRole("link",{name:"Workflows ↗",exact:true}).count()) throw new Error("Retired workflow header link remains");
   const header = await page.locator("main header").innerText();
@@ -64,5 +81,5 @@ try {
   });
   if (nodes !== 2 || edges !== 1 || !attachedEdges) throw new Error("Expected one rendered edge joining the two draft nodes");
   await editor.screenshot({path:root + "/.tools/assistant-282-screens/editor.png",fullPage:true,animations:"disabled"});
-  console.log(JSON.stringify({chatVisible:true,draftCardVisible:true,editorOpenedInSeparateTab:page.url().includes("/assistant"),nodes,edges,attachedEdges,failures}));
+  console.log(JSON.stringify({renameRetainedAcrossReload:true,sidebarTitleMatches:true,messageFontSizes:sizes,sliderKeyboardStepping:true,chatVisible:true,draftCardVisible:true,editorOpenedInSeparateTab:page.url().includes("/assistant"),nodes,edges,attachedEdges,failures}));
 } finally { await browser.close(); }
