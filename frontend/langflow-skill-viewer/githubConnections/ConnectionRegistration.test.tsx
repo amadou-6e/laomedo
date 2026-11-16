@@ -78,3 +78,25 @@ test("leaving registration prevents a late response from navigating", async () =
   expect(submit).not.toHaveBeenCalled();
   submit.mockRestore();
 });
+
+test("setup stays local until Continue and rejects a public App manifest", async () => {
+  const submit = jest
+    .spyOn(HTMLFormElement.prototype, "submit")
+    .mockImplementation(() => {});
+  (connectionRequest as jest.Mock).mockResolvedValue({
+    outcome: {
+      action: "https://github.com/settings/apps/new?state=synthetic",
+      manifest: { public: true },
+    },
+  });
+  render(<ConnectionRegistration close={jest.fn()} />);
+  expect(connectionRequest).not.toHaveBeenCalled();
+  expect(screen.getByRole("link", { name: "Open GitHub" })).toHaveAttribute(
+    "href",
+    "https://github.com/",
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Continue to GitHub" }));
+  await screen.findByRole("alert");
+  expect(submit).not.toHaveBeenCalled();
+  submit.mockRestore();
+});
