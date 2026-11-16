@@ -133,6 +133,36 @@ class ProviderConnectionsTests(unittest.TestCase):
             "one-access",
         )
 
+    def test_email_collision_does_not_block_repairing_an_existing_connection(self):
+        """Extra-row refusal never strands an exact saved-account reconnect."""
+        existing = self.connect(email="person@example.invalid")
+        other = self.connect("two", "oaiapp_two")
+        records = self.service._records(self.profile)
+        self.service._save(
+            self.profile,
+            [
+                (
+                    record.model_copy(update={"label": "person@example.invalid"})
+                    if record.connection_id == other.connection_id
+                    else record
+                )
+                for record in records
+            ],
+        )
+        result = self.connect(
+            "one",
+            "oaiapp_one",
+            existing.connection_id,
+            email="person@example.invalid",
+        )
+        self.assertEqual(result.status, "connected")
+        self.assertEqual(result.connection_id, existing.connection_id)
+        self.assertEqual(len(self.service.list(self.profile)), 2)
+        self.assertEqual(
+            self.service.borrow(self.profile, existing.connection_id, 2)[0],
+            "one-access",
+        )
+
     def test_wrong_account_reconnect_preserves_committed_credential(self):
         """A native return for another principal cannot replace a working login."""
         existing = self.connect()

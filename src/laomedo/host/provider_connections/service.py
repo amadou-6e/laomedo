@@ -575,6 +575,8 @@ class ProviderConnections:
                     ).encode()
                 ).hexdigest()
                 email = staged_account.get("email")
+                # Labels are immutable provider email projections. This rule
+                # only refuses a new row; reconnect identity stays subject-bound.
                 normalized_email = (
                     email.strip().casefold()
                     if isinstance(email, str) and email.strip()
@@ -587,7 +589,8 @@ class ProviderConnections:
                         if record.connection_id != item.candidate_id
                         and (
                             record.subject_hash == subject_hash
-                            or normalized_email is not None
+                            or item.previous is None
+                            and normalized_email is not None
                             and record.label.strip().casefold() == normalized_email
                         )
                     ),
