@@ -11,6 +11,11 @@ from mcp.server.transport_security import TransportSecuritySettings
 from starlette.responses import JSONResponse
 
 from laomedo.integrations.langflow.assistant.errors import AssistantError
+from laomedo.integrations.langflow.assistant.settings import (
+    AUTHORING_SERVER_NAME,
+    AUTHORING_TOOL_NAMES,
+)
+from laomedo.agents.mcp.models import McpTool
 from laomedo.integrations.langflow.assistant.models import (
     DraftGraph,
     DraftRequest,
@@ -37,16 +42,23 @@ class AuthoringMcp:
                 allowed_origins=[origin],
             ),
         )
-        for name in (
-            "list_workflows",
-            "get_workflow",
-            "search_components",
-            "describe_component",
-            "list_skills",
-            "save_draft",
-        ):
+        for name in AUTHORING_TOOL_NAMES:
             self.server.add_tool(getattr(self, name), name=name)
         self.app = self.server.streamable_http_app()
+
+    @staticmethod
+    def display_names():
+        """Resolve the fixed authoring aliases with the forwarding layer's canonical identity rule."""
+        return {
+            McpTool(
+                server=AUTHORING_SERVER_NAME,
+                upstream_name=name,
+                display_name=name,
+                description="",
+                input_schema={},
+            ).external_name(): name
+            for name in AUTHORING_TOOL_NAMES
+        }
 
     async def __call__(self, scope, receive, send):
         """Authenticate discovery as well as calls before entering MCP's protocol handler."""

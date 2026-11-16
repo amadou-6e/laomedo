@@ -123,11 +123,15 @@ async def activity(
     """Read the existing normalized Activity boundary, including retained offline snapshots."""
     runtime, owner, key = context
     try:
+        result = await runtime.activity(owner, identifier, attempt, after)
+        # Application display metadata stays outside the common Activity page
+        # and retained snapshots. No host capability or call ID is exposed.
+        result = {**result, "tool_names": runtime.mcp.display_names()}
         return await release(
             runtime,
             owner,
             key,
-            await runtime.activity(owner, identifier, attempt, after),
+            result,
         )
     except AssistantError as error:
         raise HTTPException(error.status, detail={"code": error.code}) from None

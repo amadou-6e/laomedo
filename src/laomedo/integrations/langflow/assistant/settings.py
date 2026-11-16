@@ -6,6 +6,16 @@ from urllib.parse import urlsplit
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+AUTHORING_SERVER_NAME = "laomedo"
+AUTHORING_TOOL_NAMES = (
+    "list_workflows",
+    "get_workflow",
+    "search_components",
+    "describe_component",
+    "list_skills",
+    "save_draft",
+)
+
 ASSISTANT_INSTRUCTIONS = """You are Laomedo's workflow assistant. Help the user design and save editable workflow drafts.
 Use the Laomedo MCP tools to inspect actual workflows, installed component schemas and supported Skills.
 Never invent component names, ports, model selections or Skill revisions. Discover then describe exact components.

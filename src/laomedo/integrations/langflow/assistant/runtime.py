@@ -26,6 +26,7 @@ from laomedo.integrations.langflow.assistant.models import (
 from laomedo.integrations.langflow.assistant.persistence import AssistantStore
 from laomedo.integrations.langflow.assistant.runner import AssistantRunner
 from laomedo.integrations.langflow.assistant.settings import (
+    AUTHORING_SERVER_NAME,
     AssistantSettings,
     ASSISTANT_INSTRUCTIONS,
 )
@@ -507,7 +508,7 @@ class AssistantRuntime:
             client = MCPStreamableHttpClient()
             client.set_session_context("assistant:" + str(context.message_id))
             _, tools, _ = await update_tools(
-                "laomedo",
+                AUTHORING_SERVER_NAME,
                 {
                     "mode": "Streamable_HTTP",
                     "url": self.settings.app_url + "/api/v1/laomedo/assistant/mcp/",

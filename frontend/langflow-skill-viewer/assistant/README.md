@@ -8,6 +8,9 @@ chat-first empty state with provider selection, and per-turn model/effort contro
 beside the composer. Consecutive tool calls share a card with per-call timing;
 technical call IDs and repeated Assistant labels are omitted. `ToolCalls.tsx`
 owns this assistant-specific presentation without changing graph Activity views.
+The authenticated application Activity response supplies fixed authoring-tool
+display names derived from the forwarding layer's canonical alias rule; it adds
+no capability and leaves common Activity payloads and retained snapshots unchanged.
 
 `models.ts` owns wire types. `api.ts` makes one same-origin request without
 automatic inference replay or authentication-refresh retry. `AssistantPage.tsx`

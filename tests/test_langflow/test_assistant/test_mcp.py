@@ -17,6 +17,7 @@ import uvicorn
 from laomedo.integrations.langflow.assistant.errors import AssistantError
 from laomedo.integrations.langflow.assistant.mcp import AuthoringMcp
 from laomedo.integrations.langflow.assistant.models import AuthoringContext
+from laomedo.agents.mcp.models import McpTool
 
 
 class AuthoringControl:
@@ -120,6 +121,16 @@ class McpTransportTests(unittest.IsolatedAsyncioTestCase):
                     },
                 )
                 for tool in tools:
+                    alias = McpTool(
+                        server="laomedo",
+                        upstream_name=tool.name,
+                        display_name=tool.name,
+                        description=tool.description or "",
+                        input_schema=tool.inputSchema,
+                    ).external_name()
+                    self.assertEqual(
+                        self.control.transport.display_names()[alias], tool.name
+                    )
                     self.assertTrue(
                         {
                             "owner",

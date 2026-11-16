@@ -118,7 +118,11 @@ export default function MessageRow({
             <AssistantText text={text} />
           </div>
         ) : (
-          <ToolCalls key={`${lane.thread}:${lane.id}`} lanes={group} />
+          <ToolCalls
+            key={`${lane.thread}:${lane.id}`}
+            lanes={group}
+            names={page?.tool_names ?? {}}
+          />
         );
       })}
       {!hasAnswer && message.response && (

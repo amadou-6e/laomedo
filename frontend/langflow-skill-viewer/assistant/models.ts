@@ -58,6 +58,7 @@ export type ConversationDetail = {
   observation_error?: string;
 };
 export type ActivityPage = {
+  tool_names?: Record<string, string>;
   available: boolean;
   reason: string | null;
   projection: Projection | null;

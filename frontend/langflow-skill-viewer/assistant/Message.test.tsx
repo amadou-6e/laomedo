@@ -56,6 +56,7 @@ describe("retained assistant conversation", () => {
     jest
       .mocked(assistantRequest)
       .mockResolvedValue({
+        tool_names: { external_abcdef1234: "search_components" },
         projection: {
           items: [
             tool("private-call-1"),
@@ -78,6 +79,7 @@ describe("retained assistant conversation", () => {
     );
     await screen.findByText("Done");
     expect(screen.getAllByLabelText("Tool calls")).toHaveLength(2);
+    expect(screen.getAllByText("search_components")).toHaveLength(3);
     expect(screen.getAllByText(/1\.0s/)).toHaveLength(3);
     expect(screen.queryByText("Assistant")).toBeNull();
     expect(document.body.textContent).not.toContain("external_abcdef1234");

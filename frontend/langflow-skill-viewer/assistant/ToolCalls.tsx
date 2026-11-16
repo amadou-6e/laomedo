@@ -1,7 +1,13 @@
 import type { Lane } from "@/modals/graphAgents/models";
 import { duration, time } from "@/modals/graphAgents/utils";
 
-export default function ToolCalls({ lanes }: { lanes: Lane[] }) {
+export default function ToolCalls({
+  lanes,
+  names,
+}: {
+  lanes: Lane[];
+  names: Record<string, string>;
+}) {
   return (
     <div
       className="overflow-hidden rounded-xl border bg-muted/20"
@@ -11,11 +17,12 @@ export default function ToolCalls({ lanes }: { lanes: Lane[] }) {
         const item = lane.item ?? {};
         const candidate = String(item.toolName ?? item.tool ?? item.name ?? "");
         const name =
-          candidate && !/^external_[a-f0-9]+$/i.test(candidate)
+          names[candidate] ??
+          (candidate && !/^external_[a-f0-9]+$/i.test(candidate)
             ? candidate
             : item.type === "commandExecution"
               ? "Command"
-              : "Laomedo tool";
+              : "Tool call");
         const output = item.output ?? item.result ?? item.aggregatedOutput;
         const input = item.arguments ?? item.input ?? item.command;
         return (
