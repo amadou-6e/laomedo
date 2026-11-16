@@ -62,6 +62,11 @@ describe("uncertain assistant submission", () => {
     jest
       .mocked(assistantRequest)
       .mockImplementation(async (path, body: any) => {
+        if (path === "/models")
+          return {
+            provider: "codex",
+            models: [{ id: "fixture", efforts: ["low", "high"] }],
+          };
         if (path === "/conversations")
           return { conversations: [conversation], next_cursor: null };
         if (body) {
@@ -106,12 +111,18 @@ describe("uncertain assistant submission", () => {
     fireEvent.change(composer, {
       target: { value: "Keep this original text" },
     });
+    fireEvent.change(
+      screen.getByRole("combobox", { name: "Assistant reasoning effort" }),
+      { target: { value: "high" } },
+    );
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
     await screen.findByRole("button", { name: "Retry same submission" });
     const original = JSON.parse(
       sessionStorage.getItem("laomedo.assistant.pending.owner")!,
     );
     expect(original.conversation.id).toBe(posts[0].client_message_id);
+    expect(posts[0].model).toBe("fixture");
+    expect(posts[0].effort).toBe("high");
     first.unmount();
     mount();
     const retry = await screen.findByRole("button", {
@@ -125,5 +136,72 @@ describe("uncertain assistant submission", () => {
         screen.queryByRole("button", { name: "Retry same submission" }),
       ).toBeNull(),
     );
+  });
+
+  it("starts in a chat composer and creates only on explicit Send, with collapsible history", async () => {
+    const calls: any[] = [];
+    const conversation = {
+      id: "new-chat",
+      title: "New conversation",
+      model: "fixture",
+      effort: "low",
+      state: "idle",
+      active_message_id: null,
+    };
+    jest
+      .mocked(assistantRequest)
+      .mockImplementation(async (path, body: any) => {
+        calls.push([path, body]);
+        if (path === "/models")
+          return {
+            provider: "codex",
+            models: [{ id: "fixture", efforts: ["low", "high"] }],
+          };
+        if (path === "/conversations" && body) return conversation;
+        if (path === "/conversations")
+          return { conversations: [], next_cursor: null };
+        return { conversation, messages: [], drafts: [], next_cursor: null };
+      });
+    render(
+      <MemoryRouter initialEntries={["/assistant"]}>
+        <AssistantPage />
+      </MemoryRouter>,
+    );
+    const composer = screen.getByRole("textbox", {
+      name: "Message this assistant",
+    });
+    expect(composer.getAttribute("placeholder")).toBe("Start chat…");
+    fireEvent.click(
+      screen.getByRole("button", { name: "Collapse conversations" }),
+    );
+    expect(
+      screen.queryByRole("complementary", { name: "Conversations" }),
+    ).toBeNull();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Expand conversations" }),
+    );
+    expect(
+      screen.getByRole("button", { name: "New conversation" }),
+    ).toBeTruthy();
+    await screen.findByRole("option", { name: "fixture" });
+    fireEvent.change(
+      screen.getByRole("combobox", { name: "Assistant model" }),
+      { target: { value: "fixture" } },
+    );
+    fireEvent.change(composer, { target: { value: "Create a draft" } });
+    expect(calls.filter(([, body]) => body)).toHaveLength(0);
+    fireEvent.click(screen.getByRole("button", { name: "Start chat" }));
+    await waitFor(() =>
+      expect(
+        calls.some(([path]) => path === "/conversations/new-chat/messages"),
+      ).toBe(true),
+    );
+    expect(
+      calls.find(([path]) => path === "/conversations/new-chat/messages")[1],
+    ).toMatchObject({
+      text: "Create a draft",
+      model: "fixture",
+      effort: "low",
+    });
   });
 });

@@ -57,7 +57,7 @@ async def models(context=Depends(access)):
 
 @router.post("/conversations")
 async def create_conversation(body: ConversationRequest, context=Depends(access)):
-    """Create retained chat metadata using a supported fixed provider/model binding."""
+    """Create retained chat metadata using a supported provider and initial defaults."""
     runtime, owner, key = context
     try:
         return await release(

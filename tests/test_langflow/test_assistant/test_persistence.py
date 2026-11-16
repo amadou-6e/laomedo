@@ -18,6 +18,50 @@ from laomedo.integrations.langflow.assistant.persistence import AssistantStore
 
 
 class PersistenceTests(unittest.IsolatedAsyncioTestCase):
+    async def test_turn_selection_is_immutable_and_part_of_retry_identity(self):
+        """A retry cannot silently change models; a following turn can choose another."""
+        request = MessageRequest(
+            client_message_id=uuid4(), text="Create", model="first", effort="low"
+        )
+        first, created = await self.store.reserve(
+            self.owner, self.identifier, request, session_key=self.key
+        )
+        self.assertTrue(created)
+        self.assertEqual((first["model"], first["effort"]), ("first", "low"))
+        with self.assertRaisesRegex(AssistantError, "assistant_message_conflict"):
+            await self.store.submitted(
+                self.owner,
+                self.identifier,
+                request.model_copy(update={"effort": "high"}),
+            )
+        await self.store.observe(
+            self.owner,
+            self.identifier,
+            UUID(first["id"]),
+            state="completed",
+            thread_id="native-thread",
+            workspace_hash="sha256:" + "a" * 64,
+            settled=True,
+            reconciled=True,
+        )
+        second, _ = await self.store.reserve(
+            self.owner,
+            self.identifier,
+            MessageRequest(
+                client_message_id=uuid4(),
+                text="Continue",
+                model="second",
+                effort="high",
+            ),
+            session_key=self.key,
+        )
+        retained = await self.store.submitted(self.owner, self.identifier, request)
+        self.assertEqual((retained["model"], retained["effort"]), ("first", "low"))
+        self.assertEqual((second["model"], second["effort"]), ("second", "high"))
+        detail = await AssistantStore(self.engine).detail(self.owner, self.identifier)
+        self.assertEqual(detail["conversation"]["model"], "second")
+        self.assertEqual(detail["conversation"]["effort"], "high")
+
     async def asyncSetUp(self):
         self.directory = tempfile.TemporaryDirectory()
         self.engine = create_async_engine(

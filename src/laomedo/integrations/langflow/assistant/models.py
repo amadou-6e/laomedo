@@ -35,7 +35,7 @@ class AuthoringContext(BaseModel):
 
 
 class ConversationRequest(BaseModel):
-    """Bind model selection once; creation never submits a prompt."""
+    """Choose initial defaults; creation never submits a prompt."""
 
     model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
     provider: Literal["codex"] = ModelField(
@@ -66,13 +66,43 @@ class MessageRequest(BaseModel):
         repr=False,
         description="User-authored prompt retained in private local history.",
     )
+    model: str | None = ModelField(
+        default=None,
+        min_length=1,
+        max_length=256,
+        description="Discovered model for this turn; omitted uses conversation defaults.",
+    )
+    effort: str | None = ModelField(
+        default=None,
+        min_length=1,
+        max_length=100,
+        description="Supported effort for this turn; supplied together with model.",
+    )
 
     @model_validator(mode="after")
     def require_text(self):
         """Refuse whitespace without silently altering the retained prompt."""
         if not self.text.strip():
             raise ValueError("assistant_message_empty")
+        if (self.model is None) != (self.effort is None):
+            raise ValueError("assistant_selection_incomplete")
         return self
+
+    def digest(self):
+        """Bind explicit selections to the stable key; preserve text-only callers' identity."""
+        import hashlib
+        import json
+
+        payload = (
+            self.text
+            if self.model is None
+            else json.dumps(
+                [self.text, self.model, self.effort],
+                ensure_ascii=True,
+                separators=(",", ":"),
+            )
+        )
+        return hashlib.sha256(payload.encode()).hexdigest()
 
 
 class StopRequest(BaseModel):
@@ -218,8 +248,12 @@ class AssistantConversation(SQLModel, table=True):
         index=True, description="Authenticated owner; never model-selectable."
     )
     provider: str = Field(description="Fixed provider selection.")
-    model: str = Field(description="Fixed native model selection.")
-    effort: str = Field(description="Fixed reasoning selection.")
+    model: str = Field(
+        description="Latest admitted native model selection; default for the next turn."
+    )
+    effort: str = Field(
+        description="Latest admitted reasoning selection; default for the next turn."
+    )
     title: str = Field(
         default="New conversation", description="Bounded first-message preview."
     )
@@ -280,6 +314,14 @@ class AssistantMessage(SQLModel, table=True):
         description="Stable application attempt; subsequent prompts also use this as native Activity identity.",
     )
     digest: str = Field(description="Canonical semantic request digest.")
+    model: str | None = Field(
+        default=None,
+        description="Immutable admitted model for this turn; absent on earlier retained rows.",
+    )
+    effort: str | None = Field(
+        default=None,
+        description="Immutable admitted reasoning effort for this turn; absent on earlier retained rows.",
+    )
     stop_requested: bool = Field(
         default=False,
         description="Durable cancellation intent, including dispatch whose response was lost.",

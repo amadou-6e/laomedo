@@ -15,6 +15,8 @@ export type Conversation = {
   linked_conversation_id: string | null;
 };
 export type Message = {
+  model?: string | null;
+  effort?: string | null;
   id: string;
   client_message_id: string;
   attempt_id: string;
@@ -26,6 +28,12 @@ export type Message = {
   run_id: string | null;
   created_at: number;
   stop_requested: boolean;
+};
+export type PendingSubmission = {
+  id: string;
+  text: string;
+  model?: string;
+  effort?: string;
 };
 export type DraftReceipt = {
   id: string;

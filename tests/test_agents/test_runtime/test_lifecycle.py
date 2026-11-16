@@ -1417,7 +1417,9 @@ class LocalRunnerTests(unittest.TestCase):
         )
         with self.assertRaisesRegex(RunnerError, "resume_binding_mismatch"):
             self.runner.resume(
-                first["run_id"], "continue", **{**args, "model": "other"}
+                first["run_id"],
+                "continue",
+                **{**args, "expected_thread_id": "other-thread"},
             )
         (self.runner._run_dir(first["run_id"]) / "post-run/task.txt").write_text(
             "tampered"

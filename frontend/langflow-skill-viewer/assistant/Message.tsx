@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import Markdown from "react-markdown";
-import { ActivityItem } from "@/modals/graphAgents/conversation";
+import type { Lane } from "@/modals/graphAgents/models";
+import ToolCalls from "./ToolCalls";
 import { messageText } from "@/modals/graphAgents/utils";
 import { AssistantFailure, assistantRequest } from "./api";
 import ErrorExplanation from "@/components/laomedoErrors/ErrorExplanation";
@@ -84,6 +85,17 @@ export default function MessageRow({
   const hasAnswer = items.some(
     (lane) => messageText(lane.item ?? {}, "codex") !== null,
   );
+  const groups: Lane[][] = [];
+  for (const lane of items) {
+    const previous = groups[groups.length - 1];
+    if (
+      messageText(lane.item ?? {}, "codex") === null &&
+      previous &&
+      messageText(previous[0].item ?? {}, "codex") === null
+    )
+      previous.push(lane);
+    else groups.push([lane]);
+  }
   return (
     <section className="space-y-5 pb-6" aria-label="Message and response">
       <div className="ml-auto max-w-[90%] space-y-2 md:max-w-[80%]">
@@ -98,25 +110,19 @@ export default function MessageRow({
           <p className="whitespace-pre-wrap break-words">{message.text}</p>
         </div>
       </div>
-      {items.map((lane) => {
+      {groups.map((group) => {
+        const lane = group[0];
         const text = messageText(lane.item ?? {}, "codex");
         return text !== null ? (
           <div key={`${lane.thread}:${lane.id}`} className="space-y-2">
-            <p className="text-xs text-muted-foreground">Assistant</p>
             <AssistantText text={text} />
           </div>
         ) : (
-          <ActivityItem
-            key={`${lane.thread}:${lane.id}`}
-            lane={lane}
-            rootThread={page?.thread_id ?? null}
-            provider="codex"
-          />
+          <ToolCalls key={`${lane.thread}:${lane.id}`} lanes={group} />
         );
       })}
       {!hasAnswer && message.response && (
         <div className="space-y-2">
-          <p className="text-xs text-muted-foreground">Assistant</p>
           <AssistantText text={message.response} />
         </div>
       )}

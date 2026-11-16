@@ -274,6 +274,10 @@ class CodexAgent(BaseAgent):
     ) -> dict:
         """Admit an existing session/workspace binding before continuing it; failures never create a fresh session."""
         self._validate_run_timeout(run_timeout_seconds)
+        if not all(
+            isinstance(value, str) and value.strip() for value in (model, effort)
+        ):
+            raise RunnerError("unsupported_model_effort")
         record = self.status(run_id)
         if (
             self.publication_controller is not None
@@ -289,8 +293,6 @@ class CodexAgent(BaseAgent):
             or record["thread_id"] != expected_thread_id
             or (checkpoint.workspace_hash if checkpoint else record["post_run_hash"])
             != expected_post_run_hash
-            or record["requested_model"] != model
-            or record["requested_effort"] != effort
             or record["profile"] != self.profile
             or record.get("workspace_mode", "files")
             != ("git" if self.git_workspace else "files")
@@ -337,7 +339,12 @@ class CodexAgent(BaseAgent):
             ):
                 raise RunnerError("resume_auth_identity_mismatch")
         return self._execute(
-            run_id, task, resume=True, activity_attempt_id=activity_attempt_id
+            run_id,
+            task,
+            resume=True,
+            activity_attempt_id=activity_attempt_id,
+            model=model,
+            effort=effort,
         )
 
     def _resume_checkpoint(self, record):
@@ -679,11 +686,18 @@ class CodexAgent(BaseAgent):
         *,
         resume: bool,
         activity_attempt_id: str | None = None,
+        model: str | None = None,
+        effort: str | None = None,
     ) -> dict:
         """Own one admitted attempt and its cancellation, snapshot, evidence and exact cleanup finalization."""
         return asyncio.run(
             self._execute_acp(
-                run_id, task, resume=resume, activity_attempt_id=activity_attempt_id
+                run_id,
+                task,
+                resume=resume,
+                activity_attempt_id=activity_attempt_id,
+                model=model,
+                effort=effort,
             )
         )
 
@@ -694,6 +708,8 @@ class CodexAgent(BaseAgent):
         *,
         resume: bool,
         activity_attempt_id: str | None = None,
+        model: str | None = None,
+        effort: str | None = None,
     ) -> dict:
         """Coordinate the admitted attempt through shared ACP while retaining provider-specific policy and evidence."""
         if activity_attempt_id is not None:
@@ -726,6 +742,11 @@ class CodexAgent(BaseAgent):
                 ):
                     raise RunnerError("run_not_dispatchable")
                 self.check_mcp(record)
+                if resume and model is not None and effort is not None:
+                    # Session identity and workspace admission stay fixed; native
+                    # catalog/configure checks below validate this turn's selection.
+                    record["requested_model"] = model
+                    record["requested_effort"] = effort
                 cancelled = threading.Event()
                 evidence_offset = (run_dir / "raw-events.jsonl").stat().st_size
                 attempt_turn_offset = len(record["turns"])

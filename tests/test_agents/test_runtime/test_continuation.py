@@ -1,7 +1,7 @@
 """Current continuation admission controls; simulated transport is not live acceptance."""
 
 import unittest
-from unittest.mock import patch, PropertyMock
+from unittest.mock import patch, PropertyMock, AsyncMock
 from uuid import uuid4
 
 from laomedo.agents.errors import RunnerError
@@ -10,6 +10,29 @@ from test_agents.test_runtime.transport import FakeServer
 
 
 class ContinuationTests(unittest.TestCase):
+    def test_model_and_effort_can_change_without_changing_native_thread(self):
+        """Native configuration is per turn; source and session fences still apply."""
+        first = self.case.runner.start(self.case.request())
+        with patch.object(
+            FakeServer,
+            "models",
+            AsyncMock(return_value=[{"id": "second-model", "efforts": ["high"]}]),
+        ):
+            second = self.case.runner.resume(
+                first["run_id"],
+                "Continue",
+                expected_thread_id=first["thread_id"],
+                expected_post_run_hash=first["post_run_hash"],
+                model="second-model",
+                effort="high",
+            )
+        self.assertEqual(second["status"], "completed", second.get("error_category"))
+        self.assertEqual(second["thread_id"], first["thread_id"])
+        self.assertEqual(
+            (second["effective_model"], second["effective_effort"]),
+            ("second-model", "high"),
+        )
+
     def setUp(self):
         self.case = RunnerCase.create()
         self.addCleanup(self.case.close)

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { Plus, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import useAuthStore from "@/stores/authStore";
 import { describeNodeFailure } from "@/components/laomedoErrors/nodeErrors";
@@ -11,6 +12,7 @@ import type {
   ConversationIndex,
   Message,
   Models,
+  PendingSubmission,
 } from "./models";
 import { stateLabel } from "./models";
 
@@ -28,15 +30,13 @@ export default function AssistantPage() {
   const [model, setModel] = useState("");
   const [effort, setEffort] = useState("");
   const [drafts, setDrafts] = useState<Record<string, string>>({});
-  const [pending, setPending] = useState<
-    Record<string, { id: string; text: string }>
-  >({});
+  const [pending, setPending] = useState<Record<string, PendingSubmission>>({});
   const [pendingOwner, setPendingOwner] = useState<string>();
   const previousOwner = useRef<string | undefined>(undefined);
   const [error, setError] = useState<string>();
   const [locked, setLocked] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [history, setHistory] = useState(false);
+  const [history, setHistory] = useState(true);
   const [loading, setLoading] = useState(false);
   const generation = useRef(0);
   const scroll = useRef<HTMLDivElement>(null);
@@ -81,6 +81,10 @@ export default function AssistantPage() {
     generation.current += 1;
     setLocked(false);
     setDetail(undefined);
+    setModels(undefined);
+    setModel("");
+    setEffort("");
+    boundSelection.current = "";
     setDrafts({});
     setPending({});
     setPendingOwner(undefined);
@@ -107,7 +111,10 @@ export default function AssistantPage() {
               typeof row?.id === "string" &&
               /^[0-9a-f-]{36}$/.test(row.id) &&
               typeof row?.text === "string" &&
-              row.text.length <= 12000,
+              row.text.length <= 12000 &&
+              ((row.model === undefined && row.effort === undefined) ||
+                (typeof row.model === "string" &&
+                  typeof row.effort === "string")),
           )
         )
           setPending(restored);
@@ -255,71 +262,87 @@ export default function AssistantPage() {
   }, [fail]);
 
   useEffect(() => {
-    if (!selected && !locked) void discover();
+    if (!locked) void discover();
   }, [selected, locked, discover]);
 
-  async function create() {
-    const epoch = generation.current;
-    setBusy(true);
-    setError(undefined);
-    try {
-      const conversation = await assistantRequest<{ id: string }>(
-        "/conversations",
-        {
-          provider: "codex",
-          model,
-          effort,
-          ...(linked ? { linked_conversation_id: linked } : {}),
-        },
-      );
-      if (epoch === generation.current)
-        setParams({ conversation: conversation.id });
-    } catch (failure) {
-      if (epoch === generation.current) fail(failure);
-    } finally {
-      if (epoch === generation.current) setBusy(false);
+  const boundSelection = useRef("");
+  useEffect(() => {
+    if (!selected) {
+      boundSelection.current = "";
+      setModel("");
+      setEffort("");
+    } else if (
+      detail?.conversation.id === selected &&
+      boundSelection.current !== selected
+    ) {
+      boundSelection.current = selected;
+      setModel(detail.conversation.model);
+      setEffort(detail.conversation.effort);
     }
+  }, [selected, detail?.conversation.id]);
+
+  async function create() {
+    return assistantRequest<{ id: string }>("/conversations", {
+      provider: "codex",
+      model,
+      effort,
+      ...(linked ? { linked_conversation_id: linked } : {}),
+    });
   }
 
-  async function send(retry?: { id: string; text: string }) {
+  async function send(retry?: PendingSubmission) {
     const text = retry?.text ?? drafts[selected] ?? "";
     if (
       !text.trim() ||
-      !detail ||
-      detail.conversation.active_message_id ||
+      (selected && (!detail || detail.conversation.active_message_id)) ||
+      (!retry && (!model || !effort)) ||
       (pending[selected] && !retry) ||
       busy
     )
       return;
     const epoch = generation.current;
-    const identity = retry ?? { id: crypto.randomUUID(), text };
+    const identity = retry ?? { id: crypto.randomUUID(), text, model, effort };
+    let target = selected;
     if (
       retry &&
       (pending[selected]?.id !== retry.id ||
-        pending[selected]?.text !== retry.text)
+        pending[selected]?.text !== retry.text ||
+        pending[selected]?.model !== retry.model ||
+        pending[selected]?.effort !== retry.effort)
     )
       return;
-    try {
-      sessionStorage.setItem(
-        `laomedo.assistant.pending.${owner}`,
-        JSON.stringify({ ...pending, [selected]: identity }),
-      );
-    } catch {
-      fail(new AssistantFailure("assistant_client_state_unavailable"));
-      return;
-    }
-    setPending((value) => ({ ...value, [selected]: identity }));
     setBusy(true);
     setError(undefined);
     pinned.current = true;
     try {
-      await assistantRequest<Message>(`/conversations/${selected}/messages`, {
+      if (!target) {
+        const created = await create();
+        if (
+          epoch !== generation.current ||
+          currentSelection.current !== selected
+        )
+          return;
+        target = created.id;
+      }
+      try {
+        sessionStorage.setItem(
+          `laomedo.assistant.pending.${owner}`,
+          JSON.stringify({ ...pending, [target]: identity }),
+        );
+      } catch {
+        throw new AssistantFailure("assistant_client_state_unavailable");
+      }
+      setPending((value) => ({ ...value, [target]: identity }));
+      if (!selected) setParams({ conversation: target });
+      await assistantRequest<Message>(`/conversations/${target}/messages`, {
         client_message_id: identity.id,
-        text,
+        text: identity.text,
+        model: identity.model,
+        effort: identity.effort,
       });
       if (epoch !== generation.current) return;
       setDrafts((value) => ({ ...value, [selected]: "" }));
-      await refresh();
+      if (target === selected) await refresh();
     } catch (failure) {
       if (epoch !== generation.current) return;
       fail(failure);
@@ -332,7 +355,7 @@ export default function AssistantPage() {
       ) {
         setPending((value) => {
           const next = { ...value };
-          delete next[selected];
+          delete next[target];
           return next;
         });
       }
@@ -434,8 +457,9 @@ export default function AssistantPage() {
   const needsAttention = conversation?.state === "attention";
   const waiting = pending[selected];
   const canSend = Boolean(
-    conversation &&
-      conversation.state === "idle" &&
+    (!selected || conversation?.state === "idle") &&
+      model &&
+      effort &&
       !active &&
       !waiting &&
       !busy &&
@@ -455,28 +479,30 @@ export default function AssistantPage() {
       aria-label="Application assistant"
     >
       <aside
-        className={`${history ? "flex" : "hidden"} w-64 shrink-0 flex-col border-r bg-muted/20 p-4 md:flex`}
+        hidden={!history}
+        className={`${history ? "flex" : "hidden"} w-64 max-w-[75vw] shrink-0 flex-col border-r bg-muted/20 p-4`}
         aria-label="Conversations"
       >
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold">Conversations</h2>
           <button
             type="button"
-            className="rounded px-2 py-1 text-sm md:hidden"
+            className="rounded p-1 text-muted-foreground"
+            aria-label="Collapse conversations"
             onClick={() => setHistory(false)}
           >
-            Close
+            <PanelLeftClose size={16} />
           </button>
         </div>
         <Button
-          className="my-4 w-full"
+          className="my-4 self-start"
           variant="outline"
-          onClick={() => {
-            setParams({});
-            setHistory(false);
-          }}
+          size="icon"
+          aria-label="New conversation"
+          title="New conversation"
+          onClick={() => setParams({})}
         >
-          New conversation
+          <Plus size={18} />
         </Button>
         <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto">
           {index.conversations.map((item) => (
@@ -516,14 +542,18 @@ export default function AssistantPage() {
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b px-5 py-4">
           <div>
-            <button
-              type="button"
-              onClick={() => setHistory(!history)}
-              className="mb-2 text-sm underline md:hidden"
-            >
-              Conversations
-            </button>
-            <h1 className="text-lg font-semibold">
+            {!history && (
+              <button
+                type="button"
+                aria-label="Expand conversations"
+                title="Expand conversations"
+                onClick={() => setHistory(true)}
+                className="mr-3 rounded p-1"
+              >
+                <PanelLeftOpen size={18} />
+              </button>
+            )}
+            <h1 className="inline text-sm font-medium">
               {conversation?.title ?? "Laomedo assistant"}
             </h1>
             <p className="mt-1 text-xs text-muted-foreground">
@@ -575,213 +605,231 @@ export default function AssistantPage() {
             </div>
           </div>
         )}
-        {!selected ? (
-          <section className="m-auto w-full max-w-xl space-y-5 p-6">
-            <h2 className="text-xl font-semibold">Start a conversation</h2>
-            <p className="text-sm text-muted-foreground">
-              Choose a model once for this conversation. Creating it does not
-              send a prompt.
-            </p>
-            {linked && (
-              <p className="text-xs text-muted-foreground">
-                Linked to an earlier conversation. Its history remains
-                available.
-              </p>
-            )}
-            <div className="space-y-4 rounded-xl border p-5">
-              <p className="text-sm">
-                Provider <strong className="ml-3">Codex</strong>
-              </p>
-              <label className="block text-sm">
-                Model
-                <select
-                  aria-label="Assistant model"
-                  value={model}
-                  onChange={(event) => {
-                    setModel(event.target.value);
-                    setEffort("");
-                  }}
-                  className="mt-2 block h-10 w-full rounded-md border bg-background px-3"
-                >
-                  <option value="">Select a model</option>
-                  {models?.models.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.id}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="block text-sm">
-                Reasoning effort
-                <select
-                  aria-label="Assistant reasoning effort"
-                  value={effort}
-                  onChange={(event) => setEffort(event.target.value)}
-                  className="mt-2 block h-10 w-full rounded-md border bg-background px-3"
-                >
-                  <option value="">Select an effort</option>
-                  {selectedModel?.efforts.map((value) => (
-                    <option key={value} value={value}>
-                      {value}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <Button disabled={busy || !model || !effort} onClick={create}>
-                {busy ? "Checking availability…" : "Create conversation"}
-              </Button>
-              <button
-                type="button"
-                disabled={busy}
-                className="ml-4 text-sm underline"
-                onClick={discover}
-              >
-                Refresh models
-              </button>
-            </div>
-          </section>
-        ) : (
-          <>
-            <div
-              ref={scroll}
-              tabIndex={0}
-              aria-label="Assistant messages and saved drafts"
-              className="min-h-0 flex-1 overflow-y-auto px-5 py-6 focus-visible:outline focus-visible:outline-2 md:px-10"
-              onScroll={() => {
-                const element = scroll.current;
-                if (element)
-                  pinned.current =
-                    element.scrollHeight -
-                      element.scrollTop -
-                      element.clientHeight <
-                    100;
-              }}
-            >
-              <div className="mx-auto max-w-4xl space-y-4 pb-8">
-                {loading && (
-                  <p role="status" className="text-sm text-muted-foreground">
-                    Reconnecting to retained history…
-                  </p>
+        <>
+          <div
+            ref={scroll}
+            tabIndex={0}
+            aria-label="Assistant messages and saved drafts"
+            className="min-h-0 flex-1 overflow-y-auto px-5 py-6 focus-visible:outline focus-visible:outline-2 md:px-10"
+            onScroll={() => {
+              const element = scroll.current;
+              if (element)
+                pinned.current =
+                  element.scrollHeight -
+                    element.scrollTop -
+                    element.clientHeight <
+                  100;
+            }}
+          >
+            <div className="mx-auto max-w-4xl space-y-4 pb-8">
+              {loading && (
+                <p role="status" className="text-sm text-muted-foreground">
+                  Reconnecting to retained history…
+                </p>
+              )}
+              {detail?.next_cursor !== null &&
+                detail?.next_cursor !== undefined && (
+                  <button
+                    type="button"
+                    className="text-sm underline"
+                    onClick={older}
+                  >
+                    Load earlier messages
+                  </button>
                 )}
-                {detail?.next_cursor !== null &&
-                  detail?.next_cursor !== undefined && (
+              {detail?.messages.map((message) => (
+                <MessageRow
+                  key={message.id}
+                  conversation={selected}
+                  message={message}
+                  receipts={detail.drafts.filter(
+                    (receipt) => receipt.message_id === message.id,
+                  )}
+                  active={conversation?.active_message_id === message.id}
+                  onContent={follow}
+                  onFailure={fail}
+                />
+              ))}
+              {waiting &&
+                !detail?.messages.some(
+                  (row) => row.client_message_id === waiting.id,
+                ) && (
+                  <div className="ml-auto max-w-[80%] rounded-xl border bg-muted/50 p-4">
+                    <p className="mb-2 text-xs text-muted-foreground">
+                      You · submission pending
+                    </p>
+                    <p className="whitespace-pre-wrap text-sm">
+                      {waiting.text}
+                    </p>
                     <button
                       type="button"
-                      className="text-sm underline"
-                      onClick={older}
+                      disabled={busy || active}
+                      className="mt-3 text-sm underline"
+                      onClick={() => void send(waiting)}
                     >
-                      Load earlier messages
+                      Retry same submission
                     </button>
-                  )}
-                {detail?.messages.map((message) => (
-                  <MessageRow
-                    key={message.id}
-                    conversation={selected}
-                    message={message}
-                    receipts={detail.drafts.filter(
-                      (receipt) => receipt.message_id === message.id,
-                    )}
-                    active={conversation?.active_message_id === message.id}
-                    onContent={follow}
-                    onFailure={fail}
-                  />
-                ))}
-                {waiting &&
-                  !detail?.messages.some(
-                    (row) => row.client_message_id === waiting.id,
-                  ) && (
-                    <div className="ml-auto max-w-[80%] rounded-xl border bg-muted/50 p-4">
-                      <p className="mb-2 text-xs text-muted-foreground">
-                        You · submission pending
-                      </p>
-                      <p className="whitespace-pre-wrap text-sm">
-                        {waiting.text}
-                      </p>
-                      <button
-                        type="button"
-                        disabled={busy || active}
-                        className="mt-3 text-sm underline"
-                        onClick={() => void send(waiting)}
-                      >
-                        Retry same submission
-                      </button>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Reuses its original message ID. Accepted messages are
-                        observed rather than dispatched again.
-                      </p>
-                    </div>
-                  )}
-                {detail && !detail.messages.length && (
-                  <p className="pt-10 text-center text-sm text-muted-foreground">
-                    Tell me what you want to build or change. I can inspect your
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Reuses its original message ID. Accepted messages are
+                      observed rather than dispatched again.
+                    </p>
+                  </div>
+                )}
+              {(!selected || (detail && !detail.messages.length)) && (
+                <div className="mx-auto max-w-md space-y-5 py-16 text-center">
+                  <h2 className="text-xl font-medium">
+                    What would you like to build?
+                  </h2>
+                  <p className="text-sm text-muted-foreground">
+                    Describe a workflow or ask me to change one. I can inspect
                     workflows and save a separate editable draft.
                   </p>
+                  {!selected && (
+                    <label className="inline-flex items-center gap-3 text-sm">
+                      Provider
+                      <select
+                        aria-label="Assistant provider"
+                        className="rounded-md border bg-background px-3 py-2"
+                        value="codex"
+                        onChange={() => {}}
+                      >
+                        <option value="codex">Codex</option>
+                      </select>
+                    </label>
+                  )}
+                  {linked && (
+                    <p className="text-xs text-muted-foreground">
+                      Linked to an earlier conversation. Its history remains
+                      available.
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+          <form
+            className="shrink-0 border-t bg-background p-4 md:px-10"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void send();
+            }}
+          >
+            <div className="mx-auto max-w-4xl">
+              <div className="mb-3 flex flex-wrap items-center gap-3 text-xs">
+                <label className="flex items-center gap-2">
+                  Model
+                  <select
+                    aria-label="Assistant model"
+                    value={model}
+                    disabled={busy || active || Boolean(waiting)}
+                    onChange={(event) => {
+                      const next = models?.models.find(
+                        (item) => item.id === event.target.value,
+                      );
+                      setModel(event.target.value);
+                      setEffort(
+                        next?.efforts.includes(effort)
+                          ? effort
+                          : (next?.efforts[0] ?? ""),
+                      );
+                    }}
+                    className="max-w-56 rounded-md border bg-background px-2 py-1.5"
+                  >
+                    <option value="">Select a model</option>
+                    {models?.models.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.id}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex items-center gap-2">
+                  Effort
+                  <select
+                    aria-label="Assistant reasoning effort"
+                    value={effort}
+                    disabled={busy || active || Boolean(waiting)}
+                    onChange={(event) => setEffort(event.target.value)}
+                    className="rounded-md border bg-background px-2 py-1.5"
+                  >
+                    <option value="">Select effort</option>
+                    {selectedModel?.efforts.map((value) => (
+                      <option key={value} value={value}>
+                        {value}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  disabled={busy || active}
+                  onClick={discover}
+                  className="text-muted-foreground underline"
+                >
+                  Refresh models
+                </button>
+              </div>
+              <label htmlFor="assistant-message" className="sr-only">
+                Message this assistant
+              </label>
+              <textarea
+                id="assistant-message"
+                maxLength={12000}
+                rows={3}
+                placeholder={
+                  selected ? "Message this assistant…" : "Start chat…"
+                }
+                value={drafts[selected] ?? ""}
+                disabled={
+                  busy ||
+                  active ||
+                  Boolean(selected && (!detail || needsAttention || waiting))
+                }
+                onChange={(event) =>
+                  setDrafts((value) => ({
+                    ...value,
+                    [selected]: event.target.value,
+                  }))
+                }
+                onKeyDown={(event) => {
+                  if (
+                    (event.ctrlKey || event.metaKey) &&
+                    event.key === "Enter"
+                  ) {
+                    event.preventDefault();
+                    void send();
+                  }
+                }}
+                className="w-full resize-none rounded-lg border bg-background p-3 text-sm focus-visible:outline focus-visible:outline-2 disabled:opacity-60"
+              />
+              <div className="mt-2 flex items-center justify-between gap-3">
+                <p className="text-xs text-muted-foreground">
+                  Ctrl+Enter sends · Drafts save without running
+                </p>
+                {active ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={busy || conversation?.state === "stopping"}
+                    onClick={stop}
+                  >
+                    {conversation?.state === "stopping"
+                      ? "stopping…"
+                      : "Stop response"}
+                  </Button>
+                ) : (
+                  <Button
+                    type="submit"
+                      ignoreTitleCase
+                    disabled={!canSend || !(drafts[selected] ?? "").trim()}
+                  >
+                    {selected ? "Send" : "Start chat"}
+                  </Button>
                 )}
               </div>
             </div>
-            <form
-              className="shrink-0 border-t bg-background p-4 md:px-10"
-              onSubmit={(event) => {
-                event.preventDefault();
-                void send();
-              }}
-            >
-              <div className="mx-auto max-w-4xl">
-                <label htmlFor="assistant-message" className="sr-only">
-                  Message this assistant
-                </label>
-                <textarea
-                  id="assistant-message"
-                  maxLength={12000}
-                  rows={3}
-                  placeholder="Message this assistant…"
-                  value={drafts[selected] ?? ""}
-                  disabled={!canSend}
-                  onChange={(event) =>
-                    setDrafts((value) => ({
-                      ...value,
-                      [selected]: event.target.value,
-                    }))
-                  }
-                  onKeyDown={(event) => {
-                    if (
-                      (event.ctrlKey || event.metaKey) &&
-                      event.key === "Enter"
-                    ) {
-                      event.preventDefault();
-                      void send();
-                    }
-                  }}
-                  className="w-full resize-none rounded-lg border bg-background p-3 text-sm focus-visible:outline focus-visible:outline-2 disabled:opacity-60"
-                />
-                <div className="mt-2 flex items-center justify-between gap-3">
-                  <p className="text-xs text-muted-foreground">
-                    Ctrl+Enter sends · Drafts save without running
-                  </p>
-                  {active ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      disabled={busy || conversation?.state === "stopping"}
-                      onClick={stop}
-                    >
-                      {conversation?.state === "stopping"
-                        ? "stopping…"
-                        : "Stop response"}
-                    </Button>
-                  ) : (
-                    <Button
-                      type="submit"
-                      disabled={!canSend || !(drafts[selected] ?? "").trim()}
-                    >
-                      Send
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </form>
-          </>
-        )}
+          </form>
+        </>
       </div>
     </main>
   );

@@ -397,6 +397,14 @@ class AssistantRuntime:
         prior = await self.store.submitted(owner, conversation_id, request)
         if prior is not None:
             return prior
+        if request.model is not None:
+            catalog = await self.models(owner)
+            choice = next(
+                (item for item in catalog["models"] if item["id"] == request.model),
+                None,
+            )
+            if choice is None or request.effort not in choice["efforts"]:
+                raise AssistantError("assistant_model_unavailable", 422)
         if (
             len(self.jobs) >= self.settings.max_active_turns
             and conversation_id not in self.jobs
@@ -517,8 +525,8 @@ class AssistantRuntime:
                 raise AssistantError("assistant_cancelled_before_dispatch")
             payload = {
                 "task": ASSISTANT_INSTRUCTIONS + "\nUser message:\n" + message.text,
-                "model": conversation.model,
-                "effort": conversation.effort,
+                "model": message.model or conversation.model,
+                "effort": message.effort or conversation.effort,
                 "mcp_manifest": registration.manifest.model_dump(mode="json"),
                 "mcp_registration": str(registration.registration_id),
             }

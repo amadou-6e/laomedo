@@ -41,6 +41,49 @@ const receipt: DraftReceipt = {
 describe("retained assistant conversation", () => {
   beforeEach(() => jest.clearAllMocks());
 
+  it("groups consecutive tools, retains timing and hides technical call IDs and repeated speaker labels", async () => {
+    const tool = (id: string) => ({
+      id,
+      thread: "root",
+      started: "2026-11-16T10:00:00Z",
+      ended: "2026-11-16T10:00:01Z",
+      item: {
+        type: "mcpToolCall",
+        name: "external_abcdef1234",
+        arguments: { query: "Chat Input" },
+      },
+    });
+    jest
+      .mocked(assistantRequest)
+      .mockResolvedValue({
+        projection: {
+          items: [
+            tool("private-call-1"),
+            tool("private-call-2"),
+            { id: "answer", item: { type: "agentMessage", text: "Done" } },
+            tool("private-call-3"),
+          ],
+        },
+        complete: true,
+      });
+    render(
+      <MessageRow
+        conversation="conversation"
+        message={message}
+        receipts={[]}
+        active={false}
+        onContent={onContent}
+        onFailure={onFailure}
+      />,
+    );
+    await screen.findByText("Done");
+    expect(screen.getAllByLabelText("Tool calls")).toHaveLength(2);
+    expect(screen.getAllByText(/1\.0s/)).toHaveLength(3);
+    expect(screen.queryByText("Assistant")).toBeNull();
+    expect(document.body.textContent).not.toContain("external_abcdef1234");
+    expect(document.body.textContent).not.toContain("private-call");
+  });
+
   it("shows the original user text and streamed answer once, hiding the native wrapper", async () => {
     jest.mocked(assistantRequest).mockResolvedValue({
       projection: {

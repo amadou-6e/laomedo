@@ -8,6 +8,13 @@ The assistant is ordinary persistent chat around the existing Agent APIs. It has
 no workflow. Langflow remains the owner of workflow records that its tools save.
 See the canonical application-assistant contract in specs PR424.
 
+Owner feedback supersedes the proposal's fixed model/effort binding: each message
+may select a discovered model and effort on the same native Codex thread. Its
+selection is immutable after reservation and participates in retry identity.
+Conversation fields retain the latest admitted selection as composer defaults.
+Existing retained message rows receive nullable selection columns on startup;
+their original prompts, outcomes and idempotency digests are preserved.
+
 | Module | Objects and responsibilities |
 | --- | --- |
 | `models.py` | Typed requests/declarative graphs and concern-owned database rows. Conversation, message and draft receipt identities are durable; credentials are not. |

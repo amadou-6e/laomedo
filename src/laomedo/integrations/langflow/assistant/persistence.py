@@ -1,10 +1,9 @@
 """Atomic owner-scoped assistant state in the application's existing database."""
 
 from contextlib import asynccontextmanager
-import hashlib
 import time
 
-from sqlalchemy import text
+from sqlalchemy import inspect, text
 from sqlalchemy.ext.asyncio import async_sessionmaker
 from sqlmodel import SQLModel, select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -41,6 +40,21 @@ class AssistantStore:
         ]
         async with self.engine.begin() as connection:
             await connection.run_sync(SQLModel.metadata.create_all, tables=tables)
+            await connection.run_sync(self._upgrade_message_selection)
+
+    def _upgrade_message_selection(self, connection):
+        """Add nullable turn selections without rewriting existing operational history."""
+        columns = {
+            column["name"]
+            for column in inspect(connection).get_columns("laomedo_assistant_message")
+        }
+        for name in ("model", "effort"):
+            if name not in columns:
+                connection.execute(
+                    text(
+                        f'ALTER TABLE laomedo_assistant_message ADD COLUMN "{name}" VARCHAR'
+                    )
+                )
 
     @asynccontextmanager
     async def transaction(self):
@@ -193,13 +207,13 @@ class AssistantStore:
             ).first()
             if row is None:
                 return None
-            if row.digest != hashlib.sha256(request.text.encode()).hexdigest():
+            if row.digest != request.digest():
                 raise AssistantError("assistant_message_conflict")
             return row.model_dump(mode="json", exclude={"digest", "activity_snapshot"})
 
     async def reserve(self, owner, identifier, request, *, session_key):
         """Reserve once before native/MCP effects; conflicting keys never overwrite."""
-        digest = hashlib.sha256(request.text.encode()).hexdigest()
+        digest = request.digest()
         async with self.transaction() as session:
             await self.authorize(session, owner, session_key)
             conversation = await self.conversation(
@@ -228,7 +242,11 @@ class AssistantStore:
                 client_message_id=request.client_message_id,
                 digest=digest,
                 text=request.text,
+                model=request.model or conversation.model,
+                effort=request.effort or conversation.effort,
             )
+            conversation.model = message.model
+            conversation.effort = message.effort
             conversation.active_message_id = message.id
             conversation.state = "starting"
             if conversation.title == "New conversation":
