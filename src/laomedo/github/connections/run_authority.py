@@ -1,7 +1,9 @@
 """Host-only one-use graph admission; connection consent never grants a write."""
 
 import asyncio
+from hashlib import sha256
 from hmac import compare_digest
+import json
 import secrets
 from time import monotonic
 from uuid import UUID
@@ -28,7 +30,7 @@ class GitHubRunAuthority:
         self.clock = clock
         self.pending = {}
         self.runs = {}
-        self.jobs = set()
+        self.jobs = {}
         self.lock = asyncio.Lock()
 
     def _same_scope(self, left, right):
@@ -38,8 +40,22 @@ class GitHubRunAuthority:
             right.lease_binding.get_secret_value(),
         )
 
-    async def prepare(self, scope, flow_id, graph_digest, selections):
+    @staticmethod
+    def digest_graph(graph):
+        """Fingerprint the effective JSON graph, never a caller-supplied digest."""
+        if not isinstance(graph, dict):
+            raise GitHubNodeAuthorizationError()
+        try:
+            payload = json.dumps(
+                graph, sort_keys=True, separators=(",", ":"), allow_nan=False
+            ).encode("utf-8")
+        except (TypeError, ValueError, UnicodeError):
+            raise GitHubNodeAuthorizationError() from None
+        return sha256(payload).hexdigest()
+
+    async def prepare(self, scope, flow_id, graph, selections):
         """Verify every selection online before presenting a finite approval plan."""
+        graph_digest = self.digest_graph(graph)
         selections = tuple(
             GitHubNodeSelection.model_validate(value) for value in selections
         )
@@ -84,9 +100,14 @@ class GitHubRunAuthority:
             )
         return reference, plan.nodes
 
-    async def admit(self, reference, scope, *, flow_id, graph_digest, job_id, approved):
+    async def admit(self, reference, scope, *, flow_id, graph, job_id, approved):
         """Consume one matching plan after confirmation; never mint mediation grants."""
         async with self.lock:
+            self.pending = {
+                key: value
+                for key, value in self.pending.items()
+                if value[0] > self.clock()
+            }
             entry = self.pending.get(reference)
             if entry is None:
                 raise GitHubNodeAuthorizationError()
@@ -99,7 +120,7 @@ class GitHubRunAuthority:
             if (
                 deadline <= self.clock()
                 or plan.flow_id != flow_id
-                or plan.graph_digest != graph_digest
+                or plan.graph_digest != self.digest_graph(graph)
                 or not isinstance(job_id, UUID)
                 or job_id.int == 0
                 or job_id in self.jobs
@@ -122,8 +143,27 @@ class GitHubRunAuthority:
                     raise GitHubNodeAuthorizationError()
             run = plan.model_copy(update={"job_id": job_id})
             self.runs[reference] = run
-            self.jobs.add(job_id)
+            self.jobs[job_id] = reference
             return run
+
+    def validate_job_graph(self, job_id, graph):
+        """Refuse a changed effective worker graph before its first vertex executes."""
+        run = self.runs.get(self.jobs.get(job_id))
+        if run is None or run.graph_digest != self.digest_graph(graph):
+            raise GitHubNodeAuthorizationError()
+
+    async def resolve_job(self, job_id, *, vertex_id, connection_id, repository):
+        """Native components identify their job and vertex without a bearer reference."""
+        reference = self.jobs.get(job_id)
+        if reference is None:
+            raise GitHubNodeAuthorizationError()
+        return await self.resolve(
+            reference,
+            job_id=job_id,
+            vertex_id=vertex_id,
+            connection_id=connection_id,
+            repository=repository,
+        )
 
     async def resolve(self, reference, *, job_id, vertex_id, connection_id, repository):
         """Revalidate stored authority and exact selection before a node API call."""
@@ -154,4 +194,10 @@ class GitHubRunAuthority:
         """Drop live account access, leaving native owner-profile history untouched."""
         run = self.runs.pop(reference, None)
         if run is not None:
-            self.jobs.discard(run.job_id)
+            self.jobs.pop(run.job_id, None)
+
+    def finish_job(self, job_id):
+        """Release a terminal native job without leaking its internal reference."""
+        reference = self.jobs.get(job_id)
+        if reference is not None:
+            self.finish(reference)

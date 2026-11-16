@@ -178,13 +178,17 @@ admissions only in broker memory; its scope and opaque reference are excluded
 from serialization. Normal profile history may retain results after disconnect;
 history is not live GitHub authority.
 
-`run_authority.py` owns `GitHubRunAuthority`. `prepare` verifies each selection
+`run_authority.py` owns `GitHubRunAuthority`. `digest_graph` fingerprints an
+effective JSON graph rather than accepting a supplied digest. `prepare` verifies each selection
 online and creates an expiring, owner/lease-bound plan. `admit` consumes that plan
 once, after the caller has confirmed the listed modifications, and binds it to
 the exact flow, graph digest and native job. `resolve` revalidates its stored
 scope and current connection generation before returning one exact node's
 repository authorization. It never chooses an account from ambient authentication,
 mints a mediation grant, dispatches a write or accepts a serialized run as proof.
+`validate_job_graph` compares the actual worker graph before any vertex executes.
+`resolve_job` uses native job and vertex IDs, so no bearer reference enters graph
+parameters. `finish_job` releases terminal job bindings and their internal index.
 `finish` removes live authority without deleting normal owner-profile history.
 The native adapter must supply trusted job/vertex identities and keep references
 out of graph parameters, persisted job metadata and Agent workspaces.

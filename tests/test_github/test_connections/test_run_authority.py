@@ -76,7 +76,7 @@ class GitHubRunAuthorityTests(unittest.IsolatedAsyncioTestCase):
         self.scope = self.connections.scope()
         self.flow = uuid4()
         self.job = uuid4()
-        self.digest = "a" * 64
+        self.graph = {"nodes": [{"id": "pr-1"}], "edges": []}
         self.selection = GitHubNodeSelection(
             vertex_id="pr-1",
             kind="pr",
@@ -88,12 +88,12 @@ class GitHubRunAuthorityTests(unittest.IsolatedAsyncioTestCase):
 
     async def prepare(self, selection=None):
         return await self.authority.prepare(
-            self.scope, self.flow, self.digest, [selection or self.selection]
+            self.scope, self.flow, self.graph, [selection or self.selection]
         )
 
     async def admit(self, reference, **changes):
         values = dict(
-            flow_id=self.flow, graph_digest=self.digest, job_id=self.job, approved=True
+            flow_id=self.flow, graph=self.graph, job_id=self.job, approved=True
         )
         values.update(changes)
         return await self.authority.admit(reference, self.scope, **values)
@@ -122,7 +122,7 @@ class GitHubRunAuthorityTests(unittest.IsolatedAsyncioTestCase):
     async def test_changes_cancel_expiry_and_missing_approval_cannot_start_job(self):
         for changes in (
             {"flow_id": uuid4()},
-            {"graph_digest": "b" * 64},
+            {"graph": {"nodes": [{"id": "other"}], "edges": []}},
             {"approved": False},
             {"job_id": uuid4()},
         ):
@@ -146,7 +146,7 @@ class GitHubRunAuthorityTests(unittest.IsolatedAsyncioTestCase):
                     reference,
                     scope,
                     flow_id=self.flow,
-                    graph_digest=self.digest,
+                    graph=self.graph,
                     job_id=self.job,
                     approved=True,
                 )
@@ -213,3 +213,47 @@ class GitHubRunAuthorityTests(unittest.IsolatedAsyncioTestCase):
     def test_modify_without_exact_target_is_refused(self):
         with self.assertRaises(ValidationError):
             GitHubNodeSelection(**{**self.selection.model_dump(), "number": None})
+
+    async def test_native_job_lookup_needs_no_serialized_reference_and_rechecks_effective_graph(
+        self,
+    ):
+        reference, _ = await self.prepare()
+        await self.admit(reference)
+        self.authority.validate_job_graph(self.job, self.graph)
+        authorization, _ = await self.authority.resolve_job(
+            self.job,
+            vertex_id="pr-1",
+            connection_id=self.connections.connection,
+            repository="synthetic/private",
+        )
+        self.assertEqual(authorization.connection_id, self.connections.connection)
+        with self.assertRaises(GitHubNodeAuthorizationError):
+            self.authority.validate_job_graph(self.job, {"nodes": [], "edges": []})
+        self.authority.finish_job(self.job)
+        self.assertEqual(self.authority.jobs, {})
+        self.assertEqual(self.authority.runs, {})
+        with self.assertRaises(GitHubNodeAuthorizationError):
+            await self.authority.resolve_job(
+                self.job,
+                vertex_id="pr-1",
+                connection_id=self.connections.connection,
+                repository="synthetic/private",
+            )
+
+    async def test_recovered_job_cannot_lookup_admission_and_digest_rejects_non_json(
+        self,
+    ):
+        with self.assertRaises(GitHubNodeAuthorizationError):
+            await self.authority.resolve_job(
+                uuid4(),
+                vertex_id="pr-1",
+                connection_id=self.connections.connection,
+                repository="synthetic/private",
+            )
+        for graph in (
+            "caller-digest",
+            {"number": float("nan")},
+            {"callback": self.prepare},
+        ):
+            with self.assertRaises(GitHubNodeAuthorizationError):
+                self.authority.digest_graph(graph)
