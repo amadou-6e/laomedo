@@ -394,6 +394,9 @@ class AssistantRuntime:
     async def send(self, owner, key, conversation_id, request):
         """Reserve once, then dispatch only a newly admitted message on an app-owned task."""
         await self.check_session(owner, key)
+        prior = await self.store.submitted(owner, conversation_id, request)
+        if prior is not None:
+            return prior
         if (
             len(self.jobs) >= self.settings.max_active_turns
             and conversation_id not in self.jobs
@@ -541,6 +544,8 @@ class AssistantRuntime:
             if not native_attempt:
                 raise AssistantError("assistant_native_identity_mismatch")
             if conversation.run_id:
+                if record.get("runner_instance_id") != runner.instance_id:
+                    raise AssistantError("assistant_runner_restarted")
                 await self.store.rebind_completed(
                     context.owner_id,
                     context.conversation_id,
@@ -675,7 +680,22 @@ class AssistantRuntime:
         )
         if not native_attempt:
             return False
-        if record.get("runner_instance_id") != runner.instance_id:
+        dispatch = None
+        if native_attempt == str(message.attempt_id):
+            try:
+                dispatch = await asyncio.to_thread(
+                    runner.request,
+                    "GET",
+                    "/v1/runs/" + record["run_id"] + "/resume/" + native_attempt,
+                )
+            except AssistantError:
+                return False
+        observed_instance = (
+            dispatch.get("runner_instance_id")
+            if dispatch is not None
+            else record.get("runner_instance_id")
+        )
+        if observed_instance != runner.instance_id:
             await self.store.observe(
                 owner,
                 identifier,
@@ -707,21 +727,13 @@ class AssistantRuntime:
         )
         if record.get("activity_attempt_id") != native_attempt and not never_started:
             if native_attempt == str(message.attempt_id):
-                try:
-                    dispatch = await asyncio.to_thread(
-                        runner.request,
-                        "GET",
-                        "/v1/runs/" + record["run_id"] + "/resume/" + native_attempt,
-                    )
-                except AssistantError:
-                    return False
                 if dispatch.get("status") == "failed":
                     if defer_settlement:
                         return True
                     if message.id in self.contexts:
                         return False
                     code = self.safe_error(dispatch.get("error_category"))
-                    await self.store.reconcile_receipts(owner, identifier, message.id)
+                    await self.store.receipt_barrier(owner, identifier, message.id)
                     self.uncertain_saves.pop(message.id, None)
                     await self.store.observe(
                         owner,
@@ -789,7 +801,7 @@ class AssistantRuntime:
             return True
         if message.id in self.contexts:
             return False  # Only the job may unlock Send after its tool tasks drain.
-        await self.store.reconcile_receipts(owner, identifier, message.id)
+        await self.store.receipt_barrier(owner, identifier, message.id)
         self.uncertain_saves.pop(message.id, None)
         checkpoint = record.get("resume_checkpoint") or {}
         digest = (
@@ -828,7 +840,7 @@ class AssistantRuntime:
         from laomedo.integrations.langflow.assistant.models import AssistantMessage
 
         async with self.store.sessions() as session:
-            await self.store.conversation(session, owner, identifier)
+            conversation = await self.store.conversation(session, owner, identifier)
             row = (
                 await session.exec(
                     select(AssistantMessage).where(
@@ -838,14 +850,17 @@ class AssistantRuntime:
                 )
             ).first()
             message = row.model_dump(mode="json") if row else None
+            settled = row is not None and conversation.active_message_id != row.id
         if message is None:
             raise AssistantError("assistant_message_not_found", 404)
-        if message.get("activity_snapshot") and message["state"] in {
-            "completed",
-            "cancelled",
-            "failed",
-            "interrupted",
-        }:
+        if (
+            settled
+            and message.get("activity_snapshot")
+            and (
+                after < message["activity_snapshot"]["next_after"]
+                or not message["activity_snapshot"]["has_more"]
+            )
+        ):
             snapshot = dict(message["activity_snapshot"])
             snapshot["records"] = [
                 row for row in snapshot["records"] if row["sequence"] > after
@@ -863,18 +878,31 @@ class AssistantRuntime:
                 "complete": None,
                 "projection": None,
             }
-        runner = await self.runner(owner)
-        return await asyncio.to_thread(
-            runner.request,
-            "GET",
-            "/v1/runs/"
-            + message["run_id"]
-            + "/activity?attempt="
-            + message["native_attempt_id"]
-            + "&after="
-            + str(after)
-            + "&limit=100",
-        )
+        try:
+            runner = await self.runner(owner)
+            return await asyncio.to_thread(
+                runner.request,
+                "GET",
+                "/v1/runs/"
+                + message["run_id"]
+                + "/activity?attempt="
+                + message["native_attempt_id"]
+                + "&after="
+                + str(after)
+                + "&limit=100",
+            )
+        except AssistantError:
+            if not message.get("activity_snapshot"):
+                raise
+            snapshot = dict(message["activity_snapshot"])
+            snapshot.update(
+                records=[],
+                next_after=max(after, snapshot["next_after"]),
+                has_more=False,
+                complete=False,
+                reason="activity_journal_unavailable",
+            )
+            return snapshot
 
     async def stop(self, owner, identifier, attempt):
         """Stop only the current exact application attempt; acknowledgement is not settlement."""

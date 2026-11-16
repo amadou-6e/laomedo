@@ -10,6 +10,9 @@ return the existing observation. `lookup` reads that observation without replay.
 bounded inputs and excludes transient MCP registration from semantic identity.
 
 `BaseAgent.resume_async` and `lookup_resume` expose that shared capability.
+Each reservation response includes its durable `runner_instance_id`. That is
+the resumed attempt's owner; a run record's creator identity can predate a safe
+completed-session continuation through the provider's existing restart guards.
 The HTTP server offers POST `/v1/runs/{run}/resume/async` and authenticated GET
 `/v1/runs/{run}/resume/{attempt}`. The existing synchronous resume is unchanged.
 Unfinished reservations from another runner instance are reported unknown and

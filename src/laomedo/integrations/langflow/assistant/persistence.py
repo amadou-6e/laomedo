@@ -179,6 +179,24 @@ class AssistantStore:
                 ],
             }
 
+    async def submitted(self, owner, identifier, request):
+        """Return an existing exact client submission without admission or runner startup."""
+        async with self.sessions() as session:
+            await self.conversation(session, owner, identifier)
+            row = (
+                await session.exec(
+                    select(AssistantMessage).where(
+                        AssistantMessage.conversation_id == identifier,
+                        AssistantMessage.client_message_id == request.client_message_id,
+                    )
+                )
+            ).first()
+            if row is None:
+                return None
+            if row.digest != hashlib.sha256(request.text.encode()).hexdigest():
+                raise AssistantError("assistant_message_conflict")
+            return row.model_dump(mode="json", exclude={"digest", "activity_snapshot"})
+
     async def reserve(self, owner, identifier, request, *, session_key):
         """Reserve once before native/MCP effects; conflicting keys never overwrite."""
         digest = hashlib.sha256(request.text.encode()).hexdigest()
@@ -431,7 +449,9 @@ class AssistantStore:
 
         if len(json.dumps(payload).encode()) > 2097152:
             raise AssistantError("assistant_activity_too_large")
-        page = ActivityPage.model_validate(payload)
+        # This is the HTTP JSON boundary: strict datetime fields accept their
+        # canonical JSON representation, without coercing arbitrary Python data.
+        page = ActivityPage.model_validate_json(json.dumps(payload))
         if not page.available or page.projection is None:
             return
         async with self.transaction() as session:
@@ -460,8 +480,8 @@ class AssistantStore:
                 )
             ).all()
 
-    async def reconcile_receipts(self, owner, identifier, message_id):
-        """Observe committed save identities after host calls drain, without replaying a tool."""
+    async def receipt_barrier(self, owner, identifier, message_id):
+        """Require a readable receipt store after host calls drain; no write or tool replay occurs."""
         async with self.sessions() as session:
             await self.conversation(session, owner, identifier)
             cursor = None

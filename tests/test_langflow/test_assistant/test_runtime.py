@@ -1,6 +1,7 @@
 """Conversation reconciliation and cancellation controls with real application storage."""
 
 from pathlib import Path
+from datetime import datetime, timezone
 import tempfile
 import time
 import unittest
@@ -11,7 +12,12 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from sqlmodel import SQLModel
 from langflow.services.database.models.user.model import User
 
-from laomedo.agents.activity.models import ActivityPage, ActivityProjection
+from laomedo.agents.activity.models import (
+    ActivityPage,
+    ActivityProjection,
+    ActivityRecord,
+    MessageActivity,
+)
 from laomedo.integrations.langflow.assistant.errors import AssistantError
 from laomedo.integrations.langflow.assistant.models import (
     ConversationRequest,
@@ -47,6 +53,103 @@ class RunnerObservation:
 
 
 class RuntimeTests(unittest.IsolatedAsyncioTestCase):
+    async def test_resumed_attempt_uses_durable_dispatch_owner_not_original_run_creator(
+        self,
+    ):
+        await self.bind()
+        await self.runtime.reconcile(self.owner, self.identifier)
+        following, _ = await self.store.reserve(
+            self.owner,
+            self.identifier,
+            MessageRequest(client_message_id=uuid4(), text="After restart"),
+            session_key="fixture",
+        )
+        self.runner.instance_id = str(uuid4())
+        await self.store.rebind_completed(
+            self.owner, self.identifier, UUID(following["id"]), self.runner.instance_id
+        )
+        await self.store.observe(
+            self.owner,
+            self.identifier,
+            UUID(following["id"]),
+            run_id=self.run_id,
+            native_attempt_id=following["attempt_id"],
+            instance_id=self.runner.instance_id,
+            state="running",
+        )
+        self.record["activity_attempt_id"] = following["attempt_id"]
+        self.runner.dispatch = {
+            "status": "finished",
+            "runner_instance_id": self.runner.instance_id,
+        }
+        self.assertTrue(await self.runtime.reconcile(self.owner, self.identifier))
+        detail = await self.store.detail(self.owner, self.identifier)
+        self.assertEqual(detail["conversation"]["state"], "idle")
+        self.assertEqual(detail["messages"][-1]["state"], "completed")
+        self.assertNotEqual(self.record["runner_instance_id"], self.runner.instance_id)
+
+    async def test_duplicate_submission_is_observed_without_runner_start_even_at_capacity(
+        self,
+    ):
+        self.runtime.jobs = {uuid4(): object() for _ in range(4)}
+        result = await self.runtime.send(
+            self.owner,
+            "fixture",
+            self.identifier,
+            MessageRequest(
+                client_message_id=UUID(self.message["client_message_id"]), text="Build"
+            ),
+        )
+        self.assertEqual(result["id"], self.message["id"])
+        self.runtime.runner.assert_not_awaited()
+
+    async def test_cached_page_tail_ends_explicitly_when_live_history_is_unavailable(
+        self,
+    ):
+        await self.bind()
+        page = ActivityPage(
+            run_id=self.run_id,
+            attempt_id=self.native_id,
+            available=True,
+            records=[
+                ActivityRecord(
+                    sequence=index,
+                    occurred_at=None,
+                    observed_at=datetime.now(timezone.utc),
+                    event=MessageActivity(
+                        message_id="answer",
+                        thread_id="original-session",
+                        role="assistant",
+                        text="Version " + str(index),
+                    ),
+                )
+                for index in range(1, 501)
+            ],
+            next_after=500,
+            has_more=True,
+            closed=True,
+            complete=True,
+            reason=None,
+            projection=ActivityProjection.empty(),
+            projection_revision=1,
+            thread_id="original-session",
+        )
+        await self.store.cache_activity(
+            self.owner, self.identifier, self.message_id, page.to_payload()
+        )
+        await self.runtime.reconcile(self.owner, self.identifier)
+        first = await self.runtime.activity(
+            self.owner, self.identifier, UUID(self.message["attempt_id"]), 0
+        )
+        self.assertTrue(first["has_more"])
+        tail = await self.runtime.activity(
+            self.owner, self.identifier, UUID(self.message["attempt_id"]), 500
+        )
+        self.assertFalse(tail["has_more"])
+        self.assertFalse(tail["complete"])
+        self.assertEqual(tail["reason"], "activity_journal_unavailable")
+        self.assertIn("&after=500&limit=100", self.runner.requests[-1][1])
+
     async def test_uncertain_save_allows_only_identical_receipt_reconciliation(self):
         context = AuthoringContext(
             owner_id=self.owner,
@@ -226,6 +329,7 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
         self.runner.dispatch = {
             "status": "failed",
             "error_category": "resume_binding_mismatch",
+            "runner_instance_id": self.runner.instance_id,
         }
         self.assertTrue(await self.runtime.reconcile(self.owner, self.identifier))
         detail = await self.store.detail(self.owner, self.identifier)

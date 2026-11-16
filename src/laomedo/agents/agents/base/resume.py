@@ -180,6 +180,7 @@ class ResumeDispatcher:
         return {
             "run_id": run_id,
             "activity_attempt_id": attempt_id,
+            "runner_instance_id": row[0],
             "status": state,
             "error_category": row[2],
             "result": json.loads(row[3]) if row[3] else None,

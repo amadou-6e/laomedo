@@ -1,6 +1,7 @@
 """Same-origin, bounded requests and sign-out fencing for application chat."""
 
 import hashlib
+import asyncio
 from contextlib import suppress
 from http.cookies import SimpleCookie
 from urllib.parse import urlsplit
@@ -46,8 +47,11 @@ class AssistantBoundary:
                                 tokens.add(cookies["access_token_lf"].value)
                 for token in tokens:
                     with suppress(Exception):
-                        await self.runtime.lock_session(
-                            hashlib.sha256(token.encode()).hexdigest()
+                        await asyncio.wait_for(
+                            self.runtime.lock_session(
+                                hashlib.sha256(token.encode()).hexdigest()
+                            ),
+                            timeout=3,
                         )
             return await self.app(scope, receive, send)
         headers = {}
