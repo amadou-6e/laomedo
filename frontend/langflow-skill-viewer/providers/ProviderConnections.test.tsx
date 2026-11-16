@@ -66,7 +66,7 @@ describe("saved provider Settings", () => {
     expect(screen.getByRole("button", { name: /Claude/ })).toBeDisabled();
     expect(screen.getByRole("button", { name: /OpenCode/ })).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
-    expect(screen.getByText("Sign in with ChatGPT")).toBeTruthy();
+    expect(screen.getByText(/Sign in with ChatGPT to use/)).toBeTruthy();
     expect(beginLogin).not.toHaveBeenCalled();
     expect(screen.getByRole("button", { name: "Back to connections" }).querySelector("svg")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Back to connections" }));

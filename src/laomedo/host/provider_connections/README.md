@@ -23,6 +23,15 @@ host, not isolation against arbitrary host Python or a hostile OS user.
 `models.py` defines persisted metadata and safe response contracts. `settings.py`
 owns fixed attempt policy; `errors.py` defines safe domain failures.
 
+Admission permits one saved row per provider email within a local profile, in
+addition to rejecting repeated verified issuer/subject identities. The email
+comes from the validated provider identity and is compared case-insensitively
+with saved provider labels, which are not user-editable. This is an additional
+row-admission restriction only: it never links registrations, replaces existing
+credentials, changes a connection generation or authorizes reconnect. Reconnect
+continues to require the original verified issuer/subject. Existing saved rows
+are removed only through the normal Disconnect workflow.
+
 Private state must be outside Git and tool mounts. Each profile and opaque
 connection gets its own credential directory. Staging is never dispatchable.
 An interrupted attempt expires; it is never replayed after restart. Login,

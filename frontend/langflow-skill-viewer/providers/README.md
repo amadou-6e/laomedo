@@ -3,7 +3,10 @@
 `ProviderConnections.tsx` owns the approved list, provider choice, Codex method,
 pending, details and recovery screens. `api.ts` owns validated wire projections
 and bounded same-origin browser calls. `providers.css` uses application theme
-tokens and the GitHub connection card/footer language. Back and Refresh remain
+tokens and provider-specific choices. `connections.css` mirrors the GitHub
+connection Settings stylesheet from `feat/286` at `e7b0fa93`; the same `gc-*`
+panel, heading, account row, detail and navigation classes are used directly.
+Back and Refresh remain
 icon buttons below the card. Refresh never starts authentication.
 
 The initial route is app-owned Sign in with ChatGPT for Codex. Other provider

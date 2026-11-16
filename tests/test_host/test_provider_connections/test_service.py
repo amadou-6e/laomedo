@@ -27,7 +27,12 @@ class ProviderConnectionsTests(unittest.TestCase):
         self.other_profile = uuid4()
 
     def connect(
-        self, subject="one", client="oaiapp_one", connection_id=None, exchange=None
+        self,
+        subject="one",
+        client="oaiapp_one",
+        connection_id=None,
+        exchange=None,
+        email=None,
     ):
         """Complete an explicit synthetic authorization without invoking a model."""
         receipt, _url = self.service.begin(
@@ -51,7 +56,7 @@ class ProviderConnectionsTests(unittest.TestCase):
             verify=lambda *args: {
                 "iss": "https://auth.openai.com",
                 "sub": subject,
-                "email": subject + "@example.invalid",
+                "email": email or subject + "@example.invalid",
             },
         )
         return result
@@ -92,6 +97,36 @@ class ProviderConnectionsTests(unittest.TestCase):
         duplicate = self.connect("one", "oaiapp_another")
         self.assertEqual(duplicate.status, "duplicate")
         self.assertEqual(duplicate.connection_id, existing.connection_id)
+        self.assertEqual(len(self.service.list(self.profile)), 1)
+        self.assertEqual(
+            self.service.borrow(self.profile, existing.connection_id, 1)[0],
+            "one-access",
+        )
+
+    def test_new_registration_with_same_email_cannot_create_another_row(self):
+        """Email collisions refuse admission without linking separate registrations."""
+        existing = self.connect(email="person@example.invalid")
+        duplicate = self.connect(
+            "different-subject", "oaiapp_another", email="PERSON@example.invalid"
+        )
+        self.assertEqual(duplicate.status, "duplicate")
+        self.assertEqual(duplicate.connection_id, existing.connection_id)
+        self.assertEqual(len(self.service.list(self.profile)), 1)
+        self.assertEqual(
+            self.service.borrow(self.profile, existing.connection_id, 1)[0],
+            "one-access",
+        )
+
+    def test_same_email_does_not_authorize_replacing_another_subject(self):
+        """The row restriction never weakens reconnect's verified subject check."""
+        existing = self.connect(email="person@example.invalid")
+        result = self.connect(
+            "different-subject",
+            "oaiapp_one",
+            existing.connection_id,
+            email="person@example.invalid",
+        )
+        self.assertEqual(result.status, "failed")
         self.assertEqual(len(self.service.list(self.profile)), 1)
         self.assertEqual(
             self.service.borrow(self.profile, existing.connection_id, 1)[0],

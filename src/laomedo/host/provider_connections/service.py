@@ -574,12 +574,22 @@ class ProviderConnections:
                         staged_account["issuer"] + "\0" + staged_account["subject"]
                     ).encode()
                 ).hexdigest()
+                email = staged_account.get("email")
+                normalized_email = (
+                    email.strip().casefold()
+                    if isinstance(email, str) and email.strip()
+                    else None
+                )
                 duplicate = next(
                     (
                         record
                         for record in records
-                        if record.subject_hash == subject_hash
-                        and record.connection_id != item.candidate_id
+                        if record.connection_id != item.candidate_id
+                        and (
+                            record.subject_hash == subject_hash
+                            or normalized_email is not None
+                            and record.label.strip().casefold() == normalized_email
+                        )
                     ),
                     None,
                 )
