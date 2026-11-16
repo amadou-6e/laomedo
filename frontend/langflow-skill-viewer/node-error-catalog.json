@@ -2117,7 +2117,7 @@
   "issue_state_invalid": {
     "title": "The Issue state filter is invalid",
     "description": "The saved state value is not one of the supported filters.",
-    "recovery": "Choose Open, Closed or All in the nodeÃ¢â‚¬â„¢s State control and refresh discovery."
+    "recovery": "Choose Open, Closed or All in the node’s State control and refresh discovery."
   },
   "issue_write_unknown": {
     "title": "The Issue update outcome is not confirmed",
@@ -2177,7 +2177,7 @@
   "pr_state_invalid": {
     "title": "The PR state filter is invalid",
     "description": "The saved state value is not one of the supported filters.",
-    "recovery": "Choose Open, Closed or All in the nodeÃ¢â‚¬â„¢s State control and refresh discovery."
+    "recovery": "Choose Open, Closed or All in the node’s State control and refresh discovery."
   },
   "pr_write_unknown": {
     "title": "The PR update outcome is not confirmed",

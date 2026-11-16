@@ -23,6 +23,7 @@ export async function assistantRequest<T>(
   if (signal?.aborted) controller.abort();
   const timer = window.setTimeout(abort, 20000);
   let response: Response;
+  let payload: any;
   try {
     response = await fetch(`/api/v1/laomedo/assistant${path}`, {
       method: body === undefined ? "GET" : "POST",
@@ -32,6 +33,7 @@ export async function assistantRequest<T>(
       signal: controller.signal,
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     });
+    payload = await response.json().catch(() => null);
   } catch (error) {
     if (signal?.aborted) throw error;
     throw new AssistantFailure(
@@ -43,7 +45,6 @@ export async function assistantRequest<T>(
     window.clearTimeout(timer);
     signal?.removeEventListener("abort", abort);
   }
-  const payload = await response.json().catch(() => null);
   if (!response.ok) {
     if ([401, 403].includes(response.status))
       throw new AssistantFailure("assistant_session_locked");

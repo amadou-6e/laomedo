@@ -19,16 +19,50 @@ class ResumeDispatchRequest(BaseModel):
 
     model_config = ConfigDict(strict=True, extra="forbid", hide_input_in_errors=True)
     activity_attempt_id: str = Field(
-        pattern=r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        pattern=r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+        description="Caller-owned immutable resumed-attempt UUID used for idempotent admission.",
     )
-    task: str = Field(min_length=1, max_length=16000, repr=False)
-    expected_post_run_hash: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
-    expected_thread_id: str = Field(min_length=1, max_length=256)
-    model: str = Field(min_length=1, max_length=256)
-    effort: str = Field(min_length=1, max_length=100)
-    run_timeout_seconds: int | None = Field(default=None, gt=0)
-    mcp_manifest: dict[str, JsonValue] | None = Field(default=None, repr=False)
-    mcp_registration: str | None = Field(default=None, repr=False, exclude=True)
+    task: str = Field(
+        min_length=1,
+        max_length=16000,
+        repr=False,
+        description="Bounded user prompt, included only in the semantic digest and native dispatch.",
+    )
+    expected_post_run_hash: str = Field(
+        pattern=r"^sha256:[0-9a-f]{64}$",
+        description="Exact previously verified continuation workspace digest.",
+    )
+    expected_thread_id: str = Field(
+        min_length=1,
+        max_length=256,
+        description="Existing native session identity that continuation must preserve.",
+    )
+    model: str = Field(
+        min_length=1,
+        max_length=256,
+        description="Fixed model binding for this resumed native session.",
+    )
+    effort: str = Field(
+        min_length=1,
+        max_length=100,
+        description="Fixed reasoning-effort binding for this resumed native session.",
+    )
+    run_timeout_seconds: int | None = Field(
+        default=None,
+        gt=0,
+        description="Optional explicit execution timeout, separate from installation and admission.",
+    )
+    mcp_manifest: dict[str, JsonValue] | None = Field(
+        default=None,
+        repr=False,
+        description="Exact non-secret selected-tool manifest participating in request identity.",
+    )
+    mcp_registration: str | None = Field(
+        default=None,
+        repr=False,
+        exclude=True,
+        description="Transient host-private grant reference, excluded from durable request identity.",
+    )
 
     @model_validator(mode="after")
     def paired_grant(self):
