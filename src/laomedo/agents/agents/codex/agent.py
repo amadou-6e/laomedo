@@ -7,6 +7,7 @@ from laomedo.docker import DockerRuntime
 from laomedo.container_images.errors import ImageBuildError
 from laomedo.agents.agents.codex.catalog import CodexModelCatalog
 from laomedo.agents.agents.codex.credentials import CodexCredentialProvider
+from laomedo.agents.agents.codex.models import ResumeCheckpoint
 
 from pathlib import Path
 from uuid import uuid4
@@ -281,11 +282,13 @@ class CodexAgent(BaseAgent):
             raise RunnerError("publication_handoff_resume_denied")
         if not isinstance(task, str) or not task.strip():
             raise RunnerError("invalid_task")
+        checkpoint = self._resume_checkpoint(record)
         if (
-            record["status"] != "completed"
+            (record["status"] != "completed" and checkpoint is None)
             or not record["thread_id"]
             or record["thread_id"] != expected_thread_id
-            or record["post_run_hash"] != expected_post_run_hash
+            or (checkpoint.workspace_hash if checkpoint else record["post_run_hash"])
+            != expected_post_run_hash
             or record["requested_model"] != model
             or record["requested_effort"] != effort
             or record["profile"] != self.profile
@@ -336,6 +339,29 @@ class CodexAgent(BaseAgent):
         return self._execute(
             run_id, task, resume=True, activity_attempt_id=activity_attempt_id
         )
+
+    def _resume_checkpoint(self, record):
+        """Read a same-instance, attempt-local settlement without promoting output success."""
+        from pydantic import ValidationError
+
+        if record.get("status") not in {"failed", "cancelled", "interrupted"}:
+            return None
+        try:
+            checkpoint = ResumeCheckpoint.model_validate(
+                record.get("resume_checkpoint")
+            )
+        except ValidationError:
+            return None
+        if (
+            checkpoint.runner_instance_id != self.instance_id
+            or checkpoint.attempt_id != record.get("activity_attempt_id")
+            or checkpoint.thread_id != record.get("thread_id")
+            or record.get("attempt_finished") is not True
+            or record.get("controller_cleanup") != "confirmed"
+            or record.get("container_ownership", {}).get("cleanup_verified") is not True
+        ):
+            return None
+        return checkpoint
 
     def _check_container(self) -> dict[str, str]:
         """Recover and verify the Docker runtime without credentials or model work.
@@ -687,10 +713,16 @@ class CodexAgent(BaseAgent):
             with self.control_lock:
                 record = self.status(run_id)
                 record.setdefault("precheck", {"installed": False, "call_count": 0})
-                if record["status"] == "cancelled" and record.get("cancel_confirmed"):
+                if (
+                    not resume
+                    and record["status"] == "cancelled"
+                    and record.get("cancel_confirmed")
+                ):
                     return record
                 if (not resume and record["status"] != "prepared") or (
-                    resume and record["status"] != "completed"
+                    resume
+                    and record["status"] != "completed"
+                    and self._resume_checkpoint(record) is None
                 ):
                     raise RunnerError("run_not_dispatchable")
                 self.check_mcp(record)
@@ -736,6 +768,10 @@ class CodexAgent(BaseAgent):
                 record["output_ref"] = None
                 record["controller_cleanup"] = "not_started"
                 record["attempt_finished"] = False
+                record.pop("resume_checkpoint", None)
+                record.pop("native_turn_status", None)
+                record["cancel_confirmed"] = False
+                record["cancel_requested"] = False
                 name = "laomedo-codex-" + uuid4().hex
                 launch_token = uuid4().hex
                 record["container_ownership"] = {
@@ -1316,6 +1352,33 @@ class CodexAgent(BaseAgent):
                                 record["snapshot_ready"] = False
                                 record["post_run_hash"] = None
                                 record["output_ref"] = None
+                                if (
+                                    record.get("status")
+                                    in {"failed", "cancelled", "interrupted"}
+                                    and self.publication_controller is None
+                                    and record.get("thread_id")
+                                    and server is not None
+                                    and getattr(server, "active_thread_id", None)
+                                    == record["thread_id"]
+                                    and server.streams_closed
+                                    and record.get("controller_cleanup") == "confirmed"
+                                    and record.get("container_ownership", {}).get(
+                                        "cleanup_verified"
+                                    )
+                                    is True
+                                ):
+                                    try:
+                                        digest = self._freeze_workspace(run_dir, record)
+                                        record["resume_checkpoint"] = ResumeCheckpoint(
+                                            attempt_id=record["activity_attempt_id"],
+                                            thread_id=record["thread_id"],
+                                            workspace_hash=digest,
+                                            runner_instance_id=self.instance_id,
+                                        ).model_dump()
+                                    except RunnerError:
+                                        # Failure remains the observed outcome; no checkpoint is safer
+                                        # than masking it or allowing an unverified continuation.
+                                        record.pop("resume_checkpoint", None)
                             if cancelled is not None and cancelled.is_set():
                                 record["cancel_requested"] = True
                             if activity_attempt is not None:

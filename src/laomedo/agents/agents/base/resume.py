@@ -191,9 +191,14 @@ class ResumeDispatcher:
         return hashlib.sha256(json.dumps(record, sort_keys=True).encode()).hexdigest()
 
     def _unchanged(self, run_id, attempt_id):
-        """Require an identical completed record and no admission marker for refusal."""
+        """Require an identical terminal record and no admission marker for refusal."""
         record = self.runner.status(run_id)
-        if not isinstance(record, dict) or record.get("status") != "completed":
+        if not isinstance(record, dict) or record.get("status") not in {
+            "completed",
+            "failed",
+            "cancelled",
+            "interrupted",
+        }:
             return False
         if record.get("activity_attempt_id") == attempt_id:
             return False
