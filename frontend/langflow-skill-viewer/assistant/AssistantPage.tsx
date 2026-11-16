@@ -1,6 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Plus, ChevronLeft, ChevronRight, ArrowUp, Square } from "lucide-react";
+import {
+  Plus,
+  ChevronLeft,
+  ChevronRight,
+  ArrowUp,
+  Square,
+  Workflow,
+  MessageSquare,
+  Check,
+  Sparkles,
+} from "lucide-react";
+import { OpenAiIcon } from "@/icons/OpenAi";
 import { Button } from "@/components/ui/button";
 import useAuthStore from "@/stores/authStore";
 import { describeNodeFailure } from "@/components/laomedoErrors/nodeErrors";
@@ -782,7 +793,27 @@ export default function AssistantPage() {
                   </div>
                 )}
               {(!selected || (detail && !detail.messages.length)) && (
-                <div className="mx-auto max-w-md space-y-5 py-16 text-center">
+                <div className="mx-auto w-full max-w-md space-y-5 py-10 text-center">
+                  <div
+                    aria-hidden="true"
+                    className="relative mx-auto flex h-24 w-64 items-center justify-center gap-4 rounded-full bg-gradient-to-r from-transparent via-primary/10 to-transparent"
+                  >
+                    <span className="-rotate-6 rounded-2xl border bg-background p-3 text-muted-foreground shadow-sm">
+                      <MessageSquare size={22} />
+                    </span>
+                    <span className="h-px w-5 bg-primary/40" />
+                    <span className="relative rounded-2xl border border-primary/30 bg-primary/10 p-4 text-primary shadow-sm">
+                      <Workflow size={32} />
+                      <Sparkles
+                        size={15}
+                        className="absolute -right-2 -top-2"
+                      />
+                    </span>
+                    <span className="h-px w-5 bg-primary/40" />
+                    <span className="rotate-6 rounded-2xl border bg-background p-3 text-muted-foreground shadow-sm">
+                      <Check size={22} />
+                    </span>
+                  </div>
                   <h2 className="text-xl font-medium">
                     What would you like to build?
                   </h2>
@@ -791,17 +822,39 @@ export default function AssistantPage() {
                     workflows and save a separate editable draft.
                   </p>
                   {!selected && (
-                    <label className="inline-flex items-center gap-3 text-sm">
-                      Provider
-                      <select
-                        aria-label="Assistant provider"
-                        className="rounded-md border bg-background px-3 py-2"
-                        value="codex"
-                        onChange={() => {}}
-                      >
-                        <option value="codex">Codex</option>
-                      </select>
-                    </label>
+                    <fieldset
+                      className="pt-2 text-left"
+                      aria-label="Assistant provider"
+                    >
+                      <legend className="mb-2 text-xs font-medium text-muted-foreground">
+                        Your assistant
+                      </legend>
+                      <label className="flex cursor-default items-center gap-4 rounded-2xl border border-primary/40 bg-primary/5 p-4 has-[:focus-visible]:outline has-[:focus-visible]:outline-2">
+                        <input
+                          type="radio"
+                          name="assistant-provider"
+                          aria-label="Codex"
+                          checked
+                          readOnly
+                          className="sr-only"
+                        />
+                        <span aria-hidden="true" className="text-4xl">
+                          <OpenAiIcon />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-sm font-medium">
+                            Codex
+                          </span>
+                          <span className="mt-1 block text-xs text-muted-foreground">
+                            OpenAI · Your workflow-building companion
+                          </span>
+                        </span>
+                        <span className="inline-flex items-center gap-1 text-xs text-primary">
+                          <Check size={14} />
+                          Selected
+                        </span>
+                      </label>
+                    </fieldset>
                   )}
                   {linked && (
                     <p className="text-xs text-muted-foreground">

@@ -8,6 +8,7 @@ jest.mock("./api", () => ({
   assistantRequest: jest.fn(),
 }));
 jest.mock("./Message", () => ({ __esModule: true, default: () => null }));
+jest.mock("@/icons/OpenAi", () => ({ OpenAiIcon: () => null }));
 jest.mock("@/stores/authStore", () => ({
   __esModule: true,
   default: (select: any) => select({ userData: { id: "owner" } }),

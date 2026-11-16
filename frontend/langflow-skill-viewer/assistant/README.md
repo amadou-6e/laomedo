@@ -22,6 +22,12 @@ User and assistant message bodies share the same small text size. Double-clickin
 the conversation heading edits its title; keyboard activation also opens editing.
 Enter saves through the owner-scoped rename endpoint and Escape cancels.
 
+Session feedback calls for a visual selection experience: the empty chat shows a
+workflow illustration and a provider card with the existing OpenAI brand asset.
+The composer picker displays discovered models as selectable logo cards, keeping
+native radio keyboard behavior and the effort slider. Only the supported Codex
+assistant provider is shown; these cards do not imply new provider integrations.
+
 `models.ts` owns wire types. `api.ts` makes one same-origin request without
 automatic inference replay or authentication-refresh retry. `AssistantPage.tsx`
 owns conversation selection, model binding and composer state. `Message.tsx`
