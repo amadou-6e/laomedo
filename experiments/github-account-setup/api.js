@@ -50,14 +50,13 @@ export async function request(action, payload, signal) {
       signal,
       ...options,
     });
-    const body = await response.json();
     if (!response.ok)
       throw new Error(
         response.status === 401 || response.status === 403
           ? "login_required"
           : "request_failed",
       );
-    return body;
+    return response.json();
   }
   if (!action) return send("github-connections");
   const session = await send("private-session");

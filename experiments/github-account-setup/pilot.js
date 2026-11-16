@@ -67,7 +67,9 @@ function signIn(app, connectionId) {
       signal,
     );
     if (!valid()) return;
-    window.location.assign(signInDestination(result, app.client_id));
+    const destination = signInDestination(result, app.client_id);
+    channel.postMessage({ type: "invalidate" });
+    window.location.assign(destination);
   });
 }
 
@@ -85,15 +87,16 @@ function accountRow(principal, subtitle, app, connectionId) {
   note.className = "muted";
   note.textContent = subtitle;
   details.append(name, note);
-  const button = document.createElement("button");
+  const button = document.createElement(app.principal ? "button" : "a");
   button.type = "button";
   button.className = "secondary";
-  button.textContent = "Sign in";
+  button.textContent = app.principal ? "Sign in" : "Review setup";
   button.setAttribute(
     "aria-label",
     `Sign in to ${principal?.login ?? app.slug}`,
   );
-  button.onclick = () => signIn(app, connectionId);
+  if (app.principal) button.onclick = () => signIn(app, connectionId);
+  else button.href = "/settings/github";
   row.append(icon, details, button);
   byId("accounts").append(row);
 }
@@ -108,6 +111,7 @@ function load() {
     if (!Array.isArray(index?.connections) || !Array.isArray(index?.apps))
       throw new Error("inventory_unconfirmed");
     const used = new Set();
+    const connectedOwners = new Set(index.connections.filter(({ connection }) => connection.mode === "browser" && connection.state !== "revoked").map(({ connection }) => connection.principal.id));
     for (const { connection, availability } of index.connections) {
       if (connection.mode !== "browser" || connection.state === "revoked")
         continue;
@@ -124,7 +128,7 @@ function load() {
       );
     }
     for (const app of index.apps) {
-      if (!used.has(app.id))
+      if (!used.has(app.id) && !connectedOwners.has(app.principal?.id))
         accountRow(
           app.principal,
           app.principal
@@ -171,6 +175,7 @@ byId("register").onclick = () => {
     input.value = JSON.stringify(manifest);
     form.append(input);
     document.body.append(form);
+    channel.postMessage({ type: "invalidate" });
     form.submit();
     form.remove();
   });

@@ -27,6 +27,7 @@ test("profile change clears private labels and fences a late sign-in response", 
   };
   const channels = new Map();
   class Channel {
+    postMessage() {}
     constructor(name) {
       channels.set(name, this);
     }
@@ -51,7 +52,8 @@ test("profile change clears private labels and fences a late sign-in response", 
           : {
               index: {
                 apps: [
-                  { id: "app-one", slug: "app-one", client_id: "client-one" },
+                  { id: "app-one", slug: "app-one", client_id: "client-one", principal: {id: 11, login: label} },
+                  { id: "unknown", slug: "unknown", client_id: "unknown" },
                 ],
                 connections: [
                   {
@@ -79,6 +81,8 @@ test("profile change clears private labels and fences a late sign-in response", 
     );
     assert.equal(document.querySelectorAll("#accounts img").length, 0);
     assert.ok(document.querySelector("#accounts").textContent.includes(label));
+    assert.equal(document.querySelectorAll("#accounts button").length, 1);
+    assert.equal(document.querySelector("#accounts a").getAttribute("href"), "/settings/github");
     document.getElementById("add").click();
     assert.equal(document.getElementById("setup").hidden, false);
     assert.equal(calls.length, 1, "opening setup must still wait for Continue");
