@@ -98,3 +98,17 @@ finding V-M1 was corrected using the forwarding layer's canonical identity map
 and rechecked against fresh real-data screenshots. No blocking findings remain;
 the reviewer did not rerun the live probes. Spec PR424 remains unmerged and the
 implementation PR283 stays draft; no merge is authorized by this evidence.
+
+## Compact composer and follow-up styling
+
+Revision `8918f8d8` applies owner notes 11–17 and the provided compact composer
+reference. Browser acceptance now uses the real popover's native model/effort
+radio labels, Escape, the sidebar edge away from its icon, bottom new-action
+position, and tool-name expansion. Screenshots use dark mode at 1041×895 and
+finish finite animations for stable capture; product animation is unchanged.
+The ten UI tests and production frontend build pass, and TypeScript reports no
+assistant-file diagnostics while upstream baseline errors remain. Exact-head CI
+passes. Claude reviewed `4fb66109` -> `8918f8d8`, all six rendered states and the
+full UI delta: Implementation, Visual and Spec fit APPROVE with no blockers.
+The reviewer did not see the owner's reference bitmap, only its described
+geometry and the actual implementation renders. No new inference was needed.
