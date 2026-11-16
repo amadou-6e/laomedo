@@ -85,7 +85,7 @@ function accountRow(principal, subtitle, app, connectionId) {
   name.textContent = principal ? `@${principal.login}` : app.slug;
   const note = document.createElement("p");
   note.className = "muted";
-  note.textContent = subtitle;
+  note.textContent = app.principal ? subtitle : "Review this App in connection settings before signing in.";
   details.append(name, note);
   const button = document.createElement(app.principal ? "button" : "a");
   button.type = "button";
@@ -93,7 +93,7 @@ function accountRow(principal, subtitle, app, connectionId) {
   button.textContent = app.principal ? "Sign in" : "Review setup";
   button.setAttribute(
     "aria-label",
-    `Sign in to ${principal?.login ?? app.slug}`,
+    `${app.principal ? "Sign in to" : "Review setup for"} ${principal?.login ?? app.slug}`,
   );
   if (app.principal) button.onclick = () => signIn(app, connectionId);
   else button.href = "/settings/github";
