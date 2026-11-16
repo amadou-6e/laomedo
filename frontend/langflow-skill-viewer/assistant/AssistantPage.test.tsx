@@ -111,10 +111,10 @@ describe("uncertain assistant submission", () => {
     fireEvent.change(composer, {
       target: { value: "Keep this original text" },
     });
-    fireEvent.change(
-      screen.getByRole("combobox", { name: "Assistant reasoning effort" }),
-      { target: { value: "high" } },
+    fireEvent.click(
+      screen.getByRole("button", { name: "Choose model and effort" }),
     );
+    fireEvent.click(screen.getByRole("radio", { name: "high", exact: true }));
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
     await screen.findByRole("button", { name: "Retry same submission" });
     const original = JSON.parse(
@@ -183,11 +183,22 @@ describe("uncertain assistant submission", () => {
     expect(
       screen.getByRole("button", { name: "New conversation" }),
     ).toBeTruthy();
-    await screen.findByRole("option", { name: "fixture" });
-    fireEvent.change(
-      screen.getByRole("combobox", { name: "Assistant model" }),
-      { target: { value: "fixture" } },
+    await waitFor(() =>
+      expect(
+        (
+          screen.getByRole("button", {
+            name: "Choose model and effort",
+          }) as HTMLButtonElement
+        ).disabled,
+      ).toBe(false),
     );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Choose model and effort" }),
+    );
+    fireEvent.click(
+      await screen.findByRole("radio", { name: "fixture", exact: true }),
+    );
+    fireEvent.click(screen.getByRole("radio", { name: "low", exact: true }));
     fireEvent.change(composer, { target: { value: "Create a draft" } });
     expect(calls.filter(([, body]) => body)).toHaveLength(0);
     fireEvent.click(screen.getByRole("button", { name: "Start chat" }));

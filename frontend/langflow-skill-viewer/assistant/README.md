@@ -12,6 +12,13 @@ The authenticated application Activity response supplies fixed authoring-tool
 display names derived from the forwarding layer's canonical alias rule; it adds
 no capability and leaves common Activity payloads and retained snapshots unchanged.
 
+`ModelSelection.tsx` owns the compact composer control: a single model/effort
+trigger opens native radio choices in a popover. Selecting values changes only
+the next submission; it never submits a prompt. The composer shares one rounded
+surface with its footer controls. History collapses from its full-height edge;
+new conversation sits at the sidebar bottom. Tool names themselves expand their
+retained input/output, with original Activity row styling and smaller type.
+
 `models.ts` owns wire types. `api.ts` makes one same-origin request without
 automatic inference replay or authentication-refresh retry. `AssistantPage.tsx`
 owns conversation selection, model binding and composer state. `Message.tsx`

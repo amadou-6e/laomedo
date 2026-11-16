@@ -1,3 +1,4 @@
+import { ChevronRight, Terminal } from "lucide-react";
 import type { Lane } from "@/modals/graphAgents/models";
 import { duration, time } from "@/modals/graphAgents/utils";
 
@@ -9,10 +10,7 @@ export default function ToolCalls({
   names: Record<string, string>;
 }) {
   return (
-    <div
-      className="overflow-hidden rounded-xl border bg-muted/20"
-      aria-label="Tool calls"
-    >
+    <div className="min-w-0 border-y bg-muted/40" aria-label="Tool calls">
       {lanes.map((lane) => {
         const item = lane.item ?? {};
         const candidate = String(item.toolName ?? item.tool ?? item.name ?? "");
@@ -26,44 +24,46 @@ export default function ToolCalls({
         const output = item.output ?? item.result ?? item.aggregatedOutput;
         const input = item.arguments ?? item.input ?? item.command;
         return (
-          <div
+          <details
             key={`${lane.thread}:${lane.id}`}
-            className="space-y-2 border-b px-3 py-3 last:border-b-0"
+            className="group min-w-0 border-b px-3 py-2 text-[11px] last:border-b-0"
           >
-            <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-              <span className="font-medium">{name}</span>
+            <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-x-4 gap-y-1 text-muted-foreground [&::-webkit-details-marker]:hidden">
+              <span className="flex min-w-0 items-center gap-2">
+                <Terminal size={12} className="shrink-0" />
+                <span className="break-words">{name}</span>
+                <ChevronRight
+                  size={10}
+                  className="shrink-0 transition-transform group-open:rotate-90"
+                />
+              </span>
               <span
-                className="tabular-nums text-muted-foreground"
+                className="tabular-nums"
                 title={`${lane.started} → ${lane.ended ?? "running"}`}
               >
                 {time(lane.started)} · {duration(lane.started, lane.ended)}
               </span>
-            </div>
+            </summary>
             {lane.conflicting_receipts && (
-              <p role="status" className="text-xs">
+              <p role="status" className="mt-2">
                 Conflicting native receipts retained.
               </p>
             )}
-            {(input != null || output != null) && (
-              <details className="text-xs text-muted-foreground">
-                <summary className="cursor-pointer">Details</summary>
-                {input != null && (
-                  <pre className="mt-2 max-h-56 overflow-auto whitespace-pre-wrap break-words">
-                    {typeof input === "string"
-                      ? input
-                      : JSON.stringify(input, null, 2)}
-                  </pre>
-                )}
-                {output != null && (
-                  <pre className="mt-2 max-h-56 overflow-auto whitespace-pre-wrap break-words">
-                    {typeof output === "string"
-                      ? output
-                      : JSON.stringify(output, null, 2)}
-                  </pre>
-                )}
-              </details>
+            {input != null && (
+              <pre className="mt-2 max-h-56 overflow-auto whitespace-pre-wrap break-words">
+                {typeof input === "string"
+                  ? input
+                  : JSON.stringify(input, null, 2)}
+              </pre>
             )}
-          </div>
+            {output != null && (
+              <pre className="mt-2 max-h-56 overflow-auto whitespace-pre-wrap break-words">
+                {typeof output === "string"
+                  ? output
+                  : JSON.stringify(output, null, 2)}
+              </pre>
+            )}
+          </details>
         );
       })}
     </div>

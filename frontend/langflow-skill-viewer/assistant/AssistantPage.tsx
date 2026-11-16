@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Plus, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { Plus, ChevronLeft, ChevronRight, ArrowUp, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import useAuthStore from "@/stores/authStore";
 import { describeNodeFailure } from "@/components/laomedoErrors/nodeErrors";
 import ErrorExplanation from "@/components/laomedoErrors/ErrorExplanation";
 import { AssistantFailure, assistantRequest } from "./api";
 import MessageRow from "./Message";
+import ModelSelection from "./ModelSelection";
 import type {
   ConversationDetail,
   ConversationIndex,
@@ -466,7 +467,6 @@ export default function AssistantPage() {
       !detail?.observation_error &&
       !error,
   );
-  const selectedModel = models?.models.find((item) => item.id === model);
   const explanation =
     error || detail?.observation_error || conversation?.error_code;
   const failure = explanation
@@ -478,98 +478,78 @@ export default function AssistantPage() {
       className="flex h-full min-h-0 w-full bg-background"
       aria-label="Application assistant"
     >
-      <aside
-        hidden={!history}
-        className={`${history ? "flex" : "hidden"} w-64 max-w-[75vw] shrink-0 flex-col border-r bg-muted/20 p-4`}
-        aria-label="Conversations"
+      <div
+        className={`relative min-h-0 shrink-0 ${history ? "w-64 max-w-[75vw]" : "w-5"}`}
       >
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold">Conversations</h2>
-          <button
-            type="button"
-            className="rounded p-1 text-muted-foreground"
-            aria-label="Collapse conversations"
-            onClick={() => setHistory(false)}
-          >
-            <PanelLeftClose size={16} />
-          </button>
-        </div>
-        <Button
-          className="my-4 self-start"
-          variant="outline"
-          size="icon"
-          aria-label="New conversation"
-          title="New conversation"
-          onClick={() => setParams({})}
+        <aside
+          hidden={!history}
+          className={`${history ? "flex" : "hidden"} h-full flex-col bg-muted/20 p-4 pr-6`}
+          aria-label="Conversations"
         >
-          <Plus size={18} />
-        </Button>
-        <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto">
-          {index.conversations.map((item) => (
+          <h2 className="mb-4 text-sm font-semibold">Conversations</h2>
+          <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto">
+            {index.conversations.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                aria-current={selected === item.id ? "page" : undefined}
+                className={`w-full rounded-lg p-3 text-left text-sm hover:bg-muted focus-visible:outline focus-visible:outline-2 ${selected === item.id ? "bg-muted" : ""}`}
+                onClick={() => {
+                  setParams({ conversation: item.id });
+                }}
+              >
+                <span className="block truncate font-medium">{item.title}</span>
+                <span className="mt-1 block text-xs text-muted-foreground">
+                  Codex ·{" "}
+                  {item.active_message_id
+                    ? stateLabel(item.state)
+                    : new Date(item.updated_at * 1000).toLocaleDateString()}
+                </span>
+              </button>
+            ))}
+          </nav>
+          {index.next_cursor !== null && (
             <button
-              key={item.id}
               type="button"
-              aria-current={selected === item.id ? "page" : undefined}
-              className={`w-full rounded-lg p-3 text-left text-sm hover:bg-muted focus-visible:outline focus-visible:outline-2 ${selected === item.id ? "bg-muted" : ""}`}
-              onClick={() => {
-                setParams({ conversation: item.id });
-                setHistory(false);
-              }}
+              className="mt-3 text-left text-sm underline"
+              onClick={() => void olderConversations()}
             >
-              <span className="block truncate font-medium">{item.title}</span>
-              <span className="mt-1 block text-xs text-muted-foreground">
-                Codex ·{" "}
-                {item.active_message_id
-                  ? stateLabel(item.state)
-                  : new Date(item.updated_at * 1000).toLocaleDateString()}
-              </span>
+              Load earlier conversations
             </button>
-          ))}
-        </nav>
-        {index.next_cursor !== null && (
-          <button
-            type="button"
-            className="mt-3 text-left text-sm underline"
-            onClick={() => void olderConversations()}
+          )}
+          <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
+            Switching conversations does not stop active work.
+          </p>
+          <Button
+            className="mt-4 w-full justify-start"
+            variant="ghost"
+            aria-label="New conversation"
+            onClick={() => setParams({})}
           >
-            Load earlier conversations
-          </button>
-        )}
-        <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
-          Switching conversations does not stop active work.
-        </p>
-      </aside>
+            <Plus size={16} />
+            New conversation
+          </Button>
+        </aside>
+        <button
+          type="button"
+          aria-label={
+            history ? "Collapse conversations" : "Expand conversations"
+          }
+          title={history ? "Collapse conversations" : "Expand conversations"}
+          aria-expanded={history}
+          onClick={() => setHistory(!history)}
+          className="absolute inset-y-0 right-0 flex w-4 items-center justify-center border-r text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline focus-visible:outline-2"
+        >
+          {history ? <ChevronLeft size={12} /> : <ChevronRight size={12} />}
+        </button>
+      </div>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b px-5 py-4">
           <div>
-            {!history && (
-              <button
-                type="button"
-                aria-label="Expand conversations"
-                title="Expand conversations"
-                onClick={() => setHistory(true)}
-                className="mr-3 rounded p-1"
-              >
-                <PanelLeftOpen size={18} />
-              </button>
-            )}
             <h1 className="inline text-sm font-medium">
               {conversation?.title ?? "Laomedo assistant"}
             </h1>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {conversation
-                ? `Codex · ${conversation.model} · ${conversation.effort} · ${stateLabel(conversation.state)}`
-                : "Create workflows in a normal conversation"}
-            </p>
           </div>
-          <a
-            href="/flows"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sm text-muted-foreground underline"
-          >
-            Workflows ↗
-          </a>
         </header>
         {failure && (
           <div
@@ -708,74 +688,20 @@ export default function AssistantPage() {
             </div>
           </div>
           <form
-            className="shrink-0 border-t bg-background p-4 md:px-10"
+            className="shrink-0 bg-background px-4 pb-4 pt-2 md:px-10"
             onSubmit={(event) => {
               event.preventDefault();
               void send();
             }}
           >
-            <div className="mx-auto max-w-4xl">
-              <div className="mb-3 flex flex-wrap items-center gap-3 text-xs">
-                <label className="flex items-center gap-2">
-                  Model
-                  <select
-                    aria-label="Assistant model"
-                    value={model}
-                    disabled={busy || active || Boolean(waiting)}
-                    onChange={(event) => {
-                      const next = models?.models.find(
-                        (item) => item.id === event.target.value,
-                      );
-                      setModel(event.target.value);
-                      setEffort(
-                        next?.efforts.includes(effort)
-                          ? effort
-                          : (next?.efforts[0] ?? ""),
-                      );
-                    }}
-                    className="max-w-56 rounded-md border bg-background px-2 py-1.5"
-                  >
-                    <option value="">Select a model</option>
-                    {models?.models.map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.id}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="flex items-center gap-2">
-                  Effort
-                  <select
-                    aria-label="Assistant reasoning effort"
-                    value={effort}
-                    disabled={busy || active || Boolean(waiting)}
-                    onChange={(event) => setEffort(event.target.value)}
-                    className="rounded-md border bg-background px-2 py-1.5"
-                  >
-                    <option value="">Select effort</option>
-                    {selectedModel?.efforts.map((value) => (
-                      <option key={value} value={value}>
-                        {value}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <button
-                  type="button"
-                  disabled={busy || active}
-                  onClick={discover}
-                  className="text-muted-foreground underline"
-                >
-                  Refresh models
-                </button>
-              </div>
+            <div className="mx-auto max-w-4xl rounded-2xl border bg-muted/30 p-2 shadow-sm focus-within:ring-1 focus-within:ring-ring">
               <label htmlFor="assistant-message" className="sr-only">
                 Message this assistant
               </label>
               <textarea
                 id="assistant-message"
                 maxLength={12000}
-                rows={3}
+                rows={2}
                 placeholder={
                   selected ? "Message this assistant…" : "Start chat…"
                 }
@@ -800,31 +726,55 @@ export default function AssistantPage() {
                     void send();
                   }
                 }}
-                className="w-full resize-none rounded-lg border bg-background p-3 text-sm focus-visible:outline focus-visible:outline-2 disabled:opacity-60"
+                className="block w-full resize-none border-0 bg-transparent px-2 py-2 text-sm outline-none placeholder:text-muted-foreground disabled:opacity-60"
               />
-              <div className="mt-2 flex items-center justify-between gap-3">
-                <p className="text-xs text-muted-foreground">
-                  Ctrl+Enter sends · Drafts save without running
-                </p>
+              <div className="mt-1 flex items-center justify-end gap-2 px-1">
+                <ModelSelection
+                  models={models}
+                  model={model}
+                  effort={effort}
+                  disabled={busy || active || Boolean(waiting)}
+                  onModel={(value) => {
+                    const next = models?.models.find(
+                      (item) => item.id === value,
+                    );
+                    setModel(value);
+                    setEffort(
+                      next?.efforts.includes(effort)
+                        ? effort
+                        : (next?.efforts[0] ?? ""),
+                    );
+                  }}
+                  onEffort={setEffort}
+                  onRefresh={() => void discover()}
+                />
                 {active ? (
-                  <Button
+                  <button
                     type="button"
-                    variant="outline"
+                    aria-label="Stop response"
+                    title={
+                      conversation?.state === "stopping"
+                        ? "Stopping…"
+                        : "Stop response"
+                    }
                     disabled={busy || conversation?.state === "stopping"}
                     onClick={stop}
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-foreground text-background disabled:opacity-40"
                   >
-                    {conversation?.state === "stopping"
-                      ? "stopping…"
-                      : "Stop response"}
-                  </Button>
+                    <Square size={12} fill="currentColor" />
+                  </button>
                 ) : (
-                  <Button
+                  <button
                     type="submit"
-                      ignoreTitleCase
+                    aria-label={selected ? "Send" : "Start chat"}
+                    title={
+                      selected ? "Send (Ctrl+Enter)" : "Start chat (Ctrl+Enter)"
+                    }
                     disabled={!canSend || !(drafts[selected] ?? "").trim()}
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-foreground text-background transition-opacity disabled:opacity-30"
                   >
-                    {selected ? "Send" : "Start chat"}
-                  </Button>
+                    <ArrowUp size={17} />
+                  </button>
                 )}
               </div>
             </div>

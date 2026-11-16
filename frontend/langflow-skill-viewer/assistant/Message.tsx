@@ -100,7 +100,6 @@ export default function MessageRow({
     <section className="space-y-5 pb-6" aria-label="Message and response">
       <div className="ml-auto max-w-[90%] space-y-2 md:max-w-[80%]">
         <p className="text-right text-xs text-muted-foreground">
-          You ·{" "}
           {new Date(message.created_at * 1000).toLocaleTimeString([], {
             hour: "2-digit",
             minute: "2-digit",
