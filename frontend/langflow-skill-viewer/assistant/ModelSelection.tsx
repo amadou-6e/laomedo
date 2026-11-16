@@ -1,4 +1,4 @@
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { Check, ChevronDown } from "lucide-react";
 import {
   Popover,
@@ -25,6 +25,7 @@ export default function ModelSelection({
 }) {
   const [open, setOpen] = useState(false);
   const identity = useId();
+  const picker = useRef<HTMLDivElement>(null);
   const choices =
     models?.models.find((item) => item.id === model)?.efforts ?? [];
   return (
@@ -45,6 +46,16 @@ export default function ModelSelection({
         </button>
       </PopoverTrigger>
       <PopoverContent
+        ref={picker}
+        onOpenAutoFocus={(event) => {
+          const selected = picker.current?.querySelector<HTMLInputElement>(
+            'input[type="radio"]:checked',
+          );
+          if (selected) {
+            event.preventDefault();
+            selected.focus();
+          }
+        }}
         align="end"
         side="top"
         sideOffset={10}
@@ -97,6 +108,11 @@ export default function ModelSelection({
               </p>
             )}
           </div>
+          {(models?.models.length ?? 0) > 6 && (
+            <p className="pt-2 text-[10px] text-muted-foreground">
+              Scroll to explore all {models?.models.length} models.
+            </p>
+          )}
         </fieldset>
         <fieldset
           aria-label="Assistant reasoning effort"
