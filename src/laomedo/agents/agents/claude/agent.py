@@ -1051,10 +1051,14 @@ class ClaudeAgent(BaseAgent):
                 record.update(
                     status="running",
                     attempt_finished=False,
+                    controller_cleanup="pending",
+                    descendant_cleanup="not_verified",
                     snapshot_ready=False,
                     evidence_complete="unknown",
                     completion_basis=None,
                 )
+                if isinstance(record.get("container_ownership"), dict):
+                    record["container_ownership"]["cleanup_verified"] = False
                 record["_attempt_deadline"] = time.monotonic() + record["turn_timeout"]
                 _json(root / "record.json", record)
             self._verify_skills(root, record)

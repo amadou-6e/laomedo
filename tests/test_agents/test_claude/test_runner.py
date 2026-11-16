@@ -30,6 +30,55 @@ except ImportError:
 
 
 class ClaudeRunnerTests(unittest.TestCase):
+    def test_resume_prelaunch_failure_cannot_reuse_prior_cleanup_attestation(self):
+        from laomedo.agents.agents.base.resume import ResumeDispatcher
+        from laomedo.agents.agents.base.utils import _json
+
+        with self.invoke():
+            initial = self.runner.start(self.payload)
+            initial.update(
+                controller_cleanup="confirmed",
+                descendant_cleanup="verified",
+                container_ownership={"cleanup_verified": True},
+            )
+            _json(self.runner._run_dir(initial["run_id"]) / "record.json", initial)
+            attempt = str(uuid4())
+            with patch.object(
+                self.runner,
+                "_prompt",
+                side_effect=RunnerError("runner_transport_failed"),
+            ):
+                result = self.runner.resume(
+                    initial["run_id"],
+                    "continue",
+                    expected_post_run_hash=initial["post_run_hash"],
+                    expected_thread_id=initial["thread_id"],
+                    model="sonnet",
+                    effort="low",
+                    activity_attempt_id=attempt,
+                )
+        self.assertEqual(result["activity_attempt_id"], attempt)
+        self.assertTrue(result["attempt_finished"])
+        self.assertEqual(result["controller_cleanup"], "pending")
+        self.assertEqual(result["descendant_cleanup"], "not_verified")
+        self.assertFalse(result["container_ownership"]["cleanup_verified"])
+        dispatcher = ResumeDispatcher(self.runner)
+        with dispatcher._connection() as connection:
+            connection.execute(
+                "INSERT INTO attempts VALUES (?,?,?,?,?,?,NULL,NULL)",
+                (
+                    initial["run_id"],
+                    attempt,
+                    "digest",
+                    "older-instance",
+                    "running",
+                    None,
+                ),
+            )
+        self.assertEqual(
+            dispatcher.lookup(initial["run_id"], attempt)["status"], "unknown"
+        )
+
     def test_no_skills_produces_empty_prompt_bundle_and_preserves_resume_binding(self):
         payload = {
             key: value for key, value in self.payload.items() if key != "skill_ref"
