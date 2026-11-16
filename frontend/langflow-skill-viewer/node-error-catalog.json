@@ -1,4 +1,8 @@
 {
+  "provider_connections_unavailable": {"title": "Could not load providers", "description": "Your provider connections could not be checked.", "recovery": "Refresh to try again. Your saved connections have not been removed."},
+  "provider_sign_in_failed": {"title": "Sign-in failed", "description": "We could not finish signing you in.", "recovery": "Try again. Your saved connection has not changed."},
+  "provider_cancel_unconfirmed": {"title": "Could not cancel sign-in", "description": "We could not confirm that sign-in was cancelled.", "recovery": "Stay on this page and try going back again."},
+  "auth_account_selection_required": {"title": "Choose a Codex account", "description": "The runner needs an explicit saved ChatGPT account.", "recovery": "Select the account before starting the runner."},
   "activity_normalization_failed": {
     "title": "Retained activity could not be normalized",
     "description": "The provider evidence could not be converted to the common activity contract.",

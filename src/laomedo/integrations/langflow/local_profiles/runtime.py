@@ -28,6 +28,24 @@ class LocalProfileRuntime:
         self.admission.prepare(get_settings_service())
         app.state.local_profiles_enabled = True
         app.state.local_profile_registry = LocalProfileRegistry()
+        from laomedo.host.provider_connections.service import ProviderConnections
+        from laomedo.integrations.langflow.provider_connections.routes import (
+            install_provider_routes,
+        )
+        from laomedo.integrations.langflow.provider_connections.boundary import (
+            ProviderSessionBoundary,
+        )
+        from langflow.services.auth.utils import get_current_active_user
+
+        providers = ProviderConnections(self.admission.root / "provider-connections")
+        app.state.provider_connections = providers
+        install_provider_routes(
+            app,
+            providers,
+            get_current_active_user,
+            origin=f"http://127.0.0.1:{self.admission.marker.port}",
+        )
+        app.add_middleware(ProviderSessionBoundary, service=providers)
         app.include_router(router)
         app.add_middleware(LocalProfileBoundary, port=self.admission.marker.port)
         self._upstream_lifespan = app.router.lifespan_context
