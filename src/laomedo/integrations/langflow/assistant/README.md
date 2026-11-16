@@ -1,8 +1,8 @@
 # Application assistant
 
-Implementation checkpoint: persistence, declarative metadata validation and
-atomic workflow receipts are implemented. MCP hosting, orchestration, routes
-and chat rendering below are the remaining composition work.
+Persistence, declarative metadata validation, atomic workflow receipts, MCP
+hosting, direct provider orchestration and chat rendering form one application
+feature. Controlled tests and real provider/editor acceptance are separate gates.
 
 The assistant is ordinary persistent chat around the existing Agent APIs. It has
 no workflow. Langflow remains the owner of workflow records that its tools save.

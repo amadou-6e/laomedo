@@ -44,6 +44,22 @@ class DirectoryPermissionPolicy(BaseModel):
             raise PrivateStateError("private_state_deadline_exceeded")
         return min(ceiling, remaining)
 
+    @classmethod
+    def from_host(cls, *, deadline: float):
+        """Use trusted Windows system tools and a filtered environment, or no POSIX policy."""
+        import os
+        from laomedo.host.private_state.windows import WindowsDirectorySecurity
+
+        if os.name != "nt":
+            return None
+        system = WindowsDirectorySecurity().system_directory()
+        return cls(
+            whoami=system / "whoami.exe",
+            icacls=system / "icacls.exe",
+            environment={"SYSTEMROOT": str(system.parent)},
+            deadline=deadline,
+        )
+
 
 class DirectoryPermissionResult(BaseModel):
     """Retain the already observed owner privately for descriptor verification."""

@@ -127,7 +127,7 @@ class ComponentCatalog:
             and field.get("show") is not False
             and not re.search(
                 r"(^|_)(url|uri|endpoint|host|hostname|proxy|webhook|server|address|base|kwargs|config|settings|connection|environment|env|headers|authorization)(_|$)",
-                name.casefold(),
+                re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", name).casefold(),
             )
             and not field.get("password")
             and not field.get("load_from_db")

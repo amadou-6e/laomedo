@@ -2117,7 +2117,7 @@
   "issue_state_invalid": {
     "title": "The Issue state filter is invalid",
     "description": "The saved state value is not one of the supported filters.",
-    "recovery": "Choose Open, Closed or All in the node’s State control and refresh discovery."
+    "recovery": "Choose Open, Closed or All in the nodeâ€™s State control and refresh discovery."
   },
   "issue_write_unknown": {
     "title": "The Issue update outcome is not confirmed",
@@ -2177,7 +2177,7 @@
   "pr_state_invalid": {
     "title": "The PR state filter is invalid",
     "description": "The saved state value is not one of the supported filters.",
-    "recovery": "Choose Open, Closed or All in the node’s State control and refresh discovery."
+    "recovery": "Choose Open, Closed or All in the nodeâ€™s State control and refresh discovery."
   },
   "pr_write_unknown": {
     "title": "The PR update outcome is not confirmed",
@@ -2473,5 +2473,290 @@
     "title": "The MCP tool selection is invalid",
     "description": "The requested tool is outside the selection or an upstream tool is selected twice.",
     "recovery": "Select each required tool once on its native MCP node, then connect its Toolset to MCP Tools. Aliases do not create distinct upstream tools. Start a new run after changing selection."
+  },
+  "assistant_activity_too_large": {
+    "title": "The assistant operation could not be completed",
+    "description": "The normalized Activity page exceeded the retained display limit.",
+    "recovery": "Check the existing conversation and its retained status before taking another action. No uncertain operation should be replayed automatically."
+  },
+  "assistant_cancelled_before_dispatch": {
+    "title": "The assistant operation could not be completed",
+    "description": "Stop was observed before this prompt was dispatched to the provider.",
+    "recovery": "Check the existing conversation and its retained status before taking another action. No uncertain operation should be replayed automatically."
+  },
+  "assistant_capacity_busy": {
+    "title": "A response is already active or unsettled",
+    "description": "The application currently has its supported number of active chat tasks.",
+    "recovery": "Observe the existing response, or request Stop and wait for verified settlement before sending a distinct next message."
+  },
+  "assistant_catalog_unavailable": {
+    "title": "The assistant operation could not be completed",
+    "description": "The installed component metadata is not available. No component code was executed to fill the gap.",
+    "recovery": "Check the existing conversation and its retained status before taking another action. No uncertain operation should be replayed automatically."
+  },
+  "assistant_cleanup_unverified": {
+    "title": "The existing outcome needs reconciliation",
+    "description": "The earlier attempt has not established cleanup of all its owned native resources.",
+    "recovery": "Use Check status and inspect authoritative saved-draft receipts. Keep the same attempt and save keys; do not repeat the operation under new keys."
+  },
+  "assistant_component_identity_ambiguous": {
+    "title": "The assistant operation could not be completed",
+    "description": "More than one installed component has this runtime identity. The assistant refused to choose one implicitly.",
+    "recovery": "Check the existing conversation and its retained status before taking another action. No uncertain operation should be replayed automatically."
+  },
+  "assistant_component_metadata_unavailable": {
+    "title": "The assistant operation could not be completed",
+    "description": "The requested component has no complete installed metadata available for safe authoring.",
+    "recovery": "Check the existing conversation and its retained status before taking another action. No uncertain operation should be replayed automatically."
+  },
+  "assistant_connection_unavailable": {
+    "title": "The existing outcome needs reconciliation",
+    "description": "The application connection could not be confirmed. Existing work may still be running.",
+    "recovery": "Use Check status and inspect authoritative saved-draft receipts. Keep the same attempt and save keys; do not repeat the operation under new keys."
+  },
+  "assistant_continuation_unavailable": {
+    "title": "The assistant operation could not be completed",
+    "description": "The prior turn has no verified session and workspace binding for another prompt.",
+    "recovery": "Check the existing conversation and its retained status before taking another action. No uncertain operation should be replayed automatically."
+  },
+  "assistant_conversation_not_found": {
+    "title": "The saved item is unavailable",
+    "description": "The requested item is not available in the current authenticated profile.",
+    "recovery": "Choose an item from this profile's retained conversation or workflow list."
+  },
+  "assistant_dispatch_unknown": {
+    "title": "The existing outcome needs reconciliation",
+    "description": "The application cannot yet establish the outcome of this exact submitted attempt.",
+    "recovery": "Use Check status and inspect authoritative saved-draft receipts. Keep the same attempt and save keys; do not repeat the operation under new keys."
+  },
+  "assistant_draft_incomplete": {
+    "title": "The draft could not be saved as requested",
+    "description": "Required settings or uncopied source settings remain unresolved. A complete draft was not saved.",
+    "recovery": "Inspect the installed component schema and unresolved-field diagnostics. Correct the proposal, or explicitly request an incomplete draft to finish in the editor. No graph was executed."
+  },
+  "assistant_draft_key_conflict": {
+    "title": "The assistant operation could not be completed",
+    "description": "This save key already identifies a different operation. The existing saved receipt was preserved.",
+    "recovery": "Check the existing conversation and its retained status before taking another action. No uncertain operation should be replayed automatically."
+  },
+  "assistant_draft_not_editable": {
+    "title": "The assistant operation could not be completed",
+    "description": "This draft is locked, exposed externally or bound to filesystem persistence. The assistant did not modify it.",
+    "recovery": "Check the existing conversation and its retained status before taking another action. No uncertain operation should be replayed automatically."
+  },
+  "assistant_draft_not_owned": {
+    "title": "The assistant operation could not be completed",
+    "description": "The target is not an editable draft belonging to this conversation.",
+    "recovery": "Check the existing conversation and its retained status before taking another action. No uncertain operation should be replayed automatically."
+  },
+  "assistant_draft_revision_changed": {
+    "title": "The workflow changed before this save",
+    "description": "The draft changed after the assistant read it. The newer editor contents were not overwritten.",
+    "recovery": "Read the current workflow revision and prepare a new edit with a new operation key. Do not overwrite the newer editor state."
+  },
+  "assistant_duplicate_node": {
+    "title": "The draft could not be saved as requested",
+    "description": "The proposed draft repeats a local node identity.",
+    "recovery": "Inspect the installed component schema and unresolved-field diagnostics. Correct the proposal, or explicitly request an incomplete draft to finish in the editor. No graph was executed."
+  },
+  "assistant_edge_conflict": {
+    "title": "The draft could not be saved as requested",
+    "description": "A connection is duplicated or competes for a single-value input.",
+    "recovery": "Inspect the installed component schema and unresolved-field diagnostics. Correct the proposal, or explicitly request an incomplete draft to finish in the editor. No graph was executed."
+  },
+  "assistant_edge_node_unknown": {
+    "title": "The draft could not be saved as requested",
+    "description": "A proposed connection refers to a node that is not in this draft.",
+    "recovery": "Inspect the installed component schema and unresolved-field diagnostics. Correct the proposal, or explicitly request an incomplete draft to finish in the editor. No graph was executed."
+  },
+  "assistant_field_not_writable": {
+    "title": "The draft could not be saved as requested",
+    "description": "A proposed setting is hidden, dynamic, sensitive, executable or selects host configuration. It cannot be written through this tool.",
+    "recovery": "Inspect the installed component schema and unresolved-field diagnostics. Correct the proposal, or explicitly request an incomplete draft to finish in the editor. No graph was executed."
+  },
+  "assistant_field_type_invalid": {
+    "title": "The draft could not be saved as requested",
+    "description": "A proposed static setting does not match the installed field type or allowed choices.",
+    "recovery": "Inspect the installed component schema and unresolved-field diagnostics. Correct the proposal, or explicitly request an incomplete draft to finish in the editor. No graph was executed."
+  },
+  "assistant_field_unknown": {
+    "title": "The draft could not be saved as requested",
+    "description": "A proposed setting is not declared by the installed component.",
+    "recovery": "Inspect the installed component schema and unresolved-field diagnostics. Correct the proposal, or explicitly request an incomplete draft to finish in the editor. No graph was executed."
+  },
+  "assistant_graph_too_large": {
+    "title": "The draft could not be saved as requested",
+    "description": "The proposed declarative graph exceeded the bounded authoring request size.",
+    "recovery": "Inspect the installed component schema and unresolved-field diagnostics. Correct the proposal, or explicitly request an incomplete draft to finish in the editor. No graph was executed."
+  },
+  "assistant_input_invalid": {
+    "title": "The assistant operation could not be completed",
+    "description": "The assistant request does not match the supported bounded input contract.",
+    "recovery": "Check the existing conversation and its retained status before taking another action. No uncertain operation should be replayed automatically."
+  },
+  "assistant_local_origin_required": {
+    "title": "The local assistant is not configured",
+    "description": "The assistant requires an explicit literal-loopback application origin.",
+    "recovery": "Use the trusted app launcher configuration. Keep runner endpoints, state paths and credentials out of chat and graph fields."
+  },
+  "assistant_message_conflict": {
+    "title": "The assistant operation could not be completed",
+    "description": "This message key already identifies different text. The existing attempt was preserved.",
+    "recovery": "Check the existing conversation and its retained status before taking another action. No uncertain operation should be replayed automatically."
+  },
+  "assistant_message_empty": {
+    "title": "The assistant operation could not be completed",
+    "description": "A message needs text before it can be submitted.",
+    "recovery": "Check the existing conversation and its retained status before taking another action. No uncertain operation should be replayed automatically."
+  },
+  "assistant_message_not_found": {
+    "title": "The saved item is unavailable",
+    "description": "The requested item is not available in the current authenticated profile.",
+    "recovery": "Choose an item from this profile's retained conversation or workflow list."
+  },
+  "assistant_model_unavailable": {
+    "title": "The assistant operation could not be completed",
+    "description": "The selected model or effort is not currently reported by the configured provider.",
+    "recovery": "Check the existing conversation and its retained status before taking another action. No uncertain operation should be replayed automatically."
+  },
+  "assistant_native_identity_mismatch": {
+    "title": "The assistant operation could not be completed",
+    "description": "The observed run or Activity identity does not match the retained conversation binding.",
+    "recovery": "Check the existing conversation and its retained status before taking another action. No uncertain operation should be replayed automatically."
+  },
+  "assistant_native_session_required": {
+    "title": "Assistant access is locked",
+    "description": "This app session no longer authorizes chat access or authoring tools.",
+    "recovery": "Sign in through the existing profile screen, then reopen the retained conversation. Do not paste credentials into chat."
+  },
+  "assistant_observation_invalid": {
+    "title": "The assistant operation could not be completed",
+    "description": "An observation would violate the retained attempt lifecycle and was refused.",
+    "recovery": "Check the existing conversation and its retained status before taking another action. No uncertain operation should be replayed automatically."
+  },
+  "assistant_port_incompatible": {
+    "title": "The draft could not be saved as requested",
+    "description": "The installed output and input types do not support the proposed connection.",
+    "recovery": "Inspect the installed component schema and unresolved-field diagnostics. Correct the proposal, or explicitly request an incomplete draft to finish in the editor. No graph was executed."
+  },
+  "assistant_port_unknown": {
+    "title": "The draft could not be saved as requested",
+    "description": "A proposed connection names a port that is not declared by the installed component.",
+    "recovery": "Inspect the installed component schema and unresolved-field diagnostics. Correct the proposal, or explicitly request an incomplete draft to finish in the editor. No graph was executed."
+  },
+  "assistant_private_state_required": {
+    "title": "The local assistant is not configured",
+    "description": "The assistant requires a private local state directory outside repositories.",
+    "recovery": "Use the trusted app launcher configuration. Keep runner endpoints, state paths and credentials out of chat and graph fields."
+  },
+  "assistant_reconciliation_required": {
+    "title": "The existing outcome needs reconciliation",
+    "description": "This attempt is uncertain and needs an observation of its existing runner identity before its state can change.",
+    "recovery": "Use Check status and inspect authoritative saved-draft receipts. Keep the same attempt and save keys; do not repeat the operation under new keys."
+  },
+  "assistant_request_invalid": {
+    "title": "The assistant operation could not be completed",
+    "description": "The requested local runner operation is outside the assistant transport contract.",
+    "recovery": "Check the existing conversation and its retained status before taking another action. No uncertain operation should be replayed automatically."
+  },
+  "assistant_request_refused": {
+    "title": "The assistant operation could not be completed",
+    "description": "The request did not satisfy the local origin or bounded request requirements.",
+    "recovery": "Check the existing conversation and its retained status before taking another action. No uncertain operation should be replayed automatically."
+  },
+  "assistant_revision_required": {
+    "title": "The assistant operation could not be completed",
+    "description": "An edit needs both an owned draft identity and its exact observed revision.",
+    "recovery": "Check the existing conversation and its retained status before taking another action. No uncertain operation should be replayed automatically."
+  },
+  "assistant_runner_response_too_large": {
+    "title": "The assistant operation could not be completed",
+    "description": "The local runner response exceeded the safe display boundary.",
+    "recovery": "Check the existing conversation and its retained status before taking another action. No uncertain operation should be replayed automatically."
+  },
+  "assistant_runner_restarted": {
+    "title": "The earlier session cannot be continued after this restart",
+    "description": "The runner instance changed. Its previous native binding has not been silently replaced; history and saved drafts remain available.",
+    "recovery": "Use Start linked conversation to choose a new session explicitly. The original conversation and committed drafts stay available."
+  },
+  "assistant_runner_unavailable": {
+    "title": "The assistant operation could not be completed",
+    "description": "The local runner could not be observed. Retained history is still available.",
+    "recovery": "Check the existing conversation and its retained status before taking another action. No uncertain operation should be replayed automatically."
+  },
+  "assistant_save_outcome_unknown": {
+    "title": "The existing outcome needs reconciliation",
+    "description": "A save acknowledgement was lost or storage could not confirm its outcome. A draft may already have been committed.",
+    "recovery": "Use Check status and inspect authoritative saved-draft receipts. Keep the same attempt and save keys; do not repeat the operation under new keys."
+  },
+  "assistant_session_locked": {
+    "title": "Assistant access is locked",
+    "description": "This app session no longer authorizes chat access or authoring tools.",
+    "recovery": "Sign in through the existing profile screen, then reopen the retained conversation. Do not paste credentials into chat."
+  },
+  "assistant_setup_required": {
+    "title": "The local assistant is not configured",
+    "description": "The assistant needs a trusted local runner configuration and an explicit local application origin.",
+    "recovery": "Use the trusted app launcher configuration. Keep runner endpoints, state paths and credentials out of chat and graph fields."
+  },
+  "assistant_skill_catalog_unavailable": {
+    "title": "The assistant operation could not be completed",
+    "description": "The configured imported local Skill registry could not supply bounded, verified metadata.",
+    "recovery": "Check the existing conversation and its retained status before taking another action. No uncertain operation should be replayed automatically."
+  },
+  "assistant_source_revision_changed": {
+    "title": "The workflow changed before this save",
+    "description": "A source workflow is unavailable in this profile or changed since it was inspected. No replacement draft was committed.",
+    "recovery": "Read the current workflow revision and prepare a new edit with a new operation key. Do not overwrite the newer editor state."
+  },
+  "assistant_tool_authority_revoked": {
+    "title": "Assistant access is locked",
+    "description": "This app session no longer authorizes chat access or authoring tools.",
+    "recovery": "Sign in through the existing profile screen, then reopen the retained conversation. Do not paste credentials into chat."
+  },
+  "assistant_tool_catalog_changed": {
+    "title": "The assistant operation could not be completed",
+    "description": "The expected six-tool authoring surface was not discovered. No prompt was dispatched through it.",
+    "recovery": "Check the existing conversation and its retained status before taking another action. No uncertain operation should be replayed automatically."
+  },
+  "assistant_tool_result_too_large": {
+    "title": "The assistant operation could not be completed",
+    "description": "The tool result exceeded the bounded application result size.",
+    "recovery": "Check the existing conversation and its retained status before taking another action. No uncertain operation should be replayed automatically."
+  },
+  "assistant_tool_settlement_unknown": {
+    "title": "The existing outcome needs reconciliation",
+    "description": "The app has not confirmed that the earlier authoring calls finished or rolled back.",
+    "recovery": "Use Check status and inspect authoritative saved-draft receipts. Keep the same attempt and save keys; do not repeat the operation under new keys."
+  },
+  "assistant_tool_unavailable": {
+    "title": "The assistant operation could not be completed",
+    "description": "The application authoring service could not complete this operation.",
+    "recovery": "Check the existing conversation and its retained status before taking another action. No uncertain operation should be replayed automatically."
+  },
+  "assistant_turn_active": {
+    "title": "A response is already active or unsettled",
+    "description": "This conversation already has an active or unsettled attempt. A second prompt was not dispatched.",
+    "recovery": "Observe the existing response, or request Stop and wait for verified settlement before sending a distinct next message."
+  },
+  "assistant_turn_failed": {
+    "title": "The assistant operation could not be completed",
+    "description": "The response did not finish normally. Review retained output and any saved-draft cards.",
+    "recovery": "Check the existing conversation and its retained status before taking another action. No uncertain operation should be replayed automatically."
+  },
+  "assistant_workflow_not_found": {
+    "title": "The saved item is unavailable",
+    "description": "The requested item is not available in the current authenticated profile.",
+    "recovery": "Choose an item from this profile's retained conversation or workflow list."
+  },
+  "assistant_save_pending": {
+    "title": "A workflow save is still pending",
+    "description": "The current message already has a save in progress. Another save was not started.",
+    "recovery": "Wait for its receipt before making another save request."
+  },
+  "assistant_save_reconciliation_required": {
+    "title": "A workflow save needs reconciliation",
+    "description": "The previous save acknowledgement is uncertain. A different operation key was refused.",
+    "recovery": "Reconcile the original save key or inspect the committed draft receipts. Do not create another operation to bypass the uncertainty."
   }
 }
