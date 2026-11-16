@@ -24,6 +24,16 @@ try {
   await editor.waitForURL("**" + href);
   await editor.locator(".react-flow__node").first().waitFor({timeout:45000});
   const nodes = await editor.locator(".react-flow__node").count();
+  const edges = await editor.locator(".react-flow__edge").count();
+  const attachedEdges = await editor.evaluate(() => {
+    const nodeIds = [...document.querySelectorAll(".react-flow__node")].map(node => node.getAttribute("data-id"));
+    return [...document.querySelectorAll(".react-flow__edge")].every(edge => {
+      const identity = edge.getAttribute("data-id") || "";
+      const path = edge.querySelector("path.react-flow__edge-path");
+      return nodeIds.every(id => id && identity.includes(id)) && Boolean(path?.getAttribute("d"));
+    });
+  });
+  if (nodes !== 2 || edges !== 1 || !attachedEdges) throw new Error("Expected one rendered edge joining the two draft nodes");
   await editor.screenshot({path:root + "/.tools/assistant-282-screens/editor.png",fullPage:true});
-  console.log(JSON.stringify({chatVisible:true,draftCardVisible:true,editorOpenedInSeparateTab:page.url().includes("/assistant"),nodes,failures}));
+  console.log(JSON.stringify({chatVisible:true,draftCardVisible:true,editorOpenedInSeparateTab:page.url().includes("/assistant"),nodes,edges,attachedEdges,failures}));
 } finally { await browser.close(); }
