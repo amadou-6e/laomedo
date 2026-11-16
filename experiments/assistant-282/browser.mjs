@@ -21,6 +21,7 @@ try {
   await page.locator("main form").screenshot({path:root + "/.tools/assistant-282-screens/composer-crop.png",animations:"disabled"});
   await page.getByRole("button",{name:"Choose model and effort",exact:true}).click();
   await page.getByRole("slider",{name:"Reasoning effort"}).waitFor();
+  if (await page.getByRole("button", {name:"Refresh models",exact:true}).count()) throw new Error("Retired refresh button is visible");
   await page.screenshot({path:root + "/.tools/assistant-282-screens/composer-popover.png",fullPage:true,animations:"disabled"});
   await page.keyboard.press("Escape");
   const newConversation = await page.getByRole("button",{name:"New conversation",exact:true}).boundingBox();
@@ -37,6 +38,9 @@ try {
   const originalTitle = await heading.innerText();
   await heading.dblclick();
   await page.getByRole("textbox", {name:"Conversation title"}).fill("Workflow assistant validation");
+  const titleBounds = await page.getByRole("textbox", {name:"Conversation title"}).boundingBox();
+  const headerBounds = await page.locator("main header").boundingBox();
+  if (!titleBounds || !headerBounds || titleBounds.width < headerBounds.width * 0.7) throw new Error("Rename input is too narrow");
   await page.screenshot({path:root + "/.tools/assistant-282-screens/rename-edit.png",fullPage:true,animations:"disabled"});
   await page.getByRole("button", {name:"Save",exact:true}).click();
   await page.getByRole("heading", {name:"Workflow assistant validation",exact:true}).waitFor();
@@ -81,5 +85,5 @@ try {
   });
   if (nodes !== 2 || edges !== 1 || !attachedEdges) throw new Error("Expected one rendered edge joining the two draft nodes");
   await editor.screenshot({path:root + "/.tools/assistant-282-screens/editor.png",fullPage:true,animations:"disabled"});
-  console.log(JSON.stringify({renameRetainedAcrossReload:true,sidebarTitleMatches:true,messageFontSizes:sizes,sliderKeyboardStepping:true,chatVisible:true,draftCardVisible:true,editorOpenedInSeparateTab:page.url().includes("/assistant"),nodes,edges,attachedEdges,failures}));
+  console.log(JSON.stringify({wideRenameField:true,noRefreshModelsButton:true,renameRetainedAcrossReload:true,sidebarTitleMatches:true,messageFontSizes:sizes,sliderKeyboardStepping:true,chatVisible:true,draftCardVisible:true,editorOpenedInSeparateTab:page.url().includes("/assistant"),nodes,edges,attachedEdges,failures}));
 } finally { await browser.close(); }
