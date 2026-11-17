@@ -8,6 +8,33 @@ import ErrorExplanation from "@/components/laomedoErrors/ErrorExplanation";
 import { describeNodeFailure } from "@/components/laomedoErrors/nodeErrors";
 import type { ActivityPage, DraftReceipt, Message } from "./models";
 import { stateLabel } from "./models";
+import Thinking from "./Thinking";
+
+export function UserMessage({
+  text,
+  createdAt,
+}: {
+  text: string;
+  createdAt?: number;
+}) {
+  return (
+    <div className="ml-auto max-w-[90%] space-y-2 md:max-w-[80%]">
+      <p className="text-right text-xs text-muted-foreground">
+        {createdAt
+          ? new Date(createdAt * 1000).toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            })
+          : "\u00a0"}
+      </p>
+      <div className="rounded-xl rounded-tr-sm border bg-muted/50 px-4 py-3">
+        <p className="whitespace-pre-wrap break-words text-sm leading-[1.7142857]">
+          {text}
+        </p>
+      </div>
+    </div>
+  );
+}
 
 export function AssistantText({ text }: { text: string }) {
   return (
@@ -98,19 +125,7 @@ export default function MessageRow({
   }
   return (
     <section className="space-y-5 pb-6" aria-label="Message and response">
-      <div className="ml-auto max-w-[90%] space-y-2 md:max-w-[80%]">
-        <p className="text-right text-xs text-muted-foreground">
-          {new Date(message.created_at * 1000).toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-          })}
-        </p>
-        <div className="rounded-xl rounded-tr-sm border bg-muted/50 px-4 py-3">
-          <p className="whitespace-pre-wrap break-words text-sm leading-[1.7142857]">
-            {message.text}
-          </p>
-        </div>
-      </div>
+      <UserMessage text={message.text} createdAt={message.created_at} />
       {groups.map((group) => {
         const lane = group[0];
         const text = messageText(lane.item ?? {}, "codex");
@@ -131,7 +146,9 @@ export default function MessageRow({
           <AssistantText text={message.response} />
         </div>
       )}
-      {active && (
+      {active && ["reserved", "starting", "running"].includes(message.state) ? (
+        <Thinking />
+      ) : active ? (
         <p
           role="status"
           aria-live="polite"
@@ -139,7 +156,7 @@ export default function MessageRow({
         >
           {stateLabel(message.state)}…
         </p>
-      )}
+      ) : null}
       {!active &&
         ["cancelled", "failed", "interrupted"].includes(message.state) && (
           <p className="text-sm text-muted-foreground">

@@ -7,7 +7,11 @@ jest.mock("./api", () => ({
   ...jest.requireActual("./api"),
   assistantRequest: jest.fn(),
 }));
-jest.mock("./Message", () => ({ __esModule: true, default: () => null }));
+jest.mock("./Message", () => ({
+  __esModule: true,
+  default: () => null,
+  UserMessage: ({ text }: { text: string }) => <p>{text}</p>,
+}));
 jest.mock("@/icons/OpenAi", () => ({ OpenAiIcon: () => null }));
 jest.mock("@/stores/authStore", () => ({
   __esModule: true,
@@ -15,6 +19,63 @@ jest.mock("@/stores/authStore", () => ({
 }));
 
 describe("uncertain assistant submission", () => {
+  it("shows Thinking without retry guidance during dispatch and acknowledged history lag", async () => {
+    let acknowledge!: (message: any) => void;
+    const acknowledgement = new Promise((resolve) => {
+      acknowledge = resolve;
+    });
+    const conversation = {
+      id: "conversation",
+      title: "Chat",
+      model: "fixture",
+      effort: "low",
+      state: "idle",
+      active_message_id: null,
+    };
+    let posts = 0;
+    let detailReads = 0;
+    jest.mocked(assistantRequest).mockImplementation(async (path, body) => {
+      if (path === "/models")
+        return {
+          provider: "codex",
+          models: [{ id: "fixture", efforts: ["low"] }],
+        };
+      if (path === "/conversations")
+        return { conversations: [conversation], next_cursor: null };
+      if (body) {
+        posts += 1;
+        return acknowledgement;
+      }
+      detailReads += 1;
+      return { conversation, messages: [], drafts: [], next_cursor: null };
+    });
+    render(
+      <MemoryRouter initialEntries={["/assistant?conversation=conversation"]}>
+        <AssistantPage />
+      </MemoryRouter>,
+    );
+    const composer = await screen.findByRole("textbox", {
+      name: "Message this assistant",
+    });
+    await waitFor(() =>
+      expect((composer as HTMLTextAreaElement).disabled).toBe(false),
+    );
+    fireEvent.change(composer, { target: { value: "Hello" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    await screen.findByRole("status", { name: "Thinking" });
+    expect(
+      screen.queryByRole("button", { name: "Retry same submission" }),
+    ).toBeNull();
+    expect((composer as HTMLTextAreaElement).value).toBe("");
+    const beforeAcknowledgement = detailReads;
+    acknowledge({ id: "accepted" });
+    await waitFor(() =>
+      expect(detailReads).toBeGreaterThan(beforeAcknowledgement),
+    );
+    expect(screen.queryByText(/Reuses its original message ID/)).toBeNull();
+    expect(screen.getByRole("status", { name: "Thinking" })).toBeTruthy();
+    expect(posts).toBe(1);
+  });
   it("renames the conversation explicitly and Escape cancels without a request", async () => {
     const conversation = {
       id: "conversation",

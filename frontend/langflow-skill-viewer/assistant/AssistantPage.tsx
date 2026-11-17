@@ -17,7 +17,8 @@ import useAuthStore from "@/stores/authStore";
 import { describeNodeFailure } from "@/components/laomedoErrors/nodeErrors";
 import ErrorExplanation from "@/components/laomedoErrors/ErrorExplanation";
 import { AssistantFailure, assistantRequest } from "./api";
-import MessageRow from "./Message";
+import MessageRow, { UserMessage } from "./Message";
+import Thinking from "./Thinking";
 import ModelSelection from "./ModelSelection";
 import type {
   ConversationDetail,
@@ -44,6 +45,7 @@ export default function AssistantPage() {
   const [effort, setEffort] = useState("");
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [pending, setPending] = useState<Record<string, PendingSubmission>>({});
+  const [retryable, setRetryable] = useState<Record<string, boolean>>({});
   const [pendingOwner, setPendingOwner] = useState<string>();
   const previousOwner = useRef<string | undefined>(undefined);
   const [error, setError] = useState<string>();
@@ -84,6 +86,7 @@ export default function AssistantPage() {
         setDetail(undefined);
         setDrafts({});
         setPending({});
+        setRetryable({});
         try {
           if (owner)
             sessionStorage.removeItem(`laomedo.assistant.pending.${owner}`);
@@ -110,6 +113,7 @@ export default function AssistantPage() {
     boundSelection.current = "";
     setDrafts({});
     setPending({});
+    setRetryable({});
     setPendingOwner(undefined);
     try {
       if (previousOwner.current && previousOwner.current !== owner)
@@ -139,8 +143,14 @@ export default function AssistantPage() {
                 (typeof row.model === "string" &&
                   typeof row.effort === "string")),
           )
-        )
+        ) {
           setPending(restored);
+          setRetryable(
+            Object.fromEntries(
+              Object.values(restored).map((row: any) => [row.id, true]),
+            ),
+          );
+        }
       } catch {
         /* Sending verifies stable retention before dispatch. */
       }
@@ -360,6 +370,7 @@ export default function AssistantPage() {
     const epoch = generation.current;
     const identity = retry ?? { id: crypto.randomUUID(), text, model, effort };
     let target = selected;
+    let acknowledged = false;
     if (
       retry &&
       (pending[selected]?.id !== retry.id ||
@@ -369,6 +380,7 @@ export default function AssistantPage() {
     )
       return;
     setBusy(true);
+    setRetryable((value) => ({ ...value, [identity.id]: false }));
     setError(undefined);
     pinned.current = true;
     try {
@@ -390,6 +402,8 @@ export default function AssistantPage() {
         throw new AssistantFailure("assistant_client_state_unavailable");
       }
       setPending((value) => ({ ...value, [target]: identity }));
+      setDrafts((value) => ({ ...value, [selected]: "" }));
+      requestAnimationFrame(follow);
       if (!selected) setParams({ conversation: target });
       await assistantRequest<Message>(`/conversations/${target}/messages`, {
         client_message_id: identity.id,
@@ -397,12 +411,14 @@ export default function AssistantPage() {
         model: identity.model,
         effort: identity.effort,
       });
+      acknowledged = true;
       if (epoch !== generation.current) return;
-      setDrafts((value) => ({ ...value, [selected]: "" }));
       if (target === selected) await refresh();
     } catch (failure) {
       if (epoch !== generation.current) return;
       fail(failure);
+      if (epoch !== generation.current) return;
+      if (acknowledged) return;
       // Retain the exact key on uncertain transport. Only an observation of that
       // client key clears it; no effect retries or new-key resubmission here.
       if (
@@ -415,6 +431,9 @@ export default function AssistantPage() {
           delete next[target];
           return next;
         });
+        setDrafts((value) => ({ ...value, [target]: identity.text }));
+      } else {
+        setRetryable((value) => ({ ...value, [identity.id]: true }));
       }
     } finally {
       if (epoch === generation.current) setBusy(false);
@@ -761,7 +780,7 @@ export default function AssistantPage() {
             }}
           >
             <div className="mx-auto max-w-4xl space-y-4 pb-8">
-              {loading && (
+              {loading && !waiting && (
                 <p role="status" className="text-sm text-muted-foreground">
                   Reconnecting to retained history…
                 </p>
@@ -793,96 +812,101 @@ export default function AssistantPage() {
                 !detail?.messages.some(
                   (row) => row.client_message_id === waiting.id,
                 ) && (
-                  <div className="ml-auto max-w-[80%] rounded-xl border bg-muted/50 p-4">
-                    <p className="mb-2 text-xs text-muted-foreground">
-                      You · submission pending
-                    </p>
-                    <p className="whitespace-pre-wrap text-sm">
-                      {waiting.text}
-                    </p>
-                    <button
-                      type="button"
-                      disabled={busy || active}
-                      className="mt-3 text-sm underline"
-                      onClick={() => void send(waiting)}
+                  <section
+                    className="space-y-5 pb-6"
+                    aria-label="Message and response"
+                  >
+                    <UserMessage text={waiting.text} />
+                    {retryable[waiting.id] && !busy && !loading ? (
+                      <div>
+                        <button
+                          type="button"
+                          disabled={busy || active}
+                          className="mt-3 text-sm underline"
+                          onClick={() => void send(waiting)}
+                        >
+                          Retry same submission
+                        </button>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Reuses its original message ID. Accepted messages are
+                          observed rather than dispatched again.
+                        </p>
+                      </div>
+                    ) : (
+                      <Thinking />
+                    )}
+                  </section>
+                )}
+              {!waiting &&
+                (!selected || (detail && !detail.messages.length)) && (
+                  <div className="mx-auto w-full max-w-md space-y-5 py-10 text-center">
+                    <div
+                      aria-hidden="true"
+                      className="relative mx-auto flex h-24 w-64 items-center justify-center gap-4 rounded-full bg-gradient-to-r from-transparent via-primary/10 to-transparent"
                     >
-                      Retry same submission
-                    </button>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Reuses its original message ID. Accepted messages are
-                      observed rather than dispatched again.
+                      <span className="-rotate-6 rounded-2xl border bg-background p-3 text-muted-foreground shadow-sm">
+                        <MessageSquare size={22} />
+                      </span>
+                      <span className="h-px w-5 bg-primary/40" />
+                      <span className="relative rounded-2xl border border-primary/30 bg-primary/10 p-4 text-primary shadow-sm">
+                        <Workflow size={32} />
+                        <Sparkles
+                          size={15}
+                          className="absolute -right-2 -top-2"
+                        />
+                      </span>
+                      <span className="h-px w-5 bg-primary/40" />
+                      <span className="rotate-6 rounded-2xl border bg-background p-3 text-muted-foreground shadow-sm">
+                        <Check size={22} />
+                      </span>
+                    </div>
+                    <h2 className="text-xl font-medium">
+                      What would you like to build?
+                    </h2>
+                    <p className="text-sm text-muted-foreground">
+                      Describe a workflow or ask me to change one. I can inspect
+                      workflows and save a separate editable draft.
                     </p>
+                    {!selected && (
+                      <fieldset
+                        className="pt-2 text-left"
+                        aria-label="Assistant provider"
+                      >
+                        <label className="flex cursor-default items-center gap-4 rounded-2xl border border-primary/40 bg-primary/5 p-4 has-[:focus-visible]:outline has-[:focus-visible]:outline-2">
+                          <input
+                            type="radio"
+                            name="assistant-provider"
+                            aria-label="Codex"
+                            checked
+                            readOnly
+                            className="sr-only"
+                          />
+                          <span aria-hidden="true" className="text-4xl">
+                            <OpenAiIcon />
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-sm font-medium">
+                              Codex
+                            </span>
+                            <span className="mt-1 block text-xs text-muted-foreground">
+                              OpenAI · Your workflow-building companion
+                            </span>
+                          </span>
+                          <span className="inline-flex items-center gap-1 text-xs text-primary">
+                            <Check size={14} />
+                            Selected
+                          </span>
+                        </label>
+                      </fieldset>
+                    )}
+                    {linked && (
+                      <p className="text-xs text-muted-foreground">
+                        Linked to an earlier conversation. Its history remains
+                        available.
+                      </p>
+                    )}
                   </div>
                 )}
-              {(!selected || (detail && !detail.messages.length)) && (
-                <div className="mx-auto w-full max-w-md space-y-5 py-10 text-center">
-                  <div
-                    aria-hidden="true"
-                    className="relative mx-auto flex h-24 w-64 items-center justify-center gap-4 rounded-full bg-gradient-to-r from-transparent via-primary/10 to-transparent"
-                  >
-                    <span className="-rotate-6 rounded-2xl border bg-background p-3 text-muted-foreground shadow-sm">
-                      <MessageSquare size={22} />
-                    </span>
-                    <span className="h-px w-5 bg-primary/40" />
-                    <span className="relative rounded-2xl border border-primary/30 bg-primary/10 p-4 text-primary shadow-sm">
-                      <Workflow size={32} />
-                      <Sparkles
-                        size={15}
-                        className="absolute -right-2 -top-2"
-                      />
-                    </span>
-                    <span className="h-px w-5 bg-primary/40" />
-                    <span className="rotate-6 rounded-2xl border bg-background p-3 text-muted-foreground shadow-sm">
-                      <Check size={22} />
-                    </span>
-                  </div>
-                  <h2 className="text-xl font-medium">
-                    What would you like to build?
-                  </h2>
-                  <p className="text-sm text-muted-foreground">
-                    Describe a workflow or ask me to change one. I can inspect
-                    workflows and save a separate editable draft.
-                  </p>
-                  {!selected && (
-                    <fieldset
-                      className="pt-2 text-left"
-                      aria-label="Assistant provider"
-                    >
-                      <label className="flex cursor-default items-center gap-4 rounded-2xl border border-primary/40 bg-primary/5 p-4 has-[:focus-visible]:outline has-[:focus-visible]:outline-2">
-                        <input
-                          type="radio"
-                          name="assistant-provider"
-                          aria-label="Codex"
-                          checked
-                          readOnly
-                          className="sr-only"
-                        />
-                        <span aria-hidden="true" className="text-4xl">
-                          <OpenAiIcon />
-                        </span>
-                        <span className="min-w-0 flex-1">
-                          <span className="block text-sm font-medium">
-                            Codex
-                          </span>
-                          <span className="mt-1 block text-xs text-muted-foreground">
-                            OpenAI · Your workflow-building companion
-                          </span>
-                        </span>
-                        <span className="inline-flex items-center gap-1 text-xs text-primary">
-                          <Check size={14} />
-                          Selected
-                        </span>
-                      </label>
-                    </fieldset>
-                  )}
-                  {linked && (
-                    <p className="text-xs text-muted-foreground">
-                      Linked to an earlier conversation. Its history remains
-                      available.
-                    </p>
-                  )}
-                </div>
-              )}
             </div>
           </div>
           <form

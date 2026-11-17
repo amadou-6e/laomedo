@@ -31,6 +31,13 @@ model and effort, falling back to the first discovered model with a supported
 effort. This is a composer selection, not a claim about the provider's defaults.
 It never submits inference; opening an existing conversation keeps its binding.
 
+`Thinking.tsx` renders the shared accessible waiting status; `Thinking.css` gives
+its letters a subtle staggered lift and respects reduced-motion preferences.
+`UserMessage` in `Message.tsx` renders both optimistic and retained user bubbles
+with identical geometry. A normal send shows the bubble and Thinking while its
+acknowledgement/history arrives. Retry guidance appears only for uncertain or
+restored unobserved submissions; it keeps the original idempotency key.
+
 `models.ts` owns wire types. `api.ts` makes one same-origin request without
 automatic inference replay or authentication-refresh retry. `AssistantPage.tsx`
 owns conversation selection, model binding and composer state. `Message.tsx`

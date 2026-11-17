@@ -1,0 +1,21 @@
+@keyframes laomedo-thinking-lift {
+  0%,
+  45%,
+  100% {
+    transform: translateY(0);
+  }
+  20% {
+    transform: translateY(-2px);
+  }
+}
+
+.laomedo-thinking-letter {
+  display: inline-block;
+  animation: laomedo-thinking-lift 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .laomedo-thinking-letter {
+    animation: none;
+  }
+}

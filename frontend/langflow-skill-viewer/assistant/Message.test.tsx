@@ -39,6 +39,23 @@ const receipt: DraftReceipt = {
 };
 
 describe("retained assistant conversation", () => {
+  it("shows accessible Thinking while an admitted response is running", () => {
+    jest
+      .mocked(assistantRequest)
+      .mockResolvedValue({ projection: { items: [] }, complete: true });
+    render(
+      <MessageRow
+        conversation="conversation"
+        message={{ ...message, state: "running", response: null }}
+        receipts={[]}
+        active
+        onContent={onContent}
+        onFailure={onFailure}
+      />,
+    );
+    expect(screen.getByRole("status", { name: "Thinking" })).toBeTruthy();
+    expect(screen.queryByText(/responding/)).toBeNull();
+  });
   beforeEach(() => jest.clearAllMocks());
 
   it("groups consecutive tools, retains timing and hides technical call IDs and repeated speaker labels", async () => {
