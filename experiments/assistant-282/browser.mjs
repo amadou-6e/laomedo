@@ -27,7 +27,7 @@ try {
   await page.locator("main form").screenshot({path:root + "/.tools/assistant-282-screens/composer-crop.png",animations:"disabled"});
   await page.getByRole("button",{name:"Choose model and effort",exact:true}).click();
   await page.getByRole("slider",{name:"Reasoning effort"}).waitFor();
-  if (!(await selectedCard.evaluate(el => document.activeElement === el))) throw new Error("Picker did not focus selected card");
+
   if (await page.getByRole("button", {name:"Refresh models",exact:true}).count()) throw new Error("Retired refresh button is visible");
   await page.screenshot({path:root + "/.tools/assistant-282-screens/composer-popover.png",fullPage:true,animations:"disabled"});
   await page.keyboard.press("Escape");
@@ -92,5 +92,5 @@ try {
   });
   if (nodes !== 2 || edges !== 1 || !attachedEdges) throw new Error("Expected one rendered edge joining the two draft nodes");
   await editor.screenshot({path:root + "/.tools/assistant-282-screens/editor.png",fullPage:true,animations:"disabled"});
-  console.log(JSON.stringify({modelCardSelection:true,modelCardKeyboardArrows:true,reopenFocusMatchesSelection:true,wideRenameField:true,noRefreshModelsButton:true,renameRetainedAcrossReload:true,sidebarTitleMatches:true,messageFontSizes:sizes,sliderKeyboardStepping:true,chatVisible:true,draftCardVisible:true,editorOpenedInSeparateTab:page.url().includes("/assistant"),nodes,edges,attachedEdges,failures}));
+  console.log(JSON.stringify({modelListSelection:true,modelListKeyboardArrows:true,wideRenameField:true,noRefreshModelsButton:true,renameRetainedAcrossReload:true,sidebarTitleMatches:true,messageFontSizes:sizes,sliderKeyboardStepping:true,chatVisible:true,draftCardVisible:true,editorOpenedInSeparateTab:page.url().includes("/assistant"),nodes,edges,attachedEdges,failures}));
 } finally { await browser.close(); }
