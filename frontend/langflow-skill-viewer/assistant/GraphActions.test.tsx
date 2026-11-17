@@ -100,6 +100,64 @@ describe("human graph approval", () => {
       },
     );
   });
+  it("describes a completed run with its actual input and places its outcome below", () => {
+    render(
+      <GraphActions
+        conversation="chat"
+        actions={[
+          {
+            ...action,
+            kind: "run",
+            category: "run",
+            state: "succeeded",
+            summary: "Run with input incorrect-summary",
+            preview: [
+              "Input: compact-auto-input",
+              "Input type: chat",
+              "Output type: any",
+            ],
+          },
+        ]}
+        onFailure={() => {}}
+      />,
+    );
+    expect(
+      screen.getByRole("heading", {
+        name: 'Ran workflow "Actual graph" with input "compact-auto-input".',
+      }),
+    ).toBeTruthy();
+    expect(screen.queryByText(/incorrect-summary/)).toBeNull();
+    const outcome = screen.getByRole("status");
+    expect(outcome.textContent).toBe("Completed");
+    expect(outcome.className).toContain("text-left");
+    expect(outcome.className).toContain("block");
+    expect(outcome.parentElement?.contains(screen.getByRole("link"))).toBe(
+      false,
+    );
+  });
+  it("keeps empty input explicit and never calls a pending run completed", () => {
+    render(
+      <GraphActions
+        conversation="chat"
+        actions={[
+          {
+            ...action,
+            kind: "run",
+            category: "run",
+            preview: ["Input: "],
+          },
+        ]}
+        onFailure={() => {}}
+      />,
+    );
+    expect(
+      screen.getByRole("heading", {
+        name: 'Run workflow "Actual graph" with input "".',
+      }),
+    ).toBeTruthy();
+    expect(screen.queryByText("Completed")).toBeNull();
+    expect(assistantRequest).not.toHaveBeenCalled();
+  });
   it("rejects and retains the refusal instead of running", async () => {
     jest
       .mocked(assistantRequest)

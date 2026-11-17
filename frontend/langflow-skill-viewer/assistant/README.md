@@ -70,3 +70,8 @@ outcome. GraphActions uses a top-right ExternalLink icon with an accessible name
 no technical Details section or separate success sentence is rendered. Pending
 controls and conversation consent scope remain explicit. Failure/unknown outcome
 labels retain their recovery meaning in tooltips.
+
+Run cards use a human-readable sentence with the actual server-preview input,
+not the model summary: Run/Running/Ran workflow "name" with input "value".
+Only a successful result uses Ran. Outcomes occupy their own left-aligned line
+below the description; they never share the graph icon's right-hand column.

@@ -48,6 +48,11 @@ export default function GraphActions({
           action.state === "pending" && action.expires_at * 1000 <= Date.now()
             ? "expired"
             : action.state;
+        // Input comes from the authoritative server-built preview, never agent prose.
+        const inputLine = action.preview.find((line) =>
+          line.startsWith("Input: "),
+        );
+        const runSentence = `${state === "succeeded" ? "Ran" : state === "executing" ? "Running" : "Run"} workflow ${JSON.stringify(action.name)}${inputLine === undefined ? "" : ` with input ${JSON.stringify(inputLine.slice(7))}`}.`;
         const outcome =
           state === "succeeded"
             ? category === "rename"
@@ -96,13 +101,16 @@ export default function GraphActions({
             className={`rounded-lg border border-border/60 bg-transparent px-3 text-sm ${pending ? "py-3" : "py-2"}`}
           >
             <div className="flex items-center justify-between gap-3">
-              <h3 className="text-xs font-medium">
-                {category === "rename"
-                  ? "Rename"
-                  : category === "run"
-                    ? "Run"
-                    : "Edit"}{" "}
-                workflow
+              <h3
+                className={
+                  category === "run"
+                    ? "min-w-0 whitespace-pre-wrap break-words text-xs font-normal text-muted-foreground"
+                    : "text-xs font-medium"
+                }
+              >
+                {category === "run"
+                  ? runSentence
+                  : `${category === "rename" ? "Rename" : "Edit"} workflow`}
               </h3>
               <a
                 className="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline focus-visible:outline-2"
@@ -115,39 +123,41 @@ export default function GraphActions({
                 <ExternalLink size={14} aria-hidden="true" />
               </a>
             </div>
-            <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
-              <div className="min-w-0 flex-1 text-xs font-normal text-muted-foreground">
-                <p className="whitespace-pre-wrap break-words">
-                  {category === "rename"
-                    ? `“${action.name}” → “${action.new_name}”`
-                    : `“${action.name}”`}
-                </p>
-                {category !== "rename" && action.summary && (
+            <div>
+              {category !== "run" && (
+                <div className="min-w-0 text-xs font-normal text-muted-foreground">
                   <p className="whitespace-pre-wrap break-words">
-                    {action.summary}
+                    {category === "rename"
+                      ? `“${action.name}” → “${action.new_name}”`
+                      : `“${action.name}”`}
                   </p>
-                )}
-                {category !== "rename" && !action.summary && (
-                  <ul className="space-y-1 whitespace-pre-wrap break-words">
-                    {action.preview
-                      .filter(
-                        (line) =>
-                          !line.startsWith("Reload open editor") &&
-                          !line.startsWith("Runs as your") &&
-                          !line.startsWith("May consume"),
-                      )
-                      .map((line, index) => (
-                        <li key={index}>{line}</li>
-                      ))}
-                  </ul>
-                )}
-              </div>
+                  {category !== "rename" && action.summary && (
+                    <p className="whitespace-pre-wrap break-words">
+                      {action.summary}
+                    </p>
+                  )}
+                  {category !== "rename" && !action.summary && (
+                    <ul className="space-y-1 whitespace-pre-wrap break-words">
+                      {action.preview
+                        .filter(
+                          (line) =>
+                            !line.startsWith("Reload open editor") &&
+                            !line.startsWith("Runs as your") &&
+                            !line.startsWith("May consume"),
+                        )
+                        .map((line, index) => (
+                          <li key={index}>{line}</li>
+                        ))}
+                    </ul>
+                  )}
+                </div>
+              )}
               {outcome && (
                 <span
                   role="status"
                   aria-live="polite"
                   title={explanation}
-                  className="shrink-0 text-xs font-normal text-muted-foreground"
+                  className="mt-1 block text-left text-xs font-normal text-muted-foreground"
                 >
                   {outcome}
                 </span>
