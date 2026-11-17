@@ -337,3 +337,55 @@ class GraphActionTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(observed["state"], "not_dispatched")
         self.assertEqual(observed["error_code"], "assistant_action_not_dispatched")
+
+    async def test_concurrent_run_approvals_return_one_dispatch_snapshot(self):
+        request = GraphActionRequest(
+            operation_key="concurrent-run",
+            kind="run",
+            workflow_id=self.flow_id,
+            expected_revision=self.revision,
+        )
+        proposal = await self.actions.propose(self.context, request)
+        decisions = await asyncio.gather(self.decide(proposal), self.decide(proposal))
+        self.assertEqual(sum(snapshot is not None for _, snapshot, _ in decisions), 1)
+        self.assertEqual(decisions[0][0]["run_id"], decisions[1][0]["run_id"])
+
+    async def test_recovery_accepts_only_exact_owned_terminal_jobs(self):
+        from types import SimpleNamespace
+
+        for case in ("completed", "failed", "wrong-owner", "wrong-flow"):
+            with self.subTest(case=case):
+                request = GraphActionRequest(
+                    operation_key=case,
+                    kind="run",
+                    workflow_id=self.flow_id,
+                    expected_revision=self.revision,
+                )
+                proposal = await self.actions.propose(self.context, request)
+                result, _, _ = await self.decide(proposal)
+                job = SimpleNamespace(
+                    user_id=uuid4() if case == "wrong-owner" else self.owner,
+                    flow_id=uuid4() if case == "wrong-flow" else self.flow_id,
+                    status="failed" if case == "failed" else "completed",
+                )
+                jobs = AsyncMock()
+                jobs.get_job_by_job_id.return_value = job
+                with (
+                    patch("langflow.services.deps.get_job_service", return_value=jobs),
+                    patch(
+                        "langflow.api.v1.endpoints.simple_run_flow", new=AsyncMock()
+                    ) as execute,
+                ):
+                    await self.actions.reconcile(UUID(result["id"]))
+                    execute.assert_not_called()
+                observed = await self.actions.read(
+                    self.owner, self.conversation, UUID(result["id"])
+                )
+                self.assertEqual(
+                    observed["state"],
+                    (
+                        "succeeded"
+                        if case == "completed"
+                        else "failed" if case == "failed" else "unknown"
+                    ),
+                )
