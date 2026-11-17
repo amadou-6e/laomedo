@@ -83,6 +83,59 @@ describe("uncertain assistant submission", () => {
     expect(screen.getByRole("status", { name: "Thinking" })).toBeTruthy();
     expect(posts).toBe(1);
   });
+  it("does not send a retained draft with Enter after attention arrives", async () => {
+    let state = "idle";
+    let posts = 0;
+    const conversation = () => ({
+      id: "conversation",
+      title: "Chat",
+      model: "fixture",
+      effort: "low",
+      state,
+      active_message_id: null,
+    });
+    jest.mocked(assistantRequest).mockImplementation(async (path, body) => {
+      if (path === "/models")
+        return {
+          provider: "codex",
+          models: [{ id: "fixture", efforts: ["low"] }],
+        };
+      if (body) {
+        posts += 1;
+        return {};
+      }
+      if (path === "/conversations")
+        return { conversations: [conversation()], next_cursor: null };
+      return {
+        conversation: conversation(),
+        messages: [],
+        drafts: [],
+        next_cursor: null,
+      };
+    });
+    render(
+      <MemoryRouter initialEntries={["/assistant?conversation=conversation"]}>
+        <AssistantPage />
+      </MemoryRouter>,
+    );
+    const composer = await screen.findByRole("textbox", {
+      name: "Message this assistant",
+    });
+    await waitFor(() =>
+      expect((composer as HTMLTextAreaElement).readOnly).toBe(false),
+    );
+    fireEvent.change(composer, { target: { value: "Keep this draft" } });
+    state = "attention";
+    await waitFor(
+      () => expect((composer as HTMLTextAreaElement).readOnly).toBe(true),
+      { timeout: 3000 },
+    );
+    composer.focus();
+    fireEvent.keyDown(composer, { key: "Enter" });
+    expect(posts).toBe(0);
+    expect((composer as HTMLTextAreaElement).value).toBe("Keep this draft");
+    expect(document.activeElement).toBe(composer);
+  });
   it("renames the conversation explicitly and Escape cancels without a request", async () => {
     const conversation = {
       id: "conversation",

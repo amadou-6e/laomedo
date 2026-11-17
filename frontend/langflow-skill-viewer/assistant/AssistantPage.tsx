@@ -358,6 +358,7 @@ export default function AssistantPage() {
   }
 
   async function send(retry?: PendingSubmission) {
+    if (!retry && !canSend) return;
     const text = retry?.text ?? drafts[selected] ?? "";
     if (
       !text.trim() ||
