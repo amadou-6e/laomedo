@@ -222,3 +222,14 @@ is insufficient. The shared base is outside this category and is not a new node.
 For old embedded Claude/OpenCode code that inherits Codex, run the explicit
 [module migration](../docs/architecture/package-layout.md#one-time-migration)
 on a copy before loading. Historical executed exports remain unchanged.
+
+## Saved-account worker bridge (#286, incomplete)
+
+`LaomedoGitHubIssue._execution` and `LaomedoGitHubPR._execution` use the private
+one-job `GraphWorkerChannel` when running in an isolated worker. Existing
+reference/picker consistency checks remain; the broker independently derives the
+account/repository and enforces any admitted picker target. The channel carries
+read data only and never falls back to a configured host service when refused.
+Write/feedback dispatch is disabled in this unfinished worker path until broker
+mediation and once-per-run approval are integrated. Ordinary configured-host
+execution outside a worker retains its existing client path.

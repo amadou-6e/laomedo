@@ -469,6 +469,13 @@ class GitHubWorkerReadRequest(BaseModel):
     state: Literal["open", "closed", "merged", "all"] = Field(
         description="Existing node read filter; merged is valid only for PRs."
     )
+    number: int | None = Field(
+        default=None,
+        strict=True,
+        gt=0,
+        le=2**53 - 1,
+        description="Runtime read reference; must match any broker-held picker target.",
+    )
 
 
 class GitHubNodeReadResult(BaseModel):
@@ -539,6 +546,24 @@ class GitHubNodeAdmission(BaseModel):
     )
 
 
+class GitHubWorkerLease(BaseModel):
+    """Broker-only hashed capability and the admitted job's real timeout backstop."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid", hide_input_in_errors=True)
+    digest: str = Field(
+        pattern=r"^[0-9a-f]{64}$",
+        exclude=True,
+        repr=False,
+        description="SHA-256 of a job capability; the clear capability is not retained.",
+    )
+    expires_at: float = Field(
+        strict=True,
+        gt=0,
+        allow_inf_nan=False,
+        description="Absolute broker monotonic deadline from the native job timeout.",
+    )
+
+
 class GitHubNodeRun(BaseModel):
     """In-memory native job binding, never parsed from browser or graph JSON."""
 
@@ -559,6 +584,13 @@ class GitHubNodeRun(BaseModel):
     )
     nodes: tuple[GitHubNodeAdmission, ...] = Field(
         min_length=1, description="Verified exact node admissions for this graph."
+    )
+    worker_deadline: float | None = Field(
+        default=None,
+        strict=True,
+        gt=0,
+        allow_inf_nan=False,
+        description="First issued worker's native job deadline; key rotation cannot extend it.",
     )
 
 

@@ -8,13 +8,14 @@ import secrets
 from time import monotonic
 from uuid import UUID
 
-from pydantic import SecretStr
+from pydantic import SecretStr, ValidationError
 
 from laomedo.github.connections.errors import GitHubNodeAuthorizationError
 from laomedo.github.connections.models import (
     GitHubNodeAdmission,
     GitHubNodeRun,
     GitHubNodeSelection,
+    GitHubWorkerLease,
 )
 from laomedo.github.connections.settings import (
     CONNECTION_PENDING_LIMIT,
@@ -144,7 +145,7 @@ class GitHubRunAuthority:
             self.jobs[job_id] = reference
             return run
 
-    def issue_worker(self, job_id):
+    def issue_worker(self, job_id, *, deadline):
         """Issue one job-only capability for host injection into an isolated worker.
 
         Only an already admitted job is eligible. The clear value is returned
@@ -156,9 +157,25 @@ class GitHubRunAuthority:
         if reference is None or reference not in self.runs or job_id in self.workers:
             raise GitHubNodeAuthorizationError()
         capability = SecretStr(secrets.token_urlsafe(32))
-        self.workers[job_id] = sha256(
-            capability.get_secret_value().encode("ascii")
-        ).digest()
+        try:
+            lease = GitHubWorkerLease(
+                digest=sha256(
+                    capability.get_secret_value().encode("ascii")
+                ).hexdigest(),
+                expires_at=deadline,
+            )
+        except ValidationError:
+            raise GitHubNodeAuthorizationError() from None
+        if lease.expires_at <= self.clock():
+            raise GitHubNodeAuthorizationError()
+        run = self.runs[reference]
+        if run.worker_deadline is not None and lease.expires_at > run.worker_deadline:
+            raise GitHubNodeAuthorizationError()
+        if run.worker_deadline is None:
+            self.runs[reference] = run.model_copy(
+                update={"worker_deadline": lease.expires_at}
+            )
+        self.workers[job_id] = lease
         return capability
 
     def _worker_binding(self, capability, job_id, vertex_id):
@@ -169,8 +186,11 @@ class GitHubRunAuthority:
         if not isinstance(value, str) or len(value) != 43 or not value.isascii():
             raise GitHubNodeAuthorizationError()
         expected = self.workers.get(job_id)
+        if expected is not None and expected.expires_at <= self.clock():
+            self.revoke_worker(job_id)
+            raise GitHubNodeAuthorizationError()
         if expected is None or not compare_digest(
-            expected, sha256(value.encode("ascii")).digest()
+            expected.digest, sha256(value.encode("ascii")).hexdigest()
         ):
             raise GitHubNodeAuthorizationError()
         reference = self.jobs.get(job_id)

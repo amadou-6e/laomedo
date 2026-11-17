@@ -575,7 +575,8 @@ class GitHubConnectionServiceTests(unittest.IsolatedAsyncioTestCase):
         await authority.admit(
             reference, self.scope, flow_id=flow, graph=graph, job_id=job, approved=True
         )
-        capability = authority.issue_worker(job)
+        job_deadline = authority.clock() + 60.0
+        capability = authority.issue_worker(job, deadline=job_deadline)
         worker_request = GitHubWorkerReadRequest(
             job_id=job, vertex_id="pr-1", labels=[], state="open"
         )
@@ -594,7 +595,7 @@ class GitHubConnectionServiceTests(unittest.IsolatedAsyncioTestCase):
         authority.revoke_worker(job)
         with self.assertRaises(GitHubNodeAuthorizationError):
             await asyncio.wait_for(credential_read.credential(), timeout=2)
-        capability = authority.issue_worker(job)
+        capability = authority.issue_worker(job, deadline=job_deadline)
         for _ in range(2):
             await self.service.refresh(self.scope, connection_id)
             authorization, _ = await authority.resolve_worker(

@@ -208,6 +208,11 @@ An admitted run retains the trusted run scope supplied at admission rather than
 the short-lived browser JWT callback used to prepare its approval plan.
 `revalidate_worker` also fences worker/lease/generation at credential custody
 without performing network calls or reentering the connection commit lock.
+Issuance requires the actual native job's absolute monotonic deadline. The
+broker refuses access at that deadline even if a terminal hook is lost and the
+profile lease is still live. Rotating a worker key cannot extend the first
+admitted job deadline. This is execution-timeout enforcement, not a model-turn
+budget or verification gate.
 The native adapter must supply trusted job/vertex identities and keep references
 out of graph parameters, persisted job metadata and Agent workspaces.
 
@@ -222,8 +227,11 @@ scope checks remain authoritative even if a worker supplies a different graph.
 `worker_access.py` owns `GitHubWorkerAccess.inspect`, the broker's read-only
 worker dispatcher, and `GitHubWorkerReadSession`, its per-call scope bridge.
 `GitHubWorkerReadRequest` accepts only job/vertex selectors and existing read
-filters. Owner, account, repository, target, grants and provider URLs are not
-worker-controlled fields. The dispatcher derives them from admitted selection,
+filters and an optional read reference. Owner, account, repository, grants and
+provider URLs are not worker-controlled fields. An admitted picker target must
+match the runtime reference; when no picker target was admitted, read-only
+references may select within that same consented repository. This never broadens
+write targets or creates a write grant. The dispatcher derives its authority from admitted selection,
 reuses `GitHubNodeAccess.read`, and rechecks worker authority before releasing a
 buffered result. Revocation during a read stops its next credential lookup or
 response release. This path cannot prepare approval plans or dispatch writes.

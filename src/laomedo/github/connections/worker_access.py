@@ -56,11 +56,19 @@ class GitHubWorkerAccess:
     async def inspect(self, capability, request):
         """Read an admitted vertex and fence revocation before returning its payload.
 
-        The request cannot supply owner, account, repository, target or a grant.
+        The request cannot supply owner, account, repository or a grant. Runtime
+        read references must match a picker target whenever one was admitted.
         Provider credentials remain inside the existing broker read gateway.
         """
         session = GitHubWorkerReadSession(self.authority, capability, request)
         scope, selection = await session.scope()
+        if (
+            selection.number is not None
+            and request.number is not None
+            and selection.number != request.number
+        ):
+            raise GitHubNodeAuthorizationError()
+        number = selection.number if selection.number is not None else request.number
         result = await self.reader.read(
             scope,
             selection.connection_id,
@@ -69,7 +77,7 @@ class GitHubWorkerAccess:
             repository_url="https://github.com/" + selection.repository.full_name,
             labels=request.labels,
             state=request.state,
-            number=selection.number,
+            number=number,
         )
         await session.revalidate()
         return result.payload

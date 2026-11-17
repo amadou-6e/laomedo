@@ -130,12 +130,18 @@ class GitHubRunAuthorityTests(unittest.IsolatedAsyncioTestCase):
     async def test_worker_requires_separate_capability_not_plan_or_job_identity(self):
         reference, _ = await self.prepare()
         with self.assertRaises(GitHubNodeAuthorizationError):
-            self.authority.issue_worker(self.job)
+            self.authority.issue_worker(
+                self.job, deadline=self.authority.clock() + 60.0
+            )
         await self.admit(reference)
-        capability = self.authority.issue_worker(self.job)
+        capability = self.authority.issue_worker(
+            self.job, deadline=self.authority.clock() + 60.0
+        )
         self.assertNotEqual(capability.get_secret_value(), reference)
         with self.assertRaises(GitHubNodeAuthorizationError):
-            self.authority.issue_worker(self.job)
+            self.authority.issue_worker(
+                self.job, deadline=self.authority.clock() + 60.0
+            )
         for supplied in (
             SecretStr(reference),
             SecretStr("x" * 43),
@@ -156,7 +162,9 @@ class GitHubRunAuthorityTests(unittest.IsolatedAsyncioTestCase):
     async def test_worker_cannot_select_another_job_or_vertex(self):
         reference, _ = await self.prepare()
         await self.admit(reference)
-        capability = self.authority.issue_worker(self.job)
+        capability = self.authority.issue_worker(
+            self.job, deadline=self.authority.clock() + 60.0
+        )
         for job, vertex in ((uuid4(), "pr-1"), (self.job, "other")):
             with self.assertRaises(GitHubNodeAuthorizationError):
                 await self.authority.resolve_worker(
@@ -169,9 +177,13 @@ class GitHubRunAuthorityTests(unittest.IsolatedAsyncioTestCase):
     ):
         reference, _ = await self.prepare()
         await self.admit(reference)
-        capability = self.authority.issue_worker(self.job)
+        capability = self.authority.issue_worker(
+            self.job, deadline=self.authority.clock() + 60.0
+        )
         self.authority.revoke_worker(self.job)
-        replacement = self.authority.issue_worker(self.job)
+        replacement = self.authority.issue_worker(
+            self.job, deadline=self.authority.clock() + 60.0
+        )
         with self.assertRaises(GitHubNodeAuthorizationError):
             await self.authority.resolve_worker(
                 capability, job_id=self.job, vertex_id="pr-1"
@@ -189,7 +201,9 @@ class GitHubRunAuthorityTests(unittest.IsolatedAsyncioTestCase):
     async def test_worker_lease_and_connection_revalidation_remain_mandatory(self):
         reference, _ = await self.prepare()
         await self.admit(reference)
-        capability = self.authority.issue_worker(self.job)
+        capability = self.authority.issue_worker(
+            self.job, deadline=self.authority.clock() + 60.0
+        )
         self.connections.revoked_lease = True
         with self.assertRaises(GitHubNodeAuthorizationError):
             await self.authority.resolve_worker(
@@ -201,6 +215,30 @@ class GitHubRunAuthorityTests(unittest.IsolatedAsyncioTestCase):
             await self.authority.resolve_worker(
                 capability, job_id=self.job, vertex_id="pr-1"
             )
+
+    async def test_worker_deadline_stops_access_even_when_profile_lease_stays_live(
+        self,
+    ):
+        reference, _ = await self.prepare()
+        await self.admit(reference)
+        capability = self.authority.issue_worker(self.job, deadline=60.0)
+        self.now = 60.0
+        with self.assertRaises(GitHubNodeAuthorizationError):
+            await self.authority.resolve_worker(
+                capability, job_id=self.job, vertex_id="pr-1"
+            )
+        self.assertNotIn(self.job, self.authority.workers)
+        with self.assertRaises(GitHubNodeAuthorizationError):
+            self.authority.issue_worker(self.job, deadline=120.0)
+
+    async def test_worker_key_rotation_cannot_extend_the_admitted_job_timeout(self):
+        reference, _ = await self.prepare()
+        await self.admit(reference)
+        self.authority.issue_worker(self.job, deadline=60.0)
+        self.authority.revoke_worker(self.job)
+        with self.assertRaises(GitHubNodeAuthorizationError):
+            self.authority.issue_worker(self.job, deadline=61.0)
+        self.authority.issue_worker(self.job, deadline=60.0)
 
     async def test_admission_uses_trusted_job_scope_instead_of_preparation_callback(
         self,
@@ -318,7 +356,9 @@ class GitHubRunAuthorityTests(unittest.IsolatedAsyncioTestCase):
     ):
         reference, _ = await self.prepare()
         await self.admit(reference)
-        capability = self.authority.issue_worker(self.job)
+        capability = self.authority.issue_worker(
+            self.job, deadline=self.authority.clock() + 60.0
+        )
         self.authority.validate_job_graph(self.job, self.graph)
         authorization, _ = await self.authority.resolve_worker(
             capability,

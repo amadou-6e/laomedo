@@ -14,6 +14,8 @@ from laomedo.github.interface.issues.client import issue_request
 from laomedo.github.contract import repository_from_url
 from laomedo.github.issues.contract import ERROR_CODES
 from laomedo.github.issues.contract import PRE_DISPATCH_ERRORS
+from laomedo.github.connections.errors import GitHubNodeAuthorizationError
+from laomedo.integrations.langflow.execution.channel import GraphWorkerChannel
 
 
 class LaomedoGitHubIssue(Component):
@@ -119,14 +121,22 @@ class LaomedoGitHubIssue(Component):
                 number = reference["number"]
             if number is None:
                 raise ValueError("selected_issue_required")
-            result = issue_request(
-                "execute",
-                repository_url=self.repository_url,
-                labels=self.labels,
-                state=self.state,
-                issue_number=number,
-                operation=operation or None,
-            )
+            channel = GraphWorkerChannel.for_graph(getattr(self, "graph", None))
+            if channel is not None:
+                if operation:
+                    raise GitHubNodeAuthorizationError()
+                result = channel.inspect(
+                    self._vertex.id, self.labels, self.state, number
+                )
+            else:
+                result = issue_request(
+                    "execute",
+                    repository_url=self.repository_url,
+                    labels=self.labels,
+                    state=self.state,
+                    issue_number=number,
+                    operation=operation or None,
+                )
         except Exception as error:
             code = (
                 str(error) if str(error) in ERROR_CODES else "github_issue_unavailable"

@@ -19,6 +19,8 @@ from laomedo.agents.feedback.pr import agent_operation
 from laomedo.agents.feedback.pr import bind_feedback_parameters, exclude_feedback_agent
 from laomedo.github.pull_requests.context import context_value, task_text
 from laomedo.github.pull_requests.models import PRContextOperation
+from laomedo.github.connections.errors import GitHubNodeAuthorizationError
+from laomedo.integrations.langflow.execution.channel import GraphWorkerChannel
 
 
 class LaomedoGitHubPR(Component):
@@ -201,19 +203,27 @@ class LaomedoGitHubPR(Component):
                 number = reference.number
             if number is None:
                 raise ValueError("selected_pr_required")
-            result = pr_request(
-                "execute",
-                repository_url=self.repository_url,
-                labels=self.labels,
-                state=self.state,
-                pr_number=number,
-                operation=operation or None,
-                **(
-                    {"expected": context.content_digest}
-                    if operation and context and context.content_digest is not None
-                    else {}
-                ),
-            )
+            channel = GraphWorkerChannel.for_graph(getattr(self, "graph", None))
+            if channel is not None:
+                if operation or feedback_edge(self) is not None:
+                    raise GitHubNodeAuthorizationError()
+                result = channel.inspect(
+                    self._vertex.id, self.labels, self.state, number
+                )
+            else:
+                result = pr_request(
+                    "execute",
+                    repository_url=self.repository_url,
+                    labels=self.labels,
+                    state=self.state,
+                    pr_number=number,
+                    operation=operation or None,
+                    **(
+                        {"expected": context.content_digest}
+                        if operation and context and context.content_digest is not None
+                        else {}
+                    ),
+                )
         except Exception as error:
             code = str(error) if str(error) in ERROR_CODES else "github_pr_unavailable"
             uncertain = bool(operation) and code not in PRE_DISPATCH_ERRORS

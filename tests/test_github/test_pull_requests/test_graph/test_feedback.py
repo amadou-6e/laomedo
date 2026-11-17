@@ -317,6 +317,21 @@ class PRAgentLoopTests(unittest.IsolatedAsyncioTestCase):
 
 
 class ExportedPRFlowTests(unittest.TestCase):
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.directory.cleanup)
+        environment = patch.dict(
+            os.environ,
+            {
+                "LANGFLOW_CONFIG_DIR": self.directory.name,
+                "LFX_CONFIG_DIR": self.directory.name,
+                "LANGFLOW_DATABASE_URL": "sqlite:///"
+                + (Path(self.directory.name) / "fixture.db").as_posix(),
+            },
+        )
+        environment.start()
+        self.addCleanup(environment.stop)
+
     def test_internal_export_roundtrip_uses_operation_feedback(self):
         flow = json.loads(json.dumps(builder.build()))
         Graph.from_payload(flow)

@@ -64,7 +64,9 @@ class GitHubWorkerAccessTests(unittest.IsolatedAsyncioTestCase):
             job_id=self.job,
             approved=False,
         )
-        self.capability = self.authority.issue_worker(self.job)
+        self.capability = self.authority.issue_worker(
+            self.job, deadline=self.authority.clock() + 60.0
+        )
         self.reader = WorkerReadFixture(self.authority)
         self.access = GitHubWorkerAccess(self.authority, self.reader)
         self.request = GitHubWorkerReadRequest(
@@ -93,12 +95,11 @@ class GitHubWorkerAccessTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertNotIn(self.capability.get_secret_value(), str(result))
 
-    def test_wire_input_cannot_replace_account_repository_target_or_operation(self):
+    def test_wire_input_cannot_replace_account_repository_or_operation(self):
         for name, value in (
             ("owner_id", str(uuid4())),
             ("connection_id", str(uuid4())),
             ("repository_url", "https://github.com/other/private"),
-            ("number", 9),
             ("operation", {"action": "close"}),
             ("grant_ref", "arbitrary"),
         ):
@@ -111,6 +112,40 @@ class GitHubWorkerAccessTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(GitHubNodeAuthorizationError):
             await self.access.inspect(SecretStr("x" * 43), self.request)
         self.assertEqual(self.reader.calls, [])
+
+    async def test_runtime_reference_cannot_replace_a_picker_target(self):
+        request = self.request.model_copy(update={"number": 9})
+        with self.assertRaises(GitHubNodeAuthorizationError):
+            await self.access.inspect(self.capability, request)
+        self.assertEqual(self.reader.calls, [])
+
+    async def test_read_reference_without_picker_stays_within_admitted_repository(self):
+        run = self.authority.runs[self.authority.jobs[self.job]]
+        selection = run.nodes[0].selection.model_copy(update={"number": None})
+        flow, job = uuid4(), uuid4()
+        graph = {"nodes": [], "edges": []}
+        reference, _ = await self.authority.prepare(
+            self.connections.scope(), flow, graph, [selection]
+        )
+        await self.authority.admit(
+            reference,
+            self.connections.scope(),
+            flow_id=flow,
+            graph=graph,
+            job_id=job,
+            approved=False,
+        )
+        capability = self.authority.issue_worker(
+            job, deadline=self.authority.clock() + 60.0
+        )
+        request = self.request.model_copy(update={"job_id": job, "number": 9})
+        await self.access.inspect(capability, request)
+        self.assertEqual(self.reader.calls[0][2]["number"], 9)
+        self.assertEqual(self.reader.calls[0][1], self.connections.connection)
+        self.assertEqual(
+            self.reader.calls[0][2]["repository_url"],
+            "https://github.com/synthetic/private",
+        )
 
     async def test_revocation_during_read_prevents_private_payload_release(self):
         self.reader.revoke_job = self.job
