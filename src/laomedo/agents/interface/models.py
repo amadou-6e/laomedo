@@ -1,7 +1,138 @@
 """Typed requests inside host orchestration, with explicit component boundaries."""
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
-from typing import Annotated, Literal
+from typing import Annotated, ClassVar, Literal
+from uuid import UUID
+
+import re
+
+
+class RunnerDiagnostics(BaseModel):
+    """Safe HTTP failure observations, independent of run creation or success."""
+
+    model_config = ConfigDict(strict=True, frozen=True, extra="forbid")
+    # Fixed public exceptions to the unknown-code sensitive-word filter.
+    # These are code literals, never credentials or caller-supplied allowlists.
+    known_codes: ClassVar[frozenset[str]] = frozenset(
+        {
+            "unauthorized",
+            "invalid_runner_api_token",
+            "runner_api_token_file_empty",
+            "runner_api_token_file_unavailable",
+            "auth_token_response_invalid",
+            "empty_token",
+            "runner_token_file_required",
+            "runner_token_unavailable",
+            "runner_token_invalid",
+            "activity_runner_token_missing",
+            "opencode_console_token_refresh_required",
+            "opencode_credential_binding_key_invalid",
+            "credential_constraints_unsupported",
+            "opencode_history_credentials_present",
+            "opencode_history_credentials_unverified",
+        }
+    )
+    diagnostic_id: str | None = Field(
+        default=None,
+        description="Host-generated diagnostic correlation UUID, never a run identity.",
+    )
+    http_status: int | None = Field(
+        default=None,
+        description="Observed HTTP error status; transport observation overrides envelope claims.",
+    )
+    stage: (
+        Literal["runner_request", "runner_lookup", "runner_execution", "runner_http"]
+        | None
+    ) = Field(
+        default=None,
+        description="Fixed runner boundary stage observed at the responding host.",
+    )
+    failure_kind: (
+        Literal[
+            "os_error",
+            "missing_field",
+            "validation_error",
+            "domain_error",
+            "protocol_failure",
+        ]
+        | None
+    ) = Field(
+        default=None, description="Fixed exception family, never raw exception text."
+    )
+    errno: int | None = Field(
+        default=None,
+        description="Bounded numeric OS errno observation, without paths or exception text.",
+    )
+    runner_code: str | None = Field(
+        default=None,
+        description="Admitted original public machine category; conveys no dispatch certainty.",
+    )
+
+    @classmethod
+    def safe_code(cls, value, known_codes=()):
+        """Project a known or bounded future machine code without arbitrary payloads.
+
+        Known codes are an application-owned allowlist, never caller-supplied data.
+        Unknown codes follow the UI diagnostic grammar and exclude sensitive words.
+        Return None for values that must be replaced with a safe generic category.
+        """
+        if not isinstance(value, str):
+            return None
+        if value in known_codes:
+            return value
+        if (
+            len(value) <= 80
+            and re.fullmatch(r"[a-z][a-z0-9]*(?:_[a-z0-9]+){1,15}", value)
+            and not re.match(r"(?:sk_|gh[pousr]_|github_pat_)", value, re.IGNORECASE)
+            and not re.search(r"secret|password|credential|bearer|token|api_key", value)
+        ):
+            return value
+        return None
+
+    @classmethod
+    def from_payload(cls, value, *, http_status=None):
+        """Project untrusted observations field by field, never arbitrary strings."""
+        value = value if isinstance(value, dict) else {}
+        clean = {}
+        identity = value.get("diagnostic_id")
+        if isinstance(identity, str) and len(identity) == 36:
+            try:
+                if str(UUID(identity)) == identity:
+                    clean["diagnostic_id"] = identity
+            except ValueError:
+                pass
+        status = http_status if http_status is not None else value.get("http_status")
+        if type(status) is int and 400 <= status <= 599:
+            clean["http_status"] = status
+        for key, choices in (
+            (
+                "stage",
+                ("runner_request", "runner_lookup", "runner_execution", "runner_http"),
+            ),
+            (
+                "failure_kind",
+                (
+                    "os_error",
+                    "missing_field",
+                    "validation_error",
+                    "domain_error",
+                    "protocol_failure",
+                ),
+            ),
+        ):
+            if isinstance(value.get(key), str) and value[key] in choices:
+                clean[key] = value[key]
+        number = value.get("errno")
+        if type(number) is int and -(2**31) <= number < 2**31:
+            clean["errno"] = number
+        code = cls.safe_code(value.get("runner_code"), cls.known_codes)
+        if code:
+            clean["runner_code"] = code
+        return cls(**clean)
+
+    def to_payload(self):
+        """Return only admitted, present observations for logs and UI copying."""
+        return self.model_dump(exclude_none=True)
 
 
 class PrecheckEvidence(BaseModel):

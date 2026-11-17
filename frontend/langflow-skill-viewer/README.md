@@ -16,6 +16,13 @@ Confirmed backend reconnection turns its connection bar green without rerunning
 the graph or confirming the previous task. A model-list error stays red until
 model discovery actually succeeds.
 
+`nodeErrors.ts` admits runner diagnostics field by field: diagnostic UUID, HTTP
+status, fixed stage/failure kind, bounded OS errno and safe original code. These
+appear in the existing Technical details and Copy diagnostics controls. Both
+structured submissions and bounded exception envelopes use the same admission.
+Only recognized OS error numbers get a specific explanation; a 5xx result stays
+uncertain. No response body, URL, path or exception text is copied.
+
 ## Skill workspace controls
 
 The viewer opens exact immutable revisions. Maximize/restore are icon buttons with

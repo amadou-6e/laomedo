@@ -211,6 +211,25 @@ class ErrorContractTests(unittest.TestCase):
                 cls = getattr(module, node.name)
                 with self.subTest(exception=cls.__name__):
                     self.assertGreater(len(ast.get_docstring(node) or ""), 35)
+                    if cls.__name__ == "RunnerRequestError":
+                        error = cls(
+                            "runner_dispatch_refused",
+                            {
+                                "http_status": 400,
+                                "stage": "runner_request",
+                                "errno": 13,
+                                "failure_kind": "os_error",
+                                "path": "private",
+                            },
+                        )
+                        self.assertEqual(error.code, "runner_dispatch_refused")
+                        self.assertEqual(error.diagnostics["http_status"], 400)
+                        self.assertNotIn("private", str(error))
+                        restored = pickle.loads(pickle.dumps(error))
+                        self.assertEqual(type(restored), cls)
+                        self.assertEqual(restored.__dict__, error.__dict__)
+                        self.assertEqual(str(restored), str(error))
+                        continue  # HTTP errors retain structured observations, not just a scalar code.
                     if cls.__name__ == "RunnerResultError":
                         error = cls(
                             {
