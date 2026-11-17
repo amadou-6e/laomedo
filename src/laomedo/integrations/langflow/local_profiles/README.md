@@ -74,3 +74,11 @@ delegate WebSocket/SSE/MCP identity to the configured service; service-method
 checks do not establish real transport acceptance. A local OS user directly
 editing the database or signing credentials is outside this convenience-lock
 trust boundary.
+
+`ProfileCookieBoundary` gives the upstream access, refresh and store-key cookies
+a port-specific browser name. It translates only the selected preview cookies
+at HTTP/WebSocket ingress and renames upstream Set-Cookie headers on egress,
+preserving their attributes. `ProfileCookieResponse` owns response forwarding.
+Foreign or unscoped auth cookies never supply a profile session; existing
+previews require normal PIN entry once. Origin checks and OAuth callback URLs
+stay at the exact 127.0.0.1 address. No cookies are copied between previews.

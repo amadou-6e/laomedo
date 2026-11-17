@@ -25,3 +25,6 @@ class LocalProfileSettings(BaseSettings):
         validation_alias="LAOMEDO_PROVIDER_SOURCE_WORKSPACE",
         description="Operator-selected source workspace for saved-connection execution; never a graph field.",
     )
+
+
+PROFILE_COOKIE_NAMES = ("access_token_lf", "refresh_token_lf", "apikey_tkn_lflw")
