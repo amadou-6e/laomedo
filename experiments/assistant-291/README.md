@@ -97,3 +97,17 @@ spec validation pass. render-retained.mjs captures actual retained expired Edit,
 successful Rename and completed Run in an independent browser, without prompts or
 graph mutations. All three inspected by the implementer; screenshot files remain
 private local evidence. Same reviewer awaits20:00Berlin reset; no merge.
+
+
+Focused review completion evidence91d005d1 / specca99e4b: review-visual.mjs
+copies the disposable ChatInput/Output graph into a NEW owned graph, starts a new
+native Codex chat and proposes separate Rename/Edit/Run actions. Actual screenshots
+capture all three pending cards and the conversation permission panel. Source and
+copy remained unchanged before human approval; only the copied graph name changed
+after Always approve renames. Consent then revoked. No graph run. The initial
+prompt's ambiguous chat/any was correctly rejected; final prompt names input_type
+chat and output_type any explicitly. First attempt's two edits remained pending,
+with no graph effects. Final pass succeeded; no fixtures substituted as acceptance.
+All captured screenshots stay local.16 focused consent tests/15 subtests,25 UI
+tests/build/Black/specvalidation pass. M1 owner decision (model-only Edit summary
+versus verified operation summary) remains open; focused visual/code recheck pending.
