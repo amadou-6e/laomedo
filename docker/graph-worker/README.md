@@ -30,3 +30,18 @@ The worker entry point and per-job channel still need independently supervised
 launch and broker/browser integration before this image can execute saved-account
 graphs in the app. The default preview launcher is unchanged. Launch must use
 the verified final local image digest, not a mutable image tag.
+
+`Dockerfile.native` supplies the separate untrusted native API runtime. Export
+the same native revision's `src/backend/base`, `src/lfx` and `src/sdk` trees and
+its frozen `langflow-base` runtime lock selection, with hashes. This image owns
+no broker identity database, profile passwords, vault or private-session signing
+keys. Its operational state must be separate and scoped to one owning profile.
+It is a dependency image, not a deployment launcher: it does not yet establish
+trusted proxy admission, per-profile state mapping or single-job dispatch.
+The broker must not forward browser cookies or its access JWT into this runtime.
+`Dockerfile.runtime` adds the tracked Laomedo source and hash-pinned overlay
+dependencies using the same clean `laomedo/` export as the single-job worker.
+Its entry point requires an explicit owner and operational store. The current
+runtime binds container loopback only; there is no published host port or browser
+proxy. A future private pipe adapter must not turn runtime user records into
+broker authentication or expose this fixed operational identity directly.

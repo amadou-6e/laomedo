@@ -1,0 +1,10 @@
+FROM laomedo-native-runtime-base:286-fec71dca
+USER root
+COPY requirements-overlay.txt /opt/requirements-overlay.txt
+RUN python -m pip install --no-cache-dir --no-deps --require-hashes -r /opt/requirements-overlay.txt
+COPY laomedo /opt/laomedo
+RUN python -m pip install --no-cache-dir --no-deps --no-build-isolation /opt/laomedo \
+    && python -m pip check
+USER 65532:65532
+WORKDIR /tmp
+ENTRYPOINT ["python", "-m", "laomedo.integrations.langflow.execution.native_cli"]

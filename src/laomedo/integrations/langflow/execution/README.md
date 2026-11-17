@@ -38,3 +38,14 @@ before cleanup. `cancel` accepts only the owning profile and revokes the job
 before stopping it. `GraphWorkerSettings` accepts explicit host deployment values
 only; image IDs are immutable, and lease state must remain outside repositories.
 This launcher is not yet connected to browser admission or the preview.
+
+`native.py` owns `NativeProfileRuntime`, an untrusted native API application for
+one profile's operational graph state. `create_app` configures only that separate
+store and the native data identity; `lifespan` creates its ordinary operational
+user and default folder. `current_user` resolves the container's fixed owner,
+never a browser assertion. This identity has no authority in the credential broker.
+The container must have no network, broker state or job capabilities; trusted
+host admission and a private transport must precede every forwarded API request.
+This application must never be mounted in the broker or exposed directly.
+`native_cli.py` is its container-only entry point. The browser proxy, container
+supervisor and normal UI launcher are not wired to it yet.

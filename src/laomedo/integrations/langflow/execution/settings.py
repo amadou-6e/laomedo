@@ -1,12 +1,14 @@
 """Fixed private-pipe protocol values, not model-turn or verification budgets."""
 
 from pathlib import Path
+from uuid import UUID
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 GRAPH_WORKER_PREFIX = b"LAOMEDO_GRAPH_V1 "
 GRAPH_WORKER_MESSAGE_BYTES = 16 * 1024 * 1024
+NATIVE_PROFILE_PORT = 7860
 
 
 class GraphWorkerSettings(BaseSettings):
@@ -84,4 +86,45 @@ class GraphWorkerSettings(BaseSettings):
             for path in (value, *value.parents)
         ):
             raise ValueError("graph_worker_state_invalid")
+        return value
+
+
+class NativeProfileSettings(BaseSettings):
+    """Trusted bootstrap for graph metadata, never broker profile authentication."""
+
+    model_config = SettingsConfigDict(
+        frozen=True,
+        extra="forbid",
+        env_file=None,
+        secrets_dir=None,
+        hide_input_in_errors=True,
+    )
+    owner_id: UUID = Field(
+        description="Broker-selected profile's operational identity inside this container only."
+    )
+    state_root: Path = Field(
+        description="Container-owned operational store, separate from broker identity and credentials."
+    )
+
+    @classmethod
+    def settings_customise_sources(
+        cls,
+        settings_cls,
+        init_settings,
+        env_settings,
+        dotenv_settings,
+        file_secret_settings,
+    ):
+        """Browser parameters, environment and dotenv do not select an owner."""
+        return (init_settings,)
+
+    @field_validator("state_root")
+    @classmethod
+    def absolute_store(cls, value):
+        """Reject relative paths or indirection in the container-owned store."""
+        if not value.is_absolute() or any(
+            path.is_symlink() or path.is_junction() or (path / ".git").exists()
+            for path in (value, *value.parents)
+        ):
+            raise ValueError("graph_runtime_state_invalid")
         return value
