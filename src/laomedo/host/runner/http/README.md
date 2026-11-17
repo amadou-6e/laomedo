@@ -7,6 +7,14 @@ data contracts may not import this server or its implementation dependencies.
 The module-level `RunnerRequestHandler` lives in `handler.py`. Its owner is an
 explicit server instance reference, preserving the
 existing routes, body limits, token comparison, response shapes and thread behavior.
+
+The optional asynchronous resume operation is POST
+`/v1/runs/{run}/resume/async`, returning an attempt observation with HTTP 202.
+GET `/v1/runs/{run}/resume/{attempt}` reads the same durable observation.
+These endpoints delegate to the base Agent's idempotent `ResumeDispatcher`;
+synchronous resume shares their atomic per-run admission. These checks do not prove native integration
+acceptance. `finished` describes completion of the resume call: inspect its
+`result.status` for the provider outcome. `unknown` must not be replayed.
 `do_GET` / `do_POST` are framework-mandated names; domain methods retain start,
 resume, status, cancel and request-lookup meanings. Extraction is not a protocol change.
 

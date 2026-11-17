@@ -10,7 +10,7 @@ build is required. Existing-tag recipe mismatches and explicit pins follow the
 [shared acquisition policy](../README.md).
 
 For a host-reviewed manual rebuild, run
-`docker build -t laomedo-codex-acp:0.159.2-2.1.1-mcp .` from this directory and record
+`docker build -t laomedo-codex-acp:0.159.2-2.1.1-mcp2 .` from this directory and record
 the resulting immutable ID for the runner's explicit `image_id` override.
 The Dockerfile pins the Node base, upstream adapter commit/archive checksum and
 Codex package lock. The runtime includes the upstream Apache-2.0 licence and
@@ -61,5 +61,9 @@ private credentials or capabilities must never be written to build inputs.
 
 Graph-connected MCP tools use one private `external` HTTP server and an exact
 host-supplied tool allowlist. Internal Laomedo tools retain their own namespace.
+Each selected capability-bound tool receives a native per-tool `approval_mode`
+of `approve`; unselected tools receive no approval entry and remain outside the
+allowlist. This records the host's existing scoped admission and permits
+headless invocation without changing the global approval or sandbox policy.
 The forwarding capability is admitted only for a host Docker alias or a private
 IPv4 endpoint; public URLs and arbitrary MCP server definitions are rejected.

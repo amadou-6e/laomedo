@@ -215,6 +215,9 @@ def create_app(profile_runtime=None):
 
     McpGraphPolicy.install()
     McpRegistry.install(app, McpSettings())
+    from laomedo.integrations.langflow.assistant.runtime import AssistantRuntime
+
+    AssistantRuntime.install(app)
     app.add_api_route("/api/v1/laomedo/profile-mode", profile_mode, methods=["GET"])
     install_routes(app, root, get_current_active_user)
     if profile_runtime is not None:

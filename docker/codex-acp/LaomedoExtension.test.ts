@@ -29,6 +29,9 @@ describe("Laomedo ACP policy", () => {
             _meta: {laomedo: {...request._meta!["laomedo"] as object, externalTools}}};
         expect(extension.sessionParameters(configured).approvalPolicy).toBe("never");
         expect(extension.mcpToolNames(configured)).toEqual(externalTools);
+        expect(extension.mcpToolOptions(externalTools)).toEqual({enabled_tools: externalTools, tools: {[externalTools[0]!]: {approval_mode: "approve"}}});
+        expect(extension.mcpToolOptions([])).toEqual({enabled_tools: [], tools: {}});
+        expect(() => extension.mcpToolOptions(["unselected-shell"])).toThrow();
         expect(() => extension.sessionParameters({...configured,
             mcpServers: [{...external, url: "https://upstream.example/mcp"}]})).toThrow();
         expect(() => extension.sessionParameters({...configured,

@@ -3,6 +3,7 @@
 import json
 from types import SimpleNamespace
 import unittest
+from contextlib import nullcontext
 from unittest.mock import Mock, patch
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
@@ -17,6 +18,7 @@ class RunnerHTTPErrorTests(unittest.TestCase):
     def test_refused_resume_does_not_release_another_attempts_mcp_grant(self):
         """A failed binding owns no capability and must not revoke an active run."""
         runner = Mock(api_token="x" * 32)
+        runner.resume_guard.return_value = nullcontext("attempt")
         runner.bind_mcp_resume.side_effect = RunnerError("mcp_run_already_bound")
         with patch(
             "laomedo.host.runner.http.server.Settings",

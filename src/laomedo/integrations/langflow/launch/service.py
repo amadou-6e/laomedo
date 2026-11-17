@@ -51,6 +51,7 @@ class AppLauncher:
             "LANGFLOW_COMPONENTS_PATH": str(settings.components.resolve()),
             "LANGFLOW_AUTO_LOGIN": "true",
             "LANGFLOW_DO_NOT_TRACK": "true",
+            "LAOMEDO_ASSISTANT_APP_URL": f"http://127.0.0.1:{settings.port}",
         }
         environment["LAOMEDO_CODEX_RUNNER_URL"] = f"http://127.0.0.1:{config['port']}"
         return environment

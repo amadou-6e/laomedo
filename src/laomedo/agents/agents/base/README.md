@@ -1,5 +1,24 @@
 # Abstract Agent lifecycle
 
+## Idempotent asynchronous resume
+
+`resume.py` owns `ResumeDispatcher`, a durable admission journal around the
+existing provider `resume` operation. `submit` reserves `(run, attempt)` and a
+canonical request digest before any MCP claim or native dispatch; duplicates
+return the existing observation. `lookup` reads that observation without replay.
+`models.py` owns `ResumeDispatchRequest`, which validates the new endpoint's
+bounded inputs and excludes transient MCP registration from semantic identity.
+
+`BaseAgent.resume_async` and `lookup_resume` expose that shared capability.
+Each reservation response includes its durable `runner_instance_id`. That is
+the resumed attempt's owner; a run record's creator identity can predate a safe
+completed-session continuation through the provider's existing restart guards.
+The HTTP server offers POST `/v1/runs/{run}/resume/async` and authenticated GET
+`/v1/runs/{run}/resume/{attempt}`. The existing synchronous resume is unchanged.
+Unfinished reservations from another runner instance are reported unknown and
+never replayed. This dispatch journal does not relax provider continuation,
+workspace, authentication, resource-cleanup or native-session requirements.
+
 ## Model discovery boundary
 
 `base.py` declares `BaseModelCatalog.list_models(refresh=False) -> ModelCatalog`.
@@ -197,3 +216,14 @@ supply another projector. See [the exact contract](../../../../../docs/architect
 ## Raw evidence boundary
 
 `BaseAgent.read_events(run_id, attempt_id, after=0, otel_after=0, limit=100, tail=False)` reads bounded native and telemetry receipts for evidence readers. Shared code owns its recorded-file layout; HTTP only adapts query values and serializes the result. `read_activity` remains the normalized application interface.
+
+## Durable resume admission
+
+ResumeDispatcher reserves a per-run slot before MCP binding or native dispatch.
+Both HTTP resume paths use that slot. Definite pre-dispatch refusals release it;
+uncertain work remains blocked against replay. Lookup may reconcile only a
+matching terminal attempt with confirmed controller cleanup, verified container
+cleanup, and no active MCP access or runner lock. An older completed attempt
+cannot establish that a newer reservation never started. The journal retains
+only semantic request digests and outcome/session/checkpoint metadata, excluding
+prompts, answers and transient MCP registration capabilities.

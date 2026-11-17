@@ -88,7 +88,7 @@ diff --git a/src/CodexAcpClient.ts b/src/CodexAcpClient.ts
 -            "mcp_servers": Object.fromEntries(serversToConfigure.map(mcp => [mcp.name, this.createMcpSeverConfig(mcp.server)])),
 +            "mcp_servers": Object.fromEntries(serversToConfigure.map(mcp => [mcp.name, {
 +                ...this.createMcpSeverConfig(mcp.server),
-+                ...(this.laomedo ? {enabled_tools: externalTools ?? []} : {}),
++                ...(this.laomedo ? this.laomedo.mcpToolOptions(externalTools ?? []) : {}),
 +            }])),
          };
      }
