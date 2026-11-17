@@ -13,8 +13,12 @@ resume, status, cancel and request-lookup meanings. Extraction is not a protocol
 Readiness, execution outcome and cleanup are distinct. Async acknowledgement is
 not completion; uncertain transport must be reconciled by existing identity.
 
-Failed responses emit one structured warning through the module logger, even
-when no run record exists. Diagnostic fields are HTTP status, a bounded safe
-category, a fixed exception family, and numeric OS errno when available. Paths,
-request bodies, credentials, raw exception text and tracebacks are excluded.
-Existing HTTP status and response payload contracts remain unchanged.
+Failed responses add an optional `runner_diagnostics` envelope, without changing
+status or existing response fields. It contains HTTP status, a safe category,
+fixed stage/failure kind and numeric OS errno when available. A fresh diagnostic
+UUID correlates the response with its structured host log, even before a run
+exists. Expected GET lookup 404s log at debug; other failures log warnings.
+Paths, request bodies, credentials, raw exception text and tracebacks are excluded
+from diagnostics. Existing raw wire exception fields are not newly copied into
+graph diagnostics. Log records say failure, not refusal, because an execution
+failure need not imply that nothing ran.

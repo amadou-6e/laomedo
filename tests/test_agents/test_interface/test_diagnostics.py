@@ -3,10 +3,28 @@
 import unittest
 
 from laomedo.agents.interface.utils import safe_error_code
+from laomedo.agents.interface.models import RunnerDiagnostics
 
 
 class DiagnosticCodeTests(unittest.TestCase):
     """Exercise the same bounded machine-code policy used by graph presentation."""
+
+    def test_diagnostic_projection_rejects_private_or_invalid_observations(self):
+        """Untrusted envelopes cannot add paths, coerce numbers or name stages."""
+        value = RunnerDiagnostics.from_payload(
+            {
+                "diagnostic_id": "https://private.test",
+                "http_status": "400",
+                "stage": "private-task",
+                "failure_kind": "Bearer private",
+                "errno": True,
+                "runner_code": "ghp_private_value",
+                "path": "private",
+            },
+            http_status=502,
+        ).to_payload()
+        self.assertEqual(value, {"http_status": 502})
+        self.assertEqual(RunnerDiagnostics.from_payload(None).to_payload(), {})
 
     def test_known_and_future_codes_survive(self):
         """Explicit known codes and neutral future categories retain their value."""

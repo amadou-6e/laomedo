@@ -52,10 +52,15 @@ class RunnerHTTPErrorTests(unittest.TestCase):
                 ):
                     with self.assertRaises(HTTPError) as response:
                         urlopen(request, timeout=5)
-                    response.exception.close()
+                    with response.exception as error_response:
+                        payload = json.load(error_response)
+                    diagnostics = payload["runner_diagnostics"]
                 text = " ".join(captured.output)
-                self.assertIn("http_status=400", text)
-                self.assertIn("code=" + expected, text)
+                self.assertIn('"http_status": 400', text)
+                self.assertEqual(diagnostics["http_status"], 400)
+                self.assertEqual(diagnostics["runner_code"], expected)
+                self.assertEqual(diagnostics["stage"], "runner_request")
+                self.assertIn(diagnostics["diagnostic_id"], text)
                 for private in (
                     "private",
                     "Bearer",
@@ -66,7 +71,8 @@ class RunnerHTTPErrorTests(unittest.TestCase):
                 ):
                     self.assertNotIn(private, text)
                 if isinstance(failure, PermissionError):
-                    self.assertIn("failure_kind=os_error errno=13", text)
+                    self.assertEqual(diagnostics["failure_kind"], "os_error")
+                    self.assertEqual(diagnostics["errno"], 13)
 
     def test_refused_resume_does_not_release_another_attempts_mcp_grant(self):
         """A failed binding owns no capability and must not revoke an active run."""
@@ -117,8 +123,14 @@ class RunnerHTTPErrorTests(unittest.TestCase):
                     urlopen(request, timeout=5)
                 with failure.exception as response:
                     self.assertEqual(response.code, 400)
+                    payload = json.load(response)
+                    self.assertIn("runner_diagnostics", payload)
                     self.assertEqual(
-                        json.load(response),
+                        {
+                            key: value
+                            for key, value in payload.items()
+                            if key != "runner_diagnostics"
+                        },
                         {"status": "failed", "error_category": code},
                     )
         self.assertEqual(runner.start.call_count, 2)

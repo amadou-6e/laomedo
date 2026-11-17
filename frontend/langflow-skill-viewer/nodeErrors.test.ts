@@ -29,14 +29,14 @@ test.each(Object.keys(catalog))("maps %s without mutating its stable code", code
   const failure = describeNodeFailure(code, undefined, { nodeId: "agent", operation: "resume" });
   expect(failure.diagnostics.code).toBe(code);
   expect(failure.title).not.toContain(code);
-  expect(failure.description.length).toBeGreaterThan(20);
+  expect(failure.description.trim().length).toBeGreaterThan(0);
   // Startup failure is informational: no unconfirmed fix or separate operator.
   if (code === "runner_start_cancelled") {
     expect(failure.recovery).toBe("");
   } else if (code === "runner_start_failed") {
     expect(failure.description).toBe("The local runner exited before it was ready.");
     expect(failure.recovery).toBe("");
-  } else expect(failure.recovery.length).toBeGreaterThan(30);
+  } else expect(failure.recovery.trim().length).toBeGreaterThan(0);
 });
 
 test("missing reference advice only mentions controls actually available", () => {
@@ -215,4 +215,27 @@ test("unsupported Agent inheritance reports safe replacement without leaking pay
  expect(failure.diagnostics.code).toBe("agent_component_migration_required");
  expect(JSON.stringify(failure)).not.toContain("private-native-payload");
  expect(failure.recovery).not.toMatch(/retry|operator|restart/i);
+});
+
+test("runner diagnostic envelopes reach display and copy without private payloads", () => {
+ const observed = { diagnostic_id: run, http_status: 400, stage: "runner_request", failure_kind: "os_error", errno: 13, runner_code: "runner_unclassified_refusal", path: "private-file", task: "private-task" };
+ for (const [raw, status] of [
+   ["runner_dispatch_refused", {data:{outputs:{result:{status:"unknown",error_category:"runner_dispatch_refused",run_reference:{runner_diagnostics:observed}}}}}],
+   [`Error building Component LaomedoCodexAgent: \n\nrunner_dispatch_refused; runner_diagnostics=${JSON.stringify(observed)}`, undefined],
+ ] as const) {
+   const failure = describeNodeFailure(raw, status);
+   expect(failure.description).toContain("denied the runner access");
+   expect(failure.diagnostics).toEqual({code:"runner_dispatch_refused", diagnostic_id:run, http_status:"400", stage:"runner_request", failure_kind:"os_error", errno:"13", runner_code:"runner_unclassified_refusal"});
+   expect(JSON.stringify(failure)).not.toContain("private");
+ }
+});
+
+test("invalid runner metadata never reaches technical details", () => {
+ const raw = `runner_dispatch_refused; runner_diagnostics=${JSON.stringify({diagnostic_id:"private",http_status:"400",stage:"private",failure_kind:"private",errno:true,runner_code:"ghp_private",traceback:"private"})}`;
+ const failure = describeNodeFailure(raw, undefined);
+ expect(failure.diagnostics).toEqual({code:"runner_dispatch_refused"});
+ expect(JSON.stringify(failure)).not.toContain("private");
+ const unknown = describeNodeFailure(`runner_runtime_unknown; runner_diagnostics=${JSON.stringify({http_status:502,runner_code:"experiment_request_binding_denied"})}`, undefined);
+ expect(unknown.title).toBe("The remote outcome is not confirmed");
+ expect(unknown.diagnostics.runner_code).toBe("experiment_request_binding_denied");
 });

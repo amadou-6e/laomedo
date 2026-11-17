@@ -8,12 +8,14 @@ import json
 import logging
 import secrets
 import threading
+from uuid import uuid4
 
 from laomedo.agents.artifacts.errors import ArtifactError
 from laomedo.agents.agents.base.settings import MAX_BODY
 from laomedo.agents.errors import RunnerError
 from laomedo.skills.registry.errors import SkillStoreError
 from laomedo.agents.interface.utils import safe_error_code
+from laomedo.agents.interface.models import RunnerDiagnostics
 
 if TYPE_CHECKING:
     from .server import RunnerServer
@@ -222,19 +224,39 @@ class RunnerRequestHandler(BaseHTTPRequestHandler):
                             if isinstance(
                                 failure, (RunnerError, SkillStoreError, ArtifactError)
                             )
-                            else "protocol_refusal"
+                            else "protocol_failure"
                         )
                     )
                 )
             )
             number = getattr(failure, "errno", None)
-            logging.getLogger(__name__).warning(
-                "Runner refusal: http_status=%s code=%s failure_kind=%s errno=%s",
-                code,
-                category,
-                family,
-                number if type(number) is int else None,
+            diagnostics = RunnerDiagnostics.from_payload(
+                {
+                    "diagnostic_id": str(uuid4()),
+                    "stage": (
+                        "runner_lookup"
+                        if self.command == "GET"
+                        else (
+                            "runner_request"
+                            if failure is not None or code < 500
+                            else "runner_execution"
+                        )
+                    ),
+                    "failure_kind": family,
+                    "errno": number,
+                    "runner_code": category,
+                },
+                http_status=code,
+            ).to_payload()
+            # Expected lookup misses during cancellation polling are not warnings.
+            logger = logging.getLogger(__name__)
+            emit = (
+                logger.debug
+                if self.command == "GET" and code == 404
+                else logger.warning
             )
+            emit("Runner failure: %s", json.dumps(diagnostics, sort_keys=True))
+            value = {**value, "runner_diagnostics": diagnostics}
         data = json.dumps(value).encode("utf-8")
         self.send_response(code)
         self.send_header("Content-Type", "application/json")

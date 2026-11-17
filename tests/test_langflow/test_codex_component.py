@@ -173,11 +173,23 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
             (400, "future_runner_failure_v2", "future_runner_failure_v2"),
             (400, "ghp_private_value", "runner_dispatch_refused"),
             (400, "my_secret_password", "runner_dispatch_refused"),
-            (500, "future_runner_failure_v2", "future_runner_failure_v2"),
+            (500, "future_runner_failure_v2", "runner_runtime_unknown"),
+            (500, "experiment_request_binding_denied", "runner_runtime_unknown"),
             (500, "SECRET token https://private", "runner_runtime_unknown"),
         ):
             node = component(request_id=RUN)
-            body = {"status": "failed", "error_category": category}
+            body = {
+                "status": "failed",
+                "error_category": category,
+                "runner_diagnostics": {
+                    "diagnostic_id": RUN,
+                    "http_status": 499,
+                    "stage": "runner_request",
+                    "failure_kind": "os_error",
+                    "errno": 13,
+                    "private": "SECRET",
+                },
+            }
             with (
                 self.subTest(status=status),
                 patch.object(node, "_token", return_value="synthetic"),
@@ -195,6 +207,13 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
             ):
                 output = (await node.submission_output()).data
             self.assertEqual(output["error_category"], expected)
+            details = output["run_reference"]["runner_diagnostics"]
+            self.assertEqual(details["http_status"], status)
+            self.assertEqual(details["diagnostic_id"], RUN)
+            self.assertEqual(details["errno"], 13)
+            self.assertNotIn("private", details)
+            if status == 500 and category == "future_runner_failure_v2":
+                self.assertEqual(details["runner_code"], category)
             self.assertIsNone(output["run_reference"]["run_id"])
             self.assertEqual(output["run_reference"]["request_id"], RUN)
             self.assertIs(output["evidence_complete"], False)

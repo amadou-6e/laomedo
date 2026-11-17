@@ -4,6 +4,13 @@ This package connects the wider application to Agent capabilities without loadin
 provider implementations. Canonical data contracts stay independent of the base.
 Optional framework adapters load only when requested.
 
+`models.py` owns `RunnerDiagnostics`: a bounded diagnostic reference, HTTP
+status, request/lookup/execution stage, fixed failure kind and numeric OS error.
+`from_payload()` admits only those fields; `to_payload()` excludes absent values.
+These observations carry no execution authority and never imply dispatch failed.
+The HTTP adapter retains them in graph failures and the shared error UI exposes
+them through its existing Technical details and Copy diagnostics controls.
+
 `utils.py` also owns `safe_error_code()`: preserve known public codes and bounded
 future machine codes while rejecting credential-shaped or free-form values.
 The graph adapter uses this projection for refusals before a run reference is

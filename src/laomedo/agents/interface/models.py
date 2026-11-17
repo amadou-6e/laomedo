@@ -2,6 +2,78 @@
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 from typing import Annotated, Literal
+from uuid import UUID
+
+from laomedo.agents.interface.utils import safe_error_code
+
+
+class RunnerDiagnostics(BaseModel):
+    """Safe HTTP failure observations, independent of run creation or success."""
+
+    model_config = ConfigDict(strict=True, frozen=True, extra="forbid")
+    diagnostic_id: str | None = None
+    http_status: int | None = None
+    stage: (
+        Literal["runner_request", "runner_lookup", "runner_execution", "runner_http"]
+        | None
+    ) = None
+    failure_kind: (
+        Literal[
+            "os_error",
+            "missing_field",
+            "validation_error",
+            "domain_error",
+            "protocol_failure",
+        ]
+        | None
+    ) = None
+    errno: int | None = None
+    runner_code: str | None = None
+
+    @classmethod
+    def from_payload(cls, value, *, http_status=None):
+        """Project untrusted observations field by field, never arbitrary strings."""
+        value = value if isinstance(value, dict) else {}
+        clean = {}
+        identity = value.get("diagnostic_id")
+        if isinstance(identity, str) and len(identity) == 36:
+            try:
+                if str(UUID(identity)) == identity:
+                    clean["diagnostic_id"] = identity
+            except ValueError:
+                pass
+        status = http_status if http_status is not None else value.get("http_status")
+        if type(status) is int and 400 <= status <= 599:
+            clean["http_status"] = status
+        for key, choices in (
+            (
+                "stage",
+                ("runner_request", "runner_lookup", "runner_execution", "runner_http"),
+            ),
+            (
+                "failure_kind",
+                (
+                    "os_error",
+                    "missing_field",
+                    "validation_error",
+                    "domain_error",
+                    "protocol_failure",
+                ),
+            ),
+        ):
+            if isinstance(value.get(key), str) and value[key] in choices:
+                clean[key] = value[key]
+        number = value.get("errno")
+        if type(number) is int and -(2**31) <= number < 2**31:
+            clean["errno"] = number
+        code = safe_error_code(value.get("runner_code"), {"unauthorized"})
+        if code:
+            clean["runner_code"] = code
+        return cls(**clean)
+
+    def to_payload(self):
+        """Return only admitted, present observations for logs and UI copying."""
+        return self.model_dump(exclude_none=True)
 
 
 class PrecheckEvidence(BaseModel):
