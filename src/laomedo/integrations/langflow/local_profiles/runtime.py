@@ -14,7 +14,6 @@ from laomedo.integrations.langflow.local_profiles.boundary import LocalProfileBo
 from laomedo.integrations.langflow.local_profiles.errors import ProfileError
 from laomedo.integrations.langflow.local_profiles.registry import LocalProfileRegistry
 from laomedo.integrations.langflow.local_profiles.routes import router
-from laomedo.integrations.langflow.local_profiles.settings import LocalProfileSettings
 
 
 class LocalProfileRuntime:
@@ -39,9 +38,6 @@ class LocalProfileRuntime:
         )
         from langflow.services.auth.utils import get_current_active_user
 
-        browser_host = LocalProfileSettings(
-            LAOMEDO_LOCAL_PROFILE_RUNTIME=self.admission.root
-        ).browser_host
         providers = ProviderConnections(self.admission.root / "provider-connections")
         from laomedo.host.provider_connections.controllers import ProviderControllers
 
@@ -56,15 +52,11 @@ class LocalProfileRuntime:
             app,
             providers,
             get_current_active_user,
-            origin=f"http://{browser_host}:{self.admission.marker.port}",
+            origin=f"http://127.0.0.1:{self.admission.marker.port}",
         )
         app.add_middleware(ProviderSessionBoundary, service=providers)
         app.include_router(router)
-        app.add_middleware(
-            LocalProfileBoundary,
-            port=self.admission.marker.port,
-            browser_host=browser_host,
-        )
+        app.add_middleware(LocalProfileBoundary, port=self.admission.marker.port)
         self._upstream_lifespan = app.router.lifespan_context
         app.router.lifespan_context = self.lifespan
 

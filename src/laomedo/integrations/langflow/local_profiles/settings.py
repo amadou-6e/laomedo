@@ -25,9 +25,3 @@ class LocalProfileSettings(BaseSettings):
         validation_alias="LAOMEDO_PROVIDER_SOURCE_WORKSPACE",
         description="Operator-selected source workspace for saved-connection execution; never a graph field.",
     )
-    browser_host: str = Field(
-        default="127.0.0.1",
-        validation_alias="LAOMEDO_LOCAL_PROFILE_BROWSER_HOST",
-        pattern=r"^(?:127\.0\.0\.1|[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.localhost)$",
-        description="Exact loopback browser hostname; use a distinct .localhost alias for concurrent previews.",
-    )

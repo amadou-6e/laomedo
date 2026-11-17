@@ -9,14 +9,12 @@ from types import SimpleNamespace
 from unittest.mock import patch
 from uuid import uuid4
 
-from pydantic import ValidationError
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from laomedo.host.provider_connections.models import LoginProgress
 from laomedo.host.provider_connections.service import ProviderConnections
 from laomedo.integrations.langflow.local_profiles.boundary import LocalProfileBoundary
-from laomedo.integrations.langflow.local_profiles.settings import LocalProfileSettings
 from laomedo.integrations.langflow.provider_connections.boundary import (
     ProviderSessionBoundary,
 )
@@ -161,63 +159,3 @@ class ProviderRouteTests(unittest.TestCase):
                 response.headers["location"], "/settings/providers?login=failed"
             )
             complete.assert_not_called()
-
-
-class ProfileBrowserOriginTests(unittest.TestCase):
-    """A preview alias changes only its exact browser boundary, never the bind."""
-
-    async def login(self):
-        return {"boundary": "accepted"}
-
-    def test_named_loopback_origin_accepts_only_the_selected_host_and_origin(self):
-        app = FastAPI()
-        app.add_middleware(
-            LocalProfileBoundary, port=17884, browser_host="provider-284.localhost"
-        )
-
-        app.add_api_route("/api/v1/login", self.login, methods=["POST"])
-
-        with TestClient(app, base_url="http://provider-284.localhost:17884") as client:
-            for origin, host, expected in (
-                (
-                    "http://provider-284.localhost:17884",
-                    "provider-284.localhost:17884",
-                    200,
-                ),
-                ("http://127.0.0.1:17884", "provider-284.localhost:17884", 403),
-                (
-                    "http://provider-284.localhost:55753",
-                    "provider-284.localhost:17884",
-                    403,
-                ),
-                ("http://provider-284.localhost:17884", "127.0.0.1:17884", 403),
-            ):
-                with self.subTest(origin=origin, host=host):
-                    self.assertEqual(
-                        client.post(
-                            "/api/v1/login", headers={"Origin": origin, "Host": host}
-                        ).status_code,
-                        expected,
-                    )
-
-    def test_browser_hostname_settings_refuse_non_loopback_or_ambiguous_hosts(self):
-        for host in (
-            "example.com",
-            "localhost.example.com",
-            "127.0.0.2",
-            "a.b.localhost",
-            "provider.localhost:17884",
-            "*.localhost",
-            "provider.localhost\n",
-        ):
-            with self.subTest(host=host), self.assertRaises(ValidationError):
-                LocalProfileSettings(
-                    LAOMEDO_LOCAL_PROFILE_RUNTIME=".",
-                    LAOMEDO_LOCAL_PROFILE_BROWSER_HOST=host,
-                )
-        for host in ("127.0.0.1", "provider-284.localhost"):
-            settings = LocalProfileSettings(
-                LAOMEDO_LOCAL_PROFILE_RUNTIME=".",
-                LAOMEDO_LOCAL_PROFILE_BROWSER_HOST=host,
-            )
-            self.assertEqual(settings.browser_host, host)
