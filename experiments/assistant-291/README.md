@@ -51,3 +51,30 @@ Publication and native provider permissions remain excluded. Both feature PRs
 remain draft and unmerged. No broad provider/component acceptance is claimed.
 The user's original app stays untouched; the isolated integrated preview retains
 real outcomes. The final unused rename expired without effect.
+
+
+## Compact category consent delta (2026-11-17)
+
+Production f2a5fca5134373b408147f8641a8483b94fa0c94 / spec
+95896355b5b9dc9fa693209cb68b3caec9d8f8ea implements the owner's selected
+Rename/Edit/Run categories and any-graph-in-this-conversation Always consent.
+54 assistant tests and 21 subtests, 23 UI tests, build, Black and exact-head CI pass.
+The first checkpoint had a mechanical extra SQLModel.get argument; tests caught
+it, it was corrected, and the full suite then passed. Retained app startup exposed
+a missing pre-upstream permission-table initialization; corrected and real retained
+chat database now starts. An old schema-bound native thread refused resume before
+MCP effects; a fresh linked conversation preserves its history and works.
+
+Real integrated-browser/native Codex acceptance: initial rename pending, human
+Always approve renames changed first graph; later native rename on a second graph
+succeeded under that grant while an Edit stayed pending. Human Ask every time
+revoked Rename; a subsequent rename stayed pending. Human Always approve runs
+executed the known disposable ChatInput/Output graph; a later native proposal ran
+under consent. Read-only proof.py corroborates two completed jobs with exact
+owner/flow/run identity. Pending Edit/Rename were not applied. All test conversation
+grants are revoked at end. Screenshots and private database/session remain outside
+Git. No broad component/provider/native-permission/publication acceptance claimed.
+
+This delta is fully unreviewed: Claude's existing session refused for quota until
+20:00 Europe/Berlin. Owner selected waiting for reset. Earlier approval covers
+only 2e0f87cb/76784e8. Both PRs remain draft and unmerged.
