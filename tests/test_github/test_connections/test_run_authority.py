@@ -114,7 +114,7 @@ class GitHubRunAuthorityTests(unittest.IsolatedAsyncioTestCase):
             repository="synthetic/private",
         )
         values.update(changes)
-        return await self.authority.resolve(reference, **values)
+        return await self.authority._resolve(reference, **values)
 
     async def test_prepare_does_not_admit_and_write_approval_is_one_use(self):
         reference, nodes = await self.prepare()
@@ -301,7 +301,7 @@ class GitHubRunAuthorityTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((await self.resolve(reference))[1].operations, ())
         restarted = GitHubRunAuthority(self.connections)
         with self.assertRaises(GitHubNodeAuthorizationError):
-            await restarted.resolve(
+            await restarted._resolve(
                 reference,
                 job_id=self.job,
                 vertex_id="pr-1",
@@ -313,17 +313,17 @@ class GitHubRunAuthorityTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(ValidationError):
             GitHubNodeSelection(**{**self.selection.model_dump(), "number": None})
 
-    async def test_native_job_lookup_needs_no_serialized_reference_and_rechecks_effective_graph(
+    async def test_worker_capability_rechecks_effective_graph_and_terminal_cleanup(
         self,
     ):
         reference, _ = await self.prepare()
         await self.admit(reference)
+        capability = self.authority.issue_worker(self.job)
         self.authority.validate_job_graph(self.job, self.graph)
-        authorization, _ = await self.authority.resolve_job(
-            self.job,
+        authorization, _ = await self.authority.resolve_worker(
+            capability,
+            job_id=self.job,
             vertex_id="pr-1",
-            connection_id=self.connections.connection,
-            repository="synthetic/private",
         )
         self.assertEqual(authorization.connection_id, self.connections.connection)
         with self.assertRaises(GitHubNodeAuthorizationError):
@@ -332,22 +332,20 @@ class GitHubRunAuthorityTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.authority.jobs, {})
         self.assertEqual(self.authority.runs, {})
         with self.assertRaises(GitHubNodeAuthorizationError):
-            await self.authority.resolve_job(
-                self.job,
+            await self.authority.resolve_worker(
+                capability,
+                job_id=self.job,
                 vertex_id="pr-1",
-                connection_id=self.connections.connection,
-                repository="synthetic/private",
             )
 
     async def test_recovered_job_cannot_lookup_admission_and_digest_rejects_non_json(
         self,
     ):
         with self.assertRaises(GitHubNodeAuthorizationError):
-            await self.authority.resolve_job(
-                uuid4(),
+            await self.authority.resolve_worker(
+                SecretStr("x" * 43),
+                job_id=uuid4(),
                 vertex_id="pr-1",
-                connection_id=self.connections.connection,
-                repository="synthetic/private",
             )
         for graph in (
             "caller-digest",

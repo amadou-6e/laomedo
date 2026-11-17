@@ -32,7 +32,9 @@ from laomedo.github.connections.models import (
     GitHubConnectionCredential,
     GitHubPrincipal,
     GitHubNodeSelection,
+    GitHubWorkerReadRequest,
 )
+from laomedo.github.connections.worker_access import GitHubWorkerReadSession
 from laomedo.github.connections.run_authority import GitHubRunAuthority
 from laomedo.github.connections.node_access import (
     GitHubNodeAccess,
@@ -573,13 +575,32 @@ class GitHubConnectionServiceTests(unittest.IsolatedAsyncioTestCase):
         await authority.admit(
             reference, self.scope, flow_id=flow, graph=graph, job_id=job, approved=True
         )
+        capability = authority.issue_worker(job)
+        worker_request = GitHubWorkerReadRequest(
+            job_id=job, vertex_id="pr-1", labels=[], state="open"
+        )
+        worker_read = GitHubWorkerReadSession(authority, capability, worker_request)
+        worker_scope, _ = await worker_read.scope()
+        original, _ = await authority.resolve_worker(
+            capability, job_id=job, vertex_id="pr-1"
+        )
+        credential_read = GitHubNodeReadSession(
+            self.service, worker_scope, original, loop=asyncio.get_running_loop()
+        )
+        # Exercise the real commit lock and credential callback: a worker scope
+        # that recursively calls authorize_read deadlocks here.
+        token = await asyncio.wait_for(credential_read.credential(), timeout=2)
+        self.assertTrue(token)
+        authority.revoke_worker(job)
+        with self.assertRaises(GitHubNodeAuthorizationError):
+            await asyncio.wait_for(credential_read.credential(), timeout=2)
+        capability = authority.issue_worker(job)
         for _ in range(2):
             await self.service.refresh(self.scope, connection_id)
-            authorization, _ = await authority.resolve_job(
-                job,
+            authorization, _ = await authority.resolve_worker(
+                capability,
+                job_id=job,
                 vertex_id="pr-1",
-                connection_id=connection_id,
-                repository="synthetic/private",
             )
             self.assertTrue(
                 self.service.run_generation_current(
@@ -598,11 +619,10 @@ class GitHubConnectionServiceTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(
             (GitHubNodeAuthorizationError, GitHubReauthorizationRequired)
         ):
-            await authority.resolve_job(
-                job,
+            await authority.resolve_worker(
+                capability,
+                job_id=job,
                 vertex_id="pr-1",
-                connection_id=connection_id,
-                repository="synthetic/private",
             )
 
     async def test_same_account_same_repository_reconsent_breaks_refresh_continuity(

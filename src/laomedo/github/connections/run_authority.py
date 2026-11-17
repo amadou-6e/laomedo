@@ -161,13 +161,8 @@ class GitHubRunAuthority:
         ).digest()
         return capability
 
-    async def resolve_worker(self, capability, *, job_id, vertex_id):
-        """Authenticate a job capability and derive its vertex's saved-account bounds.
-
-        Job and vertex identifiers are selectors, never authentication. No caller
-        account, repository or owner is accepted; the broker supplies those from
-        its admitted run and performs the normal live scope/access checks.
-        """
+    def _worker_binding(self, capability, job_id, vertex_id):
+        """Authenticate one worker selector without network I/O or lock acquisition."""
         if not isinstance(capability, SecretStr):
             raise GitHubNodeAuthorizationError()
         value = capability.get_secret_value()
@@ -175,7 +170,7 @@ class GitHubRunAuthority:
             raise GitHubNodeAuthorizationError()
         expected = self.workers.get(job_id)
         if expected is None or not compare_digest(
-            expected, sha256(value.encode("utf-8")).digest()
+            expected, sha256(value.encode("ascii")).digest()
         ):
             raise GitHubNodeAuthorizationError()
         reference = self.jobs.get(job_id)
@@ -190,15 +185,42 @@ class GitHubRunAuthority:
         )
         if node is None:
             raise GitHubNodeAuthorizationError()
-        result = await self.resolve(
-            reference,
+        return run, node.selection
+
+    async def revalidate_worker(self, capability, *, job_id, vertex_id):
+        """Fence worker, lease and generation without reentering the commit lock.
+
+        Credential custody invokes this while holding the connections commit
+        lock. Online provider verification remains the surrounding read's job;
+        this callback must not recursively invoke authorize_read or acquire that
+        lock again.
+        """
+        run, selection = self._worker_binding(capability, job_id, vertex_id)
+        await run.scope.revalidate()
+        current, _ = self._worker_binding(capability, job_id, vertex_id)
+        if current is not run or not self.connections.run_generation_current(
+            run.scope.owner_id,
+            selection.connection_id,
+            next(
+                item.generation
+                for item in run.nodes
+                if item.selection.vertex_id == vertex_id
+            ),
+            selection.repository,
+        ):
+            raise GitHubNodeAuthorizationError()
+
+    async def resolve_worker(self, capability, *, job_id, vertex_id):
+        """Authenticate a worker and revalidate its broker-derived selection online."""
+        run, selection = self._worker_binding(capability, job_id, vertex_id)
+        result = await self._resolve(
+            run.reference.get_secret_value(),
             job_id=job_id,
             vertex_id=vertex_id,
-            connection_id=node.selection.connection_id,
-            repository=node.selection.repository.full_name,
+            connection_id=selection.connection_id,
+            repository=selection.repository.full_name,
         )
-        if self.workers.get(job_id) != expected:
-            raise GitHubNodeAuthorizationError()
+        await self.revalidate_worker(capability, job_id=job_id, vertex_id=vertex_id)
         return result
 
     def revoke_worker(self, job_id):
@@ -211,21 +233,10 @@ class GitHubRunAuthority:
         if run is None or run.graph_digest != self.digest_graph(graph):
             raise GitHubNodeAuthorizationError()
 
-    async def resolve_job(self, job_id, *, vertex_id, connection_id, repository):
-        """Native components identify their job and vertex without a bearer reference."""
-        reference = self.jobs.get(job_id)
-        if reference is None:
-            raise GitHubNodeAuthorizationError()
-        return await self.resolve(
-            reference,
-            job_id=job_id,
-            vertex_id=vertex_id,
-            connection_id=connection_id,
-            repository=repository,
-        )
-
-    async def resolve(self, reference, *, job_id, vertex_id, connection_id, repository):
-        """Revalidate stored authority and exact selection before a node API call."""
+    async def _resolve(
+        self, reference, *, job_id, vertex_id, connection_id, repository
+    ):
+        """Broker-internal resolution; worker callers must use resolve_worker."""
         run = self.runs.get(reference)
         if run is None or run.job_id != job_id:
             raise GitHubNodeAuthorizationError()

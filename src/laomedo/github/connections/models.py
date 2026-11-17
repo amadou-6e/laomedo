@@ -451,6 +451,26 @@ class GitHubNodeReadRequest(BaseModel):
     )
 
 
+class GitHubWorkerReadRequest(BaseModel):
+    """Worker read selectors; broker authority supplies all credential bounds."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid", hide_input_in_errors=True)
+    job_id: UUID = Field(description="Exact admitted isolated job, not authentication.")
+    vertex_id: str = Field(
+        strict=True,
+        min_length=1,
+        max_length=256,
+        description="Exact admitted GitHub node within this job.",
+    )
+    labels: list[str] = Field(
+        max_length=100,
+        description="Existing all-label read filter; never an authorization bound.",
+    )
+    state: Literal["open", "closed", "merged", "all"] = Field(
+        description="Existing node read filter; merged is valid only for PRs."
+    )
+
+
 class GitHubNodeReadResult(BaseModel):
     """Buffered browser read and its exact host-only response release fence."""
 

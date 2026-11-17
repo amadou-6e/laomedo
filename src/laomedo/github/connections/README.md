@@ -189,13 +189,13 @@ effective JSON graph rather than accepting a supplied digest. The native adapter
 owns graph projection and selection extraction. `prepare` verifies each derived selection
 online and creates an expiring, owner/lease-bound plan. `admit` consumes that plan
 once, after the caller has confirmed the listed modifications, and binds it to
-the exact flow, graph digest and native job. `resolve` revalidates its stored
+the exact flow, graph digest and native job. `_resolve` internally revalidates its stored
 scope and current connection generation before returning one exact node's
 repository authorization. It never chooses an account from ambient authentication,
 mints a mediation grant, dispatches a write or accepts a serialized run as proof.
 `validate_job_graph` compares the actual worker graph before any vertex executes.
-`resolve_job` uses native job and vertex IDs, so no bearer reference enters graph
-parameters. `finish_job` releases terminal job bindings and their internal index.
+Workers authenticate only through `resolve_worker`; a job ID or browser plan
+reference never authenticates a worker. `finish_job` releases terminal job bindings and their internal index.
 `finish` removes live authority without deleting normal owner-profile history.
 `issue_worker` creates one separate masked capability for an already admitted
 job. Only its hash stays in the broker; approval-plan references cannot be used
@@ -206,6 +206,8 @@ of history; finishing a job also revokes it. These methods are broker-internal:
 no browser endpoint may issue capabilities or authenticate with a job ID alone.
 An admitted run retains the trusted run scope supplied at admission rather than
 the short-lived browser JWT callback used to prepare its approval plan.
+`revalidate_worker` also fences worker/lease/generation at credential custody
+without performing network calls or reentering the connection commit lock.
 The native adapter must supply trusted job/vertex identities and keep references
 out of graph parameters, persisted job metadata and Agent workspaces.
 
@@ -216,6 +218,15 @@ isolated from every other job. A same-user unrestricted subprocess is insufficie
 The worker capability must never enter shared graph parameters, upstream job
 metadata, browser responses, logs, Agent workspaces or another worker. Broker
 scope checks remain authoritative even if a worker supplies a different graph.
+
+`worker_access.py` owns `GitHubWorkerAccess.inspect`, the broker's read-only
+worker dispatcher, and `GitHubWorkerReadSession`, its per-call scope bridge.
+`GitHubWorkerReadRequest` accepts only job/vertex selectors and existing read
+filters. Owner, account, repository, target, grants and provider URLs are not
+worker-controlled fields. The dispatcher derives them from admitted selection,
+reuses `GitHubNodeAccess.read`, and rechecks worker authority before releasing a
+buffered result. Revocation during a read stops its next credential lookup or
+response release. This path cannot prepare approval plans or dispatch writes.
 
 `node_access.py` owns `GitHubNodeAccess`, the browser's selected-account read
 capability. `read` verifies the profile, exact consented repository and current
