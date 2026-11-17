@@ -3,7 +3,13 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
-from langflow.api.v1.login import router as login_router
+from langflow.api.v1.login import (
+    get_session,
+    login_to_get_access_token,
+    logout,
+    refresh_token,
+)
+from langflow.api.v1.schemas import Token
 from langflow.api.v1.users import read_current_user
 from langflow.services.database.models.user.model import UserRead
 from langflow.services.rate_limit import get_rate_limiter
@@ -45,7 +51,16 @@ class PrivateBrokerRuntime:
         )
         app.state.limiter = get_rate_limiter()
         app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-        app.include_router(login_router, prefix="/api/v1")
+        app.add_api_route(
+            "/api/v1/login",
+            login_to_get_access_token,
+            methods=["POST"],
+            response_model=Token,
+            include_in_schema=False,
+        )
+        app.add_api_route("/api/v1/refresh", refresh_token, methods=["POST"])
+        app.add_api_route("/api/v1/logout", logout, methods=["POST"])
+        app.add_api_route("/api/v1/session", get_session, methods=["GET"])
         app.add_api_route(
             "/api/v1/users/whoami",
             read_current_user,

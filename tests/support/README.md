@@ -18,7 +18,8 @@ Git runner objects are class-only support; the retained loader is function-only
 support. Their consumers span Shared, host publication and deferred Agent/GitHub
 controls. The loader is not a production compatibility facade. Historical code,
 the declared dependency inventory and its refusal behavior are not reorganized.
-# Native broker startup fixture
+
+## Native broker startup fixture
 
 `broker_startup.py` owns `BrokerStartupCheck.run`, used by the authentication
 startup regression test in a separate Python process. It exercises the real
@@ -27,4 +28,3 @@ temporary runtime, without a network listener, GitHub requests, Agent calls or
 reusable credentials. Child state and captured auth diagnostics are never
 published or included in test assertion output. This is not acceptance evidence
 for OS isolation, the browser proxy or saved-account graph execution.
-

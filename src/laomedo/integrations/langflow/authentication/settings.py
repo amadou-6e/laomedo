@@ -10,6 +10,29 @@ PRIVATE_SESSION_COOKIE_NAME = "laomedo_private_session"
 PRIVATE_CSRF_HEADER = "x-laomedo-csrf"
 PRIVATE_CSRF_PURPOSE = b"laomedo-private-mutation-v1"
 
+# An explicit classification, not a name-based inference from browser payloads.
+# Add a canonical host catalog type only after checking its execution behavior.
+# Unknown types (including code interpreters and runtime flow loaders) refuse.
+GITHUB_GRAPH_COMPONENT_TYPES = frozenset(
+    {
+        "LaomedoGitHubIssue",
+        "LaomedoGitHubPR",
+        "LaomedoCodexAgent",
+        "LaomedoClaudeAgent",
+        "LaomedoOpenCodeAgent",
+        "LaomedoSkill",
+        "LaomedoHandoff",
+        "LaomedoOutputContract",
+        "LaomedoBoundedController",
+        "ChatInput",
+        "ChatOutput",
+        "TextInput",
+        "TextOutput",
+        "Prompt",
+        "Prompt Template",
+    }
+)
+
 
 class PrivateBrowserSettings(BaseSettings):
     """Explicit loopback origin and owned private directory, without ambient input."""

@@ -14,6 +14,20 @@ from laomedo.integrations.langflow.local_profiles.runtime import LocalProfileRun
 class BrokerStartupCheck:
     """Check native auth/lease composition without a listener or provider calls."""
 
+    @staticmethod
+    def route_paths(app):
+        """Inspect the full real runtime inventory, including native lazy routers."""
+        paths = set()
+        pending = list(app.routes)
+        while pending:
+            route = pending.pop()
+            candidates = getattr(route, "effective_candidates", None)
+            if candidates is not None:
+                pending.extend(candidates())
+            else:
+                paths.add(route.path)
+        return paths
+
     async def run(self):
         """Create one synthetic profile, sign in, read custody status and sign out."""
         root = Path(os.environ["LAOMEDO_LOCAL_PROFILE_RUNTIME"])
@@ -26,6 +40,23 @@ class BrokerStartupCheck:
                 public_roots=(root / "registry",),
             ),
         ).create_app()
+        assert self.route_paths(app) == {
+            "/api/v1/login",
+            "/api/v1/refresh",
+            "/api/v1/logout",
+            "/api/v1/session",
+            "/api/v1/users/whoami",
+            "/api/v1/laomedo/profile-mode",
+            "/api/v1/laomedo/profiles",
+            "/api/v1/laomedo/private-session",
+            "/api/v1/laomedo/github-connections-capability",
+            "/api/v1/laomedo/github-connections",
+            "/api/v1/laomedo/github-connections/{action}",
+            "/api/v1/laomedo/github-connections/callback",
+            "/api/v1/laomedo/github-connections/app-registration/callback",
+            "/api/v1/laomedo/private-skills/{action}",
+            "/api/v1/laomedo/private-github-nodes/{action}",
+        }, "broker runtime installed an unexpected endpoint"
         async with app.router.lifespan_context(app):
             async with AsyncClient(
                 transport=ASGITransport(app=app),
@@ -51,6 +82,8 @@ class BrokerStartupCheck:
                 assert response.json().get("ready") is True, "private lease not ready"
                 response = await client.get("/api/v1/laomedo/github-connections")
                 assert response.status_code == 200, "empty connection inventory failed"
+                response = await client.get("/api/v1/auto_login")
+                assert response.status_code == 404, "native auto-login entered broker"
                 for path in ("/api/v2/workflows", "/api/v1/custom_component/update"):
                     response = await client.post(path, json={})
                     assert response.status_code == 404, "graph endpoint entered broker"

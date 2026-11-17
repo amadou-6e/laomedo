@@ -57,7 +57,6 @@ class PrivateBrokerRuntimeTests(unittest.IsolatedAsyncioTestCase):
             paths,
             {
                 "/api/v1/login",
-                "/api/v1/auto_login",
                 "/api/v1/refresh",
                 "/api/v1/session",
                 "/api/v1/logout",

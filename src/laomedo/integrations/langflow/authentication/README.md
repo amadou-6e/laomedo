@@ -1,13 +1,15 @@
 # Private browser session admission
 
 `broker.py` owns `PrivateBrokerRuntime`, the trusted process application factory.
-`create_app` builds a separate FastAPI application with only native login/session
+`create_app` builds a separate FastAPI application with only explicit native login/session
 routes, the current-profile projection, owned profile registration and private
 GitHub/Skill controls. It never calls `langflow.main.create_app`, mounts graph
 execution/component editing APIs, starts native graph recovery, or initializes
 MCP servers. `lifespan` reuses native database/auth service initialization and
 teardown; the existing profile and private runtimes retain their admission,
 ordinary-profile auth, lease, vault ownership and exclusive process lock checks.
+The native auto-login handler is not installed. Profile admission also refuses
+auto-login, authentication bypass and external identity configuration at startup.
 `create_app` receives explicit profile-runtime and private-browser settings;
 it does not discover credentials or another runtime from the environment.
 
@@ -17,6 +19,22 @@ single-job worker are integrated and verified. No graph code may execute in the
 broker, and reusable credentials or private-session cookies may not be forwarded
 to the untrusted runtime. Starting a second unrestricted same-user Python process
 is not isolation. Existing state is not moved or rewritten by the factory.
+The broker's profile database, password hashes, signing keys and lease store are
+broker-only state. An untrusted Langflow runtime must have its own separate
+database and may never mount or write that identity store. The proxy must derive
+profile identity from broker authentication, never from a worker's user records
+or JWTs. The startup regression pins the full real broker route inventory so a
+future owned runtime cannot silently install a code-evaluation endpoint.
+
+`catalog.py` owns `GitHubGraphCatalog`. `capture` copies exact code digests for
+canonical entries from a trusted host catalog; neither posted labels nor posted
+hashes are inputs. Classification is host-owned in `settings.py`: unknown types,
+runtime flow loaders and host-Python execution components remain refused.
+`effective_graph` validates all leaf nodes, including disconnected and nested
+nodes, then uses native pure-data group expansion and validates the resulting
+code again after proxy input overrides. The same immutable catalog snapshot
+must be retained for admission and worker construction. This does not itself
+establish OS isolation or authorize a GitHub operation.
 
 `node_runs.py` owns `GitHubNodeRunAdmission`, the native graph projection for
 saved-account approval. `executable_graph` removes only known canvas geometry;
