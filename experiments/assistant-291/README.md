@@ -88,3 +88,12 @@ integrated chat was reloaded and the small Rename/Run outcome cards verified.
 No backend/consent change, no extra model probe. User independently approved the
 previously pending rename while inspecting the app; its retained card now says
 Renamed. Screenshots remain local. Review still waits for the selected quota reset.
+
+
+Final layout 04bbed456d4e00a32f7ff01ef8195328f50fe9fc / spec
+0dbd8f488266750cf1e2860fc069a81a74369721 unifies all three categories as
+one muted sentence, icon top right, outcome below left.25 UI tests/build/Black/
+spec validation pass. render-retained.mjs captures actual retained expired Edit,
+successful Rename and completed Run in an independent browser, without prompts or
+graph mutations. All three inspected by the implementer; screenshot files remain
+private local evidence. Same reviewer awaits20:00Berlin reset; no merge.
