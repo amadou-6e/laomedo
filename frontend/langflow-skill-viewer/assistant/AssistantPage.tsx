@@ -928,7 +928,7 @@ export default function AssistantPage() {
                   selected ? "Message this assistant…" : "Start chat…"
                 }
                 value={drafts[selected] ?? ""}
-                disabled={
+                readOnly={
                   busy ||
                   active ||
                   Boolean(selected && (!detail || needsAttention || waiting))
@@ -949,7 +949,7 @@ export default function AssistantPage() {
                     void send();
                   }
                 }}
-                className="block w-full resize-none border-0 bg-transparent px-2 py-2 text-sm outline-none placeholder:text-muted-foreground disabled:opacity-60"
+                className="block w-full resize-none border-0 bg-transparent px-2 py-2 text-sm outline-none placeholder:text-muted-foreground read-only:opacity-60"
               />
               <div className="mt-1 flex items-center justify-end gap-2 px-1">
                 <ModelSelection

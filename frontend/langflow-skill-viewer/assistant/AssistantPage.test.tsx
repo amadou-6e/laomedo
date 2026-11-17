@@ -65,8 +65,11 @@ describe("uncertain assistant submission", () => {
     fireEvent.keyDown(composer, { key: "Enter", isComposing: true });
     expect(posts).toBe(0);
     expect((composer as HTMLTextAreaElement).value).toBe("Hello");
+    composer.focus();
     fireEvent.keyDown(composer, { key: "Enter" });
     await screen.findByRole("status", { name: "Thinking" });
+    expect(document.activeElement).toBe(composer);
+    expect((composer as HTMLTextAreaElement).readOnly).toBe(true);
     expect(
       screen.queryByRole("button", { name: "Retry same submission" }),
     ).toBeNull();
