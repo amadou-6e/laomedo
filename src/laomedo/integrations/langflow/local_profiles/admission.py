@@ -2,13 +2,14 @@
 
 from contextlib import closing
 from pathlib import Path
-from importlib import import_module
 import os
 import secrets
 import sqlite3
 
 from alembic.script import ScriptDirectory
 from langflow import __file__ as langflow_file
+from langflow.services.database.models import User
+from sqlalchemy import inspect
 from lfx.services.settings.constants import LEGACY_DEFAULT_SUPERUSER_PASSWORD
 from pydantic import SecretStr, ValidationError
 
@@ -134,15 +135,16 @@ class ProfileRuntimeAdmission:
     def _upstream_tables():
         """Require upstream-owned tables, independent of optional shared metadata.
 
-        The pinned library publishes its mapped models in __all__. Feature
-        models share SQLModel metadata but initialize under their own owners.
-        Reflect only that library's public exports, without mutable snapshots
-        or a second hand-maintained schema definition.
+        Inspect mapped class ownership, including upstream models not re-exported
+        in its package __all__. Feature models share SQLModel metadata but
+        initialize under their own owners. No mutable import-time snapshot or
+        second hand-maintained schema definition is used.
         """
-        models = import_module("langflow.services.database.models")
         expected = {}
-        for name in models.__all__:
-            table = getattr(getattr(models, name), "__table__", None)
-            if table is not None:
+        for mapper in inspect(User).registry.mappers:
+            if mapper.class_.__module__.startswith(
+                "langflow.services.database.models."
+            ):
+                table = mapper.local_table
                 expected[table.name] = table
         return expected
