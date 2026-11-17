@@ -446,8 +446,8 @@
   },
   "runner_dispatch_refused": {
     "title": "The runner refused this request",
-    "description": "The request was not accepted under the configured execution policy.",
-    "recovery": "Ask the operator to check the request policy and authorization. Do not remove policy checks or repeatedly resubmit the request."
+    "description": "The local runner rejected the request without a usable failure code. The reason has not been established.",
+    "recovery": "Check the runner diagnostics for the HTTP status and failure category. Keep the current graph settings while investigating; do not repeatedly submit the request."
   },
   "standing_policy_inactive": {
     "title": "The runner refused this request",

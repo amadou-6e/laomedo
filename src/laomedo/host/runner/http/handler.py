@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from http.server import BaseHTTPRequestHandler
 import json
+import logging
 import secrets
 import threading
 
@@ -12,6 +13,7 @@ from laomedo.agents.artifacts.errors import ArtifactError
 from laomedo.agents.agents.base.settings import MAX_BODY
 from laomedo.agents.errors import RunnerError
 from laomedo.skills.registry.errors import SkillStoreError
+from laomedo.agents.interface.utils import safe_error_code
 
 if TYPE_CHECKING:
     from .server import RunnerServer
@@ -93,7 +95,9 @@ class RunnerRequestHandler(BaseHTTPRequestHandler):
                 if category == "request_identity_conflict"
                 else 400 if category == "invalid_request_id" else 404
             )
-            self._reply(code, {"status": "failed", "error_category": category})
+            self._reply(
+                code, {"status": "failed", "error_category": category}, failure=exc
+            )
 
     def do_POST(self):
         """Authenticate and handle the existing request protocol, preserving wire errors."""
@@ -189,6 +193,7 @@ class RunnerRequestHandler(BaseHTTPRequestHandler):
             self._reply(
                 409 if str(exc) == "request_identity_conflict" else 400,
                 {"status": "failed", "error_category": str(exc)},
+                failure=exc,
             )
         finally:
             if mcp_access is not None:
@@ -196,8 +201,40 @@ class RunnerRequestHandler(BaseHTTPRequestHandler):
             if response_gate is not None:
                 response_gate.set()
 
-    def _reply(self, code: int, value: dict):
+    def _reply(self, code: int, value: dict, *, failure=None):
         """Serialize the response using the existing JSON status and content length."""
+        if code >= 400:
+            category = (
+                safe_error_code(value.get("error_category"), {"unauthorized"})
+                or "runner_unclassified_refusal"
+            )
+            family = (
+                "os_error"
+                if isinstance(failure, OSError)
+                else (
+                    "missing_field"
+                    if isinstance(failure, KeyError)
+                    else (
+                        "validation_error"
+                        if isinstance(failure, ValueError)
+                        else (
+                            "domain_error"
+                            if isinstance(
+                                failure, (RunnerError, SkillStoreError, ArtifactError)
+                            )
+                            else "protocol_refusal"
+                        )
+                    )
+                )
+            )
+            number = getattr(failure, "errno", None)
+            logging.getLogger(__name__).warning(
+                "Runner refusal: http_status=%s code=%s failure_kind=%s errno=%s",
+                code,
+                category,
+                family,
+                number if type(number) is int else None,
+            )
         data = json.dumps(value).encode("utf-8")
         self.send_response(code)
         self.send_header("Content-Type", "application/json")

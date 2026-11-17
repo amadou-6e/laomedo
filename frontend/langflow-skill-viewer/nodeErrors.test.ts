@@ -69,6 +69,15 @@ test("a structured failed runner result is explained even when graph routing suc
   expect(hasLaomedoFailure({ data: { outputs: { result: { message: { status: "completed", error_category: null, run_id: run } } } } })).toBe(false);
 });
 
+test("runner refusals preserve future codes without inventing a policy cause", () => {
+  const future = describeNodeFailure("Error building Component LaomedoCodexAgent: future_runner_failure_v2", undefined);
+  expect(future.diagnostics.code).toBe("future_runner_failure_v2");
+  const refused = describeNodeFailure("runner_dispatch_refused", undefined);
+  expect(refused.description).toContain("reason has not been established");
+  expect(refused.recovery).toContain("HTTP status");
+  expect(describeNodeFailure("unauthorized", undefined).diagnostics.code).toBe("unauthorized");
+});
+
 test("unknown errors are useful without exposing raw exception data", () => {
   const future = describeNodeFailure("future_runtime_condition", undefined);
   expect(future.diagnostics.code).toBe("future_runtime_condition");

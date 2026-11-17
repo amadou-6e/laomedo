@@ -12,3 +12,9 @@ resume, status, cancel and request-lookup meanings. Extraction is not a protocol
 
 Readiness, execution outcome and cleanup are distinct. Async acknowledgement is
 not completion; uncertain transport must be reconciled by existing identity.
+
+Failed responses emit one structured warning through the module logger, even
+when no run record exists. Diagnostic fields are HTTP status, a bounded safe
+category, a fixed exception family, and numeric OS errno when available. Paths,
+request bodies, credentials, raw exception text and tracebacks are excluded.
+Existing HTTP status and response payload contracts remain unchanged.

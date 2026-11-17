@@ -169,7 +169,12 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
                 "experiment_request_binding_denied",
             ),
             (401, "SECRET token https://private", "runner_dispatch_refused"),
-            (500, "experiment_request_binding_denied", "runner_runtime_unknown"),
+            (401, "unauthorized", "unauthorized"),
+            (400, "future_runner_failure_v2", "future_runner_failure_v2"),
+            (400, "ghp_private_value", "runner_dispatch_refused"),
+            (400, "my_secret_password", "runner_dispatch_refused"),
+            (500, "future_runner_failure_v2", "future_runner_failure_v2"),
+            (500, "SECRET token https://private", "runner_runtime_unknown"),
         ):
             node = component(request_id=RUN)
             body = {"status": "failed", "error_category": category}

@@ -26,6 +26,7 @@ from lfx.schema import Message
 from laomedo.agents.interface.models import AgentRunReference
 from laomedo.agents.interface.models import AgentSubmission
 from laomedo.agents.interface.langflow.errors import RunnerResultError
+from laomedo.agents.interface.utils import safe_error_code
 from laomedo.agents.mcp.client import McpAccess
 from laomedo.agents.mcp.settings import MCP_ERROR_CODES
 from laomedo.agents.interface.utils import terminal_record as _terminal_record
@@ -35,6 +36,7 @@ from laomedo.agents.interface.utils import terminal_record as _terminal_record
 _STOP_TASKS = set()
 _TERMINAL = {"completed", "cancelled", "failed", "timeout", "interrupted"}
 _ROUTABLE_ERRORS = {
+    "unauthorized",
     "activity_normalization_failed",
     "activity_journal_unavailable",
     "activity_projection_limit",
@@ -456,7 +458,7 @@ class AgentComponent(Component):
             # Input ValueErrors and framework cancellation still refuse/abort.
             # Never put raw exception text, HTTP bodies or exception paths in Data.
             code = str(exc).split(";", 1)[0]
-            if code not in _ROUTABLE_ERRORS:
+            if safe_error_code(code, _ROUTABLE_ERRORS) is None:
                 code = "runner_runtime_unknown"
             reference = dict(self._last_reference or {})
             reference.update(
@@ -470,7 +472,7 @@ class AgentComponent(Component):
             reference.setdefault("request_id", self._stop_request_id)
         category = reference.get("error_category")
         if category is not None and (
-            not isinstance(category, str) or category not in _ROUTABLE_ERRORS
+            safe_error_code(category, _ROUTABLE_ERRORS) is None
         ):
             reference = {**reference, "error_category": "runner_runtime_unknown"}
         answer = reference.get("answer")
@@ -1119,14 +1121,12 @@ class AgentComponent(Component):
                 # A complete pre-dispatch refusal has no run identity. Expose
                 # only a fixed public code, never arbitrary server error text.
                 category = result.get("error_category")
-                code = (
-                    category
-                    if isinstance(category, str) and category in _ROUTABLE_ERRORS
-                    else "runner_dispatch_refused"
+                code = safe_error_code(category, _ROUTABLE_ERRORS) or (
+                    "runner_dispatch_refused"
+                    if 400 <= exc.code < 500
+                    else "runner_runtime_unknown"
                 )
-                if 400 <= exc.code < 500:
-                    raise RuntimeError(code) from None
-                raise RuntimeError("runner_runtime_unknown") from None
+                raise RuntimeError(code) from None
         except (error.URLError, TimeoutError, OSError):
             if self._reference_run_id:
                 reference = self._run_reference(

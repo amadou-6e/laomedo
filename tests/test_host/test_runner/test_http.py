@@ -14,6 +14,60 @@ from support.http_server import RunningHTTPServer
 
 
 class RunnerHTTPErrorTests(unittest.TestCase):
+    def test_refusals_without_runs_have_redacted_host_diagnostics(self):
+        """Retain status/category/OS family without paths, payloads or tracebacks."""
+        runner = Mock(api_token="x" * 32)
+        with patch(
+            "laomedo.host.runner.http.server.Settings",
+            return_value=SimpleNamespace(startup_gate=""),
+        ):
+            server = RunnerServer(runner, port=0)
+        with RunningHTTPServer(server) as running:
+            for failure, expected in (
+                (RunnerError("future_runner_failure_v2"), "future_runner_failure_v2"),
+                (
+                    PermissionError(13, "private credential /private/file"),
+                    "runner_unclassified_refusal",
+                ),
+                (
+                    ValueError("Bearer private-value https://private.test"),
+                    "runner_unclassified_refusal",
+                ),
+                (KeyError("private-key"), "runner_unclassified_refusal"),
+            ):
+                runner.start.side_effect = failure
+                request = Request(
+                    f"http://127.0.0.1:{running.server_port}/v1/runs",
+                    data=b'{"task":"private-task"}',
+                    headers={
+                        "Content-Type": "application/json",
+                        "Authorization": "Bearer " + "x" * 32,
+                    },
+                )
+                with (
+                    self.subTest(failure=type(failure).__name__),
+                    self.assertLogs(
+                        "laomedo.host.runner.http.handler", level="WARNING"
+                    ) as captured,
+                ):
+                    with self.assertRaises(HTTPError) as response:
+                        urlopen(request, timeout=5)
+                    response.exception.close()
+                text = " ".join(captured.output)
+                self.assertIn("http_status=400", text)
+                self.assertIn("code=" + expected, text)
+                for private in (
+                    "private",
+                    "Bearer",
+                    "http://",
+                    "https://",
+                    "Traceback",
+                    "x" * 32,
+                ):
+                    self.assertNotIn(private, text)
+                if isinstance(failure, PermissionError):
+                    self.assertIn("failure_kind=os_error errno=13", text)
+
     def test_refused_resume_does_not_release_another_attempts_mcp_grant(self):
         """A failed binding owns no capability and must not revoke an active run."""
         runner = Mock(api_token="x" * 32)

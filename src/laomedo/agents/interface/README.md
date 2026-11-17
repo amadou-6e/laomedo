@@ -4,6 +4,11 @@ This package connects the wider application to Agent capabilities without loadin
 provider implementations. Canonical data contracts stay independent of the base.
 Optional framework adapters load only when requested.
 
+`utils.py` also owns `safe_error_code()`: preserve known public codes and bounded
+future machine codes while rejecting credential-shaped or free-form values.
+The graph adapter uses this projection for refusals before a run reference is
+available. It never substitutes a successful outcome or retries the request.
+
 | Concern | Owner | Nomenclature |
 | --- | --- | --- |
 | HTTP transport | `bridge.py` | `HttpAgentBridge`: transport-qualified bridge |
