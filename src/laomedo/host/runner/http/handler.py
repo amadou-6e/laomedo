@@ -207,8 +207,10 @@ class RunnerRequestHandler(BaseHTTPRequestHandler):
         """Serialize the response using the existing JSON status and content length."""
         if code >= 400:
             category = (
-                safe_error_code(value.get("error_category"), {"unauthorized"})
-                or "runner_unclassified_refusal"
+                safe_error_code(
+                    value.get("error_category"), RunnerDiagnostics.known_codes
+                )
+                or "runner_unclassified_failure"
             )
             family = (
                 "os_error"
@@ -234,7 +236,7 @@ class RunnerRequestHandler(BaseHTTPRequestHandler):
                 {
                     "diagnostic_id": str(uuid4()),
                     "stage": (
-                        "runner_lookup"
+                        ("runner_lookup" if self.path.startswith(("/v1/requests/", "/v1/runs/")) else "runner_http")
                         if self.command == "GET"
                         else (
                             "runner_request"

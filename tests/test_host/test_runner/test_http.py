@@ -25,15 +25,16 @@ class RunnerHTTPErrorTests(unittest.TestCase):
         with RunningHTTPServer(server) as running:
             for failure, expected in (
                 (RunnerError("future_runner_failure_v2"), "future_runner_failure_v2"),
+                (RunnerError("invalid_runner_api_token"), "invalid_runner_api_token"),
                 (
                     PermissionError(13, "private credential /private/file"),
-                    "runner_unclassified_refusal",
+                    "runner_unclassified_failure",
                 ),
                 (
                     ValueError("Bearer private-value https://private.test"),
-                    "runner_unclassified_refusal",
+                    "runner_unclassified_failure",
                 ),
-                (KeyError("private-key"), "runner_unclassified_refusal"),
+                (KeyError("private-key"), "runner_unclassified_failure"),
             ):
                 runner.start.side_effect = failure
                 request = Request(

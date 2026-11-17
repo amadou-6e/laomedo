@@ -1,7 +1,7 @@
 """Typed requests inside host orchestration, with explicit component boundaries."""
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
-from typing import Annotated, Literal
+from typing import Annotated, ClassVar, Literal
 from uuid import UUID
 
 from laomedo.agents.interface.utils import safe_error_code
@@ -11,6 +11,27 @@ class RunnerDiagnostics(BaseModel):
     """Safe HTTP failure observations, independent of run creation or success."""
 
     model_config = ConfigDict(strict=True, frozen=True, extra="forbid")
+    # Fixed public exceptions to the unknown-code sensitive-word filter.
+    # These are code literals, never credentials or caller-supplied allowlists.
+    known_codes: ClassVar[frozenset[str]] = frozenset(
+        {
+            "unauthorized",
+            "invalid_runner_api_token",
+            "runner_api_token_file_empty",
+            "runner_api_token_file_unavailable",
+            "auth_token_response_invalid",
+            "empty_token",
+            "runner_token_file_required",
+            "runner_token_unavailable",
+            "runner_token_invalid",
+            "activity_runner_token_missing",
+            "opencode_console_token_refresh_required",
+            "opencode_credential_binding_key_invalid",
+            "credential_constraints_unsupported",
+            "opencode_history_credentials_present",
+            "opencode_history_credentials_unverified",
+        }
+    )
     diagnostic_id: str | None = None
     http_status: int | None = None
     stage: (
@@ -66,7 +87,7 @@ class RunnerDiagnostics(BaseModel):
         number = value.get("errno")
         if type(number) is int and -(2**31) <= number < 2**31:
             clean["errno"] = number
-        code = safe_error_code(value.get("runner_code"), {"unauthorized"})
+        code = safe_error_code(value.get("runner_code"), cls.known_codes)
         if code:
             clean["runner_code"] = code
         return cls(**clean)

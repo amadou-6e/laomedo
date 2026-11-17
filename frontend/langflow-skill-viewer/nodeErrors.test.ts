@@ -218,14 +218,14 @@ test("unsupported Agent inheritance reports safe replacement without leaking pay
 });
 
 test("runner diagnostic envelopes reach display and copy without private payloads", () => {
- const observed = { diagnostic_id: run, http_status: 400, stage: "runner_request", failure_kind: "os_error", errno: 13, runner_code: "runner_unclassified_refusal", path: "private-file", task: "private-task" };
+ const observed = { diagnostic_id: run, http_status: 400, stage: "runner_request", failure_kind: "os_error", errno: 13, runner_code: "runner_unclassified_failure", path: "private-file", task: "private-task" };
  for (const [raw, status] of [
    ["runner_dispatch_refused", {data:{outputs:{result:{status:"unknown",error_category:"runner_dispatch_refused",run_reference:{runner_diagnostics:observed}}}}}],
    [`Error building Component LaomedoCodexAgent: \n\nrunner_dispatch_refused; runner_diagnostics=${JSON.stringify(observed)}`, undefined],
  ] as const) {
    const failure = describeNodeFailure(raw, status);
    expect(failure.description).toContain("denied the runner access");
-   expect(failure.diagnostics).toEqual({code:"runner_dispatch_refused", diagnostic_id:run, http_status:"400", stage:"runner_request", failure_kind:"os_error", errno:"13", runner_code:"runner_unclassified_refusal"});
+   expect(failure.diagnostics).toEqual({code:"runner_dispatch_refused", diagnostic_id:run, http_status:"400", stage:"runner_request", failure_kind:"os_error", errno:"13", runner_code:"runner_unclassified_failure"});
    expect(JSON.stringify(failure)).not.toContain("private");
  }
 });

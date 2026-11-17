@@ -38,6 +38,10 @@ class DiagnosticCodeTests(unittest.TestCase):
             safe_error_code("invalid_runner_api_token", {"invalid_runner_api_token"}),
             "invalid_runner_api_token",
         )
+        for code in RunnerDiagnostics.known_codes:
+            self.assertEqual(
+                RunnerDiagnostics.from_payload({"runner_code": code}).runner_code, code
+            )
 
     def test_arbitrary_and_credential_shaped_values_are_redacted(self):
         """Reject free-form errors, token prefixes and sensitive unknown codes."""
