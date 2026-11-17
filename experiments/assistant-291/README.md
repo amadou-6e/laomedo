@@ -111,3 +111,12 @@ with no graph effects. Final pass succeeded; no fixtures substituted as acceptan
 All captured screenshots stay local.16 focused consent tests/15 subtests,25 UI
 tests/build/Black/specvalidation pass. M1 owner decision (model-only Edit summary
 versus verified operation summary) remains open; focused visual/code recheck pending.
+
+
+Claude focused recheck APPROVE for implementation through91d005d1, specification
+throughca99e4b and all actual pending/settled card states, permission panel and A4.
+L1/L2/L3 fixed, S1 checks done, Q1 answered, inert-retention L4 accepted. M1 remains
+an unresolved owner decision: whether Edit needs a compact verified actual-effects
+summary alongside or instead of agent wording. No risk acceptance inferred.
+Final full assistant suite57 tests/23 subtests and25 UI tests/build/Black/spec/CI
+pass at reviewed head. No later production change. Both PRs draft/unmerged.
