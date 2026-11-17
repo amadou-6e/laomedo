@@ -50,7 +50,21 @@ export type ConversationIndex = {
   conversations: Conversation[];
   next_cursor: number | null;
 };
+export type GraphAction = {
+  id: string;
+  message_id: string;
+  workflow_id: string;
+  name: string;
+  kind: "edit" | "run";
+  digest: string;
+  preview: string[];
+  revision: string;
+  state: string;
+  expires_at: number;
+  run_id: string | null;
+};
 export type ConversationDetail = {
+  actions?: GraphAction[];
   conversation: Conversation;
   messages: Message[];
   drafts: DraftReceipt[];

@@ -199,6 +199,41 @@ class ComponentCatalog:
                 raise AssistantError("assistant_field_type_invalid", 422)
         return deepcopy(value)
 
+    def update_saved_fields(self, node, identity, values):
+        """Change only explicit writable values, retaining saved code, secrets and schema."""
+        metadata = self.template(identity)
+        saved = node.get("data", {}).get("node", {}).get("template", {})
+        preview = []
+        for name, value in values.items():
+            field = metadata["template"].get(name)
+            original = saved.get(name)
+            if (
+                not isinstance(field, dict)
+                or not isinstance(original, dict)
+                or not self._writable(name, original)
+            ):
+                raise AssistantError("assistant_field_not_writable", 422)
+            checked = self._value(name, field, value)
+            if original.get("type") != field.get("type"):
+                raise AssistantError("assistant_field_type_invalid", 422)
+            before = (
+                self._value(name, field, original.get("value"))
+                if original.get("value") is not None
+                else None
+            )
+            preview.append(
+                "Set "
+                + node["id"]
+                + "."
+                + name
+                + ": "
+                + json.dumps(before, ensure_ascii=False)
+                + " -> "
+                + json.dumps(checked, ensure_ascii=False)
+            )
+            original["value"] = checked
+        return preview
+
     def compile(self, graph):
         """Build editable node JSON from host templates; validate exact ports without graph construction."""
         if len(graph.model_dump_json().encode()) > 65536:

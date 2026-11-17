@@ -59,3 +59,5 @@ rendered state and reject stale responses. Draft links come only from database
 receipts, open a new tab after a click, and preserve the original editor.
 
 The composer sends on Enter, preserves Shift+Enter for newlines and ignores Enter during IME composition. Thinking is visible only before answer text appears, including streamed activity or a retained response.
+
+GraphActions.tsx renders server-built graph edit/run previews and human-only approval decisions. It never dispatches inference or approvals on render; unknown/stale/expired outcomes remain explicit. Wire records stay in models.ts.

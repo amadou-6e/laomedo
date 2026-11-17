@@ -801,6 +801,9 @@ export default function AssistantPage() {
                   key={message.id}
                   conversation={selected}
                   message={message}
+                  actions={(detail.actions ?? []).filter(
+                    (action) => action.message_id === message.id,
+                  )}
                   receipts={detail.drafts.filter(
                     (receipt) => receipt.message_id === message.id,
                   )}

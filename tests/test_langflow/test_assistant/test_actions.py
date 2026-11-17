@@ -1,0 +1,290 @@
+﻿"""Current approval authority, exact-revision editing and non-replayed run admission."""
+
+import asyncio
+from copy import deepcopy
+from pathlib import Path
+import tempfile
+import time
+import unittest
+from unittest.mock import AsyncMock, patch
+from uuid import UUID, uuid4
+
+from sqlalchemy.ext.asyncio import create_async_engine
+from sqlmodel import SQLModel
+from langflow.services.database.models.flow.model import Flow
+from langflow.services.database.models.user.model import User
+from langflow.services.database.models.folder.model import Folder
+from langflow.services.database.models.folder.constants import DEFAULT_FOLDER_NAME
+from laomedo.integrations.langflow.assistant.actions import WorkflowActions
+from laomedo.integrations.langflow.assistant.catalog import ComponentCatalog
+from laomedo.integrations.langflow.assistant.errors import AssistantError
+from laomedo.integrations.langflow.assistant.graph import GraphEditor
+from laomedo.integrations.langflow.assistant.models import (
+    AuthoringContext,
+    ConversationRequest,
+    MessageRequest,
+    DraftGraph,
+    DraftNode,
+    GraphChanges,
+    GraphActionRequest,
+    GraphActionDecision,
+    AssistantGraphAction,
+)
+from laomedo.integrations.langflow.assistant.persistence import AssistantStore
+
+
+class GraphActionTests(unittest.IsolatedAsyncioTestCase):
+    async def asyncSetUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.engine = create_async_engine(
+            "sqlite+aiosqlite:///" + (Path(self.directory.name) / "app.db").as_posix()
+        )
+        async with self.engine.begin() as connection:
+            await connection.run_sync(SQLModel.metadata.create_all)
+        self.store = AssistantStore(self.engine)
+        self.owner = uuid4()
+        async with self.store.transaction() as session:
+            session.add(
+                User(
+                    id=self.owner, username="owner", password="fixture", is_active=True
+                )
+            )
+            session.add(Folder(name=DEFAULT_FOLDER_NAME, user_id=self.owner))
+        await self.store.admit_session("fixture", self.owner, time.time() + 2000)
+        conversation = await self.store.create(
+            self.owner,
+            ConversationRequest(model="fixture", effort="low"),
+            session_key="fixture",
+        )
+        self.conversation = UUID(conversation["id"])
+        message, _ = await self.store.reserve(
+            self.owner,
+            self.conversation,
+            MessageRequest(client_message_id=uuid4(), text="Edit this graph"),
+            session_key="fixture",
+        )
+        self.context = AuthoringContext(
+            owner_id=self.owner,
+            conversation_id=self.conversation,
+            message_id=UUID(message["id"]),
+            attempt_id=UUID(message["attempt_id"]),
+            session_key="fixture",
+        )
+        self.catalog = ComponentCatalog(
+            {
+                "test": {
+                    "Text": {
+                        "template": {
+                            "code": {"value": "TRUSTED_CODE"},
+                            "text": {"type": "str", "value": "old"},
+                            "api_key": {"type": "str", "password": True, "value": None},
+                        },
+                        "outputs": [{"name": "text", "types": ["Message"]}],
+                    }
+                }
+            }
+        )
+        data, _ = self.catalog.compile(
+            DraftGraph(
+                nodes=[
+                    DraftNode(key="one", component_type="test/Text"),
+                    DraftNode(key="two", component_type="test/Text"),
+                ],
+                allow_incomplete=True,
+            )
+        )
+        data["nodes"][0]["data"]["node"]["template"]["api_key"][
+            "value"
+        ] = "PRIVATE_CANARY"
+        self.original = deepcopy(data)
+        async with self.store.transaction() as session:
+            row = Flow(name="Existing graph", data=data, user_id=self.owner)
+            session.add(row)
+            await session.flush()
+            await session.refresh(row)
+            self.flow_id = row.id
+        self.actions = WorkflowActions(self.store, self.catalog, AsyncMock())
+        async with self.store.transaction() as session:
+            row = await self.actions.flow(session, self.owner, self.flow_id)
+            self.revision = self.actions.workflows.revision(row)
+        self.request = GraphActionRequest(
+            operation_key="edit-one",
+            kind="edit",
+            workflow_id=self.flow_id,
+            expected_revision=self.revision,
+            changes=GraphChanges.model_validate(
+                {"updates": [{"node_id": "Text-one", "fields": {"text": "new"}}]}
+            ),
+        )
+        self.permissions = patch(
+            "langflow.services.authorization.ensure_flow_permission", new=AsyncMock()
+        )
+        self.policy = patch("langflow.api.v1.flows._validate_catalog_policy_for_write")
+        self.permissions.start()
+        self.policy.start()
+
+    async def asyncTearDown(self):
+        self.permissions.stop()
+        self.policy.stop()
+        await self.engine.dispose()
+        self.directory.cleanup()
+
+    async def decide(self, proposal, decision="approve", key="fixture"):
+        return await self.actions.decide(
+            self.owner,
+            key,
+            self.conversation,
+            UUID(proposal["id"]),
+            GraphActionDecision(decision=decision, digest=proposal["digest"]),
+        )
+
+    async def test_proposal_is_inert_edit_commits_once_and_preserves_private_bytes(
+        self,
+    ):
+        proposal = await self.actions.propose(self.context, self.request)
+        self.assertEqual(
+            proposal, await self.actions.propose(self.context, self.request)
+        )
+        self.assertNotIn("PRIVATE_CANARY", str(proposal))
+        self.assertNotIn("TRUSTED_CODE", str(proposal))
+        async with self.store.sessions() as session:
+            self.assertEqual(
+                (await session.get(Flow, self.flow_id)).data, self.original
+            )
+        result, snapshot, _ = await self.decide(proposal)
+        self.assertEqual(result["state"], "succeeded")
+        self.assertIsNone(snapshot)
+        again, _, _ = await self.decide(proposal)
+        self.assertEqual(again, result)
+        async with self.store.sessions() as session:
+            changed = (await session.get(Flow, self.flow_id)).data
+        expected = deepcopy(self.original)
+        expected["nodes"][0]["data"]["node"]["template"]["text"]["value"] = "new"
+        self.assertEqual(changed, expected)
+
+    async def test_rejected_expired_stale_and_revoked_never_edit(self):
+        for outcome in ("rejected", "expired", "stale", "revoked"):
+            with self.subTest(outcome=outcome):
+                request = self.request.model_copy(update={"operation_key": outcome})
+                proposal = await self.actions.propose(self.context, request)
+                if outcome == "expired":
+                    async with self.store.transaction() as session:
+                        row = await session.get(
+                            AssistantGraphAction, UUID(proposal["id"])
+                        )
+                        row.expires_at = 0
+                        session.add(row)
+                elif outcome == "stale":
+                    async with self.store.transaction() as session:
+                        row = await session.get(Flow, self.flow_id)
+                        row.name = "Editor saved"
+                        session.add(row)
+                elif outcome == "revoked":
+                    await self.store.revoke("fixture")
+                if outcome == "revoked":
+                    with self.assertRaises(AssistantError):
+                        await self.decide(proposal)
+                else:
+                    result, _, _ = await self.decide(
+                        proposal, "reject" if outcome == "rejected" else "approve"
+                    )
+                    self.assertEqual(result["state"], outcome)
+                async with self.store.transaction() as session:
+                    row = await session.get(Flow, self.flow_id)
+                    self.assertEqual(row.data, self.original)
+                    row.name = "Existing graph"
+                    session.add(row)
+
+    async def test_action_key_digest_owner_and_session_are_bound(self):
+        proposal = await self.actions.propose(self.context, self.request)
+        with self.assertRaisesRegex(AssistantError, "assistant_action_conflict"):
+            await self.actions.propose(
+                self.context,
+                self.request.model_copy(update={"changes": GraphChanges(name="Other")}),
+            )
+        with self.assertRaises(AssistantError):
+            await self.actions.read(uuid4(), self.conversation, UUID(proposal["id"]))
+        await self.store.admit_session("other-session", self.owner, time.time() + 1000)
+        with self.assertRaises(AssistantError):
+            await self.decide(proposal, key="other-session")
+
+    async def test_run_is_claimed_once_with_exact_snapshot_and_server_session(self):
+        request = GraphActionRequest(
+            operation_key="run",
+            kind="run",
+            workflow_id=self.flow_id,
+            expected_revision=self.revision,
+            input_value="Hello",
+        )
+        proposal = await self.actions.propose(self.context, request)
+        result, snapshot, actor = await self.decide(proposal)
+        self.assertEqual(result["state"], "executing")
+        self.assertEqual(snapshot.data, self.original)
+        again, duplicate, _ = await self.decide(proposal)
+        self.assertIsNone(duplicate)
+        self.assertEqual(again, result)
+        execute = AsyncMock()
+        with patch("langflow.api.v1.endpoints.simple_run_flow", new=execute):
+            await self.actions.execute(result, snapshot, actor, AsyncMock())
+        call = execute.call_args
+        self.assertEqual(call.args[1].session_id, "assistant-action-" + proposal["id"])
+        self.assertEqual(call.args[1].output_type, "any")
+        self.assertIsNone(call.args[1].tweaks)
+        self.assertEqual(call.kwargs["run_id"], result["run_id"])
+        self.assertEqual(call.kwargs["context"], {})
+        self.assertEqual(
+            (
+                await self.actions.read(
+                    self.owner, self.conversation, UUID(result["id"])
+                )
+            )["state"],
+            "succeeded",
+        )
+
+    async def test_restart_observes_job_without_redispatch(self):
+        request = GraphActionRequest(
+            operation_key="run",
+            kind="run",
+            workflow_id=self.flow_id,
+            expected_revision=self.revision,
+        )
+        proposal = await self.actions.propose(self.context, request)
+        result, _, _ = await self.decide(proposal)
+        jobs = AsyncMock()
+        jobs.get_job_by_job_id.return_value = None
+        with (
+            patch("langflow.services.deps.get_job_service", return_value=jobs),
+            patch(
+                "langflow.api.v1.endpoints.simple_run_flow", new=AsyncMock()
+            ) as execute,
+        ):
+            await self.actions.reconcile()
+            execute.assert_not_called()
+        self.assertEqual(
+            (
+                await self.actions.read(
+                    self.owner, self.conversation, UUID(result["id"])
+                )
+            )["state"],
+            "unknown",
+        )
+
+    async def test_code_and_secret_updates_refuse_and_node_removal_preserves_other_bytes(
+        self,
+    ):
+        for field in ("code", "api_key"):
+            with self.subTest(field=field), self.assertRaises(AssistantError):
+                GraphEditor(self.catalog).apply(
+                    self.original,
+                    GraphChanges.model_validate(
+                        {"updates": [{"node_id": "Text-one", "fields": {field: "BAD"}}]}
+                    ),
+                )
+        data = deepcopy(self.original)
+        data["edges"] = [{"source": "Text-one", "target": "Text-two", "id": "attached"}]
+        changed, preview = GraphEditor(self.catalog).apply(
+            data, GraphChanges(remove_nodes=["Text-one"])
+        )
+        self.assertEqual(changed["nodes"], [self.original["nodes"][1]])
+        self.assertEqual(changed["edges"], [])
+        self.assertIn("1 incident connections", str(preview))

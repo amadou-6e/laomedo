@@ -9,6 +9,8 @@ import { describeNodeFailure } from "@/components/laomedoErrors/nodeErrors";
 import type { ActivityPage, DraftReceipt, Message } from "./models";
 import { stateLabel } from "./models";
 import Thinking from "./Thinking";
+import GraphActions from "./GraphActions";
+import type { GraphAction } from "./models";
 
 export function UserMessage({
   text,
@@ -56,8 +58,10 @@ export default function MessageRow({
   active,
   onContent,
   onFailure,
+  actions = [],
 }: {
   conversation: string;
+  actions?: GraphAction[];
   message: Message;
   receipts: DraftReceipt[];
   active: boolean;
@@ -179,6 +183,11 @@ export default function MessageRow({
           partial.
         </p>
       )}
+      <GraphActions
+        conversation={conversation}
+        actions={actions}
+        onFailure={onFailure}
+      />
       {receipts.map((receipt) => (
         <article
           key={receipt.id}

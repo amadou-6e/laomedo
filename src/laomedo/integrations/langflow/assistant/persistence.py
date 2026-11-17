@@ -14,6 +14,7 @@ from laomedo.integrations.langflow.assistant.models import (
     AssistantMessage,
     AssistantDraftReceipt,
     AssistantSession,
+    AssistantGraphAction,
 )
 
 
@@ -36,6 +37,7 @@ class AssistantStore:
                 AssistantMessage,
                 AssistantDraftReceipt,
                 AssistantSession,
+                AssistantGraphAction,
             )
         ]
         async with self.engine.begin() as connection:
@@ -200,8 +202,20 @@ class AssistantStore:
                     .limit(50)
                 )
             ).all()
+            actions = (
+                await session.exec(
+                    select(AssistantGraphAction)
+                    .where(
+                        AssistantGraphAction.conversation_id == identifier,
+                        AssistantGraphAction.owner_id == owner,
+                    )
+                    .order_by(AssistantGraphAction.created_at.desc())
+                    .limit(50)
+                )
+            ).all()
             return {
                 "conversation": conversation.model_dump(mode="json"),
+                "actions": [row.public() for row in reversed(actions)],
                 "messages": [
                     row.model_dump(mode="json", exclude={"digest", "activity_snapshot"})
                     for row in reversed(messages[:30])

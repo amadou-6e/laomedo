@@ -12,6 +12,7 @@ from laomedo.integrations.langflow.assistant.models import (
     ConversationRenameRequest,
     MessageRequest,
     StopRequest,
+    GraphActionDecision,
 )
 
 router = APIRouter(prefix="/api/v1/laomedo/assistant", tags=["Application assistant"])
@@ -174,5 +175,18 @@ async def lock(context=Depends(access)):
     try:
         await runtime.lock_session(key)
         return JSONResponse({"state": "locked"}, headers={"Cache-Control": "no-store"})
+    except AssistantError as error:
+        raise HTTPException(error.status, detail={"code": error.code}) from None
+
+
+@router.post("/conversations/{identifier}/actions/{action}/decision")
+async def decide_graph_action(
+    identifier: UUID, action: UUID, body: GraphActionDecision, context=Depends(access)
+):
+    """Human-only exact proposal approval/rejection through the same-origin app boundary."""
+    runtime, owner, key = context
+    try:
+        result = await runtime.decide_graph_action(owner, key, identifier, action, body)
+        return await release(runtime, owner, key, result)
     except AssistantError as error:
         raise HTTPException(error.status, detail={"code": error.code}) from None

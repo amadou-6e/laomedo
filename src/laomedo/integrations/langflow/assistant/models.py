@@ -404,3 +404,135 @@ class AssistantDraftReceipt(SQLModel, table=True):
     created_at: float = Field(
         default_factory=time.time, description="Atomic save time."
     )
+
+
+class GraphFieldUpdate(BaseModel):
+    """Explicit static field replacements on one existing saved node."""
+
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
+    node_id: str = ModelField(min_length=1, max_length=200)
+    fields: dict[str, JsonValue] = ModelField(min_length=1, max_length=40)
+
+
+class GraphConnection(BaseModel):
+    """Named compatible ports on exact saved or newly added node IDs."""
+
+    model_config = ConfigDict(extra="forbid")
+    source: str = ModelField(min_length=1, max_length=200)
+    output: str = ModelField(min_length=1, max_length=100)
+    target: str = ModelField(min_length=1, max_length=200)
+    input: str = ModelField(min_length=1, max_length=100)
+
+
+class GraphChanges(BaseModel):
+    """A bounded explicit patch; absence never means delete an unmentioned setting."""
+
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
+    name: str | None = ModelField(default=None, min_length=1, max_length=120)
+    updates: list[GraphFieldUpdate] = ModelField(default_factory=list, max_length=40)
+    add_nodes: list[DraftNode] = ModelField(default_factory=list, max_length=40)
+    remove_nodes: list[str] = ModelField(default_factory=list, max_length=40)
+    connect: list[GraphConnection] = ModelField(default_factory=list, max_length=100)
+    disconnect: list[GraphConnection] = ModelField(default_factory=list, max_length=100)
+
+    @model_validator(mode="after")
+    def require_change(self):
+        """Refuse empty/no-name proposals without silently inventing a mutation."""
+        if not any(
+            (
+                self.name,
+                self.updates,
+                self.add_nodes,
+                self.remove_nodes,
+                self.connect,
+                self.disconnect,
+            )
+        ):
+            raise ValueError("assistant_graph_change_empty")
+        if self.name is not None and not self.name.strip():
+            raise ValueError("assistant_title_empty")
+        if len(self.model_dump_json().encode()) > 65536:
+            raise ValueError("assistant_graph_too_large")
+        return self
+
+
+class GraphActionRequest(BaseModel):
+    """Exact immutable proposal semantics; it grants no execution authority."""
+
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
+    operation_key: str = ModelField(pattern=r"^[A-Za-z0-9_-]{1,80}$")
+    workflow_id: UUID
+    expected_revision: str = ModelField(pattern=r"^sha256:[0-9a-f]{64}$")
+    kind: Literal["edit", "run"]
+    changes: GraphChanges | None = None
+    input_value: str = ModelField(default="", max_length=12000, repr=False)
+    input_type: Literal["chat", "text", "any"] = "chat"
+    output_type: Literal["chat", "text", "any", "debug"] = "any"
+
+    @model_validator(mode="after")
+    def require_kind_arguments(self):
+        """Forbid silently ignored edit/run arguments and ambiguous digests."""
+        if (self.kind == "edit") != (self.changes is not None):
+            raise ValueError("assistant_action_arguments_invalid")
+        if self.kind == "edit" and (
+            self.input_value or self.input_type != "chat" or self.output_type != "any"
+        ):
+            raise ValueError("assistant_action_arguments_invalid")
+        return self
+
+    def digest(self):
+        """Bind every proposal field, including target revision and execution inputs."""
+        import hashlib
+        import json
+
+        return hashlib.sha256(
+            json.dumps(
+                self.model_dump(mode="json"), sort_keys=True, separators=(",", ":")
+            ).encode()
+        ).hexdigest()
+
+
+class GraphActionDecision(BaseModel):
+    """Human app-only decision; not present in the provider MCP manifest."""
+
+    model_config = ConfigDict(extra="forbid")
+    decision: Literal["approve", "reject"]
+    digest: str = ModelField(pattern=r"^[0-9a-f]{64}$")
+
+
+class AssistantGraphAction(SQLModel, table=True):
+    """Durable proposal, human decision and effect observation; no raw graph snapshot."""
+
+    __tablename__ = "laomedo_assistant_graph_action"
+    __table_args__ = (UniqueConstraint("conversation_id", "operation_key"),)
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    owner_id: UUID = Field(index=True)
+    conversation_id: UUID = Field(index=True)
+    message_id: UUID
+    attempt_id: UUID
+    session_key: str = Field(repr=False)
+    operation_key: str
+    workflow_id: UUID
+    name: str
+    kind: str
+    digest: str
+    request: dict = Field(sa_column=Column(JSON), repr=False)
+    preview: list[str] = Field(sa_column=Column(JSON))
+    state: str = "pending"
+    revision: str
+    result_revision: str | None = None
+    run_id: UUID | None = None
+    error_code: str | None = None
+    created_at: float = Field(default_factory=time.time)
+    expires_at: float
+
+    def public(self):
+        """Expose bounded safe preview/outcome, never the host session or raw graph."""
+        import time
+
+        result = self.model_dump(
+            mode="json", exclude={"owner_id", "session_key", "request"}
+        )
+        if self.state == "pending" and self.expires_at <= time.time():
+            result["state"] = "expired"
+        return result

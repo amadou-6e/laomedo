@@ -44,6 +44,7 @@ class AssistantRuntime:
         self.runners, self.runner_locks, self.jobs = {}, {}, {}
         self.contexts, self.host_tokens, self.tool_tasks = {}, {}, {}
         self.save_locks, self.uncertain_saves = {}, {}
+        self.graph_jobs = {}
         self.revoked_sessions = set()
         self.closing = False
         self.ready = False
@@ -97,6 +98,11 @@ class AssistantRuntime:
                             error="assistant_dispatch_unknown",
                             reconciled=True,
                         )
+                    from laomedo.integrations.langflow.assistant.actions import (
+                        WorkflowActions,
+                    )
+
+                    await WorkflowActions(self.store, None, self.authorize).reconcile()
                     yield state
                 finally:
                     self.closing = True
@@ -122,6 +128,11 @@ class AssistantRuntime:
                     for task in list(self.jobs.values()):
                         task.cancel()
                     await asyncio.gather(*self.jobs.values(), return_exceptions=True)
+                    for task in list(self.graph_jobs.values()):
+                        task.cancel()
+                    await asyncio.gather(
+                        *self.graph_jobs.values(), return_exceptions=True
+                    )
                     for runner in self.runners.values():
                         await asyncio.to_thread(runner.shutdown)
 
@@ -322,6 +333,31 @@ class AssistantRuntime:
                 raise
             self.uncertain_saves.pop(context.message_id, None)
             return result
+
+    async def graph_actions(self, owner):
+        """Compose policy-filtered graph actions without a provider runner or model turn."""
+        from laomedo.integrations.langflow.assistant.actions import WorkflowActions
+
+        return WorkflowActions(
+            self.store, await ComponentCatalog.from_installed(owner), self.authorize
+        )
+
+    async def decide_graph_action(self, owner, key, conversation, identifier, decision):
+        """Admit only an authenticated human decision; never let MCP grant this authority."""
+        await self.check_session(owner, key)
+        actions = await self.graph_actions(owner)
+        result, snapshot, actor = await actions.decide(
+            owner, key, conversation, identifier, decision
+        )
+        if snapshot is not None:
+            task = asyncio.create_task(
+                actions.execute(result, snapshot, actor, self.check_session)
+            )
+            self.graph_jobs[identifier] = task
+            task.add_done_callback(
+                lambda completed: self.graph_jobs.pop(identifier, None)
+            )
+        return result
 
     async def skills(self, context, query="", cursor=0):
         """List only the configured imported local registry; private source discovery is not added."""
