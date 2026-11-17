@@ -220,6 +220,44 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
             self.assertNotIn("SECRET", json.dumps(output))
             self.assertEqual(http.call_count, 1)
 
+    def test_reference_5xx_preserves_admitted_host_code_and_uncertain_outcome(self):
+        node = component()
+        node._reference_run_id = RUN
+        node._prior_trace_ref = None
+        body = {
+            "status": "failed",
+            "error_category": "private raw exception",
+            "runner_diagnostics": {
+                "diagnostic_id": RUN,
+                "runner_code": "invalid_runner_api_token",
+            },
+        }
+        with (
+            patch.object(node, "_token", return_value="synthetic"),
+            patch.object(
+                shared_module._HTTP,
+                "open",
+                side_effect=error.HTTPError(
+                    "http://localhost",
+                    502,
+                    "failure",
+                    {},
+                    Response(json.dumps(body).encode()),
+                ),
+            ) as http,
+        ):
+            with self.assertRaises(shared_module.RunnerResultError) as failure:
+                node._http("http://localhost/v1/runs/" + RUN, None, "GET")
+        reference = failure.exception.run_reference
+        self.assertEqual(reference["error_category"], "runner_runtime_unknown")
+        self.assertEqual(reference["status"], "unknown")
+        self.assertEqual(
+            reference["runner_diagnostics"]["runner_code"], "invalid_runner_api_token"
+        )
+        self.assertEqual(reference["runner_diagnostics"]["http_status"], 502)
+        self.assertNotIn("private", json.dumps(reference))
+        self.assertEqual(http.call_count, 1)
+
     async def test_submission_separates_reported_outcome_from_executor_and_evidence(
         self,
     ):

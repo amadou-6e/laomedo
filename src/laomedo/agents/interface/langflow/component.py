@@ -226,6 +226,7 @@ _ROUTABLE_ERRORS = {
     "workspace_command_output_too_large",
 }
 _ROUTABLE_ERRORS.update(MCP_ERROR_CODES)
+_ROUTABLE_ERRORS.update(RunnerDiagnostics.known_codes)
 
 
 class _NoRedirect(request.HTTPRedirectHandler):
@@ -1138,9 +1139,11 @@ class AgentComponent(Component):
                         result["run_id"] = self._reference_run_id
                         result["status"] = "unknown"
                         if exc.code >= 500:
-                            diagnostics["runner_code"] = RunnerDiagnostics.safe_code(
+                            reported_code = RunnerDiagnostics.safe_code(
                                 result.get("error_category"), _ROUTABLE_ERRORS
                             )
+                            if reported_code:
+                                diagnostics["runner_code"] = reported_code
                             result["error_category"] = "runner_runtime_unknown"
                     result.setdefault("status", "unknown")
                     result.setdefault("raw_event_ref", self._prior_trace_ref)
