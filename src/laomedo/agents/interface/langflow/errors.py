@@ -18,6 +18,10 @@ class RunnerRequestError(RuntimeError):
         self.diagnostics = RunnerDiagnostics.from_payload(diagnostics).to_payload()
         super().__init__(code + "; runner_diagnostics=" + json.dumps(self.diagnostics))
 
+    def __reduce__(self):
+        """Preserve the code and admitted observations across exception transport."""
+        return type(self), (self.code, self.diagnostics)
+
 
 class RunnerResultError(RuntimeError):
     """Failed invocation with the public run reference retained for recovery."""
