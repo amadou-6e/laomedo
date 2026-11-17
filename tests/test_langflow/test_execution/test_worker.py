@@ -11,6 +11,8 @@ import tempfile
 import unittest
 from uuid import uuid4
 
+from support.docker import DockerTestContainer
+
 if find_spec("lfx") is None:
     raise unittest.SkipTest("Optional native executor is not installed")
 
@@ -202,11 +204,7 @@ class ContainerGraphWorkerTests(NativeGraphWorkerTests):
         image = os.environ["LAOMEDO_TEST_GRAPH_WORKER_IMAGE"]
         self.assertRegex(image, r"^sha256:[0-9a-f]{64}$")
         return [
-            "docker",
-            "--context",
-            "desktop-linux",
-            "run",
-            "--rm",
+            *self.container.arguments(),
             "--interactive",
             "--network=none",
             "--cap-drop=ALL",
@@ -224,3 +222,9 @@ class ContainerGraphWorkerTests(NativeGraphWorkerTests):
             "/tmp:rw,nosuid,nodev,size=256m",
             image,
         ]
+
+    def invoke(self, graph, directory, reply=None):
+        """Guarantee owned-container cleanup even if a native child hangs."""
+        with DockerTestContainer() as container:
+            self.container = container
+            return super().invoke(graph, directory, reply)

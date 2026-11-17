@@ -4,6 +4,8 @@ import os
 import subprocess
 import unittest
 
+from support.docker import DockerTestContainer
+
 
 @unittest.skipUnless(
     os.environ.get("LAOMEDO_TEST_NATIVE_RUNTIME_IMAGE"),
@@ -52,40 +54,37 @@ async def verify():
 
 asyncio.run(verify())
 """
-        result = subprocess.run(
-            [
-                "docker",
-                "--context",
-                "desktop-linux",
-                "run",
-                "--rm",
-                "--interactive",
-                "--network=none",
-                "--cap-drop=ALL",
-                "--security-opt=no-new-privileges",
-                "--read-only",
-                "--user",
-                "65532:65532",
-                "--pids-limit",
-                "256",
-                "--memory",
-                "2g",
-                "--cpus",
-                "2",
-                "--tmpfs",
-                "/tmp:rw,nosuid,nodev,size=256m",
-                "--entrypoint",
-                "python",
-                image,
-                "-",
-            ],
-            input=program,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=120,
-        )
+        with DockerTestContainer() as container:
+            result = subprocess.run(
+                [
+                    *container.arguments(),
+                    "--interactive",
+                    "--network=none",
+                    "--cap-drop=ALL",
+                    "--security-opt=no-new-privileges",
+                    "--read-only",
+                    "--user",
+                    "65532:65532",
+                    "--pids-limit",
+                    "256",
+                    "--memory",
+                    "2g",
+                    "--cpus",
+                    "2",
+                    "--tmpfs",
+                    "/tmp:rw,nosuid,nodev,size=256m",
+                    "--entrypoint",
+                    "python",
+                    image,
+                    "-",
+                ],
+                input=program,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=120,
+            )
         # Native diagnostics stay local; never echo them into public CI output.
         self.assertEqual(result.returncode, 0, "Isolated native startup/CRUD failed")
         self.assertIn("NATIVE_PROFILE_CHECK_OK", result.stdout)
