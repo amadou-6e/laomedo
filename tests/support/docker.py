@@ -25,10 +25,11 @@ class DockerTestContainer:
 
     def arguments(self):
         """Record Docker's real container ID; no host receipt is mounted."""
+        return ["docker", "--context", "desktop-linux", *self.run_arguments()]
+
+    def run_arguments(self):
+        """Return the same owned reservation for an admitted Docker control client."""
         return [
-            "docker",
-            "--context",
-            "desktop-linux",
             "run",
             "--rm",
             "--cidfile",

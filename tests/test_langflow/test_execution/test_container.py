@@ -13,12 +13,17 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 from uuid import uuid4
+from support.docker import DockerTestContainer
 
 from pydantic import ValidationError
 
 from laomedo.integrations.langflow.execution.container import DockerGraphWorker
+from laomedo.integrations.langflow.execution.base import BaseDockerRuntime
 from laomedo.integrations.langflow.execution.errors import GraphWorkerError
-from laomedo.integrations.langflow.execution.settings import GraphWorkerSettings
+from laomedo.integrations.langflow.execution.settings import (
+    GraphWorkerSettings,
+    DOCKER_CONTROL_OUTPUT_BYTES,
+)
 from laomedo.github.connections.models import GitHubNodeReadResult, GitHubNodeSelection
 from laomedo.github.connections.run_authority import GitHubRunAuthority
 from laomedo.github.connections.worker_access import GitHubWorkerAccess
@@ -181,6 +186,56 @@ class WorkerCancellationTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(GraphWorkerError):
             await asyncio.wait_for(pending, 1.0)
         self.assertTrue(stopped.is_set())
+
+
+@unittest.skipUnless(
+    os.environ.get("LAOMEDO_TEST_GRAPH_WORKER_IMAGE"),
+    "An explicitly built local worker image is required",
+)
+class DockerControlOutputTests(unittest.IsolatedAsyncioTestCase):
+    """Container output cannot turn trusted Docker control into an unbounded buffer."""
+
+    async def test_oversized_container_output_is_refused_without_returning_its_body(
+        self,
+    ):
+        image = os.environ["LAOMEDO_TEST_GRAPH_WORKER_IMAGE"]
+        with tempfile.TemporaryDirectory(prefix="laomedo-control-limit-") as directory:
+            runtime = BaseDockerRuntime(
+                GraphWorkerSettings(image_id=image, lease_state=Path(directory))
+            )
+            for descriptor in (1, 2):
+                with (
+                    self.subTest(stream=descriptor),
+                    DockerTestContainer() as container,
+                ):
+                    program = f"import os;os.write({descriptor}, b'x'*{DOCKER_CONTROL_OUTPUT_BYTES * 2})"
+                    with self.assertRaises(GraphWorkerError):
+                        await asyncio.wait_for(
+                            runtime._control(
+                                [
+                                    *container.run_arguments(),
+                                    "--network=none",
+                                    "--cap-drop=ALL",
+                                    "--security-opt=no-new-privileges",
+                                    "--read-only",
+                                    "--user",
+                                    "65532:65532",
+                                    "--pids-limit",
+                                    "128",
+                                    "--memory",
+                                    "1g",
+                                    "--cpus",
+                                    "2",
+                                    "--entrypoint",
+                                    "python",
+                                    image,
+                                    "-c",
+                                    program,
+                                ],
+                                runtime._environment(),
+                            ),
+                            timeout=20.0,
+                        )
 
 
 @unittest.skipUnless(

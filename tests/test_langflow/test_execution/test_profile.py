@@ -37,12 +37,14 @@ class DockerProfileRuntimeTests(unittest.IsolatedAsyncioTestCase):
     async def call(self, instance, method, path, body=None):
         """Call only container loopback through a private exec stdin, without host ports."""
         program = (
-            "import json,sys;from urllib.request import Request,urlopen;"
+            "import gzip,json,sys;from urllib.request import Request,urlopen;"
             "value=json.load(sys.stdin);"
             "body=json.dumps(value['body']).encode() if value['body'] is not None else None;"
             "request=Request('http://127.0.0.1:7860'+value['path'],data=body,method=value['method'],"
             "headers={'Content-Type':'application/json'});"
-            "print(urlopen(request,timeout=10).read().decode())"
+            "response=urlopen(request,timeout=10);data=response.read();"
+            "data=gzip.decompress(data) if response.headers.get('Content-Encoding')=='gzip' else data;"
+            "print(data.decode())"
         )
         result = await asyncio.to_thread(
             subprocess.run,

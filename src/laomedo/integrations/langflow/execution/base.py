@@ -8,6 +8,10 @@ import subprocess
 
 from laomedo.host.leases.settings import LABEL_RUN, LABEL_TOKEN
 from laomedo.integrations.langflow.execution.errors import GraphWorkerError
+from laomedo.integrations.langflow.execution.settings import (
+    DOCKER_CONTROL_OUTPUT_BYTES,
+    DOCKER_CONTROL_CHUNK_BYTES,
+)
 
 
 class BaseDockerRuntime:
@@ -47,18 +51,43 @@ class BaseDockerRuntime:
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
+        readers = [
+            asyncio.create_task(self._control_output(stream))
+            for stream in (process.stdout, process.stderr)
+        ]
         try:
             stdout, stderr = await asyncio.wait_for(
-                process.communicate(), timeout=self.settings.control_timeout_seconds
+                asyncio.gather(*readers), timeout=self.settings.control_timeout_seconds
+            )
+            await asyncio.wait_for(
+                process.wait(), timeout=self.settings.control_timeout_seconds
             )
         except BaseException:
             if process.returncode is None:
                 process.kill()
-            await process.wait()
+            for reader in readers:
+                reader.cancel()
+            await asyncio.gather(*readers, return_exceptions=True)
+            # After killing the local Docker client, drain its bounded pipe
+            # buffers so wait cannot hang on a paused StreamReader transport.
+            await asyncio.wait_for(
+                process.communicate(), timeout=self.settings.control_timeout_seconds
+            )
             raise
         return subprocess.CompletedProcess(
             arguments, process.returncode, stdout, stderr
         )
+
+    async def _control_output(self, stream):
+        """Bound even container-influenced readiness output before retaining bytes."""
+        output = bytearray()
+        while True:
+            chunk = await stream.read(DOCKER_CONTROL_CHUNK_BYTES)
+            if not chunk:
+                return bytes(output)
+            if len(output) + len(chunk) > DOCKER_CONTROL_OUTPUT_BYTES:
+                raise GraphWorkerError()
+            output.extend(chunk)
 
     async def _local_context(self, environment):
         """Refuse remote Docker daemons before private job data can leave the host."""

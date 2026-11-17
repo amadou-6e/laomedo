@@ -19,6 +19,7 @@ from laomedo.integrations.langflow.execution.settings import (
     NATIVE_PROFILE_OWNER_LABEL,
     NATIVE_PROFILE_STATE_PATH,
     NATIVE_PROFILE_PORT,
+    NATIVE_PROFILE_PROBE_BYTES,
 )
 
 
@@ -99,10 +100,12 @@ class DockerProfileRuntime(BaseDockerRuntime):
             asyncio.get_running_loop().time() + self.settings.startup_timeout_seconds
         )
         program = (
-            "from urllib.request import urlopen; "
-            "print(urlopen('http://127.0.0.1:"
+            "import json;from urllib.request import urlopen; "
+            "response=urlopen('http://127.0.0.1:"
             + str(NATIVE_PROFILE_PORT)
-            + "/api/v1/users/whoami', timeout=2).read().decode())"
+            + "/api/v1/users/whoami', timeout=2);"
+            f"data=response.read({NATIVE_PROFILE_PROBE_BYTES + 1});assert len(data)<={NATIVE_PROFILE_PROBE_BYTES};"
+            "print(json.dumps({'id':json.loads(data)['id']}))"
         )
         while asyncio.get_running_loop().time() < deadline:
             if instance.cancelled.is_set():
