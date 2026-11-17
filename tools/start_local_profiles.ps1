@@ -7,6 +7,8 @@ param(
     [Parameter(Mandatory=$true)][string]$FrontendPath,
     [Parameter(Mandatory=$true)][string]$RuntimeRoot,
     [ValidateRange(1024,65535)][int]$Port = 17866,
+    [ValidatePattern('^(?:127\.0\.0\.1|[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.localhost)$')]
+    [string]$BrowserHost = '127.0.0.1',
     [string]$ProviderSourceWorkspace,
     [string]$LangflowSourceRoot
 )
@@ -97,9 +99,10 @@ $config = @{
     LAOMEDO_SKILL_STORE=(Join-Path $runtime 'registry')
     LAOMEDO_AGENT_ACTIVITY_DB=(Join-Path $runtime 'activity.db')
     LANGFLOW_DO_NOT_TRACK='true'
-    LANGFLOW_CORS_ORIGINS=('["http://127.0.0.1:' + $Port + '"]')
+    LANGFLOW_CORS_ORIGINS=('["http://' + $BrowserHost + ':' + $Port + '"]')
     LANGFLOW_CORS_ALLOW_CREDENTIALS='true'
     LAOMEDO_LOCAL_PROFILE_PORT=[string]$Port
+    LAOMEDO_LOCAL_PROFILE_BROWSER_HOST=$BrowserHost
     LAOMEDO_LOCAL_PROFILE_RUNTIME=$runtime
     LAOMEDO_PROVIDER_SOURCE_WORKSPACE=$providerSource
     PYTHONPATH=($pythonSources -join [IO.Path]::PathSeparator)

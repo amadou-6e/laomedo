@@ -74,3 +74,10 @@ delegate WebSocket/SSE/MCP identity to the configured service; service-method
 checks do not establish real transport acceptance. A local OS user directly
 editing the database or signing credentials is outside this convenience-lock
 trust boundary.
+
+`LocalProfileSettings.browser_host` selects one exact browser hostname: the
+default 127.0.0.1 or a single-label .localhost alias. The server still binds
+only IPv4 loopback. Entry and provider route guards and CORS use that same
+configured origin. Use a distinct alias per concurrent preview because browser
+authentication cookies are scoped by hostname, not TCP port. Switching hostname
+requires normal PIN entry; credentials and profile data are never transferred.

@@ -10,9 +10,9 @@ class LocalProfileBoundary:
     Static assets remain readable; new profile state is exposed only same-origin.
     """
 
-    def __init__(self, app, *, port: int):
+    def __init__(self, app, *, port: int, browser_host: str = "127.0.0.1"):
         self.app = app
-        self.host = f"127.0.0.1:{port}"
+        self.host = f"{browser_host}:{port}"
         self.origin = f"http://{self.host}"
 
     async def __call__(self, scope, receive, send):
