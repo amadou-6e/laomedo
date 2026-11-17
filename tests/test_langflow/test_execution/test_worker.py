@@ -85,7 +85,7 @@ class NativeGraphWorkerTests(unittest.TestCase):
             }
         )
         result = subprocess.run(
-            [sys.executable, "-m", "laomedo.integrations.langflow.execution"],
+            self.worker_command(),
             input=bootstrap.getvalue(),
             cwd=directory,
             env=environment,
@@ -108,6 +108,10 @@ class NativeGraphWorkerTests(unittest.TestCase):
         self.assertEqual(outcome.job_id, job.job_id)
         self.assertNotIn("w" * 43, outcome.model_dump_json())
         return result.returncode, outcome
+
+    def worker_command(self):
+        """Execute the installed native driver in a cold local Python process."""
+        return [sys.executable, "-m", "laomedo.integrations.langflow.execution"]
 
     def github_graph(self, kind):
         """Load the maintained native node; keep broker replies explicitly synthetic."""
@@ -184,3 +188,39 @@ class NativeGraphWorkerTests(unittest.TestCase):
             self.assertFalse((Path(directory) / "executed").exists())
         self.assertNotEqual(status, 0)
         self.assertEqual(outcome.event, "failed")
+
+
+@unittest.skipUnless(
+    os.environ.get("LAOMEDO_TEST_GRAPH_WORKER_IMAGE"),
+    "An explicitly built local graph worker image is required",
+)
+class ContainerGraphWorkerTests(NativeGraphWorkerTests):
+    """Same native contract inside a real container; broker replies are synthetic."""
+
+    def worker_command(self):
+        """Use a pinned image with no host mounts, network or inherited credentials."""
+        image = os.environ["LAOMEDO_TEST_GRAPH_WORKER_IMAGE"]
+        self.assertRegex(image, r"^sha256:[0-9a-f]{64}$")
+        return [
+            "docker",
+            "--context",
+            "desktop-linux",
+            "run",
+            "--rm",
+            "--interactive",
+            "--network=none",
+            "--cap-drop=ALL",
+            "--security-opt=no-new-privileges",
+            "--read-only",
+            "--user",
+            "65532:65532",
+            "--pids-limit",
+            "128",
+            "--memory",
+            "1g",
+            "--cpus",
+            "2",
+            "--tmpfs",
+            "/tmp:rw,nosuid,nodev,size=256m",
+            image,
+        ]

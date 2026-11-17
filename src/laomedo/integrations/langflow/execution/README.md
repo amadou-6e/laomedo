@@ -30,3 +30,11 @@ container launcher must validate the actual graph before constructing components
 enforce the real job timeout, revoke authority on every terminal path, and prove
 container cleanup. The native runtime and browser proxy remain unintegrated;
 these channel building blocks are not OS-isolation or live-node acceptance.
+
+`container.py` owns `DockerGraphWorker.run`: it verifies a local Docker context,
+registers an independently supervised lease, inspects the actual sandbox before
+sending a capability, dispatches bounded private-pipe reads and revokes authority
+before cleanup. `cancel` accepts only the owning profile and revokes the job
+before stopping it. `GraphWorkerSettings` accepts explicit host deployment values
+only; image IDs are immutable, and lease state must remain outside repositories.
+This launcher is not yet connected to browser admission or the preview.
