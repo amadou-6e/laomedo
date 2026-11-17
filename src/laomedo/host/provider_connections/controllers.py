@@ -38,6 +38,11 @@ class SavedRunnerRequestHandler(RunnerRequestHandler):
                     and parts[:2] == ["v1", "runs"]
                     and parts[3] == "resume"
                 )
+                or (
+                    len(parts) == 5
+                    and parts[:2] == ["v1", "runs"]
+                    and parts[3:] == ["resume", "async"]
+                )
             )
         )
         try:

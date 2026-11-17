@@ -2,13 +2,13 @@
 
 from contextlib import closing
 from pathlib import Path
+from importlib import import_module
 import os
 import secrets
 import sqlite3
 
 from alembic.script import ScriptDirectory
 from langflow import __file__ as langflow_file
-from langflow.services.database.models import User
 from lfx.services.settings.constants import LEGACY_DEFAULT_SUPERUSER_PASSWORD
 from pydantic import SecretStr, ValidationError
 
@@ -70,7 +70,7 @@ class ProfileRuntimeAdmission:
                 }
                 if not tables:
                     return True
-                expected = User.metadata.tables
+                expected = self._upstream_tables()
                 if (
                     not set(expected).issubset(tables)
                     or "alembic_version" not in tables
@@ -129,3 +129,20 @@ class ProfileRuntimeAdmission:
         self.verify_database(service.auth_settings)
         service.auth_settings.SUPERUSER = SYSTEM_PROFILE_NAME
         service.auth_settings.SUPERUSER_PASSWORD = SecretStr(secrets.token_urlsafe(48))
+
+    @staticmethod
+    def _upstream_tables():
+        """Require upstream-owned tables, independent of optional shared metadata.
+
+        The pinned library publishes its mapped models in __all__. Feature
+        models share SQLModel metadata but initialize under their own owners.
+        Reflect only that library's public exports, without mutable snapshots
+        or a second hand-maintained schema definition.
+        """
+        models = import_module("langflow.services.database.models")
+        expected = {}
+        for name in models.__all__:
+            table = getattr(getattr(models, name), "__table__", None)
+            if table is not None:
+                expected[table.name] = table
+        return expected

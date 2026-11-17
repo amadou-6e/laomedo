@@ -135,6 +135,8 @@ class ProviderControllerTests(unittest.TestCase):
             "/v1/runs/",
             "/v1/runs/async/",
             "/v1/runs/" + str(uuid4()) + "/resume/",
+            "/v1/runs/" + str(uuid4()) + "/resume/async",
+            "/v1/runs/" + str(uuid4()) + "/resume/async/",
         ):
             with self.assertRaises(HTTPError) as failure:
                 self.post(endpoint, path, {"request_id": str(uuid4())})

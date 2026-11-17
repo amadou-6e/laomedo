@@ -14,7 +14,13 @@ validation errors and return catalogue codes, never Pydantic input payloads.
 
 The startup adapter admits owned state before migrations and verifies the
 internal actor before serving. Profile creation delegates to upstream user
-creation; login, hashing and token validation stay upstream-owned. The authentication adapter refuses the internal actor without replacing ordinary
+creation. `ProfileRuntimeAdmission._upstream_tables()` identifies the pinned
+upstream's exported mapped models, rather than treating unrelated feature tables
+in SQLModel's shared metadata as profile admission prerequisites. Each feature
+still owns initialization and validation of its own tables. Admission remains
+read-only and still verifies upstream schema, revision and internal identity.
+Profile login, hashing and token validation stay upstream-owned. The
+authentication adapter refuses the internal actor without replacing ordinary
 profile authentication. `runtime.py` composes these adaptations around the upstream
 lifespan only for the opt-in local profile app. The React entry UI is implemented;
 real registration, switching and restoration acceptance remain unverified.
