@@ -77,6 +77,15 @@ class ProfileCookieTests(unittest.TestCase):
             ).json()["selected"]
         )
 
+    def test_unrelated_permissive_cookie_names_and_values_do_not_break_auth(self):
+        cookie = "[other]=value; theme=two words,with spaces; laomedo_profile_17884_access_token_lf=selected"
+        response = self.client.get("/read", headers={"Cookie": cookie})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.json(),
+            {"selected": True, "refresh": False, "unrelated": "two words,with spaces"},
+        )
+
     def test_login_and_logout_rename_only_owned_cookies_preserving_attributes(self):
         headers = self.client.post("/login").headers.get_list("set-cookie")
         access = next(

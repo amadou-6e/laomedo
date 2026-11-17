@@ -1,9 +1,5 @@
 """Keep parallel loopback profile previews from replacing each other's login."""
 
-from http.cookies import SimpleCookie
-
-from starlette.requests import HTTPConnection
-
 from laomedo.integrations.langflow.local_profiles.settings import PROFILE_COOKIE_NAMES
 
 
@@ -42,28 +38,28 @@ class ProfileCookieBoundary:
     async def __call__(self, scope, receive, send):
         if scope["type"] not in {"http", "websocket"}:
             return await self.app(scope, receive, send)
-        cookies = HTTPConnection(scope).cookies
-        translated = SimpleCookie()
-        selected = {self.prefix + name for name in PROFILE_COOKIE_NAMES}
-        for name, value in cookies.items():
-            if name not in PROFILE_COOKIE_NAMES and name not in selected:
-                translated[name] = value
-        for name in PROFILE_COOKIE_NAMES:
-            scoped = self.prefix + name
-            if scoped in cookies:
-                translated[name] = cookies[scoped]
-        headers = [
-            (name, value)
-            for name, value in scope["headers"]
-            if name.lower() != b"cookie"
-        ]
-        if translated:
-            headers.append(
-                (
-                    b"cookie",
-                    translated.output(header="", sep=";").strip().encode("latin-1"),
-                )
-            )
+        pairs = []
+        owned = {name.encode("ascii") for name in PROFILE_COOKIE_NAMES}
+        prefix = self.prefix.encode("ascii")
+        headers = []
+        for header, value in scope["headers"]:
+            if header.lower() != b"cookie":
+                headers.append((header, value))
+                continue
+            for pair in value.split(b";"):
+                key, separator, content = pair.partition(b"=")
+                name = key.strip()
+                if name in owned:
+                    continue
+                if name.startswith(b"laomedo_profile_"):
+                    if name.startswith(prefix) and name[len(prefix) :] in owned:
+                        pairs.append(name[len(prefix) :] + separator + content)
+                    continue
+                # Keep unrelated raw pairs byte-for-byte. Parsing or quoting
+                # their names/values would impose a new cookie format policy.
+                pairs.append(pair)
+        if pairs:
+            headers.append((b"cookie", b";".join(pairs)))
         await self.app(
             {**scope, "headers": headers},
             receive,

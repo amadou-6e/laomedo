@@ -82,3 +82,8 @@ preserving their attributes. `ProfileCookieResponse` owns response forwarding.
 Foreign or unscoped auth cookies never supply a profile session; existing
 previews require normal PIN entry once. Origin checks and OAuth callback URLs
 stay at the exact 127.0.0.1 address. No cookies are copied between previews.
+
+Profile-mode logout always contacts the server even if another preview set the
+shared auto-login hint. An unavailable mode check also forces server logout;
+normal non-profile auto-login behavior remains unchanged. HTTP-only cookie
+erasure is confirmed by the server rather than a JavaScript clear operation.
