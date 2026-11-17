@@ -32,7 +32,11 @@ class NativeProfileRuntime:
                 "LFX_CONFIG_DIR": str(root),
                 "LANGFLOW_DATABASE_URL": "sqlite:///" + (root / "graphs.db").as_posix(),
                 "LANGFLOW_AUTO_LOGIN": "false",
-                "LANGFLOW_SKIP_SUPERUSER_SETUP": "true",
+                # Native startup requires its own bootstrap account even though
+                # API requests use the ordinary operational owner below. This
+                # random container-local password is never a broker profile PIN.
+                "LANGFLOW_SUPERUSER": "graph-bootstrap",
+                "LANGFLOW_SUPERUSER_PASSWORD": secrets.token_urlsafe(48),
                 "LANGFLOW_DO_NOT_TRACK": "true",
             }
         )
