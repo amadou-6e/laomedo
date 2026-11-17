@@ -75,3 +75,9 @@ Run cards use a human-readable sentence with the actual server-preview input,
 not the model summary: Run/Running/Ran workflow "name" with input "value".
 Only a successful result uses Ran. Outcomes occupy their own left-aligned line
 below the description; they never share the graph icon's right-hand column.
+
+Rename cards follow the same sentence layout as runs, without a separate title:
+Rename/Renamed workflow "old" to "new", followed by the left-aligned outcome.
+
+Edit uses that same single-sentence layout: Edit/Edited workflow "name": brief
+change description. All three categories share typography, icon and outcome layout.

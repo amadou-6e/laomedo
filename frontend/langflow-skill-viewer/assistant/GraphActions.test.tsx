@@ -35,10 +35,15 @@ describe("human graph approval", () => {
       />,
     );
     expect(assistantRequest).not.toHaveBeenCalled();
-    expect(screen.getByText("Edit workflow")).toBeTruthy();
     expect(
-      screen.getByText("Change the input text from old to new."),
+      screen.getByRole("heading", {
+        name: 'Edit workflow "Actual graph": Change the input text from old to new.',
+      }),
     ).toBeTruthy();
+    expect(screen.queryByText("Edit workflow")).toBeNull();
+    expect(
+      screen.queryByText("Change the input text from old to new."),
+    ).toBeNull();
     expect(screen.queryByText("Details")).toBeNull();
     expect(screen.queryByText(/Saved revision/)).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Approve" }));
@@ -69,8 +74,12 @@ describe("human graph approval", () => {
         onFailure={() => {}}
       />,
     );
-    expect(screen.getByText("Rename workflow")).toBeTruthy();
-    expect(screen.getByText("“Actual graph” → “New name”")).toBeTruthy();
+    expect(
+      screen.getByRole("heading", {
+        name: 'Rename workflow "Actual graph" to "New name".',
+      }),
+    ).toBeTruthy();
+    expect(screen.queryByText("Rename workflow")).toBeNull();
     expect(screen.queryByText("Redundant prose")).toBeNull();
     expect(screen.queryByText("Details")).toBeNull();
     expect(screen.queryByText(/Saved revision/)).toBeNull();

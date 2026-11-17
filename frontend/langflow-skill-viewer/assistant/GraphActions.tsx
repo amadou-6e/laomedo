@@ -53,6 +53,17 @@ export default function GraphActions({
           line.startsWith("Input: "),
         );
         const runSentence = `${state === "succeeded" ? "Ran" : state === "executing" ? "Running" : "Run"} workflow ${JSON.stringify(action.name)}${inputLine === undefined ? "" : ` with input ${JSON.stringify(inputLine.slice(7))}`}.`;
+        const editDescription =
+          action.summary ||
+          action.preview
+            .filter(
+              (line) =>
+                !line.startsWith("Reload open editor") &&
+                !line.startsWith("Runs as your") &&
+                !line.startsWith("May consume"),
+            )
+            .join("; ");
+        const editSentence = `${state === "succeeded" ? "Edited" : "Edit"} workflow ${JSON.stringify(action.name)}${editDescription ? `: ${editDescription}` : "."}`;
         const outcome =
           state === "succeeded"
             ? category === "rename"
@@ -101,16 +112,12 @@ export default function GraphActions({
             className={`rounded-lg border border-border/60 bg-transparent px-3 text-sm ${pending ? "py-3" : "py-2"}`}
           >
             <div className="flex items-center justify-between gap-3">
-              <h3
-                className={
-                  category === "run"
-                    ? "min-w-0 whitespace-pre-wrap break-words text-xs font-normal text-muted-foreground"
-                    : "text-xs font-medium"
-                }
-              >
+              <h3 className="min-w-0 whitespace-pre-wrap break-words text-xs font-normal text-muted-foreground">
                 {category === "run"
                   ? runSentence
-                  : `${category === "rename" ? "Rename" : "Edit"} workflow`}
+                  : category === "rename"
+                    ? `${state === "succeeded" ? "Renamed" : "Rename"} workflow ${JSON.stringify(action.name)} to ${JSON.stringify(action.new_name)}.`
+                    : editSentence}
               </h3>
               <a
                 className="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline focus-visible:outline-2"
@@ -124,34 +131,6 @@ export default function GraphActions({
               </a>
             </div>
             <div>
-              {category !== "run" && (
-                <div className="min-w-0 text-xs font-normal text-muted-foreground">
-                  <p className="whitespace-pre-wrap break-words">
-                    {category === "rename"
-                      ? `“${action.name}” → “${action.new_name}”`
-                      : `“${action.name}”`}
-                  </p>
-                  {category !== "rename" && action.summary && (
-                    <p className="whitespace-pre-wrap break-words">
-                      {action.summary}
-                    </p>
-                  )}
-                  {category !== "rename" && !action.summary && (
-                    <ul className="space-y-1 whitespace-pre-wrap break-words">
-                      {action.preview
-                        .filter(
-                          (line) =>
-                            !line.startsWith("Reload open editor") &&
-                            !line.startsWith("Runs as your") &&
-                            !line.startsWith("May consume"),
-                        )
-                        .map((line, index) => (
-                          <li key={index}>{line}</li>
-                        ))}
-                    </ul>
-                  )}
-                </div>
-              )}
               {outcome && (
                 <span
                   role="status"
