@@ -56,6 +56,40 @@ describe("retained assistant conversation", () => {
     expect(screen.getByRole("status", { name: "Thinking" })).toBeTruthy();
     expect(screen.queryByText(/responding/)).toBeNull();
   });
+  it.each([true, false])(
+    "hides Thinking when an answer is visible (streamed: %s)",
+    async (streamed) => {
+      jest.mocked(assistantRequest).mockResolvedValue({
+        projection: {
+          items: streamed
+            ? [
+                {
+                  id: "answer",
+                  item: { type: "agentMessage", text: "Answer has started" },
+                },
+              ]
+            : [],
+        },
+        complete: true,
+      });
+      render(
+        <MessageRow
+          conversation="conversation"
+          message={{
+            ...message,
+            state: "running",
+            response: streamed ? null : "Answer has started",
+          }}
+          receipts={[]}
+          active
+          onContent={onContent}
+          onFailure={onFailure}
+        />,
+      );
+      await screen.findByText("Answer has started");
+      expect(screen.queryByRole("status", { name: "Thinking" })).toBeNull();
+    },
+  );
   beforeEach(() => jest.clearAllMocks());
 
   it("groups consecutive tools, retains timing and hides technical call IDs and repeated speaker labels", async () => {

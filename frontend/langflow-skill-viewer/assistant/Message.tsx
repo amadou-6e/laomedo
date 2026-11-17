@@ -147,7 +147,9 @@ export default function MessageRow({
         </div>
       )}
       {active && ["reserved", "starting", "running"].includes(message.state) ? (
-        <Thinking />
+        !hasAnswer && !message.response ? (
+          <Thinking />
+        ) : null
       ) : active ? (
         <p
           role="status"

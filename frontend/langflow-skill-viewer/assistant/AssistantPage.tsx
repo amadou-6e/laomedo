@@ -941,8 +941,9 @@ export default function AssistantPage() {
                 }
                 onKeyDown={(event) => {
                   if (
-                    (event.ctrlKey || event.metaKey) &&
-                    event.key === "Enter"
+                    event.key === "Enter" &&
+                    !event.shiftKey &&
+                    !event.nativeEvent.isComposing
                   ) {
                     event.preventDefault();
                     void send();
@@ -988,9 +989,7 @@ export default function AssistantPage() {
                   <button
                     type="submit"
                     aria-label={selected ? "Send" : "Start chat"}
-                    title={
-                      selected ? "Send (Ctrl+Enter)" : "Start chat (Ctrl+Enter)"
-                    }
+                    title={selected ? "Send (Enter)" : "Start chat (Enter)"}
                     disabled={!canSend || !(drafts[selected] ?? "").trim()}
                     className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-foreground text-background transition-opacity disabled:opacity-30"
                   >

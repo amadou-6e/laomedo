@@ -57,3 +57,5 @@ pending state. Unavailable session storage refuses before submitting a prompt.
 Profile changes discard private
 rendered state and reject stale responses. Draft links come only from database
 receipts, open a new tab after a click, and preserve the original editor.
+
+The composer sends on Enter, preserves Shift+Enter for newlines and ignores Enter during IME composition. Thinking is visible only before answer text appears, including streamed activity or a retained response.
