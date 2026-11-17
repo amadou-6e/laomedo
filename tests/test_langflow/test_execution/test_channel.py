@@ -110,6 +110,15 @@ class GraphWorkerChannelTests(unittest.TestCase):
         with self.assertRaises(GitHubNodeAuthorizationError):
             channel.inspect("pr-1", [], "open")
 
+    def test_runtime_failure_does_not_claim_authorization_failed_before_dispatch(self):
+        channel = GraphWorkerChannel(
+            self.job,
+            self.reply({"request_id": 1, "code": "github_graph_runtime_unavailable"}),
+            BytesIO(),
+        )
+        with self.assertRaises(GraphWorkerError):
+            channel.inspect("pr-1", [], "open")
+
     def test_malformed_and_duplicate_json_is_refused_without_echoing_private_text(self):
         for data in (
             b"not a private frame\n",

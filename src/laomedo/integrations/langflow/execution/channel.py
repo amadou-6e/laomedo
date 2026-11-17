@@ -129,6 +129,8 @@ class GraphWorkerChannel:
                 raise GraphWorkerError() from None
             if reply.request_id != self._request_id:
                 raise GraphWorkerError()
+            if reply.code == "github_graph_runtime_unavailable":
+                raise GraphWorkerError()
             if reply.code is not None:
                 raise GitHubNodeAuthorizationError()
             return reply.payload
