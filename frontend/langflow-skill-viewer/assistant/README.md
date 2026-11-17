@@ -24,9 +24,12 @@ Enter saves through the owner-scoped rename endpoint and Escape cancels.
 
 Session feedback calls for a visual selection experience: the empty chat shows a
 workflow illustration and a provider card with the existing OpenAI brand asset.
-The composer picker displays discovered models as selectable logo cards, keeping
-native radio keyboard behavior and the effort slider. Only the supported Codex
-assistant provider is shown; these cards do not imply new provider integrations.
+The composer retains its compact model list and effort slider; logo cards apply
+only to the provider choice, not to model selection. Only the supported Codex
+assistant provider is shown. New chats visibly reuse a supported current/recent
+model and effort, falling back to the first discovered model with a supported
+effort. This is a composer selection, not a claim about the provider's defaults.
+It never submits inference; opening an existing conversation keeps its binding.
 
 `models.ts` owns wire types. `api.ts` makes one same-origin request without
 automatic inference replay or authentication-refresh retry. `AssistantPage.tsx`

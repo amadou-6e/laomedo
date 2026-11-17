@@ -254,13 +254,12 @@ describe("uncertain assistant submission", () => {
         ).disabled,
       ).toBe(false),
     );
-    fireEvent.click(
-      screen.getByRole("button", { name: "Choose model and effort" }),
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Choose model and effort" })
+          .textContent,
+      ).toContain("fixture"),
     );
-    fireEvent.click(await screen.findByRole("radio", { name: "fixture" }));
-    fireEvent.change(screen.getByRole("slider", { name: "Reasoning effort" }), {
-      target: { value: "0" },
-    });
     fireEvent.change(composer, { target: { value: "Create a draft" } });
     expect(calls.filter(([, body]) => body)).toHaveLength(0);
     fireEvent.click(screen.getByRole("button", { name: "Start chat" }));

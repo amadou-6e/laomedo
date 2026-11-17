@@ -304,8 +304,6 @@ export default function AssistantPage() {
   useEffect(() => {
     if (!selected) {
       boundSelection.current = "";
-      setModel("");
-      setEffort("");
     } else if (
       detail?.conversation.id === selected &&
       boundSelection.current !== selected
@@ -315,6 +313,30 @@ export default function AssistantPage() {
       setEffort(detail.conversation.effort);
     }
   }, [selected, detail?.conversation.id]);
+
+  useEffect(() => {
+    if (selected || !models) return;
+    const recent = index.conversations.find((conversation) =>
+      models.models.some(
+        (choice) =>
+          choice.id === conversation.model &&
+          choice.efforts.includes(conversation.effort),
+      ),
+    );
+    const choice =
+      models.models.find((item) => item.id === model && item.efforts.length) ??
+      models.models.find((item) => item.id === recent?.model) ??
+      models.models.find((item) => item.efforts.length);
+    if (!choice) return;
+    setModel(choice.id);
+    setEffort(
+      choice.efforts.includes(effort)
+        ? effort
+        : recent && choice.id === recent.model
+          ? recent.effort
+          : choice.efforts[0],
+    );
+  }, [selected, models, model, effort, index.conversations]);
 
   async function create() {
     return assistantRequest<{ id: string }>("/conversations", {
@@ -826,9 +848,6 @@ export default function AssistantPage() {
                       className="pt-2 text-left"
                       aria-label="Assistant provider"
                     >
-                      <legend className="mb-2 text-xs font-medium text-muted-foreground">
-                        Your assistant
-                      </legend>
                       <label className="flex cursor-default items-center gap-4 rounded-2xl border border-primary/40 bg-primary/5 p-4 has-[:focus-visible]:outline has-[:focus-visible]:outline-2">
                         <input
                           type="radio"
