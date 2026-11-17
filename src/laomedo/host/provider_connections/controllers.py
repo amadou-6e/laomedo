@@ -57,12 +57,14 @@ class SavedRunnerRequestHandler(RunnerRequestHandler):
                     "status": "failed",
                     "error_category": error.code,
                 },
+                failure=error,
             )
             return
-        except (OSError, ValueError, KeyError):
+        except (OSError, ValueError, KeyError) as error:
             self._reply(
                 409,
                 {"status": "failed", "error_category": "provider_runner_unavailable"},
+                failure=error,
             )
             return
         try:

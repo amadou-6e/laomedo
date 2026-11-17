@@ -30,3 +30,8 @@ Paths, request bodies, credentials, raw exception text and tracebacks are exclud
 from diagnostics. Existing raw wire exception fields are not newly copied into
 graph diagnostics. Log records say failure, not refusal, because an execution
 failure need not imply that nothing ran.
+
+Wrappers pass the exception as private context to `_reply()`. A safe original
+domain `code` and numeric errno survive even when the public error category is
+mapped to a more general service error. Domain errors are classified before
+their generic `ValueError` base; raw exception messages remain excluded.

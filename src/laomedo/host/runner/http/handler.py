@@ -240,13 +240,13 @@ class RunnerRequestHandler(BaseHTTPRequestHandler):
                     "missing_field"
                     if isinstance(failure, KeyError)
                     else (
-                        "validation_error"
-                        if isinstance(failure, ValueError)
+                        "domain_error"
+                        if isinstance(
+                            failure, (RunnerError, SkillStoreError, ArtifactError)
+                        )
                         else (
-                            "domain_error"
-                            if isinstance(
-                                failure, (RunnerError, SkillStoreError, ArtifactError)
-                            )
+                            "validation_error"
+                            if isinstance(failure, ValueError)
                             else "protocol_failure"
                         )
                     )
@@ -271,7 +271,10 @@ class RunnerRequestHandler(BaseHTTPRequestHandler):
                     ),
                     "failure_kind": family,
                     "errno": number,
-                    "runner_code": category,
+                    "runner_code": RunnerDiagnostics.safe_code(
+                        getattr(failure, "code", None), RunnerDiagnostics.known_codes
+                    )
+                    or category,
                 },
                 http_status=code,
             ).to_payload()

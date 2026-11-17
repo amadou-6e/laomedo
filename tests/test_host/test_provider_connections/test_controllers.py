@@ -14,6 +14,7 @@ from laomedo.host.provider_connections.controllers import ProviderControllers
 from laomedo.host.provider_connections.errors import ProviderConnectionError
 from laomedo.host.provider_connections.models import ConnectionRecord
 from laomedo.host.provider_connections.service import ProviderConnections
+from laomedo.agents.errors import RunnerError
 
 
 class FakeNativeAgent:
@@ -188,6 +189,36 @@ class ProviderControllerTests(unittest.TestCase):
             self.assertEqual(slot.operations, 0)
         finally:
             record.unlink()
+
+    def test_gateway_preserves_safe_underlying_failure_diagnostics(self):
+        endpoint, _token = self.manager.endpoint(self.profile, self.one)
+        for error, expected in (
+            (
+                PermissionError(13, "private path"),
+                {"failure_kind": "os_error", "errno": 13},
+            ),
+            (
+                RunnerError("resume_journal_unavailable"),
+                {
+                    "failure_kind": "domain_error",
+                    "runner_code": "resume_journal_unavailable",
+                },
+            ),
+        ):
+            with (
+                self.subTest(error=type(error).__name__),
+                unittest.mock.patch.object(
+                    self.manager, "admit_operation", side_effect=error
+                ),
+            ):
+                with self.assertRaises(HTTPError) as failure:
+                    self.post(endpoint, "/v1/runs/async", {})
+                with failure.exception as response:
+                    value = json.load(response)
+                self.assertEqual(value["error_category"], "provider_runner_unavailable")
+                for key, wanted in expected.items():
+                    self.assertEqual(value["runner_diagnostics"][key], wanted)
+                self.assertNotIn("private", json.dumps(value))
 
     def test_cleanup_waits_if_failed_slot_retry_is_already_starting(self):
         self.manager.endpoint(self.profile, self.one)
