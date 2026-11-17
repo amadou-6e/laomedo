@@ -14,7 +14,6 @@ from laomedo.agents.artifacts.errors import ArtifactError
 from laomedo.agents.agents.base.settings import MAX_BODY
 from laomedo.agents.errors import RunnerError
 from laomedo.skills.registry.errors import SkillStoreError
-from laomedo.agents.interface.utils import safe_error_code
 from laomedo.agents.interface.models import RunnerDiagnostics
 
 if TYPE_CHECKING:
@@ -207,7 +206,7 @@ class RunnerRequestHandler(BaseHTTPRequestHandler):
         """Serialize the response using the existing JSON status and content length."""
         if code >= 400:
             category = (
-                safe_error_code(
+                RunnerDiagnostics.safe_code(
                     value.get("error_category"), RunnerDiagnostics.known_codes
                 )
                 or "runner_unclassified_failure"
@@ -236,7 +235,11 @@ class RunnerRequestHandler(BaseHTTPRequestHandler):
                 {
                     "diagnostic_id": str(uuid4()),
                     "stage": (
-                        ("runner_lookup" if self.path.startswith(("/v1/requests/", "/v1/runs/")) else "runner_http")
+                        (
+                            "runner_lookup"
+                            if self.path.startswith(("/v1/requests/", "/v1/runs/"))
+                            else "runner_http"
+                        )
                         if self.command == "GET"
                         else (
                             "runner_request"

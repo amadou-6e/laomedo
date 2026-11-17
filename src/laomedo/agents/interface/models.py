@@ -4,7 +4,7 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue
 from typing import Annotated, ClassVar, Literal
 from uuid import UUID
 
-from laomedo.agents.interface.utils import safe_error_code
+import re
 
 
 class RunnerDiagnostics(BaseModel):
@@ -32,12 +32,21 @@ class RunnerDiagnostics(BaseModel):
             "opencode_history_credentials_unverified",
         }
     )
-    diagnostic_id: str | None = None
-    http_status: int | None = None
+    diagnostic_id: str | None = Field(
+        default=None,
+        description="Host-generated diagnostic correlation UUID, never a run identity.",
+    )
+    http_status: int | None = Field(
+        default=None,
+        description="Observed HTTP error status; transport observation overrides envelope claims.",
+    )
     stage: (
         Literal["runner_request", "runner_lookup", "runner_execution", "runner_http"]
         | None
-    ) = None
+    ) = Field(
+        default=None,
+        description="Fixed runner boundary stage observed at the responding host.",
+    )
     failure_kind: (
         Literal[
             "os_error",
@@ -47,9 +56,38 @@ class RunnerDiagnostics(BaseModel):
             "protocol_failure",
         ]
         | None
-    ) = None
-    errno: int | None = None
-    runner_code: str | None = None
+    ) = Field(
+        default=None, description="Fixed exception family, never raw exception text."
+    )
+    errno: int | None = Field(
+        default=None,
+        description="Bounded numeric OS errno observation, without paths or exception text.",
+    )
+    runner_code: str | None = Field(
+        default=None,
+        description="Admitted original public machine category; conveys no dispatch certainty.",
+    )
+
+    @classmethod
+    def safe_code(cls, value, known_codes=()):
+        """Project a known or bounded future machine code without arbitrary payloads.
+
+        Known codes are an application-owned allowlist, never caller-supplied data.
+        Unknown codes follow the UI diagnostic grammar and exclude sensitive words.
+        Return None for values that must be replaced with a safe generic category.
+        """
+        if not isinstance(value, str):
+            return None
+        if value in known_codes:
+            return value
+        if (
+            len(value) <= 80
+            and re.fullmatch(r"[a-z][a-z0-9]*(?:_[a-z0-9]+){1,15}", value)
+            and not re.match(r"(?:sk_|gh[pousr]_|github_pat_)", value, re.IGNORECASE)
+            and not re.search(r"secret|password|credential|bearer|token|api_key", value)
+        ):
+            return value
+        return None
 
     @classmethod
     def from_payload(cls, value, *, http_status=None):
@@ -87,7 +125,7 @@ class RunnerDiagnostics(BaseModel):
         number = value.get("errno")
         if type(number) is int and -(2**31) <= number < 2**31:
             clean["errno"] = number
-        code = safe_error_code(value.get("runner_code"), cls.known_codes)
+        code = cls.safe_code(value.get("runner_code"), cls.known_codes)
         if code:
             clean["runner_code"] = code
         return cls(**clean)

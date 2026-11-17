@@ -2,7 +2,6 @@
 
 import unittest
 
-from laomedo.agents.interface.utils import safe_error_code
 from laomedo.agents.interface.models import RunnerDiagnostics
 
 
@@ -30,12 +29,15 @@ class DiagnosticCodeTests(unittest.TestCase):
         """Explicit known codes and neutral future categories retain their value."""
         for code in ("future_failure_v2", "missing_workspace", "step_42_refused"):
             with self.subTest(code=code):
-                self.assertEqual(safe_error_code(code), code)
+                self.assertEqual(RunnerDiagnostics.safe_code(code), code)
         self.assertEqual(
-            safe_error_code("unauthorized", {"unauthorized"}), "unauthorized"
+            RunnerDiagnostics.safe_code("unauthorized", {"unauthorized"}),
+            "unauthorized",
         )
         self.assertEqual(
-            safe_error_code("invalid_runner_api_token", {"invalid_runner_api_token"}),
+            RunnerDiagnostics.safe_code(
+                "invalid_runner_api_token", {"invalid_runner_api_token"}
+            ),
             "invalid_runner_api_token",
         )
         for code in RunnerDiagnostics.known_codes:
@@ -63,4 +65,4 @@ class DiagnosticCodeTests(unittest.TestCase):
             "failure_" + "a" * 80,
         ):
             with self.subTest(value=value):
-                self.assertIsNone(safe_error_code(value))
+                self.assertIsNone(RunnerDiagnostics.safe_code(value))

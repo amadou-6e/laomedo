@@ -28,7 +28,6 @@ from laomedo.agents.interface.models import AgentSubmission
 from laomedo.agents.interface.langflow.errors import RunnerResultError
 from laomedo.agents.interface.langflow.errors import RunnerRequestError
 from laomedo.agents.interface.models import RunnerDiagnostics
-from laomedo.agents.interface.utils import safe_error_code
 from laomedo.agents.mcp.client import McpAccess
 from laomedo.agents.mcp.settings import MCP_ERROR_CODES
 from laomedo.agents.interface.utils import terminal_record as _terminal_record
@@ -460,7 +459,7 @@ class AgentComponent(Component):
             # Input ValueErrors and framework cancellation still refuse/abort.
             # Never put raw exception text, HTTP bodies or exception paths in Data.
             code = str(exc).split(";", 1)[0]
-            if safe_error_code(code, _ROUTABLE_ERRORS) is None:
+            if RunnerDiagnostics.safe_code(code, _ROUTABLE_ERRORS) is None:
                 code = "runner_runtime_unknown"
             reference = dict(self._last_reference or {})
             reference.update(
@@ -476,7 +475,7 @@ class AgentComponent(Component):
                 reference["runner_diagnostics"] = exc.diagnostics
         category = reference.get("error_category")
         if category is not None and (
-            safe_error_code(category, _ROUTABLE_ERRORS) is None
+            RunnerDiagnostics.safe_code(category, _ROUTABLE_ERRORS) is None
         ):
             reference = {**reference, "error_category": "runner_runtime_unknown"}
         answer = reference.get("answer")
@@ -1139,7 +1138,7 @@ class AgentComponent(Component):
                         result["run_id"] = self._reference_run_id
                         result["status"] = "unknown"
                         if exc.code >= 500:
-                            diagnostics["runner_code"] = safe_error_code(
+                            diagnostics["runner_code"] = RunnerDiagnostics.safe_code(
                                 result.get("error_category"), _ROUTABLE_ERRORS
                             )
                             result["error_category"] = "runner_runtime_unknown"
@@ -1150,12 +1149,12 @@ class AgentComponent(Component):
                 # only a fixed public code, never arbitrary server error text.
                 category = result.get("error_category")
                 code = (
-                    safe_error_code(category, _ROUTABLE_ERRORS)
+                    RunnerDiagnostics.safe_code(category, _ROUTABLE_ERRORS)
                     if exc.code < 500
                     else None
                 )
-                if safe_error_code(category, _ROUTABLE_ERRORS):
-                    diagnostics["runner_code"] = safe_error_code(
+                if RunnerDiagnostics.safe_code(category, _ROUTABLE_ERRORS):
+                    diagnostics["runner_code"] = RunnerDiagnostics.safe_code(
                         category, _ROUTABLE_ERRORS
                     )
                 code = code or (
