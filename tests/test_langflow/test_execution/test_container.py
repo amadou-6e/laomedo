@@ -8,6 +8,8 @@ import tempfile
 import subprocess
 import sys
 import time
+import threading
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 from uuid import uuid4
@@ -20,7 +22,10 @@ from laomedo.integrations.langflow.execution.settings import GraphWorkerSettings
 from laomedo.github.connections.models import GitHubNodeReadResult, GitHubNodeSelection
 from laomedo.github.connections.run_authority import GitHubRunAuthority
 from laomedo.github.connections.worker_access import GitHubWorkerAccess
-from laomedo.integrations.langflow.execution.models import GraphWorkerJob
+from laomedo.integrations.langflow.execution.models import (
+    GraphWorkerCall,
+    GraphWorkerJob,
+)
 from test_github.test_connections.test_run_authority import NodeConnectionFixture
 
 
@@ -137,6 +142,45 @@ class SyntheticContainerReader:
                 "operation": {"status": "not_requested"},
             },
         )
+
+
+class WorkerCancellationTests(unittest.IsolatedAsyncioTestCase):
+    """Revocation interrupts an in-flight provider read rather than waiting for it."""
+
+    async def test_revocation_cancels_pending_read_without_releasing_output(self):
+        started, stopped = asyncio.Event(), asyncio.Event()
+
+        async def blocked_read(*arguments):
+            started.set()
+            try:
+                await asyncio.Future()
+            finally:
+                stopped.set()
+
+        job_id = uuid4()
+        authority = SimpleNamespace(
+            workers={job_id: SimpleNamespace(expires_at=time.monotonic() + 60)},
+            clock=time.monotonic,
+        )
+        worker = DockerGraphWorker(
+            None, authority, SimpleNamespace(inspect=blocked_read)
+        )
+        call = GraphWorkerCall(
+            request_id=1,
+            capability="w" * 43,
+            request={
+                "job_id": job_id,
+                "vertex_id": "issue-1",
+                "labels": [],
+                "state": "open",
+            },
+        )
+        pending = asyncio.create_task(worker._read(call, threading.Event()))
+        await asyncio.wait_for(started.wait(), 1.0)
+        authority.workers.clear()
+        with self.assertRaises(GraphWorkerError):
+            await asyncio.wait_for(pending, 1.0)
+        self.assertTrue(stopped.is_set())
 
 
 @unittest.skipUnless(
