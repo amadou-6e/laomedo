@@ -6,6 +6,7 @@ from uuid import uuid4
 
 from laomedo.github.connections.errors import GitHubNodeAuthorizationError
 from laomedo.github.connections.run_authority import GitHubRunAuthority
+from laomedo.integrations.langflow.authentication.catalog import GitHubGraphCatalog
 from laomedo.integrations.langflow.authentication.node_runs import (
     GitHubNodeRunAdmission,
 )
@@ -18,7 +19,15 @@ class GitHubNodeRunAdmissionTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self.connections = NodeConnectionFixture()
         self.authority = GitHubRunAuthority(self.connections)
-        self.admission = GitHubNodeRunAdmission(self.authority)
+        self.catalog = GitHubGraphCatalog.capture(
+            {
+                "github": {
+                    kind: {"template": {"code": {"value": "synthetic catalog source"}}}
+                    for kind in ("LaomedoGitHubIssue", "LaomedoGitHubPR")
+                }
+            }
+        )
+        self.admission = GitHubNodeRunAdmission(self.authority, self.catalog)
         self.scope = self.connections.scope()
         self.flow = uuid4()
         self.graph = {
@@ -30,6 +39,7 @@ class GitHubNodeRunAdmissionTests(unittest.IsolatedAsyncioTestCase):
                         "type": "LaomedoGitHubPR",
                         "node": {
                             "template": {
+                                "code": {"value": "synthetic catalog source"},
                                 "github_connection": {
                                     "value": str(self.connections.connection)
                                 },
@@ -53,6 +63,27 @@ class GitHubNodeRunAdmissionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(selection.connection_id, self.connections.connection)
         self.assertEqual(selection.number, 12)
         self.assertEqual(selection.operations, ())
+
+    async def test_posted_name_cannot_hide_a_canonical_github_node(self):
+        self.graph["nodes"][0]["data"]["node"]["name"] = "TextOutput"
+        _, nodes = await self.admission.prepare(self.scope, self.flow, self.graph)
+        self.assertEqual(nodes[0].selection.kind, "pr")
+
+    async def test_modified_source_and_unclassified_disconnected_nodes_never_prepare(
+        self,
+    ):
+        graph = deepcopy(self.graph)
+        graph["nodes"][0]["data"]["node"]["template"]["code"]["value"] += "modified"
+        with self.assertRaises(GitHubNodeAuthorizationError):
+            await self.admission.prepare(self.scope, self.flow, graph)
+        graph = deepcopy(self.graph)
+        other = deepcopy(graph["nodes"][0])
+        other["id"] = "unreachable"
+        other["data"]["type"] = "PythonInterpreter"
+        graph["nodes"].append(other)
+        with self.assertRaises(GitHubNodeAuthorizationError):
+            await self.admission.prepare(self.scope, self.flow, graph)
+        self.assertEqual(self.authority.pending, {})
 
     async def test_agent_return_uses_native_data_handle_not_forged_canvas_handle(self):
         self.graph["edges"] = [

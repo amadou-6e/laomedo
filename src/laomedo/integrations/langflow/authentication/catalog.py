@@ -20,6 +20,7 @@ class GitHubGraphCatalog:
         """Pin an immutable host snapshot; duplicate or unclassified entries refuse."""
         self.snapshot = snapshot
         self._codes = {}
+        self._classifications = {}
         for entry in snapshot.entries:
             if (
                 entry.classification not in GITHUB_GRAPH_COMPONENT_TYPES
@@ -27,6 +28,14 @@ class GitHubGraphCatalog:
             ):
                 raise GitHubNodeAuthorizationError()
             self._codes[entry.component_type] = entry.code_digest
+            self._classifications[entry.component_type] = entry.classification
+
+    def classification(self, component_type):
+        """Resolve only a canonical host-catalog identity, never a posted name."""
+        try:
+            return self._classifications[component_type]
+        except (KeyError, TypeError):
+            raise GitHubNodeAuthorizationError() from None
 
     @classmethod
     def capture(cls, registry):

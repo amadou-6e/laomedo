@@ -14,8 +14,13 @@ from laomedo.github.pull_requests.models import PRContextOperation
 class GitHubNodeRunAdmission:
     """Native graph projection; browser target lists are never authority."""
 
-    def __init__(self, authority):
+    def __init__(self, authority, catalog):
         self.authority = authority
+        self.catalog = catalog
+
+    def effective_graph(self, graph):
+        """Pin source and native group expansion before deriving any authority."""
+        return self.executable_graph(self.catalog.effective_graph(graph))
 
     @staticmethod
     def executable_graph(graph):
@@ -54,7 +59,7 @@ class GitHubNodeRunAdmission:
 
     async def prepare(self, scope, flow_id, graph):
         """Derive approval bounds from host-admitted effective node parameters."""
-        graph = self.executable_graph(graph)
+        graph = self.effective_graph(graph)
         selections = []
         try:
             nodes, edges = graph["nodes"], graph["edges"]
@@ -62,9 +67,7 @@ class GitHubNodeRunAdmission:
                 raise GitHubNodeAuthorizationError()
             for node in nodes:
                 data = node.get("data", {})
-                kind = data.get("node", {}).get("name") or data.get("type", "")
-                if kind.startswith("ext:"):
-                    kind = kind.split(":", 2)[-1].split("@", 1)[0]
+                kind = self.catalog.classification(data.get("type"))
                 if kind not in {"LaomedoGitHubIssue", "LaomedoGitHubPR"}:
                     continue
                 template = data["node"]["template"]

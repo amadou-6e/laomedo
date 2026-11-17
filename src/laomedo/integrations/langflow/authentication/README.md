@@ -35,9 +35,14 @@ nodes, then uses native pure-data group expansion and validates the resulting
 code again after proxy input overrides. The same immutable catalog snapshot
 must be retained for admission and worker construction. This does not itself
 establish OS isolation or authorize a GitHub operation.
+`classification` resolves canonical catalog identity without trusting posted
+component names or parsing extension labels.
 
 `node_runs.py` owns `GitHubNodeRunAdmission`, the native graph projection for
 saved-account approval. `executable_graph` removes only known canvas geometry;
+`effective_graph` first requires the supplied trusted catalog to validate and
+expand the complete graph, including disconnected leaves. `prepare` always uses
+that projection and the catalog's canonical classification, never a posted name.
 `prepare` extracts account, repository, picker target and write-capable input
 edges from the same effective graph that will execute. It passes canonical
 `GitHubNodeSelection` values to the generic host run authority rather than
