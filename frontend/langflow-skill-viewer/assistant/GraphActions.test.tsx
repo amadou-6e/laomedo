@@ -39,19 +39,18 @@ describe("human graph approval", () => {
     expect(
       screen.getByText("Change the input text from old to new."),
     ).toBeTruthy();
-    const details = screen.getByText("Details").closest("details");
-    expect(details?.hasAttribute("open")).toBe(false);
-    expect(screen.getByText(/Reload open editor/).closest("details")).toBe(
-      details,
-    );
+    expect(screen.queryByText("Details")).toBeNull();
+    expect(screen.queryByText(/Saved revision/)).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Approve" }));
-    await screen.findByText("Saved graph updated.");
+    await screen.findByText("Edited");
     expect(assistantRequest).toHaveBeenCalledWith(
       "/conversations/chat/actions/action/decision",
       { decision: "approve", digest: action.digest },
     );
     expect(
-      screen.getByRole("link", { name: /Open graph/ }).getAttribute("target"),
+      screen
+        .getByRole("link", { name: "Open workflow in new tab" })
+        .getAttribute("target"),
     ).toBe("_blank");
     expect(screen.queryByRole("button", { name: "Approve" })).toBeNull();
   });
@@ -73,12 +72,8 @@ describe("human graph approval", () => {
     expect(screen.getByText("Rename workflow")).toBeTruthy();
     expect(screen.getByText("“Actual graph” → “New name”")).toBeTruthy();
     expect(screen.queryByText("Redundant prose")).toBeNull();
-    expect(
-      screen
-        .getByText(/Saved revision:/)
-        .closest("details")
-        ?.hasAttribute("open"),
-    ).toBe(false);
+    expect(screen.queryByText("Details")).toBeNull();
+    expect(screen.queryByText(/Saved revision/)).toBeNull();
     expect(screen.getByRole("button", { name: "Approve" })).toBeTruthy();
   });
   it("grants the named category only after the human clicks Always approve", async () => {
@@ -96,7 +91,7 @@ describe("human graph approval", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "Always approve edits" }),
     );
-    await screen.findByText("Saved graph updated.");
+    await screen.findByText("Edited");
     expect(assistantRequest).toHaveBeenCalledWith(
       "/conversations/chat/actions/action/decision",
       {
@@ -117,7 +112,7 @@ describe("human graph approval", () => {
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: "Reject" }));
-    await screen.findByText("Rejected. No action was executed.");
+    await screen.findByText("Rejected");
     expect(assistantRequest).toHaveBeenCalledTimes(1);
   });
   it("does not offer a decision from a different app session", () => {
@@ -129,7 +124,7 @@ describe("human graph approval", () => {
       />,
     );
     expect(screen.queryByRole("button")).toBeNull();
-    expect(screen.getByText(/another app session/)).toBeTruthy();
+    expect(screen.getByText("Another app session")).toBeTruthy();
     expect(assistantRequest).not.toHaveBeenCalled();
   });
   it("never enables approval for expired or uncertain retained actions", () => {
@@ -145,6 +140,6 @@ describe("human graph approval", () => {
     );
     expect(screen.queryByRole("button")).toBeNull();
     expect(assistantRequest).not.toHaveBeenCalled();
-    expect(screen.getByText(/Outcome uncertain/)).toBeTruthy();
+    expect(screen.getByText("Outcome unknown")).toBeTruthy();
   });
 });

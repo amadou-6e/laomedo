@@ -64,3 +64,9 @@ GraphActions.tsx renders server-built graph edit/run previews and human-only app
 
 Approval cards foreground Rename/Edit/Run and a short description; exact changes
 and technical identities are expandable. Agent prose must not duplicate cards.
+
+Settled approval cards collapse to operation, muted change description and a short
+outcome. GraphActions uses a top-right ExternalLink icon with an accessible name;
+no technical Details section or separate success sentence is rendered. Pending
+controls and conversation consent scope remain explicit. Failure/unknown outcome
+labels retain their recovery meaning in tooltips.

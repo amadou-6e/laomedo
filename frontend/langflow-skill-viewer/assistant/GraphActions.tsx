@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ExternalLink } from "lucide-react";
 import { assistantRequest } from "./api";
 import type { GraphAction } from "./models";
 
@@ -43,44 +44,115 @@ export default function GraphActions({
           action.state === "pending" &&
           action.expires_at * 1000 > Date.now() &&
           action.can_decide !== false;
+        const state =
+          action.state === "pending" && action.expires_at * 1000 <= Date.now()
+            ? "expired"
+            : action.state;
+        const outcome =
+          state === "succeeded"
+            ? category === "rename"
+              ? "Renamed"
+              : category === "run"
+                ? "Completed"
+                : "Edited"
+            : state === "rejected"
+              ? "Rejected"
+              : state === "expired"
+                ? "Expired"
+                : state === "executing"
+                  ? "Running"
+                  : state === "unknown"
+                    ? "Outcome unknown"
+                    : state === "stale"
+                      ? "Graph changed"
+                      : state === "not_dispatched"
+                        ? "Not started"
+                        : state === "failed"
+                          ? "Failed"
+                          : action.can_decide === false
+                            ? "Another app session"
+                            : "";
+        const explanation =
+          state === "unknown"
+            ? "Inspect run history before another run. Nothing is automatically retried."
+            : state === "failed" &&
+                action.error_code === "assistant_graph_name_conflict"
+              ? "Another workflow has that name. No changes were saved."
+              : state === "failed"
+                ? "Earlier component effects may have occurred."
+                : state === "executing"
+                  ? "Chat Stop does not cancel this graph run."
+                  : state === "not_dispatched"
+                    ? "No graph execution started. Check your session and settings."
+                    : state === "stale" ||
+                        state === "expired" ||
+                        action.can_decide === false
+                      ? "Ask for a fresh proposal in this app session."
+                      : undefined;
         return (
           <article
             key={action.id}
             aria-label={`${action.kind === "edit" ? "Edit" : "Run"} graph: ${action.name}`}
-            className="rounded-xl border bg-muted/30 p-4 text-sm"
+            className={`rounded-lg border border-border/60 bg-transparent px-3 text-sm ${pending ? "py-3" : "py-2"}`}
           >
-            <h3 className="font-semibold">
-              {category === "rename"
-                ? "Rename"
-                : category === "run"
-                  ? "Run"
-                  : "Edit"}{" "}
-              workflow
-            </h3>
-            <p className="my-2 whitespace-pre-wrap break-words">
-              {category === "rename"
-                ? `“${action.name}” → “${action.new_name}”`
-                : `“${action.name}”`}
-            </p>
-            {category !== "rename" && action.summary && (
-              <p className="my-2 whitespace-pre-wrap break-words">
-                {action.summary}
-              </p>
-            )}
-            {category !== "rename" && !action.summary && (
-              <ul className="my-2 space-y-1 whitespace-pre-wrap break-words">
-                {action.preview
-                  .filter(
-                    (line) =>
-                      !line.startsWith("Reload open editor") &&
-                      !line.startsWith("Runs as your") &&
-                      !line.startsWith("May consume"),
-                  )
-                  .map((line, index) => (
-                    <li key={index}>{line}</li>
-                  ))}
-              </ul>
-            )}
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-xs font-medium">
+                {category === "rename"
+                  ? "Rename"
+                  : category === "run"
+                    ? "Run"
+                    : "Edit"}{" "}
+                workflow
+              </h3>
+              <a
+                className="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline focus-visible:outline-2"
+                href={`/flow/${encodeURIComponent(action.workflow_id)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Open workflow in new tab"
+                title="Open workflow in new tab. Reload open editors before saving to avoid overwriting saved changes."
+              >
+                <ExternalLink size={14} aria-hidden="true" />
+              </a>
+            </div>
+            <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
+              <div className="min-w-0 flex-1 text-xs font-normal text-muted-foreground">
+                <p className="whitespace-pre-wrap break-words">
+                  {category === "rename"
+                    ? `“${action.name}” → “${action.new_name}”`
+                    : `“${action.name}”`}
+                </p>
+                {category !== "rename" && action.summary && (
+                  <p className="whitespace-pre-wrap break-words">
+                    {action.summary}
+                  </p>
+                )}
+                {category !== "rename" && !action.summary && (
+                  <ul className="space-y-1 whitespace-pre-wrap break-words">
+                    {action.preview
+                      .filter(
+                        (line) =>
+                          !line.startsWith("Reload open editor") &&
+                          !line.startsWith("Runs as your") &&
+                          !line.startsWith("May consume"),
+                      )
+                      .map((line, index) => (
+                        <li key={index}>{line}</li>
+                      ))}
+                  </ul>
+                )}
+              </div>
+              {outcome && (
+                <span
+                  role="status"
+                  aria-live="polite"
+                  title={explanation}
+                  className="shrink-0 text-xs font-normal text-muted-foreground"
+                >
+                  {outcome}
+                </span>
+              )}
+            </div>
             {category === "run" && pending && (
               <p className="my-2 text-xs text-muted-foreground">
                 Uses configured credentials; may incur costs or perform external
@@ -93,10 +165,10 @@ export default function GraphActions({
               </p>
             )}
             {pending && (
-              <div className="flex flex-wrap gap-2">
+              <div className="mt-2 flex flex-wrap gap-2">
                 <button
                   type="button"
-                  className="rounded-md border bg-primary px-3 py-2 text-primary-foreground disabled:opacity-50"
+                  className="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted disabled:opacity-50"
                   disabled={Boolean(busy)}
                   onClick={() => void decide(action, "approve")}
                 >
@@ -104,7 +176,7 @@ export default function GraphActions({
                 </button>
                 <button
                   type="button"
-                  className="rounded-md border px-3 py-2 disabled:opacity-50"
+                  className="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted disabled:opacity-50"
                   disabled={Boolean(busy)}
                   title="For any graph in this conversation, while signed in with this app session"
                   onClick={() => void decide(action, "always_approve")}
@@ -118,71 +190,13 @@ export default function GraphActions({
                 </button>
                 <button
                   type="button"
-                  className="rounded-md border px-3 py-2 disabled:opacity-50"
+                  className="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted disabled:opacity-50"
                   disabled={Boolean(busy)}
                   onClick={() => void decide(action, "reject")}
                 >
                   Reject
                 </button>
               </div>
-            )}
-            <p
-              role="status"
-              aria-live="polite"
-              className="mt-2 text-muted-foreground"
-            >
-              {action.state === "pending" && action.can_decide === false
-                ? "This proposal belongs to another app session. Ask for a fresh proposal here."
-                : action.state === "executing"
-                  ? "Graph running. Chat Stop does not cancel this run."
-                  : action.state === "unknown"
-                    ? "Outcome uncertain. Inspect run history before proposing another run; nothing will be automatically retried."
-                    : action.state === "stale"
-                      ? "The saved graph changed. Ask for a fresh proposal."
-                      : action.state === "not_dispatched"
-                        ? "The graph was not started. Check your session and run settings before requesting a fresh proposal."
-                        : action.state === "failed"
-                          ? action.error_code ===
-                            "assistant_graph_name_conflict"
-                            ? "Another graph already has that name. No changes were saved; ask for a fresh proposal."
-                            : "The graph run failed; earlier component effects may have occurred."
-                          : action.state === "succeeded"
-                            ? action.kind === "edit"
-                              ? "Saved graph updated."
-                              : "Graph run completed."
-                            : action.state === "rejected"
-                              ? "Rejected. No action was executed."
-                              : pending
-                                ? ""
-                                : "This proposal is no longer available for approval."}
-            </p>
-            <details className="mt-2 text-xs text-muted-foreground">
-              <summary className="cursor-pointer">Details</summary>
-              <ul className="my-2 space-y-1 whitespace-pre-wrap break-words">
-                {action.preview.map((line, index) => (
-                  <li key={index}>{line}</li>
-                ))}
-              </ul>
-              <p>Saved revision: {action.revision}</p>
-              <p>
-                Proposal: {action.id} ? {action.state}
-              </p>
-              <p>
-                Expires: {new Date(action.expires_at * 1000).toLocaleString()}
-              </p>
-              {action.run_id && (
-                <p className="break-all">Run ID: {action.run_id}</p>
-              )}
-            </details>
-            {action.state === "succeeded" && action.kind === "edit" && (
-              <a
-                className="mt-3 inline-block underline"
-                href={`/flow/${encodeURIComponent(action.workflow_id)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Open graph in new tab ↗
-              </a>
             )}
           </article>
         );
