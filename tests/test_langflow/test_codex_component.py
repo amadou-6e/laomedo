@@ -169,10 +169,27 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
                 "experiment_request_binding_denied",
             ),
             (401, "SECRET token https://private", "runner_dispatch_refused"),
+            (401, "unauthorized", "unauthorized"),
+            (400, "future_runner_failure_v2", "future_runner_failure_v2"),
+            (400, "ghp_private_value", "runner_dispatch_refused"),
+            (400, "my_secret_password", "runner_dispatch_refused"),
+            (500, "future_runner_failure_v2", "runner_runtime_unknown"),
             (500, "experiment_request_binding_denied", "runner_runtime_unknown"),
+            (500, "SECRET token https://private", "runner_runtime_unknown"),
         ):
             node = component(request_id=RUN)
-            body = {"status": "failed", "error_category": category}
+            body = {
+                "status": "failed",
+                "error_category": category,
+                "runner_diagnostics": {
+                    "diagnostic_id": RUN,
+                    "http_status": 499,
+                    "stage": "runner_request",
+                    "failure_kind": "os_error",
+                    "errno": 13,
+                    "private": "SECRET",
+                },
+            }
             with (
                 self.subTest(status=status),
                 patch.object(node, "_token", return_value="synthetic"),
@@ -190,11 +207,56 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
             ):
                 output = (await node.submission_output()).data
             self.assertEqual(output["error_category"], expected)
+            details = output["run_reference"]["runner_diagnostics"]
+            self.assertEqual(details["http_status"], status)
+            self.assertEqual(details["diagnostic_id"], RUN)
+            self.assertEqual(details["errno"], 13)
+            self.assertNotIn("private", details)
+            if status == 500 and category == "future_runner_failure_v2":
+                self.assertEqual(details["runner_code"], category)
             self.assertIsNone(output["run_reference"]["run_id"])
             self.assertEqual(output["run_reference"]["request_id"], RUN)
             self.assertIs(output["evidence_complete"], False)
             self.assertNotIn("SECRET", json.dumps(output))
             self.assertEqual(http.call_count, 1)
+
+    def test_reference_5xx_preserves_admitted_host_code_and_uncertain_outcome(self):
+        node = component()
+        node._reference_run_id = RUN
+        node._prior_trace_ref = None
+        body = {
+            "status": "failed",
+            "error_category": "private raw exception",
+            "runner_diagnostics": {
+                "diagnostic_id": RUN,
+                "runner_code": "invalid_runner_api_token",
+            },
+        }
+        with (
+            patch.object(node, "_token", return_value="synthetic"),
+            patch.object(
+                shared_module._HTTP,
+                "open",
+                side_effect=error.HTTPError(
+                    "http://localhost",
+                    502,
+                    "failure",
+                    {},
+                    Response(json.dumps(body).encode()),
+                ),
+            ) as http,
+        ):
+            with self.assertRaises(shared_module.RunnerResultError) as failure:
+                node._http("http://localhost/v1/runs/" + RUN, None, "GET")
+        reference = failure.exception.run_reference
+        self.assertEqual(reference["error_category"], "runner_runtime_unknown")
+        self.assertEqual(reference["status"], "unknown")
+        self.assertEqual(
+            reference["runner_diagnostics"]["runner_code"], "invalid_runner_api_token"
+        )
+        self.assertEqual(reference["runner_diagnostics"]["http_status"], 502)
+        self.assertNotIn("private", json.dumps(reference))
+        self.assertEqual(http.call_count, 1)
 
     async def test_submission_separates_reported_outcome_from_executor_and_evidence(
         self,

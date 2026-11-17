@@ -26,6 +26,8 @@ from lfx.schema import Message
 from laomedo.agents.interface.models import AgentRunReference
 from laomedo.agents.interface.models import AgentSubmission
 from laomedo.agents.interface.langflow.errors import RunnerResultError
+from laomedo.agents.interface.langflow.errors import RunnerRequestError
+from laomedo.agents.interface.models import RunnerDiagnostics
 from laomedo.agents.mcp.client import McpAccess
 from laomedo.agents.mcp.settings import MCP_ERROR_CODES
 from laomedo.agents.interface.utils import terminal_record as _terminal_record
@@ -35,6 +37,7 @@ from laomedo.agents.interface.utils import terminal_record as _terminal_record
 _STOP_TASKS = set()
 _TERMINAL = {"completed", "cancelled", "failed", "timeout", "interrupted"}
 _ROUTABLE_ERRORS = {
+    "unauthorized",
     "activity_normalization_failed",
     "activity_journal_unavailable",
     "activity_projection_limit",
@@ -223,6 +226,7 @@ _ROUTABLE_ERRORS = {
     "workspace_command_output_too_large",
 }
 _ROUTABLE_ERRORS.update(MCP_ERROR_CODES)
+_ROUTABLE_ERRORS.update(RunnerDiagnostics.known_codes)
 
 
 class _NoRedirect(request.HTTPRedirectHandler):
@@ -456,7 +460,7 @@ class AgentComponent(Component):
             # Input ValueErrors and framework cancellation still refuse/abort.
             # Never put raw exception text, HTTP bodies or exception paths in Data.
             code = str(exc).split(";", 1)[0]
-            if code not in _ROUTABLE_ERRORS:
+            if RunnerDiagnostics.safe_code(code, _ROUTABLE_ERRORS) is None:
                 code = "runner_runtime_unknown"
             reference = dict(self._last_reference or {})
             reference.update(
@@ -468,9 +472,11 @@ class AgentComponent(Component):
             reference.setdefault("run_id", self._reference_run_id)
             reference.setdefault("trace_ref", self._prior_trace_ref)
             reference.setdefault("request_id", self._stop_request_id)
+            if isinstance(exc, RunnerRequestError):
+                reference["runner_diagnostics"] = exc.diagnostics
         category = reference.get("error_category")
         if category is not None and (
-            not isinstance(category, str) or category not in _ROUTABLE_ERRORS
+            RunnerDiagnostics.safe_code(category, _ROUTABLE_ERRORS) is None
         ):
             reference = {**reference, "error_category": "runner_runtime_unknown"}
         answer = reference.get("answer")
@@ -1090,12 +1096,31 @@ class AgentComponent(Component):
             with opener(req, timeout=int(self.timeout_seconds)) as response:
                 result = json.load(response)
         except error.HTTPError as exc:
+            diagnostics = RunnerDiagnostics.from_payload(
+                {"stage": "runner_http"}, http_status=exc.code
+            ).to_payload()
             try:
                 result = json.load(exc)
             except (ValueError, TypeError):
-                raise RuntimeError("runner_invalid_error_response") from None
+                raise RunnerRequestError(
+                    "runner_invalid_error_response", diagnostics
+                ) from None
             if not isinstance(result, dict):
-                raise RuntimeError("runner_invalid_error_response")
+                raise RunnerRequestError(
+                    "runner_invalid_error_response", diagnostics
+                ) from None
+            diagnostics = RunnerDiagnostics.from_payload(
+                {
+                    **diagnostics,
+                    **(
+                        result.get("runner_diagnostics")
+                        if isinstance(result.get("runner_diagnostics"), dict)
+                        else {}
+                    ),
+                },
+                http_status=exc.code,
+            ).to_payload()
+            result["runner_diagnostics"] = diagnostics
             if self._reference_run_id and result.get("run_id") not in (
                 None,
                 self._reference_run_id,
@@ -1113,6 +1138,13 @@ class AgentComponent(Component):
                         # the previously completed run.
                         result["run_id"] = self._reference_run_id
                         result["status"] = "unknown"
+                        if exc.code >= 500:
+                            reported_code = RunnerDiagnostics.safe_code(
+                                result.get("error_category"), _ROUTABLE_ERRORS
+                            )
+                            if reported_code:
+                                diagnostics["runner_code"] = reported_code
+                            result["error_category"] = "runner_runtime_unknown"
                     result.setdefault("status", "unknown")
                     result.setdefault("raw_event_ref", self._prior_trace_ref)
                     raise RunnerResultError(self._run_reference(result)) from None
@@ -1120,13 +1152,20 @@ class AgentComponent(Component):
                 # only a fixed public code, never arbitrary server error text.
                 category = result.get("error_category")
                 code = (
-                    category
-                    if isinstance(category, str) and category in _ROUTABLE_ERRORS
-                    else "runner_dispatch_refused"
+                    RunnerDiagnostics.safe_code(category, _ROUTABLE_ERRORS)
+                    if exc.code < 500
+                    else None
                 )
-                if 400 <= exc.code < 500:
-                    raise RuntimeError(code) from None
-                raise RuntimeError("runner_runtime_unknown") from None
+                if RunnerDiagnostics.safe_code(category, _ROUTABLE_ERRORS):
+                    diagnostics["runner_code"] = RunnerDiagnostics.safe_code(
+                        category, _ROUTABLE_ERRORS
+                    )
+                code = code or (
+                    "runner_dispatch_refused"
+                    if 400 <= exc.code < 500
+                    else "runner_runtime_unknown"
+                )
+                raise RunnerRequestError(code, diagnostics) from None
         except (error.URLError, TimeoutError, OSError):
             if self._reference_run_id:
                 reference = self._run_reference(
@@ -1229,9 +1268,15 @@ class AgentComponent(Component):
 
     def _run_reference(self, result):
         """Project retained runner evidence through the canonical graph contract."""
-        return AgentRunReference.from_runner_status(
+        reference = AgentRunReference.from_runner_status(
             result, provider=self.provider_id
         ).to_payload()
+        diagnostics = RunnerDiagnostics.from_payload(
+            result.get("runner_diagnostics")
+        ).to_payload()
+        if diagnostics:
+            reference["runner_diagnostics"] = diagnostics
+        return reference
 
     async def _result(self):
         if getattr(self, "_dispatch_task", None) is None:

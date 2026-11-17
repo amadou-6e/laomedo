@@ -30,3 +30,9 @@ that same class. The adapter explicitly calls the graph-owned
 `integrations/langflow/output/utils.downstream_requirements` hook when inspecting
 its outgoing graph connections; generic output validation remains in the public
 Agent output contract. The public contract models do not import graph machinery.
+
+`RunnerRequestError` retains a stable code and a projected `RunnerDiagnostics`
+envelope before a new run exists. Submission outputs place it in the existing
+run-reference envelope; exception outputs serialize only this bounded envelope
+after the code. HTTP 5xx without a new run remains `runner_runtime_unknown`,
+with the reported code retained as a separate diagnostic observation.
