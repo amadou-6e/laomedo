@@ -1,5 +1,23 @@
 # Private browser session admission
 
+`broker.py` owns `PrivateBrokerRuntime`, the trusted process application factory.
+`create_app` builds a separate FastAPI application with only native login/session
+routes, the current-profile projection, owned profile registration and private
+GitHub/Skill controls. It never calls `langflow.main.create_app`, mounts graph
+execution/component editing APIs, starts native graph recovery, or initializes
+MCP servers. `lifespan` reuses native database/auth service initialization and
+teardown; the existing profile and private runtimes retain their admission,
+ordinary-profile auth, lease, vault ownership and exclusive process lock checks.
+`create_app` receives explicit profile-runtime and private-browser settings;
+it does not discover credentials or another runtime from the environment.
+
+This broker application is an API-only checkpoint. The ordinary launcher remains
+unchanged until the isolated native runtime, browser proxy, static frontend and
+single-job worker are integrated and verified. No graph code may execute in the
+broker, and reusable credentials or private-session cookies may not be forwarded
+to the untrusted runtime. Starting a second unrestricted same-user Python process
+is not isolation. Existing state is not moved or rewritten by the factory.
+
 `node_runs.py` owns `GitHubNodeRunAdmission`, the native graph projection for
 saved-account approval. `executable_graph` removes only known canvas geometry;
 `prepare` extracts account, repository, picker target and write-capable input

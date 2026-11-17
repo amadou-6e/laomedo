@@ -1,5 +1,6 @@
 """Broker-side worker reads; no reusable credential crosses the worker boundary."""
 
+from laomedo.github.connections.errors import GitHubNodeAuthorizationError
 from laomedo.github.connections.models import GitHubConnectionScope
 
 
@@ -31,7 +32,9 @@ class GitHubWorkerReadSession:
     async def scope(self):
         """Project broker identity with a callback that also fences worker revocation."""
         authorization, selection = await self.resolve()
-        run = self.authority.runs[self.authority.jobs[self.request.job_id]]
+        run = self.authority.runs.get(self.authority.jobs.get(self.request.job_id))
+        if run is None:
+            raise GitHubNodeAuthorizationError()
         return (
             GitHubConnectionScope(
                 owner_id=authorization.owner_id,
