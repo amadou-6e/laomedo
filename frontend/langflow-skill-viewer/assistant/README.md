@@ -62,8 +62,7 @@ The composer sends on Enter, preserves Shift+Enter for newlines and ignores Ente
 
 GraphActions.tsx renders server-built graph edit/run previews and human-only approval decisions. It never dispatches inference or approvals on render; unknown/stale/expired outcomes remain explicit. Wire records stay in models.ts.
 
-Approval cards foreground Rename/Edit/Run and a short description; exact changes
-and technical identities are expandable. Agent prose must not duplicate cards.
+Approval cards foreground Rename/Edit/Run and a short description; technical identities remain in backend receipts. Agent prose must not duplicate cards.
 
 Settled approval cards collapse to operation, muted change description and a short
 outcome. GraphActions uses a top-right ExternalLink icon with an accessible name;

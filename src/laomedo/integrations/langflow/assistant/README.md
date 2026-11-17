@@ -63,8 +63,7 @@ submits a model turn. Publication and native permission modes remain excluded.
 Approval presentation uses server-derived Rename/Edit/Run categories. Rename is
 only a name-only patch; settings, nodes, connections and mixed patches are Edit.
 The model supplies a short plain-text description, bound into the request digest;
-it never determines the category or authority. Exact server-built changes and
-identities remain in expandable details, while the card foregrounds the operation.
+it never determines the category or authority. Technical identities remain in backend receipts; the card foregrounds the operation.
 
 `AssistantGraphPermission` records human-granted Rename/Edit/Run consent for any
 owned graph within one conversation and originating app session. `decide` creates

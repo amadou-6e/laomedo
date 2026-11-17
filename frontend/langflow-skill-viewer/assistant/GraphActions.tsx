@@ -108,7 +108,7 @@ export default function GraphActions({
         return (
           <article
             key={action.id}
-            aria-label={`${action.kind === "edit" ? "Edit" : "Run"} graph: ${action.name}`}
+            aria-label={`${category === "rename" ? "Rename" : category === "run" ? "Run" : "Edit"} workflow: ${action.name}`}
             className={`rounded-lg border border-border/60 bg-transparent px-3 text-sm ${pending ? "py-3" : "py-2"}`}
           >
             <div className="flex items-center justify-between gap-3">

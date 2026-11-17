@@ -275,6 +275,101 @@ class GraphActionTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(result["state"], "pending")
 
+    async def test_stale_and_expired_always_approval_never_grants_consent(self):
+        for outcome in ("stale", "expired"):
+            with self.subTest(outcome=outcome):
+                async with self.store.sessions() as session:
+                    flow = await session.get(Flow, self.flow_id)
+                    revision = self.actions.workflows.revision(flow)
+                request = self.request.model_copy(
+                    update={
+                        "operation_key": "grant-" + outcome,
+                        "expected_revision": revision,
+                    }
+                )
+                proposal = await self.actions.propose(self.context, request)
+                async with self.store.transaction() as session:
+                    if outcome == "expired":
+                        row = await session.get(
+                            AssistantGraphAction, UUID(proposal["id"])
+                        )
+                        row.expires_at = 0
+                    else:
+                        row = await session.get(Flow, self.flow_id)
+                        row.name = "Changed externally"
+                    session.add(row)
+                result, snapshot, _ = await self.decide(proposal, "always_approve")
+                self.assertEqual(result["state"], outcome)
+                self.assertIsNone(snapshot)
+                self.assertEqual(
+                    await self.actions.permissions(
+                        self.owner, "fixture", self.conversation
+                    ),
+                    [],
+                )
+
+    async def test_concurrent_always_run_claims_once_and_creates_one_grant(self):
+        request = self.request.model_copy(
+            update={"operation_key": "always-run", "kind": "run", "changes": None}
+        )
+        proposal = await self.actions.propose(self.context, request)
+        results = await asyncio.gather(
+            self.decide(proposal, "always_approve"),
+            self.decide(proposal, "always_approve"),
+        )
+        self.assertEqual(sum(snapshot is not None for _, snapshot, _ in results), 1)
+        self.assertEqual(results[0][0]["run_id"], results[1][0]["run_id"])
+        self.assertEqual(
+            await self.actions.permissions(self.owner, "fixture", self.conversation),
+            ["run"],
+        )
+
+    async def test_auto_consent_refuses_other_session_and_preserves_pending_on_policy_error(
+        self,
+    ):
+        proposal = await self.actions.propose(self.context, self.request)
+        await self.decide(proposal, "always_approve")
+        async with self.store.sessions() as session:
+            flow = await session.get(Flow, self.flow_id)
+            before = deepcopy(flow.data)
+            revision = self.actions.workflows.revision(flow)
+        request = self.request.model_copy(
+            update={"operation_key": "auto-refusal", "expected_revision": revision}
+        )
+        proposal = await self.actions.propose(self.context, request)
+        decision = GraphActionDecision(decision="approve", digest=proposal["digest"])
+        await self.store.admit_session("other", self.owner, time.time() + 1000)
+        with self.assertRaises(AssistantError):
+            await self.actions.decide(
+                self.owner,
+                "other",
+                self.conversation,
+                UUID(proposal["id"]),
+                decision,
+                context=self.context.model_copy(update={"session_key": "other"}),
+            )
+        with patch(
+            "langflow.services.authorization.ensure_flow_permission",
+            new=AsyncMock(side_effect=RuntimeError("policy refusal")),
+        ):
+            with self.assertRaises(RuntimeError):
+                await self.actions.decide(
+                    self.owner,
+                    "fixture",
+                    self.conversation,
+                    UUID(proposal["id"]),
+                    decision,
+                    context=self.context,
+                )
+        retained = await self.actions.read(
+            self.owner, self.conversation, UUID(proposal["id"]), session_key="fixture"
+        )
+        self.assertEqual(retained["state"], "pending")
+        self.assertTrue(retained["can_decide"])
+        async with self.store.sessions() as session:
+            flow = await session.get(Flow, self.flow_id)
+            self.assertEqual(flow.data, before)
+
     async def test_proposal_is_inert_edit_commits_once_and_preserves_private_bytes(
         self,
     ):

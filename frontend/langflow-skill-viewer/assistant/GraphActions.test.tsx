@@ -79,6 +79,9 @@ describe("human graph approval", () => {
         name: 'Rename workflow "Actual graph" to "New name".',
       }),
     ).toBeTruthy();
+    expect(
+      screen.getByRole("article", { name: "Rename workflow: Actual graph" }),
+    ).toBeTruthy();
     expect(screen.queryByText("Rename workflow")).toBeNull();
     expect(screen.queryByText("Redundant prose")).toBeNull();
     expect(screen.queryByText("Details")).toBeNull();
