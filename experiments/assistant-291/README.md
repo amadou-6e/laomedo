@@ -78,3 +78,13 @@ Git. No broad component/provider/native-permission/publication acceptance claime
 This delta is fully unreviewed: Claude's existing session refused for quota until
 20:00 Europe/Berlin. Owner selected waiting for reset. Earlier approval covers
 only 2e0f87cb/76784e8. Both PRs remain draft and unmerged.
+
+
+Presentation follow-up a394a6fcc6ce6259e84a5b4721a8f9a75a2b9384 / spec
+11c36d96688e1cc627bfba65cc6fdc84bdd985a0: user removed Details and requested
+quieter muted text, top-right graph icon and small settled operation/change/outcome
+cards. All 23 UI tests, build, Black and spec validation pass. Actual retained
+integrated chat was reloaded and the small Rename/Run outcome cards verified.
+No backend/consent change, no extra model probe. User independently approved the
+previously pending rename while inspecting the app; its retained card now says
+Renamed. Screenshots remain local. Review still waits for the selected quota reset.
