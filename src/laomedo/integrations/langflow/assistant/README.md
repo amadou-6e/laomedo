@@ -59,3 +59,16 @@ outcomes. `AuthoringMcp` may propose/read only; approval is exclusively an app
 route. `GraphActions.tsx` renders server-built previews and labelled Approve/Reject
 controls; wire types stay in frontend `models.ts`. A human approval itself never
 submits a model turn. Publication and native permission modes remain excluded.
+
+Approval presentation uses server-derived Rename/Edit/Run categories. Rename is
+only a name-only patch; settings, nodes, connections and mixed patches are Edit.
+The model supplies a short plain-text description, bound into the request digest;
+it never determines the category or authority. Exact server-built changes and
+identities remain in expandable details, while the card foregrounds the operation.
+
+`AssistantGraphPermission` records human-granted Rename/Edit/Run consent for any
+owned graph within one conversation and originating app session. `decide` creates
+consent only on an admitted Always approve decision. `propose_graph_action` checks
+that consent inside the same authority/revision/claim transaction, never from
+model wording. `permissions` lists safe categories; `revoke_permission` serializes
+revocation with decisions on the conversation lock. No cross-conversation consent.

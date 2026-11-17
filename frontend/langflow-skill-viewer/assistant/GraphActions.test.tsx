@@ -9,6 +9,8 @@ const action: GraphAction = {
   workflow_id: "graph",
   name: "Actual graph",
   kind: "edit",
+  category: "edit",
+  summary: "Change the input text from old to new.",
   digest: "a".repeat(64),
   revision: "sha256:" + "b".repeat(64),
   preview: [
@@ -33,8 +35,16 @@ describe("human graph approval", () => {
       />,
     );
     expect(assistantRequest).not.toHaveBeenCalled();
-    expect(screen.getByText(/Reload open editor/)).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Approve changes" }));
+    expect(screen.getByText("Edit workflow")).toBeTruthy();
+    expect(
+      screen.getByText("Change the input text from old to new."),
+    ).toBeTruthy();
+    const details = screen.getByText("Details").closest("details");
+    expect(details?.hasAttribute("open")).toBe(false);
+    expect(screen.getByText(/Reload open editor/).closest("details")).toBe(
+      details,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Approve" }));
     await screen.findByText("Saved graph updated.");
     expect(assistantRequest).toHaveBeenCalledWith(
       "/conversations/chat/actions/action/decision",
@@ -43,9 +53,57 @@ describe("human graph approval", () => {
     expect(
       screen.getByRole("link", { name: /Open graph/ }).getAttribute("target"),
     ).toBe("_blank");
+    expect(screen.queryByRole("button", { name: "Approve" })).toBeNull();
+  });
+  it("names the rename operation and shows its exact target without identifiers", () => {
+    render(
+      <GraphActions
+        conversation="chat"
+        actions={[
+          {
+            ...action,
+            category: "rename",
+            new_name: "New name",
+            summary: "Redundant prose",
+          },
+        ]}
+        onFailure={() => {}}
+      />,
+    );
+    expect(screen.getByText("Rename workflow")).toBeTruthy();
+    expect(screen.getByText("“Actual graph” → “New name”")).toBeTruthy();
+    expect(screen.queryByText("Redundant prose")).toBeNull();
     expect(
-      screen.queryByRole("button", { name: "Approve changes" }),
-    ).toBeNull();
+      screen
+        .getByText(/Saved revision:/)
+        .closest("details")
+        ?.hasAttribute("open"),
+    ).toBe(false);
+    expect(screen.getByRole("button", { name: "Approve" })).toBeTruthy();
+  });
+  it("grants the named category only after the human clicks Always approve", async () => {
+    jest
+      .mocked(assistantRequest)
+      .mockResolvedValue({ ...action, state: "succeeded" });
+    render(
+      <GraphActions
+        conversation="chat"
+        actions={[action]}
+        onFailure={() => {}}
+      />,
+    );
+    expect(assistantRequest).not.toHaveBeenCalled();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Always approve edits" }),
+    );
+    await screen.findByText("Saved graph updated.");
+    expect(assistantRequest).toHaveBeenCalledWith(
+      "/conversations/chat/actions/action/decision",
+      {
+        decision: "always_approve",
+        digest: action.digest,
+      },
+    );
   });
   it("rejects and retains the refusal instead of running", async () => {
     jest

@@ -343,12 +343,29 @@ class AssistantRuntime:
             self.store, await ComponentCatalog.from_installed(owner), self.authorize
         )
 
-    async def decide_graph_action(self, owner, key, conversation, identifier, decision):
+    async def propose_graph_action(self, context, request):
+        """Honor existing human conversation consent, never model-selected authority."""
+        from laomedo.integrations.langflow.assistant.models import GraphActionDecision
+
+        actions = await self.graph_actions(context.owner_id)
+        result = await actions.propose(context, request)
+        return await self.decide_graph_action(
+            context.owner_id,
+            context.session_key,
+            context.conversation_id,
+            UUID(result["id"]),
+            GraphActionDecision(decision="approve", digest=result["digest"]),
+            context=context,
+        )
+
+    async def decide_graph_action(
+        self, owner, key, conversation, identifier, decision, *, context=None
+    ):
         """Admit only an authenticated human decision; never let MCP grant this authority."""
         await self.check_session(owner, key)
         actions = await self.graph_actions(owner)
         result, snapshot, actor = await actions.decide(
-            owner, key, conversation, identifier, decision
+            owner, key, conversation, identifier, decision, context=context
         )
         if snapshot is not None:
             task = asyncio.create_task(

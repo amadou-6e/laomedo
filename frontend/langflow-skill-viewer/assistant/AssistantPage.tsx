@@ -1,3 +1,4 @@
+import GraphPermissions from "./GraphPermissions";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
@@ -781,6 +782,14 @@ export default function AssistantPage() {
             }}
           >
             <div className="mx-auto max-w-4xl space-y-4 pb-8">
+              {selected && (
+                <GraphPermissions
+                  conversation={selected}
+                  permissions={detail?.permissions ?? []}
+                  onChange={() => void refresh().catch(fail)}
+                  onFailure={fail}
+                />
+              )}
               {loading && !waiting && (
                 <p role="status" className="text-sm text-muted-foreground">
                   Reconnecting to retained history…

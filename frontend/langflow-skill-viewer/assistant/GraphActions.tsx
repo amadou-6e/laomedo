@@ -13,7 +13,10 @@ export default function GraphActions({
 }) {
   const [busy, setBusy] = useState<string>();
   const [observed, setObserved] = useState<Record<string, GraphAction>>({});
-  async function decide(action: GraphAction, decision: "approve" | "reject") {
+  async function decide(
+    action: GraphAction,
+    decision: "approve" | "always_approve" | "reject",
+  ) {
     if (busy) return;
     setBusy(action.id);
     try {
@@ -35,6 +38,7 @@ export default function GraphActions({
           proposal.state === "pending"
             ? (observed[proposal.id] ?? proposal)
             : proposal;
+        const category = action.category ?? action.kind;
         const pending =
           action.state === "pending" &&
           action.expires_at * 1000 > Date.now() &&
@@ -46,44 +50,71 @@ export default function GraphActions({
             className="rounded-xl border bg-muted/30 p-4 text-sm"
           >
             <h3 className="font-semibold">
-              {action.kind === "edit" ? "Edit" : "Run"} graph: {action.name}
+              {category === "rename"
+                ? "Rename"
+                : category === "run"
+                  ? "Run"
+                  : "Edit"}{" "}
+              workflow
             </h3>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Saved revision {action.revision.slice(7, 19)} ·{" "}
-              {action.state === "pending" &&
-              action.expires_at * 1000 <= Date.now()
-                ? "expired"
-                : action.state}
-              {action.state === "pending" &&
-                action.expires_at * 1000 > Date.now() && (
-                  <span>
-                    {" "}
-                    | expires{" "}
-                    {new Date(action.expires_at * 1000).toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </span>
-                )}
+            <p className="my-2 whitespace-pre-wrap break-words">
+              {category === "rename"
+                ? `“${action.name}” → “${action.new_name}”`
+                : `“${action.name}”`}
             </p>
-            <ul className="my-3 space-y-2 whitespace-pre-wrap break-words">
-              {action.preview.map((line, index) => (
-                <li key={index}>{line}</li>
-              ))}
-            </ul>
+            {category !== "rename" && action.summary && (
+              <p className="my-2 whitespace-pre-wrap break-words">
+                {action.summary}
+              </p>
+            )}
+            {category !== "rename" && !action.summary && (
+              <ul className="my-2 space-y-1 whitespace-pre-wrap break-words">
+                {action.preview
+                  .filter(
+                    (line) =>
+                      !line.startsWith("Reload open editor") &&
+                      !line.startsWith("Runs as your") &&
+                      !line.startsWith("May consume"),
+                  )
+                  .map((line, index) => (
+                    <li key={index}>{line}</li>
+                  ))}
+              </ul>
+            )}
+            {category === "run" && pending && (
+              <p className="my-2 text-xs text-muted-foreground">
+                Uses configured credentials; may incur costs or perform external
+                actions.
+              </p>
+            )}
             {pending && (
-              <div className="flex gap-2">
+              <p className="mb-2 text-xs text-muted-foreground">
+                Always: any graph in this conversation.
+              </p>
+            )}
+            {pending && (
+              <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
                   className="rounded-md border bg-primary px-3 py-2 text-primary-foreground disabled:opacity-50"
                   disabled={Boolean(busy)}
                   onClick={() => void decide(action, "approve")}
                 >
-                  {busy === action.id
-                    ? "Checking…"
-                    : action.kind === "edit"
-                      ? "Approve changes"
-                      : "Approve run"}
+                  {busy === action.id ? "Checking..." : "Approve"}
+                </button>
+                <button
+                  type="button"
+                  className="rounded-md border px-3 py-2 disabled:opacity-50"
+                  disabled={Boolean(busy)}
+                  title="For any graph in this conversation, while signed in with this app session"
+                  onClick={() => void decide(action, "always_approve")}
+                >
+                  Always approve{" "}
+                  {category === "rename"
+                    ? "renames"
+                    : category === "run"
+                      ? "runs"
+                      : "edits"}
                 </button>
                 <button
                   type="button"
@@ -122,14 +153,27 @@ export default function GraphActions({
                             : action.state === "rejected"
                               ? "Rejected. No action was executed."
                               : pending
-                                ? "Only the exact revision and request above will be approved."
+                                ? ""
                                 : "This proposal is no longer available for approval."}
             </p>
-            {action.run_id && (
-              <p className="mt-2 break-all text-xs text-muted-foreground">
-                Run ID: {action.run_id}
+            <details className="mt-2 text-xs text-muted-foreground">
+              <summary className="cursor-pointer">Details</summary>
+              <ul className="my-2 space-y-1 whitespace-pre-wrap break-words">
+                {action.preview.map((line, index) => (
+                  <li key={index}>{line}</li>
+                ))}
+              </ul>
+              <p>Saved revision: {action.revision}</p>
+              <p>
+                Proposal: {action.id} ? {action.state}
               </p>
-            )}
+              <p>
+                Expires: {new Date(action.expires_at * 1000).toLocaleString()}
+              </p>
+              {action.run_id && (
+                <p className="break-all">Run ID: {action.run_id}</p>
+              )}
+            </details>
             {action.state === "succeeded" && action.kind === "edit" && (
               <a
                 className="mt-3 inline-block underline"

@@ -107,7 +107,9 @@ class AuthoringMcp:
                         session_key=context.session_key,
                     )
                 else:
-                    result = await actions.propose(context, arguments["request"])
+                    result = await self.runtime.propose_graph_action(
+                        context, arguments["request"]
+                    )
             elif operation == "list_skills":
                 result = await self.runtime.skills(context, **arguments)
             else:
@@ -193,8 +195,9 @@ class AuthoringMcp:
         expected_revision: str,
         changes: GraphChanges,
         ctx: Context,
+        summary: str = "",
     ) -> dict:
-        """Propose exact saved-graph changes for human approval. Does not edit. Discover existing node IDs and installed schemas first. New node IDs use ComponentName-key; preserve all unmentioned settings. A changed revision requires a fresh proposal/key."""
+        """Propose exact saved-graph changes for human approval. Applies only with existing human conversation consent; otherwise waits for approval. Discover existing node IDs and installed schemas first. New node IDs use ComponentName-key; preserve all unmentioned settings. A changed revision requires a fresh proposal/key."""
         try:
             request = GraphActionRequest(
                 operation_key=operation_key,
@@ -202,6 +205,7 @@ class AuthoringMcp:
                 expected_revision=expected_revision,
                 kind="edit",
                 changes=changes,
+                summary=summary,
             )
         except ValueError:
             raise ToolError("assistant_input_invalid") from None
@@ -216,8 +220,9 @@ class AuthoringMcp:
         input_value: str = "",
         input_type: str = "chat",
         output_type: str = "any",
+        summary: str = "",
     ) -> dict:
-        """Propose execution of an exact saved revision/input for human approval. Does not run. Uses the approving app user's configured credentials/global variables; may consume quota or perform external actions. Never retry unknown effects under a new key."""
+        """Propose execution of an exact saved revision/input for human approval. Runs only with existing human conversation consent; otherwise waits for approval. Uses the approving app user's configured credentials/global variables; may consume quota or perform external actions. Never retry unknown effects under a new key."""
         try:
             request = GraphActionRequest(
                 operation_key=operation_key,
@@ -227,6 +232,7 @@ class AuthoringMcp:
                 input_value=input_value,
                 input_type=input_type,
                 output_type=output_type,
+                summary=summary,
             )
         except ValueError:
             raise ToolError("assistant_input_invalid") from None

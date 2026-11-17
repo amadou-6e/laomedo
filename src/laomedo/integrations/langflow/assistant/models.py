@@ -464,6 +464,7 @@ class GraphActionRequest(BaseModel):
     workflow_id: UUID
     expected_revision: str = ModelField(pattern=r"^sha256:[0-9a-f]{64}$")
     kind: Literal["edit", "run"]
+    summary: str = ModelField(default="", max_length=240)
     changes: GraphChanges | None = None
     input_value: str = ModelField(default="", max_length=12000, repr=False)
     input_type: Literal["chat", "text", "any"] = "chat"
@@ -479,6 +480,28 @@ class GraphActionRequest(BaseModel):
         ):
             raise ValueError("assistant_action_arguments_invalid")
         return self
+
+    @property
+    def category(self):
+        """Derive approval scope from actual changes, never from model wording."""
+        if self.kind == "run":
+            return "run"
+        changes = self.changes
+        if (
+            changes
+            and changes.name is not None
+            and not any(
+                (
+                    changes.updates,
+                    changes.add_nodes,
+                    changes.remove_nodes,
+                    changes.connect,
+                    changes.disconnect,
+                )
+            )
+        ):
+            return "rename"
+        return "edit"
 
     def digest(self):
         """Bind every proposal field, including target revision and execution inputs."""
@@ -496,7 +519,7 @@ class GraphActionDecision(BaseModel):
     """Human app-only decision; not present in the provider MCP manifest."""
 
     model_config = ConfigDict(extra="forbid")
-    decision: Literal["approve", "reject"]
+    decision: Literal["approve", "always_approve", "reject"]
     digest: str = ModelField(pattern=r"^[0-9a-f]{64}$")
 
 
@@ -533,6 +556,12 @@ class AssistantGraphAction(SQLModel, table=True):
         result = self.model_dump(
             mode="json", exclude={"owner_id", "session_key", "request"}
         )
+        request = GraphActionRequest.model_validate(self.request)
+        result["category"] = request.category
+        result["summary"] = request.summary.strip()
+        result["new_name"] = (
+            request.changes.name if request.category == "rename" else None
+        )
         if self.state == "pending" and self.expires_at <= time.time():
             result["state"] = "expired"
         if session_key is not None:
@@ -540,3 +569,17 @@ class AssistantGraphAction(SQLModel, table=True):
                 self.session_key == session_key and result["state"] == "pending"
             )
         return result
+
+
+class AssistantGraphPermission(SQLModel, table=True):
+    """Human consent for one category across a conversation, never provider authority."""
+
+    __tablename__ = "laomedo_assistant_graph_permission"
+    __table_args__ = (UniqueConstraint("conversation_id", "session_key", "category"),)
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    owner_id: UUID = Field(index=True)
+    conversation_id: UUID = Field(index=True)
+    session_key: str = Field(repr=False)
+    category: str
+    action_id: UUID
+    created_at: float = Field(default_factory=time.time)

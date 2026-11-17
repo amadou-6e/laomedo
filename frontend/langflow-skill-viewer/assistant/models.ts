@@ -57,6 +57,9 @@ export type GraphAction = {
   workflow_id: string;
   name: string;
   kind: "edit" | "run";
+  category?: "rename" | "edit" | "run";
+  summary?: string;
+  new_name?: string | null;
   digest: string;
   error_code?: string | null;
   preview: string[];
@@ -66,6 +69,7 @@ export type GraphAction = {
   run_id: string | null;
 };
 export type ConversationDetail = {
+  permissions?: ("rename" | "edit" | "run")[];
   actions?: GraphAction[];
   conversation: Conversation;
   messages: Message[];

@@ -11,6 +11,7 @@ from laomedo.integrations.langflow.assistant.errors import AssistantError
 from laomedo.integrations.langflow.assistant.graph import GraphEditor
 from laomedo.integrations.langflow.assistant.models import (
     AssistantGraphAction,
+    AssistantGraphPermission,
     GraphActionRequest,
 )
 from laomedo.integrations.langflow.assistant.workflows import WorkflowDrafts
@@ -140,7 +141,9 @@ class WorkflowActions:
             ).all()
             return [row.public(session_key=session_key) for row in reversed(rows)]
 
-    async def decide(self, owner, key, conversation, identifier, decision):
+    async def decide(
+        self, owner, key, conversation, identifier, decision, *, context=None
+    ):
         """Human-only exact-digest decision; edit atomically or return a once-claimed run snapshot."""
         from langflow.services.database.models.user.model import User
         from langflow.services.database.models.flow.model import FlowRead
@@ -157,7 +160,10 @@ class WorkflowActions:
             await self.store.conversation(session, owner, conversation, lock=True)
             actor = await session.get(User, owner)
             row = await session.get(
-                AssistantGraphAction, identifier, with_for_update=True
+                AssistantGraphAction,
+                AssistantGraphPermission,
+                identifier,
+                with_for_update=True,
             )
             if (
                 row is None
@@ -169,6 +175,22 @@ class WorkflowActions:
                 raise AssistantError("assistant_session_locked", 403)
             if row.digest != decision.digest:
                 raise AssistantError("assistant_action_conflict")
+            request = GraphActionRequest.model_validate(row.request)
+            permission = (
+                await session.exec(
+                    select(AssistantGraphPermission).where(
+                        AssistantGraphPermission.owner_id == owner,
+                        AssistantGraphPermission.conversation_id == conversation,
+                        AssistantGraphPermission.session_key == key,
+                        AssistantGraphPermission.category == request.category,
+                    )
+                )
+            ).first()
+            if context is not None:
+                await self.authorize(context)
+                await self.workflows.require_active(session, context)
+                if permission is None:
+                    return row.public(session_key=key), None, None
             if row.state != "pending":
                 return row.public(), None, None
             if row.expires_at <= time.time():
@@ -225,16 +247,71 @@ class WorkflowActions:
                         snapshot = FlowRead.model_validate(
                             flow, from_attributes=True
                         ).model_copy(deep=True)
+            if (
+                decision.decision == "always_approve"
+                and context is None
+                and row.state in {"succeeded", "executing"}
+                and permission is None
+            ):
+                session.add(
+                    AssistantGraphPermission(
+                        owner_id=owner,
+                        conversation_id=conversation,
+                        session_key=key,
+                        category=request.category,
+                        action_id=row.id,
+                    )
+                )
             session.add(row)
             await session.flush()
             result = row.public()
         return result, snapshot, actor
 
+    async def permissions(self, owner, key, conversation):
+        """List only current-session human grants for the owning conversation."""
+        async with self.store.sessions() as session:
+            await self.store.authorize(session, owner, key)
+            await self.store.conversation(session, owner, conversation)
+            rows = (
+                await session.exec(
+                    select(AssistantGraphPermission).where(
+                        AssistantGraphPermission.owner_id == owner,
+                        AssistantGraphPermission.conversation_id == conversation,
+                        AssistantGraphPermission.session_key == key,
+                    )
+                )
+            ).all()
+            return sorted(row.category for row in rows)
+
+    async def revoke_permission(self, owner, key, conversation, category):
+        """Serialize human revocation with decisions; already admitted effects continue."""
+        if category not in {"rename", "edit", "run"}:
+            raise AssistantError("assistant_input_invalid", 422)
+        async with self.store.transaction() as session:
+            await self.store.authorize(session, owner, key)
+            await self.store.conversation(session, owner, conversation, lock=True)
+            rows = (
+                await session.exec(
+                    select(AssistantGraphPermission).where(
+                        AssistantGraphPermission.owner_id == owner,
+                        AssistantGraphPermission.conversation_id == conversation,
+                        AssistantGraphPermission.session_key == key,
+                        AssistantGraphPermission.category == category,
+                    )
+                )
+            ).all()
+            for row in rows:
+                await session.delete(row)
+        return {"category": category, "state": "revoked"}
+
     async def finish(self, identifier, state, error=None):
         """Persist a safe outcome without overwriting an already settled result."""
         async with self.store.transaction() as session:
             row = await session.get(
-                AssistantGraphAction, identifier, with_for_update=True
+                AssistantGraphAction,
+                AssistantGraphPermission,
+                identifier,
+                with_for_update=True,
             )
             if row and row.state in {"executing", "unknown"}:
                 row.state, row.error_code = state, error

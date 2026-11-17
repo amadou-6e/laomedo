@@ -138,6 +138,143 @@ class GraphActionTests(unittest.IsolatedAsyncioTestCase):
             GraphActionDecision(decision=decision, digest=proposal["digest"]),
         )
 
+    async def test_category_comes_from_changes_and_summary_is_bound(self):
+        rename = self.request.model_copy(
+            update={
+                "changes": GraphChanges(name="Renamed graph"),
+                "summary": "Rename this workflow.",
+            }
+        )
+        self.assertEqual(rename.category, "rename")
+        self.assertEqual(self.request.category, "edit")
+        mixed = rename.model_copy(
+            update={
+                "changes": GraphChanges(
+                    name="Renamed graph", updates=self.request.changes.updates
+                )
+            }
+        )
+        self.assertEqual(mixed.category, "edit")
+        self.assertNotEqual(
+            rename.digest(),
+            rename.model_copy(update={"summary": "Other text"}).digest(),
+        )
+        proposal = await self.actions.propose(self.context, rename)
+        self.assertEqual(proposal["category"], "rename")
+        self.assertEqual(proposal["new_name"], "Renamed graph")
+        self.assertEqual(proposal["summary"], "Rename this workflow.")
+        async with self.store.sessions() as session:
+            flow = await session.get(Flow, self.flow_id)
+            self.assertEqual(flow.name, "Existing graph")
+
+    async def test_always_approve_is_category_conversation_and_session_scoped(self):
+        proposal = await self.actions.propose(self.context, self.request)
+        await self.decide(proposal, "always_approve")
+        self.assertEqual(
+            await self.actions.permissions(self.owner, "fixture", self.conversation),
+            ["edit"],
+        )
+        async with self.store.transaction() as session:
+            other = Flow(
+                name="Second graph", data=deepcopy(self.original), user_id=self.owner
+            )
+            session.add(other)
+            await session.flush()
+            await session.refresh(other)
+            identifier, revision = other.id, self.actions.workflows.revision(other)
+        followup = self.request.model_copy(
+            update={
+                "operation_key": "other-graph",
+                "workflow_id": identifier,
+                "expected_revision": revision,
+            }
+        )
+        pending = await self.actions.propose(self.context, followup)
+        result, snapshot, _ = await self.actions.decide(
+            self.owner,
+            "fixture",
+            self.conversation,
+            UUID(pending["id"]),
+            GraphActionDecision(decision="approve", digest=pending["digest"]),
+            context=self.context,
+        )
+        self.assertEqual(result["state"], "succeeded")
+        self.assertIsNone(snapshot)
+        async with self.store.sessions() as session:
+            other = await session.get(Flow, identifier)
+            revision = self.actions.workflows.revision(other)
+        rename = followup.model_copy(
+            update={
+                "operation_key": "rename-no-grant",
+                "expected_revision": revision,
+                "changes": GraphChanges(name="Not approved"),
+            }
+        )
+        pending = await self.actions.propose(self.context, rename)
+        result, _, _ = await self.actions.decide(
+            self.owner,
+            "fixture",
+            self.conversation,
+            UUID(pending["id"]),
+            GraphActionDecision(decision="approve", digest=pending["digest"]),
+            context=self.context,
+        )
+        self.assertEqual(result["state"], "pending")
+        run = followup.model_copy(
+            update={
+                "operation_key": "run-no-grant",
+                "expected_revision": revision,
+                "kind": "run",
+                "changes": None,
+            }
+        )
+        pending = await self.actions.propose(self.context, run)
+        result, snapshot, _ = await self.actions.decide(
+            self.owner,
+            "fixture",
+            self.conversation,
+            UUID(pending["id"]),
+            GraphActionDecision(decision="approve", digest=pending["digest"]),
+            context=self.context,
+        )
+        self.assertEqual(result["state"], "pending")
+        self.assertIsNone(snapshot)
+        await self.store.admit_session("other-session", self.owner, time.time() + 1000)
+        self.assertEqual(
+            await self.actions.permissions(
+                self.owner, "other-session", self.conversation
+            ),
+            [],
+        )
+        separate = await self.store.create(
+            self.owner,
+            ConversationRequest(model="fixture", effort="low"),
+            session_key="fixture",
+        )
+        self.assertEqual(
+            await self.actions.permissions(self.owner, "fixture", UUID(separate["id"])),
+            [],
+        )
+        await self.actions.revoke_permission(
+            self.owner, "fixture", self.conversation, "edit"
+        )
+        self.assertEqual(
+            await self.actions.permissions(self.owner, "fixture", self.conversation), []
+        )
+        following = followup.model_copy(
+            update={"operation_key": "after-revoke", "expected_revision": revision}
+        )
+        pending = await self.actions.propose(self.context, following)
+        result, _, _ = await self.actions.decide(
+            self.owner,
+            "fixture",
+            self.conversation,
+            UUID(pending["id"]),
+            GraphActionDecision(decision="approve", digest=pending["digest"]),
+            context=self.context,
+        )
+        self.assertEqual(result["state"], "pending")
+
     async def test_proposal_is_inert_edit_commits_once_and_preserves_private_bytes(
         self,
     ):

@@ -15,6 +15,7 @@ from laomedo.integrations.langflow.assistant.models import (
     AssistantDraftReceipt,
     AssistantSession,
     AssistantGraphAction,
+    AssistantGraphPermission,
 )
 
 
@@ -38,6 +39,7 @@ class AssistantStore:
                 AssistantDraftReceipt,
                 AssistantSession,
                 AssistantGraphAction,
+                AssistantGraphPermission,
             )
         ]
         async with self.engine.begin() as connection:
