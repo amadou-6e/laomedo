@@ -197,8 +197,25 @@ mints a mediation grant, dispatches a write or accepts a serialized run as proof
 `resolve_job` uses native job and vertex IDs, so no bearer reference enters graph
 parameters. `finish_job` releases terminal job bindings and their internal index.
 `finish` removes live authority without deleting normal owner-profile history.
+`issue_worker` creates one separate masked capability for an already admitted
+job. Only its hash stays in the broker; approval-plan references cannot be used
+as worker credentials. `resolve_worker` authenticates that capability, derives
+the account and repository from the broker's admitted vertex, and reuses the
+live lease/generation checks. `revoke_worker` removes worker access independently
+of history; finishing a job also revokes it. These methods are broker-internal:
+no browser endpoint may issue capabilities or authenticate with a job ID alone.
+An admitted run retains the trusted run scope supplied at admission rather than
+the short-lived browser JWT callback used to prepare its approval plan.
 The native adapter must supply trusted job/vertex identities and keep references
 out of graph parameters, persisted job metadata and Agent workspaces.
+
+This is an incomplete integration, not a process-isolation claim. The owner
+selected trusted catalog nodes plus a separate credential broker. Langflow must
+not share the broker's OS vault/state access, and a saved-account worker must be
+isolated from every other job. A same-user unrestricted subprocess is insufficient.
+The worker capability must never enter shared graph parameters, upstream job
+metadata, browser responses, logs, Agent workspaces or another worker. Broker
+scope checks remain authoritative even if a worker supplies a different graph.
 
 `node_access.py` owns `GitHubNodeAccess`, the browser's selected-account read
 capability. `read` verifies the profile, exact consented repository and current

@@ -127,6 +127,97 @@ class GitHubRunAuthorityTests(unittest.IsolatedAsyncioTestCase):
             await self.admit(reference)
         self.assertEqual(self.connections.reads, 2)
 
+    async def test_worker_requires_separate_capability_not_plan_or_job_identity(self):
+        reference, _ = await self.prepare()
+        with self.assertRaises(GitHubNodeAuthorizationError):
+            self.authority.issue_worker(self.job)
+        await self.admit(reference)
+        capability = self.authority.issue_worker(self.job)
+        self.assertNotEqual(capability.get_secret_value(), reference)
+        with self.assertRaises(GitHubNodeAuthorizationError):
+            self.authority.issue_worker(self.job)
+        for supplied in (
+            SecretStr(reference),
+            SecretStr("x" * 43),
+            capability.get_secret_value(),
+        ):
+            with self.assertRaises(GitHubNodeAuthorizationError):
+                await self.authority.resolve_worker(
+                    supplied, job_id=self.job, vertex_id="pr-1"
+                )
+        authorization, selection = await self.authority.resolve_worker(
+            capability, job_id=self.job, vertex_id="pr-1"
+        )
+        self.assertEqual(authorization.repository, self.connections.repository)
+        self.assertEqual(selection, self.selection)
+        self.assertNotIn(capability.get_secret_value(), repr(self.authority.workers))
+        self.assertNotIn(capability.get_secret_value(), repr(capability))
+
+    async def test_worker_cannot_select_another_job_or_vertex(self):
+        reference, _ = await self.prepare()
+        await self.admit(reference)
+        capability = self.authority.issue_worker(self.job)
+        for job, vertex in ((uuid4(), "pr-1"), (self.job, "other")):
+            with self.assertRaises(GitHubNodeAuthorizationError):
+                await self.authority.resolve_worker(
+                    capability, job_id=job, vertex_id=vertex
+                )
+        self.assertEqual(self.connections.reads, 1)
+
+    async def test_revoked_worker_stops_access_and_replacement_does_not_restore_old_key(
+        self,
+    ):
+        reference, _ = await self.prepare()
+        await self.admit(reference)
+        capability = self.authority.issue_worker(self.job)
+        self.authority.revoke_worker(self.job)
+        replacement = self.authority.issue_worker(self.job)
+        with self.assertRaises(GitHubNodeAuthorizationError):
+            await self.authority.resolve_worker(
+                capability, job_id=self.job, vertex_id="pr-1"
+            )
+        await self.authority.resolve_worker(
+            replacement, job_id=self.job, vertex_id="pr-1"
+        )
+        self.authority.finish_job(self.job)
+        self.assertEqual(self.authority.workers, {})
+        with self.assertRaises(GitHubNodeAuthorizationError):
+            await self.authority.resolve_worker(
+                replacement, job_id=self.job, vertex_id="pr-1"
+            )
+
+    async def test_worker_lease_and_connection_revalidation_remain_mandatory(self):
+        reference, _ = await self.prepare()
+        await self.admit(reference)
+        capability = self.authority.issue_worker(self.job)
+        self.connections.revoked_lease = True
+        with self.assertRaises(GitHubNodeAuthorizationError):
+            await self.authority.resolve_worker(
+                capability, job_id=self.job, vertex_id="pr-1"
+            )
+        self.connections.revoked_lease = False
+        self.connections.generation = 2
+        with self.assertRaises(GitHubNodeAuthorizationError):
+            await self.authority.resolve_worker(
+                capability, job_id=self.job, vertex_id="pr-1"
+            )
+
+    async def test_admission_uses_trusted_job_scope_instead_of_preparation_callback(
+        self,
+    ):
+        reference, _ = await self.prepare()
+        job_scope = self.connections.scope()
+        run = await self.authority.admit(
+            reference,
+            job_scope,
+            flow_id=self.flow,
+            graph=self.graph,
+            job_id=self.job,
+            approved=True,
+        )
+        self.assertIs(run.scope, job_scope)
+        self.assertIsNot(run.scope, self.scope)
+
     async def test_changes_cancel_expiry_and_missing_approval_cannot_start_job(self):
         for changes in (
             {"flow_id": uuid4()},

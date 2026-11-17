@@ -31,6 +31,7 @@ class GitHubRunAuthority:
         self.pending = {}
         self.runs = {}
         self.jobs = {}
+        self.workers = {}
         self.lock = asyncio.Lock()
 
     def _same_scope(self, left, right):
@@ -138,10 +139,71 @@ class GitHubRunAuthority:
                     node.selection.repository,
                 ):
                     raise GitHubNodeAuthorizationError()
-            run = plan.model_copy(update={"job_id": job_id})
+            run = plan.model_copy(update={"job_id": job_id, "scope": scope})
             self.runs[reference] = run
             self.jobs[job_id] = reference
             return run
+
+    def issue_worker(self, job_id):
+        """Issue one job-only capability for host injection into an isolated worker.
+
+        Only an already admitted job is eligible. The clear value is returned
+        once as a masked secret; the broker retains its SHA-256 digest only.
+        Reissuing without explicit revocation is refused, never silently rotated.
+        This internal method is not a browser or graph-callable API.
+        """
+        reference = self.jobs.get(job_id)
+        if reference is None or reference not in self.runs or job_id in self.workers:
+            raise GitHubNodeAuthorizationError()
+        capability = SecretStr(secrets.token_urlsafe(32))
+        self.workers[job_id] = sha256(
+            capability.get_secret_value().encode("ascii")
+        ).digest()
+        return capability
+
+    async def resolve_worker(self, capability, *, job_id, vertex_id):
+        """Authenticate a job capability and derive its vertex's saved-account bounds.
+
+        Job and vertex identifiers are selectors, never authentication. No caller
+        account, repository or owner is accepted; the broker supplies those from
+        its admitted run and performs the normal live scope/access checks.
+        """
+        if not isinstance(capability, SecretStr):
+            raise GitHubNodeAuthorizationError()
+        value = capability.get_secret_value()
+        if not isinstance(value, str) or len(value) != 43 or not value.isascii():
+            raise GitHubNodeAuthorizationError()
+        expected = self.workers.get(job_id)
+        if expected is None or not compare_digest(
+            expected, sha256(value.encode("utf-8")).digest()
+        ):
+            raise GitHubNodeAuthorizationError()
+        reference = self.jobs.get(job_id)
+        run = self.runs.get(reference)
+        node = (
+            next(
+                (item for item in run.nodes if item.selection.vertex_id == vertex_id),
+                None,
+            )
+            if run is not None
+            else None
+        )
+        if node is None:
+            raise GitHubNodeAuthorizationError()
+        result = await self.resolve(
+            reference,
+            job_id=job_id,
+            vertex_id=vertex_id,
+            connection_id=node.selection.connection_id,
+            repository=node.selection.repository.full_name,
+        )
+        if self.workers.get(job_id) != expected:
+            raise GitHubNodeAuthorizationError()
+        return result
+
+    def revoke_worker(self, job_id):
+        """Stop new worker access without deleting acquired profile history."""
+        self.workers.pop(job_id, None)
 
     def validate_job_graph(self, job_id, graph):
         """Refuse a changed effective worker graph before its first vertex executes."""
@@ -196,6 +258,7 @@ class GitHubRunAuthority:
         """Drop live account access, leaving native owner-profile history untouched."""
         run = self.runs.pop(reference, None)
         if run is not None:
+            self.revoke_worker(run.job_id)
             self.jobs.pop(run.job_id, None)
 
     def finish_job(self, job_id):
