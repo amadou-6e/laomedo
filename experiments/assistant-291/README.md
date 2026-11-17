@@ -24,10 +24,30 @@ the first browser rejection was refused, with no effects. Opening the editor
 before proposing kept proposal/decision in the same originating app session.
 The UI now suppresses decisions from another session and requests a fresh proposal.
 
-49 assistant backend tests/14subtests,20UI tests,63 pinned component tests with
-isolated initialized settings/49subtests and587 diagnostic UI checks pass.
+Final production head 2e0f87cb29d4d56fc11c8639c0cd3f54340fd70e; spec head
+76784e87d0a4b64faacb0693511d8ce0a6c3dc3a. The real workflow evidence above
+covers production through 6b930924. Final connection protection and session-aware
+read projection passed affected tests; preview was reloaded with those changes.
+No live attack acceptance is claimed for that final backend delta.
+
+52 assistant backend tests and 21 subtests passed before the final session
+projection refinement; affected actions/catalog/MCP checks then passed 20 tests
+and 21 subtests at final head. All 20 UI tests, 63 pinned component tests with
+isolated initialized settings and 49 subtests, and 587 diagnostic UI checks pass.
 The earlier uninitialized settings invocation failed five component controls;
-it did not establish a product regression. Full Black/build/exact-headCI pass.
-Initial code review is partial and requests corrections; focused correction,
-remaining tests/settings coverage and independent actual-render review pending.
-No merge or broad provider/publication acceptance is claimed.
+it did not establish a product regression. Black, frontend build and exact-head
+CI pass. Spec validation has zero errors and one existing large-diagram warning.
+
+Claude independently completed cumulative full substantive code review and final
+specification review: APPROVE. All twelve supplied actual renders, including A4,
+were inspected: visual APPROVE for the recorded 1041x895 path. Name-conflict and
+truthful-outcome findings were verified fixed; apparent diagnostics reverts came
+from a mistaken review-packet base, never from the feature's actual own-diff.
+No later production changes. Another-session read-only card has backend/UI
+coverage but no independent screenshot; mobile, keyboard and screen-reader
+acceptance is not claimed. Recorded initial wiring failure remains explicit.
+
+Publication and native provider permissions remain excluded. Both feature PRs
+remain draft and unmerged. No broad provider/component acceptance is claimed.
+The user's original app stays untouched; the isolated integrated preview retains
+real outcomes. The final unused rename expired without effect.
