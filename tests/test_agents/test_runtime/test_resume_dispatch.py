@@ -211,6 +211,7 @@ class ResumeDispatchTests(unittest.TestCase):
                     None,
                 ),
             )
+        self.assertEqual(self.dispatcher.pending()[0]["status"], "unknown")
         observed = self.dispatcher.lookup(self.run_id, self.body["activity_attempt_id"])
         self.assertEqual(observed["status"], "unknown")
         self.runner.status.return_value["activity_attempt_id"] = self.body[
@@ -228,6 +229,7 @@ class ResumeDispatchTests(unittest.TestCase):
         self.runner.status.return_value["container_ownership"][
             "cleanup_verified"
         ] = True
+        self.assertEqual(self.dispatcher.pending(), [])
         observed = self.dispatcher.lookup(self.run_id, self.body["activity_attempt_id"])
         self.assertEqual(observed["status"], "finished")
         self.assertEqual(observed["result"]["status"], "completed")

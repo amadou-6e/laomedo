@@ -67,3 +67,9 @@ local token files are scrubbed after reconnect; remote grant revocation is not
 claimed. Native saved-account dispatch, concurrent cancellation, two-account
 isolation and restart cleanup still need live acceptance; synthetic tests alone
 do not establish those outcomes.
+
+Disconnect requests cancellation across all owned generations before reporting
+unconfirmed cleanup. Pending continuation inventory uses the resume journal's
+existing reconciliation: only a matching terminal attempt with verified native
+and controller cleanup and no active MCP grant or runner lock can settle. An
+unattested reservation remains Cleanup required; Retry never invents settlement.

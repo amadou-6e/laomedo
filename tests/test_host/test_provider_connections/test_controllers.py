@@ -311,6 +311,27 @@ class ProviderControllerTests(unittest.TestCase):
                 slot.runner.auth.account("oaiapp_test")
             borrow.assert_not_called()
 
+    def test_unknown_resume_does_not_skip_cancellation_in_other_generations(self):
+        endpoint, _token = self.manager.endpoint(self.profile, self.one)
+        first = self.post(endpoint, "/v1/runs/async", {"request_id": str(uuid4())})
+        old_slot = self.manager.slots[(self.profile, self.one, 1)]
+        old_slot.runner.pending = [{"run_id": first["run_id"], "status": "unknown"}]
+        self.service._save(
+            self.profile,
+            [self.records[0].model_copy(update={"generation": 2}), self.records[1]],
+        )
+        endpoint, _token = self.manager.endpoint(self.profile, self.one)
+        second = self.post(endpoint, "/v1/runs/async", {"request_id": str(uuid4())})
+        new_slot = self.manager.slots[(self.profile, self.one, 2)]
+        with self.assertRaisesRegex(
+            ProviderConnectionError, "provider_cleanup_unconfirmed"
+        ):
+            self.manager.stop(self.profile, self.one)
+        self.assertEqual(old_slot.runner.status(first["run_id"])["status"], "cancelled")
+        self.assertEqual(
+            new_slot.runner.status(second["run_id"])["status"], "cancelled"
+        )
+
     def test_unknown_resume_exposes_cleanup_retry_without_erasing_credentials(self):
         self.manager.endpoint(self.profile, self.one)
         slot = self.manager.slots[(self.profile, self.one, 1)]

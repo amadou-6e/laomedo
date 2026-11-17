@@ -364,6 +364,7 @@ class ProviderControllers:
                 if slot.profile_id == profile_id and slot.connection_id == connection_id
             ]
         ready = True
+        unconfirmed = False
         for slot in slots:
             if slot.creating:
                 ready = False
@@ -379,16 +380,15 @@ class ProviderControllers:
                         recovery=True,
                     )
                 except (RunnerError, OSError, ValueError):
-                    raise ProviderConnectionError(
-                        "provider_cleanup_unconfirmed"
-                    ) from None
+                    unconfirmed = True
+                    continue
                 if slot.creating or slot.runner is None:
                     ready = False
                     continue
             try:
                 resumes = slot.runner.pending_resumes()
                 if any(item["status"] == "unknown" for item in resumes):
-                    raise ProviderConnectionError("provider_cleanup_unconfirmed")
+                    unconfirmed = True
                 pending = {item["run_id"] for item in resumes}
                 for record in self._records(slot):
                     if (
@@ -413,7 +413,9 @@ class ProviderControllers:
                 ):
                     raise ProviderConnectionError("provider_cleanup_unconfirmed")
             except (RunnerError, OSError, ValueError, KeyError):
-                raise ProviderConnectionError("provider_cleanup_unconfirmed") from None
+                unconfirmed = True
+        if unconfirmed:
+            raise ProviderConnectionError("provider_cleanup_unconfirmed")
         return ready
 
     def close(self):
