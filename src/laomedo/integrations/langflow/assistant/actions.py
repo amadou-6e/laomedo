@@ -1,9 +1,10 @@
-﻿"""Durable model proposals and human-only graph effect admission."""
+"""Durable model proposals and human-only graph effect admission."""
 
 import time
 from datetime import datetime, timezone
 from uuid import UUID, uuid4
 
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import select
 
 from laomedo.integrations.langflow.assistant.errors import AssistantError
@@ -203,15 +204,22 @@ class WorkflowActions:
                             else flow.name
                         )
                         ensure_flow_update_allowed(flow, {"name": name, "data": data})
-                        flow.name, flow.data = name, data
-                        flow.updated_at = datetime.now(timezone.utc)
-                        session.add(flow)
-                        await session.flush()
-                        await session.refresh(flow)
-                        row.state, row.result_revision = (
-                            "succeeded",
-                            self.workflows.revision(flow),
-                        )
+                        try:
+                            async with session.begin_nested():
+                                flow.name, flow.data = name, data
+                                flow.updated_at = datetime.now(timezone.utc)
+                                session.add(flow)
+                                await session.flush()
+                                await session.refresh(flow)
+                                result_revision = self.workflows.revision(flow)
+                        except IntegrityError:
+                            row.state = "failed"
+                            row.error_code = "assistant_graph_name_conflict"
+                        else:
+                            row.state, row.result_revision = (
+                                "succeeded",
+                                result_revision,
+                            )
                     else:
                         row.state, row.run_id = "executing", uuid4()
                         snapshot = FlowRead.model_validate(
@@ -239,22 +247,43 @@ class WorkflowActions:
         import asyncio
 
         identifier = UUID(result["id"])
+        dispatched = False
         try:
             async with self.store.sessions() as session:
                 row = await session.get(AssistantGraphAction, identifier)
                 request = GraphActionRequest.model_validate(row.request)
                 key = row.session_key
             await check_session(actor.id, key)
+            from langflow.services.authorization import (
+                FlowAction,
+                ensure_flow_permission,
+            )
+            from langflow.services.database.models.user.model import User
+
+            async with self.store.sessions() as session:
+                actor = await session.get(User, actor.id)
+                if actor is None or not actor.is_active:
+                    raise AssistantError("assistant_session_locked", 403)
+            await ensure_flow_permission(
+                actor,
+                FlowAction.EXECUTE,
+                flow_id=snapshot.id,
+                flow_user_id=snapshot.user_id,
+                workspace_id=snapshot.workspace_id,
+                folder_id=snapshot.folder_id,
+            )
             # Explicit editor-side context selects the cold path, retaining the
             # approved snapshot; native graph policies/global resolution still run.
+            input_request = SimplifiedAPIRequest(
+                input_value=request.input_value,
+                input_type=request.input_type,
+                output_type=request.output_type,
+                session_id="assistant-action-" + str(identifier),
+            )
+            dispatched = True
             await simple_run_flow(
                 snapshot,
-                SimplifiedAPIRequest(
-                    input_value=request.input_value,
-                    input_type=request.input_type,
-                    output_type=request.output_type,
-                    session_id="assistant-action-" + str(identifier),
-                ),
+                input_request,
                 api_key_user=actor,
                 run_id=result["run_id"],
                 context={},
@@ -268,9 +297,14 @@ class WorkflowActions:
             )
             raise
         except Exception:
-            await self.finish(identifier, "failed", "assistant_graph_run_failed")
+            if not dispatched:
+                await self.finish(
+                    identifier, "not_dispatched", "assistant_action_not_dispatched"
+                )
+            else:
+                await self.reconcile(identifier)
 
-    async def reconcile(self):
+    async def reconcile(self, identifier=None):
         """Observe exact owned workflow jobs after restart; never execute a stored proposal."""
         from langflow.services.deps import get_job_service
 
@@ -278,7 +312,12 @@ class WorkflowActions:
             rows = (
                 await session.exec(
                     select(AssistantGraphAction).where(
-                        AssistantGraphAction.state.in_(["executing", "unknown"])
+                        AssistantGraphAction.state.in_(["executing", "unknown"]),
+                        *(
+                            [AssistantGraphAction.id == identifier]
+                            if identifier
+                            else []
+                        ),
                     )
                 )
             ).all()
@@ -303,5 +342,9 @@ class WorkflowActions:
             await self.finish(
                 row.id,
                 state,
-                "assistant_action_outcome_unknown" if state == "unknown" else None,
+                (
+                    "assistant_action_outcome_unknown"
+                    if state == "unknown"
+                    else "assistant_graph_run_failed" if state == "failed" else None
+                ),
             )

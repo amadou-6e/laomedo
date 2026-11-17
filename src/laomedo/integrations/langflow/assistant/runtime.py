@@ -27,6 +27,7 @@ from laomedo.integrations.langflow.assistant.persistence import AssistantStore
 from laomedo.integrations.langflow.assistant.runner import AssistantRunner
 from laomedo.integrations.langflow.assistant.settings import (
     AUTHORING_SERVER_NAME,
+    AUTHORING_TOOL_NAMES,
     AssistantSettings,
     ASSISTANT_INSTRUCTIONS,
 )
@@ -553,7 +554,7 @@ class AssistantRuntime:
                 mcp_streamable_http_client=client,
                 current_user_id=context.owner_id,
             )
-            if len(tools) != 6:
+            if len(tools) != len(AUTHORING_TOOL_NAMES):
                 raise AssistantError("assistant_tool_catalog_changed", 503)
             registration = await McpRegistry.current().register(
                 [LangflowMcpTool(tool) for tool in tools]

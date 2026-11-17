@@ -1,4 +1,4 @@
-﻿import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import GraphActions from "./GraphActions";
 import { assistantRequest } from "./api";
 import type { GraphAction } from "./models";

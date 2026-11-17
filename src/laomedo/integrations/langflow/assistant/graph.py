@@ -1,4 +1,4 @@
-﻿"""Explicit patches over saved graph bytes, preserving unmentioned private settings."""
+"""Explicit patches over saved graph bytes, preserving unmentioned private settings."""
 
 from copy import deepcopy
 import json

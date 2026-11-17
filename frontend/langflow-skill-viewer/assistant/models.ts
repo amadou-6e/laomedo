@@ -57,6 +57,7 @@ export type GraphAction = {
   name: string;
   kind: "edit" | "run";
   digest: string;
+  error_code?: string | null;
   preview: string[];
   revision: string;
   state: string;

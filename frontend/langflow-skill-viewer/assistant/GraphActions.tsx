@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { assistantRequest } from "./api";
 import type { GraphAction } from "./models";
 
@@ -92,17 +92,21 @@ export default function GraphActions({
                   ? "Outcome uncertain. Inspect run history before proposing another run; nothing will be automatically retried."
                   : action.state === "stale"
                     ? "The saved graph changed. Ask for a fresh proposal."
-                    : action.state === "failed"
-                      ? "The graph run failed; earlier component effects may have occurred."
-                      : action.state === "succeeded"
-                        ? action.kind === "edit"
-                          ? "Saved graph updated."
-                          : "Graph run completed."
-                        : action.state === "rejected"
-                          ? "Rejected. No action was executed."
-                          : pending
-                            ? "Only the exact revision and request above will be approved."
-                            : "This proposal is no longer available for approval."}
+                    : action.state === "not_dispatched"
+                      ? "The graph was not started. Your session or execution permission changed before dispatch."
+                      : action.state === "failed"
+                        ? action.error_code === "assistant_graph_name_conflict"
+                          ? "Another graph already has that name. No changes were saved; ask for a fresh proposal."
+                          : "The graph run failed; earlier component effects may have occurred."
+                        : action.state === "succeeded"
+                          ? action.kind === "edit"
+                            ? "Saved graph updated."
+                            : "Graph run completed."
+                          : action.state === "rejected"
+                            ? "Rejected. No action was executed."
+                            : pending
+                              ? "Only the exact revision and request above will be approved."
+                              : "This proposal is no longer available for approval."}
             </p>
             {action.run_id && (
               <p className="mt-2 break-all text-xs text-muted-foreground">

@@ -2778,5 +2778,15 @@
     "title": "The approved graph run failed",
     "description": "The existing workflow execution service reported a failure. Earlier component effects may already have occurred.",
     "recovery": "Inspect the recorded run and configured component settings. A new run requires a new explicit approval."
+  },
+  "assistant_action_not_dispatched": {
+    "title": "The graph was not started",
+    "description": "The app could not validate authority or inputs before entering workflow execution.",
+    "recovery": "Check your current session and execution permission, then ask for a fresh proposal if you still want to run the graph."
+  },
+  "assistant_graph_name_conflict": {
+    "title": "Another graph already has that name",
+    "description": "The approved edit conflicted with an existing workflow name. No graph changes were saved.",
+    "recovery": "Choose a different name and ask for a fresh edit proposal."
   }
 }

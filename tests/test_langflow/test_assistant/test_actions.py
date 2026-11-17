@@ -1,4 +1,4 @@
-﻿"""Current approval authority, exact-revision editing and non-replayed run admission."""
+"""Current approval authority, exact-revision editing and non-replayed run admission."""
 
 import asyncio
 from copy import deepcopy
@@ -288,3 +288,44 @@ class GraphActionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(changed["nodes"], [self.original["nodes"][1]])
         self.assertEqual(changed["edges"], [])
         self.assertIn("1 incident connections", str(preview))
+
+    async def test_name_conflict_is_definite_and_leaves_original_graph_unchanged(self):
+        async with self.store.transaction() as session:
+            session.add(Flow(name="Taken", data=self.original, user_id=self.owner))
+        proposal = await self.actions.propose(
+            self.context,
+            self.request.model_copy(update={"changes": GraphChanges(name="Taken")}),
+        )
+        result, snapshot, _ = await self.decide(proposal)
+        self.assertEqual(result["state"], "failed")
+        self.assertEqual(result["error_code"], "assistant_graph_name_conflict")
+        self.assertIsNone(snapshot)
+        async with self.store.sessions() as session:
+            flow = await session.get(Flow, self.flow_id)
+            self.assertEqual(flow.name, "Existing graph")
+            self.assertEqual(flow.data, self.original)
+
+    async def test_revocation_before_dispatch_records_not_started(self):
+        request = GraphActionRequest(
+            operation_key="run",
+            kind="run",
+            workflow_id=self.flow_id,
+            expected_revision=self.revision,
+        )
+        proposal = await self.actions.propose(self.context, request)
+        result, snapshot, actor = await self.decide(proposal)
+        with patch(
+            "langflow.api.v1.endpoints.simple_run_flow", new=AsyncMock()
+        ) as execute:
+            await self.actions.execute(
+                result,
+                snapshot,
+                actor,
+                AsyncMock(side_effect=AssistantError("assistant_session_locked", 403)),
+            )
+            execute.assert_not_called()
+        observed = await self.actions.read(
+            self.owner, self.conversation, UUID(result["id"])
+        )
+        self.assertEqual(observed["state"], "not_dispatched")
+        self.assertEqual(observed["error_code"], "assistant_action_not_dispatched")
