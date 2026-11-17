@@ -51,8 +51,10 @@ are separate gates. Existing single-runner startup can explicitly select a broke
 account. Graph-selected dispatch uses `ProviderGraphBindings`, the verified browser
 principal, and an opaque selector. Operator-only source configuration is supplied
 with `tools/start_local_profiles.ps1 -ProviderSourceWorkspace`; no source path is
-accepted from a graph. A source checkout root containing a `.git` directory is
-not supported by split mode; use a clean Git worktree or a tracked subtree.
+accepted from a graph. A source checkout root containing `.git` metadata (a directory or worktree
+pointer file) is not supported by split mode. Select a tracked source subtree
+without its own Git metadata or runtime/cache directories; for the no-tools
+showcase, `examples/skill-agent-pilot/source` is the maintained example.
 `-LangflowSourceRoot` optionally selects the matching pinned, overlaid backend/LFX
 for native development previews; dependencies must match that checkout. Frontend
 and backend overlays must both be installed for portable export/import policy.
