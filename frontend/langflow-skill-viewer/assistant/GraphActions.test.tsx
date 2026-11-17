@@ -62,6 +62,18 @@ describe("human graph approval", () => {
     await screen.findByText("Rejected. No action was executed.");
     expect(assistantRequest).toHaveBeenCalledTimes(1);
   });
+  it("does not offer a decision from a different app session", () => {
+    render(
+      <GraphActions
+        conversation="chat"
+        actions={[{ ...action, can_decide: false }]}
+        onFailure={() => {}}
+      />,
+    );
+    expect(screen.queryByRole("button")).toBeNull();
+    expect(screen.getByText(/another app session/)).toBeTruthy();
+    expect(assistantRequest).not.toHaveBeenCalled();
+  });
   it("never enables approval for expired or uncertain retained actions", () => {
     render(
       <GraphActions

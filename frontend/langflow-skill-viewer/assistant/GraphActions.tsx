@@ -36,7 +36,9 @@ export default function GraphActions({
             ? (observed[proposal.id] ?? proposal)
             : proposal;
         const pending =
-          action.state === "pending" && action.expires_at * 1000 > Date.now();
+          action.state === "pending" &&
+          action.expires_at * 1000 > Date.now() &&
+          action.can_decide !== false;
         return (
           <article
             key={action.id}
@@ -48,9 +50,21 @@ export default function GraphActions({
             </h3>
             <p className="mt-1 text-xs text-muted-foreground">
               Saved revision {action.revision.slice(7, 19)} ·{" "}
-              {action.state === "pending" && !pending
+              {action.state === "pending" &&
+              action.expires_at * 1000 <= Date.now()
                 ? "expired"
                 : action.state}
+              {action.state === "pending" &&
+                action.expires_at * 1000 > Date.now() && (
+                  <span>
+                    {" "}
+                    ? expires{" "}
+                    {new Date(action.expires_at * 1000).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </span>
+                )}
             </p>
             <ul className="my-3 space-y-2 whitespace-pre-wrap break-words">
               {action.preview.map((line, index) => (
@@ -86,27 +100,30 @@ export default function GraphActions({
               aria-live="polite"
               className="mt-2 text-muted-foreground"
             >
-              {action.state === "executing"
-                ? "Graph running. Chat Stop does not cancel this run."
-                : action.state === "unknown"
-                  ? "Outcome uncertain. Inspect run history before proposing another run; nothing will be automatically retried."
-                  : action.state === "stale"
-                    ? "The saved graph changed. Ask for a fresh proposal."
-                    : action.state === "not_dispatched"
-                      ? "The graph was not started. Your session or execution permission changed before dispatch."
-                      : action.state === "failed"
-                        ? action.error_code === "assistant_graph_name_conflict"
-                          ? "Another graph already has that name. No changes were saved; ask for a fresh proposal."
-                          : "The graph run failed; earlier component effects may have occurred."
-                        : action.state === "succeeded"
-                          ? action.kind === "edit"
-                            ? "Saved graph updated."
-                            : "Graph run completed."
-                          : action.state === "rejected"
-                            ? "Rejected. No action was executed."
-                            : pending
-                              ? "Only the exact revision and request above will be approved."
-                              : "This proposal is no longer available for approval."}
+              {action.state === "pending" && action.can_decide === false
+                ? "This proposal belongs to another app session. Ask for a fresh proposal here."
+                : action.state === "executing"
+                  ? "Graph running. Chat Stop does not cancel this run."
+                  : action.state === "unknown"
+                    ? "Outcome uncertain. Inspect run history before proposing another run; nothing will be automatically retried."
+                    : action.state === "stale"
+                      ? "The saved graph changed. Ask for a fresh proposal."
+                      : action.state === "not_dispatched"
+                        ? "The graph was not started. Check your session and run settings before requesting a fresh proposal."
+                        : action.state === "failed"
+                          ? action.error_code ===
+                            "assistant_graph_name_conflict"
+                            ? "Another graph already has that name. No changes were saved; ask for a fresh proposal."
+                            : "The graph run failed; earlier component effects may have occurred."
+                          : action.state === "succeeded"
+                            ? action.kind === "edit"
+                              ? "Saved graph updated."
+                              : "Graph run completed."
+                            : action.state === "rejected"
+                              ? "Rejected. No action was executed."
+                              : pending
+                                ? "Only the exact revision and request above will be approved."
+                                : "This proposal is no longer available for approval."}
             </p>
             {action.run_id && (
               <p className="mt-2 break-all text-xs text-muted-foreground">

@@ -105,9 +105,13 @@ async def conversation_detail(
     """Reopen retained history and reconcile its existing attempt without replay."""
     runtime, owner, key = context
     try:
-        return await release(
-            runtime, owner, key, await runtime.detail(owner, identifier, cursor)
-        )
+        from laomedo.integrations.langflow.assistant.actions import WorkflowActions
+
+        result = await runtime.detail(owner, identifier, cursor)
+        result["actions"] = await WorkflowActions(
+            runtime.store, None, runtime.authorize
+        ).list(owner, identifier, session_key=key)
+        return await release(runtime, owner, key, result)
     except AssistantError as error:
         raise HTTPException(error.status, detail={"code": error.code}) from None
 

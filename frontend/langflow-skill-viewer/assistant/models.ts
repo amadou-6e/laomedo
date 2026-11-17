@@ -53,6 +53,7 @@ export type ConversationIndex = {
 export type GraphAction = {
   id: string;
   message_id: string;
+  can_decide?: boolean;
   workflow_id: string;
   name: string;
   kind: "edit" | "run";

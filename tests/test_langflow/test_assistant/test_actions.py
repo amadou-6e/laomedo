@@ -204,6 +204,14 @@ class GraphActionTests(unittest.IsolatedAsyncioTestCase):
             )
         with self.assertRaises(AssistantError):
             await self.actions.read(uuid4(), self.conversation, UUID(proposal["id"]))
+        allowed = await self.actions.list(
+            self.owner, self.conversation, session_key="fixture"
+        )
+        different = await self.actions.list(
+            self.owner, self.conversation, session_key="other-session"
+        )
+        self.assertTrue(allowed[0]["can_decide"])
+        self.assertFalse(different[0]["can_decide"])
         await self.store.admit_session("other-session", self.owner, time.time() + 1000)
         with self.assertRaises(AssistantError):
             await self.decide(proposal, key="other-session")

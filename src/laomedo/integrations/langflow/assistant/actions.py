@@ -123,7 +123,7 @@ class WorkflowActions:
                 raise AssistantError("assistant_workflow_not_found", 404)
             return row.public()
 
-    async def list(self, owner, conversation):
+    async def list(self, owner, conversation, *, session_key=None):
         """Return bounded retained proposal and outcome cards without native inference."""
         async with self.store.sessions() as session:
             await self.store.conversation(session, owner, conversation)
@@ -138,7 +138,10 @@ class WorkflowActions:
                     .limit(50)
                 )
             ).all()
-            return [row.public() for row in reversed(rows)]
+            return [
+                {**row.public(), "can_decide": row.session_key == session_key}
+                for row in reversed(rows)
+            ]
 
     async def decide(self, owner, key, conversation, identifier, decision):
         """Human-only exact-digest decision; edit atomically or return a once-claimed run snapshot."""
