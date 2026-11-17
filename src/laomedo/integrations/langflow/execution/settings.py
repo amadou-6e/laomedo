@@ -5,10 +5,14 @@ from uuid import UUID
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from laomedo.integrations.langflow.execution.utils import private_state_path
 
 GRAPH_WORKER_PREFIX = b"LAOMEDO_GRAPH_V1 "
 GRAPH_WORKER_MESSAGE_BYTES = 16 * 1024 * 1024
 NATIVE_PROFILE_PORT = 7860
+NATIVE_PROFILE_STATE_PATH = "/var/lib/laomedo/graphs"
+NATIVE_PROFILE_DEPLOYMENT_LABEL = "laomedo.graph.deployment"
+NATIVE_PROFILE_OWNER_LABEL = "laomedo.graph.owner"
 
 
 class GraphWorkerSettings(BaseSettings):
@@ -79,14 +83,7 @@ class GraphWorkerSettings(BaseSettings):
     @classmethod
     def private_absolute_state(cls, value):
         """Refuse repository-owned supervisor state or filesystem indirection."""
-        if not value.is_absolute():
-            raise ValueError("graph_worker_state_invalid")
-        if any(
-            (path / ".git").exists() or path.is_symlink() or path.is_junction()
-            for path in (value, *value.parents)
-        ):
-            raise ValueError("graph_worker_state_invalid")
-        return value
+        return private_state_path(value)
 
 
 class NativeProfileSettings(BaseSettings):
@@ -122,9 +119,28 @@ class NativeProfileSettings(BaseSettings):
     @classmethod
     def absolute_store(cls, value):
         """Reject relative paths or indirection in the container-owned store."""
-        if not value.is_absolute() or any(
-            path.is_symlink() or path.is_junction() or (path / ".git").exists()
-            for path in (value, *value.parents)
-        ):
-            raise ValueError("graph_runtime_state_invalid")
-        return value
+        return private_state_path(value)
+
+
+class NativeProfileDeploymentSettings(GraphWorkerSettings):
+    """Explicit local native API deployment, separate from job authority."""
+
+    deployment_id: UUID = Field(
+        description="Durable host-owned namespace; separate installations never share profile volumes."
+    )
+    memory_mib: int = Field(
+        default=2048,
+        strict=True,
+        gt=0,
+        description="Native API container memory limit in MiB.",
+    )
+    pids: int = Field(
+        default=256, strict=True, gt=0, description="Native API process count limit."
+    )
+    startup_timeout_seconds: float = Field(
+        default=90.0,
+        strict=True,
+        gt=0,
+        allow_inf_nan=False,
+        description="Native database/API readiness timeout, not a model-run budget.",
+    )

@@ -1,8 +1,11 @@
 """Real isolated native operational APIs, without broker profiles or GitHub."""
 
 import os
+import json
 import subprocess
+import time
 import unittest
+from uuid import uuid4
 
 from support.docker import DockerTestContainer
 
@@ -13,6 +16,77 @@ from support.docker import DockerTestContainer
 )
 class NativeProfileContainerTests(unittest.TestCase):
     """Container startup/CRUD is integration evidence, not GitHub acceptance."""
+
+    def test_container_entry_point_serves_only_its_fixed_owner_on_container_loopback(
+        self,
+    ):
+        image = os.environ["LAOMEDO_TEST_NATIVE_RUNTIME_IMAGE"]
+        self.assertRegex(image, r"^sha256:[0-9a-f]{64}$")
+        owner = uuid4()
+        with DockerTestContainer() as container:
+            started = subprocess.run(
+                [
+                    *container.arguments(),
+                    "--detach",
+                    "--network=none",
+                    "--cap-drop=ALL",
+                    "--security-opt=no-new-privileges",
+                    "--read-only",
+                    "--user",
+                    "65532:65532",
+                    "--pids-limit",
+                    "256",
+                    "--memory",
+                    "2g",
+                    "--cpus",
+                    "2",
+                    "--tmpfs",
+                    "/tmp:rw,nosuid,nodev,size=256m",
+                    image,
+                    "--owner-id",
+                    str(owner),
+                    "--state-root",
+                    "/tmp/operational-store",
+                ],
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                timeout=15,
+            )
+            self.assertEqual(started.returncode, 0, "Native container failed to launch")
+            identity = started.stdout.strip()
+            self.assertRegex(identity, r"^[0-9a-f]{64}$")
+            probe = (
+                "from urllib.request import urlopen; "
+                "print(urlopen('http://127.0.0.1:7860/api/v1/users/whoami', timeout=2).read().decode())"
+            )
+            deadline = time.monotonic() + 90.0
+            while True:
+                reply = subprocess.run(
+                    [
+                        "docker",
+                        "--context",
+                        "desktop-linux",
+                        "exec",
+                        identity,
+                        "python",
+                        "-I",
+                        "-c",
+                        probe,
+                    ],
+                    capture_output=True,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                    timeout=10,
+                )
+                if reply.returncode == 0:
+                    self.assertEqual(json.loads(reply.stdout)["id"], str(owner))
+                    break
+                self.assertLess(
+                    time.monotonic(), deadline, "Native API did not become ready"
+                )
+                time.sleep(0.2)
 
     def test_native_store_uses_only_its_operational_owner_and_has_no_private_routes(
         self,

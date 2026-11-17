@@ -5,6 +5,7 @@ RUN python -m pip install --no-cache-dir --no-deps --require-hashes -r /opt/requ
 COPY laomedo /opt/laomedo
 RUN python -m pip install --no-cache-dir --no-deps --no-build-isolation /opt/laomedo \
     && python -m pip check
+RUN mkdir -p /var/lib/laomedo/graphs && chown 65532:65532 /var/lib/laomedo/graphs
 USER 65532:65532
 WORKDIR /tmp
 ENTRYPOINT ["python", "-m", "laomedo.integrations.langflow.execution.native_cli"]

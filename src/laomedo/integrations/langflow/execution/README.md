@@ -39,6 +39,25 @@ before stopping it. `GraphWorkerSettings` accepts explicit host deployment value
 only; image IDs are immutable, and lease state must remain outside repositories.
 This launcher is not yet connected to browser admission or the preview.
 
+`base.py` owns `BaseDockerRuntime`, shared local-daemon control for the native
+profile runtime and single-job worker. Its control methods filter client
+environment, bound subprocess I/O, verify the local context and inspect/remove
+only exact labelled container identities. Subclasses retain their own mount and
+authority policy; shared transport never chooses an owner or creates a grant.
+
+`profile.py` owns `DockerProfileRuntime`, the network-free operational API
+container supervisor. `acquire` admits a current owner, `stop` removes only its
+exact leased container, and `close` ends this broker's instances. A named local
+volume is scoped to the explicit deployment UUID and owner UUID; container
+cleanup never deletes persisted operational history. Volume labels, driver and
+mount identity are verified, and no host directory is mounted. The native API's
+loopback readiness check is not broker authentication. `NativeProfileInstance`
+is an internal lifetime record; it is never parsed from browser data or returned
+as authority. Browser forwarding and deployment activation remain unfinished.
+`utils.py` contains the shared filesystem-admission helper for explicit host and
+container settings. It refuses symlinks/reparse points and repository-owned
+state without depending on Python 3.12-only path methods.
+
 `native.py` owns `NativeProfileRuntime`, an untrusted native API application for
 one profile's operational graph state. `create_app` configures only that separate
 store and the native data identity; `lifespan` creates its ordinary operational
