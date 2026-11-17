@@ -104,41 +104,56 @@ class ComponentCatalog:
             raise AssistantError("assistant_component_metadata_unavailable", 422)
         return deepcopy(component)
 
-    def _writable(self, name, field):
-        """Admit plain static settings only; secrets, code and dynamic host selectors refuse."""
-        forbidden = {
-            "code",
-            "runner_url",
-            "mcp_servers",
-            "mcp_registration",
-            "run_reference",
-            "run_reference_json",
-            "source",
-            "path",
-            "file_path",
-            "directory",
-            "command",
-            "headers",
-        }
+    def _protected_field(self, name, field):
+        """Own the common credential/code/raw host-selector policy for values and edges."""
+        if not isinstance(field, dict):
+            return True
+        normalized = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", name).casefold()
         return (
-            isinstance(field, dict)
-            and not name.startswith("_")
-            and name not in forbidden
-            and field.get("show") is not False
-            and not re.search(
-                r"(^|_)(url|uri|endpoint|host|hostname|proxy|webhook|server|address|base|kwargs|config|settings|connection|environment|env|headers|authorization)(_|$)",
-                re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", name).casefold(),
+            name.startswith("_")
+            or name
+            in {
+                "code",
+                "source",
+                "path",
+                "file_path",
+                "directory",
+                "command",
+                "headers",
+                "mcp_servers",
+            }
+            or bool(field.get("password"))
+            or any(
+                part in normalized
+                for part in ("password", "secret", "token", "api_key", "credential")
             )
-            and not field.get("password")
+            or bool(
+                re.search(
+                    r"(^|_)(url|uri|endpoint|host|hostname|proxy|webhook|server|address|base|kwargs|config|settings|connection|environment|env|headers|authorization)(_|$)",
+                    normalized,
+                )
+            )
+        )
+
+    def _writable(self, name, field):
+        """Admit plain static settings only; capability references remain host-owned."""
+        return (
+            not self._protected_field(name, field)
+            and name not in {"mcp_registration", "run_reference", "run_reference_json"}
+            and field.get("show") is not False
             and not field.get("load_from_db")
             and not field.get("real_time_refresh")
             and not field.get("dynamic")
             and field.get("type") in {"str", "int", "float", "bool"}
-            and not any(
-                part in name.casefold()
-                for part in ("password", "secret", "token", "api_key", "credential")
-            )
         )
+
+    def _connectable(self, name, field):
+        """Reject protected raw selectors while preserving typed capability ports.
+
+        Run-reference and MCP-registration connections are validated by their
+        owning services, rather than interpreted as model-supplied host settings.
+        """
+        return not self._protected_field(name, field)
 
     def describe(self, identity):
         """Expose names, compatible types and approved field constraints, excluding executable source."""
@@ -156,6 +171,7 @@ class ComponentCatalog:
                     "required": bool(field.get("required")),
                     "list": bool(field.get("list")),
                     "writable": self._writable(name, field),
+                    "connectable": self._connectable(name, field),
                     "options": (
                         field.get("options", [])[:100]
                         if self._writable(name, field)
@@ -304,7 +320,7 @@ class ComponentCatalog:
                 None,
             )
             field = target["data"]["node"]["template"].get(edge.input)
-            if output is None or not isinstance(field, dict) or edge.input == "code":
+            if output is None or not self._connectable(edge.input, field):
                 raise AssistantError("assistant_port_unknown", 422)
             accepted = field.get("input_types") or [field.get("type")]
             if not set(output.get("types") or []).intersection(accepted):

@@ -104,6 +104,7 @@ class AuthoringMcp:
                         context.owner_id,
                         context.conversation_id,
                         arguments["action_id"],
+                        session_key=context.session_key,
                     )
                 else:
                     result = await actions.propose(context, arguments["request"])

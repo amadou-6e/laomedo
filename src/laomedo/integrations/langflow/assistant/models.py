@@ -526,8 +526,8 @@ class AssistantGraphAction(SQLModel, table=True):
     created_at: float = Field(default_factory=time.time)
     expires_at: float
 
-    def public(self):
-        """Expose bounded safe preview/outcome, never the host session or raw graph."""
+    def public(self, *, session_key=None):
+        """Project safe outcome and optional current human-session decision availability."""
         import time
 
         result = self.model_dump(
@@ -535,4 +535,8 @@ class AssistantGraphAction(SQLModel, table=True):
         )
         if self.state == "pending" and self.expires_at <= time.time():
             result["state"] = "expired"
+        if session_key is not None:
+            result["can_decide"] = (
+                self.session_key == session_key and result["state"] == "pending"
+            )
         return result

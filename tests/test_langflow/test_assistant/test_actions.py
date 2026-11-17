@@ -212,6 +212,13 @@ class GraphActionTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertTrue(allowed[0]["can_decide"])
         self.assertFalse(different[0]["can_decide"])
+        native_read = await self.actions.read(
+            self.owner,
+            self.conversation,
+            UUID(proposal["id"]),
+            session_key="other-session",
+        )
+        self.assertFalse(native_read["can_decide"])
         await self.store.admit_session("other-session", self.owner, time.time() + 1000)
         with self.assertRaises(AssistantError):
             await self.decide(proposal, key="other-session")
@@ -389,3 +396,44 @@ class GraphActionTests(unittest.IsolatedAsyncioTestCase):
                         else "failed" if case == "failed" else "unknown"
                     ),
                 )
+
+    async def test_connections_cannot_bypass_raw_credential_or_host_field_rules(self):
+        from laomedo.integrations.langflow.assistant.models import GraphConnection
+
+        for field in ("api_key", "runner_url", "file_path"):
+            with self.subTest(field=field):
+                snapshot = {
+                    "test": {
+                        "String": {
+                            "template": {
+                                "code": {"value": "TRUSTED_CODE"},
+                                field: {"type": "str", "value": None},
+                            },
+                            "outputs": [{"name": "text", "types": ["str"]}],
+                        }
+                    }
+                }
+                catalog = ComponentCatalog(snapshot)
+                data, _ = catalog.compile(
+                    DraftGraph(
+                        nodes=[
+                            DraftNode(key="one", component_type="test/String"),
+                            DraftNode(key="two", component_type="test/String"),
+                        ],
+                        allow_incomplete=True,
+                    )
+                )
+                with self.assertRaises(AssistantError):
+                    GraphEditor(catalog).apply(
+                        data,
+                        GraphChanges(
+                            connect=[
+                                GraphConnection(
+                                    source="String-one",
+                                    output="text",
+                                    target="String-two",
+                                    input=field,
+                                )
+                            ]
+                        ),
+                    )
