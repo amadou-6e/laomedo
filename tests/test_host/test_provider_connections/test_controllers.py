@@ -279,3 +279,23 @@ class ProviderControllerTests(unittest.TestCase):
             with self.assertRaisesRegex(AuthError, "auth_revoked"):
                 slot.runner.auth.account("oaiapp_test")
             borrow.assert_not_called()
+
+    def test_unknown_resume_exposes_cleanup_retry_without_erasing_credentials(self):
+        self.manager.endpoint(self.profile, self.one)
+        slot = self.manager.slots[(self.profile, self.one, 1)]
+        slot.runner.pending = [{"run_id": str(uuid4()), "status": "unknown"}]
+        self.service._save(
+            self.profile,
+            [
+                self.records[0].model_copy(update={"lifecycle": "disconnecting"}),
+                self.records[1],
+            ],
+        )
+        with unittest.mock.patch.object(self.service, "_scrub") as scrub:
+            result = self.service.retry_cleanup(self.profile, self.one)
+            self.assertEqual(result.status, "cleanup_required")
+            self.assertEqual(
+                self.service._record(self.profile, self.one).lifecycle,
+                "cleanup_required",
+            )
+            scrub.assert_not_called()

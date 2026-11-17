@@ -13,8 +13,10 @@ of isolated native Codex runtimes per profile, connection and admitted generatio
 It inventories running turns and native cleanup receipts, cancels only owned
 runs, and confirms cleanup before removal. Pending durable resume
 reservations count as active work even before the parent run record changes;
-cleanup cannot complete while those observations remain unsettled. Gateway
-admission covers both synchronous and asynchronous resume. A closed controller
+cleanup cannot complete while those observations remain unsettled. An unknown
+reservation exposes Cleanup required with retry rather than an
+unbounded Stopping state; credentials remain fenced and retained for recovery.
+Gateway admission covers both synchronous and asynchronous resume. A closed controller
 owner cannot borrow credentials or probe an account through a retained facade.
 `credentials.py` defines the exact saved-connection broker facade used by those
 runtimes; native controller and

@@ -384,7 +384,10 @@ class ProviderControllers:
                     ready = False
                     continue
             try:
-                pending = {item["run_id"] for item in slot.runner.pending_resumes()}
+                resumes = slot.runner.pending_resumes()
+                if any(item["status"] == "unknown" for item in resumes):
+                    raise ProviderConnectionError("provider_cleanup_unconfirmed")
+                pending = {item["run_id"] for item in resumes}
                 for record in self._records(slot):
                     if (
                         record["status"] in {"prepared", "running"}
