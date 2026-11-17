@@ -65,6 +65,10 @@ class AssistantStore:
     async def upgrade_retained(self):
         """Upgrade existing owned columns before upstream's shared-metadata schema check."""
         async with self.engine.begin() as connection:
+            await connection.run_sync(
+                SQLModel.metadata.create_all,
+                tables=[AssistantGraphPermission.__table__],
+            )
             await connection.run_sync(self._upgrade_message_selection)
 
     @asynccontextmanager

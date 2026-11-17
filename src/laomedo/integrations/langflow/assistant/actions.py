@@ -161,7 +161,6 @@ class WorkflowActions:
             actor = await session.get(User, owner)
             row = await session.get(
                 AssistantGraphAction,
-                AssistantGraphPermission,
                 identifier,
                 with_for_update=True,
             )
@@ -309,7 +308,6 @@ class WorkflowActions:
         async with self.store.transaction() as session:
             row = await session.get(
                 AssistantGraphAction,
-                AssistantGraphPermission,
                 identifier,
                 with_for_update=True,
             )
