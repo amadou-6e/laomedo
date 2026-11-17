@@ -98,7 +98,12 @@ class AppProvisioningTests(unittest.IsolatedAsyncioTestCase):
         manifest = await self.provisioner.begin(self.scope)
         self.assertEqual(
             manifest["manifest"]["default_permissions"],
-            {"contents": "read", "metadata": "read"},
+            {
+                "contents": "read",
+                "metadata": "read",
+                "issues": "write",
+                "pull_requests": "write",
+            },
         )
         self.assertFalse(manifest["manifest"]["hook_attributes"]["active"])
         self.assertFalse(manifest["manifest"]["public"])

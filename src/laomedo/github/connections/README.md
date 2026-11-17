@@ -29,6 +29,10 @@ deletion failure leaves the saved connection ready and cleanup retryable.
 
 `provisioning.py` owns private App manifest registration for each GitHub account.
 `GitHubAppProvisioner.begin` creates a bounded profile/lease-bound registration;
+new private Apps request Contents/Metadata read and Issues/Pull requests write,
+as required for saved-account nodes. GitHub's permission is an upper bound;
+neither registration nor installation approves a graph mutation. Existing Apps
+are never silently replaced or upgraded by this manifest change.
 `complete` consumes its state before exchanging the one-use code and delegates
 credential custody to `configure_app`. Unused signing material is never persisted.
 `GitHubManifestClient.convert` accepts only a fixed GitHub conversion destination,
