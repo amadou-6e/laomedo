@@ -58,7 +58,7 @@ export default function GraphActions({
                 action.expires_at * 1000 > Date.now() && (
                   <span>
                     {" "}
-                    ? expires{" "}
+                    | expires{" "}
                     {new Date(action.expires_at * 1000).toLocaleTimeString([], {
                       hour: "2-digit",
                       minute: "2-digit",
