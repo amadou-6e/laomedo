@@ -227,3 +227,8 @@ cleanup, and no active MCP access or runner lock. An older completed attempt
 cannot establish that a newer reservation never started. The journal retains
 only semantic request digests and outcome/session/checkpoint metadata, excluding
 prompts, answers and transient MCP registration capabilities.
+
+`BaseAgent.pending_resumes()` projects `ResumeDispatcher.pending()` observations
+for reserved, running or uncertain continuations without starting work. Connection
+inventory and cleanup include these reservations even when the retained parent
+run still has a terminal status. Only settled journal entries leave that inventory.

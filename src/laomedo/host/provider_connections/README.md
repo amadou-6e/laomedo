@@ -11,8 +11,13 @@ resolves an exact profile/connection/generation without an active-account fallba
 `controllers.py` owns `ProviderControllers`, the trusted-local host orchestration
 of isolated native Codex runtimes per profile, connection and admitted generation.
 It inventories running turns and native cleanup receipts, cancels only owned
-runs, and confirms cleanup before removal. `credentials.py` defines the exact
-saved-connection broker facade used by those runtimes; native controller and
+runs, and confirms cleanup before removal. Pending durable resume
+reservations count as active work even before the parent run record changes;
+cleanup cannot complete while those observations remain unsettled. Gateway
+admission covers both synchronous and asynchronous resume. A closed controller
+owner cannot borrow credentials or probe an account through a retained facade.
+`credentials.py` defines the exact saved-connection broker facade used by those
+runtimes; native controller and
 model tools retain their existing separate Docker identities.
 `disconnect_info()` reports affected runs and a confirmation revision;
 `disconnect()` durably fences use before cancellation, and `retry_cleanup()`

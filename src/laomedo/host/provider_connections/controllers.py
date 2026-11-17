@@ -311,6 +311,7 @@ class ProviderControllers:
                 and (
                     slot.operations
                     or slot.runner.lock.locked()
+                    or slot.runner.pending_resumes()
                     or any(
                         record["status"] in {"prepared", "running"}
                         for record in self._records(slot)
@@ -330,10 +331,14 @@ class ProviderControllers:
             if slot.profile_id != profile_id or slot.connection_id != connection_id:
                 continue
             revision += slot.revision
-            running = sum(
-                record["status"] in {"prepared", "running"}
+            active = {
+                record["run_id"]
                 for record in self._records(slot)
-            )
+                if record["status"] in {"prepared", "running"}
+            }
+            if slot.runner is not None:
+                active.update(item["run_id"] for item in slot.runner.pending_resumes())
+            running = len(active)
             count += max(
                 running,
                 slot.operations,
@@ -379,11 +384,19 @@ class ProviderControllers:
                     ready = False
                     continue
             try:
+                pending = {item["run_id"] for item in slot.runner.pending_resumes()}
                 for record in self._records(slot):
-                    if record["status"] in {"prepared", "running"}:
+                    if (
+                        record["status"] in {"prepared", "running"}
+                        or record["run_id"] in pending
+                    ):
                         slot.runner.cancel(record["run_id"])
                         ready = False
-                if slot.operations or slot.runner.lock.locked():
+                if (
+                    slot.operations
+                    or slot.runner.lock.locked()
+                    or slot.runner.pending_resumes()
+                ):
                     ready = False
                     continue
                 if any((slot.state / "receipts").glob("*.json")) or any(

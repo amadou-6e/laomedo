@@ -95,6 +95,19 @@ class ResumeDispatcher:
             self._reconcile(connection, run_id)
             return self._lookup(connection, run_id, attempt_id)
 
+    def pending(self):
+        """Observe unsettled reservations without dispatch or inferring completion."""
+        if not self.path.exists() and not self.path.is_symlink():
+            return []
+        with self._connection() as connection:
+            identities = connection.execute(
+                "SELECT run_id,attempt_id FROM attempts WHERE state IN ('reserved','running','unknown')"
+            ).fetchall()
+            return [
+                self._lookup(connection, run_id, attempt)
+                for run_id, attempt in identities
+            ]
+
     @contextmanager
     def synchronous(self, run_id, attempt_id=None):
         """Share atomic per-run admission with the existing synchronous HTTP path."""

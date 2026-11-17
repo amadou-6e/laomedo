@@ -63,13 +63,19 @@ class ResumeDispatchTests(unittest.TestCase):
     def test_duplicate_before_reply_and_after_completion_dispatches_once(self):
         gate = threading.Event()
         self.addCleanup(gate.set)
+        self.assertEqual(self.dispatcher.pending(), [])
+        self.assertFalse(self.dispatcher.path.exists())
         first = self.dispatcher.submit(self.run_id, self.body, response_gate=gate)
+        self.assertEqual(
+            [item["run_id"] for item in self.dispatcher.pending()], [self.run_id]
+        )
         duplicate = self.dispatcher.submit(self.run_id, self.body)
         self.assertEqual(first, duplicate)
         self.runner.bind_mcp_resume.assert_not_called()
         gate.set()
         result = self.terminal()
         self.assertEqual(result["result"]["status"], "completed")
+        self.assertEqual(self.dispatcher.pending(), [])
         self.assertNotIn("answer", result["result"])
         self.assertEqual(self.dispatcher.submit(self.run_id, self.body), result)
         self.runner.resume.assert_called_once()

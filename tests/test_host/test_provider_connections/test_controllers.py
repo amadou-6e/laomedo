@@ -28,6 +28,10 @@ class FakeNativeAgent:
         self.lock = threading.Lock()
         self.provider = "codex"
         self.auth = kwargs["auth_connection"]
+        self.pending = []
+
+    def pending_resumes(self):
+        return list(self.pending)
 
     def editor_model_catalog(self):
         return {"provider": "codex", "models": []}
@@ -244,3 +248,34 @@ class ProviderControllerTests(unittest.TestCase):
         self.assertTrue(self.manager.stop(self.profile, self.one))
         slot = self.manager.slots[(self.profile, self.one, 1)]
         self.assertEqual(slot.runner.status(record["run_id"])["status"], "cancelled")
+
+    def test_queued_resume_is_counted_and_cleanup_waits_for_settlement(self):
+        endpoint, _token = self.manager.endpoint(self.profile, self.one)
+        record = self.post(endpoint, "/v1/runs/async", {"request_id": str(uuid4())})
+        slot = self.manager.slots[(self.profile, self.one, 1)]
+        record["status"] = "completed"
+        (slot.state / "runs" / record["run_id"] / "record.json").write_text(
+            json.dumps(record), encoding="utf-8"
+        )
+        slot.runner.pending = [{"run_id": record["run_id"], "status": "reserved"}]
+        self.assertEqual(self.manager.inventory(self.profile, self.one)[0], 1)
+        with self.assertRaisesRegex(
+            ProviderConnectionError, "provider_connection_busy"
+        ):
+            self.manager.admit_operation(slot, catalog=True)
+        self.assertFalse(self.manager.stop(self.profile, self.one))
+        slot.runner.pending = []
+        self.assertTrue(self.manager.stop(self.profile, self.one))
+
+    def test_retained_credential_facade_cannot_borrow_after_controller_close(self):
+        from laomedo.host.credentials.siwc.errors import AuthError
+
+        self.manager.endpoint(self.profile, self.one)
+        slot = self.manager.slots[(self.profile, self.one, 1)]
+        self.manager.closed = True
+        with unittest.mock.patch.object(self.service, "borrow") as borrow:
+            with self.assertRaisesRegex(AuthError, "auth_revoked"):
+                slot.runner.auth.access_token("oaiapp_test")
+            with self.assertRaisesRegex(AuthError, "auth_revoked"):
+                slot.runner.auth.account("oaiapp_test")
+            borrow.assert_not_called()

@@ -344,6 +344,12 @@ class BaseAgent(ABC):
 
         return ResumeDispatcher(self).synchronous(run_id, attempt_id)
 
+    def pending_resumes(self):
+        """Observe durable continuation reservations without starting native work."""
+        from laomedo.agents.agents.base.resume import ResumeDispatcher
+
+        return ResumeDispatcher(self).pending()
+
     def status(self, run_id: str) -> dict:
         """Read an admitted retained run record without dispatching or repeating native work."""
         return _read(self._run_dir(run_id) / "record.json")

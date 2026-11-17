@@ -22,9 +22,15 @@ class SavedConnectionCredential:
         if client_id != self.client_id:
             raise AuthError("auth_account_mismatch")
         try:
-            return self.service.borrow(
-                self.profile_id, self.connection_id, self.generation
-            )
+            with self.service._lock:
+                if (
+                    self.service.controllers is not None
+                    and self.service.controllers.closed
+                ):
+                    raise AuthError("auth_revoked")
+                return self.service.borrow(
+                    self.profile_id, self.connection_id, self.generation
+                )
         except ProviderConnectionError:
             raise AuthError("auth_revoked") from None
 
@@ -34,6 +40,11 @@ class SavedConnectionCredential:
             raise AuthError("auth_account_mismatch")
         try:
             with self.service._lock:
+                if (
+                    self.service.controllers is not None
+                    and self.service.controllers.closed
+                ):
+                    raise AuthError("auth_revoked")
                 record = self.service.admitted(
                     self.profile_id, self.connection_id, self.generation
                 )
