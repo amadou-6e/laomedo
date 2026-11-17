@@ -1,6 +1,10 @@
 """Current per-preview auth-cookie isolation; no credentials or native sign-in."""
 
 import unittest
+from importlib.util import find_spec
+
+if find_spec("fastapi") is None:
+    raise unittest.SkipTest("Optional FastAPI profile runtime is not installed")
 
 from fastapi import FastAPI, Request, Response, WebSocket
 from fastapi.testclient import TestClient
