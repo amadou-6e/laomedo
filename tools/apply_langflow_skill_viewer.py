@@ -676,6 +676,9 @@ def apply(checkout):
     from apply_langflow_providers import apply_providers
 
     apply_providers(checkout, overlay)
+    from apply_langflow_assistant import apply_assistant
+
+    apply_assistant(checkout, overlay)
     print("pinned_skill_viewer_overlay_applied")
 
 

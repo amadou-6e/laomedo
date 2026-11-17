@@ -132,6 +132,16 @@ export class LaomedoExtension {
         return sessionPolicy.parse(request._meta?.["laomedo"]).externalTools;
     }
 
+    mcpToolOptions(names: string[]) {
+        // Host admission already grants exactly these capability-bound tools.
+        // Preserve global approval/sandbox policy and omit unselected names.
+        const selected = sessionPolicy.shape.externalTools.parse(names);
+        return {
+            enabled_tools: selected,
+            tools: Object.fromEntries(selected.map(name => [name, {approval_mode: "approve" as const}])),
+        };
+    }
+
     turnParameters(request: acp.PromptRequest) {
         const policy = this.sessions.get(request.sessionId);
         if (!policy) throw acp.RequestError.invalidParams("Unbound Laomedo session");

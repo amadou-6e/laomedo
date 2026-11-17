@@ -32,7 +32,7 @@ function codeFromMessage(raw: unknown): string | undefined {
   if (typeof raw !== "string" || raw.length > 65536) return;
   // Native Langflow wraps a component error; only inspect the final message,
   // not arbitrary substrings in a response, URL, JSON payload or traceback.
-  const message = raw.replace(/^Error building Component[^\r\n]*:\s*\r?\n\s*/, "").trim();
+  const message = raw.replace(/^Error building Component[^\r\n:]*:\s*/, "").trim();
   const failure = message.match(/^Laomedo run [0-9a-f-]{36} failed: ([a-z0-9_]+)$/i);
   if (failure) return safeCode(failure[1]);
   return safeCode(message.split(";", 1)[0].trim());
@@ -109,6 +109,24 @@ export function describeNodeFailure(raw: unknown, status: any, context: ErrorCon
   const reference = outputFailure(status);
   const code = safeCode(reference?.error_category) ?? codeFromMessage(raw) ?? "unrecognized_error";
   const diagnostics: Record<string, string> = { code };
+  let observed = reference?.runner_diagnostics ?? (reference?.run_reference as any)?.runner_diagnostics;
+  // Legacy exception outputs carry exactly one bounded, structured suffix.
+  if (!observed && typeof raw === "string" && raw.length <= 4096) {
+    const message = raw.replace(/^Error building Component[^\r\n:]*:\s*/, "").trim();
+    const envelope = message.match(/^[a-z][a-z0-9_]*; runner_diagnostics=(\{[^\r\n]*\})$/);
+    if (envelope && codeFromMessage(message)) {
+      try { observed = JSON.parse(envelope[1]); } catch { /* No raw text projection. */ }
+    }
+  }
+  if (observed && typeof observed === "object" && !Array.isArray(observed)) {
+    if (typeof observed.diagnostic_id === "string" && uuid.test(observed.diagnostic_id)) diagnostics.diagnostic_id = observed.diagnostic_id;
+    if (Number.isInteger(observed.http_status) && observed.http_status >= 400 && observed.http_status <= 599) diagnostics.http_status = String(observed.http_status);
+    if (["runner_request", "runner_lookup", "runner_execution", "runner_http"].includes(observed.stage)) diagnostics.stage = observed.stage;
+    if (["os_error", "missing_field", "validation_error", "domain_error", "protocol_failure"].includes(observed.failure_kind)) diagnostics.failure_kind = observed.failure_kind;
+    if (Number.isInteger(observed.errno) && observed.errno >= -(2**31) && observed.errno < 2**31) diagnostics.errno = String(observed.errno);
+    const original = safeCode(observed.runner_code);
+    if (original) diagnostics.runner_code = original;
+  }
   if (typeof context.nodeId === "string" && /^[a-z][a-z0-9_-]{0,127}$/i.test(context.nodeId) &&
       !credentialPrefix.test(context.nodeId)) diagnostics.node_id = context.nodeId;
   if (typeof context.operation === "string" && operations.has(context.operation)) diagnostics.operation = context.operation;
@@ -125,6 +143,18 @@ export function describeNodeFailure(raw: unknown, status: any, context: ErrorCon
     if (request && uuid.test(request)) diagnostics.request_id ??= request;
   }
   let description = entries[code] ?? fallback;
+  if (code === "runner_dispatch_refused" && diagnostics.failure_kind === "os_error") {
+    const causes: Record<string, string> = {
+      "2": "The runner could not find a required file or directory.",
+      "13": "The operating system denied the runner access to a required resource.",
+      "28": "The runner could not continue because the device has no space left.",
+    };
+    description = {
+      title: "The runner encountered a system error",
+      description: causes[diagnostics.errno] ?? "An operating system error prevented the runner from handling the request. The exact cause is not confirmed.",
+      recovery: "Copy the technical details and share them with the application maintainer. They include the reported OS error and a diagnostic reference when available. Check existing run status before submitting again.",
+    };
+  }
   if (code === "prior_run_required") {
     const state = referenceState(context.savedReferences);
     if (state) {

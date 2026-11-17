@@ -1,0 +1,406 @@
+"""Assistant requests, declarative graphs and app-database-owned retained rows."""
+
+import time
+from typing import Literal
+from uuid import UUID, uuid4
+
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field as ModelField,
+    JsonValue,
+    model_validator,
+)
+from sqlalchemy import Column, JSON, UniqueConstraint, Text
+from sqlmodel import SQLModel, Field
+
+
+class AuthoringContext(BaseModel):
+    """Host-only authority binding; none of these identities are MCP tool arguments."""
+
+    model_config = ConfigDict(frozen=True)
+    owner_id: UUID = ModelField(description="Authenticated application owner.")
+    conversation_id: UUID = ModelField(
+        description="Conversation permitted to own the new drafts."
+    )
+    message_id: UUID = ModelField(
+        description="Exact active message behind these tools."
+    )
+    attempt_id: UUID = ModelField(description="Exact application dispatch attempt.")
+    session_key: str = ModelField(
+        exclude=True,
+        repr=False,
+        description="Host-only session fingerprint, never forwarded to the provider.",
+    )
+
+
+class ConversationRequest(BaseModel):
+    """Choose initial defaults; creation never submits a prompt."""
+
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
+    provider: Literal["codex"] = ModelField(
+        default="codex", description="Initial accepted chat provider."
+    )
+    model: str = ModelField(
+        min_length=1, max_length=256, description="Exact discovered model selection."
+    )
+    effort: str = ModelField(
+        min_length=1, max_length=100, description="Supported reasoning selection."
+    )
+    linked_conversation_id: UUID | None = ModelField(
+        default=None,
+        description="Explicit predecessor when safe continuation is unavailable.",
+    )
+
+
+class ConversationRenameRequest(BaseModel):
+    """A bounded explicit conversation title, independent of execution settings."""
+
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
+    title: str = ModelField(min_length=1, max_length=80)
+
+    @model_validator(mode="after")
+    def require_title(self):
+        """Reject blank titles without altering the user's chosen name."""
+        if not self.title.strip():
+            raise ValueError("assistant_title_empty")
+        return self
+
+
+class MessageRequest(BaseModel):
+    """One stable client key denotes exactly one user message and its attempt."""
+
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
+    client_message_id: UUID = ModelField(
+        description="Caller-retained idempotency key; never regenerated after a lost response."
+    )
+    text: str = ModelField(
+        min_length=1,
+        max_length=12000,
+        repr=False,
+        description="User-authored prompt retained in private local history.",
+    )
+    model: str | None = ModelField(
+        default=None,
+        min_length=1,
+        max_length=256,
+        description="Discovered model for this turn; omitted uses conversation defaults.",
+    )
+    effort: str | None = ModelField(
+        default=None,
+        min_length=1,
+        max_length=100,
+        description="Supported effort for this turn; supplied together with model.",
+    )
+
+    @model_validator(mode="after")
+    def require_text(self):
+        """Refuse whitespace without silently altering the retained prompt."""
+        if not self.text.strip():
+            raise ValueError("assistant_message_empty")
+        if (self.model is None) != (self.effort is None):
+            raise ValueError("assistant_selection_incomplete")
+        return self
+
+    def digest(self):
+        """Bind explicit selections to the stable key; preserve text-only callers' identity."""
+        import hashlib
+        import json
+
+        payload = (
+            self.text
+            if self.model is None
+            else json.dumps(
+                [self.text, self.model, self.effort],
+                ensure_ascii=True,
+                separators=(",", ":"),
+            )
+        )
+        return hashlib.sha256(payload.encode()).hexdigest()
+
+
+class StopRequest(BaseModel):
+    """Cancellation selects the exact active app attempt, never an arbitrary runner ID."""
+
+    model_config = ConfigDict(extra="forbid")
+    attempt_id: UUID = ModelField(
+        description="Exact active application attempt to stop."
+    )
+
+
+class DraftNode(BaseModel):
+    """An installed component identity, local node key and explicit static settings."""
+
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
+    key: str = ModelField(
+        pattern=r"^[A-Za-z][A-Za-z0-9_-]{0,63}$",
+        description="Graph-local node identity.",
+    )
+    component_type: str = ModelField(
+        min_length=1,
+        max_length=200,
+        description="Canonical installed component identity returned by discovery.",
+    )
+    fields: dict[str, JsonValue] = ModelField(
+        default_factory=dict,
+        description="Only schema-approved, non-secret static settings; no code templates.",
+    )
+
+
+class DraftEdge(BaseModel):
+    """An exact named output connected to an exact compatible input."""
+
+    model_config = ConfigDict(extra="forbid")
+    source: str = ModelField(max_length=64, description="Source node key.")
+    output: str = ModelField(
+        max_length=100, description="Installed output name, not its display label."
+    )
+    target: str = ModelField(max_length=64, description="Target node key.")
+    input: str = ModelField(
+        max_length=100, description="Installed input name, not its display label."
+    )
+
+
+class DraftGraph(BaseModel):
+    """Bounded declarative graph; trusted templates are supplied exclusively by the host."""
+
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
+    nodes: list[DraftNode] = ModelField(
+        min_length=1,
+        max_length=40,
+        description="Installed components to place on the editable canvas.",
+    )
+    edges: list[DraftEdge] = ModelField(
+        default_factory=list,
+        max_length=100,
+        description="Exact named compatible connections.",
+    )
+    allow_incomplete: bool = ModelField(
+        default=False,
+        description="Explicitly retain missing required settings with incomplete diagnostics.",
+    )
+
+
+class WorkflowSource(BaseModel):
+    """Bind an inspected source workflow to the revision observed by the assistant."""
+
+    model_config = ConfigDict(extra="forbid")
+    workflow_id: UUID = ModelField(
+        description="Owner-visible saved source; it is never modified by this operation."
+    )
+    revision: str = ModelField(
+        pattern=r"^sha256:[0-9a-f]{64}$",
+        description="Exact source revision returned by get_workflow.",
+    )
+
+
+class DraftRequest(BaseModel):
+    """Idempotent create or conditional edit of this conversation's own draft."""
+
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
+    draft_key: str = ModelField(
+        pattern=r"^[A-Za-z0-9_-]{1,80}$",
+        description="Operation key unique within the conversation; edits require a new key.",
+    )
+    name: str = ModelField(
+        min_length=1, max_length=120, description="Human-readable saved workflow name."
+    )
+    spec: DraftGraph = ModelField(
+        description="Declarative nodes and edges, never executable component JSON."
+    )
+    sources: list[WorkflowSource] = ModelField(
+        default_factory=list,
+        max_length=20,
+        description="Exact inspected sources used for this operation.",
+    )
+    draft_id: UUID | None = ModelField(
+        default=None,
+        description="Existing draft owned by this conversation; source workflows cannot be updated.",
+    )
+    expected_revision: str | None = ModelField(
+        default=None,
+        pattern=r"^sha256:[0-9a-f]{64}$",
+        description="Required exact current revision for an assistant edit.",
+    )
+
+    @model_validator(mode="after")
+    def paired_revision(self):
+        """Refuse unconditional edits and revisions without a target."""
+        if (self.draft_id is None) != (self.expected_revision is None):
+            raise ValueError("assistant_revision_required")
+        return self
+
+
+class AssistantSession(SQLModel, table=True):
+    """Retained revocation fence for a validated application session; no bearer is stored."""
+
+    __tablename__ = "laomedo_assistant_session"
+    key: str = Field(
+        primary_key=True,
+        description="SHA256 fingerprint of the already authenticated app session.",
+    )
+    owner_id: UUID = Field(
+        index=True, description="Authenticated owner of this session."
+    )
+    expires_at: float = Field(description="Validated session expiry as Unix seconds.")
+    revoked: bool = Field(
+        default=False,
+        description="Logout/lock prevents future chat dispatch and tool effects.",
+    )
+
+
+class AssistantConversation(SQLModel, table=True):
+    """Application-owned identity and current native binding, excluding credentials."""
+
+    __tablename__ = "laomedo_assistant_conversation"
+    id: UUID = Field(
+        default_factory=uuid4,
+        primary_key=True,
+        description="Durable conversation identity.",
+    )
+    owner_id: UUID = Field(
+        index=True, description="Authenticated owner; never model-selectable."
+    )
+    provider: str = Field(description="Fixed provider selection.")
+    model: str = Field(
+        description="Latest admitted native model selection; default for the next turn."
+    )
+    effort: str = Field(
+        description="Latest admitted reasoning selection; default for the next turn."
+    )
+    title: str = Field(
+        default="New conversation", description="Bounded first-message preview."
+    )
+    state: str = Field(
+        default="idle",
+        description="Application state including reconciliation and blocked continuation.",
+    )
+    active_message_id: UUID | None = Field(
+        default=None,
+        description="Single reserved/active message under the database lock.",
+    )
+    run_id: str | None = Field(
+        default=None, description="Existing dedicated runner invocation identity."
+    )
+    runner_instance_id: str | None = Field(
+        default=None,
+        description="Observed runner instance; restart cannot silently replace a session.",
+    )
+    thread_id: str | None = Field(
+        default=None, description="Observed existing native session."
+    )
+    workspace_hash: str | None = Field(
+        default=None,
+        description="Observed safe workspace checkpoint used for the next distinct prompt.",
+    )
+    error_code: str | None = Field(
+        default=None,
+        description="Stable safe explanation when continuation is blocked.",
+    )
+    linked_conversation_id: UUID | None = Field(
+        default=None,
+        description="Explicit predecessor; starting anew never erases history.",
+    )
+    created_at: float = Field(
+        default_factory=time.time, description="Creation time as Unix seconds."
+    )
+    updated_at: float = Field(
+        default_factory=time.time,
+        index=True,
+        description="Most recent retained conversation change.",
+    )
+
+
+class AssistantMessage(SQLModel, table=True):
+    """A durable prompt, dispatch reservation and final safe display outcome."""
+
+    __tablename__ = "laomedo_assistant_message"
+    __table_args__ = (UniqueConstraint("conversation_id", "client_message_id"),)
+    id: UUID = Field(
+        default_factory=uuid4,
+        primary_key=True,
+        description="Durable app message identity.",
+    )
+    conversation_id: UUID = Field(index=True, description="Owning conversation.")
+    client_message_id: UUID = Field(description="Stable caller idempotency key.")
+    attempt_id: UUID = Field(
+        default_factory=uuid4,
+        description="Stable application attempt; subsequent prompts also use this as native Activity identity.",
+    )
+    digest: str = Field(description="Canonical semantic request digest.")
+    model: str | None = Field(
+        default=None,
+        description="Immutable admitted model for this turn; absent on earlier retained rows.",
+    )
+    effort: str | None = Field(
+        default=None,
+        description="Immutable admitted reasoning effort for this turn; absent on earlier retained rows.",
+    )
+    stop_requested: bool = Field(
+        default=False,
+        description="Durable cancellation intent, including dispatch whose response was lost.",
+    )
+    activity_snapshot: dict | None = Field(
+        default=None,
+        sa_column=Column(JSON),
+        description="Last validated normalized Activity page; private retained display works without a running provider.",
+    )
+    text: str = Field(
+        sa_column=Column(Text, nullable=False),
+        description="Private retained user prompt.",
+    )
+    state: str = Field(
+        default="reserved",
+        description="Observed dispatch/terminal/uncertain state, never inferred replay permission.",
+    )
+    run_id: str | None = Field(
+        default=None, description="Observed native invocation identity."
+    )
+    native_attempt_id: str | None = Field(
+        default=None,
+        description="Observed native Activity identity; initial runs allocate this inside the runner.",
+    )
+    response: str | None = Field(
+        default=None,
+        sa_column=Column(Text),
+        description="Retained final assistant text; partial content remains in Activity.",
+    )
+    error_code: str | None = Field(
+        default=None, description="Allowlisted safe failure category."
+    )
+    created_at: float = Field(
+        default_factory=time.time, description="Prompt reservation time."
+    )
+
+
+class AssistantDraftReceipt(SQLModel, table=True):
+    """Atomic evidence of a saved Flow, independent of the model's later outcome."""
+
+    __tablename__ = "laomedo_assistant_draft_receipt"
+    __table_args__ = (UniqueConstraint("conversation_id", "draft_key"),)
+    id: UUID = Field(
+        default_factory=uuid4,
+        primary_key=True,
+        description="Authoritative persisted save receipt.",
+    )
+    owner_id: UUID = Field(index=True, description="Authenticated tool owner.")
+    conversation_id: UUID = Field(
+        index=True, description="Conversation whose drafts this tool may modify."
+    )
+    message_id: UUID = Field(description="User message responsible for this save.")
+    attempt_id: UUID = Field(description="Native attempt responsible for this save.")
+    draft_key: str = Field(description="Idempotent operation key.")
+    digest: str = Field(description="Canonical operation digest.")
+    workflow_id: UUID = Field(
+        index=True, description="Ordinary persisted Langflow Flow identity."
+    )
+    name: str = Field(description="Name recorded when this save committed.")
+    revision: str = Field(description="Exact saved Flow revision.")
+    diagnostics: list[str] = Field(
+        default_factory=list,
+        sa_column=Column(JSON),
+        description="Explicit structural incompleteness; never an execution success claim.",
+    )
+    created_at: float = Field(
+        default_factory=time.time, description="Atomic save time."
+    )

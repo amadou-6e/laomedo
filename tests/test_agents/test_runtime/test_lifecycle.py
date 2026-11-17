@@ -936,7 +936,7 @@ class LocalRunnerTests(unittest.TestCase):
         result = runner.start(self.request())
         self.assertEqual(result["status"], "completed")
         self.assertEqual(result["workspace_mode"], "git")
-        self.assertEqual(result["image"], "laomedo-codex-acp:0.159.2-2.1.1-mcp")
+        self.assertEqual(result["image"], "laomedo-codex-acp:0.159.2-2.1.1-mcp2")
         self.assertEqual(
             FakeServer.calls[-1].image,
             __import__(
@@ -1417,7 +1417,9 @@ class LocalRunnerTests(unittest.TestCase):
         )
         with self.assertRaisesRegex(RunnerError, "resume_binding_mismatch"):
             self.runner.resume(
-                first["run_id"], "continue", **{**args, "model": "other"}
+                first["run_id"],
+                "continue",
+                **{**args, "expected_thread_id": "other-thread"},
             )
         (self.runner._run_dir(first["run_id"]) / "post-run/task.txt").write_text(
             "tampered"

@@ -5,13 +5,16 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from http.server import BaseHTTPRequestHandler
 import json
+import logging
 import secrets
 import threading
+from uuid import uuid4
 
 from laomedo.agents.artifacts.errors import ArtifactError
 from laomedo.agents.agents.base.settings import MAX_BODY
 from laomedo.agents.errors import RunnerError
 from laomedo.skills.registry.errors import SkillStoreError
+from laomedo.agents.interface.models import RunnerDiagnostics
 
 if TYPE_CHECKING:
     from .server import RunnerServer
@@ -46,6 +49,9 @@ class RunnerRequestHandler(BaseHTTPRequestHandler):
                         "provider": self.server.runner.provider,
                     },
                 )
+                return
+            if len(parts) == 5 and parts[:2] == ["v1", "runs"] and parts[3] == "resume":
+                self._reply(200, self.server.runner.lookup_resume(parts[2], parts[4]))
                 return
             if (
                 len(parts) == 4
@@ -93,7 +99,9 @@ class RunnerRequestHandler(BaseHTTPRequestHandler):
                 if category == "request_identity_conflict"
                 else 400 if category == "invalid_request_id" else 404
             )
-            self._reply(code, {"status": "failed", "error_category": category})
+            self._reply(
+                code, {"status": "failed", "error_category": category}, failure=exc
+            )
 
     def do_POST(self):
         """Authenticate and handle the existing request protocol, preserving wire errors."""
@@ -114,23 +122,42 @@ class RunnerRequestHandler(BaseHTTPRequestHandler):
                 )
                 self._reply(202, result)
                 return
+            if (
+                len(parts) == 5
+                and parts[:2] == ["v1", "runs"]
+                and parts[3:] == ["resume", "async"]
+            ):
+                response_gate = threading.Event()
+                result = self.server.runner.resume_async(
+                    parts[2], body, response_gate=response_gate
+                )
+                self._reply(202, result)
+                return
             if parts == ["v1", "runs"]:
                 result = self.server.runner.start(body)
             elif (
                 len(parts) == 4 and parts[:2] == ["v1", "runs"] and parts[3] == "resume"
             ):
-                mcp_access = self.server.runner.bind_mcp_resume(parts[2], body)
-                extra = self.server.runner.prepare_resume(parts[2], body)
-                result = self.server.runner.resume(
-                    parts[2],
-                    body["task"],
-                    expected_post_run_hash=body["expected_post_run_hash"],
-                    expected_thread_id=body["expected_thread_id"],
-                    model=body["model"],
-                    effort=body["effort"],
-                    activity_attempt_id=body.get("activity_attempt_id"),
-                    **extra,
-                )
+                with self.server.runner.resume_guard(
+                    parts[2], body.get("activity_attempt_id")
+                ) as attempt_id:
+                    try:
+                        mcp_access = self.server.runner.bind_mcp_resume(parts[2], body)
+                        extra = self.server.runner.prepare_resume(parts[2], body)
+                        result = self.server.runner.resume(
+                            parts[2],
+                            body["task"],
+                            expected_post_run_hash=body["expected_post_run_hash"],
+                            expected_thread_id=body["expected_thread_id"],
+                            model=body["model"],
+                            effort=body["effort"],
+                            activity_attempt_id=attempt_id,
+                            **extra,
+                        )
+                    finally:
+                        if mcp_access is not None:
+                            owned, mcp_access = mcp_access, None
+                            self.server.runner.release_mcp(parts[2], expected=owned)
             elif (
                 len(parts) == 4 and parts[:2] == ["v1", "runs"] and parts[3] == "cancel"
             ):
@@ -189,6 +216,7 @@ class RunnerRequestHandler(BaseHTTPRequestHandler):
             self._reply(
                 409 if str(exc) == "request_identity_conflict" else 400,
                 {"status": "failed", "error_category": str(exc)},
+                failure=exc,
             )
         finally:
             if mcp_access is not None:
@@ -196,8 +224,66 @@ class RunnerRequestHandler(BaseHTTPRequestHandler):
             if response_gate is not None:
                 response_gate.set()
 
-    def _reply(self, code: int, value: dict):
+    def _reply(self, code: int, value: dict, *, failure=None):
         """Serialize the response using the existing JSON status and content length."""
+        if code >= 400:
+            category = (
+                RunnerDiagnostics.safe_code(
+                    value.get("error_category"), RunnerDiagnostics.known_codes
+                )
+                or "runner_unclassified_failure"
+            )
+            family = (
+                "os_error"
+                if isinstance(failure, OSError)
+                else (
+                    "missing_field"
+                    if isinstance(failure, KeyError)
+                    else (
+                        "validation_error"
+                        if isinstance(failure, ValueError)
+                        else (
+                            "domain_error"
+                            if isinstance(
+                                failure, (RunnerError, SkillStoreError, ArtifactError)
+                            )
+                            else "protocol_failure"
+                        )
+                    )
+                )
+            )
+            number = getattr(failure, "errno", None)
+            diagnostics = RunnerDiagnostics.from_payload(
+                {
+                    "diagnostic_id": str(uuid4()),
+                    "stage": (
+                        (
+                            "runner_lookup"
+                            if self.path.startswith(("/v1/requests/", "/v1/runs/"))
+                            else "runner_http"
+                        )
+                        if self.command == "GET"
+                        else (
+                            "runner_request"
+                            if failure is not None or code < 500
+                            else "runner_execution"
+                        )
+                    ),
+                    "failure_kind": family,
+                    "errno": number,
+                    "runner_code": category,
+                },
+                http_status=code,
+            ).to_payload()
+            # Expected lookup misses during cancellation polling are not warnings.
+            logger = logging.getLogger(__name__)
+            emit = (
+                logger.debug
+                if self.command == "GET" and code == 404
+                else logger.warning
+            )
+            emit("Runner failure: %s", json.dumps(diagnostics, sort_keys=True))
+            value = {**value, "runner_diagnostics": diagnostics}
         data = json.dumps(value).encode("utf-8")
         self.send_response(code)
         self.send_header("Content-Type", "application/json")

@@ -1,5 +1,20 @@
 # Codex Agent
 
+## Interrupted-session continuation
+
+`models.py` owns `ResumeCheckpoint`: a binding between one settled attempt,
+its existing native thread, frozen workspace digest and current runner instance.
+It is separate from successful output artifacts. Failed/cancelled attempts keep
+their outcome, `snapshot_ready=False` and no output reference. The finalizer
+creates a checkpoint only after confirmed controller/worker cleanup, closed
+streams, matching native session and successful protected-workspace freezing.
+`CodexAgent._resume_checkpoint` verifies these attempt-local facts again;
+`resume` retains image/account/configuration and exact workspace checks. Native
+load must return the original session. Restart, missing session, uncertain
+cleanup and publication-owned runs do not gain continuation. The application
+must separately reconcile tool-save receipts and revoke the prior tool grant
+before offering another prompt; checkpoint existence is not tool authorization.
+
 `CodexAgent` is the provider-qualified concrete Agent. It inherits the [abstract lifecycle](../base/README.md).
 The implementation is in `agent.py`; folder and object renaming do not
 remove its whole-pipeline overrides.

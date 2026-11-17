@@ -326,6 +326,24 @@ class BaseAgent(ABC):
         self._mirror_host_login()
         return {}
 
+    def resume_async(self, run_id, body, *, response_gate=None):
+        """Admit a durable, idempotent resumed attempt before MCP/native effects."""
+        from laomedo.agents.agents.base.resume import ResumeDispatcher
+
+        return ResumeDispatcher(self).submit(run_id, body, response_gate=response_gate)
+
+    def lookup_resume(self, run_id, attempt_id):
+        """Read the existing resumed-attempt reservation without native dispatch."""
+        from laomedo.agents.agents.base.resume import ResumeDispatcher
+
+        return ResumeDispatcher(self).lookup(run_id, attempt_id)
+
+    def resume_guard(self, run_id, attempt_id=None):
+        """Serialize synchronous HTTP resume against durable asynchronous attempts."""
+        from laomedo.agents.agents.base.resume import ResumeDispatcher
+
+        return ResumeDispatcher(self).synchronous(run_id, attempt_id)
+
     def status(self, run_id: str) -> dict:
         """Read an admitted retained run record without dispatching or repeating native work."""
         return _read(self._run_dir(run_id) / "record.json")
