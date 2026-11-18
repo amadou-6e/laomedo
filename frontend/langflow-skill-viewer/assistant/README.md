@@ -80,3 +80,11 @@ Rename/Renamed workflow "old" to "new", followed by the left-aligned outcome.
 
 Edit uses that same single-sentence layout: Edit/Edited workflow "name": brief
 change description. All three categories share typography, icon and outcome layout.
+
+`transcript.ts` collects all retained message pages and normalized answer text for
+a Markdown snapshot; it excludes native/tool payloads, marks incomplete retention
+and never dispatches inference. The header export ignores results after selection
+or owner changes. `CopyAnswer.tsx` copies exactly one displayed answer block,
+with local success/failure feedback. The message container uses compact bottom
+padding so answer controls remain close to the composer. UI geometry and these
+transitions are specified in application-assistant.drawio A3 TRANSCRIPT-01.

@@ -9,6 +9,7 @@ import { describeNodeFailure } from "@/components/laomedoErrors/nodeErrors";
 import type { ActivityPage, DraftReceipt, Message } from "./models";
 import { stateLabel } from "./models";
 import Thinking from "./Thinking";
+import CopyAnswer from "./CopyAnswer";
 import GraphActions from "./GraphActions";
 import type { GraphAction } from "./models";
 
@@ -128,7 +129,7 @@ export default function MessageRow({
     else groups.push([lane]);
   }
   return (
-    <section className="space-y-5 pb-6" aria-label="Message and response">
+    <section className="space-y-5" aria-label="Message and response">
       <UserMessage text={message.text} createdAt={message.created_at} />
       {groups.map((group) => {
         const lane = group[0];
@@ -136,6 +137,7 @@ export default function MessageRow({
         return text !== null ? (
           <div key={`${lane.thread}:${lane.id}`} className="space-y-2">
             <AssistantText text={text} />
+            <CopyAnswer text={text} />
           </div>
         ) : (
           <ToolCalls
@@ -148,6 +150,7 @@ export default function MessageRow({
       {!hasAnswer && message.response && (
         <div className="space-y-2">
           <AssistantText text={message.response} />
+          <CopyAnswer text={message.response} />
         </div>
       )}
       {active && ["reserved", "starting", "running"].includes(message.state) ? (
