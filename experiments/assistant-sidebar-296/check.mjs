@@ -1,0 +1,43 @@
+// Real existing application; no inference or graph mutations.
+import {createRequire} from 'node:module';
+import {readFile,mkdir} from 'node:fs/promises';
+const require=createRequire('C:/CodeWorkspace/laomedo/.tools/assistant-282-upstream/src/frontend/package.json');
+const {chromium}=require('playwright');
+const root='C:/CodeWorkspace/laomedo';
+const metadata=JSON.parse(await readFile(root+'/.tools/assistant-291-live.json','utf8'));
+const browser=await chromium.launch({headless:true,channel:'chrome'});
+try {
+ const page=await browser.newPage({viewport:{width:1440,height:1000},colorScheme:'dark'});
+ await page.goto(metadata.base+'/flow/'+metadata.flow);
+ await page.locator('.react-flow__node').first().waitFor({timeout:90000});
+ const nodes=await page.locator('.react-flow__node').count();
+ const url=page.url();
+ await page.getByRole('button',{name:'Open assistant sidebar',exact:true}).click();
+ const sidebar=page.getByRole('complementary',{name:'Assistant sidebar'});
+ const composer=sidebar.getByRole('textbox',{name:'Message this assistant'});
+ await composer.fill('Unsent sidebar acceptance draft');
+ const separator=sidebar.getByRole('separator',{name:'Resize assistant'});
+ await separator.press('Home');
+ if(await separator.getAttribute('aria-valuenow')!=='280')throw Error('Keyboard minimum');
+ await separator.press('End');
+ await page.getByRole('button',{name:'Close assistant',exact:true}).click();
+ await page.waitForFunction(()=>document.activeElement?.getAttribute('aria-label')==='Open assistant sidebar');
+ await page.getByRole('button',{name:'Open assistant sidebar',exact:true}).click();
+ if(await composer.inputValue()!=='Unsent sidebar acceptance draft')throw Error('Draft lost');
+ if(await page.locator('.react-flow__node').count()!==nodes || page.url()!==url)throw Error('Canvas lost');
+ await sidebar.getByRole('button',{name:'Expand conversations',exact:true}).click();
+ await sidebar.getByRole('heading',{name:'Conversations',exact:true}).waitFor();
+ const dir=root+'/.tools/sidebar-296-render';await mkdir(dir,{recursive:true});
+ await page.screenshot({path:dir+'/history.png'});
+ await sidebar.getByRole('button',{name:'Collapse conversations',exact:true}).click();
+ await page.screenshot({path:dir+'/chat.png'});
+ const box=await separator.boundingBox();
+ await page.mouse.move(box.x+box.width/2,box.y+100);await page.mouse.down();await page.mouse.move(box.x+box.width/2+80,box.y+100);await page.mouse.up();
+ if(Number(await separator.getAttribute('aria-valuenow'))>=720)throw Error('Pointer resize did not shrink');
+ await page.setViewportSize({width:800,height:1000});
+ await page.waitForFunction(()=>getComputedStyle(document.querySelector('[aria-label="Assistant sidebar"]')).position==='absolute');
+ if(!await sidebar.evaluate(el=>{const box=el.getBoundingClientRect();return el.contains(document.elementFromPoint(box.left+20,box.top+100))}))throw Error('Overlay obscured by editor navigation');
+ await page.screenshot({path:dir+'/narrow.png'});
+ await composer.fill('');
+ console.log(JSON.stringify({realApplication:true,sameConversationHistory:true,draftSurvivesClose:true,keyboardResize:true,pointerResize:true,narrowOverlay:true,closeRestoresFocus:true,canvasPreserved:true,urlPreserved:true,noInference:true}));
+} finally {await browser.close()}

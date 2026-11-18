@@ -1,0 +1,12 @@
+﻿import {createRequire} from 'node:module';
+const require=createRequire('C:/CodeWorkspace/laomedo/.tools/assistant-282-upstream/src/frontend/package.json');
+const {chromium}=require('playwright');
+const browser=await chromium.launch({headless:true,channel:'chrome'});
+const page=await browser.newPage();
+page.on('pageerror',error=>console.log('pageerror',error.message));
+page.on('console',message=>{if(message.type()==='error')console.log('error',message.text().slice(0,400))});
+page.on('response',r=>{if(r.status()>=400)console.log('HTTP',r.status(),new URL(r.url()).pathname)});
+await page.goto('http://127.0.0.1:55895/');
+await page.waitForTimeout(5000);
+console.log((await page.locator('body').innerText()).slice(0,300));
+await browser.close();
