@@ -149,6 +149,7 @@ export default function MessageRow({
             key={`${lane.thread}:${lane.id}`}
             lanes={group}
             names={page?.tool_names ?? {}}
+            compactionCompleted={Boolean(message.native_action_id && message.text === "/compact" && message.state === "completed")}
           />
         );
       })}
