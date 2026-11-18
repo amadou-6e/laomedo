@@ -151,3 +151,10 @@ corrected boolean-only check then exposed loading race, fixed by waiting for
 retained activity before enabling Copy. Final acceptance passed after rebuild.
 Integrated finalbuild Copy reports Copied; local screenshots retained privately.
 No prompts or graph mutations. Same Claude reviewer verdict pending.
+
+FullresponseCopy finalClaude review: Implementation/Specification/Visual APPROVE
+code3e586231e/spec4d5eeaa, no blockers.34UItests/build/actualclipboard and
+integratedCopied pass. Later docs-only64f302b38/b04ef05 correct retained-order
+and active-response wording (L1/L4), deterministicchecks pass; no code change.
+Optional disabled-on-readfailure tooltip and Copyanswer label left unchanged.
+No model prompts or graph mutations. PRs remain unmerged.
