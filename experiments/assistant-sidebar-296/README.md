@@ -68,3 +68,5 @@ Same-tab full-window navigation discards unsent sidebar draft text and inherits
 upstream build-stop navigation behavior; no cross-surface draft transfer added.
 No locked-state or running-build visual coverage claimed.8px target reflects owner
 preference; no accessibility-conformance claim. Nothing merged.
+
+Feedback8-11 at code14e1f8ba6/specdf2951de: outer8pxedge collapses panel; headerHistory opens chats; headerX removed; graphcard navigates same tab and currentgraph reloads. 40tests8suites, build, specsvalidation pass. collapse-history.mjs passed differentgraph and domcontentloaded currentgraph acceptance using retained data, no approval/inference/graphwrite. Claude code/spec/observedvisual APPROVE; M1closed. Native unsaved/build confirmation not exercised; reload resets sidebar/draft. Later documentation-only clarification33d134f1c/spec97fb125. No merge.
