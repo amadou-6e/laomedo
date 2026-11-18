@@ -83,6 +83,15 @@ class ProviderBindingTests(unittest.IsolatedAsyncioTestCase):
             ProviderGraphBindings.endpoint(component, str(override))
             controller.endpoint.assert_called_with(self.profile, override, run_id=None)
             service.graph_preferences.assert_not_called()
+            controller.connection_for_run.return_value = preferred
+            retained_run = str(uuid4())
+            ProviderGraphBindings.endpoint(
+                component, str(override), run_id=retained_run
+            )
+            controller.endpoint.assert_called_with(
+                self.profile, preferred, run_id=retained_run
+            )
+            service.graph_preferences.assert_not_called()
             service.graph_preferences.return_value.codex = None
             with self.assertRaisesRegex(
                 ProviderConnectionError, "provider_connection_required"

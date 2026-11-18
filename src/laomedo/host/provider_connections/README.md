@@ -81,3 +81,7 @@ flow exports. `graph_preferences()` reads the Codex selection;
 `save_graph_preferences()` validates a connected owned row before atomically saving.
 An explicit node selection overrides the graph preference. Missing or removed
 accounts never fall back to another connection. Graph routes verify Flow ownership.
+
+Retained run operations resolve the connection from the authenticated owner's
+controller inventory, independently of later preference or node-selector changes.
+Ambiguous or missing runs are refused; current preferences cannot redirect them.

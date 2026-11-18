@@ -272,6 +272,20 @@ class ProviderControllers:
             with self.service._lock:
                 slot.creating = False
 
+    def connection_for_run(self, profile_id, run_id):
+        """Resolve a retained run from this owner's authoritative inventory, never preferences."""
+        run_id = str(UUID(str(run_id)))
+        with self.service._lock:
+            matches = {
+                slot.connection_id
+                for slot in self.slots.values()
+                if slot.profile_id == profile_id
+                and (slot.state / "runs" / run_id / "record.json").is_file()
+            }
+            if len(matches) != 1:
+                raise ProviderConnectionError("provider_connection_unavailable")
+            return matches.pop()
+
     def endpoint(self, profile_id, connection_id, *, run_id=None):
         """Return a host-only URL/token path; retained runs resolve their original epoch."""
         with self.service._lock:
