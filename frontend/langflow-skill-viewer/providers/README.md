@@ -21,3 +21,6 @@ Account rows and details use the Codex mark, matching the installed OpenAI Codex
 extension asset `codex-d905da579253.svg` (26.1007.21434), rendered in the theme
 foreground colour. Details identify reauthentication as Sign in to Codex again;
 account access and model usage are not inferred from successful authentication.
+
+Connection details group compact reauthentication and Disconnect buttons together,
+with reauthentication immediately before Disconnect and wrapping on narrow screens.

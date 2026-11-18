@@ -208,8 +208,7 @@ export default function ProviderConnections() {
         {screen === "details" && selected && <>
           <div className="gc-identity"><span className="gc-avatar" aria-hidden="true">{codexLogo}</span><h2 id="provider-heading">{selected.label}</h2><span className={`gc-status ${ready ? "gc-ready" : "gc-attention"}`}>{status(selected)}</span></div>
           <p className="gc-muted">{ready ? "Access is maintained automatically when supported." : "Sign in again to restore access for this account."}</p>
-          {selected.lifecycle === "connected" && <Button ignoreTitleCase disabled={busy} onClick={() => setScreen("method")}>Sign in to Codex again</Button>}
-          <div className="gc-footer"><p className="gc-muted">Removing this connection stops Laomedo access.</p><Button ignoreTitleCase variant="outline" disabled={busy} onClick={() => selected.lifecycle === "connected" ? void prepareDisconnect() : setScreen("removing")}>{selected.lifecycle === "connected" ? "Disconnect" : "View cleanup"}</Button></div>
+          <div className="gc-footer"><p className="gc-muted">Removing this connection stops Laomedo access.</p><div className="pc-connection-actions">{selected.lifecycle === "connected" && <Button ignoreTitleCase disabled={busy} onClick={() => setScreen("method")}>Sign in to Codex again</Button>}<Button ignoreTitleCase variant="outline" disabled={busy} onClick={() => selected.lifecycle === "connected" ? void prepareDisconnect() : setScreen("removing")}>{selected.lifecycle === "connected" ? "Disconnect" : "View cleanup"}</Button></div></div>
         </>}
         {screen === "disconnect" && selected && removal && <>
           <p>{selected.label}</p>

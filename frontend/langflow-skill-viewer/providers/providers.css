@@ -5,3 +5,6 @@
 .pc-choice[aria-pressed=true] { background: hsl(var(--muted)); border-color: hsl(var(--foreground)); }
 .pc-choice small { font-size: 13px; color: hsl(var(--muted-foreground)); }
 .pc-choice:disabled { opacity: .55; cursor: not-allowed; }
+
+.pc-connection-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.pc-connection-actions > button { flex: none; width: auto; }
