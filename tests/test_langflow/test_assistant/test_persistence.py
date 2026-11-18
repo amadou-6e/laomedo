@@ -8,17 +8,210 @@ import unittest
 from uuid import UUID, uuid4
 
 from sqlalchemy.ext.asyncio import create_async_engine
+from sqlmodel import select
 
 from laomedo.integrations.langflow.assistant.errors import AssistantError
 from laomedo.integrations.langflow.assistant.models import (
     ConversationRequest,
     ConversationRenameRequest,
     MessageRequest,
+    AssistantConversation,
+    AssistantMessage,
+    AssistantDraftReceipt,
+    AssistantGraphAction,
+    AssistantGraphPermission,
 )
 from laomedo.integrations.langflow.assistant.persistence import AssistantStore
 
 
 class PersistenceTests(unittest.IsolatedAsyncioTestCase):
+    async def test_delete_removes_owned_chat_records_and_clears_successor_link(self):
+        """Deleting a settled chat removes its private receipts and remembered grants."""
+        message, _ = await self.store.reserve(
+            self.owner,
+            self.identifier,
+            MessageRequest(client_message_id=uuid4(), text="Hello"),
+            session_key=self.key,
+        )
+        await self.store.observe(
+            self.owner,
+            self.identifier,
+            UUID(message["id"]),
+            state="completed",
+            settled=True,
+            reconciled=True,
+        )
+        successor = await self.store.create(
+            self.owner,
+            ConversationRequest(
+                model="fixture", effort="low", linked_conversation_id=self.identifier
+            ),
+            session_key=self.key,
+        )
+        action_id, flow = uuid4(), uuid4()
+        async with self.store.transaction() as session:
+            session.add(
+                AssistantDraftReceipt(
+                    owner_id=self.owner,
+                    conversation_id=self.identifier,
+                    message_id=UUID(message["id"]),
+                    attempt_id=UUID(message["attempt_id"]),
+                    draft_key="draft",
+                    digest="digest",
+                    workflow_id=flow,
+                    name="Saved flow",
+                    revision="revision",
+                )
+            )
+            session.add(
+                AssistantGraphAction(
+                    id=action_id,
+                    owner_id=self.owner,
+                    conversation_id=self.identifier,
+                    message_id=UUID(message["id"]),
+                    attempt_id=UUID(message["attempt_id"]),
+                    session_key=self.key,
+                    operation_key="proposal",
+                    workflow_id=flow,
+                    name="Saved flow",
+                    kind="edit",
+                    digest="digest",
+                    request={},
+                    preview=[],
+                    revision="revision",
+                    expires_at=time.time() + 100,
+                )
+            )
+            session.add(
+                AssistantGraphPermission(
+                    owner_id=self.owner,
+                    conversation_id=self.identifier,
+                    session_key=self.key,
+                    category="edit",
+                    action_id=action_id,
+                )
+            )
+        other_owner = uuid4()
+        await self.store.admit_session(
+            "other-owner-session", other_owner, time.time() + 100
+        )
+        with self.assertRaisesRegex(AssistantError, "assistant_conversation_not_found"):
+            await self.store.delete_conversation(
+                other_owner, self.identifier, session_key="other-owner-session"
+            )
+        self.assertEqual(
+            await self.store.delete_conversation(
+                self.owner, self.identifier, session_key=self.key
+            ),
+            {"state": "deleted"},
+        )
+        async with self.store.sessions() as session:
+            self.assertIsNone(await session.get(AssistantConversation, self.identifier))
+            for model in (
+                AssistantMessage,
+                AssistantDraftReceipt,
+                AssistantGraphAction,
+                AssistantGraphPermission,
+            ):
+                self.assertEqual(
+                    (
+                        await session.exec(
+                            select(model).where(
+                                model.conversation_id == self.identifier
+                            )
+                        )
+                    ).all(),
+                    [],
+                )
+        retained = await self.store.detail(self.owner, UUID(successor["id"]))
+        self.assertIsNone(retained["conversation"]["linked_conversation_id"])
+        with self.assertRaisesRegex(AssistantError, "assistant_conversation_not_found"):
+            await self.store.detail(self.owner, self.identifier)
+
+    async def test_delete_refuses_active_work_and_revoked_sessions(self):
+        """Never discard an active response or an admitted workflow execution."""
+        message, _ = await self.store.reserve(
+            self.owner,
+            self.identifier,
+            MessageRequest(client_message_id=uuid4(), text="Hello"),
+            session_key=self.key,
+        )
+        with self.assertRaisesRegex(AssistantError, "assistant_conversation_active"):
+            await self.store.delete_conversation(
+                self.owner, self.identifier, session_key=self.key
+            )
+        await self.store.observe(
+            self.owner,
+            self.identifier,
+            UUID(message["id"]),
+            state="completed",
+            settled=True,
+            reconciled=True,
+        )
+        async with self.store.transaction() as session:
+            action = AssistantGraphAction(
+                owner_id=self.owner,
+                conversation_id=self.identifier,
+                message_id=UUID(message["id"]),
+                attempt_id=UUID(message["attempt_id"]),
+                session_key=self.key,
+                operation_key="run",
+                workflow_id=uuid4(),
+                name="Graph",
+                kind="run",
+                digest="digest",
+                request={},
+                preview=[],
+                revision="revision",
+                state="executing",
+                expires_at=time.time() + 100,
+            )
+            session.add(action)
+        with self.assertRaisesRegex(AssistantError, "assistant_conversation_active"):
+            await self.store.delete_conversation(
+                self.owner, self.identifier, session_key=self.key
+            )
+        async with self.store.transaction() as session:
+            row = await session.get(AssistantGraphAction, action.id)
+            row.state = "succeeded"
+            session.add(row)
+        await self.store.revoke(self.key)
+        with self.assertRaisesRegex(AssistantError, "assistant_session_locked"):
+            await self.store.delete_conversation(
+                self.owner, self.identifier, session_key=self.key
+            )
+
+    async def test_concurrent_send_and_delete_never_leave_an_orphan_reservation(self):
+        """Exactly one admission wins the conversation's deletion/reservation race."""
+        results = await asyncio.gather(
+            self.store.delete_conversation(
+                self.owner, self.identifier, session_key=self.key
+            ),
+            self.store.reserve(
+                self.owner,
+                self.identifier,
+                MessageRequest(client_message_id=uuid4(), text="Race"),
+                session_key=self.key,
+            ),
+            return_exceptions=True,
+        )
+        async with self.store.sessions() as session:
+            chat = await session.get(AssistantConversation, self.identifier)
+            messages = (
+                await session.exec(
+                    select(AssistantMessage).where(
+                        AssistantMessage.conversation_id == self.identifier
+                    )
+                )
+            ).all()
+        if chat is None:
+            self.assertEqual(messages, [])
+            self.assertIsInstance(results[1], AssistantError)
+        else:
+            self.assertEqual(len(messages), 1)
+            self.assertEqual(chat.active_message_id, messages[0].id)
+            self.assertIsInstance(results[0], AssistantError)
+
     async def test_rename_is_retained_and_owner_session_scoped(self):
         """Titles persist without a message or execution; other owners cannot rename."""
         request = ConversationRenameRequest(title="My workflow assistant")

@@ -71,3 +71,10 @@ consent only on an admitted Always approve decision. `propose_graph_action` chec
 that consent inside the same authority/revision/claim transaction, never from
 model wording. `permissions` lists safe categories; `revoke_permission` serializes
 revocation with decisions on the conversation lock. No cross-conversation consent.
+
+`AssistantStore.delete_conversation(owner, identifier, session_key=...)` locks
+the session and owned conversation, refuses active/unsettled messages or executing
+graph actions, then deletes its message snapshots, action/draft receipts and
+permissions atomically. It clears owned successor links and never deletes Flow
+or independent run history. The authenticated DELETE route is app-only; MCP
+does not expose deletion. Row locking serializes deletion with Send/approval.

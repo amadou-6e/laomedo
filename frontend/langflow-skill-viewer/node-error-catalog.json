@@ -2734,6 +2734,11 @@
     "description": "The application authoring service could not complete this operation.",
     "recovery": "Check the existing conversation and its retained status before taking another action. No uncertain operation should be replayed automatically."
   },
+  "assistant_conversation_active": {
+    "title": "The conversation is still active",
+    "description": "The conversation was not deleted because a response or workflow run is active.",
+    "recovery": "Stop or wait for the active work to settle, then delete the conversation again."
+  },
   "assistant_turn_active": {
     "title": "A response is already active or unsettled",
     "description": "This conversation already has an active or unsettled attempt. A second prompt was not dispatched.",

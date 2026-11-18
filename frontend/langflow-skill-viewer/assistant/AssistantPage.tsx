@@ -32,6 +32,7 @@ import type {
 } from "./models";
 import { stateLabel } from "./models";
 import { conversationTranscript, downloadTranscript } from "./transcript";
+import DeleteConversation from "./DeleteConversation";
 
 export default function AssistantPage() {
   const owner = useAuthStore((state) => state.userData?.id);
@@ -772,6 +773,22 @@ export default function AssistantPage() {
                 className="rounded p-1.5 hover:bg-muted hover:text-foreground disabled:opacity-40 focus-visible:outline focus-visible:outline-2">
                 <Download size={16} />
               </button>
+              <DeleteConversation
+                key={`${owner}:${selected}`}
+                conversation={selected}
+                title={conversation.title}
+                onFailure={fail}
+                onDeleted={() => {
+                  generation.current += 1;
+                  exportController.current?.abort();
+                  setIndex((value) => ({ ...value, conversations: value.conversations.filter((row) => row.id !== selected) }));
+                  setDetail(undefined);
+                  setDrafts((value) => { const next = { ...value }; delete next[selected]; return next; });
+                  setPending((value) => { const next = { ...value }; delete next[selected]; return next; });
+                  setRetryable((value) => { const next = { ...value }; if (pending[selected]) delete next[pending[selected].id]; return next; });
+                  setParams({});
+                }}
+              />
             </div>
           )}
         </header>

@@ -96,6 +96,19 @@ async def rename_conversation(
         raise HTTPException(error.status, detail={"code": error.code}) from None
 
 
+@router.delete("/conversations/{identifier}")
+async def delete_conversation(identifier: UUID, context=Depends(access)):
+    """Delete one idle owned chat without touching saved workflows or run history."""
+    runtime, owner, key = context
+    try:
+        result = await runtime.store.delete_conversation(
+            owner, identifier, session_key=key
+        )
+        return await release(runtime, owner, key, result)
+    except AssistantError as error:
+        raise HTTPException(error.status, detail={"code": error.code}) from None
+
+
 @router.get("/conversations/{identifier}")
 async def conversation_detail(
     identifier: UUID,

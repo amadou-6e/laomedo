@@ -96,3 +96,10 @@ prompt wrapper and other requests. `toolCall.ts` owns shared display-field/name
 selection for ToolCalls and copying; raw native records are not serialized. One
 Copy control sits below the full response and copies a current streaming snapshot.
 Conversation export remains the separate text-only Markdown snapshot.
+
+`DeleteConversation.tsx` owns the header trash control and named confirmation:
+Cancel preserves the chat; Delete calls the owner-scoped endpoint once, reports
+failure locally, then asks AssistantPage to clear only that chat's local state
+and return to a new conversation. Saved workflows stay; active chat/graph work
+blocks deletion. Selection/owner changes discard late results. A3 DELETE-01
+defines the confirmation and outcomes.

@@ -3,7 +3,7 @@
 from contextlib import asynccontextmanager
 import time
 
-from sqlalchemy import inspect, text
+from sqlalchemy import delete, inspect, text, update
 from sqlalchemy.ext.asyncio import async_sessionmaker
 from sqlmodel import SQLModel, select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -145,7 +145,9 @@ class AssistantStore:
         async with self.transaction() as session:
             await self.authorize(session, owner, session_key)
             if request.linked_conversation_id:
-                await self.conversation(session, owner, request.linked_conversation_id)
+                await self.conversation(
+                    session, owner, request.linked_conversation_id, lock=True
+                )
             conversation = AssistantConversation(owner_id=owner, **request.model_dump())
             session.add(conversation)
             await session.flush()
@@ -163,6 +165,43 @@ class AssistantStore:
             session.add(conversation)
             await session.flush()
             return conversation.model_dump(mode="json")
+
+    async def delete_conversation(self, owner, identifier, *, session_key):
+        """Delete owned chat records atomically; active work and saved Flows survive."""
+        async with self.transaction() as session:
+            await self.authorize(session, owner, session_key)
+            conversation = await self.conversation(
+                session, owner, identifier, lock=True
+            )
+            executing = (
+                await session.exec(
+                    select(AssistantGraphAction.id).where(
+                        AssistantGraphAction.conversation_id == identifier,
+                        AssistantGraphAction.state == "executing",
+                    )
+                )
+            ).first()
+            if conversation.active_message_id is not None or executing is not None:
+                raise AssistantError("assistant_conversation_active")
+            for model in (
+                AssistantGraphPermission,
+                AssistantGraphAction,
+                AssistantDraftReceipt,
+                AssistantMessage,
+            ):
+                await session.exec(
+                    delete(model).where(model.conversation_id == identifier)
+                )
+            await session.exec(
+                update(AssistantConversation)
+                .where(
+                    AssistantConversation.owner_id == owner,
+                    AssistantConversation.linked_conversation_id == identifier,
+                )
+                .values(linked_conversation_id=None)
+            )
+            await session.delete(conversation)
+        return {"state": "deleted"}
 
     async def list(self, owner, cursor=0):
         """Return a bounded page without message bodies or other owners' summaries."""
