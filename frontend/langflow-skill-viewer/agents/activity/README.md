@@ -31,6 +31,8 @@ restore selection to the collapsed conversation if needed. Parent summary segmen
 retain idle gaps; only captured turn intervals are colored. `ProviderIcon` renders
 monochrome provider marks with a neutral fallback for an unknown provider. Details
 repeat the selected provider and a breadcrumb back to the full invocation.
+All activity selects the invocation, so no conversation row is marked pressed
+until its own conversation scope is selected.
 The footer follows long content and rests at the viewport bottom for short content.
 
 ## Markdown verification

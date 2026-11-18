@@ -112,7 +112,7 @@ export function ActivityTimeline({
                 expanded = !collapsed.has(key);
               const threadSelected =
                 selected === run.id &&
-                (scope.thread === thread.id || (!scope.thread && isRoot));
+                scope.thread === thread.id;
               const status =
                 thread.lane?.status ??
                 (isRoot && run.status === "running" ? "waiting" : "unknown");

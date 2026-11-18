@@ -326,6 +326,9 @@ test("Gantt scopes messages to child and turn, breadcrumbs restore ancestors and
     items:[lane("a","parent","t1","Parent answer"),lane("b","child","c1","First child answer"),lane("c","child","c2","Second child answer")]};
   (api.get as jest.Mock).mockImplementation((url:string)=>Promise.resolve({data:url.endsWith("/flow")?{runs:[first,old]}:{run:url.endsWith("/old")?old:first,projection:p,truncated:false}}));
   render(<GraphAgents flowId="flow"/>);
+  expect(await screen.findByRole("button",{name:"node \u00b7 completed"})).toHaveAttribute("aria-pressed","false");
+  expect(await screen.findByText("Parent answer")).toBeInTheDocument();
+  expect(screen.getByText("First child answer")).toBeInTheDocument();
   fireEvent.click(await screen.findByRole("button",{name:/Review changes.*2 turns.*completed$/}));
   expect(await screen.findByText("First child answer")).toBeInTheDocument();expect(screen.queryByText("Parent answer")).toBeNull();
   fireEvent.click(screen.getByRole("button",{name:/^Turn 1.*Review changes.*completed, /}));
@@ -334,6 +337,11 @@ test("Gantt scopes messages to child and turn, breadcrumbs restore ancestors and
   expect(screen.getAllByRole("region",{name:"OpenTelemetry"})).toHaveLength(1);
   fireEvent.click(screen.getByRole("navigation",{name:"Activity selection"}).querySelector('button')!);
   expect(screen.getByText("Parent answer")).toBeInTheDocument();expect(screen.getByText("Second child answer")).toBeInTheDocument();
+  const rootConversation=screen.getByRole("button",{name:"node \u00b7 completed"});
+  expect(rootConversation).toHaveAttribute("aria-pressed","false");
+  fireEvent.click(rootConversation);
+  expect(rootConversation).toHaveAttribute("aria-pressed","true");
+  expect(screen.queryByText("Second child answer")).toBeNull();
   expect(screen.queryByText("Technical details",{selector:"summary"})).toBeNull();
   expect(screen.getAllByRole("region",{name:"Usage overview"})).toHaveLength(1);
   expect(screen.queryByRole("button",{name:/Earlier run in this conversation/})).toBeNull();
