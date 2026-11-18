@@ -120,11 +120,13 @@ export default function GraphAgents({flowId}:{flowId?:string}) {
   return <section className="flex h-full min-w-0 flex-1 flex-col overflow-hidden bg-background text-foreground" aria-label="Graph agent activity">
     <header className="flex min-h-12 shrink-0 items-center justify-between gap-3 border-b px-4 py-3"><h1 className="text-sm font-semibold">Agents</h1>
       <Button variant="ghost" size="icon" aria-label="Refresh" onClick={()=>setRefresh(value=>value+1)}><IconComponent name="RefreshCcw" className="h-4 w-4"/></Button></header>
-    <div className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden">
+    <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden">
+    <div className="flex min-h-full flex-col">
     <div className="space-y-3 border-b px-4 py-3">
     <label className="flex flex-wrap items-center gap-3 text-sm">Graph execution <select className="max-w-full rounded-md border bg-background px-3 py-1.5 text-sm" value={execution} onChange={event=>{setExecution(event.target.value);setSelected("");setScope({})}}>
       {executions.map(id=><option key={id} value={id}>{time(runs.find(run=>run.execution===id)!.started)} · {id}</option>)}</select></label></div>
-    <div className="min-w-0 p-4">
+    <div className="flex min-w-0 flex-1 flex-col p-4">
+    <div className="pb-12">
     {error&&<p role="alert" className="mb-4">{error}</p>}
     {!error&&!runs.length&&<p>No captured agent runs yet.</p>}
     {targetNode&&runs.length>0&&!visible.some(run=>run.node===targetNode)&&<p className="mb-4 text-sm text-muted-foreground">No captured activity for the selected node in this graph execution.</p>}
@@ -157,9 +159,10 @@ export default function GraphAgents({flowId}:{flowId?:string}) {
       <RuntimeRecords key={`records:${selected}:${scope.thread??""}:${scope.turn??""}`} records={projection!.telemetry} coverage={projection!.telemetry_coverage} context={exportContext!}/>
       <Conversation key={`conversation:${selected}:${scope.thread??""}:${scope.turn??""}`} projection={projection!} context={exportContext!}/>
     </article>}
-    <footer className="mt-12 border-t pt-6 pb-16 text-center text-xs text-muted-foreground">
+    </div>
+    <footer className="mt-auto border-t pt-6 pb-2 text-center text-xs text-muted-foreground">
       © {new Date().getFullYear()} Laomedo contributors. MIT License.
     </footer>
-    </div></div>
+    </div></div></div>
   </section>;
 }
