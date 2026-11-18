@@ -50,3 +50,23 @@
 .pc-sleep-letters span:nth-child(3) { left: 120px; top: -15px; font-size: 20px; }
 
 .pc-account-logo { width: 20px; height: 25px; object-fit: contain; }
+
+
+.pc-quota-account { min-width: 0; }
+.pc-quota-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; margin-left: auto; }
+.pc-quota-buckets { display: grid; gap: 24px; min-width: 0; }
+.pc-quota-bucket { display: grid; gap: 16px; min-width: 0; }
+.pc-quota-bucket h3 { margin: 0; font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
+.pc-quota-bucket h3 span { margin-left: 8px; color: hsl(var(--muted-foreground)); font-weight: 400; }
+.pc-quota-window { display: grid; gap: 8px; min-width: 0; }
+.pc-quota-window-heading { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px 12px; font-size: 13px; overflow-wrap: anywhere; }
+.pc-quota-window-heading strong { font-weight: 600; }
+.pc-quota-track { height: 6px; width: 100%; border-radius: 999px; overflow: hidden; background: hsl(var(--muted)); }
+.pc-quota-fill { height: 100%; border-radius: inherit; background: hsl(var(--muted-foreground)); }
+.pc-quota-stale .pc-quota-fill { opacity: .5; }
+.pc-subscription-list .pc-quota-time { font-size: 12px; }
+@container (max-width: 380px) { .pc-quota-window-heading { flex-direction: column; gap: 4px; } }
+.pc-quota-bucket { container-type: inline-size; }
+
+.pc-quota-account > .pc-subscription-row { flex-wrap: nowrap; align-items: center; }
+.pc-quota-account .pc-subscription-account { min-width: 0; flex: 1; }

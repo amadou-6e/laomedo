@@ -62,3 +62,15 @@ to that same client. URLs and codes remain out of browser storage; code input is
 cleared after submission. A lost submission response remains an uncertain outcome
 and polling reconciles it rather than automatically submitting another code.
 Real Claude sign-in/dispatch and independent final review remain pending.
+
+
+## Live allowance (#300)
+
+`SubscriptionLimits.tsx` owns account-bound quota rows and native-window/credit
+presentation. `AccountLimits` performs cache-only mount reads and explicit refresh,
+ignores aborted/superseded responses, and is keyed by graph/account/generation.
+`AllowanceWindow` renders only observed percentages/durations/reset times; stale
+values never imply a replenishment. `api.ts` validates the canonical safe response
+and rejects an unexpected account/generation or nonzero submitted-turn count.
+Provider-specific wire payloads remain outside rendering. PC-09 and P13-P16/Q0-Q5
+in the canonical provider workshop own behavior, including narrow layout.
