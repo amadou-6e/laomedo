@@ -39,7 +39,7 @@ export default function AssistantEntry() {
     };
   }, [owner]);
   if (graph) return (
-    <button type="button" aria-label={open ? "Close assistant sidebar" : "Open assistant sidebar"} aria-expanded={open}
+    <button type="button" aria-label={open ? "Close assistant sidebar" : "Open assistant sidebar"} aria-expanded={open} aria-controls="laomedo-assistant-sidebar"
       onClick={() => setOpen(!open)}
       className="relative inline-flex items-center gap-2 rounded-md px-2 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline focus-visible:outline-2">
       <IconComponent name="MessageSquare" className="h-4 w-4" /><span>Assistant</span>
