@@ -1,5 +1,5 @@
 import GraphPermissions from "./GraphPermissions";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   Plus,
@@ -34,8 +34,9 @@ import { stateLabel } from "./models";
 import { conversationTranscript, downloadTranscript } from "./transcript";
 import DeleteConversation from "./DeleteConversation";
 
-export default function AssistantPage({ embedded = false, selectedConversation, linkedConversation, onSelectConversation }: {
+export default function AssistantPage({ embedded = false, selectedConversation, linkedConversation, onSelectConversation, headerActions }: {
   embedded?: boolean;
+  headerActions?: ReactNode;
   selectedConversation?: string;
   linkedConversation?: string;
   onSelectConversation?: (selection: Record<string, string>) => void;
@@ -560,6 +561,7 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
   if (locked)
     return (
       <RootTag className="m-auto max-w-lg space-y-4 p-8">
+        {headerActions && <div className="flex justify-end gap-2">{headerActions}</div>}
         <h1 className="text-xl font-semibold">Profile locked</h1>
         <p className="text-sm text-muted-foreground">
           Chat details are hidden and tool access has been revoked. Sign in
@@ -599,14 +601,14 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
       aria-label="Application assistant"
     >
       <div
-        className={`relative min-h-0 shrink-0 ${history ? embedded ? "w-full" : "w-64 max-w-[75vw]" : "w-5"}`}
+        className={`relative min-h-0 shrink-0 ${history ? embedded ? "w-full" : "w-64 max-w-[75vw]" : embedded ? "w-2" : "w-5"}`}
       >
         <aside
           hidden={!history}
           className={`${history ? "flex" : "hidden"} h-full flex-col bg-muted/20 p-4 pr-6`}
           aria-label="Conversations"
         >
-          <h2 className="mb-4 text-sm font-semibold">Conversations</h2>
+          <div className="mb-4 flex items-center gap-2"><h2 className="flex-1 text-sm font-semibold">Conversations</h2>{embedded && headerActions}</div>
           <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto">
             {index.conversations.map((item) => (
               <button
@@ -659,13 +661,13 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
           title={history ? "Collapse conversations" : "Expand conversations"}
           aria-expanded={history}
           onClick={() => setHistory(!history)}
-          className="absolute inset-y-0 right-0 flex w-4 items-center justify-center border-r text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline focus-visible:outline-2"
+          className={`absolute inset-y-0 right-0 flex ${embedded ? "w-2" : "w-4"} items-center justify-center border-r text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline focus-visible:outline-2`}
         >
-          {history ? <ChevronLeft size={12} /> : <ChevronRight size={12} />}
+          {history ? <ChevronLeft size={embedded ? 8 : 12} /> : <ChevronRight size={embedded ? 8 : 12} />}
         </button>
       </div>
-      <div className={`${embedded && history ? "hidden" : "flex"} min-h-0 min-w-0 flex-1 flex-col`}>
-        <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b px-5 py-4">
+      <div hidden={embedded && history} className={`${embedded && history ? "hidden" : "flex"} min-h-0 min-w-0 flex-1 flex-col`}>
+        <header className={`flex shrink-0 flex-wrap items-center justify-between border-b ${embedded ? "min-h-11 gap-2 px-3 py-2" : "gap-3 px-5 py-4"}`}>
           <div className="min-w-0 flex-1">
             {renaming === conversation?.id && conversation ? (
               <form
@@ -749,7 +751,7 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
               </form>
             ) : (
               <h1
-                className="inline text-sm font-medium"
+                className="block min-w-0 text-sm font-medium"
                 onDoubleClick={() => {
                   if (conversation) {
                     setTitleDraft(conversation.title);
@@ -760,6 +762,7 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
                 <button
                   type="button"
                   disabled={!conversation}
+                  className="max-w-full truncate text-left"
                   title="Double-click to rename conversation"
                   onKeyDown={(event) => {
                     if (conversation && ["Enter", " "].includes(event.key)) {
@@ -774,8 +777,8 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
               </h1>
             )}
           </div>
-          {conversation && !locked && (
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            {conversation && !locked && (<>
               <span role="status" aria-live="polite">
                 {exporting ? "Exporting..." : exportError ? "Export failed. Try again." : ""}
               </span>
@@ -800,8 +803,9 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
                   setParams({});
                 }}
               />
-            </div>
-          )}
+            </>)}
+            {headerActions}
+          </div>
         </header>
         {failure && (
           <div

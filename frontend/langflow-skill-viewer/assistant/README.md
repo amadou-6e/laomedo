@@ -7,8 +7,12 @@
 approvals still use the existing owner-scoped assistant API. The sidebar owns its
 conversation selection without changing the graph URL. It mounts lazily, then
 stays mounted while hidden so closing it preserves its draft and active response.
-History starts collapsed in this narrow surface. The full-window link opens the
-selected saved conversation; unsent text stays in its originating surface.
+The embedded conversation header is the sidebar top row, containing the conversation
+title, existing export/delete actions, full-window link and close control; there
+is no extra Assistant title row. Expanded history keeps those surface controls
+reachable. The embedded collapsed history strip is 8px wide.
+History starts collapsed in this narrow surface. The full-window router link opens the
+selected saved conversation in the current tab; unsent text stays in its originating surface.
 The divider supports dragging and arrow/Home/End keys. Width is bounded and
 reclamped when the editor changes size. Narrow screens use an overlay, retaining
 the mounted editor beneath it. Opening, closing and resizing never send inference.

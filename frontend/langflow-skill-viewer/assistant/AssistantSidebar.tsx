@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ExternalLink, X } from "lucide-react";
+import { Link } from "react-router-dom";
 import useAuthStore from "@/stores/authStore";
 import AssistantPage from "./AssistantPage";
 import { useAssistantSidebarStore } from "./sidebarStore";
@@ -51,11 +52,7 @@ export default function AssistantSidebar() {
         event.preventDefault();
         resize(event.key === "Home" ? 280 : event.key === "End" ? maximum : width + (event.key === "ArrowLeft" ? 24 : -24));
       }} />
-    <header className="flex h-11 shrink-0 items-center gap-2 border-b px-4 text-sm">
-      <span className="flex-1 font-medium">Assistant</span>
-      <a href={fullChat} target="_blank" rel="noopener noreferrer" aria-label="Open assistant in a new tab" title="Open assistant in a new tab" className="rounded p-1 text-muted-foreground hover:text-foreground focus-visible:outline"><ExternalLink size={16} /></a>
-      <button type="button" aria-label="Close assistant" title="Close assistant" className="rounded p-1 text-muted-foreground hover:text-foreground focus-visible:outline" onClick={() => {setOpen(false);window.requestAnimationFrame(() => { const opener = document.getElementById("laomedo-assistant-opener"); if (opener && !opener.closest('[aria-hidden="true"], [hidden], [inert]')) opener.focus(); });}}><X size={16} /></button>
-    </header>
-    <div className="min-h-0 flex-1">{mounted && <AssistantPage embedded selectedConversation={selection.conversation} linkedConversation={selection.linked} onSelectConversation={setSelection} />}</div>
+    <div className="min-h-0 flex-1">{mounted && <AssistantPage headerActions={<><Link to={fullChat} aria-label="Open full-window assistant" title="Open full-window assistant" className="rounded p-1 text-muted-foreground hover:text-foreground focus-visible:outline"><ExternalLink size={16} /></Link>
+      <button type="button" aria-label="Close assistant" title="Close assistant" className="rounded p-1 text-muted-foreground hover:text-foreground focus-visible:outline" onClick={() => {setOpen(false);window.requestAnimationFrame(() => { const opener = document.getElementById("laomedo-assistant-opener"); if (opener && !opener.closest('[aria-hidden="true"], [hidden], [inert]')) opener.focus(); });}}><X size={16} /></button></>} embedded selectedConversation={selection.conversation} linkedConversation={selection.linked} onSelectConversation={setSelection} />}</div>
   </aside>;
 }
