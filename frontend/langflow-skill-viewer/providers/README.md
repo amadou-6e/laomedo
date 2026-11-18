@@ -46,3 +46,12 @@ mark with static decorative Z lettering. OpenCode assets in `assets/` are from
 https://opencode.ai/brand/files/opencode-logo-dark.svg and
 https://opencode.ai/brand/files/opencode-logo-light.svg (retrieved 2026-11-18);
 light/dark variants retain their original geometry and are displayed at 64x80.
+
+
+OpenCode Go adds a masked subscription-key form with an accessible connection-name
+field and a provider Console link. Keys are cleared after submission and Back,
+never restored from browser storage. Saved keys explicitly lack verified upstream
+identity/access. Exact repeated keys reuse the existing row; different keys cannot
+prove different accounts. Per-harness graph preferences preserve other harness
+selections and never route a Go key to a Codex or Claude node. Native Claude
+connection support and real Go integration acceptance remain pending.

@@ -48,3 +48,5 @@
 .pc-sleep-letters span:nth-child(1) { left: 84px; top: 22px; font-size: 12px; }
 .pc-sleep-letters span:nth-child(2) { left: 100px; top: 5px; font-size: 16px; }
 .pc-sleep-letters span:nth-child(3) { left: 120px; top: -15px; font-size: 20px; }
+
+.pc-account-logo { width: 20px; height: 25px; object-fit: contain; }

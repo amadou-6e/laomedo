@@ -14,6 +14,7 @@ from laomedo.host.provider_connections.models import (
     GraphProviderPreferences,
     StartProviderLogin,
     DisconnectRequest,
+    SaveGoConnection,
 )
 
 
@@ -137,6 +138,33 @@ def install_provider_routes(app, service, authenticate, *, origin: str):
             }
 
         return await respond(begin)
+
+    @app.post(prefix + "/opencode-go")
+    async def save_go_connection(request: Request, user=Depends(authenticate)):
+        """Admit an explicitly submitted Go key without any inference or host import."""
+        lease = session_lease(request)
+        if request.headers.get("origin") != origin:
+            raise HTTPException(403, detail={"code": "provider_request_refused"})
+        try:
+            data = bytearray()
+            async for chunk in request.stream():
+                data.extend(chunk)
+                if len(data) > 12288:
+                    raise ValueError()
+            payload = SaveGoConnection.model_validate_json(bytes(data))
+        except (ValueError, TypeError, ValidationError):
+            raise HTTPException(
+                400, detail={"code": "provider_request_refused"}
+            ) from None
+
+        def save():
+            """Project only the saved key's nonsecret metadata and duplicate result."""
+            row, duplicate = service.go.save(
+                user.id, payload.key, payload.label, lease_hash=lease
+            )
+            return {"connection": row.model_dump(mode="json"), "duplicate": duplicate}
+
+        return await respond(save)
 
     @app.get(prefix + "/{connection_id}/disconnect")
     async def inspect_disconnect(

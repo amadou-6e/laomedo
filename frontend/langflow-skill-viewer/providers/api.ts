@@ -2,8 +2,8 @@ import { z } from "zod";
 
 export const connectionSchema = z.object({
   connection_id: z.string().uuid(),
-  provider: z.literal("codex"),
-  method: z.literal("chatgpt_plan_oauth"),
+  provider: z.enum(["codex", "claude", "opencode"]),
+  method: z.enum(["chatgpt_plan_oauth", "claude_native", "opencode_go_key"]),
   label: z.string(),
   generation: z.number().int().positive(),
   auth_state: z.enum(["ready", "expired", "reauthorization_required", "revoked", "unavailable"]),
@@ -75,10 +75,14 @@ export async function retryCleanup(connectionId: string) {
   return disconnectProgressSchema.parse(await request(`/${encodeURIComponent(connectionId)}/cleanup`, "POST", {}));
 }
 
-const graphPreferencesSchema = z.object({ codex: z.string().uuid().nullable() });
+const graphPreferencesSchema = z.object({ codex: z.string().uuid().nullable(), claude: z.string().uuid().nullable().default(null), opencode: z.string().uuid().nullable().default(null) });
 export async function readGraphPreferences(flowId: string) {
   return graphPreferencesSchema.parse(await request(`/graphs/${encodeURIComponent(flowId)}`));
 }
-export async function saveGraphPreferences(flowId: string, codex: string | null) {
-  return graphPreferencesSchema.parse(await request(`/graphs/${encodeURIComponent(flowId)}`, "PUT", { codex }));
+export async function saveGraphPreferences(flowId: string, codex: string | null, others?: { claude: string | null; opencode: string | null }) {
+  return graphPreferencesSchema.parse(await request(`/graphs/${encodeURIComponent(flowId)}`, "PUT", { codex, ...others }));
+}
+
+export async function saveGoConnection(key: string, label: string) {
+  return z.object({ connection: connectionSchema, duplicate: z.boolean() }).parse(await request("/opencode-go", "POST", { key, label }));
 }

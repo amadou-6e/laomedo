@@ -1,12 +1,15 @@
 import { StrictMode } from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import ProviderConnections from "./ProviderConnections";
-import { beginLogin, cancelLogin, listConnections, readProgress, inspectDisconnect, disconnect, retryCleanup } from "./api";
+import { saveGoConnection, beginLogin, cancelLogin, listConnections, readProgress, inspectDisconnect, disconnect, retryCleanup } from "./api";
 
 jest.mock("@/components/ui/button", () => ({
   Button: ({ ignoreTitleCase, variant, children, ...props }) => <button {...props}>{children}</button>,
 }));
-jest.mock("./api", () => ({ ...jest.requireActual("./api"), beginLogin: jest.fn(), cancelLogin: jest.fn(), listConnections: jest.fn(), readProgress: jest.fn(), inspectDisconnect: jest.fn(), disconnect: jest.fn(), retryCleanup: jest.fn() }));
+jest.mock("./api", () => ({ ...jest.requireActual("./api"), saveGoConnection: jest.fn(), beginLogin: jest.fn(), cancelLogin: jest.fn(), listConnections: jest.fn(), readProgress: jest.fn(), inspectDisconnect: jest.fn(), disconnect: jest.fn(), retryCleanup: jest.fn() }));
+
+jest.mock("./assets/opencode-logo-dark.svg", () => "opencode-dark.svg");
+jest.mock("./assets/opencode-logo-light.svg", () => "opencode-light.svg");
 
 describe("saved provider Settings", () => {
   const account = { connection_id: "00000000-0000-4000-8000-000000000001", provider: "codex", method: "chatgpt_plan_oauth", label: "Work account", generation: 1, auth_state: "ready", lifecycle: "connected" };
@@ -15,6 +18,22 @@ describe("saved provider Settings", () => {
     sessionStorage.clear();
     window.history.replaceState(null, "", "/settings/providers");
     (listConnections as jest.Mock).mockResolvedValue([]);
+  });
+
+  it("saves an explicitly selected Go key and clears it after failure", async () => {
+    (saveGoConnection as jest.Mock).mockRejectedValue(new Error("unavailable"));
+    render(<ProviderConnections />);
+    await screen.findByText("No providers connected");
+    fireEvent.click(screen.getByRole("button", { name: "Add provider" }));
+    fireEvent.click(screen.getByRole("button", { name: "OpenCode" }));
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    expect(beginLogin).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByLabelText("Connection name"), { target: { value: "My Go plan" } });
+    fireEvent.change(screen.getByLabelText("OpenCode Go key"), { target: { value: "fixture-go-key" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save connection" }));
+    await waitFor(() => expect(saveGoConnection).toHaveBeenCalledWith("fixture-go-key", "My Go plan"));
+    expect((screen.getByLabelText("OpenCode Go key") as HTMLInputElement).value).toBe("");
+    expect(sessionStorage.length).toBe(0);
   });
 
   it("loads under StrictMode without starting native sign-in", async () => {
@@ -64,7 +83,6 @@ describe("saved provider Settings", () => {
     await screen.findByText("No providers connected");
     fireEvent.click(screen.getByRole("button", { name: "Add provider" }));
     expect(screen.getByRole("button", { name: /Claude/ })).toBeDisabled();
-    expect(screen.getByRole("button", { name: /OpenCode/ })).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
     expect(screen.getByText(/Sign in with ChatGPT to use/)).toBeTruthy();
     expect(beginLogin).not.toHaveBeenCalled();

@@ -7,9 +7,16 @@ controller support remain separate admission gates; adding a preference field do
 not enable an unavailable authentication method. Claude Code will use an official
 client-owned volume; the selected OpenCode backend is OpenCode Go.
 
+`go.py` owns `GoConnection`: `save()` admits an explicitly supplied subscription
+key into an independent private profile, `summary()` reports key custody without
+claiming provider identity or inference eligibility, `profile()` validates the
+exact persisted key binding, and `erase()` removes only its owned credential files.
+The shared controller supplies `OpenCodeAgentRuntime` with that profile. Native
+tools remain disabled in the credential-bearing controller; workers are separate.
+
 This host capability owns profile-scoped provider connections, explicit login
 attempts and credential admission. The initial implemented route is Codex with
-app-owned Sign in with ChatGPT. Claude, OpenCode and API-key routes are unavailable.
+app-owned Sign in with ChatGPT. OpenCode Go key custody and an isolated per-connection runner factory are implemented; real Go account/dispatch acceptance is pending. Claude native sign-in remains unavailable.
 
 `service.py` defines `ProviderConnections`: `list()` projects safe rows, `begin()`
 opens one bounded loopback attempt, `complete()` verifies staged credentials and

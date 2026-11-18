@@ -420,7 +420,7 @@ class AgentComponent(Component):
         )
 
         if ProviderGraphBindings.service is not None:
-            if self.provider_id != "codex":
+            if self.provider_id not in {"codex", "opencode"}:
                 return build_config
             field = build_config.get("provider_connection", {})
             rows = await asyncio.to_thread(ProviderGraphBindings.choices, self)
@@ -571,7 +571,7 @@ class AgentComponent(Component):
         field = frontend_node.get("template", {}).get("provider_connection")
         if field is not None:
             field.update(
-                show=self.provider_id == "codex"
+                show=self.provider_id in {"codex", "opencode"}
                 and ProviderGraphBindings.service is not None,
                 advanced=True,
             )

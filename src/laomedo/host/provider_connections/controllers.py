@@ -126,8 +126,6 @@ class ProviderControllers:
         self.root = _outside_git(root)
         self.skill_store = skill_store
         self.source = source
-        if factory is None:
-            factory = partial(AgentProviderRegistry.create_agent, "codex")
         self.factory = factory
         self.slots = {}
         self.root.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -253,16 +251,36 @@ class ProviderControllers:
         try:
             if self.source is None:
                 raise ProviderConnectionError("provider_runner_unavailable")
-            auth = SavedConnectionCredential(
-                self.service, profile_id, connection_id, generation
-            )
-            runner = self.factory(
-                state,
-                self.skill_store,
-                self.source,
-                split_executor=True,
-                auth_connection=auth,
-            )
+            record = self.service._record(profile_id, connection_id)
+            if record.provider == "opencode" and self.factory is None:
+                from laomedo.agents.agents.opencode.runtime import OpenCodeAgentRuntime
+
+                runner = AgentProviderRegistry.create_agent(
+                    "opencode",
+                    state,
+                    self.skill_store,
+                    self.source,
+                    transport_factory=partial(
+                        OpenCodeAgentRuntime,
+                        profile=self.service.go.profile(profile_id, record),
+                    ),
+                )
+            else:
+                if record.provider != "codex":
+                    raise ProviderConnectionError("provider_method_unavailable")
+                auth = SavedConnectionCredential(
+                    self.service, profile_id, connection_id, generation
+                )
+                factory = self.factory or partial(
+                    AgentProviderRegistry.create_agent, "codex"
+                )
+                runner = factory(
+                    state,
+                    self.skill_store,
+                    self.source,
+                    split_executor=True,
+                    auth_connection=auth,
+                )
             with self.service._lock:
                 slot.runner = runner
                 slot.server = SavedRunnerServer(self, slot)
@@ -418,10 +436,19 @@ class ProviderControllers:
                 ):
                     ready = False
                     continue
+                if slot.runner.provider == "opencode":
+                    slot.runner._recover_containers()
+                    if any(slot.state.glob("runs/*/docker-receipts/*.json")) or any(
+                        slot.state.glob("catalog/*/docker-receipts/*.json")
+                    ):
+                        raise ProviderConnectionError("provider_cleanup_unconfirmed")
                 if any((slot.state / "receipts").glob("*.json")) or any(
                     slot.state.glob("*/*receipt*.json")
                 ):
-                    slot.runner._check_container()
+                    if slot.runner.provider == "opencode":
+                        slot.runner._recover_containers()
+                    else:
+                        slot.runner._check_container()
                 if any((slot.state / "receipts").glob("*.json")) or any(
                     slot.state.glob("*/*receipt*.json")
                 ):

@@ -21,6 +21,7 @@ from laomedo.host.credentials.siwc.utils import (
     _locked,
 )
 from laomedo.host.provider_connections.errors import ProviderConnectionError
+from laomedo.host.provider_connections.go import GoConnection
 from laomedo.host.provider_connections.models import (
     GraphProviderPreferences,
     ConnectionRecord,
@@ -48,6 +49,7 @@ class ProviderConnections:
         self.root.mkdir(parents=True, exist_ok=True, mode=0o700)
         _restrict_windows_directory(self.root)
         self._lock = threading.RLock()
+        self.go = GoConnection(self)
         self._attempts: dict[UUID, PendingLogin] = {}
         self.controllers = None
         self.revoked_leases: set[str] = set()
@@ -122,6 +124,10 @@ class ProviderConnections:
                     vault_id = UUID(vault.name.removeprefix("pending-"))
                 except ValueError:
                     continue
+                if (vault / "go-custody.json").exists():
+                    if vault_id not in active:
+                        self.go.erase(vault)
+                    continue
                 broker = ChatGPTConnection(vault)
                 with _locked(broker.lock_path):
                     for pending in broker.accounts.glob("*.json.pending-*"):
@@ -180,6 +186,8 @@ class ProviderConnections:
                     raise ProviderConnectionError("provider_connection_unavailable")
                 if record.lifecycle != "connected":
                     raise ProviderConnectionError("provider_connection_disconnecting")
+                if record.provider == "opencode":
+                    self.go.profile(profile_id, record)
             path = self._profile(profile_id) / (
                 "graph-" + str(UUID(str(flow_id))) + ".json"
             )
@@ -310,9 +318,12 @@ class ProviderConnections:
             for item in attempts:
                 self._discard_stage(item)
             for entry in revisions.values():
-                self._scrub(
-                    self._broker(profile_id, entry.credential_id), entry.client_id
-                )
+                if entry.provider == "opencode":
+                    self.go.erase(self._profile(profile_id) / str(entry.credential_id))
+                else:
+                    self._scrub(
+                        self._broker(profile_id, entry.credential_id), entry.client_id
+                    )
             with self._lock:
                 current = self._record(profile_id, connection_id)
                 if current != record:
@@ -357,6 +368,9 @@ class ProviderConnections:
         with self._lock:
             rows = []
             for record in self._records(profile_id):
+                if record.provider == "opencode":
+                    rows.append(self.go.summary(profile_id, record))
+                    continue
                 state = "unavailable"
                 try:
                     account = self._broker(profile_id, record.credential_id).account(
@@ -415,6 +429,8 @@ class ProviderConnections:
             previous = (
                 self.admitted(profile_id, connection_id) if connection_id else None
             )
+            if previous is not None and previous.provider != "codex":
+                raise ProviderConnectionError("provider_method_unavailable")
             if (
                 previous
                 and self.controllers is not None
@@ -707,6 +723,8 @@ class ProviderConnections:
         """Borrow exactly one admitted generation; never substitute another login."""
         with self._lock:
             record = self.admitted(profile_id, connection_id, generation)
+            if record.provider != "codex":
+                raise ProviderConnectionError("provider_method_unavailable")
             broker = self._broker(profile_id, record.credential_id)
         # Token rotation has its own broker lock/counter. It must not block
         # unrelated logout/cancellation or change the stable connection epoch.

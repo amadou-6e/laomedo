@@ -54,10 +54,10 @@ class ConnectionSummary(BaseModel):
     """Nonsecret profile-owned row; authentication does not certify inference."""
 
     connection_id: UUID = Field(description="Explicit local connection selector.")
-    provider: Literal["codex"] = Field(
+    provider: Literal["codex", "claude", "opencode"] = Field(
         default="codex", description="Implemented provider integration."
     )
-    method: Literal["chatgpt_plan_oauth"] = Field(
+    method: Literal["chatgpt_plan_oauth", "claude_native", "opencode_go_key"] = Field(
         default="chatgpt_plan_oauth", description="Explicit ChatGPT plan route."
     )
     label: str = Field(description="Verified account display identity when available.")
@@ -202,6 +202,21 @@ class StartProviderLogin(BaseModel):
     connection_id: UUID | None = Field(
         default=None,
         description="Exact existing connection for reconnect, or a fresh candidate.",
+    )
+
+
+class SaveGoConnection(BaseModel):
+    """Explicit Go subscription key admission; never included in a graph."""
+
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
+    key: SecretStr = Field(
+        repr=False,
+        description="Go subscription key submitted once over the local authenticated boundary.",
+    )
+    label: str = Field(
+        min_length=1,
+        max_length=100,
+        description="User label; does not claim verified provider identity.",
     )
 
 
