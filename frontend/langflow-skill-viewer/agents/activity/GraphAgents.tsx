@@ -119,6 +119,7 @@ export default function GraphAgents({flowId}:{flowId?:string}) {
         {targetNode&&runs.length>0&&!visible.some(run=>run.node===targetNode)&&<p className="mb-4 text-sm text-muted-foreground">No captured activity for the selected node in this graph execution.</p>}
         {visible.length>0&&<ActivityTimeline runs={visible} details={details} selected={selected} scope={scope} start={start} end={end} label={label} onSelect={selectScope}/>}
     {detail&&<article key={detail.run.id} className="mt-6 flex flex-col gap-12" aria-label="Selected agent run">
+      <div className="flex flex-col gap-12 rounded-md border border-border bg-background/40 p-5">
       <div className="space-y-4">
       <nav aria-label="Activity selection" className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
         <span>{time(detail.run.started)}</span><span aria-hidden="true">/</span>
@@ -139,6 +140,7 @@ export default function GraphAgents({flowId}:{flowId?:string}) {
       <section className="min-w-0 space-y-4" aria-label="Usage and cost">
         <UsageCharts key={`usage:${selected}:${scope.thread??""}:${scope.turn??""}`} projection={projection!} scopeLabel={scopeLabel} running={!detail.truncated&&!detail.run.reason&&selectedLane?.status==="running"}/>
       </section>
+      </div>
       <RuntimeRecords key={`records:${selected}:${scope.thread??""}:${scope.turn??""}`} records={projection!.telemetry} coverage={projection!.telemetry_coverage} context={exportContext!}/>
       <Conversation key={`conversation:${selected}:${scope.thread??""}:${scope.turn??""}`} projection={projection!} context={exportContext!}/>
     </article>}
