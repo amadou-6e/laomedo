@@ -17,6 +17,8 @@ test("renders reported quota without inventing context usage and supports dismis
 test("unrecognized native text remains readable and invalid percentages get no meter", () => {
   const { rerender } = render(<NativeStatus conversation="chat" text="New native status format" />);
   expect(screen.getByText("New native status format")).toBeVisible();
+  rerender(<NativeStatus conversation="chat" text="**Session ID:** renamed-native-thread" />);
+  expect(screen.getByText("**Session ID:** renamed-native-thread")).toBeVisible();
   rerender(<NativeStatus conversation="chat" text="**Weekly limit:** 150% left" />);
   expect(screen.queryByRole("meter")).toBeNull();
   expect(nativeStatus("**Weekly limit:** 150% left").limits[0].remaining).toBeNull();

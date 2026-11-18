@@ -4,6 +4,7 @@ import { nativeStatus } from "./statusFields";
 export default function NativeStatus({ text, conversation }: { text: string; conversation: string }) {
   const [closed, setClosed] = useState(false);
   const { fields, limits } = nativeStatus(text);
+  const recognized = ["session", "context window", "model", "approval", "sandbox"].some((key) => fields.has(key)) || limits.length > 0;
   if (closed) return <button type="button" className="text-xs text-muted-foreground hover:text-foreground" onClick={() => setClosed(false)}>Show status</button>;
   const rows = [
     ["Chat", conversation],
@@ -36,7 +37,7 @@ export default function NativeStatus({ text, conversation }: { text: string; con
           </div>
         ))}
       </dl>
-      {!fields.size && <pre className="mt-2 whitespace-pre-wrap break-words font-mono">{text}</pre>}
+      {!recognized && <pre className="mt-2 whitespace-pre-wrap break-words font-mono">{text}</pre>}
     </section>
   );
 }
