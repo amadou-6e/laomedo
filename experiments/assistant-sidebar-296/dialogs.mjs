@@ -1,0 +1,33 @@
+import {createRequire} from 'node:module';
+import {readFile,mkdir} from 'node:fs/promises';
+const require=createRequire('C:/CodeWorkspace/laomedo/.tools/assistant-282-upstream/src/frontend/package.json');
+const {chromium}=require('playwright');
+const root='C:/CodeWorkspace/laomedo';
+const metadata=JSON.parse(await readFile(root+'/.tools/assistant-291-live.json','utf8'));
+const browser=await chromium.launch({headless:true,channel:'chrome'});
+try {
+ const page=await browser.newPage({viewport:{width:800,height:1000},colorScheme:'dark'});
+ await page.goto(metadata.base+'/flow/'+metadata.flow);
+ await page.locator('.react-flow__node').first().waitFor({timeout:90000});
+ await page.getByRole('button',{name:'Open assistant sidebar',exact:true}).click();
+ const sidebar=page.getByRole('complementary',{name:'Assistant sidebar'});
+ await sidebar.getByRole('button',{name:'Expand conversations'}).click();
+ await sidebar.getByRole('navigation').getByRole('button').first().click();
+ await sidebar.getByRole('button',{name:'Delete conversation',exact:true}).click();
+ const dialog=page.getByRole('dialog');await dialog.waitFor();
+ await page.evaluate(()=>Promise.all(document.getAnimations().filter(a=>a.effect?.getTiming().iterations!==Infinity).map(a=>a.finished.catch(()=>{}))));
+ const cancel=dialog.getByRole('button',{name:'Cancel',exact:true});
+ const above=await cancel.evaluate(el=>{const b=el.getBoundingClientRect();return el.contains(document.elementFromPoint(b.x+b.width/2,b.y+b.height/2))});
+ await mkdir(root+'/.tools/sidebar-296-dialogs',{recursive:true});
+ await page.screenshot({path:root+'/.tools/sidebar-296-dialogs/delete.png'});
+ await page.keyboard.press('Escape');
+ await page.getByRole('button',{name:/Edit flow details and settings/}).click();
+ const editorDialog=page.getByRole('dialog');await editorDialog.waitFor();
+ await page.evaluate(()=>Promise.all(document.getAnimations().filter(a=>a.effect?.getTiming().iterations!==Infinity).map(a=>a.finished.catch(()=>{}))));
+ const editorAbove=await editorDialog.evaluate(el=>{const b=el.getBoundingClientRect();return el.contains(document.elementFromPoint(b.x+b.width/2,b.y+b.height/2))});
+ await page.screenshot({path:root+'/.tools/sidebar-296-dialogs/editor.png'});
+ console.log(JSON.stringify(await editorDialog.evaluate(el=>({dialogClass:el.className,opacity:getComputedStyle(el).opacity,background:getComputedStyle(el).backgroundColor,zIndex:getComputedStyle(el).zIndex,finiteAnimationsRunning:document.getAnimations().filter(a=>a.effect?.getTiming().iterations!==Infinity&&a.playState==='running').length}))));
+ await page.keyboard.press('Escape');
+ console.log(JSON.stringify({deleteConfirmationAboveSidebar:above,editorDialogAboveSidebar:editorAbove,noDeletion:true,noInference:true}));
+ if(!above||!editorAbove)process.exitCode=1;
+}finally {await browser.close()}

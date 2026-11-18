@@ -23,7 +23,7 @@ class Preview(SimpleHTTPRequestHandler):
             del self.headers["If-Modified-Since"]
         path = urlsplit(self.path).path
         if path.startswith("/api/"):
-            connection = HTTPConnection("127.0.0.1", 17884, timeout=30)
+            connection = HTTPConnection("127.0.0.1", 55753, timeout=30)
             headers = {
                 key: value
                 for key, value in self.headers.items()

@@ -13,3 +13,11 @@ passed on4ea6234eb. No inference, approvals or graph mutations are submitted.
 Screenshots and private live app metadata remain ignored outside this archive.
 An earlier attempt ran during a frontend rebuild and timed out; rerunning after
 the completed build passed. Fixture unit tests are separate from these checks.
+
+
+Final sidebar review: Claude APPROVE implementation4d92fcae8 against fc0cfa3ad,
+spec75f21c7 against a14c974, and actual rendered UI. Q1/L2/L3 closed after focused
+settled-dialog evidence; L1 remains optional. Required CI passes. `dialogs.mjs`
+waits finite animations and cancels both real delete and editor settings surfaces
+without mutation. `cards.mjs` renders actual retained Rename/Edit/Run cards,
+without approving or executing. This is not new model acceptance. Nothing merged.
