@@ -84,11 +84,12 @@ test("conversation search has clear and empty states, and switching scope resets
   (api.get as jest.Mock).mockImplementation((url:string)=>Promise.resolve({data:url.endsWith("/flow")?{runs:[first]}:{run:first,projection:p,truncated:false}}));
   render(<GraphAgents flowId="flow"/>);
   fireEvent.click(await screen.findByRole("button",{name:/^node-one.*completed$/},{timeout:5000}));
+  expect(screen.getByText("2 messages")).toBeInTheDocument();
   expect(screen.queryByRole("textbox",{name:"Search conversation"})).toBeNull();
   fireEvent.click(screen.getByRole("button",{name:"Search conversation"}));
   const search=await screen.findByRole("textbox",{name:"Search conversation"});
   expect(search).toHaveFocus();
-  fireEvent.change(search,{target:{value:"Garnet"}});expect(screen.getByText("Garnet main answer")).toBeInTheDocument();
+  fireEvent.change(search,{target:{value:"Garnet"}});expect(screen.getByText("1 of 2 messages")).toBeInTheDocument();expect(screen.getByText("Garnet main answer")).toBeInTheDocument();
   fireEvent.change(search,{target:{value:"zzzzzzzzzz"}});expect(screen.getByText("No matching messages or tools.")).toBeInTheDocument();expect(screen.getByRole("button",{name:"Export conversation"})).toBeDisabled();
   fireEvent.click(screen.getByRole("button",{name:"Clear"}));
   expect(search).toHaveValue("");expect(screen.getByText("Garnet main answer")).toBeInTheDocument();
@@ -267,15 +268,16 @@ test("cumulative charts carry forward threads without double-counting observatio
 test("all runtime records are listed and fuzzy search can find records beyond fifty",()=>{
   const records=Array.from({length:65},(_,index)=>({name:index===64?"opencode.commandExecution":`session.record.${index}`,signal:"span",attributes:{"conversation.id":"ses_test"},id:index}));
   render(<RuntimeRecords records={records} coverage="Observed adapter records"/>);
-  expect(screen.getByText("65 of 65 records")).toBeInTheDocument();
+  expect(screen.getByText("65 records")).toBeInTheDocument();
   expect(screen.getByText("65. opencode.commandExecution / span")).toBeInTheDocument();
   expect(screen.queryByRole("textbox",{name:"Search OpenTelemetry records"})).toBeNull();
   fireEvent.click(screen.getByRole("button",{name:"Search OpenTelemetry records"}));
   fireEvent.change(screen.getByRole("textbox",{name:"Search OpenTelemetry records"}),{target:{value:"commndExecution"}});
   expect(screen.getByText("65. opencode.commandExecution / span")).toBeInTheDocument();
+  expect(screen.getByText("1 of 65 records")).toBeInTheDocument();
   expect(screen.queryByText("1. session.record.0 / span")).toBeNull();
   fireEvent.click(screen.getByRole("button",{name:"Clear"}));
-  expect(screen.getByText("65 of 65 records")).toBeInTheDocument();
+  expect(screen.getByText("65 records")).toBeInTheDocument();
 });
 
 
