@@ -139,3 +139,15 @@ Optional Markdown speaker-heading ambiguity, ASCII filename fallback and XML
 formatting notes left unchanged. VSCode integrated Copy also reports Copied;
 new build visible after cache-busting navigation. ExactheadCI passes. No later
 production changes. PRs remain draft/unmerged.
+
+
+2026-11-18 Copy scope correction: code3e586231e/spec4d5eeaa. One control
+per request copies all retained assistant text plus displayed tool/command
+inputs/outputs, graph outcomes and drafts; excludes user/native wrappers and
+other requests.34UItests pass; Node22build1m22s(exit0). Real response-copy.mjs
+verified first commentary/final answer/toolinputs/outputs in clipboard and
+excluded user/earlierresponse. Initial assertion had shell encoding error;
+corrected boolean-only check then exposed loading race, fixed by waiting for
+retained activity before enabling Copy. Final acceptance passed after rebuild.
+Integrated finalbuild Copy reports Copied; local screenshots retained privately.
+No prompts or graph mutations. Same Claude reviewer verdict pending.
