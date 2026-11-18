@@ -100,3 +100,39 @@ Metadata-only inspection confirmed the attempt's otel range 0..6687 and terminal
 status complete. The activity store retains a projection snapshot, so counting
 only top-level otel/record methods in its receipt table would incorrectly report
 zero; the telemetry list belongs to that normalized projection.
+
+
+## Native Claude and OpenCode follow-up (2026-11-18)
+
+The owner requested real provider runs for precautionary activity inspection.
+`native-provider-review.py` executes the maintained fresh graph builder through
+normal capture, with three harmless workspace files and four read-only tool calls.
+It uses the existing login handling, isolated controllers and credential-free
+workspace workers. No private transcript, login material or runtime state is
+published here. The script is experiment-only and is not a production dependency.
+
+Both runs completed with complete captured streams and no store truncation:
+
+| Provider | Actual model | Conversation/tool items | Telemetry records |
+| --- | --- | ---: | ---: |
+| Claude | claude-sonnet-5-5 | 10 | 76 |
+| OpenCode | opencode-go/claude-haiku-5-5 | 10 | 13 |
+
+Claude records include native logs, metrics and spans. OpenCode spans are OTLP
+exports derived by the existing adapter from observed native activity; they are
+not native OpenCode SDK instrumentation. Neither set was a UI fixture.
+Claude aggregate input/cached/output: 10221/6607/1070. OpenCode:
+18156/14084/938. Cost accuracy and exporter flush completeness were not certified.
+
+Both results were opened in the existing Laomedo Activity CoBrowse tab on17921,
+with rendered conversations and telemetry inspected. The stopped backing app
+was resumed on its original55753 port/state; no new preview port was introduced.
+The own temporary Claude credential volume was removed successfully; OpenCode's
+ACL-restricted access-only temporary profile was removed by its scoped cleanup.
+Runner HTTP services were closed after capture; saved results remain inspectable.
+These saved graphs are inspection evidence, not persistent interactive runners.
+
+No production source changed for this check. The experiment harness is fully
+unreviewed ? reviewer pending; no security certification, cancellation/recovery,
+credential-exfiltration adversarial testing or merge-readiness claim follows from
+these two successful read-only tasks.
