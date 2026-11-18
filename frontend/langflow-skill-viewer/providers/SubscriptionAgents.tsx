@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { RefreshCw, Gauge } from "lucide-react";
+import { RefreshCw, Gauge, Terminal } from "lucide-react";
 import "./providers.css";
 import { Button } from "@/components/ui/button";
 import { listConnections, readGraphPreferences, saveGraphPreferences, type ProviderConnection } from "./api";
@@ -38,6 +38,13 @@ export default function SubscriptionAgents({ flowId }: { flowId?: string }) {
       <div role="tablist" aria-label="Agent harness" className="mt-3 flex gap-4">{harnesses.map(item => <button type="button" role="tab" id={`harness-${item.id}`} aria-controls="harness-panel" aria-selected={harness === item.id} key={item.id} onClick={() => setHarness(item.id)} className={`border-b-2 px-2 py-3 text-sm ${harness === item.id ? "border-primary font-semibold" : "border-transparent text-muted-foreground"}`}>{item.label}</button>)}</div>
     </header>
     <div id="harness-panel" role="tabpanel" aria-labelledby={`harness-${harness}`} className="pc-settings-panel">
+      {harness !== "codex" || (!busy && !error && accounts.length === 0) ? <section className="pc-settings-card pc-subscription-empty" aria-labelledby="missing-subscription-heading">
+        <span className="pc-empty-mark" aria-hidden="true"><Terminal size={28} /></span>
+        <div className="pc-empty-copy"><h2 id="missing-subscription-heading">{harness === "codex" ? "No Codex account connected" : `${harnesses.find(item => item.id === harness)?.label} isn’t available yet`}</h2>
+          <p>{harness === "codex" ? "Connect your account to choose it as this graph’s default." : "Account sign-in for this harness is not supported yet. You can use a connected Codex account for this graph."}</p></div>
+        {harness === "codex" ? <a className="pc-manage-account" href="/settings/providers">Connect Codex</a> : <Button ignoreTitleCase variant="outline" onClick={() => setHarness("codex")}>View Codex settings</Button>}
+      </section> : <>
+
       <section className="pc-settings-card" aria-label="Graph account preference">
         {error && <p role="alert" className="text-sm">{error}</p>}
         {harness === "codex" ? <>
@@ -56,6 +63,7 @@ export default function SubscriptionAgents({ flowId }: { flowId?: string }) {
         <div className="pc-card-heading"><h2 id="subscription-limits-heading">Subscription limits</h2><span className="pc-availability">Not available yet</span></div>
         <div className="pc-quota-empty"><Gauge size={20} aria-hidden="true" /><p>Remaining allowance and reset times are not connected yet.</p></div>
       </section>
+      </>}
     </div>
   </section>;
 }

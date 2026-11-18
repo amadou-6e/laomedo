@@ -26,3 +26,9 @@
 .pc-quota-empty svg { flex: none; }
 .pc-quota-empty p { margin: 0; font-size: 13px; line-height: 1.6; }
 @media (max-width: 640px) { .pc-settings-panel { padding: 16px; } .pc-settings-card { padding: 16px; } }
+
+.pc-subscription-empty { min-height: 320px; justify-items: center; align-content: center; gap: 24px; text-align: center; padding: 40px 24px; }
+.pc-empty-mark { width: 64px; height: 64px; border: 1px solid hsl(var(--border)); border-radius: 16px; display: flex; align-items: center; justify-content: center; background: hsl(var(--muted) / .35); color: hsl(var(--muted-foreground)); }
+.pc-empty-copy { display: grid; gap: 12px; max-width: 420px; }
+.pc-empty-copy h2 { margin: 0; font-size: 18px; line-height: 1.4; font-weight: 600; }
+.pc-empty-copy p { margin: 0; font-size: 14px; line-height: 1.7; color: hsl(var(--muted-foreground)); }

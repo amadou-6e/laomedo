@@ -37,3 +37,7 @@ never infer remaining hourly/weekly/monthly allowances from run activity.
 Graph settings use separate account and subscription-limit cards with consistent
 spacing. Account actions live in the card header; Save appears only for unsaved
 selection changes. Account availability is explanatory text outside the selector.
+
+Unsupported harnesses and supported harnesses without a saved account show a
+focused empty-state card with a real next action. Quota controls are hidden
+until a supported account connection exists; unsupported is distinct from signed out.
