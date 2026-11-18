@@ -17,9 +17,8 @@ returns to the original Settings origin. User-facing errors use the shared
 catalogue. Disconnect and consumer binding require the matching host runtime
 integration; do not present unavailable operations as working.
 
-Account rows and details use the Codex mark, matching the installed OpenAI Codex
-extension asset `codex-d905da579253.svg` (26.1007.21434), rendered in the theme
-foreground colour. Details identify reauthentication as Sign in to Codex again;
+Account rows, provider choices and details use the Codex product icon shipped
+in the installed OpenAI extension (26.1007.21434). Details identify reauthentication as Sign in to Codex again;
 account access and model usage are not inferred from successful authentication.
 
 Connection details group compact reauthentication and Disconnect buttons together,
@@ -62,3 +61,13 @@ to that same client. URLs and codes remain out of browser storage; code input is
 cleared after submission. A lost submission response remains an uncertain outcome
 and polling reconciles it rather than automatically submitting another code.
 Real Claude sign-in/dispatch and independent final review remain pending.
+
+The Settings list calls saved rows Accounts, including rows requiring sign-in.
+The GitHub PR257 ConnectionAccounts and ConnectionNavigation layouts remain the
+reference: preserve the card, identity/status row, explanatory copy, footer and
+icon navigation. Connected accounts offer secondary reauthentication; native
+accounts needing sign-in retain a primary recovery action. The Claude handoff
+uses one instruction with the provider link and masked completion-code field.
+Screen transitions reset ancestor scrolling; polling does not change scroll.
+The Codex product icon is the unmodified codex-app-ga-logo-3e5209898ca3.png
+shipped in OpenAI VS Code extension26.1007.21434, displayed without distortion.

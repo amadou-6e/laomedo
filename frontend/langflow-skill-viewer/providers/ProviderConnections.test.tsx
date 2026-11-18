@@ -10,6 +10,8 @@ jest.mock("@/components/ui/button", () => ({
 }));
 jest.mock("./api", () => ({ ...jest.requireActual("./api"), saveGoConnection: jest.fn(), beginLogin: jest.fn(), cancelLogin: jest.fn(), listConnections: jest.fn(), readProgress: jest.fn(), inspectDisconnect: jest.fn(), disconnect: jest.fn(), retryCleanup: jest.fn() }));
 
+jest.mock("./assets/codex-logo.png", () => "codex-logo.png");
+
 jest.mock("./assets/opencode-logo-dark.svg", () => "opencode-dark.svg");
 jest.mock("./assets/opencode-logo-light.svg", () => "opencode-light.svg");
 
@@ -139,7 +141,7 @@ describe("saved provider Settings", () => {
     sessionStorage.setItem("laomedo.provider-attempt", "00000000-0000-4000-8000-000000000002");
     (readProgress as jest.Mock).mockResolvedValue({ attempt_id: "00000000-0000-4000-8000-000000000002", status: "connecting", connection_id: null, code: null });
     render(<ProviderConnections />);
-    await screen.findByText("Waiting for sign-in…");
+    await screen.findByText(/Waiting for sign-in/);
     expect(beginLogin).not.toHaveBeenCalled();
     expect(sessionStorage.length).toBe(1);
   });
