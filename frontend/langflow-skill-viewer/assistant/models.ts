@@ -15,6 +15,7 @@ export type Conversation = {
   linked_conversation_id: string | null;
 };
 export type Message = {
+  native_action_id?: string | null;
   model?: string | null;
   effort?: string | null;
   id: string;
@@ -69,6 +70,7 @@ export type GraphAction = {
   run_id: string | null;
 };
 export type ConversationDetail = {
+  native_actions?: NativeAction[];
   permissions?: ("rename" | "edit" | "run")[];
   actions?: GraphAction[];
   conversation: Conversation;
@@ -76,6 +78,17 @@ export type ConversationDetail = {
   drafts: DraftReceipt[];
   next_cursor: number | null;
   observation_error?: string;
+};
+export type NativeAction = {
+  id: string;
+  message_id: string;
+  name: string;
+  arguments: string;
+  digest: string;
+  state: string;
+  may_use_model: boolean;
+  can_decide: boolean;
+  result_message_id: string | null;
 };
 export type ActivityPage = {
   tool_names?: Record<string, string>;

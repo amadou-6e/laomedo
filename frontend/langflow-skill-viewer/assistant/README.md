@@ -142,3 +142,9 @@ Opening a different graph resets the sidebar's selected conversation; saved chat
 remain in History. Opening the current graph reloads its saved state, closes the
 sidebar and discards unsent sidebar text. The editor's existing browser leave
 confirmation protects unsaved graph changes and active builds.
+
+`NativeActions.tsx` renders exact built-in command/argument proposals with Approve
+and Reject, followed by compact authoritative outcomes. It uses only human app
+routes and never submits an assistant prompt itself. `NativeAction` wire types
+stay in models.ts. Command messages reuse MessageRow/Copy; responseTranscript
+includes native proposal receipts. No additional conversation surface is created.

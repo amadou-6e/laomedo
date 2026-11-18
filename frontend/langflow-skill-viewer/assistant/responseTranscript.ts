@@ -1,6 +1,10 @@
 import { messageText } from "@/modals/graphAgents/utils";
-import type { ActivityPage, DraftReceipt, GraphAction, Message } from "./models";
+import type { ActivityPage, DraftReceipt, GraphAction, Message, NativeAction } from "./models";
 import { toolCall } from "./toolCall";
+
+export function hasNativeControlResult(message: Message): boolean {
+  return Boolean(message.native_action_id && message.state === "completed" && message.response && ["/status", "/mcp", "/skills"].includes(message.text));
+}
 
 function fenced(value: unknown): string {
   const text = typeof value === "string" ? value : JSON.stringify(value, null, 2);
@@ -13,6 +17,7 @@ export function responseTranscript(
   message: Message,
   receipts: DraftReceipt[],
   actions: GraphAction[],
+  nativeActions: NativeAction[] = [],
 ): string {
   const blocks: string[] = [];
   let hasAnswer = false;
@@ -45,8 +50,11 @@ export function responseTranscript(
     blocks.push(`### Saved draft: ${receipt.name}`, `Workflow: ${receipt.workflow_id}`,
       ...receipt.diagnostics, "Saved without running or publishing.");
   }
+  for (const action of nativeActions) {
+    blocks.push(`Native command: /${action.name}${action.arguments ? " " + action.arguments : ""}`, `Outcome: ${action.state}`);
+  }
   if (message.error_code) blocks.push(`Response error: ${message.error_code}`);
-  if (!page || !page.available || page.complete === false)
+  if (!hasNativeControlResult(message) && (!page || !page.available || page.complete === false))
     blocks.push("Some activity is unavailable or was not retained; this copy may be partial.");
   if (message.state !== "completed") blocks.push(`Response state: ${message.state}. Copied activity is a snapshot.`);
   return blocks.join("\n\n");

@@ -1,5 +1,5 @@
 import { responseTranscript } from "./responseTranscript";
-import type { ActivityPage, GraphAction, Message } from "./models";
+import type { ActivityPage, GraphAction, Message, NativeAction } from "./models";
 
 it("includes command results, graph outcomes and partial streaming status", () => {
   const page = { available: true, complete: false, projection: { items: [
@@ -16,4 +16,14 @@ it("includes command results, graph outcomes and partial streaming status", () =
   expect(text).toContain("Outcome: succeeded");
   expect(text).toContain("may be partial");
   expect(text).toContain("running. Copied activity is a snapshot");
+});
+
+it("copies an authoritative no-model command response and its proposal outcome", () => {
+  const message = { native_action_id: "approved", text: "/status", state: "completed", response: "Native status" } as Message;
+  const proposal = { name: "status", arguments: "", state: "completed" } as NativeAction;
+  const text = responseTranscript(undefined, message, [], [], [proposal]);
+  expect(text).toContain("Native status");
+  expect(text).toContain("Native command: /status");
+  expect(text).toContain("Outcome: completed");
+  expect(text).not.toContain("may be partial");
 });

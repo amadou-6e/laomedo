@@ -10,9 +10,10 @@ import type { ActivityPage, DraftReceipt, Message } from "./models";
 import { stateLabel } from "./models";
 import Thinking from "./Thinking";
 import CopyAnswer from "./CopyAnswer";
-import { responseTranscript } from "./responseTranscript";
+import { responseTranscript, hasNativeControlResult } from "./responseTranscript";
 import GraphActions from "./GraphActions";
-import type { GraphAction } from "./models";
+import NativeActions from "./NativeActions";
+import type { GraphAction, NativeAction } from "./models";
 
 export function UserMessage({
   text,
@@ -61,9 +62,11 @@ export default function MessageRow({
   onContent,
   onFailure,
   actions = [],
+  nativeActions = [],
 }: {
   conversation: string;
   actions?: GraphAction[];
+  nativeActions?: NativeAction[];
   message: Message;
   receipts: DraftReceipt[];
   active: boolean;
@@ -179,7 +182,7 @@ export default function MessageRow({
           />
         </div>
       )}
-      {page?.complete === false && (
+      {page?.complete === false && !hasNativeControlResult(message) && (
         <p className="text-xs text-muted-foreground">
           Some Activity could not be retained. The response above may be
           partial.
@@ -190,6 +193,7 @@ export default function MessageRow({
         actions={actions}
         onFailure={onFailure}
       />
+      <NativeActions conversation={conversation} actions={nativeActions} onFailure={onFailure} />
       {receipts.map((receipt) => (
         <article
           key={receipt.id}
@@ -238,8 +242,8 @@ export default function MessageRow({
           </p>
         </article>
       ))}
-      {(items.length > 0 || message.response || receipts.length > 0 || actions.length > 0) && (
-        <CopyAnswer disabled={!page} text={responseTranscript(page, message, receipts, actions)} />
+      {(items.length > 0 || message.response || receipts.length > 0 || actions.length > 0 || nativeActions.length > 0) && (
+        <CopyAnswer disabled={!page && !hasNativeControlResult(message)} text={responseTranscript(page, message, receipts, actions, nativeActions)} />
       )}
     </section>
   );

@@ -899,6 +899,9 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
                   actions={(detail.actions ?? []).filter(
                     (action) => action.message_id === message.id,
                   )}
+                  nativeActions={(detail.native_actions ?? []).filter(
+                    (action) => action.message_id === message.id,
+                  )}
                   receipts={detail.drafts.filter(
                     (receipt) => receipt.message_id === message.id,
                   )}
