@@ -60,6 +60,29 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
         if not self.controller._closed:
             await self.controller.close()
 
+    async def test_open_observes_delayed_catalog_before_discovery(self):
+        """A notification queued after the response is retained before publication."""
+        catalog = NativeCommandCatalog(
+            commands=[{"name": "status", "description": "Status"}]
+        )
+        observed = None
+        self.controller.acp.command_catalog = lambda: observed
+        self.controller.acp.configure.side_effect = lambda key, value: SimpleNamespace(
+            config_options=[SimpleNamespace(id=key, current_value=value)]
+        )
+
+        async def advertise():
+            nonlocal observed
+            await asyncio.sleep(0.02)
+            observed = catalog
+
+        pending = asyncio.create_task(advertise())
+        await self.controller.open(
+            {"requested_model": "model", "requested_effort": "low"}, resume=False
+        )
+        await pending
+        self.assertEqual(self.controller.command_catalog(), catalog)
+
     async def test_explicit_control_command_has_no_fabricated_native_turn(self):
         """Native control text settles separately from strict ordinary prompts."""
         catalog = NativeCommandCatalog(

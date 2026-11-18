@@ -162,6 +162,18 @@ class McpTransportTests(unittest.IsolatedAsyncioTestCase):
                         for tool in tools
                     )
                 )
+                invalid = await session.call_tool(
+                    "propose_native_command",
+                    {
+                        "command": "status",
+                        "arguments": "private-invalid\nargument",
+                        "catalog_revision": "0" * 64,
+                        "operation_key": "invalid-arguments",
+                    },
+                )
+                self.assertTrue(invalid.isError)
+                self.assertIn("assistant_input_invalid", invalid.content[0].text)
+                self.assertNotIn("private-invalid", invalid.content[0].text)
                 saved = await session.call_tool(
                     "save_draft",
                     {

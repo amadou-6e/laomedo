@@ -1241,11 +1241,7 @@ class CodexAgent(BaseAgent):
                 else None
             )
             if native_command is not None and status == "completed":
-                record["answer"] = (
-                    getattr(native, "answer", None)
-                    or record["answer"]
-                    or ("Completed /" + native_command.name + ".")
-                )
+                record["answer"] = getattr(native, "answer", None) or record["answer"]
             catalog = server.command_catalog()
             record["native_commands"] = {
                 "thread_id": native_id,
@@ -1258,7 +1254,13 @@ class CodexAgent(BaseAgent):
                     else None
                 ),
             }
-            if status == "completed" and not record["answer"]:
+            if (
+                status == "completed"
+                and not record["answer"]
+                and not (
+                    native_command is not None and native_command.name == "compact"
+                )
+            ):
                 raise RunnerError("completed_without_agent_message")
             self._verify_protected_mounts(run_dir, record)
             if lease is not None and lease.lost.is_set():

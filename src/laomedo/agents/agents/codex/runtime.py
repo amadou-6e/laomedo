@@ -281,6 +281,11 @@ class CodexAgentRuntime:
             )
             if observed != expected:
                 raise RunnerError("unsupported_model_effort")
+        # ACP notifications are handled independently of request responses.
+        # Allow the fresh list to arrive before the caller publishes discovery.
+        deadline = time.monotonic() + 2
+        while self.command_catalog() is None and time.monotonic() < deadline:
+            await asyncio.sleep(0.01)
         return self.active_thread_id
 
     def command_catalog(self):

@@ -652,6 +652,8 @@ class AssistantRuntime:
                 record = await asyncio.to_thread(
                     runner.request, "GET", "/v1/runs/" + conversation.run_id
                 )
+                if not record.get("mcp_manifest"):
+                    raise AssistantError("assistant_tool_catalog_changed", 409)
                 frozen = McpManifest.model_validate(record["mcp_manifest"])
                 selected = {(item.server, item.upstream_name) for item in frozen.tools}
                 admitted_tools = [

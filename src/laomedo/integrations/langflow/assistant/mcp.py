@@ -191,12 +191,15 @@ class AuthoringMcp:
         ctx: Context,
     ) -> dict:
         """Propose one exact native command for human approval after this response; never approve or execute it."""
-        request = NativeCommandRequest(
-            name=command,
-            arguments=arguments,
-            catalog_revision=catalog_revision,
-            operation_key=operation_key,
-        )
+        try:
+            request = NativeCommandRequest(
+                name=command,
+                arguments=arguments,
+                catalog_revision=catalog_revision,
+                operation_key=operation_key,
+            )
+        except ValueError:
+            raise ToolError("assistant_input_invalid") from None
         return await self._invoke(ctx, "propose_native_command", request=request)
 
     async def get_native_action(self, action_id: UUID, ctx: Context) -> dict:
