@@ -474,7 +474,7 @@ class OpenCodeAgentRuntime:
             if picker is None:
                 raise RunnerError("opencode_model_not_connected")
             advertised = {
-                choice.value
+                getattr(choice, "value", None)
                 for option in picker.options
                 for choice in (getattr(option, "options", None) or [option])
             }

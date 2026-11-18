@@ -35,6 +35,41 @@ class ClaudeConnectionTests(unittest.TestCase):
         self.addCleanup(self.service.close)
         self.profile = uuid4()
 
+    def test_orphan_daemon_failure_preserves_custody_and_allows_startup(self):
+        """Unavailable native cleanup cannot prevent unrelated provider admission."""
+        from py_docker.errors import DockerOperationError
+
+        root = self.service._profile(self.profile) / str(uuid4())
+        root.mkdir()
+        marker = root / "claude-custody.json"
+        marker.write_text(
+            json.dumps(
+                dict(
+                    name="laomedo-claude-connection-" + uuid4().hex,
+                    labels={},
+                    docker_endpoint="npipe:////./pipe/docker_engine",
+                    image_id="sha256:" + "a" * 64,
+                )
+            )
+        )
+        self.service.close()
+        with (
+            patch(
+                "laomedo.host.provider_connections.claude.ClaudeConnection.erase",
+                side_effect=DockerOperationError("daemon offline"),
+            ),
+            self.assertLogs(level="WARNING"),
+        ):
+            restarted = ProviderConnections(self.service.root)
+        try:
+            self.assertTrue(marker.exists())
+            self.assertEqual(restarted.list(self.profile), [])
+        finally:
+            restarted.close()
+        marker.write_text("invalid ownership metadata")
+        with self.assertRaises(ProviderConnectionError):
+            ProviderConnections(self.service.root)
+
     def test_uncertain_volume_create_keeps_exact_prior_ownership_receipt(self):
         """Restart can recover an ambiguous creation without adopting other volumes."""
         candidate = SimpleNamespace(candidate_id=uuid4(), credential_id=uuid4())

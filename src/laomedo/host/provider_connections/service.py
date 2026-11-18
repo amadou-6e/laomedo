@@ -162,7 +162,7 @@ class ProviderConnections:
                     continue
                 if (vault / "claude-custody.json").exists():
                     if vault_id not in active:
-                        self.claude.erase(vault)
+                        self.claude.reconcile_orphan(vault)
                     continue
                 broker = ChatGPTConnection(vault)
                 with _locked(broker.lock_path):

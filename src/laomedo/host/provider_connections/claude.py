@@ -485,6 +485,26 @@ class ClaudeConnection:
             lifecycle=record.lifecycle,
         )
 
+    def reconcile_orphan(self, root):
+        """Retain exact custody on daemon failure and retry on the next startup."""
+        from py_docker.errors import DockerOperationError
+
+        # Invalid ownership metadata still prevents admission; it is not a
+        # transient daemon failure and must never authorize guessed cleanup.
+        self._descriptor(root)
+        try:
+            self.erase(root)
+        except ProviderConnectionError as error:
+            if error.code != "provider_cleanup_unconfirmed":
+                raise
+            logging.getLogger(__name__).warning(
+                "Claude orphan cleanup pending; custody retained for startup retry"
+            )
+        except DockerOperationError:
+            logging.getLogger(__name__).warning(
+                "Claude orphan cleanup pending; custody retained for startup retry"
+            )
+
     def erase(self, root):
         """Recover exact native receipts and remove only this owned volume."""
         descriptor = self._descriptor(root)

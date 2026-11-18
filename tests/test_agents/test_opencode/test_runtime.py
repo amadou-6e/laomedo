@@ -26,6 +26,8 @@ class OpenCodeRuntimeTests(unittest.IsolatedAsyncioTestCase):
             category="model",
             id="model",
             options=[
+                SimpleNamespace(options=[]),
+                SimpleNamespace(options=None),
                 SimpleNamespace(options=[SimpleNamespace(value="opencode-go/current")]),
             ],
         )

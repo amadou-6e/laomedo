@@ -54,6 +54,11 @@ host, not isolation against arbitrary host Python or a hostile OS user.
 `models.py` defines persisted metadata and safe response contracts. `settings.py`
 owns fixed attempt policy; `errors.py` defines safe domain failures.
 
+`ClaudeConnection.reconcile_orphan()` validates retained ownership metadata before
+cleanup. A daemon failure or unconfirmed cleanup retains the custody receipt and
+logs pending cleanup for the next startup retry, without blocking other providers.
+Unreadable ownership metadata still prevents startup; cleanup never guesses owners.
+
 Admission permits one saved row per provider email within a local profile, in
 addition to rejecting repeated verified issuer/subject identities. The email
 comes from the validated provider identity and is compared case-insensitively
