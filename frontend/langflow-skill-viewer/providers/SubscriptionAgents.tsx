@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { RefreshCw, Gauge, Terminal } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import "./providers.css";
 import { Button } from "@/components/ui/button";
 import { listConnections, readGraphPreferences, saveGraphPreferences, type ProviderConnection } from "./api";
@@ -38,17 +38,15 @@ export default function SubscriptionAgents({ flowId }: { flowId?: string }) {
       <div role="tablist" aria-label="Agent harness" className="mt-3 flex gap-4">{harnesses.map(item => <button type="button" role="tab" id={`harness-${item.id}`} aria-controls="harness-panel" aria-selected={harness === item.id} key={item.id} onClick={() => setHarness(item.id)} className={`border-b-2 px-2 py-3 text-sm ${harness === item.id ? "border-primary font-semibold" : "border-transparent text-muted-foreground"}`}>{item.label}</button>)}</div>
     </header>
     <div id="harness-panel" role="tabpanel" aria-labelledby={`harness-${harness}`} className="pc-settings-panel">
-      {harness !== "codex" || (!busy && !error && accounts.length === 0) ? <section className="pc-settings-card pc-subscription-empty" aria-labelledby="missing-subscription-heading">
-        <span className="pc-empty-mark" aria-hidden="true"><Terminal size={28} /></span>
-        <div className="pc-empty-copy"><h2 id="missing-subscription-heading">{harness === "codex" ? "No Codex account connected" : `${harnesses.find(item => item.id === harness)?.label} isn’t available yet`}</h2>
-          <p>{harness === "codex" ? "Connect your account to choose it as this graph’s default." : "Account sign-in for this harness is not supported yet. You can use a connected Codex account for this graph."}</p></div>
-        {harness === "codex" ? <a className="pc-manage-account" href="/settings/providers">Connect Codex</a> : <Button ignoreTitleCase variant="outline" onClick={() => setHarness("codex")}>View Codex settings</Button>}
+      {harness !== "codex" || (!busy && !error && accounts.length === 0) ? <section className="pc-settings-section pc-subscription-empty" aria-labelledby="missing-subscription-heading">
+        <h2 id="missing-subscription-heading">{harness === "codex" ? "No Codex account connected" : `${harnesses.find(item => item.id === harness)?.label} connections`}</h2>
+        <p className="pc-card-description">{harness === "codex" ? "Connect your account to choose it as this graph's default." : "Account sign-in for this harness is not available yet."}</p>
+        {harness === "codex" && <a className="pc-manage-account" href="/settings/providers">Connect Codex</a>}
       </section> : <>
-
-      <section className="pc-settings-card" aria-label="Graph account preference">
-        {error && <p role="alert" className="text-sm">{error}</p>}
-        {harness === "codex" ? <>
-          <div className="pc-card-heading"><h2>Account</h2><a className="pc-manage-account" href="/settings/providers">Manage accounts</a></div><p className="pc-card-description">Choose the default for this graph. Nodes can override it in Advanced controls.</p>
+        <section className="pc-settings-section" aria-label="Graph account preference">
+          <div className="pc-section-heading"><h2>Account preference</h2><a className="pc-manage-account" href="/settings/providers">Manage accounts</a></div>
+          <p className="pc-card-description">Choose the default for this graph. Nodes can override it in Advanced controls.</p>
+          {error && <p role="alert" className="pc-account-notice">{error}</p>}
           <div className="pc-account-field"><select aria-label="Preferred Codex account for this graph" disabled={busy || !!error || !flowId} value={preferred} onChange={event => setPreferred(event.target.value)} className="pc-account-select">
             <option value="">Choose an account on each node</option>
             {preferred && !accounts.some(row => row.connection_id === preferred) && <option value={preferred} disabled>Saved account unavailable</option>}
@@ -56,13 +54,16 @@ export default function SubscriptionAgents({ flowId }: { flowId?: string }) {
           </select></div>
           {preferred && accounts.some(row => row.connection_id === preferred && (row.lifecycle !== "connected" || row.auth_state !== "ready")) && <p className="pc-account-notice" role="status">This account needs attention. Open Manage accounts to reconnect it.</p>}
           {preferred !== saved && <div className="pc-save-row"><Button ignoreTitleCase disabled={busy || !!error || !flowId} onClick={() => void save()}>Save preference</Button></div>}
-          {!busy && !accounts.length && <p className="text-sm text-muted-foreground">No Codex accounts connected.</p>}
-        </> : <p className="text-sm text-muted-foreground">{harnesses.find(item => item.id === harness)?.label} account connections are not available yet.</p>}
-      </section>
-      <section className="pc-settings-card" aria-labelledby="subscription-limits-heading">
-        <div className="pc-card-heading"><h2 id="subscription-limits-heading">Subscription limits</h2><span className="pc-availability">Not available yet</span></div>
-        <div className="pc-quota-empty"><Gauge size={20} aria-hidden="true" /><p>Remaining allowance and reset times are not connected yet.</p></div>
-      </section>
+        </section>
+        <section className="pc-settings-section" aria-labelledby="subscription-limits-heading">
+          <div className="pc-section-heading"><h2 id="subscription-limits-heading">Subscription limits</h2></div>
+          <p className="pc-card-description">Remaining allowance and reset times for each connected account.</p>
+          {busy && <p role="status" className="pc-account-notice">Loading accounts...</p>}
+          <ul className="pc-subscription-list" aria-label="Account subscription limits">{accounts.map(row => <li key={row.connection_id}>
+            <div className="pc-subscription-row"><span className="pc-subscription-account">{row.label}</span><span className="pc-availability">Not available yet</span></div>
+            <p>Subscription limit reporting is not connected yet.</p>
+          </li>)}</ul>
+        </section>
       </>}
     </div>
   </section>;

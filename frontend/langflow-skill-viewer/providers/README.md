@@ -34,10 +34,10 @@ Subscription allowances are distinct from run tokens and estimated cost. The
 current ACP adapter has no account/rateLimits/read projection: show unavailable,
 never infer remaining hourly/weekly/monthly allowances from run activity.
 
-Graph settings use separate account and subscription-limit cards with consistent
-spacing. Account actions live in the card header; Save appears only for unsaved
-selection changes. Account availability is explanatory text outside the selector.
-
-Unsupported harnesses and supported harnesses without a saved account show a
-focused empty-state card with a real next action. Quota controls are hidden
-until a supported account connection exists; unsupported is distinct from signed out.
+Graph settings follow GitHub Primer's plain, left-aligned settings sections:
+headings with dividers, bounded form widths and consistent vertical spacing.
+Subscription limits are a list with one row per connected account, independently
+of the preferred account. Unsupported harnesses use a plain explanatory section
+without a card or cross-provider action; Codex without accounts offers Connect.
+References: https://primer.style/product/getting-started/foundations/layout/
+and https://primer.style/product/getting-started/foundations/typography/
