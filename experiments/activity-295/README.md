@@ -85,3 +85,18 @@ separate visual samples on exp and are no longer served in the preview.
 The activity implementation at 2fcce7cda remains fully unreviewed for the newer
 hierarchy and table changes; reviewer pending. No raw private runtime data or
 credentials are archived here.
+
+## Native telemetry follow-up
+
+The initial longer-run harness did not set `LAOMEDO_RUNNER_OTEL=1`; native
+collector startup is opt-in. The harness now enables that existing setting
+before launching the task, without changing production defaults or past runs.
+A second real run, execution `b563a7e2-203a-4fd4-9e34-bb79b182ebed`, completed
+with native OTLP collection: 6,687 receipt lines and 6,687 normalized telemetry
+records in the saved activity projection. Coverage reports observed records
+with exporter flush completeness unverified. No synthetic spans were injected.
+
+Metadata-only inspection confirmed the attempt's otel range 0..6687 and terminal
+status complete. The activity store retains a projection snapshot, so counting
+only top-level otel/record methods in its receipt table would incorrectly report
+zero; the telemetry list belongs to that normalized projection.
