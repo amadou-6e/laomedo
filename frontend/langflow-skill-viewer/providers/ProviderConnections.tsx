@@ -224,6 +224,7 @@ export default function ProviderConnections() {
 
   const status = (row: ProviderConnection) => row.lifecycle === "connected" ? row.method === "opencode_go_key" ? row.auth_state === "revoked" ? "Key unavailable" : "Key saved" : statuses[row.auth_state] : row.lifecycle === "cleanup_required" ? "Cleanup required" : "Disconnecting";
   const ready = selected?.lifecycle === "connected" && selected.auth_state === "ready";
+  const needsSignIn = selected?.lifecycle === "connected" && ["expired", "reauthorization_required", "revoked"].includes(selected.auth_state);
 
   return <section ref={surface} className="github-connections" aria-labelledby="provider-heading">
     {screen === "list" && <header className="gc-heading">
@@ -268,13 +269,16 @@ export default function ProviderConnections() {
               <Button ignoreTitleCase asChild><a href={nativeUrl} target="_blank" rel="noopener noreferrer">Continue to Claude</a></Button>
               <input className="pc-account-select" type="password" aria-label="Claude sign-in code" placeholder="Claude sign-in code" autoComplete="off" value={nativeCode} onChange={event => setNativeCode(event.target.value)} disabled={busy} />
               <Button ignoreTitleCase disabled={busy || !nativeCode} onClick={() => void finishClaude()}>Finish sign-in</Button>
-            </> : <p className="gc-muted" role="status">Preparing Claude sign-in...</p>}
-          </> : <p className="gc-notice" role="status">{unconfirmed ? "Checking your saved connection..." : attempt?.status === "verifying" ? "Checking connection..." : "Waiting for sign-in..."}</p>}
+            </> : <p className="gc-muted" role="status">Preparing Claude sign-in{"\u2026"}</p>}
+          </> : <>
+            {!unconfirmed && attempt?.status !== "verifying" && <p className="gc-muted">Complete sign-in with the provider. This page will update when it finishes.</p>}
+            <p className="gc-notice" role="status">{unconfirmed ? "Checking your saved connection\u2026" : attempt?.status === "verifying" ? "Checking connection\u2026" : "Waiting for sign-in\u2026"}</p>
+          </>}
         </>}
         {screen === "details" && selected && <>
           <div className="gc-identity"><span className="gc-avatar" aria-hidden="true">{logo(selected.provider)}</span><h2 id="provider-heading">{selected.label}</h2><span className={`gc-status ${ready ? "gc-ready" : "gc-attention"}`}>{status(selected)}</span></div>
-          <p className="gc-muted">{selected.method === "opencode_go_key" ? "Your Go key is saved locally. Account identity and access have not been verified; the selected model checks access when you run it." : ready ? "Laomedo uses this account when you select it in a graph." : "Sign in again to restore access for this account."}</p>
-          <div className="gc-footer"><p className="gc-muted">Removing this connection stops Laomedo access.</p><div className="pc-connection-actions">{selected.lifecycle === "connected" && <Button ignoreTitleCase variant={ready || selected.method === "opencode_go_key" ? "outline" : "default"} disabled={busy} onClick={() => { if (selected.provider === "opencode") { setProvider("opencode"); setSelected(undefined); } setScreen("method"); }}>{selected.provider === "opencode" ? "Add another Go key" : selected.provider === "claude" ? "Sign in to Claude Code again" : "Sign in to Codex again"}</Button>}<Button ignoreTitleCase variant="outline" disabled={busy} onClick={() => selected.lifecycle === "connected" ? void prepareDisconnect() : setScreen("removing")}>{selected.lifecycle === "connected" ? "Disconnect" : "View cleanup"}</Button></div></div>
+          <p className="gc-muted">{selected.method === "opencode_go_key" ? "Your Go key is saved locally. Account identity and access have not been verified; the selected model checks access when you run it." : ready ? "Laomedo uses this account when you select it in a graph." : needsSignIn ? "Sign in again to restore access for this account." : "We cannot check this connection right now. Refresh to check again."}</p>
+          <div className="gc-footer"><p className="gc-muted">Removing this connection stops Laomedo access.</p><div className="pc-connection-actions">{selected.lifecycle === "connected" && <Button ignoreTitleCase variant={needsSignIn && selected.method !== "opencode_go_key" ? "default" : "outline"} disabled={busy} onClick={() => { if (selected.provider === "opencode") { setProvider("opencode"); setSelected(undefined); } setScreen("method"); }}>{selected.provider === "opencode" ? "Add another Go key" : selected.provider === "claude" ? "Sign in to Claude Code again" : "Sign in to Codex again"}</Button>}<Button ignoreTitleCase variant="outline" disabled={busy} onClick={() => selected.lifecycle === "connected" ? void prepareDisconnect() : setScreen("removing")}>{selected.lifecycle === "connected" ? "Disconnect" : "View cleanup"}</Button></div></div>
         </>}
         {screen === "disconnect" && selected && removal && <>
           <p>{selected.label}</p>

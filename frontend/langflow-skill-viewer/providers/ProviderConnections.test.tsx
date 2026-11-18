@@ -188,4 +188,14 @@ describe("saved provider Settings", () => {
     expect(cancelLogin).not.toHaveBeenCalled();
     expect(beginLogin).not.toHaveBeenCalled();
   });
+  it("does not present a runner outage as a required new login", async () => {
+    (listConnections as jest.Mock).mockResolvedValue([{ ...account, provider: "claude", method: "claude_native", auth_state: "unavailable" }]);
+    render(<ProviderConnections />);
+    fireEvent.click(await screen.findByRole("button", { name: /Work account/ }));
+    expect(screen.getByText("Unavailable")).toBeTruthy();
+    expect(screen.getByText("We cannot check this connection right now. Refresh to check again.")).toBeTruthy();
+    expect(screen.queryByText("Sign in again to restore access for this account.")).toBeNull();
+    expect(beginLogin).not.toHaveBeenCalled();
+  });
+
 });
