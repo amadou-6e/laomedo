@@ -493,22 +493,94 @@ class AssistantRuntime:
             owner, conversation_id, request, session_key=key
         )
         if created:
-            context = AuthoringContext(
-                owner_id=owner,
-                conversation_id=conversation_id,
-                message_id=message["id"],
-                attempt_id=message["attempt_id"],
-                session_key=key,
-            )
-            self.contexts[context.message_id] = context
-            task = asyncio.create_task(
-                self._job(context), name="laomedo-assistant-" + str(context.message_id)
-            )
-            self.jobs[conversation_id] = task
-            task.add_done_callback(
-                lambda finished: self._job_done(conversation_id, finished)
-            )
+            self.dispatch_reserved(owner, key, conversation_id, message)
         return message
+
+    def dispatch_reserved(self, owner, key, conversation_id, message):
+        """Schedule exactly one already-committed chat or approved-command reservation."""
+        context = AuthoringContext(
+            owner_id=owner,
+            conversation_id=conversation_id,
+            message_id=message["id"],
+            attempt_id=message["attempt_id"],
+            session_key=key,
+        )
+        self.contexts[context.message_id] = context
+        task = asyncio.create_task(
+            self._job(context), name="laomedo-assistant-" + str(context.message_id)
+        )
+        self.jobs[conversation_id] = task
+        task.add_done_callback(
+            lambda finished: self._job_done(conversation_id, finished)
+        )
+
+    async def native_catalog(self, owner, conversation_id):
+        """Project commands only from the current conversation's existing native session."""
+        from laomedo.agents.agents.base.models import NativeCommandDiscovery
+        from pydantic import ValidationError
+
+        async with self.store.sessions() as session:
+            conversation = await self.store.conversation(
+                session, owner, conversation_id
+            )
+        if not conversation.run_id:
+            return {
+                "state": "unavailable",
+                "reason": "native_session_not_created",
+                "commands": [],
+            }
+        runner = await self.runner(owner)
+        record = await asyncio.to_thread(
+            runner.request, "GET", "/v1/runs/" + conversation.run_id
+        )
+        observed = record.get("native_commands") or {}
+        thread = record.get("thread_id")
+        if (
+            not thread
+            or observed.get("thread_id") != thread
+            or (conversation.thread_id and conversation.thread_id != thread)
+        ):
+            return {
+                "state": "unavailable",
+                "reason": "native_session_not_observed",
+                "commands": [],
+            }
+        if observed.get("catalog") is None:
+            return {
+                "state": "unavailable",
+                "reason": "native_catalog_not_observed",
+                "commands": [],
+            }
+        try:
+            result = NativeCommandDiscovery.model_validate(
+                observed.get("projection")
+            ).model_dump(mode="json")
+        except ValidationError:
+            return {
+                "state": "unavailable",
+                "reason": "native_catalog_invalid",
+                "commands": [],
+            }
+        return {**result, "run_id": conversation.run_id, "thread_id": thread}
+
+    async def decide_native_action(
+        self, owner, key, conversation_id, identifier, decision
+    ):
+        """Use human app authority to reserve an exact command, then schedule it once."""
+        from laomedo.integrations.langflow.assistant.native import NativeCommands
+
+        await self.check_session(owner, key)
+        if self.closing or (
+            len(self.jobs) >= self.settings.max_active_turns
+            and conversation_id not in self.jobs
+        ):
+            raise AssistantError("assistant_capacity_busy", 409)
+        result, reserved = await NativeCommands(self).decide(
+            owner, key, conversation_id, identifier, decision
+        )
+        if reserved is not None:
+            self.dispatch_reserved(owner, key, conversation_id, reserved)
+        return result
 
     def _job_done(self, identifier, task):
         """Release this task's slot and consume errors; retained reservations remain reconcile-only."""
@@ -573,9 +645,27 @@ class AssistantRuntime:
             )
             if len(tools) != len(AUTHORING_TOOL_NAMES):
                 raise AssistantError("assistant_tool_catalog_changed", 503)
-            registration = await McpRegistry.current().register(
-                [LangflowMcpTool(tool) for tool in tools]
-            )
+            admitted_tools = [LangflowMcpTool(tool) for tool in tools]
+            if conversation.run_id:
+                from laomedo.agents.mcp.models import McpManifest
+
+                record = await asyncio.to_thread(
+                    runner.request, "GET", "/v1/runs/" + conversation.run_id
+                )
+                frozen = McpManifest.model_validate(record["mcp_manifest"])
+                selected = {(item.server, item.upstream_name) for item in frozen.tools}
+                admitted_tools = [
+                    tool
+                    for tool in admitted_tools
+                    if (tool.descriptor.server, tool.descriptor.upstream_name)
+                    in selected
+                ]
+                if (
+                    McpManifest(tools=tuple(tool.descriptor for tool in admitted_tools))
+                    != frozen
+                ):
+                    raise AssistantError("assistant_tool_catalog_changed", 409)
+            registration = await McpRegistry.current().register(admitted_tools)
             await self.authorize(context)
             _, current = await self.store.message(
                 context.owner_id, context.conversation_id, context.message_id
@@ -589,6 +679,34 @@ class AssistantRuntime:
                 "mcp_manifest": registration.manifest.model_dump(mode="json"),
                 "mcp_registration": str(registration.registration_id),
             }
+            if message.native_action_id is not None:
+                from laomedo.integrations.langflow.assistant.models import (
+                    AssistantNativeAction,
+                    NativeCommandRequest,
+                )
+
+                async with self.store.sessions() as session:
+                    action = await session.get(
+                        AssistantNativeAction, message.native_action_id
+                    )
+                    if (
+                        action is None
+                        or action.owner_id != context.owner_id
+                        or action.conversation_id != context.conversation_id
+                        or action.session_key != context.session_key
+                        or action.state != "executing"
+                        or action.result_message_id != message.id
+                        or action.run_id != conversation.run_id
+                        or action.thread_id != conversation.thread_id
+                    ):
+                        raise AssistantError("assistant_tool_authority_revoked", 403)
+                    command = NativeCommandRequest.model_validate(action.request)
+                    if command.text() != message.text:
+                        raise AssistantError("assistant_native_identity_mismatch", 409)
+                payload["task"] = command.text()
+                payload["native_command"] = command.model_dump(
+                    mode="json", exclude={"operation_key"}
+                )
             if conversation.run_id:
                 payload.update(
                     activity_attempt_id=str(context.attempt_id),

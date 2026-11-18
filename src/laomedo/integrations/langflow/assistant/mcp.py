@@ -22,6 +22,7 @@ from laomedo.integrations.langflow.assistant.models import (
     WorkflowSource,
     GraphActionRequest,
     GraphChanges,
+    NativeCommandRequest,
 )
 
 
@@ -94,6 +95,41 @@ class AuthoringMcp:
             self.runtime.tool_tasks.setdefault(context.message_id, set()).add(task)
             await self.runtime.authorize(context)
             if operation in {
+                "list_native_commands",
+                "list_native_agents",
+                "propose_native_command",
+                "get_native_action",
+            }:
+                from laomedo.integrations.langflow.assistant.native import (
+                    NativeCommands,
+                )
+
+                if operation == "list_native_agents":
+                    result = {
+                        "state": "unsupported",
+                        "reason": "codex_native_agent_catalog_not_supported",
+                    }
+                elif operation == "list_native_commands":
+                    observed = await self.runtime.native_catalog(
+                        context.owner_id, context.conversation_id
+                    )
+                    result = {
+                        key: value
+                        for key, value in observed.items()
+                        if key not in {"run_id", "thread_id"}
+                    }
+                elif operation == "propose_native_command":
+                    result = await NativeCommands(self.runtime).propose(
+                        context, arguments["request"]
+                    )
+                else:
+                    result = await NativeCommands(self.runtime).read(
+                        context.owner_id,
+                        context.conversation_id,
+                        arguments["action_id"],
+                        session_key=context.session_key,
+                    )
+            elif operation in {
                 "propose_graph_edit",
                 "propose_graph_run",
                 "get_graph_action",
@@ -137,6 +173,35 @@ class AuthoringMcp:
         finally:
             if context is not None:
                 self.runtime.tool_tasks.get(context.message_id, set()).discard(task)
+
+    async def list_native_commands(self, ctx: Context) -> dict:
+        """List this conversation's observed Codex built-ins and their availability; no command runs."""
+        return await self._invoke(ctx, "list_native_commands")
+
+    async def list_native_agents(self, ctx: Context) -> dict:
+        """Report native-agent discovery as unsupported for this Codex-only chat."""
+        return await self._invoke(ctx, "list_native_agents")
+
+    async def propose_native_command(
+        self,
+        command: str,
+        arguments: str,
+        catalog_revision: str,
+        operation_key: str,
+        ctx: Context,
+    ) -> dict:
+        """Propose one exact native command for human approval after this response; never approve or execute it."""
+        request = NativeCommandRequest(
+            name=command,
+            arguments=arguments,
+            catalog_revision=catalog_revision,
+            operation_key=operation_key,
+        )
+        return await self._invoke(ctx, "propose_native_command", request=request)
+
+    async def get_native_action(self, action_id: UUID, ctx: Context) -> dict:
+        """Read an owned native command receipt; this grants no execution or approval authority."""
+        return await self._invoke(ctx, "get_native_action", action_id=action_id)
 
     async def list_workflows(
         self, ctx: Context, query: str = "", cursor: int = 0

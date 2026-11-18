@@ -16,6 +16,7 @@ from laomedo.integrations.langflow.assistant.models import (
     AssistantSession,
     AssistantGraphAction,
     AssistantGraphPermission,
+    AssistantNativeAction,
 )
 
 
@@ -40,6 +41,7 @@ class AssistantStore:
                 AssistantSession,
                 AssistantGraphAction,
                 AssistantGraphPermission,
+                AssistantNativeAction,
             )
         ]
         async with self.engine.begin() as connection:
@@ -54,6 +56,15 @@ class AssistantStore:
             column["name"]
             for column in inspect(connection).get_columns("laomedo_assistant_message")
         }
+        if "native_action_id" not in columns:
+            kind = AssistantMessage.__table__.c.native_action_id.type.compile(
+                dialect=connection.dialect
+            )
+            connection.execute(
+                text(
+                    f'ALTER TABLE laomedo_assistant_message ADD COLUMN "native_action_id" {kind}'
+                )
+            )
         for name in ("model", "effort"):
             if name not in columns:
                 connection.execute(
@@ -67,7 +78,10 @@ class AssistantStore:
         async with self.engine.begin() as connection:
             await connection.run_sync(
                 SQLModel.metadata.create_all,
-                tables=[AssistantGraphPermission.__table__],
+                tables=[
+                    AssistantGraphPermission.__table__,
+                    AssistantNativeAction.__table__,
+                ],
             )
             await connection.run_sync(self._upgrade_message_selection)
 
@@ -184,6 +198,7 @@ class AssistantStore:
             if conversation.active_message_id is not None or executing is not None:
                 raise AssistantError("assistant_conversation_active")
             for model in (
+                AssistantNativeAction,
                 AssistantGraphPermission,
                 AssistantGraphAction,
                 AssistantDraftReceipt,
@@ -298,43 +313,59 @@ class AssistantStore:
             conversation = await self.conversation(
                 session, owner, identifier, lock=True
             )
-            prior = (
-                await session.exec(
-                    select(AssistantMessage).where(
-                        AssistantMessage.conversation_id == identifier,
-                        AssistantMessage.client_message_id == request.client_message_id,
-                    )
+            return await self.reserve_message(session, conversation, request)
+
+    async def reserve_message(
+        self, session, conversation, request, *, native_action_id=None
+    ):
+        """Reserve under the caller's existing transaction and conversation row lock.
+
+        Both ordinary Send and native approval use this body, so the pending
+        action claim and its command message can commit atomically.
+        """
+        owner, identifier, digest = (
+            conversation.owner_id,
+            conversation.id,
+            request.digest(),
+        )
+        prior = (
+            await session.exec(
+                select(AssistantMessage).where(
+                    AssistantMessage.conversation_id == identifier,
+                    AssistantMessage.client_message_id == request.client_message_id,
                 )
-            ).first()
-            if prior:
-                if prior.digest != digest:
-                    raise AssistantError("assistant_message_conflict")
-                return prior.model_dump(mode="json", exclude={"digest"}), False
-            if conversation.active_message_id is not None:
-                raise AssistantError("assistant_turn_active")
-            if conversation.state == "attention":
-                raise AssistantError(
-                    conversation.error_code or "assistant_continuation_unavailable"
-                )
-            message = AssistantMessage(
-                conversation_id=identifier,
-                client_message_id=request.client_message_id,
-                digest=digest,
-                text=request.text,
-                model=request.model or conversation.model,
-                effort=request.effort or conversation.effort,
             )
-            conversation.model = message.model
-            conversation.effort = message.effort
-            conversation.active_message_id = message.id
-            conversation.state = "starting"
-            if conversation.title == "New conversation":
-                conversation.title = request.text[:80]
-            conversation.updated_at = time.time()
-            session.add(message)
-            session.add(conversation)
-            await session.flush()
-            return message.model_dump(mode="json", exclude={"digest"}), True
+        ).first()
+        if prior:
+            if prior.digest != digest or prior.native_action_id != native_action_id:
+                raise AssistantError("assistant_message_conflict")
+            return prior.model_dump(mode="json", exclude={"digest"}), False
+        if conversation.active_message_id is not None:
+            raise AssistantError("assistant_turn_active")
+        if conversation.state == "attention":
+            raise AssistantError(
+                conversation.error_code or "assistant_continuation_unavailable"
+            )
+        message = AssistantMessage(
+            conversation_id=identifier,
+            native_action_id=native_action_id,
+            client_message_id=request.client_message_id,
+            digest=digest,
+            text=request.text,
+            model=request.model or conversation.model,
+            effort=request.effort or conversation.effort,
+        )
+        conversation.model = message.model
+        conversation.effort = message.effort
+        conversation.active_message_id = message.id
+        conversation.state = "starting"
+        if conversation.title == "New conversation":
+            conversation.title = request.text[:80]
+        conversation.updated_at = time.time()
+        session.add(message)
+        session.add(conversation)
+        await session.flush()
+        return message.model_dump(mode="json", exclude={"digest"}), True
 
     async def message(self, owner, conversation_id, message_id):
         """Read a message only after checking its authenticated conversation owner."""
@@ -425,6 +456,17 @@ class AssistantStore:
                 message.state = state
                 if state == "stopping":
                     message.stop_requested = True
+            if (settled or state == "unknown") and message.native_action_id is not None:
+                action = await session.get(
+                    AssistantNativeAction, message.native_action_id
+                )
+                if (
+                    action is not None
+                    and action.result_message_id == message.id
+                    and action.state in {"executing", "unknown"}
+                ):
+                    action.state = state
+                    session.add(action)
             if response is not None:
                 message.response = response[:100000]
             if error is not None or settled:

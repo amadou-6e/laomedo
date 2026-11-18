@@ -121,6 +121,10 @@ class McpTransportTests(unittest.IsolatedAsyncioTestCase):
                         "propose_graph_edit",
                         "propose_graph_run",
                         "get_graph_action",
+                        "list_native_commands",
+                        "list_native_agents",
+                        "propose_native_command",
+                        "get_native_action",
                     },
                 )
                 for tool in tools:
@@ -149,6 +153,15 @@ class McpTransportTests(unittest.IsolatedAsyncioTestCase):
                 )
                 self.assertFalse(result.isError)
                 self.assertIn("Inspect this", result.content[0].text)
+                native_agents = await session.call_tool("list_native_agents", {})
+                self.assertFalse(native_agents.isError)
+                self.assertIn("unsupported", native_agents.content[0].text)
+                self.assertFalse(
+                    any(
+                        "approve" in tool.name or "execute_native" in tool.name
+                        for tool in tools
+                    )
+                )
                 saved = await session.call_tool(
                     "save_draft",
                     {

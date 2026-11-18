@@ -13,6 +13,7 @@ from laomedo.integrations.langflow.assistant.models import (
     MessageRequest,
     StopRequest,
     GraphActionDecision,
+    NativeActionDecision,
 )
 
 router = APIRouter(prefix="/api/v1/laomedo/assistant", tags=["Application assistant"])
@@ -124,6 +125,11 @@ async def conversation_detail(
         actions = WorkflowActions(runtime.store, None, runtime.authorize)
         result["actions"] = await actions.list(owner, identifier, session_key=key)
         result["permissions"] = await actions.permissions(owner, key, identifier)
+        from laomedo.integrations.langflow.assistant.native import NativeCommands
+
+        result["native_actions"] = await NativeCommands(runtime).list(
+            owner, identifier, session_key=key
+        )
         return await release(runtime, owner, key, result)
     except AssistantError as error:
         raise HTTPException(error.status, detail={"code": error.code}) from None
@@ -204,6 +210,21 @@ async def decide_graph_action(
     runtime, owner, key = context
     try:
         result = await runtime.decide_graph_action(owner, key, identifier, action, body)
+        return await release(runtime, owner, key, result)
+    except AssistantError as error:
+        raise HTTPException(error.status, detail={"code": error.code}) from None
+
+
+@router.post("/conversations/{identifier}/native-actions/{action}/decision")
+async def decide_native_action(
+    identifier: UUID, action: UUID, body: NativeActionDecision, context=Depends(access)
+):
+    """Approve or reject the exact native command through human app authority only."""
+    runtime, owner, key = context
+    try:
+        result = await runtime.decide_native_action(
+            owner, key, identifier, action, body
+        )
         return await release(runtime, owner, key, result)
     except AssistantError as error:
         raise HTTPException(error.status, detail={"code": error.code}) from None

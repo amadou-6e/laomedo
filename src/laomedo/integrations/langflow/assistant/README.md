@@ -29,7 +29,7 @@ keyboard activation, Enter to save and Escape to cancel.
 | `catalog.py` | `ComponentCatalog` reads already installed metadata, describes safe static fields and compiles declarative nodes/edges. It never loads component code or calls update/build hooks. Missing full metadata refuses. |
 | `persistence.py` | `AssistantStore` owns conversation/message reservations and bounded history in the application database. Every operation is owner-scoped. |
 | `workflows.py` | `WorkflowDrafts` uses Langflow Flow rows, database write/row locking, revision checks and atomic draft-plus-receipt transactions. It cannot run/publish/delete a flow; separate graph actions gate edits/runs on human approval. |
-| `mcp.py` | `AuthoringMcp` exposes nine real FastMCP tools; proposal/read tools cannot approve actions. Host credentials bind owner/conversation/message/attempt; the model cannot select them. |
+| `mcp.py` | `AuthoringMcp` exposes thirteen real FastMCP tools; proposal/read tools cannot approve actions. Host credentials bind owner/conversation/message/attempt; the model cannot select them. |
 | `runner.py` | `AssistantRunner` composes a dedicated existing provider runner with an app-owned source workspace and private state. It supplies no repository/publication authority. |
 | `runtime.py` | `AssistantRuntime` composes lifetimes, dispatch, native MCP connections, revocation, Activity and reconciliation. |
 | `routes.py` | Authenticated application HTTP adapters. Late responses and tool writes recheck profile authority. |
@@ -81,3 +81,34 @@ does not expose deletion. Row locking serializes deletion with Send/approval.
 
 Conversation deletion is from Laomedo history only; native provider thread/session
 records are outside its scope. The confirmation makes no provider-erasure claim.
+
+## Built-in native commands (#293)
+
+`native.py` owns `NativeCommands.propose`, `read`, `list` and `decide`: proposals
+bind the observed native catalog/run/thread and the originating app session;
+`decide` reserves the exact command message and claims its action in one database
+transaction. `AssistantStore.reserve_message` is shared by ordinary Send and native
+approval under the existing conversation lock. Active chat work refuses approval
+without consuming the proposal. There is no native-command Always grant.
+`AssistantNativeAction`, `NativeCommandRequest` and `NativeActionDecision` belong
+to `models.py`; `AssistantMessage.native_action_id` is an internal persisted mode,
+not a browser-supplied MessageRequest field. Revocation, Stop and reconciliation
+use the existing chat attempt lifecycle. Unknown outcomes never dispatch again.
+
+MCP provides list_native_commands, list_native_agents, propose_native_command and
+get_native_action. The model cannot approve or run an arbitrary RPC/shell command.
+Native agents are explicitly unsupported in this Codex-first slice. The current
+admitted built-ins are status, mcp, skills, review and compact. Review operates on
+the assistant scratch workspace, not the user's repository. Review and compact
+can use model quota. Native result messages are sent bare only after approval;
+normal prompts retain the assistant wrapper. Commands may use the same scoped
+MCP tools; any resulting graph/native proposal still needs its own approval.
+
+Native catalogs and their provider-owned availability projection cross through
+normal runner status, with run/thread binding and shared typed wire models. App
+code never reaches into a concrete provider object. A missing or invalid catalog
+is unavailable, not a fabricated empty list. The registered commands1 image
+contains the explicit native-command adapter hook. Existing tool manifests remain
+frozen for a native session. Older retained conversations/runs may require a new
+conversation after this image upgrade; their history remains readable, and no
+failed resume silently starts a fresh thread.

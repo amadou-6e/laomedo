@@ -13,6 +13,7 @@ from pydantic import (
 )
 from sqlalchemy import Column, JSON, UniqueConstraint, Text
 from sqlmodel import SQLModel, Field
+from laomedo.agents.agents.base.models import NativeCommandInvocation
 
 
 class AuthoringContext(BaseModel):
@@ -315,6 +316,10 @@ class AssistantMessage(SQLModel, table=True):
     """A durable prompt, dispatch reservation and final safe display outcome."""
 
     __tablename__ = "laomedo_assistant_message"
+    native_action_id: UUID | None = Field(
+        default=None,
+        description="Approved native command receipt, absent for ordinary user prompts.",
+    )
     __table_args__ = (UniqueConstraint("conversation_id", "client_message_id"),)
     id: UUID = Field(
         default_factory=uuid4,
@@ -569,6 +574,109 @@ class AssistantGraphAction(SQLModel, table=True):
                 self.session_key == session_key and result["state"] == "pending"
             )
         return result
+
+
+class NativeCommandRequest(NativeCommandInvocation):
+    """Idempotent proposal for one exact built-in native command."""
+
+    operation_key: str = ModelField(
+        min_length=1,
+        max_length=80,
+        pattern=r"^[a-zA-Z0-9_-]+$",
+        description="Stable proposal key reused after uncertain acknowledgements.",
+    )
+
+    def digest(self):
+        """Bind the exact command, arguments, catalog and operation key."""
+        import hashlib
+        import json
+
+        return hashlib.sha256(
+            json.dumps(
+                self.model_dump(mode="json"), sort_keys=True, separators=(",", ":")
+            ).encode()
+        ).hexdigest()
+
+
+class NativeActionDecision(BaseModel):
+    """Human-only explicit native command decision; no persistent grant."""
+
+    model_config = ConfigDict(extra="forbid")
+    decision: Literal["approve", "reject"] = ModelField(
+        description="Human approval or rejection of the exact displayed native command."
+    )
+    digest: str = ModelField(
+        pattern=r"^[0-9a-f]{64}$",
+        description="Exact proposal digest bound to this human decision.",
+    )
+
+
+class AssistantNativeAction(SQLModel, table=True):
+    """Owner-scoped command proposal atomically linked to its reserved message."""
+
+    __tablename__ = "laomedo_assistant_native_action"
+    __table_args__ = (UniqueConstraint("conversation_id", "operation_key"),)
+    id: UUID = Field(
+        default_factory=uuid4,
+        primary_key=True,
+        description="Host-generated proposal identity.",
+    )
+    owner_id: UUID = Field(index=True, description="Authenticated app owner.")
+    conversation_id: UUID = Field(
+        index=True, description="Conversation to which this permission is confined."
+    )
+    message_id: UUID = Field(
+        description="Assistant response that originated the proposal."
+    )
+    session_key: str = Field(
+        repr=False, description="Originating human app session binding."
+    )
+    operation_key: str = Field(
+        description="Conversation-scoped proposal idempotency key."
+    )
+    digest: str = Field(description="Exact proposed operation digest.")
+    request: dict = Field(
+        sa_column=Column(JSON),
+        repr=False,
+        description="Validated native command proposal, containing no credentials.",
+    )
+    run_id: str = Field(
+        repr=False, description="Existing owned runner execution binding."
+    )
+    thread_id: str = Field(repr=False, description="Existing native session binding.")
+    state: str = Field(
+        default="pending",
+        description="Pending, executing or retained terminal/unknown outcome.",
+    )
+    result_message_id: UUID | None = Field(
+        default=None, description="Atomically reserved command message identity."
+    )
+    created_at: float = Field(
+        default_factory=time.time, description="Creation timestamp in Unix seconds."
+    )
+    expires_at: float = Field(description="Human approval deadline in Unix seconds.")
+
+    def public(self, *, session_key=None):
+        """Return a compact safe approval receipt, never native dispatch authority."""
+        request = NativeCommandRequest.model_validate(self.request)
+        state = (
+            "expired"
+            if self.state == "pending" and self.expires_at <= time.time()
+            else self.state
+        )
+        return {
+            "id": str(self.id),
+            "message_id": str(self.message_id),
+            "name": request.name,
+            "arguments": request.arguments,
+            "digest": self.digest,
+            "state": state,
+            "may_use_model": request.name in {"review", "compact"},
+            "can_decide": session_key == self.session_key and state == "pending",
+            "result_message_id": (
+                str(self.result_message_id) if self.result_message_id else None
+            ),
+        }
 
 
 class AssistantGraphPermission(SQLModel, table=True):

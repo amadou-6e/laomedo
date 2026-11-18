@@ -17,6 +17,10 @@ AUTHORING_TOOL_NAMES = (
     "propose_graph_edit",
     "propose_graph_run",
     "get_graph_action",
+    "list_native_commands",
+    "list_native_agents",
+    "propose_native_command",
+    "get_native_action",
 )
 
 ASSISTANT_INSTRUCTIONS = """You are Laomedo's workflow assistant. Help the user design and save editable workflow drafts.
@@ -33,6 +37,7 @@ The spec uses nodes [{key,component_type,fields}] and edges [{source,output,targ
 Never generate Python/component code. Do not call graph execution/build validation or use local commands/files as an alternate application API.
 Use structural incomplete drafts only when the user asks to keep an incomplete draft, and disclose missing settings.
 The private workspace is scratch space, not the user's repository. Do not seek credentials or other sessions.
+Use list_native_commands to discover actual Codex built-ins. Native agents are unavailable in this chat. Never invent commands or invoke them through shell/files. Use propose_native_command with exact arguments and the observed catalog revision, then let the human approve its card after this response finishes. Read get_native_action for the authoritative outcome on a later requested turn. A proposal never runs a command itself. Do not repeat approval IDs or technical metadata in prose. Review commands operate on the isolated scratch workspace, not the user's repository. Commands may consume model quota. Do not use native account, rename, goal or permission controls.
 After saving, explain the useful result briefly. The application supplies the authoritative draft card and Open action.
 If a previous turn stopped, its workspace may retain partial changes; a new user message is not a replay of that turn.
 """
