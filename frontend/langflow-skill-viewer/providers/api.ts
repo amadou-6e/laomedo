@@ -63,7 +63,8 @@ export async function beginLogin(connectionId?: string, provider: "codex" | "cla
 
 function validateClaudeUrl(value: string) {
   const url = new URL(value);
-  if (!["https://claude.ai", "https://platform.claude.com"].includes(url.origin) || url.pathname !== "/oauth/authorize" || url.username || url.password)
+  const allowed = ["https://claude.ai/oauth/authorize", "https://platform.claude.com/oauth/authorize", "https://claude.com/cai/oauth/authorize"];
+  if (!allowed.includes(url.origin + url.pathname) || url.username || url.password || url.hash)
     throw new Error("provider_connections_unavailable");
 }
 

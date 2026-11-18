@@ -111,6 +111,24 @@ class ClaudeConnectionTests(unittest.TestCase):
         mirror.assert_not_called()
         self.assertEqual(result.credential_mode, "dedicated_volume")
 
+    def test_native_login_url_accepts_only_exact_official_endpoints(self):
+        """The current native endpoint works without admitting userinfo or redirects."""
+        for value in (
+            "https://claude.com/cai/oauth/authorize?state=synthetic",
+            "https://claude.ai/oauth/authorize?state=synthetic",
+            "https://platform.claude.com/oauth/authorize?state=synthetic",
+        ):
+            self.assertTrue(self.service.claude._is_authorization_url(value))
+        for value in (
+            "https://claude.com.evil.invalid/cai/oauth/authorize",
+            "https://attacker@claude.com/cai/oauth/authorize",
+            "https://claude.com:8443/cai/oauth/authorize",
+            "https://claude.com/other",
+            "http://claude.com/cai/oauth/authorize",
+            "https://claude.com/cai/oauth/authorize#unexpected",
+        ):
+            self.assertFalse(self.service.claude._is_authorization_url(value))
+
     def test_shutdown_returns_while_retaining_custody_for_a_stalled_worker(self):
         """A slow daemon cannot hang shutdown or release a still-active store lease."""
         release = threading.Event()

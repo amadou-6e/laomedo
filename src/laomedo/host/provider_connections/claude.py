@@ -123,7 +123,23 @@ class ClaudeConnection:
                 "DISABLE_AUTOUPDATER": "1",
             },
             log_driver="none",
+            tmpfs={"/tmp": "rw,nosuid,nodev,size=64m,mode=1777"},
             nano_cpus=2_000_000_000,
+        )
+
+    @staticmethod
+    def _is_authorization_url(value):
+        """Accept only exact native Claude authorization endpoints, never arbitrary redirects."""
+        parsed = urlsplit(value)
+        return (
+            parsed.scheme == "https"
+            and (parsed.netloc, parsed.path)
+            in {
+                ("claude.ai", "/oauth/authorize"),
+                ("platform.claude.com", "/oauth/authorize"),
+                ("claude.com", "/cai/oauth/authorize"),
+            }
+            and not parsed.fragment
         )
 
     def _auth_status(self, root, descriptor):
@@ -330,14 +346,7 @@ class ClaudeConnection:
                                     pending,
                                 ):
                                     url = match.group(0)
-                                    parsed = urlsplit(url)
-                                    if (
-                                        parsed.hostname
-                                        in {"claude.ai", "platform.claude.com"}
-                                        and parsed.path == "/oauth/authorize"
-                                        and not parsed.username
-                                        and not parsed.password
-                                    ):
+                                    if self._is_authorization_url(url):
                                         item.authorization_url = SecretStr(url)
                                         item.ready.set()
                         if session.wait(5) != 0:
