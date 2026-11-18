@@ -161,3 +161,5 @@ The chat ID and native thread ID are separately labelled.
 `toolCall.ts` names retained native items, including context compaction.
 `ToolCalls.tsx` displays their observed outcome even when no textual result exists.
 Copy/export continue to preserve the original native response.
+Executed native command messages are plain right-aligned text, without the normal
+user-message bubble. Ordinary user messages retain their existing appearance.

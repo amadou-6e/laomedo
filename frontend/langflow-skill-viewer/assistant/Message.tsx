@@ -19,9 +19,11 @@ import type { GraphAction, NativeAction } from "./models";
 export function UserMessage({
   text,
   createdAt,
+  command = false,
 }: {
   text: string;
   createdAt?: number;
+  command?: boolean;
 }) {
   return (
     <div className="ml-auto max-w-[90%] space-y-2 md:max-w-[80%]">
@@ -33,7 +35,7 @@ export function UserMessage({
             })
           : "\u00a0"}
       </p>
-      <div className="rounded-xl rounded-tr-sm border bg-muted/50 px-4 py-3">
+      <div className={command ? "text-right text-muted-foreground" : "rounded-xl rounded-tr-sm border bg-muted/50 px-4 py-3"}>
         <p className="whitespace-pre-wrap break-words text-sm leading-[1.7142857]">
           {text}
         </p>
@@ -136,7 +138,7 @@ export default function MessageRow({
   }
   return (
     <section className="space-y-5" aria-label="Message and response">
-      <UserMessage text={message.text} createdAt={message.created_at} />
+      <UserMessage text={message.text} createdAt={message.created_at} command={Boolean(message.native_action_id)} />
       {nativeStatus ? <NativeStatus text={message.response!} conversation={conversation} /> : groups.map((group) => {
         const lane = group[0];
         const text = messageText(lane.item ?? {}, "codex");
