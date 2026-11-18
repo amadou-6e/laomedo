@@ -1,5 +1,12 @@
 # Saved provider connections
 
+Provider extension: `ConnectionRecord.provider` identifies the credential owner;
+graph preferences have a separate optional selector for each harness. Every saved
+selector must belong to that harness and the current profile. Native login and
+controller support remain separate admission gates; adding a preference field does
+not enable an unavailable authentication method. Claude Code will use an official
+client-owned volume; the selected OpenCode backend is OpenCode Go.
+
 This host capability owns profile-scoped provider connections, explicit login
 attempts and credential admission. The initial implemented route is Codex with
 app-owned Sign in with ChatGPT. Claude, OpenCode and API-key routes are unavailable.

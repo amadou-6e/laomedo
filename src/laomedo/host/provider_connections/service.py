@@ -172,8 +172,12 @@ class ProviderConnections:
     ) -> GraphProviderPreferences:
         """Save one graph's explicit account choice without changing any node or login."""
         with self._lock:
-            if preferences.codex is not None:
-                record = self._record(profile_id, preferences.codex)
+            for provider, connection_id in preferences.model_dump().items():
+                if connection_id is None:
+                    continue
+                record = self._record(profile_id, connection_id)
+                if record.provider != provider:
+                    raise ProviderConnectionError("provider_connection_unavailable")
                 if record.lifecycle != "connected":
                     raise ProviderConnectionError("provider_connection_disconnecting")
             path = self._profile(profile_id) / (

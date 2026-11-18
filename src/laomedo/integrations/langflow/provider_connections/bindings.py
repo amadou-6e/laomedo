@@ -57,12 +57,12 @@ class ProviderGraphBindings:
         return [
             row
             for row in cls.service.list(cls.owner(component))
-            if row.lifecycle == "connected"
+            if row.lifecycle == "connected" and row.provider == component.provider_id
         ]
 
     @classmethod
     def endpoint(cls, component, selected, *, run_id=None):
-        """Resolve one explicit profile-owned Codex connection without fallback."""
+        """Resolve one exact compatible connection without cross-harness fallback."""
         if component.provider_id != "codex":
             raise ProviderConnectionError("provider_method_unavailable")
         if run_id:
@@ -85,6 +85,9 @@ class ProviderGraphBindings:
             connection_id = UUID(str(selected))
         except (ValueError, TypeError, AttributeError):
             raise ProviderConnectionError("provider_connection_required") from None
+        record = cls.service._record(cls.owner(component), connection_id)
+        if record.provider != component.provider_id:
+            raise ProviderConnectionError("provider_connection_unavailable")
         return ProviderControllers.current().endpoint(
             cls.owner(component), connection_id, run_id=run_id
         )

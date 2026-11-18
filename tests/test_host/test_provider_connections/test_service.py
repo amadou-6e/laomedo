@@ -91,6 +91,38 @@ class ProviderConnectionsTests(unittest.TestCase):
         self.assertIsNone(self.service.graph_preferences(self.profile, graph).codex)
         self.assertEqual(len(self.service.list(self.profile)), 1)
 
+    def test_graph_preferences_reject_cross_provider_and_foreign_bindings(self):
+        """One harness cannot borrow another harness's or profile's connection."""
+        codex = self.connect().connection_id
+        graph = uuid4()
+        for provider in ("claude", "opencode"):
+            with self.subTest(provider=provider):
+                with self.assertRaisesRegex(
+                    ProviderConnectionError, "provider_connection_unavailable"
+                ):
+                    self.service.save_graph_preferences(
+                        self.profile,
+                        graph,
+                        GraphProviderPreferences(**{provider: codex}),
+                    )
+        records = self.service._records(self.profile)
+        self.service._save(
+            self.profile, [records[0].model_copy(update={"provider": "claude"})]
+        )
+        self.service.save_graph_preferences(
+            self.profile, graph, GraphProviderPreferences(claude=codex)
+        )
+        self.assertEqual(
+            self.service.graph_preferences(self.profile, graph).claude, codex
+        )
+        self.assertIsNone(self.service.graph_preferences(self.profile, graph).codex)
+        with self.assertRaisesRegex(
+            ProviderConnectionError, "provider_connection_unavailable"
+        ):
+            self.service.save_graph_preferences(
+                self.other_profile, graph, GraphProviderPreferences(claude=codex)
+            )
+
     def test_two_accounts_remain_independently_selectable_after_restart(self):
         """Every lookup requires this profile and exact connection/generation."""
         one = self.connect()

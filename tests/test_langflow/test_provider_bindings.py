@@ -67,6 +67,7 @@ class ProviderBindingTests(unittest.IsolatedAsyncioTestCase):
         )
         service = Mock()
         service.graph_preferences.return_value = SimpleNamespace(codex=preferred)
+        service._record.return_value = SimpleNamespace(provider="codex")
         controller = Mock()
         with (
             patch.object(ProviderGraphBindings, "service", service),
@@ -97,6 +98,12 @@ class ProviderBindingTests(unittest.IsolatedAsyncioTestCase):
             ProviderGraphBindings.endpoint(component, str(override))
             controller.endpoint.assert_called_with(self.profile, override, run_id=None)
             service.graph_preferences.assert_not_called()
+            service._record.return_value = SimpleNamespace(provider="claude")
+            with self.assertRaisesRegex(
+                ProviderConnectionError, "provider_connection_unavailable"
+            ):
+                ProviderGraphBindings.endpoint(component, str(override))
+            service._record.return_value = SimpleNamespace(provider="codex")
             controller.connection_for_run.return_value = preferred
             retained_run = str(uuid4())
             ProviderGraphBindings.endpoint(

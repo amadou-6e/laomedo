@@ -11,6 +11,9 @@ class ConnectionRecord(BaseModel):
     """Host-only metadata committed after authenticated identity verification."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
+    provider: Literal["codex", "claude", "opencode"] = Field(
+        default="codex", description="Native harness owning this credential context."
+    )
     connection_id: UUID = Field(
         description="Opaque local binding, never a token reference."
     )
@@ -259,4 +262,12 @@ class GraphProviderPreferences(BaseModel):
     model_config = ConfigDict(extra="forbid")
     codex: UUID | None = Field(
         default=None, description="Preferred Codex connection for this graph only."
+    )
+    claude: UUID | None = Field(
+        default=None,
+        description="Preferred Claude Code connection for this graph only.",
+    )
+    opencode: UUID | None = Field(
+        default=None,
+        description="Preferred OpenCode Go connection for this graph only.",
     )
