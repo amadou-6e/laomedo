@@ -43,12 +43,19 @@ class PrivateConnectionHttpTests(unittest.IsolatedAsyncioTestCase):
                 private_github_connections=self.service,
             )
         )
-        admission = patch(
-            "laomedo.integrations.langflow.authentication.connections.PrivateGitHubAdmission"
-        )
-        self.admission = admission.start()
+        # Route admission lives in private_requests; OAuth callbacks admit in
+        # connections. Both must see the same stubbed scope.
+        self.admission = Mock()
         self.admission.return_value.scope.return_value = self.scope
-        self.addCleanup(admission.stop)
+        for module in ("connections", "private_requests"):
+            admission = patch(
+                "laomedo.integrations.langflow.authentication."
+                + module
+                + ".PrivateGitHubAdmission",
+                self.admission,
+            )
+            admission.start()
+            self.addCleanup(admission.stop)
 
     def request(
         self, body=b"{}", *, method="POST", query=b"", content_type=b"application/json"

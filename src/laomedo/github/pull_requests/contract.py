@@ -9,6 +9,11 @@ import re
 pr_digest = issue_digest
 
 
+# Langflow template field names of the PR node, read by graph admission.
+PR_CHOICE_FIELD = "pr_choice"
+PR_CONTEXT_FIELD = "pr_context"
+
+
 def pr_value(raw, repository, number):
     if (
         not isinstance(raw, dict)
@@ -132,12 +137,15 @@ ERROR_CODES = frozenset(
         "pr_reference_mismatch",
         "pr_service_not_configured",
         "github_pr_unavailable",
+        "github_node_authorization_unavailable",
+        "github_graph_runtime_unavailable",
         "pr_write_unknown",
         "invalid_request",
         "unauthorized",
     }
 )
 PRE_DISPATCH_ERRORS = ERROR_CODES - {
+    "github_graph_runtime_unavailable",
     "github_pr_unavailable",
     "pr_write_unknown",
     "pr_response_invalid",

@@ -1,23 +1,16 @@
 """Private browser connection routes; credentials never pass public service adapters."""
 
-import json
 from typing import Literal
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Request
 from langflow.api.utils import CurrentActiveUser
-from pydantic import SecretStr, ValidationError
+from pydantic import SecretStr
 from starlette.responses import JSONResponse, RedirectResponse
 
 from laomedo.github.connections.errors import (
-    GitHubConnectionChanged,
     GitHubConnectionAttemptExpired,
-    GitHubConnectionError,
     GitHubConnectionInputError,
-    GitHubOAuthError,
-    GitHubReauthorizationRequired,
-    GitHubRepositoryAccessError,
-    GitHubTokenUnsupported,
 )
 from laomedo.github.connections.models import (
     GitHubAppSetupRequest,
@@ -29,100 +22,18 @@ from laomedo.github.connections.models import (
     GitHubResponseBinding,
     GitHubTokenConnectRequest,
 )
-from laomedo.github.connections.settings import CONNECTION_BODY_BYTES
-from laomedo.host.credentials.github.errors import GitHubVaultError
-from laomedo.integrations.langflow.authentication.errors import (
-    PrivateRequestRefused,
-    PrivateSessionError,
-    PrivateSessionRequired,
-)
+from laomedo.integrations.langflow.authentication.errors import PrivateSessionRequired
 from laomedo.integrations.langflow.authentication.policy import PrivateGitHubAdmission
+from laomedo.integrations.langflow.authentication.private_requests import (
+    admit_private_request,
+    parse_private_payload,
+    private_failure_response,
+    read_private_json,
+)
 
 connection_router = APIRouter(
     prefix="/api/v1/laomedo", tags=["Private GitHub connections"]
 )
-
-
-def _unique_fields(pairs):
-    """Refuse ambiguous repeated JSON fields before interpreting a control."""
-    result = {}
-    for key, value in pairs:
-        if key in result:
-            raise GitHubConnectionInputError()
-        result[key] = value
-    return result
-
-
-def _failure(error):
-    """Project only catalogued fixed codes, never token-bearing validation input."""
-    if not isinstance(
-        error,
-        (
-            GitHubConnectionError,
-            GitHubOAuthError,
-            GitHubVaultError,
-            PrivateSessionError,
-        ),
-    ):
-        error = GitHubConnectionError()
-    status = 503
-    if isinstance(error, (GitHubConnectionInputError, GitHubTokenUnsupported)):
-        status = 400
-    elif isinstance(
-        error,
-        (
-            GitHubConnectionChanged,
-            GitHubReauthorizationRequired,
-            GitHubRepositoryAccessError,
-            PrivateSessionRequired,
-            PrivateRequestRefused,
-        ),
-    ):
-        status = 409
-    return JSONResponse(
-        {"code": error.code},
-        status_code=status,
-        headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"},
-    )
-
-
-async def _admit(request, user, *, mutating=False):
-    """Derive owner/lease proof from upstream auth before reading a secret body."""
-    policy = request.app.state.private_access_policy
-    context = await policy.authorize(request, user)
-    request.state.private_browser_context = context
-    if mutating:
-        policy.mutation(request, context)
-    return PrivateGitHubAdmission(policy, context).scope()
-
-
-async def _body(request):
-    """Read bounded JSON only; never echo raw payload or decode diagnostics."""
-    if (
-        request.headers.get("content-type", "").split(";", 1)[0].strip().lower()
-        != "application/json"
-    ):
-        raise GitHubConnectionInputError()
-    body = bytearray()
-    async for chunk in request.stream():
-        if len(body) + len(chunk) > CONNECTION_BODY_BYTES:
-            raise GitHubConnectionInputError()
-        body.extend(chunk)
-    try:
-        payload = json.loads(body, object_pairs_hook=_unique_fields)
-    except (ValueError, UnicodeError):
-        raise GitHubConnectionInputError() from None
-    if not isinstance(payload, dict):
-        raise GitHubConnectionInputError()
-    return payload
-
-
-def _parse(model, payload):
-    """Catch validation locally so FastAPI cannot serialize credential input."""
-    try:
-        return model.model_validate(payload)
-    except ValidationError:
-        raise GitHubConnectionInputError() from None
 
 
 async def _index_response(request, scope, outcome=None):
@@ -149,10 +60,10 @@ async def connection_capability(request: Request):
 async def connection_index(request: Request, user: CurrentActiveUser):
     """Return this profile/lease's private connection metadata after live admission."""
     try:
-        scope = await _admit(request, user)
+        scope = await admit_private_request(request, user)
         return await _index_response(request, scope)
     except Exception as error:
-        return _failure(error)
+        return private_failure_response(error)
 
 
 @connection_router.post("/github-connections/{action}")
@@ -175,41 +86,41 @@ async def connection_action(
 ):
     """Dispatch only the fixed private controls, with CSRF before secret ingestion."""
     try:
-        scope = await _admit(request, user, mutating=True)
-        payload = await _body(request)
+        scope = await admit_private_request(request, user, mutating=True)
+        payload = await read_private_json(request)
         service = request.app.state.private_github_connections
         if action == "provision":
             if payload:
                 raise GitHubConnectionInputError()
             outcome = await request.app.state.private_github_provisioner.begin(scope)
         elif action == "setup":
-            data = _parse(GitHubAppSetupRequest, payload)
+            data = parse_private_payload(GitHubAppSetupRequest, payload)
             outcome = await service.configure_app(
                 scope, client_id=data.client_id, slug=data.slug, secret=data.secret
             )
         elif action == "begin":
-            data = _parse(GitHubBrowserConnectRequest, payload)
+            data = parse_private_payload(GitHubBrowserConnectRequest, payload)
             outcome = await service.begin(scope, data.connection_id, app_id=data.app_id)
         elif action == "token":
-            data = _parse(GitHubTokenConnectRequest, payload)
+            data = parse_private_payload(GitHubTokenConnectRequest, payload)
             outcome = await service.begin_token(scope, data.token, data.connection_id)
         elif action == "edit":
-            data = _parse(GitHubConnectionRequest, payload)
+            data = parse_private_payload(GitHubConnectionRequest, payload)
             outcome = await service.edit(scope, data.connection_id)
         elif action == "inventory":
-            data = _parse(GitHubPendingRequest, payload)
+            data = parse_private_payload(GitHubPendingRequest, payload)
             outcome = await service.inspect_inventory(scope, data.request_id)
         elif action == "confirm":
-            data = _parse(GitHubConsentRequest, payload)
+            data = parse_private_payload(GitHubConsentRequest, payload)
             outcome = await service.confirm(scope, data.request_id, data.repository_ids)
         elif action == "cancel":
-            data = _parse(GitHubPendingRequest, payload)
+            data = parse_private_payload(GitHubPendingRequest, payload)
             outcome = await service.cancel(scope, data.request_id)
         elif action == "refresh":
-            data = _parse(GitHubConnectionRequest, payload)
+            data = parse_private_payload(GitHubConnectionRequest, payload)
             outcome = await service.refresh(scope, data.connection_id)
         elif action == "disconnect":
-            data = _parse(GitHubDisconnectRequest, payload)
+            data = parse_private_payload(GitHubDisconnectRequest, payload)
             outcome = await service.disconnect(
                 scope, data.connection_id, data.generation
             )
@@ -219,7 +130,7 @@ async def connection_action(
             outcome = await service.cleanup(scope)
         return await _index_response(request, scope, outcome)
     except Exception as error:
-        return _failure(error)
+        return private_failure_response(error)
 
 
 @connection_router.get("/github-connections/callback")

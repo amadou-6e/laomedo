@@ -1969,6 +1969,16 @@
     "description": "A connection control received an unsupported value or request shape. Credential input is not included in this message.",
     "recovery": "Review the selected action and its fields in the connection manager. Do not retry an uncertain authorization exchange automatically."
   },
+  "github_node_authorization_unavailable": {
+    "title": "Review GitHub access",
+    "description": "Access for this node is no longer available. No other account was selected.",
+    "recovery": "Check the node's GitHub connection and repository, then try again. Reconnect the account in Settings if needed."
+  },
+  "github_graph_runtime_unavailable": {
+    "title": "The graph could not run",
+    "description": "The local graph runtime is unavailable or stopped responding.",
+    "recovery": "Check the local runtime and the run status before trying again."
+  },
   "profile_name_required": {
     "title": "Enter a profile name",
     "description": "Enter a profile name.",

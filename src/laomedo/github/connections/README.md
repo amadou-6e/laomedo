@@ -29,6 +29,10 @@ deletion failure leaves the saved connection ready and cleanup retryable.
 
 `provisioning.py` owns private App manifest registration for each GitHub account.
 `GitHubAppProvisioner.begin` creates a bounded profile/lease-bound registration;
+new private Apps request Contents/Metadata read and Issues/Pull requests write,
+as required for saved-account nodes. GitHub's permission is an upper bound;
+neither registration nor installation approves a graph mutation. Existing Apps
+are never silently replaced or upgraded by this manifest change.
 `complete` consumes its state before exchanging the one-use code and delegates
 credential custody to `configure_app`. Unused signing material is never persisted.
 `GitHubManifestClient.convert` accepts only a fixed GitHub conversion destination,
@@ -116,8 +120,20 @@ an expired browser credential through the same fenced refresh path and never
 starts a new sign-in automatically.
 `disconnect` fences before deleting and reports unconfirmed cleanup accurately.
 `authorize_read` checks current generation, consent and online access; `current`
-is its synchronous response-release fence. `cleanup` handles only journaled
+is its synchronous response-release fence. `selected_repository` returns the consented
+repository matching a canonical key, or `None`. `confirm_read` rechecks scope,
+deadline and consent under the commit lock after a buffered read, and
+`read_access_token` returns the live token only while those checks hold, under
+the same lock; callers outside this module never read the journal, lock or
+credential helper. `commit_exclusive` lends the commit lock to the Skills store;
+it and `provisioning.py`'s direct lock use remain tracked residuals. `cleanup` handles only journaled
 inactive targets, excluding live pending attempts. `status` exposes safe metadata.
+`run_generation_current` additionally permits a live graph's original generation
+to reach the current one only through successful refresh commits recorded by
+this broker. An unrecorded transition (reconnect, consent change, revocation or
+uncertain refresh) cannot be bridged by matching metadata. Restart drops both
+this continuity proof and all run authority. Private buffered read responses keep
+their existing exact-generation release fence.
 
 `GitHubConnectionScope` is a trusted in-process projection supplied by the browser
 adapter: verified owner, masked lease binding and a bound revalidation callback.
@@ -163,3 +179,11 @@ policy on 2026-11-11; consent binds both numeric identity and confirmed location
 Renewal requires reauthorization of the connection if any consented repository
 cannot be verified at that location. No automatic redirect or consent migration
 is permitted. Reviewer finding T1 awaits a focused contract recheck.
+
+## Saved accounts in graph nodes (#286)
+
+Saved-account graph-run authority and node reads live in
+[`../node_runs/`](../node_runs/README.md). They depend on this package only through
+`GitHubConnectionService` public methods: `authorize_read`, `selected_repository`,
+`confirm_read`, `read_access_token` and `run_generation_current`. This package
+never imports node-run modules.

@@ -56,6 +56,9 @@ class GitHubConnectionService:
         self.clock = clock
         self.lock = asyncio.Lock()
         self.pending = {}
+        # Process-only continuity for successful renewal, never reconnect/consent.
+        # Native run authority also disappears on broker restart.
+        self._renewed_generations = {}
 
     def _same_lease(self, scope, attempt):
         """Compare the verified initiating owner and opaque browser-lease binding."""
@@ -534,6 +537,9 @@ class GitHubConnectionService:
             self.journal.commit_connection(
                 updated, expected_generation=fenced.generation
             )
+            self._renewed_generations[
+                (record.owner_id, record.id, record.generation)
+            ] = updated.generation
             return updated
 
     async def refresh(self, scope: GitHubConnectionScope, connection_id: UUID):
@@ -639,6 +645,29 @@ class GitHubConnectionService:
                     raise GitHubConnectionChanged()
             return authorization
 
+    def run_generation_current(self, owner_id, connection_id, generation, repository):
+        """Allow only proven renewal continuity; consent/reconnect fences stay final.
+
+        Each edge is recorded after a successful fenced refresh commit. Matching
+        account or repository metadata alone cannot bridge an unrecorded edge.
+        This does not relax the exact-generation private response release guard.
+        """
+        record = self.journal.get(owner_id, connection_id)
+        if (
+            record is None
+            or record.state != "ready"
+            or repository not in record.repositories
+        ):
+            return False
+        while generation < record.generation:
+            renewed = self._renewed_generations.get(
+                (owner_id, connection_id, generation)
+            )
+            if renewed is None or renewed <= generation:
+                return False
+            generation = renewed
+        return generation == record.generation
+
     def current(self, authorization: GitHubReadAuthorization):
         """Recheck exact owner/generation/repository consent under the response lock."""
         record = self.journal.get(authorization.owner_id, authorization.connection_id)
@@ -650,6 +679,41 @@ class GitHubConnectionService:
                 repo.id == authorization.repository.id for repo in record.repositories
             )
         )
+
+    def commit_exclusive(self):
+        """Serialize a caller's durable write with connection commits."""
+        return self.commit_lock
+
+    def selected_repository(self, owner_id, connection_id, repository_key):
+        """Return the consented repository matching a canonical key, or None."""
+        record = self.journal.get(owner_id, connection_id)
+        if record is None:
+            return None
+        return next(
+            (
+                item
+                for item in record.repositories
+                if item.full_name.lower() == repository_key
+            ),
+            None,
+        )
+
+    async def confirm_read(self, scope, authorization, within_deadline):
+        """Recheck scope, deadline and consent under the commit lock."""
+        async with self.commit_lock:
+            await scope.revalidate()
+            return within_deadline() and self.current(authorization)
+
+    async def read_access_token(self, scope, authorization, within_deadline):
+        """Return the live access token only while the admitted read still holds."""
+        async with self.commit_lock:
+            await scope.revalidate()
+            if not within_deadline() or not self.current(authorization):
+                return None
+            record = self.journal.get(
+                authorization.owner_id, authorization.connection_id
+            )
+            return self._credential(record).access_token.get_secret_value()
 
     def reader(self, authorization: GitHubReadAuthorization):
         """Open a host-only reader without resetting the admitted user-read deadline."""

@@ -25,12 +25,26 @@ from laomedo.github.connections.errors import (
     GitHubRepositoryAccessError,
     GitHubTokenUnsupported,
 )
+from laomedo.github.node_runs.errors import GitHubNodeAuthorizationError
 from laomedo.github.connections.journal import GitHubConnectionJournal
 from laomedo.github.connections.models import (
     GitHubConnectionScope,
     GitHubConnectionCredential,
     GitHubPrincipal,
 )
+from laomedo.github.node_runs.models import (
+    GitHubNodeSelection,
+    GitHubWorkerReadRequest,
+)
+from laomedo.github.node_runs.worker_access import GitHubWorkerReadSession
+from laomedo.github.node_runs.authority import GitHubRunAuthority
+from laomedo.github.node_runs.access import (
+    GitHubNodeAccess,
+    GitHubNodeReadSession,
+)
+from laomedo.github.transport.rest.transport import GitHubRestTransport
+from laomedo.host.mediation.store import MediationStore
+from test_github.response import JsonResponse
 from laomedo.github.connections.service import GitHubConnectionService
 from laomedo.github.connections.settings import GITHUB_CALLBACK_PATH
 from laomedo.host.credentials.github.errors import GitHubVaultError
@@ -544,6 +558,214 @@ class GitHubConnectionServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(record["generation"], 3)
         self.assertEqual(record["repositories"][0]["id"], 456)
         self.assertFalse(self.service.current(authorization))
+
+    async def test_running_job_survives_proven_refresh_but_not_disconnect(self):
+        connection_id = await self.ready("browser")
+        record = self.journal.get(self.owner, connection_id)
+        authority = GitHubRunAuthority(self.service)
+        graph = {"nodes": [{"id": "pr-1"}], "edges": []}
+        selection = GitHubNodeSelection(
+            vertex_id="pr-1",
+            kind="pr",
+            connection_id=connection_id,
+            repository=record.repositories[0],
+            number=12,
+            operations=("modify",),
+        )
+        flow, job = uuid4(), uuid4()
+        reference, _ = await authority.prepare(self.scope, flow, graph, [selection])
+        await authority.admit(
+            reference, self.scope, flow_id=flow, graph=graph, job_id=job, approved=True
+        )
+        job_deadline = authority.clock() + 60.0
+        capability = authority.issue_worker(job, deadline=job_deadline)
+        worker_request = GitHubWorkerReadRequest(
+            job_id=job, vertex_id="pr-1", labels=[], state="open"
+        )
+        worker_read = GitHubWorkerReadSession(authority, capability, worker_request)
+        worker_scope, _ = await worker_read.scope()
+        original, _ = await authority.resolve_worker(
+            capability, job_id=job, vertex_id="pr-1"
+        )
+        credential_read = GitHubNodeReadSession(
+            self.service, worker_scope, original, loop=asyncio.get_running_loop()
+        )
+        # Exercise the real commit lock and credential callback: a worker scope
+        # that recursively calls authorize_read deadlocks here.
+        token = await asyncio.wait_for(credential_read.credential(), timeout=2)
+        self.assertTrue(token)
+        authority.revoke_worker(job)
+        with self.assertRaises(GitHubNodeAuthorizationError):
+            await asyncio.wait_for(credential_read.credential(), timeout=2)
+        capability = authority.issue_worker(job, deadline=job_deadline)
+        for _ in range(2):
+            await self.service.refresh(self.scope, connection_id)
+            authorization, _ = await authority.resolve_worker(
+                capability,
+                job_id=job,
+                vertex_id="pr-1",
+            )
+            self.assertTrue(
+                self.service.run_generation_current(
+                    self.owner, connection_id, record.generation, record.repositories[0]
+                )
+            )
+            self.assertGreater(authorization.generation, record.generation)
+        # Metadata alone after restart cannot reconstruct the refresh proof.
+        self.assertFalse(
+            self.new_service().run_generation_current(
+                self.owner, connection_id, record.generation, record.repositories[0]
+            )
+        )
+        current = self.journal.get(self.owner, connection_id)
+        await self.service.disconnect(self.scope, connection_id, current.generation)
+        with self.assertRaises(
+            (GitHubNodeAuthorizationError, GitHubReauthorizationRequired)
+        ):
+            await authority.resolve_worker(
+                capability,
+                job_id=job,
+                vertex_id="pr-1",
+            )
+
+    async def test_same_account_same_repository_reconsent_breaks_refresh_continuity(
+        self,
+    ):
+        connection_id = await self.ready("browser")
+        original = self.journal.get(self.owner, connection_id)
+        await self.service.refresh(self.scope, connection_id)
+        attempt = await self.service.edit(self.scope, connection_id)
+        await self.service.confirm(self.scope, UUID(attempt["request_id"]), (456,))
+        await self.service.refresh(self.scope, connection_id)
+        self.assertFalse(
+            self.service.run_generation_current(
+                self.owner, connection_id, original.generation, original.repositories[0]
+            )
+        )
+
+    def node_transport(self, repository, supplier):
+        """Exercise the actual REST transport with an explicitly synthetic provider."""
+        return GitHubRestTransport(repository, supplier, opener=self)
+
+    def open(self, call, timeout=15):
+        """Return bounded synthetic JSON; every provider request must use selected custody."""
+        self.assertEqual(call.get_method(), "GET")
+        self.assertEqual(
+            call.get_header("Authorization"), "Bearer github_pat_synthetic"
+        )
+        path = urlsplit(call.full_url).path
+        self.node_requests.append(path)
+        if path.endswith("/labels"):
+            return JsonResponse([{"name": "backend"}])
+        issue = dict(
+            number=12,
+            title="Private target",
+            body="Private body",
+            state="open",
+            node_id="synthetic-node",
+            labels=[{"name": "backend"}],
+            updated_at="2026-11-16T12:00:00Z",
+        )
+        if "/pulls" in path:
+            issue.update(
+                html_url="https://github.com/synthetic/private/pull/12",
+                draft=True,
+                merged_at=None,
+                head={
+                    "ref": "topic",
+                    "sha": "a" * 40,
+                    "repo": {"full_name": "synthetic/private"},
+                },
+                base={"ref": "main", "repo": {"full_name": "synthetic/private"}},
+            )
+        else:
+            issue.update(
+                html_url="https://github.com/synthetic/private/issues/12",
+                repository_url="https://api.github.com/repos/synthetic/private",
+            )
+        return JsonResponse([issue] if path.endswith(("/issues", "/pulls")) else issue)
+
+    async def test_selected_account_browser_reads_reuse_issue_pr_gateways_and_never_grant_writes(
+        self,
+    ):
+        connection_id = await self.ready()
+        self.node_requests = []
+        mediation = MediationStore(Path(self.directory.name) / "node-effects.sqlite")
+        access = GitHubNodeAccess(
+            self.service, mediation, transport=self.node_transport
+        )
+        for kind, resource in (("issue", "issues"), ("pr", "prs")):
+            discovery = await access.read(
+                self.scope,
+                connection_id,
+                kind=kind,
+                action="discover",
+                repository_url="https://github.com/synthetic/private",
+                labels=["backend"],
+                state="open",
+            )
+            self.assertEqual(discovery.payload[resource][0]["number"], 12)
+            result = await access.read(
+                self.scope,
+                connection_id,
+                kind=kind,
+                action="inspect",
+                repository_url="https://github.com/synthetic/private",
+                labels=["backend"],
+                state="open",
+                number=12,
+            )
+            self.assertEqual(result.payload[kind]["body"], "Private body")
+            self.assertEqual(result.payload["operation"]["status"], "not_requested")
+            self.assertNotIn("github_pat", result.model_dump_json())
+        self.assertTrue(self.node_requests)
+        with self.assertRaises(GitHubNodeAuthorizationError):
+            access.refuse_grant("any-reference")
+
+    async def test_browser_read_wrong_owner_account_repo_and_write_actions_do_not_dispatch(
+        self,
+    ):
+        connection_id = await self.ready()
+        self.node_requests = []
+        access = GitHubNodeAccess(
+            self.service,
+            MediationStore(Path(self.directory.name) / "node-effects.sqlite"),
+            transport=self.node_transport,
+        )
+        values = dict(
+            kind="pr",
+            action="discover",
+            repository_url="https://github.com/synthetic/private",
+            labels=[],
+            state="open",
+        )
+        for scope, selected, changes in (
+            (self.scope, uuid4(), {}),
+            (self.scope.model_copy(update={"owner_id": uuid4()}), connection_id, {}),
+            (
+                self.scope,
+                connection_id,
+                {"repository_url": "https://github.com/other/private"},
+            ),
+            (self.scope, connection_id, {"action": "modify"}),
+        ):
+            with self.assertRaises(
+                (GitHubRepositoryAccessError, GitHubNodeAuthorizationError)
+            ):
+                await access.read(scope, selected, **{**values, **changes})
+        self.assertEqual(self.node_requests, [])
+        authorization = await self.service.authorize_read(
+            self.scope, connection_id, 456
+        )
+        session = GitHubNodeReadSession(
+            self.service, self.scope, authorization, loop=asyncio.get_running_loop()
+        )
+        with self.assertRaises(GitHubNodeAuthorizationError):
+            session.token()  # Loop-thread calls must refuse rather than deadlock.
+        with self.assertRaises(GitHubNodeAuthorizationError):
+            await asyncio.to_thread(
+                session.token, "different-connection", authorization.generation
+            )
 
     async def test_missing_ready_custody_is_not_reported_available_or_replaced(self):
         connection_id = await self.ready()

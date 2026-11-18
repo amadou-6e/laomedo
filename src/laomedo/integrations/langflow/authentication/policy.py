@@ -14,7 +14,10 @@ from laomedo.integrations.langflow.authentication.errors import (
     PrivateSessionRequired,
     PrivateRequestRefused,
 )
-from laomedo.integrations.langflow.authentication.models import PrivateBrowserContext
+from laomedo.integrations.langflow.authentication.models import (
+    PrivateBrowserContext,
+    IssuedPrivateSession,
+)
 from laomedo.integrations.langflow.authentication.settings import (
     PRIVATE_SESSION_COOKIE_NAME,
     PRIVATE_CSRF_HEADER,
@@ -180,6 +183,32 @@ class PrivateAccessPolicy:
             context.cookie.get_secret_value().encode(), PRIVATE_CSRF_PURPOSE, "sha256"
         ).hex()
 
+    async def revalidate_run(self, context: IssuedPrivateSession):
+        """Check a previously admitted job's live lease and upstream profile.
+
+        This does not admit a browser request or mint a new run. The initiating
+        JWT was validated before creating its host-only run scope. Requiring
+        that frozen token again would terminate jobs on routine token rotation.
+        """
+        from langflow.services.database.models.user.crud import get_user_by_id
+        from langflow.services.deps import session_scope
+
+        self.verify_runtime()
+        owner = context.session.owner_id
+        if self.store.resolve(context.cookie, owner) is None:
+            raise PrivateSessionRequired()
+        try:
+            async with session_scope() as db:
+                user = await get_user_by_id(db, owner)
+                if not self._ordinary_profile(user) or user.id != owner:
+                    raise PrivateSessionRequired()
+        except PrivateSessionError:
+            raise
+        except Exception:
+            raise PrivateSessionRequired() from None
+        if self.store.resolve(context.cookie, owner) is None:
+            raise PrivateSessionRequired()
+
     def mutation(self, request, context: PrivateBrowserContext):
         """Require exact origin and one explicit proof before reading a mutation body."""
         proofs = [
@@ -268,6 +297,25 @@ class PrivateGitHubAdmission:
             ),
             check=self.revalidate,
         )
+
+
+class PrivateGitHubRunAdmission(PrivateGitHubAdmission):
+    """Previously admitted native job scope, revocable with its initiating lease.
+
+    Only the browser adapter creates this from a current JWT-admitted context.
+    It cannot authorize new HTTP requests, recover a job after restart or
+    recreate authority from serialized profile metadata.
+    """
+
+    def __init__(self, policy: PrivateAccessPolicy, context: PrivateBrowserContext):
+        self.policy = policy
+        self.context = IssuedPrivateSession(
+            session=context.session, cookie=context.cookie
+        )
+
+    async def revalidate(self):
+        """Keep the original lease and active profile, without a retained access JWT."""
+        await self.policy.revalidate_run(self.context)
 
 
 class PrivateGitHubResponsePolicy:

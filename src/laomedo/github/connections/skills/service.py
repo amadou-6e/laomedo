@@ -39,7 +39,7 @@ class PrivateSkillAccess:
             choices = await GitHubRepositoryReader(authorization, client).discover()
         finally:
             await client.close()
-        async with self.connections.commit_lock:
+        async with self.connections.commit_exclusive():
             await self._current(scope, authorization)
             return PrivateSkillResult(
                 authorization=authorization,
@@ -63,7 +63,7 @@ class PrivateSkillAccess:
             revisions = await reader.revisions(choice)
         finally:
             await client.close()
-        async with self.connections.commit_lock:
+        async with self.connections.commit_exclusive():
             await self._current(scope, authorization)
             origins = [
                 self.store.retain(authorization, choice, revision)
@@ -82,7 +82,7 @@ class PrivateSkillAccess:
         authorization = await self.connections.authorize_read(
             scope, connection_id, repository_id
         )
-        async with self.connections.commit_lock:
+        async with self.connections.commit_exclusive():
             await self._current(scope, authorization)
             payload = self.store.inspect(authorization, skill_id, revision_id)
             await self._current(scope, authorization)
@@ -93,7 +93,7 @@ class PrivateSkillAccess:
         authorization = await self.connections.authorize_read(
             scope, connection_id, repository_id
         )
-        async with self.connections.commit_lock:
+        async with self.connections.commit_exclusive():
             await self._current(scope, authorization)
             origins = [
                 item.model_dump(mode="json")
@@ -128,7 +128,7 @@ class PrivateSkillAccess:
         authorization = await self.connections.authorize_read(
             scope, connection_id, repository_id
         )
-        async with self.connections.commit_lock:
+        async with self.connections.commit_exclusive():
             await self._current(scope, authorization)
             base = self.store.inspect(authorization, skill_id, before)
             target = self.store.inspect(authorization, skill_id, after)

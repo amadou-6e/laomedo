@@ -6,7 +6,7 @@ import tempfile
 import time
 from types import SimpleNamespace
 import unittest
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 if find_spec("langflow") is None:
@@ -25,7 +25,10 @@ from laomedo.integrations.langflow.authentication.errors import (
     PrivateRequestRefused,
 )
 from laomedo.github.connections.settings import GITHUB_CALLBACK_PATH
-from laomedo.integrations.langflow.authentication.policy import PrivateAccessPolicy
+from laomedo.integrations.langflow.authentication.policy import (
+    PrivateAccessPolicy,
+    PrivateGitHubRunAdmission,
+)
 from laomedo.integrations.langflow.authentication.settings import PrivateBrowserSettings
 from laomedo.integrations.langflow.authentication.store import PrivateSessionStore
 
@@ -86,6 +89,75 @@ class PrivateAccessPolicyTests(unittest.IsolatedAsyncioTestCase):
         self.store.revoke_browser(self.issued.cookie)
         with self.assertRaises(PrivateSessionRequired):
             await self.policy.authorize(self.request(), self.user)
+
+    async def test_admitted_job_uses_live_lease_and_profile_without_retaining_access_jwt(
+        self,
+    ):
+        context = await self.policy.authorize(self.request(), self.user)
+        admission = PrivateGitHubRunAdmission(self.policy, context)
+        scope = admission.scope()
+        self.assertFalse(hasattr(admission.context, "upstream_token"))
+        self.assertNotIn(
+            "synthetic-access", repr(admission.context) + scope.model_dump_json()
+        )
+        database = MagicMock()
+        database.__aenter__ = AsyncMock(return_value=object())
+        database.__aexit__ = AsyncMock(return_value=False)
+        with (
+            patch("langflow.services.deps.session_scope", return_value=database),
+            patch(
+                "langflow.services.database.models.user.crud.get_user_by_id",
+                new_callable=AsyncMock,
+                return_value=self.user,
+            ) as lookup,
+            patch.object(
+                self.policy,
+                "owner_from_token",
+                new_callable=AsyncMock,
+                return_value=None,
+            ) as token,
+        ):
+            # Expired request tokens still refuse browser reads, but don't end an admitted job.
+            with self.assertRaises(PrivateSessionRequired):
+                await self.policy.revalidate(context)
+            await scope.revalidate()
+            lookup.assert_awaited_once_with(unittest.mock.ANY, self.owner)
+            self.assertEqual(token.await_count, 1)
+            self.assertTrue(
+                self.store.renew(
+                    self.issued.cookie, self.owner, expires_at=time.time() + 7200
+                )
+            )
+            self.assertEqual(admission.context.cookie, self.issued.cookie)
+            await scope.revalidate()
+            self.assertEqual(lookup.await_count, 2)
+            self.store.revoke_browser(self.issued.cookie)
+            with self.assertRaises(PrivateSessionRequired):
+                await scope.revalidate()
+            self.assertEqual(lookup.await_count, 2)
+
+    async def test_admitted_job_refuses_changed_or_inactive_upstream_owner(self):
+        context = await self.policy.authorize(self.request(), self.user)
+        scope = PrivateGitHubRunAdmission(self.policy, context).scope()
+        database = MagicMock()
+        database.__aenter__ = AsyncMock(return_value=object())
+        database.__aexit__ = AsyncMock(return_value=False)
+        with (
+            patch("langflow.services.deps.session_scope", return_value=database),
+            patch(
+                "langflow.services.database.models.user.crud.get_user_by_id",
+                new_callable=AsyncMock,
+            ) as lookup,
+        ):
+            for user in (
+                None,
+                SimpleNamespace(**(vars(self.user) | {"is_active": False})),
+                SimpleNamespace(**(vars(self.user) | {"is_superuser": True})),
+                SimpleNamespace(**(vars(self.user) | {"id": uuid4()})),
+            ):
+                lookup.return_value = user
+                with self.assertRaises(PrivateSessionRequired):
+                    await scope.revalidate()
 
     async def test_api_key_auto_login_external_and_missing_auth_context_are_refused(
         self,
