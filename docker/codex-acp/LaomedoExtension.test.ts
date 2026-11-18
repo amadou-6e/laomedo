@@ -17,6 +17,19 @@ function setup() {
 }
 
 describe("Laomedo ACP policy", () => {
+    it("admits only explicit bound built-ins and preserves ordinary slash prompt handling", async () => {
+        const {extension, request, terminate} = setup();
+        extension.bind(request, "native-session");
+        const ordinary = {sessionId:"native-session",prompt:[{type:"text",text:"/status"}]} as acp.PromptRequest;
+        expect(extension.commandPrompt(ordinary)).toEqual([]);
+        const command = {...ordinary,_meta:{laomedo:{nativeCommand:{name:"status",arguments:""}}}};
+        expect(extension.commandPrompt(command)).toEqual(ordinary.prompt);
+        await expect(extension.prompt("native-session", async () => ({stopReason:"end_turn"}), command)).resolves.toEqual({stopReason:"end_turn"});
+        expect(terminate).not.toHaveBeenCalled();
+        expect(() => extension.commandPrompt({...command,prompt:[{type:"text",text:"/logout"}]})).toThrow();
+        expect(() => extension.commandPrompt({...command,_meta:{laomedo:{nativeCommand:{name:"logout",arguments:""}}}})).toThrow();
+        expect(() => extension.commandPrompt({...command,_meta:{laomedo:{nativeCommand:{name:"review",arguments:"one\ntwo"}}}})).toThrow();
+    });
     it("admits only scoped external HTTP MCP endpoints with exact tool grants", () => {
         const {extension, request} = setup();
         const external = {

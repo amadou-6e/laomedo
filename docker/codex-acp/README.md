@@ -10,7 +10,7 @@ build is required. Existing-tag recipe mismatches and explicit pins follow the
 [shared acquisition policy](../README.md).
 
 For a host-reviewed manual rebuild, run
-`docker build -t laomedo-codex-acp:0.159.2-2.1.1-mcp2 .` from this directory and record
+`docker build -t laomedo-codex-acp:0.159.2-2.1.1-commands1 .` from this directory and record
 the resulting immutable ID for the runner's explicit `image_id` override.
 The Dockerfile pins the Node base, upstream adapter commit/archive checksum and
 Codex package lock. The runtime includes the upstream Apache-2.0 licence and
@@ -28,7 +28,11 @@ Host-owned session metadata supplies normal or split policy, model, effort and
 the one supported output-precheck definition. Normal mode inherits the reviewed
 permission profile without per-turn sandbox/approval overrides; split mode uses
 only its registered external executor. Typed skill items come from host metadata,
-never prompt parsing. ACP slash-command interception is disabled for these runs.
+never prompt parsing. Ordinary prompts keep slash-command interception disabled. Explicit host-owned
+`nativeCommand` metadata admits only status, mcp, skills, review and compact with
+exact text/argument checks. The first three return ACP control text without a model
+turn; review and compact still require native terminal evidence. No account or
+permission commands are admitted.
 Native session roots remain explicitly untrusted, so model-writable project
 configuration cannot become a runner-policy or provider-routing source.
 

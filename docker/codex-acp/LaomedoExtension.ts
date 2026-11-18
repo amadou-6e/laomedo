@@ -19,6 +19,10 @@ const sessionPolicy = z.object({
 }).strict();
 
 const promptPolicy = z.object({
+    nativeCommand: z.object({
+        name: z.enum(["status", "mcp", "skills", "review", "compact"]),
+        arguments: z.string().max(4000),
+    }).strict().optional(),
     skills: z.array(z.object({
         type: z.literal("skill"),
         name: z.string().regex(/^[A-Za-z0-9_-]+$/),
@@ -165,15 +169,35 @@ export class LaomedoExtension {
         }
     }
 
-    async prompt<T>(sessionId: string, run: () => Promise<T>): Promise<T> {
+    commandPrompt(request: acp.PromptRequest): acp.ContentBlock[] {
+        const input = promptPolicy.parse(request._meta?.["laomedo"] ?? {});
+        if (!input.nativeCommand) return [];
+        if (!this.sessions.has(request.sessionId)) throw acp.RequestError.invalidParams("Unbound command session");
+        const command = input.nativeCommand;
+        if (/[\x00-\x1f\x7f\u2028\u2029]/.test(command.arguments)
+            || (command.name !== "review" && command.arguments.length !== 0)) {
+            throw acp.RequestError.invalidParams("Invalid native command arguments");
+        }
+        const text = `/${command.name}${command.arguments ? ` ${command.arguments}` : ""}`;
+        if (request.prompt.length !== 1 || request.prompt[0]?.type !== "text" || request.prompt[0].text !== text) {
+            throw acp.RequestError.invalidParams("Native command text mismatch");
+        }
+        return request.prompt;
+    }
+
+    async prompt<T>(sessionId: string, run: () => Promise<T>, request?: acp.PromptRequest): Promise<T> {
         this.prompted = true;
+        const admitted = request ? this.commandPrompt(request) : [];
+        const policy = request ? promptPolicy.parse(request._meta?.["laomedo"] ?? {}) : undefined;
+        const control = admitted.length > 0 && ["status", "mcp", "skills"].includes(policy!.nativeCommand!.name);
         const before = this.completed.get(sessionId) ?? 0;
         try {
             return await run();
         } finally {
             // The response cannot overtake native terminal evidence on stdio.
             await this.rawQueue;
-            if (this.rawFailed || (this.completed.get(sessionId) ?? 0) === before) {
+            const after = this.completed.get(sessionId) ?? 0;
+            if (this.rawFailed || (control ? after !== before : after === before)) {
                 this.terminate();
                 throw acp.RequestError.internalError("Native completion evidence unavailable");
             }

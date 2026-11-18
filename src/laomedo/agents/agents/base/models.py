@@ -14,6 +14,60 @@ from laomedo.agents.agents.base.settings import SDK_FAILURE_OPERATIONS
 from laomedo.agents.agents.base.settings import RUNNER_FAILURE_CODES
 
 
+class NativeCommandAvailability(BaseModel):
+    """Safe command discovery at the provider-to-application boundary."""
+
+    model_config = ConfigDict(strict=True, extra="forbid")
+    name: str = Field(
+        min_length=1,
+        max_length=200,
+        description="Exact provider-advertised command name.",
+    )
+    description: str = Field(
+        max_length=4000, description="Untrusted native display description."
+    )
+    input_hint: str | None = Field(
+        default=None, max_length=4000, description="Optional native argument hint."
+    )
+    executable: bool = Field(
+        description="Whether host policy admits this native command."
+    )
+    accepts_arguments: bool = Field(
+        description="Whether this admitted built-in accepts single-line arguments."
+    )
+    may_use_model: bool | None = Field(
+        default=None,
+        description="Model use classification; absent for unsupported commands.",
+    )
+    reason: str | None = Field(
+        default=None,
+        max_length=100,
+        description="Stable reason for an unavailable command.",
+    )
+
+
+class NativeCommandDiscovery(BaseModel):
+    """Bounded native command metadata, distinct from invocation authority."""
+
+    model_config = ConfigDict(strict=True, extra="forbid")
+    state: Literal["available", "unavailable"] = Field(
+        description="Whether a usable native catalog was observed."
+    )
+    revision: str | None = Field(
+        default=None,
+        pattern=r"^[0-9a-f]{64}$",
+        description="Digest of the actual observed native catalog.",
+    )
+    commands: list[NativeCommandAvailability] = Field(
+        default_factory=list,
+        max_length=256,
+        description="Observed commands with provider-owned execution policy.",
+    )
+    reason: str | None = Field(
+        default=None, max_length=100, description="Stable discovery-unavailable reason."
+    )
+
+
 class NativeCommandInvocation(BaseModel):
     """Exact native command arguments and observed catalog binding, never a grant."""
 

@@ -1,6 +1,7 @@
 """Codex built-in command admission; native descriptions never grant authority."""
 
 from laomedo.agents.agents.base.models import NativeCommandInvocation
+from laomedo.agents.agents.base.models import NativeCommandDiscovery
 from laomedo.agents.agents.base.acp.models import NativeCommandCatalog
 from laomedo.agents.errors import RunnerError
 
@@ -44,14 +45,13 @@ class CodexCommands:
                     "description": item.description,
                     "input_hint": item.input.hint if item.input else None,
                     "executable": supported,
+                    "accepts_arguments": supported and item.name == "review",
                     "may_use_model": (
                         item.name in {"review", "compact"} if supported else None
                     ),
                     "reason": None if supported else "outside_assistant_command_policy",
                 }
             )
-        return {
-            "state": "available",
-            "revision": catalog.revision(),
-            "commands": commands,
-        }
+        return NativeCommandDiscovery(
+            state="available", revision=catalog.revision(), commands=commands
+        ).model_dump(mode="json")

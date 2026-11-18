@@ -305,6 +305,16 @@ class CodexAgentRuntime:
                 seconds=seconds,
                 metadata={
                     "laomedo": {
+                        **(
+                            {
+                                "nativeCommand": {
+                                    "name": command.name,
+                                    "arguments": command.arguments,
+                                }
+                            }
+                            if command is not None
+                            else {}
+                        ),
                         "skills": [
                             {
                                 "type": "skill",
@@ -314,7 +324,7 @@ class CodexAgentRuntime:
                                 + "/SKILL.md",
                             }
                             for item in skills
-                        ]
+                        ],
                     }
                 },
                 check_health=self.check_health,
@@ -348,6 +358,7 @@ class CodexAgentRuntime:
             )
             return CodexCommandResult(
                 command=command.name,
+                stop_reason=response.stop_reason if response is not None else None,
                 status="completed" if completed else "unknown",
                 answer=response.answer if completed else None,
                 error=(

@@ -29,6 +29,10 @@ class CodexCommandResult(BaseModel):
     command: str = Field(
         description="Admitted native command whose result was observed."
     )
+    stop_reason: str | None = Field(
+        default=None,
+        description="Actual ACP terminal stop reason when a response was received.",
+    )
     status: str = Field(
         description="Completed only with terminal ACP and text evidence; otherwise unknown."
     )

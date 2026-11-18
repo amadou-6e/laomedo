@@ -48,6 +48,7 @@ from laomedo.agents.agents.codex.controller.settings import Settings
 from laomedo.agents.interface.output.utils import evaluate
 from laomedo.agents.errors import RunnerError
 from laomedo.agents.agents.codex.runtime import CodexAgentRuntime
+from laomedo.agents.agents.codex.commands import CodexCommands
 from laomedo.agents.workspaces.utils import _hash_tree
 from laomedo.agents.agents.base.utils import _id
 from laomedo.agents.agents.base.utils import _json
@@ -941,6 +942,11 @@ class CodexAgent(BaseAgent):
                 "catalog": (
                     catalog.model_dump(mode="json") if catalog is not None else None
                 ),
+                "projection": (
+                    CodexCommands.project(catalog.model_dump(mode="json"))
+                    if catalog is not None
+                    else None
+                ),
             }
             if native_command is not None:
                 if (
@@ -1217,6 +1223,7 @@ class CodexAgent(BaseAgent):
                 record.setdefault("native_command_receipts", []).append(
                     {
                         "request": native_command.model_dump(mode="json"),
+                        "result": native.model_dump(mode="json"),
                         "attempt_id": record.get("activity_attempt_id"),
                         "status": status,
                         "answer": native.answer,
@@ -1244,6 +1251,11 @@ class CodexAgent(BaseAgent):
                 "thread_id": native_id,
                 "catalog": (
                     catalog.model_dump(mode="json") if catalog is not None else None
+                ),
+                "projection": (
+                    CodexCommands.project(catalog.model_dump(mode="json"))
+                    if catalog is not None
+                    else None
                 ),
             }
             if status == "completed" and not record["answer"]:
