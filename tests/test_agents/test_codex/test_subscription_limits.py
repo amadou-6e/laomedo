@@ -67,7 +67,7 @@ class SubscriptionLimitTests(unittest.TestCase):
         self.assertNotIn("privateToken", str(result.model_dump()))
 
     def test_invalid_scalar_only_removes_that_observation(self):
-        for value in [-1, float("nan"), float("inf"), "20", True, None]:
+        for value in [-1, 10**1000, float("nan"), float("inf"), "20", True, None]:
             with self.subTest(value=value):
                 result = CodexRateLimits.model_validate(
                     {
@@ -113,3 +113,42 @@ class SubscriptionLimitTests(unittest.TestCase):
                 server = Mock(extension=AsyncMock(return_value=response))
                 with self.assertRaisesRegex(RunnerError, "runner_transport_failed"):
                     asyncio.run(CodexAgentRuntime.subscription_limits(server))
+
+
+class SubscriptionDiscoveryTests(unittest.TestCase):
+    """Require normal zero-turn native cleanup before an observation is returned."""
+
+    def setUp(self):
+        """Use a disposable scope and observed native transport calls, without Docker/inference."""
+        import tempfile
+        from pathlib import Path
+        from laomedo.agents.agents.codex.agent import CodexAgent
+        from laomedo.agents.agents.base.models import SubscriptionSnapshot
+
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.agent = CodexAgent.__new__(CodexAgent)
+        self.agent.state = Path(temporary.name)
+        self.agent.auth = None
+        self.agent._pending_receipts = Mock(return_value=False)
+        self.server = Mock(
+            initialize=AsyncMock(),
+            close=AsyncMock(),
+            subscription_limits=AsyncMock(return_value=SubscriptionSnapshot()),
+        )
+        self.agent._open_server = Mock(return_value=self.server)
+
+    def test_named_read_finishes_teardown_without_creating_a_model_session(self):
+        result = self.agent.subscription_limits()
+        self.assertEqual(result.submitted_turns, 0)
+        self.server.initialize.assert_awaited_once()
+        self.server.subscription_limits.assert_awaited_once()
+        self.server.close.assert_awaited_once()
+        self.server.open.assert_not_called()
+        self.server.prompt.assert_not_called()
+        self.assertEqual(list((self.agent.state / "quota").iterdir()), [])
+
+    def test_cleanup_failure_never_returns_a_successful_snapshot(self):
+        self.server.close.side_effect = RunnerError("runner_transport_failed")
+        with self.assertRaisesRegex(RunnerError, "runner_transport_failed"):
+            self.agent.subscription_limits()

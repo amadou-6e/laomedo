@@ -68,11 +68,16 @@ class CodexRateLimits(BaseModel):
                 if not isinstance(value, dict):
                     raise ValueError("subscription_response_invalid")
                 used = value.get("usedPercent")
-                used = (
-                    float(used)
-                    if type(used) in (int, float) and math.isfinite(used) and used >= 0
-                    else None
-                )
+                try:
+                    used = (
+                        float(used)
+                        if type(used) in (int, float)
+                        and math.isfinite(used)
+                        and used >= 0
+                        else None
+                    )
+                except OverflowError:
+                    used = None
                 minutes = value.get("windowDurationMins")
                 minutes = (
                     minutes
