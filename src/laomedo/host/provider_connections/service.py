@@ -21,6 +21,7 @@ from laomedo.host.credentials.siwc.utils import (
     _locked,
 )
 from laomedo.host.provider_connections.errors import ProviderConnectionError
+from laomedo.host.provider_connections.quota import SubscriptionObservations
 from laomedo.host.provider_connections.go import GoConnection
 from laomedo.host.provider_connections.claude import ClaudeConnection
 from laomedo.host.provider_connections.models import (
@@ -60,6 +61,7 @@ class ProviderConnections:
         self._attempts: dict[UUID, PendingLogin] = {}
         self.controllers = None
         self.revoked_leases: set[str] = set()
+        self.subscriptions = SubscriptionObservations(self)
         owner_path = self.root / "owner.lock"
         try:
             descriptor = os.open(
@@ -244,10 +246,18 @@ class ProviderConnections:
 
     def _save(self, profile_id: UUID, records: list[ConnectionRecord]) -> None:
         """Atomically publish the typed admission index after private staging."""
-        _atomic_private(
-            self._profile(profile_id) / "connections.json",
-            ConnectionIndex(connections=records).model_dump(mode="json"),
-        )
+        with self._lock:
+            previous = {row.connection_id: row for row in self._records(profile_id)}
+            current = {row.connection_id: row for row in records}
+            _atomic_private(
+                self._profile(profile_id) / "connections.json",
+                ConnectionIndex(connections=records).model_dump(mode="json"),
+            )
+            for connection_id, record in previous.items():
+                if current.get(connection_id) != record:
+                    self.subscriptions.invalidate(
+                        profile_id=profile_id, connection_id=connection_id
+                    )
 
     def _record(self, profile_id: UUID, connection_id: UUID) -> ConnectionRecord:
         """Refuse absent or foreign bindings without consulting another profile."""
@@ -659,6 +669,7 @@ class ProviderConnections:
         """Fence an outgoing browser session without reading its raw credential."""
         with self._lock:
             self.revoked_leases.add(lease_hash)
+            self.subscriptions.invalidate(lease_hash=lease_hash)
             for item in self.claude.attempts.values():
                 if item.lease_hash == lease_hash:
                     self.claude.cancel(item.profile_id, item.progress.attempt_id)

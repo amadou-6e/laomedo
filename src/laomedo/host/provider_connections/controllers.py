@@ -346,6 +346,24 @@ class ProviderControllers:
             slot.state / "api-token",
         )
 
+    def subscription_limits(self, binding):
+        """Reserve the existing exact-account discovery fence until native teardown settles."""
+        slot = self._create(
+            binding.profile_id, binding.connection_id, binding.generation
+        )
+        deadline = time.monotonic() + 120
+        while slot.creating and time.monotonic() < deadline:
+            time.sleep(0.05)
+        if slot.creating or slot.runner is None:
+            raise ProviderConnectionError("provider_runner_unavailable")
+        self.admit_operation(slot, catalog=True)
+        try:
+            return slot.runner.subscription_limits()
+        finally:
+            with self.service._lock:
+                slot.operations -= 1
+                slot.catalog_operations -= 1
+
     def admit_operation(self, slot, *, catalog=False):
         """Atomically fence work admission and increment the confirmation revision."""
         with self.service._lock:
