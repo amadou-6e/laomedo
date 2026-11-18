@@ -43,7 +43,7 @@ export default function AssistantSidebar() {
   const fullChat = selection.conversation ? `/assistant?conversation=${encodeURIComponent(selection.conversation)}` : "/assistant";
   return <aside id="laomedo-assistant-sidebar" ref={container} hidden={!open} aria-label="Assistant sidebar" className={`${open ? "flex" : "hidden"} ${overlay ? "absolute right-0 z-50 shadow-xl" : "relative z-30"} h-full min-h-0 shrink-0 flex-col border-l bg-background`} style={{ width, maxWidth: "100%" }}>
     <div role="separator" aria-label="Resize assistant" aria-orientation="vertical" aria-valuemin={280} aria-valuemax={maximum} aria-valuenow={width} tabIndex={0}
-      className="absolute inset-y-0 -left-1 z-10 w-2 cursor-col-resize touch-none hover:bg-primary/20 focus-visible:bg-primary/20 focus-visible:outline focus-visible:outline-2"
+      className="absolute inset-y-0 -left-2 z-10 w-2 cursor-col-resize touch-none hover:bg-primary/20 focus-visible:bg-primary/20 focus-visible:outline focus-visible:outline-2"
       onPointerDown={(event) => { event.preventDefault(); event.currentTarget.focus(); event.currentTarget.setPointerCapture(event.pointerId); }}
       onPointerMove={(event) => { if (event.currentTarget.hasPointerCapture(event.pointerId)) resize((container.current?.getBoundingClientRect().right ?? event.clientX) - event.clientX); }}
       onPointerUp={(event) => { if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId); }}
