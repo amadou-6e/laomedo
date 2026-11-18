@@ -86,9 +86,11 @@ test("conversation search has clear and empty states, and switching scope resets
   fireEvent.click(await screen.findByRole("button",{name:/^node-one.*completed$/},{timeout:5000}));
   fireEvent.click(await screen.findByRole("button",{name:"Search conversation"}));
   const search=await screen.findByRole("textbox",{name:"Search conversation"});
+  expect(search).toHaveFocus();
   fireEvent.change(search,{target:{value:"Garnet"}});expect(screen.getByText("Garnet main answer")).toBeInTheDocument();
   fireEvent.change(search,{target:{value:"zzzzzzzzzz"}});expect(screen.getByText("No matching messages or tools.")).toBeInTheDocument();expect(screen.getByRole("button",{name:"Export conversation"})).toBeDisabled();
   fireEvent.click(screen.getByRole("button",{name:"Close search conversation"}));
+  expect(screen.getByRole("button",{name:"Search conversation"})).toHaveFocus();
   expect(screen.queryByRole("textbox",{name:"Search conversation"})).toBeNull();expect(screen.getByText("Garnet main answer")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button",{name:"Search conversation"}));
   fireEvent.change(screen.getByRole("textbox",{name:"Search conversation"}),{target:{value:"Garnet"}});

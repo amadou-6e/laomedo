@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Markdown from "react-markdown";
 import IconComponent from "@/components/common/genericIconComponent";
 import SimplifiedCodeTabComponent from "@/components/core/codeTabsComponent";
@@ -15,13 +15,14 @@ export function MessageMarkdown({text}:{text:string}) {
 }
 
 export function SectionHeading({children,id,actions}:{children:React.ReactNode;id?:string;actions?:React.ReactNode}) {
-  return <div className="flex min-w-0 items-center gap-5"><h2 id={id} className="shrink-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{children}</h2><div className="h-px min-w-4 flex-1 bg-border"/>{actions&&<div className="flex shrink-0 items-center gap-2">{actions}</div>}</div>;
+  return <div className="flex min-w-0 flex-wrap items-center gap-x-5 gap-y-2"><h2 id={id} className="shrink-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{children}</h2><div className="h-px min-w-4 flex-1 bg-border"/>{actions&&<div className="flex min-w-0 max-w-full items-center gap-2">{actions}</div>}</div>;
 }
 
 export function ActivitySearch({label,placeholder,query,onChange}:{label:string;placeholder:string;query:string;onChange:(value:string)=>void}) {
   const [open,setOpen]=useState(false);
-  const close=()=>{onChange("");setOpen(false)};
-  return <div className="flex min-w-0 items-center gap-1">{open&&<input autoFocus value={query} onChange={event=>onChange(event.target.value)} onKeyDown={event=>{if(event.key==="Escape")close()}} aria-label={label} placeholder={placeholder} className="h-8 w-56 max-w-[35vw] rounded-md border bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"/>}<Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground" aria-label={open?`Close ${label.toLowerCase()}`:label} aria-expanded={open} onClick={()=>open?close():setOpen(true)}><IconComponent name={open?"X":"Search"} className="h-4 w-4"/></Button></div>;
+  const button=useRef<HTMLButtonElement>(null);
+  const close=()=>{onChange("");setOpen(false);button.current?.focus()};
+  return <div className="flex min-w-0 items-center gap-1">{open&&<input autoFocus value={query} onChange={event=>onChange(event.target.value)} onKeyDown={event=>{if(event.key==="Escape")close()}} aria-label={label} placeholder={placeholder} className="h-8 w-56 max-w-[35vw] rounded-md border bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"/>}<Button ref={button} variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground" aria-label={open?`Close ${label.toLowerCase()}`:label} aria-expanded={open} onClick={()=>open?close():setOpen(true)}><IconComponent name={open?"X":"Search"} className="h-4 w-4"/></Button></div>;
 }
 
 export function ActivityInfo({label,text}:{label:string;text:string}) {
