@@ -717,4 +717,3 @@ class CodexAgentRuntime:
             "item_id": identity,
             "turn_terminal_observed": bool(terminal),
         }
-

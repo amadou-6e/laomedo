@@ -115,6 +115,19 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
                 "turn_terminal_observed": False,
             },
         )
+        cancelled = threading.Event()
+        cancelled.set()
+        stopped = await self.controller.prompt(
+            "/compact",
+            skills=[],
+            cancelled=cancelled,
+            seconds=5,
+            command=NativeCommandInvocation(
+                name="compact", catalog_revision=catalog.revision()
+            ),
+        )
+        self.assertEqual(stopped.status, "unknown")
+        self.assertIsNone(stopped.answer)
         for wrong in [
             events[:-1],
             [events[0], events[2], events[1]],
