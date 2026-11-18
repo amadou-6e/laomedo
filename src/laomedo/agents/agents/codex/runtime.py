@@ -292,54 +292,6 @@ class CodexAgentRuntime:
         """Read detached native metadata without initiating another request or turn."""
         return self.acp.command_catalog()
 
-    @staticmethod
-    def _compaction_terminal(events):
-        """Admit only one ordered native compaction pair on its observed turn."""
-        starts = [e for e in events if e.get("method") == "turn/started"]
-        if len(starts) != 1:
-            return None
-        params = starts[0].get("params", {})
-        thread, turn = params.get("threadId"), params.get("turn", {}).get("id")
-        if not isinstance(turn, str) or not turn:
-            return None
-        scoped = [e for e in events if e.get("params", {}).get("threadId") == thread]
-        items = [
-            e
-            for e in scoped
-            if e.get("params", {}).get("turnId") == turn
-            and e.get("params", {}).get("item", {}).get("type") == "contextCompaction"
-        ]
-        incoming = [e for e in items if e.get("method") == "item/started"]
-        outgoing = [e for e in items if e.get("method") == "item/completed"]
-        if len(incoming) != 1 or len(outgoing) != 1:
-            return None
-        item = outgoing[0]["params"]["item"]
-        identity = incoming[0]["params"]["item"].get("id")
-        terminal = [
-            e["params"]["turn"] for e in scoped if e.get("method") == "turn/completed"
-        ]
-        if (
-            not isinstance(identity, str)
-            or not identity
-            or item.get("id") != identity
-            or events.index(starts[0]) >= events.index(incoming[0])
-            or events.index(incoming[0]) >= events.index(outgoing[0])
-            or item.get("status") not in {None, "completed"}
-            or item.get("error") is not None
-            or any(e.get("method") == "error" for e in scoped)
-            or len(terminal) > 1
-            or any(
-                t.get("id") != turn or t.get("status") != "completed" for t in terminal
-            )
-        ):
-            return None
-        return {
-            "kind": "contextCompaction",
-            "turn_id": turn,
-            "item_id": identity,
-            "turn_terminal_observed": bool(terminal),
-        }
-
     async def prompt(self, text, *, skills, cancelled, seconds, command=None):
         """Use the common health/cancel loop and require raw native completion."""
         command_kind = None
@@ -717,3 +669,52 @@ class CodexAgentRuntime:
                     error = error or RunnerError("runner_transport_failed")
         if error:
             raise error
+
+    @staticmethod
+    def _compaction_terminal(events):
+        """Admit only one ordered native compaction pair on its observed turn."""
+        starts = [e for e in events if e.get("method") == "turn/started"]
+        if len(starts) != 1:
+            return None
+        params = starts[0].get("params", {})
+        thread, turn = params.get("threadId"), params.get("turn", {}).get("id")
+        if not isinstance(turn, str) or not turn:
+            return None
+        scoped = [e for e in events if e.get("params", {}).get("threadId") == thread]
+        items = [
+            e
+            for e in scoped
+            if e.get("params", {}).get("turnId") == turn
+            and e.get("params", {}).get("item", {}).get("type") == "contextCompaction"
+        ]
+        incoming = [e for e in items if e.get("method") == "item/started"]
+        outgoing = [e for e in items if e.get("method") == "item/completed"]
+        if len(incoming) != 1 or len(outgoing) != 1:
+            return None
+        item = outgoing[0]["params"]["item"]
+        identity = incoming[0]["params"]["item"].get("id")
+        terminal = [
+            e["params"]["turn"] for e in scoped if e.get("method") == "turn/completed"
+        ]
+        if (
+            not isinstance(identity, str)
+            or not identity
+            or item.get("id") != identity
+            or events.index(starts[0]) >= events.index(incoming[0])
+            or events.index(incoming[0]) >= events.index(outgoing[0])
+            or item.get("status") not in {None, "completed"}
+            or item.get("error") is not None
+            or any(e.get("method") == "error" for e in scoped)
+            or len(terminal) > 1
+            or any(
+                t.get("id") != turn or t.get("status") != "completed" for t in terminal
+            )
+        ):
+            return None
+        return {
+            "kind": "contextCompaction",
+            "turn_id": turn,
+            "item_id": identity,
+            "turn_terminal_observed": bool(terminal),
+        }
+
