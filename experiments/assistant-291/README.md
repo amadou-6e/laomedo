@@ -158,3 +158,17 @@ integratedCopied pass. Later docs-only64f302b38/b04ef05 correct retained-order
 and active-response wording (L1/L4), deterministicchecks pass; no code change.
 Optional disabled-on-readfailure tooltip and Copyanswer label left unchanged.
 No model prompts or graph mutations. PRs remain unmerged.
+
+
+2026-11-18 conversation deletion: code318475670/spec1019656. App-only DELETE
+removes owned idle chat records/grants/receipts, clears successor links, preserves
+Flows/runhistory. Refuses activeassistant/executinggraphactions; session/convo
+transactionlock serializes Send/approval.18focusedSQLitebackendtests/37UI pass;
+fullassistant61tests/23subtests pass. Build1m25s,Black924files,specvalidator/CI pass.
+Live delete-conversation.mjs creates/deletes ONLY newemptychat, confirms Cancel
+preserves it, Delete->GET404/indexgone and savedFlowJSONunchanged. Initialdriver
+GETstatusneededheaders forupstreamfetchinterceptor, corrected; snapshotskept
+local. Screenshots capturedafter400ms dialogsettlement. No inference/existingchat
+deletion. Preview restartedonlyafterall7chats/actionsreportedactive0. Last
+predecessor-rowlock addition affects linkedcreate/PostgreSQL path, notliveSQLite
+deletefunction; focusedtests re-run, noPGacceptanceclaim. SameClaudereviewpending.
