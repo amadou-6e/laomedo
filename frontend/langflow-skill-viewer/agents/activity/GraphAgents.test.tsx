@@ -2,7 +2,7 @@ import { render, screen, fireEvent, waitFor, act } from "@testing-library/react"
 import GraphAgents from "./GraphAgents";
 import { Conversation } from "./conversation";
 import type { Lane } from "./models";
-import { messageText, commandTitle, activityTitle, aggregateUsagePoints, conversationRows, scopedProjection, turnPosition, conversationAncestors, conversationMatches, conversationDocument, telemetryDocument } from "./utils";
+import { messageText, commandTitle, activityTitle, aggregateUsagePoints, conversationRows, scopedProjection, turnPosition, conversationAncestors, formatCount, conversationMatches, conversationDocument, telemetryDocument } from "./utils";
 import { HighlightedJson, MessageMarkdown } from "./components";
 import { RuntimeRecords } from "./telemetry";
 import { UsageCharts } from "./usage";
@@ -548,4 +548,12 @@ test("shared chat Markdown preserves the Assistant no-links policy without losin
  const {container}=render(<MessageMarkdown allowLinks={false} text={"[Read more](https://example.com)\n\n![image](https://example.com/image.png)\n\n<script>bad()</script>"}/>);
  expect(screen.getByText("Read more")).toBeVisible();
  expect(container.querySelectorAll("a,img,script")).toHaveLength(0);
+});
+
+
+test("record count grammar follows the full set even when filtering",()=>{
+ expect(formatCount(1,1,false,"item")).toBe("1 item");
+ expect(formatCount(0,1,true,"record")).toBe("0 of 1 record");
+ expect(formatCount(1,10,true,"item")).toBe("1 of 10 items");
+ expect(formatCount(0,0,false,"record")).toBe("0 records");
 });

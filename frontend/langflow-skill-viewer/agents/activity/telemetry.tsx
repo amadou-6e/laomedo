@@ -3,7 +3,7 @@ import Fuse from "fuse.js";
 import IconComponent from "@/components/common/genericIconComponent";
 import { Button } from "@/components/ui/button";
 import type { ExportContext } from "./models";
-import { telemetryDocument, downloadActivity } from "./utils";
+import { telemetryDocument, downloadActivity, formatCount } from "./utils";
 import {
   SectionHeading,
   ActivityInfo,
@@ -60,10 +60,12 @@ export function RuntimeRecords({
         actions={
           <>
             <span role="status" className="text-xs text-muted-foreground">
-              {query.trim()
-                ? `${visible.length} of ${records.length}`
-                : records.length}{" "}
-              records
+              {formatCount(
+                visible.length,
+                records.length,
+                Boolean(query.trim()),
+                "record",
+              )}
             </span>
             <ActivityInfo
               label="OpenTelemetry capture details"

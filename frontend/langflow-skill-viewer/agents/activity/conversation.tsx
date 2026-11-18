@@ -15,6 +15,7 @@ import {
   conversationDocument,
   downloadActivity,
   activityTitle,
+  formatCount,
 } from "./utils";
 import {
   MessageMarkdown,
@@ -62,10 +63,12 @@ export function Conversation({
         actions={
           <>
             <span role="status" className="text-xs text-muted-foreground">
-              {query.trim()
-                ? `${items.length} of ${projection.items.length}`
-                : projection.items.length}{" "}
-              items
+              {formatCount(
+                items.length,
+                projection.items.length,
+                Boolean(query.trim()),
+                "item",
+              )}
             </span>
             {sectionSearch.button}
             <Popover open={exportOpen} onOpenChange={setExportOpen}>

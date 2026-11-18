@@ -441,3 +441,13 @@ export function conversationAncestors(
   }
   return result;
 }
+
+/** Describe full or filtered record totals, using the total to choose the unit's plural form. */
+export function formatCount(
+  visible: number,
+  total: number,
+  filtered: boolean,
+  unit: "item" | "record",
+): string {
+  return `${filtered ? `${visible} of ${total}` : total} ${unit}${total === 1 ? "" : "s"}`;
+}
