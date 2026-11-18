@@ -13,9 +13,11 @@ auto-login, authentication bypass and external identity configuration at startup
 `create_app` receives explicit profile-runtime and private-browser settings;
 it does not discover credentials or another runtime from the environment.
 
-This broker application is an API-only checkpoint. The ordinary launcher remains
-unchanged until the isolated native runtime, browser proxy, static frontend and
-single-job worker are integrated and verified. No graph code may execute in the
+This broker application is an API-only checkpoint. The ordinary viewer rejects
+private-connections startup before constructing Langflow: its in-process graph
+execution cannot safely share the credential vault. The isolated native runtime,
+browser proxy, static frontend and single-job worker are not yet integrated.
+No graph code may execute in the
 broker, and reusable credentials or private-session cookies may not be forwarded
 to the untrusted runtime. Starting a second unrestricted same-user Python process
 is not isolation. Existing state is not moved or rewritten by the factory.
