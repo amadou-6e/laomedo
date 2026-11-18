@@ -138,3 +138,7 @@ defines the confirmation and outcomes.
 
 Workflow-card links use the application router to open the corresponding graph
 in the current tab; integrated-browser popup handling is not required.
+Opening a different graph resets the sidebar's selected conversation; saved chats
+remain in History. Opening the current graph reloads its saved state, closes the
+sidebar and discards unsent sidebar text. The editor's existing browser leave
+confirmation protects unsaved graph changes and active builds.
