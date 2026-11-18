@@ -12,6 +12,7 @@ from laomedo.integrations.langflow.assistant.models import (
     ConversationRenameRequest,
     MessageRequest,
     StopRequest,
+    GraphActionDecision,
 )
 
 router = APIRouter(prefix="/api/v1/laomedo/assistant", tags=["Application assistant"])
@@ -95,6 +96,19 @@ async def rename_conversation(
         raise HTTPException(error.status, detail={"code": error.code}) from None
 
 
+@router.delete("/conversations/{identifier}")
+async def delete_conversation(identifier: UUID, context=Depends(access)):
+    """Delete one idle owned chat without touching saved workflows or run history."""
+    runtime, owner, key = context
+    try:
+        result = await runtime.store.delete_conversation(
+            owner, identifier, session_key=key
+        )
+        return await release(runtime, owner, key, result)
+    except AssistantError as error:
+        raise HTTPException(error.status, detail={"code": error.code}) from None
+
+
 @router.get("/conversations/{identifier}")
 async def conversation_detail(
     identifier: UUID,
@@ -104,9 +118,13 @@ async def conversation_detail(
     """Reopen retained history and reconcile its existing attempt without replay."""
     runtime, owner, key = context
     try:
-        return await release(
-            runtime, owner, key, await runtime.detail(owner, identifier, cursor)
-        )
+        from laomedo.integrations.langflow.assistant.actions import WorkflowActions
+
+        result = await runtime.detail(owner, identifier, cursor)
+        actions = WorkflowActions(runtime.store, None, runtime.authorize)
+        result["actions"] = await actions.list(owner, identifier, session_key=key)
+        result["permissions"] = await actions.permissions(owner, key, identifier)
+        return await release(runtime, owner, key, result)
     except AssistantError as error:
         raise HTTPException(error.status, detail={"code": error.code}) from None
 
@@ -174,5 +192,35 @@ async def lock(context=Depends(access)):
     try:
         await runtime.lock_session(key)
         return JSONResponse({"state": "locked"}, headers={"Cache-Control": "no-store"})
+    except AssistantError as error:
+        raise HTTPException(error.status, detail={"code": error.code}) from None
+
+
+@router.post("/conversations/{identifier}/actions/{action}/decision")
+async def decide_graph_action(
+    identifier: UUID, action: UUID, body: GraphActionDecision, context=Depends(access)
+):
+    """Human-only exact proposal approval/rejection through the same-origin app boundary."""
+    runtime, owner, key = context
+    try:
+        result = await runtime.decide_graph_action(owner, key, identifier, action, body)
+        return await release(runtime, owner, key, result)
+    except AssistantError as error:
+        raise HTTPException(error.status, detail={"code": error.code}) from None
+
+
+@router.post("/conversations/{identifier}/permissions/{category}/revoke")
+async def revoke_graph_permission(
+    identifier: UUID, category: str, context=Depends(access)
+):
+    """Withdraw human consent without canceling already admitted graph work."""
+    from laomedo.integrations.langflow.assistant.actions import WorkflowActions
+
+    runtime, owner, key = context
+    try:
+        result = await WorkflowActions(
+            runtime.store, None, runtime.authorize
+        ).revoke_permission(owner, key, identifier, category)
+        return await release(runtime, owner, key, result)
     except AssistantError as error:
         raise HTTPException(error.status, detail={"code": error.code}) from None

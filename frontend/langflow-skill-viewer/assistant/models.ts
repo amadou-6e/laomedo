@@ -50,7 +50,27 @@ export type ConversationIndex = {
   conversations: Conversation[];
   next_cursor: number | null;
 };
+export type GraphAction = {
+  id: string;
+  message_id: string;
+  can_decide?: boolean;
+  workflow_id: string;
+  name: string;
+  kind: "edit" | "run";
+  category?: "rename" | "edit" | "run";
+  summary?: string;
+  new_name?: string | null;
+  digest: string;
+  error_code?: string | null;
+  preview: string[];
+  revision: string;
+  state: string;
+  expires_at: number;
+  run_id: string | null;
+};
 export type ConversationDetail = {
+  permissions?: ("rename" | "edit" | "run")[];
+  actions?: GraphAction[];
   conversation: Conversation;
   messages: Message[];
   drafts: DraftReceipt[];

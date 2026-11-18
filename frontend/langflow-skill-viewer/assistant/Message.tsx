@@ -9,6 +9,10 @@ import { describeNodeFailure } from "@/components/laomedoErrors/nodeErrors";
 import type { ActivityPage, DraftReceipt, Message } from "./models";
 import { stateLabel } from "./models";
 import Thinking from "./Thinking";
+import CopyAnswer from "./CopyAnswer";
+import { responseTranscript } from "./responseTranscript";
+import GraphActions from "./GraphActions";
+import type { GraphAction } from "./models";
 
 export function UserMessage({
   text,
@@ -56,8 +60,10 @@ export default function MessageRow({
   active,
   onContent,
   onFailure,
+  actions = [],
 }: {
   conversation: string;
+  actions?: GraphAction[];
   message: Message;
   receipts: DraftReceipt[];
   active: boolean;
@@ -124,7 +130,7 @@ export default function MessageRow({
     else groups.push([lane]);
   }
   return (
-    <section className="space-y-5 pb-6" aria-label="Message and response">
+    <section className="space-y-5" aria-label="Message and response">
       <UserMessage text={message.text} createdAt={message.created_at} />
       {groups.map((group) => {
         const lane = group[0];
@@ -179,6 +185,11 @@ export default function MessageRow({
           partial.
         </p>
       )}
+      <GraphActions
+        conversation={conversation}
+        actions={actions}
+        onFailure={onFailure}
+      />
       {receipts.map((receipt) => (
         <article
           key={receipt.id}
@@ -227,6 +238,9 @@ export default function MessageRow({
           </p>
         </article>
       ))}
+      {(items.length > 0 || message.response || receipts.length > 0 || actions.length > 0) && (
+        <CopyAnswer disabled={!page} text={responseTranscript(page, message, receipts, actions)} />
+      )}
     </section>
   );
 }

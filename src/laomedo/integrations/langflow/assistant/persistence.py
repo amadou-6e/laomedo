@@ -3,7 +3,7 @@
 from contextlib import asynccontextmanager
 import time
 
-from sqlalchemy import inspect, text
+from sqlalchemy import delete, inspect, text, update
 from sqlalchemy.ext.asyncio import async_sessionmaker
 from sqlmodel import SQLModel, select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -14,6 +14,8 @@ from laomedo.integrations.langflow.assistant.models import (
     AssistantMessage,
     AssistantDraftReceipt,
     AssistantSession,
+    AssistantGraphAction,
+    AssistantGraphPermission,
 )
 
 
@@ -36,6 +38,8 @@ class AssistantStore:
                 AssistantMessage,
                 AssistantDraftReceipt,
                 AssistantSession,
+                AssistantGraphAction,
+                AssistantGraphPermission,
             )
         ]
         async with self.engine.begin() as connection:
@@ -61,6 +65,10 @@ class AssistantStore:
     async def upgrade_retained(self):
         """Upgrade existing owned columns before upstream's shared-metadata schema check."""
         async with self.engine.begin() as connection:
+            await connection.run_sync(
+                SQLModel.metadata.create_all,
+                tables=[AssistantGraphPermission.__table__],
+            )
             await connection.run_sync(self._upgrade_message_selection)
 
     @asynccontextmanager
@@ -137,7 +145,9 @@ class AssistantStore:
         async with self.transaction() as session:
             await self.authorize(session, owner, session_key)
             if request.linked_conversation_id:
-                await self.conversation(session, owner, request.linked_conversation_id)
+                await self.conversation(
+                    session, owner, request.linked_conversation_id, lock=True
+                )
             conversation = AssistantConversation(owner_id=owner, **request.model_dump())
             session.add(conversation)
             await session.flush()
@@ -155,6 +165,43 @@ class AssistantStore:
             session.add(conversation)
             await session.flush()
             return conversation.model_dump(mode="json")
+
+    async def delete_conversation(self, owner, identifier, *, session_key):
+        """Delete owned chat records atomically; active work and saved Flows survive."""
+        async with self.transaction() as session:
+            await self.authorize(session, owner, session_key)
+            conversation = await self.conversation(
+                session, owner, identifier, lock=True
+            )
+            executing = (
+                await session.exec(
+                    select(AssistantGraphAction.id).where(
+                        AssistantGraphAction.conversation_id == identifier,
+                        AssistantGraphAction.state == "executing",
+                    )
+                )
+            ).first()
+            if conversation.active_message_id is not None or executing is not None:
+                raise AssistantError("assistant_conversation_active")
+            for model in (
+                AssistantGraphPermission,
+                AssistantGraphAction,
+                AssistantDraftReceipt,
+                AssistantMessage,
+            ):
+                await session.exec(
+                    delete(model).where(model.conversation_id == identifier)
+                )
+            await session.exec(
+                update(AssistantConversation)
+                .where(
+                    AssistantConversation.owner_id == owner,
+                    AssistantConversation.linked_conversation_id == identifier,
+                )
+                .values(linked_conversation_id=None)
+            )
+            await session.delete(conversation)
+        return {"state": "deleted"}
 
     async def list(self, owner, cursor=0):
         """Return a bounded page without message bodies or other owners' summaries."""
@@ -200,8 +247,20 @@ class AssistantStore:
                     .limit(50)
                 )
             ).all()
+            actions = (
+                await session.exec(
+                    select(AssistantGraphAction)
+                    .where(
+                        AssistantGraphAction.conversation_id == identifier,
+                        AssistantGraphAction.owner_id == owner,
+                    )
+                    .order_by(AssistantGraphAction.created_at.desc())
+                    .limit(50)
+                )
+            ).all()
             return {
                 "conversation": conversation.model_dump(mode="json"),
+                "actions": [row.public() for row in reversed(actions)],
                 "messages": [
                     row.model_dump(mode="json", exclude={"digest", "activity_snapshot"})
                     for row in reversed(messages[:30])

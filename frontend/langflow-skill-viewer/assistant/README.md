@@ -59,3 +59,47 @@ rendered state and reject stale responses. Draft links come only from database
 receipts, open a new tab after a click, and preserve the original editor.
 
 The composer sends on Enter, preserves Shift+Enter for newlines and ignores Enter during IME composition. Thinking is visible only before answer text appears, including streamed activity or a retained response.
+
+GraphActions.tsx renders server-built graph edit/run previews and human-only approval decisions. It never dispatches inference or approvals on render; unknown/stale/expired outcomes remain explicit. Wire records stay in models.ts.
+
+Approval cards foreground Rename/Edit/Run and a short description; technical identities remain in backend receipts. Agent prose must not duplicate cards.
+
+Settled approval cards collapse to operation, muted change description and a short
+outcome. GraphActions uses a top-right ExternalLink icon with an accessible name;
+no technical Details section or separate success sentence is rendered. Pending
+controls and conversation consent scope remain explicit. Failure/unknown outcome
+labels retain their recovery meaning in tooltips.
+
+Run cards use a human-readable sentence with the actual server-preview input,
+not the model summary: Run/Running/Ran workflow "name" with input "value".
+Only a successful result uses Ran. Outcomes occupy their own left-aligned line
+below the description; they never share the graph icon's right-hand column.
+
+Rename cards follow the same sentence layout as runs, without a separate title:
+Rename/Renamed workflow "old" to "new", followed by the left-aligned outcome.
+
+Edit uses that same single-sentence layout: Edit/Edited workflow "name": brief
+change description. All three categories share typography, icon and outcome layout.
+
+`transcript.ts` collects all retained message pages and normalized answer text for
+a Markdown snapshot; it excludes native/tool payloads, marks incomplete retention
+and never dispatches inference. The header export ignores results after selection
+or owner changes. `CopyAnswer.tsx` copies the complete retained agent response since its user request,
+with local success/failure feedback. The message container uses compact bottom
+padding so answer controls remain close to the composer. UI geometry and these
+transitions are specified in application-assistant.drawio A3 TRANSCRIPT-01.
+
+`responseTranscript.ts` assembles one request-scoped response:
+assistant text and displayed tool/command inputs/outputs in retained activity
+order, followed by graph action receipts, saved drafts and incomplete/active state. It excludes the user/native
+prompt wrapper and other requests. `toolCall.ts` owns shared display-field/name
+selection for ToolCalls and copying; raw native records are not serialized. One
+Copy control sits below the full response and copies a current streaming snapshot.
+Conversation export remains the separate text-only Markdown snapshot.
+
+`DeleteConversation.tsx` owns the header trash control and named confirmation:
+Cancel preserves the chat; Delete calls the owner-scoped endpoint once, reports
+failure locally, then asks AssistantPage to clear only that chat's local state
+and return to a new conversation. Saved workflows stay; active chat/graph work
+blocks deletion. Selection/owner changes discard late results. A3 DELETE-01
+defines the confirmation and outcomes.

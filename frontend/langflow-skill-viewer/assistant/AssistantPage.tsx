@@ -1,3 +1,4 @@
+import GraphPermissions from "./GraphPermissions";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
@@ -10,6 +11,7 @@ import {
   MessageSquare,
   Check,
   Sparkles,
+  Download,
 } from "lucide-react";
 import { OpenAiIcon } from "@/icons/OpenAi";
 import { Button } from "@/components/ui/button";
@@ -29,6 +31,8 @@ import type {
   PendingSubmission,
 } from "./models";
 import { stateLabel } from "./models";
+import { conversationTranscript, downloadTranscript } from "./transcript";
+import DeleteConversation from "./DeleteConversation";
 
 export default function AssistantPage() {
   const owner = useAuthStore((state) => state.userData?.id);
@@ -57,11 +61,41 @@ export default function AssistantPage() {
   const [savingTitle, setSavingTitle] = useState(false);
   const [renameError, setRenameError] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState(false);
+  const exportController = useRef<AbortController>();
   const generation = useRef(0);
   const scroll = useRef<HTMLDivElement>(null);
   const pinned = useRef(true);
   const currentSelection = useRef(selected);
   currentSelection.current = selected;
+
+  useEffect(() => {
+    setExporting(false);
+    setExportError(false);
+    return () => exportController.current?.abort();
+  }, [selected, owner, locked]);
+
+  async function exportConversation() {
+    if (!selected || exporting || locked) return;
+    const controller = new AbortController();
+    exportController.current = controller;
+    const epoch = generation.current, identity = selected;
+    setExporting(true);
+    setExportError(false);
+    try {
+      const result = await conversationTranscript(identity, controller.signal);
+      if (!controller.signal.aborted && epoch === generation.current && currentSelection.current === identity)
+        downloadTranscript(result.text, result.filename);
+    } catch (failure) {
+      if (!controller.signal.aborted && epoch === generation.current && currentSelection.current === identity) {
+        setExportError(true);
+        if (failure instanceof AssistantFailure && failure.code === "assistant_session_locked") fail(failure);
+      }
+    } finally {
+      if (exportController.current === controller) setExporting(false);
+    }
+  }
 
   useEffect(() => {
     setRenaming(undefined);
@@ -729,6 +763,34 @@ export default function AssistantPage() {
               </h1>
             )}
           </div>
+          {conversation && !locked && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span role="status" aria-live="polite">
+                {exporting ? "Exporting..." : exportError ? "Export failed. Try again." : ""}
+              </span>
+              <button type="button" aria-label="Export conversation" title="Export conversation as Markdown"
+                disabled={exporting} onClick={() => void exportConversation()}
+                className="rounded p-1.5 hover:bg-muted hover:text-foreground disabled:opacity-40 focus-visible:outline focus-visible:outline-2">
+                <Download size={16} />
+              </button>
+              <DeleteConversation
+                key={`${owner}:${selected}`}
+                conversation={selected}
+                title={conversation.title}
+                onFailure={fail}
+                onDeleted={() => {
+                  generation.current += 1;
+                  exportController.current?.abort();
+                  setIndex((value) => ({ ...value, conversations: value.conversations.filter((row) => row.id !== selected) }));
+                  setDetail(undefined);
+                  setDrafts((value) => { const next = { ...value }; delete next[selected]; return next; });
+                  setPending((value) => { const next = { ...value }; delete next[selected]; return next; });
+                  setRetryable((value) => { const next = { ...value }; if (pending[selected]) delete next[pending[selected].id]; return next; });
+                  setParams({});
+                }}
+              />
+            </div>
+          )}
         </header>
         {failure && (
           <div
@@ -769,7 +831,7 @@ export default function AssistantPage() {
             ref={scroll}
             tabIndex={0}
             aria-label="Assistant messages and saved drafts"
-            className="min-h-0 flex-1 overflow-y-auto px-5 py-6 focus-visible:outline focus-visible:outline-2 md:px-10"
+            className="min-h-0 flex-1 overflow-y-auto px-5 pt-6 pb-2 focus-visible:outline focus-visible:outline-2 md:px-10"
             onScroll={() => {
               const element = scroll.current;
               if (element)
@@ -780,7 +842,15 @@ export default function AssistantPage() {
                   100;
             }}
           >
-            <div className="mx-auto max-w-4xl space-y-4 pb-8">
+            <div className="mx-auto max-w-4xl space-y-4">
+              {selected && (
+                <GraphPermissions
+                  conversation={selected}
+                  permissions={detail?.permissions ?? []}
+                  onChange={() => void refresh().catch(fail)}
+                  onFailure={fail}
+                />
+              )}
               {loading && !waiting && (
                 <p role="status" className="text-sm text-muted-foreground">
                   Reconnecting to retained history…
@@ -801,6 +871,9 @@ export default function AssistantPage() {
                   key={message.id}
                   conversation={selected}
                   message={message}
+                  actions={(detail.actions ?? []).filter(
+                    (action) => action.message_id === message.id,
+                  )}
                   receipts={detail.drafts.filter(
                     (receipt) => receipt.message_id === message.id,
                   )}

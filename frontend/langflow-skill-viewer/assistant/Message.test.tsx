@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import MessageRow from "./Message";
 import { assistantRequest } from "./api";
 import type { DraftReceipt, Message } from "./models";
@@ -39,6 +39,44 @@ const receipt: DraftReceipt = {
 };
 
 describe("retained assistant conversation", () => {
+  it("waits for retained activity before enabling a response copy", async () => {
+    let finish!: (value: unknown) => void;
+    jest.mocked(assistantRequest).mockReturnValueOnce(new Promise((resolve) => { finish = resolve; }));
+    render(<MessageRow conversation="conversation" message={message} receipts={[]} active={false} onContent={onContent} onFailure={onFailure} />);
+    expect((screen.getByRole("button", { name: "Copy answer" }) as HTMLButtonElement).disabled).toBe(true);
+    finish({ available: true, complete: true, projection: { items: [] } });
+    await waitFor(() => expect((screen.getByRole("button", { name: "Copy answer" }) as HTMLButtonElement).disabled).toBe(false));
+  });
+  it("copies all agent activity since this request with one response-level control", async () => {
+    const writeText = jest.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+    jest.mocked(assistantRequest).mockResolvedValue({ available: true, complete: true,
+      tool_names: { external_abcdef: "search_components" },
+      projection: { items: [
+        { id: "user", item: { type: "userMessage", text: "PRIVATE_WRAPPER" } },
+        { id: "first", item: { type: "agentMessage", text: "I will inspect it." } },
+        { id: "tool", item: { type: "toolCall", name: "external_abcdef", arguments: { query: "Issue" }, result: { found: 2 }, privateInternal: "HIDDEN_RECORD" } },
+        { id: "last", item: { type: "agentMessage", text: "Finished inspecting." } },
+      ] },
+    });
+    render(<MessageRow conversation="conversation" message={message} receipts={[receipt]} active={false} onContent={onContent} onFailure={onFailure} />);
+    await screen.findByText("Finished inspecting.");
+    expect(screen.getAllByRole("button", { name: "Copy answer" })).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: "Copy answer" }));
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+    const copied = writeText.mock.calls[0][0];
+    expect(copied).toContain("I will inspect it.");
+    expect(copied).toContain("search_components");
+    expect(copied).toContain('"query": "Issue"');
+    expect(copied).toContain('"found": 2');
+    expect(copied).toContain("Finished inspecting.");
+    expect(copied).toContain("Saved draft: Actual saved flow");
+    expect(copied.indexOf("I will inspect it.")).toBeLessThan(copied.indexOf("search_components"));
+    expect(copied.indexOf("search_components")).toBeLessThan(copied.indexOf("Finished inspecting."));
+    expect(copied).not.toMatch(/PRIVATE_WRAPPER|HIDDEN_RECORD|external_abcdef/);
+    expect(copied).not.toContain(message.text);
+    expect(copied).not.toContain(message.response);
+  });
   it("shows accessible Thinking while an admitted response is running", () => {
     jest
       .mocked(assistantRequest)

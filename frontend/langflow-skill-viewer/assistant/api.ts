@@ -11,7 +11,7 @@ export async function assistantRequest<T>(
   path: string,
   body?: unknown,
   signal?: AbortSignal,
-  method?: "PATCH",
+  method?: "PATCH" | "DELETE",
 ): Promise<T> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -38,7 +38,7 @@ export async function assistantRequest<T>(
   } catch (error) {
     if (signal?.aborted) throw error;
     throw new AssistantFailure(
-      body === undefined
+      body === undefined && method !== "DELETE"
         ? "assistant_connection_unavailable"
         : "assistant_dispatch_unknown",
     );
