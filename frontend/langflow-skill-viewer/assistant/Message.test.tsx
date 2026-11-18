@@ -1,4 +1,6 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render as renderUI, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
+import type { ReactElement } from "react";
 import MessageRow from "./Message";
 import { assistantRequest } from "./api";
 import type { DraftReceipt, Message } from "./models";
@@ -12,6 +14,7 @@ jest.mock("@/modals/graphAgents/conversation", () => ({
   ActivityItem: () => <div>Native tool activity</div>,
 }));
 const onContent = () => {};
+const render = (element: ReactElement) => renderUI(<MemoryRouter>{element}</MemoryRouter>);
 const onFailure = () => {};
 const message: Message = {
   id: "message",

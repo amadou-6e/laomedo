@@ -25,6 +25,36 @@ jest.mock("@/stores/authStore", () => ({
 }));
 
 describe("uncertain assistant submission", () => {
+  it("puts conversation title and full-window action in one header and keeps the action reachable in history", async()=>{
+    const chat={id:"saved",title:"Hello",model:"fixture",effort:"low",state:"idle",active_message_id:null};
+    jest.mocked(assistantRequest).mockImplementation(async path=>{
+      if(path==="/models")return {provider:"codex",models:[{id:"fixture",efforts:["low"]}]};
+      if(path==="/conversations")return {conversations:[chat],next_cursor:null};
+      return {conversation:chat,messages:[],drafts:[],next_cursor:null};
+    });
+    render(<MemoryRouter><AssistantPage embedded selectedConversation="saved" headerActions={<a href="/assistant">Full-window chat</a>}/></MemoryRouter>);
+    const title=await screen.findByRole("heading",{name:"Hello"});
+    expect(title.closest("header")).toContainElement(screen.getByRole("link",{name:"Full-window chat"}));
+    fireEvent.click(screen.getByRole("button",{name:"Expand conversations"}));
+    expect(screen.getByRole("link",{name:"Full-window chat"})).toBeVisible();
+    expect(screen.getByRole("heading",{name:"Conversations"})).toBeVisible();
+  });
+  it("selects saved sidebar conversations without replacing the graph URL", async () => {
+    const first = { id: "first", title: "First saved chat", model: "fixture", effort: "low", state: "idle", active_message_id: null };
+    const second = { ...first, id: "second", title: "Second saved chat" };
+    jest.mocked(assistantRequest).mockImplementation(async (path) => {
+      if (path === "/models") return { provider: "codex", models: [{ id: "fixture", efforts: ["low"] }] };
+      if (path === "/conversations") return { conversations: [first, second], next_cursor: null };
+      return { conversation: path.includes("second") ? second : first, messages: [], drafts: [], next_cursor: null };
+    });
+    const select = jest.fn();
+    render(<MemoryRouter initialEntries={["/flow/graph?canvas=preserved"]}><AssistantPage embedded selectedConversation="first" onSelectConversation={select} /></MemoryRouter>);
+    fireEvent.click(await screen.findByRole("button", { name: "Expand conversations" }));
+    fireEvent.click(await screen.findByRole("button", { name: /^Second saved chat/ }));
+    expect(select).toHaveBeenCalledWith({ conversation: "second" });
+    expect(screen.getByRole("button", { name: "Expand conversations" })).toBeInTheDocument();
+    expect(jest.mocked(assistantRequest).mock.calls.every(([, body]) => body === undefined)).toBe(true);
+  });
   it("abandons an in-flight export when the conversation changes", async () => {
     let finish!: (value: { text: string; filename: string }) => void;
     jest.mocked(conversationTranscript).mockReturnValueOnce(new Promise((resolve) => { finish = resolve; }));

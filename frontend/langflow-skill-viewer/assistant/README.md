@@ -1,5 +1,37 @@
 # Application assistant
 
+## Graph editor sidebar (issue 296)
+
+`AssistantSidebar.tsx` mounts the same `AssistantPage` on the editor's right.
+`sidebarStore.ts` owns only the open/closed UI flag; conversations, inference and
+approvals still use the existing owner-scoped assistant API. The sidebar owns its
+conversation selection without changing the graph URL. It mounts lazily, then
+stays mounted while hidden so closing it preserves its draft and active response.
+The embedded conversation header is the sidebar top row: conversation title,
+History, existing export/delete actions and full-window link. There is no extra
+Assistant title row or header close icon. `AssistantSidebar` owns the 8px edge
+strip that collapses the entire panel in chat, history and locked states while
+retaining its mounted draft. `AssistantPage` owns the header History icon, which
+opens or closes the embedded conversation list; the full-window history controls
+keep their existing behavior. Expanded history keeps the full-window action
+reachable, and the outer collapse strip stays available.
+History starts collapsed in this narrow surface. The full-window router link opens the
+selected saved conversation in the current tab.
+The sidebar full-window icon leaves the editor in the current tab; unsent sidebar
+text is discarded and the existing guard applies, including stopping an active
+build. The divider hit area sits outside the panel so it does not obscure the
+8px collapse strip. That outside 8px edge is reserved for resizing rather than
+canvas pointer gestures. The divider supports dragging and arrow/Home/End keys. Width is bounded and
+reclamped when the editor changes size. Narrow screens use an overlay, retaining
+the mounted editor beneath it. Opening, closing and resizing never send inference.
+`AssistantEntry` opens full-window chat in the current tab through the application
+router, including the existing unsaved-editor navigation guard. Navigating away
+while a graph build is running stops that build through the existing guard; use
+the rail toggle to keep the graph running while opening chat beside it.
+`AssistantSidebarToggle` is an icon in the graph left rail. It toggles the right
+sidebar without changing the selected left section, graph URL or canvas. Closing
+the panel returns focus to that rail control. Existing graph tools and human approval rules remain unchanged.
+
 Normal provider-backed chat, with no assistant workflow. The approved geometry
 and states are A1/A2 in specs PR424's application-assistant.drawio.
 
@@ -103,3 +135,10 @@ failure locally, then asks AssistantPage to clear only that chat's local state
 and return to a new conversation. Saved workflows stay; active chat/graph work
 blocks deletion. Selection/owner changes discard late results. A3 DELETE-01
 defines the confirmation and outcomes.
+
+Workflow-card links use the application router to open the corresponding graph
+in the current tab; integrated-browser popup handling is not required.
+Opening a different graph resets the sidebar's selected conversation; saved chats
+remain in History. Opening the current graph reloads its saved state, closes the
+sidebar and discards unsent sidebar text. The editor's existing browser leave
+confirmation protects unsaved graph changes and active builds.

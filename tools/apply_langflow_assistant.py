@@ -43,9 +43,40 @@ def apply_assistant(checkout: Path, source: Path):
         'import { lockAssistant } from "@/components/laomedoAssistant/api";\n'
         + signout.replace(anchor, "    await lockAssistant();\n" + anchor)
     )
+    editor = frontend / "pages/FlowPage/index.tsx"
+    editor_content = editor.read_text(encoding="utf-8")
+    editor_anchor = (
+        "                    </main>\n                  </FlowSearchProvider>"
+    )
+    if editor_content.count(editor_anchor) != 1:
+        raise SystemExit("assistant_editor_anchor_missing")
+    editor_content = (
+        'import AssistantSidebar from "@/components/laomedoAssistant/AssistantSidebar";\n'
+        + editor_content.replace(
+            editor_anchor,
+            "                    </main>\n                    <AssistantSidebar />\n                  </FlowSearchProvider>",
+        )
+    )
+    rail = (
+        frontend
+        / "pages/FlowPage/components/flowSidebarComponent/components/sidebarSegmentedNav.tsx"
+    )
+    rail_content = rail.read_text(encoding="utf-8")
+    rail_anchor = "        ))}\n      </SidebarMenu>"
+    if rail_content.count(rail_anchor) != 1:
+        raise SystemExit("assistant_rail_anchor_missing")
+    rail_content = (
+        'import AssistantSidebarToggle from "@/components/laomedoAssistant/AssistantSidebarToggle";\n'
+        + rail_content.replace(
+            rail_anchor,
+            "        ))}\n        <AssistantSidebarToggle hiddenFromTabOrder={hiddenFromTabOrder} />\n      </SidebarMenu>",
+        )
+    )
     shutil.copytree(
         source / "assistant", destination, ignore=shutil.ignore_patterns("README.md")
     )
     routes.write_text(text, encoding="utf-8")
     header.write_text(content, encoding="utf-8")
     logout.write_text(signout, encoding="utf-8")
+    editor.write_text(editor_content, encoding="utf-8")
+    rail.write_text(rail_content, encoding="utf-8")

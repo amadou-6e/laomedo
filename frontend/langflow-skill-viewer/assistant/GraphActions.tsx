@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ExternalLink } from "lucide-react";
+import { Link, useLocation } from "react-router-dom";
 import { assistantRequest } from "./api";
 import type { GraphAction } from "./models";
 
@@ -13,6 +14,7 @@ export default function GraphActions({
   onFailure: (error: unknown) => void;
 }) {
   const [busy, setBusy] = useState<string>();
+  const { pathname } = useLocation();
   const [observed, setObserved] = useState<Record<string, GraphAction>>({});
   async function decide(
     action: GraphAction,
@@ -119,16 +121,15 @@ export default function GraphActions({
                     ? `${state === "succeeded" ? "Renamed" : "Rename"} workflow ${JSON.stringify(action.name)} to ${JSON.stringify(action.new_name)}.`
                     : editSentence}
               </h3>
-              <a
+              <Link
                 className="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline focus-visible:outline-2"
-                href={`/flow/${encodeURIComponent(action.workflow_id)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="Open workflow in new tab"
-                title="Open workflow in new tab. Reload open editors before saving to avoid overwriting saved changes."
+                to={`/flow/${encodeURIComponent(action.workflow_id)}`}
+                reloadDocument={pathname === `/flow/${encodeURIComponent(action.workflow_id)}`}
+                aria-label="Open workflow"
+                title="Open workflow. Reload open editors before saving to avoid overwriting saved changes."
               >
                 <ExternalLink size={14} aria-hidden="true" />
-              </a>
+              </Link>
             </div>
             <div>
               {outcome && (

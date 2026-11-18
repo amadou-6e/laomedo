@@ -1,5 +1,5 @@
 import GraphPermissions from "./GraphPermissions";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   Plus,
@@ -12,6 +12,7 @@ import {
   Check,
   Sparkles,
   Download,
+  History,
 } from "lucide-react";
 import { OpenAiIcon } from "@/icons/OpenAi";
 import { Button } from "@/components/ui/button";
@@ -34,11 +35,22 @@ import { stateLabel } from "./models";
 import { conversationTranscript, downloadTranscript } from "./transcript";
 import DeleteConversation from "./DeleteConversation";
 
-export default function AssistantPage() {
+export default function AssistantPage({ embedded = false, selectedConversation, linkedConversation, onSelectConversation, headerActions }: {
+  embedded?: boolean;
+  headerActions?: ReactNode;
+  selectedConversation?: string;
+  linkedConversation?: string;
+  onSelectConversation?: (selection: Record<string, string>) => void;
+} = {}) {
+  const RootTag = embedded ? "section" : "main";
   const owner = useAuthStore((state) => state.userData?.id);
-  const [params, setParams] = useSearchParams();
-  const selected = params.get("conversation") ?? "";
-  const linked = params.get("linked") ?? "";
+  const [params, setRouteParams] = useSearchParams();
+  const selected = embedded ? selectedConversation ?? "" : params.get("conversation") ?? "";
+  const linked = embedded ? linkedConversation ?? "" : params.get("linked") ?? "";
+  const setParams = (selection: Record<string, string>) => {
+    if (embedded) onSelectConversation?.(selection);
+    else setRouteParams(selection);
+  };
   const [index, setIndex] = useState<ConversationIndex>({
     conversations: [],
     next_cursor: null,
@@ -55,7 +67,7 @@ export default function AssistantPage() {
   const [error, setError] = useState<string>();
   const [locked, setLocked] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [history, setHistory] = useState(true);
+  const [history, setHistory] = useState(!embedded);
   const [renaming, setRenaming] = useState<string>();
   const [titleDraft, setTitleDraft] = useState("");
   const [savingTitle, setSavingTitle] = useState(false);
@@ -549,7 +561,8 @@ export default function AssistantPage() {
 
   if (locked)
     return (
-      <main className="m-auto max-w-lg space-y-4 p-8">
+      <RootTag className="m-auto max-w-lg space-y-4 p-8">
+        {headerActions && <div className="flex justify-end gap-2">{headerActions}</div>}
         <h1 className="text-xl font-semibold">Profile locked</h1>
         <p className="text-sm text-muted-foreground">
           Chat details are hidden and tool access has been revoked. Sign in
@@ -561,8 +574,15 @@ export default function AssistantPage() {
         >
           Unlock profile
         </a>
-      </main>
+      </RootTag>
     );
+  const historyControl = embedded && <button type="button"
+    aria-label={history ? "Collapse conversations" : "Expand conversations"}
+    title={history ? "Collapse conversations" : "Expand conversations"}
+    aria-expanded={history} onClick={() => setHistory(!history)}
+    className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline focus-visible:outline-2">
+    <History size={16} aria-hidden="true" />
+  </button>;
   const conversation = detail?.conversation;
   const active = Boolean(conversation?.active_message_id);
   const needsAttention = conversation?.state === "attention";
@@ -584,19 +604,19 @@ export default function AssistantPage() {
     : undefined;
 
   return (
-    <main
+    <RootTag
       className="flex h-full min-h-0 w-full bg-background"
       aria-label="Application assistant"
     >
       <div
-        className={`relative min-h-0 shrink-0 ${history ? "w-64 max-w-[75vw]" : "w-5"}`}
+        className={`relative min-h-0 shrink-0 ${history ? embedded ? "w-full" : "w-64 max-w-[75vw]" : embedded ? "hidden" : "w-5"}`}
       >
         <aside
           hidden={!history}
           className={`${history ? "flex" : "hidden"} h-full flex-col bg-muted/20 p-4 pr-6`}
           aria-label="Conversations"
         >
-          <h2 className="mb-4 text-sm font-semibold">Conversations</h2>
+          <div className="mb-4 flex items-center gap-2"><h2 className="flex-1 text-sm font-semibold">Conversations</h2>{embedded && <>{historyControl}{headerActions}</>}</div>
           <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto">
             {index.conversations.map((item) => (
               <button
@@ -606,6 +626,7 @@ export default function AssistantPage() {
                 className={`w-full rounded-lg p-3 text-left text-sm hover:bg-muted focus-visible:outline focus-visible:outline-2 ${selected === item.id ? "bg-muted" : ""}`}
                 onClick={() => {
                   setParams({ conversation: item.id });
+                  if (embedded) setHistory(false);
                 }}
               >
                 <span className="block truncate font-medium">{item.title}</span>
@@ -634,13 +655,14 @@ export default function AssistantPage() {
             className="mt-4 w-full justify-start"
             variant="ghost"
             aria-label="New conversation"
-            onClick={() => setParams({})}
+            onClick={() => {setParams({});if (embedded) setHistory(false);}}
           >
             <Plus size={16} />
             New conversation
           </Button>
         </aside>
-        <button
+        {!embedded && (
+          <button
           type="button"
           aria-label={
             history ? "Collapse conversations" : "Expand conversations"
@@ -651,10 +673,10 @@ export default function AssistantPage() {
           className="absolute inset-y-0 right-0 flex w-4 items-center justify-center border-r text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline focus-visible:outline-2"
         >
           {history ? <ChevronLeft size={12} /> : <ChevronRight size={12} />}
-        </button>
+        </button>)}
       </div>
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b px-5 py-4">
+      <div hidden={embedded && history} className={`${embedded && history ? "hidden" : "flex"} min-h-0 min-w-0 flex-1 flex-col`}>
+        <header className={`flex shrink-0 flex-wrap items-center justify-between border-b ${embedded ? "min-h-11 gap-2 px-3 py-2" : "gap-3 px-5 py-4"}`}>
           <div className="min-w-0 flex-1">
             {renaming === conversation?.id && conversation ? (
               <form
@@ -738,7 +760,7 @@ export default function AssistantPage() {
               </form>
             ) : (
               <h1
-                className="inline text-sm font-medium"
+                className="block min-w-0 text-sm font-medium"
                 onDoubleClick={() => {
                   if (conversation) {
                     setTitleDraft(conversation.title);
@@ -749,6 +771,7 @@ export default function AssistantPage() {
                 <button
                   type="button"
                   disabled={!conversation}
+                  className="max-w-full truncate text-left"
                   title="Double-click to rename conversation"
                   onKeyDown={(event) => {
                     if (conversation && ["Enter", " "].includes(event.key)) {
@@ -763,8 +786,9 @@ export default function AssistantPage() {
               </h1>
             )}
           </div>
-          {conversation && !locked && (
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            {historyControl}
+            {conversation && !locked && (<>
               <span role="status" aria-live="polite">
                 {exporting ? "Exporting..." : exportError ? "Export failed. Try again." : ""}
               </span>
@@ -789,8 +813,9 @@ export default function AssistantPage() {
                   setParams({});
                 }}
               />
-            </div>
-          )}
+            </>)}
+            {headerActions}
+          </div>
         </header>
         {failure && (
           <div
@@ -1075,6 +1100,6 @@ export default function AssistantPage() {
           </form>
         </>
       </div>
-    </main>
+    </RootTag>
   );
 }
