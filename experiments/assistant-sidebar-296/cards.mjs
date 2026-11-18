@@ -16,7 +16,7 @@ try {
  const at=index.conversations.findIndex(c=>c.id==='3112d600-3026-4921-8a62-d54f2d53db09');
  if(at<0)throw Error('Retained approval demo missing');
  await sidebar.getByRole('navigation').getByRole('button').nth(at).click();
- const cards=sidebar.getByRole('article').filter({has:page.getByRole('link',{name:'Open workflow in new tab'})});
+ const cards=sidebar.getByRole('article').filter({has:page.getByRole('link',{name:'Open workflow'})});
  await cards.first().waitFor({timeout:30000});
  await mkdir(root+'/.tools/sidebar-296-dialogs',{recursive:true});
  for(const operation of ['Rename','Edit','Run']) {

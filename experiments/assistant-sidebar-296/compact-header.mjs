@@ -12,12 +12,12 @@ try {
  const sidebar=page.getByRole('complementary',{name:'Assistant sidebar'});
  await sidebar.getByRole('textbox',{name:'Message this assistant'}).waitFor();
  await sidebar.getByText('Choose model',{exact:true}).waitFor({state:'hidden',timeout:60000});
- const strip=sidebar.getByRole('button',{name:'Expand conversations',exact:true});
+ const strip=sidebar.getByRole('button',{name:'Collapse assistant sidebar',exact:true});
  if(Math.abs((await strip.boundingBox()).width-8)>1)throw Error('History strip not 8px');
  if(!await strip.evaluate(el=>{const r=el.getBoundingClientRect();const hit=document.elementFromPoint(r.x+r.width/2,r.y+r.height/2);return el===hit||el.contains(hit)}))throw Error('History toggle obscured');
  const dir=root+'/.tools/sidebar-296-compact-render';await mkdir(dir,{recursive:true});
- await strip.click();
- await sidebar.getByRole('button',{name:'Close assistant',exact:true}).waitFor();
+ await sidebar.getByRole('button',{name:'Expand conversations',exact:true}).click();
+ await sidebar.getByRole('button',{name:'Collapse assistant sidebar',exact:true}).waitFor();
  await page.screenshot({path:dir+'/history.png'});
  const saved=sidebar.getByRole('navigation').getByRole('button',{name:/^Hello\s/}).first();
  await saved.waitFor();
@@ -28,7 +28,7 @@ try {
  const area=await sidebar.boundingBox(),row=await header.boundingBox();
  if(Math.abs(row.y-area.y)>2)throw Error('Extra sidebar header row');
  await header.getByRole('button',{name:'Export conversation',exact:true}).waitFor();
- await header.getByRole('button',{name:'Close assistant',exact:true}).waitFor();
+ await header.getByRole('button',{name:'Expand conversations',exact:true}).waitFor();
  await page.waitForTimeout(1500);
  await page.screenshot({path:dir+'/conversation.png'});
  await sidebar.getByRole('separator',{name:'Resize assistant'}).press('Home');

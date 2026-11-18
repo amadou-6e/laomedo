@@ -20,7 +20,7 @@ try {
  await separator.press('Home');
  if(await separator.getAttribute('aria-valuenow')!=='280')throw Error('Keyboard minimum');
  await separator.press('End');
- await page.getByRole('button',{name:'Close assistant',exact:true}).click();
+ await page.getByRole('button',{name:'Collapse assistant sidebar',exact:true}).click();
  await page.waitForFunction(()=>document.activeElement?.getAttribute('aria-label')==='Open assistant sidebar');
  await page.getByRole('button',{name:'Open assistant sidebar',exact:true}).click();
  if(await composer.inputValue()!=='Unsent sidebar acceptance draft')throw Error('Draft lost');

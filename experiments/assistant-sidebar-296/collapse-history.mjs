@@ -1,0 +1,58 @@
+// Real retained chat and approval card; no decisions, prompts or graph writes.
+import {createRequire} from 'node:module';
+import {mkdir} from 'node:fs/promises';
+const require=createRequire('C:/CodeWorkspace/laomedo/.tools/assistant-282-upstream/src/frontend/package.json');
+const {chromium}=require('playwright');
+const root='C:/CodeWorkspace/laomedo';
+const browser=await chromium.launch({headless:true,channel:'chrome'});
+try {
+ const page=await browser.newPage({viewport:{width:1440,height:1000},colorScheme:'dark'});
+ await page.goto('http://127.0.0.1:55753/flow/b4714b72-0639-462f-83f7-19869b372d48');
+ await page.getByRole('button',{name:'Open assistant sidebar',exact:true}).click({timeout:90000});
+ const sidebar=page.getByRole('complementary',{name:'Assistant sidebar'});
+ const composer=sidebar.getByRole('textbox',{name:'Message this assistant'});
+ await composer.fill('Unsent collapse check');
+ const collapse=sidebar.getByRole('button',{name:'Collapse assistant sidebar',exact:true});
+ if(Math.abs((await collapse.boundingBox()).width-8)>1)throw Error('Collapse strip width');
+ if(!await collapse.evaluate(el=>{const r=el.getBoundingClientRect();return el.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2))}))throw Error('Collapse strip obscured');
+ await collapse.click();
+ await sidebar.waitFor({state:'hidden'});
+ await page.getByRole('button',{name:'Open assistant sidebar',exact:true}).click();
+ if(await composer.inputValue()!=='Unsent collapse check')throw Error('Draft lost');
+ await composer.fill('');
+ if(await sidebar.getByRole('button',{name:'Close assistant',exact:true}).count())throw Error('Header close still present');
+ const title=sidebar.getByRole('heading',{name:'Laomedo assistant',exact:true});
+ const header=title.locator('xpath=ancestor::header');
+ await header.getByRole('button',{name:'Expand conversations',exact:true}).click();
+ await sidebar.getByRole('heading',{name:'Conversations',exact:true}).waitFor();
+ const dir=root+'/.tools/sidebar-296-collapse-render';await mkdir(dir,{recursive:true});
+ await page.screenshot({path:dir+'/history.png'});
+ await collapse.click();await sidebar.waitFor({state:'hidden'});
+ await page.getByRole('button',{name:'Open assistant sidebar',exact:true}).click();
+ const index=await page.evaluate(async()=>{const r=await fetch('/api/v1/laomedo/assistant/conversations',{credentials:'same-origin',headers:{}});return r.json()});
+ const at=index.conversations.findIndex(c=>c.id==='3112d600-3026-4921-8a62-d54f2d53db09');
+ if(at<0)throw Error('Retained approval chat absent');
+ await sidebar.getByRole('navigation').getByRole('button').nth(at).click();
+ const card=sidebar.getByRole('article',{name:/^Run workflow:/}).first();
+ await card.waitFor();await card.scrollIntoViewIfNeeded();
+ await page.waitForTimeout(1500);
+ await page.screenshot({path:dir+'/card.png'});
+ const link=card.getByRole('link',{name:'Open workflow',exact:true});
+ const target=await link.getAttribute('href');const count=page.context().pages().length;
+ await link.click();await page.waitForURL(url=>url.pathname===target);
+ await page.locator('.react-flow__node').first().waitFor();
+ if(page.context().pages().length!==count)throw Error('Unexpected popup');
+ await page.waitForTimeout(1500);
+ await page.screenshot({path:dir+'/graph.png'});
+ // A retained action for the current graph must cause a real document reload.
+ const opener=page.getByRole('button',{name:'Open assistant sidebar',exact:true});
+ if(await opener.count())await opener.click();
+ const reopened=page.getByRole('complementary',{name:'Assistant sidebar'});
+ await reopened.getByRole('button',{name:'Expand conversations',exact:true}).click();
+ await reopened.getByRole('navigation').getByRole('button').nth(at).click();
+ const same=reopened.getByRole('article',{name:/^Run workflow:/}).first().getByRole('link',{name:'Open workflow',exact:true});
+ await Promise.all([page.waitForEvent('domcontentloaded'),same.click()]);
+ await page.locator('.react-flow__node').first().waitFor();
+ await page.screenshot({path:dir+'/same-graph.png'});
+ console.log(JSON.stringify({edgeCollapsesPanel:true,draftPreserved:true,historyFromHeader:true,noHeaderClose:true,collapseWorksInHistory:true,cardOpensGraphSameTab:true,noApprovalSubmitted:true,noInference:true,noGraphMutation:true}));
+}finally {await browser.close()}

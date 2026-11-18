@@ -20,7 +20,7 @@ try {
  if(page.url()!==graphUrl || !await page.getByRole('heading',{name:'Agents',exact:true}).isVisible())throw Error('Rail changed graph section');
  const dir=root+'/.tools/sidebar-296-entry-render';await mkdir(dir,{recursive:true});
  await page.screenshot({path:dir+'/rail.png'});
- await page.getByRole('button',{name:'Close assistant',exact:true}).click();
+ await page.getByRole('button',{name:'Collapse assistant sidebar',exact:true}).click();
  await page.waitForFunction(()=>document.activeElement?.id==='laomedo-assistant-opener');
  const count=page.context().pages().length;
  await page.getByRole('link',{name:'Open full-window assistant',exact:true}).click();
