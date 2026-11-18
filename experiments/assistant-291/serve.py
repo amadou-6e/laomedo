@@ -82,18 +82,23 @@ metadata_path.write_text(
 (STATE / "stop-acceptance").unlink(missing_ok=True)
 lease_started_at = time.time()
 lease_log = (STATE / "lease.log").open("wb")
-lease = subprocess.Popen(
-    [
-        sys.executable,
-        "-m",
-        "laomedo.host.leases.service_cli",
-        "serve",
-        "--state",
-        str(STATE / "lease"),
-    ],
-    stdout=lease_log,
-    stderr=lease_log,
-    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+reuse_lease = os.environ.get("LAOMEDO_ACCEPTANCE_REUSE_LEASE") == "1"
+lease = (
+    None
+    if reuse_lease
+    else subprocess.Popen(
+        [
+            sys.executable,
+            "-m",
+            "laomedo.host.leases.service_cli",
+            "serve",
+            "--state",
+            str(STATE / "lease"),
+        ],
+        stdout=lease_log,
+        stderr=lease_log,
+        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+    )
 )
 try:
     deadline = time.monotonic() + 60
@@ -104,13 +109,14 @@ try:
             )
             alive = float((STATE / "lease/service.alive").read_text())
             if (
-                publication["started_at"] >= lease_started_at
-                and 0 <= time.time() - alive < 3
-            ):
+                reuse_lease or publication["started_at"] >= lease_started_at
+            ) and 0 <= time.time() - alive < 3:
                 break
         except (OSError, ValueError, KeyError):
             pass
-        if lease.poll() is not None or time.monotonic() > deadline:
+        if (
+            lease is not None and lease.poll() is not None
+        ) or time.monotonic() > deadline:
             raise RuntimeError("acceptance_lease_unavailable")
         time.sleep(0.2)
     import laomedo
@@ -137,6 +143,7 @@ try:
     threading.Thread(target=watch_stop, daemon=True).start()
     server.run()
 finally:
-    lease.terminate()
-    lease.wait(timeout=20)
+    if lease is not None:
+        lease.terminate()
+        lease.wait(timeout=20)
     lease_log.close()
