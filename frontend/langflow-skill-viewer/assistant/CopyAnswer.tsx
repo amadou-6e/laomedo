@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, Copy } from "lucide-react";
 
-export default function CopyAnswer({ text }: { text: string }) {
+export default function CopyAnswer({ text, disabled = false }: { text: string; disabled?: boolean }) {
   const [state, setState] = useState<"idle" | "copied" | "failed">("idle");
   const version = useRef(0);
   useEffect(() => {
@@ -14,8 +14,9 @@ export default function CopyAnswer({ text }: { text: string }) {
       <button
         type="button"
         aria-label="Copy answer"
-        title="Copy all agent activity since your request"
-        className="rounded p-1 hover:bg-muted hover:text-foreground focus-visible:outline focus-visible:outline-2"
+        title={disabled ? "Copy available after retained agent activity loads" : "Copy all agent activity since your request"}
+        disabled={disabled}
+        className="rounded p-1 hover:bg-muted hover:text-foreground disabled:opacity-40 focus-visible:outline focus-visible:outline-2"
         onClick={async () => {
           const current = version.current;
           try {

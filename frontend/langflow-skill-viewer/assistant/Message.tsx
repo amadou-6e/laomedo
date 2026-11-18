@@ -239,7 +239,7 @@ export default function MessageRow({
         </article>
       ))}
       {(items.length > 0 || message.response || receipts.length > 0 || actions.length > 0) && (
-        <CopyAnswer text={responseTranscript(page, message, receipts, actions)} />
+        <CopyAnswer disabled={!page} text={responseTranscript(page, message, receipts, actions)} />
       )}
     </section>
   );

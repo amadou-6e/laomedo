@@ -39,6 +39,14 @@ const receipt: DraftReceipt = {
 };
 
 describe("retained assistant conversation", () => {
+  it("waits for retained activity before enabling a response copy", async () => {
+    let finish!: (value: unknown) => void;
+    jest.mocked(assistantRequest).mockReturnValueOnce(new Promise((resolve) => { finish = resolve; }));
+    render(<MessageRow conversation="conversation" message={message} receipts={[]} active={false} onContent={onContent} onFailure={onFailure} />);
+    expect((screen.getByRole("button", { name: "Copy answer" }) as HTMLButtonElement).disabled).toBe(true);
+    finish({ available: true, complete: true, projection: { items: [] } });
+    await waitFor(() => expect((screen.getByRole("button", { name: "Copy answer" }) as HTMLButtonElement).disabled).toBe(false));
+  });
   it("copies all agent activity since this request with one response-level control", async () => {
     const writeText = jest.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
