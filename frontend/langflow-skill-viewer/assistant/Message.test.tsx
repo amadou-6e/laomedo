@@ -5,6 +5,9 @@ import MessageRow from "./Message";
 import { assistantRequest } from "./api";
 import type { DraftReceipt, Message } from "./models";
 jest.unmock("react-markdown");
+jest.unmock("remark-gfm");
+// Message tests exercise shared Markdown, not the separate JSON source viewer.
+jest.mock("@/components/core/codeTabsComponent",()=>({__esModule:true,default:({code}:{code:string})=><pre>{code}</pre>}));
 
 jest.mock("./api", () => ({
   assistantRequest: jest.fn(),
