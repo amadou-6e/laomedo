@@ -15,3 +15,7 @@ class GraphRuntimeError(RuntimeError):
     def __init__(self):
         """Expose only the stable machine code."""
         super().__init__(self.code)
+
+    def __reduce__(self):
+        """Preserve the fixed no-argument outcome across serialization."""
+        return type(self), ()

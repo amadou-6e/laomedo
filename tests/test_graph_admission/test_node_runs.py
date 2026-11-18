@@ -1,8 +1,12 @@
 """Native graph selection projection, without executing a graph or provider."""
 
 from copy import deepcopy
+from importlib.util import find_spec
 import unittest
 from uuid import uuid4
+
+if find_spec("lfx") is None:
+    raise unittest.SkipTest("Optional native graph expansion is not installed")
 
 from laomedo.github.node_runs.errors import GitHubNodeAuthorizationError
 from laomedo.github.node_runs.authority import GitHubRunAuthority
