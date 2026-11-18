@@ -9,6 +9,11 @@ import re
 pr_digest = issue_digest
 
 
+# Langflow template field names of the PR node, read by graph admission.
+PR_CHOICE_FIELD = "pr_choice"
+PR_CONTEXT_FIELD = "pr_context"
+
+
 def pr_value(raw, repository, number):
     if (
         not isinstance(raw, dict)

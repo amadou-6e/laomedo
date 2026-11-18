@@ -13,6 +13,8 @@ from lfx.schema import Message
 from laomedo.github.interface.issues.client import issue_request
 from laomedo.github.contract import repository_from_url
 from laomedo.github.issues.contract import ERROR_CODES
+from laomedo.github.contract import REPOSITORY_URL_FIELD
+from laomedo.github.issues.contract import ISSUE_CHOICE_FIELD, ISSUE_OPERATION_FIELD
 from laomedo.github.issues.contract import PRE_DISPATCH_ERRORS
 from laomedo.github.node_runs.errors import GitHubNodeAuthorizationError
 from laomedo.integrations.langflow.execution.channel import GraphWorkerChannel
@@ -25,7 +27,7 @@ class LaomedoGitHubIssue(Component):
     name = "LaomedoGitHubIssue"
     inputs = [
         StrInput(
-            name="repository_url",
+            name=REPOSITORY_URL_FIELD,
             display_name="Repository URL",
             value="",
             real_time_refresh=True,
@@ -43,7 +45,7 @@ class LaomedoGitHubIssue(Component):
             info="Only issues matching ALL selected labels appear.",
         ),
         DropdownInput(
-            name="issue_choice",
+            name=ISSUE_CHOICE_FIELD,
             display_name="Issue",
             value="",
             options=[],
@@ -65,7 +67,7 @@ class LaomedoGitHubIssue(Component):
             info="Connect an earlier GitHub Issue output to operate on that same issue. Must match this repository and any explicit selection.",
         ),
         DataInput(
-            name="operation",
+            name=ISSUE_OPERATION_FIELD,
             display_name="Operation",
             info="close or modify(title/body/labels), with request_id and a host-owned grant_ref.",
         ),

@@ -6,8 +6,8 @@ from uuid import uuid4
 
 from laomedo.github.node_runs.errors import GitHubNodeAuthorizationError
 from laomedo.github.node_runs.authority import GitHubRunAuthority
-from laomedo.integrations.langflow.authentication.catalog import GitHubGraphCatalog
-from laomedo.integrations.langflow.authentication.node_runs import (
+from laomedo.integrations.langflow.graph_admission.catalog import GitHubGraphCatalog
+from laomedo.integrations.langflow.graph_admission.node_runs import (
     GitHubNodeRunAdmission,
 )
 from test_github.test_node_runs.test_authority import NodeConnectionFixture

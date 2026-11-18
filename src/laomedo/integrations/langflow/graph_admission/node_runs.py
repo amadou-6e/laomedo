@@ -6,7 +6,14 @@ from uuid import UUID
 
 from laomedo.github.node_runs.errors import GitHubNodeAuthorizationError
 from laomedo.github.node_runs.models import GitHubNodeSelection
-from laomedo.github.contract import repository_from_url
+from laomedo.github.contract import (
+    GITHUB_CONNECTION_FIELD,
+    HOST_CONNECTION,
+    REPOSITORY_URL_FIELD,
+    repository_from_url,
+)
+from laomedo.github.issues.contract import ISSUE_CHOICE_FIELD, ISSUE_OPERATION_FIELD
+from laomedo.github.pull_requests.contract import PR_CHOICE_FIELD, PR_CONTEXT_FIELD
 from laomedo.github.pull_requests.context import context_value
 from laomedo.github.pull_requests.models import PRContextOperation
 
@@ -14,7 +21,14 @@ from laomedo.github.pull_requests.models import PRContextOperation
 class GitHubNodeRunAdmission:
     """Native graph projection; browser target lists are never authority."""
 
+    # Canonical classification -> (selection kind, target picker, operation input).
+    NODE_FIELDS = {
+        "LaomedoGitHubIssue": ("issue", ISSUE_CHOICE_FIELD, ISSUE_OPERATION_FIELD),
+        "LaomedoGitHubPR": ("pr", PR_CHOICE_FIELD, PR_CONTEXT_FIELD),
+    }
+
     def __init__(self, authority, catalog):
+        """Use the broker's run authority and the run's pinned host catalog."""
         self.authority = authority
         self.catalog = catalog
 
@@ -68,11 +82,12 @@ class GitHubNodeRunAdmission:
             for node in nodes:
                 data = node.get("data", {})
                 kind = self.catalog.classification(data.get("type"))
-                if kind not in {"LaomedoGitHubIssue", "LaomedoGitHubPR"}:
+                if kind not in self.NODE_FIELDS:
                     continue
+                resource, choice_field, operation_field = self.NODE_FIELDS[kind]
                 template = data["node"]["template"]
-                connection = template.get("github_connection", {}).get("value", "")
-                if connection == "host":
+                connection = template.get(GITHUB_CONNECTION_FIELD, {}).get("value", "")
+                if connection == HOST_CONNECTION:
                     continue
                 if (
                     data.get("tool_mode")
@@ -81,23 +96,22 @@ class GitHubNodeRunAdmission:
                 ):
                     raise GitHubNodeAuthorizationError()
                 connection_id = UUID(connection)
-                repository = repository_from_url(template["repository_url"]["value"])
+                repository = repository_from_url(
+                    template[REPOSITORY_URL_FIELD]["value"]
+                )
                 selected = self.authority.connections.selected_repository(
                     scope.owner_id, connection_id, repository
                 )
                 if selected is None:
                     raise GitHubNodeAuthorizationError()
-                resource = "issue" if kind == "LaomedoGitHubIssue" else "pr"
-                choice = template.get(resource + "_choice", {}).get("value", "")
+                choice = template.get(choice_field, {}).get("value", "")
                 match = (
                     re.match(r"^#([1-9][0-9]*) ", choice)
                     if isinstance(choice, str)
                     else None
                 )
                 operations = ()
-                static_operation = template.get(
-                    "operation" if resource == "issue" else "pr_context", {}
-                ).get("value")
+                static_operation = template.get(operation_field, {}).get("value")
                 if static_operation:
                     if resource == "issue":
                         action = (
@@ -118,8 +132,9 @@ class GitHubNodeRunAdmission:
                     if edge.get("target") != node["id"]:
                         continue
                     handle = edge["data"]["targetHandle"]
-                    if isinstance(handle, dict) and handle.get("fieldName") == (
-                        "operation" if resource == "issue" else "pr_context"
+                    if (
+                        isinstance(handle, dict)
+                        and handle.get("fieldName") == operation_field
                     ):
                         operations = ("modify", "close")
                 selections.append(

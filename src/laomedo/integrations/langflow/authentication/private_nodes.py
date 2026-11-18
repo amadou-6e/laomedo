@@ -8,11 +8,11 @@ from starlette.responses import JSONResponse
 
 from laomedo.github.node_runs.models import GitHubNodeReadRequest
 from laomedo.github.connections.models import GitHubResponseBinding
-from laomedo.integrations.langflow.authentication.connections import (
-    admit,
-    body,
-    failure,
-    parse,
+from laomedo.integrations.langflow.authentication.private_requests import (
+    admit_private_request,
+    parse_private_payload,
+    private_failure_response,
+    read_private_json,
 )
 
 private_node_router = APIRouter(
@@ -26,8 +26,10 @@ async def private_node_read(
 ):
     """Admit profile/lease/CSRF and bind buffered results to their live generation."""
     try:
-        scope = await admit(request, user, mutating=True)
-        selected = parse(GitHubNodeReadRequest, await body(request))
+        scope = await admit_private_request(request, user, mutating=True)
+        selected = parse_private_payload(
+            GitHubNodeReadRequest, await read_private_json(request)
+        )
         result = await request.app.state.private_github_nodes.read(
             scope, action=action, **selected.model_dump()
         )
@@ -36,4 +38,4 @@ async def private_node_read(
         )
         return JSONResponse(result.payload, headers={"Cache-Control": "no-store"})
     except Exception as error:
-        return failure(error)
+        return private_failure_response(error)

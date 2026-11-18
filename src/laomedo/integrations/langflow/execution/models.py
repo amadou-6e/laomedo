@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field, SecretStr, model_validator
 from laomedo.github.node_runs.models import GitHubWorkerReadRequest
 from laomedo.host.leases.client import LeaseClient
 from laomedo.host.leases.models import ContainerIdentity
-from laomedo.integrations.langflow.authentication.models import GitHubCatalogSnapshot
+from laomedo.integrations.langflow.graph_admission.models import GitHubCatalogSnapshot
 
 
 class NativeProfileInstance(BaseModel):

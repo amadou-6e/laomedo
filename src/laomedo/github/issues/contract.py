@@ -3,6 +3,10 @@
 from laomedo.github.contract import labels_value
 from laomedo.github.issues.models import GitHubIssue
 
+# Langflow template field names of the Issue node, read by graph admission.
+ISSUE_CHOICE_FIELD = "issue_choice"
+ISSUE_OPERATION_FIELD = "operation"
+
 
 def issue_value(raw, repository, number):
     if (

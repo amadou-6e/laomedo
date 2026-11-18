@@ -26,18 +26,28 @@ FORBIDDEN_STATE_READS = (
     re.compile(r"\._credential\("),
 )
 
-# Saved-account node-run code moved out of the connections package (PR #287, B3).
+# Saved-account node-run code moved out of the connections package (PR #287, B3);
+# graph admission moved out of authentication (B4).
 RETIRED_MODULES = re.compile(
     r"laomedo\.github\.connections\.(?:run_authority|node_access|worker_access)\b"
+    r"|laomedo\.integrations\.langflow\.authentication\.(?:catalog|node_runs)\b"
 )
 RETIRED_FILES = (
     "github/connections/run_authority.py",
     "github/connections/node_access.py",
     "github/connections/worker_access.py",
+    "integrations/langflow/authentication/catalog.py",
+    "integrations/langflow/authentication/node_runs.py",
 )
 
 PRIVATE_AUTHENTICATION_IMPORT = re.compile(
     r"authentication\.connections import \(?[^)]*\b_\w+", re.S
+)
+# Route modules share request handling through private_requests.py only; the
+# connection route module exports routers and route functions, not helpers.
+ROUTE_HELPER_IMPORT = re.compile(
+    r"authentication\.connections import \(?[^)]*\b(?:admit|body|failure|parse)\b",
+    re.S,
 )
 
 
@@ -67,6 +77,7 @@ class ConnectionBoundaryTests(unittest.TestCase):
             relative
             for relative, text in _sources()
             if PRIVATE_AUTHENTICATION_IMPORT.search(text)
+            or ROUTE_HELPER_IMPORT.search(text)
         ]
         self.assertEqual(offenders, [])
 
@@ -85,7 +96,7 @@ class ConnectionBoundaryTests(unittest.TestCase):
         self.assertEqual(offenders, [])
 
     def test_retired_node_run_modules_stay_retired(self):
-        """Node-run modules must not return to the connections package."""
+        """Moved node-run and graph-admission modules must not return."""
         for relative in RETIRED_FILES:
             self.assertFalse((SOURCE_ROOT / relative).exists(), relative)
         offenders = [

@@ -19,8 +19,8 @@ if find_spec("lfx") is None:
 from lfx.components.input_output.text_output import TextOutputComponent
 
 from laomedo.github.node_runs.authority import GitHubRunAuthority
-from laomedo.integrations.langflow.authentication.catalog import GitHubGraphCatalog
-from laomedo.integrations.langflow.authentication.node_runs import (
+from laomedo.integrations.langflow.graph_admission.catalog import GitHubGraphCatalog
+from laomedo.integrations.langflow.graph_admission.node_runs import (
     GitHubNodeRunAdmission,
 )
 from laomedo.integrations.langflow.execution.channel import GraphWorkerChannel

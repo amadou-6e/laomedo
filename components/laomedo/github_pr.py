@@ -19,6 +19,8 @@ from laomedo.agents.feedback.pr import agent_operation
 from laomedo.agents.feedback.pr import bind_feedback_parameters, exclude_feedback_agent
 from laomedo.github.pull_requests.context import context_value, task_text
 from laomedo.github.pull_requests.models import PRContextOperation
+from laomedo.github.contract import REPOSITORY_URL_FIELD
+from laomedo.github.pull_requests.contract import PR_CHOICE_FIELD, PR_CONTEXT_FIELD
 from laomedo.github.node_runs.errors import GitHubNodeAuthorizationError
 from laomedo.integrations.langflow.execution.channel import GraphWorkerChannel
 
@@ -30,7 +32,7 @@ class LaomedoGitHubPR(Component):
     name = "LaomedoGitHubPR"
     inputs = [
         StrInput(
-            name="repository_url",
+            name=REPOSITORY_URL_FIELD,
             display_name="Repository URL",
             value="",
             real_time_refresh=True,
@@ -56,7 +58,7 @@ class LaomedoGitHubPR(Component):
             info="Only PRs matching ALL selected labels appear.",
         ),
         DropdownInput(
-            name="pr_choice",
+            name=PR_CHOICE_FIELD,
             display_name="PR",
             value="",
             options=[],
@@ -65,7 +67,7 @@ class LaomedoGitHubPR(Component):
             real_time_refresh=True,
         ),
         DataInput(
-            name="pr_context",
+            name=PR_CONTEXT_FIELD,
             display_name="PR",
             input_types=["Data", "Message"],
             info="Optional PR context: identity and a requested operation. Earlier operation outcomes never replay. With no input, read the picker selection.",

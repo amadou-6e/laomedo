@@ -4,11 +4,11 @@ from hashlib import sha256
 import json
 
 from laomedo.github.node_runs.errors import GitHubNodeAuthorizationError
-from laomedo.integrations.langflow.authentication.models import (
+from laomedo.integrations.langflow.graph_admission.models import (
     GitHubCatalogEntry,
     GitHubCatalogSnapshot,
 )
-from laomedo.integrations.langflow.authentication.settings import (
+from laomedo.integrations.langflow.graph_admission.settings import (
     GITHUB_GRAPH_COMPONENT_TYPES,
 )
 

@@ -28,31 +28,9 @@ profile identity from broker authentication, never from a worker's user records
 or JWTs. The startup regression pins the full real broker route inventory so a
 future owned runtime cannot silently install a code-evaluation endpoint.
 
-`catalog.py` owns `GitHubGraphCatalog`. `capture` copies exact code digests for
-canonical entries from a trusted host catalog; neither posted labels nor posted
-hashes are inputs. Classification is host-owned in `settings.py`: unknown types,
-runtime flow loaders and host-Python execution components remain refused.
-`effective_graph` validates all leaf nodes, including disconnected and nested
-nodes, then uses native pure-data group expansion and validates the resulting
-code again after proxy input overrides. The same immutable catalog snapshot
-must be retained for admission and worker construction. This does not itself
-establish OS isolation or authorize a GitHub operation.
-`classification` resolves canonical catalog identity without trusting posted
-component names or parsing extension labels.
-
-`node_runs.py` owns `GitHubNodeRunAdmission`, the native graph projection for
-saved-account approval. `executable_graph` removes only known canvas geometry;
-`effective_graph` first requires the supplied trusted catalog to validate and
-expand the complete graph, including disconnected leaves. `prepare` always uses
-that projection and the catalog's canonical classification, never a posted name.
-`prepare` extracts account, repository, picker target and write-capable input
-edges from the same effective graph that will execute. It passes canonical
-`GitHubNodeSelection` values to the generic host run authority rather than
-accepting a browser-supplied target list. Edges use current native `data`
-handle objects; obsolete string handles are not supported by this new path.
-Static requests are also write-capable; earlier PR operation outcomes never
-become requests. Saved-account Issue/PR components have no Agent tool interface,
-so Tool Mode is refused rather than bypassing graph approval.
+Saved-account graph admission (`GitHubGraphCatalog`, `GitHubNodeRunAdmission`)
+is owned by [`../graph_admission/`](../graph_admission/README.md); it is not
+authentication. This package supplies only the run scope it consumes.
 
 `PrivateGitHubRunAdmission` is minted only from an already JWT-admitted browser
 context. It retains the canonical `IssuedPrivateSession` lease/cookie projection,
@@ -165,11 +143,19 @@ connection service still must validate and consume one-use state/PKCE.
 pending attempts and read authorization before releasing private responses.
 The shared commit lock orders these checks against logout and connection changes.
 
+`private_requests.py` holds the request handling shared by the connection,
+private Skill and private GitHub-node routes. `admit_private_request` derives the
+owner/lease scope from upstream authentication (and CSRF proof for mutations)
+before any body is read. `read_private_json` bounds JSON and refuses duplicate
+fields before manual Pydantic validation in `parse_private_payload`, so
+validation errors never echo a token or app secret. `private_failure_response`
+projects only catalogued fixed codes. Route modules import these functions from
+this module, never from one another.
+
 `connections.py` owns the authenticated connection HTTP adapter. `connection_index`
 returns only the current profile/lease's broker metadata; `connection_action`
 dispatches the fixed setup/begin/token/confirm/cancel/refresh/disconnect/cleanup
-actions after browser admission and CSRF verification. `body` bounds JSON before
-manual Pydantic validation, so validation errors never echo a token or app secret.
+actions after browser admission and CSRF verification.
 `connection_callback` admits the fixed top-level OAuth return, consumes its bound
 attempt, and redirects to the fixed manager without code/state query parameters.
 `connection_capability` exposes only whether this explicit private runtime exists.

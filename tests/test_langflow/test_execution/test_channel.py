@@ -9,7 +9,7 @@ from uuid import uuid4
 
 from laomedo.github.node_runs.errors import GitHubNodeAuthorizationError
 from laomedo.github.node_runs.authority import GitHubRunAuthority
-from laomedo.integrations.langflow.authentication.catalog import GitHubGraphCatalog
+from laomedo.integrations.langflow.graph_admission.catalog import GitHubGraphCatalog
 from laomedo.integrations.langflow.execution.channel import GraphWorkerChannel
 from laomedo.integrations.langflow.execution.errors import GraphWorkerError
 from laomedo.integrations.langflow.execution.models import (

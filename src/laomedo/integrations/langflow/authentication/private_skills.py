@@ -7,11 +7,11 @@ from langflow.api.utils import CurrentActiveUser
 from starlette.responses import JSONResponse
 
 from laomedo.github.connections.models import GitHubResponseBinding
-from laomedo.integrations.langflow.authentication.connections import (
-    admit,
-    body,
-    failure,
-    parse,
+from laomedo.integrations.langflow.authentication.private_requests import (
+    admit_private_request,
+    parse_private_payload,
+    private_failure_response,
+    read_private_json,
 )
 from laomedo.github.connections.skills.models import (
     PrivateSkillChoiceRequest,
@@ -34,21 +34,21 @@ async def private_skill_action(
 ):
     """Admit owner/session/CSRF before parsing; bind buffered bytes before release."""
     try:
-        scope = await admit(request, user, mutating=True)
-        payload = await body(request)
+        scope = await admit_private_request(request, user, mutating=True)
+        payload = await read_private_json(request)
         service = request.app.state.private_skill_access
         if action == "discover":
-            selected = parse(PrivateSkillRequest, payload)
+            selected = parse_private_payload(PrivateSkillRequest, payload)
             result = await service.discover(
                 scope, selected.connection_id, selected.repository_id
             )
         elif action == "revisions":
-            selected = parse(PrivateSkillChoiceRequest, payload)
+            selected = parse_private_payload(PrivateSkillChoiceRequest, payload)
             result = await service.revisions(
                 scope, selected.connection_id, selected.repository_id, selected.choice
             )
         elif action == "inspect":
-            selected = parse(PrivateSkillRevisionRequest, payload)
+            selected = parse_private_payload(PrivateSkillRevisionRequest, payload)
             result = await service.inspect(
                 scope,
                 selected.connection_id,
@@ -57,12 +57,12 @@ async def private_skill_action(
                 selected.revision_id,
             )
         elif action == "history":
-            selected = parse(PrivateSkillHistoryRequest, payload)
+            selected = parse_private_payload(PrivateSkillHistoryRequest, payload)
             result = await service.history(
                 scope, selected.connection_id, selected.repository_id, selected.skill_id
             )
         else:
-            selected = parse(PrivateSkillCompareRequest, payload)
+            selected = parse_private_payload(PrivateSkillCompareRequest, payload)
             result = await service.compare(
                 scope,
                 selected.connection_id,
@@ -76,4 +76,4 @@ async def private_skill_action(
         )
         return JSONResponse(result.payload, headers={"Cache-Control": "no-store"})
     except Exception as error:
-        return failure(error)
+        return private_failure_response(error)
