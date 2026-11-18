@@ -13,6 +13,7 @@ from acp.schema import (
 )
 
 from laomedo.agents.agents.base.acp.models import AcpTurn
+from laomedo.agents.agents.base.acp.models import NativeCommandCatalog
 from laomedo.agents.agents.base.acp.transport import DockerTransport
 from laomedo.agents.errors import RunnerError
 from laomedo.docker import DockerRuntime
@@ -45,6 +46,7 @@ class AcpSession:
         self.on_extension = on_extension
         self.on_precheck = on_precheck
         self.updates = []
+        self._commands = None
         self.session_id = None
         self.capabilities = None
         self.cancel_sent = False
@@ -77,6 +79,7 @@ class AcpSession:
         A resume uses loadSession only when the agent advertises support. Failure
         never falls back to creating a fresh session or dispatching another turn.
         """
+        self._commands = None
         arguments = {"cwd": cwd, "mcp_servers": list(mcp_servers), **(metadata or {})}
         if session_id is None:
             reply = await self._request(
@@ -222,11 +225,25 @@ class AcpSession:
             return
         try:
             value = update.model_dump(mode="json", by_alias=True, exclude_none=True)
+            if value.get("sessionUpdate") == "available_commands_update":
+                self._commands = NativeCommandCatalog.model_validate(
+                    {"commands": value["availableCommands"]}
+                )
             self.updates.append(value)
             if self.on_update is not None:
                 self.on_update(session_id, value)
         except Exception:
             self.protocol_failed = True
+
+    def command_catalog(self) -> NativeCommandCatalog | None:
+        """Copy observed commands independently of per-turn activity buffers.
+
+        None means no list has been advertised; an empty list means the agent
+        explicitly cleared it. Neither observation admits command execution.
+        """
+        return (
+            self._commands.model_copy(deep=True) if self._commands is not None else None
+        )
 
     async def ext_method(self, method, params):
         """Allow only pure output validation; every execution extension is denied."""

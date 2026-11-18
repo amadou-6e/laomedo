@@ -1,6 +1,53 @@
 """Results derived from observed ACP updates and terminal prompt responses."""
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
+import hashlib
+import json
+
+
+class NativeCommandInput(BaseModel):
+    """A bounded native argument hint, without an executable argument schema."""
+
+    model_config = ConfigDict(extra="ignore", strict=True, frozen=True)
+    hint: str = Field(
+        max_length=4000,
+        description="Provider-authored text describing accepted arguments.",
+    )
+
+
+class NativeCommand(BaseModel):
+    """A provider-advertised command, without granting execution permission."""
+
+    model_config = ConfigDict(extra="ignore", strict=True, frozen=True)
+    name: str = Field(
+        min_length=1,
+        max_length=200,
+        description="Exact native command identifier, without a leading slash.",
+    )
+    description: str = Field(
+        max_length=4000,
+        description="Untrusted provider description for display, never execution authority.",
+    )
+    input: NativeCommandInput | None = Field(
+        default=None, description="Native argument hint when the provider reports one."
+    )
+
+
+class NativeCommandCatalog(BaseModel):
+    """Detached, bounded observation of a session's complete native command list."""
+
+    model_config = ConfigDict(extra="forbid", strict=True, frozen=True)
+    commands: list[NativeCommand] = Field(
+        max_length=256,
+        description="Latest complete advertised list; empty explicitly clears older commands.",
+    )
+
+    def revision(self) -> str:
+        """Hash canonical observed metadata; the digest grants no execution authority."""
+        value = json.dumps(
+            self.model_dump(mode="json"), sort_keys=True, separators=(",", ":")
+        )
+        return hashlib.sha256(value.encode()).hexdigest()
 
 
 class AcpTurn(BaseModel):
