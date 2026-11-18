@@ -2,6 +2,7 @@
 
 import asyncio
 import time
+from pydantic import ValidationError
 
 from acp import RequestError, connect_to_agent
 from acp.schema import (
@@ -226,9 +227,15 @@ class AcpSession:
         try:
             value = update.model_dump(mode="json", by_alias=True, exclude_none=True)
             if value.get("sessionUpdate") == "available_commands_update":
-                self._commands = NativeCommandCatalog.model_validate(
-                    {"commands": value["availableCommands"]}
-                )
+                try:
+                    self._commands = NativeCommandCatalog.model_validate(
+                        {"commands": value.get("availableCommands")}
+                    )
+                except ValidationError:
+                    # Optional discovery must not break ordinary agent turns.
+                    # Withdraw the previous catalog instead of retaining stale
+                    # executable choices; preserve the raw activity callback.
+                    self._commands = None
             self.updates.append(value)
             if self.on_update is not None:
                 self.on_update(session_id, value)

@@ -20,7 +20,10 @@ are external contracts, not candidates for cosmetic renaming.
 Missing discovery is `None`; a reported empty list replaces previous commands.
 `NativeCommand` retains bounded name, description and argument hints only. Its
 catalog revision hashes observed metadata; discovery does not grant permission
-to invoke a command. Invalid or wrong-session updates fail the protocol closed.
+to invoke a command. Invalid catalog metadata withdraws discovery while retaining
+raw activity and leaving ordinary turns usable. Wrong-session updates still fail
+the protocol closed. Before session creation returns, the existing SDK callback
+cannot yet check the returned native session identity.
 
 ## Current object interface inventory
 

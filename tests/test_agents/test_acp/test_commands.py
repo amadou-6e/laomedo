@@ -2,6 +2,7 @@
 
 import unittest
 from unittest.mock import Mock
+from acp.schema import AvailableCommandsUpdate
 
 from laomedo.agents.agents.base.acp.session import AcpSession
 
@@ -49,12 +50,38 @@ class NativeCommandTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.session.command_catalog().commands, [])
         self.assertNotEqual(self.session.command_catalog().revision(), digest)
 
-    async def test_wrong_session_and_unbounded_metadata_fail_closed(self):
-        """Foreign or malformed advertisements cannot become a usable catalog."""
+    async def test_wrong_session_fails_the_protocol(self):
+        """Foreign advertisements cannot become a usable catalog."""
         await self.advertise([{"name": "status", "description": "Status"}], "foreign")
         self.assertTrue(self.session.protocol_failed)
         self.assertIsNone(self.session.command_catalog())
-        self.session.protocol_failed = False
+
+    async def test_invalid_metadata_withdraws_catalog_without_breaking_chat(self):
+        """Optional discovery failure preserves raw updates and ordinary turns."""
+        await self.advertise([{"name": "status", "description": "Status"}])
+        self.session.on_update = Mock()
         await self.advertise([{"name": "status", "description": "x" * 4001}])
-        self.assertTrue(self.session.protocol_failed)
+        self.assertFalse(self.session.protocol_failed)
         self.assertIsNone(self.session.command_catalog())
+        self.assertEqual(len(self.session.updates), 2)
+        self.session.on_update.assert_called_once()
+
+    async def test_real_sdk_aliases_are_observed(self):
+        """Parse the pinned SDK's actual notification rather than a mock shape."""
+        update = AvailableCommandsUpdate.model_validate(
+            {
+                "sessionUpdate": "available_commands_update",
+                "availableCommands": [
+                    {
+                        "name": "review",
+                        "description": "Review",
+                        "input": {"hint": "instructions"},
+                    }
+                ],
+            }
+        )
+        await self.session.session_update("owned", update)
+        self.assertFalse(self.session.protocol_failed)
+        self.assertEqual(
+            self.session.command_catalog().commands[0].input.hint, "instructions"
+        )
