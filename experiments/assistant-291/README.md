@@ -120,3 +120,15 @@ an unresolved owner decision: whether Edit needs a compact verified actual-effec
 summary alongside or instead of agent wording. No risk acceptance inferred.
 Final full assistant suite57 tests/23 subtests and25 UI tests/build/Black/spec/CI
 pass at reviewed head. No later production change. Both PRs draft/unmerged.
+
+
+2026-11-18: Owner explicitly chose agent-only Edit descriptions (M1 closed),
+recorded in spec f78f063 without code changes. New selected UI additions at
+558830148: Markdown transcript export, answer clipboard control and compact
+composer spacing; spec6a11cd0.31 UI tests pass. Node22 Vite built in1m22s;
+PowerShell wrapper marked warning stderr as failure although Vite completed.
+Real transcript.mjs reads an actual retained conversation, clicks Copy and
+verifies clipboard content, downloads Markdown and checks user/answer content.
+No model prompt or graph mutation. Live multi-page export not claimed; unit
+checks cover pagination. Screenshots/download content stay private and local.
+New additions sent to same Claude reviewer, verdict pending. CI passes.
