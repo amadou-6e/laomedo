@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import GraphAgents from "@/modals/graphAgents/GraphAgents";
 import { Button } from "@/components/ui/button";
 import { listConnections, readGraphPreferences, saveGraphPreferences, type ProviderConnection } from "./api";
 
@@ -47,9 +46,12 @@ export default function SubscriptionAgents({ flowId }: { flowId?: string }) {
             {accounts.map(row => <option key={row.connection_id} value={row.connection_id} disabled={row.lifecycle !== "connected" || row.auth_state !== "ready"}>{row.label}{row.lifecycle !== "connected" || row.auth_state !== "ready" ? " (unavailable)" : ""}</option>)}
           </select><Button disabled={busy || !!error || saved === preferred || !flowId} onClick={() => void save()}>Save preference</Button><a className="text-sm underline" href="/settings/providers">Manage accounts</a></div>
           {!busy && !accounts.length && <p className="text-sm text-muted-foreground">No Codex accounts connected.</p>}
-        </> : <p className="text-sm text-muted-foreground">{harnesses.find(item => item.id === harness)?.label} account connections are not available yet. Existing captured activity remains below.</p>}
+        </> : <p className="text-sm text-muted-foreground">{harnesses.find(item => item.id === harness)?.label} account connections are not available yet.</p>}
       </section>
-      <GraphAgents key={harness} flowId={flowId} provider={harness} />
+      <section className="space-y-3 px-4 py-5" aria-labelledby="subscription-limits-heading">
+        <h2 id="subscription-limits-heading" className="text-sm font-semibold">Subscription limits</h2>
+        <p className="text-sm text-muted-foreground">Remaining allowance and reset times are not available through this connection yet.</p>
+      </section>
     </div>
   </section>;
 }

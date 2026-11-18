@@ -113,6 +113,19 @@ def apply_providers(checkout: Path, source: Path):
         '\n  sidebarNavItems.push({ title: "Providers", href: "/settings/providers", icon: <ForwardedIconComponent name="Terminal" className="w-4" /> });\n'
         + settings_anchor,
     )
+    flow_page = frontend / "pages/FlowPage/index.tsx"
+    flow_text = flow_page.read_text(encoding="utf-8")
+    trace_start = flow_text.index("  if (showTraces) {")
+    trace_end = flow_text.index("  if (showMemories) {", trace_start)
+    flow_text = (
+        flow_text[:trace_start]
+        + "  if (showTraces) {\n    return <GraphTraces flowId={flowId} />;\n  }\n\n"
+        + flow_text[trace_end:]
+    )
+    flow_text = (
+        'import GraphTraces from "@/modals/graphAgents/GraphTraces";\n' + flow_text
+    )
+    edits[flow_page] = flow_text
     agents_index = frontend / "modals/graphAgents/index.tsx"
     if not agents_index.exists():
         raise SystemExit("provider_graph_agents_anchor_missing")

@@ -15,7 +15,7 @@ import { Conversation } from "./conversation";
 import { UsageCharts } from "./usage";
 import { RuntimeRecords } from "./telemetry";
 
-export default function GraphAgents({flowId,provider}:{flowId?:string;provider?:string}) {
+export default function GraphAgents({flowId}:{flowId?:string}) {
   const nodes=useFlowStore(state=>state.nodes);
   const target=useAgentActivityStore(state=>state.target);
   const targetNode=target&&target.flowId===flowId?target.nodeId:undefined;
@@ -41,7 +41,7 @@ export default function GraphAgents({flowId,provider}:{flowId?:string;provider?:
       try {
         const {data}=await api.get<{runs:Run[]}>(base,{signal:controller.signal});
         if(controller.signal.aborted)return;
-        const matching = provider ? data.runs.filter(run => (run.provider ?? "codex-cli").replace("-cli", "").replace("-code", "") === provider) : data.runs;
+        const matching = data.runs;
         setRuns(matching);setError("");
         setExecution(current=>matching.some(run=>run.execution===current)?current:[...matching].filter(run=>run.execution&&(!targetNode||run.node===targetNode)).sort((a,b)=>b.started.localeCompare(a.started))[0]?.execution??matching.find(run=>run.execution)?.execution??"");
       } catch {if(!controller.signal.aborted)setError("Activity unavailable. Enable capture on the app host before running the graph.")}
@@ -49,7 +49,7 @@ export default function GraphAgents({flowId,provider}:{flowId?:string;provider?:
     };
     void load();const timer=setInterval(load,2000);
     return()=>{controller.abort();clearInterval(timer)};
-  },[base,flowId,refresh,targetNode,provider]);
+  },[base,flowId,refresh,targetNode]);
   const visible=runs.filter(run=>run.execution===execution).sort((a,b)=>a.started.localeCompare(b.started));
   const invocationIds=visible.map(run=>run.id).join(",");
   const live=visible.some(run=>run.status==="running");
@@ -119,7 +119,7 @@ export default function GraphAgents({flowId,provider}:{flowId?:string;provider?:
     </div>;
   };
   return <section className="flex h-full min-w-0 flex-1 flex-col overflow-hidden bg-background text-foreground" aria-label="Graph agent activity">
-    <header className="flex min-h-12 shrink-0 items-center justify-between gap-3 border-b px-4 py-3"><h1 className="text-sm font-semibold">{provider ? "Activity and usage" : "Agents"}</h1>
+    <header className="flex min-h-12 shrink-0 items-center justify-between gap-3 border-b px-4 py-3"><h1 className="text-sm font-semibold">Traces</h1>
       <Button variant="ghost" size="icon" aria-label="Refresh" onClick={()=>setRefresh(value=>value+1)}><IconComponent name="RefreshCcw" className="h-4 w-4"/></Button></header>
     <div className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden">
     <div className="space-y-3 border-b px-4 py-3">

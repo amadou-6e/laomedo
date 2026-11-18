@@ -107,7 +107,7 @@
 +        useAgentActivityStore.getState().openActivity(currentFlowId, data.id);
 +        usePlaygroundStore.getState().setIsOpen(false);
 +        usePlaygroundStore.getState().setIsFullscreen(false);
-+        setActiveSection("agents");
++        setActiveSection("traces");
 +        return;
 +      }
        if (["LaomedoSkill", "LaomedoGitHubIssue", "LaomedoGitHubPR"].includes(nodeKind(data.type))) { setOpenModal(true); return; }

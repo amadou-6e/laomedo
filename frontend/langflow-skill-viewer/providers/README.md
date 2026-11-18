@@ -26,6 +26,10 @@ Connection details group compact reauthentication and Disconnect buttons togethe
 with reauthentication immediately before Disconnect and wrapping on narrow screens.
 
 `SubscriptionAgents.tsx` composes per-harness tabs, graph-specific account
-preferences and retained activity. `GraphAgents` filters activity by the selected
-harness. Preferences persist through authenticated graph-owned routes; viewing
+preferences and subscription-limit availability. Combined agent activity lives
+in `GraphTraces` under Traces, alongside the existing flow execution view. Preferences persist through authenticated graph-owned routes; viewing
 usage or changing selection never submits a model task.
+
+Subscription allowances are distinct from run tokens and estimated cost. The
+current ACP adapter has no account/rateLimits/read projection: show unavailable,
+never infer remaining hourly/weekly/monthly allowances from run activity.
