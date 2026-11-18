@@ -37,7 +37,7 @@ never infer remaining hourly/weekly/monthly allowances from run activity.
 Graph settings follow GitHub Primer's plain, left-aligned settings sections:
 headings with dividers, bounded form widths and consistent vertical spacing.
 Subscription limits are a list with one row per connected account, independently
-of the preferred account. Unsupported harnesses use a plain explanatory section
-without a card or cross-provider action; Codex without accounts offers Connect.
+of the preferred account. Unsupported harnesses use a borderless empty state with faded decorative account
+rows and the selected harness identity, without a cross-provider action; Codex without accounts offers Connect.
 References: https://primer.style/product/getting-started/foundations/layout/
 and https://primer.style/product/getting-started/foundations/typography/

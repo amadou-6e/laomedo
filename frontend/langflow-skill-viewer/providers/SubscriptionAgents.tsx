@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import IconComponent from "@/components/common/genericIconComponent";
 import { RefreshCw } from "lucide-react";
 import "./providers.css";
 import { Button } from "@/components/ui/button";
@@ -39,7 +40,14 @@ export default function SubscriptionAgents({ flowId }: { flowId?: string }) {
     </header>
     <div id="harness-panel" role="tabpanel" aria-labelledby={`harness-${harness}`} className="pc-settings-panel">
       {harness !== "codex" || (!busy && !error && accounts.length === 0) ? <section className="pc-settings-section pc-subscription-empty" aria-labelledby="missing-subscription-heading">
-        <h2 id="missing-subscription-heading">{harness === "codex" ? "No Codex account connected" : `${harnesses.find(item => item.id === harness)?.label} connections`}</h2>
+        <div className="pc-empty-art" aria-hidden="true">
+          {[0, 1, 2].map(row => <div key={row} className="pc-ghost-account">
+            <span className="pc-ghost-mark">{harness === "claude" ? <IconComponent name="Claude" className="h-6 w-6" /> : <span className="pc-ghost-terminal">{">_"}</span>}</span>
+            <span className="pc-ghost-copy"><span className="pc-ghost-brand">{harnesses.find(item => item.id === harness)?.label}</span><span className="pc-ghost-line" /></span>
+            <span className="pc-ghost-status" />
+          </div>)}
+        </div>
+        <h2 id="missing-subscription-heading">{harness === "codex" ? "No Codex account connected" : `No ${harnesses.find(item => item.id === harness)?.label} connections`}</h2>
         <p className="pc-card-description">{harness === "codex" ? "Connect your account to choose it as this graph's default." : "Account sign-in for this harness is not available yet."}</p>
         {harness === "codex" && <a className="pc-manage-account" href="/settings/providers">Connect Codex</a>}
       </section> : <>

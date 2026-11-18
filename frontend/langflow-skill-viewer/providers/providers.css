@@ -30,6 +30,19 @@
 .pc-subscription-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .pc-subscription-account { font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
 .pc-subscription-list p { margin: 0; font-size: 13px; line-height: 1.6; color: hsl(var(--muted-foreground)); }
-.pc-subscription-empty { padding: 8px 0; gap: 12px; }
-.pc-subscription-empty h2 { padding-bottom: 12px; border-bottom: 1px solid hsl(var(--border)); }
+.pc-subscription-empty { padding: 48px 0; min-height: 400px; align-content: center; justify-items: center; text-align: center; gap: 12px; }
+.pc-subscription-empty h2 { margin: 0; font-size: 18px; font-weight: 600; border: 0; padding: 0; }
+.pc-subscription-empty > p { max-width: 400px; }
 @media (max-width: 640px) { .pc-settings-panel { padding: 20px 16px; } }
+
+.pc-empty-art { width: min(360px, 100%); height: 176px; position: relative; margin-bottom: 20px; overflow: hidden; color: hsl(var(--foreground)); pointer-events: none; }
+.pc-ghost-account { position: absolute; left: 12px; right: 24px; height: 48px; display: flex; align-items: center; gap: 14px; padding: 10px 14px; border: 1px solid currentColor; border-radius: 6px; transform: rotate(-4deg); opacity: .18; }
+.pc-ghost-account:nth-child(1) { top: 14px; }
+.pc-ghost-account:nth-child(2) { top: 69px; left: 24px; right: 12px; opacity: .10; }
+.pc-ghost-account:nth-child(3) { top: 124px; opacity: .05; }
+.pc-ghost-mark { width: 28px; flex: none; display: flex; align-items: center; justify-content: center; filter: grayscale(1); }
+.pc-ghost-terminal { font: 600 22px monospace; }
+.pc-ghost-copy { display: grid; gap: 7px; flex: 1; text-align: left; }
+.pc-ghost-brand { font-size: 12px; font-weight: 600; }
+.pc-ghost-line { width: 70%; height: 3px; border-radius: 3px; background: currentColor; }
+.pc-ghost-status { width: 36px; height: 3px; border-radius: 3px; background: currentColor; }
