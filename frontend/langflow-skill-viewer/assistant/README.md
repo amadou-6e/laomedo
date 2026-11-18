@@ -89,9 +89,9 @@ with local success/failure feedback. The message container uses compact bottom
 padding so answer controls remain close to the composer. UI geometry and these
 transitions are specified in application-assistant.drawio A3 TRANSCRIPT-01.
 
-`responseTranscript.ts` assembles one request-scoped response in retained order:
-all assistant text, tool/command names and displayed inputs/outputs, graph action
-receipts, saved drafts and incomplete/active state. It excludes the user/native
+`responseTranscript.ts` assembles one request-scoped response:
+assistant text and displayed tool/command inputs/outputs in retained activity
+order, followed by graph action receipts, saved drafts and incomplete/active state. It excludes the user/native
 prompt wrapper and other requests. `toolCall.ts` owns shared display-field/name
 selection for ToolCalls and copying; raw native records are not serialized. One
 Copy control sits below the full response and copies a current streaming snapshot.
