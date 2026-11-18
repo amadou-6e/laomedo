@@ -60,6 +60,78 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
         if not self.controller._closed:
             await self.controller.close()
 
+    async def test_compact_uses_matched_native_item_without_inventing_an_answer(self):
+        catalog = NativeCommandCatalog(
+            commands=[{"name": "compact", "description": "Compact"}]
+        )
+        self.controller.acp.command_catalog = Mock(return_value=catalog)
+        events = [
+            {
+                "method": "turn/started",
+                "params": {"threadId": "native-thread", "turn": {"id": "compact-turn"}},
+            },
+            {
+                "method": "item/started",
+                "params": {
+                    "threadId": "native-thread",
+                    "turnId": "compact-turn",
+                    "item": {"type": "contextCompaction", "id": "compact-item"},
+                },
+            },
+            {
+                "method": "item/completed",
+                "params": {
+                    "threadId": "native-thread",
+                    "turnId": "compact-turn",
+                    "item": {"type": "contextCompaction", "id": "compact-item"},
+                },
+            },
+        ]
+
+        async def compact(*args, **kwargs):
+            self.controller.events.extend(events)
+            return SimpleNamespace(stop_reason="end_turn", answer="")
+
+        self.controller.acp.prompt.side_effect = compact
+        self.controller.check_health = Mock()
+        result = await self.controller.prompt(
+            "/compact",
+            skills=[],
+            cancelled=threading.Event(),
+            seconds=5,
+            command=NativeCommandInvocation(
+                name="compact", catalog_revision=catalog.revision()
+            ),
+        )
+        self.assertEqual(result.status, "completed")
+        self.assertIsNone(result.answer)
+        self.assertIsNone(result.turn_id)
+        self.assertEqual(
+            result.native_terminal,
+            {
+                "kind": "contextCompaction",
+                "turn_id": "compact-turn",
+                "item_id": "compact-item",
+                "turn_terminal_observed": False,
+            },
+        )
+        for wrong in [
+            events[:-1],
+            [events[0], events[2], events[1]],
+            [
+                *events,
+                {
+                    "method": "turn/completed",
+                    "params": {
+                        "threadId": "native-thread",
+                        "turn": {"id": "compact-turn", "status": "failed"},
+                    },
+                },
+            ],
+            [*events, {"method": "error", "params": {"threadId": "native-thread"}}],
+        ]:
+            self.assertIsNone(self.controller._compaction_terminal(wrong))
+
     async def test_open_observes_delayed_catalog_before_discovery(self):
         """A notification queued after the response is retained before publication."""
         catalog = NativeCommandCatalog(

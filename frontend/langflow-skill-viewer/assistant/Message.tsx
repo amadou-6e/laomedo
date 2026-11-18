@@ -10,7 +10,7 @@ import type { ActivityPage, DraftReceipt, Message } from "./models";
 import { stateLabel } from "./models";
 import Thinking from "./Thinking";
 import CopyAnswer from "./CopyAnswer";
-import { responseTranscript, hasNativeControlResult } from "./responseTranscript";
+import { responseTranscript, hasNativeCommandOutcome } from "./responseTranscript";
 import GraphActions from "./GraphActions";
 import NativeActions from "./NativeActions";
 import type { GraphAction, NativeAction } from "./models";
@@ -182,7 +182,7 @@ export default function MessageRow({
           />
         </div>
       )}
-      {page?.complete === false && !hasNativeControlResult(message) && (
+      {page?.complete === false && !hasNativeCommandOutcome(message) && (
         <p className="text-xs text-muted-foreground">
           Some Activity could not be retained. The response above may be
           partial.
@@ -243,7 +243,7 @@ export default function MessageRow({
         </article>
       ))}
       {(items.length > 0 || message.response || receipts.length > 0 || actions.length > 0 || nativeActions.length > 0) && (
-        <CopyAnswer disabled={!page && !hasNativeControlResult(message)} text={responseTranscript(page, message, receipts, actions, nativeActions)} />
+        <CopyAnswer disabled={!page && !hasNativeCommandOutcome(message)} text={responseTranscript(page, message, receipts, actions, nativeActions)} />
       )}
     </section>
   );

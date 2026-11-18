@@ -10,7 +10,7 @@ build is required. Existing-tag recipe mismatches and explicit pins follow the
 [shared acquisition policy](../README.md).
 
 For a host-reviewed manual rebuild, run
-`docker build -t laomedo-codex-acp:0.159.2-2.1.1-commands1 .` from this directory and record
+`docker build -t laomedo-codex-acp:0.159.2-2.1.1-commands2 .` from this directory and record
 the resulting immutable ID for the runner's explicit `image_id` override.
 The Dockerfile pins the Node base, upstream adapter commit/archive checksum and
 Codex package lock. The runtime includes the upstream Apache-2.0 licence and
@@ -71,3 +71,9 @@ allowlist. This records the host's existing scoped admission and permits
 headless invocation without changing the global approval or sandbox policy.
 The forwarding capability is admitted only for a host Docker alias or a private
 IPv4 endpoint; public URLs and arbitrary MCP server definitions are rejected.
+
+Explicit compact execution can complete on an ordered native contextCompaction
+start/completion pair with the same observed thread, turn and item IDs. It retains
+that evidence separately from a model-turn result, drains briefly for late native
+failure, then uses normal cleanup. No assistant text or usage is manufactured.
+Ordinary prompts and review still require native turn completion.

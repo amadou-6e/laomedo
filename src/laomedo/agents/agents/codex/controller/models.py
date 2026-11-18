@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 
 
 class CodexCommandResult(BaseModel):
-    """Observed ACP control-command completion, distinct from a native model turn."""
+    """Observed native command completion, distinct from a native model-turn result."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
     command: str = Field(
@@ -34,11 +34,15 @@ class CodexCommandResult(BaseModel):
         description="Actual ACP terminal stop reason when a response was received.",
     )
     status: str = Field(
-        description="Completed only with terminal ACP and text evidence; otherwise unknown."
+        description="Completed only with command-specific native and ACP terminal evidence; otherwise unknown."
     )
     answer: str | None = Field(
         default=None,
         description="Actual bounded ACP command response, without fabricated assistant text.",
+    )
+    native_terminal: dict | None = Field(
+        default=None,
+        description="Actual matched compaction turn/item evidence; never a fabricated model turn.",
     )
     turn_id: None = Field(
         default=None,

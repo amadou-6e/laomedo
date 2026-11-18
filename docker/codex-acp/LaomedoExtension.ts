@@ -51,6 +51,8 @@ export class LaomedoExtension {
     private prompted = false;
     private executorId?: string;
     private completed = new Map<string, number>();
+    private compactSession: string | undefined;
+    private compactEvents: Array<{method: string; params: any}> = [];
 
     constructor(
         private app: CodexAppServerClient,
@@ -68,6 +70,14 @@ export class LaomedoExtension {
                 || method.startsWith("turn/diff/"))) return;
             this.rawQueue = this.rawQueue.then(async () => {
                 await host.notify("_laomedo/codexEvent", {method, params});
+                if (this.compactSession && (params as {threadId?: string}).threadId === this.compactSession
+                    && ["turn/started", "turn/completed", "item/started", "item/completed", "error"].includes(method)) {
+                    const item = (params as any).item;
+                    if (!method.startsWith("item/") || item?.type === "contextCompaction") {
+                        if (this.compactEvents.length >= 32) throw new Error("Compaction evidence overflow");
+                        this.compactEvents.push({method, params});
+                    }
+                }
                 if (method === "turn/completed") {
                     const threadId = (params as {threadId: string}).threadId;
                     this.completed.set(threadId, (this.completed.get(threadId) ?? 0) + 1);
@@ -185,11 +195,32 @@ export class LaomedoExtension {
         return request.prompt;
     }
 
+    private compactCompleted(): boolean {
+        const events = this.compactEvents;
+        const turns = events.filter(e => e.method === "turn/started");
+        if (turns.length !== 1 || typeof turns[0]!.params.turn?.id !== "string") return false;
+        const turn = turns[0]!.params.turn.id;
+        const starts = events.filter(e => e.method === "item/started" && e.params.turnId === turn);
+        const ends = events.filter(e => e.method === "item/completed" && e.params.turnId === turn);
+        if (starts.length !== 1 || ends.length !== 1 || typeof starts[0]!.params.item.id !== "string") return false;
+        const end = ends[0]!;
+        return starts[0]!.params.item.id === end.params.item.id
+            && events.indexOf(turns[0]!) < events.indexOf(starts[0]!)
+            && events.indexOf(starts[0]!) < events.indexOf(end)
+            && (end.params.item.status == null || end.params.item.status === "completed")
+            && end.params.item.error == null
+            && !events.some(e => e.method === "error" || (e.method === "turn/completed"
+                && (e.params.turn.id !== turn || e.params.turn.status !== "completed")));
+    }
+
     async prompt<T>(sessionId: string, run: () => Promise<T>, request?: acp.PromptRequest): Promise<T> {
         this.prompted = true;
         const admitted = request ? this.commandPrompt(request) : [];
         const policy = request ? promptPolicy.parse(request._meta?.["laomedo"] ?? {}) : undefined;
         const control = admitted.length > 0 && ["status", "mcp", "skills"].includes(policy!.nativeCommand!.name);
+        const compact = admitted.length > 0 && policy!.nativeCommand!.name === "compact";
+        this.compactSession = compact ? sessionId : undefined;
+        this.compactEvents = [];
         const before = this.completed.get(sessionId) ?? 0;
         try {
             return await run();
@@ -197,7 +228,9 @@ export class LaomedoExtension {
             // The response cannot overtake native terminal evidence on stdio.
             await this.rawQueue;
             const after = this.completed.get(sessionId) ?? 0;
-            if (this.rawFailed || (control ? after !== before : after === before)) {
+            const compactCompleted = compact && this.compactCompleted();
+            this.compactSession = undefined;
+            if (this.rawFailed || (control ? after !== before : after === before && !compactCompleted)) {
                 this.terminate();
                 throw acp.RequestError.internalError("Native completion evidence unavailable");
             }

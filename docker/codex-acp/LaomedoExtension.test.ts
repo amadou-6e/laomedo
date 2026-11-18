@@ -30,6 +30,30 @@ describe("Laomedo ACP policy", () => {
         expect(() => extension.commandPrompt({...command,_meta:{laomedo:{nativeCommand:{name:"logout",arguments:""}}}})).toThrow();
         expect(() => extension.commandPrompt({...command,_meta:{laomedo:{nativeCommand:{name:"review",arguments:"one\ntwo"}}}})).toThrow();
     });
+    it("accepts matched compaction evidence only for an explicit compact command", async () => {
+        for (const explicit of [false, true]) {
+            const {extension, request, observe, terminate} = setup();
+            extension.bind(request, "root");
+            const command = {sessionId:"root",prompt:[{type:"text",text:"/compact"}],_meta:{laomedo:{nativeCommand:{name:"compact",arguments:""}}}} as acp.PromptRequest;
+            const pending = extension.prompt("root", async () => {
+                observe("turn/started", {threadId:"root",turn:{id:"t"}});
+                observe("item/started", {threadId:"root",turnId:"t",item:{type:"contextCompaction",id:"i"}});
+                observe("item/completed", {threadId:"root",turnId:"t",item:{type:"contextCompaction",id:"i"}});
+                return {stopReason:"end_turn"};
+            }, explicit ? command : undefined);
+            if (explicit) { await expect(pending).resolves.toEqual({stopReason:"end_turn"}); expect(terminate).not.toHaveBeenCalled(); }
+            else { await expect(pending).rejects.toThrow(); expect(terminate).toHaveBeenCalled(); }
+        }
+    });
+    it("refuses compaction items with a mismatched identity", async () => {
+        const {extension, request, observe} = setup(); extension.bind(request,"root");
+        const command = {sessionId:"root",prompt:[{type:"text",text:"/compact"}],_meta:{laomedo:{nativeCommand:{name:"compact",arguments:""}}}} as acp.PromptRequest;
+        await expect(extension.prompt("root",async () => {
+            observe("turn/started",{threadId:"root",turn:{id:"t"}});
+            observe("item/started",{threadId:"root",turnId:"t",item:{type:"contextCompaction",id:"i"}});
+            observe("item/completed",{threadId:"root",turnId:"t",item:{type:"contextCompaction",id:"other"}});
+        },command)).rejects.toThrow();
+    });
     it("admits only scoped external HTTP MCP endpoints with exact tool grants", () => {
         const {extension, request} = setup();
         const external = {

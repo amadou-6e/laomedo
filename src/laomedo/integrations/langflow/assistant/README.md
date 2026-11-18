@@ -107,8 +107,14 @@ MCP tools; any resulting graph/native proposal still needs its own approval.
 Native catalogs and their provider-owned availability projection cross through
 normal runner status, with run/thread binding and shared typed wire models. App
 code never reaches into a concrete provider object. A missing or invalid catalog
-is unavailable, not a fabricated empty list. The registered commands1 image
+is unavailable, not a fabricated empty list. The registered commands2 image
 contains the explicit native-command adapter hook. Existing tool manifests remain
 frozen for a native session. Older retained conversations/runs may require a new
 conversation after this image upgrade; their history remains readable, and no
 failed resume silently starts a fresh thread.
+
+Explicit compact execution can complete on an ordered native contextCompaction
+start/completion pair with the same observed thread, turn and item IDs. It retains
+that evidence separately from a model-turn result, drains briefly for late native
+failure, then uses normal cleanup. No assistant text or usage is manufactured.
+Ordinary prompts and review still require native turn completion.

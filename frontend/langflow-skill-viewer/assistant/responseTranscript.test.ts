@@ -27,3 +27,12 @@ it("copies an authoritative no-model command response and its proposal outcome",
   expect(text).toContain("Outcome: completed");
   expect(text).not.toContain("may be partial");
 });
+
+it("copies a compact outcome without inventing an assistant response", () => {
+  const message = { native_action_id: "approved", text: "/compact", state: "completed", response: null } as Message;
+  const text = responseTranscript(undefined, message, [], [], []);
+  expect(text).toContain("Native command: /compact");
+  expect(text).toContain("Outcome: completed");
+  expect(text).not.toContain("may be partial");
+  expect(text).not.toContain("Completed /compact.");
+});

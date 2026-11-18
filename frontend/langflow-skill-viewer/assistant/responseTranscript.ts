@@ -6,6 +6,10 @@ export function hasNativeControlResult(message: Message): boolean {
   return Boolean(message.native_action_id && message.state === "completed" && message.response && ["/status", "/mcp", "/skills"].includes(message.text));
 }
 
+export function hasNativeCommandOutcome(message: Message): boolean {
+  return hasNativeControlResult(message) || Boolean(message.native_action_id && message.state === "completed" && message.text === "/compact");
+}
+
 function fenced(value: unknown): string {
   const text = typeof value === "string" ? value : JSON.stringify(value, null, 2);
   const fence = "`".repeat(Math.max(3, ...Array.from(text.matchAll(/`+/g), (match) => match[0].length + 1)));
@@ -37,6 +41,8 @@ export function responseTranscript(
     }
   }
   if (!hasAnswer && message.response) blocks.push(message.response);
+  if (hasNativeCommandOutcome(message) && message.text === "/compact" && !message.response)
+    blocks.push("Native command: /compact", "Outcome: completed");
   for (const action of actions) {
     const category = action.category ?? action.kind;
     const description = category === "rename"
@@ -54,7 +60,7 @@ export function responseTranscript(
     blocks.push(`Native command: /${action.name}${action.arguments ? " " + action.arguments : ""}`, `Outcome: ${action.state}`);
   }
   if (message.error_code) blocks.push(`Response error: ${message.error_code}`);
-  if (!hasNativeControlResult(message) && (!page || !page.available || page.complete === false))
+  if (!hasNativeCommandOutcome(message) && (!page || !page.available || page.complete === false))
     blocks.push("Some activity is unavailable or was not retained; this copy may be partial.");
   if (message.state !== "completed") blocks.push(`Response state: ${message.state}. Copied activity is a snapshot.`);
   return blocks.join("\n\n");
