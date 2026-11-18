@@ -3,7 +3,7 @@
     "provider": "codex-cli",
     "id": "sample-chat-history",
     "node": "codex",
-    "node_label": "SAMPLE ? Chat styling review",
+    "node_label": "SAMPLE - Chat styling review",
     "execution": "sample-chat-history-not-a-real-execution",
     "started": "2026-11-18T13:00:00Z",
     "ended": "2026-11-18T13:09:00Z",
@@ -11,7 +11,7 @@
     "stream_state": "complete",
     "runner_run_id": null,
     "native_session": "sample-main",
-    "model": "sample data ? no inference",
+    "model": "sample data - no inference",
     "event_count": 18
   },
   "projection": {
@@ -119,7 +119,7 @@
         "status": "completed",
         "item": {
           "type": "agentMessage",
-          "text": "I?ll check the hierarchy first, then inspect the conversation with a mix of short and long messages.\n\nThe selected **graph execution** should stay visible above the agent timeline. Choosing a turn should update the details below, while the conversation keeps its own scrolling area."
+          "text": "I'll check the hierarchy first, then inspect the conversation with a mix of short and long messages.\n\nThe selected **graph execution** should stay visible above the agent timeline. Choosing a turn should update the details below, while the conversation keeps its own scrolling area."
         }
       },
       {
@@ -143,7 +143,7 @@
         "status": "completed",
         "item": {
           "type": "agentMessage",
-          "text": "### Proposed structure\n\n1. **Graph execution** ? choose the overall run.\n2. **Agent conversations** ? see the provider and captured turns.\n3. **Selected activity** ? inspect usage, records, and messages.\n\nI?ll preserve full execution identifiers in the dropdown and keep the footer at the page bottom."
+          "text": "### Proposed structure\n\n1. **Graph execution** - choose the overall run.\n2. **Agent conversations** - see the provider and captured turns.\n3. **Selected activity** - inspect usage, records, and messages.\n\nI'll preserve full execution identifiers in the dropdown and keep the footer at the page bottom."
         }
       },
       {
@@ -278,7 +278,7 @@
         "status": "completed",
         "item": {
           "type": "agentMessage",
-          "text": "Check these details:\n\n- Speaker alignment and message spacing.\n- Heading, paragraph, and list hierarchy.\n- Code and table overflow.\n- Tool output expansion.\n- Search results and the matching-item count.\n\nThis entire conversation is **sample data for visual inspection**, rendered by the application?s actual conversation component. It is not a captured agent run."
+          "text": "Check these details:\n\n- Speaker alignment and message spacing.\n- Heading, paragraph, and list hierarchy.\n- Code and table overflow.\n- Tool output expansion.\n- Search results and the matching-item count.\n\nThis entire conversation is **sample data for visual inspection**, rendered by the application's actual conversation component. It is not a captured agent run."
         }
       }
     ],
