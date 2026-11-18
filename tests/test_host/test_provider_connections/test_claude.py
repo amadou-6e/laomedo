@@ -1,6 +1,7 @@
 """Native Claude ownership checks; these fixtures do not establish real sign-in."""
 
 import json
+from importlib.util import find_spec
 from pathlib import Path
 import tempfile
 import threading
@@ -35,6 +36,7 @@ class ClaudeConnectionTests(unittest.TestCase):
         self.addCleanup(self.service.close)
         self.profile = uuid4()
 
+    @unittest.skipUnless(find_spec("py_docker"), "Requires the optional Docker SDK")
     def test_orphan_daemon_failure_preserves_custody_and_allows_startup(self):
         """Unavailable native cleanup cannot prevent unrelated provider admission."""
         from py_docker.errors import DockerOperationError
@@ -70,6 +72,7 @@ class ClaudeConnectionTests(unittest.TestCase):
         with self.assertRaises(ProviderConnectionError):
             ProviderConnections(self.service.root)
 
+    @unittest.skipUnless(find_spec("py_docker"), "Requires the optional Docker SDK")
     def test_uncertain_volume_create_keeps_exact_prior_ownership_receipt(self):
         """Restart can recover an ambiguous creation without adopting other volumes."""
         candidate = SimpleNamespace(candidate_id=uuid4(), credential_id=uuid4())

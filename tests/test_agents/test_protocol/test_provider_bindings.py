@@ -122,7 +122,11 @@ class ProviderBindingTests(unittest.IsolatedAsyncioTestCase):
                     open=AsyncMock(
                         return_value=SimpleNamespace(
                             config_options=[
-                                SimpleNamespace(category="model", id="model")
+                                SimpleNamespace(
+                                    category="model",
+                                    id="model",
+                                    options=[SimpleNamespace(value="provider/model")],
+                                )
                             ]
                         )
                     ),

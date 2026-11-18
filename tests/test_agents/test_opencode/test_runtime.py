@@ -1,6 +1,7 @@
 """Native selector guards; fixtures do not establish live model acceptance."""
 
 import threading
+from importlib.util import find_spec
 from types import SimpleNamespace
 import unittest
 from unittest.mock import AsyncMock, Mock, patch
@@ -10,6 +11,7 @@ from laomedo.agents.agents.opencode.settings import CLI_VERSION
 from laomedo.agents.errors import RunnerError
 
 
+@unittest.skipUnless(find_spec("acp"), "Requires the optional runner ACP dependency")
 class OpenCodeRuntimeTests(unittest.IsolatedAsyncioTestCase):
     """Refuse stale catalogue selections before native configuration or prompting."""
 

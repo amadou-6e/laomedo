@@ -70,3 +70,9 @@ the bundled registry cannot offer a retired model that ACP no longer advertises.
 Before configuring a model, `_run_acp()` checks the session's current flat or
 grouped selector options. Missing choices fail as `opencode_model_not_connected`
 before configuration or prompt dispatch; saved selections are never substituted.
+# Saved profile construction
+
+`OpenCodeAgent(..., profile=...)` binds an explicitly admitted private profile to
+its native runtime factory. Supplying both a profile and a transport factory is
+refused. Application callers construct the Agent through `AgentProviderRegistry`;
+they never import or construct the provider's private runtime.

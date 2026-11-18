@@ -8,8 +8,6 @@ from uuid import uuid4
 
 from pydantic import SecretStr
 
-from laomedo.agents.agents.opencode.utils import check_auth_fresh
-from laomedo.agents.errors import RunnerError
 from laomedo.host.credentials.siwc.utils import _atomic_private
 from laomedo.host.credentials.siwc.utils import _restrict_windows_directory
 from laomedo.host.provider_connections.errors import ProviderConnectionError
@@ -104,13 +102,23 @@ class GoConnection:
             raise ProviderConnectionError("provider_connection_unavailable")
         root = self.service._profile(profile_id) / str(record.credential_id)
         try:
-            check_auth_fresh(root)
             validity = json.loads(
                 (root / "auth-validity.json").read_text(encoding="utf-8")
             )
-            if validity["credential_sha256"] != record.subject_hash:
+            auth = json.loads((root / "auth.json").read_text(encoding="utf-8"))
+            credential = auth["opencode-go"]
+            key = credential["key"]
+            if (
+                credential["type"] != "api"
+                or not isinstance(key, str)
+                or not key
+                or validity["credential_mode"] != "provider_key"
+                or validity.get("expires_at_ms") is not None
+                or validity["credential_sha256"] != record.subject_hash
+                or hashlib.sha256(key.encode()).hexdigest() != record.subject_hash
+            ):
                 raise ValueError()
-        except (RunnerError, OSError, ValueError, KeyError):
+        except (OSError, ValueError, KeyError, TypeError):
             raise ProviderConnectionError("provider_connection_unavailable") from None
         return root
 

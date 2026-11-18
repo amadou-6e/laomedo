@@ -270,17 +270,12 @@ class ProviderControllers:
                     auth_connection=auth,
                 )
             elif record.provider == "opencode" and self.factory is None:
-                from laomedo.agents.agents.opencode.runtime import OpenCodeAgentRuntime
-
                 runner = AgentProviderRegistry.create_agent(
                     "opencode",
                     state,
                     self.skill_store,
                     self.source,
-                    transport_factory=partial(
-                        OpenCodeAgentRuntime,
-                        profile=self.service.go.profile(profile_id, record),
-                    ),
+                    profile=self.service.go.profile(profile_id, record),
                 )
             else:
                 if record.provider != "codex":
