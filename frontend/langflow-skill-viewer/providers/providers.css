@@ -30,11 +30,21 @@
 .pc-subscription-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .pc-subscription-account { font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
 .pc-subscription-list p { margin: 0; font-size: 13px; line-height: 1.6; color: hsl(var(--muted-foreground)); }
-.pc-subscription-empty { padding: 48px 0; min-height: 400px; align-content: center; justify-items: center; text-align: center; gap: 12px; }
+.pc-subscription-empty { flex: 1; max-width: none; min-height: 280px; padding: 40px 0; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; gap: 12px; }
 .pc-subscription-empty h2 { margin: 0; font-size: 18px; font-weight: 600; border: 0; padding: 0; }
 .pc-subscription-empty > p { max-width: 400px; }
 @media (max-width: 640px) { .pc-settings-panel { padding: 20px 16px; } }
 
-.pc-empty-art { display: flex; align-items: center; justify-content: center; width: 120px; height: 120px; margin-bottom: 20px; opacity: .18; filter: grayscale(1); pointer-events: none; }
+.pc-empty-art { position: relative; flex: none; display: flex; align-items: center; justify-content: center; width: 120px; height: 120px; margin-bottom: 20px; opacity: .18; filter: grayscale(1); pointer-events: none; }
 .pc-empty-art .pc-empty-logo { width: 80px; height: 80px; }
 .pc-empty-wordmark { font: 600 28px monospace; color: hsl(var(--foreground)); }
+
+.pc-opencode-logo { width: 64px; height: 80px; object-fit: contain; }
+.pc-opencode-dark { display: none; }
+.dark .pc-opencode-light { display: none; }
+.dark .pc-opencode-dark { display: block; }
+.pc-sleep-letters { position: absolute; inset: 0; font-family: ui-monospace, monospace; font-weight: 600; color: hsl(var(--foreground)); }
+.pc-sleep-letters span { position: absolute; }
+.pc-sleep-letters span:nth-child(1) { left: 84px; top: 22px; font-size: 12px; }
+.pc-sleep-letters span:nth-child(2) { left: 100px; top: 5px; font-size: 16px; }
+.pc-sleep-letters span:nth-child(3) { left: 120px; top: -15px; font-size: 20px; }

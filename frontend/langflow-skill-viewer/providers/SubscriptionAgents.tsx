@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import IconComponent from "@/components/common/genericIconComponent";
 import { RefreshCw } from "lucide-react";
 import "./providers.css";
+import openCodeLogoDark from "./assets/opencode-logo-dark.svg";
+import openCodeLogoLight from "./assets/opencode-logo-light.svg";
 import { Button } from "@/components/ui/button";
 import { listConnections, readGraphPreferences, saveGraphPreferences, type ProviderConnection } from "./api";
 
@@ -41,7 +43,11 @@ export default function SubscriptionAgents({ flowId }: { flowId?: string }) {
     <div id="harness-panel" role="tabpanel" aria-labelledby={`harness-${harness}`} className="pc-settings-panel">
       {harness !== "codex" || (!busy && !error && accounts.length === 0) ? <section className="pc-settings-section pc-subscription-empty" aria-labelledby="missing-subscription-heading">
         <div className="pc-empty-art" aria-hidden="true">
-          {harness === "claude" ? <IconComponent name="Claude" className="pc-empty-logo" /> : <span className="pc-empty-wordmark">{harnesses.find(item => item.id === harness)?.label}</span>}
+          {harness === "claude" ? <IconComponent name="Claude" className="pc-empty-logo" /> : harness === "opencode" ? <>
+            <img className="pc-opencode-logo pc-opencode-light" src={openCodeLogoLight} alt="" />
+            <img className="pc-opencode-logo pc-opencode-dark" src={openCodeLogoDark} alt="" />
+          </> : <span className="pc-empty-wordmark">Codex</span>}
+          <span className="pc-sleep-letters"><span>Z</span><span>Z</span><span>Z</span></span>
         </div>
         <h2 id="missing-subscription-heading">{harness === "codex" ? "No Codex account connected" : `No ${harnesses.find(item => item.id === harness)?.label} connections`}</h2>
         <p className="pc-card-description">{harness === "codex" ? "Connect your account to choose it as this graph's default." : "Account sign-in for this harness is not available yet."}</p>

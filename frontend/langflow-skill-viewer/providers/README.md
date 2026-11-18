@@ -40,3 +40,9 @@ Subscription limits are a list with one row per connected account, independently
 of the preferred account. Unsupported harnesses use a borderless empty state with a single greyed-out harness mark, without a cross-provider action; Codex without accounts offers Connect.
 References: https://primer.style/product/getting-started/foundations/layout/
 and https://primer.style/product/getting-started/foundations/typography/
+
+Empty states center within the available content pane and show a muted harness
+mark with static decorative Z lettering. OpenCode assets in `assets/` are from
+https://opencode.ai/brand/files/opencode-logo-dark.svg and
+https://opencode.ai/brand/files/opencode-logo-light.svg (retrieved 2026-11-18);
+light/dark variants retain their original geometry and are displayed at 64x80.
