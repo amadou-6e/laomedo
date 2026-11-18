@@ -2,6 +2,12 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import AssistantPage from "./AssistantPage";
 import { assistantRequest, AssistantFailure } from "./api";
+import { conversationTranscript, downloadTranscript } from "./transcript";
+
+jest.mock("./transcript", () => ({
+  conversationTranscript: jest.fn(),
+  downloadTranscript: jest.fn(),
+}));
 
 jest.mock("./api", () => ({
   ...jest.requireActual("./api"),
@@ -19,6 +25,25 @@ jest.mock("@/stores/authStore", () => ({
 }));
 
 describe("uncertain assistant submission", () => {
+  it("abandons an in-flight export when the conversation changes", async () => {
+    let finish!: (value: { text: string; filename: string }) => void;
+    jest.mocked(conversationTranscript).mockReturnValueOnce(new Promise((resolve) => { finish = resolve; }));
+    const first = { id: "first", title: "First", model: "fixture", effort: "low", state: "idle", active_message_id: null };
+    const second = { ...first, id: "second", title: "Second" };
+    jest.mocked(assistantRequest).mockImplementation(async (path) => {
+      if (path === "/models") return { provider: "codex", models: [{ id: "fixture", efforts: ["low"] }] };
+      if (path === "/conversations") return { conversations: [first, second], next_cursor: null };
+      return { conversation: path.includes("second") ? second : first, messages: [], drafts: [], next_cursor: null };
+    });
+    render(<MemoryRouter initialEntries={["/assistant?conversation=first"]}><AssistantPage /></MemoryRouter>);
+    fireEvent.click(await screen.findByRole("button", { name: "Export conversation" }));
+    const signal = jest.mocked(conversationTranscript).mock.calls[0][1];
+    fireEvent.click(screen.getByRole("button", { name: /^Second/ }));
+    await waitFor(() => expect(signal.aborted).toBe(true));
+    finish({ text: "Private old conversation", filename: "old.md" });
+    await waitFor(() => expect(screen.queryByText("Exporting...")).toBeNull());
+    expect(downloadTranscript).not.toHaveBeenCalled();
+  });
   it("shows Thinking without retry guidance during dispatch and acknowledged history lag", async () => {
     let acknowledge!: (message: any) => void;
     const acknowledgement = new Promise((resolve) => {
