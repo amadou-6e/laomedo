@@ -12,7 +12,7 @@ BROKER_HOST = "host.docker.internal"
 # Registered controller and independently tagged worker recipes. IDs are local
 # observations, never copied from another machine's build.
 IMAGE = "laomedo-opencode:1.18.33"
-WORKER_IMAGE = "laomedo-opencode-worker:codex-0.159.2-2.1.1-mcp"
+WORKER_IMAGE = "laomedo-opencode-worker:codex-0.159.2-2.1.1-quota1"
 WORKER_IMAGE_ID = None
 
 

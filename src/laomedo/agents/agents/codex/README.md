@@ -66,3 +66,15 @@ Project it through `LeaseCleanupObservation`: no result means no cleanup fact,
 not false. The sidecar's lease cleanup boolean covers only that leased resource.
 The existing public fail-closed status/category wins even beside verified cleanup.
 Fresh native answers, counters and completion never establish Resume success.
+
+
+## Saved-account quota discovery
+
+`CodexAgent.subscription_limits()` uses the same `_discovery()` temporary lifecycle
+as model discovery, with the selected credential provider and exact close receipts.
+`CodexAgentRuntime.subscription_limits()` admits only the empty-parameter
+`laomedo/codexRateLimits` extension. The adapter forwards exactly
+`account/rateLimits/read` before any session/prompt. `CodexRateLimits.to_snapshot()`
+projects native wire fields into canonical `SubscriptionSnapshot` models in
+`agents/base/models.py`; malformed scalar fields stay unknown, malformed shapes
+fail. No model turn, native thread, generic RPC forwarding or ambient login is added.
