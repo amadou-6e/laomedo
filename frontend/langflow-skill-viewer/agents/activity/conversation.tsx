@@ -35,7 +35,7 @@ export function ActivityItem({lane,rootThread,provider}:{lane:Lane;rootThread:st
   if(message!==null)return <div className={`flex min-w-0 flex-col gap-2 ${user?"items-end":"items-start"}`} data-message-role={user?"user":"agent"}>
     <div className="flex w-full min-w-0 items-center gap-2 text-xs text-muted-foreground"><div className={`flex flex-wrap items-center gap-2 ${user?"ml-auto":"flex-1"}`}><span title={lane.thread}>{user?"You":speaker}</span>{timing}</div><MessageSource value={value}/></div>
     {lane.conflicting_receipts&&<p role="status" className="text-xs">Conflicting native receipts retained.</p>}
-    <div className={user?"max-w-[85%] rounded-md border bg-muted/50 px-4 py-3 text-sm":"w-full min-w-0 text-sm"}><MessageMarkdown text={message}/></div>
+    <div className={user?"max-w-[90%] rounded-xl rounded-tr-sm border bg-muted/50 px-4 py-3 text-sm leading-[1.7142857] md:max-w-[80%]":"w-full min-w-0 text-sm"}><MessageMarkdown text={message}/></div>
   </div>;
   const command=value.type==="commandExecution";
   const output=typeof value.aggregatedOutput==="string"?value.aggregatedOutput:null;
