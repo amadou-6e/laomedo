@@ -60,7 +60,9 @@ class OpenCodeAgent(BaseAgent):
         """Bind admitted configuration and owned state; provider startup errors propagate before use."""
         if profile is not None:
             if transport_factory is not None:
-                raise ValueError("opencode_transport_configuration_conflict")
+                raise ValueError(
+                    "Provide either profile or transport_factory, not both"
+                )
             from laomedo.agents.agents.opencode.runtime import OpenCodeAgentRuntime
 
             transport_factory = partial(OpenCodeAgentRuntime, profile=profile)
