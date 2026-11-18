@@ -13,7 +13,9 @@ The divider supports dragging and arrow/Home/End keys. Width is bounded and
 reclamped when the editor changes size. Narrow screens use an overlay, retaining
 the mounted editor beneath it. Opening, closing and resizing never send inference.
 `AssistantEntry` opens full-window chat in the current tab through the application
-router, including the existing unsaved-editor navigation guard.
+router, including the existing unsaved-editor navigation guard. Navigating away
+while a graph build is running stops that build through the existing guard; use
+the rail toggle to keep the graph running while opening chat beside it.
 `AssistantSidebarToggle` is an icon in the graph left rail. It toggles the right
 sidebar without changing the selected left section, graph URL or canvas. Closing
 the panel returns focus to that rail control. Existing graph tools and human approval rules remain unchanged.

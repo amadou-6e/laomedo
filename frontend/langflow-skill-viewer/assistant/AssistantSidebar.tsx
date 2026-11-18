@@ -54,7 +54,7 @@ export default function AssistantSidebar() {
     <header className="flex h-11 shrink-0 items-center gap-2 border-b px-4 text-sm">
       <span className="flex-1 font-medium">Assistant</span>
       <a href={fullChat} target="_blank" rel="noopener noreferrer" aria-label="Open assistant in a new tab" title="Open assistant in a new tab" className="rounded p-1 text-muted-foreground hover:text-foreground focus-visible:outline"><ExternalLink size={16} /></a>
-      <button type="button" aria-label="Close assistant" title="Close assistant" className="rounded p-1 text-muted-foreground hover:text-foreground focus-visible:outline" onClick={() => {setOpen(false);window.requestAnimationFrame(() => document.getElementById("laomedo-assistant-opener")?.focus());}}><X size={16} /></button>
+      <button type="button" aria-label="Close assistant" title="Close assistant" className="rounded p-1 text-muted-foreground hover:text-foreground focus-visible:outline" onClick={() => {setOpen(false);window.requestAnimationFrame(() => { const opener = document.getElementById("laomedo-assistant-opener"); if (opener && !opener.closest('[aria-hidden="true"], [hidden], [inert]')) opener.focus(); });}}><X size={16} /></button>
     </header>
     <div className="min-h-0 flex-1">{mounted && <AssistantPage embedded selectedConversation={selection.conversation} linkedConversation={selection.linked} onSelectConversation={setSelection} />}</div>
   </aside>;

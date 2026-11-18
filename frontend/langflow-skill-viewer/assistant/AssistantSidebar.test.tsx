@@ -40,3 +40,19 @@ test("keyboard resizing is bounded and exposes the current width", () => {
   fireEvent.keyDown(divider, { key: "End" });
   expect(divider.getAttribute("aria-valuenow")).toBe(divider.getAttribute("aria-valuemax"));
 });
+
+
+test.each([true,false])("close avoids a hidden rail opener (%s)",hidden=>{
+ useAssistantSidebarStore.setState({open:true});
+ const focus=jest.fn();
+ const frame=jest.spyOn(window,"requestAnimationFrame").mockImplementation(callback=>{callback(0);return 1;});
+ const wrapper=document.createElement("div");
+ if(hidden)wrapper.setAttribute("aria-hidden","true");
+ const opener=document.createElement("button");opener.id="laomedo-assistant-opener";opener.focus=focus;
+ wrapper.appendChild(opener);document.body.appendChild(wrapper);
+ try {
+  render(<AssistantSidebar/>);
+  fireEvent.click(screen.getByRole("button",{name:"Close assistant"}));
+  expect(focus).toHaveBeenCalledTimes(hidden?0:1);
+ } finally {wrapper.remove();frame.mockRestore();}
+});
