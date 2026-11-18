@@ -2,7 +2,7 @@ import { render, screen, fireEvent, waitFor, act } from "@testing-library/react"
 import GraphAgents from "./GraphAgents";
 import { Conversation } from "./conversation";
 import type { Lane } from "./models";
-import { messageText, commandTitle, activityTitle, aggregateUsagePoints, conversationRows, scopedProjection, turnPosition, conversationMatches, conversationDocument, telemetryDocument } from "./utils";
+import { messageText, commandTitle, activityTitle, aggregateUsagePoints, conversationRows, scopedProjection, turnPosition, conversationAncestors, conversationMatches, conversationDocument, telemetryDocument } from "./utils";
 import { HighlightedJson, MessageMarkdown } from "./components";
 import { RuntimeRecords } from "./telemetry";
 import { UsageCharts } from "./usage";
@@ -520,4 +520,24 @@ test("conversation Markdown renders GFM tables as accessible table cells",()=>{
  expect(screen.getAllByRole("columnheader").map(cell=>cell.textContent)).toEqual(["Approach","Benefit","Cost"]);
  expect(screen.getAllByRole("row")).toHaveLength(3);
  expect(screen.getByRole("cell",{name:"Nested scrolling"})).toBeVisible();
+});
+
+
+test("conversation ancestors preserve hierarchy and stop at cycles or missing parents",()=>{
+ const rows=new Map([
+  ["root",{parent:null}],
+  ["child",{parent:"root"}],
+  ["leaf",{parent:"child"}],
+  ["cycle-a",{parent:"cycle-b"}],
+  ["cycle-b",{parent:"cycle-a"}],
+ ]);
+ expect(conversationAncestors("leaf",rows)).toEqual(["child","root"]);
+ expect(conversationAncestors("cycle-a",rows)).toEqual(["cycle-b"]);
+ expect(conversationAncestors("missing",rows)).toEqual([]);
+});
+
+test("shared chat Markdown preserves the Assistant no-links policy without losing link text",()=>{
+ const {container}=render(<MessageMarkdown allowLinks={false} text={"[Read more](https://example.com)\n\n![image](https://example.com/image.png)\n\n<script>bad()</script>"}/>);
+ expect(screen.getByText("Read more")).toBeVisible();
+ expect(container.querySelectorAll("a,img,script")).toHaveLength(0);
 });
