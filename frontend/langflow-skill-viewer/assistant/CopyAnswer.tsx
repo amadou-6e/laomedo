@@ -14,7 +14,7 @@ export default function CopyAnswer({ text }: { text: string }) {
       <button
         type="button"
         aria-label="Copy answer"
-        title="Copy answer"
+        title="Copy all agent activity since your request"
         className="rounded p-1 hover:bg-muted hover:text-foreground focus-visible:outline focus-visible:outline-2"
         onClick={async () => {
           const current = version.current;

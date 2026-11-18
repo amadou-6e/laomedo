@@ -10,6 +10,7 @@ import type { ActivityPage, DraftReceipt, Message } from "./models";
 import { stateLabel } from "./models";
 import Thinking from "./Thinking";
 import CopyAnswer from "./CopyAnswer";
+import { responseTranscript } from "./responseTranscript";
 import GraphActions from "./GraphActions";
 import type { GraphAction } from "./models";
 
@@ -137,7 +138,6 @@ export default function MessageRow({
         return text !== null ? (
           <div key={`${lane.thread}:${lane.id}`} className="space-y-2">
             <AssistantText text={text} />
-            <CopyAnswer text={text} />
           </div>
         ) : (
           <ToolCalls
@@ -150,7 +150,6 @@ export default function MessageRow({
       {!hasAnswer && message.response && (
         <div className="space-y-2">
           <AssistantText text={message.response} />
-          <CopyAnswer text={message.response} />
         </div>
       )}
       {active && ["reserved", "starting", "running"].includes(message.state) ? (
@@ -239,6 +238,9 @@ export default function MessageRow({
           </p>
         </article>
       ))}
+      {(items.length > 0 || message.response || receipts.length > 0 || actions.length > 0) && (
+        <CopyAnswer text={responseTranscript(page, message, receipts, actions)} />
+      )}
     </section>
   );
 }
