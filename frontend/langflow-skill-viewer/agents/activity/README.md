@@ -56,3 +56,5 @@ viewers and upstream rich-HTML chat retain their distinct content contracts.
 `utils.ts` owns canonical status labels/tones and cycle-safe conversation
 ancestry. `GraphAgents` derives conversation rows once and supplies them to
 `ActivityTimeline`, whose keyed lifecycle owns only collapsed-row state.
+
+`ACTIVITY_SCROLLBAR_CLASS` in `components.tsx` owns activity scroll surfaces: transparent tracks, theme-aware thumbs and no Chromium arrow buttons. Keep native scrolling and keyboard focus behavior.

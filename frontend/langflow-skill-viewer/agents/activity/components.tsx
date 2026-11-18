@@ -13,6 +13,10 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 
+// Keep standard scrollbar properties at auto so Chromium uses the button-free styling.
+export const ACTIVITY_SCROLLBAR_CLASS =
+  "[scrollbar-width:auto] [scrollbar-color:auto] [scrollbar-gutter:stable] dark:[color-scheme:dark] [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-muted-foreground/60 [&::-webkit-scrollbar-thumb:hover]:bg-muted-foreground/80 [&::-webkit-scrollbar-button]:hidden [&::-webkit-scrollbar-button]:h-0 [&::-webkit-scrollbar-button]:w-0 [&::-webkit-scrollbar-corner]:bg-transparent";
+
 export function HighlightedJson({ value }: { value: unknown }) {
   return (
     <SimplifiedCodeTabComponent
@@ -154,7 +158,7 @@ export function MessageSource({ value }: { value: unknown }) {
         align="end"
         collisionPadding={12}
         aria-label="Message source"
-        className="max-h-[70vh] w-[min(520px,calc(100vw-2rem))] overflow-auto p-3"
+        className={`${ACTIVITY_SCROLLBAR_CLASS} max-h-[70vh] w-[min(520px,calc(100vw-2rem))] overflow-auto p-3`}
         onKeyDown={(event) => event.stopPropagation()}
       >
         <div className="flex items-center justify-between gap-3">

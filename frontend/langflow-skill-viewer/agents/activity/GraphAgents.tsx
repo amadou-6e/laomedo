@@ -12,7 +12,11 @@ import { api } from "@/controllers/API/api";
 import { getBaseUrl } from "@/customization/utils/urls";
 import type { Run, Detail, ExportContext, ActivityScope } from "./models";
 import { time, duration, conversationRows, scopedProjection } from "./utils";
-import { ActivityInfo, StatusBadge } from "./components";
+import {
+  ACTIVITY_SCROLLBAR_CLASS,
+  ActivityInfo,
+  StatusBadge,
+} from "./components";
 import { Conversation } from "./conversation";
 import { UsageCharts } from "./usage";
 import { RuntimeRecords } from "./telemetry";
@@ -231,7 +235,9 @@ export default function GraphAgents({ flowId }: { flowId?: string }) {
           <IconComponent name="RefreshCcw" className="h-4 w-4" />
         </Button>
       </header>
-      <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden">
+      <div
+        className={`${ACTIVITY_SCROLLBAR_CLASS} min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden`}
+      >
         <div className="flex min-h-full flex-col">
           <div className="flex min-w-0 flex-1 flex-col p-4">
             <section

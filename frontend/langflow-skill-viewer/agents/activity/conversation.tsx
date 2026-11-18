@@ -18,6 +18,7 @@ import {
   formatCount,
 } from "./utils";
 import {
+  ACTIVITY_SCROLLBAR_CLASS,
   MessageMarkdown,
   SectionHeading,
   JsonDisclosure,
@@ -113,7 +114,7 @@ export function Conversation({
         role="region"
         aria-label="Conversation messages and tools"
         tabIndex={0}
-        className="max-h-[min(360px,60vh)] [scrollbar-width:thin] [scrollbar-gutter:stable] min-w-0 space-y-5 overflow-y-auto px-3 pb-3 pr-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className={`${ACTIVITY_SCROLLBAR_CLASS} max-h-[min(360px,60vh)] min-w-0 space-y-5 overflow-y-auto px-3 pb-3 pr-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring`}
       >
         {!items.length && (
           <p className="text-sm text-muted-foreground">
