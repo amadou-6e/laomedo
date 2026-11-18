@@ -13,6 +13,8 @@ Owner feedback #295 (ACT-295 in run-traces/design/agent-activity.drawio): each
 telemetry/conversation heading has an icon-only search toggle. Opening focuses
 the field; closing/Escape clears hidden filters, Escape returns focus to the
 icon, and Clear keeps the field open. Scope changes remount these components.
-Empty telemetry is centered text without a bordered card. Usage has an extra
-16 px top padding above the existing 24 px section gap. No capture/dispatch or
+Empty telemetry is centered text without a bordered card. Major sections (selection and metadata, capture/partial notices, usage,
+telemetry and conversation) are separated by 48 px (`gap-12`).
+Counts show the total when unfiltered and matching of total while filtering;
+conversation counts use "items" because they include messages and tool calls. No capture/dispatch or
 export contract changes.

@@ -1,5 +1,6 @@
 import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import GraphAgents from "./GraphAgents";
+import { Conversation } from "./conversation";
 import type { Lane } from "./models";
 import { messageText, commandTitle, activityTitle, aggregateUsagePoints, conversationRows, scopedProjection, turnPosition, conversationMatches, conversationDocument, telemetryDocument } from "./utils";
 import { HighlightedJson, MessageMarkdown } from "./components";
@@ -84,12 +85,12 @@ test("conversation search has clear and empty states, and switching scope resets
   (api.get as jest.Mock).mockImplementation((url:string)=>Promise.resolve({data:url.endsWith("/flow")?{runs:[first]}:{run:first,projection:p,truncated:false}}));
   render(<GraphAgents flowId="flow"/>);
   fireEvent.click(await screen.findByRole("button",{name:/^node-one.*completed$/},{timeout:5000}));
-  expect(screen.getByText("2 messages")).toBeInTheDocument();
+  expect(screen.getByText("2 items")).toBeInTheDocument();
   expect(screen.queryByRole("textbox",{name:"Search conversation"})).toBeNull();
   fireEvent.click(screen.getByRole("button",{name:"Search conversation"}));
   const search=await screen.findByRole("textbox",{name:"Search conversation"});
   expect(search).toHaveFocus();
-  fireEvent.change(search,{target:{value:"Garnet"}});expect(screen.getByText("1 of 2 messages")).toBeInTheDocument();expect(screen.getByText("Garnet main answer")).toBeInTheDocument();
+  fireEvent.change(search,{target:{value:"Garnet"}});expect(screen.getByText("1 of 2 items")).toBeInTheDocument();expect(screen.getByText("Garnet main answer")).toBeInTheDocument();
   fireEvent.change(search,{target:{value:"zzzzzzzzzz"}});expect(screen.getByText("No matching messages or tools.")).toBeInTheDocument();expect(screen.getByRole("button",{name:"Export conversation"})).toBeDisabled();
   fireEvent.click(screen.getByRole("button",{name:"Clear"}));
   expect(search).toHaveValue("");expect(screen.getByText("Garnet main answer")).toBeInTheDocument();
@@ -480,4 +481,17 @@ test("uncaptured telemetry is centered plain text rather than an empty card",()=
   expect(region.classList.contains("border")).toBe(false);
   expect(screen.getByText("No OpenTelemetry records captured.")).toBeInTheDocument();
   expect(screen.getByRole("button",{name:"Export OpenTelemetry JSON"})).toBeDisabled();
+});
+
+
+test("conversation totals include tool calls without mislabelling them as messages",()=>{
+  const items=[
+    {id:"message",thread:"root",started:null,ended:null,item:{type:"agentMessage",text:"Checking workspace"}},
+    {id:"tool",thread:"root",started:null,ended:null,item:{type:"commandExecution",command:"pwd",aggregatedOutput:"/workspace"}},
+  ];
+  render(<Conversation projection={{...projection,items} as any} context={{run_id:"run",scope:{},native_session:"root"} as any}/>);
+  expect(screen.getByRole("status")).toHaveTextContent("2 items");
+  fireEvent.click(screen.getByRole("button",{name:"Search conversation"}));
+  fireEvent.change(screen.getByRole("textbox",{name:"Search conversation"}),{target:{value:"pwd"}});
+  expect(screen.getByRole("status")).toHaveTextContent("1 of 2 items");
 });
