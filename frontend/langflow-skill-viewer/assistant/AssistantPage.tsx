@@ -34,11 +34,20 @@ import { stateLabel } from "./models";
 import { conversationTranscript, downloadTranscript } from "./transcript";
 import DeleteConversation from "./DeleteConversation";
 
-export default function AssistantPage() {
+export default function AssistantPage({ embedded = false, selectedConversation, linkedConversation, onSelectConversation }: {
+  embedded?: boolean;
+  selectedConversation?: string;
+  linkedConversation?: string;
+  onSelectConversation?: (selection: Record<string, string>) => void;
+} = {}) {
   const owner = useAuthStore((state) => state.userData?.id);
-  const [params, setParams] = useSearchParams();
-  const selected = params.get("conversation") ?? "";
-  const linked = params.get("linked") ?? "";
+  const [params, setRouteParams] = useSearchParams();
+  const selected = embedded ? selectedConversation ?? "" : params.get("conversation") ?? "";
+  const linked = embedded ? linkedConversation ?? "" : params.get("linked") ?? "";
+  const setParams = (selection: Record<string, string>) => {
+    if (embedded) onSelectConversation?.(selection);
+    else setRouteParams(selection);
+  };
   const [index, setIndex] = useState<ConversationIndex>({
     conversations: [],
     next_cursor: null,
@@ -55,7 +64,7 @@ export default function AssistantPage() {
   const [error, setError] = useState<string>();
   const [locked, setLocked] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [history, setHistory] = useState(true);
+  const [history, setHistory] = useState(!embedded);
   const [renaming, setRenaming] = useState<string>();
   const [titleDraft, setTitleDraft] = useState("");
   const [savingTitle, setSavingTitle] = useState(false);
@@ -589,7 +598,7 @@ export default function AssistantPage() {
       aria-label="Application assistant"
     >
       <div
-        className={`relative min-h-0 shrink-0 ${history ? "w-64 max-w-[75vw]" : "w-5"}`}
+        className={`relative min-h-0 shrink-0 ${history ? embedded ? "w-full" : "w-64 max-w-[75vw]" : "w-5"}`}
       >
         <aside
           hidden={!history}
@@ -606,6 +615,7 @@ export default function AssistantPage() {
                 className={`w-full rounded-lg p-3 text-left text-sm hover:bg-muted focus-visible:outline focus-visible:outline-2 ${selected === item.id ? "bg-muted" : ""}`}
                 onClick={() => {
                   setParams({ conversation: item.id });
+                  if (embedded) setHistory(false);
                 }}
               >
                 <span className="block truncate font-medium">{item.title}</span>
@@ -634,7 +644,7 @@ export default function AssistantPage() {
             className="mt-4 w-full justify-start"
             variant="ghost"
             aria-label="New conversation"
-            onClick={() => setParams({})}
+            onClick={() => {setParams({});if (embedded) setHistory(false);}}
           >
             <Plus size={16} />
             New conversation
@@ -653,7 +663,7 @@ export default function AssistantPage() {
           {history ? <ChevronLeft size={12} /> : <ChevronRight size={12} />}
         </button>
       </div>
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+      <div className={`${embedded && history ? "hidden" : "flex"} min-h-0 min-w-0 flex-1 flex-col`}>
         <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b px-5 py-4">
           <div className="min-w-0 flex-1">
             {renaming === conversation?.id && conversation ? (

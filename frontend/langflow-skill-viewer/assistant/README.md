@@ -1,5 +1,20 @@
 # Application assistant
 
+## Graph editor sidebar (issue 296)
+
+`AssistantSidebar.tsx` mounts the same `AssistantPage` on the editor's right.
+`sidebarStore.ts` owns only the open/closed UI flag; conversations, inference and
+approvals still use the existing owner-scoped assistant API. The sidebar owns its
+conversation selection without changing the graph URL. It mounts lazily, then
+stays mounted while hidden so closing it preserves its draft and active response.
+History starts collapsed in this narrow surface. The full-window link opens the
+selected saved conversation; unsent text stays in its originating surface.
+The divider supports dragging and arrow/Home/End keys. Width is bounded and
+reclamped when the editor changes size. Narrow screens use an overlay, retaining
+the mounted editor beneath it. Opening, closing and resizing never send inference.
+`AssistantEntry` toggles this sidebar on graph routes and retains the full-chat
+link elsewhere. Existing graph tools and human approval rules remain unchanged.
+
 Normal provider-backed chat, with no assistant workflow. The approved geometry
 and states are A1/A2 in specs PR424's application-assistant.drawio.
 
