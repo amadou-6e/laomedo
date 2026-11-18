@@ -13,7 +13,7 @@ import { api } from "@/controllers/API/api";
 import { getBaseUrl } from "@/customization/utils/urls";
 import type { Run, Detail, ExportContext, ActivityScope } from "./models";
 import { time, duration, conversationRows, scopedProjection } from "./utils";
-import { SectionHeading, ActivityInfo } from "./components";
+import { ActivityInfo } from "./components";
 import { Conversation } from "./conversation";
 import { UsageCharts } from "./usage";
 import { RuntimeRecords } from "./telemetry";
@@ -118,7 +118,7 @@ export default function GraphAgents({flowId}:{flowId?:string}) {
         {!error&&!runs.length&&<p>No captured agent runs yet.</p>}
         {targetNode&&runs.length>0&&!visible.some(run=>run.node===targetNode)&&<p className="mb-4 text-sm text-muted-foreground">No captured activity for the selected node in this graph execution.</p>}
         {visible.length>0&&<ActivityTimeline runs={visible} details={details} selected={selected} scope={scope} start={start} end={end} label={label} onSelect={selectScope}/>}
-    {detail&&<article key={detail.run.id} className="mt-6 flex flex-col gap-12 rounded-md border border-border bg-background/40 p-5" aria-label="Selected agent run">
+    {detail&&<article key={detail.run.id} className="mt-6 flex flex-col gap-12" aria-label="Selected agent run">
       <div className="space-y-4">
       <nav aria-label="Activity selection" className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
         <span>{time(detail.run.started)}</span><span aria-hidden="true">/</span>
@@ -127,7 +127,7 @@ export default function GraphAgents({flowId}:{flowId?:string}) {
         {currentTurn&&<span aria-current="page">/ Turn {currentConversation!.turns.indexOf(currentTurn)+1}</span>}
       </nav>
       <section className="space-y-3" aria-label="Invocation metadata">
-        <div className="flex min-w-0 flex-wrap items-start justify-between gap-2"><h3 className="flex min-w-0 items-center gap-2 break-words text-base font-semibold"><span aria-hidden="true"><ProviderIcon provider={detail.run.provider}/></span>{currentTurn?`Turn ${currentConversation!.turns.indexOf(currentTurn)+1} · ${currentConversation!.title}`:currentConversation?.id===detail.run.native_session?label(detail.run):currentConversation?.title??label(detail.run)}</h3><div className="flex items-center gap-2 text-xs text-muted-foreground">{statusBadge(selectedLane?.status??"unknown")}<span>{selectedLane&&duration(selectedLane.started,selectedLane.ended)}</span></div></div>
+        <div className="flex min-w-0 flex-wrap items-start justify-between gap-2"><h3 className="flex min-w-0 items-center gap-2 break-words text-lg font-semibold"><span aria-hidden="true"><ProviderIcon provider={detail.run.provider}/></span>{currentTurn?`Turn ${currentConversation!.turns.indexOf(currentTurn)+1} · ${currentConversation!.title}`:currentConversation?.id===detail.run.native_session?label(detail.run):currentConversation?.title??label(detail.run)}</h3><div className="flex items-center gap-2 text-xs text-muted-foreground">{statusBadge(selectedLane?.status??"unknown")}<span>{selectedLane&&duration(selectedLane.started,selectedLane.ended)}</span><ActivityInfo label="Usage and cost details" text={`${projection!.usage===null?"Aggregate usage is incomplete. ":""}${projection!.cost_reason}. Cached input is part of input; reasoning is part of output. Charts show captured observations only.${detail.run.provider==="claude"||detail.run.provider==="claude-code"?" Claude activity shows the native events captured for this invocation. Usage is reported only when supplied by Claude. Check the recorded tool activity and cleanup status for this run.":""}`}/></div></div>
         <div className="flex flex-wrap items-start justify-between gap-3 text-xs text-muted-foreground"><p title={selectedLane?.started}>Started {selectedLane&&time(selectedLane.started)} · Provider {detail.run.provider??"codex-cli"} · Model {(scope.thread&&scope.thread!==detail.run.native_session?projection?.cost.model:detail.run.model)??"unconfirmed"} · Captured stream: {detail.run.stream_state}</p>
           <details><summary className="cursor-pointer">Node identity</summary><dl className="mt-2 grid gap-1 break-all"><dt>Node ID</dt><dd>{detail.run.node}</dd><dt>Name source</dt><dd>{detail.run.node_label?"Recorded when this invocation started":"Current canvas name; no name was recorded for this older invocation"}</dd></dl></details>
         </div>
@@ -136,8 +136,7 @@ export default function GraphAgents({flowId}:{flowId?:string}) {
       </div>
       {detail.run.reason&&<p className="text-sm" role="status">Capture note: {describeNodeFailure(detail.run.reason,undefined).title} <NodeErrorNotice message={detail.run.reason} context={{nodeId:detail.run.node,nodeLabel:label(detail.run)}}/></p>}
       {detail.truncated&&<p role="alert">This invocation exceeds the detail limit. The view is partial.</p>}
-      <section className="min-w-0 space-y-4" aria-labelledby="agent-usage-heading">
-        <SectionHeading id="agent-usage-heading" actions={<ActivityInfo label="Usage and cost details" text={`${projection!.usage===null?"Aggregate usage is incomplete. ":""}${projection!.cost_reason}. Cached input is part of input; reasoning is part of output. Charts show captured observations only.${detail.run.provider==="claude"||detail.run.provider==="claude-code"?" Claude activity shows the native events captured for this invocation. Usage is reported only when supplied by Claude. Check the recorded tool activity and cleanup status for this run.":""}`}/>}>Usage and diagnostics</SectionHeading>
+      <section className="min-w-0 space-y-4" aria-label="Usage and cost">
         <UsageCharts key={`usage:${selected}:${scope.thread??""}:${scope.turn??""}`} projection={projection!} scopeLabel={scopeLabel} running={!detail.truncated&&!detail.run.reason&&selectedLane?.status==="running"}/>
       </section>
       <RuntimeRecords key={`records:${selected}:${scope.thread??""}:${scope.turn??""}`} records={projection!.telemetry} coverage={projection!.telemetry_coverage} context={exportContext!}/>

@@ -191,7 +191,7 @@ test("conversation follows diagnostics, roles differ and command evidence starts
  await screen.findByRole("navigation",{name:"Activity selection"});
  fireEvent.click(screen.getByRole("button",{name:"All activity"}));
  const conversation=await screen.findByRole("region",{name:"Conversation messages and tools"});
- expect(screen.getByRole("region",{name:"Usage and diagnostics"}).compareDocumentPosition(conversation)&Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+ expect(screen.getByRole("region",{name:"Usage and cost"}).compareDocumentPosition(conversation)&Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
  expect(conversation).toHaveAttribute("tabindex","0");
  expect(container.querySelector('[data-message-role="user"]')).toHaveClass("items-end");
  expect(container.querySelector('[data-message-role="agent"]')).toHaveClass("items-start");
