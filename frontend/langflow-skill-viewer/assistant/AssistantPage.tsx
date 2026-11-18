@@ -12,6 +12,7 @@ import {
   Check,
   Sparkles,
   Download,
+  History,
 } from "lucide-react";
 import { OpenAiIcon } from "@/icons/OpenAi";
 import { Button } from "@/components/ui/button";
@@ -575,6 +576,13 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
         </a>
       </RootTag>
     );
+  const historyControl = embedded && <button type="button"
+    aria-label={history ? "Collapse conversations" : "Expand conversations"}
+    title={history ? "Collapse conversations" : "Expand conversations"}
+    aria-expanded={history} onClick={() => setHistory(!history)}
+    className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline focus-visible:outline-2">
+    <History size={16} aria-hidden="true" />
+  </button>;
   const conversation = detail?.conversation;
   const active = Boolean(conversation?.active_message_id);
   const needsAttention = conversation?.state === "attention";
@@ -601,14 +609,14 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
       aria-label="Application assistant"
     >
       <div
-        className={`relative min-h-0 shrink-0 ${history ? embedded ? "w-full" : "w-64 max-w-[75vw]" : embedded ? "w-2" : "w-5"}`}
+        className={`relative min-h-0 shrink-0 ${history ? embedded ? "w-full" : "w-64 max-w-[75vw]" : embedded ? "hidden" : "w-5"}`}
       >
         <aside
           hidden={!history}
           className={`${history ? "flex" : "hidden"} h-full flex-col bg-muted/20 p-4 pr-6`}
           aria-label="Conversations"
         >
-          <div className="mb-4 flex items-center gap-2"><h2 className="flex-1 text-sm font-semibold">Conversations</h2>{embedded && headerActions}</div>
+          <div className="mb-4 flex items-center gap-2"><h2 className="flex-1 text-sm font-semibold">Conversations</h2>{embedded && <>{historyControl}{headerActions}</>}</div>
           <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto">
             {index.conversations.map((item) => (
               <button
@@ -653,7 +661,8 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
             New conversation
           </Button>
         </aside>
-        <button
+        {!embedded && (
+          <button
           type="button"
           aria-label={
             history ? "Collapse conversations" : "Expand conversations"
@@ -661,10 +670,10 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
           title={history ? "Collapse conversations" : "Expand conversations"}
           aria-expanded={history}
           onClick={() => setHistory(!history)}
-          className={`absolute inset-y-0 right-0 flex ${embedded ? "w-2" : "w-4"} items-center justify-center border-r text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline focus-visible:outline-2`}
+          className="absolute inset-y-0 right-0 flex w-4 items-center justify-center border-r text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline focus-visible:outline-2"
         >
-          {history ? <ChevronLeft size={embedded ? 8 : 12} /> : <ChevronRight size={embedded ? 8 : 12} />}
-        </button>
+          {history ? <ChevronLeft size={12} /> : <ChevronRight size={12} />}
+        </button>)}
       </div>
       <div hidden={embedded && history} className={`${embedded && history ? "hidden" : "flex"} min-h-0 min-w-0 flex-1 flex-col`}>
         <header className={`flex shrink-0 flex-wrap items-center justify-between border-b ${embedded ? "min-h-11 gap-2 px-3 py-2" : "gap-3 px-5 py-4"}`}>
@@ -778,6 +787,7 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
             )}
           </div>
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            {historyControl}
             {conversation && !locked && (<>
               <span role="status" aria-live="polite">
                 {exporting ? "Exporting..." : exportError ? "Export failed. Try again." : ""}

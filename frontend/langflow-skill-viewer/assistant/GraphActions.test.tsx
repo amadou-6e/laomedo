@@ -1,4 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
+import { MemoryRouter, Routes, Route } from "react-router-dom";
+import type { ReactElement } from "react";
 import GraphActions from "./GraphActions";
 import { assistantRequest } from "./api";
 import type { GraphAction } from "./models";
@@ -21,13 +23,14 @@ const action: GraphAction = {
   expires_at: Date.now() / 1000 + 900,
   run_id: null,
 };
+function renderGraphActions(element: ReactElement) { return render(<MemoryRouter>{element}</MemoryRouter>); }
 describe("human graph approval", () => {
   beforeEach(() => jest.clearAllMocks());
   it("does nothing until a human approves the exact digest", async () => {
     jest
       .mocked(assistantRequest)
       .mockResolvedValue({ ...action, state: "succeeded" });
-    render(
+    renderGraphActions(
       <GraphActions
         conversation="chat"
         actions={[action]}
@@ -54,13 +57,13 @@ describe("human graph approval", () => {
     );
     expect(
       screen
-        .getByRole("link", { name: "Open workflow in new tab" })
+        .getByRole("link", { name: "Open workflow" })
         .getAttribute("target"),
-    ).toBe("_blank");
+    ).toBeNull();
     expect(screen.queryByRole("button", { name: "Approve" })).toBeNull();
   });
   it("names the rename operation and shows its exact target without identifiers", () => {
-    render(
+    renderGraphActions(
       <GraphActions
         conversation="chat"
         actions={[
@@ -92,7 +95,7 @@ describe("human graph approval", () => {
     jest
       .mocked(assistantRequest)
       .mockResolvedValue({ ...action, state: "succeeded" });
-    render(
+    renderGraphActions(
       <GraphActions
         conversation="chat"
         actions={[action]}
@@ -113,7 +116,7 @@ describe("human graph approval", () => {
     );
   });
   it("describes a completed run with its actual input and places its outcome below", () => {
-    render(
+    renderGraphActions(
       <GraphActions
         conversation="chat"
         actions={[
@@ -148,7 +151,7 @@ describe("human graph approval", () => {
     );
   });
   it("keeps empty input explicit and never calls a pending run completed", () => {
-    render(
+    renderGraphActions(
       <GraphActions
         conversation="chat"
         actions={[
@@ -174,7 +177,7 @@ describe("human graph approval", () => {
     jest
       .mocked(assistantRequest)
       .mockResolvedValue({ ...action, state: "rejected" });
-    render(
+    renderGraphActions(
       <GraphActions
         conversation="chat"
         actions={[action]}
@@ -186,7 +189,7 @@ describe("human graph approval", () => {
     expect(assistantRequest).toHaveBeenCalledTimes(1);
   });
   it("does not offer a decision from a different app session", () => {
-    render(
+    renderGraphActions(
       <GraphActions
         conversation="chat"
         actions={[{ ...action, can_decide: false }]}
@@ -198,7 +201,7 @@ describe("human graph approval", () => {
     expect(assistantRequest).not.toHaveBeenCalled();
   });
   it("never enables approval for expired or uncertain retained actions", () => {
-    render(
+    renderGraphActions(
       <GraphActions
         conversation="chat"
         actions={[
@@ -212,4 +215,19 @@ describe("human graph approval", () => {
     expect(assistantRequest).not.toHaveBeenCalled();
     expect(screen.getByText("Outcome unknown")).toBeTruthy();
   });
+});
+
+
+it("workflow link opens its graph through the current router without submitting a decision",()=>{
+ jest.clearAllMocks();
+ render(<MemoryRouter initialEntries={["/assistant"]}><Routes>
+  <Route path="/assistant" element={<GraphActions conversation="chat" actions={[{...action,state:"succeeded"}]} onFailure={()=>{}}/>}/>
+  <Route path="/flow/graph" element={<p>Workflow editor</p>}/>
+ </Routes></MemoryRouter>);
+ const link=screen.getByRole("link",{name:"Open workflow"});
+ expect(link).toHaveAttribute("href","/flow/graph");
+ expect(link).not.toHaveAttribute("target");
+ fireEvent.click(link);
+ expect(screen.getByText("Workflow editor")).toBeVisible();
+ expect(assistantRequest).not.toHaveBeenCalled();
 });

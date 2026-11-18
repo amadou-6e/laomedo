@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ExternalLink, X } from "lucide-react";
+import { ExternalLink, ChevronRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import useAuthStore from "@/stores/authStore";
 import AssistantPage from "./AssistantPage";
@@ -41,7 +41,7 @@ export default function AssistantSidebar() {
   }, []);
   const resize = (next: number) => setWidth(Math.min(maximum, Math.max(280, next)));
   const fullChat = selection.conversation ? `/assistant?conversation=${encodeURIComponent(selection.conversation)}` : "/assistant";
-  return <aside id="laomedo-assistant-sidebar" ref={container} hidden={!open} aria-label="Assistant sidebar" className={`${open ? "flex" : "hidden"} ${overlay ? "absolute right-0 z-50 shadow-xl" : "relative z-30"} h-full min-h-0 shrink-0 flex-col border-l bg-background`} style={{ width, maxWidth: "100%" }}>
+  return <aside id="laomedo-assistant-sidebar" ref={container} hidden={!open} aria-label="Assistant sidebar" className={`${open ? "flex" : "hidden"} ${overlay ? "absolute right-0 z-50 shadow-xl" : "relative z-30"} h-full min-h-0 shrink-0 flex-col border-l bg-background pl-2`} style={{ width, maxWidth: "100%" }}>
     <div role="separator" aria-label="Resize assistant" aria-orientation="vertical" aria-valuemin={280} aria-valuemax={maximum} aria-valuenow={width} tabIndex={0}
       className="absolute inset-y-0 -left-2 z-10 w-2 cursor-col-resize touch-none hover:bg-primary/20 focus-visible:bg-primary/20 focus-visible:outline focus-visible:outline-2"
       onPointerDown={(event) => { event.preventDefault(); event.currentTarget.focus(); event.currentTarget.setPointerCapture(event.pointerId); }}
@@ -52,7 +52,7 @@ export default function AssistantSidebar() {
         event.preventDefault();
         resize(event.key === "Home" ? 280 : event.key === "End" ? maximum : width + (event.key === "ArrowLeft" ? 24 : -24));
       }} />
-    <div className="min-h-0 flex-1">{mounted && <AssistantPage headerActions={<><Link to={fullChat} aria-label="Open full-window assistant" title="Open full-window assistant" className="rounded p-1 text-muted-foreground hover:text-foreground focus-visible:outline"><ExternalLink size={16} /></Link>
-      <button type="button" aria-label="Close assistant" title="Close assistant" className="rounded p-1 text-muted-foreground hover:text-foreground focus-visible:outline" onClick={() => {setOpen(false);window.requestAnimationFrame(() => { const opener = document.getElementById("laomedo-assistant-opener"); if (opener && !opener.closest('[aria-hidden="true"], [hidden], [inert]')) opener.focus(); });}}><X size={16} /></button></>} embedded selectedConversation={selection.conversation} linkedConversation={selection.linked} onSelectConversation={setSelection} />}</div>
+      <button type="button" aria-label="Collapse assistant sidebar" title="Collapse assistant sidebar" className="absolute inset-y-0 left-0 flex w-2 items-center justify-center border-r text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline focus-visible:outline-2" onClick={() => {setOpen(false);window.requestAnimationFrame(() => { const opener = document.getElementById("laomedo-assistant-opener"); if (opener && !opener.closest('[aria-hidden="true"], [hidden], [inert]')) opener.focus(); });}}><ChevronRight size={8} aria-hidden="true" /></button>
+    <div className="min-h-0 flex-1">{mounted && <AssistantPage headerActions={<Link to={fullChat} aria-label="Open full-window assistant" title="Open full-window assistant" className="rounded p-1 text-muted-foreground hover:text-foreground focus-visible:outline"><ExternalLink size={16} /></Link>} embedded selectedConversation={selection.conversation} linkedConversation={selection.linked} onSelectConversation={setSelection} />}</div>
   </aside>;
 }

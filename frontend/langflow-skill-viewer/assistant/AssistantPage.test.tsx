@@ -25,18 +25,18 @@ jest.mock("@/stores/authStore", () => ({
 }));
 
 describe("uncertain assistant submission", () => {
-  it("puts conversation title and surface controls in one header and keeps controls reachable in history", async()=>{
+  it("puts conversation title and full-window action in one header and keeps the action reachable in history", async()=>{
     const chat={id:"saved",title:"Hello",model:"fixture",effort:"low",state:"idle",active_message_id:null};
     jest.mocked(assistantRequest).mockImplementation(async path=>{
       if(path==="/models")return {provider:"codex",models:[{id:"fixture",efforts:["low"]}]};
       if(path==="/conversations")return {conversations:[chat],next_cursor:null};
       return {conversation:chat,messages:[],drafts:[],next_cursor:null};
     });
-    render(<MemoryRouter><AssistantPage embedded selectedConversation="saved" headerActions={<button>Close surface</button>}/></MemoryRouter>);
+    render(<MemoryRouter><AssistantPage embedded selectedConversation="saved" headerActions={<a href="/assistant">Full-window chat</a>}/></MemoryRouter>);
     const title=await screen.findByRole("heading",{name:"Hello"});
-    expect(title.closest("header")).toContainElement(screen.getByRole("button",{name:"Close surface"}));
+    expect(title.closest("header")).toContainElement(screen.getByRole("link",{name:"Full-window chat"}));
     fireEvent.click(screen.getByRole("button",{name:"Expand conversations"}));
-    expect(screen.getByRole("button",{name:"Close surface"})).toBeVisible();
+    expect(screen.getByRole("link",{name:"Full-window chat"})).toBeVisible();
     expect(screen.getByRole("heading",{name:"Conversations"})).toBeVisible();
   });
   it("selects saved sidebar conversations without replacing the graph URL", async () => {

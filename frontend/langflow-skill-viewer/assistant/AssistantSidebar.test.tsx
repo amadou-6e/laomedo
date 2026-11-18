@@ -23,7 +23,7 @@ test("opening is lazy and close/reopen preserves the mounted draft and saved con
   fireEvent.change(screen.getByRole("textbox", { name: "Draft" }), { target: { value: "Unsent work" } });
   fireEvent.click(screen.getByRole("button", { name: "Select saved chat" }));
   expect(screen.getByRole("link", { name: "Open full-window assistant" })).toHaveAttribute("href", "/assistant?conversation=saved-chat");
-  fireEvent.click(screen.getByRole("button", { name: "Close assistant" }));
+  fireEvent.click(screen.getByRole("button", { name: "Collapse assistant sidebar" }));
   expect(screen.queryByRole("textbox")).toBeNull();
   act(() => useAssistantSidebarStore.getState().setOpen(true));
   expect(screen.getByRole("textbox", { name: "Draft" })).toHaveValue("Unsent work");
@@ -53,7 +53,7 @@ test.each([true,false])("close avoids a hidden rail opener (%s)",hidden=>{
  wrapper.appendChild(opener);document.body.appendChild(wrapper);
  try {
   render(<MemoryRouter><AssistantSidebar/></MemoryRouter>);
-  fireEvent.click(screen.getByRole("button",{name:"Close assistant"}));
+  fireEvent.click(screen.getByRole("button",{name:"Collapse assistant sidebar"}));
   expect(focus).toHaveBeenCalledTimes(hidden?0:1);
  } finally {wrapper.remove();frame.mockRestore();}
 });

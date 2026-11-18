@@ -7,16 +7,20 @@
 approvals still use the existing owner-scoped assistant API. The sidebar owns its
 conversation selection without changing the graph URL. It mounts lazily, then
 stays mounted while hidden so closing it preserves its draft and active response.
-The embedded conversation header is the sidebar top row, containing the conversation
-title, existing export/delete actions, full-window link and close control; there
-is no extra Assistant title row. Expanded history keeps those surface controls
-reachable. The embedded collapsed history strip is 8px wide.
+The embedded conversation header is the sidebar top row: conversation title,
+History, existing export/delete actions and full-window link. There is no extra
+Assistant title row or header close icon. `AssistantSidebar` owns the 8px edge
+strip that collapses the entire panel in chat, history and locked states while
+retaining its mounted draft. `AssistantPage` owns the header History icon, which
+opens or closes the embedded conversation list; the full-window history controls
+keep their existing behavior. Expanded history keeps the full-window action
+reachable, and the outer collapse strip stays available.
 History starts collapsed in this narrow surface. The full-window router link opens the
 selected saved conversation in the current tab.
 The sidebar full-window icon leaves the editor in the current tab; unsent sidebar
 text is discarded and the existing guard applies, including stopping an active
 build. The divider hit area sits outside the panel so it does not obscure the
-8px history toggle. That outside 8px edge is reserved for resizing rather than
+8px collapse strip. That outside 8px edge is reserved for resizing rather than
 canvas pointer gestures. The divider supports dragging and arrow/Home/End keys. Width is bounded and
 reclamped when the editor changes size. Narrow screens use an overlay, retaining
 the mounted editor beneath it. Opening, closing and resizing never send inference.
@@ -131,3 +135,6 @@ failure locally, then asks AssistantPage to clear only that chat's local state
 and return to a new conversation. Saved workflows stay; active chat/graph work
 blocks deletion. Selection/owner changes discard late results. A3 DELETE-01
 defines the confirmation and outcomes.
+
+Workflow-card links use the application router to open the corresponding graph
+in the current tab; integrated-browser popup handling is not required.
