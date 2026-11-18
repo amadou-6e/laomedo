@@ -132,7 +132,8 @@ export default function GraphAgents({flowId}:{flowId?:string}) {
       {visible.map(run=>rowsByRun[run.id]?.length?rowsByRun[run.id].map(thread=>agentRow(run,thread)):<div key={run.id} data-testid="agent-timeline-row" className="grid min-w-[900px] grid-cols-[360px_1fr] border-b border-border"><button className="px-3 py-2 text-left text-sm font-medium" aria-label={`${label(run)} · ${run.status}`} onClick={()=>selectScope(run.id)}>{label(run)}</button><span className="px-3 py-2 text-xs text-muted-foreground">{details[run.id]?(run.status==="running"?"starting":"No captured turns"):"Loading captured turns…"}</span></div>)}
       </div>
       </>}
-    {detail&&<article key={detail.run.id} className="mt-10 space-y-8" aria-label="Selected agent run">
+    {detail&&<article key={detail.run.id} className="mt-12 flex flex-col gap-12" aria-label="Selected agent run">
+      <div className="space-y-4">
       <SectionHeading>Selected agent run</SectionHeading>
       <nav aria-label="Activity selection" className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm">
         <button className="hover:text-foreground focus-visible:outline focus-visible:outline-2" aria-current={!scope.thread?"page":undefined} onClick={()=>setScope({})}>All activity</button>
@@ -146,6 +147,7 @@ export default function GraphAgents({flowId}:{flowId?:string}) {
         </div>
 
       </section>
+      </div>
       {detail.run.reason&&<p className="text-sm" role="status">Capture note: {describeNodeFailure(detail.run.reason,undefined).title} <NodeErrorNotice message={detail.run.reason} context={{nodeId:detail.run.node,nodeLabel:label(detail.run)}}/></p>}
       {detail.truncated&&<p role="alert">This invocation exceeds the detail limit. The view is partial.</p>}
       <section className="min-w-0 space-y-4" aria-labelledby="agent-usage-heading">
