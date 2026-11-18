@@ -12,7 +12,12 @@ import threading
 from urllib.parse import urlsplit
 
 WORKSPACE = Path("C:/CodeWorkspace/laomedo")
-IMPLEMENTATION = Path(os.environ.get("LAOMEDO_ACCEPTANCE_IMPLEMENTATION", str(WORKSPACE / ".tools/worktrees/assistant-291"))).resolve()
+IMPLEMENTATION = Path(
+    os.environ.get(
+        "LAOMEDO_ACCEPTANCE_IMPLEMENTATION",
+        str(WORKSPACE / ".tools/worktrees/assistant-291"),
+    )
+).resolve()
 if not IMPLEMENTATION.is_relative_to(WORKSPACE / ".tools/worktrees"):
     raise ValueError("acceptance implementation must be an isolated workspace worktree")
 metadata_path = WORKSPACE / ".tools/assistant-291-live.json"
@@ -75,6 +80,7 @@ metadata_path.write_text(
     encoding="utf-8",
 )
 (STATE / "stop-acceptance").unlink(missing_ok=True)
+lease_started_at = time.time()
 lease_log = (STATE / "lease.log").open("wb")
 lease = subprocess.Popen(
     [
@@ -90,8 +96,20 @@ lease = subprocess.Popen(
     creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
 )
 try:
-    deadline = time.monotonic() + 30
-    while not (STATE / "lease/service.json").is_file():
+    deadline = time.monotonic() + 60
+    while True:
+        try:
+            publication = json.loads(
+                (STATE / "lease/service.json").read_text(encoding="utf-8")
+            )
+            alive = float((STATE / "lease/service.alive").read_text())
+            if (
+                publication["started_at"] >= lease_started_at
+                and 0 <= time.time() - alive < 3
+            ):
+                break
+        except (OSError, ValueError, KeyError):
+            pass
         if lease.poll() is not None or time.monotonic() > deadline:
             raise RuntimeError("acceptance_lease_unavailable")
         time.sleep(0.2)
