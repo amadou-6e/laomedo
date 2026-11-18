@@ -1,0 +1,390 @@
+{
+  "run": {
+    "provider": "codex-cli",
+    "id": "sample-chat-history",
+    "node": "codex",
+    "node_label": "SAMPLE - Chat styling review",
+    "execution": "sample-chat-history-not-a-real-execution",
+    "started": "2026-11-18T13:00:00Z",
+    "ended": "2026-11-18T13:09:00Z",
+    "status": "completed",
+    "stream_state": "complete",
+    "runner_run_id": null,
+    "native_session": "sample-main",
+    "model": "sample data - no inference",
+    "event_count": 18
+  },
+  "projection": {
+    "turns": [
+      {
+        "id": "sample-turn-1",
+        "thread": "sample-main",
+        "started": "2026-11-18T13:00:00Z",
+        "ended": "2026-11-18T13:01:25Z",
+        "status": "completed",
+        "usage": null,
+        "cost": {
+          "amount": null,
+          "currency": "USD",
+          "basis": "sample",
+          "catalog_date": "",
+          "source": null,
+          "reason": "Sample data; no model execution or billable usage."
+        }
+      },
+      {
+        "id": "sample-turn-2",
+        "thread": "sample-main",
+        "started": "2026-11-18T13:01:30Z",
+        "ended": "2026-11-18T13:02:55Z",
+        "status": "completed",
+        "usage": null,
+        "cost": {
+          "amount": null,
+          "currency": "USD",
+          "basis": "sample",
+          "catalog_date": "",
+          "source": null,
+          "reason": "Sample data; no model execution or billable usage."
+        }
+      },
+      {
+        "id": "sample-turn-3",
+        "thread": "sample-main",
+        "started": "2026-11-18T13:03:00Z",
+        "ended": "2026-11-18T13:04:25Z",
+        "status": "completed",
+        "usage": null,
+        "cost": {
+          "amount": null,
+          "currency": "USD",
+          "basis": "sample",
+          "catalog_date": "",
+          "source": null,
+          "reason": "Sample data; no model execution or billable usage."
+        }
+      },
+      {
+        "id": "sample-turn-4",
+        "thread": "sample-main",
+        "started": "2026-11-18T13:04:30Z",
+        "ended": "2026-11-18T13:05:55Z",
+        "status": "completed",
+        "usage": null,
+        "cost": {
+          "amount": null,
+          "currency": "USD",
+          "basis": "sample",
+          "catalog_date": "",
+          "source": null,
+          "reason": "Sample data; no model execution or billable usage."
+        }
+      },
+      {
+        "id": "sample-turn-5",
+        "thread": "sample-main",
+        "started": "2026-11-18T13:06:00Z",
+        "ended": "2026-11-18T13:07:25Z",
+        "status": "completed",
+        "usage": null,
+        "cost": {
+          "amount": null,
+          "currency": "USD",
+          "basis": "sample",
+          "catalog_date": "",
+          "source": null,
+          "reason": "Sample data; no model execution or billable usage."
+        }
+      }
+    ],
+    "items": [
+      {
+        "id": "sample-message-1",
+        "thread": "sample-main",
+        "turn": "sample-turn-1",
+        "started": "2026-11-18T13:00:05Z",
+        "ended": "2026-11-18T13:00:12Z",
+        "status": "completed",
+        "item": {
+          "type": "userMessage",
+          "text": "Can you review the activity layout? I want to follow a conversation without losing which graph execution or agent turn I selected."
+        }
+      },
+      {
+        "id": "sample-message-2",
+        "thread": "sample-main",
+        "turn": "sample-turn-1",
+        "started": "2026-11-18T13:00:35Z",
+        "ended": "2026-11-18T13:00:42Z",
+        "status": "completed",
+        "item": {
+          "type": "agentMessage",
+          "text": "I'll check the hierarchy first, then inspect the conversation with a mix of short and long messages.\n\nThe selected **graph execution** should stay visible above the agent timeline. Choosing a turn should update the details below, while the conversation keeps its own scrolling area."
+        }
+      },
+      {
+        "id": "sample-message-3",
+        "thread": "sample-main",
+        "turn": "sample-turn-1",
+        "started": "2026-11-18T13:01:05Z",
+        "ended": "2026-11-18T13:01:12Z",
+        "status": "completed",
+        "item": {
+          "type": "userMessage",
+          "text": "Please keep the interface quiet. The design should explain itself without adding another paragraph of instructions."
+        }
+      },
+      {
+        "id": "sample-message-4",
+        "thread": "sample-main",
+        "turn": "sample-turn-2",
+        "started": "2026-11-18T13:01:35Z",
+        "ended": "2026-11-18T13:01:42Z",
+        "status": "completed",
+        "item": {
+          "type": "agentMessage",
+          "text": "### Proposed structure\n\n1. **Graph execution** - choose the overall run.\n2. **Agent conversations** - see the provider and captured turns.\n3. **Selected activity** - inspect usage, records, and messages.\n\nI'll preserve full execution identifiers in the dropdown and keep the footer at the page bottom."
+        }
+      },
+      {
+        "id": "sample-message-5",
+        "thread": "sample-main",
+        "turn": "sample-turn-2",
+        "started": "2026-11-18T13:02:05Z",
+        "ended": "2026-11-18T13:02:12Z",
+        "status": "completed",
+        "item": {
+          "type": "userMessage",
+          "text": "What happens when there is a long answer, a code block, or output from a tool?"
+        }
+      },
+      {
+        "id": "sample-message-6",
+        "thread": "sample-main",
+        "turn": "sample-turn-2",
+        "started": "2026-11-18T13:02:35Z",
+        "ended": "2026-11-18T13:02:42Z",
+        "status": "completed",
+        "item": {
+          "type": "agentMessage",
+          "text": "Each type needs a distinct treatment:\n\n- Your messages appear in restrained bubbles aligned to the right.\n- Agent responses use the available width and ordinary document typography.\n- Tool activity uses a compact row with expandable output.\n\n> Long text should wrap naturally. A code example can scroll horizontally when necessary, without widening the whole page.\n\nHere is a small example:\n\n```tsx\nfunction ConversationHeader({ count }: { count: number }) {\n  return <header aria-label=\"Conversation\">{count} messages</header>;\n}\n```\n\nInline references such as `ConversationHeader` should remain readable alongside normal prose."
+        }
+      },
+      {
+        "id": "sample-message-7",
+        "thread": "sample-main",
+        "turn": "sample-turn-3",
+        "started": "2026-11-18T13:03:05Z",
+        "ended": "2026-11-18T13:03:12Z",
+        "status": "completed",
+        "item": {
+          "type": "userMessage",
+          "text": "Can you check the command output too, then explain the tradeoff between a fixed conversation height and an expanding one?"
+        }
+      },
+      {
+        "id": "sample-message-8",
+        "thread": "sample-main",
+        "turn": "sample-turn-3",
+        "started": "2026-11-18T13:03:35Z",
+        "ended": "2026-11-18T13:03:42Z",
+        "status": "completed",
+        "item": {
+          "type": "commandExecution",
+          "command": "npm test -- --runInBand",
+          "exitCode": 0,
+          "aggregatedOutput": "PASS activity-layout.test.tsx\nPASS conversation-rendering.test.tsx\n\nSample output only ? no command was executed.",
+          "cwd": "/sample/workspace"
+        }
+      },
+      {
+        "id": "sample-message-9",
+        "thread": "sample-main",
+        "turn": "sample-turn-3",
+        "started": "2026-11-18T13:04:05Z",
+        "ended": "2026-11-18T13:04:12Z",
+        "status": "completed",
+        "item": {
+          "type": "agentMessage",
+          "text": "A **bounded conversation area** keeps the timeline and usage information reachable, but introduces a second scroll area. An expanding transcript follows ordinary page scrolling, but a long discussion pushes later sections far down the page.\n\n| Approach | Benefit | Cost |\n| --- | --- | --- |\n| Bounded transcript | Keeps surrounding activity nearby | Needs a visible, usable scrollbar |\n| Expanding transcript | One continuous reading surface | More scrolling to return to the timeline |\n\nFor this review, the current implementation keeps the bounded transcript. Try scrolling inside it and check whether that feels natural."
+        }
+      },
+      {
+        "id": "sample-message-10",
+        "thread": "sample-main",
+        "turn": "sample-turn-4",
+        "started": "2026-11-18T13:04:35Z",
+        "ended": "2026-11-18T13:04:42Z",
+        "status": "completed",
+        "item": {
+          "type": "userMessage",
+          "text": "The telemetry and conversation should not share the same card as the run metadata and usage."
+        }
+      },
+      {
+        "id": "sample-message-11",
+        "thread": "sample-main",
+        "turn": "sample-turn-4",
+        "started": "2026-11-18T13:05:05Z",
+        "ended": "2026-11-18T13:05:12Z",
+        "status": "completed",
+        "item": {
+          "type": "agentMessage",
+          "text": "Understood. The metadata and usage retain their card. **Telemetry** and **Conversation** sit below it, without that enclosing boundary.\n\nThe turn heading is slightly larger, and the redundant usage section heading is removed. The information control remains available beside the selected activity status."
+        }
+      },
+      {
+        "id": "sample-message-12",
+        "thread": "sample-main",
+        "turn": "sample-turn-4",
+        "started": "2026-11-18T13:05:35Z",
+        "ended": "2026-11-18T13:05:42Z",
+        "status": "completed",
+        "item": {
+          "type": "userMessage",
+          "text": "Please include a longer paragraph so I can judge line length and the spacing between consecutive messages."
+        }
+      },
+      {
+        "id": "sample-message-13",
+        "thread": "sample-main",
+        "turn": "sample-turn-5",
+        "started": "2026-11-18T13:06:05Z",
+        "ended": "2026-11-18T13:06:12Z",
+        "status": "completed",
+        "item": {
+          "type": "agentMessage",
+          "text": "When you inspect a longer conversation, the spacing should make it easy to distinguish a change of speaker from a new paragraph within the same response. A user message should be easy to locate without dominating the page, while an agent answer should feel like a readable document rather than a stack of nested cards. Timestamps and source controls remain secondary, so your attention stays on the content. Lists, tables, quotations, and code examples should keep their own rhythm while sharing the same text scale and color language as the rest of the activity view.\n\nA second paragraph gives you a useful comparison: the gap here should be smaller than the gap between separate messages. The transcript should also remain comfortable when you narrow the window. Long identifiers such as `sample-execution-7f941e80-configuration-observation` must wrap or scroll inside their own content area."
+        }
+      },
+      {
+        "id": "sample-message-14",
+        "thread": "sample-main",
+        "turn": "sample-turn-5",
+        "started": "2026-11-18T13:06:35Z",
+        "ended": "2026-11-18T13:06:42Z",
+        "status": "completed",
+        "item": {
+          "type": "userMessage",
+          "text": "Good. What should I look at while scrolling?"
+        }
+      },
+      {
+        "id": "sample-message-15",
+        "thread": "sample-main",
+        "turn": "sample-turn-5",
+        "started": "2026-11-18T13:07:05Z",
+        "ended": "2026-11-18T13:07:12Z",
+        "status": "completed",
+        "item": {
+          "type": "agentMessage",
+          "text": "Check these details:\n\n- Speaker alignment and message spacing.\n- Heading, paragraph, and list hierarchy.\n- Code and table overflow.\n- Tool output expansion.\n- Search results and the matching-item count.\n\nThis entire conversation is **sample data for visual inspection**, rendered by the application's actual conversation component. It is not a captured agent run."
+        }
+      }
+    ],
+    "threads": [
+      {
+        "id": "sample-main",
+        "parent": null,
+        "title": "Sample conversation"
+      }
+    ],
+    "usage": null,
+    "usage_by_thread": {},
+    "usage_points": [],
+    "clock": "sample",
+    "cost": {
+      "amount": null,
+      "currency": "USD",
+      "basis": "sample",
+      "catalog_date": "",
+      "source": null,
+      "reason": "Sample data; no model execution or billable usage."
+    },
+    "cost_reason": "Sample data; no model execution or billable usage.",
+    "telemetry": [
+      {
+        "name": "SAMPLE agent.turn",
+        "signal": "span",
+        "trace_id": "sample-trace-01",
+        "span_id": "sample-span-1",
+        "start_time": "2026-11-18T13:00:00Z",
+        "duration_ms": 180,
+        "status": "OK",
+        "attributes": {
+          "sample": true,
+          "conversation.id": "sample-main",
+          "turn.id": "sample-turn-1",
+          "service.name": "sample-agent-runner",
+          "operation": "respond"
+        }
+      },
+      {
+        "name": "SAMPLE tool.read_file",
+        "signal": "span",
+        "trace_id": "sample-trace-01",
+        "span_id": "sample-span-2",
+        "start_time": "2026-11-18T13:01:00Z",
+        "duration_ms": 360,
+        "status": "OK",
+        "attributes": {
+          "sample": true,
+          "conversation.id": "sample-main",
+          "turn.id": "sample-turn-2",
+          "service.name": "sample-agent-runner",
+          "operation": "read"
+        }
+      },
+      {
+        "name": "SAMPLE model.response",
+        "signal": "span",
+        "trace_id": "sample-trace-01",
+        "span_id": "sample-span-3",
+        "start_time": "2026-11-18T13:02:00Z",
+        "duration_ms": 540,
+        "status": "OK",
+        "attributes": {
+          "sample": true,
+          "conversation.id": "sample-main",
+          "turn.id": "sample-turn-3",
+          "service.name": "sample-agent-runner",
+          "operation": "generate"
+        }
+      },
+      {
+        "name": "SAMPLE tool.command",
+        "signal": "span",
+        "trace_id": "sample-trace-01",
+        "span_id": "sample-span-4",
+        "start_time": "2026-11-18T13:03:00Z",
+        "duration_ms": 720,
+        "status": "OK",
+        "attributes": {
+          "sample": true,
+          "conversation.id": "sample-main",
+          "turn.id": "sample-turn-4",
+          "service.name": "sample-agent-runner",
+          "operation": "test"
+        }
+      },
+      {
+        "name": "SAMPLE activity.persist",
+        "signal": "span",
+        "trace_id": "sample-trace-01",
+        "span_id": "sample-span-5",
+        "start_time": "2026-11-18T13:04:00Z",
+        "duration_ms": 900,
+        "status": "OK",
+        "attributes": {
+          "sample": true,
+          "conversation.id": "sample-main",
+          "turn.id": "sample-turn-5",
+          "service.name": "sample-agent-runner",
+          "operation": "capture"
+        }
+      }
+    ],
+    "telemetry_coverage": "Synthetic OpenTelemetry sample for visual inspection; no real tracing occurred."
+  },
+  "truncated": false
+}
