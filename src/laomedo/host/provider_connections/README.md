@@ -101,7 +101,7 @@ and controller cleanup and no active MCP grant or runner lock can settle. An
 unattested reservation remains Cleanup required; Retry never invents settlement.
 
 Graph preferences are stored per local profile and graph UUID, outside portable
-flow exports. `graph_preferences()` reads the Codex selection;
+flow exports. `graph_preferences()` reads independent Codex, Claude Code and OpenCode selections;
 `save_graph_preferences()` validates a connected owned row before atomically saving.
 An explicit node selection overrides the graph preference. Missing or removed
 accounts never fall back to another connection. Graph routes verify Flow ownership.
@@ -113,3 +113,10 @@ Ambiguous or missing runs are refused; current preferences cannot redirect them.
 Editor model discovery can use the same-origin graph referrer only after the
 browser principal and database graph ownership are verified. Runtime graph
 identity takes precedence; API calls without an owned graph context do not guess.
+
+Claude `_create_profile()` writes exact volume ownership before daemon creation.
+Per-revision locks serialize native status and cleanup without blocking logout
+on the global lifecycle lock. Shutdown fences admissions immediately and retains
+the custody lease until cancelled native workers settle, even after its foreground
+cleanup budget ends. A committed reconnect with old-volume cleanup uncertainty
+remains connected and reports that separate cleanup outcome.

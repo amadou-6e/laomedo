@@ -64,3 +64,9 @@ use the shared private attempt snapshot after normal writes; metadata discovery
 has no attempt or new store and retains its existing HTTP code boundary. A true
 `opencode_owned_resources` cleanup fact requires all allocated catalog/controller/
 worker resources, not controller absence alone. It never accepts a failed run.
+
+Model discovery runs the pinned native `models --refresh --verbose` command so
+the bundled registry cannot offer a retired model that ACP no longer advertises.
+Before configuring a model, `_run_acp()` checks the session's current flat or
+grouped selector options. Missing choices fail as `opencode_model_not_connected`
+before configuration or prompt dispatch; saved selections are never substituted.
