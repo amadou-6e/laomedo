@@ -13,9 +13,9 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 
-// Keep standard scrollbar properties at auto so Chromium uses the button-free styling.
+// Keep standard scrollbar properties at auto so Chromium applies the webkit scrollbar rules.
 export const ACTIVITY_SCROLLBAR_CLASS =
-  "[scrollbar-width:auto] [scrollbar-color:auto] [scrollbar-gutter:stable] dark:[color-scheme:dark] [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-muted-foreground/60 [&::-webkit-scrollbar-thumb:hover]:bg-muted-foreground/80 [&::-webkit-scrollbar-button]:hidden [&::-webkit-scrollbar-button]:h-0 [&::-webkit-scrollbar-button]:w-0 [&::-webkit-scrollbar-corner]:bg-transparent";
+  "[scrollbar-width:auto] [scrollbar-color:auto] dark:[color-scheme:dark] [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-muted-foreground/60 [&::-webkit-scrollbar-thumb:hover]:bg-muted-foreground/80 [&::-webkit-scrollbar-button]:hidden [&::-webkit-scrollbar-button]:h-0 [&::-webkit-scrollbar-button]:w-0 [&::-webkit-scrollbar-corner]:bg-transparent";
 
 export function HighlightedJson({ value }: { value: unknown }) {
   return (
@@ -42,8 +42,13 @@ export function MessageMarkdown({
       unwrapDisallowed={!allowLinks}
       className="prose prose-sm max-w-none break-words dark:prose-invert prose-code:before:content-none prose-code:after:content-none prose-code:!font-mono prose-code:font-normal [&_pre]:overflow-x-auto [&_pre]:whitespace-pre-wrap [&_code]:break-words"
       components={{
+        pre: ({ node, ...props }) => (
+          <pre {...props} className={ACTIVITY_SCROLLBAR_CLASS} />
+        ),
         table: ({ node, ...props }) => (
-          <div className="max-w-full overflow-x-auto">
+          <div
+            className={`${ACTIVITY_SCROLLBAR_CLASS} max-w-full overflow-x-auto`}
+          >
             <table {...props} />
           </div>
         ),

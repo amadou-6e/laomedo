@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
-import { StatusBadge, StatusDot } from "./components";
+import { ACTIVITY_SCROLLBAR_CLASS, StatusBadge, StatusDot } from "./components";
 import type { ActivityTimelineProps, Lane } from "./models";
 import {
   conversationAncestors,
@@ -55,7 +55,10 @@ export function ActivityTimeline({
   );
 
   return (
-    <div className="overflow-x-auto" aria-label="Agent run timeline">
+    <div
+      className={`${ACTIVITY_SCROLLBAR_CLASS} overflow-x-auto`}
+      aria-label="Agent run timeline"
+    >
       <div className="min-w-[640px]">
         <div
           data-testid="agent-timeline-axis"
@@ -111,8 +114,7 @@ export function ActivityTimeline({
               const key = `${run.id}:${thread.id}`,
                 expanded = !collapsed.has(key);
               const threadSelected =
-                selected === run.id &&
-                scope.thread === thread.id;
+                selected === run.id && scope.thread === thread.id;
               const status =
                 thread.lane?.status ??
                 (isRoot && run.status === "running" ? "waiting" : "unknown");

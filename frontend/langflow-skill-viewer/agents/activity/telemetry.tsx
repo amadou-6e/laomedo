@@ -108,7 +108,7 @@ export function RuntimeRecords({
         tabIndex={visible.length ? 0 : undefined}
         className={
           visible.length
-            ? `${ACTIVITY_SCROLLBAR_CLASS} max-h-[min(360px,60vh)] overflow-y-auto divide-y rounded-md border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring`
+            ? `${ACTIVITY_SCROLLBAR_CLASS} [scrollbar-gutter:stable] max-h-[min(360px,60vh)] overflow-y-auto divide-y rounded-md border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring`
             : "py-8 text-center"
         }
       >

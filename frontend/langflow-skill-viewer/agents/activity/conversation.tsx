@@ -114,7 +114,7 @@ export function Conversation({
         role="region"
         aria-label="Conversation messages and tools"
         tabIndex={0}
-        className={`${ACTIVITY_SCROLLBAR_CLASS} max-h-[min(360px,60vh)] min-w-0 space-y-5 overflow-y-auto px-3 pb-3 pr-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring`}
+        className={`${ACTIVITY_SCROLLBAR_CLASS} [scrollbar-gutter:stable] max-h-[min(360px,60vh)] min-w-0 space-y-5 overflow-y-auto px-3 pb-3 pr-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring`}
       >
         {!items.length && (
           <p className="text-sm text-muted-foreground">
@@ -243,7 +243,9 @@ export function ActivityItem({
                 ? ` (${output.length ? output.replace(/\r?\n$/, "").split(/\r?\n/).length : 0} lines)`
                 : ""}
             </summary>
-            <pre className="mt-2 max-w-full overflow-auto whitespace-pre-wrap break-words text-xs text-foreground">
+            <pre
+              className={`${ACTIVITY_SCROLLBAR_CLASS} mt-2 max-w-full overflow-auto whitespace-pre-wrap break-words text-xs text-foreground`}
+            >
               {output ?? "Output not retained"}
             </pre>
           </details>
