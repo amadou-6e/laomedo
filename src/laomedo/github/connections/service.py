@@ -680,6 +680,41 @@ class GitHubConnectionService:
             )
         )
 
+    def commit_exclusive(self):
+        """Serialize a caller's durable write with connection commits."""
+        return self.commit_lock
+
+    def selected_repository(self, owner_id, connection_id, repository_key):
+        """Return the consented repository matching a canonical key, or None."""
+        record = self.journal.get(owner_id, connection_id)
+        if record is None:
+            return None
+        return next(
+            (
+                item
+                for item in record.repositories
+                if item.full_name.lower() == repository_key
+            ),
+            None,
+        )
+
+    async def confirm_read(self, scope, authorization, within_deadline):
+        """Recheck scope, deadline and consent under the commit lock."""
+        async with self.commit_lock:
+            await scope.revalidate()
+            return within_deadline() and self.current(authorization)
+
+    async def read_access_token(self, scope, authorization, within_deadline):
+        """Return the live access token only while the admitted read still holds."""
+        async with self.commit_lock:
+            await scope.revalidate()
+            if not within_deadline() or not self.current(authorization):
+                return None
+            record = self.journal.get(
+                authorization.owner_id, authorization.connection_id
+            )
+            return self._credential(record).access_token.get_secret_value()
+
     def reader(self, authorization: GitHubReadAuthorization):
         """Open a host-only reader without resetting the admitted user-read deadline."""
         if not self.current(authorization):

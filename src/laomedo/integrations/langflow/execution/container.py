@@ -9,7 +9,6 @@ from uuid import uuid4
 
 from pydantic import SecretStr
 
-from laomedo.host.leases.client import LeaseClient
 from laomedo.host.leases.models import ContainerIdentity
 from laomedo.host.leases.settings import LABEL_RUN, LABEL_TOKEN
 from laomedo.integrations.langflow.execution.base import BaseDockerRuntime
@@ -45,7 +44,7 @@ class DockerGraphWorker(BaseDockerRuntime):
 
     def cancel(self, job_id, owner_id):
         """Revoke a trusted caller's own job before waking cancellation cleanup."""
-        run = self.authority.runs.get(self.authority.jobs.get(job_id))
+        run = self.authority.run_for_job(job_id)
         event = self._jobs.get(job_id)
         if run is None or run.scope.owner_id != owner_id or event is None:
             return False
@@ -60,10 +59,9 @@ class DockerGraphWorker(BaseDockerRuntime):
         )
         try:
             while True:
-                lease = self.authority.workers.get(call.request.job_id)
-                if cancelled.is_set() or lease is None:
+                remaining = self.authority.worker_remaining(call.request.job_id)
+                if cancelled.is_set() or remaining is None:
                     raise GraphWorkerError()
-                remaining = lease.expires_at - self.authority.clock()
                 if remaining <= 0:
                     raise GraphWorkerError()
                 try:
@@ -86,10 +84,9 @@ class DockerGraphWorker(BaseDockerRuntime):
         await process.stdin.drain()
         request_id = 0
         while True:
-            lease = self.authority.workers.get(job.job_id)
-            if cancelled.is_set() or lease is None:
+            remaining = self.authority.worker_remaining(job.job_id)
+            if cancelled.is_set() or remaining is None:
                 raise GraphWorkerError()
-            remaining = lease.expires_at - self.authority.clock()
             if remaining <= 0:
                 raise GraphWorkerError()
             try:
@@ -129,7 +126,7 @@ class DockerGraphWorker(BaseDockerRuntime):
         """
         if job.job_id in self._jobs:
             raise GraphWorkerError()
-        run = self.authority.runs.get(self.authority.jobs.get(job.job_id))
+        run = self.authority.run_for_job(job.job_id)
         if (
             run is None
             or run.flow_id != job.flow_id
@@ -152,16 +149,7 @@ class DockerGraphWorker(BaseDockerRuntime):
                 job.capability, job_id=job.job_id, vertex_id=first_vertex
             )
             await self._local_context(environment)
-            registration = asyncio.create_task(
-                asyncio.to_thread(
-                    LeaseClient,
-                    self.settings.lease_state,
-                    run_id=identity.run_id,
-                    name=identity.name,
-                    token=identity.token.get_secret_value(),
-                    cancelled=cancelled,
-                )
-            )
+            registration = self._start_lease(identity, cancelled)
             try:
                 lease = await asyncio.shield(registration)
             except asyncio.CancelledError:
@@ -172,8 +160,7 @@ class DockerGraphWorker(BaseDockerRuntime):
             created = await self._control(
                 [
                     "create",
-                    "--pull=never",
-                    "--init",
+                    *self._hardening_arguments(),
                     "--interactive",
                     "--name",
                     identity.name,
@@ -181,22 +168,6 @@ class DockerGraphWorker(BaseDockerRuntime):
                     LABEL_RUN + "=" + identity.run_id,
                     "--label",
                     LABEL_TOKEN + "=" + identity.token.get_secret_value(),
-                    "--network=none",
-                    "--cap-drop=ALL",
-                    "--security-opt=no-new-privileges",
-                    "--read-only",
-                    "--user",
-                    "65532:65532",
-                    "--pids-limit",
-                    str(self.settings.pids),
-                    "--memory",
-                    str(self.settings.memory_mib) + "m",
-                    "--cpus",
-                    str(self.settings.cpus),
-                    "--tmpfs",
-                    "/tmp:rw,nosuid,nodev,size="
-                    + str(self.settings.temporary_mib)
-                    + "m",
                     "--entrypoint",
                     "python",
                     self.settings.image_id,
@@ -221,10 +192,8 @@ class DockerGraphWorker(BaseDockerRuntime):
                 stderr=asyncio.subprocess.DEVNULL,
                 limit=GRAPH_WORKER_MESSAGE_BYTES,
             )
-            remaining = (
-                self.authority.workers[job.job_id].expires_at - self.authority.clock()
-            )
-            if remaining <= 0:
+            remaining = self.authority.worker_remaining(job.job_id)
+            if remaining is None or remaining <= 0:
                 raise GraphWorkerError()
             job = job.model_copy(
                 update={"timeout_seconds": min(job.timeout_seconds, remaining)}

@@ -82,20 +82,8 @@ class GitHubNodeRunAdmission:
                     raise GitHubNodeAuthorizationError()
                 connection_id = UUID(connection)
                 repository = repository_from_url(template["repository_url"]["value"])
-                record = self.authority.connections.journal.get(
-                    scope.owner_id, connection_id
-                )
-                selected = (
-                    next(
-                        (
-                            item
-                            for item in record.repositories
-                            if item.full_name.lower() == repository
-                        ),
-                        None,
-                    )
-                    if record is not None
-                    else None
+                selected = self.authority.connections.selected_repository(
+                    scope.owner_id, connection_id, repository
                 )
                 if selected is None:
                     raise GitHubNodeAuthorizationError()

@@ -6,6 +6,7 @@ import os
 import re
 import subprocess
 
+from laomedo.host.leases.client import LeaseClient
 from laomedo.host.leases.settings import LABEL_RUN, LABEL_TOKEN
 from laomedo.integrations.langflow.execution.errors import GraphWorkerError
 from laomedo.integrations.langflow.execution.settings import (
@@ -20,6 +21,49 @@ class BaseDockerRuntime:
     def __init__(self, settings):
         """Retain explicit admitted host deployment settings only."""
         self.settings = settings
+
+    def _hardening_arguments(self):
+        """Return the daemon sandbox flags every graph container is created with.
+
+        `_verify_limits` checks the same values after creation, so the two
+        definitions must change together.
+        """
+        return [
+            "--pull=never",
+            "--init",
+            "--network=none",
+            "--cap-drop=ALL",
+            "--security-opt=no-new-privileges",
+            "--read-only",
+            "--user",
+            "65532:65532",
+            "--pids-limit",
+            str(self.settings.pids),
+            "--memory",
+            str(self.settings.memory_mib) + "m",
+            "--cpus",
+            str(self.settings.cpus),
+            "--tmpfs",
+            "/tmp:rw,nosuid,nodev,size=" + str(self.settings.temporary_mib) + "m",
+        ]
+
+    def _start_lease(self, identity, cancelled):
+        """Begin lease registration in a thread.
+
+        Callers must recover this task's result on cancellation, because a
+        registration thread cannot be stopped and its heartbeat must still be
+        released.
+        """
+        return asyncio.create_task(
+            asyncio.to_thread(
+                LeaseClient,
+                self.settings.lease_state,
+                run_id=identity.run_id,
+                name=identity.name,
+                token=identity.token.get_secret_value(),
+                cancelled=cancelled,
+            )
+        )
 
     def _environment(self):
         """Pass only Docker-client/OS configuration; never account or model tokens."""

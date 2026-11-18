@@ -38,16 +38,12 @@ class GitHubNodeReadSession:
             or current.repository != original.repository
         ):
             raise GitHubNodeAuthorizationError()
-        async with self.connections.commit_lock:
-            await self.scope.revalidate()
-            if self.clock() >= original.deadline or not self.connections.current(
-                original
-            ):
-                raise GitHubNodeAuthorizationError()
-            record = self.connections.journal.get(
-                original.owner_id, original.connection_id
-            )
-            return self.connections._credential(record).access_token.get_secret_value()
+        token = await self.connections.read_access_token(
+            self.scope, original, lambda: self.clock() < original.deadline
+        )
+        if token is None:
+            raise GitHubNodeAuthorizationError()
+        return token
 
     def token(self, connection_id=None, connection_generation=None):
         """Bridge a gateway worker's token request back to the vault-owning loop."""
@@ -130,18 +126,8 @@ class GitHubNodeAccess:
         labels = labels_value(labels)
         repository = repository_from_url(repository_url)
         await scope.revalidate()
-        record = self.connections.journal.get(scope.owner_id, connection_id)
-        selected = (
-            next(
-                (
-                    item
-                    for item in record.repositories
-                    if item.full_name.lower() == repository
-                ),
-                None,
-            )
-            if record is not None
-            else None
+        selected = self.connections.selected_repository(
+            scope.owner_id, connection_id, repository
         )
         if selected is None:
             raise GitHubRepositoryAccessError()
@@ -154,10 +140,8 @@ class GitHubNodeAccess:
         payload = await asyncio.to_thread(
             self._read, session, kind, action, repository_url, labels, state, number
         )
-        async with self.connections.commit_lock:
-            await scope.revalidate()
-            if monotonic() >= authorization.deadline or not self.connections.current(
-                authorization
-            ):
-                raise GitHubNodeAuthorizationError()
+        if not await self.connections.confirm_read(
+            scope, authorization, lambda: session.clock() < authorization.deadline
+        ):
+            raise GitHubNodeAuthorizationError()
         return GitHubNodeReadResult(authorization=authorization, payload=payload)

@@ -50,7 +50,7 @@ class PrivateSkillHttpTests(unittest.IsolatedAsyncioTestCase):
             state=SimpleNamespace(private_skill_access=self.service)
         )
         admission = patch(
-            "laomedo.integrations.langflow.authentication.private_skills._admit",
+            "laomedo.integrations.langflow.authentication.private_skills.admit",
             new_callable=AsyncMock,
         )
         self.admit = admission.start()

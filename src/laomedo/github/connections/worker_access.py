@@ -32,7 +32,7 @@ class GitHubWorkerReadSession:
     async def scope(self):
         """Project broker identity with a callback that also fences worker revocation."""
         authorization, selection = await self.resolve()
-        run = self.authority.runs.get(self.authority.jobs.get(self.request.job_id))
+        run = self.authority.run_for_job(self.request.job_id)
         if run is None:
             raise GitHubNodeAuthorizationError()
         return (

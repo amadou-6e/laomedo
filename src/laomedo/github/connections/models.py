@@ -571,6 +571,14 @@ class GitHubNodeRun(BaseModel):
     reference: SecretStr = Field(
         exclude=True, repr=False, description="Broker-only opaque run reference."
     )
+
+    def node_for_vertex(self, vertex_id):
+        """Return the admitted node bound to one native vertex, or None."""
+        return next(
+            (node for node in self.nodes if node.selection.vertex_id == vertex_id),
+            None,
+        )
+
     scope: GitHubConnectionScope = Field(
         exclude=True,
         repr=False,

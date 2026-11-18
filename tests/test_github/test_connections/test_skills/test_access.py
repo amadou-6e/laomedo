@@ -32,8 +32,13 @@ class PrivateConnections:
         self.commit_lock = asyncio.Lock()
         self.reads = 0
         self.ready = True
+        # Mirror GitHubConnectionService.commit_exclusive for the skills service.
         self.online = True
         self.now = 1.0
+
+    def commit_exclusive(self):
+        """Mirror GitHubConnectionService.commit_exclusive for the skills service."""
+        return self.commit_lock
 
     def clock(self):
         return self.now

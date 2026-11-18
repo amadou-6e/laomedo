@@ -163,9 +163,11 @@ class WorkerCancellationTests(unittest.IsolatedAsyncioTestCase):
                 stopped.set()
 
         job_id = uuid4()
+        live = {job_id: time.monotonic() + 60}
         authority = SimpleNamespace(
-            workers={job_id: SimpleNamespace(expires_at=time.monotonic() + 60)},
-            clock=time.monotonic,
+            worker_remaining=lambda key: (
+                None if key not in live else live[key] - time.monotonic()
+            ),
         )
         worker = DockerGraphWorker(
             None, authority, SimpleNamespace(inspect=blocked_read)
@@ -182,7 +184,7 @@ class WorkerCancellationTests(unittest.IsolatedAsyncioTestCase):
         )
         pending = asyncio.create_task(worker._read(call, threading.Event()))
         await asyncio.wait_for(started.wait(), 1.0)
-        authority.workers.clear()
+        live.clear()
         with self.assertRaises(GraphWorkerError):
             await asyncio.wait_for(pending, 1.0)
         self.assertTrue(stopped.is_set())

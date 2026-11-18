@@ -168,7 +168,7 @@ The shared commit lock orders these checks against logout and connection changes
 `connections.py` owns the authenticated connection HTTP adapter. `connection_index`
 returns only the current profile/lease's broker metadata; `connection_action`
 dispatches the fixed setup/begin/token/confirm/cancel/refresh/disconnect/cleanup
-actions after browser admission and CSRF verification. `_body` bounds JSON before
+actions after browser admission and CSRF verification. `body` bounds JSON before
 manual Pydantic validation, so validation errors never echo a token or app secret.
 `connection_callback` admits the fixed top-level OAuth return, consumes its bound
 attempt, and redirects to the fixed manager without code/state query parameters.

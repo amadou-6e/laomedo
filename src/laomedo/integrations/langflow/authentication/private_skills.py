@@ -8,10 +8,10 @@ from starlette.responses import JSONResponse
 
 from laomedo.github.connections.models import GitHubResponseBinding
 from laomedo.integrations.langflow.authentication.connections import (
-    _admit,
-    _body,
-    _failure,
-    _parse,
+    admit,
+    body,
+    failure,
+    parse,
 )
 from laomedo.github.connections.skills.models import (
     PrivateSkillChoiceRequest,
@@ -34,21 +34,21 @@ async def private_skill_action(
 ):
     """Admit owner/session/CSRF before parsing; bind buffered bytes before release."""
     try:
-        scope = await _admit(request, user, mutating=True)
-        payload = await _body(request)
+        scope = await admit(request, user, mutating=True)
+        payload = await body(request)
         service = request.app.state.private_skill_access
         if action == "discover":
-            selected = _parse(PrivateSkillRequest, payload)
+            selected = parse(PrivateSkillRequest, payload)
             result = await service.discover(
                 scope, selected.connection_id, selected.repository_id
             )
         elif action == "revisions":
-            selected = _parse(PrivateSkillChoiceRequest, payload)
+            selected = parse(PrivateSkillChoiceRequest, payload)
             result = await service.revisions(
                 scope, selected.connection_id, selected.repository_id, selected.choice
             )
         elif action == "inspect":
-            selected = _parse(PrivateSkillRevisionRequest, payload)
+            selected = parse(PrivateSkillRevisionRequest, payload)
             result = await service.inspect(
                 scope,
                 selected.connection_id,
@@ -57,12 +57,12 @@ async def private_skill_action(
                 selected.revision_id,
             )
         elif action == "history":
-            selected = _parse(PrivateSkillHistoryRequest, payload)
+            selected = parse(PrivateSkillHistoryRequest, payload)
             result = await service.history(
                 scope, selected.connection_id, selected.repository_id, selected.skill_id
             )
         else:
-            selected = _parse(PrivateSkillCompareRequest, payload)
+            selected = parse(PrivateSkillCompareRequest, payload)
             result = await service.compare(
                 scope,
                 selected.connection_id,
@@ -76,4 +76,4 @@ async def private_skill_action(
         )
         return JSONResponse(result.payload, headers={"Cache-Control": "no-store"})
     except Exception as error:
-        return _failure(error)
+        return failure(error)

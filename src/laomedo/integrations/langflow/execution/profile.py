@@ -8,7 +8,6 @@ from uuid import uuid4
 
 from pydantic import SecretStr
 
-from laomedo.host.leases.client import LeaseClient
 from laomedo.host.leases.models import ContainerIdentity
 from laomedo.host.leases.settings import LABEL_RUN, LABEL_TOKEN
 from laomedo.integrations.langflow.execution.base import BaseDockerRuntime
@@ -156,16 +155,7 @@ class DockerProfileRuntime(BaseDockerRuntime):
         cancelled = threading.Event()
         lease = None
         try:
-            registration = asyncio.create_task(
-                asyncio.to_thread(
-                    LeaseClient,
-                    self.settings.lease_state,
-                    run_id=identity.run_id,
-                    name=identity.name,
-                    token=identity.token.get_secret_value(),
-                    cancelled=cancelled,
-                )
-            )
+            registration = self._start_lease(identity, cancelled)
             try:
                 lease = await asyncio.shield(registration)
             except asyncio.CancelledError:
@@ -174,30 +164,13 @@ class DockerProfileRuntime(BaseDockerRuntime):
             created = await self._control(
                 [
                     "create",
-                    "--pull=never",
-                    "--init",
+                    *self._hardening_arguments(),
                     "--name",
                     identity.name,
                     "--label",
                     LABEL_RUN + "=" + identity.run_id,
                     "--label",
                     LABEL_TOKEN + "=" + identity.token.get_secret_value(),
-                    "--network=none",
-                    "--cap-drop=ALL",
-                    "--security-opt=no-new-privileges",
-                    "--read-only",
-                    "--user",
-                    "65532:65532",
-                    "--pids-limit",
-                    str(self.settings.pids),
-                    "--memory",
-                    str(self.settings.memory_mib) + "m",
-                    "--cpus",
-                    str(self.settings.cpus),
-                    "--tmpfs",
-                    "/tmp:rw,nosuid,nodev,size="
-                    + str(self.settings.temporary_mib)
-                    + "m",
                     "--mount",
                     "type=volume,source="
                     + volume

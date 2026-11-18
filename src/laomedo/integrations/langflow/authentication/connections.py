@@ -54,7 +54,7 @@ def _unique_fields(pairs):
     return result
 
 
-def _failure(error):
+def failure(error):
     """Project only catalogued fixed codes, never token-bearing validation input."""
     if not isinstance(
         error,
@@ -88,7 +88,7 @@ def _failure(error):
     )
 
 
-async def _admit(request, user, *, mutating=False):
+async def admit(request, user, *, mutating=False):
     """Derive owner/lease proof from upstream auth before reading a secret body."""
     policy = request.app.state.private_access_policy
     context = await policy.authorize(request, user)
@@ -98,7 +98,7 @@ async def _admit(request, user, *, mutating=False):
     return PrivateGitHubAdmission(policy, context).scope()
 
 
-async def _body(request):
+async def body(request):
     """Read bounded JSON only; never echo raw payload or decode diagnostics."""
     if (
         request.headers.get("content-type", "").split(";", 1)[0].strip().lower()
@@ -119,7 +119,7 @@ async def _body(request):
     return payload
 
 
-def _parse(model, payload):
+def parse(model, payload):
     """Catch validation locally so FastAPI cannot serialize credential input."""
     try:
         return model.model_validate(payload)
@@ -151,10 +151,10 @@ async def connection_capability(request: Request):
 async def connection_index(request: Request, user: CurrentActiveUser):
     """Return this profile/lease's private connection metadata after live admission."""
     try:
-        scope = await _admit(request, user)
+        scope = await admit(request, user)
         return await _index_response(request, scope)
     except Exception as error:
-        return _failure(error)
+        return failure(error)
 
 
 @connection_router.post("/github-connections/{action}")
@@ -177,41 +177,41 @@ async def connection_action(
 ):
     """Dispatch only the fixed private controls, with CSRF before secret ingestion."""
     try:
-        scope = await _admit(request, user, mutating=True)
-        payload = await _body(request)
+        scope = await admit(request, user, mutating=True)
+        payload = await body(request)
         service = request.app.state.private_github_connections
         if action == "provision":
             if payload:
                 raise GitHubConnectionInputError()
             outcome = await request.app.state.private_github_provisioner.begin(scope)
         elif action == "setup":
-            data = _parse(GitHubAppSetupRequest, payload)
+            data = parse(GitHubAppSetupRequest, payload)
             outcome = await service.configure_app(
                 scope, client_id=data.client_id, slug=data.slug, secret=data.secret
             )
         elif action == "begin":
-            data = _parse(GitHubBrowserConnectRequest, payload)
+            data = parse(GitHubBrowserConnectRequest, payload)
             outcome = await service.begin(scope, data.connection_id, app_id=data.app_id)
         elif action == "token":
-            data = _parse(GitHubTokenConnectRequest, payload)
+            data = parse(GitHubTokenConnectRequest, payload)
             outcome = await service.begin_token(scope, data.token, data.connection_id)
         elif action == "edit":
-            data = _parse(GitHubConnectionRequest, payload)
+            data = parse(GitHubConnectionRequest, payload)
             outcome = await service.edit(scope, data.connection_id)
         elif action == "inventory":
-            data = _parse(GitHubPendingRequest, payload)
+            data = parse(GitHubPendingRequest, payload)
             outcome = await service.inspect_inventory(scope, data.request_id)
         elif action == "confirm":
-            data = _parse(GitHubConsentRequest, payload)
+            data = parse(GitHubConsentRequest, payload)
             outcome = await service.confirm(scope, data.request_id, data.repository_ids)
         elif action == "cancel":
-            data = _parse(GitHubPendingRequest, payload)
+            data = parse(GitHubPendingRequest, payload)
             outcome = await service.cancel(scope, data.request_id)
         elif action == "refresh":
-            data = _parse(GitHubConnectionRequest, payload)
+            data = parse(GitHubConnectionRequest, payload)
             outcome = await service.refresh(scope, data.connection_id)
         elif action == "disconnect":
-            data = _parse(GitHubDisconnectRequest, payload)
+            data = parse(GitHubDisconnectRequest, payload)
             outcome = await service.disconnect(
                 scope, data.connection_id, data.generation
             )
@@ -221,7 +221,7 @@ async def connection_action(
             outcome = await service.cleanup(scope)
         return await _index_response(request, scope, outcome)
     except Exception as error:
-        return _failure(error)
+        return failure(error)
 
 
 @connection_router.get("/github-connections/callback")

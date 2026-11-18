@@ -51,7 +51,7 @@ class PrivateNodeReadTests(unittest.IsolatedAsyncioTestCase):
             state=SimpleNamespace(private_github_nodes=self.service)
         )
         admission = patch(
-            "laomedo.integrations.langflow.authentication.private_nodes._admit",
+            "laomedo.integrations.langflow.authentication.private_nodes.admit",
             new_callable=AsyncMock,
         )
         self.admit = admission.start()

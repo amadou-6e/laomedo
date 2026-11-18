@@ -11,10 +11,10 @@ from laomedo.github.connections.models import (
     GitHubResponseBinding,
 )
 from laomedo.integrations.langflow.authentication.connections import (
-    _admit,
-    _body,
-    _failure,
-    _parse,
+    admit,
+    body,
+    failure,
+    parse,
 )
 
 private_node_router = APIRouter(
@@ -28,8 +28,8 @@ async def private_node_read(
 ):
     """Admit profile/lease/CSRF and bind buffered results to their live generation."""
     try:
-        scope = await _admit(request, user, mutating=True)
-        selected = _parse(GitHubNodeReadRequest, await _body(request))
+        scope = await admit(request, user, mutating=True)
+        selected = parse(GitHubNodeReadRequest, await body(request))
         result = await request.app.state.private_github_nodes.read(
             scope, action=action, **selected.model_dump()
         )
@@ -38,4 +38,4 @@ async def private_node_read(
         )
         return JSONResponse(result.payload, headers={"Cache-Control": "no-store"})
     except Exception as error:
-        return _failure(error)
+        return failure(error)

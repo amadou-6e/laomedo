@@ -55,6 +55,40 @@ class NodeConnectionFixture:
             and repository in self.repositories
         )
 
+    def selected_repository(self, owner, connection, repository_key):
+        """Mirror the service's consented-repository lookup for the fixture."""
+        if self.get(owner, connection) is None:
+            return None
+        return next(
+            (
+                item
+                for item in self.repositories
+                if item.full_name.lower() == repository_key
+            ),
+            None,
+        )
+
+    def current(self, authorization):
+        """Mirror the service's exact consent check for the fixture."""
+        return self.run_generation_current(
+            authorization.owner_id,
+            authorization.connection_id,
+            authorization.generation,
+            authorization.repository,
+        )
+
+    async def confirm_read(self, scope, authorization, within_deadline):
+        """Mirror the service's locked deadline and consent recheck."""
+        await scope.revalidate()
+        return within_deadline() and self.current(authorization)
+
+    async def read_access_token(self, scope, authorization, within_deadline):
+        """Return a synthetic token only while the admitted read still holds."""
+        await scope.revalidate()
+        if not within_deadline() or not self.current(authorization):
+            return None
+        return "synthetic-access-token"
+
     async def authorize_read(self, scope, connection, repository):
         await scope.revalidate()
         self.reads += 1

@@ -193,16 +193,8 @@ class GitHubRunAuthority:
             expected.digest, sha256(value.encode("ascii")).hexdigest()
         ):
             raise GitHubNodeAuthorizationError()
-        reference = self.jobs.get(job_id)
-        run = self.runs.get(reference)
-        node = (
-            next(
-                (item for item in run.nodes if item.selection.vertex_id == vertex_id),
-                None,
-            )
-            if run is not None
-            else None
-        )
+        run = self.run_for_job(job_id)
+        node = run.node_for_vertex(vertex_id) if run is not None else None
         if node is None:
             raise GitHubNodeAuthorizationError()
         return run, node.selection
@@ -221,11 +213,7 @@ class GitHubRunAuthority:
         if current is not run or not self.connections.run_generation_current(
             run.scope.owner_id,
             selection.connection_id,
-            next(
-                item.generation
-                for item in run.nodes
-                if item.selection.vertex_id == vertex_id
-            ),
+            run.node_for_vertex(vertex_id).generation,
             selection.repository,
         ):
             raise GitHubNodeAuthorizationError()
@@ -247,6 +235,15 @@ class GitHubRunAuthority:
         """Stop new worker access without deleting acquired profile history."""
         self.workers.pop(job_id, None)
 
+    def run_for_job(self, job_id):
+        """Return the admitted run bound to a native job, or None."""
+        return self.runs.get(self.jobs.get(job_id))
+
+    def worker_remaining(self, job_id):
+        """Return seconds left on a live worker lease, or None when none exists."""
+        lease = self.workers.get(job_id)
+        return None if lease is None else lease.expires_at - self.clock()
+
     def validate_job_graph(self, job_id, graph):
         """Refuse a changed effective worker graph before its first vertex executes."""
         run = self.runs.get(self.jobs.get(job_id))
@@ -260,9 +257,7 @@ class GitHubRunAuthority:
         run = self.runs.get(reference)
         if run is None or run.job_id != job_id:
             raise GitHubNodeAuthorizationError()
-        node = next(
-            (node for node in run.nodes if node.selection.vertex_id == vertex_id), None
-        )
+        node = run.node_for_vertex(vertex_id)
         if (
             node is None
             or node.selection.connection_id != connection_id
