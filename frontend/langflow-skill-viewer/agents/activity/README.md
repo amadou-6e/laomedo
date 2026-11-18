@@ -56,3 +56,7 @@ viewers and upstream rich-HTML chat retain their distinct content contracts.
 `utils.ts` owns canonical status labels/tones and cycle-safe conversation
 ancestry. `GraphAgents` derives conversation rows once and supplies them to
 `ActivityTimeline`, whose keyed lifecycle owns only collapsed-row state.
+
+`ACTIVITY_SCROLLBAR_CLASS` in `components.tsx` owns activity scroll surfaces: transparent tracks, theme-aware thumbs and no Chromium arrow buttons. Keep native scrolling and keyboard focus behavior. The same style covers timeline, Markdown table/code and tool-output scrolling; embedded upstream code editors retain their own scrollbar rendering. Only the bounded conversation/telemetry lists reserve a stable gutter.
+
+`ProviderIcon.tsx` uses the upstream OpenCode mark geometry (https://github.com/anomalyco/opencode/blob/dev/packages/ui/src/components/logo.tsx), rendered with currentColor for the existing monochrome provider-icon treatment.
