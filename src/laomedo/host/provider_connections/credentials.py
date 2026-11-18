@@ -84,7 +84,12 @@ class SavedClaudeConnection:
                 record = self.service.admitted(
                     self.profile_id, self.connection_id, self.generation
                 )
-                return self.service.claude.profile(self.profile_id, record)
+            descriptor = self.service.claude.profile(self.profile_id, record)
+            with self.service._lock:
+                self.service.admitted(
+                    self.profile_id, self.connection_id, self.generation
+                )
+            return descriptor
         except ProviderConnectionError as error:
             raise RunnerError(error.code) from None
         except Exception:

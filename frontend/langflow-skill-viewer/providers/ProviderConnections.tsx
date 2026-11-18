@@ -66,6 +66,7 @@ export default function ProviderConnections() {
             setAttempt({ ...progress, attempt_id: "" });
           }
           if (progress.status === "connected" || progress.status === "duplicate") {
+            if (progress.code === "provider_cleanup_unconfirmed") setError(progress.code);
             setSelected(next.find(row => row.connection_id === progress.connection_id));
             setScreen(progress.status === "duplicate" ? "duplicate" : "details");
           } else if (progress.status !== "cancelled") setScreen("failure");

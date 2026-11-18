@@ -89,7 +89,10 @@ class GoConnection:
             except Exception:
                 # A failed atomic publication can still have committed. An
                 # unreadable index keeps custody for explicit reconciliation.
-                committed = self.service._records(profile_id)
+                try:
+                    committed = self.service._records(profile_id)
+                except Exception:
+                    raise ProviderConnectionError("provider_save_unconfirmed") from None
                 if record not in committed:
                     self.erase(root)
                     raise ProviderConnectionError("provider_save_unconfirmed") from None

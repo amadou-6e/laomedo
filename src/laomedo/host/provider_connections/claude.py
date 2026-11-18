@@ -39,6 +39,12 @@ class ClaudeConnection:
         """Bind the shared owner lock; native startup occurs only in begin()."""
         self.service = service
         self.attempts = {}
+        self._resource_locks = {}
+
+    def _resource_lock(self, root):
+        """Serialize one revision without delaying unrelated logout or cancellation."""
+        with self.service._lock:
+            return self._resource_locks.setdefault(str(root), threading.RLock())
 
     def _root(self, profile_id, credential_id) -> Path:
         """Resolve an opaque host-owned revision below the private profile root."""
@@ -75,6 +81,28 @@ class ClaudeConnection:
                 raise ProviderConnectionError("provider_connection_unavailable")
         return descriptor
 
+    def _create_profile(self, root, docker, item, image_id):
+        """Persist exact ownership before daemon creation, including uncertain creation."""
+        from py_docker.settings import OWNERSHIP_LABEL
+
+        descriptor = ClaudeNativeProfile(
+            name="laomedo-claude-connection-" + item.credential_id.hex,
+            labels={
+                "laomedo.provider": "claude",
+                "laomedo.connection": str(item.candidate_id),
+                OWNERSHIP_LABEL: uuid4().hex,
+            },
+            docker_endpoint=docker.connection.endpoint,
+            image_id=image_id,
+        )
+        # Persist the exact owner token before daemon creation. A crash
+        # or ambiguous create can therefore reconcile only this volume.
+        _atomic_private(root / "claude-custody.json", descriptor.model_dump())
+        docker.sdk.volumes.create(name=descriptor.name, labels=descriptor.labels)
+        if docker.volumes.inspect(self._identity(descriptor)) is None:
+            raise ProviderConnectionError("provider_cleanup_unconfirmed")
+        return descriptor
+
     def _spec(self, descriptor, command, *, interactive=False):
         """Build an auth-only official-client sandbox without project or tool mounts."""
         from py_docker.containers.models import ContainerSpec, Mount
@@ -103,7 +131,7 @@ class ClaudeConnection:
         from py_docker.jobs.models import ContainerJob
         from py_docker.streams.models import StreamLimits
 
-        with self._client(descriptor) as docker:
+        with self._resource_lock(root), self._client(descriptor) as docker:
             result = DockerRuntime.execute_job(
                 docker,
                 ContainerJob(
@@ -265,31 +293,7 @@ class ClaudeConnection:
                 if item.cancelled.is_set() or time.monotonic() >= item.expires_at:
                     raise ProviderConnectionError("provider_login_expired")
                 stage = "volume"
-                volume = docker.volumes.create(
-                    name="laomedo-claude-connection-" + item.credential_id.hex,
-                    labels={
-                        "laomedo.provider": "claude",
-                        "laomedo.connection": str(item.candidate_id),
-                    },
-                )
-                try:
-                    descriptor = ClaudeNativeProfile(
-                        name=volume.name,
-                        labels={
-                            name: value.get_secret_value()
-                            for name, value in volume.labels.items()
-                        },
-                        docker_endpoint=docker.connection.endpoint,
-                        image_id=image_id,
-                    )
-                    _atomic_private(
-                        root / "claude-custody.json", descriptor.model_dump()
-                    )
-                except Exception:
-                    owned = docker.volumes.inspect(volume)
-                    if owned is not None:
-                        owned.remove(force=False)
-                    raise
+                descriptor = self._create_profile(root, docker, item, image_id)
                 stage = "native_login"
                 with DockerRuntime.session(
                     docker,
@@ -407,7 +411,11 @@ class ClaudeConnection:
                     item.progress.status = "connected"
                     item.progress.connection_id = item.candidate_id
             if committed and item.previous:
-                self.erase(self._root(item.profile_id, item.previous.credential_id))
+                try:
+                    self.erase(self._root(item.profile_id, item.previous.credential_id))
+                except Exception:
+                    # Publication is confirmed; only old-revision cleanup is uncertain.
+                    item.progress.code = "provider_cleanup_unconfirmed"
         except Exception as failure:
             logging.getLogger(__name__).warning(
                 "Claude sign-in failed: stage=%s exception_type=%s",
@@ -471,7 +479,7 @@ class ClaudeConnection:
     def erase(self, root):
         """Recover exact native receipts and remove only this owned volume."""
         descriptor = self._descriptor(root)
-        with self.service._lock:
+        with self._resource_lock(root):
             with self._client(descriptor) as docker:
                 for name, kind in (
                     ("claude-login-session.json", "session"),

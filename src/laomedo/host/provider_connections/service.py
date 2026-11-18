@@ -33,7 +33,11 @@ from laomedo.host.provider_connections.models import (
     DisconnectInfo,
     DisconnectProgress,
 )
-from laomedo.host.provider_connections.settings import ATTEMPT_SECONDS, MAX_CONNECTIONS
+from laomedo.host.provider_connections.settings import (
+    ATTEMPT_SECONDS,
+    MAX_CONNECTIONS,
+    NATIVE_AUTH_CLEANUP_SECONDS,
+)
 
 
 class ProviderConnections:
@@ -50,6 +54,7 @@ class ProviderConnections:
         self.root.mkdir(parents=True, exist_ok=True, mode=0o700)
         _restrict_windows_directory(self.root)
         self._lock = threading.RLock()
+        self._closing = False
         self.go = GoConnection(self)
         self.claude = ClaudeConnection(self)
         self._attempts: dict[UUID, PendingLogin] = {}
@@ -75,15 +80,35 @@ class ProviderConnections:
 
     def close(self) -> None:
         """Fence pending callbacks and release this runtime's exclusive store lease."""
-        for item in list(self.claude.attempts.values()):
-            self.claude.cancel(item.profile_id, item.progress.attempt_id)
-        for item in list(self.claude.attempts.values()):
-            if item.worker is not None:
-                item.worker.join()
         with self._lock:
+            if self._closing:
+                return
+            self._closing = True
+            for item in self.claude.attempts.values():
+                item.cancelled.set()
             for item in self._attempts.values():
                 if item.progress.status in {"connecting", "verifying"}:
                     item.progress.status = "cancelled"
+            workers = [
+                item.worker for item in self.claude.attempts.values() if item.worker
+            ]
+        deadline = time.monotonic() + NATIVE_AUTH_CLEANUP_SECONDS
+        for worker in workers:
+            worker.join(max(0, deadline - time.monotonic()))
+        if any(worker.is_alive() for worker in workers):
+            # Do not release custody while a native worker could still finish.
+            # The daemon finisher retains the lease without blocking app shutdown.
+            threading.Thread(
+                target=self._finish_close, args=(workers,), daemon=True
+            ).start()
+        else:
+            self._finish_close(workers)
+
+    def _finish_close(self, workers):
+        """Release custody only after fenced workers settle, including delayed cleanup."""
+        for worker in workers:
+            worker.join()
+        with self._lock:
             if self._ownership is not None:
                 self._ownership.__exit__(None, None, None)
                 self._ownership = None
@@ -157,7 +182,7 @@ class ProviderConnections:
 
     def _profile(self, profile_id: UUID) -> Path:
         """Resolve only a canonical profile identifier below the private root."""
-        if self._ownership is None:
+        if self._ownership is None or self._closing:
             raise ProviderConnectionError("provider_connections_unavailable")
         profile_id = UUID(str(profile_id))
         path = self.root / str(profile_id)
@@ -393,10 +418,31 @@ class ProviderConnections:
     def list(self, profile_id: UUID) -> list[ConnectionSummary]:
         """Observe safe saved rows without refresh, login or an inference request."""
         with self._lock:
+            snapshot = self._records(profile_id)
+        native = {
+            record.connection_id: (record, self.claude.summary(profile_id, record))
+            for record in snapshot
+            if record.provider == "claude"
+        }
+        with self._lock:
             rows = []
             for record in self._records(profile_id):
                 if record.provider == "claude":
-                    rows.append(self.claude.summary(profile_id, record))
+                    observed = native.get(record.connection_id)
+                    if observed and observed[0] == record:
+                        rows.append(observed[1])
+                    else:
+                        rows.append(
+                            ConnectionSummary(
+                                provider="claude",
+                                method="claude_native",
+                                connection_id=record.connection_id,
+                                label=record.label,
+                                generation=record.generation,
+                                lifecycle=record.lifecycle,
+                                auth_state="unavailable",
+                            )
+                        )
                     continue
                 if record.provider == "opencode":
                     rows.append(self.go.summary(profile_id, record))
