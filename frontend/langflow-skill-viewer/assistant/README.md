@@ -148,3 +148,16 @@ and Reject, followed by compact authoritative outcomes. It uses only human app
 routes and never submits an assistant prompt itself. `NativeAction` wire types
 stay in models.ts. Command messages reuse MessageRow/Copy; responseTranscript
 includes native proposal receipts. No additional conversation surface is created.
+
+
+# Assistant rendering
+
+`Message.tsx` assembles retained activity and responses. `NativeStatus.tsx` renders
+an approved native `/status` response as a compact, dismissible monospaced panel.
+`statusFields.ts` extracts only fields actually reported in that response; absent
+context or quota data remains unavailable, never inferred from a different session.
+The chat ID and native thread ID are separately labelled.
+
+`toolCall.ts` names retained native items, including context compaction.
+`ToolCalls.tsx` displays their observed outcome even when no textual result exists.
+Copy/export continue to preserve the original native response.

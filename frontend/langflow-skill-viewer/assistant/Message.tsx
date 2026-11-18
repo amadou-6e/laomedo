@@ -13,6 +13,7 @@ import CopyAnswer from "./CopyAnswer";
 import { responseTranscript, hasNativeCommandOutcome } from "./responseTranscript";
 import GraphActions from "./GraphActions";
 import NativeActions from "./NativeActions";
+import NativeStatus from "./NativeStatus";
 import type { GraphAction, NativeAction } from "./models";
 
 export function UserMessage({
@@ -118,6 +119,7 @@ export default function MessageRow({
   const items = (page?.projection?.items ?? []).filter(
     (lane) => lane.item?.type !== "userMessage",
   );
+  const nativeStatus = Boolean(message.native_action_id && message.text === "/status" && message.state === "completed" && message.response);
   const hasAnswer = items.some(
     (lane) => messageText(lane.item ?? {}, "codex") !== null,
   );
@@ -135,7 +137,7 @@ export default function MessageRow({
   return (
     <section className="space-y-5" aria-label="Message and response">
       <UserMessage text={message.text} createdAt={message.created_at} />
-      {groups.map((group) => {
+      {nativeStatus ? <NativeStatus text={message.response!} conversation={conversation} /> : groups.map((group) => {
         const lane = group[0];
         const text = messageText(lane.item ?? {}, "codex");
         return text !== null ? (
@@ -150,7 +152,7 @@ export default function MessageRow({
           />
         );
       })}
-      {!hasAnswer && message.response && (
+      {!nativeStatus && !hasAnswer && message.response && (
         <div className="space-y-2">
           <AssistantText text={message.response} />
         </div>
