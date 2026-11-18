@@ -12,7 +12,9 @@ import threading
 from urllib.parse import urlsplit
 
 WORKSPACE = Path("C:/CodeWorkspace/laomedo")
-IMPLEMENTATION = WORKSPACE / ".tools/worktrees/assistant-291"
+IMPLEMENTATION = Path(os.environ.get("LAOMEDO_ACCEPTANCE_IMPLEMENTATION", str(WORKSPACE / ".tools/worktrees/assistant-291"))).resolve()
+if not IMPLEMENTATION.is_relative_to(WORKSPACE / ".tools/worktrees"):
+    raise ValueError("acceptance implementation must be an isolated workspace worktree")
 metadata_path = WORKSPACE / ".tools/assistant-291-live.json"
 previous = json.loads(metadata_path.read_text()) if "--resume" in sys.argv else None
 STATE = (
