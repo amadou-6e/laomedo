@@ -1,4 +1,4 @@
-import { Bot, Terminal } from "lucide-react";
+import { Bot } from "lucide-react";
 
 export function ProviderIcon({
   provider,
@@ -36,6 +36,17 @@ export function ProviderIcon({
       </svg>
     );
   if (provider === "opencode" || provider === "opencode-cli")
-    return <Terminal className={className} role="img" aria-label="OpenCode" />;
+    return (
+      <svg
+        className={className}
+        viewBox="0 0 16 20"
+        fill="none"
+        role="img"
+        aria-label="OpenCode"
+      >
+        <path d="M12 16H4V8H12V16Z" fill="currentColor" opacity="0.35" />
+        <path d="M12 4H4V16H12V4ZM16 20H0V0H16V20Z" fill="currentColor" />
+      </svg>
+    );
   return <Bot className={className} role="img" aria-label="Agent" />;
 }
