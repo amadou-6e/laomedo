@@ -309,8 +309,9 @@ class BaseAgent(ABC):
         effort: str,
         activity_attempt_id: str | None = None,
         run_timeout_seconds: int | None = None,
+        native_command=None,
     ) -> dict:
-        """Validate the provider binding before resuming its existing execution."""
+        """Resume a bound execution; unsupported native commands refuse before effects."""
 
     @abstractmethod
     def readiness(self) -> ReadinessObservation:

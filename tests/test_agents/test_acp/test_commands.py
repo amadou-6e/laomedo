@@ -2,6 +2,11 @@
 
 import unittest
 from unittest.mock import Mock
+from importlib.util import find_spec
+
+if find_spec("acp") is None:
+    raise unittest.SkipTest("Requires optional ACP SDK")
+
 from acp.schema import AvailableCommandsUpdate
 
 from laomedo.agents.agents.base.acp.session import AcpSession

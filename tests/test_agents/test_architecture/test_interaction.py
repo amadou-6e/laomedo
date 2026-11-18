@@ -43,6 +43,25 @@ class InteractionContractTests(unittest.TestCase):
                         )
                     self.assertFalse(inspect.iscoroutinefunction(getattr(kind, name)))
 
+    def test_unsupported_native_commands_refuse_before_record_access(self):
+        for kind in (ClaudeAgent, OpenCodeAgent):
+            with self.subTest(provider=kind.provider):
+                agent = object.__new__(kind)
+                with patch.object(agent, "status") as status:
+                    with self.assertRaisesRegex(
+                        RunnerError, "native_command_not_supported"
+                    ):
+                        agent.resume(
+                            "not-admitted",
+                            "/status",
+                            expected_post_run_hash="hash",
+                            expected_thread_id="thread",
+                            model="model",
+                            effort="default",
+                            native_command={"name": "status"},
+                        )
+                    status.assert_not_called()
+
     def test_unsupported_timeout_refuses_resume_before_record_access(self):
         for kind in (CodexAgent, OpenCodeAgent):
             with self.subTest(provider=kind.provider):

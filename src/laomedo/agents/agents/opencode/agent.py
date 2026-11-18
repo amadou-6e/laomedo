@@ -140,8 +140,11 @@ class OpenCodeAgent(BaseAgent):
         effort: str,
         activity_attempt_id: str | None = None,
         run_timeout_seconds: int | None = None,
+        native_command=None,
     ) -> dict:
         """Admit an existing session/workspace binding before continuing it; failures never create a fresh session."""
+        if native_command is not None:
+            raise RunnerError("native_command_not_supported")
         self._validate_run_timeout(run_timeout_seconds)
         self._validate_provider(model, effort)
         record = self.status(run_id)
