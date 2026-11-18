@@ -85,6 +85,7 @@ test("conversation search has clear and empty states, and switching scope resets
   (api.get as jest.Mock).mockImplementation((url:string)=>Promise.resolve({data:url.endsWith("/flow")?{runs:[first]}:{run:first,projection:p,truncated:false}}));
   render(<GraphAgents flowId="flow"/>);
   fireEvent.click(await screen.findByRole("button",{name:/^node-one.*completed$/},{timeout:5000}));
+  fireEvent.click(await screen.findByRole("button",{name:"All activity"}));
   expect(screen.getByText("2 items")).toBeInTheDocument();
   expect(screen.queryByRole("textbox",{name:"Search conversation"})).toBeNull();
   fireEvent.click(screen.getByRole("button",{name:"Search conversation"}));
@@ -247,7 +248,7 @@ test("opening Agents directly ignores canvas selection without an Activity targe
   (api.get as jest.Mock).mockImplementation((url:string)=>Promise.resolve({data:url.endsWith("/flow")?{runs:[first]}:{run:first,projection,truncated:false}}));
   const view=render(<GraphAgents flowId="flow"/>);
   await screen.findByRole("button",{name:/^node-one .* completed$/});
-  expect(screen.queryByRole("article",{name:"Selected agent run"})).toBeNull();
+  expect(await screen.findByRole("article",{name:"Selected agent run"})).toBeInTheDocument();
   view.unmount();
   expect(clearTarget).toHaveBeenCalled();
 });
@@ -346,7 +347,7 @@ test("unpriced observations show Unknown instead of an artificial cost axis",()=
   expect(screen.queryByRole("figure",{name:"Cumulative estimated cost chart"})).toBeNull();
 });
 
-test("agent rows contain separate turn segments, preserve idle gaps and do not draw an invocation bar",async()=>{
+test("conversation summaries and nested turns preserve idle gaps without an invocation envelope",async()=>{
  const first=run("one","execution"),start="2026-10-15T10:00:00Z",end="2026-10-15T10:00:40Z";
  const turn=(id:string,thread:string,a:number,b:number)=>({id,thread,started:`2026-10-15T10:00:${String(a).padStart(2,"0")}Z`,ended:`2026-10-15T10:00:${String(b).padStart(2,"0")}Z`,status:"completed"});
  const p={...projection,threads:[{id:"one",parent:null},{id:"child",parent:"one",title:"Review changes"}],turns:[turn("a","one",10,12),turn("b","one",20,24),turn("c","child",14,16)]};
@@ -354,9 +355,9 @@ test("agent rows contain separate turn segments, preserve idle gaps and do not d
  render(<GraphAgents flowId="flow"/>);
  await waitFor(()=>expect(screen.getAllByTestId("agent-turn-bar")).toHaveLength(3));
  const rows=screen.getAllByTestId("agent-timeline-row");expect(rows).toHaveLength(2);
- expect(rows[0].querySelectorAll('[data-testid="agent-turn-bar"]')).toHaveLength(2);
- expect(screen.getAllByTestId("agent-turn-bar").map(bar=>bar.style.left)).toEqual(["25%","50%","35%"]);
- expect(screen.getAllByTestId("agent-turn-bar").map(bar=>bar.style.width)).toEqual(["5%","10%","5%"]);
+ const segments=screen.getAllByTestId("agent-turn-bar").map(bar=>bar.querySelector("[data-timing-segment]") as HTMLElement);
+ expect(segments.map(bar=>bar.style.left)).toEqual(["25%","50%","35%"]);
+ expect(segments.map(bar=>bar.style.width)).toEqual(["5%","10%","5%"]);
  expect(screen.queryByRole("button",{name:/40.0s/})).toBeNull();
  expect(screen.getByText("40.0 seconds")).toBeInTheDocument();
  expect(screen.getByTestId("agent-timeline-axis")).toHaveAttribute("data-start",String(Date.parse(start)));
@@ -494,4 +495,19 @@ test("conversation totals include tool calls without mislabelling them as messag
   fireEvent.click(screen.getByRole("button",{name:"Search conversation"}));
   fireEvent.change(screen.getByRole("textbox",{name:"Search conversation"}),{target:{value:"pwd"}});
   expect(screen.getByRole("status")).toHaveTextContent("1 of 2 items");
+});
+
+
+test("collapsing a selected turn restores its conversation and allows reopening",async()=>{
+ const first=run("one","current"),old={...run("old","previous"),started:"2026-10-14T10:00:00Z"};
+ const p={...projection,threads:[{id:"one",parent:null}],turns:[{id:"turn",thread:"one",started:first.started,ended:first.ended,status:"completed"}]};
+ (api.get as jest.Mock).mockImplementation((url:string)=>Promise.resolve({data:url.endsWith("/flow")?{runs:[first,old]}:{run:url.endsWith("/old")?old:first,projection:p,truncated:false}}));
+ render(<GraphAgents flowId="flow"/>);
+ fireEvent.click(await screen.findByRole("button",{name:/^Turn 1/}));
+ expect(screen.getByRole("navigation",{name:"Activity selection"})).toHaveTextContent("Turn 1");
+ fireEvent.click(screen.getByRole("button",{name:"Collapse node-one"}));
+ expect(screen.queryByRole("button",{name:/^Turn 1/})).toBeNull();
+ expect(screen.getByRole("navigation",{name:"Activity selection"})).not.toHaveTextContent("Turn 1");
+ fireEvent.click(screen.getByRole("button",{name:"Expand node-one"}));
+ expect(screen.getByRole("button",{name:/^Turn 1/})).toBeInTheDocument();
 });

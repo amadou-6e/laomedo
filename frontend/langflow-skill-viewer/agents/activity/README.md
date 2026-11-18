@@ -18,3 +18,15 @@ telemetry and conversation) are separated by 48 px (`gap-12`).
 Counts show the total when unfiltered and matching of total while filtering;
 conversation counts use "items" because they include messages and tool calls. No capture/dispatch or
 export contract changes.
+
+## Execution hierarchy
+
+`GraphAgents` owns the selected graph execution and scoped activity. Its execution
+container groups the selector, `ActivityTimeline` and selected detail panel.
+`ActivityTimeline` renders observed conversation rows and nested selectable turns;
+`onSelect` changes inspection scope only. Collapse controls hide descendants and
+restore selection to the collapsed conversation if needed. Parent summary segments
+retain idle gaps; only captured turn intervals are colored. `ProviderIcon` renders
+monochrome provider marks with a neutral fallback for an unknown provider. Details
+repeat the selected provider and a breadcrumb back to the full invocation.
+The footer follows long content and rests at the viewport bottom for short content.
