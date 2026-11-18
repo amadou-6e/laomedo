@@ -12,6 +12,8 @@ from laomedo.agents.agents.codex.settings import NATIVE_RECEIPT_FILENAME
 from laomedo.agents.agents.codex.settings import Settings as CodexSettings
 from laomedo.agents.agents.codex.controller.models import CodexLaunch
 from laomedo.agents.agents.codex.controller.models import CodexTurn
+from laomedo.agents.agents.codex.controller.models import CodexCommandResult
+from laomedo.agents.agents.codex.commands import CodexCommands
 from laomedo.agents.agents.codex.controller.settings import Settings
 from laomedo.agents.errors import RunnerError
 from laomedo.docker import DockerRuntime
@@ -281,8 +283,17 @@ class CodexAgentRuntime:
                 raise RunnerError("unsupported_model_effort")
         return self.active_thread_id
 
-    async def prompt(self, text, *, skills, cancelled, seconds):
+    def command_catalog(self):
+        """Read detached native metadata without initiating another request or turn."""
+        return self.acp.command_catalog()
+
+    async def prompt(self, text, *, skills, cancelled, seconds, command=None):
         """Use the common health/cancel loop and require raw native completion."""
+        command_kind = None
+        if command is not None:
+            command_kind = CodexCommands.admit(command, self.command_catalog())
+            if text != command.text() or self.output_requirements:
+                raise RunnerError("native_command_context_invalid")
         self._cancelled = cancelled
         offset = len(self.events)
         failure = None
@@ -318,6 +329,31 @@ class CodexAgentRuntime:
             if event.get("method") == "turn/completed"
             and event.get("params", {}).get("threadId") == self.active_thread_id
         ]
+        if command_kind == "control":
+            started = any(
+                event.get("method") == "turn/started"
+                and event.get("params", {}).get("threadId") == self.active_thread_id
+                for event in self.events[offset:]
+            )
+            completed = (
+                not failure
+                and not cancelled.is_set()
+                and not started
+                and not terminal
+                and response is not None
+                and response.stop_reason == "end_turn"
+                and isinstance(response.answer, str)
+                and bool(response.answer.strip())
+                and len(response.answer) <= 100000
+            )
+            return CodexCommandResult(
+                command=command.name,
+                status="completed" if completed else "unknown",
+                answer=response.answer if completed else None,
+                error=(
+                    None if completed else failure or "native_command_outcome_unknown"
+                ),
+            )
         if not terminal and (failure or cancelled.is_set()):
             started = [
                 event["params"]["turn"]

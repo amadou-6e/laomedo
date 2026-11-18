@@ -322,6 +322,8 @@ class BaseAgent(ABC):
 
     def prepare_resume(self, run_id, body):
         """Validate provider extensions and refresh authentication before HTTP resume."""
+        if body.get("native_command") is not None:
+            raise RunnerError("native_command_not_supported")
         self._validate_run_timeout(body.get("run_timeout_seconds"))
         self._mirror_host_login()
         return {}

@@ -93,6 +93,10 @@ class FakeServer:
     def assert_controller_isolated(self):
         pass
 
+    def command_catalog(self):
+        """This ordinary-turn double does not advertise native commands."""
+        return None
+
     async def prompt(self, text, *, skills, seconds, cancelled):
         # Fixture-only hooks preserve the existing domain test scenarios. No
         # production component offers these retired native request/wait methods.

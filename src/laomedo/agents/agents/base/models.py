@@ -14,6 +14,43 @@ from laomedo.agents.agents.base.settings import SDK_FAILURE_OPERATIONS
 from laomedo.agents.agents.base.settings import RUNNER_FAILURE_CODES
 
 
+class NativeCommandInvocation(BaseModel):
+    """Exact native command arguments and observed catalog binding, never a grant."""
+
+    model_config = ConfigDict(strict=True, frozen=True, extra="forbid")
+    name: str = Field(
+        min_length=1,
+        max_length=200,
+        description="Exact advertised native command name without slash.",
+    )
+    arguments: str = Field(
+        default="",
+        max_length=4000,
+        description="Exact single-line arguments approved by the human.",
+    )
+    catalog_revision: str = Field(
+        pattern=r"^[0-9a-f]{64}$",
+        description="Digest of the session command catalog observed before approval.",
+    )
+
+    @model_validator(mode="after")
+    def single_line(self):
+        """Refuse control characters and ambiguous command-token boundaries."""
+        if any(c.isspace() or ord(c) < 32 for c in self.name) or self.name.startswith(
+            "/"
+        ):
+            raise ValueError("invalid_native_command")
+        if any(
+            ord(c) < 32 or ord(c) == 127 or c in "\u2028\u2029" for c in self.arguments
+        ):
+            raise ValueError("invalid_native_command_arguments")
+        return self
+
+    def text(self) -> str:
+        """Produce the exact native slash input with no assistant prompt wrapper."""
+        return "/" + self.name + (" " + self.arguments if self.arguments else "")
+
+
 class ResumeDispatchRequest(BaseModel):
     """Bound one explicit resumed attempt without serializing its private grant."""
 
@@ -51,6 +88,10 @@ class ResumeDispatchRequest(BaseModel):
         default=None,
         gt=0,
         description="Optional explicit execution timeout, separate from installation and admission.",
+    )
+    native_command: NativeCommandInvocation | None = Field(
+        default=None,
+        description="Explicit native command mode; absence preserves ordinary prompt behavior.",
     )
     mcp_manifest: dict[str, JsonValue] | None = Field(
         default=None,

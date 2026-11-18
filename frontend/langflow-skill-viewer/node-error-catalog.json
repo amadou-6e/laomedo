@@ -2793,5 +2793,35 @@
     "title": "Another graph already has that name",
     "description": "The approved edit conflicted with an existing workflow name. No graph changes were saved.",
     "recovery": "Choose a different name and ask for a fresh edit proposal."
+  },
+  "native_command_not_supported": {
+    "title": "This native command is unavailable",
+    "description": "This command is outside the assistant built-in command policy.",
+    "recovery": "Inspect the retained result and request a fresh proposal when the session is settled. Do not blindly replay an uncertain command."
+  },
+  "native_command_arguments_invalid": {
+    "title": "The command arguments are invalid",
+    "description": "This built-in command does not accept the supplied arguments.",
+    "recovery": "Inspect the retained result and request a fresh proposal when the session is settled. Do not blindly replay an uncertain command."
+  },
+  "native_command_catalog_changed": {
+    "title": "Available commands changed",
+    "description": "The current native command catalog no longer matches the approved proposal.",
+    "recovery": "Inspect the retained result and request a fresh proposal when the session is settled. Do not blindly replay an uncertain command."
+  },
+  "native_command_not_available": {
+    "title": "The native command is unavailable",
+    "description": "The current native session did not advertise this command.",
+    "recovery": "Inspect the retained result and request a fresh proposal when the session is settled. Do not blindly replay an uncertain command."
+  },
+  "native_command_context_invalid": {
+    "title": "The command cannot run in this context",
+    "description": "Native commands require an explicit isolated continuation without output contracts or mediated repository authority.",
+    "recovery": "Inspect the retained result and request a fresh proposal when the session is settled. Do not blindly replay an uncertain command."
+  },
+  "native_command_outcome_unknown": {
+    "title": "The command outcome is unknown",
+    "description": "The required native command completion evidence was not observed. No successful outcome is assumed.",
+    "recovery": "Inspect the retained result and request a fresh proposal when the session is settled. Do not blindly replay an uncertain command."
   }
 }

@@ -15,6 +15,8 @@ from laomedo.agents.interface.output.utils import requirements
 from laomedo.agents.agents.codex.controller.models import CodexLaunch
 from laomedo.agents.agents.codex.runtime import CodexAgentRuntime
 from laomedo.agents.errors import RunnerError
+from laomedo.agents.agents.base.models import NativeCommandInvocation
+from laomedo.agents.agents.base.acp.models import NativeCommandCatalog
 
 
 @unittest.skipUnless(
@@ -57,6 +59,67 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
     async def asyncTearDown(self):
         if not self.controller._closed:
             await self.controller.close()
+
+    async def test_explicit_control_command_has_no_fabricated_native_turn(self):
+        """Native control text settles separately from strict ordinary prompts."""
+        catalog = NativeCommandCatalog(
+            commands=[{"name": "status", "description": "Status"}]
+        )
+        self.controller.acp.command_catalog = Mock(return_value=catalog)
+        self.controller.acp.prompt.return_value = SimpleNamespace(
+            stop_reason="end_turn", answer="Actual native status"
+        )
+        request = NativeCommandInvocation(
+            name="status", catalog_revision=catalog.revision()
+        )
+        result = await self.controller.prompt(
+            "/status",
+            skills=[],
+            cancelled=threading.Event(),
+            seconds=1,
+            command=request,
+        )
+        self.assertIsNone(result.turn_id)
+        self.assertEqual(result.answer, "Actual native status")
+        self.assertEqual(result.status, "completed")
+        self.assertNotIn("usage", result.model_dump())
+        with self.assertRaisesRegex(RunnerError, "turn_dispatch_rejected"):
+            await self.controller.prompt(
+                "/status", skills=[], cancelled=threading.Event(), seconds=1
+            )
+
+    async def test_control_command_missing_answer_is_unknown_and_stale_catalog_refuses(
+        self,
+    ):
+        """A terminal response alone is not positive native command completion."""
+        catalog = NativeCommandCatalog(
+            commands=[{"name": "status", "description": "Status"}]
+        )
+        self.controller.acp.command_catalog = Mock(return_value=catalog)
+        self.controller.acp.prompt.return_value = SimpleNamespace(
+            stop_reason="end_turn", answer=""
+        )
+        request = NativeCommandInvocation(
+            name="status", catalog_revision=catalog.revision()
+        )
+        result = await self.controller.prompt(
+            "/status",
+            skills=[],
+            cancelled=threading.Event(),
+            seconds=1,
+            command=request,
+        )
+        self.assertEqual(result.status, "unknown")
+        self.controller.acp.prompt.reset_mock()
+        with self.assertRaisesRegex(RunnerError, "native_command_catalog_changed"):
+            await self.controller.prompt(
+                "/status",
+                skills=[],
+                cancelled=threading.Event(),
+                seconds=1,
+                command=request.model_copy(update={"catalog_revision": "0" * 64}),
+            )
+        self.controller.acp.prompt.assert_not_awaited()
 
     async def test_stock_and_wrong_version_are_refused_before_session_creation(self):
         for value in (

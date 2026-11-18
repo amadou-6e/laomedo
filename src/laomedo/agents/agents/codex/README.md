@@ -66,3 +66,19 @@ Project it through `LeaseCleanupObservation`: no result means no cleanup fact,
 not false. The sidecar's lease cleanup boolean covers only that leased resource.
 The existing public fail-closed status/category wins even beside verified cleanup.
 Fresh native answers, counters and completion never establish Resume success.
+# Native assistant commands
+
+`commands.py` owns `CodexCommands.validate` (fixed built-in argument policy),
+`admit` (exact native catalog revision/name) and `project` (bounded discovery,
+including unavailable commands). Descriptions are never authority. The initial
+admitted commands are status, mcp, skills, review and compact. Branch/commit
+reviews are unavailable because the assistant uses scratch space, not a selected
+repository; account, title, autonomous-goal and configuration controls are excluded.
+
+`CodexAgentRuntime.command_catalog` observes the current ACP session without a
+request. Explicit command mode is carried in the resume identity, never inferred
+from prompt text. `prompt(..., command=...)` preserves strict native evidence for
+model commands. `CodexCommandResult` in `controller/models.py` describes a native
+control response without inventing a model turn ID or usage. Control completion
+requires actual ACP end-turn text and no native turn events. Agent settlement
+retains these as separate command receipts and preserves workspace checkpoints.

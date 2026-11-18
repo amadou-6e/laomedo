@@ -22,6 +22,30 @@ if TYPE_CHECKING:
     from py_docker.containers.models import ContainerSpec
 
 
+class CodexCommandResult(BaseModel):
+    """Observed ACP control-command completion, distinct from a native model turn."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    command: str = Field(
+        description="Admitted native command whose result was observed."
+    )
+    status: str = Field(
+        description="Completed only with terminal ACP and text evidence; otherwise unknown."
+    )
+    answer: str | None = Field(
+        default=None,
+        description="Actual bounded ACP command response, without fabricated assistant text.",
+    )
+    turn_id: None = Field(
+        default=None,
+        description="Control commands do not have a native model-turn identity.",
+    )
+    error: str | None = Field(
+        default=None,
+        description="Stable failure category when the control result is uncertain.",
+    )
+
+
 class CodexLaunch(BaseModel):
     """Group run identity, application mounts and mediated execution scope."""
 

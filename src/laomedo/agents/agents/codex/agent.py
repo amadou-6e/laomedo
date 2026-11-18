@@ -271,9 +271,18 @@ class CodexAgent(BaseAgent):
         effort: str,
         activity_attempt_id: str | None = None,
         run_timeout_seconds: int | None = None,
+        native_command=None,
     ) -> dict:
         """Admit an existing session/workspace binding before continuing it; failures never create a fresh session."""
         self._validate_run_timeout(run_timeout_seconds)
+        if native_command is not None:
+            from laomedo.agents.agents.base.models import NativeCommandInvocation
+            from laomedo.agents.agents.codex.commands import CodexCommands
+
+            native_command = NativeCommandInvocation.model_validate(native_command)
+            CodexCommands.validate(native_command)
+            if task != native_command.text():
+                raise RunnerError("native_command_context_invalid")
         if not all(
             isinstance(value, str) and value.strip() for value in (model, effort)
         ):
@@ -345,7 +354,28 @@ class CodexAgent(BaseAgent):
             activity_attempt_id=activity_attempt_id,
             model=model,
             effort=effort,
+            native_command=native_command,
         )
+
+    def prepare_resume(self, run_id, body):
+        """Admit explicit Codex command mode without changing ordinary resume semantics."""
+        request = body.get("native_command")
+        ordinary = {
+            key: value for key, value in body.items() if key != "native_command"
+        }
+        extra = super().prepare_resume(run_id, ordinary)
+        if request is not None:
+            from laomedo.agents.agents.base.models import NativeCommandInvocation
+            from laomedo.agents.agents.codex.commands import CodexCommands
+
+            command = NativeCommandInvocation.model_validate(request)
+            CodexCommands.validate(command)
+            if self.status(run_id).get("output_requirements") or self.status(
+                run_id
+            ).get("github_scope"):
+                raise RunnerError("native_command_context_invalid")
+            extra["native_command"] = command
+        return extra
 
     def _resume_checkpoint(self, record):
         """Read a same-instance, attempt-local settlement without promoting output success."""
@@ -688,6 +718,7 @@ class CodexAgent(BaseAgent):
         activity_attempt_id: str | None = None,
         model: str | None = None,
         effort: str | None = None,
+        native_command=None,
     ) -> dict:
         """Own one admitted attempt and its cancellation, snapshot, evidence and exact cleanup finalization."""
         return asyncio.run(
@@ -698,6 +729,7 @@ class CodexAgent(BaseAgent):
                 activity_attempt_id=activity_attempt_id,
                 model=model,
                 effort=effort,
+                native_command=native_command,
             )
         )
 
@@ -710,6 +742,7 @@ class CodexAgent(BaseAgent):
         activity_attempt_id: str | None = None,
         model: str | None = None,
         effort: str | None = None,
+        native_command=None,
     ) -> dict:
         """Coordinate the admitted attempt through shared ACP while retaining provider-specific policy and evidence."""
         if activity_attempt_id is not None:
@@ -902,6 +935,20 @@ class CodexAgent(BaseAgent):
                 return record
             server.mcp_access = self.mcp_access(run_id)
             native_id = await server.open(record, resume=resume)
+            catalog = server.command_catalog()
+            record["native_commands"] = {
+                "thread_id": native_id,
+                "catalog": (
+                    catalog.model_dump(mode="json") if catalog is not None else None
+                ),
+            }
+            if native_command is not None:
+                if (
+                    not resume
+                    or record.get("github_scope")
+                    or record.get("output_requirements")
+                ):
+                    raise RunnerError("native_command_context_invalid")
             record["thread_id"] = native_id
             record["precheck"]["installed"] = bool(record.get("output_requirements"))
             record["effective_model"] = record["requested_model"]
@@ -1032,6 +1079,7 @@ class CodexAgent(BaseAgent):
                 skills=record["skills"],
                 seconds=NATIVE_TURN_SECONDS,
                 cancelled=cancelled,
+                **({"command": native_command} if native_command is not None else {}),
             )
             turn_id, status, error = native.turn_id, native.status, native.error
             # Correction is a continuation of this native thread, never a new
@@ -1117,8 +1165,14 @@ class CodexAgent(BaseAgent):
                 )
                 turn_id, status, error = native.turn_id, native.status, native.error
             native_status = status
-            commands = _command_summary(server.events, turn_id)
-            record["native_turn_status"] = native_status
+            commands = (
+                _command_summary(server.events, turn_id)
+                if turn_id is not None
+                else None
+            )
+            record["native_turn_status"] = (
+                native_status if turn_id is not None else None
+            )
             record["precheck"]["call_count"] = getattr(server, "precheck_call_count", 0)
             record["command_summary"] = commands
             record["native_answer"] = (
@@ -1126,33 +1180,49 @@ class CodexAgent(BaseAgent):
                 if native_status == "completed"
                 else None
             )
-            if status == "completed" and (
-                commands["outstanding_ids"] or commands["identity_incomplete"]
+            if (
+                status == "completed"
+                and commands is not None
+                and (commands["outstanding_ids"] or commands["identity_incomplete"])
             ):
                 status, error = "unknown", "outstanding_command_completion_unknown"
             if self.auth and error == "auth_revoked_during_turn":
                 error = auth_failure["error"]
                 record["credential"]["auth_outcome"] = auth_failure["outcome"]
-            native_errors = _native_error_summary(server.events, turn_id)
+            native_errors = (
+                _native_error_summary(server.events, turn_id)
+                if turn_id is not None
+                else {"last_category": None}
+            )
             if status == "failed" and error is None and native_errors["last_category"]:
                 error = "codex_" + native_errors["last_category"]
-            record["turns"].append(
-                {
-                    "turn_id": turn_id,
-                    "status": status,
-                    "native_turn_status": native_status,
-                    "command_summary": commands,
-                    "error_category": error,
-                    "native_completion_status": getattr(
-                        server, "native_completion_status", None
-                    ),
-                    "interrupt_acknowledged": getattr(
-                        server, "interrupt_acknowledged", False
-                    ),
-                    "native_error_summary": native_errors,
-                    "input_hash": "sha256:" + hashlib.sha256(task.encode()).hexdigest(),
-                }
-            )
+            receipt = {
+                "turn_id": turn_id,
+                "status": status,
+                "native_turn_status": native_status,
+                "command_summary": commands,
+                "error_category": error,
+                "native_completion_status": getattr(
+                    server, "native_completion_status", None
+                ),
+                "interrupt_acknowledged": getattr(
+                    server, "interrupt_acknowledged", False
+                ),
+                "native_error_summary": native_errors,
+                "input_hash": "sha256:" + hashlib.sha256(task.encode()).hexdigest(),
+            }
+            if native_command is None or turn_id is not None:
+                record["turns"].append(receipt)
+            else:
+                record.setdefault("native_command_receipts", []).append(
+                    {
+                        "request": native_command.model_dump(mode="json"),
+                        "attempt_id": record.get("activity_attempt_id"),
+                        "status": status,
+                        "answer": native.answer,
+                        "error_category": error,
+                    }
+                )
             record["status"] = "completed" if status == "completed" else status
             record["error_category"] = error
             if status == "cancelled":
@@ -1163,6 +1233,19 @@ class CodexAgent(BaseAgent):
                 if status == "completed"
                 else None
             )
+            if native_command is not None and status == "completed":
+                record["answer"] = (
+                    getattr(native, "answer", None)
+                    or record["answer"]
+                    or ("Completed /" + native_command.name + ".")
+                )
+            catalog = server.command_catalog()
+            record["native_commands"] = {
+                "thread_id": native_id,
+                "catalog": (
+                    catalog.model_dump(mode="json") if catalog is not None else None
+                ),
+            }
             if status == "completed" and not record["answer"]:
                 raise RunnerError("completed_without_agent_message")
             self._verify_protected_mounts(run_dir, record)
