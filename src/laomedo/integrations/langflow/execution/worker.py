@@ -58,6 +58,16 @@ class NativeGraphWorker:
             graph.get_vertex(node_id).data != data for node_id, data in nodes.items()
         ):
             raise GraphWorkerError()
+        # Native parameter projection can interpret posted field metadata or
+        # edges after the raw source check. The constructor executes params, so
+        # fence its actual input before any vertex is allowed to instantiate.
+        if any(
+            graph.get_vertex(node_id).params.get("code")
+            != data["node"]["template"]["code"]["value"]
+            or "code" in graph.get_vertex(node_id).load_from_db_fields
+            for node_id, data in nodes.items()
+        ):
+            raise GraphWorkerError()
         terminals = graph.get_terminal_nodes()
         if job.outputs is not None and not set(job.outputs) <= set(terminals):
             raise GraphWorkerError()

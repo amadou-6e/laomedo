@@ -23,7 +23,10 @@ unavailable-runtime outcome. `worker.py` owns `NativeGraphWorker.run`, the priva
 one-bootstrap entry point, and `_execute`, the native graph driver. It validates
 the pinned source/digest before parsing, asks native `Graph.from_payload` to
 defer custom constructors, then validates the actual migrated payload before
-instantiating. Native message persistence and ambient credential fallback are
+instantiating. It also checks the native vertex's final constructor code
+parameter against the pinned source: graph-provided field descriptors or edges
+must not redirect the constructor to another value after source validation.
+Native message persistence and ambient credential fallback are
 disabled; only terminal outputs leave the worker on its private pipe. Worker
 prints never share that pipe. The independently supervised
 container launcher must validate the actual graph before constructing components,

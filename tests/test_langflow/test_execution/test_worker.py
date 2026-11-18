@@ -191,6 +191,47 @@ class NativeGraphWorkerTests(unittest.TestCase):
         self.assertNotEqual(status, 0)
         self.assertEqual(outcome.event, "failed")
 
+    def test_forged_loader_metadata_cannot_replace_the_pinned_component_source(self):
+        """Exercise native construction with a real alternate import target present."""
+        data = self.graph["nodes"][0]["data"]["node"]
+        data.setdefault("metadata", {})["module"] = "forged_loader"
+        data["metadata"]["class_name"] = "TextOutputComponent"
+        data["template"]["_type"] = "PythonInterpreter"
+        for output in data["outputs"]:
+            output["types"] = ["Tool"]
+        with tempfile.TemporaryDirectory(prefix="laomedo-worker-loader-") as directory:
+            (Path(directory) / "forged_loader.py").write_text(
+                'from pathlib import Path\nPath("untrusted_loader_executed").write_text("not allowed")\n',
+                encoding="utf-8",
+            )
+            _, outcome = self.invoke(self.graph, directory)
+            self.assertFalse((Path(directory) / "untrusted_loader_executed").exists())
+        if outcome.event == "completed":
+            self.assertIn("isolated native result", outcome.model_dump_json())
+        else:
+            self.assertEqual(outcome.event, "failed")
+
+    def test_code_input_cannot_be_retyped_to_execute_a_different_file_value(self):
+        """The native FileInput projection must not replace a checked code value."""
+        field = self.graph["nodes"][0]["data"]["node"]["template"]["code"]
+        field["_input_type"] = "FileInput"
+        field["file_path"] = (
+            "from lfx.custom.custom_component.component import Component\n"
+            "from pathlib import Path\n"
+            "class OtherComponent(Component):\n"
+            "    def __init__(self, **kwargs):\n"
+            "        Path('untrusted_file_code_executed').write_text('not allowed')\n"
+            "        super().__init__(**kwargs)\n"
+        )
+        with tempfile.TemporaryDirectory(
+            prefix="laomedo-worker-code-input-"
+        ) as directory:
+            _, outcome = self.invoke(self.graph, directory)
+            self.assertFalse(
+                (Path(directory) / "untrusted_file_code_executed").exists()
+            )
+        self.assertEqual(outcome.event, "failed")
+
 
 @unittest.skipUnless(
     os.environ.get("LAOMEDO_TEST_GRAPH_WORKER_IMAGE"),
