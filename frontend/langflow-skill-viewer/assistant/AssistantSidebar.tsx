@@ -11,6 +11,7 @@ export default function AssistantSidebar() {
   const [selection, setSelection] = useState<Record<string, string>>({});
   const [width, setWidth] = useState(480);
   const [maximum, setMaximum] = useState(720);
+  const [overlay, setOverlay] = useState(false);
   const container = useRef<HTMLElement>(null);
   const previousOwner = useRef(owner);
   useEffect(() => { if (open) setMounted(true); }, [open]);
@@ -27,6 +28,7 @@ export default function AssistantSidebar() {
     if (!parent) return;
     const resize = () => {
       const available = parent.clientWidth;
+      setOverlay(available < 960);
       const limit = Math.max(280, Math.min(720, available < 960 ? available - 32 : available - 320));
       setMaximum(limit);
       setWidth((current) => Math.min(limit, Math.max(280, current)));
@@ -38,7 +40,7 @@ export default function AssistantSidebar() {
   }, []);
   const resize = (next: number) => setWidth(Math.min(maximum, Math.max(280, next)));
   const fullChat = selection.conversation ? `/assistant?conversation=${encodeURIComponent(selection.conversation)}` : "/assistant";
-  return <aside ref={container} hidden={!open} aria-label="Assistant sidebar" className={`${open ? "flex" : "hidden"} relative z-30 h-full min-h-0 shrink-0 flex-col border-l bg-background max-lg:absolute max-lg:right-0 max-lg:shadow-xl`} style={{ width, maxWidth: "100%" }}>
+  return <aside ref={container} hidden={!open} aria-label="Assistant sidebar" className={`${open ? "flex" : "hidden"} ${overlay ? "absolute right-0 shadow-xl" : "relative"} z-30 h-full min-h-0 shrink-0 flex-col border-l bg-background`} style={{ width, maxWidth: "100%" }}>
     <div role="separator" aria-label="Resize assistant" aria-orientation="vertical" aria-valuemin={280} aria-valuemax={maximum} aria-valuenow={width} tabIndex={0}
       className="absolute inset-y-0 -left-1 z-10 w-2 cursor-col-resize touch-none hover:bg-primary/20 focus-visible:bg-primary/20 focus-visible:outline focus-visible:outline-2"
       onPointerDown={(event) => { event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); }}
