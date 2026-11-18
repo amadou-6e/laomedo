@@ -172,3 +172,14 @@ local. Screenshots capturedafter400ms dialogsettlement. No inference/existingcha
 deletion. Preview restartedonlyafterall7chats/actionsreportedactive0. Last
 predecessor-rowlock addition affects linkedcreate/PostgreSQL path, notliveSQLite
 deletefunction; focusedtests re-run, noPGacceptanceclaim. SameClaudereviewpending.
+
+Deletion final review: Claude initialcode318475670/spec1019656 approved authority
+andorder, M1permanenterasurewording corrected. Focusedrecheck code411254f77/
+speced38f79 Implementation/Specification/Visual APPROVE, M1resolved. FinalUI
+saysfromLaomedohistory, nativeproviderrecordsoutsidecleanup.61backendtests/
+23subtests,18finalaffectedbackend,37UI/3wordingassertions,build1m23s,Black/spec/CI
+pass. FinalrealdisposablechatCancel/Delete404/index/Flowunchanged passes. Reviewer
+noticeddeleted.png caughtclosinganimation; savedasdeleting.png andrecaptured
+afterdialoghidden+400ms; primaryinspectedactualnewwelcomescreen. No codechange.
+HeadertrashnexttoExport visible/verified in integratedLaomedoChat. LivePG/active
+work/mobile/screenreaderacceptance notclaimed. PRs remain unmerged.

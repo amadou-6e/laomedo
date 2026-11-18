@@ -20,6 +20,8 @@ try {
  await api('/api/v1/laomedo/assistant/conversations/'+chat.id,{title:'Delete acceptance conversation'},'PATCH');
  await page.goto(m.base+'/assistant?conversation='+chat.id+'&ui=delete');
  await page.getByRole('button',{name:'Delete conversation',exact:true}).waitFor();
+ await mkdir(root+'/.tools/assistant-delete-images',{recursive:true});
+ await page.screenshot({path:root+'/.tools/assistant-delete-images/header.png'});
  await page.getByRole('button',{name:'Delete conversation',exact:true}).click();
  await page.waitForTimeout(400);
  await mkdir(root+'/.tools/assistant-delete-images',{recursive:true});
@@ -35,6 +37,8 @@ try {
  if(listing.conversations.some(x=>x.id===chat.id))throw Error('Deleted chat remains in index');
  const after=await api('/api/v1/flows/'+m.flow);
  if(JSON.stringify(original)!==JSON.stringify(after))throw Error('Saved workflow changed');
+ await page.getByRole('dialog').waitFor({state:'hidden'});
+ await page.waitForTimeout(400);
  await page.screenshot({path:root+'/.tools/assistant-delete-images/deleted.png'});
  await writeFile(root+'/.tools/assistant-delete-live.json',JSON.stringify({deletedConversation:chat.id}));
  console.log(JSON.stringify({newEmptyChatOnly:true,cancelPreservesChat:true,confirmedDelete:true,readReturns404:true,removedFromIndex:true,savedWorkflowUnchanged:true,noInference:true}));
