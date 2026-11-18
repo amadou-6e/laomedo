@@ -12,8 +12,11 @@ selected saved conversation; unsent text stays in its originating surface.
 The divider supports dragging and arrow/Home/End keys. Width is bounded and
 reclamped when the editor changes size. Narrow screens use an overlay, retaining
 the mounted editor beneath it. Opening, closing and resizing never send inference.
-`AssistantEntry` toggles this sidebar on graph routes and retains the full-chat
-link elsewhere. Existing graph tools and human approval rules remain unchanged.
+`AssistantEntry` opens full-window chat in the current tab through the application
+router, including the existing unsaved-editor navigation guard.
+`AssistantSidebarToggle` is an icon in the graph left rail. It toggles the right
+sidebar without changing the selected left section, graph URL or canvas. Closing
+the panel returns focus to that rail control. Existing graph tools and human approval rules remain unchanged.
 
 Normal provider-backed chat, with no assistant workflow. The approved geometry
 and states are A1/A2 in specs PR424's application-assistant.drawio.

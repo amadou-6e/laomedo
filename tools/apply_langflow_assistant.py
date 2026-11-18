@@ -57,6 +57,21 @@ def apply_assistant(checkout: Path, source: Path):
             "                    </main>\n                    <AssistantSidebar />\n                  </FlowSearchProvider>",
         )
     )
+    rail = (
+        frontend
+        / "pages/FlowPage/components/flowSidebarComponent/components/sidebarSegmentedNav.tsx"
+    )
+    rail_content = rail.read_text(encoding="utf-8")
+    rail_anchor = "        ))}\n      </SidebarMenu>"
+    if rail_content.count(rail_anchor) != 1:
+        raise SystemExit("assistant_rail_anchor_missing")
+    rail_content = (
+        'import AssistantSidebarToggle from "@/components/laomedoAssistant/AssistantSidebarToggle";\n'
+        + rail_content.replace(
+            rail_anchor,
+            "        ))}\n        <AssistantSidebarToggle hiddenFromTabOrder={hiddenFromTabOrder} />\n      </SidebarMenu>",
+        )
+    )
     shutil.copytree(
         source / "assistant", destination, ignore=shutil.ignore_patterns("README.md")
     )
@@ -64,3 +79,4 @@ def apply_assistant(checkout: Path, source: Path):
     header.write_text(content, encoding="utf-8")
     logout.write_text(signout, encoding="utf-8")
     editor.write_text(editor_content, encoding="utf-8")
+    rail.write_text(rail_content, encoding="utf-8")
