@@ -111,6 +111,33 @@ try {
     }
     # Avoid loading an unrelated checkout's .env through upstream startup.
     Set-Location -LiteralPath $runtime
+    if ($Mode -eq 'Serve') {
+        # The launcher starts an independent sibling supervisor, never a child
+        # of the runner. Restarting the UI cannot remove cleanup supervision.
+        $providerLeaseRoot = Join-Path $runtime 'provider-leases'
+        $providerLeaseInfo = Join-Path $providerLeaseRoot 'service.json'
+        $startProviderLease = $true
+        if (Test-Path -LiteralPath $providerLeaseInfo) {
+            $providerLease = Get-Content -LiteralPath $providerLeaseInfo -Raw | ConvertFrom-Json
+            if ($providerLease.pid -and (Get-Process -Id $providerLease.pid -ErrorAction SilentlyContinue)) {
+                $startProviderLease = $false
+            }
+        }
+        if ($startProviderLease) {
+            $leaseBootstrap = @'
+import os, subprocess, sys
+from pathlib import Path
+from laomedo.host.leases.utils import _detached_process_options
+root = Path(sys.argv[1])
+root.mkdir(parents=True, exist_ok=True)
+allowed = {'PATH', 'SYSTEMROOT', 'WINDIR', 'TEMP', 'TMP', 'USERPROFILE', 'LOCALAPPDATA', 'APPDATA', 'PYTHONPATH', 'DOCKER_HOST', 'DOCKER_CONTEXT', 'DOCKER_CONFIG'}
+environment = {name: value for name, value in os.environ.items() if name.upper() in allowed}
+subprocess.Popen([sys.executable, '-m', 'laomedo.host.leases.service_cli', 'serve', '--state', str(root)], env=environment, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, **_detached_process_options())
+'@
+            $leaseBootstrap | & $pythonPath - $providerLeaseRoot
+            if ($LASTEXITCODE -ne 0) { throw 'Independent provider cleanup service could not start.' }
+        }
+    }
         $bootstrap = @"
 import os
 from langflow.services.deps import get_settings_service

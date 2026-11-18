@@ -55,3 +55,10 @@ identity/access. Exact repeated keys reuse the existing row; different keys cann
 prove different accounts. Per-harness graph preferences preserve other harness
 selections and never route a Go key to a Codex or Claude node. Native Claude
 connection support and real Go integration acceptance remain pending.
+
+Claude Code uses the official client in an independent native volume. The pending
+view opens its provider-owned link and relays one masked completion code back
+to that same client. URLs and codes remain out of browser storage; code input is
+cleared after submission. A lost submission response remains an uncertain outcome
+and polling reconciles it rather than automatically submitting another code.
+Real Claude sign-in/dispatch and independent final review remain pending.

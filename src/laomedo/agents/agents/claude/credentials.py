@@ -22,6 +22,14 @@ class ClaudeCredentialProvider(BaseCredentialProvider):
 
     def prepare(self, request: CredentialRequest) -> CredentialBinding:
         """Mirror access-only state when opted in, preserving original validity limits."""
+        saved = getattr(self.agent, "auth_connection", None)
+        if saved is not None:
+            saved.check()
+            return CredentialBinding(
+                credential_mode="dedicated_volume",
+                credential_ref=None,
+                auth_outcome="prepared",
+            )
         minimum_validity_seconds, deadline = (
             request.minimum_validity_seconds,
             request.deadline,
@@ -79,6 +87,9 @@ class ClaudeCredentialProvider(BaseCredentialProvider):
             or auth.get("authMethod") != "claude.ai"
         ):
             raise RunnerError("claude_subscription_unavailable")
+        saved = getattr(self.agent, "auth_connection", None)
+        if saved is not None:
+            saved.validate(auth)
         identity = {key: auth[key] for key in ("email", "orgId") if auth.get(key)}
         reference = (
             "sha256:"

@@ -72,13 +72,20 @@ class ClaudeAgent(BaseAgent):
         mediator_state=None,
         git_workspace=False,
         artifact_sources=None,
+        auth_connection=None,
     ):
         """Bind admitted configuration and owned state; provider startup errors propagate before use."""
         if type(turn_timeout) is not int or not 1 <= turn_timeout <= 86400:
             raise RunnerError("claude_turn_timeout_invalid")
         self.turn_timeout = turn_timeout
+        self.auth_connection = auth_connection
         self.container = container or ClaudeRuntimePolicy(
-            image, profile_volume, lease_service
+            image,
+            profile_volume,
+            lease_service,
+            receipt_directory=(
+                Path(state) / "receipts" if auth_connection is not None else None
+            ),
         )
         self.executable = "claude"
         super().__init__(

@@ -17,6 +17,34 @@ from laomedo.agents.interface.output.utils import requirements
 
 class ClaudeComponentTests(unittest.IsolatedAsyncioTestCase):
 
+    def test_catalog_failure_retains_safe_http_diagnostics_only(self):
+        from urllib.error import HTTPError
+        import laomedo.agents.interface.langflow.component as common
+        from laomedo.agents.interface.langflow.errors import RunnerRequestError
+
+        failure = HTTPError(
+            "http://localhost:8769/v1/models",
+            401,
+            "private upstream body",
+            {},
+            io.BytesIO(
+                b'{"private":"SECRET","runner_diagnostics":{"runner_code":"unauthorized","private":"SECRET"}}'
+            ),
+        )
+        node = self.node()
+        with (
+            patch.object(
+                node, "_model_catalog_token_file_path", return_value="synthetic"
+            ),
+            patch.object(Path, "read_text", return_value="synthetic-control"),
+            patch.object(common._HTTP, "open", side_effect=failure),
+        ):
+            with self.assertRaises(RunnerRequestError) as raised:
+                node._model_catalog({"runner_url": {"value": "http://localhost:8769"}})
+        self.assertEqual(raised.exception.diagnostics["http_status"], 401)
+        self.assertNotIn("SECRET", str(raised.exception))
+        self.assertNotIn("private upstream body", str(raised.exception))
+
     def test_resume_payload_contains_visible_execution_timeout(self):
         prior = {
             "provider": "claude",
@@ -365,8 +393,11 @@ class ClaudeComponentTests(unittest.IsolatedAsyncioTestCase):
                     if code != "SECRET payload and token"
                     else "runner_dispatch_refused"
                 )
-                with self.assertRaisesRegex(RuntimeError, "^" + expected + "$"):
+                with self.assertRaisesRegex(
+                    RuntimeError, "^" + expected + r"(?:;|$)"
+                ) as raised:
                     node._http("http://localhost:8769/v1/runs/async", {}, "POST")
+                self.assertNotIn("SECRET payload and token", str(raised.exception))
 
 
 if __name__ == "__main__":

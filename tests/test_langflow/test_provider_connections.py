@@ -90,9 +90,9 @@ class ProviderRouteTests(unittest.TestCase):
         )
 
     def test_unknown_methods_and_oversized_payloads_cannot_launch_login(self):
-        """The initial adapter accepts only the explicitly selected Codex route."""
+        """Unknown integrations and unselected billing methods cannot launch login."""
         for payload in (
-            {"provider": "claude"},
+            {"provider": "unknown"},
             {"provider": "codex", "method": "api_key"},
         ):
             self.assertEqual(

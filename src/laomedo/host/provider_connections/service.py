@@ -22,6 +22,7 @@ from laomedo.host.credentials.siwc.utils import (
 )
 from laomedo.host.provider_connections.errors import ProviderConnectionError
 from laomedo.host.provider_connections.go import GoConnection
+from laomedo.host.provider_connections.claude import ClaudeConnection
 from laomedo.host.provider_connections.models import (
     GraphProviderPreferences,
     ConnectionRecord,
@@ -50,6 +51,7 @@ class ProviderConnections:
         _restrict_windows_directory(self.root)
         self._lock = threading.RLock()
         self.go = GoConnection(self)
+        self.claude = ClaudeConnection(self)
         self._attempts: dict[UUID, PendingLogin] = {}
         self.controllers = None
         self.revoked_leases: set[str] = set()
@@ -73,6 +75,11 @@ class ProviderConnections:
 
     def close(self) -> None:
         """Fence pending callbacks and release this runtime's exclusive store lease."""
+        for item in list(self.claude.attempts.values()):
+            self.claude.cancel(item.profile_id, item.progress.attempt_id)
+        for item in list(self.claude.attempts.values()):
+            if item.worker is not None:
+                item.worker.join()
         with self._lock:
             for item in self._attempts.values():
                 if item.progress.status in {"connecting", "verifying"}:
@@ -127,6 +134,10 @@ class ProviderConnections:
                 if (vault / "go-custody.json").exists():
                     if vault_id not in active:
                         self.go.erase(vault)
+                    continue
+                if (vault / "claude-custody.json").exists():
+                    if vault_id not in active:
+                        self.claude.erase(vault)
                     continue
                 broker = ChatGPTConnection(vault)
                 with _locked(broker.lock_path):
@@ -276,6 +287,9 @@ class ProviderConnections:
                     and item.progress.status in {"connecting", "verifying"}
                 ):
                     item.progress.status = "cancelled"
+            for item in self.claude.attempts.values():
+                if item.profile_id == profile_id and item.candidate_id == connection_id:
+                    self.claude.cancel(profile_id, item.progress.attempt_id)
         result = self.retry_cleanup(profile_id, connection_id)
         if result.status == "disconnecting":
             self.controllers.continue_cleanup(profile_id, connection_id)
@@ -296,6 +310,15 @@ class ProviderConnections:
                     connection_id=connection_id, status="disconnecting"
                 )
             with self._lock:
+                if any(
+                    item.profile_id == profile_id
+                    and item.candidate_id == connection_id
+                    and not item.settled
+                    for item in self.claude.attempts.values()
+                ):
+                    return DisconnectProgress(
+                        connection_id=connection_id, status="disconnecting"
+                    )
                 attempts = [
                     item
                     for item in self._attempts.values()
@@ -320,6 +343,10 @@ class ProviderConnections:
             for entry in revisions.values():
                 if entry.provider == "opencode":
                     self.go.erase(self._profile(profile_id) / str(entry.credential_id))
+                elif entry.provider == "claude":
+                    self.claude.erase(
+                        self._profile(profile_id) / str(entry.credential_id)
+                    )
                 else:
                     self._scrub(
                         self._broker(profile_id, entry.credential_id), entry.client_id
@@ -368,6 +395,9 @@ class ProviderConnections:
         with self._lock:
             rows = []
             for record in self._records(profile_id):
+                if record.provider == "claude":
+                    rows.append(self.claude.summary(profile_id, record))
+                    continue
                 if record.provider == "opencode":
                     rows.append(self.go.summary(profile_id, record))
                     continue
@@ -415,6 +445,11 @@ class ProviderConnections:
         """Prepare one explicit sign-in; only the caller opens the returned URL."""
         with self._lock:
             self._expire()
+            if any(
+                item.profile_id == profile_id and not item.settled
+                for item in self.claude.attempts.values()
+            ):
+                raise ProviderConnectionError("provider_login_in_progress")
             active = [
                 item
                 for item in self._attempts.values()
@@ -481,6 +516,10 @@ class ProviderConnections:
 
     def progress(self, profile_id: UUID, attempt_id: UUID) -> LoginProgress:
         """Read only this profile's attempt; polling has no authentication effect."""
+        if attempt_id in self.claude.attempts:
+            return LoginProgress.model_validate(
+                self.claude.details(profile_id, attempt_id)["progress"]
+            )
         with self._lock:
             self._expire()
             item = self._attempts.get(attempt_id)
@@ -546,6 +585,8 @@ class ProviderConnections:
 
     def cancel(self, profile_id: UUID, attempt_id: UUID) -> LoginProgress:
         """Fence a pending exchange before returning; a late result cannot commit."""
+        if attempt_id in self.claude.attempts:
+            return self.claude.cancel(profile_id, attempt_id)
         with self._lock:
             self._expire()
             item = self._attempts.get(attempt_id)
@@ -558,6 +599,9 @@ class ProviderConnections:
     def cancel_profile(self, profile_id: UUID) -> None:
         """Invalidate pending native returns when this profile signs out or switches."""
         with self._lock:
+            for item in self.claude.attempts.values():
+                if item.profile_id == profile_id:
+                    self.claude.cancel(profile_id, item.progress.attempt_id)
             for item in self._attempts.values():
                 if item.profile_id == profile_id and item.progress.status in {
                     "connecting",
@@ -569,6 +613,9 @@ class ProviderConnections:
         """Fence an outgoing browser session without reading its raw credential."""
         with self._lock:
             self.revoked_leases.add(lease_hash)
+            for item in self.claude.attempts.values():
+                if item.lease_hash == lease_hash:
+                    self.claude.cancel(item.profile_id, item.progress.attempt_id)
             for item in self._attempts.values():
                 if item.lease_hash == lease_hash and item.progress.status in {
                     "connecting",

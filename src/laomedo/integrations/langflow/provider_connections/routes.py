@@ -15,6 +15,7 @@ from laomedo.host.provider_connections.models import (
     StartProviderLogin,
     DisconnectRequest,
     SaveGoConnection,
+    SubmitClaudeCode,
 )
 
 
@@ -129,6 +130,10 @@ def install_provider_routes(app, service, authenticate, *, origin: str):
 
         def begin():
             """Return only a native login URL and an opaque attempt receipt."""
+            if payload.provider == "claude":
+                return service.claude.begin(
+                    user.id, lease_hash=lease, connection_id=connection_id
+                )
             progress, url = service.begin(
                 user.id, origin + "/auth/callback", connection_id, lease_hash=lease
             )
@@ -165,6 +170,39 @@ def install_provider_routes(app, service, authenticate, *, origin: str):
             return {"connection": row.model_dump(mode="json"), "duplicate": duplicate}
 
         return await respond(save)
+
+    @app.get(prefix + "/claude/attempts/{attempt_id}")
+    async def claude_attempt(
+        attempt_id: UUID, request: Request, user=Depends(authenticate)
+    ):
+        """Read only the owner's native receipt and provider-owned sign-in link."""
+        session_lease(request)
+        return await respond(lambda: service.claude.details(user.id, attempt_id))
+
+    @app.post(prefix + "/claude/attempts/{attempt_id}/code")
+    async def claude_code(
+        attempt_id: UUID, request: Request, user=Depends(authenticate)
+    ):
+        """Relay one explicit code submission into the same official native process."""
+        lease = session_lease(request)
+        if request.headers.get("origin") != origin:
+            raise HTTPException(403, detail={"code": "provider_request_refused"})
+        try:
+            data = bytearray()
+            async for chunk in request.stream():
+                data.extend(chunk)
+                if len(data) > 8192:
+                    raise ValueError()
+            payload = SubmitClaudeCode.model_validate_json(bytes(data))
+        except (ValueError, TypeError, ValidationError):
+            raise HTTPException(
+                400, detail={"code": "provider_request_refused"}
+            ) from None
+        return await respond(
+            lambda: service.claude.submit(
+                user.id, attempt_id, payload.code, lease_hash=lease
+            ).model_dump(mode="json")
+        )
 
     @app.get(prefix + "/{connection_id}/disconnect")
     async def inspect_disconnect(

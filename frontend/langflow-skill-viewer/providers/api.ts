@@ -10,6 +10,7 @@ export const connectionSchema = z.object({
   lifecycle: z.enum(["connected", "disconnecting", "cleanup_required"]).default("connected"),
 });
 const progressSchema = z.object({
+  provider: z.enum(["codex", "claude"]).optional(),
   attempt_id: z.string().uuid(),
   status: z.enum(["connecting", "verifying", "connected", "cancelled", "expired", "failed", "duplicate"]),
   connection_id: z.string().uuid().nullable(),
@@ -45,14 +46,35 @@ export async function listConnections(): Promise<ProviderConnection[]> {
   return z.object({ connections: z.array(connectionSchema) }).parse(await request()).connections;
 }
 
-export async function beginLogin(connectionId?: string) {
-  const result = z.object({ progress: progressSchema, authorization_url: z.string().url() }).parse(
-    await request("/attempts", "POST", { provider: "codex", ...(connectionId ? { connection_id: connectionId } : {}) }),
+export async function beginLogin(connectionId?: string, provider: "codex" | "claude" = "codex") {
+  const result = z.object({ progress: progressSchema, authorization_url: z.string().url().nullable() }).parse(
+    await request("/attempts", "POST", { provider, ...(connectionId ? { connection_id: connectionId } : {}) }),
   );
+  if (provider === "claude") {
+    if (result.authorization_url) validateClaudeUrl(result.authorization_url);
+    return result;
+  }
+  if (!result.authorization_url) throw new Error("provider_connections_unavailable");
   const url = new URL(result.authorization_url);
   if (url.origin !== "https://auth.openai.com" || url.pathname !== "/api/accounts/authorize" || url.username || url.password)
     throw new Error("provider_connections_unavailable");
   return result;
+}
+
+function validateClaudeUrl(value: string) {
+  const url = new URL(value);
+  if (!["https://claude.ai", "https://platform.claude.com"].includes(url.origin) || url.pathname !== "/oauth/authorize" || url.username || url.password)
+    throw new Error("provider_connections_unavailable");
+}
+
+export async function readClaudeAttempt(attemptId: string) {
+  const result = z.object({ progress: progressSchema, authorization_url: z.string().url().nullable() }).parse(await request(`/claude/attempts/${encodeURIComponent(attemptId)}`));
+  if (result.authorization_url) validateClaudeUrl(result.authorization_url);
+  return result;
+}
+
+export async function submitClaudeCode(attemptId: string, code: string) {
+  return progressSchema.parse(await request(`/claude/attempts/${encodeURIComponent(attemptId)}/code`, "POST", { code }));
 }
 
 export async function readProgress(attemptId: string): Promise<LoginProgress> {

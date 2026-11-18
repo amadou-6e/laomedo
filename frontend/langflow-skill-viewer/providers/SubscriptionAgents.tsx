@@ -42,7 +42,7 @@ export default function SubscriptionAgents({ flowId }: { flowId?: string }) {
       <div role="tablist" aria-label="Agent harness" className="mt-3 flex gap-4">{harnesses.map(item => <button type="button" role="tab" id={`harness-${item.id}`} aria-controls="harness-panel" aria-selected={harness === item.id} key={item.id} onClick={() => setHarness(item.id as Harness)} className={`border-b-2 px-2 py-3 text-sm ${harness === item.id ? "border-primary font-semibold" : "border-transparent text-muted-foreground"}`}>{item.label}</button>)}</div>
     </header>
     <div id="harness-panel" role="tabpanel" aria-labelledby={`harness-${harness}`} className="pc-settings-panel">
-      {harness === "claude" || (!busy && !error && accounts.length === 0) ? <section className="pc-settings-section pc-subscription-empty" aria-labelledby="missing-subscription-heading">
+      {(!busy && !error && accounts.length === 0) ? <section className="pc-settings-section pc-subscription-empty" aria-labelledby="missing-subscription-heading">
         <div className="pc-empty-art" aria-hidden="true">
           {harness === "claude" ? <IconComponent name="Claude" className="pc-empty-logo" /> : harness === "opencode" ? <>
             <img className="pc-opencode-logo pc-opencode-light" src={openCodeLogoLight} alt="" />
@@ -51,8 +51,8 @@ export default function SubscriptionAgents({ flowId }: { flowId?: string }) {
           <span className="pc-sleep-letters"><span>Z</span><span>Z</span><span>Z</span></span>
         </div>
         <h2 id="missing-subscription-heading">{harness === "codex" ? "No Codex account connected" : `No ${harnesses.find(item => item.id === harness)?.label} connections`}</h2>
-        <p className="pc-card-description">{harness !== "claude" ? "Connect your account to choose it as this graph's default." : "Account sign-in for this harness is not available yet."}</p>
-        {harness !== "claude" && <a className="pc-manage-account" href="/settings/providers">Connect {harness === "codex" ? "Codex" : "OpenCode Go"}</a>}
+        <p className="pc-card-description">{"Connect your account to choose it as this graph's default."}</p>
+        <a className="pc-manage-account" href="/settings/providers">Connect {harness === "codex" ? "Codex" : harness === "claude" ? "Claude Code" : "OpenCode Go"}</a>
       </section> : <>
         <section className="pc-settings-section" aria-label="Graph account preference">
           <div className="pc-section-heading"><h2>Account preference</h2><a className="pc-manage-account" href="/settings/providers">Manage accounts</a></div>

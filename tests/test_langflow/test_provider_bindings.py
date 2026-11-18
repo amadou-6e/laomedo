@@ -6,6 +6,7 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 from uuid import uuid4
+from pathlib import Path
 
 from langflow.services.auth.context import (
     AuthCredentialContext,
@@ -24,6 +25,26 @@ from laomedo.integrations.langflow.provider_connections.exports import (
 
 class ProviderBindingTests(unittest.IsolatedAsyncioTestCase):
     """Never let flow-owner context stand in for the actual signed-in browser."""
+
+    def test_native_adapters_use_exact_saved_runner_token(self):
+        """Claude and OpenCode must never fall through to an operator's shared token."""
+        from laomedo import __path__
+
+        __path__.append(str(Path(__file__).resolve().parents[2] / "components/laomedo"))
+        from laomedo.claude_agent import LaomedoClaudeAgent
+        from laomedo.opencode_agent import LaomedoOpenCodeAgent
+
+        for component_type in (LaomedoClaudeAgent, LaomedoOpenCodeAgent):
+            with self.subTest(provider=component_type.provider_id):
+                node = component_type()
+                node._saved_endpoint = (
+                    "http://127.0.0.1:12345",
+                    "exact-connection-api-token",
+                )
+                with patch.object(ProviderGraphBindings, "service", Mock()):
+                    self.assertEqual(
+                        node._runner_token_file_path(), "exact-connection-api-token"
+                    )
 
     @asynccontextmanager
     async def _failing_startup(self, app):

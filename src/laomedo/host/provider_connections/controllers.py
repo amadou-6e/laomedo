@@ -9,6 +9,8 @@ from uuid import UUID
 from urllib.parse import urlsplit
 
 from laomedo.host.provider_connections.credentials import SavedConnectionCredential
+from laomedo.host.provider_connections.credentials import SavedClaudeConnection
+from laomedo.docker import DockerRuntime
 from laomedo.host.provider_connections.errors import ProviderConnectionError
 from laomedo.host.provider_connections.models import ControllerSlot
 from laomedo.host.runner.http.server import RunnerServer
@@ -252,7 +254,22 @@ class ProviderControllers:
             if self.source is None:
                 raise ProviderConnectionError("provider_runner_unavailable")
             record = self.service._record(profile_id, connection_id)
-            if record.provider == "opencode" and self.factory is None:
+            if record.provider == "claude" and self.factory is None:
+                auth = SavedClaudeConnection(
+                    self.service, profile_id, connection_id, generation
+                )
+                native = self.service.claude.profile(profile_id, record)
+                runner = AgentProviderRegistry.create_agent(
+                    "claude",
+                    state,
+                    self.skill_store,
+                    self.source,
+                    profile_volume=native.name,
+                    image=native.image_id,
+                    lease_service=self.root.parent / "provider-leases",
+                    auth_connection=auth,
+                )
+            elif record.provider == "opencode" and self.factory is None:
                 from laomedo.agents.agents.opencode.runtime import OpenCodeAgentRuntime
 
                 runner = AgentProviderRegistry.create_agent(
@@ -445,7 +462,14 @@ class ProviderControllers:
                 if any((slot.state / "receipts").glob("*.json")) or any(
                     slot.state.glob("*/*receipt*.json")
                 ):
-                    if slot.runner.provider == "opencode":
+                    if slot.runner.provider == "claude":
+                        with slot.runner.container.client() as docker:
+                            DockerRuntime.recover_receipts(
+                                docker,
+                                list((slot.state / "receipts").glob("*.json")),
+                                kind="session",
+                            )
+                    elif slot.runner.provider == "opencode":
                         slot.runner._recover_containers()
                     else:
                         slot.runner._check_container()

@@ -4,7 +4,7 @@ Provider extension: `ConnectionRecord.provider` identifies the credential owner;
 graph preferences have a separate optional selector for each harness. Every saved
 selector must belong to that harness and the current profile. Native login and
 controller support remain separate admission gates; adding a preference field does
-not enable an unavailable authentication method. Claude Code will use an official
+not enable an unavailable authentication method. Claude Code uses an official
 client-owned volume; the selected OpenCode backend is OpenCode Go.
 
 `go.py` owns `GoConnection`: `save()` admits an explicitly supplied subscription
@@ -14,9 +14,19 @@ exact persisted key binding, and `erase()` removes only its owned credential fil
 The shared controller supplies `OpenCodeAgentRuntime` with that profile. Native
 tools remain disabled in the credential-bearing controller; workers are separate.
 
+`claude.py` owns `ClaudeConnection`, which orchestrates the unmodified official
+client's login in a dedicated labelled Docker volume. `begin()` starts a bounded
+native attempt, `details()` observes its safe receipt and provider URL, `submit()`
+relays the one-use code to that same native process, and `cancel()` fences it.
+`profile()` admits the exact owned volume; `summary()` uses native auth status;
+`erase()` requires confirmed native cleanup before removing owned credentials.
+`ClaudeNativeProfile` and `ClaudeLoginAttempt` in `models.py` describe host-only
+resource custody and process-local attempt state. The client owns all tokens and
+refresh; Laomedo never reads its credential file or imports host login state.
+
 This host capability owns profile-scoped provider connections, explicit login
 attempts and credential admission. The initial implemented route is Codex with
-app-owned Sign in with ChatGPT. OpenCode Go key custody and an isolated per-connection runner factory are implemented; real Go account/dispatch acceptance is pending. Claude native sign-in remains unavailable.
+app-owned Sign in with ChatGPT. OpenCode Go key custody and an isolated per-connection runner factory are implemented; real Go account/dispatch acceptance is pending. Claude native sign-in and isolated account binding are implemented but require real native sign-in/dispatch acceptance.
 
 `service.py` defines `ProviderConnections`: `list()` projects safe rows, `begin()`
 opens one bounded loopback attempt, `complete()` verifies staged credentials and

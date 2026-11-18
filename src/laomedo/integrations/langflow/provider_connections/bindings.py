@@ -63,7 +63,7 @@ class ProviderGraphBindings:
     @classmethod
     def endpoint(cls, component, selected, *, run_id=None):
         """Resolve one exact compatible connection without cross-harness fallback."""
-        if component.provider_id not in {"codex", "opencode"}:
+        if component.provider_id not in {"codex", "claude", "opencode"}:
             raise ProviderConnectionError("provider_method_unavailable")
         if run_id:
             selected = ProviderControllers.current().connection_for_run(

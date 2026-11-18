@@ -2,7 +2,6 @@
 
 from copy import deepcopy
 import json
-import os
 
 from laomedo.integrations.langflow.agent.component import AgentComponent as Component
 from laomedo.agents.agents.claude.settings import EFFORTS
@@ -21,6 +20,8 @@ class LaomedoClaudeAgent(Component):
     present_native_models = True
     catalog_timeout_seconds = 75
     catalog_provider = "claude"
+    runner_token_env = "LAOMEDO_CLAUDE_RUNNER_TOKEN_FILE"
+    runner_token_default = "/run/secrets/laomedo-claude-runner-token"
     bridge_url_env = "LAOMEDO_CLAUDE_BRIDGE_URL"
     bridge_token_env = "LAOMEDO_CLAUDE_BRIDGE_TOKEN_FILE"
     inputs = [
@@ -79,10 +80,7 @@ class LaomedoClaudeAgent(Component):
         return super()._token_file_path()
 
     def _runner_token_file_path(self):
-        return os.environ.get(
-            "LAOMEDO_CLAUDE_RUNNER_TOKEN_FILE",
-            "/run/secrets/laomedo-claude-runner-token",
-        )
+        return super()._runner_token_file_path()
 
     def _http(self, endpoint, payload, method):
         value = super()._http(endpoint, payload, method)

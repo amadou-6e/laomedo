@@ -420,7 +420,7 @@ class AgentComponent(Component):
         )
 
         if ProviderGraphBindings.service is not None:
-            if self.provider_id not in {"codex", "opencode"}:
+            if self.provider_id not in {"codex", "claude", "opencode"}:
                 return build_config
             field = build_config.get("provider_connection", {})
             rows = await asyncio.to_thread(ProviderGraphBindings.choices, self)
@@ -571,7 +571,7 @@ class AgentComponent(Component):
         field = frontend_node.get("template", {}).get("provider_connection")
         if field is not None:
             field.update(
-                show=self.provider_id in {"codex", "opencode"}
+                show=self.provider_id in {"codex", "claude", "opencode"}
                 and ProviderGraphBindings.service is not None,
                 advanced=True,
             )
@@ -636,8 +636,8 @@ class AgentComponent(Component):
             )
             try:
                 self._saved_endpoint = ProviderGraphBindings.endpoint(self, selected)
-            except ValueError as error:
-                if str(error) == "provider_connection_required":
+            except ValueError as refusal:
+                if str(refusal) == "provider_connection_required":
                     return _ModelCatalog()
                 raise
         base = str(
@@ -717,6 +717,26 @@ class AgentComponent(Component):
             if not catalog:
                 raise ValueError("empty_catalog")
             return catalog
+        except error.HTTPError as exc:
+            try:
+                failure = json.loads(exc.read(65537))
+            except (ValueError, TypeError):
+                failure = {}
+            details = (
+                failure.get("runner_diagnostics", {})
+                if isinstance(failure, dict)
+                else {}
+            )
+            diagnostics = RunnerDiagnostics.from_payload(
+                {
+                    **(details if isinstance(details, dict) else {}),
+                    "stage": "runner_http",
+                },
+                http_status=exc.code,
+            ).to_payload()
+            raise RunnerRequestError(
+                "runner_model_catalog_unavailable_check_runner_connection", diagnostics
+            ) from None
         except (OSError, ValueError, KeyError, TypeError):
             raise ValueError(
                 "runner_model_catalog_unavailable_check_runner_connection"

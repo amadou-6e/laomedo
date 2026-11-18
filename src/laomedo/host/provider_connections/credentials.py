@@ -3,6 +3,8 @@
 from laomedo.host.credentials.siwc.connection import ChatGPTConnection
 from laomedo.host.credentials.siwc.errors import AuthError
 from laomedo.host.provider_connections.errors import ProviderConnectionError
+from laomedo.host.provider_connections.models import ClaudeAccountIdentity
+from laomedo.agents.errors import RunnerError
 
 
 class SavedConnectionCredential:
@@ -61,3 +63,45 @@ class SavedConnectionCredential:
             **ChatGPTConnection.summary(account),
             "connection_generation": account["connection_generation"],
         }
+
+
+class SavedClaudeConnection:
+    """Fence the official client's own profile without importing or reading tokens."""
+
+    def __init__(self, service, profile_id, connection_id, generation):
+        """Bind exact host-owned account identity and stable generation."""
+        self.service = service
+        self.profile_id = profile_id
+        self.connection_id = connection_id
+        self.generation = generation
+
+    def check(self):
+        """Require an admitted unchanged account and its exact native profile."""
+        try:
+            with self.service._lock:
+                if self.service.controllers is None or self.service.controllers.closed:
+                    raise ProviderConnectionError("provider_connection_unavailable")
+                record = self.service.admitted(
+                    self.profile_id, self.connection_id, self.generation
+                )
+                return self.service.claude.profile(self.profile_id, record)
+        except ProviderConnectionError as error:
+            raise RunnerError(error.code) from None
+        except Exception:
+            raise RunnerError("provider_connection_unavailable") from None
+
+    def validate(self, auth):
+        """Match native account/workspace to the saved generation before admission."""
+        self.check()
+        try:
+            identity = ClaudeAccountIdentity(
+                email=auth.get("email"), organization_id=auth.get("orgId")
+            )
+            with self.service._lock:
+                record = self.service.admitted(
+                    self.profile_id, self.connection_id, self.generation
+                )
+                if identity.subject_hash() != record.subject_hash:
+                    raise ValueError()
+        except (ValueError, TypeError, AttributeError):
+            raise RunnerError("provider_connection_changed") from None
