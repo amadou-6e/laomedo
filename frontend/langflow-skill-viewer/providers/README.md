@@ -33,3 +33,7 @@ usage or changing selection never submits a model task.
 Subscription allowances are distinct from run tokens and estimated cost. The
 current ACP adapter has no account/rateLimits/read projection: show unavailable,
 never infer remaining hourly/weekly/monthly allowances from run activity.
+
+Graph settings use separate account and subscription-limit cards with consistent
+spacing. Account actions live in the card header; Save appears only for unsaved
+selection changes. Account availability is explanatory text outside the selector.

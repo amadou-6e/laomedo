@@ -8,3 +8,21 @@
 
 .pc-connection-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 .pc-connection-actions > button { flex: none; width: auto; }
+
+.pc-settings-panel { flex: 1; min-height: 0; overflow: auto; padding: 24px; display: flex; flex-direction: column; gap: 20px; }
+.pc-settings-card { width: 100%; max-width: 760px; padding: 24px; border: 1px solid hsl(var(--border)); border-radius: 12px; display: grid; gap: 16px; }
+.pc-card-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+.pc-card-heading h2 { margin: 0; font-size: 14px; font-weight: 600; }
+.pc-card-description { margin: 0; font-size: 13px; line-height: 1.6; color: hsl(var(--muted-foreground)); }
+.pc-manage-account { display: inline-flex; align-items: center; justify-content: center; min-height: 36px; padding: 0 12px; border: 1px solid hsl(var(--border)); border-radius: 6px; font-size: 13px; white-space: nowrap; }
+.pc-manage-account:hover { background: hsl(var(--muted)); }
+.pc-manage-account:focus-visible, .pc-account-select:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
+.pc-account-select { width: 100%; min-height: 40px; padding: 8px 12px; border: 1px solid hsl(var(--border)); border-radius: 6px; background: hsl(var(--background)); color: hsl(var(--foreground)); font-size: 14px; }
+.pc-account-select:disabled { opacity: .55; }
+.pc-account-notice { margin: 0; font-size: 13px; line-height: 1.6; color: hsl(var(--muted-foreground)); }
+.pc-save-row { display: flex; justify-content: flex-end; }
+.pc-availability { font-size: 12px; color: hsl(var(--muted-foreground)); }
+.pc-quota-empty { display: flex; align-items: center; gap: 12px; padding: 16px; border-radius: 8px; background: hsl(var(--muted) / .35); color: hsl(var(--muted-foreground)); }
+.pc-quota-empty svg { flex: none; }
+.pc-quota-empty p { margin: 0; font-size: 13px; line-height: 1.6; }
+@media (max-width: 640px) { .pc-settings-panel { padding: 16px; } .pc-settings-card { padding: 16px; } }
