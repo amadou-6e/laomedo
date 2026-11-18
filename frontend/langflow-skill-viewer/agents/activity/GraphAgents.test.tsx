@@ -84,14 +84,16 @@ test("conversation search has clear and empty states, and switching scope resets
   (api.get as jest.Mock).mockImplementation((url:string)=>Promise.resolve({data:url.endsWith("/flow")?{runs:[first]}:{run:first,projection:p,truncated:false}}));
   render(<GraphAgents flowId="flow"/>);
   fireEvent.click(await screen.findByRole("button",{name:/^node-one.*completed$/},{timeout:5000}));
+  fireEvent.click(await screen.findByRole("button",{name:"Search conversation"}));
   const search=await screen.findByRole("textbox",{name:"Search conversation"});
   fireEvent.change(search,{target:{value:"Garnet"}});expect(screen.getByText("Garnet main answer")).toBeInTheDocument();
   fireEvent.change(search,{target:{value:"zzzzzzzzzz"}});expect(screen.getByText("No matching messages or tools.")).toBeInTheDocument();expect(screen.getByRole("button",{name:"Export conversation"})).toBeDisabled();
-  fireEvent.click(screen.getByRole("button",{name:"Clear"}));
-  expect(search).toHaveValue("");expect(screen.getByText("Garnet main answer")).toBeInTheDocument();
-  fireEvent.change(search,{target:{value:"Garnet"}});
+  fireEvent.click(screen.getByRole("button",{name:"Close search conversation"}));
+  expect(screen.queryByRole("textbox",{name:"Search conversation"})).toBeNull();expect(screen.getByText("Garnet main answer")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button",{name:"Search conversation"}));
+  fireEvent.change(screen.getByRole("textbox",{name:"Search conversation"}),{target:{value:"Garnet"}});
   fireEvent.click(screen.getByRole("button",{name:/^Child reviewer.*0 turns/}));
-  expect(screen.getByRole("textbox",{name:"Search conversation"})).toHaveValue("");expect(screen.getByText("Beryl child answer")).toBeInTheDocument();expect(screen.queryByText("Garnet main answer")).toBeNull();
+  expect(screen.queryByRole("textbox",{name:"Search conversation"})).toBeNull();expect(screen.getByText("Beryl child answer")).toBeInTheDocument();expect(screen.queryByText("Garnet main answer")).toBeNull();
   fireEvent.click(screen.getByRole("button",{name:"Export conversation"}));expect(screen.getByRole("button",{name:"Markdown (.md)"})).toBeInTheDocument();expect(screen.getByRole("button",{name:"JSON (.json)"})).toBeInTheDocument();
 });
 
@@ -264,10 +266,11 @@ test("all runtime records are listed and fuzzy search can find records beyond fi
   render(<RuntimeRecords records={records} coverage="Observed adapter records"/>);
   expect(screen.getByText("65 of 65 records")).toBeInTheDocument();
   expect(screen.getByText("65. opencode.commandExecution / span")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button",{name:"Search OpenTelemetry records"}));
   fireEvent.change(screen.getByRole("textbox",{name:"Search OpenTelemetry records"}),{target:{value:"commndExecution"}});
   expect(screen.getByText("65. opencode.commandExecution / span")).toBeInTheDocument();
   expect(screen.queryByText("1. session.record.0 / span")).toBeNull();
-  fireEvent.click(screen.getByRole("button",{name:"Clear"}));
+  fireEvent.click(screen.getByRole("button",{name:"Close search opentelemetry records"}));
   expect(screen.getByText("65 of 65 records")).toBeInTheDocument();
 });
 
