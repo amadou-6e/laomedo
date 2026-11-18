@@ -10,13 +10,14 @@ d.projection.items.push({id:'child-answer',thread:'child-review',turn:'child-tur
 d.projection.telemetry=[];
 const browser=await chromium.launch({channel:"msedge",headless:true});
 try {
- const page=await browser.newPage({viewport:{width:1141,height:895}});
+ const page=await browser.newPage({viewport:{width:1141,height:895},colorScheme:"dark"});
  const endpoint='**/api/v1/laomedo/agent-executions/b4714b72-0639-462f-83f7-19869b372d48*';
  await page.route('**/api/v1/laomedo/agent-executions/**',route=>route.fulfill({json:route.request().url().includes('/codex/sample-chat-history')?d:{runs:[d.run]},headers:{'Cache-Control':'no-store'}}));
  await page.goto('http://127.0.0.1:17921/flow/b4714b72-0639-462f-83f7-19869b372d48',{waitUntil:'domcontentloaded'});
  await page.getByRole('button',{name:'Agents',exact:true}).click();
  await page.getByRole('button',{name:/Child review.*1 turn.*completed/}).click();
  await page.getByText('Visual fixture only: child conversation scope. No native child agent ran.').waitFor();
+ await page.getByRole("button",{name:"Usage and cost details",exact:true}).locator("svg").waitFor();
  await page.screenshot({path:root+'/.tools/pr-readiness/295-style/supporting-child.png'});
  await page.getByRole('button',{name:'Search OpenTelemetry records',exact:true}).click();
  await page.getByRole('button',{name:'Close OpenTelemetry records search',exact:true}).click();
