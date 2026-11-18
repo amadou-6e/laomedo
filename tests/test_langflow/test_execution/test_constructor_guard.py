@@ -56,6 +56,9 @@ class ConstructorGuardTests(unittest.IsolatedAsyncioTestCase):
                 )
                 return native_graph
 
+            # The flow validator is stubbed because the test graph is a minimal
+            # fixture that the settings-dependent validator would reject first;
+            # the assertion below targets the constructor fence, not that validator.
             with (
                 patch.object(Graph, "from_payload", side_effect=altered_projection),
                 patch("lfx.utils.flow_validation.validate_flow_for_current_settings"),

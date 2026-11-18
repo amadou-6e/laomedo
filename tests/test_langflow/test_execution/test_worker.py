@@ -192,7 +192,12 @@ class NativeGraphWorkerTests(unittest.TestCase):
         self.assertEqual(outcome.event, "failed")
 
     def test_forged_loader_metadata_cannot_replace_the_pinned_component_source(self):
-        """Exercise native construction with a real alternate import target present."""
+        """Exercise native construction with a real alternate import target present.
+
+        Protection comes from the pinned-source and native loader handling, not
+        from the constructor fence. The constructor fence is covered by the
+        patched-projection test in test_constructor_guard.py.
+        """
         data = self.graph["nodes"][0]["data"]["node"]
         data.setdefault("metadata", {})["module"] = "forged_loader"
         data["metadata"]["class_name"] = "TextOutputComponent"
@@ -206,13 +211,19 @@ class NativeGraphWorkerTests(unittest.TestCase):
             )
             _, outcome = self.invoke(self.graph, directory)
             self.assertFalse((Path(directory) / "untrusted_loader_executed").exists())
-        if outcome.event == "completed":
-            self.assertIn("isolated native result", outcome.model_dump_json())
-        else:
-            self.assertEqual(outcome.event, "failed")
+        # The forged metadata must not select another class: the run completes
+        # only with the pinned TextOutputComponent output.
+        self.assertEqual(outcome.event, "completed")
+        self.assertIn("isolated native result", outcome.model_dump_json())
 
     def test_code_input_cannot_be_retyped_to_execute_a_different_file_value(self):
-        """The native FileInput projection must not replace a checked code value."""
+        """Protection by the earlier source checks, not the constructor fence.
+
+        A retyped FileInput is refused before any constructor runs. The new
+        constructor fence is covered only by the patched-projection test in
+        test_constructor_guard.py. GraphWorkerError uses one generic code, so
+        this test pins the exact refusal code but not which check fired.
+        """
         field = self.graph["nodes"][0]["data"]["node"]["template"]["code"]
         field["_input_type"] = "FileInput"
         field["file_path"] = (
@@ -231,6 +242,7 @@ class NativeGraphWorkerTests(unittest.TestCase):
                 (Path(directory) / "untrusted_file_code_executed").exists()
             )
         self.assertEqual(outcome.event, "failed")
+        self.assertEqual(outcome.code, "github_graph_runtime_unavailable")
 
 
 @unittest.skipUnless(
