@@ -12,11 +12,12 @@ title, existing export/delete actions, full-window link and close control; there
 is no extra Assistant title row. Expanded history keeps those surface controls
 reachable. The embedded collapsed history strip is 8px wide.
 History starts collapsed in this narrow surface. The full-window router link opens the
-selected saved conversation in the current tab; unsent text stays in its originating surface.
+selected saved conversation in the current tab.
 The sidebar full-window icon leaves the editor in the current tab; unsent sidebar
 text is discarded and the existing guard applies, including stopping an active
 build. The divider hit area sits outside the panel so it does not obscure the
-8px history toggle. The divider supports dragging and arrow/Home/End keys. Width is bounded and
+8px history toggle. That outside 8px edge is reserved for resizing rather than
+canvas pointer gestures. The divider supports dragging and arrow/Home/End keys. Width is bounded and
 reclamped when the editor changes size. Narrow screens use an overlay, retaining
 the mounted editor beneath it. Opening, closing and resizing never send inference.
 `AssistantEntry` opens full-window chat in the current tab through the application
