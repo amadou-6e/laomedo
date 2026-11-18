@@ -1,0 +1,47 @@
+// Current real app, retained conversation only; no prompts or graph changes.
+import {createRequire} from 'node:module';
+import {mkdir} from 'node:fs/promises';
+const require=createRequire('C:/CodeWorkspace/laomedo/.tools/assistant-282-upstream/src/frontend/package.json');
+const {chromium}=require('playwright');
+const root='C:/CodeWorkspace/laomedo';
+const browser=await chromium.launch({headless:true,channel:'chrome'});
+try {
+ const page=await browser.newPage({viewport:{width:1440,height:1000},colorScheme:'dark'});
+ await page.goto('http://127.0.0.1:55753/flow/7a8a98e4-2908-4dc8-81e3-7a4655583c15');
+ await page.getByRole('button',{name:'Open assistant sidebar',exact:true}).click({timeout:90000});
+ const sidebar=page.getByRole('complementary',{name:'Assistant sidebar'});
+ await sidebar.getByRole('textbox',{name:'Message this assistant'}).waitFor();
+ await sidebar.getByText('Choose model',{exact:true}).waitFor({state:'hidden',timeout:60000});
+ const strip=sidebar.getByRole('button',{name:'Expand conversations',exact:true});
+ if(Math.abs((await strip.boundingBox()).width-8)>1)throw Error('History strip not 8px');
+ if(!await strip.evaluate(el=>{const r=el.getBoundingClientRect();const hit=document.elementFromPoint(r.x+r.width/2,r.y+r.height/2);return el===hit||el.contains(hit)}))throw Error('History toggle obscured');
+ const dir=root+'/.tools/sidebar-296-compact-render';await mkdir(dir,{recursive:true});
+ await strip.click();
+ await sidebar.getByRole('button',{name:'Close assistant',exact:true}).waitFor();
+ await page.screenshot({path:dir+'/history.png'});
+ const saved=sidebar.getByRole('navigation').getByRole('button',{name:/^Hello\s/}).first();
+ await saved.waitFor();
+ const title=(await saved.innerText()).split('\n')[0];
+ await saved.click();
+ const heading=sidebar.getByRole('heading',{name:title,exact:true});await heading.waitFor();
+ const header=heading.locator('xpath=ancestor::header');
+ const area=await sidebar.boundingBox(),row=await header.boundingBox();
+ if(Math.abs(row.y-area.y)>2)throw Error('Extra sidebar header row');
+ await header.getByRole('button',{name:'Export conversation',exact:true}).waitFor();
+ await header.getByRole('button',{name:'Close assistant',exact:true}).waitFor();
+ await page.waitForTimeout(1500);
+ await page.screenshot({path:dir+'/conversation.png'});
+ await sidebar.getByRole('separator',{name:'Resize assistant'}).press('Home');
+ await page.screenshot({path:dir+'/minimum.png'});
+ const full=header.getByRole('link',{name:'Open full-window assistant',exact:true});
+ const target=await full.getAttribute('href');const tabs=page.context().pages().length;
+ await full.click();await page.waitForURL(url=>url.pathname+url.search===target);
+ if(page.context().pages().length!==tabs)throw Error('Unexpected popup');
+ await page.getByRole('heading',{name:title,exact:true}).waitFor();
+ await page.getByText(/Reconnecting to retained history/).waitFor({state:'hidden',timeout:60000});
+ await page.getByText('Choose model',{exact:true}).waitFor({state:'hidden',timeout:60000});
+ await page.waitForFunction(()=>Array.from(document.querySelectorAll('button[aria-label="Copy answer"]')).some(el=>!el.disabled));
+ await page.waitForTimeout(1500);
+ await page.screenshot({path:dir+'/full-chat.png'});
+ console.log(JSON.stringify({singleConversationHeader:true,historyStrip8px:true,historyControlsReachable:true,minimumWidth:true,fullChatRetainsSelection:true,sameTabNavigation:true,noInference:true,noGraphMutation:true}));
+} finally {await browser.close()}

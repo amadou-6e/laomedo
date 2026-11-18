@@ -45,18 +45,23 @@ os.environ.update(
         "LAOMEDO_ASSISTANT_APP_URL": f"http://127.0.0.1:{PORT}",
         "LAOMEDO_ASSISTANT_STATE_ROOT": str(STATE / "assistant"),
         "LAOMEDO_RUNNER_SERVICE_FILE": str(STATE / "runner-service.json"),
+        "LAOMEDO_RUNNER_TOKEN_FILE": str(STATE / "configured-runner/api-token"),
+        "LAOMEDO_CODEX_RUNNER_URL": "http://127.0.0.1:17882",
     }
 )
 sys.path.insert(0, str(IMPLEMENTATION / "src"))
 for name in ("app", "registry", "source"):
     (STATE / name).mkdir(exist_ok=True)
+SOURCE = STATE / "graph-repository/source"
+SOURCE.mkdir(parents=True, exist_ok=True)
+subprocess.run(["git", "init", "--quiet", str(SOURCE.parent)], check=True)
 (STATE / "runner-service.json").write_text(
     json.dumps(
         {
             "provider": "codex",
             "state": str(STATE / "configured-runner"),
             "skill_store": str(STATE / "registry"),
-            "source": str(STATE / "source"),
+            "source": str(SOURCE),
             "port": 17882,
             "lease_service": str(STATE / "lease"),
         }
