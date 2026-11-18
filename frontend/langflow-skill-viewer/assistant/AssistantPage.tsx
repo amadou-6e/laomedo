@@ -40,6 +40,7 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
   linkedConversation?: string;
   onSelectConversation?: (selection: Record<string, string>) => void;
 } = {}) {
+  const RootTag = embedded ? "section" : "main";
   const owner = useAuthStore((state) => state.userData?.id);
   const [params, setRouteParams] = useSearchParams();
   const selected = embedded ? selectedConversation ?? "" : params.get("conversation") ?? "";
@@ -558,7 +559,7 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
 
   if (locked)
     return (
-      <main className="m-auto max-w-lg space-y-4 p-8">
+      <RootTag className="m-auto max-w-lg space-y-4 p-8">
         <h1 className="text-xl font-semibold">Profile locked</h1>
         <p className="text-sm text-muted-foreground">
           Chat details are hidden and tool access has been revoked. Sign in
@@ -570,7 +571,7 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
         >
           Unlock profile
         </a>
-      </main>
+      </RootTag>
     );
   const conversation = detail?.conversation;
   const active = Boolean(conversation?.active_message_id);
@@ -593,7 +594,7 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
     : undefined;
 
   return (
-    <main
+    <RootTag
       className="flex h-full min-h-0 w-full bg-background"
       aria-label="Application assistant"
     >
@@ -1085,6 +1086,6 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
           </form>
         </>
       </div>
-    </main>
+    </RootTag>
   );
 }
