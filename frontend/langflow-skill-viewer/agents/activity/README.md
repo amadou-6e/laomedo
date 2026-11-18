@@ -30,3 +30,14 @@ retain idle gaps; only captured turn intervals are colored. `ProviderIcon` rende
 monochrome provider marks with a neutral fallback for an unknown provider. Details
 repeat the selected provider and a breadcrumb back to the full invocation.
 The footer follows long content and rests at the viewport bottom for short content.
+
+## Markdown verification
+
+`MessageMarkdown` uses the pinned frontend's existing `remark-gfm` dependency for
+tables and other GitHub-flavored Markdown. Raw HTML and remote images stay disabled;
+tables scroll within the message when needed.
+
+Run the activity suite from the patched pinned Langflow frontend with
+`npm test -- --runInBand --config <implementation-checkout>/frontend/langflow-skill-viewer/agents/activity/jest.config.cjs --testMatch '**/GraphAgents.test.tsx'`.
+The concern-owned config extends upstream's ESM allowlist for the real GFM parser;
+the test explicitly disables upstream's GFM mock.

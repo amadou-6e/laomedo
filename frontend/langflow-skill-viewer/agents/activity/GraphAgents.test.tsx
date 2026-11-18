@@ -18,6 +18,7 @@ jest.mock("@/stores/flowStore",()=>({__esModule:true,default:(select:(state:unkn
 const run=(id:string,execution:string)=>({id,node:`node-${id}`,execution,started:"2026-10-15T10:00:00Z",ended:"2026-10-15T10:00:02Z",status:"completed",stream_state:"complete",event_count:2,native_session:id,model:"gpt-6-luna"});
 const projection={turns:[],items:[],threads:[],usage:null,usage_points:[],clock:"unknown",cost:{amount:null,currency:"USD",basis:"unknown",catalog_date:"",source:null},cost_reason:"Unknown model",telemetry:[],telemetry_coverage:"not observed"};
 jest.unmock("react-markdown");
+jest.unmock("remark-gfm");
 jest.mock("@/components/ui/button",()=>({Button:jest.requireActual("react").forwardRef(({variant,size,ignoreTitleCase,...props}:any,ref:any)=><button ref={ref} {...props}/>)}));
 jest.mock("@/components/ui/popover",()=>{const primitive=jest.requireActual("@radix-ui/react-popover");return {Popover:primitive.Root,PopoverTrigger:primitive.Trigger,PopoverContent:primitive.Content};});
 jest.mock("@/components/ui/badge",()=>({Badge:({variant,size,...props}:any)=><span {...props}/>}));
@@ -510,4 +511,13 @@ test("collapsing a selected turn restores its conversation and allows reopening"
  expect(screen.getByRole("navigation",{name:"Activity selection"})).not.toHaveTextContent("Turn 1");
  fireEvent.click(screen.getByRole("button",{name:"Expand node-one"}));
  expect(screen.getByRole("button",{name:/^Turn 1/})).toBeInTheDocument();
+});
+
+
+test("conversation Markdown renders GFM tables as accessible table cells",()=>{
+ render(<MessageMarkdown text={"| Approach | Benefit | Cost |\n| --- | --- | --- |\n| Bounded transcript | Keeps activity nearby | Nested scrolling |\n| Expanding transcript | Continuous reading | Longer page |"}/>);
+ expect(screen.getByRole("table")).toBeVisible();
+ expect(screen.getAllByRole("columnheader").map(cell=>cell.textContent)).toEqual(["Approach","Benefit","Cost"]);
+ expect(screen.getAllByRole("row")).toHaveLength(3);
+ expect(screen.getByRole("cell",{name:"Nested scrolling"})).toBeVisible();
 });
