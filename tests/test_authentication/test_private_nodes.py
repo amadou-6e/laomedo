@@ -12,8 +12,8 @@ if find_spec("langflow") is None:
 
 from starlette.requests import Request
 
+from laomedo.github.node_runs.models import GitHubNodeReadResult
 from laomedo.github.connections.models import (
-    GitHubNodeReadResult,
     GitHubPrincipal,
     GitHubReadAuthorization,
     GitHubRepositoryIdentity,

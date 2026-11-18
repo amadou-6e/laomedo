@@ -14,7 +14,7 @@ from laomedo.github.interface.issues.client import issue_request
 from laomedo.github.contract import repository_from_url
 from laomedo.github.issues.contract import ERROR_CODES
 from laomedo.github.issues.contract import PRE_DISPATCH_ERRORS
-from laomedo.github.connections.errors import GitHubNodeAuthorizationError
+from laomedo.github.node_runs.errors import GitHubNodeAuthorizationError
 from laomedo.integrations.langflow.execution.channel import GraphWorkerChannel
 
 

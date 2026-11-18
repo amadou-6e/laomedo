@@ -9,7 +9,7 @@ from pydantic import ValidationError
 if find_spec("lfx") is None:
     raise unittest.SkipTest("Optional native graph expansion is not installed")
 
-from laomedo.github.connections.errors import GitHubNodeAuthorizationError
+from laomedo.github.node_runs.errors import GitHubNodeAuthorizationError
 from laomedo.integrations.langflow.authentication.catalog import GitHubGraphCatalog
 
 

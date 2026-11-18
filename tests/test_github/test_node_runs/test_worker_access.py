@@ -5,15 +5,15 @@ from uuid import uuid4
 
 from pydantic import SecretStr, ValidationError
 
-from laomedo.github.connections.errors import GitHubNodeAuthorizationError
-from laomedo.github.connections.models import (
+from laomedo.github.node_runs.errors import GitHubNodeAuthorizationError
+from laomedo.github.node_runs.models import (
     GitHubNodeReadResult,
     GitHubNodeSelection,
     GitHubWorkerReadRequest,
 )
-from laomedo.github.connections.run_authority import GitHubRunAuthority
-from laomedo.github.connections.worker_access import GitHubWorkerAccess
-from test_github.test_connections.test_run_authority import NodeConnectionFixture
+from laomedo.github.node_runs.authority import GitHubRunAuthority
+from laomedo.github.node_runs.worker_access import GitHubWorkerAccess
+from test_github.test_node_runs.test_authority import NodeConnectionFixture
 
 
 class WorkerReadFixture:

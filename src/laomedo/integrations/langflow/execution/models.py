@@ -6,7 +6,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, model_validator
 
-from laomedo.github.connections.models import GitHubWorkerReadRequest
+from laomedo.github.node_runs.models import GitHubWorkerReadRequest
 from laomedo.host.leases.client import LeaseClient
 from laomedo.host.leases.models import ContainerIdentity
 from laomedo.integrations.langflow.authentication.models import GitHubCatalogSnapshot

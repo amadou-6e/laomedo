@@ -6,10 +6,8 @@ from fastapi import APIRouter, Request
 from langflow.api.utils import CurrentActiveUser
 from starlette.responses import JSONResponse
 
-from laomedo.github.connections.models import (
-    GitHubNodeReadRequest,
-    GitHubResponseBinding,
-)
+from laomedo.github.node_runs.models import GitHubNodeReadRequest
+from laomedo.github.connections.models import GitHubResponseBinding
 from laomedo.integrations.langflow.authentication.connections import (
     admit,
     body,

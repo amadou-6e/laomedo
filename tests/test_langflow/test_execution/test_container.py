@@ -24,14 +24,17 @@ from laomedo.integrations.langflow.execution.settings import (
     GraphWorkerSettings,
     DOCKER_CONTROL_OUTPUT_BYTES,
 )
-from laomedo.github.connections.models import GitHubNodeReadResult, GitHubNodeSelection
-from laomedo.github.connections.run_authority import GitHubRunAuthority
-from laomedo.github.connections.worker_access import GitHubWorkerAccess
+from laomedo.github.node_runs.models import (
+    GitHubNodeReadResult,
+    GitHubNodeSelection,
+)
+from laomedo.github.node_runs.authority import GitHubRunAuthority
+from laomedo.github.node_runs.worker_access import GitHubWorkerAccess
 from laomedo.integrations.langflow.execution.models import (
     GraphWorkerCall,
     GraphWorkerJob,
 )
-from test_github.test_connections.test_run_authority import NodeConnectionFixture
+from test_github.test_node_runs.test_authority import NodeConnectionFixture
 
 
 class DockerDeploymentTests(unittest.TestCase):

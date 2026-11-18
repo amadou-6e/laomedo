@@ -19,24 +19,26 @@ from pydantic import SecretStr
 from laomedo.github.connections.client import GitHubReadClient
 from laomedo.github.connections.errors import (
     GitHubConnectionChanged,
-    GitHubNodeAuthorizationError,
     GitHubConnectionAttemptExpired,
     GitHubOAuthError,
     GitHubReauthorizationRequired,
     GitHubRepositoryAccessError,
     GitHubTokenUnsupported,
 )
+from laomedo.github.node_runs.errors import GitHubNodeAuthorizationError
 from laomedo.github.connections.journal import GitHubConnectionJournal
 from laomedo.github.connections.models import (
     GitHubConnectionScope,
     GitHubConnectionCredential,
     GitHubPrincipal,
+)
+from laomedo.github.node_runs.models import (
     GitHubNodeSelection,
     GitHubWorkerReadRequest,
 )
-from laomedo.github.connections.worker_access import GitHubWorkerReadSession
-from laomedo.github.connections.run_authority import GitHubRunAuthority
-from laomedo.github.connections.node_access import (
+from laomedo.github.node_runs.worker_access import GitHubWorkerReadSession
+from laomedo.github.node_runs.authority import GitHubRunAuthority
+from laomedo.github.node_runs.access import (
     GitHubNodeAccess,
     GitHubNodeReadSession,
 )

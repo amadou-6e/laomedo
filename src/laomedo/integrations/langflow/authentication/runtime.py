@@ -108,7 +108,7 @@ class PrivateBrowserRuntime:
         app.state.private_skill_access = PrivateSkillAccess(
             connections, PrivateSkillStore(self.root / "skills")
         )
-        from laomedo.github.connections.node_access import GitHubNodeAccess
+        from laomedo.github.node_runs.access import GitHubNodeAccess
         from laomedo.host.mediation.store import MediationStore
         from laomedo.integrations.langflow.authentication.private_nodes import (
             private_node_router,

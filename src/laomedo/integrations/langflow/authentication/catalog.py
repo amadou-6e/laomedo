@@ -3,7 +3,7 @@
 from hashlib import sha256
 import json
 
-from laomedo.github.connections.errors import GitHubNodeAuthorizationError
+from laomedo.github.node_runs.errors import GitHubNodeAuthorizationError
 from laomedo.integrations.langflow.authentication.models import (
     GitHubCatalogEntry,
     GitHubCatalogSnapshot,

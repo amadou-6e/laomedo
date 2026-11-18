@@ -4,11 +4,9 @@ import asyncio
 from concurrent.futures import TimeoutError
 from time import monotonic
 
-from laomedo.github.connections.errors import (
-    GitHubNodeAuthorizationError,
-    GitHubRepositoryAccessError,
-)
-from laomedo.github.connections.models import GitHubNodeReadResult
+from laomedo.github.node_runs.errors import GitHubNodeAuthorizationError
+from laomedo.github.connections.errors import GitHubRepositoryAccessError
+from laomedo.github.node_runs.models import GitHubNodeReadResult
 from laomedo.github.contract import repository_from_url, labels_value
 from laomedo.github.issues.gateway import GitHubIssueGateway
 from laomedo.github.pull_requests.gateway import GitHubPRGateway
@@ -19,6 +17,7 @@ class GitHubNodeReadSession:
     """One finite browser read; its credential callback never runs on the loop."""
 
     def __init__(self, connections, scope, authorization, *, loop, clock=monotonic):
+        """Bind one admitted read to the vault-owning loop and its fixed deadline."""
         self.connections = connections
         self.scope = scope
         self.authorization = authorization
@@ -74,6 +73,7 @@ class GitHubNodeAccess:
     """Private browser discovery/details, with no graph execution or write grant."""
 
     def __init__(self, connections, mediation, *, transport=GitHubRestTransport):
+        """Compose the connection service, read-only mediation store and REST transport."""
         self.connections = connections
         self.mediation = mediation
         self.transport = transport
@@ -83,6 +83,7 @@ class GitHubNodeAccess:
         raise GitHubNodeAuthorizationError()
 
     def _read(self, session, kind, action, repository_url, labels, state, number):
+        """Run one gateway discovery or inspection on a worker thread; never a write."""
         repository = repository_from_url(repository_url)
         transport = self.transport(repository, session.token)
         gateway_class = GitHubIssueGateway if kind == "issue" else GitHubPRGateway

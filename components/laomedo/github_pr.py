@@ -19,7 +19,7 @@ from laomedo.agents.feedback.pr import agent_operation
 from laomedo.agents.feedback.pr import bind_feedback_parameters, exclude_feedback_agent
 from laomedo.github.pull_requests.context import context_value, task_text
 from laomedo.github.pull_requests.models import PRContextOperation
-from laomedo.github.connections.errors import GitHubNodeAuthorizationError
+from laomedo.github.node_runs.errors import GitHubNodeAuthorizationError
 from laomedo.integrations.langflow.execution.channel import GraphWorkerChannel
 
 

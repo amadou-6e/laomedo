@@ -11,7 +11,7 @@ SOURCE_ROOT = Path(__file__).resolve().parents[3] / "src" / "laomedo"
 # GitHubRunAuthority.run_for_job and GitHubRunAuthority.worker_remaining.
 OWNERS = {
     "github/connections/service.py",
-    "github/connections/run_authority.py",
+    "github/node_runs/authority.py",
     # Provisioning serializes its own sessions with the service commit lock.
     # This is a known residual of the same defect class; see the README.
     "github/connections/provisioning.py",
@@ -24,6 +24,16 @@ FORBIDDEN_STATE_READS = (
     # `laomedo.github.connections.journal` are excluded by the dot lookbehind.
     re.compile(r"(?<![\w.])connections\.(?:journal|commit_lock)\b"),
     re.compile(r"\._credential\("),
+)
+
+# Saved-account node-run code moved out of the connections package (PR #287, B3).
+RETIRED_MODULES = re.compile(
+    r"laomedo\.github\.connections\.(?:run_authority|node_access|worker_access)\b"
+)
+RETIRED_FILES = (
+    "github/connections/run_authority.py",
+    "github/connections/node_access.py",
+    "github/connections/worker_access.py",
 )
 
 PRIVATE_AUTHENTICATION_IMPORT = re.compile(
@@ -64,3 +74,21 @@ class ConnectionBoundaryTests(unittest.TestCase):
         """Every exemption must still exist, so the allowlist cannot silently rot."""
         for relative in OWNERS:
             self.assertTrue((SOURCE_ROOT / relative).is_file(), relative)
+
+    def test_connections_package_does_not_import_node_runs(self):
+        """Node runs depend on connections, never the reverse."""
+        offenders = [
+            path.relative_to(SOURCE_ROOT).as_posix()
+            for path in sorted((SOURCE_ROOT / "github" / "connections").rglob("*.py"))
+            if "laomedo.github.node_runs" in path.read_text(encoding="utf-8")
+        ]
+        self.assertEqual(offenders, [])
+
+    def test_retired_node_run_modules_stay_retired(self):
+        """Node-run modules must not return to the connections package."""
+        for relative in RETIRED_FILES:
+            self.assertFalse((SOURCE_ROOT / relative).exists(), relative)
+        offenders = [
+            relative for relative, text in _sources() if RETIRED_MODULES.search(text)
+        ]
+        self.assertEqual(offenders, [])

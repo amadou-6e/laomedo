@@ -5,7 +5,7 @@ from contextlib import redirect_stdout
 import json
 import sys
 
-from laomedo.github.connections.run_authority import GitHubRunAuthority
+from laomedo.github.node_runs.authority import GitHubRunAuthority
 from laomedo.integrations.langflow.authentication.catalog import GitHubGraphCatalog
 from laomedo.integrations.langflow.authentication.node_runs import (
     GitHubNodeRunAdmission,

@@ -6,8 +6,8 @@ from uuid import UUID
 
 from pydantic import ValidationError
 
-from laomedo.github.connections.errors import GitHubNodeAuthorizationError
-from laomedo.github.connections.models import GitHubWorkerReadRequest
+from laomedo.github.node_runs.errors import GitHubNodeAuthorizationError
+from laomedo.github.node_runs.models import GitHubWorkerReadRequest
 from laomedo.integrations.langflow.execution.errors import GraphWorkerError
 from laomedo.integrations.langflow.execution.models import (
     GraphWorkerCall,

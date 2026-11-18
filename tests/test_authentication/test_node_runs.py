@@ -4,13 +4,13 @@ from copy import deepcopy
 import unittest
 from uuid import uuid4
 
-from laomedo.github.connections.errors import GitHubNodeAuthorizationError
-from laomedo.github.connections.run_authority import GitHubRunAuthority
+from laomedo.github.node_runs.errors import GitHubNodeAuthorizationError
+from laomedo.github.node_runs.authority import GitHubRunAuthority
 from laomedo.integrations.langflow.authentication.catalog import GitHubGraphCatalog
 from laomedo.integrations.langflow.authentication.node_runs import (
     GitHubNodeRunAdmission,
 )
-from test_github.test_connections.test_run_authority import NodeConnectionFixture
+from test_github.test_node_runs.test_authority import NodeConnectionFixture
 
 
 class GitHubNodeRunAdmissionTests(unittest.IsolatedAsyncioTestCase):

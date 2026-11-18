@@ -10,16 +10,16 @@ from uuid import UUID
 
 from pydantic import SecretStr, ValidationError
 
-from laomedo.github.connections.errors import GitHubNodeAuthorizationError
-from laomedo.github.connections.models import (
+from laomedo.github.node_runs.errors import GitHubNodeAuthorizationError
+from laomedo.github.node_runs.models import (
     GitHubNodeAdmission,
     GitHubNodeRun,
     GitHubNodeSelection,
     GitHubWorkerLease,
 )
-from laomedo.github.connections.settings import (
-    CONNECTION_PENDING_LIMIT,
+from laomedo.github.node_runs.settings import (
     GITHUB_NODE_APPROVAL_SECONDS,
+    GITHUB_NODE_PENDING_LIMIT,
 )
 
 
@@ -27,6 +27,7 @@ class GitHubRunAuthority:
     """Keep live owner/lease/job bindings in the vault-owning broker process."""
 
     def __init__(self, connections, *, clock=monotonic):
+        """Bind the connection service and a monotonic clock; start with no runs."""
         self.connections = connections
         self.clock = clock
         self.pending = {}
@@ -93,7 +94,7 @@ class GitHubRunAuthority:
                 for key, value in self.pending.items()
                 if value[0] > self.clock()
             }
-            if len(self.pending) >= CONNECTION_PENDING_LIMIT:
+            if len(self.pending) >= GITHUB_NODE_PENDING_LIMIT:
                 raise GitHubNodeAuthorizationError()
             reference = plan.reference.get_secret_value()
             self.pending[reference] = (
@@ -246,7 +247,7 @@ class GitHubRunAuthority:
 
     def validate_job_graph(self, job_id, graph):
         """Refuse a changed effective worker graph before its first vertex executes."""
-        run = self.runs.get(self.jobs.get(job_id))
+        run = self.run_for_job(job_id)
         if run is None or run.graph_digest != self.digest_graph(graph):
             raise GitHubNodeAuthorizationError()
 

@@ -4,8 +4,8 @@ import json
 import re
 from uuid import UUID
 
-from laomedo.github.connections.errors import GitHubNodeAuthorizationError
-from laomedo.github.connections.models import GitHubNodeSelection
+from laomedo.github.node_runs.errors import GitHubNodeAuthorizationError
+from laomedo.github.node_runs.models import GitHubNodeSelection
 from laomedo.github.contract import repository_from_url
 from laomedo.github.pull_requests.context import context_value
 from laomedo.github.pull_requests.models import PRContextOperation

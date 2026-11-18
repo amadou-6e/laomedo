@@ -11,7 +11,6 @@ from starlette.responses import JSONResponse, RedirectResponse
 
 from laomedo.github.connections.errors import (
     GitHubConnectionChanged,
-    GitHubNodeAuthorizationError,
     GitHubConnectionAttemptExpired,
     GitHubConnectionError,
     GitHubConnectionInputError,
@@ -20,6 +19,7 @@ from laomedo.github.connections.errors import (
     GitHubRepositoryAccessError,
     GitHubTokenUnsupported,
 )
+from laomedo.github.node_runs.errors import GitHubNodeAuthorizationError
 from laomedo.github.connections.models import (
     GitHubAppSetupRequest,
     GitHubBrowserConnectRequest,

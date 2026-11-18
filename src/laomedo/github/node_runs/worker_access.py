@@ -1,6 +1,6 @@
 """Broker-side worker reads; no reusable credential crosses the worker boundary."""
 
-from laomedo.github.connections.errors import GitHubNodeAuthorizationError
+from laomedo.github.node_runs.errors import GitHubNodeAuthorizationError
 from laomedo.github.connections.models import GitHubConnectionScope
 
 
