@@ -84,13 +84,18 @@ test("conversation search has clear and empty states, and switching scope resets
   (api.get as jest.Mock).mockImplementation((url:string)=>Promise.resolve({data:url.endsWith("/flow")?{runs:[first]}:{run:first,projection:p,truncated:false}}));
   render(<GraphAgents flowId="flow"/>);
   fireEvent.click(await screen.findByRole("button",{name:/^node-one.*completed$/},{timeout:5000}));
+  expect(screen.queryByRole("textbox",{name:"Search conversation"})).toBeNull();
+  fireEvent.click(screen.getByRole("button",{name:"Search conversation"}));
   const search=await screen.findByRole("textbox",{name:"Search conversation"});
+  expect(search).toHaveFocus();
   fireEvent.change(search,{target:{value:"Garnet"}});expect(screen.getByText("Garnet main answer")).toBeInTheDocument();
   fireEvent.change(search,{target:{value:"zzzzzzzzzz"}});expect(screen.getByText("No matching messages or tools.")).toBeInTheDocument();expect(screen.getByRole("button",{name:"Export conversation"})).toBeDisabled();
   fireEvent.click(screen.getByRole("button",{name:"Clear"}));
   expect(search).toHaveValue("");expect(screen.getByText("Garnet main answer")).toBeInTheDocument();
   fireEvent.change(search,{target:{value:"Garnet"}});
   fireEvent.click(screen.getByRole("button",{name:/^Child reviewer.*0 turns/}));
+  expect(screen.queryByRole("textbox",{name:"Search conversation"})).toBeNull();
+  fireEvent.click(screen.getByRole("button",{name:"Search conversation"}));
   expect(screen.getByRole("textbox",{name:"Search conversation"})).toHaveValue("");expect(screen.getByText("Beryl child answer")).toBeInTheDocument();expect(screen.queryByText("Garnet main answer")).toBeNull();
   fireEvent.click(screen.getByRole("button",{name:"Export conversation"}));expect(screen.getByRole("button",{name:"Markdown (.md)"})).toBeInTheDocument();expect(screen.getByRole("button",{name:"JSON (.json)"})).toBeInTheDocument();
 });
@@ -264,6 +269,8 @@ test("all runtime records are listed and fuzzy search can find records beyond fi
   render(<RuntimeRecords records={records} coverage="Observed adapter records"/>);
   expect(screen.getByText("65 of 65 records")).toBeInTheDocument();
   expect(screen.getByText("65. opencode.commandExecution / span")).toBeInTheDocument();
+  expect(screen.queryByRole("textbox",{name:"Search OpenTelemetry records"})).toBeNull();
+  fireEvent.click(screen.getByRole("button",{name:"Search OpenTelemetry records"}));
   fireEvent.change(screen.getByRole("textbox",{name:"Search OpenTelemetry records"}),{target:{value:"commndExecution"}});
   expect(screen.getByText("65. opencode.commandExecution / span")).toBeInTheDocument();
   expect(screen.queryByText("1. session.record.0 / span")).toBeNull();
@@ -448,4 +455,27 @@ test("Claude capture warning does not relabel a completed task as failed",async(
  expect(await screen.findByText(/Capture note: Some Claude telemetry could not be recorded/)).toBeVisible();
  expect(screen.getByRole("button",{name:"Error details: Some Claude telemetry could not be recorded"})).toBeVisible();
  expect(screen.getByText(/Captured stream: partial/)).toBeVisible();
+});
+
+
+test("telemetry search collapses, clears hidden filters and returns focus on Escape",()=>{
+  render(<RuntimeRecords records={[{name:"Found event"}]} coverage="Observed"/>);
+  fireEvent.click(screen.getByRole("button",{name:"Search OpenTelemetry records"}));
+  const input=screen.getByRole("textbox",{name:"Search OpenTelemetry records"});
+  expect(input).toHaveFocus();
+  fireEvent.change(input,{target:{value:"zzzzzzzzzz"}});
+  expect(screen.getByText(/No matching records/)).toBeInTheDocument();
+  fireEvent.keyDown(input,{key:"Escape"});
+  expect(screen.queryByRole("textbox",{name:"Search OpenTelemetry records"})).toBeNull();
+  expect(screen.getByRole("button",{name:"Search OpenTelemetry records"})).toHaveFocus();
+  expect(screen.getByText("1. Found event")).toBeInTheDocument();
+});
+
+test("uncaptured telemetry is centered plain text rather than an empty card",()=>{
+  render(<RuntimeRecords records={[]} coverage="Not observed"/>);
+  const region=screen.getByRole("region",{name:"OpenTelemetry records"});
+  expect(region).toHaveClass("text-center");
+  expect(region.classList.contains("border")).toBe(false);
+  expect(screen.getByText("No OpenTelemetry records captured.")).toBeInTheDocument();
+  expect(screen.getByRole("button",{name:"Export OpenTelemetry JSON"})).toBeDisabled();
 });

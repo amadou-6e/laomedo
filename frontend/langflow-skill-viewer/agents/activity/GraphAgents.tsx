@@ -148,7 +148,7 @@ export default function GraphAgents({flowId}:{flowId?:string}) {
       </section>
       {detail.run.reason&&<p className="text-sm" role="status">Capture note: {describeNodeFailure(detail.run.reason,undefined).title} <NodeErrorNotice message={detail.run.reason} context={{nodeId:detail.run.node,nodeLabel:label(detail.run)}}/></p>}
       {detail.truncated&&<p role="alert">This invocation exceeds the detail limit. The view is partial.</p>}
-      <section className="min-w-0 space-y-4" aria-labelledby="agent-usage-heading">
+      <section className="min-w-0 space-y-4 pt-4" aria-labelledby="agent-usage-heading">
         <SectionHeading id="agent-usage-heading" actions={<ActivityInfo label="Usage and cost details" text={`${projection!.usage===null?"Aggregate usage is incomplete. ":""}${projection!.cost_reason}. Cached input is part of input; reasoning is part of output. Charts show captured observations only.${detail.run.provider==="claude"||detail.run.provider==="claude-code"?" Claude activity shows the native events captured for this invocation. Usage is reported only when supplied by Claude. Check the recorded tool activity and cleanup status for this run.":""}`}/>}>Usage and diagnostics</SectionHeading>
         <UsageCharts key={`usage:${selected}:${scope.thread??""}:${scope.turn??""}`} projection={projection!} scopeLabel={scopeLabel} running={!detail.truncated&&!detail.run.reason&&selectedLane?.status==="running"}/>
       </section>
