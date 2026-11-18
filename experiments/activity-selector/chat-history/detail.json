@@ -302,8 +302,89 @@
       "reason": "Sample data; no model execution or billable usage."
     },
     "cost_reason": "Sample data; no model execution or billable usage.",
-    "telemetry": [],
-    "telemetry_coverage": "Sample data; no telemetry captured."
+    "telemetry": [
+      {
+        "name": "SAMPLE agent.turn",
+        "signal": "span",
+        "trace_id": "sample-trace-01",
+        "span_id": "sample-span-1",
+        "start_time": "2026-11-18T13:00:00Z",
+        "duration_ms": 180,
+        "status": "OK",
+        "attributes": {
+          "sample": true,
+          "conversation.id": "sample-main",
+          "turn.id": "sample-turn-1",
+          "service.name": "sample-agent-runner",
+          "operation": "respond"
+        }
+      },
+      {
+        "name": "SAMPLE tool.read_file",
+        "signal": "span",
+        "trace_id": "sample-trace-01",
+        "span_id": "sample-span-2",
+        "start_time": "2026-11-18T13:01:00Z",
+        "duration_ms": 360,
+        "status": "OK",
+        "attributes": {
+          "sample": true,
+          "conversation.id": "sample-main",
+          "turn.id": "sample-turn-2",
+          "service.name": "sample-agent-runner",
+          "operation": "read"
+        }
+      },
+      {
+        "name": "SAMPLE model.response",
+        "signal": "span",
+        "trace_id": "sample-trace-01",
+        "span_id": "sample-span-3",
+        "start_time": "2026-11-18T13:02:00Z",
+        "duration_ms": 540,
+        "status": "OK",
+        "attributes": {
+          "sample": true,
+          "conversation.id": "sample-main",
+          "turn.id": "sample-turn-3",
+          "service.name": "sample-agent-runner",
+          "operation": "generate"
+        }
+      },
+      {
+        "name": "SAMPLE tool.command",
+        "signal": "span",
+        "trace_id": "sample-trace-01",
+        "span_id": "sample-span-4",
+        "start_time": "2026-11-18T13:03:00Z",
+        "duration_ms": 720,
+        "status": "OK",
+        "attributes": {
+          "sample": true,
+          "conversation.id": "sample-main",
+          "turn.id": "sample-turn-4",
+          "service.name": "sample-agent-runner",
+          "operation": "test"
+        }
+      },
+      {
+        "name": "SAMPLE activity.persist",
+        "signal": "span",
+        "trace_id": "sample-trace-01",
+        "span_id": "sample-span-5",
+        "start_time": "2026-11-18T13:04:00Z",
+        "duration_ms": 900,
+        "status": "OK",
+        "attributes": {
+          "sample": true,
+          "conversation.id": "sample-main",
+          "turn.id": "sample-turn-5",
+          "service.name": "sample-agent-runner",
+          "operation": "capture"
+        }
+      }
+    ],
+    "telemetry_coverage": "Synthetic OpenTelemetry sample for visual inspection; no real tracing occurred."
   },
   "truncated": false
 }
