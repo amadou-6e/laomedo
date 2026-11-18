@@ -7,4 +7,4 @@ RUN python -m pip install --no-cache-dir --no-deps --no-build-isolation /opt/lao
     && python -m pip check
 USER 65532:65532
 WORKDIR /tmp
-ENTRYPOINT ["python", "-m", "laomedo.integrations.langflow.execution"]
+ENTRYPOINT ["python", "-m", "laomedo.integrations.langflow.execution.worker"]

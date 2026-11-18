@@ -8,7 +8,7 @@ import subprocess
 
 from laomedo.host.leases.client import LeaseClient
 from laomedo.host.leases.settings import LABEL_RUN, LABEL_TOKEN
-from laomedo.integrations.langflow.execution.errors import GraphWorkerError
+from laomedo.integrations.langflow.execution.errors import GraphRuntimeError
 from laomedo.integrations.langflow.execution.settings import (
     DOCKER_CONTROL_OUTPUT_BYTES,
     DOCKER_CONTROL_CHUNK_BYTES,
@@ -17,6 +17,9 @@ from laomedo.integrations.langflow.execution.settings import (
 
 class BaseDockerRuntime:
     """Control only a configured local daemon and exact labelled containers."""
+
+    # Each runtime reports shared-control failures as its own error contract.
+    runtime_error = GraphRuntimeError
 
     def __init__(self, settings):
         """Retain explicit admitted host deployment settings only."""
@@ -130,7 +133,7 @@ class BaseDockerRuntime:
             if not chunk:
                 return bytes(output)
             if len(output) + len(chunk) > DOCKER_CONTROL_OUTPUT_BYTES:
-                raise GraphWorkerError()
+                raise self.runtime_error()
             output.extend(chunk)
 
     async def _local_context(self, environment):
@@ -150,7 +153,7 @@ class BaseDockerRuntime:
             "npipe:////./pipe/dockerDesktopLinuxEngine",
             "unix:///var/run/docker.sock",
         }:
-            raise GraphWorkerError()
+            raise self.runtime_error()
 
     async def _inspect(self, identity, environment):
         """Return only an exact labelled reservation; unknown errors are not absence."""
@@ -161,7 +164,7 @@ class BaseDockerRuntime:
                 or b"no such container:" in result.stderr.lower()
             ):
                 return None
-            raise GraphWorkerError()
+            raise self.runtime_error()
         entry = json.loads(result.stdout)[0]
         labels = entry["Config"].get("Labels") or {}
         if (
@@ -170,7 +173,7 @@ class BaseDockerRuntime:
             or labels.get(LABEL_TOKEN) != identity.token.get_secret_value()
             or not re.fullmatch(r"[0-9a-f]{64}", entry.get("Id", ""))
         ):
-            raise GraphWorkerError()
+            raise self.runtime_error()
         return entry
 
     async def _remove(self, identity, environment):
@@ -180,12 +183,12 @@ class BaseDockerRuntime:
             return
         await self._control(["rm", "--force", entry["Id"]], environment)
         if await self._inspect(identity, environment) is not None:
-            raise GraphWorkerError()
+            raise self.runtime_error()
 
     def _verify_limits(self, entry):
         """Verify actual daemon configuration before injecting any job capability."""
         if not isinstance(entry, dict):
-            raise GraphWorkerError()
+            raise self.runtime_error()
         config, host = entry["Config"], entry["HostConfig"]
         if (
             config["Image"] != self.settings.image_id
@@ -212,4 +215,4 @@ class BaseDockerRuntime:
                 "/tmp": "rw,nosuid,nodev,size=" + str(self.settings.temporary_mib) + "m"
             }
         ):
-            raise GraphWorkerError()
+            raise self.runtime_error()

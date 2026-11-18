@@ -98,8 +98,8 @@ import asyncio
 from pathlib import Path
 from uuid import uuid4
 from httpx import ASGITransport, AsyncClient
-from laomedo.integrations.langflow.execution.native import NativeProfileRuntime
-from laomedo.integrations.langflow.execution.settings import NativeProfileSettings
+from laomedo.integrations.langflow.execution.profile.native import NativeProfileRuntime
+from laomedo.integrations.langflow.execution.profile.settings import NativeProfileSettings
 
 async def verify():
     owner, unrelated = uuid4(), uuid4()

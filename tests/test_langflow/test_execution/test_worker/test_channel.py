@@ -10,13 +10,13 @@ from uuid import uuid4
 from laomedo.github.node_runs.errors import GitHubNodeAuthorizationError
 from laomedo.github.node_runs.authority import GitHubRunAuthority
 from laomedo.integrations.langflow.graph_admission.catalog import GitHubGraphCatalog
-from laomedo.integrations.langflow.execution.channel import GraphWorkerChannel
-from laomedo.integrations.langflow.execution.errors import GraphWorkerError
-from laomedo.integrations.langflow.execution.models import (
+from laomedo.integrations.langflow.execution.worker.channel import GraphWorkerChannel
+from laomedo.integrations.langflow.execution.worker.errors import GraphWorkerError
+from laomedo.integrations.langflow.execution.worker.models import (
     GraphWorkerCall,
     GraphWorkerJob,
 )
-from laomedo.integrations.langflow.execution.settings import GRAPH_WORKER_PREFIX
+from laomedo.integrations.langflow.execution.worker.settings import GRAPH_WORKER_PREFIX
 
 
 class GraphWorkerChannelTests(unittest.TestCase):

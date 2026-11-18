@@ -17,7 +17,7 @@ from laomedo.github.contract import REPOSITORY_URL_FIELD
 from laomedo.github.issues.contract import ISSUE_CHOICE_FIELD, ISSUE_OPERATION_FIELD
 from laomedo.github.issues.contract import PRE_DISPATCH_ERRORS
 from laomedo.github.node_runs.errors import GitHubNodeAuthorizationError
-from laomedo.integrations.langflow.execution.channel import GraphWorkerChannel
+from laomedo.integrations.langflow.execution.worker.channel import GraphWorkerChannel
 
 
 class LaomedoGitHubIssue(Component):

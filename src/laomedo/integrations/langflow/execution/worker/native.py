@@ -10,9 +10,9 @@ from laomedo.integrations.langflow.graph_admission.catalog import GitHubGraphCat
 from laomedo.integrations.langflow.graph_admission.node_runs import (
     GitHubNodeRunAdmission,
 )
-from laomedo.integrations.langflow.execution.channel import GraphWorkerChannel
-from laomedo.integrations.langflow.execution.errors import GraphWorkerError
-from laomedo.integrations.langflow.execution.models import (
+from laomedo.integrations.langflow.execution.worker.channel import GraphWorkerChannel
+from laomedo.integrations.langflow.execution.worker.errors import GraphWorkerError
+from laomedo.integrations.langflow.execution.worker.models import (
     GraphWorkerJob,
     GraphWorkerResult,
 )

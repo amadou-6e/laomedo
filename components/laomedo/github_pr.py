@@ -22,7 +22,7 @@ from laomedo.github.pull_requests.models import PRContextOperation
 from laomedo.github.contract import REPOSITORY_URL_FIELD
 from laomedo.github.pull_requests.contract import PR_CHOICE_FIELD, PR_CONTEXT_FIELD
 from laomedo.github.node_runs.errors import GitHubNodeAuthorizationError
-from laomedo.integrations.langflow.execution.channel import GraphWorkerChannel
+from laomedo.integrations.langflow.execution.worker.channel import GraphWorkerChannel
 
 
 class LaomedoGitHubPR(Component):

@@ -2,7 +2,7 @@
 
 import asyncio
 
-from laomedo.integrations.langflow.execution.worker import NativeGraphWorker
+from laomedo.integrations.langflow.execution.worker.native import NativeGraphWorker
 
 if __name__ == "__main__":
     raise SystemExit(asyncio.run(NativeGraphWorker().run()))

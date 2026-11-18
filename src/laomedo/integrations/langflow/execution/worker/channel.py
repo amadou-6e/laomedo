@@ -8,12 +8,12 @@ from pydantic import ValidationError
 
 from laomedo.github.node_runs.errors import GitHubNodeAuthorizationError
 from laomedo.github.node_runs.models import GitHubWorkerReadRequest
-from laomedo.integrations.langflow.execution.errors import GraphWorkerError
-from laomedo.integrations.langflow.execution.models import (
+from laomedo.integrations.langflow.execution.worker.errors import GraphWorkerError
+from laomedo.integrations.langflow.execution.worker.models import (
     GraphWorkerCall,
     GraphWorkerReply,
 )
-from laomedo.integrations.langflow.execution.settings import (
+from laomedo.integrations.langflow.execution.worker.settings import (
     GRAPH_WORKER_MESSAGE_BYTES,
     GRAPH_WORKER_PREFIX,
 )

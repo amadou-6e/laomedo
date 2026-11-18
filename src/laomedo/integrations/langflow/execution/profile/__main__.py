@@ -6,8 +6,8 @@ from uuid import UUID
 
 import uvicorn
 
-from laomedo.integrations.langflow.execution.native import NativeProfileRuntime
-from laomedo.integrations.langflow.execution.settings import (
+from laomedo.integrations.langflow.execution.profile.native import NativeProfileRuntime
+from laomedo.integrations.langflow.execution.profile.settings import (
     NativeProfileSettings,
     NATIVE_PROFILE_PORT,
 )

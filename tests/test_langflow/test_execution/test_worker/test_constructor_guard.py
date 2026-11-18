@@ -18,9 +18,9 @@ from laomedo.integrations.langflow.graph_admission.catalog import GitHubGraphCat
 from laomedo.integrations.langflow.graph_admission.node_runs import (
     GitHubNodeRunAdmission,
 )
-from laomedo.integrations.langflow.execution.errors import GraphWorkerError
-from laomedo.integrations.langflow.execution.models import GraphWorkerJob
-from laomedo.integrations.langflow.execution.worker import NativeGraphWorker
+from laomedo.integrations.langflow.execution.worker.errors import GraphWorkerError
+from laomedo.integrations.langflow.execution.worker.models import GraphWorkerJob
+from laomedo.integrations.langflow.execution.worker.native import NativeGraphWorker
 
 
 class ConstructorGuardTests(unittest.IsolatedAsyncioTestCase):

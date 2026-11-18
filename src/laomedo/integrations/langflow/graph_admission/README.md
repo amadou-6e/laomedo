@@ -18,7 +18,7 @@ graph_admission/
   node_runs.py  GitHubNodeRunAdmission
 ```
 
-The isolated worker (`../execution/`) imports `GitHubCatalogSnapshot` for
+The isolated worker (`../execution/worker/`) imports `GitHubCatalogSnapshot` for
 its bootstrap and re-runs `GitHubGraphCatalog` and
 `GitHubNodeRunAdmission.executable_graph` on the actual parsed graph.
 

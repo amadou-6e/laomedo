@@ -11,9 +11,9 @@ from pydantic import SecretStr
 from laomedo.host.leases.models import ContainerIdentity
 from laomedo.host.leases.settings import LABEL_RUN, LABEL_TOKEN
 from laomedo.integrations.langflow.execution.base import BaseDockerRuntime
-from laomedo.integrations.langflow.execution.errors import GraphWorkerError
-from laomedo.integrations.langflow.execution.models import NativeProfileInstance
-from laomedo.integrations.langflow.execution.settings import (
+from laomedo.integrations.langflow.execution.profile.errors import NativeProfileError
+from laomedo.integrations.langflow.execution.profile.models import NativeProfileInstance
+from laomedo.integrations.langflow.execution.profile.settings import (
     NATIVE_PROFILE_DEPLOYMENT_LABEL,
     NATIVE_PROFILE_OWNER_LABEL,
     NATIVE_PROFILE_STATE_PATH,
@@ -24,6 +24,8 @@ from laomedo.integrations.langflow.execution.settings import (
 
 class DockerProfileRuntime(BaseDockerRuntime):
     """Keep operational volumes disjoint from broker authentication and custody."""
+
+    runtime_error = NativeProfileError
 
     def __init__(self, settings):
         """Use one explicit deployment namespace and an independent lease service."""
@@ -55,10 +57,10 @@ class DockerProfileRuntime(BaseDockerRuntime):
             environment,
         )
         if result.returncode:
-            raise GraphWorkerError()
+            raise NativeProfileError()
         inspected = await self._control(["volume", "inspect", name], environment)
         if inspected.returncode:
-            raise GraphWorkerError()
+            raise NativeProfileError()
         volume = json.loads(inspected.stdout)[0]
         labels = volume.get("Labels") or {}
         if (
@@ -70,7 +72,7 @@ class DockerProfileRuntime(BaseDockerRuntime):
             != str(self.settings.deployment_id)
             or labels.get(NATIVE_PROFILE_OWNER_LABEL) != str(owner_id)
         ):
-            raise GraphWorkerError()
+            raise NativeProfileError()
         return name
 
     def _verify_profile(self, entry, volume):
@@ -82,7 +84,7 @@ class DockerProfileRuntime(BaseDockerRuntime):
             or entry["HostConfig"].get("Binds")
             or len(mounts) != 1
         ):
-            raise GraphWorkerError()
+            raise NativeProfileError()
         mount = mounts[0]
         if (
             mount.get("Type") != "volume"
@@ -91,7 +93,7 @@ class DockerProfileRuntime(BaseDockerRuntime):
             or mount.get("RW") is not True
             or mount.get("Destination") != NATIVE_PROFILE_STATE_PATH
         ):
-            raise GraphWorkerError()
+            raise NativeProfileError()
 
     async def _ready(self, instance, environment):
         """Check container-loopback readiness without cookies, JWTs or host ports."""
@@ -108,7 +110,7 @@ class DockerProfileRuntime(BaseDockerRuntime):
         )
         while asyncio.get_running_loop().time() < deadline:
             if instance.cancelled.is_set():
-                raise GraphWorkerError()
+                raise NativeProfileError()
             remaining = deadline - asyncio.get_running_loop().time()
             try:
                 result = await asyncio.wait_for(
@@ -119,14 +121,14 @@ class DockerProfileRuntime(BaseDockerRuntime):
                     timeout=remaining,
                 )
             except asyncio.TimeoutError:
-                raise GraphWorkerError() from None
+                raise NativeProfileError() from None
             if result.returncode == 0:
                 data = json.loads(result.stdout)
                 if data.get("id") != str(instance.owner_id):
-                    raise GraphWorkerError()
+                    raise NativeProfileError()
                 return
             await asyncio.sleep(0.2)
-        raise GraphWorkerError()
+        raise NativeProfileError()
 
     async def acquire(self, scope):
         """Admit a live owner before creating or reusing only their native runtime."""
@@ -134,11 +136,17 @@ class DockerProfileRuntime(BaseDockerRuntime):
         lock = self._locks.setdefault(scope.owner_id, asyncio.Lock())
         async with lock:
             instance = self.instances.get(scope.owner_id)
+            if instance is not None and instance.cancelled.is_set():
+                # A lost lease or stop ended this container; remove it so the
+                # owner is not refused forever, then start a fresh one.
+                del self.instances[scope.owner_id]
+                await self._end(instance)
+                instance = None
             if instance is None:
                 instance = await self._start(scope.owner_id)
                 self.instances[scope.owner_id] = instance
             if instance.cancelled.is_set():
-                raise GraphWorkerError()
+                raise NativeProfileError()
             await scope.revalidate()
             return instance
 
@@ -185,12 +193,12 @@ class DockerProfileRuntime(BaseDockerRuntime):
                 environment,
             )
             if created.returncode:
-                raise GraphWorkerError()
+                raise NativeProfileError()
             entry = await self._inspect(identity, environment)
             self._verify_profile(entry, volume)
             started = await self._control(["start", entry["Id"]], environment)
             if started.returncode:
-                raise GraphWorkerError()
+                raise NativeProfileError()
             instance = NativeProfileInstance(
                 owner_id=owner_id,
                 container_id=entry["Id"],
@@ -214,13 +222,19 @@ class DockerProfileRuntime(BaseDockerRuntime):
         lock = self._locks.setdefault(owner_id, asyncio.Lock())
         async with lock:
             instance = self.instances.pop(owner_id, None)
-            if instance is None:
-                return
-            instance.cancelled.set()
-            try:
-                await self._remove(instance.identity, self._environment())
-            finally:
-                await asyncio.to_thread(instance.lease.finish)
+            if instance is not None:
+                await self._end(instance)
+
+    async def _end(self, instance):
+        """Remove one exact container and release its lease; keep its volume.
+
+        Callers hold the owner's lock and have already unregistered the instance.
+        """
+        instance.cancelled.set()
+        try:
+            await self._remove(instance.identity, self._environment())
+        finally:
+            await asyncio.to_thread(instance.lease.finish)
 
     async def close(self):
         """Clean up all containers registered by this broker, retaining history."""
@@ -229,4 +243,4 @@ class DockerProfileRuntime(BaseDockerRuntime):
             return_exceptions=True,
         )
         if any(isinstance(result, BaseException) for result in results):
-            raise GraphWorkerError()
+            raise NativeProfileError()

@@ -4,18 +4,56 @@ import asyncio
 import json
 import os
 import subprocess
+import tempfile
+import threading
 import unittest
+from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
 from uuid import uuid4
 
 from support.leases import LeaseServiceProcess
 
 from laomedo.github.connections.models import GitHubConnectionScope
-from laomedo.integrations.langflow.execution.profile import DockerProfileRuntime
-from laomedo.integrations.langflow.execution.settings import (
+from laomedo.integrations.langflow.execution.profile.container import (
+    DockerProfileRuntime,
+)
+from laomedo.integrations.langflow.execution.profile.settings import (
     NativeProfileDeploymentSettings,
     NATIVE_PROFILE_DEPLOYMENT_LABEL,
     NATIVE_PROFILE_OWNER_LABEL,
 )
+
+
+class ProfileInstanceRecoveryTests(unittest.IsolatedAsyncioTestCase):
+    """Daemon-free lifecycle control: an ended container must not block its owner."""
+
+    async def revalidate(self):
+        """Synthetic host admission only."""
+
+    async def test_ended_instance_is_removed_and_replaced_on_acquire(self):
+        owner = uuid4()
+        with tempfile.TemporaryDirectory(prefix="laomedo-profile-lease-") as state:
+            runtime = DockerProfileRuntime(
+                NativeProfileDeploymentSettings(
+                    image_id="sha256:" + "0" * 64,
+                    lease_state=Path(state),
+                    deployment_id=uuid4(),
+                )
+            )
+            ended = SimpleNamespace(cancelled=threading.Event())
+            ended.cancelled.set()
+            fresh = SimpleNamespace(cancelled=threading.Event())
+            runtime.instances[owner] = ended
+            runtime._end = AsyncMock()
+            runtime._start = AsyncMock(return_value=fresh)
+            scope = GitHubConnectionScope(
+                owner_id=owner, lease_binding="synthetic-lease", check=self.revalidate
+            )
+            self.assertIs(await runtime.acquire(scope), fresh)
+            runtime._end.assert_awaited_once_with(ended)
+            runtime._start.assert_awaited_once_with(owner)
+            self.assertIs(runtime.instances[owner], fresh)
 
 
 @unittest.skipUnless(

@@ -12,18 +12,23 @@ from pydantic import SecretStr
 from laomedo.host.leases.models import ContainerIdentity
 from laomedo.host.leases.settings import LABEL_RUN, LABEL_TOKEN
 from laomedo.integrations.langflow.execution.base import BaseDockerRuntime
-from laomedo.integrations.langflow.execution.channel import GraphWorkerChannel
-from laomedo.integrations.langflow.execution.errors import GraphWorkerError
-from laomedo.integrations.langflow.execution.models import (
+from laomedo.integrations.langflow.execution.worker.channel import GraphWorkerChannel
+from laomedo.integrations.langflow.execution.worker.errors import GraphWorkerError
+from laomedo.integrations.langflow.execution.worker.models import (
     GraphWorkerCall,
     GraphWorkerReply,
     GraphWorkerResult,
 )
-from laomedo.integrations.langflow.execution.settings import GRAPH_WORKER_MESSAGE_BYTES
+from laomedo.integrations.langflow.execution.worker.settings import (
+    GRAPH_WORKER_MESSAGE_BYTES,
+    GRAPH_WORKER_MODULE,
+)
 
 
 class DockerGraphWorker(BaseDockerRuntime):
     """One fresh sandbox per admitted job; credentials stay in the calling broker."""
+
+    runtime_error = GraphWorkerError
 
     def __init__(self, settings, authority, access):
         """Use explicit deployment settings and broker-owned authority/read dispatch."""
@@ -172,7 +177,7 @@ class DockerGraphWorker(BaseDockerRuntime):
                     "python",
                     self.settings.image_id,
                     "-m",
-                    "laomedo.integrations.langflow.execution",
+                    GRAPH_WORKER_MODULE,
                 ],
                 environment,
             )

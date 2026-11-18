@@ -27,10 +27,13 @@ FORBIDDEN_STATE_READS = (
 )
 
 # Saved-account node-run code moved out of the connections package (PR #287, B3);
-# graph admission moved out of authentication (B4).
+# graph admission moved out of authentication (B4); the execution package split
+# into worker/ and profile/ (B5).
 RETIRED_MODULES = re.compile(
     r"laomedo\.github\.connections\.(?:run_authority|node_access|worker_access)\b"
     r"|laomedo\.integrations\.langflow\.authentication\.(?:catalog|node_runs)\b"
+    r"|laomedo\.integrations\.langflow\.execution\."
+    r"(?:channel|container|models|native|native_cli)\b"
 )
 RETIRED_FILES = (
     "github/connections/run_authority.py",
@@ -38,7 +41,16 @@ RETIRED_FILES = (
     "github/connections/worker_access.py",
     "integrations/langflow/authentication/catalog.py",
     "integrations/langflow/authentication/node_runs.py",
+    "integrations/langflow/execution/__main__.py",
+    "integrations/langflow/execution/channel.py",
+    "integrations/langflow/execution/container.py",
+    "integrations/langflow/execution/models.py",
+    "integrations/langflow/execution/native.py",
+    "integrations/langflow/execution/native_cli.py",
+    "integrations/langflow/execution/profile.py",
+    "integrations/langflow/execution/worker.py",
 )
+EXECUTION_ROOT = "integrations/langflow/execution/"
 
 PRIVATE_AUTHENTICATION_IMPORT = re.compile(
     r"authentication\.connections import \(?[^)]*\b_\w+", re.S
@@ -102,4 +114,16 @@ class ConnectionBoundaryTests(unittest.TestCase):
         offenders = [
             relative for relative, text in _sources() if RETIRED_MODULES.search(text)
         ]
+        self.assertEqual(offenders, [])
+
+    def test_execution_runtimes_do_not_import_each_other(self):
+        """The worker and profile runtimes share only execution's base modules."""
+        offenders = []
+        for runtime, other in (("worker", "profile"), ("profile", "worker")):
+            for path in sorted((SOURCE_ROOT / EXECUTION_ROOT / runtime).rglob("*.py")):
+                if (
+                    f"laomedo.integrations.langflow.execution.{other}"
+                    in path.read_text(encoding="utf-8")
+                ):
+                    offenders.append(path.relative_to(SOURCE_ROOT).as_posix())
         self.assertEqual(offenders, [])

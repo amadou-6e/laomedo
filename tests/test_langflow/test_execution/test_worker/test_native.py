@@ -23,8 +23,9 @@ from laomedo.integrations.langflow.graph_admission.catalog import GitHubGraphCat
 from laomedo.integrations.langflow.graph_admission.node_runs import (
     GitHubNodeRunAdmission,
 )
-from laomedo.integrations.langflow.execution.channel import GraphWorkerChannel
-from laomedo.integrations.langflow.execution.models import (
+from laomedo.integrations.langflow.execution.worker.channel import GraphWorkerChannel
+from laomedo.integrations.langflow.execution.worker.settings import GRAPH_WORKER_MODULE
+from laomedo.integrations.langflow.execution.worker.models import (
     GraphWorkerCall,
     GraphWorkerJob,
     GraphWorkerResult,
@@ -63,7 +64,7 @@ class NativeGraphWorkerTests(unittest.TestCase):
         GraphWorkerChannel.write_message(bootstrap, job.private_payload())
         if reply is not None:
             GraphWorkerChannel.write_message(bootstrap, {"request_id": 1, **reply})
-        source = Path(__file__).resolve().parents[3] / "src"
+        source = Path(__file__).resolve().parents[4] / "src"
         allowed = {
             "PATH",
             "SYSTEMROOT",
@@ -113,11 +114,11 @@ class NativeGraphWorkerTests(unittest.TestCase):
 
     def worker_command(self):
         """Execute the installed native driver in a cold local Python process."""
-        return [sys.executable, "-m", "laomedo.integrations.langflow.execution"]
+        return [sys.executable, "-m", GRAPH_WORKER_MODULE]
 
     def github_graph(self, kind):
         """Load the maintained native node; keep broker replies explicitly synthetic."""
-        root = Path(__file__).resolve().parents[3]
+        root = Path(__file__).resolve().parents[4]
         spec = importlib.util.spec_from_file_location(
             "isolated_worker_" + kind,
             root / "components" / "laomedo" / ("github_" + kind + ".py"),

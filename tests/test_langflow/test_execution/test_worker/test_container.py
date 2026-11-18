@@ -17,20 +17,18 @@ from support.docker import DockerTestContainer
 
 from pydantic import ValidationError
 
-from laomedo.integrations.langflow.execution.container import DockerGraphWorker
+from laomedo.integrations.langflow.execution.worker.container import DockerGraphWorker
 from laomedo.integrations.langflow.execution.base import BaseDockerRuntime
-from laomedo.integrations.langflow.execution.errors import GraphWorkerError
-from laomedo.integrations.langflow.execution.settings import (
-    GraphWorkerSettings,
-    DOCKER_CONTROL_OUTPUT_BYTES,
-)
+from laomedo.integrations.langflow.execution.worker.errors import GraphWorkerError
+from laomedo.integrations.langflow.execution.worker.settings import GraphWorkerSettings
+from laomedo.integrations.langflow.execution.settings import DOCKER_CONTROL_OUTPUT_BYTES
 from laomedo.github.node_runs.models import (
     GitHubNodeReadResult,
     GitHubNodeSelection,
 )
 from laomedo.github.node_runs.authority import GitHubRunAuthority
 from laomedo.github.node_runs.worker_access import GitHubWorkerAccess
-from laomedo.integrations.langflow.execution.models import (
+from laomedo.integrations.langflow.execution.worker.models import (
     GraphWorkerCall,
     GraphWorkerJob,
 )
@@ -255,7 +253,9 @@ class ContainerSupervisorTests(unittest.IsolatedAsyncioTestCase):
     """
 
     async def test_admitted_read_revokes_authority_and_removes_its_container(self):
-        from test_langflow.test_execution.test_worker import NativeGraphWorkerTests
+        from test_langflow.test_execution.test_worker.test_native import (
+            NativeGraphWorkerTests,
+        )
 
         native = NativeGraphWorkerTests()
         self.addCleanup(native.doCleanups)
