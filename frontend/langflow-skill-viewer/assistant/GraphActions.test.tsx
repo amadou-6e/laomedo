@@ -231,3 +231,16 @@ it("workflow link opens its graph through the current router without submitting 
  expect(screen.getByText("Workflow editor")).toBeVisible();
  expect(assistantRequest).not.toHaveBeenCalled();
 });
+
+it("uses document navigation to reload an already open graph through its beforeunload guard", () => {
+  jest.clearAllMocks();
+  render(<MemoryRouter initialEntries={["/flow/graph"]}>
+    <GraphActions conversation="chat" actions={[{ ...action, state: "succeeded" }]} onFailure={() => {}} />
+  </MemoryRouter>);
+  const link = screen.getByRole("link", { name: "Open workflow" });
+  // Router navigation cancels the native event; reloadDocument leaves it to the
+  // browser, which invokes FlowPage's existing unsaved/build beforeunload guard.
+  expect(fireEvent.click(link)).toBe(true);
+  expect(link).toHaveAttribute("href", "/flow/graph");
+  expect(assistantRequest).not.toHaveBeenCalled();
+});

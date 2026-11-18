@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ExternalLink } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { assistantRequest } from "./api";
 import type { GraphAction } from "./models";
 
@@ -14,6 +14,7 @@ export default function GraphActions({
   onFailure: (error: unknown) => void;
 }) {
   const [busy, setBusy] = useState<string>();
+  const { pathname } = useLocation();
   const [observed, setObserved] = useState<Record<string, GraphAction>>({});
   async function decide(
     action: GraphAction,
@@ -123,6 +124,7 @@ export default function GraphActions({
               <Link
                 className="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline focus-visible:outline-2"
                 to={`/flow/${encodeURIComponent(action.workflow_id)}`}
+                reloadDocument={pathname === `/flow/${encodeURIComponent(action.workflow_id)}`}
                 aria-label="Open workflow"
                 title="Open workflow. Reload open editors before saving to avoid overwriting saved changes."
               >
