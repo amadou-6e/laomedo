@@ -52,6 +52,7 @@ class CodexAgentRuntime:
         self.container_name = launch.name
         self._session_scope = ExitStack()
         self.session = self.acp = self.executor = self.telemetry = None
+        self.native_commands_supported = False
         self._cancelled = None
         self._protocol_ready = False
         self.events = []
@@ -176,13 +177,19 @@ class CodexAgentRuntime:
         )
         reply = await self.acp.initialize()
         advertised = (reply.field_meta or {}).get("laomedo")
+        base = {"version": 1, "rawEvents": True, "hostPolicy": True}
         if (
-            advertised != {"version": 1, "rawEvents": True, "hostPolicy": True}
+            advertised not in (base, {**base, "nativeCommands": 1})
             or type(advertised["version"]) is not int
             or type(advertised["rawEvents"]) is not bool
             or type(advertised["hostPolicy"]) is not bool
+            or (
+                "nativeCommands" in advertised
+                and type(advertised["nativeCommands"]) is not int
+            )
         ):
             raise RunnerError("initialize_rejected")
+        self.native_commands_supported = advertised.get("nativeCommands") == 1
         if self.executor is not None:
             self.assert_controller_isolated()
             executor = self.executor
@@ -284,18 +291,24 @@ class CodexAgentRuntime:
         # ACP notifications are handled independently of request responses.
         # Allow the fresh list to arrive before the caller publishes discovery.
         deadline = time.monotonic() + 2
-        while self.command_catalog() is None and time.monotonic() < deadline:
+        while (
+            self.native_commands_supported
+            and self.command_catalog() is None
+            and time.monotonic() < deadline
+        ):
             await asyncio.sleep(0.01)
         return self.active_thread_id
 
     def command_catalog(self):
         """Read detached native metadata without initiating another request or turn."""
-        return self.acp.command_catalog()
+        return self.acp.command_catalog() if self.native_commands_supported else None
 
     async def prompt(self, text, *, skills, cancelled, seconds, command=None):
         """Use the common health/cancel loop and require raw native completion."""
         command_kind = None
         if command is not None:
+            if not self.native_commands_supported:
+                raise RunnerError("native_command_not_supported")
             command_kind = CodexCommands.admit(command, self.command_catalog())
             if text != command.text() or self.output_requirements:
                 raise RunnerError("native_command_context_invalid")

@@ -107,7 +107,7 @@ MCP tools; any resulting graph/native proposal still needs its own approval.
 Native catalogs and their provider-owned availability projection cross through
 normal runner status, with run/thread binding and shared typed wire models. App
 code never reaches into a concrete provider object. A missing or invalid catalog
-is unavailable, not a fabricated empty list. The registered commands2 image
+is unavailable, not a fabricated empty list. The registered commands3 image
 contains the explicit native-command adapter hook. Existing tool manifests remain
 frozen for a native session. Older retained conversations/runs may require a new
 conversation after this image upgrade; their history remains readable, and no
@@ -118,3 +118,10 @@ start/completion pair with the same observed thread, turn and item IDs. It retai
 that evidence separately from a model-turn result, drains briefly for late native
 failure, then uses normal cleanup. No assistant text or usage is manufactured.
 Ordinary prompts and review still require native turn completion.
+
+Native command discovery and dispatch require the adapter handshake flag
+`nativeCommands: 1`. Base-only adapters remain valid for ordinary execution but
+expose no executable command catalog and refuse explicit command requests before
+any prompt. Image tags or advertised slash-command descriptions alone do not
+establish handler support. Unknown capability fields and invalid flag values fail
+initialization.

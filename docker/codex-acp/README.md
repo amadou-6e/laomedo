@@ -10,7 +10,7 @@ build is required. Existing-tag recipe mismatches and explicit pins follow the
 [shared acquisition policy](../README.md).
 
 For a host-reviewed manual rebuild, run
-`docker build -t laomedo-codex-acp:0.159.2-2.1.1-commands2 .` from this directory and record
+`docker build -t laomedo-codex-acp:0.159.2-2.1.1-commands3 .` from this directory and record
 the resulting immutable ID for the runner's explicit `image_id` override.
 The Dockerfile pins the Node base, upstream adapter commit/archive checksum and
 Codex package lock. The runtime includes the upstream Apache-2.0 licence and
@@ -77,3 +77,10 @@ start/completion pair with the same observed thread, turn and item IDs. It retai
 that evidence separately from a model-turn result, drains briefly for late native
 failure, then uses normal cleanup. No assistant text or usage is manufactured.
 Ordinary prompts and review still require native turn completion.
+
+Native command discovery and dispatch require the adapter handshake flag
+`nativeCommands: 1`. Base-only adapters remain valid for ordinary execution but
+expose no executable command catalog and refuse explicit command requests before
+any prompt. Image tags or advertised slash-command descriptions alone do not
+establish handler support. Unknown capability fields and invalid flag values fail
+initialization.

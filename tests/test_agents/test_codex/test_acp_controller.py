@@ -55,6 +55,7 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
             initialize=AsyncMock(),
         )
         self.controller.active_thread_id = "native-thread"
+        self.controller.native_commands_supported = True
 
     async def asyncTearDown(self):
         if not self.controller._closed:
@@ -229,6 +230,63 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
             )
         self.controller.acp.prompt.assert_not_awaited()
 
+    async def test_command_capability_is_required_without_disabling_ordinary_turns(
+        self,
+    ):
+        base = {"version": 1, "rawEvents": True, "hostPolicy": True}
+        for supported in (False, True):
+            advertised = {**base, **({"nativeCommands": 1} if supported else {})}
+            catalog = NativeCommandCatalog(
+                commands=[{"name": "status", "description": "Status"}]
+            )
+            acp = Mock(
+                initialize=AsyncMock(
+                    return_value=SimpleNamespace(field_meta={"laomedo": advertised})
+                )
+            )
+            acp.close = AsyncMock()
+            acp.command_catalog.return_value = catalog
+
+            async def ordinary(*args, **kwargs):
+                self.controller.events.append(
+                    {
+                        "method": "turn/completed",
+                        "params": {
+                            "threadId": "native-thread",
+                            "turn": {"id": "ordinary", "status": "completed"},
+                        },
+                    }
+                )
+                return SimpleNamespace(stop_reason="end_turn")
+
+            acp.prompt = AsyncMock(side_effect=ordinary)
+            with patch(
+                "laomedo.agents.agents.base.acp.session.AcpSession", return_value=acp
+            ):
+                await self.controller.initialize()
+            self.assertEqual(self.controller.native_commands_supported, supported)
+            self.assertEqual(
+                self.controller.command_catalog(), catalog if supported else None
+            )
+            if not supported:
+                with self.assertRaisesRegex(
+                    RunnerError, "native_command_not_supported"
+                ):
+                    await self.controller.prompt(
+                        "/status",
+                        skills=[],
+                        cancelled=threading.Event(),
+                        seconds=1,
+                        command=NativeCommandInvocation(
+                            name="status", catalog_revision=catalog.revision()
+                        ),
+                    )
+                acp.prompt.assert_not_awaited()
+            result = await self.controller.prompt(
+                "ordinary", skills=[], cancelled=threading.Event(), seconds=1
+            )
+            self.assertEqual(result.status, "completed")
+
     async def test_stock_and_wrong_version_are_refused_before_session_creation(self):
         for value in (
             None,
@@ -236,6 +294,30 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
             {"laomedo": {"version": 2, "rawEvents": True, "hostPolicy": True}},
             {"laomedo": {"version": True, "rawEvents": True, "hostPolicy": True}},
             {"laomedo": {"version": 1, "rawEvents": 1, "hostPolicy": True}},
+            {
+                "laomedo": {
+                    "version": 1,
+                    "rawEvents": True,
+                    "hostPolicy": True,
+                    "nativeCommands": True,
+                }
+            },
+            {
+                "laomedo": {
+                    "version": 1,
+                    "rawEvents": True,
+                    "hostPolicy": True,
+                    "nativeCommands": 2,
+                }
+            },
+            {
+                "laomedo": {
+                    "version": 1,
+                    "rawEvents": True,
+                    "hostPolicy": True,
+                    "unknown": 1,
+                }
+            },
         ):
             acp = Mock(
                 initialize=AsyncMock(return_value=SimpleNamespace(field_meta=value))
