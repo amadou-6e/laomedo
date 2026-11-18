@@ -91,6 +91,10 @@ class BrowserProviderSession(BaseModel):
     profile_id: UUID = Field(
         description="Profile resolved by upstream native JWT verification."
     )
+    flow_id: UUID | None = Field(
+        default=None,
+        description="Owned browser graph context for editor discovery only.",
+    )
     lease_hash: str = Field(
         repr=False, description="Cookie digest for logout fencing; never a credential."
     )

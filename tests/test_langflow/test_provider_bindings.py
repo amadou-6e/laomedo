@@ -79,6 +79,20 @@ class ProviderBindingTests(unittest.IsolatedAsyncioTestCase):
             ProviderGraphBindings.endpoint(component, "")
             controller.endpoint.assert_called_with(self.profile, preferred, run_id=None)
             service.graph_preferences.assert_called_once_with(self.profile, graph)
+            component.graph = None
+            browser_context = ProviderGraphBindings.session.set(
+                BrowserProviderSession(
+                    profile_id=self.profile, lease_hash="browser", flow_id=graph
+                )
+            )
+            try:
+                ProviderGraphBindings.endpoint(component, "")
+                controller.endpoint.assert_called_with(
+                    self.profile, preferred, run_id=None
+                )
+            finally:
+                ProviderGraphBindings.session.reset(browser_context)
+            component.graph = SimpleNamespace(flow_id=str(graph))
             service.graph_preferences.reset_mock()
             ProviderGraphBindings.endpoint(component, str(override))
             controller.endpoint.assert_called_with(self.profile, override, run_id=None)

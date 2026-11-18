@@ -71,6 +71,9 @@ class ProviderGraphBindings:
             )
         if not selected:
             flow_id = getattr(getattr(component, "graph", None), "flow_id", None)
+            if flow_id is None:
+                session = cls.session.get()
+                flow_id = session.flow_id if session is not None else None
             try:
                 flow_id = UUID(str(flow_id))
             except (ValueError, TypeError):

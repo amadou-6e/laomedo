@@ -85,3 +85,7 @@ accounts never fall back to another connection. Graph routes verify Flow ownersh
 Retained run operations resolve the connection from the authenticated owner's
 controller inventory, independently of later preference or node-selector changes.
 Ambiguous or missing runs are refused; current preferences cannot redirect them.
+
+Editor model discovery can use the same-origin graph referrer only after the
+browser principal and database graph ownership are verified. Runtime graph
+identity takes precedence; API calls without an owned graph context do not guess.
