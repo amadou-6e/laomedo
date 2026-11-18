@@ -8,6 +8,7 @@ import "./connections.css";
 import "./providers.css";
 
 type Screen = "list" | "type" | "method" | "pending" | "details" | "failure" | "duplicate" | "disconnect" | "removing" | "removed";
+const codexLogo = <svg aria-hidden="true" focusable="false" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 12C20 7.58172 16.4183 4 12 4C7.58172 4 4 7.58172 4 12C4 16.4183 7.58172 20 12 20C16.4183 20 20 16.4183 20 12ZM16 13.5C16.5523 13.5 17 13.9477 17 14.5C17 15.0523 16.5523 15.5 16 15.5H13C12.4477 15.5 12 15.0523 12 14.5C12 13.9477 12.4477 13.5 13 13.5H16ZM7.98535 8.64258C8.42937 8.37617 8.99745 8.49427 9.30078 8.90039L9.35742 8.98535L10.8574 11.4854L10.9199 11.6074C11.0269 11.858 11.0269 12.142 10.9199 12.3926L10.8574 12.5146L9.35742 15.0146C9.07324 15.4881 8.45888 15.6415 7.98535 15.3574C7.51188 15.0732 7.35846 14.4589 7.64258 13.9854L8.83301 12L7.64258 10.0146L7.59473 9.92383C7.37931 9.46516 7.54152 8.90898 7.98535 8.64258ZM22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12Z" fill="currentColor"/></svg>;
 const pendingKey = "laomedo.provider-attempt";
 const statuses = { ready: "Connected", expired: "Sign in again", reauthorization_required: "Sign in again", revoked: "Sign in again", unavailable: "Unavailable" };
 
@@ -184,7 +185,7 @@ export default function ProviderConnections() {
           {rows === undefined ? <p role="status">{error ? "Could not load providers." : "Loading providers…"}</p> : rows.length === 0 ? <div className="gc-empty"><h2>No providers connected</h2><p className="gc-muted">Add a provider account to use it in your flows.</p></div> : <>
             <h2 className="gc-eyebrow">Connected accounts</h2>
             {rows.map(row => <div className="gc-account-row" key={row.connection_id}>
-              <span className="gc-avatar" aria-hidden="true">{row.label[0]?.toUpperCase()}</span>
+              <span className="gc-avatar" aria-hidden="true">{codexLogo}</span>
               <div className="gc-account-copy"><h3>{row.label}</h3><p className="gc-muted">Codex · ChatGPT plan</p></div>
               <span className={`gc-status ${row.lifecycle === "connected" && row.auth_state === "ready" ? "gc-ready" : "gc-attention"}`}>{status(row)}</span>
               <Button ignoreTitleCase variant="outline" aria-label={`View connection for ${row.label}`} onClick={() => { setSelected(row); setScreen("details"); }}>View connection</Button>
@@ -205,10 +206,9 @@ export default function ProviderConnections() {
           <p className="gc-notice" role="status">{unconfirmed || attempt?.status === "verifying" ? "Checking connection…" : "Waiting for sign-in…"}</p>
         </>}
         {screen === "details" && selected && <>
-          <div className="gc-identity"><span className="gc-avatar" aria-hidden="true">{selected.label[0]?.toUpperCase()}</span><h2 id="provider-heading">{selected.label}</h2><span className={`gc-status ${ready ? "gc-ready" : "gc-attention"}`}>{status(selected)}</span></div>
+          <div className="gc-identity"><span className="gc-avatar" aria-hidden="true">{codexLogo}</span><h2 id="provider-heading">{selected.label}</h2><span className={`gc-status ${ready ? "gc-ready" : "gc-attention"}`}>{status(selected)}</span></div>
           <p className="gc-muted">{ready ? "Access is maintained automatically when supported." : "Sign in again to restore access for this account."}</p>
-          {selected.lifecycle === "connected" && <Button ignoreTitleCase disabled={busy} onClick={() => setScreen("method")}>Sign in again</Button>}
-          <div className="gc-section"><h3>Provider access</h3><p>Codex · ChatGPT plan</p><p className="gc-muted">Model usage not yet confirmed</p></div>
+          {selected.lifecycle === "connected" && <Button ignoreTitleCase disabled={busy} onClick={() => setScreen("method")}>Sign in to Codex again</Button>}
           <div className="gc-footer"><p className="gc-muted">Removing this connection stops Laomedo access.</p><Button ignoreTitleCase variant="outline" disabled={busy} onClick={() => selected.lifecycle === "connected" ? void prepareDisconnect() : setScreen("removing")}>{selected.lifecycle === "connected" ? "Disconnect" : "View cleanup"}</Button></div>
         </>}
         {screen === "disconnect" && selected && removal && <>

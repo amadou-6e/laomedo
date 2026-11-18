@@ -16,3 +16,8 @@ OAuth state, URLs and credentials never enter browser storage. Native completion
 returns to the original Settings origin. User-facing errors use the shared
 catalogue. Disconnect and consumer binding require the matching host runtime
 integration; do not present unavailable operations as working.
+
+Account rows and details use the Codex mark, matching the installed OpenAI Codex
+extension asset `codex-d905da579253.svg` (26.1007.21434), rendered in the theme
+foreground colour. Details identify reauthentication as Sign in to Codex again;
+account access and model usage are not inferred from successful authentication.
