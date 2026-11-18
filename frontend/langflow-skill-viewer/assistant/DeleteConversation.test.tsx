@@ -11,6 +11,7 @@ it("names the chat and deletes only after explicit confirmation; Cancel preserve
   render(<DeleteConversation {...props} />);
   fireEvent.click(screen.getByRole("button", { name: "Delete conversation" }));
   expect(screen.getByRole("dialog").textContent).toContain("My conversation");
+  expect(screen.getByRole("dialog").textContent).toContain("from Laomedo history");
   expect(screen.getByRole("dialog").textContent).toContain("Saved workflows will stay");
   expect(assistantRequest).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "Cancel" }));

@@ -78,3 +78,6 @@ graph actions, then deletes its message snapshots, action/draft receipts and
 permissions atomically. It clears owned successor links and never deletes Flow
 or independent run history. The authenticated DELETE route is app-only; MCP
 does not expose deletion. Row locking serializes deletion with Send/approval.
+
+Conversation deletion is from Laomedo history only; native provider thread/session
+records are outside its scope. The confirmation makes no provider-erasure claim.

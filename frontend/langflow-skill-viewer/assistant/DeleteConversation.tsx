@@ -55,7 +55,7 @@ export default function DeleteConversation({ conversation, title, onDeleted, onF
         <DialogHeader>
           <DialogTitle>Delete conversation?</DialogTitle>
           <DialogDescription>
-            Delete “{title}” and its messages permanently? Saved workflows will stay.
+            Delete “{title}” from Laomedo history? Saved workflows will stay.
           </DialogDescription>
         </DialogHeader>
         {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
