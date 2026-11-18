@@ -22,6 +22,7 @@ from laomedo.host.credentials.siwc.utils import (
 )
 from laomedo.host.provider_connections.errors import ProviderConnectionError
 from laomedo.host.provider_connections.models import (
+    GraphProviderPreferences,
     ConnectionRecord,
     ConnectionIndex,
     ConnectionSummary,
@@ -146,6 +147,40 @@ class ProviderConnections:
         path.mkdir(exist_ok=True, mode=0o700)
         _restrict_windows_directory(path)
         return path
+
+    def graph_preferences(
+        self, profile_id: UUID, flow_id: UUID
+    ) -> GraphProviderPreferences:
+        """Read only this profile's graph selection; corrupt state never becomes empty."""
+        with self._lock:
+            path = self._profile(profile_id) / (
+                "graph-" + str(UUID(str(flow_id))) + ".json"
+            )
+            if not path.exists():
+                return GraphProviderPreferences()
+            try:
+                return GraphProviderPreferences.model_validate_json(
+                    path.read_text(encoding="utf-8")
+                )
+            except (OSError, ValueError):
+                raise ProviderConnectionError(
+                    "provider_connections_unavailable"
+                ) from None
+
+    def save_graph_preferences(
+        self, profile_id: UUID, flow_id: UUID, preferences: GraphProviderPreferences
+    ) -> GraphProviderPreferences:
+        """Save one graph's explicit account choice without changing any node or login."""
+        with self._lock:
+            if preferences.codex is not None:
+                record = self._record(profile_id, preferences.codex)
+                if record.lifecycle != "connected":
+                    raise ProviderConnectionError("provider_connection_disconnecting")
+            path = self._profile(profile_id) / (
+                "graph-" + str(UUID(str(flow_id))) + ".json"
+            )
+            _atomic_private(path, preferences.model_dump(mode="json"))
+            return preferences.model_copy()
 
     def _records(self, profile_id: UUID) -> list[ConnectionRecord]:
         """Read committed metadata; malformed state is a read error, never empty."""

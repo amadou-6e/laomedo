@@ -247,3 +247,12 @@ class PendingLogin(BaseModel):
     progress: LoginProgress = Field(
         description="Safe observation of the attempt lifecycle."
     )
+
+
+class GraphProviderPreferences(BaseModel):
+    """Local graph preference; no credentials or portable account binding."""
+
+    model_config = ConfigDict(extra="forbid")
+    codex: UUID | None = Field(
+        default=None, description="Preferred Codex connection for this graph only."
+    )

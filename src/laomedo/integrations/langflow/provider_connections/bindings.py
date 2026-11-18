@@ -65,8 +65,17 @@ class ProviderGraphBindings:
         """Resolve one explicit profile-owned Codex connection without fallback."""
         if component.provider_id != "codex":
             raise ProviderConnectionError("provider_method_unavailable")
+        if not selected:
+            flow_id = getattr(getattr(component, "graph", None), "flow_id", None)
+            try:
+                flow_id = UUID(str(flow_id))
+            except (ValueError, TypeError):
+                raise ProviderConnectionError("provider_connection_required") from None
+            selected = cls.service.graph_preferences(
+                cls.owner(component), flow_id
+            ).codex
         try:
-            connection_id = UUID(selected)
+            connection_id = UUID(str(selected))
         except (ValueError, TypeError, AttributeError):
             raise ProviderConnectionError("provider_connection_required") from None
         return ProviderControllers.current().endpoint(

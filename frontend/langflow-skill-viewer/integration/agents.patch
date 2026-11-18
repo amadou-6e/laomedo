@@ -57,7 +57,7 @@
  }
  
  export const NAV_ITEMS: SidebarNavItem[] = [
-+  {id:"agents",icon:"ChartGantt",label:"Agents",tooltip:"Graph agent activity"},
++  {id:"agents",icon:"ChartGantt",label:"Subscription agents",tooltip:"Subscription agents"},
    {
      id: "components",
      icon: "component",

@@ -57,6 +57,38 @@ class ProviderBindingTests(unittest.IsolatedAsyncioTestCase):
         self.addCleanup(set_current_auth_context, previous)
         set_current_auth_context(AuthCredentialContext(method="jwt"))
 
+    async def test_graph_default_is_used_only_without_explicit_node_override(self):
+        """The authenticated owner and graph select a default; an explicit node wins."""
+        graph, preferred, override = uuid4(), uuid4(), uuid4()
+        component = SimpleNamespace(
+            provider_id="codex",
+            user_id=self.profile,
+            graph=SimpleNamespace(flow_id=str(graph)),
+        )
+        service = Mock()
+        service.graph_preferences.return_value = SimpleNamespace(codex=preferred)
+        controller = Mock()
+        with (
+            patch.object(ProviderGraphBindings, "service", service),
+            patch.object(ProviderGraphBindings, "owner", return_value=self.profile),
+            patch(
+                "laomedo.host.provider_connections.controllers.ProviderControllers.current",
+                return_value=controller,
+            ),
+        ):
+            ProviderGraphBindings.endpoint(component, "")
+            controller.endpoint.assert_called_with(self.profile, preferred, run_id=None)
+            service.graph_preferences.assert_called_once_with(self.profile, graph)
+            service.graph_preferences.reset_mock()
+            ProviderGraphBindings.endpoint(component, str(override))
+            controller.endpoint.assert_called_with(self.profile, override, run_id=None)
+            service.graph_preferences.assert_not_called()
+            service.graph_preferences.return_value.codex = None
+            with self.assertRaisesRegex(
+                ProviderConnectionError, "provider_connection_required"
+            ):
+                ProviderGraphBindings.endpoint(component, "")
+
     async def test_verified_browser_context_survives_worker_thread_but_not_foreign_flow(
         self,
     ):

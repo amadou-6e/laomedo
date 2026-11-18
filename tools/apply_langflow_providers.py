@@ -113,7 +113,14 @@ def apply_providers(checkout: Path, source: Path):
         '\n  sidebarNavItems.push({ title: "Providers", href: "/settings/providers", icon: <ForwardedIconComponent name="Terminal" className="w-4" /> });\n'
         + settings_anchor,
     )
+    agents_index = frontend / "modals/graphAgents/index.tsx"
+    if not agents_index.exists():
+        raise SystemExit("provider_graph_agents_anchor_missing")
     shutil.copytree(source / "providers", target)
+    agents_index.write_text(
+        'export { default } from "@/components/laomedoProviders/SubscriptionAgents";\n',
+        encoding="utf-8",
+    )
     routes.write_text(text, encoding="utf-8")
     settings.write_text(settings_text, encoding="utf-8")
     for path, contents in edits.items():

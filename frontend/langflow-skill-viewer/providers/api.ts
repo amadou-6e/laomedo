@@ -74,3 +74,11 @@ export async function disconnect(info: DisconnectInfo) {
 export async function retryCleanup(connectionId: string) {
   return disconnectProgressSchema.parse(await request(`/${encodeURIComponent(connectionId)}/cleanup`, "POST", {}));
 }
+
+const graphPreferencesSchema = z.object({ codex: z.string().uuid().nullable() });
+export async function readGraphPreferences(flowId: string) {
+  return graphPreferencesSchema.parse(await request(`/graphs/${encodeURIComponent(flowId)}`));
+}
+export async function saveGraphPreferences(flowId: string, codex: string | null) {
+  return graphPreferencesSchema.parse(await request(`/graphs/${encodeURIComponent(flowId)}`, "PUT", { codex }));
+}

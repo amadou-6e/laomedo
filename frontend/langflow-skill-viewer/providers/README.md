@@ -24,3 +24,8 @@ account access and model usage are not inferred from successful authentication.
 
 Connection details group compact reauthentication and Disconnect buttons together,
 with reauthentication immediately before Disconnect and wrapping on narrow screens.
+
+`SubscriptionAgents.tsx` composes per-harness tabs, graph-specific account
+preferences and retained activity. `GraphAgents` filters activity by the selected
+harness. Preferences persist through authenticated graph-owned routes; viewing
+usage or changing selection never submits a model task.

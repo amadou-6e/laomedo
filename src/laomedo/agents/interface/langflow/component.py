@@ -634,9 +634,12 @@ class AgentComponent(Component):
             selected = build_config.get("provider_connection", {}).get(
                 "value", getattr(self, "provider_connection", "")
             )
-            if not selected:
-                return _ModelCatalog()
-            self._saved_endpoint = ProviderGraphBindings.endpoint(self, selected)
+            try:
+                self._saved_endpoint = ProviderGraphBindings.endpoint(self, selected)
+            except ValueError as error:
+                if str(error) == "provider_connection_required":
+                    return _ModelCatalog()
+                raise
         base = str(
             self._saved_endpoint[0]
             if saved

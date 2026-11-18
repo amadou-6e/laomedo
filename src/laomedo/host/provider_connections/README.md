@@ -75,3 +75,9 @@ unconfirmed cleanup. Pending continuation inventory uses the resume journal's
 existing reconciliation: only a matching terminal attempt with verified native
 and controller cleanup and no active MCP grant or runner lock can settle. An
 unattested reservation remains Cleanup required; Retry never invents settlement.
+
+Graph preferences are stored per local profile and graph UUID, outside portable
+flow exports. `graph_preferences()` reads the Codex selection;
+`save_graph_preferences()` validates a connected owned row before atomically saving.
+An explicit node selection overrides the graph preference. Missing or removed
+accounts never fall back to another connection. Graph routes verify Flow ownership.

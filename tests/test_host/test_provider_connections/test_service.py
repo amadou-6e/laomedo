@@ -11,6 +11,7 @@ from uuid import uuid4
 from laomedo.host.credentials.siwc.settings import NEEDED
 from laomedo.host.provider_connections.errors import ProviderConnectionError
 from laomedo.host.provider_connections.service import ProviderConnections
+from laomedo.host.provider_connections.models import GraphProviderPreferences
 
 
 class ProviderConnectionsTests(unittest.TestCase):
@@ -60,6 +61,35 @@ class ProviderConnectionsTests(unittest.TestCase):
             },
         )
         return result
+
+    def test_graph_preference_is_owned_persistent_and_independent(self):
+        """A preference selects only this profile and graph, without changing credentials."""
+        connection = self.connect().connection_id
+        graph, other_graph = uuid4(), uuid4()
+        preference = GraphProviderPreferences(codex=connection)
+        self.service.save_graph_preferences(self.profile, graph, preference)
+        self.assertEqual(
+            self.service.graph_preferences(self.profile, graph).codex, connection
+        )
+        self.assertIsNone(
+            self.service.graph_preferences(self.profile, other_graph).codex
+        )
+        self.assertIsNone(
+            self.service.graph_preferences(self.other_profile, graph).codex
+        )
+        with self.assertRaises(ProviderConnectionError):
+            self.service.save_graph_preferences(self.other_profile, graph, preference)
+        self.service.close()
+        self.service = ProviderConnections(self.root)
+        self.addCleanup(self.service.close)
+        self.assertEqual(
+            self.service.graph_preferences(self.profile, graph).codex, connection
+        )
+        self.service.save_graph_preferences(
+            self.profile, graph, GraphProviderPreferences()
+        )
+        self.assertIsNone(self.service.graph_preferences(self.profile, graph).codex)
+        self.assertEqual(len(self.service.list(self.profile)), 1)
 
     def test_two_accounts_remain_independently_selectable_after_restart(self):
         """Every lookup requires this profile and exact connection/generation."""

@@ -11,6 +11,7 @@ from starlette.responses import JSONResponse, RedirectResponse
 
 from laomedo.host.provider_connections.errors import ProviderConnectionError
 from laomedo.host.provider_connections.models import (
+    GraphProviderPreferences,
     StartProviderLogin,
     DisconnectRequest,
 )
@@ -59,6 +60,52 @@ def install_provider_routes(app, service, authenticate, *, origin: str):
             }
 
         return await respond(rows)
+
+    async def owned_graph(flow_id: UUID, user):
+        """Require an existing graph belonging to the authenticated profile."""
+        from langflow.services.database.models.flow.model import Flow
+        from langflow.services.deps import session_scope
+        from sqlmodel import select
+
+        async with session_scope() as db:
+            flow = (
+                await db.exec(
+                    select(Flow).where(Flow.id == flow_id, Flow.user_id == user.id)
+                )
+            ).first()
+            if flow is None:
+                raise HTTPException(
+                    404, detail={"code": "provider_connection_unavailable"}
+                )
+
+    @app.get(prefix + "/graphs/{flow_id}")
+    async def graph_preferences(
+        flow_id: UUID, request: Request, user=Depends(authenticate)
+    ):
+        """Read only the current owner's graph-specific preference."""
+        session_lease(request)
+        await owned_graph(flow_id, user)
+        return await respond(
+            lambda: service.graph_preferences(user.id, flow_id).model_dump(mode="json")
+        )
+
+    @app.put(prefix + "/graphs/{flow_id}")
+    async def save_graph_preferences(
+        flow_id: UUID,
+        request: Request,
+        preferences: GraphProviderPreferences,
+        user=Depends(authenticate),
+    ):
+        """Set a graph preference through an explicit same-origin authenticated write."""
+        session_lease(request)
+        if request.headers.get("origin") != origin:
+            raise HTTPException(403, detail={"code": "provider_request_refused"})
+        await owned_graph(flow_id, user)
+        return await respond(
+            lambda: service.save_graph_preferences(
+                user.id, flow_id, preferences
+            ).model_dump(mode="json")
+        )
 
     @app.post(prefix + "/attempts")
     async def begin_login(request: Request, user=Depends(authenticate)):
