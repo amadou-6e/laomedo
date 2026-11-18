@@ -132,3 +132,10 @@ verifies clipboard content, downloads Markdown and checks user/answer content.
 No model prompt or graph mutation. Live multi-page export not claimed; unit
 checks cover pagination. Screenshots/download content stay private and local.
 New additions sent to same Claude reviewer, verdict pending. CI passes.
+
+Claude final transcript packet APPROVE: implementation91d005d1->558830148,
+specf78f063->6a11cd0, actual chat/copy-success and A3 visual. No blockers.
+Optional Markdown speaker-heading ambiguity, ASCII filename fallback and XML
+formatting notes left unchanged. VSCode integrated Copy also reports Copied;
+new build visible after cache-busting navigation. ExactheadCI passes. No later
+production changes. PRs remain draft/unmerged.
