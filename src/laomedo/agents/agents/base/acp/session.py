@@ -207,8 +207,11 @@ class AcpSession:
         except RunnerError:
             raise
         except RequestError as error:
+            # ACP assigns -32000 to auth_required; never inspect native text/data.
             if error.code == -32000:
                 raise RunnerError("runner_authentication_required") from None
+            if health_error is not None:
+                raise health_error from None
             raise RunnerError("runner_transport_failed") from None
         except (ConnectionError, OSError, ValueError):
             if health_error is not None:
@@ -321,6 +324,7 @@ class AcpSession:
         except TimeoutError:
             raise RunnerError("request_timeout:" + method) from None
         except RequestError as error:
+            # Use ACP's defined auth_required category, not JSON-RPC error text.
             if error.code == -32000:
                 raise RunnerError("runner_authentication_required") from None
             raise RunnerError("runner_transport_failed") from None
