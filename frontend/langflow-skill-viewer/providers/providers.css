@@ -51,7 +51,8 @@
 
 .pc-account-logo { width: 20px; height: 25px; object-fit: contain; }
 
-.pc-codex-logo { width: 32px; height: 32px; object-fit: contain; }
+.pc-codex-logo { width: 32px; height: 32px; object-fit: contain; filter: invert(1); }
+.dark .pc-codex-logo { filter: none; }
 .pc-choice-logo { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; }
 .pc-choice { display: grid; grid-template-columns: 32px 100px; align-items: center; justify-content: center; gap: 12px; }
 .github-connections .gc-focus > button,

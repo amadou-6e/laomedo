@@ -19,7 +19,8 @@ integration; do not present unavailable operations as working.
 
 Account rows, provider choices and details use Langflow's existing OpenAI knot
 logo for Codex, with white knot strokes and a transparent canvas and avatar
-canvas, inside the same muted circular badge as other providers. Saved Go-key
+canvas, inside the same muted circular badge as other providers. The knot stays
+white in dark mode and switches to dark in light mode to retain contrast. Saved Go-key
 status uses normal foreground emphasis without claiming verified access.
 Reauthentication starts directly from Sign in again. Adding another Go key
 retains its originating connection so Back returns to those details. Claude's
