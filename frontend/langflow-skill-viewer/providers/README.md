@@ -19,7 +19,13 @@ integration; do not present unavailable operations as working.
 
 Account rows, provider choices and details use Langflow's existing OpenAI knot
 logo for Codex, with white knot strokes and a transparent canvas and avatar
-background, as requested for recognition. Details identify reauthentication as Sign in to Codex again;
+canvas, inside the same muted circular badge as other providers. Saved Go-key
+status uses normal foreground emphasis without claiming verified access.
+Reauthentication starts directly from Sign in again. Adding another Go key
+retains its originating connection so Back returns to those details. Claude's
+code field appears only after the explicit Continue to Claude action; continuation
+and completion buttons fit their text. Provider choices align logos in one column.
+Details identify reauthentication as Sign in again;
 account access and model usage are not inferred from successful authentication.
 
 Connection details group compact reauthentication and Disconnect buttons together,

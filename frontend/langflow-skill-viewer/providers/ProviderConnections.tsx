@@ -23,6 +23,7 @@ export default function ProviderConnections() {
   const [provider, setProvider] = useState("codex");
   const [nativeUrl, setNativeUrl] = useState<string | null>(null);
   const [nativeCode, setNativeCode] = useState("");
+  const [claudeOpened, setClaudeOpened] = useState(false);
   const [goKey, setGoKey] = useState("");
   const [goLabel, setGoLabel] = useState("");
   const [attempt, setAttempt] = useState<LoginProgress>();
@@ -177,6 +178,7 @@ export default function ProviderConnections() {
 
   async function signIn() {
     if (inFlight.current) return;
+    setClaudeOpened(false); setNativeCode(""); setNativeUrl(null);
     const revision = ++epoch.current;
     inFlight.current = revision; setBusy(true); setError("");
     try {
@@ -212,7 +214,7 @@ export default function ProviderConnections() {
     }
     ++epoch.current;
     window.history.replaceState(null, "", "/settings/providers");
-    setError(""); setAttempt(undefined); setGoKey(""); setGoLabel(""); setNativeCode(""); setNativeUrl(null);
+    setError(""); setAttempt(undefined); setGoKey(""); setGoLabel(""); setNativeCode(""); setNativeUrl(null); setClaudeOpened(false);
     setScreen(screen === "disconnect" ? "details" : screen === "method" ? (selected ? "details" : "type") : "list");
   }
 
@@ -223,6 +225,7 @@ export default function ProviderConnections() {
   const heading = screen === "disconnect" ? `Disconnect ${providerName}?` : screen === "removed" ? "Disconnected" : screen === "removing" ? (selected?.lifecycle === "cleanup_required" ? "Cleanup required" : selected?.lifecycle === "connected" ? "Check connection" : "Disconnecting") : screen === "list" ? "Providers" : screen === "type" ? "Add provider" : screen === "method" ? `Connect ${providerName}` : screen === "pending" ? (unconfirmed ? "Check connection" : "Finish signing in") : screen === "failure" ? (unconfirmed ? "Check connection" : attempt?.status === "expired" ? "Sign-in expired" : "Sign-in failed") : screen === "duplicate" ? "Already connected" : selected?.label ?? "Provider connection";
 
   const status = (row: ProviderConnection) => row.lifecycle === "connected" ? row.method === "opencode_go_key" ? row.auth_state === "revoked" ? "Key unavailable" : "Key saved" : statuses[row.auth_state] : row.lifecycle === "cleanup_required" ? "Cleanup required" : "Disconnecting";
+  const emphasizedStatus = (row: ProviderConnection) => row.lifecycle === "connected" && (row.auth_state === "ready" || row.method === "opencode_go_key" && row.auth_state !== "revoked");
   const ready = selected?.lifecycle === "connected" && selected.auth_state === "ready";
   const needsSignIn = selected?.lifecycle === "connected" && ["expired", "reauthorization_required", "revoked"].includes(selected.auth_state);
 
@@ -239,9 +242,9 @@ export default function ProviderConnections() {
           {rows === undefined ? <p role="status">{error ? "Could not load providers." : "Loading providers…"}</p> : rows.length === 0 ? <div className="gc-empty"><h2>No providers connected</h2><p className="gc-muted">Add a provider account to use it in your flows.</p></div> : <>
             <h2 className="gc-eyebrow">Accounts</h2>
             {rows.map(row => <div className="gc-account-row" key={row.connection_id}>
-              <span className={`gc-avatar ${row.provider === "codex" ? "pc-openai-avatar" : ""}`} aria-hidden="true">{logo(row.provider)}</span>
+              <span className="gc-avatar" aria-hidden="true">{logo(row.provider)}</span>
               <div className="gc-account-copy"><h3>{row.label}</h3><p className="gc-muted">{row.provider === "opencode" ? "OpenCode Go | Subscription key" : row.provider === "claude" ? "Claude Code | Claude subscription" : "Codex | ChatGPT plan"}</p></div>
-              <span className={`gc-status ${row.lifecycle === "connected" && row.auth_state === "ready" ? "gc-ready" : "gc-attention"}`}>{status(row)}</span>
+              <span className={`gc-status ${emphasizedStatus(row) ? "gc-ready" : "gc-attention"}`}>{status(row)}</span>
               <Button ignoreTitleCase variant="outline" aria-label={`View connection for ${row.label}`} onClick={() => { setSelected(row); setScreen("details"); }}>View connection</Button>
             </div>)}
           </>}
@@ -266,9 +269,9 @@ export default function ProviderConnections() {
           {attempt?.provider === "claude" && attempt.status === "connecting" ? <>
             {nativeUrl ? <>
               <p className="gc-muted">Continue to Claude to sign in, then paste the code it gives you below.</p>
-              <Button ignoreTitleCase asChild><a href={nativeUrl} target="_blank" rel="noopener noreferrer">Continue to Claude</a></Button>
-              <input className="pc-account-select" type="password" aria-label="Claude sign-in code" placeholder="Claude sign-in code" autoComplete="off" value={nativeCode} onChange={event => setNativeCode(event.target.value)} disabled={busy} />
-              <Button ignoreTitleCase disabled={busy || !nativeCode} onClick={() => void finishClaude()}>Finish sign-in</Button>
+              <Button ignoreTitleCase asChild><a href={nativeUrl} target="_blank" rel="noopener noreferrer" onClick={() => setClaudeOpened(true)}>Continue to Claude</a></Button>
+              {claudeOpened && <><input className="pc-account-select" type="password" aria-label="Claude sign-in code" placeholder="Claude sign-in code" autoComplete="off" value={nativeCode} onChange={event => setNativeCode(event.target.value)} disabled={busy} />
+              <Button ignoreTitleCase disabled={busy || !nativeCode} onClick={() => void finishClaude()}>Finish sign-in</Button></>}
             </> : <p className="gc-muted" role="status">Preparing Claude sign-in{"\u2026"}</p>}
           </> : <>
             {!unconfirmed && attempt?.status !== "verifying" && <p className="gc-muted">Complete sign-in with the provider. This page will update when it finishes.</p>}
@@ -276,9 +279,9 @@ export default function ProviderConnections() {
           </>}
         </>}
         {screen === "details" && selected && <>
-          <div className="gc-identity"><span className={`gc-avatar ${selected.provider === "codex" ? "pc-openai-avatar" : ""}`} aria-hidden="true">{logo(selected.provider)}</span><h2 id="provider-heading">{selected.label}</h2><span className={`gc-status ${ready ? "gc-ready" : "gc-attention"}`}>{status(selected)}</span></div>
+          <div className="gc-identity"><span className="gc-avatar" aria-hidden="true">{logo(selected.provider)}</span><h2 id="provider-heading">{selected.label}</h2><span className={`gc-status ${emphasizedStatus(selected) ? "gc-ready" : "gc-attention"}`}>{status(selected)}</span></div>
           <p className="gc-muted">{selected.method === "opencode_go_key" ? "Your Go key is saved locally. Account identity and access have not been verified; the selected model checks access when you run it." : ready ? "Laomedo uses this account when you select it in a graph." : needsSignIn ? "Sign in again to restore access for this account." : "We cannot check this connection right now. Refresh to check again."}</p>
-          <div className="gc-footer"><p className="gc-muted">Removing this connection stops Laomedo access.</p><div className="pc-connection-actions">{selected.lifecycle === "connected" && <Button ignoreTitleCase variant={needsSignIn && selected.method !== "opencode_go_key" ? "default" : "outline"} disabled={busy} onClick={() => { if (selected.provider === "opencode") { setProvider("opencode"); setSelected(undefined); } setScreen("method"); }}>{selected.provider === "opencode" ? "Add another Go key" : selected.provider === "claude" ? "Sign in to Claude Code again" : "Sign in to Codex again"}</Button>}<Button ignoreTitleCase variant="outline" disabled={busy} onClick={() => selected.lifecycle === "connected" ? void prepareDisconnect() : setScreen("removing")}>{selected.lifecycle === "connected" ? "Disconnect" : "View cleanup"}</Button></div></div>
+          <div className="gc-footer"><p className="gc-muted">Removing this connection stops Laomedo access.</p><div className="pc-connection-actions">{selected.lifecycle === "connected" && <Button ignoreTitleCase variant={needsSignIn && selected.method !== "opencode_go_key" ? "default" : "outline"} disabled={busy} onClick={() => selected.provider === "opencode" ? setScreen("method") : void signIn()}>{selected.provider === "opencode" ? "Add another Go key" : "Sign in again"}</Button>}<Button ignoreTitleCase variant="outline" disabled={busy} onClick={() => selected.lifecycle === "connected" ? void prepareDisconnect() : setScreen("removing")}>{selected.lifecycle === "connected" ? "Disconnect" : "View cleanup"}</Button></div></div>
         </>}
         {screen === "disconnect" && selected && removal && <>
           <p>{selected.label}</p>

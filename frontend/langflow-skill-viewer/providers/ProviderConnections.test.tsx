@@ -1,14 +1,14 @@
 import { StrictMode } from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import ProviderConnections from "./ProviderConnections";
-import { saveGoConnection, beginLogin, cancelLogin, listConnections, readProgress, inspectDisconnect, disconnect, retryCleanup } from "./api";
+import { saveGoConnection, beginLogin, cancelLogin, listConnections, readProgress, readClaudeAttempt, inspectDisconnect, disconnect, retryCleanup } from "./api";
 
 jest.mock("@/components/common/genericIconComponent", () => ({ __esModule: true, default: () => <span /> }));
 
 jest.mock("@/components/ui/button", () => ({
   Button: ({ ignoreTitleCase, variant, children, ...props }) => <button {...props}>{children}</button>,
 }));
-jest.mock("./api", () => ({ ...jest.requireActual("./api"), saveGoConnection: jest.fn(), beginLogin: jest.fn(), cancelLogin: jest.fn(), listConnections: jest.fn(), readProgress: jest.fn(), inspectDisconnect: jest.fn(), disconnect: jest.fn(), retryCleanup: jest.fn() }));
+jest.mock("./api", () => ({ ...jest.requireActual("./api"), saveGoConnection: jest.fn(), beginLogin: jest.fn(), cancelLogin: jest.fn(), listConnections: jest.fn(), readProgress: jest.fn(), readClaudeAttempt: jest.fn(), inspectDisconnect: jest.fn(), disconnect: jest.fn(), retryCleanup: jest.fn() }));
 
 jest.mock("./assets/openai-logo.svg", () => "openai-logo.svg");
 
@@ -22,6 +22,36 @@ describe("saved provider Settings", () => {
     sessionStorage.clear();
     window.history.replaceState(null, "", "/settings/providers");
     (listConnections as jest.Mock).mockResolvedValue([]);
+  });
+
+  it("returns from adding a Go key to its connection and emphasizes saved custody", async () => {
+    (listConnections as jest.Mock).mockResolvedValue([{ ...account, provider: "opencode", method: "opencode_go_key", auth_state: "unavailable" }]);
+    render(<ProviderConnections />);
+    expect(await screen.findByText("Key saved")).toHaveClass("gc-ready");
+    fireEvent.click(screen.getByRole("button", { name: /View connection for/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Add another Go key" }));
+    fireEvent.click(screen.getByRole("button", { name: "Back to connections" }));
+    expect(screen.getByRole("button", { name: "Add another Go key" })).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "Add provider" })).toBeNull();
+  });
+
+  it("starts reauthentication directly and reveals the Claude code only after continuing", async () => {
+    const progress = { attempt_id: "fixture", provider: "claude", status: "connecting", connection_id: null, code: null };
+    const authorization_url = "https://claude.com/cai/oauth/authorize?state=fixture";
+    (listConnections as jest.Mock).mockResolvedValue([{ ...account, provider: "claude", method: "claude_native" }]);
+    (beginLogin as jest.Mock).mockResolvedValue({ progress, authorization_url });
+    (readProgress as jest.Mock).mockResolvedValue(progress);
+    (readClaudeAttempt as jest.Mock).mockResolvedValue({ progress, authorization_url });
+    render(<ProviderConnections />);
+    fireEvent.click(await screen.findByRole("button", { name: /View connection for/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Sign in again" }));
+    const link = await screen.findByRole("link", { name: "Continue to Claude" });
+    expect(beginLogin).toHaveBeenCalledWith(account.connection_id, "claude");
+    expect(screen.queryByRole("button", { name: "Continue to sign in" })).toBeNull();
+    expect(screen.queryByLabelText("Claude sign-in code")).toBeNull();
+    fireEvent.click(link);
+    expect(screen.getByLabelText("Claude sign-in code")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Finish sign-in" })).toBeDisabled();
   });
 
   it("saves an explicitly selected Go key and clears it after failure", async () => {
