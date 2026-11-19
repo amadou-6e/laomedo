@@ -57,6 +57,12 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
   });
   const [detail, setDetail] = useState<ConversationDetail>();
   const [models, setModels] = useState<Models>();
+  const [provider, setProvider] = useState("codex");
+  const selectedProvider = detail?.conversation.id === selected ? detail.conversation.provider : index.conversations.find((item) => item.id === selected)?.provider;
+  const providerKnown = !selected || Boolean(selectedProvider);
+  const chosenProvider = selected ? selectedProvider ?? "codex" : provider;
+  const providerRef = useRef(chosenProvider);
+  providerRef.current = chosenProvider;
   const [model, setModel] = useState("");
   const [effort, setEffort] = useState("");
   const [drafts, setDrafts] = useState<Record<string, string>>({});
@@ -339,18 +345,20 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
   }, [refresh, selected, owner, locked, fail]);
 
   const discover = useCallback(async () => {
+    if (!providerKnown) return;
     const epoch = generation.current;
     setBusy(true);
+    setModels(undefined);
     setError(undefined);
     try {
-      const result = await assistantRequest<Models>("/models");
-      if (epoch === generation.current) setModels(result);
+      const result = await assistantRequest<Models>(chosenProvider === "codex" ? "/models" : `/models?provider=${encodeURIComponent(chosenProvider)}`);
+      if (epoch === generation.current && providerRef.current === chosenProvider) setModels(result);
     } catch (failure) {
-      if (epoch === generation.current) fail(failure);
+      if (epoch === generation.current && providerRef.current === chosenProvider) fail(failure);
     } finally {
-      if (epoch === generation.current) setBusy(false);
+      if (epoch === generation.current && providerRef.current === chosenProvider) setBusy(false);
     }
-  }, [fail]);
+  }, [fail, chosenProvider, providerKnown]);
 
   useEffect(() => {
     if (!locked) void discover();
@@ -396,7 +404,7 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
 
   async function create() {
     return assistantRequest<{ id: string }>("/conversations", {
-      provider: "codex",
+      provider,
       model,
       effort,
       ...(linked ? { linked_conversation_id: linked } : {}),
@@ -895,6 +903,7 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
                 <MessageRow
                   key={message.id}
                   conversation={selected}
+                  provider={conversation?.provider ?? "codex"}
                   message={message}
                   actions={(detail.actions ?? []).filter(
                     (action) => action.message_id === message.id,
@@ -974,31 +983,14 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
                         className="pt-2 text-left"
                         aria-label="Assistant provider"
                       >
-                        <label className="flex cursor-default items-center gap-4 rounded-2xl border border-primary/40 bg-primary/5 p-4 has-[:focus-visible]:outline has-[:focus-visible]:outline-2">
-                          <input
-                            type="radio"
-                            name="assistant-provider"
-                            aria-label="Codex"
-                            checked
-                            readOnly
-                            className="sr-only"
-                          />
-                          <span aria-hidden="true" className="text-4xl">
-                            <OpenAiIcon />
-                          </span>
-                          <span className="min-w-0 flex-1">
-                            <span className="block text-sm font-medium">
-                              Codex
-                            </span>
-                            <span className="mt-1 block text-xs text-muted-foreground">
-                              OpenAI · Your workflow-building companion
-                            </span>
-                          </span>
-                          <span className="inline-flex items-center gap-1 text-xs text-primary">
-                            <Check size={14} />
-                            Selected
-                          </span>
-                        </label>
+                        {[["codex", "Codex", "OpenAI"], ["claude", "Claude", "Anthropic"], ["opencode", "OpenCode", "Connected models"]].map(([id, name, description]) => (
+                          <label key={id} className={`mb-2 flex cursor-pointer items-center gap-4 rounded-2xl border p-4 has-[:focus-visible]:outline has-[:focus-visible]:outline-2 ${provider === id ? "border-primary/40 bg-primary/5" : "border-border"}`}>
+                            <input type="radio" name="assistant-provider" aria-label={name} checked={provider === id} disabled={Boolean(pending[""])} onChange={() => { setProvider(id); setModels(undefined); setModel(""); setEffort(""); setError(undefined); }} className="sr-only" />
+                            <span aria-hidden="true" className="text-4xl">{id === "codex" ? <OpenAiIcon /> : <MessageSquare size={32} />}</span>
+                            <span className="min-w-0 flex-1"><span className="block text-sm font-medium">{name}</span><span className="mt-1 block text-xs text-muted-foreground">{description}</span></span>
+                            {provider === id && <span className="inline-flex items-center gap-1 text-xs text-primary"><Check size={14} />Selected</span>}
+                          </label>
+                        ))}
                       </fieldset>
                     )}
                     {linked && (

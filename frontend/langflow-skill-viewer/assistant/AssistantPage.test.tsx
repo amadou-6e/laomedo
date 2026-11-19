@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import AssistantPage from "./AssistantPage";
 import { assistantRequest, AssistantFailure } from "./api";
@@ -40,7 +40,7 @@ describe("uncertain assistant submission", () => {
     expect(screen.getByRole("heading",{name:"Conversations"})).toBeVisible();
   });
   it("selects saved sidebar conversations without replacing the graph URL", async () => {
-    const first = { id: "first", title: "First saved chat", model: "fixture", effort: "low", state: "idle", active_message_id: null };
+    const first = { id: "first", title: "First saved chat", provider: "codex", model: "fixture", effort: "low", state: "idle", active_message_id: null };
     const second = { ...first, id: "second", title: "Second saved chat" };
     jest.mocked(assistantRequest).mockImplementation(async (path) => {
       if (path === "/models") return { provider: "codex", models: [{ id: "fixture", efforts: ["low"] }] };
@@ -58,7 +58,7 @@ describe("uncertain assistant submission", () => {
   it("abandons an in-flight export when the conversation changes", async () => {
     let finish!: (value: { text: string; filename: string }) => void;
     jest.mocked(conversationTranscript).mockReturnValueOnce(new Promise((resolve) => { finish = resolve; }));
-    const first = { id: "first", title: "First", model: "fixture", effort: "low", state: "idle", active_message_id: null };
+    const first = { id: "first", title: "First", provider: "codex", model: "fixture", effort: "low", state: "idle", active_message_id: null };
     const second = { ...first, id: "second", title: "Second" };
     jest.mocked(assistantRequest).mockImplementation(async (path) => {
       if (path === "/models") return { provider: "codex", models: [{ id: "fixture", efforts: ["low"] }] };
@@ -451,5 +451,21 @@ describe("uncertain assistant submission", () => {
       model: "fixture",
       effort: "low",
     });
+  });
+  it("does not replace Claude model choices with a late Codex discovery", async () => {
+    let finish!: (value: unknown) => void;
+    const codex = new Promise((resolve) => { finish = resolve; });
+    jest.mocked(assistantRequest).mockImplementation(async (path) => {
+      if (path === "/models") return codex;
+      if (path === "/models?provider=claude") return { provider: "claude", models: [{ id: "claude-fixture", efforts: ["default"] }] };
+      return { conversations: [], next_cursor: null };
+    });
+    render(<MemoryRouter><AssistantPage /></MemoryRouter>);
+    await waitFor(() => expect(assistantRequest).toHaveBeenCalledWith("/models"));
+    fireEvent.click(screen.getByRole("radio", { name: "Claude" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Choose model and effort" })).toHaveTextContent("claude-fixture"));
+    await act(async () => { finish({ provider: "codex", models: [{ id: "wrong-provider", efforts: ["low"] }] }); await codex; });
+    expect(screen.getByRole("button", { name: "Choose model and effort" })).toHaveTextContent("claude-fixture");
+    expect(screen.getByRole("radio", { name: "Claude" })).toBeChecked();
   });
 });

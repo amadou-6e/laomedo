@@ -2,8 +2,8 @@ import { useState } from "react";
 import { assistantRequest } from "./api";
 import type { NativeAction } from "./models";
 
-export default function NativeActions({ conversation, actions, onFailure }: {
-  conversation: string; actions: NativeAction[]; onFailure: (error: unknown) => void;
+export default function NativeActions({ conversation, provider = "codex", actions, onFailure }: {
+  conversation: string; provider?: string; actions: NativeAction[]; onFailure: (error: unknown) => void;
 }) {
   const [busy, setBusy] = useState<string>();
   const [observed, setObserved] = useState<Record<string, NativeAction>>({});
@@ -30,6 +30,7 @@ export default function NativeActions({ conversation, actions, onFailure }: {
       </p>
       {outcome && <span role="status" className="mt-1 block text-left text-xs text-muted-foreground">{outcome}</span>}
       {action.state === "pending" && action.may_use_model && <p className="my-2 text-xs text-muted-foreground">May use model quota. Runs in the assistant’s scratch workspace.</p>}
+      {action.state === "pending" && provider === "opencode" && <p className="my-2 text-xs text-muted-foreground">Works in an isolated scratch environment, not your repository.{action.name === "init" ? " May create AGENTS.md there." : " Files and Git state may be unavailable."}</p>}
       {action.state === "pending" && action.can_decide && <div className="mt-2 flex gap-2">
         <button type="button" className="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted disabled:opacity-50" disabled={Boolean(busy)} onClick={() => void decide(action, "approve")}>{busy === action.id ? "Checking..." : "Approve"}</button>
         <button type="button" className="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted disabled:opacity-50" disabled={Boolean(busy)} onClick={() => void decide(action, "reject")}>Reject</button>

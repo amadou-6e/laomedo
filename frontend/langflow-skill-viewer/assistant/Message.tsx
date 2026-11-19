@@ -59,6 +59,7 @@ export function AssistantText({ text }: { text: string }) {
 
 export default function MessageRow({
   conversation,
+  provider = "codex",
   message,
   receipts,
   active,
@@ -68,6 +69,7 @@ export default function MessageRow({
   nativeActions = [],
 }: {
   conversation: string;
+  provider?: string;
   actions?: GraphAction[];
   nativeActions?: NativeAction[];
   message: Message;
@@ -121,17 +123,17 @@ export default function MessageRow({
   const items = (page?.projection?.items ?? []).filter(
     (lane) => lane.item?.type !== "userMessage",
   );
-  const nativeStatus = Boolean(message.native_action_id && message.text === "/status" && message.state === "completed" && message.response);
+  const nativeStatus = Boolean(provider === "codex" && message.native_action_id && message.text === "/status" && message.state === "completed" && message.response);
   const hasAnswer = items.some(
-    (lane) => messageText(lane.item ?? {}, "codex") !== null,
+    (lane) => messageText(lane.item ?? {}, provider) !== null,
   );
   const groups: Lane[][] = [];
   for (const lane of items) {
     const previous = groups[groups.length - 1];
     if (
-      messageText(lane.item ?? {}, "codex") === null &&
+      messageText(lane.item ?? {}, provider) === null &&
       previous &&
-      messageText(previous[0].item ?? {}, "codex") === null
+      messageText(previous[0].item ?? {}, provider) === null
     )
       previous.push(lane);
     else groups.push([lane]);
@@ -141,7 +143,7 @@ export default function MessageRow({
       <UserMessage text={message.text} createdAt={message.created_at} command={Boolean(message.native_action_id)} />
       {nativeStatus ? <NativeStatus text={message.response!} conversation={conversation} /> : groups.map((group) => {
         const lane = group[0];
-        const text = messageText(lane.item ?? {}, "codex");
+        const text = messageText(lane.item ?? {}, provider);
         return text !== null ? (
           <div key={`${lane.thread}:${lane.id}`} className="space-y-2">
             <AssistantText text={text} />
@@ -198,7 +200,7 @@ export default function MessageRow({
         actions={actions}
         onFailure={onFailure}
       />
-      <NativeActions conversation={conversation} actions={nativeActions} onFailure={onFailure} />
+      <NativeActions conversation={conversation} provider={provider} actions={nativeActions} onFailure={onFailure} />
       {receipts.map((receipt) => (
         <article
           key={receipt.id}
@@ -248,7 +250,7 @@ export default function MessageRow({
         </article>
       ))}
       {(items.length > 0 || message.response || receipts.length > 0 || actions.length > 0 || nativeActions.length > 0) && (
-        <CopyAnswer disabled={!page && !hasNativeCommandOutcome(message)} text={responseTranscript(page, message, receipts, actions, nativeActions)} />
+        <CopyAnswer disabled={!page && !hasNativeCommandOutcome(message)} text={responseTranscript(page, message, receipts, actions, nativeActions, provider)} />
       )}
     </section>
   );

@@ -22,12 +22,13 @@ export function responseTranscript(
   receipts: DraftReceipt[],
   actions: GraphAction[],
   nativeActions: NativeAction[] = [],
+  provider: string = "codex",
 ): string {
   const blocks: string[] = [];
   let hasAnswer = false;
   for (const lane of page?.projection?.items ?? []) {
     if (lane.item?.type === "userMessage") continue;
-    const text = messageText(lane.item ?? {}, "codex");
+    const text = messageText(lane.item ?? {}, provider);
     if (text !== null) {
       hasAnswer = true;
       blocks.push(text);
