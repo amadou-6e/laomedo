@@ -53,6 +53,6 @@
 
 .pc-codex-logo { width: 32px; height: 32px; object-fit: contain; }
 .pc-choice-logo { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; }
-.pc-choice { display: flex; align-items: center; justify-content: flex-start; gap: 12px; }
+.pc-choice { display: grid; grid-template-columns: 32px 100px; align-items: center; justify-content: center; gap: 12px; }
 .github-connections .gc-focus > button,
 .github-connections .gc-focus > a:not(.gc-link) { width: fit-content; justify-self: start; }

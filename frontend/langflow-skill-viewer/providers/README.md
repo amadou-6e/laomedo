@@ -24,7 +24,8 @@ status uses normal foreground emphasis without claiming verified access.
 Reauthentication starts directly from Sign in again. Adding another Go key
 retains its originating connection so Back returns to those details. Claude's
 code field appears only after the explicit Continue to Claude action; continuation
-and completion buttons fit their text. Provider choices align logos in one column.
+and completion buttons fit their text. Provider choices keep a centered group
+with fixed logo and label columns, so logos align vertically across choices.
 Details identify reauthentication as Sign in again;
 account access and model usage are not inferred from successful authentication.
 
