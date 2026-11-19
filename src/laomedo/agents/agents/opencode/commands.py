@@ -13,6 +13,11 @@ from laomedo.agents.errors import RunnerError
 class OpenCodeCommands:
     """Native command execution does not bypass controller/worker isolation."""
 
+    # Pinned OpenCode 1.18.33 mcp/catalog.ts:fetch always keys prompts as
+    # sanitizedClient + ":" + sanitizedPrompt. They cannot overwrite the bare
+    # init/review built-ins. Host config has no command overrides or plugins;
+    # custom startup configuration and skills fail builtins_only admission.
+
     @classmethod
     def validate(cls, command):
         """Refuse arguments: upstream expands shell interpolation before tool checks."""
@@ -129,6 +134,8 @@ class OpenCodeCommands:
         return OpenCodeCommandResult(
             command=command.name,
             native_terminal={
+                "target": "isolated_controller_view",
+                "target_description": "Agent configuration only; no repository files or Git history. Worker writes are separate.",
                 "session_id": history.root_id,
                 "message_ids": [item["info"]["id"] for item in roots],
                 "child_sessions": child_ids,

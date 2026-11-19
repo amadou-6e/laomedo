@@ -9,6 +9,7 @@ import unittest
 from unittest.mock import patch
 
 from laomedo.agents.agents.base.agent import BaseAgent
+from laomedo.agents.agents.base.models import NativeCommandInvocation
 from laomedo.agents.agents.claude.agent import ClaudeAgent
 from laomedo.agents.agents.codex.agent import CodexAgent
 from laomedo.agents.agents.opencode.agent import OpenCodeAgent
@@ -58,7 +59,9 @@ class InteractionContractTests(unittest.TestCase):
                             expected_thread_id="thread",
                             model="model",
                             effort="default",
-                            native_command={"name": "status"},
+                            native_command=NativeCommandInvocation(
+                                name="status", catalog_revision="a" * 64
+                            ),
                         )
                     status.assert_not_called()
 

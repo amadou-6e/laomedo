@@ -101,6 +101,12 @@ class OpenCodeCommandTests(unittest.TestCase):
             ],
             ["ses_child"],
         )
+        self.assertEqual(
+            OpenCodeCommands.result(command, history, baseline).native_terminal[
+                "target"
+            ],
+            "isolated_controller_view",
+        )
         parent.messages[-1]["parts"][0]["state"]["status"] = "error"
         with self.assertRaises(RunnerError):
             OpenCodeCommands.result(command, history, baseline)

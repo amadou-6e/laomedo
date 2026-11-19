@@ -29,8 +29,8 @@ export default function NativeActions({ conversation, provider = "codex", action
         {action.state === "completed" ? "Ran" : "Run"} /{action.name}{action.arguments ? ` with arguments ${JSON.stringify(action.arguments)}` : ""}.
       </p>
       {outcome && <span role="status" className="mt-1 block text-left text-xs text-muted-foreground">{outcome}</span>}
-      {action.state === "pending" && action.may_use_model && <p className="my-2 text-xs text-muted-foreground">May use model quota. Runs in the assistant’s scratch workspace.</p>}
-      {action.state === "pending" && provider === "opencode" && <p className="my-2 text-xs text-muted-foreground">Works in an isolated scratch environment, not your repository.{action.name === "init" ? " May create AGENTS.md there." : " Files and Git state may be unavailable."}</p>}
+      {action.state === "pending" && action.may_use_model && <p className="my-2 text-xs text-muted-foreground">May use model quota.</p>}
+      {action.state === "pending" && provider === "opencode" && <p className="my-2 text-xs text-muted-foreground">Targets an isolated controller directory containing agent configuration, not your repository or the worker workspace.{action.name === "init" ? " AGENTS.md is retained only if written through the worker tool." : " No repository files or Git history are available there."}</p>}
       {action.state === "pending" && action.can_decide && <div className="mt-2 flex gap-2">
         <button type="button" className="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted disabled:opacity-50" disabled={Boolean(busy)} onClick={() => void decide(action, "approve")}>{busy === action.id ? "Checking..." : "Approve"}</button>
         <button type="button" className="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted disabled:opacity-50" disabled={Boolean(busy)} onClick={() => void decide(action, "reject")}>Reject</button>

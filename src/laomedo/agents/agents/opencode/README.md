@@ -1,5 +1,20 @@
 # Opencode Agent
 
+## Assistant native commands
+
+`OpenCodeCommands` in `commands.py` validates no-argument built-ins, projects
+the observed catalog, admits its exact image-bound revision, and verifies
+native root/child terminal history. `result()` returns `OpenCodeCommandResult`
+with session/message identities and the actual target. It does not invent
+an answer, usage, repository review or a file write.
+
+Native `init` and `review` target the isolated controller view containing
+agent configuration, not the worker workspace or a user repository. The
+approval discloses that distinction; only worker-tool writes reach retained
+scratch files. OpenCode 1.18.33 namespaces MCP prompts with `server:prompt`,
+so they cannot replace bare built-in names. Custom config/skills are refused
+for this admission path. Real execution acceptance remains separately required.
+
 `OpenCodeAgent` is the provider-qualified concrete Agent. It inherits the [abstract lifecycle](../base/README.md).
 The implementation is in `agent.py`; folder and object renaming do not
 remove its whole-pipeline overrides.
