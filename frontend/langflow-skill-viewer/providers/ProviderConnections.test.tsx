@@ -1,9 +1,10 @@
 import { StrictMode } from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import ProviderConnections from "./ProviderConnections";
 import { saveGoConnection, beginLogin, cancelLogin, listConnections, readProgress, readClaudeAttempt, inspectDisconnect, disconnect, retryCleanup } from "./api";
 
 jest.mock("@/components/common/genericIconComponent", () => ({ __esModule: true, default: () => <span /> }));
+jest.mock("@/assets/LangflowLogo.svg?react", () => ({ __esModule: true, default: (props) => <svg {...props} /> }));
 
 jest.mock("@/components/ui/button", () => ({
   Button: ({ ignoreTitleCase, variant, children, ...props }) => <button {...props}>{children}</button>,
@@ -147,8 +148,9 @@ describe("saved provider Settings", () => {
     (listConnections as jest.Mock).mockResolvedValue([account]);
     (readProgress as jest.Mock).mockResolvedValue({ attempt_id: id, status: "connected", connection_id: account.connection_id, code: null });
     render(<ProviderConnections />);
-    await screen.findByRole("heading", { name: "Work account" });
+    await screen.findByRole("heading", { name: "Connection saved!" });
     expect(window.location.search).toBe("");
+    await screen.findByRole("heading", { name: "Providers" }, { timeout: 4000 });
     fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
     await waitFor(() => expect(listConnections).toHaveBeenCalledTimes(2));
     expect(readProgress).toHaveBeenCalledTimes(1);
@@ -200,7 +202,7 @@ describe("saved provider Settings", () => {
     render(<ProviderConnections />);
     await screen.findByRole("alert");
     fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
-    await screen.findByRole("heading", { name: "Work account" });
+    await screen.findByRole("heading", { name: "Connection saved!" });
     expect(readProgress).toHaveBeenCalledWith(id);
     expect(beginLogin).not.toHaveBeenCalled();
   });
@@ -226,6 +228,42 @@ describe("saved provider Settings", () => {
     expect(screen.getByText("We cannot check this connection right now. Refresh to check again.")).toBeTruthy();
     expect(screen.queryByText("Sign in again to restore access for this account.")).toBeNull();
     expect(beginLogin).not.toHaveBeenCalled();
+  });
+
+  it("holds the callback handoff through duplicate completion then returns once to the list", async () => {
+    jest.useFakeTimers();
+    try {
+      const id = "00000000-0000-4000-8000-000000000002";
+      window.history.replaceState(null, "", `/settings/providers?attempt=${id}`);
+      let finishRead: (value: unknown) => void;
+      (listConnections as jest.Mock).mockReturnValue(new Promise(resolve => { finishRead = resolve; }));
+      (readProgress as jest.Mock).mockResolvedValue({ attempt_id: id, status: "duplicate", connection_id: account.connection_id, code: null });
+      render(<ProviderConnections />);
+      expect(screen.getByRole("heading", { name: "Finishing sign-in…" })).toBeTruthy();
+      expect(screen.queryByRole("heading", { name: "Providers" })).toBeNull();
+      await act(async () => { finishRead!([account]); });
+      expect(screen.getByRole("heading", { name: "Already connected" })).toBeTruthy();
+      expect(screen.getByText(/Your existing connection is unchanged/)).toBeTruthy();
+      act(() => { jest.advanceTimersByTime(2799); });
+      expect(screen.queryByRole("heading", { name: "Providers" })).toBeNull();
+      act(() => { jest.advanceTimersByTime(1); });
+      expect(screen.getByRole("heading", { name: "Providers" })).toBeTruthy();
+      expect(screen.getByText("Work account")).toBeTruthy();
+      expect(beginLogin).not.toHaveBeenCalled();
+      expect(sessionStorage.getItem("laomedo.provider-attempt")).toBeNull();
+    } finally { jest.useRealTimers(); }
+  });
+
+  it("explains confirmed same-account reauthentication without claiming it was a duplicate", async () => {
+    sessionStorage.setItem("laomedo.provider-attempt", "fixture");
+    sessionStorage.setItem("laomedo.provider-reconnecting", "true");
+    (listConnections as jest.Mock).mockResolvedValue([account]);
+    (readProgress as jest.Mock).mockResolvedValue({ attempt_id: "fixture", status: "connected", connection_id: account.connection_id, code: null });
+    render(<ProviderConnections />);
+    await screen.findByRole("heading", { name: "Connection saved!" });
+    expect(screen.getByText("You signed in to the same account again.")).toBeTruthy();
+    expect(screen.queryByText("Already connected")).toBeNull();
+    expect(sessionStorage.getItem("laomedo.provider-reconnecting")).toBeNull();
   });
 
 });

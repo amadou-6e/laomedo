@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, Plus, RefreshCw } from "lucide-react";
 import IconComponent from "@/components/common/genericIconComponent";
 import { Button } from "@/components/ui/button";
+import LangflowLogo from "@/assets/LangflowLogo.svg?react";
 import ErrorExplanation from "@/components/laomedoErrors/ErrorExplanation";
 import { describeNodeFailure } from "@/components/laomedoErrors/nodeErrors";
 import { readClaudeAttempt, submitClaudeCode, saveGoConnection, beginLogin, cancelLogin, listConnections, readProgress, inspectDisconnect, disconnect, retryCleanup, ProviderFailure, type DisconnectInfo, type LoginProgress, type ProviderConnection } from "./api";
@@ -11,13 +12,18 @@ import openCodeLogoLight from "./assets/opencode-logo-light.svg";
 import "./connections.css";
 import "./providers.css";
 
-type Screen = "list" | "type" | "method" | "pending" | "details" | "failure" | "duplicate" | "disconnect" | "removing" | "removed";
+type Screen = "list" | "returning" | "complete" | "type" | "method" | "pending" | "details" | "failure" | "duplicate" | "disconnect" | "removing" | "removed";
 const codexLogo = <img src={openAiLogo} className="pc-codex-logo" alt="" />;
 const pendingKey = "laomedo.provider-attempt";
+const reconnectKey = "laomedo.provider-reconnecting";
 const statuses = { ready: "Connected", expired: "Sign in again", reauthorization_required: "Sign in again", revoked: "Sign in again", unavailable: "Unavailable" };
 
 export default function ProviderConnections() {
-  const [screen, setScreen] = useState<Screen>("list");
+  const [screen, setScreen] = useState<Screen>(() => {
+    const query = new URLSearchParams(window.location.search);
+    return query.has("attempt") || query.has("login") || sessionStorage.getItem(pendingKey) ? "returning" : "list";
+  });
+  const reconnecting = useRef(sessionStorage.getItem(reconnectKey) === "true");
   const [rows, setRows] = useState<ProviderConnection[]>();
   const [selected, setSelected] = useState<ProviderConnection>();
   const [provider, setProvider] = useState("codex");
@@ -81,7 +87,8 @@ export default function ProviderConnections() {
           if (progress.status === "connected" || progress.status === "duplicate") {
             if (progress.code === "provider_cleanup_unconfirmed") setError(progress.code);
             setSelected(next.find(row => row.connection_id === progress.connection_id));
-            setScreen(progress.status === "duplicate" ? "duplicate" : "details");
+            sessionStorage.removeItem(reconnectKey);
+            setScreen(progress.code === "provider_cleanup_unconfirmed" ? "details" : "complete");
           } else if (progress.status !== "cancelled") setScreen("failure");
         }
       } else if (attempt?.code === "provider_save_unconfirmed") setScreen("failure");
@@ -92,6 +99,12 @@ export default function ProviderConnections() {
       if (revision === epoch.current) setBusy(false);
     }
   }
+
+  useEffect(() => {
+    if (screen !== "complete") return;
+    const timer = window.setTimeout(() => { setSelected(undefined); setAttempt(undefined); setScreen("list"); }, 2800);
+    return () => window.clearTimeout(timer);
+  }, [screen]);
 
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get("login") === "failed") setScreen("failure");
@@ -179,6 +192,8 @@ export default function ProviderConnections() {
   async function signIn() {
     if (inFlight.current) return;
     setClaudeOpened(false); setNativeCode(""); setNativeUrl(null);
+    reconnecting.current = Boolean(selected);
+    sessionStorage.setItem(reconnectKey, String(reconnecting.current));
     const revision = ++epoch.current;
     inFlight.current = revision; setBusy(true); setError("");
     try {
@@ -214,7 +229,7 @@ export default function ProviderConnections() {
     }
     ++epoch.current;
     window.history.replaceState(null, "", "/settings/providers");
-    setError(""); setAttempt(undefined); setGoKey(""); setGoLabel(""); setNativeCode(""); setNativeUrl(null); setClaudeOpened(false);
+    setError(""); setAttempt(undefined); setGoKey(""); setGoLabel(""); setNativeCode(""); setNativeUrl(null); setClaudeOpened(false); sessionStorage.removeItem(reconnectKey);
     setScreen(screen === "disconnect" ? "details" : screen === "method" ? (selected ? "details" : "type") : "list");
   }
 
@@ -237,7 +252,12 @@ export default function ProviderConnections() {
     <div className={screen === "list" ? "pc-list-screen" : screen === "details" ? "gc-screen gc-detail" : "gc-screen"}>
       {error && <div role="alert"><ErrorExplanation failure={describeNodeFailure(error, undefined)} /></div>}
       <section className={screen === "list" ? "gc-panel gc-accounts" : screen === "details" ? "gc-panel gc-detail-card" : "gc-panel gc-focus"}>
-        {screen !== "list" && screen !== "details" && <h2 id="provider-heading">{heading}</h2>}
+        {!["list", "details", "returning", "complete"].includes(screen) && <h2 id="provider-heading">{heading}</h2>}
+        {["returning", "complete"].includes(screen) && <div className="pc-sign-in-result" role="status" aria-live="polite">
+          <LangflowLogo className="pc-handoff-logo" aria-hidden="true" />
+          <h2 id="provider-heading">{screen === "returning" ? "Finishing sign-in\u2026" : attempt?.status === "duplicate" ? "Already connected" : "Connection saved!"}</h2>
+          {screen === "complete" && <p className="gc-muted">{attempt?.status === "duplicate" ? "You signed in to an account that is already connected. Your existing connection is unchanged." : reconnecting.current ? "You signed in to the same account again." : "Your account is ready to use."}</p>}
+        </div>}
         {screen === "list" && <>
           {rows === undefined ? <p role="status">{error ? "Could not load providers." : "Loading providers…"}</p> : rows.length === 0 ? <div className="gc-empty"><h2>No providers connected</h2><p className="gc-muted">Add a provider account to use it in your flows.</p></div> : <>
             <h2 className="gc-eyebrow">Accounts</h2>
@@ -308,10 +328,10 @@ export default function ProviderConnections() {
           <Button ignoreTitleCase onClick={() => setScreen("details")}>View connection</Button>
         </>}
       </section>
-      <nav className="gc-navigation" aria-label="Connection navigation">
+      {screen !== "complete" && <nav className="gc-navigation" aria-label="Connection navigation">
         {screen !== "list" && <button type="button" className="gc-link gc-icon" disabled={busy} aria-label="Back to connections" title="Back to connections" onClick={() => void back()}><ArrowLeft size={20} aria-hidden="true" /></button>}
         {!["type", "method", "disconnect", "removed"].includes(screen) && <button type="button" className="gc-link gc-icon" disabled={busy} aria-label="Refresh" title="Refresh connections" onClick={() => void refresh()}><RefreshCw size={20} aria-hidden="true" /></button>}
-      </nav>
+      </nav>}
     </div>
   </section>;
 }

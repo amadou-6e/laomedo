@@ -9,6 +9,13 @@ panel, heading, account row, detail and navigation classes are used directly.
 Back and Refresh remain
 icon buttons below the card. Refresh never starts authentication.
 
+Returning sign-in attempts start on a stable, centered Langflow handoff rather
+than briefly rendering the account-list header. Confirmed saves and duplicates
+show a short completion message, then return to the providers list after 2.8s.
+Reconnect intent is a non-secret same-tab flag, never a credential. Unconfirmed
+save or cleanup outcomes retain recovery controls and never auto-dismiss. Logo
+motion is subtle and disabled for reduced-motion preferences.
+
 The initial route is app-owned Sign in with ChatGPT for Codex. Other provider
 types are visible but unavailable; no ambient-login or API-billing fallback is
 offered. A pending opaque attempt ID may survive same-tab native navigation;
