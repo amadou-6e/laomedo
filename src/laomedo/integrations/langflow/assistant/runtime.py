@@ -111,7 +111,11 @@ class AssistantRuntime:
                     self.host_tokens.clear()
                     cancellations = []
                     for conversation in await self.store.pending():
-                        runner = self.runners.get(conversation.owner_id)
+                        runner = self.runners.get(
+                            self._runner_key(
+                                conversation.owner_id, conversation.provider
+                            )
+                        )
                         if runner is not None and conversation.run_id:
                             cancellations.append(
                                 asyncio.to_thread(
@@ -232,9 +236,11 @@ class AssistantRuntime:
             for token, binding in list(self.host_tokens.items()):
                 if binding == context:
                     self.host_tokens.pop(token, None)
-            runner = self.runners.get(context.owner_id)
             conversation, message = await self.store.message(
                 context.owner_id, context.conversation_id, context.message_id
+            )
+            runner = self.runners.get(
+                self._runner_key(context.owner_id, conversation.provider)
             )
             if runner and message.run_id:
                 try:
@@ -248,13 +254,19 @@ class AssistantRuntime:
                     pass
         await self.store.revoke(key)
 
-    async def runner(self, owner):
+    @staticmethod
+    def _runner_key(owner, provider):
+        """Preserve existing Codex process identity while isolating additional providers."""
+        return owner if provider == "codex" else (owner, provider)
+
+    async def runner(self, owner, provider="codex"):
         """Compose only this owner's dedicated scratch runner, off the app event loop."""
-        lock = self.runner_locks.setdefault(owner, asyncio.Lock())
+        key = self._runner_key(owner, provider)
+        lock = self.runner_locks.setdefault(key, asyncio.Lock())
         async with lock:
-            value = self.runners.get(owner)
+            value = self.runners.get(key)
             if value is None:
-                value = AssistantRunner(self.settings, owner)
+                value = AssistantRunner(self.settings, owner, provider)
                 from laomedo.agents.errors import RunnerError
                 from laomedo.host.private_state.errors import PrivateStateError
 
@@ -264,12 +276,12 @@ class AssistantRuntime:
                     raise AssistantError(error.code, 503) from None
                 except (OSError, ValueError):
                     raise AssistantError("assistant_setup_required", 503) from None
-                self.runners[owner] = value
+                self.runners[key] = value
             return value
 
-    async def models(self, owner):
+    async def models(self, owner, provider="codex"):
         """Discover actual supported models without submitting a prompt."""
-        runner = await self.runner(owner)
+        runner = await self.runner(owner, provider)
         catalog = await asyncio.to_thread(runner.request, "GET", "/v1/models")
         if not catalog.get("models"):
             raise AssistantError(
@@ -281,7 +293,7 @@ class AssistantRuntime:
                 503,
             )
         return {
-            "provider": "codex",
+            "provider": provider,
             "models": [
                 {"id": item["id"], "efforts": item.get("efforts", [])}
                 for item in catalog.get("models", [])[:100]
@@ -291,7 +303,7 @@ class AssistantRuntime:
     async def create(self, owner, key, request):
         """Validate a real model choice and persist an empty conversation without inference."""
         await self.check_session(owner, key)
-        catalog = await self.models(owner)
+        catalog = await self.models(owner, request.provider)
         selected = next(
             (item for item in catalog["models"] if item["id"] == request.model), None
         )
@@ -456,8 +468,12 @@ class AssistantRuntime:
         prior = await self.store.submitted(owner, conversation_id, request)
         if prior is not None:
             return prior
+        async with self.store.sessions() as session:
+            conversation = await self.store.conversation(
+                session, owner, conversation_id
+            )
         if request.model is not None:
-            catalog = await self.models(owner)
+            catalog = await self.models(owner, conversation.provider)
             choice = next(
                 (item for item in catalog["models"] if item["id"] == request.model),
                 None,
@@ -469,7 +485,7 @@ class AssistantRuntime:
             and conversation_id not in self.jobs
         ):
             raise AssistantError("assistant_capacity_busy", 409)
-        runner = await self.runner(owner)
+        runner = await self.runner(owner, conversation.provider)
         async with self.store.sessions() as session:
             conversation = await self.store.conversation(
                 session, owner, conversation_id
@@ -529,7 +545,7 @@ class AssistantRuntime:
                 "reason": "native_session_not_created",
                 "commands": [],
             }
-        runner = await self.runner(owner)
+        runner = await self.runner(owner, conversation.provider)
         record = await asyncio.to_thread(
             runner.request, "GET", "/v1/runs/" + conversation.run_id
         )
@@ -629,7 +645,7 @@ class AssistantRuntime:
             conversation, message = await self.store.message(
                 context.owner_id, context.conversation_id, context.message_id
             )
-            runner = await self.runner(context.owner_id)
+            runner = await self.runner(context.owner_id, conversation.provider)
             self.host_tokens[token] = context
             client = MCPStreamableHttpClient()
             client.set_session_context("assistant:" + str(context.message_id))
@@ -835,7 +851,7 @@ class AssistantRuntime:
         conversation, message = await self.store.message(
             owner, identifier, conversation.active_message_id
         )
-        runner = await self.runner(owner)
+        runner = await self.runner(owner, conversation.provider)
         if (
             conversation.runner_instance_id
             and conversation.runner_instance_id != runner.instance_id
@@ -1066,7 +1082,7 @@ class AssistantRuntime:
                 "projection": None,
             }
         try:
-            runner = await self.runner(owner)
+            runner = await self.runner(owner, conversation.provider)
             return await asyncio.to_thread(
                 runner.request,
                 "GET",
@@ -1109,7 +1125,7 @@ class AssistantRuntime:
                 if binding == context:
                     self.host_tokens.pop(token, None)
         if message.run_id:
-            runner = await self.runner(owner)
+            runner = await self.runner(owner, conversation.provider)
             await asyncio.to_thread(
                 runner.request, "POST", "/v1/runs/" + message.run_id + "/cancel", {}
             )
@@ -1131,7 +1147,7 @@ class AssistantRuntime:
                         reconciled=True,
                     )
             elif conversation["run_id"] and not conversation["active_message_id"]:
-                runner = await self.runner(owner)
+                runner = await self.runner(owner, conversation["provider"])
                 if conversation[
                     "runner_instance_id"
                 ] != runner.instance_id and not await self.store.completed_binding(

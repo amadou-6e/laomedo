@@ -1,6 +1,7 @@
 """Authenticated assistant HTTP adapters with owner and response-release fences."""
 
 from uuid import UUID
+from typing import Literal
 
 from fastapi import APIRouter, Depends, Request, Query, HTTPException
 from starlette.responses import JSONResponse
@@ -49,11 +50,13 @@ async def status(request: Request, user=Depends(get_current_active_user)):
 
 
 @router.get("/models")
-async def models(context=Depends(access)):
+async def models(
+    provider: Literal["codex", "claude", "opencode"] = "codex", context=Depends(access)
+):
     """Discover actual model choices; inference is never part of model selection."""
     runtime, owner, key = context
     try:
-        return await release(runtime, owner, key, await runtime.models(owner))
+        return await release(runtime, owner, key, await runtime.models(owner, provider))
     except AssistantError as error:
         raise HTTPException(error.status, detail={"code": error.code}) from None
 

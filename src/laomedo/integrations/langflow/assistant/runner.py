@@ -21,9 +21,9 @@ from laomedo.integrations.langflow.assistant.errors import AssistantError
 class AssistantRunner:
     """Own one profile's isolated runtime; no repository or publication authority is inherited."""
 
-    def __init__(self, settings, owner):
+    def __init__(self, settings, owner, provider="codex"):
         """Retain trusted host composition, creating no model work or resources yet."""
-        self.settings, self.owner = settings, owner
+        self.settings, self.owner, self.provider = settings, owner, provider
         self.agent = self.server = self.thread = None
         self.url = None
         self._token = None
@@ -31,15 +31,33 @@ class AssistantRunner:
         self.opener = build_opener(ProxyHandler({}), NoRedirect())
 
     def start(self):
-        """Prepare a private scratch source and launch the existing local API with Codex policy."""
+        """Prepare an owned scratch source and compose only the selected configured provider."""
         with self.lock:
             if self.server is not None:
                 return
             config = RunnerService(self.settings.runner_service_file).config()
-            if not config or config["provider"] != "codex":
+            if not config or self.provider not in AgentProviderRegistry.provider_ids():
                 raise AssistantError("assistant_setup_required", 503)
+            options = {}
+            if self.provider == "codex":
+                if config["provider"] != "codex":
+                    raise AssistantError("assistant_setup_required", 503)
+                options["image_id"] = config.get("image_id")
+            elif self.provider == "claude":
+                profile = self.settings.claude_profile_volume
+                if profile is None and config["provider"] == "claude":
+                    profile = config["profile_volume"]
+                if profile is None:
+                    raise AssistantError("assistant_setup_required", 503)
+                options["profile_volume"] = profile
+            else:
+                if self.settings.opencode_profile is None:
+                    raise AssistantError("assistant_setup_required", 503)
+                options["profile"] = self.settings.opencode_profile
             namespace = hashlib.sha256(self.settings.app_url.encode()).hexdigest()[:16]
             root = self.settings.state_root / namespace / str(self.owner)
+            if self.provider != "codex":
+                root = root / self.provider
             prepare_private_directory(
                 root,
                 policy=DirectoryPermissionPolicy.from_host(
@@ -67,12 +85,12 @@ class AssistantRunner:
                     encoding="utf-8",
                 )
             agent = AgentProviderRegistry.create_agent(
-                "codex",
+                self.provider,
                 root / "runner",
                 Path(config["skill_store"]),
                 source,
                 lease_service=Path(config["lease_service"]),
-                image_id=config.get("image_id"),
+                **options,
                 artifact_sources={},
             )
             server = RunnerServer(agent, port=0)

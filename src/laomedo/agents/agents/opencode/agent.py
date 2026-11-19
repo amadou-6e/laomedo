@@ -48,6 +48,7 @@ class OpenCodeAgent(BaseAgent):
         source_workspace,
         *,
         transport_factory=None,
+        profile=None,
         lease_service=None,
         github_authority=None,
         mediator_state=None,
@@ -56,6 +57,13 @@ class OpenCodeAgent(BaseAgent):
         artifact_sources=None,
     ):
         """Bind admitted configuration and owned state; provider startup errors propagate before use."""
+        if profile is not None:
+            if transport_factory is not None:
+                raise RunnerError("opencode_isolated_transport_required")
+            from functools import partial
+            from laomedo.agents.agents.opencode.runtime import OpenCodeAgentRuntime
+
+            transport_factory = partial(OpenCodeAgentRuntime, profile=profile)
         self.transport_factory = transport_factory
         self.active_backends = {}
         super().__init__(

@@ -64,3 +64,8 @@ use the shared private attempt snapshot after normal writes; metadata discovery
 has no attempt or new store and retains its existing HTTP code boundary. A true
 `opencode_owned_resources` cleanup fact requires all allocated catalog/controller/
 worker resources, not controller absence alone. It never accepts a failed run.
+
+Host composition may pass `profile` to `OpenCodeAgent` to select its existing
+isolated `OpenCodeAgentRuntime`. The profile stays host-owned; combining it with
+an independently supplied transport factory is refused. Construction without
+either retains the explicit isolated-transport-required readiness result.

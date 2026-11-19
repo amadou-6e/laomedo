@@ -53,6 +53,22 @@ class RunnerObservation:
 
 
 class RuntimeTests(unittest.IsolatedAsyncioTestCase):
+    async def test_stop_targets_the_saved_conversation_provider(self):
+        async with self.store.transaction() as session:
+            conversation = await self.store.conversation(
+                session, self.owner, self.identifier
+            )
+            conversation.provider = "claude"
+            session.add(conversation)
+        await self.bind()
+        await self.runtime.stop(
+            self.owner, self.identifier, UUID(self.message["attempt_id"])
+        )
+        self.runtime.runner.assert_awaited_with(self.owner, "claude")
+        self.assertEqual(
+            self.runner.requests[-1], ("POST", "/v1/runs/" + self.run_id + "/cancel")
+        )
+
     async def test_resumed_attempt_uses_durable_dispatch_owner_not_original_run_creator(
         self,
     ):

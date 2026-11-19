@@ -39,8 +39,9 @@ class ConversationRequest(BaseModel):
     """Choose initial defaults; creation never submits a prompt."""
 
     model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
-    provider: Literal["codex"] = ModelField(
-        default="codex", description="Initial accepted chat provider."
+    provider: Literal["codex", "claude", "opencode"] = ModelField(
+        default="codex",
+        description="Immutable registered provider for this conversation.",
     )
     model: str = ModelField(
         min_length=1, max_length=256, description="Exact discovered model selection."

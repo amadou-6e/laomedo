@@ -19,6 +19,11 @@ class ReplaySession:
         self.native = on_extension
         self.session_id = "saved-thread"
 
+    def command_catalog(self):
+        from laomedo.agents.agents.base.acp.models import NativeCommandCatalog
+
+        return NativeCommandCatalog(commands=[])
+
     async def initialize(self):
         pass
 
@@ -51,6 +56,7 @@ class ReplaySession:
 class SessionTests(unittest.IsolatedAsyncioTestCase):
     async def test_resume_load_receipts_do_not_enter_current_attempt(self):
         agent = object.__new__(ClaudeAgent)
+        agent.image_id = "sha256:" + "a" * 64
         agent._event = Mock()
         agent._native_event = Mock()
         record = {
