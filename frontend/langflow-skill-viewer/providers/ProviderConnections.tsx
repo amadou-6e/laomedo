@@ -239,7 +239,7 @@ export default function ProviderConnections() {
           {rows === undefined ? <p role="status">{error ? "Could not load providers." : "Loading providers…"}</p> : rows.length === 0 ? <div className="gc-empty"><h2>No providers connected</h2><p className="gc-muted">Add a provider account to use it in your flows.</p></div> : <>
             <h2 className="gc-eyebrow">Accounts</h2>
             {rows.map(row => <div className="gc-account-row" key={row.connection_id}>
-              <span className="gc-avatar" aria-hidden="true">{logo(row.provider)}</span>
+              <span className={`gc-avatar ${row.provider === "codex" ? "pc-openai-avatar" : ""}`} aria-hidden="true">{logo(row.provider)}</span>
               <div className="gc-account-copy"><h3>{row.label}</h3><p className="gc-muted">{row.provider === "opencode" ? "OpenCode Go | Subscription key" : row.provider === "claude" ? "Claude Code | Claude subscription" : "Codex | ChatGPT plan"}</p></div>
               <span className={`gc-status ${row.lifecycle === "connected" && row.auth_state === "ready" ? "gc-ready" : "gc-attention"}`}>{status(row)}</span>
               <Button ignoreTitleCase variant="outline" aria-label={`View connection for ${row.label}`} onClick={() => { setSelected(row); setScreen("details"); }}>View connection</Button>
@@ -276,7 +276,7 @@ export default function ProviderConnections() {
           </>}
         </>}
         {screen === "details" && selected && <>
-          <div className="gc-identity"><span className="gc-avatar" aria-hidden="true">{logo(selected.provider)}</span><h2 id="provider-heading">{selected.label}</h2><span className={`gc-status ${ready ? "gc-ready" : "gc-attention"}`}>{status(selected)}</span></div>
+          <div className="gc-identity"><span className={`gc-avatar ${selected.provider === "codex" ? "pc-openai-avatar" : ""}`} aria-hidden="true">{logo(selected.provider)}</span><h2 id="provider-heading">{selected.label}</h2><span className={`gc-status ${ready ? "gc-ready" : "gc-attention"}`}>{status(selected)}</span></div>
           <p className="gc-muted">{selected.method === "opencode_go_key" ? "Your Go key is saved locally. Account identity and access have not been verified; the selected model checks access when you run it." : ready ? "Laomedo uses this account when you select it in a graph." : needsSignIn ? "Sign in again to restore access for this account." : "We cannot check this connection right now. Refresh to check again."}</p>
           <div className="gc-footer"><p className="gc-muted">Removing this connection stops Laomedo access.</p><div className="pc-connection-actions">{selected.lifecycle === "connected" && <Button ignoreTitleCase variant={needsSignIn && selected.method !== "opencode_go_key" ? "default" : "outline"} disabled={busy} onClick={() => { if (selected.provider === "opencode") { setProvider("opencode"); setSelected(undefined); } setScreen("method"); }}>{selected.provider === "opencode" ? "Add another Go key" : selected.provider === "claude" ? "Sign in to Claude Code again" : "Sign in to Codex again"}</Button>}<Button ignoreTitleCase variant="outline" disabled={busy} onClick={() => selected.lifecycle === "connected" ? void prepareDisconnect() : setScreen("removing")}>{selected.lifecycle === "connected" ? "Disconnect" : "View cleanup"}</Button></div></div>
         </>}

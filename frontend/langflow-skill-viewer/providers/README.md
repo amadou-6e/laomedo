@@ -18,7 +18,8 @@ catalogue. Disconnect and consumer binding require the matching host runtime
 integration; do not present unavailable operations as working.
 
 Account rows, provider choices and details use Langflow's existing OpenAI knot
-logo for Codex, as requested for recognition. Details identify reauthentication as Sign in to Codex again;
+logo for Codex, with white knot strokes and a transparent canvas and avatar
+background, as requested for recognition. Details identify reauthentication as Sign in to Codex again;
 account access and model usage are not inferred from successful authentication.
 
 Connection details group compact reauthentication and Disconnect buttons together,

@@ -52,5 +52,6 @@
 .pc-account-logo { width: 20px; height: 25px; object-fit: contain; }
 
 .pc-codex-logo { width: 32px; height: 32px; object-fit: contain; }
+.gc-avatar.pc-openai-avatar { background: transparent; }
 .pc-choice-logo { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; }
 .pc-choice { display: inline-flex; align-items: center; justify-content: center; gap: 12px; }
