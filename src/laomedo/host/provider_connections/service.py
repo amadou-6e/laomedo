@@ -709,6 +709,27 @@ class ProviderConnections:
                 )
             ]
             if len(candidates) != 1:
+                logging.getLogger(__name__).warning(
+                    "Codex callback refused: phase=binding candidates=%d profile_attempts=%d lease_matches=%d state_matches=%d",
+                    len(candidates),
+                    sum(
+                        item.profile_id == profile_id
+                        for item in self._attempts.values()
+                    ),
+                    sum(
+                        item.profile_id == profile_id
+                        and secrets.compare_digest(item.lease_hash, lease_hash)
+                        for item in self._attempts.values()
+                    ),
+                    sum(
+                        item.profile_id == profile_id
+                        and secrets.compare_digest(
+                            json.loads(item.oauth.get_secret_value())["state"],
+                            str(callback.get("state", "")),
+                        )
+                        for item in self._attempts.values()
+                    ),
+                )
                 raise ProviderConnectionError("provider_login_expired")
             item = candidates[0]
             item.progress.status = "verifying"

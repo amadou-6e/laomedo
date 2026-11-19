@@ -1,6 +1,7 @@
 """Same-origin authenticated Settings and one-use native return routes."""
 
 import hashlib
+import logging
 from uuid import UUID
 
 from fastapi import Depends, HTTPException, Request
@@ -301,6 +302,9 @@ def install_provider_routes(app, service, authenticate, *, origin: str):
         if len(query) > 12 or any(
             len(query.getlist(key)) != 1 or len(query[key]) > 8192 for key in query
         ):
+            logging.getLogger(__name__).warning(
+                "Codex callback refused: phase=query_shape"
+            )
             return RedirectResponse(
                 "/settings/providers?login=failed",
                 status_code=303,
@@ -311,7 +315,16 @@ def install_provider_routes(app, service, authenticate, *, origin: str):
                 service.complete, user.id, dict(query), lease_hash=lease
             )
             target = "/settings/providers?attempt=" + str(result.attempt_id)
-        except ProviderConnectionError:
+        except ProviderConnectionError as failure:
+            logging.getLogger(__name__).warning(
+                "Codex callback refused: phase=boundary category=%s",
+                (
+                    failure.code
+                    if failure.code
+                    in {"provider_login_expired", "provider_connection_busy"}
+                    else "unclassified"
+                ),
+            )
             target = "/settings/providers?login=failed"
         except Exception:
             target = "/settings/providers?login=unconfirmed"

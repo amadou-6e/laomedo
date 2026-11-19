@@ -5,6 +5,8 @@ an allowlisted failure category (or unclassified). Credentials, callback URLs,
 OAuth state, identity claims and raw exception messages are never logged. These
 diagnostics distinguish exchange/verification from admission/publication without
 changing the browser's safe failure or credential-preservation contract.
+Pre-exchange binding refusals report only aggregate matching counts; query-shape
+refusals report a fixed phase. Callback values and identity metadata stay private.
 
 Provider extension: `ConnectionRecord.provider` identifies the credential owner;
 graph preferences have a separate optional selector for each harness. Every saved
