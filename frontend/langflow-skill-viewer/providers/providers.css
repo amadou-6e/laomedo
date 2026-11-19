@@ -1,11 +1,16 @@
 /* Provider-only choices; panels and navigation use the GitHub Settings stylesheet. */
 .pc-list-screen { display: grid; gap: 16px; }
 .pc-sign-in-result { min-height: 220px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; text-align: center; }
+.pc-handoff-surface { min-height: 340px; padding: 48px 32px 32px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 16px; text-align: center; animation: pc-handoff-appear .2s ease-out; }
+.pc-handoff-surface .pc-sign-in-result { min-height: 0; justify-content: flex-start; }
+.pc-handoff-surface h2, .pc-handoff-surface p { margin: 0; }
+.pc-handoff-surface > button { width: fit-content; }
+@keyframes pc-handoff-appear { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
 .pc-handoff-logo { width: 56px; height: 56px; fill: currentColor; animation: pc-handoff-bob 1.5s ease-in-out infinite; }
 .pc-handoff-logo.pc-handoff-settled { animation: none; }
 .pc-sign-in-result h2, .pc-sign-in-result p { margin: 0; }
 @keyframes pc-handoff-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
-@media (prefers-reduced-motion: reduce) { .pc-handoff-logo { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .pc-handoff-logo, .pc-handoff-surface { animation: none; } }
 .pc-types { display: grid; gap: 16px; }
 .pc-choice { display: flex; align-items: center; justify-content: space-between; gap: 16px; border: 1px solid hsl(var(--border)); border-radius: 8px; padding: 16px; text-align: left; }
 .pc-choice[aria-pressed=true] { background: hsl(var(--muted)); border-color: hsl(var(--foreground)); }

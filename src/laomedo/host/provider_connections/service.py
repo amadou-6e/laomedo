@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import logging
 import os
 import re
 import secrets
@@ -37,6 +38,7 @@ from laomedo.host.provider_connections.settings import (
     ATTEMPT_SECONDS,
     MAX_CONNECTIONS,
     NATIVE_AUTH_CLEANUP_SECONDS,
+    LOGIN_FAILURE_CATEGORIES,
 )
 
 
@@ -714,10 +716,12 @@ class ProviderConnections:
             oauth = json.loads(item.oauth.get_secret_value())
         stage = ChatGPTConnection(item.stage)
         staged_account = None
+        phase = "exchange_and_verification"
         try:
             stage.finish(oauth, callback, **verification)
             client_id = callback.get("client_id") or oauth["client_id"]
             staged_account = stage.account(client_id)
+            phase = "admission"
             with self._lock:
                 self._expire()
                 if item.progress.status != "verifying":
@@ -776,6 +780,7 @@ class ProviderConnections:
                     label=staged_account.get("email") or "ChatGPT account",
                 )
                 broker = self._broker(profile_id, record.credential_id)
+                phase = "publication"
                 item.publication = record
                 _atomic_private(
                     broker.host_path,
@@ -791,7 +796,23 @@ class ProviderConnections:
                 item.progress.status = "connected"
                 item.progress.connection_id = item.candidate_id
                 return item.progress
-        except Exception:
+        except Exception as failure:
+            category = getattr(failure, "code", None)
+            safe_category = (
+                category
+                if isinstance(category, str)
+                and (
+                    category in LOGIN_FAILURE_CATEGORIES
+                    or re.fullmatch(r"auth_http_[1-5][0-9]{2}", category)
+                )
+                else "unclassified"
+            )
+            logging.getLogger(__name__).warning(
+                "Codex sign-in failed: phase=%s category=%s exception_type=%s",
+                phase,
+                safe_category,
+                type(failure).__name__,
+            )
             with self._lock:
                 if item.publication is not None:
                     try:

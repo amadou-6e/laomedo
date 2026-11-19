@@ -9,6 +9,7 @@ from unittest.mock import Mock, patch
 from uuid import uuid4
 
 from laomedo.host.credentials.siwc.settings import NEEDED
+from laomedo.host.credentials.siwc.errors import AuthError
 from laomedo.host.provider_connections.errors import ProviderConnectionError
 from laomedo.host.provider_connections.service import ProviderConnections
 from laomedo.host.provider_connections.models import GraphProviderPreferences
@@ -61,6 +62,30 @@ class ProviderConnectionsTests(unittest.TestCase):
             },
         )
         return result
+
+    def test_callback_diagnostics_never_log_raw_provider_failure_data(self):
+        """Known categories aid diagnosis; arbitrary exception content stays private."""
+        for category in (
+            "auth_http_401",
+            "auth_account_mismatch",
+            "private-token-fixture",
+        ):
+            with (
+                self.subTest(category=category),
+                self.assertLogs(
+                    "laomedo.host.provider_connections.service", level="WARNING"
+                ) as captured,
+            ):
+                result = self.connect(exchange=Mock(side_effect=AuthError(category)))
+            self.assertEqual(result.status, "failed")
+            message = " ".join(captured.output)
+            self.assertIn("phase=exchange_and_verification", message)
+            self.assertNotIn("private-token-fixture", message)
+            self.assertIn(
+                "category="
+                + (category if category.startswith("auth_") else "unclassified"),
+                message,
+            )
 
     def test_graph_preference_is_owned_persistent_and_independent(self):
         """A preference selects only this profile and graph, without changing credentials."""

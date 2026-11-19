@@ -15,6 +15,11 @@ show a short completion message, then return to the providers list after 2.8s.
 Reconnect intent is a non-secret same-tab flag, never a credential. Unconfirmed
 save or cleanup outcomes retain recovery controls and never auto-dismiss. Logo
 motion is subtle and disabled for reduced-motion preferences.
+The handoff and failure states are borderless and retain the same Langflow mark
+and content position. Explicit provider selection starts browser sign-in directly;
+Claude reserves its external tab during that click, then navigates it only after
+the native client supplies a validated URL. Blocked popups retain a manual link.
+No mount, Refresh or polling operation creates an authentication tab.
 
 The initial route is app-owned Sign in with ChatGPT for Codex. Other provider
 types are visible but unavailable; no ambient-login or API-billing fallback is

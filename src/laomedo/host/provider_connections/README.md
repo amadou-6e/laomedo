@@ -1,5 +1,11 @@
 # Saved provider connections
 
+Codex callback failures log only the fixed processing phase, exception type and
+an allowlisted failure category (or unclassified). Credentials, callback URLs,
+OAuth state, identity claims and raw exception messages are never logged. These
+diagnostics distinguish exchange/verification from admission/publication without
+changing the browser's safe failure or credential-preservation contract.
+
 Provider extension: `ConnectionRecord.provider` identifies the credential owner;
 graph preferences have a separate optional selector for each harness. Every saved
 selector must belong to that harness and the current profile. Native login and

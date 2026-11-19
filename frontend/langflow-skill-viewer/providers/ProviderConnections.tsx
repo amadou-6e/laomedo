@@ -39,6 +39,21 @@ export default function ProviderConnections() {
   const surface = useRef<HTMLElement | null>(null);
   const epoch = useRef(0);
   const inFlight = useRef<number | null>(null);
+  const claudeTab = useRef<Window | null>(null);
+
+  useEffect(() => {
+    if (!nativeUrl || !claudeTab.current) return;
+    const tab = claudeTab.current;
+    claudeTab.current = null;
+    if (!tab.closed) { tab.location.replace(nativeUrl); setClaudeOpened(true); }
+  }, [nativeUrl]);
+
+  useEffect(() => () => { claudeTab.current?.close(); }, []);
+  useEffect(() => {
+    if (attempt && !["connecting", "verifying"].includes(attempt.status)) {
+      claudeTab.current?.close(); claudeTab.current = null;
+    }
+  }, [attempt?.status]);
 
   useEffect(() => {
     // A new screen starts at the top; read-only polling leaves scroll untouched.
@@ -198,6 +213,10 @@ export default function ProviderConnections() {
 
   async function signIn() {
     if (inFlight.current) return;
+    if (activeProvider === "claude") {
+      claudeTab.current = window.open("about:blank", "_blank");
+      if (claudeTab.current) claudeTab.current.opener = null;
+    }
     setClaudeOpened(false); setNativeCode(""); setNativeUrl(null);
     reconnecting.current = Boolean(selected);
     sessionStorage.setItem(reconnectKey, String(reconnecting.current));
@@ -214,6 +233,7 @@ export default function ProviderConnections() {
       if (activeProvider === "claude") setNativeUrl(result.authorization_url);
       else if (result.authorization_url) window.location.assign(result.authorization_url);
     } catch (failure) {
+      claudeTab.current?.close(); claudeTab.current = null;
       if (revision === epoch.current) {
         if (failure instanceof ProviderFailure && failure.code === "provider_connection_busy") { setError(failure.code); setScreen("details"); }
         else { setError("provider_sign_in_failed"); setScreen("failure"); }
@@ -235,6 +255,7 @@ export default function ProviderConnections() {
       finally { if (inFlight.current === revision) inFlight.current = null; if (revision === epoch.current) setBusy(false); }
     }
     ++epoch.current;
+    claudeTab.current?.close(); claudeTab.current = null;
     window.history.replaceState(null, "", "/settings/providers");
     setError(""); setAttempt(undefined); setGoKey(""); setGoLabel(""); setNativeCode(""); setNativeUrl(null); setClaudeOpened(false); sessionStorage.removeItem(reconnectKey);
     setScreen(screen === "disconnect" ? "details" : screen === "method" ? (selected ? "details" : "type") : "list");
@@ -258,8 +279,10 @@ export default function ProviderConnections() {
     </header>}
     <div className={screen === "list" ? "pc-list-screen" : screen === "details" ? "gc-screen gc-detail" : "gc-screen"}>
       {error && <div role="alert"><ErrorExplanation failure={describeNodeFailure(error, undefined)} /></div>}
-      <section className={screen === "list" ? "gc-panel gc-accounts" : screen === "details" ? "gc-panel gc-detail-card" : "gc-panel gc-focus"}>
-        {!["list", "details", "returning", "complete"].includes(screen) && <h2 id="provider-heading">{heading}</h2>}
+      <section className={["returning", "complete", "failure"].includes(screen) ? "pc-handoff-surface" : screen === "list" ? "gc-panel gc-accounts" : screen === "details" ? "gc-panel gc-detail-card" : "gc-panel gc-focus"}>
+        {!["list", "details", "returning", "complete", "failure"].includes(screen) && <h2 id="provider-heading">{heading}</h2>}
+        {screen === "failure" && <LangflowLogo className="pc-handoff-logo pc-handoff-settled" aria-hidden="true" />}
+        {screen === "failure" && <h2 id="provider-heading">{heading}</h2>}
         {["returning", "complete"].includes(screen) && <div className="pc-sign-in-result" role="status" aria-live="polite">
           <LangflowLogo className={`pc-handoff-logo ${screen === "complete" ? "pc-handoff-settled" : ""}`} aria-hidden="true" />
           <h2 id="provider-heading">{screen === "returning" ? "Finishing sign-in\u2026" : attempt?.status === "duplicate" ? "Already connected" : "Connection saved!"}</h2>
@@ -279,7 +302,7 @@ export default function ProviderConnections() {
         {screen === "type" && <>
           <p className="gc-muted">Choose the provider you want to connect.</p>
           <div className="pc-types" role="group" aria-label="Provider type">{["codex", "claude", "opencode"].map(type => <button type="button" aria-pressed={provider === type} className="pc-choice" key={type} onClick={() => setProvider(type)}><span className="pc-choice-logo" aria-hidden="true">{logo(type)}</span>{type === "opencode" ? "OpenCode" : type[0].toUpperCase() + type.slice(1)}</button>)}</div>
-          <Button ignoreTitleCase onClick={() => setScreen("method")}>Continue</Button>
+          <Button ignoreTitleCase disabled={busy} onClick={() => provider === "opencode" ? setScreen("method") : void signIn()}>Continue</Button>
         </>}
         {screen === "method" && <>
           {activeProvider === "opencode" ? <>
@@ -295,8 +318,8 @@ export default function ProviderConnections() {
         {screen === "pending" && <>
           {attempt?.provider === "claude" && attempt.status === "connecting" ? <>
             {nativeUrl ? <>
-              <p className="gc-muted">Continue to Claude to sign in, then paste the code it gives you below.</p>
-              <Button ignoreTitleCase asChild><a href={nativeUrl} target="_blank" rel="noopener noreferrer" onClick={() => setClaudeOpened(true)}>Continue to Claude</a></Button>
+              <p className="gc-muted">{claudeOpened ? "Paste the code from Claude to finish signing in." : "Continue to Claude to sign in, then paste the code it gives you below."}</p>
+              {!claudeOpened && <Button ignoreTitleCase asChild><a href={nativeUrl} target="_blank" rel="noopener noreferrer" onClick={() => setClaudeOpened(true)}>Continue to Claude</a></Button>}
               {claudeOpened && <><input className="pc-account-select" type="password" aria-label="Claude sign-in code" placeholder="Claude sign-in code" autoComplete="off" value={nativeCode} onChange={event => setNativeCode(event.target.value)} disabled={busy} />
               <Button ignoreTitleCase disabled={busy || !nativeCode} onClick={() => void finishClaude()}>Finish sign-in</Button></>}
             </> : <p className="gc-muted" role="status">Preparing Claude sign-in{"\u2026"}</p>}

@@ -7,7 +7,7 @@ jest.mock("@/components/common/genericIconComponent", () => ({ __esModule: true,
 jest.mock("@/assets/LangflowLogo.svg?react", () => ({ __esModule: true, default: (props) => <svg {...props} /> }));
 
 jest.mock("@/components/ui/button", () => ({
-  Button: ({ ignoreTitleCase, variant, children, ...props }) => <button {...props}>{children}</button>,
+  Button: ({ ignoreTitleCase, variant, asChild, children, ...props }) => asChild ? children : <button {...props}>{children}</button>,
 }));
 jest.mock("./api", () => ({ ...jest.requireActual("./api"), saveGoConnection: jest.fn(), beginLogin: jest.fn(), cancelLogin: jest.fn(), listConnections: jest.fn(), readProgress: jest.fn(), readClaudeAttempt: jest.fn(), inspectDisconnect: jest.fn(), disconnect: jest.fn(), retryCleanup: jest.fn() }));
 
@@ -23,6 +23,7 @@ describe("saved provider Settings", () => {
     sessionStorage.clear();
     window.history.replaceState(null, "", "/settings/providers");
     (listConnections as jest.Mock).mockResolvedValue([]);
+    jest.spyOn(window, "open").mockReturnValue(null);
   });
 
   it("returns from adding a Go key to its connection and emphasizes saved custody", async () => {
@@ -113,16 +114,31 @@ describe("saved provider Settings", () => {
     expect(retryCleanup).toHaveBeenCalledWith(account.connection_id);
   });
 
-  it("chooses type and method before an explicit sign-in action", async () => {
+  it("starts the selected browser provider directly from Continue", async () => {
+    (beginLogin as jest.Mock).mockResolvedValue({ progress: { attempt_id: "fixture", provider: "codex", status: "connecting", connection_id: null, code: null }, authorization_url: null });
     render(<ProviderConnections />);
     await screen.findByText("No providers connected");
     fireEvent.click(screen.getByRole("button", { name: "Add provider" }));
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
-    expect(screen.getByText(/Sign in with ChatGPT to use/)).toBeTruthy();
-    expect(beginLogin).not.toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: "Back to connections" }).querySelector("svg")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Back to connections" }));
-    expect(screen.getByRole("heading", { name: "Add provider" })).toBeTruthy();
+    await screen.findByRole("heading", { name: "Finish signing in" });
+    expect(beginLogin).toHaveBeenCalledWith(undefined, "codex");
+    expect(screen.queryByRole("button", { name: "Continue to sign in" })).toBeNull();
+  });
+
+  it("reserves and navigates the Claude tab only from an explicit sign-in click", async () => {
+    const tab = { opener: {}, closed: false, location: { replace: jest.fn() }, close: jest.fn() };
+    (window.open as jest.Mock).mockReturnValue(tab);
+    (listConnections as jest.Mock).mockResolvedValue([{ ...account, provider: "claude", method: "claude_native" }]);
+    (beginLogin as jest.Mock).mockResolvedValue({ progress: { attempt_id: "fixture", provider: "claude", status: "connecting", connection_id: null, code: null }, authorization_url: "https://claude.com/cai/oauth/authorize?state=fixture" });
+    render(<ProviderConnections />);
+    expect(window.open).not.toHaveBeenCalled();
+    fireEvent.click(await screen.findByRole("button", { name: /View connection for/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Sign in again" }));
+    await screen.findByLabelText("Claude sign-in code");
+    expect(window.open).toHaveBeenCalledTimes(1);
+    expect(tab.opener).toBeNull();
+    expect(tab.location.replace).toHaveBeenCalledWith("https://claude.com/cai/oauth/authorize?state=fixture");
+    expect(screen.queryByRole("link", { name: "Continue to Claude" })).toBeNull();
   });
 
   it("does not claim removal or poll when Disconnect was not confirmed", async () => {
