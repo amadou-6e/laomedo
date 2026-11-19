@@ -831,8 +831,8 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
             className="mx-5 mt-4 rounded-lg border bg-muted/30 p-4 text-sm"
           >
             <p className="mb-2 font-medium">
-              {needsAttention
-                ? "Cannot safely continue this session"
+              {needsAttention && failure.diagnostics.code !== "runner_authentication_required"
+                ? "This session needs attention"
                 : failure.title}
             </p>
             <ErrorExplanation failure={failure} />

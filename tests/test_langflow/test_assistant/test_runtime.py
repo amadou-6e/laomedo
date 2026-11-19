@@ -53,6 +53,34 @@ class RunnerObservation:
 
 
 class RuntimeTests(unittest.IsolatedAsyncioTestCase):
+    async def test_lost_resume_ack_reconciles_existing_attempt_without_reposting(self):
+        await self.bind()
+        await self.runtime.reconcile(self.owner, self.identifier)
+        following, _ = await self.store.reserve(
+            self.owner,
+            self.identifier,
+            MessageRequest(client_message_id=uuid4(), text="Follow up"),
+            session_key="fixture",
+        )
+        self.record["activity_attempt_id"] = following["attempt_id"]
+        self.runner.dispatch = {
+            "status": "finished",
+            "runner_instance_id": self.runner.instance_id,
+        }
+        self.runner.requests.clear()
+        self.assertTrue(await self.runtime.reconcile(self.owner, self.identifier))
+        detail = await self.store.detail(self.owner, self.identifier)
+        self.assertEqual(detail["messages"][-1]["state"], "completed")
+        self.assertEqual(detail["conversation"]["state"], "idle")
+        self.assertIn(
+            ("GET", "/v1/runs/" + self.run_id + "/resume/" + following["attempt_id"]),
+            self.runner.requests,
+        )
+        self.assertFalse(any(method == "POST" for method, _ in self.runner.requests))
+        self.assertFalse(
+            any("/v1/requests/" in path for _, path in self.runner.requests)
+        )
+
     async def test_stop_targets_the_saved_conversation_provider(self):
         async with self.store.transaction() as session:
             conversation = await self.store.conversation(

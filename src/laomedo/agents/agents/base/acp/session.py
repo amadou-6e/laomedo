@@ -206,7 +206,11 @@ class AcpSession:
             )
         except RunnerError:
             raise
-        except (RequestError, ConnectionError, OSError, ValueError):
+        except RequestError as error:
+            if error.code == -32000:
+                raise RunnerError("runner_authentication_required") from None
+            raise RunnerError("runner_transport_failed") from None
+        except (ConnectionError, OSError, ValueError):
             if health_error is not None:
                 raise health_error from None
             raise RunnerError("runner_transport_failed") from None
@@ -316,5 +320,9 @@ class AcpSession:
             return result
         except TimeoutError:
             raise RunnerError("request_timeout:" + method) from None
-        except (RequestError, ConnectionError, OSError, ValueError):
+        except RequestError as error:
+            if error.code == -32000:
+                raise RunnerError("runner_authentication_required") from None
+            raise RunnerError("runner_transport_failed") from None
+        except (ConnectionError, OSError, ValueError):
             raise RunnerError("runner_transport_failed") from None

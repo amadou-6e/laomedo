@@ -310,9 +310,14 @@
     "recovery": "Check Runner URL and the runner service, then refresh Model. No model turn is submitted by refreshing the catalogue."
   },
   "runner_transport_failed": {
-    "title": "Run outcome unconfirmed",
-    "description": "The application could not confirm whether the remote work finished. It may still be active.",
+    "title": "Provider connection failed",
+    "description": "Communication with the provider failed. Check the retained run status to determine whether the operation finished.",
     "recovery": "Inspect the existing run or request status using the available identifiers before starting another run. Do not repeat the operation until its outcome is confirmed."
+  },
+  "runner_authentication_required": {
+    "title": "Provider sign-in required",
+    "description": "The provider refused the session because its configured login is missing or expired.",
+    "recovery": "Reconnect the provider login, then check the retained conversation status. The failed request will not be replayed automatically."
   },
   "runner_wait_deadline": {
     "title": "The remote outcome is not confirmed",

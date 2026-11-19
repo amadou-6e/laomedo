@@ -202,6 +202,7 @@ RUNNER_FAILURE_CODES = frozenset(
         "run_not_dispatchable",
         "run_timeout_not_supported",
         "runner_busy",
+        "runner_authentication_required",
         "runner_docker_check_unconfirmed",
         "runner_transport_failed",
         "split_executor_lease_unavailable",

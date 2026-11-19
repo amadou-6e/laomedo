@@ -1,5 +1,14 @@
 # Application assistant
 
+## Resume recovery (#303)
+
+`AssistantRuntime.reconcile()` observes a resumed message using the conversation's
+existing run and the reserved attempt identity, even if the POST acknowledgement
+was lost. It never resubmits the operation. An unavailable lookup keeps the outcome
+unconfirmed. Activity reads use the runner's supported maximum of 200 records.
+The shared ACP client preserves an explicit authentication-required category;
+provider sign-in failures must not be described as uncertain remote execution.
+
 Persistence, declarative metadata validation, atomic workflow receipts, MCP
 hosting, direct provider orchestration and chat rendering form one application
 feature. Controlled tests and real provider/editor acceptance are separate gates.

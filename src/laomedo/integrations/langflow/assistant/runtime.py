@@ -868,9 +868,11 @@ class AssistantRuntime:
             )
             return True
         try:
-            if message.run_id:
+            if message.run_id or conversation.run_id:
                 record = await asyncio.to_thread(
-                    runner.request, "GET", "/v1/runs/" + message.run_id
+                    runner.request,
+                    "GET",
+                    "/v1/runs/" + (message.run_id or conversation.run_id),
                 )
             else:
                 record = await asyncio.to_thread(
@@ -878,8 +880,10 @@ class AssistantRuntime:
                 )
         except AssistantError:
             return False
-        native_attempt = message.native_attempt_id or record.get(
-            "activity_initial_attempt_id"
+        native_attempt = message.native_attempt_id or (
+            str(message.attempt_id)
+            if conversation.run_id and not message.run_id
+            else record.get("activity_initial_attempt_id")
         )
         if not native_attempt:
             return False
@@ -970,7 +974,7 @@ class AssistantRuntime:
                     + record["run_id"]
                     + "/activity?attempt="
                     + native_attempt
-                    + "&after=0&limit=500",
+                    + "&after=0&limit=200",
                 )
                 await self.store.cache_activity(owner, identifier, message.id, activity)
             except AssistantError:
