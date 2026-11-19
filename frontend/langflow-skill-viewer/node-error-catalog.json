@@ -319,6 +319,11 @@
     "description": "The provider refused the session because its configured login is missing or expired.",
     "recovery": "Reconnect the provider login, then check the retained conversation status. The failed request will not be replayed automatically."
   },
+  "outside_assistant_command_policy": {
+    "title": "Command unavailable in this chat",
+    "description": "This native command is outside the assistant's supported command set.",
+    "recovery": "Choose an executable command from this conversation's current command list."
+  },
   "runner_wait_deadline": {
     "title": "The remote outcome is not confirmed",
     "description": "The application could not confirm whether the remote work finished. It may still be active.",
