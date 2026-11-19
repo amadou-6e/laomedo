@@ -383,10 +383,7 @@ class ClaudeConnection:
                         for row in rows
                         if row.provider == "claude"
                         and row.connection_id != item.candidate_id
-                        and (
-                            row.subject_hash == digest
-                            or row.label.casefold() == email.casefold()
-                        )
+                        and row.subject_hash == digest
                     ),
                     None,
                 )

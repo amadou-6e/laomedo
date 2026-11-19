@@ -59,14 +59,16 @@ cleanup. A daemon failure or unconfirmed cleanup retains the custody receipt and
 logs pending cleanup for the next startup retry, without blocking other providers.
 Unreadable ownership metadata still prevents startup; cleanup never guesses owners.
 
-Admission permits one saved row per provider email within a local profile, in
-addition to rejecting repeated verified issuer/subject identities. The email
-comes from the validated provider identity and is compared case-insensitively
-with saved provider labels, which are not user-editable. This is an additional
-row-admission restriction only: it never links registrations, replaces existing
-credentials, changes a connection generation or authorizes reconnect. Reconnect
-continues to require the original verified issuer/subject. Existing saved rows
-are removed only through the normal Disconnect workflow.
+Codex admission permits one saved row per verified provider email within a local
+profile, in addition to rejecting repeated verified issuer/subject identities.
+Claude admission identifies an account by its verified email (case-insensitive)
+and organization ID together. The same email in distinct verified organizations
+can have independent connections; repeating the same pair returns the existing
+connection without replacing its credentials. Reconnect must retain the original
+verified identity, including Claude's organization. OpenCode Go keys do not claim
+a verified account identity. Existing saved rows are removed only through the
+normal Disconnect workflow. Multi-organization Claude admission is covered by
+fixtures; real multi-organization acceptance remains unverified.
 
 Private state must be outside Git and tool mounts. Each profile and opaque
 connection gets its own credential directory. Staging is never dispatchable.

@@ -8,7 +8,7 @@ import threading
 import time
 from types import SimpleNamespace
 import unittest
-from unittest.mock import Mock, patch
+from unittest.mock import MagicMock, Mock, patch
 from uuid import uuid4
 
 from pydantic import SecretStr
@@ -221,6 +221,79 @@ class ClaudeConnectionTests(unittest.TestCase):
             )
             with self.assertRaisesRegex(RunnerError, "provider_connection_changed"):
                 saved.check()
+
+    @unittest.skipUnless(find_spec("py_docker"), "Requires the optional Docker SDK")
+    def test_admission_separates_organizations_and_preserves_duplicates(self):
+        """Synthetic native identities exercise publication without real sign-in."""
+        connection = self.service.claude
+        native = MagicMock()
+        native.read_frame.return_value = None
+        native.wait.return_value = 0
+        with (
+            patch("laomedo.host.provider_connections.claude.DockerRuntime") as runtime,
+            patch("py_docker.sessions.models.ContainerSession"),
+            patch.object(connection, "_create_profile", return_value=Mock()),
+            patch.object(connection, "_spec", return_value=Mock()),
+            patch.object(connection, "_auth_status") as identity,
+        ):
+            runtime.session.return_value.__enter__.return_value = native
+            admitted = []
+            for organization, expected in (
+                ("org-personal", "connected"),
+                ("org-work", "connected"),
+                ("org-work", "duplicate"),
+            ):
+                identity.return_value = ClaudeAccountIdentity(
+                    email=(
+                        "work@example.invalid"
+                        if expected == "duplicate"
+                        else "WORK@example.invalid"
+                    ),
+                    organization_id=organization,
+                )
+                item = ClaudeLoginAttempt(
+                    profile_id=self.profile,
+                    lease_hash="own-lease",
+                    candidate_id=uuid4(),
+                    credential_id=uuid4(),
+                    expires_at=time.monotonic() + 60,
+                    progress=LoginProgress(
+                        attempt_id=uuid4(), provider="claude", status="connecting"
+                    ),
+                    cancelled=threading.Event(),
+                    ready=threading.Event(),
+                )
+                connection._run(item)
+                self.assertEqual(item.progress.status, expected)
+                if expected == "connected":
+                    admitted.append(self.service._records(self.profile)[-1])
+                else:
+                    self.assertEqual(
+                        item.progress.connection_id, admitted[1].connection_id
+                    )
+            self.assertEqual(self.service._records(self.profile), admitted)
+            self.assertNotEqual(admitted[0].credential_id, admitted[1].credential_id)
+            reconnect = item.model_copy(
+                update={
+                    "candidate_id": admitted[0].connection_id,
+                    "credential_id": uuid4(),
+                    "previous": admitted[0],
+                    "progress": LoginProgress(
+                        attempt_id=uuid4(), provider="claude", status="connecting"
+                    ),
+                }
+            )
+            with (
+                patch.object(
+                    self.service,
+                    "controllers",
+                    Mock(inventory=Mock(return_value=(0, 0))),
+                ),
+                self.assertLogs(level="WARNING"),
+            ):
+                connection._run(reconnect)
+            self.assertEqual(reconnect.progress.status, "failed")
+            self.assertEqual(self.service._records(self.profile), admitted)
 
     def test_one_use_code_is_bound_to_profile_and_browser_lease(self):
         """A known attempt ID cannot authorize another profile or a signed-out lease."""
