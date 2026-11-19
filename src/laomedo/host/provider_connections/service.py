@@ -704,8 +704,8 @@ class ProviderConnections:
                 and secrets.compare_digest(item.lease_hash, lease_hash)
                 and item.progress.status == "connecting"
                 and secrets.compare_digest(
-                    json.loads(item.oauth.get_secret_value())["state"],
-                    str(callback.get("state", "")),
+                    json.loads(item.oauth.get_secret_value())["state"].encode(),
+                    str(callback.get("state", "")).encode("utf-8", errors="replace"),
                 )
             ]
             if len(candidates) != 1:
@@ -724,8 +724,10 @@ class ProviderConnections:
                     sum(
                         item.profile_id == profile_id
                         and secrets.compare_digest(
-                            json.loads(item.oauth.get_secret_value())["state"],
-                            str(callback.get("state", "")),
+                            json.loads(item.oauth.get_secret_value())["state"].encode(),
+                            str(callback.get("state", "")).encode(
+                                "utf-8", errors="replace"
+                            ),
                         )
                         for item in self._attempts.values()
                     ),

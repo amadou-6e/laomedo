@@ -313,6 +313,27 @@ class ProviderConnectionsTests(unittest.TestCase):
         self.assertEqual(self.service.list(self.profile), [])
         self.assertEqual(list((pending.stage / "accounts").glob("*.json")), [])
 
+    def test_non_ascii_callback_state_is_refused_without_breaking_diagnostics(self):
+        """Malformed state has no exchange or uncertain-publication side effect."""
+        receipt, _url = self.service.begin(
+            self.profile, "http://127.0.0.1:17867/auth/callback"
+        )
+        for cancelled in (False, True):
+            if cancelled:
+                self.service.cancel_profile(self.profile)
+            with self.assertLogs(
+                "laomedo.host.provider_connections.service", level="WARNING"
+            ) as captured:
+                with self.assertRaisesRegex(
+                    ProviderConnectionError, "provider_login_expired"
+                ):
+                    self.service.complete(
+                        self.profile, {"state": "\u00e9-private-fixture"}
+                    )
+            self.assertIn("state_matches=0", " ".join(captured.output))
+            self.assertNotIn("private-fixture", " ".join(captured.output))
+        self.assertEqual(self.service.list(self.profile), [])
+
     def test_logout_and_expiry_refuse_callback_replay(self):
         """Neither polling nor a restart can resume invalidated authorizations."""
         receipt, _url = self.service.begin(
