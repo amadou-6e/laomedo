@@ -10,7 +10,7 @@ jest.mock("@/components/ui/button", () => ({
 }));
 jest.mock("./api", () => ({ ...jest.requireActual("./api"), saveGoConnection: jest.fn(), beginLogin: jest.fn(), cancelLogin: jest.fn(), listConnections: jest.fn(), readProgress: jest.fn(), inspectDisconnect: jest.fn(), disconnect: jest.fn(), retryCleanup: jest.fn() }));
 
-jest.mock("./assets/codex-logo.png", () => "codex-logo.png");
+jest.mock("./assets/openai-logo.svg", () => "openai-logo.svg");
 
 jest.mock("./assets/opencode-logo-dark.svg", () => "opencode-dark.svg");
 jest.mock("./assets/opencode-logo-light.svg", () => "opencode-light.svg");

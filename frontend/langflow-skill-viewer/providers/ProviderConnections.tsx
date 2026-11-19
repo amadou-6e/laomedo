@@ -5,14 +5,14 @@ import { Button } from "@/components/ui/button";
 import ErrorExplanation from "@/components/laomedoErrors/ErrorExplanation";
 import { describeNodeFailure } from "@/components/laomedoErrors/nodeErrors";
 import { readClaudeAttempt, submitClaudeCode, saveGoConnection, beginLogin, cancelLogin, listConnections, readProgress, inspectDisconnect, disconnect, retryCleanup, ProviderFailure, type DisconnectInfo, type LoginProgress, type ProviderConnection } from "./api";
-import codexAppLogo from "./assets/codex-logo.png";
+import openAiLogo from "./assets/openai-logo.svg";
 import openCodeLogoDark from "./assets/opencode-logo-dark.svg";
 import openCodeLogoLight from "./assets/opencode-logo-light.svg";
 import "./connections.css";
 import "./providers.css";
 
 type Screen = "list" | "type" | "method" | "pending" | "details" | "failure" | "duplicate" | "disconnect" | "removing" | "removed";
-const codexLogo = <img src={codexAppLogo} className="pc-codex-logo" alt="" />;
+const codexLogo = <img src={openAiLogo} className="pc-codex-logo" alt="" />;
 const pendingKey = "laomedo.provider-attempt";
 const statuses = { ready: "Connected", expired: "Sign in again", reauthorization_required: "Sign in again", revoked: "Sign in again", unavailable: "Unavailable" };
 

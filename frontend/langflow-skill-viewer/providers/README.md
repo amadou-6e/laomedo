@@ -17,8 +17,8 @@ returns to the original Settings origin. User-facing errors use the shared
 catalogue. Disconnect and consumer binding require the matching host runtime
 integration; do not present unavailable operations as working.
 
-Account rows, provider choices and details use the Codex product icon shipped
-in the installed OpenAI extension (26.1007.21434). Details identify reauthentication as Sign in to Codex again;
+Account rows, provider choices and details use Langflow's existing OpenAI knot
+logo for Codex, as requested for recognition. Details identify reauthentication as Sign in to Codex again;
 account access and model usage are not inferred from successful authentication.
 
 Connection details group compact reauthentication and Disconnect buttons together,
