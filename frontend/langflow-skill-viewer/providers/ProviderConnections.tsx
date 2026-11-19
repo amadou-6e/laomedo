@@ -21,7 +21,7 @@ const statuses = { ready: "Connected", expired: "Sign in again", reauthorization
 export default function ProviderConnections() {
   const [screen, setScreen] = useState<Screen>(() => {
     const query = new URLSearchParams(window.location.search);
-    return query.has("attempt") || query.has("login") || sessionStorage.getItem(pendingKey) ? "returning" : "list";
+    return query.has("attempt") || sessionStorage.getItem(pendingKey) ? "returning" : ["failed", "unconfirmed"].includes(query.get("login") ?? "") ? "failure" : "list";
   });
   const reconnecting = useRef(sessionStorage.getItem(reconnectKey) === "true");
   const [rows, setRows] = useState<ProviderConnection[]>();
@@ -89,11 +89,18 @@ export default function ProviderConnections() {
             setSelected(next.find(row => row.connection_id === progress.connection_id));
             sessionStorage.removeItem(reconnectKey);
             setScreen(progress.code === "provider_cleanup_unconfirmed" ? "details" : "complete");
-          } else if (progress.status !== "cancelled") setScreen("failure");
+          } else if (progress.status === "cancelled") { setAttempt(undefined); sessionStorage.removeItem(reconnectKey); setScreen("list"); }
+          else setScreen("failure");
         }
       } else if (attempt?.code === "provider_save_unconfirmed") setScreen("failure");
     } catch {
-      if (revision === epoch.current) { setError("provider_connections_unavailable"); if (attempt?.code === "provider_save_unconfirmed") setScreen("failure"); }
+      if (revision === epoch.current) {
+        setError("provider_connections_unavailable");
+        if (screen === "returning") {
+          setAttempt({ attempt_id: new URLSearchParams(window.location.search).get("attempt") || sessionStorage.getItem(pendingKey) || "", status: "failed", connection_id: null, code: "provider_save_unconfirmed" });
+          setScreen("failure");
+        } else if (attempt?.code === "provider_save_unconfirmed") setScreen("failure");
+      }
     } finally {
       if (inFlight.current === revision) inFlight.current = null;
       if (revision === epoch.current) setBusy(false);
@@ -254,7 +261,7 @@ export default function ProviderConnections() {
       <section className={screen === "list" ? "gc-panel gc-accounts" : screen === "details" ? "gc-panel gc-detail-card" : "gc-panel gc-focus"}>
         {!["list", "details", "returning", "complete"].includes(screen) && <h2 id="provider-heading">{heading}</h2>}
         {["returning", "complete"].includes(screen) && <div className="pc-sign-in-result" role="status" aria-live="polite">
-          <LangflowLogo className="pc-handoff-logo" aria-hidden="true" />
+          <LangflowLogo className={`pc-handoff-logo ${screen === "complete" ? "pc-handoff-settled" : ""}`} aria-hidden="true" />
           <h2 id="provider-heading">{screen === "returning" ? "Finishing sign-in\u2026" : attempt?.status === "duplicate" ? "Already connected" : "Connection saved!"}</h2>
           {screen === "complete" && <p className="gc-muted">{attempt?.status === "duplicate" ? "You signed in to an account that is already connected. Your existing connection is unchanged." : reconnecting.current ? "You signed in to the same account again." : "Your account is ready to use."}</p>}
         </div>}

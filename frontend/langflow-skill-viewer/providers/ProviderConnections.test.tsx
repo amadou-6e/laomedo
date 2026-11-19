@@ -266,4 +266,34 @@ describe("saved provider Settings", () => {
     expect(sessionStorage.getItem("laomedo.provider-reconnecting")).toBeNull();
   });
 
+  it("leaves the returning state when another tab cancelled its receipt", async () => {
+    sessionStorage.setItem("laomedo.provider-attempt", "fixture");
+    (readProgress as jest.Mock).mockResolvedValue({ attempt_id: "fixture", status: "cancelled", connection_id: null, code: null });
+    render(<ProviderConnections />);
+    await screen.findByRole("heading", { name: "Providers" });
+    expect(screen.queryByText("Finishing sign-in…")).toBeNull();
+    expect(sessionStorage.getItem("laomedo.provider-attempt")).toBeNull();
+  });
+
+  it("replaces a failed callback read with recovery and can reconcile the same receipt", async () => {
+    sessionStorage.setItem("laomedo.provider-attempt", "fixture");
+    (listConnections as jest.Mock).mockRejectedValueOnce(new Error("network failure")).mockResolvedValue([account]);
+    (readProgress as jest.Mock).mockResolvedValue({ attempt_id: "fixture", status: "connected", connection_id: account.connection_id, code: null });
+    render(<ProviderConnections />);
+    await screen.findByRole("heading", { name: "Check connection" });
+    expect(screen.queryByText("Finishing sign-in…")).toBeNull();
+    expect(screen.getByRole("button", { name: "Try again" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+    await screen.findByRole("heading", { name: "Connection saved!" });
+    expect(readProgress).toHaveBeenCalledWith("fixture");
+    expect(beginLogin).not.toHaveBeenCalled();
+  });
+
+  it("ignores unknown login query values without showing an endless handoff", async () => {
+    window.history.replaceState(null, "", "/settings/providers?login=unknown");
+    render(<ProviderConnections />);
+    await screen.findByText("No providers connected");
+    expect(screen.getByRole("heading", { name: "Providers" })).toBeTruthy();
+  });
+
 });

@@ -2,6 +2,7 @@
 .pc-list-screen { display: grid; gap: 16px; }
 .pc-sign-in-result { min-height: 220px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; text-align: center; }
 .pc-handoff-logo { width: 56px; height: 56px; fill: currentColor; animation: pc-handoff-bob 1.5s ease-in-out infinite; }
+.pc-handoff-logo.pc-handoff-settled { animation: none; }
 .pc-sign-in-result h2, .pc-sign-in-result p { margin: 0; }
 @keyframes pc-handoff-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
 @media (prefers-reduced-motion: reduce) { .pc-handoff-logo { animation: none; } }
