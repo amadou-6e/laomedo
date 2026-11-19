@@ -1,6 +1,7 @@
 """Synthetic tests of the app-owned connection and rotating-token boundary."""
 
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 import tempfile
 import threading
@@ -172,6 +173,60 @@ class ChatGPTConnectionTests(unittest.TestCase):
                 with self.subTest(audience=audience, nonce=nonce):
                     with self.assertRaisesRegex(AuthError, "auth_identity_invalid"):
                         _verify_id_token(token, audience, nonce)
+
+    def test_id_token_accepts_small_clock_drift_but_refuses_large_or_expired_times(
+        self,
+    ):
+        """Fresh signed tokens tolerate bounded drift without disabling time checks."""
+        private = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+        now = int(time.time())
+        base = {
+            "iss": "https://auth.openai.com",
+            "aud": "oaiapp_fixture",
+            "sub": "subject",
+            "nonce": "nonce",
+            "exp": now + 600,
+        }
+        cases = (
+            ({"iat": now + 30}, True),
+            ({"nbf": now + 30}, True),
+            ({"iat": now + 31}, False),
+            ({"nbf": now + 31}, False),
+            ({"exp": now - 31}, False),
+        )
+        tokens = [
+            jwt.encode(
+                {**base, **times},
+                private,
+                algorithm="RS256",
+                headers={"kid": "fixture"},
+            )
+            for times, _accepted in cases
+        ]
+        with (
+            patch(
+                "laomedo.host.credentials.siwc.utils._https_json",
+                return_value={
+                    "jwks_uri": "https://auth.openai.com/.well-known/jwks.json"
+                },
+            ),
+            patch("laomedo.host.credentials.siwc.utils.jwt.PyJWKClient") as client,
+            patch("jwt.api_jwt.datetime") as jwt_clock,
+        ):
+            jwt_clock.now.return_value = datetime.fromtimestamp(now, timezone.utc)
+            client.return_value.get_signing_key_from_jwt.return_value.key = (
+                private.public_key()
+            )
+            for (times, accepted), token in zip(cases, tokens):
+                with self.subTest(times=times):
+                    if accepted:
+                        self.assertEqual(
+                            _verify_id_token(token, "oaiapp_fixture", "nonce")["sub"],
+                            "subject",
+                        )
+                    else:
+                        with self.assertRaisesRegex(AuthError, "auth_identity_invalid"):
+                            _verify_id_token(token, "oaiapp_fixture", "nonce")
 
     def test_wrong_state_scope_and_account_refuse_without_replacement(self):
         self._connect()

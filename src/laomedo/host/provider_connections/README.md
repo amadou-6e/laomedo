@@ -7,6 +7,10 @@ diagnostics distinguish exchange/verification from admission/publication without
 changing the browser's safe failure or credential-preservation contract.
 Pre-exchange binding refusals report only aggregate matching counts; query-shape
 refusals report a fixed phase. Callback values and identity metadata stay private.
+ID-token verification allows at most 30 seconds of clock drift for time claims.
+Signature, issuer, audience, expiry, subject and nonce validation remain enforced;
+tokens outside the bound are refused. This covers fresh tokens issued slightly
+ahead of the local clock without importing or disabling provider authentication.
 
 Provider extension: `ConnectionRecord.provider` identifies the credential owner;
 graph preferences have a separate optional selector for each harness. Every saved

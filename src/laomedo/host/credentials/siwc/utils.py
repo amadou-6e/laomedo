@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from laomedo.host.credentials.siwc.errors import AuthError
 from laomedo.host.credentials.siwc.settings import AUTH_ORIGIN
+from laomedo.host.credentials.siwc.settings import ID_TOKEN_CLOCK_SKEW_SECONDS
 
 from contextlib import contextmanager
 from pathlib import Path
@@ -113,6 +114,7 @@ def _verify_id_token(token: str, client_id: str, nonce: str) -> dict:
             algorithms=["RS256"],
             audience=client_id,
             issuer=AUTH_ORIGIN,
+            leeway=ID_TOKEN_CLOCK_SKEW_SECONDS,
             options={"require": ["exp", "iss", "aud", "sub"]},
         )
         if not isinstance(claims.get("sub"), str) or not secrets.compare_digest(
