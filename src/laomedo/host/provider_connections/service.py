@@ -655,6 +655,12 @@ class ProviderConnections:
                 }:
                     item.progress.status = "cancelled"
 
+    def check_lease(self, lease_hash: str) -> None:
+        """Refuse a logged-out browser without changing saved provider records."""
+        with self._lock:
+            if self._closing or lease_hash in self.revoked_leases:
+                raise ProviderConnectionError("provider_session_required")
+
     def cancel_lease(self, lease_hash: str) -> None:
         """Fence an outgoing browser session without reading its raw credential."""
         with self._lock:

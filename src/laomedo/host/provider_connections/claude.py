@@ -230,12 +230,16 @@ class ClaudeConnection:
         item.ready.wait(8)
         return self.details(profile_id, attempt_id)
 
-    def details(self, profile_id, attempt_id):
+    def details(self, profile_id, attempt_id, *, lease_hash=None):
         """Observe this owner's receipt and native URL without replaying sign-in."""
         with self.service._lock:
             item = self.attempts.get(attempt_id)
             if item is None or item.profile_id != profile_id:
                 raise ProviderConnectionError("provider_login_expired")
+            if lease_hash is not None:
+                self.service.check_lease(lease_hash)
+                if item.lease_hash != lease_hash:
+                    raise ProviderConnectionError("provider_login_expired")
             if time.monotonic() >= item.expires_at and item.progress.status in {
                 "connecting",
                 "verifying",

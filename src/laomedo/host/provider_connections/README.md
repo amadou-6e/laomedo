@@ -125,3 +125,9 @@ on the global lifecycle lock. Shutdown fences admissions immediately and retains
 the custody lease until cancelled native workers settle, even after its foreground
 cleanup budget ends. A committed reconnect with old-volume cleanup uncertainty
 remains connected and reports that separate cleanup outcome.
+
+`ProviderConnections.check_lease()` refuses requests from a browser lease already
+revoked by logout/profile switching, including reads and account-management
+writes. It does not delete saved connections. `ClaudeConnection.details()` accepts
+an optional trusted-call lease; HTTP callers must pass the initiating lease before
+receiving the native authorization link. Generic progress never exposes that link.

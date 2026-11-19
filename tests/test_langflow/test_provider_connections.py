@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -72,6 +72,27 @@ class ProviderRouteTests(unittest.TestCase):
             self.assertEqual(response.status_code, 403)
         self.assertEqual(self.service._attempts, {})
 
+    def test_logged_out_cookie_cannot_read_or_manage_saved_connections(self):
+        """An otherwise authenticated retained JWT cannot bypass local logout."""
+        self.client.post("/api/v1/logout", headers=self.headers)
+        root = "/api/v1/laomedo/provider-connections"
+        identifier = str(uuid4())
+        for method, path, payload in (
+            ("GET", root, None),
+            ("POST", root + "/attempts", {"provider": "codex"}),
+            ("GET", root + "/graphs/" + identifier, None),
+            ("PUT", root + "/graphs/" + identifier, {}),
+            ("POST", root + "/" + identifier + "/disconnect", {}),
+        ):
+            with self.subTest(method=method, path=path):
+                response = self.client.request(
+                    method, path, json=payload, headers=self.headers
+                )
+                self.assertEqual(response.status_code, 401)
+                self.assertEqual(
+                    response.json()["detail"]["code"], "provider_session_required"
+                )
+
     def test_cookie_is_mandatory_even_when_an_api_identity_exists(self):
         """An API-key/header identity cannot stand in for a browser-session lease."""
         self.client.cookies.clear()
@@ -127,8 +148,11 @@ class ProviderRouteTests(unittest.TestCase):
         )
         receipt = self.client.get(
             "/api/v1/laomedo/provider-connections/attempts/" + attempt_id
-        ).json()
-        self.assertEqual(receipt["status"], "cancelled")
+        )
+        self.assertEqual(receipt.status_code, 401)
+        self.assertEqual(
+            self.service.progress(self.profile, UUID(attempt_id)).status, "cancelled"
+        )
 
     def test_native_return_is_bound_to_cookie_and_redirects_without_oauth_query(self):
         """Provider query data never appears in the returned Settings URL."""

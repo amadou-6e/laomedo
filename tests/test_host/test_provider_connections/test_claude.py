@@ -239,6 +239,18 @@ class ClaudeConnectionTests(unittest.TestCase):
             session=Mock(),
         )
         self.service.claude.attempts[attempt_id] = item
+        item.authorization_url = SecretStr(
+            "https://claude.com/cai/oauth/authorize?state=fixture"
+        )
+        with self.assertRaises(ProviderConnectionError):
+            self.service.claude.details(
+                self.profile, attempt_id, lease_hash="other-lease"
+            )
+        self.assertIsNotNone(
+            self.service.claude.details(
+                self.profile, attempt_id, lease_hash="own-lease"
+            )["authorization_url"]
+        )
         with self.assertRaises(ProviderConnectionError):
             self.service.claude.submit(
                 uuid4(), attempt_id, SecretStr("fixture-code"), lease_hash="own-lease"
@@ -265,5 +277,9 @@ class ClaudeConnectionTests(unittest.TestCase):
                 lease_hash="own-lease",
             )
         self.service.cancel_lease("own-lease")
+        with self.assertRaises(ProviderConnectionError):
+            self.service.claude.details(
+                self.profile, attempt_id, lease_hash="own-lease"
+            )
         self.assertTrue(item.cancelled.is_set())
         self.assertEqual(item.progress.status, "cancelled")

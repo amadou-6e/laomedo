@@ -19,7 +19,7 @@ from laomedo.host.provider_connections.models import (
 )
 
 
-def session_lease(request: Request) -> str:
+def session_lease(request: Request, service) -> str:
     """Require an authenticated browser cookie, without exposing it downstream."""
     cookie = request.cookies.get("access_token_lf")
     if (
@@ -29,7 +29,12 @@ def session_lease(request: Request) -> str:
         or "x-api-key" in request.query_params
     ):
         raise HTTPException(401, detail={"code": "provider_session_required"})
-    return hashlib.sha256(cookie.encode()).hexdigest()
+    lease = hashlib.sha256(cookie.encode()).hexdigest()
+    try:
+        service.check_lease(lease)
+    except ProviderConnectionError:
+        raise HTTPException(401, detail={"code": "provider_session_required"}) from None
+    return lease
 
 
 def install_provider_routes(app, service, authenticate, *, origin: str):
@@ -51,7 +56,7 @@ def install_provider_routes(app, service, authenticate, *, origin: str):
     @app.get(prefix)
     async def list_connections(request: Request, user=Depends(authenticate)):
         """Read only the currently authenticated profile's safe connection rows."""
-        session_lease(request)
+        session_lease(request, service)
 
         def rows():
             """Serialize typed safe projections outside the event loop."""
@@ -85,7 +90,7 @@ def install_provider_routes(app, service, authenticate, *, origin: str):
         flow_id: UUID, request: Request, user=Depends(authenticate)
     ):
         """Read only the current owner's graph-specific preference."""
-        session_lease(request)
+        session_lease(request, service)
         await owned_graph(flow_id, user)
         return await respond(
             lambda: service.graph_preferences(user.id, flow_id).model_dump(mode="json")
@@ -99,7 +104,7 @@ def install_provider_routes(app, service, authenticate, *, origin: str):
         user=Depends(authenticate),
     ):
         """Set a graph preference through an explicit same-origin authenticated write."""
-        session_lease(request)
+        session_lease(request, service)
         if request.headers.get("origin") != origin:
             raise HTTPException(403, detail={"code": "provider_request_refused"})
         await owned_graph(flow_id, user)
@@ -112,7 +117,7 @@ def install_provider_routes(app, service, authenticate, *, origin: str):
     @app.post(prefix + "/attempts")
     async def begin_login(request: Request, user=Depends(authenticate)):
         """Start one explicit Codex plan authorization, never on a read or mount."""
-        lease = session_lease(request)
+        lease = session_lease(request, service)
         if request.headers.get("origin") != origin:
             raise HTTPException(403, detail={"code": "provider_request_refused"})
         try:
@@ -147,7 +152,7 @@ def install_provider_routes(app, service, authenticate, *, origin: str):
     @app.post(prefix + "/opencode-go")
     async def save_go_connection(request: Request, user=Depends(authenticate)):
         """Admit an explicitly submitted Go key without any inference or host import."""
-        lease = session_lease(request)
+        lease = session_lease(request, service)
         if request.headers.get("origin") != origin:
             raise HTTPException(403, detail={"code": "provider_request_refused"})
         try:
@@ -176,15 +181,17 @@ def install_provider_routes(app, service, authenticate, *, origin: str):
         attempt_id: UUID, request: Request, user=Depends(authenticate)
     ):
         """Read only the owner's native receipt and provider-owned sign-in link."""
-        session_lease(request)
-        return await respond(lambda: service.claude.details(user.id, attempt_id))
+        lease = session_lease(request, service)
+        return await respond(
+            lambda: service.claude.details(user.id, attempt_id, lease_hash=lease)
+        )
 
     @app.post(prefix + "/claude/attempts/{attempt_id}/code")
     async def claude_code(
         attempt_id: UUID, request: Request, user=Depends(authenticate)
     ):
         """Relay one explicit code submission into the same official native process."""
-        lease = session_lease(request)
+        lease = session_lease(request, service)
         if request.headers.get("origin") != origin:
             raise HTTPException(403, detail={"code": "provider_request_refused"})
         try:
@@ -209,7 +216,7 @@ def install_provider_routes(app, service, authenticate, *, origin: str):
         connection_id: UUID, request: Request, user=Depends(authenticate)
     ):
         """Inspect affected runs before an explicit connection-removal confirmation."""
-        session_lease(request)
+        session_lease(request, service)
         return await respond(
             lambda: service.disconnect_info(user.id, connection_id).model_dump(
                 mode="json"
@@ -221,7 +228,7 @@ def install_provider_routes(app, service, authenticate, *, origin: str):
         connection_id: UUID, request: Request, user=Depends(authenticate)
     ):
         """Fence only the inspected local connection and reconcile its native cleanup."""
-        session_lease(request)
+        session_lease(request, service)
         if request.headers.get("origin") != origin:
             raise HTTPException(403, detail={"code": "provider_request_refused"})
         data = bytearray()
@@ -246,7 +253,7 @@ def install_provider_routes(app, service, authenticate, *, origin: str):
         connection_id: UUID, request: Request, user=Depends(authenticate)
     ):
         """Retry an already-fenced cleanup; this never reauthorizes a connection."""
-        session_lease(request)
+        session_lease(request, service)
         if request.headers.get("origin") != origin:
             raise HTTPException(403, detail={"code": "provider_request_refused"})
         body = bytearray()
@@ -267,7 +274,7 @@ def install_provider_routes(app, service, authenticate, *, origin: str):
         attempt_id: UUID, request: Request, user=Depends(authenticate)
     ):
         """Observe a bounded attempt without replaying authorization."""
-        session_lease(request)
+        session_lease(request, service)
         return await respond(
             lambda: service.progress(user.id, attempt_id).model_dump(mode="json")
         )
@@ -277,7 +284,7 @@ def install_provider_routes(app, service, authenticate, *, origin: str):
         attempt_id: UUID, request: Request, user=Depends(authenticate)
     ):
         """Fence a native return before navigating back to saved connections."""
-        session_lease(request)
+        session_lease(request, service)
         if request.headers.get("origin") != origin:
             raise HTTPException(403, detail={"code": "provider_request_refused"})
         return await respond(
@@ -289,7 +296,7 @@ def install_provider_routes(app, service, authenticate, *, origin: str):
         """Validate a native top-level return and remove its query from the UI."""
         if request.headers.get("host") != urlsplit(origin).netloc:
             raise HTTPException(403, detail={"code": "provider_request_refused"})
-        lease = session_lease(request)
+        lease = session_lease(request, service)
         query = request.query_params
         if len(query) > 12 or any(
             len(query.getlist(key)) != 1 or len(query[key]) > 8192 for key in query
