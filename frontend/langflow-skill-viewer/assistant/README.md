@@ -163,6 +163,8 @@ The chat ID and native thread ID are separately labelled.
 Copy/export continue to preserve the original native response.
 Executed native command messages are plain right-aligned text, without the normal
 user-message bubble. Ordinary user messages retain their existing appearance.
+Ordinary message bubbles hug their text and padding, remain right-aligned, and
+wrap within the existing maximum width for long or multiline content.
 
 Model discovery has its own loading state: switching conversations never locks
 the draft editor while model discovery or history is loading. Sending still waits

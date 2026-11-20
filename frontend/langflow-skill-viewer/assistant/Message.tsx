@@ -35,7 +35,7 @@ export function UserMessage({
             })
           : "\u00a0"}
       </p>
-      <div className={command ? "text-right text-muted-foreground" : "rounded-xl rounded-tr-sm border bg-muted/50 px-4 py-3"}>
+      <div className={command ? "text-right text-muted-foreground" : "ml-auto w-fit max-w-full rounded-xl rounded-tr-sm border bg-muted/50 px-4 py-3"}>
         <p className="whitespace-pre-wrap break-words text-sm leading-[1.7142857]">
           {text}
         </p>
