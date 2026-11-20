@@ -10,18 +10,21 @@ from pydantic import SecretStr
 
 from laomedo.host.credentials.siwc.utils import _atomic_private
 from laomedo.host.credentials.siwc.utils import _restrict_windows_directory
-from laomedo.host.provider_connections.errors import ProviderConnectionError
-from laomedo.host.provider_connections.models import ConnectionRecord
-from laomedo.host.provider_connections.models import ConnectionSummary
+from laomedo.agents.connections.base import BaseProviderConnection
+from laomedo.agents.connections.errors import ProviderConnectionError
+from laomedo.agents.connections.models import ConnectionRecord
+from laomedo.agents.connections.models import ConnectionSummary
 
 
-class GoConnection:
+class GoConnection(BaseProviderConnection):
     """Keep one key per private revision; never borrow an ambient Console login.
 
     Keys carry no verified account identity. Exact repeated keys are detected;
     different keys for the same upstream account cannot be deduplicated here.
     Saving performs no inference and does not claim that the key is valid upstream.
     """
+
+    provider = "opencode"
 
     def __init__(self, service):
         """Reuse the profile owner's admission lock, index and private root."""
@@ -52,7 +55,7 @@ class GoConnection:
             for record in records:
                 if record.provider == "opencode" and record.subject_hash == digest:
                     return self.summary(profile_id, record), True
-            from laomedo.host.provider_connections.settings import MAX_CONNECTIONS
+            from laomedo.agents.connections.settings import MAX_CONNECTIONS
 
             if len(records) >= MAX_CONNECTIONS:
                 raise ProviderConnectionError("provider_connection_limit")
@@ -154,3 +157,16 @@ class GoConnection:
                     re.escape(name) + r"\.pending-[0-9a-f]{32}", pending.name
                 ):
                     pending.unlink()
+
+    def owns(self, vault):
+        """Admit a marked Go key vault before other provider fallbacks."""
+        return (vault / "go-custody.json").exists()
+
+    def reconcile_orphan(self, root, active=False):
+        """Keep admitted keys; remove only an unowned marked revision."""
+        if not active:
+            self.erase(root)
+
+    def erase_revision(self, profile_id, record):
+        """Erase the exact admitted key revision after native cleanup."""
+        self.erase(self.service._profile(profile_id) / str(record.credential_id))

@@ -76,3 +76,7 @@ before configuration or prompt dispatch; saved selections are never substituted.
 its native runtime factory. Supplying both a profile and a transport factory is
 refused. Application callers construct the Agent through `AgentProviderRegistry`;
 they never import or construct the provider's private runtime.
+
+## Saved account connections
+
+`connection.py` is the provider boundary. GoConnection owns save/profile/summary/erase for explicit Go subscription keys. It reports custody rather than verified identity and has no asynchronous browser login workers. Exact repeated keys reuse the existing connection. The shared Agent connection service owns admission/index fencing; host storage and profile authorization remain separate.

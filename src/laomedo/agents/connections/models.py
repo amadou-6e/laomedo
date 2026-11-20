@@ -1,10 +1,8 @@
 """Persisted connection identity and safe Settings projections."""
 
+from pathlib import Path
 from typing import Any, Literal
 from uuid import UUID
-from pathlib import Path
-import hashlib
-import json
 
 from pydantic import BaseModel, ConfigDict, Field, SecretStr
 
@@ -236,57 +234,6 @@ class SubmitClaudeCode(BaseModel):
     )
 
 
-class PendingLogin(BaseModel):
-    """Process-local attempt secret, never serialized to Settings or persisted."""
-
-    model_config = ConfigDict(extra="forbid")
-    exchanging: bool = Field(
-        default=False,
-        exclude=True,
-        description="Native exchange/cleanup is in flight even if its receipt was fenced.",
-    )
-    profile_id: UUID = Field(
-        exclude=True, description="Authenticated profile owning the attempt."
-    )
-    lease_hash: str = Field(
-        exclude=True,
-        repr=False,
-        description="Digest of the originating browser session, fenced on logout.",
-    )
-    candidate_id: UUID = Field(
-        exclude=True, description="Proposed or reconnecting connection."
-    )
-    oauth: SecretStr = Field(
-        exclude=True, description="Serialized private PKCE and nonce state."
-    )
-    stage: Path = Field(
-        exclude=True,
-        repr=False,
-        description="Private unadmitted token staging directory.",
-    )
-    expires_at: float = Field(
-        exclude=True, description="Monotonic expiry for this process only."
-    )
-    previous: ConnectionRecord | None = Field(
-        default=None,
-        exclude=True,
-        description="Exact prior generation for reconnect admission.",
-    )
-    publication: ConnectionRecord | None = Field(
-        default=None,
-        exclude=True,
-        description="Proposed admission pointer retained for uncertain-write reconciliation.",
-    )
-    superseded_scrubbed: bool = Field(
-        default=False,
-        exclude=True,
-        description="Whether this attempt's prior local token copy has been removed.",
-    )
-    progress: LoginProgress = Field(
-        description="Safe observation of the attempt lifecycle."
-    )
-
-
 class GraphProviderPreferences(BaseModel):
     """Local graph preference; no credentials or portable account binding."""
 
@@ -301,115 +248,4 @@ class GraphProviderPreferences(BaseModel):
     opencode: UUID | None = Field(
         default=None,
         description="Preferred OpenCode Go connection for this graph only.",
-    )
-
-
-class ClaudeNativeProfile(BaseModel):
-    """Host-only ownership of a native volume; never a credential projection."""
-
-    model_config = ConfigDict(extra="forbid", frozen=True)
-    name: str = Field(
-        pattern=r"^laomedo-claude-connection-[0-9a-f]{32}$",
-        description="Opaque Docker volume name selected by this host.",
-    )
-    labels: dict[str, str] = Field(
-        repr=False,
-        description="Exact SDK ownership labels required before volume mutation.",
-    )
-    docker_endpoint: str = Field(
-        repr=False,
-        description="Original daemon endpoint; never switch daemons during recovery.",
-    )
-    image_id: str = Field(
-        pattern=r"^sha256:[0-9a-f]{64}$",
-        description="Immutable official-client image used for authentication.",
-    )
-
-
-class ClaudeAccountIdentity(BaseModel):
-    """Public account/workspace identity verified by official native auth status."""
-
-    email: str = Field(
-        min_length=1,
-        max_length=100,
-        description="Native client's provider-verified account email.",
-    )
-    organization_id: str = Field(
-        min_length=1, description="Native client's verified workspace identifier."
-    )
-
-    def subject_hash(self) -> str:
-        """Return the stable local account/workspace digest without any token input."""
-        return hashlib.sha256(
-            json.dumps(
-                {"email": self.email.casefold(), "orgId": self.organization_id},
-                sort_keys=True,
-            ).encode()
-        ).hexdigest()
-
-
-class ClaudeLoginAttempt(BaseModel):
-    """Process-local native login; every live handle and URL is excluded."""
-
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-    profile_id: UUID = Field(
-        exclude=True, description="Authenticated local profile owning the attempt."
-    )
-    lease_hash: str = Field(
-        exclude=True,
-        repr=False,
-        description="Originating browser lease, fenced on logout.",
-    )
-    candidate_id: UUID = Field(
-        exclude=True, description="New or reconnecting saved connection."
-    )
-    credential_id: UUID = Field(
-        exclude=True, description="Fresh immutable native volume revision."
-    )
-    previous: ConnectionRecord | None = Field(
-        default=None,
-        exclude=True,
-        description="Committed connection preserved until successful replacement.",
-    )
-    expires_at: float = Field(
-        exclude=True, description="Monotonic native attempt expiry."
-    )
-    progress: LoginProgress = Field(description="Safe observable attempt state.")
-    authorization_url: SecretStr | None = Field(
-        default=None,
-        exclude=True,
-        repr=False,
-        description="Official-client URL, only relayed to the owning browser.",
-    )
-    session: Any = Field(
-        default=None,
-        exclude=True,
-        repr=False,
-        description="Live creator-owned native stdin session.",
-    )
-    cancelled: Any = Field(
-        exclude=True,
-        repr=False,
-        description="Cancellation event observed by the native lifecycle.",
-    )
-    ready: Any = Field(
-        exclude=True,
-        repr=False,
-        description="Event announcing a URL or a terminal failure.",
-    )
-    worker: Any = Field(
-        default=None,
-        exclude=True,
-        repr=False,
-        description="Owning worker; joined before final store closure.",
-    )
-    submitted: bool = Field(
-        default=False,
-        exclude=True,
-        description="Whether this attempt consumed its one code submission.",
-    )
-    settled: bool = Field(
-        default=False,
-        exclude=True,
-        description="Whether native session cleanup and publication have settled.",
     )

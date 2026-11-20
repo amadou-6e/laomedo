@@ -30,7 +30,7 @@ class LocalProfileRuntime:
         self.admission.prepare(get_settings_service())
         app.state.local_profiles_enabled = True
         app.state.local_profile_registry = LocalProfileRegistry()
-        from laomedo.host.provider_connections.service import ProviderConnections
+        from laomedo.agents.connections.service import ProviderConnections
         from laomedo.integrations.langflow.provider_connections.routes import (
             install_provider_routes,
         )
@@ -40,7 +40,7 @@ class LocalProfileRuntime:
         from langflow.services.auth.utils import get_current_active_user
 
         providers = ProviderConnections(self.admission.root / "provider-connections")
-        from laomedo.host.provider_connections.controllers import ProviderControllers
+        from laomedo.agents.connections.controllers import ProviderControllers
 
         ProviderControllers(
             providers,

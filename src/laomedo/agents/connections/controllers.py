@@ -8,11 +8,11 @@ from pathlib import Path
 from uuid import UUID
 from urllib.parse import urlsplit
 
-from laomedo.host.provider_connections.credentials import SavedConnectionCredential
-from laomedo.host.provider_connections.credentials import SavedClaudeConnection
+from laomedo.agents.connections.credentials import SavedConnectionCredential
+from laomedo.agents.connections.credentials import SavedClaudeConnection
 from laomedo.docker import DockerRuntime
-from laomedo.host.provider_connections.errors import ProviderConnectionError
-from laomedo.host.provider_connections.models import ControllerSlot
+from laomedo.agents.connections.errors import ProviderConnectionError
+from laomedo.agents.connections.models import ControllerSlot
 from laomedo.host.runner.http.server import RunnerServer
 from laomedo.host.runner.http.handler import RunnerRequestHandler
 from laomedo.agents.errors import RunnerError
@@ -22,6 +22,17 @@ from laomedo.host.credentials.siwc.utils import _outside_git
 
 class SavedRunnerRequestHandler(RunnerRequestHandler):
     """Keep the old runner protocol, with a saved-connection admission fence."""
+
+    def do_GET(self):
+        """Allow evidence reads after fencing; guard native catalogue startup."""
+        self._serve("GET")
+
+    def do_POST(self):
+        """Guard new/resumed work while retaining cancellation and evidence routes."""
+        self._serve("POST")
+
+    def log_message(self, *_args):
+        """Do not emit private request identifiers or native bodies to host logs."""
 
     def _serve(self, method):
         """Track native-starting requests before crossing the lifecycle fence."""
@@ -80,17 +91,6 @@ class SavedRunnerRequestHandler(RunnerRequestHandler):
                     self.server.slot.operations -= 1
                     if method == "GET":
                         self.server.slot.catalog_operations -= 1
-
-    def do_GET(self):
-        """Allow evidence reads after fencing; guard native catalogue startup."""
-        self._serve("GET")
-
-    def do_POST(self):
-        """Guard new/resumed work while retaining cancellation and evidence routes."""
-        self._serve("POST")
-
-    def log_message(self, *_args):
-        """Do not emit private request identifiers or native bodies to host logs."""
 
 
 class SavedRunnerServer(RunnerServer):
@@ -172,25 +172,6 @@ class ProviderControllers:
             self._cleanups[key] = worker
             worker.start()
 
-    def _finish_cleanup(self, profile_id, connection_id):
-        """Poll owned stop state only; no replay, login or model request occurs."""
-        while not self._stopping.wait(1):
-            try:
-                result = self.service.retry_cleanup(profile_id, connection_id)
-            except (ProviderConnectionError, OSError, ValueError):
-                return
-            if result.status != "disconnecting":
-                return
-
-    @staticmethod
-    def _native_failures():
-        """Recognize native operational failures only when the optional SDK exists."""
-        try:
-            from py_docker.errors import DockerOperationError
-        except ImportError:
-            return ()
-        return (DockerOperationError,)
-
     def recover(self):
         """Reconcile recorded owned controllers before dispatch, without replaying turns."""
         for profile in self.root.iterdir():
@@ -233,83 +214,6 @@ class ProviderControllers:
                         # Keep the failed slot: Settings remains available, but
                         # removal must retry recovery before confirming cleanup.
                         continue
-
-    def _create(self, profile_id, connection_id, generation, *, recovery=False):
-        """Reserve startup before slow Docker work so disconnect cannot miss it."""
-        key = (profile_id, connection_id, generation)
-        with self.service._lock:
-            if self.closed:
-                raise ProviderConnectionError("provider_runner_unavailable")
-            if not recovery:
-                self.service.admitted(profile_id, connection_id, generation)
-            existing = self.slots.get(key)
-            if existing and (existing.creating or existing.server is not None):
-                return existing
-            state = (
-                self.root
-                / str(profile_id)
-                / str(connection_id)
-                / ("g" + str(generation))
-            )
-            slot = ControllerSlot(
-                profile_id=profile_id,
-                connection_id=connection_id,
-                generation=generation,
-                state=state,
-                revision=existing.revision + 1 if existing else 1,
-            )
-            self.slots[key] = slot
-        try:
-            if self.source is None:
-                raise ProviderConnectionError("provider_runner_unavailable")
-            record = self.service._record(profile_id, connection_id)
-            if record.provider == "claude" and self.factory is None:
-                auth = SavedClaudeConnection(
-                    self.service, profile_id, connection_id, generation
-                )
-                native = self.service.claude.profile(profile_id, record)
-                runner = AgentProviderRegistry.create_agent(
-                    "claude",
-                    state,
-                    self.skill_store,
-                    self.source,
-                    profile_volume=native.name,
-                    image=native.image_id,
-                    lease_service=self.root.parent / "provider-leases",
-                    auth_connection=auth,
-                )
-            elif record.provider == "opencode" and self.factory is None:
-                runner = AgentProviderRegistry.create_agent(
-                    "opencode",
-                    state,
-                    self.skill_store,
-                    self.source,
-                    profile=self.service.go.profile(profile_id, record),
-                )
-            else:
-                if record.provider != "codex":
-                    raise ProviderConnectionError("provider_method_unavailable")
-                auth = SavedConnectionCredential(
-                    self.service, profile_id, connection_id, generation
-                )
-                factory = self.factory or partial(
-                    AgentProviderRegistry.create_agent, "codex"
-                )
-                runner = factory(
-                    state,
-                    self.skill_store,
-                    self.source,
-                    split_executor=True,
-                    auth_connection=auth,
-                )
-            with self.service._lock:
-                slot.runner = runner
-                slot.server = SavedRunnerServer(self, slot)
-                threading.Thread(target=slot.server.serve_forever, daemon=True).start()
-            return slot
-        finally:
-            with self.service._lock:
-                slot.creating = False
 
     def connection_for_run(self, profile_id, run_id):
         """Resolve a retained run from this owner's authoritative inventory, never preferences."""
@@ -400,13 +304,6 @@ class ProviderControllers:
                 int(slot.runner is not None and slot.runner.lock.locked()),
             ) + int(slot.creating)
         return count, revision
-
-    def _records(self, slot):
-        """Read only this slot's retained run inventory; malformed state fails closed."""
-        return [
-            json.loads(path.read_text(encoding="utf-8"))
-            for path in (slot.state / "runs").glob("*/record.json")
-        ]
 
     def stop(self, profile_id, connection_id):
         """Cancel exact owned runs; unknown receipt cleanup never counts as removed."""
@@ -508,3 +405,106 @@ class ProviderControllers:
                 slot.server.server_close()
         if type(self)._current is self:
             type(self)._current = None
+
+    def _finish_cleanup(self, profile_id, connection_id):
+        """Poll owned stop state only; no replay, login or model request occurs."""
+        while not self._stopping.wait(1):
+            try:
+                result = self.service.retry_cleanup(profile_id, connection_id)
+            except (ProviderConnectionError, OSError, ValueError):
+                return
+            if result.status != "disconnecting":
+                return
+
+    @staticmethod
+    def _native_failures():
+        """Recognize native operational failures only when the optional SDK exists."""
+        try:
+            from py_docker.errors import DockerOperationError
+        except ImportError:
+            return ()
+        return (DockerOperationError,)
+
+    def _create(self, profile_id, connection_id, generation, *, recovery=False):
+        """Reserve startup before slow Docker work so disconnect cannot miss it."""
+        key = (profile_id, connection_id, generation)
+        with self.service._lock:
+            if self.closed:
+                raise ProviderConnectionError("provider_runner_unavailable")
+            if not recovery:
+                self.service.admitted(profile_id, connection_id, generation)
+            existing = self.slots.get(key)
+            if existing and (existing.creating or existing.server is not None):
+                return existing
+            state = (
+                self.root
+                / str(profile_id)
+                / str(connection_id)
+                / ("g" + str(generation))
+            )
+            slot = ControllerSlot(
+                profile_id=profile_id,
+                connection_id=connection_id,
+                generation=generation,
+                state=state,
+                revision=existing.revision + 1 if existing else 1,
+            )
+            self.slots[key] = slot
+        try:
+            if self.source is None:
+                raise ProviderConnectionError("provider_runner_unavailable")
+            record = self.service._record(profile_id, connection_id)
+            if record.provider == "claude" and self.factory is None:
+                auth = SavedClaudeConnection(
+                    self.service, profile_id, connection_id, generation
+                )
+                native = self.service.claude.profile(profile_id, record)
+                runner = AgentProviderRegistry.create_agent(
+                    "claude",
+                    state,
+                    self.skill_store,
+                    self.source,
+                    profile_volume=native.name,
+                    image=native.image_id,
+                    lease_service=self.root.parent / "provider-leases",
+                    auth_connection=auth,
+                )
+            elif record.provider == "opencode" and self.factory is None:
+                runner = AgentProviderRegistry.create_agent(
+                    "opencode",
+                    state,
+                    self.skill_store,
+                    self.source,
+                    profile=self.service.go.profile(profile_id, record),
+                )
+            else:
+                if record.provider != "codex":
+                    raise ProviderConnectionError("provider_method_unavailable")
+                auth = SavedConnectionCredential(
+                    self.service, profile_id, connection_id, generation
+                )
+                factory = self.factory or partial(
+                    AgentProviderRegistry.create_agent, "codex"
+                )
+                runner = factory(
+                    state,
+                    self.skill_store,
+                    self.source,
+                    split_executor=True,
+                    auth_connection=auth,
+                )
+            with self.service._lock:
+                slot.runner = runner
+                slot.server = SavedRunnerServer(self, slot)
+                threading.Thread(target=slot.server.serve_forever, daemon=True).start()
+            return slot
+        finally:
+            with self.service._lock:
+                slot.creating = False
+
+    def _records(self, slot):
+        """Read only this slot's retained run inventory; malformed state fails closed."""
+        return [
+            json.loads(path.read_text(encoding="utf-8"))
+            for path in (slot.state / "runs").glob("*/record.json")
+        ]

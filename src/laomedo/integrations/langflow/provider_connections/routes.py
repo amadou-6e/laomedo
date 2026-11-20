@@ -10,8 +10,8 @@ from urllib.parse import urlsplit
 from starlette.concurrency import run_in_threadpool
 from starlette.responses import JSONResponse, RedirectResponse
 
-from laomedo.host.provider_connections.errors import ProviderConnectionError
-from laomedo.host.provider_connections.models import (
+from laomedo.agents.connections.errors import ProviderConnectionError
+from laomedo.agents.connections.models import (
     GraphProviderPreferences,
     StartProviderLogin,
     DisconnectRequest,

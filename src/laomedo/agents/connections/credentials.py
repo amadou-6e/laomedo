@@ -2,8 +2,8 @@
 
 from laomedo.host.credentials.siwc.connection import ChatGPTConnection
 from laomedo.host.credentials.siwc.errors import AuthError
-from laomedo.host.provider_connections.errors import ProviderConnectionError
-from laomedo.host.provider_connections.models import ClaudeAccountIdentity
+from laomedo.agents.connections.errors import ProviderConnectionError
+from laomedo.agents.agents.claude.models import ClaudeAccountIdentity
 from laomedo.agents.errors import RunnerError
 
 
@@ -50,7 +50,7 @@ class SavedConnectionCredential:
                 record = self.service.admitted(
                     self.profile_id, self.connection_id, self.generation
                 )
-                account = self.service._broker(
+                account = self.service.codex._broker(
                     self.profile_id, record.credential_id
                 ).account(client_id)
                 return {**account, "connection_generation": record.generation}

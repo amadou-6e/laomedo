@@ -16,13 +16,13 @@ from pydantic import SecretStr
 from laomedo.agents.agents.base.models import CredentialRequest
 from laomedo.agents.agents.claude.credentials import ClaudeCredentialProvider
 from laomedo.agents.errors import RunnerError
-from laomedo.host.provider_connections.credentials import SavedClaudeConnection
-from laomedo.host.provider_connections.errors import ProviderConnectionError
-from laomedo.host.provider_connections.models import ClaudeAccountIdentity
-from laomedo.host.provider_connections.models import ClaudeLoginAttempt
-from laomedo.host.provider_connections.models import ConnectionRecord
-from laomedo.host.provider_connections.models import LoginProgress
-from laomedo.host.provider_connections.service import ProviderConnections
+from laomedo.agents.connections.credentials import SavedClaudeConnection
+from laomedo.agents.connections.errors import ProviderConnectionError
+from laomedo.agents.agents.claude.models import ClaudeAccountIdentity
+from laomedo.agents.agents.claude.models import ClaudeLoginAttempt
+from laomedo.agents.connections.models import ConnectionRecord
+from laomedo.agents.connections.models import LoginProgress
+from laomedo.agents.connections.service import ProviderConnections
 
 
 class ClaudeConnectionTests(unittest.TestCase):
@@ -101,7 +101,7 @@ class ClaudeConnectionTests(unittest.TestCase):
         self.service.close()
         with (
             patch(
-                "laomedo.host.provider_connections.claude.ClaudeConnection.erase",
+                "laomedo.agents.agents.claude.connection.ClaudeConnection.erase",
                 side_effect=DockerOperationError("daemon offline"),
             ),
             self.assertLogs(level="WARNING"),
@@ -217,10 +217,7 @@ class ClaudeConnectionTests(unittest.TestCase):
         item = SimpleNamespace(worker=worker, cancelled=threading.Event())
         self.service.claude.attempts[uuid4()] = item
         try:
-            with patch(
-                "laomedo.host.provider_connections.service.NATIVE_AUTH_CLEANUP_SECONDS",
-                0.01,
-            ):
+            with patch.object(self.service.claude, "cleanup_seconds", 0.01):
                 self.service.close()
             self.assertTrue(item.cancelled.is_set())
             self.assertTrue(worker.is_alive())
@@ -272,7 +269,7 @@ class ClaudeConnectionTests(unittest.TestCase):
         native.read_frame.return_value = None
         native.wait.return_value = 0
         with (
-            patch("laomedo.host.provider_connections.claude.DockerRuntime") as runtime,
+            patch("laomedo.agents.agents.claude.connection.DockerRuntime") as runtime,
             patch("py_docker.sessions.models.ContainerSession"),
             patch.object(connection, "_create_profile", return_value=Mock()),
             patch.object(connection, "_spec", return_value=Mock()),

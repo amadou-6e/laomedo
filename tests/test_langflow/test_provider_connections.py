@@ -12,8 +12,8 @@ from uuid import UUID, uuid4
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from laomedo.host.provider_connections.models import LoginProgress
-from laomedo.host.provider_connections.service import ProviderConnections
+from laomedo.agents.connections.models import LoginProgress
+from laomedo.agents.connections.service import ProviderConnections
 from laomedo.integrations.langflow.local_profiles.boundary import LocalProfileBoundary
 from laomedo.integrations.langflow.provider_connections.boundary import (
     ProviderSessionBoundary,
@@ -70,7 +70,7 @@ class ProviderRouteTests(unittest.TestCase):
                 headers={"Origin": origin},
             )
             self.assertEqual(response.status_code, 403)
-        self.assertEqual(self.service._attempts, {})
+        self.assertEqual(self.service.codex.attempts, {})
 
     def test_logged_out_cookie_cannot_read_or_manage_saved_connections(self):
         """An otherwise authenticated retained JWT cannot bypass local logout."""
@@ -132,7 +132,7 @@ class ProviderRouteTests(unittest.TestCase):
             ).status_code,
             400,
         )
-        self.assertEqual(self.service._attempts, {})
+        self.assertEqual(self.service.codex.attempts, {})
 
     def test_logout_invalidates_the_originating_attempt_before_return(self):
         """A late native callback cannot save a connection after local logout."""

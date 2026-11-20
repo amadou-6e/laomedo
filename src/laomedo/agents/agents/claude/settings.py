@@ -36,3 +36,6 @@ EFFORTS = ("default", "low", "medium", "high", "xhigh", "max")
 
 
 MODEL_CATALOG_TTL_SECONDS = 300
+
+
+NATIVE_AUTH_CLEANUP_SECONDS = 20

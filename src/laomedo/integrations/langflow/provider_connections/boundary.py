@@ -8,7 +8,7 @@ from starlette.requests import Request
 from laomedo.integrations.langflow.provider_connections.bindings import (
     ProviderGraphBindings,
 )
-from laomedo.host.provider_connections.models import BrowserProviderSession
+from laomedo.agents.connections.models import BrowserProviderSession
 
 
 class ProviderSessionBoundary:

@@ -9,9 +9,9 @@ from uuid import uuid4
 
 from pydantic import SecretStr
 
-from laomedo.host.provider_connections.errors import ProviderConnectionError
-from laomedo.host.provider_connections.models import GraphProviderPreferences
-from laomedo.host.provider_connections.service import ProviderConnections
+from laomedo.agents.connections.errors import ProviderConnectionError
+from laomedo.agents.connections.models import GraphProviderPreferences
+from laomedo.agents.connections.service import ProviderConnections
 
 
 class GoConnectionTests(unittest.TestCase):

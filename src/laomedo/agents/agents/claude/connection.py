@@ -15,19 +15,20 @@ from laomedo.agents.agents.claude.settings import IMAGE
 from laomedo.docker import DockerRuntime
 from laomedo.host.credentials.siwc.utils import _atomic_private
 from laomedo.host.credentials.siwc.utils import _restrict_windows_directory
-from laomedo.host.provider_connections.errors import ProviderConnectionError
-from laomedo.host.provider_connections.models import ClaudeLoginAttempt
-from laomedo.host.provider_connections.models import ClaudeNativeProfile
-from laomedo.host.provider_connections.models import ClaudeAccountIdentity
-from laomedo.host.provider_connections.models import ConnectionRecord
-from laomedo.host.provider_connections.models import ConnectionSummary
-from laomedo.host.provider_connections.models import LoginProgress
-from laomedo.host.provider_connections.settings import ATTEMPT_SECONDS
-from laomedo.host.provider_connections.settings import MAX_CONNECTIONS
-from laomedo.host.provider_connections.settings import NATIVE_AUTH_CLEANUP_SECONDS
+from laomedo.agents.connections.base import BaseProviderConnection
+from laomedo.agents.connections.errors import ProviderConnectionError
+from laomedo.agents.agents.claude.models import ClaudeLoginAttempt
+from laomedo.agents.agents.claude.models import ClaudeNativeProfile
+from laomedo.agents.agents.claude.models import ClaudeAccountIdentity
+from laomedo.agents.connections.models import ConnectionRecord
+from laomedo.agents.connections.models import ConnectionSummary
+from laomedo.agents.connections.models import LoginProgress
+from laomedo.agents.connections.settings import ATTEMPT_SECONDS
+from laomedo.agents.connections.settings import MAX_CONNECTIONS
+from laomedo.agents.agents.claude.settings import NATIVE_AUTH_CLEANUP_SECONDS
 
 
-class ClaudeConnection:
+class ClaudeConnection(BaseProviderConnection):
     """Keep all authentication and refresh inside the unmodified official client.
 
     The host relays only the native authorize URL and one-use completion code.
@@ -35,41 +36,15 @@ class ClaudeConnection:
     Each attempt uses a fresh profile so failed reconnect preserves the old one.
     """
 
+    provider = "claude"
+    cleanup_seconds = NATIVE_AUTH_CLEANUP_SECONDS
+    summary_outside_lock = True
+
     def __init__(self, service):
         """Bind the shared owner lock; native startup occurs only in begin()."""
         self.service = service
         self.attempts = {}
         self._resource_locks = {}
-
-    def _resource_lock(self, root):
-        """Serialize one revision without delaying unrelated logout or cancellation."""
-        with self.service._lock:
-            return self._resource_locks.setdefault(str(root), threading.RLock())
-
-    def _root(self, profile_id, credential_id) -> Path:
-        """Resolve an opaque host-owned revision below the private profile root."""
-        return self.service._profile(profile_id) / str(credential_id)
-
-    def _descriptor(self, root: Path) -> ClaudeNativeProfile:
-        """Read resource ownership only; this file never contains a login token."""
-        try:
-            return ClaudeNativeProfile.model_validate_json(
-                (root / "claude-custody.json").read_text(encoding="utf-8")
-            )
-        except (OSError, ValueError):
-            raise ProviderConnectionError("provider_connection_unavailable") from None
-
-    def _client(self, descriptor):
-        """Pin every subsequent native operation to the original Docker daemon."""
-        return DockerRuntime(
-            environment={"DOCKER_HOST": descriptor.docker_endpoint}
-        ).connect()
-
-    def _identity(self, descriptor):
-        """Reconstruct only the SDK's exact owned-volume descriptor."""
-        from py_docker.volumes.models import VolumeIdentity
-
-        return VolumeIdentity(name=descriptor.name, labels=descriptor.labels)
 
     def profile(self, profile_id, record):
         """Require the exact owned volume; absence never selects a host login."""
@@ -80,99 +55,6 @@ class ClaudeConnection:
             if docker.volumes.inspect(self._identity(descriptor)) is None:
                 raise ProviderConnectionError("provider_connection_unavailable")
         return descriptor
-
-    def _create_profile(self, root, docker, item, image_id):
-        """Persist exact ownership before daemon creation, including uncertain creation."""
-        from py_docker.settings import OWNERSHIP_LABEL
-
-        descriptor = ClaudeNativeProfile(
-            name="laomedo-claude-connection-" + item.credential_id.hex,
-            labels={
-                "laomedo.provider": "claude",
-                "laomedo.connection": str(item.candidate_id),
-                OWNERSHIP_LABEL: uuid4().hex,
-            },
-            docker_endpoint=docker.connection.endpoint,
-            image_id=image_id,
-        )
-        # Persist the exact owner token before daemon creation. A crash
-        # or ambiguous create can therefore reconcile only this volume.
-        _atomic_private(root / "claude-custody.json", descriptor.model_dump())
-        docker.sdk.volumes.create(name=descriptor.name, labels=descriptor.labels)
-        if docker.volumes.inspect(self._identity(descriptor)) is None:
-            raise ProviderConnectionError("provider_cleanup_unconfirmed")
-        return descriptor
-
-    def _spec(self, descriptor, command, *, interactive=False):
-        """Build an auth-only official-client sandbox without project or tool mounts."""
-        from py_docker.containers.models import ContainerSpec, Mount
-
-        return ContainerSpec(
-            image=descriptor.image_id,
-            name="laomedo-claude-auth-" + uuid4().hex,
-            entrypoint=["claude"],
-            command=command,
-            init=True,
-            working_dir="/draft",
-            network_mode="bridge",
-            stdin_open=interactive,
-            mounts=[Mount(type="volume", source=descriptor.name, target="/profile")],
-            environment={
-                "HOME": "/profile",
-                "CLAUDE_CONFIG_DIR": "/profile/config",
-                "DISABLE_AUTOUPDATER": "1",
-            },
-            log_driver="none",
-            tmpfs={"/tmp": "rw,nosuid,nodev,size=64m,mode=1777"},
-            nano_cpus=2_000_000_000,
-        )
-
-    @staticmethod
-    def _is_authorization_url(value):
-        """Accept only exact native Claude authorization endpoints, never arbitrary redirects."""
-        parsed = urlsplit(value)
-        return (
-            parsed.scheme == "https"
-            and (parsed.netloc, parsed.path)
-            in {
-                ("claude.ai", "/oauth/authorize"),
-                ("platform.claude.com", "/oauth/authorize"),
-                ("claude.com", "/cai/oauth/authorize"),
-            }
-            and not parsed.fragment
-        )
-
-    def _auth_status(self, root, descriptor):
-        """Ask the native client for public identity without inference or token reads."""
-        from py_docker.jobs.models import ContainerJob
-        from py_docker.streams.models import StreamLimits
-
-        with self._resource_lock(root), self._client(descriptor) as docker:
-            result = DockerRuntime.execute_job(
-                docker,
-                ContainerJob(
-                    spec=self._spec(descriptor, ["auth", "status"]),
-                    limits=StreamLimits(seconds=25, max_bytes=16384),
-                    receipt_path=root / "claude-status-job.json",
-                    wait_timeout_seconds=5,
-                ),
-            )
-        try:
-            value = json.loads(result.stdout)
-            if (
-                result.exit_code
-                or value.get("loggedIn") is not True
-                or value.get("authMethod") != "claude.ai"
-            ):
-                raise ValueError()
-            email, organization = value.get("email"), value.get("orgId")
-            if not isinstance(email, str) or not email or len(email) > 100:
-                raise ValueError()
-            if not isinstance(organization, str) or not organization:
-                raise ValueError()
-        except (ValueError, TypeError, AttributeError):
-            raise ProviderConnectionError("provider_sign_in_failed") from None
-        return ClaudeAccountIdentity(email=email, organization_id=organization)
 
     def begin(self, profile_id, *, lease_hash, connection_id=None):
         """Start exactly one bounded native sign-in after explicit browser consent."""
@@ -186,14 +68,7 @@ class ClaudeConnection:
                 del self.attempts[key]
             if lease_hash in self.service.revoked_leases:
                 raise ProviderConnectionError("provider_session_required")
-            if any(
-                not item.settled and item.profile_id == profile_id
-                for item in self.attempts.values()
-            ) or any(
-                item.profile_id == profile_id
-                and item.progress.status in {"connecting", "verifying"}
-                for item in self.service._attempts.values()
-            ):
+            if self.service.login_in_progress(profile_id):
                 raise ProviderConnectionError("provider_login_in_progress")
             records = self.service._records(profile_id)
             if connection_id is None and len(records) >= MAX_CONNECTIONS:
@@ -292,6 +167,263 @@ class ClaudeConnection:
                 item.progress.status = "cancelled"
                 item.cancelled.set()
             return item.progress.model_copy()
+
+    def summary(self, profile_id, record):
+        """Observe the official client's identity; a runner outage is not logout."""
+        state = "unavailable"
+        try:
+            descriptor = self.profile(profile_id, record)
+            identity = self._auth_status(
+                self._root(profile_id, record.credential_id), descriptor
+            )
+            state = (
+                "ready"
+                if identity.subject_hash() == record.subject_hash
+                else "reauthorization_required"
+            )
+        except Exception:
+            pass
+        return ConnectionSummary(
+            provider="claude",
+            method="claude_native",
+            connection_id=record.connection_id,
+            label=record.label,
+            generation=record.generation,
+            auth_state=state,
+            lifecycle=record.lifecycle,
+        )
+
+    def reconcile_orphan(self, root, active=False):
+        """Retain exact custody on daemon failure and retry on the next startup."""
+        if active:
+            return
+        from py_docker.errors import DockerOperationError
+
+        # Invalid ownership metadata still prevents admission; it is not a
+        # transient daemon failure and must never authorize guessed cleanup.
+        self._descriptor(root)
+        try:
+            self.erase(root)
+        except ProviderConnectionError as error:
+            if error.code != "provider_cleanup_unconfirmed":
+                raise
+            logging.getLogger(__name__).warning(
+                "Claude orphan cleanup pending; custody retained for startup retry"
+            )
+        except DockerOperationError:
+            logging.getLogger(__name__).warning(
+                "Claude orphan cleanup pending; custody retained for startup retry"
+            )
+
+    def erase(self, root):
+        """Recover exact native receipts and remove only this owned volume."""
+        from py_docker.errors import DockerOperationError
+
+        try:
+            descriptor = self._descriptor(root)
+            with self._resource_lock(root):
+                with self._client(descriptor) as docker:
+                    for name, kind in (
+                        ("claude-login-session.json", "session"),
+                        ("claude-status-job.json", "job"),
+                    ):
+                        if (root / name).exists():
+                            DockerRuntime.recover_receipts(
+                                docker, [root / name], kind=kind
+                            )
+                    identity = self._identity(descriptor)
+                    volume = docker.volumes.inspect(identity)
+                    if volume is not None:
+                        volume.remove(force=False)
+                    if docker.volumes.inspect(identity) is not None:
+                        raise ProviderConnectionError("provider_cleanup_unconfirmed")
+                (root / "claude-custody.json").unlink()
+        except DockerOperationError:
+            raise ProviderConnectionError("provider_cleanup_unconfirmed") from None
+
+    def has_attempt(self, attempt_id):
+        """Identify a native login receipt without starting a client."""
+        return attempt_id in self.attempts
+
+    def progress(self, profile_id, attempt_id):
+        """Project this native receipt through the common safe wire model."""
+        return LoginProgress.model_validate(
+            self.details(profile_id, attempt_id)["progress"]
+        )
+
+    def login_in_progress(self, profile_id):
+        """Preserve the original unsettled native-login guard."""
+        return any(
+            item.profile_id == profile_id and not item.settled
+            for item in self.attempts.values()
+        )
+
+    def unsettled(self, profile_id, connection_id):
+        """Keep credentials until this connection's native login worker settles."""
+        return any(
+            item.profile_id == profile_id
+            and item.candidate_id == connection_id
+            and not item.settled
+            for item in self.attempts.values()
+        )
+
+    def workers(self):
+        """Inventory the exact owned workers joined during service shutdown."""
+        return [item.worker for item in self.attempts.values() if item.worker]
+
+    def fence_all(self):
+        """Cancel every live native attempt without releasing store ownership."""
+        for item in self.attempts.values():
+            item.cancelled.set()
+
+    def cancel_profile(self, profile_id):
+        """Fence pending native login for the profile that signed out."""
+        for item in self.attempts.values():
+            if item.profile_id == profile_id:
+                self.cancel(profile_id, item.progress.attempt_id)
+
+    def cancel_lease(self, lease_hash):
+        """Fence attempts carrying this opaque revoked lease identifier."""
+        for item in self.attempts.values():
+            if item.lease_hash == lease_hash:
+                self.cancel(item.profile_id, item.progress.attempt_id)
+
+    def fence_connection(self, profile_id, connection_id):
+        """Cancel only the disconnecting connection's pending native login."""
+        for item in self.attempts.values():
+            if item.profile_id == profile_id and item.candidate_id == connection_id:
+                self.cancel(profile_id, item.progress.attempt_id)
+
+    def owns(self, vault):
+        """Admit Claude custody before the unmarked Codex fallback."""
+        return (vault / "claude-custody.json").exists()
+
+    def erase_revision(self, profile_id, record):
+        """Erase the exact native profile after its work has settled."""
+        self.erase(self.service._profile(profile_id) / str(record.credential_id))
+
+    def _resource_lock(self, root):
+        """Serialize one revision without delaying unrelated logout or cancellation."""
+        with self.service._lock:
+            return self._resource_locks.setdefault(str(root), threading.RLock())
+
+    def _root(self, profile_id, credential_id) -> Path:
+        """Resolve an opaque host-owned revision below the private profile root."""
+        return self.service._profile(profile_id) / str(credential_id)
+
+    def _descriptor(self, root: Path) -> ClaudeNativeProfile:
+        """Read resource ownership only; this file never contains a login token."""
+        try:
+            return ClaudeNativeProfile.model_validate_json(
+                (root / "claude-custody.json").read_text(encoding="utf-8")
+            )
+        except (OSError, ValueError):
+            raise ProviderConnectionError("provider_connection_unavailable") from None
+
+    def _client(self, descriptor):
+        """Pin every subsequent native operation to the original Docker daemon."""
+        return DockerRuntime(
+            environment={"DOCKER_HOST": descriptor.docker_endpoint}
+        ).connect()
+
+    def _identity(self, descriptor):
+        """Reconstruct only the SDK's exact owned-volume descriptor."""
+        from py_docker.volumes.models import VolumeIdentity
+
+        return VolumeIdentity(name=descriptor.name, labels=descriptor.labels)
+
+    def _create_profile(self, root, docker, item, image_id):
+        """Persist exact ownership before daemon creation, including uncertain creation."""
+        from py_docker.settings import OWNERSHIP_LABEL
+
+        descriptor = ClaudeNativeProfile(
+            name="laomedo-claude-connection-" + item.credential_id.hex,
+            labels={
+                "laomedo.provider": "claude",
+                "laomedo.connection": str(item.candidate_id),
+                OWNERSHIP_LABEL: uuid4().hex,
+            },
+            docker_endpoint=docker.connection.endpoint,
+            image_id=image_id,
+        )
+        # Persist the exact owner token before daemon creation. A crash
+        # or ambiguous create can therefore reconcile only this volume.
+        _atomic_private(root / "claude-custody.json", descriptor.model_dump())
+        docker.sdk.volumes.create(name=descriptor.name, labels=descriptor.labels)
+        if docker.volumes.inspect(self._identity(descriptor)) is None:
+            raise ProviderConnectionError("provider_cleanup_unconfirmed")
+        return descriptor
+
+    def _spec(self, descriptor, command, *, interactive=False):
+        """Build an auth-only official-client sandbox without project or tool mounts."""
+        from py_docker.containers.models import ContainerSpec, Mount
+
+        return ContainerSpec(
+            image=descriptor.image_id,
+            name="laomedo-claude-auth-" + uuid4().hex,
+            entrypoint=["claude"],
+            command=command,
+            init=True,
+            working_dir="/draft",
+            network_mode="bridge",
+            stdin_open=interactive,
+            mounts=[Mount(type="volume", source=descriptor.name, target="/profile")],
+            environment={
+                "HOME": "/profile",
+                "CLAUDE_CONFIG_DIR": "/profile/config",
+                "DISABLE_AUTOUPDATER": "1",
+            },
+            log_driver="none",
+            tmpfs={"/tmp": "rw,nosuid,nodev,size=64m,mode=1777"},
+            nano_cpus=2_000_000_000,
+        )
+
+    @staticmethod
+    def _is_authorization_url(value):
+        """Accept only exact native Claude authorization endpoints, never arbitrary redirects."""
+        parsed = urlsplit(value)
+        return (
+            parsed.scheme == "https"
+            and (parsed.netloc, parsed.path)
+            in {
+                ("claude.ai", "/oauth/authorize"),
+                ("platform.claude.com", "/oauth/authorize"),
+                ("claude.com", "/cai/oauth/authorize"),
+            }
+            and not parsed.fragment
+        )
+
+    def _auth_status(self, root, descriptor):
+        """Ask the native client for public identity without inference or token reads."""
+        from py_docker.jobs.models import ContainerJob
+        from py_docker.streams.models import StreamLimits
+
+        with self._resource_lock(root), self._client(descriptor) as docker:
+            result = DockerRuntime.execute_job(
+                docker,
+                ContainerJob(
+                    spec=self._spec(descriptor, ["auth", "status"]),
+                    limits=StreamLimits(seconds=25, max_bytes=16384),
+                    receipt_path=root / "claude-status-job.json",
+                    wait_timeout_seconds=5,
+                ),
+            )
+        try:
+            value = json.loads(result.stdout)
+            if (
+                result.exit_code
+                or value.get("loggedIn") is not True
+                or value.get("authMethod") != "claude.ai"
+            ):
+                raise ValueError()
+            email, organization = value.get("email"), value.get("orgId")
+            if not isinstance(email, str) or not email or len(email) > 100:
+                raise ValueError()
+            if not isinstance(organization, str) or not organization:
+                raise ValueError()
+        except (ValueError, TypeError, AttributeError):
+            raise ProviderConnectionError("provider_sign_in_failed") from None
+        return ClaudeAccountIdentity(email=email, organization_id=organization)
 
     def _run(self, item):
         """Own native sessions, one-use publication and exact resource cleanup."""
@@ -465,74 +597,3 @@ class ClaudeConnection:
                 item.authorization_url = None
                 item.settled = True
                 item.ready.set()
-
-    def summary(self, profile_id, record):
-        """Observe the official client's identity; a runner outage is not logout."""
-        state = "unavailable"
-        try:
-            descriptor = self.profile(profile_id, record)
-            identity = self._auth_status(
-                self._root(profile_id, record.credential_id), descriptor
-            )
-            state = (
-                "ready"
-                if identity.subject_hash() == record.subject_hash
-                else "reauthorization_required"
-            )
-        except Exception:
-            pass
-        return ConnectionSummary(
-            provider="claude",
-            method="claude_native",
-            connection_id=record.connection_id,
-            label=record.label,
-            generation=record.generation,
-            auth_state=state,
-            lifecycle=record.lifecycle,
-        )
-
-    def reconcile_orphan(self, root):
-        """Retain exact custody on daemon failure and retry on the next startup."""
-        from py_docker.errors import DockerOperationError
-
-        # Invalid ownership metadata still prevents admission; it is not a
-        # transient daemon failure and must never authorize guessed cleanup.
-        self._descriptor(root)
-        try:
-            self.erase(root)
-        except ProviderConnectionError as error:
-            if error.code != "provider_cleanup_unconfirmed":
-                raise
-            logging.getLogger(__name__).warning(
-                "Claude orphan cleanup pending; custody retained for startup retry"
-            )
-        except DockerOperationError:
-            logging.getLogger(__name__).warning(
-                "Claude orphan cleanup pending; custody retained for startup retry"
-            )
-
-    def erase(self, root):
-        """Recover exact native receipts and remove only this owned volume."""
-        from py_docker.errors import DockerOperationError
-
-        try:
-            descriptor = self._descriptor(root)
-            with self._resource_lock(root):
-                with self._client(descriptor) as docker:
-                    for name, kind in (
-                        ("claude-login-session.json", "session"),
-                        ("claude-status-job.json", "job"),
-                    ):
-                        if (root / name).exists():
-                            DockerRuntime.recover_receipts(
-                                docker, [root / name], kind=kind
-                            )
-                    identity = self._identity(descriptor)
-                    volume = docker.volumes.inspect(identity)
-                    if volume is not None:
-                        volume.remove(force=False)
-                    if docker.volumes.inspect(identity) is not None:
-                        raise ProviderConnectionError("provider_cleanup_unconfirmed")
-                (root / "claude-custody.json").unlink()
-        except DockerOperationError:
-            raise ProviderConnectionError("provider_cleanup_unconfirmed") from None

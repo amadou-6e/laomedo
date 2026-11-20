@@ -10,9 +10,9 @@ from uuid import uuid4
 
 from laomedo.host.credentials.siwc.settings import NEEDED
 from laomedo.host.credentials.siwc.errors import AuthError
-from laomedo.host.provider_connections.errors import ProviderConnectionError
-from laomedo.host.provider_connections.service import ProviderConnections
-from laomedo.host.provider_connections.models import GraphProviderPreferences
+from laomedo.agents.connections.errors import ProviderConnectionError
+from laomedo.agents.connections.service import ProviderConnections
+from laomedo.agents.connections.models import GraphProviderPreferences
 
 
 class ProviderConnectionsTests(unittest.TestCase):
@@ -40,7 +40,7 @@ class ProviderConnectionsTests(unittest.TestCase):
         receipt, _url = self.service.begin(
             self.profile, "http://127.0.0.1:17867/auth/callback", connection_id
         )
-        pending = self.service._attempts[receipt.attempt_id]
+        pending = self.service.codex.attempts[receipt.attempt_id]
         oauth = json.loads(pending.oauth.get_secret_value())
         result = self.service.complete(
             self.profile,
@@ -73,7 +73,7 @@ class ProviderConnectionsTests(unittest.TestCase):
             with (
                 self.subTest(category=category),
                 self.assertLogs(
-                    "laomedo.host.provider_connections.service", level="WARNING"
+                    "laomedo.agents.agents.codex.connection", level="WARNING"
                 ) as captured,
             ):
                 result = self.connect(exchange=Mock(side_effect=AuthError(category)))
@@ -285,7 +285,7 @@ class ProviderConnectionsTests(unittest.TestCase):
         receipt, _url = self.service.begin(
             self.profile, "http://127.0.0.1:17867/auth/callback"
         )
-        pending = self.service._attempts[receipt.attempt_id]
+        pending = self.service.codex.attempts[receipt.attempt_id]
         oauth = json.loads(pending.oauth.get_secret_value())
         outcomes = []
 
@@ -341,7 +341,7 @@ class ProviderConnectionsTests(unittest.TestCase):
             if cancelled:
                 self.service.cancel_profile(self.profile)
             with self.assertLogs(
-                "laomedo.host.provider_connections.service", level="WARNING"
+                "laomedo.agents.agents.codex.connection", level="WARNING"
             ) as captured:
                 with self.assertRaisesRegex(
                     ProviderConnectionError, "provider_login_expired"
@@ -358,7 +358,7 @@ class ProviderConnectionsTests(unittest.TestCase):
         receipt, _url = self.service.begin(
             self.profile, "http://127.0.0.1:17867/auth/callback"
         )
-        pending = self.service._attempts[receipt.attempt_id]
+        pending = self.service.codex.attempts[receipt.attempt_id]
         state = json.loads(pending.oauth.get_secret_value())["state"]
         self.service.cancel_profile(self.profile)
         with self.assertRaisesRegex(ProviderConnectionError, "provider_login_expired"):
@@ -372,7 +372,7 @@ class ProviderConnectionsTests(unittest.TestCase):
     def test_failed_metadata_commit_does_not_replace_old_credential(self):
         """The metadata pointer is the only admission point for staged credentials."""
         existing = self.connect()
-        from laomedo.host.provider_connections.service import _atomic_private
+        from laomedo.host.credentials.siwc.utils import _atomic_private
 
         def fail_metadata(path, value):
             if path.name == "connections.json":
@@ -380,7 +380,7 @@ class ProviderConnectionsTests(unittest.TestCase):
             return _atomic_private(path, value)
 
         with patch(
-            "laomedo.host.provider_connections.service._atomic_private",
+            "laomedo.agents.connections.service._atomic_private",
             side_effect=fail_metadata,
         ):
             result = self.connect(connection_id=existing.connection_id)
@@ -394,7 +394,7 @@ class ProviderConnectionsTests(unittest.TestCase):
         """Reconnect validates before replacing the pointer and erases the old copy."""
         existing = self.connect()
         previous = self.service._record(self.profile, existing.connection_id)
-        broker = self.service._broker(self.profile, previous.credential_id)
+        broker = self.service.codex._broker(self.profile, previous.credential_id)
         result = self.connect(connection_id=existing.connection_id)
         self.assertEqual(result.status, "connected")
         self.assertEqual(self.service.list(self.profile)[0].generation, 2)
@@ -406,7 +406,7 @@ class ProviderConnectionsTests(unittest.TestCase):
 
     def test_post_commit_error_reconciles_saved_state_before_reporting_failure(self):
         """A completed atomic rename is confirmed by readback, never repeated."""
-        from laomedo.host.provider_connections.service import _atomic_private
+        from laomedo.host.credentials.siwc.utils import _atomic_private
 
         existing = self.connect()
 
@@ -416,7 +416,7 @@ class ProviderConnectionsTests(unittest.TestCase):
                 raise OSError("fixture error after publication")
 
         with patch(
-            "laomedo.host.provider_connections.service._atomic_private",
+            "laomedo.agents.connections.service._atomic_private",
             side_effect=uncertain,
         ):
             result = self.connect(connection_id=existing.connection_id)
@@ -480,10 +480,10 @@ class ProviderConnectionsTests(unittest.TestCase):
         """Cancelling an observed completion never acquires a credential lock."""
         existing = self.connect()
         receipt = self.connect(connection_id=existing.connection_id)
-        pending = self.service._attempts[receipt.attempt_id]
+        pending = self.service.codex.attempts[receipt.attempt_id]
         pending.superseded_scrubbed = False
         with patch.object(
-            self.service,
+            self.service.codex,
             "_scrub",
             side_effect=AssertionError("cancellation must not wait for token cleanup"),
         ):
@@ -517,7 +517,7 @@ class ProviderConnectionsTests(unittest.TestCase):
                 existing.connection_id,
             )
         controller.stop.return_value = True
-        with patch.object(self.service, "_scrub", side_effect=OSError("locked")):
+        with patch.object(self.service.codex, "_scrub", side_effect=OSError("locked")):
             progress = self.service.retry_cleanup(self.profile, existing.connection_id)
         self.assertEqual(progress.status, "cleanup_required")
         self.assertEqual(
@@ -565,7 +565,7 @@ class ProviderConnectionsTests(unittest.TestCase):
     def test_saved_probe_uses_connection_epoch_across_routine_rotation(self):
         """Renewal changes credential evidence without pretending the account was replaced."""
         from laomedo.host.credentials.siwc.utils import _atomic_private
-        from laomedo.host.provider_connections.credentials import (
+        from laomedo.agents.connections.credentials import (
             SavedConnectionCredential,
         )
 
@@ -575,7 +575,7 @@ class ProviderConnectionsTests(unittest.TestCase):
         )
         before = credential.summary(credential.account(credential.client_id))
         record = self.service._record(self.profile, existing.connection_id)
-        broker = self.service._broker(self.profile, record.credential_id)
+        broker = self.service.codex._broker(self.profile, record.credential_id)
         account = broker.account(record.client_id)
         account["generation"] += 1
         _atomic_private(broker._path(record.client_id), account)
@@ -599,7 +599,7 @@ class ProviderConnectionsTests(unittest.TestCase):
 
         existing = self.connect()
         record = self.service._record(self.profile, existing.connection_id)
-        broker = self.service._broker(self.profile, record.credential_id)
+        broker = self.service.codex._broker(self.profile, record.credential_id)
         account = broker.account(record.client_id)
         account["expires_at"] = 0
         _atomic_private(broker._path(record.client_id), account)
@@ -646,7 +646,7 @@ class ProviderConnectionsTests(unittest.TestCase):
 
         existing = self.connect()
         record = self.service._record(self.profile, existing.connection_id)
-        original = self.service._broker(self.profile, record.credential_id)
+        original = self.service.codex._broker(self.profile, record.credential_id)
         orphan = ChatGPTConnection(
             self.root / str(self.profile) / ("pending-" + str(uuid4()))
         )

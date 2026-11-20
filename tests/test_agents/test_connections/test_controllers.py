@@ -11,10 +11,10 @@ from urllib.request import Request, urlopen
 from uuid import uuid4
 from unittest.mock import Mock
 
-from laomedo.host.provider_connections.controllers import ProviderControllers
-from laomedo.host.provider_connections.errors import ProviderConnectionError
-from laomedo.host.provider_connections.models import ConnectionRecord
-from laomedo.host.provider_connections.service import ProviderConnections
+from laomedo.agents.connections.controllers import ProviderControllers
+from laomedo.agents.connections.errors import ProviderConnectionError
+from laomedo.agents.connections.models import ConnectionRecord
+from laomedo.agents.connections.service import ProviderConnections
 from laomedo.agents.errors import RunnerError
 from laomedo.docker import DockerRuntime
 
@@ -410,7 +410,7 @@ class ProviderControllerTests(unittest.TestCase):
                 self.records[1],
             ],
         )
-        with unittest.mock.patch.object(self.service, "_scrub") as scrub:
+        with unittest.mock.patch.object(self.service.codex, "_scrub") as scrub:
             result = self.service.retry_cleanup(self.profile, self.one)
             self.assertEqual(result.status, "cleanup_required")
             self.assertEqual(

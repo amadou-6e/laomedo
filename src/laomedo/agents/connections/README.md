@@ -1,4 +1,54 @@
-# Saved provider connections
+# Agent connections
+
+This capability owns saved Agent accounts, their admitted credential generations,
+graph preferences and connection-bound runtimes. Host credentials/private_state
+provide private storage and permissions; host profiles and Langflow integration
+own browser authentication. Session leases here are opaque revocation identifiers.
+No framework, browser-cookie, Docker SDK or ACP dependency loads on package import.
+
+```text
+connections/
+  base.py          BaseProviderConnection: provider lifecycle adapter contract
+  service.py       ProviderConnections: index, fencing, orchestration, preferences
+  controllers.py   ProviderControllers: exact connection/generation runtime slots
+  credentials.py   SavedConnectionCredential, SavedClaudeConnection: admission facades
+  models.py        Shared persisted metadata and safe request/response contracts
+  errors.py        ProviderConnectionError: stable ValueError boundary
+  settings.py      Shared attempt and connection-count policy
+../agents/
+  codex/connection.py      CodexConnection: broker sign-in, staging, publication
+  claude/connection.py     ClaudeConnection: official native login/profile lifecycle
+  opencode/connection.py   GoConnection: explicit subscription-key custody
+```
+
+BaseProviderConnection defines common attempt observation, fencing, worker
+inventory, orphan ownership/reconciliation and exact revision cleanup. Providers
+without asynchronous login have no pending attempts or workers. The service calls
+all adapters when fencing profile/session/connection work. Orphan admission keeps
+Go-marker then Claude-marker then Codex fallback order, failing closed on malformed
+metadata. Provider adapters are constructed lazily and share the service lifecycle
+lock; they never create an independent admission lock.
+
+ProviderConnections.admitted checks the exact owner, lifecycle and generation.
+list projects safe summaries; begin/complete/progress/cancel dispatch to the owning
+adapter. disconnect fences before cancellation; retry_cleanup removes the index
+only after all adapter work and native controller cleanup are confirmed. close
+fences every adapter, waits for native workers within their cleanup budget and
+retains the finisher thread when workers have not settled. Graph preferences
+preserve independent per-harness selections.
+
+ProviderControllers admits requests only on the original credential generation,
+inventories owned runs and reserves durable resumes before native startup.
+Saved admission facades borrow or check only that exact connection; no active-account
+fallback or host-login copying exists. Runtime HTTP gateways remain host-owned.
+
+Persisted provider-connections/provider-runs/provider-leases paths, schemas, native
+volume labels, callback addresses and public errors remain unchanged by this move.
+The existing private SIWC helper calls are an explicit storage boundary: atomic
+replacement, private-root admission, ACLs and broker refresh locks retain their
+host implementations; the Agent service does not implement another store.
+
+## Operational guarantees
 
 Codex callback failures log only the fixed processing phase, exception type and
 an allowlisted failure category (or unclassified). Credentials, callback URLs,
@@ -19,26 +69,26 @@ controller support remain separate admission gates; adding a preference field do
 not enable an unavailable authentication method. Claude Code uses an official
 client-owned volume; the selected OpenCode backend is OpenCode Go.
 
-`go.py` owns `GoConnection`: `save()` admits an explicitly supplied subscription
+`agents/opencode/connection.py` owns `GoConnection`: `save()` admits an explicitly supplied subscription
 key into an independent private profile, `summary()` reports key custody without
 claiming provider identity or inference eligibility, `profile()` validates the
 exact persisted key binding, and `erase()` removes only its owned credential files.
 The shared controller supplies `OpenCodeAgentRuntime` with that profile. Native
 tools remain disabled in the credential-bearing controller; workers are separate.
 
-`claude.py` owns `ClaudeConnection`, which orchestrates the unmodified official
+`agents/claude/connection.py` owns `ClaudeConnection`, which orchestrates the unmodified official
 client's login in a dedicated labelled Docker volume. `begin()` starts a bounded
 native attempt, `details()` observes its safe receipt and provider URL, `submit()`
 relays the one-use code to that same native process, and `cancel()` fences it.
 `profile()` admits the exact owned volume; `summary()` uses native auth status;
 `erase()` requires confirmed native cleanup before removing owned credentials.
-`ClaudeNativeProfile` and `ClaudeLoginAttempt` in `models.py` describe host-only
+`ClaudeNativeProfile` and `ClaudeLoginAttempt` in `agents/claude/models.py` describe host-only
 resource custody and process-local attempt state. The client owns all tokens and
 refresh; Laomedo never reads its credential file or imports host login state.
 
-This host capability owns profile-scoped provider connections, explicit login
+This Agent capability owns profile-scoped provider connections, explicit login
 attempts and credential admission. The initial implemented route is Codex with
-app-owned Sign in with ChatGPT. OpenCode Go key custody and an isolated per-connection runner factory are implemented; real Go account/dispatch acceptance is pending. Claude native sign-in and isolated account binding are implemented but require real native sign-in/dispatch acceptance.
+app-owned Sign in with ChatGPT. OpenCode Go key custody and isolated per-connection runners are implemented. Native saved-account execution has passed for all three harnesses; multi-account and failure-recovery acceptance remain tracked in the owning PR.
 
 `service.py` defines `ProviderConnections`: `list()` projects safe rows, `begin()`
 opens one bounded loopback attempt, `complete()` verifies staged credentials and
@@ -89,7 +139,7 @@ status, discovery and cleanup do not submit model requests. No method imports a
 host login. Failed reconnects preserve the committed credential. Disconnect
 requires native inventory and stop confirmation before erasing a local token.
 
-The selected draft is specs PR #426 at eb18f67. Implementation and live acceptance
+The selected draft is specs PR #426. Implementation and live acceptance
 are separate gates. Existing single-runner startup can explicitly select a broker
 account. Graph-selected dispatch uses `ProviderGraphBindings`, the verified browser
 principal, and an opaque selector. Operator-only source configuration is supplied

@@ -66,3 +66,7 @@ Project it through `LeaseCleanupObservation`: no result means no cleanup fact,
 not false. The sidecar's lease cleanup boolean covers only that leased resource.
 The existing public fail-closed status/category wins even beside verified cleanup.
 Fresh native answers, counters and completion never establish Resume success.
+
+## Saved account connections
+
+`connection.py` is the provider boundary. CodexConnection owns pending broker login attempts, begin/complete/progress/cancel, staged publication and readback, duplicate identity checks, exact token borrowing and local revision cleanup. PendingLogin belongs to models.py; login failure categories belong to settings.py. The shared Agent connection service owns admission/index fencing; host storage and profile authorization remain separate.
