@@ -1,6 +1,7 @@
 """Synthetic saved-runner ownership and fencing checks, not native acceptance."""
 
 import json
+from importlib.util import find_spec
 import tempfile
 import threading
 import unittest
@@ -15,6 +16,7 @@ from laomedo.host.provider_connections.errors import ProviderConnectionError
 from laomedo.host.provider_connections.models import ConnectionRecord
 from laomedo.host.provider_connections.service import ProviderConnections
 from laomedo.agents.errors import RunnerError
+from laomedo.docker import DockerRuntime
 
 
 class FakeNativeAgent:
@@ -231,6 +233,71 @@ class ProviderControllerTests(unittest.TestCase):
         )
         with unittest.mock.patch.object(self.manager, "_create", return_value=starting):
             self.assertFalse(self.manager.stop(self.profile, self.one))
+        self.manager.slots[(self.profile, self.one, 1)] = slot
+
+    @unittest.skipUnless(find_spec("py_docker"), "Requires the optional Docker SDK")
+    def test_native_recovery_failure_retains_slot_and_allows_later_retry(self):
+        """Daemon failure does not abort app startup or discard exact owned state."""
+        from py_docker.errors import DockerOperationError
+
+        state = self.manager.root / str(self.profile) / str(self.one) / "g1"
+        state.mkdir(parents=True)
+        factory = self.manager.factory
+        self.manager.factory = Mock(side_effect=DockerOperationError("daemon offline"))
+        self.manager.recover()
+        slot = self.manager.slots[(self.profile, self.one, 1)]
+        self.assertIsNone(slot.runner)
+        self.assertFalse(slot.creating)
+        with self.assertRaisesRegex(
+            ProviderConnectionError, "provider_cleanup_unconfirmed"
+        ):
+            self.manager.stop(self.profile, self.one)
+        self.manager.factory = factory
+        self.assertTrue(self.manager.stop(self.profile, self.one))
+
+    @unittest.skipUnless(find_spec("py_docker"), "Requires the optional Docker SDK")
+    def test_native_receipt_failure_settles_cleanup_as_retryable(self):
+        """Existing Claude/OpenCode slots keep native custody on recovery errors."""
+        from py_docker.errors import DockerOperationError
+
+        self.manager.endpoint(self.profile, self.one)
+        slot = self.manager.slots[(self.profile, self.one, 1)]
+        receipt = slot.state / "receipts" / "owned.json"
+        receipt.parent.mkdir()
+        receipt.write_text("owned fixture")
+        for provider in ("claude", "opencode"):
+            with self.subTest(provider=provider):
+                runner = Mock(provider=provider)
+                runner.pending_resumes.return_value = []
+                runner.lock = threading.Lock()
+                runner.container.client.side_effect = DockerOperationError(
+                    "daemon offline"
+                )
+                self.manager.slots[(self.profile, self.one, 1)] = slot.model_copy(
+                    update={"runner": runner}
+                )
+                with unittest.mock.patch.object(
+                    DockerRuntime,
+                    "recover_receipts",
+                    side_effect=DockerOperationError("daemon offline"),
+                ):
+                    runner._recover_containers.side_effect = DockerOperationError(
+                        "daemon offline"
+                    )
+                    self.service._save(
+                        self.profile,
+                        [
+                            (
+                                row.model_copy(update={"lifecycle": "disconnecting"})
+                                if row.connection_id == self.one
+                                else row
+                            )
+                            for row in self.records
+                        ],
+                    )
+                    result = self.service.retry_cleanup(self.profile, self.one)
+                self.assertEqual(result.status, "cleanup_required")
+                self.assertTrue(receipt.exists())
         self.manager.slots[(self.profile, self.one, 1)] = slot
 
     def test_unavailable_recovered_runner_keeps_settings_and_cleanup_retryable(self):

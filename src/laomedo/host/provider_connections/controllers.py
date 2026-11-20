@@ -182,6 +182,15 @@ class ProviderControllers:
             if result.status != "disconnecting":
                 return
 
+    @staticmethod
+    def _native_failures():
+        """Recognize native operational failures only when the optional SDK exists."""
+        try:
+            from py_docker.errors import DockerOperationError
+        except ImportError:
+            return ()
+        return (DockerOperationError,)
+
     def recover(self):
         """Reconcile recorded owned controllers before dispatch, without replaying turns."""
         for profile in self.root.iterdir():
@@ -220,7 +229,7 @@ class ProviderControllers:
                         self._create(
                             profile_id, connection_id, generation, recovery=True
                         )
-                    except (RunnerError, OSError, ValueError):
+                    except (RunnerError, OSError, ValueError) + self._native_failures():
                         # Keep the failed slot: Settings remains available, but
                         # removal must retry recovery before confirming cleanup.
                         continue
@@ -423,7 +432,7 @@ class ProviderControllers:
                         slot.generation,
                         recovery=True,
                     )
-                except (RunnerError, OSError, ValueError):
+                except (RunnerError, OSError, ValueError) + self._native_failures():
                     unconfirmed = True
                     continue
                 if slot.creating or slot.runner is None:
@@ -472,7 +481,12 @@ class ProviderControllers:
                     slot.state.glob("*/*receipt*.json")
                 ):
                     raise ProviderConnectionError("provider_cleanup_unconfirmed")
-            except (RunnerError, OSError, ValueError, KeyError):
+            except (
+                RunnerError,
+                OSError,
+                ValueError,
+                KeyError,
+            ) + self._native_failures():
                 unconfirmed = True
         if unconfirmed:
             raise ProviderConnectionError("provider_cleanup_unconfirmed")

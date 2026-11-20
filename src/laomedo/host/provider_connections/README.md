@@ -145,3 +145,8 @@ revoked by logout/profile switching, including reads and account-management
 writes. It does not delete saved connections. `ClaudeConnection.details()` accepts
 an optional trusted-call lease; HTTP callers must pass the initiating lease before
 receiving the native authorization link. Generic progress never exposes that link.
+
+`ProviderControllers._native_failures()` names the optional Docker boundary errors
+without making the SDK a base-package import requirement. `recover()` retains
+failed slots on daemon outages so Settings stays available; `stop()` projects
+the same failures to unconfirmed cleanup, preserving custody and Retry cleanup.
