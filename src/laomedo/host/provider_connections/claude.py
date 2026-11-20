@@ -508,19 +508,26 @@ class ClaudeConnection:
 
     def erase(self, root):
         """Recover exact native receipts and remove only this owned volume."""
-        descriptor = self._descriptor(root)
-        with self._resource_lock(root):
-            with self._client(descriptor) as docker:
-                for name, kind in (
-                    ("claude-login-session.json", "session"),
-                    ("claude-status-job.json", "job"),
-                ):
-                    if (root / name).exists():
-                        DockerRuntime.recover_receipts(docker, [root / name], kind=kind)
-                identity = self._identity(descriptor)
-                volume = docker.volumes.inspect(identity)
-                if volume is not None:
-                    volume.remove(force=False)
-                if docker.volumes.inspect(identity) is not None:
-                    raise ProviderConnectionError("provider_cleanup_unconfirmed")
-            (root / "claude-custody.json").unlink()
+        from py_docker.errors import DockerOperationError
+
+        try:
+            descriptor = self._descriptor(root)
+            with self._resource_lock(root):
+                with self._client(descriptor) as docker:
+                    for name, kind in (
+                        ("claude-login-session.json", "session"),
+                        ("claude-status-job.json", "job"),
+                    ):
+                        if (root / name).exists():
+                            DockerRuntime.recover_receipts(
+                                docker, [root / name], kind=kind
+                            )
+                    identity = self._identity(descriptor)
+                    volume = docker.volumes.inspect(identity)
+                    if volume is not None:
+                        volume.remove(force=False)
+                    if docker.volumes.inspect(identity) is not None:
+                        raise ProviderConnectionError("provider_cleanup_unconfirmed")
+                (root / "claude-custody.json").unlink()
+        except DockerOperationError:
+            raise ProviderConnectionError("provider_cleanup_unconfirmed") from None

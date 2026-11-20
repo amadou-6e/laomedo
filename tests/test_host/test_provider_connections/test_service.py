@@ -178,6 +178,24 @@ class ProviderConnectionsTests(unittest.TestCase):
         ):
             self.assertNotIn(private, public)
 
+    def test_other_provider_email_does_not_block_codex_admission(self):
+        """Identity equivalence is scoped to the provider, never a display label."""
+        first = self.connect("claude-row", email="shared@example.invalid")
+        row = self.service._records(self.profile)[0]
+        claude = row.model_copy(update={"provider": "claude"})
+        go = row.model_copy(
+            update={
+                "provider": "opencode",
+                "connection_id": uuid4(),
+                "credential_id": uuid4(),
+            }
+        )
+        self.service._save(self.profile, [claude, go])
+        result = self.connect("codex-row", email="shared@example.invalid")
+        self.assertEqual(result.status, "connected")
+        self.assertNotEqual(result.connection_id, first.connection_id)
+        self.assertEqual(len(self.service._records(self.profile)), 3)
+
     def test_duplicate_offers_existing_without_overwrite(self):
         """Verified issuer/subject duplicates reuse the existing saved identity."""
         existing = self.connect()

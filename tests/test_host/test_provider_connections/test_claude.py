@@ -37,6 +37,50 @@ class ClaudeConnectionTests(unittest.TestCase):
         self.profile = uuid4()
 
     @unittest.skipUnless(find_spec("py_docker"), "Requires the optional Docker SDK")
+    def test_disconnect_daemon_failure_exposes_retry_and_preserves_custody(self):
+        """Native ownership/daemon failures settle into fenced recovery state."""
+        from py_docker.errors import DockerOperationError
+
+        record = ConnectionRecord(
+            provider="claude",
+            connection_id=uuid4(),
+            credential_id=uuid4(),
+            client_id="claude-native",
+            generation=2,
+            subject_hash="a" * 64,
+            label="fixture",
+            lifecycle="disconnecting",
+        )
+        self.service._save(self.profile, [record])
+        self.service.controllers = Mock()
+        self.service.controllers.stop.return_value = True
+        root = self.service._profile(self.profile) / str(record.credential_id)
+        root.mkdir()
+        custody = root / "claude-custody.json"
+        custody.write_text("retained fixture")
+        with (
+            patch.object(self.service.claude, "_descriptor", return_value=Mock()),
+            patch.object(
+                self.service.claude,
+                "_client",
+                side_effect=DockerOperationError("daemon unavailable"),
+            ),
+        ):
+            progress = self.service.retry_cleanup(self.profile, record.connection_id)
+        self.assertEqual(progress.status, "cleanup_required")
+        self.assertEqual(
+            self.service._records(self.profile)[0].lifecycle, "cleanup_required"
+        )
+        self.assertTrue(custody.exists())
+        with self.assertRaises(ProviderConnectionError):
+            self.service.admitted(self.profile, record.connection_id)
+        with patch.object(self.service.claude, "erase"):
+            self.assertEqual(
+                self.service.retry_cleanup(self.profile, record.connection_id).status,
+                "removed",
+            )
+
+    @unittest.skipUnless(find_spec("py_docker"), "Requires the optional Docker SDK")
     def test_orphan_daemon_failure_preserves_custody_and_allows_startup(self):
         """Unavailable native cleanup cannot prevent unrelated provider admission."""
         from py_docker.errors import DockerOperationError

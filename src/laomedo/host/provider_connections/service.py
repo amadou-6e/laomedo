@@ -767,7 +767,8 @@ class ProviderConnections:
                     (
                         record
                         for record in records
-                        if record.connection_id != item.candidate_id
+                        if record.provider == "codex"
+                        and record.connection_id != item.candidate_id
                         and (
                             record.subject_hash == subject_hash
                             or item.previous is None
