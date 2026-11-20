@@ -200,6 +200,7 @@ RUNNER_FAILURE_CODES = frozenset(
         "resume_provider_binding_mismatch",
         "run_not_active_in_this_process",
         "run_not_dispatchable",
+        "codex_idle_session_unavailable",
         "run_timeout_not_supported",
         "runner_busy",
         "runner_authentication_required",

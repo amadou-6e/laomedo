@@ -112,7 +112,7 @@ class IdleCodexSession(BaseModel):
         default=None,
         exclude=True,
         repr=False,
-        description="In-memory launch credential equality check; never serialized.",
+        description="In-memory last admitted bearer digest for refresh detection; never serialized.",
     )
     expires: float = Field(
         exclude=True, description="Monotonic deadline for an unused live session."

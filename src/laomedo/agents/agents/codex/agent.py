@@ -180,7 +180,11 @@ class CodexAgent(BaseAgent):
                 'model_provider="openai_chatgpt_plan"',
                 'model_providers.openai_chatgpt_plan.name="ChatGPT plan"',
                 'model_providers.openai_chatgpt_plan.base_url="https://api.openai.com/v1"',
-                'model_providers.openai_chatgpt_plan.env_key="ACCESS_TOKEN"',
+                'model_providers.openai_chatgpt_plan.auth.command="/bin/cat"',
+                'model_providers.openai_chatgpt_plan.auth.args=["/tmp/laomedo-provider-auth/access-token"]',
+                'model_providers.openai_chatgpt_plan.auth.cwd="/"',
+                "model_providers.openai_chatgpt_plan.auth.refresh_interval_ms=1",
+                "model_providers.openai_chatgpt_plan.auth.timeout_ms=1000",
                 'model_providers.openai_chatgpt_plan.wire_api="responses"',
                 "model_providers.openai_chatgpt_plan.requires_openai_auth=false",
                 "model_providers.openai_chatgpt_plan.supports_websockets=false",
@@ -668,6 +672,7 @@ class CodexAgent(BaseAgent):
         ):
             split = (
                 SplitPolicy(
+                    managed_credential=bool(self.auth),
                     provider_config=self.split_provider_config,
                     access_token=(
                         access_token
@@ -949,18 +954,18 @@ class CodexAgent(BaseAgent):
                             raise RunnerError("run_not_dispatchable")
                         self._idle_sessions.pop(run_id)
                 if resume and record.get("live_session") == "idle" and held is None:
-                    raise RunnerError("resume_provider_binding_mismatch")
+                    raise RunnerError("codex_idle_session_unavailable")
                 if (
                     resume
                     and record.get("live_session") == "closed"
                     and not record["turns"]
                 ):
-                    raise RunnerError("resume_provider_binding_mismatch")
+                    raise RunnerError("codex_idle_session_unavailable")
                 if held is not None:
                     server, lease = held.runtime, held.lease
                     launch_attempted = True
                     if time.monotonic() >= held.expires:
-                        raise RunnerError("run_not_dispatchable")
+                        raise RunnerError("codex_idle_session_unavailable")
                 cancelled = held.cancelled if held is not None else threading.Event()
                 if cancelled.is_set():
                     raise RunnerError("run_not_dispatchable")
@@ -1091,7 +1096,9 @@ class CodexAgent(BaseAgent):
                 else None
             )
             if held is not None and credential_digest != held.credential_digest:
-                raise RunnerError("runner_authentication_required")
+                if access_token is None:
+                    raise RunnerError("runner_authentication_required")
+                await server.refresh_credential(access_token)
             if held is None:
                 server = self._open_server(
                     run_dir,

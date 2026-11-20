@@ -53,6 +53,7 @@ class CodexAgentRuntime:
         self._session_scope = ExitStack()
         self.session = self.acp = self.executor = self.telemetry = None
         self.native_commands_supported = False
+        self.managed_credential = bool(split is not None and split.managed_credential)
         self._cancelled = None
         self._protocol_ready = False
         self.events = []
@@ -95,6 +96,10 @@ class CodexAgentRuntime:
                     self.secret_redactions += (split.access_token.get_secret_value(),)
             spec = launch.to_container_spec()
             environment = dict(spec.environment)
+            if split is not None and split.managed_credential:
+                from pydantic import SecretStr
+
+                environment["LAOMEDO_CODEX_REFRESHABLE_AUTH"] = SecretStr("1")
             arguments = (
                 json.loads(environment["LAOMEDO_CODEX_ARGS"].get_secret_value())
                 if "LAOMEDO_CODEX_ARGS" in environment
@@ -179,7 +184,12 @@ class CodexAgentRuntime:
         advertised = (reply.field_meta or {}).get("laomedo")
         base = {"version": 1, "rawEvents": True, "hostPolicy": True}
         if (
-            advertised not in (base, {**base, "nativeCommands": 1})
+            advertised
+            not in (
+                base,
+                {**base, "nativeCommands": 1},
+                {**base, "nativeCommands": 1, "credentialRefresh": 1},
+            )
             or type(advertised["version"]) is not int
             or type(advertised["rawEvents"]) is not bool
             or type(advertised["hostPolicy"]) is not bool
@@ -187,9 +197,16 @@ class CodexAgentRuntime:
                 "nativeCommands" in advertised
                 and type(advertised["nativeCommands"]) is not int
             )
+            or (
+                "credentialRefresh" in advertised
+                and type(advertised["credentialRefresh"]) is not int
+            )
         ):
             raise RunnerError("initialize_rejected")
         self.native_commands_supported = advertised.get("nativeCommands") == 1
+        self.credential_refresh_supported = advertised.get("credentialRefresh") == 1
+        if self.managed_credential and not self.credential_refresh_supported:
+            raise RunnerError("runner_authentication_required")
         if self.executor is not None:
             self.assert_controller_isolated()
             executor = self.executor
@@ -225,6 +242,7 @@ class CodexAgentRuntime:
             "laomedo/preflight",
             "laomedo/registerExecutor",
             "laomedo/executorStatus",
+            "laomedo/refreshCredential",
         }:
             raise RunnerError("runner_transport_failed")
         label = {
@@ -232,10 +250,22 @@ class CodexAgentRuntime:
             "laomedo/preflight": "command/exec",
             "laomedo/registerExecutor": "environment/add",
             "laomedo/executorStatus": "environment/status",
+            "laomedo/refreshCredential": "provider/credential/update",
         }[method]
         return await self.acp.extension(
             method, params, operation=label, seconds=seconds
         )
+
+    async def refresh_credential(self, token):
+        """Update only the existing controller's bearer after host account admission."""
+        if not self.credential_refresh_supported or self.executor is None:
+            raise RunnerError("runner_authentication_required")
+        self.secret_redactions += (token,)
+        result = await self.extension(
+            "laomedo/refreshCredential", {"accessToken": token}
+        )
+        if result != {"updated": True}:
+            raise RunnerError("runner_authentication_required")
 
     async def open(self, record, *, resume, reuse=False):
         """Bind the actual native session and confirm advertised model settings."""

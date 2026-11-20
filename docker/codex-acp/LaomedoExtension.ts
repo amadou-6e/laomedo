@@ -3,6 +3,7 @@ import * as acp from "@agentclientprotocol/sdk";
 import {z} from "zod";
 import type {MessageConnection} from "vscode-jsonrpc/node";
 import type {CodexAppServerClient} from "./CodexAppServerClient";
+import {writeProviderCredential} from "./LaomedoLaunch";
 
 const sessionPolicy = z.object({
     policy: z.enum(["normal", "split"]),
@@ -42,13 +43,15 @@ export const executorParams = z.object({
     connectTimeoutMs: z.literal(15000),
 }).strict();
 export const statusParams = executorParams.pick({environmentId: true});
+export const credentialParams = z.object({accessToken: z.string().regex(/^[A-Za-z0-9._~+/=-]{16,32768}$/)}).strict();
 
 export class LaomedoExtension {
-    static readonly capabilities = {version: 1, rawEvents: true, hostPolicy: true, nativeCommands: 1};
+    static readonly capabilities = {version: 1, rawEvents: true, hostPolicy: true, nativeCommands: 1, credentialRefresh: 1};
     private sessions = new Map<string, z.infer<typeof sessionPolicy>>();
     private rawQueue: Promise<void> = Promise.resolve();
     private rawFailed = false;
     private prompted = false;
+    private prompting = false;
     private executorId?: string;
     private completed = new Map<string, number>();
     private compactSession: string | undefined;
@@ -96,6 +99,17 @@ export class LaomedoExtension {
             // Host is pure contract validation. No filesystem/terminal delegation.
             return host.request("_laomedo/outputPrecheck", params);
         });
+    }
+
+    async refreshCredential(params: z.infer<typeof credentialParams>) {
+        if (process.env["LAOMEDO_CODEX_REFRESHABLE_AUTH"] !== "1" || !this.executorId || this.prompting) {
+            throw acp.RequestError.invalidParams("Managed provider credential unavailable");
+        }
+        writeProviderCredential(credentialParams.parse(params).accessToken);
+        // Pinned native command-backed auth caches for 1 ms. Wait out that cache
+        // before acknowledging, so the next request resolves the new bearer.
+        await new Promise(resolve => setTimeout(resolve, 2));
+        return {updated: true};
     }
 
     sessionParameters(request: acp.NewSessionRequest | acp.LoadSessionRequest) {
@@ -222,9 +236,11 @@ export class LaomedoExtension {
         this.compactSession = compact ? sessionId : undefined;
         this.compactEvents = [];
         const before = this.completed.get(sessionId) ?? 0;
+        this.prompting = true;
         try {
             return await run();
         } finally {
+            this.prompting = false;
             // The response cannot overtake native terminal evidence on stdio.
             await this.rawQueue;
             const after = this.completed.get(sessionId) ?? 0;

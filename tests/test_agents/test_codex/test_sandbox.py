@@ -18,6 +18,28 @@ from laomedo.agents.agents.codex.controller.models import CodexLaunch
     "Requires optional Docker runtime",
 )
 class RunnerSandboxPolicyTests(unittest.TestCase):
+    def test_credential_update_requires_capability_and_confirmed_acknowledgement(self):
+        import asyncio
+        from unittest.mock import AsyncMock
+        from laomedo.agents.agents.codex.runtime import CodexAgentRuntime
+
+        runtime = object.__new__(CodexAgentRuntime)
+        runtime.executor = object()
+        runtime.secret_redactions = ()
+        runtime.credential_refresh_supported = False
+        runtime.extension = AsyncMock(return_value={"updated": True})
+        with self.assertRaisesRegex(RunnerError, "runner_authentication_required"):
+            asyncio.run(runtime.refresh_credential("fixture-renewed-token"))
+        runtime.extension.assert_not_awaited()
+        runtime.credential_refresh_supported = True
+        runtime.extension.return_value = {"updated": False}
+        with self.assertRaisesRegex(RunnerError, "runner_authentication_required"):
+            asyncio.run(runtime.refresh_credential("fixture-renewed-token"))
+        self.assertIn("fixture-renewed-token", runtime.secret_redactions)
+        runtime.extension.assert_awaited_once_with(
+            "laomedo/refreshCredential", {"accessToken": "fixture-renewed-token"}
+        )
+
     def test_split_controller_token_is_not_a_control_environment(self):
         from laomedo.agents.agents.codex.split.models import SplitLaunch
         from laomedo.agents.agents.codex.controller.models import SplitPolicy

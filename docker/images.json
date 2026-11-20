@@ -15,7 +15,7 @@
     "verify_output": "2.1.310 (Claude Code)"
   },
   "codex": {
-    "image": "laomedo-codex-acp:0.159.2-2.1.1-commands3",
+    "image": "laomedo-codex-acp:0.159.2-2.1.1-commands4",
     "context": "codex-acp",
     "files": [
       "Dockerfile",

@@ -275,6 +275,10 @@ class SplitPolicy(BaseModel):
     """Host-only provider configuration for a credential-free tool executor."""
 
     model_config = ConfigDict(extra="forbid", frozen=True, hide_input_in_errors=True)
+    managed_credential: bool = Field(
+        default=False,
+        description="Use the host-updated controller-private bearer file, never executor credentials.",
+    )
     provider_config: tuple[str, ...] = Field(
         default=(), description="Trusted host native provider configuration overrides."
     )

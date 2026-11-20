@@ -10,7 +10,7 @@ build is required. Existing-tag recipe mismatches and explicit pins follow the
 [shared acquisition policy](../README.md).
 
 For a host-reviewed manual rebuild, run
-`docker build -t laomedo-codex-acp:0.159.2-2.1.1-commands3 .` from this directory and record
+`docker build -t laomedo-codex-acp:0.159.2-2.1.1-commands4 .` from this directory and record
 the resulting immutable ID for the runner's explicit `image_id` override.
 The Dockerfile pins the Node base, upstream adapter commit/archive checksum and
 Codex package lock. The runtime includes the upstream Apache-2.0 licence and
@@ -84,3 +84,16 @@ expose no executable command catalog and refuse explicit command requests before
 any prompt. Image tags or advertised slash-command descriptions alone do not
 establish handler support. Unknown capability fields and invalid flag values fail
 initialization.
+
+## Host-managed bearer refresh
+
+`credentialRefresh: 1` advertises the narrow `_laomedo/refreshCredential`
+request. It accepts only `accessToken`, returns `{updated: true}`, and never
+forwards credentials into native event history. `LaomedoLaunch` initializes the
+controller-private file before spawning native Codex. The extension atomically
+replaces it only in managed split mode outside an active prompt. Both initial
+and refreshed credentials remain outside executor mounts and persistent profiles.
+Pinned native 0.159.2 command-backed provider auth reads the file; its 1 ms cache
+is allowed to expire before acknowledgement. This changes no native session IDs.
+The host remains the sole OAuth-refresh owner and checks selected account identity
+and generation before transfer. Failure never falls through to a model prompt.

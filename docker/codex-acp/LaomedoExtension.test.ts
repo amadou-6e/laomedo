@@ -4,6 +4,9 @@ import type * as acp from "@agentclientprotocol/sdk";
 import type {MessageConnection} from "vscode-jsonrpc/node";
 import type {CodexAppServerClient} from "./CodexAppServerClient";
 import {LaomedoExtension, probeParams, executorParams} from "./LaomedoExtension";
+import {writeProviderCredential} from "./LaomedoLaunch";
+
+vi.mock("./LaomedoLaunch", () => ({writeProviderCredential: vi.fn()}));
 
 function setup() {
     let observe: (event: any) => void = () => {};
@@ -17,6 +20,22 @@ function setup() {
 }
 
 describe("Laomedo ACP policy", () => {
+    it("updates only host-managed split credentials while no native prompt is active", async () => {
+        const {extension, observe, host} = setup();
+        const params = {accessToken: "fixture-renewed-access-token"};
+        await expect(extension.refreshCredential(params)).rejects.toThrow();
+        process.env["LAOMEDO_CODEX_REFRESHABLE_AUTH"] = "1";
+        try {
+            await extension.registerExecutor({environmentId:"e",execServerUrl:"ws://127.0.0.1:39871",authBearerToken:"x".repeat(32),connectTimeoutMs:15000});
+            await expect(extension.refreshCredential(params)).resolves.toEqual({updated:true});
+            expect(writeProviderCredential).toHaveBeenCalledWith(params.accessToken);
+            await extension.prompt("root", async () => {
+                await expect(extension.refreshCredential(params)).rejects.toThrow();
+                observe("turn/completed", {threadId:"root",turn:{id:"t",status:"completed"}});
+            });
+            expect(host.notify).not.toHaveBeenCalledWith(expect.anything(), expect.objectContaining(params));
+        } finally { delete process.env["LAOMEDO_CODEX_REFRESHABLE_AUTH"]; }
+    });
     it("admits only explicit bound built-ins and preserves ordinary slash prompt handling", async () => {
         const {extension, request, terminate} = setup();
         extension.bind(request, "native-session");
@@ -77,7 +96,7 @@ describe("Laomedo ACP policy", () => {
         expect(() => extension.sessionParameters({...request, mcpServers: [external]})).toThrow();
     });
     it("advertises the versioned raw-event and host-policy contract", () => {
-        expect(LaomedoExtension.capabilities).toEqual({version: 1, rawEvents: true, hostPolicy: true, nativeCommands: 1});
+        expect(LaomedoExtension.capabilities).toEqual({version: 1, rawEvents: true, hostPolicy: true, nativeCommands: 1, credentialRefresh: 1});
     });
     it("inherits the normal permission profile without agent-mode overrides", () => {
         const {extension, request} = setup();

@@ -2,7 +2,7 @@
 
 import unittest
 import time
-from unittest.mock import patch
+from unittest.mock import AsyncMock, Mock, patch
 from laomedo.agents.agents.base.agent import BaseAgent
 from laomedo.agents.errors import RunnerError
 from test_agents.test_runtime.utils import prepare_runner
@@ -23,6 +23,43 @@ class InitialStatusTests(unittest.TestCase):
             "effort": "low",
             "initial_native_command": "status",
         }
+
+    def test_rotated_access_token_updates_the_existing_native_session(self):
+        self.runner.transport = InitialStatusTransport
+        identity = {
+            "credential_ref": "fixture-account",
+            "provider_subject_hash": "fixture-subject",
+            "generation": 1,
+            "auth_outcome": "active",
+        }
+        self.runner.auth = Mock()
+        self.runner.auth.access_token.return_value = ("fixture-initial-token", identity)
+        self.runner.auth.account.return_value = {"state": "active"}
+        self.runner.auth.summary.return_value = identity
+        with patch.object(
+            InitialStatusTransport, "refresh_credential", new=AsyncMock(), create=True
+        ) as refresh:
+            result = self.runner.start(self.request())
+            self.assertTrue(self.runner.has_live_session(result["run_id"]))
+            self.runner.auth.access_token.return_value = (
+                "fixture-renewed-token",
+                identity,
+            )
+            following = self.runner.resume(
+                result["run_id"],
+                "Use the refreshed credential",
+                expected_thread_id=result["thread_id"],
+                expected_post_run_hash=result["post_run_hash"],
+                model="test-model",
+                effort="low",
+            )
+        self.assertEqual(
+            following["status"], "completed", following.get("error_category")
+        )
+        self.assertEqual(following["thread_id"], result["thread_id"])
+        refresh.assert_awaited_once_with("fixture-renewed-token")
+        self.assertEqual(FakeServer.turn_inputs, ["Use the refreshed credential"])
+        self.assertFalse(self.runner.has_live_session(result["run_id"]))
 
     def test_control_only_start_retains_resumable_thread_without_a_model_turn(self):
         self.runner.transport = InitialStatusTransport
@@ -68,7 +105,7 @@ class InitialStatusTests(unittest.TestCase):
             effort="low",
         )
         self.assertEqual(refused["status"], "failed")
-        self.assertEqual(refused["error_category"], "resume_provider_binding_mismatch")
+        self.assertEqual(refused["error_category"], "codex_idle_session_unavailable")
         self.assertEqual(FakeServer.turn_inputs, [])
 
     def test_idle_expiry_closes_resources_and_preserves_completed_status_receipt(self):
@@ -117,7 +154,7 @@ class InitialStatusTests(unittest.TestCase):
             effort="low",
         )
         self.assertEqual(following["status"], "failed")
-        self.assertEqual(following["error_category"], "run_not_dispatchable")
+        self.assertEqual(following["error_category"], "codex_idle_session_unavailable")
         self.assertTrue(held.runtime.log.closed)
         self.assertFalse(self.runner.has_live_session(result["run_id"]))
         self.assertEqual(FakeServer.turn_inputs, [])

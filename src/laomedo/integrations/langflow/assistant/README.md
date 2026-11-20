@@ -122,7 +122,7 @@ MCP tools; any resulting graph/native proposal still needs its own approval.
 Native catalogs and their provider-owned availability projection cross through
 normal runner status, with run/thread binding and shared typed wire models. App
 code never reaches into a concrete provider object. A missing or invalid catalog
-is unavailable, not a fabricated empty list. The registered commands3 image
+is unavailable, not a fabricated empty list. The registered commands4 image
 contains the explicit native-command adapter hook. Existing tool manifests remain
 frozen for a native session. Older retained conversations/runs may require a new
 conversation after this image upgrade; their history remains readable, and no

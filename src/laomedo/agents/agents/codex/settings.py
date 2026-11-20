@@ -2,7 +2,7 @@
 
 from laomedo._paths import package_root
 
-IMAGE = "laomedo-codex-acp:0.159.2-2.1.1-commands3"
+IMAGE = "laomedo-codex-acp:0.159.2-2.1.1-commands4"
 
 
 # Managed image IDs are resolved on the selected daemon before execution.
