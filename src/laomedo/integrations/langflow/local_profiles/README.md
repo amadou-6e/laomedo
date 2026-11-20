@@ -10,7 +10,7 @@ profile identity and display name; `ProfileIndex` describes picker contents.
 PINs are excluded from serialization and representations. A boundary must catch
 validation errors and return catalogue codes, never Pydantic input payloads.
 `settings.py` owns fixed local-profile policy, including the reserved system name.
-`auth.py` owns `LocalProfileAuthService`, the narrow authentication adapter.
+`auth.py` owns `LocalProfileAuthService`, the narrow authentication adapter. Its create_token delegates signing and expiry to upstream and adds a unique per-issuance jti, so two same-profile browser sessions minted in one second remain distinct.
 
 The startup adapter admits owned state before migrations and verifies the
 internal actor before serving. Profile creation delegates to upstream user

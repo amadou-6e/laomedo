@@ -311,6 +311,12 @@ class ProviderConnections:
         with self._lock:
             canonical = self.resolve_lease(previous_hash)
             self.check_lease(renewed_hash)
+            existing = self._lease_renewals.get(renewed_hash)
+            if existing is not None and existing.canonical_hash != canonical:
+                # Never let a colliding issued token adopt another browser's lease.
+                del self._lease_renewals[renewed_hash]
+                self.revoked_leases.add(renewed_hash)
+                raise ProviderConnectionError("provider_session_required")
             if expires_at > time.time() and renewed_hash != canonical:
                 self._lease_renewals[renewed_hash] = SessionLeaseRenewal(
                     canonical_hash=canonical, expires_at=expires_at

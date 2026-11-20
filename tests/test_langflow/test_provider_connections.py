@@ -188,6 +188,37 @@ class ProviderRouteTests(unittest.TestCase):
             )
             complete.assert_not_called()
 
+    def test_refresh_inspection_failure_preserves_the_upstream_response(self):
+        """A renewal DB outage must not replace a successful upstream refresh."""
+        import asyncio
+        from unittest.mock import AsyncMock
+        from laomedo.agents.connections.models import BrowserProviderSession
+
+        boundary = ProviderSessionBoundary(None, service=self.service)
+        session = BrowserProviderSession(profile_id=self.profile, lease_hash="original")
+        message = {
+            "type": "http.response.start",
+            "status": 200,
+            "headers": [(b"set-cookie", b"access_token_lf=fixture; HttpOnly")],
+        }
+        send = AsyncMock()
+        with (
+            patch.object(
+                boundary,
+                "_admit_renewal",
+                new_callable=AsyncMock,
+                side_effect=RuntimeError("fixture DB unavailable"),
+            ),
+            self.assertLogs(
+                "laomedo.integrations.langflow.provider_connections.boundary",
+                level="WARNING",
+            ) as logs,
+        ):
+            asyncio.run(boundary._renew_session(session, send, message))
+        send.assert_awaited_once_with(message)
+        self.assertNotIn("fixture DB unavailable", " ".join(logs.output))
+        self.assertEqual(self.service._lease_renewals, {})
+
     def test_verified_refresh_preserves_attempt_receipt_and_logout_fencing(self):
         """Mount-time JWT rotation must retain a receipt only in its original browser."""
         from laomedo.agents.connections.models import BrowserProviderSession

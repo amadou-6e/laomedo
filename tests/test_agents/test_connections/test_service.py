@@ -49,6 +49,20 @@ class ProviderConnectionsTests(unittest.TestCase):
             self.assertEqual(self.service.resolve_lease("again"), "again")
             self.assertEqual(self.service._lease_renewals, {})
 
+    def test_conflicting_renewal_revokes_the_collision_without_cross_browser_adoption(
+        self,
+    ):
+        """A duplicate issued digest cannot move an existing browser alias."""
+        with patch("laomedo.agents.connections.service.time.time", return_value=100):
+            self.service.renew_lease("browser-one", "collision", 200)
+            with self.assertRaises(ProviderConnectionError):
+                self.service.renew_lease("browser-two", "collision", 200)
+            self.assertEqual(self.service.resolve_lease("collision"), "collision")
+            with self.assertRaises(ProviderConnectionError):
+                self.service.check_lease("collision")
+            self.service.check_lease("browser-one")
+            self.service.check_lease("browser-two")
+
     def connect(
         self,
         subject="one",

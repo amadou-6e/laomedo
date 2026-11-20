@@ -2,6 +2,7 @@
 
 from functools import partial
 import hashlib
+import logging
 from http.cookies import SimpleCookie
 
 import jwt
@@ -85,29 +86,40 @@ class ProviderSessionBoundary:
             for name, value in message.get("headers", []):
                 if name.lower() != b"set-cookie":
                     continue
-                cookies = SimpleCookie()
-                cookies.load(value.decode("latin-1"))
-                if "access_token_lf" not in cookies:
-                    continue
-                cookie = cookies["access_token_lf"].value
-                renewed = await self._session(cookie)
-                if renewed is None or renewed.profile_id != previous.profile_id:
-                    continue
-                # Authentication above verified this token. This second decode
-                # reads expiry solely to bound alias retention, never identity.
-                expires_at = jwt.decode(cookie, options={"verify_signature": False})[
-                    "exp"
-                ]
                 try:
-                    self.service.renew_lease(
-                        previous.lease_hash,
-                        hashlib.sha256(cookie.encode()).hexdigest(),
-                        expires_at,
+                    cookies = SimpleCookie()
+                    cookies.load(value.decode("latin-1"))
+                    if "access_token_lf" not in cookies:
+                        continue
+                    await self._admit_renewal(
+                        previous, cookies["access_token_lf"].value
                     )
-                except ProviderConnectionError:
-                    # Concurrent logout wins; the renewed cookie remains fenced.
-                    pass
+                except Exception as error:
+                    # Renewal evidence is optional: preserve the upstream response,
+                    # but never guess an alias after malformed data or a DB outage.
+                    logging.getLogger(__name__).warning(
+                        "provider_session_renewal_failed category=%s",
+                        type(error).__name__,
+                    )
         await send(message)
+
+    async def _admit_renewal(self, previous, cookie):
+        """Authenticate both principals before preserving only an opaque lease."""
+        renewed = await self._session(cookie)
+        if renewed is None or renewed.profile_id != previous.profile_id:
+            return
+        # Authentication above verified this token. This second decode
+        # reads expiry solely to bound alias retention, never identity.
+        expires_at = jwt.decode(cookie, options={"verify_signature": False})["exp"]
+        try:
+            self.service.renew_lease(
+                previous.lease_hash,
+                hashlib.sha256(cookie.encode()).hexdigest(),
+                expires_at,
+            )
+        except ProviderConnectionError:
+            # Concurrent logout or conflicting issuance wins; remain fenced.
+            pass
 
     async def _owns_graph(self, profile_id, flow_id):
         """Treat referrer as an untrusted hint; resolve ownership in the app database."""
