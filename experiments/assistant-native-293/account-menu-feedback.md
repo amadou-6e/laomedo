@@ -1,5 +1,37 @@
 # Account menu and slash input feedback, 2026-11-20
 
+## Later renewal fix and explicit restart limitation
+
+The earlier UI-only checks below are historical evidence, not the final backend
+claim. At dbe659501 the real preview exposed a normal app-JWT renewal bug: pending
+native approvals became unavailable after reload. The correction preserves the
+verified browser lease with durable fingerprint aliases, including logout via
+an unseen renewed token. No bearer is stored. All 91 assistant backend tests pass
+(230.029s), including actual signed JWT verification, real ProviderConnections
+renewal/reconstruction, SQLite expiry/owner/collision/revocation checks. Black956
+and CI pass at that head.
+
+Real integrated-browser check at dbe659501: a fresh /mcp proposal retains enabled
+Approve/Reject after reload. Read-only owned database audit reports two verified
+renewal aliases for the proposal root, pending state and authority not revoked.
+The proposal was not approved or executed. Screenshot stays private/ignored.
+
+An additional ordinary send after the preview SERVER restart refused with the
+existing Codex resume_after_runner_restart_forbidden safeguard, before another
+model turn. This is not a successful send or a JWT failure. The current spec
+explicitly preserves runner-restart fail-closed rules. We did not weaken it.
+38253df86 adds the missing human-readable error/recovery and a real shared error
+renderer test. Updated frontend build PASS1m19s; 686 tests across assistant and
+shared error rendering PASS (17 suites; includes 69 assistant UI tests). New
+conversation acceptance is being checked separately. No transparent continuation
+after authenticated runner restart claimed. Earlier conversation remains intact.
+
+Claude correction recheck is quota-blocked until18:50 Berlin. Initial UI review
+covered cbb110473..9296cc4fa with REVISE; d4feb411f corrections await recheck.
+The later auth fix and restart-error copy are fully unreviewed, reviewer pending.
+Specifications 4f49b1e define the durable renewal/logout invariant; validator1845
+files/6projects/0errors. Nothing merged.
+
 Source cbb110473..9296cc4fa implements compact account rows, shared provider icons, a selected-row highlight, separate account-settings footer, aligned welcome cards, explicit blocked-send guidance and draft preservation. Review correction d4feb411f reserves AP-2 candidate command names across Codex, Claude and OpenCode and improves the account trigger's accessible description. Spec head f536052 records those definitions.
 
 ## Actual integrated-browser acceptance
