@@ -2704,6 +2704,11 @@
     "description": "The runner instance changed. Its previous native binding has not been silently replaced; history and saved drafts remain available.",
     "recovery": "Use Start linked conversation to choose a new session explicitly. The original conversation and committed drafts stay available."
   },
+  "resume_after_runner_restart_forbidden": {
+    "title": "This Codex session cannot continue after the runner restarted",
+    "description": "The authenticated Codex runner changed. Its existing restart safeguard refuses continuation; your conversation history and saved drafts are preserved.",
+    "recovery": "In chat, use Start linked conversation to start a new session explicitly. For a workflow, start a fresh run. The earlier request is not replayed."
+  },
   "assistant_runner_unavailable": {
     "title": "The assistant operation could not be completed",
     "description": "The local runner could not be observed. Retained history is still available.",
