@@ -94,11 +94,8 @@ class InitialStatusTests(unittest.TestCase):
         result, _ = self._authenticated_status()
         held = self.runner._idle_sessions[result["run_id"]]
         self.runner.auth.account.return_value = {"state": "refresh_in_flight"}
-        with patch(
-            "laomedo.agents.agents.codex.agent.time.monotonic",
-            side_effect=[100, 100, 131],
-        ):
-            self.assertTrue(held.runtime.authorization_probe(idle=True))
+        self.assertTrue(held.runtime.authorization_probe(idle=True))
+        with patch("laomedo.agents.agents.codex.agent.IDLE_AUTH_REFRESH_SECONDS", 0):
             self.assertFalse(held.runtime.authorization_probe(idle=True))
         self.assertEqual(
             held.runtime.authorization_failure["code"], "auth_refresh_timeout"

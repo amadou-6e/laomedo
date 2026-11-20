@@ -1331,7 +1331,11 @@ class CodexAgent(BaseAgent):
                             < IDLE_AUTH_REFRESH_SECONDS
                         ):
                             return True
-                        auth_failure.update(code="auth_refresh_timeout")
+                        auth_failure.update(
+                            error="auth_refresh_failed_during_turn",
+                            outcome="refresh_unknown",
+                            code="auth_refresh_timeout",
+                        )
                         return False
                     refresh_started = None
                     if state != "active":
