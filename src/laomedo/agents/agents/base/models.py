@@ -363,8 +363,13 @@ class PreparedRunRecord(BaseModel):
         "cancel_requested",
         "cancel_confirmed",
         "github_scope",
+        "initial_native_command",
     )
     run_id: str = Field(description="New canonical runner run UUID.")
+    initial_native_command: Literal["status"] | None = Field(
+        default=None,
+        description="Explicit admitted control-only first session operation.",
+    )
     workspace: PreparedWorkspaceState = Field(
         description="Related observed working-state bindings."
     )
@@ -417,7 +422,9 @@ class PreparedRunRecord(BaseModel):
 
     def to_record(self) -> dict:
         """Preserve the flat initial JSON schema, defaults, nulls and optional scope."""
-        value = self.model_dump(exclude={"workspace", "runtime", "github_scope"})
+        value = self.model_dump(
+            exclude={"workspace", "runtime", "github_scope", "initial_native_command"}
+        )
         value.update(self.workspace.record_fields())
         value.update(self.runtime.record_fields())
         value.update(
@@ -449,6 +456,10 @@ class PreparedRunRecord(BaseModel):
         expected = set(self.RECORD_KEYS) - (
             {"github_scope"} if self.github_scope is None else set()
         )
+        if self.initial_native_command is None:
+            expected.discard("initial_native_command")
+        else:
+            value["initial_native_command"] = self.initial_native_command
         assert (
             set(value) == expected
         ), "Prepared record keys must explicitly match the persistence contract."

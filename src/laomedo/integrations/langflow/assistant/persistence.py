@@ -65,7 +65,7 @@ class AssistantStore:
                     f'ALTER TABLE laomedo_assistant_message ADD COLUMN "native_action_id" {kind}'
                 )
             )
-        for name in ("model", "effort"):
+        for name in ("model", "effort", "initial_native_command"):
             if name not in columns:
                 connection.execute(
                     text(
@@ -301,7 +301,10 @@ class AssistantStore:
             ).first()
             if row is None:
                 return None
-            if row.digest != request.digest():
+            if (
+                row.digest != request.digest()
+                or row.initial_native_command != request.initial_native_command
+            ):
                 raise AssistantError("assistant_message_conflict")
             return row.model_dump(mode="json", exclude={"digest", "activity_snapshot"})
 
@@ -337,11 +340,21 @@ class AssistantStore:
             )
         ).first()
         if prior:
-            if prior.digest != digest or prior.native_action_id != native_action_id:
+            if (
+                prior.digest != digest
+                or prior.native_action_id != native_action_id
+                or prior.initial_native_command != request.initial_native_command
+            ):
                 raise AssistantError("assistant_message_conflict")
             return prior.model_dump(mode="json", exclude={"digest"}), False
         if conversation.active_message_id is not None:
             raise AssistantError("assistant_turn_active")
+        if request.initial_native_command is not None and (
+            conversation.provider != "codex"
+            or conversation.run_id is not None
+            or native_action_id is not None
+        ):
+            raise AssistantError("native_command_context_invalid", 409)
         if conversation.state == "attention":
             raise AssistantError(
                 conversation.error_code or "assistant_continuation_unavailable"
@@ -349,6 +362,7 @@ class AssistantStore:
         message = AssistantMessage(
             conversation_id=identifier,
             native_action_id=native_action_id,
+            initial_native_command=request.initial_native_command,
             client_message_id=request.client_message_id,
             digest=digest,
             text=request.text,

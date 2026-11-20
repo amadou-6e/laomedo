@@ -321,6 +321,10 @@ class BaseAgent(ABC):
         """Provider-owned refresh semantics for an explicit editor discovery request."""
         return self.model_catalog()
 
+    def prepare_initial_command(self, request: dict) -> str:
+        """Refuse an unsupported initial native command before any preparation effects."""
+        raise RunnerError("native_command_not_supported")
+
     def prepare_resume(self, run_id, body):
         """Validate provider extensions and refresh authentication before HTTP resume."""
         if body.get("native_command") is not None:
@@ -743,6 +747,11 @@ class BaseAgent(ABC):
             raise RunnerError("invalid_request")
         self._mcp_manifest(request)
         self._validate_run_timeout(request.get("run_timeout_seconds"))
+        initial_command = (
+            self.prepare_initial_command(request)
+            if request.get("initial_native_command") is not None
+            else None
+        )
         task = request.get("task")
         if not isinstance(task, str) or not task.strip() or len(task) > 16000:
             raise RunnerError("invalid_task")
@@ -877,6 +886,7 @@ class BaseAgent(ABC):
                 activity_initial_attempt_id=str(uuid4()),
                 output_requirements=output_requirements,
                 output_retries=output_retries,
+                initial_native_command=initial_command,
                 request_hash=request_hash,
                 github_scope=(
                     AgentGitHubScope(**github_scope)

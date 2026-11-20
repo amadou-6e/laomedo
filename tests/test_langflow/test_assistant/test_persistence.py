@@ -25,6 +25,60 @@ from laomedo.integrations.langflow.assistant.persistence import AssistantStore
 
 
 class PersistenceTests(unittest.IsolatedAsyncioTestCase):
+    async def test_initial_status_is_durable_and_bound_to_message_identity(self):
+        """Initial control intent survives history reads and cannot alias ordinary chat."""
+        request = MessageRequest(
+            client_message_id=uuid4(), text="/status", initial_native_command="status"
+        )
+        message, created = await self.store.reserve(
+            self.owner, self.identifier, request, session_key=self.key
+        )
+        self.assertTrue(created)
+        self.assertEqual(message["initial_native_command"], "status")
+        duplicate, created = await self.store.reserve(
+            self.owner, self.identifier, request, session_key=self.key
+        )
+        self.assertFalse(created)
+        self.assertEqual(duplicate["id"], message["id"])
+        with self.assertRaisesRegex(AssistantError, "assistant_message_conflict"):
+            await self.store.reserve(
+                self.owner,
+                self.identifier,
+                MessageRequest(
+                    client_message_id=request.client_message_id, text="/status"
+                ),
+                session_key=self.key,
+            )
+        detail = await self.store.detail(self.owner, self.identifier)
+        self.assertEqual(detail["messages"][0]["initial_native_command"], "status")
+
+    async def test_other_providers_refuse_initial_status_before_reserving(self):
+        """Codex's initial control mode cannot become a Claude or OpenCode prompt."""
+        for provider in ("claude", "opencode"):
+            conversation = await self.store.create(
+                self.owner,
+                ConversationRequest(provider=provider, model="fixture", effort="low"),
+                session_key=self.key,
+            )
+            with (
+                self.subTest(provider=provider),
+                self.assertRaisesRegex(
+                    AssistantError, "native_command_context_invalid"
+                ),
+            ):
+                await self.store.reserve(
+                    self.owner,
+                    UUID(conversation["id"]),
+                    MessageRequest(
+                        client_message_id=uuid4(),
+                        text="/status",
+                        initial_native_command="status",
+                    ),
+                    session_key=self.key,
+                )
+            detail = await self.store.detail(self.owner, UUID(conversation["id"]))
+            self.assertEqual(detail["messages"], [])
+
     async def test_delete_removes_owned_chat_records_and_clears_successor_link(self):
         """Deleting a settled chat removes its private receipts and remembered grants."""
         message, _ = await self.store.reserve(

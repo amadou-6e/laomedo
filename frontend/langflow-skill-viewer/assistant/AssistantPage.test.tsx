@@ -28,8 +28,24 @@ jest.mock("@/stores/authStore", () => ({
 }));
 
 describe("uncertain assistant submission", () => {
+  it("starts a brand-new Codex chat with explicit native status rather than a hidden prompt", async () => {
+    const chat = { id: "fresh", title: "/status", provider: "codex", run_id: null, model: "fixture", effort: "low", state: "idle", active_message_id: null };
+    jest.mocked(assistantRequest).mockImplementation(async (path, body) => {
+      if (path === "/models") return {provider: "codex", models: [{id: "fixture", efforts: ["low"]}]};
+      if (path === "/conversations") return body ? chat : {conversations: [], next_cursor: null};
+      if (path.endsWith("/messages") && body) return {id: "initial-status", ...body};
+      return {conversation: chat, messages: [], drafts: [], next_cursor: null};
+    });
+    render(<MemoryRouter initialEntries={["/assistant"]}><AssistantPage /></MemoryRouter>);
+    const composer = screen.getByRole("textbox", {name: "Message this assistant"});
+    fireEvent.change(composer, {target: {value: "/status"}});
+    await waitFor(() => expect(screen.getByRole("button", {name: "Start chat"})).not.toBeDisabled());
+    fireEvent.click(screen.getByRole("button", {name: "Start chat"}));
+    await waitFor(() => expect(assistantRequest).toHaveBeenCalledWith("/conversations/fresh/messages", expect.objectContaining({text: "/status", initial_native_command: "status"})));
+    expect(jest.mocked(assistantRequest).mock.calls.some(([path]) => path.endsWith("/native-commands"))).toBe(false);
+  });
   it("submits a typed command directly and never wraps it in a model message", async () => {
-    const chat = { id: "saved", title: "Saved", provider: "codex", model: "fixture", effort: "low", state: "idle", active_message_id: null };
+    const chat = { id: "saved", title: "Saved", provider: "codex", run_id: "run", model: "fixture", effort: "low", state: "idle", active_message_id: null };
     jest.mocked(assistantRequest).mockImplementation(async (path, body) => {
       if (path === "/models") return { provider: "codex", models: [{id: "fixture", efforts: ["low"]}] };
       if (path === "/conversations") return {conversations: [chat], next_cursor: null};

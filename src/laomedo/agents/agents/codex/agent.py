@@ -358,6 +358,18 @@ class CodexAgent(BaseAgent):
             native_command=native_command,
         )
 
+    def prepare_initial_command(self, request: dict) -> str:
+        """Admit only exact control-only status on a newly created native session."""
+        if (
+            request.get("initial_native_command") != "status"
+            or request.get("task") != "/status"
+            or request.get("output_requirements") is not None
+            or request.get("github_scope") is not None
+            or request.get("github_authorization_ref") is not None
+        ):
+            raise RunnerError("native_command_context_invalid")
+        return "status"
+
     def prepare_resume(self, run_id, body):
         """Admit explicit Codex command mode without changing ordinary resume semantics."""
         request = body.get("native_command")
@@ -776,6 +788,15 @@ class CodexAgent(BaseAgent):
                 ):
                     raise RunnerError("run_not_dispatchable")
                 self.check_mcp(record)
+                if (
+                    not resume
+                    and record.get("initial_native_command") is not None
+                    and (
+                        record["initial_native_command"] != "status"
+                        or task != "/status"
+                    )
+                ):
+                    raise RunnerError("native_command_context_invalid")
                 if resume and model is not None and effort is not None:
                     # Session identity and workspace admission stay fixed; native
                     # catalog/configure checks below validate this turn's selection.
@@ -937,6 +958,26 @@ class CodexAgent(BaseAgent):
             server.mcp_access = self.mcp_access(run_id)
             native_id = await server.open(record, resume=resume)
             catalog = server.command_catalog()
+            initial_status = (
+                not resume and record.get("initial_native_command") == "status"
+            )
+            if initial_status:
+                from laomedo.agents.agents.base.models import NativeCommandInvocation
+
+                if catalog is None:
+                    raise RunnerError("native_command_not_supported")
+                projection = CodexCommands.project(catalog.model_dump(mode="json"))
+                if not any(
+                    item["name"] == "status"
+                    and item["executable"]
+                    and item["may_use_model"] is False
+                    for item in projection["commands"]
+                ):
+                    raise RunnerError("native_command_not_available")
+                native_command = NativeCommandInvocation(
+                    name="status", catalog_revision=catalog.revision()
+                )
+                CodexCommands.admit(native_command, catalog)
             record["native_commands"] = {
                 "thread_id": native_id,
                 "catalog": (
@@ -950,7 +991,7 @@ class CodexAgent(BaseAgent):
             }
             if native_command is not None:
                 if (
-                    not resume
+                    (not resume and not initial_status)
                     or record.get("github_scope")
                     or record.get("output_requirements")
                 ):

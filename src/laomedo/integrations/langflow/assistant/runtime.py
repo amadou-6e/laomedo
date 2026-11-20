@@ -472,6 +472,10 @@ class AssistantRuntime:
             conversation = await self.store.conversation(
                 session, owner, conversation_id
             )
+        if request.initial_native_command is not None and (
+            conversation.provider != "codex" or conversation.run_id is not None
+        ):
+            raise AssistantError("native_command_context_invalid", 409)
         if request.model is not None:
             catalog = await self.models(owner, conversation.provider)
             choice = next(
@@ -709,6 +713,17 @@ class AssistantRuntime:
                 "mcp_manifest": registration.manifest.model_dump(mode="json"),
                 "mcp_registration": str(registration.registration_id),
             }
+            if message.initial_native_command is not None:
+                if (
+                    message.initial_native_command != "status"
+                    or message.text != "/status"
+                    or conversation.provider != "codex"
+                    or conversation.run_id is not None
+                    or message.native_action_id is not None
+                ):
+                    raise AssistantError("native_command_context_invalid", 409)
+                payload["task"] = "/status"
+                payload["initial_native_command"] = "status"
             if message.native_action_id is not None:
                 from laomedo.integrations.langflow.assistant.models import (
                     AssistantNativeAction,

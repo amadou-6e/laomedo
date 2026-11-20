@@ -3,7 +3,7 @@ import type { ActivityPage, DraftReceipt, GraphAction, Message, NativeAction } f
 import { toolCall } from "./toolCall";
 
 export function hasNativeControlResult(message: Message): boolean {
-  return Boolean(message.native_action_id && message.state === "completed" && message.response && ["/status", "/mcp", "/skills"].includes(message.text));
+  return Boolean((message.native_action_id || message.initial_native_command === "status") && message.state === "completed" && message.response && ["/status", "/mcp", "/skills"].includes(message.text));
 }
 
 export function hasNativeCommandOutcome(message: Message): boolean {

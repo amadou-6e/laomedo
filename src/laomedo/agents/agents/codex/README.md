@@ -82,3 +82,11 @@ model commands. `CodexCommandResult` in `controller/models.py` describes a nativ
 control response without inventing a model turn ID or usage. Control completion
 requires actual ACP end-turn text and no native turn events. Agent settlement
 retains these as separate command receipts and preserves workspace checkpoints.
+# Initial status
+
+Codex admits `initial_native_command="status"` only with the exact task `/status`,
+without output requirements or GitHub mediation. It opens the fresh native
+session, observes the actual supported command catalog, and executes the existing
+non-model control path with that catalog revision. The normal retained run,
+thread, Activity, cleanup and workspace checkpoint support subsequent resume.
+Absent handler support or advertisement fails before a prompt; no model fallback.

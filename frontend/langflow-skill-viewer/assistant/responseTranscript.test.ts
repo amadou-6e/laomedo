@@ -36,3 +36,11 @@ it("copies a compact outcome without inventing an assistant response", () => {
   expect(text).not.toContain("may be partial");
   expect(text).not.toContain("Completed /compact.");
 });
+
+it("copies initial native status without requiring an approval action or fabricating a partial model reply", () => {
+  const message = { initial_native_command: "status", text: "/status", state: "completed", response: "Model: fixture\nThread: observed-thread" } as Message;
+  const text = responseTranscript(undefined, message, [], [], []);
+  expect(text).toContain("Model: fixture");
+  expect(text).toContain("Thread: observed-thread");
+  expect(text).not.toContain("may be partial");
+});

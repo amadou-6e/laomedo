@@ -199,6 +199,7 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
               /^[0-9a-f-]{36}$/.test(row.id) &&
               typeof row?.text === "string" &&
               row.text.length <= 12000 &&
+              (row.initial_native_command === undefined || (row.initial_native_command === "status" && row.text === "/status")) &&
               ((row.model === undefined && row.effort === undefined) ||
                 (typeof row.model === "string" &&
                   typeof row.effort === "string")),
@@ -431,7 +432,8 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
     )
       return;
     const epoch = generation.current;
-    const identity = retry ?? { id: crypto.randomUUID(), text, model, effort };
+    const initialStatus = text === "/status" && chosenProvider === "codex" && (!selected || (detail?.conversation.id === selected && !detail.conversation.run_id));
+    const identity: PendingSubmission = retry ?? { id: crypto.randomUUID(), text, model, effort, ...(initialStatus ? { initial_native_command: "status" as const } : {}) };
     let target = selected;
     let acknowledged = false;
     if (
@@ -439,7 +441,8 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
       (pending[selected]?.id !== retry.id ||
         pending[selected]?.text !== retry.text ||
         pending[selected]?.model !== retry.model ||
-        pending[selected]?.effort !== retry.effort)
+        pending[selected]?.effort !== retry.effort ||
+        pending[selected]?.initial_native_command !== retry.initial_native_command)
     )
       return;
     setBusy(true);
@@ -447,7 +450,7 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
     setError(undefined);
     pinned.current = true;
     try {
-      if (text.startsWith("/")) {
+      if (text.startsWith("/") && !identity.initial_native_command) {
         if (!target) throw new AssistantFailure("native_command_not_available");
         let submission = nativeSubmission.current;
         if (!submission || submission.conversation !== target || submission.text !== text) {
@@ -493,6 +496,7 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
         text: identity.text,
         model: identity.model,
         effort: identity.effort,
+        ...(identity.initial_native_command ? { initial_native_command: identity.initial_native_command } : {}),
       });
       acknowledged = true;
       if (epoch !== generation.current) return;
@@ -1040,7 +1044,7 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
             }}
           >
             <div className="relative mx-auto max-w-4xl rounded-2xl border bg-muted/30 p-2 shadow-sm focus-within:ring-1 focus-within:ring-ring">
-              {!commandsDismissed && /^\/[^\s]*$/.test(drafts[selected] ?? "") && <NativeCommandMenu conversation={selected} text={drafts[selected] ?? ""} onSelect={text => {
+              {!commandsDismissed && /^\/[^\s]*$/.test(drafts[selected] ?? "") && <NativeCommandMenu conversation={selected} provider={chosenProvider} text={drafts[selected] ?? ""} onSelect={text => {
                 setDrafts(value => ({...value, [selected]: text}));
                 document.getElementById("assistant-message")?.focus();
               }} onClose={() => {setCommandsDismissed(true); document.getElementById("assistant-message")?.focus();}} />}

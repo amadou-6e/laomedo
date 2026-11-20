@@ -149,3 +149,12 @@ existing human approval. MCP proposals never enter this bypass. Discovery uses
 the retained session catalog; no session is created or inferred by the picker.
 
 Conversation provider is immutable. AssistantRuntime selects a runner and lock by owner/provider; Codex keeps its existing owner key and private root. New providers use separate provider roots. AssistantRunner composes the registered provider from host-only settings; Claude profile volume and OpenCode private profile path are never browser/model inputs. OpenCodeAgent owns construction of its existing isolated runtime when a host profile is supplied. Existing native approval and Activity interfaces remain the only app boundaries. Missing configuration refuses before any model request. Each provider owns its command catalog policy and terminal receipts; a shared slash syntax does not imply shared command support.
+## Status before the first prompt
+
+`MessageRequest.initial_native_command` distinguishes an explicit first `/status`
+from a model prompt and is included in message identity. It is admitted only for
+a fresh Codex conversation and persisted on `AssistantMessage`; `_job` forwards
+the exact task and mode, without assistant instructions. The existing start,
+observation, cancellation and reconciliation owners handle it. The actual native
+status result renders and exports through the common status path; it creates no
+approval proposal or model turn. Later commands retain observed catalog binding.

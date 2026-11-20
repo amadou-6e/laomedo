@@ -3,8 +3,8 @@ import { ChevronRight, SquareTerminal } from "lucide-react";
 import { assistantRequest } from "./api";
 import type { NativeCommandCatalog } from "./models";
 
-export default function NativeCommandMenu({ conversation, text, onSelect, onClose }: {
-  conversation: string; text: string; onSelect: (value: string) => void; onClose: () => void;
+export default function NativeCommandMenu({ conversation, provider = "codex", text, onSelect, onClose }: {
+  conversation: string; provider?: string; text: string; onSelect: (value: string) => void; onClose: () => void;
 }) {
   const [catalog, setCatalog] = useState<NativeCommandCatalog>();
   const [failed, setFailed] = useState(false);
@@ -19,6 +19,7 @@ export default function NativeCommandMenu({ conversation, text, onSelect, onClos
     return () => controller.abort();
   }, [conversation]);
   const commands = (catalog?.commands ?? []).filter(item => item.executable && item.name.toLowerCase().startsWith(text.slice(1).toLowerCase()));
+  const unstarted = !conversation || catalog?.reason === "native_session_not_created";
   return <div id="assistant-native-commands" aria-label="Available commands" className="absolute bottom-full left-0 right-0 z-20 mb-2 max-h-56 overflow-y-auto rounded-2xl border border-border/60 bg-muted p-1.5 text-xs shadow-lg"
     onKeyDown={event => {
       if (event.key === "Escape") { event.preventDefault(); onClose(); }
@@ -35,6 +36,6 @@ export default function NativeCommandMenu({ conversation, text, onSelect, onClos
       <span className="shrink-0 font-medium text-foreground/80">/{item.name}</span><span className="min-w-0 flex-1 truncate text-[11px]">{item.description}</span>
       <ChevronRight size={12} aria-hidden="true" className="shrink-0 opacity-0 group-hover:opacity-60 group-focus:opacity-60" />
     </button>)}
-    {!commands.length && <p className="px-3 py-2 text-xs text-muted-foreground">{!conversation || catalog?.state === "unavailable" ? "Commands become available after the first response in this conversation." : failed ? "Could not load commands. Type / again to retry." : !catalog ? "Loading commands…" : "No matching commands."}</p>}
+    {!commands.length && <p className="px-3 py-2 text-xs text-muted-foreground">{unstarted ? provider === "codex" ? "Send /status to start a session without using the model." : "Commands become available after the first response in this conversation." : catalog?.state === "unavailable" ? "Native commands are unavailable in this session." : failed ? "Could not load commands. Type / again to retry." : !catalog ? "Loading commands…" : "No matching commands."}</p>}
   </div>;
 }

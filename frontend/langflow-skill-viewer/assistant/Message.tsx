@@ -123,7 +123,7 @@ export default function MessageRow({
   const items = (page?.projection?.items ?? []).filter(
     (lane) => lane.item?.type !== "userMessage",
   );
-  const nativeStatus = Boolean(provider === "codex" && message.native_action_id && message.text === "/status" && message.state === "completed" && message.response);
+  const nativeStatus = Boolean(provider === "codex" && (message.native_action_id || message.initial_native_command === "status") && message.text === "/status" && message.state === "completed" && message.response);
   const hasAnswer = items.some(
     (lane) => messageText(lane.item ?? {}, provider) !== null,
   );

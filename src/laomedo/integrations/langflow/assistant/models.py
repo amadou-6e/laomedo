@@ -72,6 +72,10 @@ class ConversationRenameRequest(BaseModel):
 class MessageRequest(BaseModel):
     """One stable client key denotes exactly one user message and its attempt."""
 
+    initial_native_command: Literal["status"] | None = ModelField(
+        default=None, description="Explicit control-only first Codex session operation."
+    )
+
     model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
     client_message_id: UUID = ModelField(
         description="Caller-retained idempotency key; never regenerated after a lost response."
@@ -102,6 +106,8 @@ class MessageRequest(BaseModel):
             raise ValueError("assistant_message_empty")
         if (self.model is None) != (self.effort is None):
             raise ValueError("assistant_selection_incomplete")
+        if self.initial_native_command is not None and self.text != "/status":
+            raise ValueError("native_command_context_invalid")
         return self
 
     def digest(self):
@@ -118,6 +124,10 @@ class MessageRequest(BaseModel):
                 separators=(",", ":"),
             )
         )
+        if self.initial_native_command is not None:
+            payload = json.dumps(
+                [payload, self.initial_native_command], separators=(",", ":")
+            )
         return hashlib.sha256(payload.encode()).hexdigest()
 
 
@@ -315,6 +325,11 @@ class AssistantConversation(SQLModel, table=True):
 
 class AssistantMessage(SQLModel, table=True):
     """A durable prompt, dispatch reservation and final safe display outcome."""
+
+    initial_native_command: str | None = Field(
+        default=None,
+        description="Admitted initial native control mode, never a model prompt.",
+    )
 
     __tablename__ = "laomedo_assistant_message"
     native_action_id: UUID | None = Field(

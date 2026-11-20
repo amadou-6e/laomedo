@@ -15,6 +15,7 @@ export type Conversation = {
   linked_conversation_id: string | null;
 };
 export type Message = {
+  initial_native_command?: "status" | null;
   native_action_id?: string | null;
   model?: string | null;
   effort?: string | null;
@@ -31,6 +32,7 @@ export type Message = {
   stop_requested: boolean;
 };
 export type PendingSubmission = {
+  initial_native_command?: "status";
   id: string;
   text: string;
   model?: string;
