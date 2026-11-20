@@ -103,6 +103,25 @@ class InitialStatusTests(unittest.TestCase):
         self.assertEqual(len(FakeServer.calls), before)
         self.assertFalse(self.runner.has_live_session(result["run_id"]))
 
+    def test_expired_session_is_refused_before_the_watcher_observes_it(self):
+        self.runner.transport = InitialStatusTransport
+        result = self.runner.start(self.request())
+        held = self.runner._idle_sessions[result["run_id"]]
+        held.expires = time.monotonic() - 1
+        following = self.runner.resume(
+            result["run_id"],
+            "Do not dispatch",
+            expected_thread_id=result["thread_id"],
+            expected_post_run_hash=result["post_run_hash"],
+            model="test-model",
+            effort="low",
+        )
+        self.assertEqual(following["status"], "failed")
+        self.assertEqual(following["error_category"], "run_not_dispatchable")
+        self.assertTrue(held.runtime.log.closed)
+        self.assertFalse(self.runner.has_live_session(result["run_id"]))
+        self.assertEqual(FakeServer.turn_inputs, [])
+
     def test_missing_native_command_capability_refuses_before_model_prompt(self):
         result = self.runner.start(self.request())
         self.assertEqual(result["status"], "failed")

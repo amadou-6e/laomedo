@@ -478,20 +478,38 @@ class ProviderControllers:
             self._stopping.set()
         for worker in list(self._cleanups.values()):
             worker.join()
+        failures = []
         for slot in list(self.slots.values()):
-            for record in self._records(slot):
-                if slot.runner and (
-                    record["status"] in {"prepared", "running"}
-                    or slot.runner.has_live_session(record["run_id"])
-                ):
-                    slot.runner.cancel(record["run_id"])
-            if slot.runner:
-                slot.runner.close()
+            try:
+                for record in self._records(slot):
+                    if slot.runner and (
+                        record["status"] in {"prepared", "running"}
+                        or slot.runner.has_live_session(record["run_id"])
+                    ):
+                        slot.runner.cancel(record["run_id"])
+            except Exception as error:
+                failures.append(error)
+            try:
+                if slot.runner:
+                    slot.runner.close()
+            except Exception as error:
+                failures.append(error)
             if slot.server:
-                slot.server.shutdown()
-                slot.server.server_close()
+                try:
+                    slot.server.shutdown()
+                except Exception as error:
+                    failures.append(error)
+                finally:
+                    try:
+                        slot.server.server_close()
+                    except Exception as error:
+                        failures.append(error)
         if type(self)._current is self:
             type(self)._current = None
+        if failures:
+            raise ProviderConnectionError("provider_cleanup_unconfirmed") from failures[
+                0
+            ]
 
     def _assistant_source(self, state):
         """Prepare only the fixed scratch sibling, never the graph repository."""

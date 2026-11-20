@@ -835,7 +835,9 @@ class CodexAgent(BaseAgent):
         """Release unused sessions after expiry, cancellation or loss of native health."""
         while not self._closing:
             await asyncio.sleep(0.5)
-            for run_id, held in list(self._idle_sessions.items()):
+            with self._session_guard:
+                sessions = list(self._idle_sessions.items())
+            for run_id, held in sessions:
                 failed = held.cancelled.is_set() or time.monotonic() >= held.expires
                 if not failed:
                     try:
@@ -957,6 +959,8 @@ class CodexAgent(BaseAgent):
                 if held is not None:
                     server, lease = held.runtime, held.lease
                     launch_attempted = True
+                    if time.monotonic() >= held.expires:
+                        raise RunnerError("run_not_dispatchable")
                 cancelled = held.cancelled if held is not None else threading.Event()
                 if cancelled.is_set():
                     raise RunnerError("run_not_dispatchable")

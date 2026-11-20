@@ -127,6 +127,11 @@ of native-resource cleanup. It does not claim a persisted model conversation.
   failure and shutdown close that ownership; cleanup uncertainty stays explicit.
   A fresh credential observation is required before the first model turn. A
   launch credential that changed while idle is not silently replaced or replayed.
+  This includes routine OAuth rotation within the same account generation: the
+  native process keeps its launch-time access token in its environment, and this
+  transport cannot update it in place. The first message then refuses and closes
+  the retained controller; starting a new conversation is required. An unchanged
+  account identity alone does not prove the launched token is still usable.
 - Restart reconciles the retained resource receipt and marks that zero-turn
   session unavailable. It cannot claim the native thread survived: Codex has not
   written a rollout before its first user turn.

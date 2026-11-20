@@ -155,6 +155,21 @@ class ProviderControllerTests(unittest.TestCase):
             (slot.state.parent / "source" / "workspace" / "README.md").is_file()
         )
 
+    def test_shutdown_closes_remaining_accounts_after_one_runner_fails(self):
+        self.manager.assistant_endpoint(self.profile, self.one, 1)
+        self.manager.assistant_endpoint(self.profile, self.two, 1)
+        slots = list(self.manager.slots.values())
+        slots[0].runner.close = Mock(side_effect=RuntimeError("cleanup uncertain"))
+        slots[1].runner.close = Mock()
+        servers = [slot.server for slot in slots]
+        with self.assertRaises(ProviderConnectionError) as failure:
+            self.manager.close()
+        self.assertEqual(failure.exception.code, "provider_cleanup_unconfirmed")
+        slots[1].runner.close.assert_called_once()
+        self.assertTrue(all(server.fileno() == -1 for server in servers))
+        self.assertIsNot(ProviderControllers._current, self.manager)
+        slots[0].runner.close = Mock()
+
     def test_connections_have_distinct_runners_and_foreign_profile_cannot_bind(self):
         one = self.manager.endpoint(self.profile, self.one)
         two = self.manager.endpoint(self.profile, self.two)

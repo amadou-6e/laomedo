@@ -45,6 +45,7 @@ class AssistantRuntime:
         self.settings = settings
         self.provider_connections = None
         self.idle_tools = {}
+        self.claimed_idle_tools = {}
         self.model_catalogs = {}
         self.migration_blocked = False
         self.store = self.mcp = self.upstream = None
@@ -905,6 +906,30 @@ class AssistantRuntime:
             except Exception:
                 pass  # Authority is already revoked; an idle session is not an agent grant.
         self.save_locks.pop(context.message_id, None)
+        claimed = self.claimed_idle_tools.pop(context.message_id, None)
+        if claimed is not None and not retain:
+            # A stopped or refused first dispatch must not leave a native
+            # controller attached to the endpoint just released above.
+            runner = self.runners.get(
+                self._runner_key(
+                    context.owner_id,
+                    claimed.provider,
+                    claimed.connection_id,
+                    claimed.connection_generation,
+                )
+            )
+            if runner is not None:
+                try:
+                    await asyncio.to_thread(
+                        runner.request,
+                        "POST",
+                        "/v1/runs/" + claimed.run_id + "/cancel",
+                        {},
+                    )
+                except AssistantError:
+                    # Revocation is complete; native cleanup remains uncertain
+                    # and is independently reconciled by the owning runner.
+                    pass
 
     async def _job(self, context):
         """Use existing asynchronous start/resume once, then observe the exact attempt."""
@@ -939,6 +964,7 @@ class AssistantRuntime:
                     idle.client,
                     idle.token.get_secret_value(),
                 )
+                self.claimed_idle_tools[context.message_id] = idle
                 self.host_tokens[token] = context
             else:
                 client = MCPStreamableHttpClient()

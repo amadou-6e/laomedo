@@ -63,6 +63,42 @@ class RunnerObservation:
 
 
 class RuntimeTests(unittest.IsolatedAsyncioTestCase):
+    async def test_releasing_claimed_idle_tools_cancels_native_run_once(self):
+        await self.bind()
+        context = AuthoringContext(
+            owner_id=self.owner,
+            conversation_id=self.identifier,
+            message_id=self.message_id,
+            attempt_id=self.message["attempt_id"],
+            session_key="fixture",
+        )
+        registration = SimpleNamespace(registration_id=uuid4())
+        client = SimpleNamespace(disconnect=AsyncMock())
+        self.runtime.runners[
+            self.runtime._runner_key(self.owner, "codex", self.connection_id, 1)
+        ] = self.runner
+        with patch(
+            "laomedo.integrations.langflow.assistant.runtime.McpRegistry.current"
+        ) as registry:
+            await self.runtime._close_tools(
+                context, registration, client, "private", retain=True
+            )
+            idle = self.runtime.idle_tools.pop(self.identifier)
+            self.runtime.claimed_idle_tools[context.message_id] = idle
+            await self.runtime._close_tools(context, registration, client, "private")
+            await self.runtime._close_tools(context, None, None, "private")
+            self.assertEqual(
+                self.runner.requests.count(
+                    ("POST", "/v1/runs/" + self.run_id + "/cancel")
+                ),
+                1,
+            )
+            registry.return_value.release.assert_called_once_with(
+                str(registration.registration_id)
+            )
+            client.disconnect.assert_awaited_once()
+            self.assertFalse(self.runtime.claimed_idle_tools)
+
     async def test_lost_resume_ack_reconciles_existing_attempt_without_reposting(self):
         await self.bind()
         await self.runtime.reconcile(self.owner, self.identifier)
