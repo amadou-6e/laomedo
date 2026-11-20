@@ -4,6 +4,7 @@ This capability owns saved Agent accounts, their admitted credential generations
 graph preferences and connection-bound runtimes. Host credentials/private_state
 provide private storage and permissions; host profiles and Langflow integration
 own browser authentication. Session leases here are opaque revocation identifiers.
+Verified browser token renewal may carry an opaque lease forward until the renewed token expires. renew_lease preserves its original revocation identity; resolve_lease prunes expired aliases. Only the browser integration verifies cookies and supplies renewal evidence. No credentials are stored in this map.
 No framework, browser-cookie, Docker SDK or ACP dependency loads on package import.
 
 ```text

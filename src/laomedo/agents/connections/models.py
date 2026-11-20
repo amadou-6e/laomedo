@@ -87,6 +87,14 @@ class DisconnectInfo(BaseModel):
     )
 
 
+class SessionLeaseRenewal(BaseModel):
+    """Opaque verified renewal evidence, retained only until token expiry."""
+
+    model_config = ConfigDict(frozen=True)
+    canonical_hash: str = Field(repr=False, description="Original revocation identity.")
+    expires_at: float = Field(description="Verified cookie expiry as a Unix timestamp.")
+
+
 class BrowserProviderSession(BaseModel):
     """Verified native browser principal and nonreusable request lease digest."""
 

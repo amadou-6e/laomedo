@@ -10,6 +10,9 @@ from unittest.mock import patch
 from uuid import UUID, uuid4
 
 from fastapi import FastAPI
+from starlette.responses import JSONResponse
+import time
+import jwt
 from fastapi.testclient import TestClient
 
 from laomedo.agents.connections.models import LoginProgress
@@ -34,6 +37,7 @@ class ProviderRouteTests(unittest.TestCase):
         self.service = ProviderConnections(Path(temporary.name) / "providers")
         self.addCleanup(self.service.close)
         app = FastAPI()
+        self.app = app
 
         async def authenticate():
             return SimpleNamespace(id=self.profile)
@@ -183,6 +187,104 @@ class ProviderRouteTests(unittest.TestCase):
                 response.headers["location"], "/settings/providers?login=failed"
             )
             complete.assert_not_called()
+
+    def test_verified_refresh_preserves_attempt_receipt_and_logout_fencing(self):
+        """Mount-time JWT rotation must retain a receipt only in its original browser."""
+        from laomedo.agents.connections.models import BrowserProviderSession
+
+        key = "fixture-signing-key-that-is-at-least-32-bytes"
+        original = jwt.encode(
+            {"sub": str(self.profile), "exp": time.time() + 600, "jti": "original"},
+            key,
+            algorithm="HS256",
+        )
+        renewed = jwt.encode(
+            {"sub": str(self.profile), "exp": time.time() + 1200, "jti": "renewed"},
+            key,
+            algorithm="HS256",
+        )
+        renewed_again = jwt.encode(
+            {"sub": str(self.profile), "exp": time.time() + 1800, "jti": "again"},
+            key,
+            algorithm="HS256",
+        )
+        other = jwt.encode(
+            {"sub": str(uuid4()), "exp": time.time() + 600}, key, algorithm="HS256"
+        )
+        response_token = renewed
+        status = 200
+
+        async def verify_cookie(boundary, cookie):
+            try:
+                claims = jwt.decode(cookie, key, algorithms=["HS256"])
+            except jwt.InvalidTokenError:
+                return None
+            return BrowserProviderSession(
+                profile_id=UUID(claims["sub"]),
+                lease_hash=boundary.service.resolve_lease(
+                    hashlib.sha256(cookie.encode()).hexdigest()
+                ),
+            )
+
+        @self.app.post("/api/v1/refresh")
+        async def refresh():
+            response = JSONResponse({}, status_code=status)
+            response.set_cookie("access_token_lf", response_token)
+            return response
+
+        self.client.cookies.clear()
+        self.client.cookies.set(
+            "access_token_lf", original, domain="127.0.0.1", path="/"
+        )
+        with patch.object(ProviderSessionBoundary, "_session", verify_cookie):
+            result = self.client.post(
+                "/api/v1/laomedo/provider-connections/attempts",
+                json={"provider": "codex"},
+                headers=self.headers,
+            )
+            identifier = result.json()["progress"]["attempt_id"]
+            path = "/api/v1/laomedo/provider-connections/attempts/" + identifier
+            self.assertEqual(
+                self.client.post("/api/v1/refresh", headers=self.headers).status_code,
+                200,
+            )
+            self.assertEqual(self.client.get(path).status_code, 200)
+            self.assertEqual(
+                self.service.resolve_lease(
+                    hashlib.sha256(renewed.encode()).hexdigest()
+                ),
+                hashlib.sha256(original.encode()).hexdigest(),
+            )
+            response_token = other
+            self.client.post("/api/v1/refresh", headers=self.headers)
+            self.assertEqual(
+                self.service.resolve_lease(hashlib.sha256(other.encode()).hexdigest()),
+                hashlib.sha256(other.encode()).hexdigest(),
+            )
+            self.client.cookies.clear()
+            self.client.cookies.set(
+                "access_token_lf", renewed, domain="127.0.0.1", path="/"
+            )
+            response_token = renewed_again
+            status = 401
+            self.client.post("/api/v1/refresh", headers=self.headers)
+            self.assertEqual(
+                self.service.resolve_lease(
+                    hashlib.sha256(renewed_again.encode()).hexdigest()
+                ),
+                hashlib.sha256(renewed_again.encode()).hexdigest(),
+            )
+            self.client.cookies.clear()
+            self.client.cookies.set(
+                "access_token_lf", renewed, domain="127.0.0.1", path="/"
+            )
+            self.client.post("/api/v1/logout", headers=self.headers)
+            self.assertEqual(self.client.get(path).status_code, 401)
+            self.client.cookies.clear()
+            self.client.cookies.set(
+                "access_token_lf", original, domain="127.0.0.1", path="/"
+            )
+            self.assertEqual(self.client.get(path).status_code, 401)
 
     def test_generic_attempt_routes_require_the_originating_browser_lease(self):
         """Same-profile sessions cannot observe or cancel another session's login."""

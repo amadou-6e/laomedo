@@ -30,7 +30,7 @@ def session_lease(request: Request, service) -> str:
         or "x-api-key" in request.query_params
     ):
         raise HTTPException(401, detail={"code": "provider_session_required"})
-    lease = hashlib.sha256(cookie.encode()).hexdigest()
+    lease = service.resolve_lease(hashlib.sha256(cookie.encode()).hexdigest())
     try:
         service.check_lease(lease)
     except ProviderConnectionError:

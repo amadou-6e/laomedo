@@ -28,6 +28,27 @@ class ProviderConnectionsTests(unittest.TestCase):
         self.profile = uuid4()
         self.other_profile = uuid4()
 
+    def test_renewal_keeps_one_revocation_identity_and_expires_aliases(self):
+        """Token rotation neither forks a browser lease nor revives logout."""
+        with patch("laomedo.agents.connections.service.time.time", return_value=100):
+            self.service.renew_lease("original", "renewed", 200)
+            self.service.renew_lease("renewed", "again", 300)
+            self.assertEqual(self.service.resolve_lease("again"), "original")
+            self.service.cancel_lease("renewed")
+            for lease in ("original", "renewed", "again"):
+                with (
+                    self.subTest(lease=lease),
+                    self.assertRaises(ProviderConnectionError),
+                ):
+                    self.service.check_lease(lease)
+            with self.assertRaises(ProviderConnectionError):
+                self.service.renew_lease("again", "raced-logout", 300)
+            with self.assertRaises(ProviderConnectionError):
+                self.service.check_lease("raced-logout")
+        with patch("laomedo.agents.connections.service.time.time", return_value=400):
+            self.assertEqual(self.service.resolve_lease("again"), "again")
+            self.assertEqual(self.service._lease_renewals, {})
+
     def connect(
         self,
         subject="one",

@@ -27,6 +27,7 @@ from laomedo.agents.connections.models import (
     LoginProgress,
     DisconnectInfo,
     DisconnectProgress,
+    SessionLeaseRenewal,
 )
 
 
@@ -51,6 +52,7 @@ class ProviderConnections:
         self.codex = self.adapter("codex")
         self.controllers = None
         self.revoked_leases: set[str] = set()
+        self._lease_renewals: dict[str, SessionLeaseRenewal] = {}
         owner_path = self.root / "owner.lock"
         try:
             descriptor = os.open(
@@ -290,15 +292,41 @@ class ProviderConnections:
             for adapter in self.adapters:
                 adapter.cancel_profile(profile_id)
 
+    def resolve_lease(self, lease_hash: str) -> str:
+        """Resolve verified renewal aliases, pruning them at their token expiry."""
+        with self._lock:
+            now = time.time()
+            self._lease_renewals = {
+                key: value
+                for key, value in self._lease_renewals.items()
+                if value.expires_at > now
+            }
+            renewal = self._lease_renewals.get(lease_hash)
+            return renewal.canonical_hash if renewal is not None else lease_hash
+
+    def renew_lease(
+        self, previous_hash: str, renewed_hash: str, expires_at: float
+    ) -> None:
+        """Carry verified same-browser renewal forward without reviving logout."""
+        with self._lock:
+            canonical = self.resolve_lease(previous_hash)
+            self.check_lease(renewed_hash)
+            if expires_at > time.time() and renewed_hash != canonical:
+                self._lease_renewals[renewed_hash] = SessionLeaseRenewal(
+                    canonical_hash=canonical, expires_at=expires_at
+                )
+            self.check_lease(canonical)
+
     def check_lease(self, lease_hash: str) -> None:
         """Refuse a logged-out browser without changing saved provider records."""
         with self._lock:
-            if self._closing or lease_hash in self.revoked_leases:
+            if self._closing or self.resolve_lease(lease_hash) in self.revoked_leases:
                 raise ProviderConnectionError("provider_session_required")
 
     def cancel_lease(self, lease_hash: str) -> None:
         """Revoke an opaque lease and fence every provider's late completion."""
         with self._lock:
+            lease_hash = self.resolve_lease(lease_hash)
             self.revoked_leases.add(lease_hash)
             for adapter in self.adapters:
                 adapter.cancel_lease(lease_hash)

@@ -1,6 +1,10 @@
 """Fence outgoing browser-session authorizations before logout is processed."""
 
+from functools import partial
 import hashlib
+from http.cookies import SimpleCookie
+
+import jwt
 from urllib.parse import urlsplit
 from uuid import UUID
 
@@ -9,6 +13,7 @@ from laomedo.integrations.langflow.provider_connections.bindings import (
     ProviderGraphBindings,
 )
 from laomedo.agents.connections.models import BrowserProviderSession
+from laomedo.agents.connections.errors import ProviderConnectionError
 
 
 class ProviderSessionBoundary:
@@ -62,9 +67,47 @@ class ProviderSessionBoundary:
                 self.service.cancel_lease(hashlib.sha256(cookie.encode()).hexdigest())
         context = ProviderGraphBindings.session.set(session)
         try:
-            await self.app(scope, receive, send)
+            response_send = send
+            if (
+                session is not None
+                and scope["type"] == "http"
+                and scope["method"] == "POST"
+                and scope["path"].rstrip("/") == "/api/v1/refresh"
+            ):
+                response_send = partial(self._renew_session, session, send)
+            await self.app(scope, receive, response_send)
         finally:
             ProviderGraphBindings.session.reset(context)
+
+    async def _renew_session(self, previous, send, message):
+        """Alias only a successful same-profile server-issued access-cookie renewal."""
+        if message["type"] == "http.response.start" and message["status"] == 200:
+            for name, value in message.get("headers", []):
+                if name.lower() != b"set-cookie":
+                    continue
+                cookies = SimpleCookie()
+                cookies.load(value.decode("latin-1"))
+                if "access_token_lf" not in cookies:
+                    continue
+                cookie = cookies["access_token_lf"].value
+                renewed = await self._session(cookie)
+                if renewed is None or renewed.profile_id != previous.profile_id:
+                    continue
+                # Authentication above verified this token. This second decode
+                # reads expiry solely to bound alias retention, never identity.
+                expires_at = jwt.decode(cookie, options={"verify_signature": False})[
+                    "exp"
+                ]
+                try:
+                    self.service.renew_lease(
+                        previous.lease_hash,
+                        hashlib.sha256(cookie.encode()).hexdigest(),
+                        expires_at,
+                    )
+                except ProviderConnectionError:
+                    # Concurrent logout wins; the renewed cookie remains fenced.
+                    pass
+        await send(message)
 
     async def _owns_graph(self, profile_id, flow_id):
         """Treat referrer as an untrusted hint; resolve ownership in the app database."""
@@ -93,7 +136,9 @@ class ProviderSessionBoundary:
                 user = await get_auth_service()._authenticate_with_token(cookie, db)
                 return BrowserProviderSession(
                     profile_id=user.id,
-                    lease_hash=hashlib.sha256(cookie.encode()).hexdigest(),
+                    lease_hash=self.service.resolve_lease(
+                        hashlib.sha256(cookie.encode()).hexdigest()
+                    ),
                 )
         except AuthenticationError:
             return None
