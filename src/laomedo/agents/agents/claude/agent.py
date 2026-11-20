@@ -75,13 +75,20 @@ class ClaudeAgent(BaseAgent):
         mediator_state=None,
         git_workspace=False,
         artifact_sources=None,
+        auth_connection=None,
     ):
         """Bind admitted configuration and owned state; provider startup errors propagate before use."""
         if type(turn_timeout) is not int or not 1 <= turn_timeout <= 86400:
             raise RunnerError("claude_turn_timeout_invalid")
         self.turn_timeout = turn_timeout
+        self.auth_connection = auth_connection
         self.container = container or ClaudeRuntimePolicy(
-            image, profile_volume, lease_service
+            image,
+            profile_volume,
+            lease_service,
+            receipt_directory=(
+                Path(state) / "receipts" if auth_connection is not None else None
+            ),
         )
         self.executable = "claude"
         super().__init__(
@@ -124,7 +131,7 @@ class ClaudeAgent(BaseAgent):
             "run_timeout_seconds",
             self.status(run_id).get("turn_timeout", self.turn_timeout),
         )
-        self._mirror_host_login(minimum_validity_seconds=required)
+        self._prepare_credentials(minimum_validity_seconds=required)
         return extra
 
     def runtime_binding(self):
@@ -174,8 +181,8 @@ class ClaudeAgent(BaseAgent):
     def preflight(self):
         """Check native authentication after constructor image/version validation.
 
-        The existing opt-in login mirror may update the dedicated credential
-        volume. This check sends no model request and makes no permission-probe
+        Authentication uses the explicitly signed-in dedicated native profile.
+        This check sends no model request and makes no permission-probe
         claim. Preserve the public ready payload and its authentication meaning.
         """
         self._check_auth()
@@ -358,7 +365,7 @@ class ClaudeAgent(BaseAgent):
         except (OSError, ValueError, TypeError, KeyError, subprocess.SubprocessError):
             raise RunnerError(failure) from None
 
-    def _mirror_host_login(self, *, minimum_validity_seconds=None, deadline=None):
+    def _prepare_credentials(self, *, minimum_validity_seconds=None, deadline=None):
         """Prepare credentials through the provider-owned admission contract."""
         self.credentials.prepare(
             CredentialRequest(

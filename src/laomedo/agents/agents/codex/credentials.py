@@ -26,7 +26,7 @@ class CodexCredentialProvider(BaseCredentialProvider):
                     auth_outcome="unverified",
                 )
             )
-        token, identity = self.agent.auth.access_token()
+        token, identity = self.agent.auth.access_token(self.agent.auth_client_id)
         return CredentialMaterial(
             token=SecretStr(token),
             identity=identity,

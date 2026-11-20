@@ -76,7 +76,6 @@ class AgentModuleStructureTests(unittest.TestCase):
             "agents.agents.claude.activity.models",
             "agents.agents.opencode.activity.models",
             "agents.agents.opencode.models",
-            "agents.agents.claude.auth.models",
             "host.leases.models",
             "host.private_state.models",
         )

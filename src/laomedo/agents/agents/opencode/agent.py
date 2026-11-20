@@ -12,6 +12,7 @@ import re
 import shutil
 import threading
 import time
+from functools import partial
 
 from laomedo.skills.registry.utils.files import inventory
 from laomedo.skills.registry.utils.hashing import tree_hash
@@ -62,7 +63,6 @@ class OpenCodeAgent(BaseAgent):
         if profile is not None:
             if transport_factory is not None:
                 raise RunnerError("opencode_isolated_transport_required")
-            from functools import partial
             from laomedo.agents.agents.opencode.runtime import OpenCodeAgentRuntime
 
             transport_factory = partial(OpenCodeAgentRuntime, profile=profile)

@@ -9,6 +9,7 @@ import sqlite3
 from alembic.script import ScriptDirectory
 from langflow import __file__ as langflow_file
 from langflow.services.database.models import User
+from sqlalchemy import inspect
 from lfx.services.settings.constants import LEGACY_DEFAULT_SUPERUSER_PASSWORD
 from pydantic import SecretStr, ValidationError
 
@@ -70,7 +71,7 @@ class ProfileRuntimeAdmission:
                 }
                 if not tables:
                     return True
-                expected = User.metadata.tables
+                expected = self._upstream_tables()
                 if (
                     not set(expected).issubset(tables)
                     or "alembic_version" not in tables
@@ -129,3 +130,21 @@ class ProfileRuntimeAdmission:
         self.verify_database(service.auth_settings)
         service.auth_settings.SUPERUSER = SYSTEM_PROFILE_NAME
         service.auth_settings.SUPERUSER_PASSWORD = SecretStr(secrets.token_urlsafe(48))
+
+    @staticmethod
+    def _upstream_tables():
+        """Require upstream-owned tables, independent of optional shared metadata.
+
+        Inspect mapped class ownership, including upstream models not re-exported
+        in its package __all__. Feature models share SQLModel metadata but
+        initialize under their own owners. No mutable import-time snapshot or
+        second hand-maintained schema definition is used.
+        """
+        expected = {}
+        for mapper in inspect(User).registry.mappers:
+            if mapper.class_.__module__.startswith(
+                "langflow.services.database.models."
+            ):
+                table = mapper.local_table
+                expected[table.name] = table
+        return expected

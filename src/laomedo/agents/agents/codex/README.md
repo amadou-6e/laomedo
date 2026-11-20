@@ -90,3 +90,8 @@ session, observes the actual supported command catalog, and executes the existin
 non-model control path with that catalog revision. The normal retained run,
 thread, Activity, cleanup and workspace checkpoint support subsequent resume.
 Absent handler support or advertisement fails before a prompt; no model fallback.
+
+
+## Saved account connections
+
+`connection.py` is the provider boundary. CodexConnection owns pending broker login attempts, begin/complete/progress/cancel, staged publication and readback, duplicate identity checks, exact token borrowing and local revision cleanup. PendingLogin belongs to models.py; login failure categories belong to settings.py. The shared Agent connection service owns admission/index fencing; host storage and profile authorization remain separate.

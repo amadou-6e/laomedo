@@ -1,4 +1,24 @@
 {
+  "provider_account_mismatch": {"title": "Different account selected", "description": "You signed in to a different account. Your saved connection has not changed.", "recovery": "Add this account as a new connection to use it in Laomedo."},
+  "provider_session_required": {"title": "Sign in to continue", "description": "Your local session has ended. Your saved provider connections are kept.", "recovery": "Sign in to your local profile again."},
+  "provider_connection_limit": {"title": "Connection limit reached", "description": "This profile has reached its saved connection limit.", "recovery": "Remove a connection you no longer use before adding another."},
+  "provider_login_expired": {"title": "Sign-in expired", "description": "This sign-in is no longer available.", "recovery": "Start signing in again."},
+  "provider_request_refused": {"title": "Could not complete this request", "description": "The connection request could not be accepted.", "recovery": "Refresh to check the current connection before trying again."},
+  "provider_connection_busy": {"title": "Account is in use", "description": "An active run is using this connection.", "recovery": "Wait for it to finish or stop it before signing in again."},
+  "provider_connection_required": {"title": "Choose a connection", "description": "This agent needs a saved provider connection.", "recovery": "Choose a connection, or add one in Settings > Providers."},
+  "provider_connection_unavailable": {"title": "Connection unavailable", "description": "This connection is not available for this profile.", "recovery": "Choose an available connection or check Settings > Providers."},
+  "provider_connection_changed": {"title": "Connection changed", "description": "This run belongs to an earlier sign-in.", "recovery": "Start a new run with your current connection."},
+  "provider_connection_disconnecting": {"title": "Connection is disconnecting", "description": "New work is blocked while this connection is removed.", "recovery": "Choose another connection or check cleanup in Settings > Providers."},
+  "provider_runner_unavailable": {"title": "Runner unavailable", "description": "The local runtime could not start for this connection.", "recovery": "Check the local runner setup, then refresh. Your account stays connected."},
+  "provider_method_unavailable": {"title": "Provider unavailable", "description": "This connection method is not available yet.", "recovery": "Use an available provider connection."},
+  "provider_confirmation_changed": {"title": "Active work changed", "description": "More work started after this confirmation was opened.", "recovery": "Review the updated run count before disconnecting."},
+  "provider_cleanup_unconfirmed": {"title": "Check connection", "description": "We could not confirm that this connection was removed.", "recovery": "Refresh to check its status. Retry cleanup if it is still needed."},
+  "provider_save_unconfirmed": {"title": "Check connection", "description": "We could not confirm whether your connection was saved.", "recovery": "Refresh to check before trying again."},
+  "provider_login_in_progress": {"title": "Sign-in is already in progress", "description": "Another sign-in is still waiting for a response.", "recovery": "Finish or cancel that sign-in, or wait for it to expire before trying again."},
+  "provider_connections_unavailable": {"title": "Could not load providers", "description": "Your provider connections could not be checked.", "recovery": "Refresh to try again. Your saved connections have not been removed."},
+  "provider_sign_in_failed": {"title": "Sign-in failed", "description": "We could not finish signing you in.", "recovery": "Try again. Your saved connection has not changed."},
+  "provider_cancel_unconfirmed": {"title": "Could not cancel sign-in", "description": "We could not confirm that sign-in was cancelled.", "recovery": "Stay on this page and try going back again."},
+  "auth_account_selection_required": {"title": "Choose a Codex account", "description": "The runner needs an explicit saved ChatGPT account.", "recovery": "Select the account before starting the runner."},
   "invalid_resume_request": {
     "title": "The follow-up message could not be submitted",
     "description": "The message or its recorded session binding is invalid. No resumed attempt was reserved.",
@@ -1188,21 +1208,6 @@
     "title": "The activity status could not be accepted",
     "description": "The supplied status is not supported by the activity contract.",
     "recovery": "Inspect the existing run Status and share this technical code with the maintainer."
-  },
-  "claude_host_login_unavailable": {
-    "title": "The local Claude login could not be read",
-    "description": "The runner could not read the selected host Claude access credential.",
-    "recovery": "Check that Claude Code is signed in on this machine and that its local credential file is available to the app."
-  },
-  "claude_host_login_expired": {
-    "title": "The copied Claude access credential needs refreshing",
-    "description": "The host credential file contains an access credential that is expired or about to expire.",
-    "recovery": "Use your signed-in host Claude session to refresh its credential, then start the task when it is ready. The runner does not refresh a duplicate login."
-  },
-  "claude_local_login_copy_failed": {
-    "title": "The local Claude login could not be copied",
-    "description": "The app could not update the dedicated local runner profile. No host profile or sessions were copied.",
-    "recovery": "Check local Docker access, the dedicated runner volume and the login-state directory's current-user ownership and private permissions. An earlier incomplete copy or a copy already in progress can also prevent this update. Confirm the earlier copy's state before retrying; do not delete a pending receipt or change an existing directory's permissions while a copy may still be active."
   },
   "runner_service_configuration_unavailable": {
     "title": "Local backend recovery is unavailable",

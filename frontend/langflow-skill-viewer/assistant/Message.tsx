@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
-import Markdown from "react-markdown";
+import {
+  MessageMarkdown,
+} from "@/modals/graphAgents/components";
 import type { Lane } from "@/modals/graphAgents/models";
 import ToolCalls from "./ToolCalls";
 import { messageText } from "@/modals/graphAgents/utils";
@@ -41,19 +43,6 @@ export function UserMessage({
         </p>
       </div>
     </div>
-  );
-}
-
-export function AssistantText({ text }: { text: string }) {
-  return (
-    <Markdown
-      skipHtml
-      disallowedElements={["img", "a"]}
-      unwrapDisallowed
-      className="prose prose-sm max-w-none break-words dark:prose-invert [&_pre]:overflow-x-auto [&_pre]:whitespace-pre-wrap [&_code]:break-words prose-code:before:content-none prose-code:after:content-none"
-    >
-      {text}
-    </Markdown>
   );
 }
 
@@ -146,7 +135,7 @@ export default function MessageRow({
         const text = messageText(lane.item ?? {}, provider);
         return text !== null ? (
           <div key={`${lane.thread}:${lane.id}`} className="space-y-2">
-            <AssistantText text={text} />
+            <MessageMarkdown text={text} allowLinks={false} />
           </div>
         ) : (
           <ToolCalls
@@ -159,7 +148,7 @@ export default function MessageRow({
       })}
       {!nativeStatus && !hasAnswer && message.response && (
         <div className="space-y-2">
-          <AssistantText text={message.response} />
+          <MessageMarkdown text={message.response} allowLinks={false} />
         </div>
       )}
       {active && ["reserved", "starting", "running"].includes(message.state) ? (

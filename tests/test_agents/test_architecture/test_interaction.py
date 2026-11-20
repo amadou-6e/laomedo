@@ -94,7 +94,7 @@ class InteractionContractTests(unittest.TestCase):
                 agent = object.__new__(kind)
                 with (
                     patch.object(agent, "_execute") as execute,
-                    patch.object(agent, "_mirror_host_login") as login,
+                    patch.object(agent, "_prepare_credentials") as login,
                 ):
                     with self.assertRaisesRegex(
                         RunnerError, "run_timeout_not_supported"

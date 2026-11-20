@@ -84,3 +84,19 @@ Host composition may pass `profile` to `OpenCodeAgent` to select its existing
 isolated `OpenCodeAgentRuntime`. The profile stays host-owned; combining it with
 an independently supplied transport factory is refused. Construction without
 either retains the explicit isolated-transport-required readiness result.
+
+Model discovery runs the pinned native `models --refresh --verbose` command so
+the bundled registry cannot offer a retired model that ACP no longer advertises.
+Before configuring a model, `_run_acp()` checks the session's current flat or
+grouped selector options. Missing choices fail as `opencode_model_not_connected`
+before configuration or prompt dispatch; saved selections are never substituted.
+# Saved profile construction
+
+`OpenCodeAgent(..., profile=...)` binds an explicitly admitted private profile to
+its native runtime factory. Supplying both a profile and a transport factory is
+refused. Application callers construct the Agent through `AgentProviderRegistry`;
+they never import or construct the provider's private runtime.
+
+## Saved account connections
+
+`connection.py` is the provider boundary. GoConnection owns save/profile/summary/erase for explicit Go subscription keys. It reports custody rather than verified identity and has no asynchronous browser login workers. Exact repeated keys reuse the existing connection. The shared Agent connection service owns admission/index fencing; host storage and profile authorization remain separate.

@@ -75,6 +75,8 @@ class RunnerHTTPErrorTests(unittest.TestCase):
                 if isinstance(failure, PermissionError):
                     self.assertEqual(diagnostics["failure_kind"], "os_error")
                     self.assertEqual(diagnostics["errno"], 13)
+                elif isinstance(failure, RunnerError):
+                    self.assertEqual(diagnostics["failure_kind"], "domain_error")
 
     def test_refused_resume_does_not_release_another_attempts_mcp_grant(self):
         """A failed binding owns no capability and must not revoke an active run."""

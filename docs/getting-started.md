@@ -81,9 +81,8 @@ docker run --rm -it --mount type=volume,source=laomedo-claude-quickstart-profile
 
 Complete the native subscription sign-in. The controller image's CLI is pinned;
 the runner resolves and checks its immutable image identity on startup. Existing
-single-user installations can instead opt into access-login mirroring through
-their host configuration; see [the controller guide](../docker/claude/README.md).
-This walkthrough uses the dedicated-volume login above.
+installations use Settings > Providers for app-owned sign-in or explicit native
+sign-in in the dedicated standalone profile. Host credential copying is not supported.
 
 ## 4. Start the supervisor and runner
 

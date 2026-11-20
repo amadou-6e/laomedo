@@ -10,7 +10,7 @@ matrix:
   column_gaps: [110, 110, 110]
 nodes:
   source:
-    label_html: "<b>[A] Host credential source</b><br/>Host-owned credential source<br/><br/>Host signs in/refreshes. Local access-only mirroring is explicitly opt-in."
+    label_html: "<b>[A] Dedicated native sign-in</b><br/>Connection-owned profile<br/><br/>Explicit native sign-in and refresh. Ambient host credentials are never imported."
     style:
       width: 285
       height: 150
@@ -20,7 +20,7 @@ nodes:
       rounded: true
     source_files: []
     graph_reference: "A"
-    external_source: "Existing host login/account state, not repository files."
+    external_source: "Explicit native sign-in in the dedicated private profile."
   docker:
     label_html: "<b>[B] Docker lifecycle</b><br/>py-docker -&gt; Docker SDK -&gt; Engine<br/><br/>Create/attach owned containers, execute jobs, retain receipts and reconcile cleanup."
     style:
@@ -34,7 +34,7 @@ nodes:
     graph_reference: "B"
     external_source: "Separate dependencies: py-docker -> Docker SDK -> Docker Engine."
   auth:
-    label_html: "<b>[C] Credential provisioning</b><br/>Access-only login mirror<br/>claude/auth/; resources/write_login.py<br/><br/>Copy only the approved access credential to the dedicated volume; host keeps refresh ownership."
+    label_html: "<b>[C] Credential admission</b><br/>ClaudeCredentialProvider<br/>claude/credentials.py<br/><br/>Check the selected connection and native identity before dispatch. No host credential copying."
     style:
       width: 285
       height: 150
@@ -42,7 +42,7 @@ nodes:
       stroke: "#8193A5"
       font_size: 14
       rounded: true
-    source_files: ["src/laomedo/agents/agents/claude/auth/utils.py", "src/laomedo/agents/agents/claude/auth/models.py", "src/laomedo/agents/agents/claude/auth/resources/write_login.py"]
+    source_files: ["src/laomedo/agents/agents/claude/credentials.py"]
     graph_reference: "C"
   broker:
     label_html: "<b>[D] Host command gateway</b><br/>ClaudeCommandExecutor + HTTP<br/>claude/policy.py; http/<br/><br/>Receive authenticated /command requests and execute admitted worker jobs; mediate GitHub only with a grant."
@@ -56,7 +56,7 @@ nodes:
     source_files: ["src/laomedo/agents/agents/claude/executor.py", "src/laomedo/agents/agents/claude/http/handler.py", "src/laomedo/agents/agents/claude/http/server.py"]
     graph_reference: "D"
   profile:
-    label_html: "<b>[E] Controller credentials and state</b><br/>Mounted access/session volume<br/><br/>Controller reads mirrored access credentials and persists the native session for Resume."
+    label_html: "<b>[E] Controller credentials and state</b><br/>Dedicated native profile volume<br/><br/>The native client owns its login and session for Resume. Credentials remain in the selected profile."
     style:
       width: 285
       height: 150
@@ -147,7 +147,7 @@ edges:
   edge_0:
     from: "source"
     to: "auth"
-    label: "approved access"
+    label: "native sign-in"
     style:
       stroke: "#A37537"
       dashed: true
@@ -159,7 +159,7 @@ edges:
   edge_1:
     from: "auth"
     to: "profile"
-    label: "selected credential"
+    label: "selected profile"
     style:
       stroke: "#A37537"
       dashed: true

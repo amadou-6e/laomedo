@@ -253,11 +253,10 @@ class RunnerServiceTests(unittest.TestCase):
             ):
                 self.assertNotIn(key, env)
 
-    def test_turn_login_mirror_is_opt_in_and_uses_only_trusted_destination(self):
+    def test_async_dispatch_ignores_untrusted_destination_fields(self):
         self.probe.side_effect = self.real_connect
         from urllib.request import Request
         from urllib.request import urlopen
-        import os
 
         events = []
 
@@ -282,60 +281,30 @@ class RunnerServiceTests(unittest.TestCase):
         thread.start()
         self.addCleanup(server.server_close)
         self.addCleanup(server.shutdown)
-        for enabled in ("", "1"):
-            events.clear()
-            with (
-                patch.dict(os.environ, {"LAOMEDO_CLAUDE_MIRROR_HOST_LOGIN": enabled}),
-                patch(
-                    "laomedo.agents.agents.claude.auth.utils.mirror_login",
-                    side_effect=lambda *args: events.append("mirror"),
-                ) as mirror,
-            ):
-                req = Request(
-                    "http://127.0.0.1:" + str(server.server_port) + "/v1/runs/async",
-                    data=json.dumps(
-                        {"profile": "untrusted", "image": "untrusted"}
-                    ).encode(),
-                    headers={
-                        "Authorization": "Bearer internal-control",
-                        "Content-Type": "application/json",
-                    },
-                )
-                with urlopen(req, timeout=5) as reply:
-                    self.assertEqual(reply.status, 202)
-            self.assertEqual(events, ["dispatch"])
-            mirror.assert_not_called()
-
-    def test_explicit_login_mirror_is_deferred_to_task_not_startup(self):
-        self.config["mirror_host_claude_login"] = True
-        self.path.write_text(json.dumps(self.config))
-        with (
-            patch.object(self.service.opener, "open", side_effect=URLError("offline")),
-            patch("laomedo.agents.agents.claude.auth.utils.mirror_login") as mirror,
-            patch(
-                "laomedo.host.runner.service.subprocess.Popen",
-                return_value=Mock(poll=lambda: None),
-            ) as spawn,
-        ):
-            result = self.service.start(self.url)
-        mirror.assert_not_called()
-        self.assertEqual(result["state"], "starting")
-        self.assertEqual(
-            spawn.call_args.kwargs["env"]["LAOMEDO_CLAUDE_MIRROR_HOST_LOGIN"], "1"
+        req = Request(
+            "http://127.0.0.1:" + str(server.server_port) + "/v1/runs/async",
+            data=json.dumps({"profile": "untrusted", "image": "untrusted"}).encode(),
+            headers={
+                "Authorization": "Bearer internal-control",
+                "Content-Type": "application/json",
+            },
         )
+        with urlopen(req, timeout=5) as reply:
+            self.assertEqual(reply.status, 202)
+        self.assertEqual(events, ["dispatch"])
 
-    def test_slow_mirror_waits_for_ack_and_precedes_execution(self):
+    def test_credential_preparation_waits_for_ack_and_precedes_execution(self):
         gate = threading.Event()
         entered = threading.Event()
         release = threading.Event()
         executed = threading.Event()
 
-        def slow_copy():
+        def slow_prepare():
             entered.set()
             release.wait(5)
 
         runner = SimpleNamespace(
-            _mirror_host_login=slow_copy,
+            _prepare_credentials=slow_prepare,
             _execute=lambda *a, **kw: executed.set(),
             release_mcp=Mock(),
         )
@@ -354,16 +323,16 @@ class RunnerServiceTests(unittest.TestCase):
             worker.join(5)
         self.assertTrue(executed.is_set())
 
-    def test_async_copy_failure_is_recorded_without_model_dispatch(self):
+    def test_async_admission_failure_is_recorded_without_model_dispatch(self):
         from laomedo.agents.errors import RunnerError
 
         record = {"status": "prepared"}
 
         def fail():
-            raise RunnerError("claude_host_login_expired")
+            raise RunnerError("provider_connection_unavailable")
 
         runner = SimpleNamespace(
-            _mirror_host_login=fail,
+            _prepare_credentials=fail,
             release_mcp=Mock(),
             _execute=Mock(),
             control_lock=threading.Lock(),
@@ -376,7 +345,7 @@ class RunnerServiceTests(unittest.TestCase):
         runner._execute.assert_not_called()
         result = json.loads((self.root / "record.json").read_text())
         self.assertEqual(result["status"], "failed")
-        self.assertEqual(result["error_category"], "claude_host_login_expired")
+        self.assertEqual(result["error_category"], "provider_connection_unavailable")
 
     def test_worker_exception_preserves_unknown_outcome_and_terminal_records(self):
         from laomedo.agents.errors import RunnerError
@@ -391,7 +360,7 @@ class RunnerServiceTests(unittest.TestCase):
                     path = self.root / "record.json"
                     path.unlink(missing_ok=True)
                     runner = SimpleNamespace(
-                        _mirror_host_login=lambda: None,
+                        _prepare_credentials=lambda: None,
                         release_mcp=Mock(),
                         _execute=Mock(side_effect=failure),
                         control_lock=threading.Lock(),

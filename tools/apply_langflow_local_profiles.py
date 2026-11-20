@@ -69,6 +69,17 @@ def apply_profiles(checkout: Path, source: Path):
         'api.post(`${getURL("LOGOUT")}`)',
         'api.post(`${getURL("LOGOUT")}`, undefined, { timeout: 15000 })',
     )
+    # A different preview can write the shared auto-login hint. In profile
+    # mode the server must always receive logout to expire HttpOnly cookies.
+    if logout_text.count("    if (autoLogin) {") != 1:
+        raise SystemExit("profile_logout_policy_anchor_missing")
+    logout_text = (
+        'import { profileMode } from "@/components/laomedoProfiles/api";\n'
+        + logout_text.replace(
+            "    if (autoLogin) {",
+            "    if (autoLogin && !(await profileMode().catch(() => true))) {",
+        )
+    )
     auth_context = frontend / "contexts/authContext.tsx"
     auth_text = auth_context.read_text(encoding="utf-8")
     auth_anchor = "      {children}"

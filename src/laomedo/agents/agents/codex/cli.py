@@ -55,6 +55,7 @@ def main():
     parser.add_argument(
         "--artifact-source", action="append", default=[], metavar="PROVIDER=STATE"
     )
+    parser.add_argument("--auth-client-id", help="Exact app-owned ChatGPT account")
     args = parser.parse_args()
     if (args.github_authority_store is None) != (args.mediator_state is None):
         parser.error("GitHub authority and mediator state must be configured together")
@@ -74,6 +75,7 @@ def main():
         mediator_state=args.mediator_state,
         split_executor=args.split_executor,
         auth_store=args.auth_store,
+        auth_client_id=args.auth_client_id,
         image_id=args.image_id,
         artifact_sources=dict(item.split("=", 1) for item in args.artifact_source),
     )

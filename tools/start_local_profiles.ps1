@@ -6,13 +6,25 @@ param(
     [Parameter(Mandatory=$true)][string]$PythonExe,
     [Parameter(Mandatory=$true)][string]$FrontendPath,
     [Parameter(Mandatory=$true)][string]$RuntimeRoot,
-    [ValidateRange(1024,65535)][int]$Port = 17866
+    [ValidateRange(1024,65535)][int]$Port = 17866,
+    [string]$ProviderSourceWorkspace,
+    [string]$LangflowSourceRoot
 )
 $ErrorActionPreference = 'Stop'
 if ([Environment]::OSVersion.Platform -ne 'Win32NT') { throw 'This setup supports native Windows only.' }
 $repoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $pythonPath = (Resolve-Path -LiteralPath $PythonExe).Path
 $frontend = (Resolve-Path -LiteralPath $FrontendPath).Path
+$providerSource = if ($ProviderSourceWorkspace) { (Resolve-Path -LiteralPath $ProviderSourceWorkspace).Path } else { $null }
+$pythonSources = @((Join-Path $repoRoot 'src'))
+if ($LangflowSourceRoot) {
+    $upstreamRoot = (Resolve-Path -LiteralPath $LangflowSourceRoot).Path
+    foreach ($modulePath in @('src/backend/base/langflow/__init__.py', 'src/lfx/src/lfx/__init__.py')) {
+        if (-not (Test-Path -LiteralPath (Join-Path $upstreamRoot $modulePath) -PathType Leaf)) { throw 'Pinned Langflow source checkout is incomplete.' }
+    }
+    $pythonSources += (Join-Path $upstreamRoot 'src/backend/base')
+    $pythonSources += (Join-Path $upstreamRoot 'src/lfx/src')
+}
 if (-not (Test-Path -LiteralPath (Join-Path $frontend 'index.html') -PathType Leaf)) {
     throw 'Frontend build is missing index.html. Build the matching frontend first.'
 }
@@ -89,7 +101,8 @@ $config = @{
     LANGFLOW_CORS_ALLOW_CREDENTIALS='true'
     LAOMEDO_LOCAL_PROFILE_PORT=[string]$Port
     LAOMEDO_LOCAL_PROFILE_RUNTIME=$runtime
-    PYTHONPATH=(Join-Path $repoRoot 'src')
+    LAOMEDO_PROVIDER_SOURCE_WORKSPACE=$providerSource
+    PYTHONPATH=($pythonSources -join [IO.Path]::PathSeparator)
 }
 $originalLocation = Get-Location
 try {
@@ -98,6 +111,33 @@ try {
     }
     # Avoid loading an unrelated checkout's .env through upstream startup.
     Set-Location -LiteralPath $runtime
+    if ($Mode -eq 'Serve') {
+        # The launcher starts an independent sibling supervisor, never a child
+        # of the runner. Restarting the UI cannot remove cleanup supervision.
+        $providerLeaseRoot = Join-Path $runtime 'provider-leases'
+        $providerLeaseInfo = Join-Path $providerLeaseRoot 'service.json'
+        $startProviderLease = $true
+        if (Test-Path -LiteralPath $providerLeaseInfo) {
+            $providerLease = Get-Content -LiteralPath $providerLeaseInfo -Raw | ConvertFrom-Json
+            if ($providerLease.pid -and (Get-Process -Id $providerLease.pid -ErrorAction SilentlyContinue)) {
+                $startProviderLease = $false
+            }
+        }
+        if ($startProviderLease) {
+            $leaseBootstrap = @'
+import os, subprocess, sys
+from pathlib import Path
+from laomedo.host.leases.utils import _detached_process_options
+root = Path(sys.argv[1])
+root.mkdir(parents=True, exist_ok=True)
+allowed = {'PATH', 'SYSTEMROOT', 'WINDIR', 'TEMP', 'TMP', 'USERPROFILE', 'LOCALAPPDATA', 'APPDATA', 'PYTHONPATH', 'DOCKER_HOST', 'DOCKER_CONTEXT', 'DOCKER_CONFIG'}
+environment = {name: value for name, value in os.environ.items() if name.upper() in allowed}
+subprocess.Popen([sys.executable, '-m', 'laomedo.host.leases.service_cli', 'serve', '--state', str(root)], env=environment, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, **_detached_process_options())
+'@
+            $leaseBootstrap | & $pythonPath - $providerLeaseRoot
+            if ($LASTEXITCODE -ne 0) { throw 'Independent provider cleanup service could not start.' }
+        }
+    }
         $bootstrap = @"
 import os
 from langflow.services.deps import get_settings_service
@@ -118,7 +158,8 @@ laomedo.__path__.append(os.environ['LAOMEDO_COMPONENT_DIR'])
 from laomedo.integrations.langflow.local_profiles.settings import LocalProfileSettings
 from laomedo.integrations.langflow.local_profiles.runtime import LocalProfileRuntime
 from laomedo.integrations.langflow.viewer import create_app
-app = create_app(profile_runtime=LocalProfileRuntime(LocalProfileSettings().runtime_root))
+profile_settings = LocalProfileSettings()
+app = create_app(profile_runtime=LocalProfileRuntime(profile_settings.runtime_root, provider_source=profile_settings.provider_source))
 uvicorn.run(app, host='127.0.0.1', port=int(os.environ['LAOMEDO_LOCAL_PROFILE_PORT']), access_log=False, workers=1)
 "@
         }

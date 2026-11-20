@@ -57,7 +57,7 @@
  }
  
  export const NAV_ITEMS: SidebarNavItem[] = [
-+  {id:"agents",icon:"ChartGantt",label:"Agents",tooltip:"Graph agent activity"},
++  {id:"agents",icon:"ChartGantt",label:"Subscription agents",tooltip:"Subscription agents"},
    {
      id: "components",
      icon: "component",
@@ -107,7 +107,7 @@
 +        useAgentActivityStore.getState().openActivity(currentFlowId, data.id);
 +        usePlaygroundStore.getState().setIsOpen(false);
 +        usePlaygroundStore.getState().setIsFullscreen(false);
-+        setActiveSection("agents");
++        setActiveSection("traces");
 +        return;
 +      }
        if (["LaomedoSkill", "LaomedoGitHubIssue", "LaomedoGitHubPR"].includes(nodeKind(data.type))) { setOpenModal(true); return; }

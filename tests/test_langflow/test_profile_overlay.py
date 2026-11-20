@@ -26,7 +26,7 @@ class ProfileOverlayTests(unittest.TestCase):
             "routes.tsx": 'import LoginPage from "./pages/LoginPage";\n<LoginPage />\n<SignUp />\n',
             "components/core/appHeaderComponent/components/AccountMenu/index.tsx": 'export const AccountMenu = () => {\n    mutationLogout();\n    <HeaderMenu>\n    </HeaderMenu>\n<HeaderMenuItemButton onClick={handleLogout} icon="log-out">\n',
             "components/core/appHeaderComponent/components/HeaderMenu/index.tsx": 'export const HeaderMenuItemButton = ({ icon = "", onClick, children }) => (\n    onClick={onClick}\n',
-            "controllers/API/queries/auth/use-post-logout.ts": 'console.error(error);\napi.post(`${getURL("LOGOUT")}`)\n',
+            "controllers/API/queries/auth/use-post-logout.ts": 'console.error(error);\n    if (autoLogin) {\napi.post(`${getURL("LOGOUT")}`)\n',
             "contexts/authContext.tsx": "      {children}\n",
             "customization/components/custom-settings-password-form-gate.tsx": "  return <>{children}</>;\n",
             "pages/SettingsPage/pages/GeneralPage/index.tsx": "          <ProfilePictureFormComponent\n            userData={userData}\n          />\n",
@@ -77,6 +77,12 @@ class ProfileOverlayTests(unittest.TestCase):
         self.assertIn(
             "<ProfileEntryGate><LoginPage />",
             (self.frontend / "routes.tsx").read_text(),
+        )
+        self.assertIn(
+            "if (autoLogin && !(await profileMode().catch(() => true)))",
+            (
+                self.frontend / "controllers/API/queries/auth/use-post-logout.ts"
+            ).read_text(),
         )
         self.assertIn(
             "<ProfileSessionSync />",

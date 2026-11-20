@@ -330,7 +330,7 @@ class BaseAgent(ABC):
         if body.get("native_command") is not None:
             raise RunnerError("native_command_not_supported")
         self._validate_run_timeout(body.get("run_timeout_seconds"))
-        self._mirror_host_login()
+        self._prepare_credentials()
         return {}
 
     def resume_async(self, run_id, body, *, response_gate=None):
@@ -350,6 +350,12 @@ class BaseAgent(ABC):
         from laomedo.agents.agents.base.resume import ResumeDispatcher
 
         return ResumeDispatcher(self).synchronous(run_id, attempt_id)
+
+    def pending_resumes(self):
+        """Observe durable continuation reservations without starting native work."""
+        from laomedo.agents.agents.base.resume import ResumeDispatcher
+
+        return ResumeDispatcher(self).pending()
 
     def status(self, run_id: str) -> dict:
         """Read an admitted retained run record without dispatching or repeating native work."""
@@ -427,7 +433,7 @@ class BaseAgent(ABC):
         """Admit and prepare a fresh request, then execute its reserved native attempt without automatic replay."""
         record = self._prepare(request)
         try:
-            self._mirror_host_login()
+            self._prepare_credentials()
         except RunnerError as exc:
             record.update(status="failed", error_category=str(exc))
             _json(self._run_dir(record["run_id"]) / "record.json", record)
@@ -616,7 +622,7 @@ class BaseAgent(ABC):
     def _execute(self, run_id, task, *, resume, activity_attempt_id=None) -> dict:
         """Execute using the provider's protocol, cancellation and cleanup rules."""
 
-    def _mirror_host_login(self):
+    def _prepare_credentials(self):
         """Provider pre-dispatch authentication hook; neutral runners do nothing."""
 
     def _run_dir(self, run_id: str) -> Path:
@@ -915,7 +921,7 @@ class BaseAgent(ABC):
         """Execute a reserved request on its owned worker and retain terminal or uncertain outcomes."""
         gate.wait()
         try:
-            self._mirror_host_login()
+            self._prepare_credentials()
             self._execute(run_id, task, resume=False)
         except Exception as exc:
             with self.control_lock:
