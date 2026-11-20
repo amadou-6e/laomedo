@@ -1,6 +1,6 @@
 import AccountSelection from "./AccountSelection";
 import GraphPermissions from "./GraphPermissions";
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   Plus,
@@ -20,7 +20,7 @@ import IconComponent from "@/components/common/genericIconComponent";
 import openCodeLogoDark from "./assets/opencode-logo-dark.svg";
 import openCodeLogoLight from "./assets/opencode-logo-light.svg";
 import { Button } from "@/components/ui/button";
-import useAuthStore from "@/stores/authStore";
+import { AuthContext } from "@/contexts/authContext";
 import { describeNodeFailure } from "@/components/laomedoErrors/nodeErrors";
 import ErrorExplanation from "@/components/laomedoErrors/ErrorExplanation";
 import { AssistantFailure, assistantRequest } from "./api";
@@ -50,7 +50,7 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
   onSelectConversation?: (selection: Record<string, string>) => void;
 } = {}) {
   const RootTag = embedded ? "section" : "main";
-  const owner = useAuthStore((state) => state.userData?.id);
+  const owner = useContext(AuthContext).userData?.id;
   const [params, setRouteParams] = useSearchParams();
   const selected = embedded ? selectedConversation ?? "" : params.get("conversation") ?? "";
   const linked = embedded ? linkedConversation ?? "" : params.get("linked") ?? "";

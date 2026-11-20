@@ -182,3 +182,8 @@ never an invented list. Slash input uses the human native-command route directly
 it is never sent as a model prompt or retried as ordinary prose after refusal.
 Only explicitly typed Codex `/status`, classified as non-model by the actual
 catalog, skips a second approval. Other typed commands retain confirmation.
+
+Chat reads the signed-in profile from the application AuthContext, which the
+HttpOnly-cookie session probe updates. It does not read the separate Zustand
+userData slot: normal profile login does not populate that slot. Profile changes
+fence the retained chat state and reload the account list.
