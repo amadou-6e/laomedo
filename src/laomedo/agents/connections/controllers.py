@@ -268,7 +268,10 @@ class ProviderControllers:
         """Observe actual lock and MCP cleanup; a terminal record alone is insufficient."""
         self.assistant_endpoint(profile_id, connection_id, generation, run_id=run_id)
         slot = self.slots[(profile_id, connection_id, generation, "assistant")]
-        return not slot.runner.lock.locked() and slot.runner.mcp_access(run_id) is None
+        return not slot.runner.lock.locked() and (
+            slot.runner.mcp_access(run_id) is None
+            or slot.runner.has_live_session(run_id)
+        )
 
     def connection_for_run(self, profile_id, run_id, *, scope="graph"):
         """Resolve a retained run from this owner's authoritative inventory, never preferences."""
@@ -329,7 +332,13 @@ class ProviderControllers:
                     or slot.runner.lock.locked()
                     or slot.runner.pending_resumes()
                     or any(
-                        record["status"] in {"prepared", "running"}
+                        (
+                            record["status"] in {"prepared", "running"}
+                            or (
+                                slot.runner is not None
+                                and slot.runner.has_live_session(record["run_id"])
+                            )
+                        )
                         for record in self._records(slot)
                     )
                 )
@@ -350,7 +359,13 @@ class ProviderControllers:
             active = {
                 record["run_id"]
                 for record in self._records(slot)
-                if record["status"] in {"prepared", "running"}
+                if (
+                    record["status"] in {"prepared", "running"}
+                    or (
+                        slot.runner is not None
+                        and slot.runner.has_live_session(record["run_id"])
+                    )
+                )
             }
             if slot.runner is not None:
                 active.update(item["run_id"] for item in slot.runner.pending_resumes())
@@ -401,8 +416,11 @@ class ProviderControllers:
                 for record in self._records(slot):
                     if (
                         record["status"] in {"prepared", "running"}
-                        or record["run_id"] in pending
-                    ):
+                        or (
+                            slot.runner is not None
+                            and slot.runner.has_live_session(record["run_id"])
+                        )
+                    ) or record["run_id"] in pending:
                         slot.runner.cancel(record["run_id"])
                         ready = False
                 if (
@@ -456,8 +474,13 @@ class ProviderControllers:
             worker.join()
         for slot in list(self.slots.values()):
             for record in self._records(slot):
-                if slot.runner and record["status"] in {"prepared", "running"}:
+                if slot.runner and (
+                    record["status"] in {"prepared", "running"}
+                    or slot.runner.has_live_session(record["run_id"])
+                ):
                     slot.runner.cancel(record["run_id"])
+            if slot.runner:
+                slot.runner.close()
             if slot.server:
                 slot.server.shutdown()
                 slot.server.server_close()

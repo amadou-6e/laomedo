@@ -131,6 +131,7 @@ async def delete_conversation(identifier: UUID, context=Depends(access)):
     """Delete one idle owned chat without touching saved workflows or run history."""
     runtime, owner, key = context
     try:
+        await runtime.release_idle_session(owner, identifier)
         result = await runtime.store.delete_conversation(
             owner, identifier, session_key=key
         )

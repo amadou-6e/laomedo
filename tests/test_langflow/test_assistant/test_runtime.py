@@ -403,6 +403,51 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
             state="running",
         )
 
+    async def test_retained_tools_are_inactive_and_old_cleanup_cannot_revoke_the_next_message(
+        self,
+    ):
+        context = AuthoringContext(
+            owner_id=self.owner,
+            conversation_id=self.identifier,
+            message_id=self.message_id,
+            attempt_id=self.message["attempt_id"],
+            session_key="fixture",
+        )
+        registration = SimpleNamespace(registration_id=uuid4())
+        client = SimpleNamespace(disconnect=AsyncMock())
+        token = "fixture-private-endpoint"
+        self.runtime.contexts[context.message_id] = context
+        self.runtime.host_tokens[token] = context
+        registry = Mock()
+        with patch(
+            "laomedo.integrations.langflow.assistant.runtime.McpRegistry.current",
+            return_value=registry,
+        ):
+            await self.runtime._close_tools(
+                context, registration, client, token, retain=True
+            )
+            self.assertNotIn(token, self.runtime.host_tokens)
+            self.assertNotIn(context.message_id, self.runtime.contexts)
+            registry.release.assert_not_called()
+            client.disconnect.assert_not_awaited()
+            idle = self.runtime.idle_tools[self.identifier]
+            following = context.model_copy(
+                update={"message_id": uuid4(), "attempt_id": uuid4()}
+            )
+            self.assertTrue(idle.matches(following))
+            self.assertFalse(
+                idle.matches(
+                    following.model_copy(update={"session_key": "other-browser"})
+                )
+            )
+            self.runtime.host_tokens[token] = following
+            await self.runtime._close_tools(context, None, None, token)
+            self.assertIs(self.runtime.host_tokens[token], following)
+            await self.runtime.release_idle_session(self.owner, self.identifier)
+            registry.release.assert_called_once_with(str(registration.registration_id))
+            client.disconnect.assert_awaited_once()
+            self.assertNotIn(self.identifier, self.runtime.idle_tools)
+
     async def test_native_completion_cannot_unlock_send_before_tool_authority_drains(
         self,
     ):

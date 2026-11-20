@@ -82,6 +82,11 @@ class IdleCodexSession(BaseModel):
     """Process-local native session retained before any model turn materializes it."""
 
     model_config = ConfigDict(arbitrary_types_allowed=True, extra="forbid")
+    closing: bool = Field(
+        default=False,
+        exclude=True,
+        description="Cleanup has begun; this runtime cannot be taken for another message.",
+    )
     runtime: Any = Field(
         exclude=True,
         repr=False,

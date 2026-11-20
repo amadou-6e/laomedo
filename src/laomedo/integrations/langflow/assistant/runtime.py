@@ -21,6 +21,7 @@ from laomedo.integrations.langflow.assistant.catalog import ComponentCatalog
 from laomedo.integrations.langflow.assistant.errors import AssistantError
 from laomedo.integrations.langflow.assistant.models import (
     ModelCatalogCacheEntry,
+    IdleAssistantTools,
     AuthoringContext,
     AssistantSession,
 )
@@ -43,6 +44,7 @@ class AssistantRuntime:
         """Prepare inactive app composition without Docker, inference or credential reads."""
         self.settings = settings
         self.provider_connections = None
+        self.idle_tools = {}
         self.model_catalogs = {}
         self.migration_blocked = False
         self.store = self.mcp = self.upstream = None
@@ -115,6 +117,10 @@ class AssistantRuntime:
                     self.closing = True
                     self.ready = False
                     self.host_tokens.clear()
+                    for idle in list(self.idle_tools.values()):
+                        await self.release_idle_session(
+                            idle.context.owner_id, idle.context.conversation_id
+                        )
                     cancellations = []
                     for conversation in await self.store.pending():
                         runner = self.runners.get(
@@ -337,11 +343,49 @@ class AssistantRuntime:
         await self.authorize(context)
         return context
 
+    async def release_idle_session(self, owner, identifier):
+        """Revoke the inactive endpoint and cancel only its exact owned native run."""
+        idle = self.idle_tools.get(identifier)
+        if idle is None or idle.context.owner_id != owner:
+            return
+        self.idle_tools.pop(identifier, None)
+        await self._close_tools(
+            idle.context, idle.registration, idle.client, idle.token.get_secret_value()
+        )
+        try:
+            conversation, message = await self.store.message(
+                owner, identifier, idle.context.message_id
+            )
+            runner = self.runners.get(
+                self._runner_key(
+                    owner,
+                    conversation.provider,
+                    conversation.connection_id,
+                    conversation.connection_generation,
+                )
+            )
+            if runner is not None and conversation.run_id:
+                await asyncio.to_thread(
+                    runner.request,
+                    "POST",
+                    "/v1/runs/" + conversation.run_id + "/cancel",
+                    {},
+                )
+        except AssistantError:
+            # Registry access is already revoked; native ownership remains under
+            # its existing independent health/cleanup path when HTTP is lost.
+            pass
+
     async def lock_session(self, key):
         """Revoke tools immediately and persist the fence before sign-out completes."""
         if not self.store:
             return
         self.revoked_sessions.add(key)
+        for idle in list(self.idle_tools.values()):
+            if idle.context.session_key == key:
+                await self.release_idle_session(
+                    idle.context.owner_id, idle.context.conversation_id
+                )
         affected = [
             context for context in self.contexts.values() if context.session_key == key
         ]
@@ -794,11 +838,16 @@ class AssistantRuntime:
             else "assistant_turn_failed"
         )
 
-    async def _close_tools(self, context, registration, client, token):
+    async def _close_tools(self, context, registration, client, token, *, retain=False):
         """Revoke first, then drain actual host tool tasks before permitting another message."""
         self.contexts.pop(context.message_id, None)
-        self.host_tokens.pop(token, None)
-        if registration is not None:
+        if self.host_tokens.get(token) is context:
+            self.host_tokens.pop(token, None)
+        if retain and registration is not None:
+            self.idle_tools[context.conversation_id] = IdleAssistantTools(
+                context=context, registration=registration, client=client, token=token
+            )
+        elif registration is not None:
             McpRegistry.current().release(str(registration.registration_id))
         tasks = list(self.tool_tasks.pop(context.message_id, set()))
         for task in tasks:
@@ -807,7 +856,7 @@ class AssistantRuntime:
             await asyncio.wait_for(
                 asyncio.gather(*tasks, return_exceptions=True), timeout=15
             )
-        if client:
+        if client and not retain:
             try:
                 await asyncio.wait_for(client.disconnect(), timeout=10)
             except Exception:
@@ -833,43 +882,63 @@ class AssistantRuntime:
                 conversation.connection_generation,
             )
             self.host_tokens[token] = context
-            client = MCPStreamableHttpClient()
-            client.set_session_context("assistant:" + str(context.message_id))
-            _, tools, _ = await update_tools(
-                AUTHORING_SERVER_NAME,
-                {
-                    "mode": "Streamable_HTTP",
-                    "url": self.settings.app_url + "/api/v1/laomedo/assistant/mcp/",
-                    "headers": {"Authorization": "Bearer " + token},
-                },
-                mcp_streamable_http_client=client,
-                current_user_id=context.owner_id,
-            )
-            if len(tools) != len(AUTHORING_TOOL_NAMES):
-                raise AssistantError("assistant_tool_catalog_changed", 503)
-            admitted_tools = [LangflowMcpTool(tool) for tool in tools]
-            if conversation.run_id:
-                from laomedo.agents.mcp.models import McpManifest
-
-                record = await asyncio.to_thread(
-                    runner.request, "GET", "/v1/runs/" + conversation.run_id
+            idle = self.idle_tools.pop(context.conversation_id, None)
+            if idle is not None:
+                self.host_tokens.pop(token, None)
+                if not idle.matches(context):
+                    self.idle_tools[context.conversation_id] = idle
+                    await self.release_idle_session(
+                        context.owner_id, context.conversation_id
+                    )
+                    raise AssistantError("assistant_native_identity_mismatch", 409)
+                registration, client, token = (
+                    idle.registration,
+                    idle.client,
+                    idle.token.get_secret_value(),
                 )
-                if not record.get("mcp_manifest"):
-                    raise AssistantError("assistant_tool_catalog_changed", 409)
-                frozen = McpManifest.model_validate(record["mcp_manifest"])
-                selected = {(item.server, item.upstream_name) for item in frozen.tools}
-                admitted_tools = [
-                    tool
-                    for tool in admitted_tools
-                    if (tool.descriptor.server, tool.descriptor.upstream_name)
-                    in selected
-                ]
-                if (
-                    McpManifest(tools=tuple(tool.descriptor for tool in admitted_tools))
-                    != frozen
-                ):
-                    raise AssistantError("assistant_tool_catalog_changed", 409)
-            registration = await McpRegistry.current().register(admitted_tools)
+                self.host_tokens[token] = context
+            else:
+                client = MCPStreamableHttpClient()
+                client.set_session_context("assistant:" + str(context.message_id))
+                _, tools, _ = await update_tools(
+                    AUTHORING_SERVER_NAME,
+                    {
+                        "mode": "Streamable_HTTP",
+                        "url": self.settings.app_url + "/api/v1/laomedo/assistant/mcp/",
+                        "headers": {"Authorization": "Bearer " + token},
+                    },
+                    mcp_streamable_http_client=client,
+                    current_user_id=context.owner_id,
+                )
+                if len(tools) != len(AUTHORING_TOOL_NAMES):
+                    raise AssistantError("assistant_tool_catalog_changed", 503)
+                admitted_tools = [LangflowMcpTool(tool) for tool in tools]
+                if conversation.run_id:
+                    from laomedo.agents.mcp.models import McpManifest
+
+                    record = await asyncio.to_thread(
+                        runner.request, "GET", "/v1/runs/" + conversation.run_id
+                    )
+                    if not record.get("mcp_manifest"):
+                        raise AssistantError("assistant_tool_catalog_changed", 409)
+                    frozen = McpManifest.model_validate(record["mcp_manifest"])
+                    selected = {
+                        (item.server, item.upstream_name) for item in frozen.tools
+                    }
+                    admitted_tools = [
+                        tool
+                        for tool in admitted_tools
+                        if (tool.descriptor.server, tool.descriptor.upstream_name)
+                        in selected
+                    ]
+                    if (
+                        McpManifest(
+                            tools=tuple(tool.descriptor for tool in admitted_tools)
+                        )
+                        != frozen
+                    ):
+                        raise AssistantError("assistant_tool_catalog_changed", 409)
+                registration = await McpRegistry.current().register(admitted_tools)
             await self.authorize(context)
             _, current = await self.store.message(
                 context.owner_id, context.conversation_id, context.message_id
@@ -968,7 +1037,15 @@ class AssistantRuntime:
                 ):
                     break
                 await asyncio.sleep(0.5)
-            await self._close_tools(context, registration, client, token)
+            observed = await asyncio.to_thread(
+                runner.request, "GET", "/v1/runs/" + run_id
+            )
+            retain = (
+                observed.get("live_session") == "idle"
+                and observed.get("controller_cleanup") == "retained"
+                and not observed.get("turns")
+            )
+            await self._close_tools(context, registration, client, token, retain=retain)
             registration = client = None
             await self.reconcile(context.owner_id, context.conversation_id)
         except asyncio.CancelledError:

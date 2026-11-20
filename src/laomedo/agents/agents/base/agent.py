@@ -200,6 +200,8 @@ class BaseAgent(ABC):
 
     def release_mcp(self, run_id, *, expected=None):
         """Revoke an attempt's external access without masking native cleanup errors."""
+        if self.has_live_session(run_id):
+            return
         with self._mcp_lock:
             if expected is not None and self.mcp_access(run_id) is not expected:
                 return
@@ -218,7 +220,13 @@ class BaseAgent(ABC):
         if (manifest.model_dump(mode="json") if manifest else None) != saved:
             raise RunnerError("mcp_resume_binding_mismatch")
         with self._mcp_lock:
-            if self.mcp_access(run_id) is not None:
+            existing = self.mcp_access(run_id)
+            if existing is not None:
+                if self.has_live_session(run_id) and str(
+                    existing.connection.registration.registration_id
+                ) == request.get("mcp_registration"):
+                    existing.check_health(force=True)
+                    return existing
                 raise RunnerError("mcp_run_already_bound")
             access = self._admit_mcp(request)
             if access:

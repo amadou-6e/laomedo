@@ -131,7 +131,12 @@ of native-resource cleanup. It does not claim a persisted model conversation.
   session unavailable. It cannot claim the native thread survived: Codex has not
   written a rollout before its first user turn.
 
-Acceptance requires real `/status` ? first model message ? contextual follow-up
+Acceptance requires real `/status`, first model message and contextual follow-up
 with one native thread, working Laomedo MCP under the new message context, and
 confirmed idle cleanup on shutdown/disconnect. Unit tests alone do not establish
 that acceptance. This section describes the selected target, not completed work.
+
+`controller/settings.py` owns `Settings.idle_session_seconds`
+(`LAOMEDO_CODEX_IDLE_SESSION_SECONDS`, default 3600). It bounds unused resources;
+it does not reduce the existing model-turn execution budget. Expired or
+lost zero-turn sessions require an explicit new conversation.

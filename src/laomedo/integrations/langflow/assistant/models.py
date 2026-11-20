@@ -1,7 +1,7 @@
 """Assistant requests, declarative graphs and app-database-owned retained rows."""
 
 import time
-from typing import Literal
+from typing import Any, Literal
 from uuid import UUID, uuid4
 
 from pydantic import (
@@ -9,6 +9,7 @@ from pydantic import (
     ConfigDict,
     Field as ModelField,
     JsonValue,
+    SecretStr,
     model_validator,
 )
 from sqlalchemy import Column, JSON, UniqueConstraint, Text
@@ -48,6 +49,38 @@ class AuthoringContext(BaseModel):
         repr=False,
         description="Host-only session fingerprint, never forwarded to the provider.",
     )
+
+
+class IdleAssistantTools(BaseModel):
+    """Inactive tool transport retained only for one exact zero-turn conversation."""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True, extra="forbid")
+    context: AuthoringContext = ModelField(
+        exclude=True,
+        repr=False,
+        description="Original owner, conversation and browser lease; never tool-call authority while idle.",
+    )
+    registration: Any = ModelField(
+        exclude=True, repr=False, description="Exact existing frozen MCP registration."
+    )
+    client: Any = ModelField(
+        exclude=True,
+        repr=False,
+        description="Existing upstream client whose endpoint the native session knows.",
+    )
+    token: SecretStr = ModelField(
+        exclude=True,
+        repr=False,
+        description="Inactive host endpoint secret, reactivated only for a newly authorized matching message.",
+    )
+
+    def matches(self, context: AuthoringContext):
+        """Require the same owner, conversation and browser lease before reuse."""
+        return (
+            self.context.owner_id == context.owner_id
+            and self.context.conversation_id == context.conversation_id
+            and self.context.session_key == context.session_key
+        )
 
 
 class ConversationRequest(BaseModel):

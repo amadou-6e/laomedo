@@ -24,6 +24,15 @@ class CommandTransport(FakeServer):
 class InitialStatusTransport(FakeServer):
     """Control-only first status, followed by an ordinary same-thread continuation."""
 
+    async def open(self, record, *, resume, reuse=False):
+        if reuse:
+            assert resume and self.active_thread_id == record["thread_id"]
+            return self.active_thread_id
+        return await super().open(record, resume=resume)
+
+    def check_health(self):
+        return None
+
     def command_catalog(self):
         return NativeCommandCatalog(
             commands=[{"name": "status", "description": "Status"}]

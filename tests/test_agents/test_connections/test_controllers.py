@@ -33,6 +33,12 @@ class FakeNativeAgent:
         self.auth = kwargs["auth_connection"]
         self.pending = []
 
+    def has_live_session(self, run_id):
+        return False
+
+    def close(self):
+        return None
+
     def pending_resumes(self):
         return list(self.pending)
 

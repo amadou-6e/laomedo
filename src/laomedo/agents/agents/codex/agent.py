@@ -8,6 +8,8 @@ from laomedo.container_images.errors import ImageBuildError
 from laomedo.agents.agents.codex.catalog import CodexModelCatalog
 from laomedo.agents.agents.codex.credentials import CodexCredentialProvider
 from laomedo.agents.agents.codex.models import ResumeCheckpoint
+from laomedo.agents.agents.codex.models import IdleCodexSession
+from laomedo.agents.agents.codex.session import CodexSessionOwner
 
 from pathlib import Path
 from uuid import uuid4
@@ -99,6 +101,12 @@ class CodexAgent(BaseAgent):
         artifact_sources=None,
     ):
         """Bind admitted configuration and owned state; provider startup errors propagate before use."""
+        self._session_owner = None
+        self._session_guard = threading.Lock()
+        self._idle_sessions = {}
+        self._session_watch = None
+        self._idle_cleanup_lock = None
+        self._closing = False
         self._managed_image = image_id is None
         self.image = GIT_IMAGE if git_workspace else IMAGE
         self.image_id = GIT_IMAGE_ID if git_workspace else IMAGE_ID
@@ -205,10 +213,52 @@ class CodexAgent(BaseAgent):
                     if not docker.volumes.exists(VOLUME):
                         raise RunnerError("docker_control_failed")
 
+        for path in (self.state / "runs").glob("*/record.json"):
+            record = json.loads(path.read_text(encoding="utf-8"))
+            if record.get("live_session") == "idle":
+                record["live_session"] = "closed"
+                confirmed = check_docker and not self._pending_receipts(path.parent)
+                record["controller_cleanup"] = (
+                    "confirmed" if confirmed else "unverified"
+                )
+                record["container_ownership"]["cleanup_verified"] = confirmed
+                _json(path, record)
+
     @property
     def supports_mediated_github(self):
         """Declare support only for this Agent mode that actually owns the supervised mediated path."""
         return self.supervise_containers and not self.split_executor
+
+    def has_live_session(self, run_id):
+        """Observe only an exact in-memory zero-turn runtime owned by this Agent."""
+        with self._session_guard:
+            return run_id in self._idle_sessions
+
+    def close(self):
+        """Fence work, cancel active execution and close retained native resources."""
+        self._closing = True
+        super().close()
+        owner = self._session_owner
+        if owner is None:
+            return
+        if not self.lock.acquire(timeout=30):
+            raise RunnerError("container_termination_unverified")
+        try:
+            owner.run(self._close_idle_sessions())
+            owner.close()
+            self._session_owner = None
+        finally:
+            self.lock.release()
+
+    def cancel(self, run_id):
+        """Cancel active work or explicitly release an idle zero-turn controller."""
+        if self.has_live_session(run_id):
+            flag = self.cancel_flags.get(run_id)
+            if flag is not None:
+                flag.set()
+            self._session_owner.run(self._close_idle_session(run_id))
+            return self.status(run_id)
+        return super().cancel(run_id)
 
     def runtime_binding(self):
         """Return existing nonsecret provider/image/profile metadata for retained run identity."""
@@ -737,6 +787,69 @@ class CodexAgent(BaseAgent):
             if server is not None:
                 await server.close()
 
+    async def _close_idle_sessions(self):
+        """Drain retained resources on their original native thread."""
+        for run_id in list(self._idle_sessions):
+            await self._close_idle_session(run_id)
+        if self._idle_cleanup_lock is not None:
+            async with self._idle_cleanup_lock:
+                pass
+        if self._session_watch is not None:
+            self._session_watch.cancel()
+            self._session_watch = None
+
+    async def _close_idle_session(self, run_id):
+        """Close exact runtime ownership without rewriting a completed command result."""
+        if self._idle_cleanup_lock is None:
+            self._idle_cleanup_lock = asyncio.Lock()
+        async with self._idle_cleanup_lock:
+            with self._session_guard:
+                held = self._idle_sessions.get(run_id)
+            if held is None:
+                return
+            held.closing = True
+            confirmed = False
+            try:
+                await held.runtime.close()
+                if held.lease is not None:
+                    held.lease.finish()
+                confirmed = True
+            finally:
+                with self.control_lock:
+                    record = self.status(run_id)
+                    record["live_session"] = "closed"
+                    record["controller_cleanup"] = (
+                        "confirmed" if confirmed else "unverified"
+                    )
+                    record["container_ownership"]["cleanup_verified"] = confirmed
+                    record["container_ownership"]["cleanup_detail"] = (
+                        "removed" if confirmed else "unverified"
+                    )
+                    _json(self._run_dir(run_id) / "record.json", record)
+                with self._session_guard:
+                    self._idle_sessions.pop(run_id, None)
+                self.release_mcp(run_id)
+                self.cancel_flags.pop(run_id, None)
+
+    async def _watch_idle_sessions(self):
+        """Release unused sessions after expiry, cancellation or loss of native health."""
+        while not self._closing:
+            await asyncio.sleep(0.5)
+            for run_id, held in list(self._idle_sessions.items()):
+                failed = held.cancelled.is_set() or time.monotonic() >= held.expires
+                if not failed:
+                    try:
+                        held.runtime.check_health()
+                    except Exception:
+                        failed = True
+                if failed:
+                    try:
+                        await self._close_idle_session(run_id)
+                    except Exception:
+                        logging.getLogger(__name__).warning(
+                            "idle_codex_cleanup_unconfirmed"
+                        )
+
     def _execute(
         self,
         run_id: str,
@@ -749,17 +862,25 @@ class CodexAgent(BaseAgent):
         native_command=None,
     ) -> dict:
         """Own one admitted attempt and its cancellation, snapshot, evidence and exact cleanup finalization."""
-        return asyncio.run(
-            self._execute_acp(
-                run_id,
-                task,
-                resume=resume,
-                activity_attempt_id=activity_attempt_id,
-                model=model,
-                effort=effort,
-                native_command=native_command,
-            )
+        if self._closing:
+            raise RunnerError("run_not_dispatchable")
+        with self._session_guard:
+            if (
+                self._session_owner is None
+                and self.status(run_id).get("initial_native_command") == "status"
+            ):
+                self._session_owner = CodexSessionOwner()
+            owner = self._session_owner
+        operation = self._execute_acp(
+            run_id,
+            task,
+            resume=resume,
+            activity_attempt_id=activity_attempt_id,
+            model=model,
+            effort=effort,
+            native_command=native_command,
         )
+        return owner.run(operation) if owner is not None else asyncio.run(operation)
 
     async def _execute_acp(
         self,
@@ -782,6 +903,8 @@ class CodexAgent(BaseAgent):
         run_dir, record, cancelled, server, lease = None, None, None, None, None
         evidence_offset, attempt_turn_offset = 0, 0
         launch_attempted = False
+        keep_alive = False
+        held = None
         activity_start = None
         activity_attempt = None
         primary_failure = cleanup_failure = None
@@ -817,7 +940,26 @@ class CodexAgent(BaseAgent):
                     # catalog/configure checks below validate this turn's selection.
                     record["requested_model"] = model
                     record["requested_effort"] = effort
-                cancelled = threading.Event()
+                with self._session_guard:
+                    held = self._idle_sessions.get(run_id) if resume else None
+                    if held is not None:
+                        if held.closing:
+                            raise RunnerError("run_not_dispatchable")
+                        self._idle_sessions.pop(run_id)
+                if resume and record.get("live_session") == "idle" and held is None:
+                    raise RunnerError("resume_provider_binding_mismatch")
+                if (
+                    resume
+                    and record.get("live_session") == "closed"
+                    and not record["turns"]
+                ):
+                    raise RunnerError("resume_provider_binding_mismatch")
+                if held is not None:
+                    server, lease = held.runtime, held.lease
+                    launch_attempted = True
+                cancelled = held.cancelled if held is not None else threading.Event()
+                if cancelled.is_set():
+                    raise RunnerError("run_not_dispatchable")
                 evidence_offset = (run_dir / "raw-events.jsonl").stat().st_size
                 attempt_turn_offset = len(record["turns"])
                 from laomedo.agents.activity.runner.feed import line_count
@@ -874,6 +1016,13 @@ class CodexAgent(BaseAgent):
                     "supervised": self.supervise_containers,
                     "cleanup_verified": False,
                 }
+                if held is not None:
+                    record["container_ownership"] = dict(held.ownership)
+                    name = held.ownership["name"]
+                    launch_token = held.ownership["launch_token"]
+                    server, lease = held.runtime, held.lease
+                    launch_attempted = True
+                    record["live_session"] = "active"
                 _json(run_dir / "record.json", record)
             try:
                 verify(
@@ -883,7 +1032,7 @@ class CodexAgent(BaseAgent):
                 )
             except ValueError as exc:
                 raise RunnerError(str(exc)) from None
-            if self.supervise_containers:
+            if self.supervise_containers and held is None:
                 if self.lease_service is None:
                     raise RunnerError("lease_service_required")
                 try:
@@ -932,30 +1081,45 @@ class CodexAgent(BaseAgent):
             _json(run_dir / "record.json", record)
             transport_settings = Settings.load()
             launch_attempted = True
-            server = self._open_server(
-                run_dir,
-                lifetime_seconds=(
-                    NATIVE_TURN_SECONDS * (1 + record.get("output_retries", 0))
-                    + transport_settings.startup_margin
-                ),
-                access_token=access_token,
-                name=name,
-                run_id=run_id,
-                launch_token=launch_token,
-                capability=capability,
-                mediator_url=mediator_url,
-                mediator_instance=mediator_instance,
-                repository=(record.get("github_scope") or {}).get("repository"),
-                branch=(record.get("github_scope") or {}).get("branch"),
-                base_branch=(record.get("github_scope") or {}).get(
-                    "base_branch", "main"
-                ),
+            credential_digest = (
+                hashlib.sha256(access_token.encode()).hexdigest()
+                if access_token is not None
+                else None
             )
-            record["controller_cleanup"] = "pending"
-            # Keep the pre-launch name/launch-token/grant ownership binding;
-            # lifecycle diagnostics must not replace it with a name-only map.
-            _json(run_dir / "record.json", record)
-            await server.initialize()
+            if held is not None and credential_digest != held.credential_digest:
+                raise RunnerError("runner_authentication_required")
+            if held is None:
+                server = self._open_server(
+                    run_dir,
+                    lifetime_seconds=(
+                        NATIVE_TURN_SECONDS * (1 + record.get("output_retries", 0))
+                        + transport_settings.startup_margin
+                        + (
+                            transport_settings.idle_session_seconds
+                            if record.get("initial_native_command") == "status"
+                            else 0
+                        )
+                    ),
+                    access_token=access_token,
+                    name=name,
+                    run_id=run_id,
+                    launch_token=launch_token,
+                    capability=capability,
+                    mediator_url=mediator_url,
+                    mediator_instance=mediator_instance,
+                    repository=(record.get("github_scope") or {}).get("repository"),
+                    branch=(record.get("github_scope") or {}).get("branch"),
+                    base_branch=(record.get("github_scope") or {}).get(
+                        "base_branch", "main"
+                    ),
+                )
+                record["controller_cleanup"] = "pending"
+                # Keep the pre-launch name/launch-token/grant ownership binding;
+                # lifecycle diagnostics must not replace it with a name-only map.
+                _json(run_dir / "record.json", record)
+                await server.initialize()
+            else:
+                record["controller_cleanup"] = "pending"
             entries = await server.models()
             choice = next(
                 (x for x in entries if x["id"] == record["requested_model"]), None
@@ -971,7 +1135,9 @@ class CodexAgent(BaseAgent):
                 )
                 return record
             server.mcp_access = self.mcp_access(run_id)
-            native_id = await server.open(record, resume=resume)
+            native_id = await server.open(
+                record, resume=resume, **({"reuse": True} if held is not None else {})
+            )
             catalog = server.command_catalog()
             initial_status = (
                 not resume and record.get("initial_native_command") == "status"
@@ -1328,6 +1494,32 @@ class CodexAgent(BaseAgent):
             self._verify_protected_mounts(run_dir, record)
             if lease is not None and lease.lost.is_set():
                 raise RunnerError("lease_service_lost")
+            keep_alive = (
+                record["status"] == "completed"
+                and not record["turns"]
+                and record.get("initial_native_command") == "status"
+            )
+            if keep_alive:
+                retained = IdleCodexSession(
+                    runtime=server,
+                    lease=lease,
+                    cancelled=cancelled,
+                    ownership=dict(record["container_ownership"]),
+                    credential_digest=credential_digest,
+                    expires=(
+                        held.expires
+                        if held is not None
+                        else time.monotonic() + transport_settings.idle_session_seconds
+                    ),
+                )
+                with self._session_guard:
+                    self._idle_sessions[run_id] = retained
+                record["live_session"] = "idle"
+                record["controller_cleanup"] = "retained"
+                if self._session_watch is None:
+                    self._session_watch = asyncio.create_task(
+                        self._watch_idle_sessions()
+                    )
         except Exception as exc:
             primary_failure = primary_failure or failure_observation(
                 exc, stage="execution"
@@ -1361,7 +1553,7 @@ class CodexAgent(BaseAgent):
                 )
             close_error = False
             try:
-                if server is not None:
+                if server is not None and not keep_alive:
                     if record is not None:
                         count = getattr(server, "precheck_call_count", 0)
                         record["precheck"]["call_count"] = count
@@ -1371,6 +1563,10 @@ class CodexAgent(BaseAgent):
                     await server.close()
                     if record is not None:
                         record["controller_cleanup"] = "confirmed"
+                        if "live_session" in record:
+                            record["live_session"] = (
+                                "materialized" if record["turns"] else "closed"
+                            )
                         if not self.supervise_containers and getattr(
                             server, "cleanup_confirmed", False
                         ):
@@ -1462,7 +1658,11 @@ class CodexAgent(BaseAgent):
                                 status="failed",
                                 error_category="container_termination_unverified",
                             )
-                    elif record is not None and self.supervise_containers:
+                    elif (
+                        record is not None
+                        and self.supervise_containers
+                        and not keep_alive
+                    ):
                         verified, detail = (
                             (True, "removed")
                             if getattr(server, "cleanup_confirmed", False)
@@ -1623,6 +1823,10 @@ class CodexAgent(BaseAgent):
                     except Exception:
                         pass  # Diagnostics cannot replace finalization or lock release.
                     finally:
-                        self.cancel_flags.pop(run_id, None)
+                        if not keep_alive:
+                            self.cancel_flags.pop(run_id, None)
                         self.lock.release()
+        if keep_alive and record.get("status") != "completed":
+            await self._close_idle_session(run_id)
+            record = self.status(run_id)
         return record

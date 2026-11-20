@@ -237,7 +237,7 @@ class CodexAgentRuntime:
             method, params, operation=label, seconds=seconds
         )
 
-    async def open(self, record, *, resume):
+    async def open(self, record, *, resume, reuse=False):
         """Bind the actual native session and confirm advertised model settings."""
         self.output_requirements = (
             verify_requirements(record["output_requirements"])
@@ -261,16 +261,20 @@ class CodexAgentRuntime:
             self.secret_redactions += (
                 self.mcp_access.connection.token.get_secret_value(),
             )
-        await self.acp.open(
-            session_id=record["thread_id"] if resume else None,
-            mcp_servers=(
-                [self.mcp_access.acp_server()]
-                if getattr(self, "mcp_access", None)
-                else []
-            ),
-            metadata={"laomedo": policy},
-        )
-        self.active_thread_id = self.acp.session_id
+        if reuse:
+            if not resume or self.active_thread_id != record["thread_id"]:
+                raise RunnerError("thread_identity_mismatch")
+        else:
+            await self.acp.open(
+                session_id=record["thread_id"] if resume else None,
+                mcp_servers=(
+                    [self.mcp_access.acp_server()]
+                    if getattr(self, "mcp_access", None)
+                    else []
+                ),
+                metadata={"laomedo": policy},
+            )
+            self.active_thread_id = self.acp.session_id
         if resume and self.active_thread_id != record["thread_id"]:
             raise RunnerError("thread_identity_mismatch")
         for key, expected in (
