@@ -5,6 +5,7 @@ from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, SecretStr
+from laomedo.agents.agents.base.models import SubscriptionSnapshot
 
 
 class ConnectionRecord(BaseModel):
@@ -256,4 +257,88 @@ class GraphProviderPreferences(BaseModel):
     opencode: UUID | None = Field(
         default=None,
         description="Preferred OpenCode Go connection for this graph only.",
+    )
+
+
+class SubscriptionBinding(BaseModel):
+    """Immutable native-read key; browser leases gate visibility separately."""
+
+    model_config = ConfigDict(strict=True, frozen=True, extra="forbid")
+    profile_id: UUID = Field(
+        description="Authenticated local profile owning the connection."
+    )
+    connection_id: UUID = Field(
+        description="Exact saved account selector, never a credential path."
+    )
+    generation: int = Field(
+        ge=1,
+        description="Committed reconnect epoch; token rotation does not change it.",
+    )
+
+
+class SubscriptionRequest(BaseModel):
+    """Explicit refresh of the account generation currently shown in the browser."""
+
+    model_config = ConfigDict(strict=True, extra="forbid")
+    generation: int = Field(
+        ge=1,
+        description="Expected saved connection generation shown by the account list.",
+    )
+
+
+class SubscriptionObservation(BaseModel):
+    """Safe lease-visible account limits with explicit freshness and failure status."""
+
+    model_config = ConfigDict(strict=True, extra="forbid")
+    connection_id: UUID = Field(
+        description="Saved account whose limits were requested."
+    )
+    generation: int = Field(
+        ge=1, description="Exact reconnect epoch of this observation."
+    )
+    state: Literal["not_checked", "ready", "stale", "unavailable"] = Field(
+        description="Observed availability; unavailable is never a zero balance."
+    )
+    reason: (
+        Literal["unsupported", "refresh_failed", "account_unavailable", "busy"] | None
+    ) = Field(
+        default=None,
+        description="Allowlisted recovery category, never a raw provider error.",
+    )
+    observed_at: float | None = Field(
+        default=None,
+        description="Unix seconds when a successful native observation finished teardown.",
+    )
+    stale_after: float | None = Field(
+        default=None,
+        description="Unix seconds after which this snapshot must be labelled out of date.",
+    )
+    snapshot: SubscriptionSnapshot | None = Field(
+        default=None,
+        description="Safe native quota values, absent until a successful account read.",
+    )
+
+
+class SubscriptionCacheEntry(BaseModel):
+    """Internal bounded native observation; no token, raw response or host path."""
+
+    model_config = ConfigDict(strict=True, extra="forbid")
+    snapshot: SubscriptionSnapshot | None = Field(
+        default=None,
+        description="Most recent successful snapshot for one native binding.",
+    )
+    observed_at: float | None = Field(
+        default=None,
+        description="Successful native teardown timestamp in Unix seconds.",
+    )
+    stale_after: float | None = Field(
+        default=None,
+        description="Earliest freshness deadline, bounded by the next reported future reset.",
+    )
+    attempted_at: float = Field(
+        description="Most recent refresh attempt, used to bound failed retries and retention."
+    )
+    reason: Literal["refresh_failed", "busy"] | None = Field(
+        default=None,
+        description="Safe latest refresh outcome; a previous snapshot is stale on failure.",
     )

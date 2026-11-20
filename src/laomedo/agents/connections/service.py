@@ -19,6 +19,7 @@ from laomedo.host.credentials.siwc.utils import (
 )
 from laomedo.agents.registry import AgentProviderRegistry
 from laomedo.agents.connections.errors import ProviderConnectionError
+from laomedo.agents.connections.quota import SubscriptionObservations
 from laomedo.agents.connections.models import (
     GraphProviderPreferences,
     ConnectionRecord,
@@ -51,6 +52,7 @@ class ProviderConnections:
         self.claude = self.adapter("claude")
         self.codex = self.adapter("codex")
         self.controllers = None
+        self.subscriptions = SubscriptionObservations(self)
         self.revoked_leases: set[str] = set()
         self._lease_renewals: dict[str, SessionLeaseRenewal] = {}
         owner_path = self.root / "owner.lock"
@@ -334,6 +336,7 @@ class ProviderConnections:
         with self._lock:
             lease_hash = self.resolve_lease(lease_hash)
             self.revoked_leases.add(lease_hash)
+            self.subscriptions.invalidate(lease_hash=lease_hash)
             for adapter in self.adapters:
                 adapter.cancel_lease(lease_hash)
 
@@ -458,10 +461,18 @@ class ProviderConnections:
 
     def _save(self, profile_id: UUID, records: list[ConnectionRecord]) -> None:
         """Atomically publish the typed admission index after private staging."""
-        _atomic_private(
-            self._profile(profile_id) / "connections.json",
-            ConnectionIndex(connections=records).model_dump(mode="json"),
-        )
+        with self._lock:
+            previous = {row.connection_id: row for row in self._records(profile_id)}
+            current = {row.connection_id: row for row in records}
+            _atomic_private(
+                self._profile(profile_id) / "connections.json",
+                ConnectionIndex(connections=records).model_dump(mode="json"),
+            )
+            for connection_id, record in previous.items():
+                if current.get(connection_id) != record:
+                    self.subscriptions.invalidate(
+                        profile_id=profile_id, connection_id=connection_id
+                    )
 
     def _record(self, profile_id: UUID, connection_id: UUID) -> ConnectionRecord:
         """Refuse absent or foreign bindings without consulting another profile."""

@@ -4,7 +4,7 @@ import hashlib
 import logging
 from uuid import UUID
 
-from fastapi import Depends, HTTPException, Request
+from fastapi import Depends, HTTPException, Query, Request
 from pydantic import ValidationError
 from urllib.parse import urlsplit
 from starlette.concurrency import run_in_threadpool
@@ -17,6 +17,7 @@ from laomedo.agents.connections.models import (
     DisconnectRequest,
     SaveGoConnection,
     SubmitClaudeCode,
+    SubscriptionRequest,
 )
 
 
@@ -95,6 +96,42 @@ def install_provider_routes(app, service, authenticate, *, origin: str):
         await owned_graph(flow_id, user)
         return await respond(
             lambda: service.graph_preferences(user.id, flow_id).model_dump(mode="json")
+        )
+
+    @app.get(prefix + "/graphs/{flow_id}/limits/{connection_id}")
+    async def cached_limits(
+        flow_id: UUID,
+        connection_id: UUID,
+        request: Request,
+        generation: int = Query(ge=1),
+        user=Depends(authenticate),
+    ):
+        """Read only this authenticated graph owner's lease-visible cached account limits."""
+        lease = session_lease(request, service)
+        await owned_graph(flow_id, user)
+        return await respond(
+            lambda: service.subscriptions.read(
+                user.id, connection_id, generation, lease
+            ).model_dump(mode="json")
+        )
+
+    @app.post(prefix + "/graphs/{flow_id}/limits/{connection_id}")
+    async def refresh_limits(
+        flow_id: UUID,
+        connection_id: UUID,
+        request: Request,
+        payload: SubscriptionRequest,
+        user=Depends(authenticate),
+    ):
+        """Explicit same-origin zero-turn refresh, fenced before and after native observation."""
+        lease = session_lease(request, service)
+        if request.headers.get("origin") != origin:
+            raise HTTPException(403, detail={"code": "provider_request_refused"})
+        await owned_graph(flow_id, user)
+        return await respond(
+            lambda: service.subscriptions.refresh(
+                user.id, connection_id, payload.generation, lease
+            ).model_dump(mode="json")
         )
 
     @app.put(prefix + "/graphs/{flow_id}")

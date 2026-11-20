@@ -13,6 +13,7 @@ from pathlib import Path
 from uuid import uuid4
 import hashlib
 import asyncio
+from contextlib import asynccontextmanager
 import logging
 import sys
 import json
@@ -600,9 +601,10 @@ class CodexAgent(BaseAgent):
             )
         return self.transport(launch, root)
 
-    async def _model_catalog(self):
-        """Read native model metadata under a temporary bounded scope and reconcile cleanup without inference."""
-        root = self.state / "catalog" / str(uuid4())
+    @asynccontextmanager
+    async def _discovery(self, purpose):
+        """Own the existing temporary zero-turn native lifecycle through exact cleanup."""
+        root = self.state / purpose / str(uuid4())
         server = None
         try:
             for name in ("workspace", "canonical", "store"):
@@ -614,6 +616,18 @@ class CodexAgent(BaseAgent):
                 lifetime_seconds=60 + Settings.load().startup_margin,
             )
             await server.initialize()
+            yield server
+        finally:
+            try:
+                if server is not None:
+                    await server.close()
+            finally:
+                if not self._pending_receipts(root):
+                    shutil.rmtree(root, ignore_errors=True)
+
+    async def _model_catalog(self):
+        """Read model metadata through the common bounded zero-turn lifecycle."""
+        async with self._discovery("catalog") as server:
             models = await server.models()
             defaults = [item["id"] for item in models if item.get("is_default") is True]
             if len(defaults) > 1:
@@ -622,13 +636,15 @@ class CodexAgent(BaseAgent):
             if defaults:
                 result["default_model_id"] = defaults[0]
             return result
-        finally:
-            try:
-                if server is not None:
-                    await server.close()
-            finally:
-                if not self._pending_receipts(root):
-                    shutil.rmtree(root, ignore_errors=True)
+
+    def subscription_limits(self):
+        """Observe this admitted account without a thread or model prompt; cleanup failures propagate."""
+        return asyncio.run(self._subscription_limits())
+
+    async def _subscription_limits(self):
+        """Finish native teardown before returning the safe provider quota snapshot."""
+        async with self._discovery("quota") as server:
+            return await server.subscription_limits()
 
     async def _preflight(self) -> dict:
         """Launch native handshake, model and permission probes without a model turn.

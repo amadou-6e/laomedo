@@ -213,6 +213,7 @@ class CodexAgentRuntime:
         """Invoke a named adapter contract; never forward arbitrary native RPC."""
         if method not in {
             "laomedo/codexModels",
+            "laomedo/codexRateLimits",
             "laomedo/preflight",
             "laomedo/registerExecutor",
             "laomedo/executorStatus",
@@ -220,6 +221,7 @@ class CodexAgentRuntime:
             raise RunnerError("runner_transport_failed")
         label = {
             "laomedo/codexModels": "model/list",
+            "laomedo/codexRateLimits": "account/rateLimits/read",
             "laomedo/preflight": "command/exec",
             "laomedo/registerExecutor": "environment/add",
             "laomedo/executorStatus": "environment/status",
@@ -432,6 +434,21 @@ class CodexAgentRuntime:
         self._close_failure = error
         if error:
             raise error
+
+    async def subscription_limits(self):
+        """Read only the named zero-turn quota extension; never create a native session."""
+        from laomedo.agents.agents.codex.models import CodexRateLimits
+
+        result = await self.extension("laomedo/codexRateLimits", {})
+        if (
+            not isinstance(result, dict)
+            or len(json.dumps(result, ensure_ascii=True)) > 65536
+        ):
+            raise RunnerError("runner_transport_failed")
+        try:
+            return CodexRateLimits.model_validate(result).to_snapshot()
+        except (ValueError, TypeError, OverflowError):
+            raise RunnerError("runner_transport_failed") from None
 
     async def models(self):
         """Read the bounded native catalogue through the named ACP extension."""

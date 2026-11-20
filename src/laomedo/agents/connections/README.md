@@ -191,6 +191,17 @@ the custody lease until cancelled native workers settle, even after its foregrou
 cleanup budget ends. A committed reconnect with old-volume cleanup uncertainty
 remains connected and reports that separate cleanup outcome.
 
+
+## Subscription observations (#300)
+
+`quota.py` owns `SubscriptionObservations`: `read()` returns only lease-visible
+cached state; `refresh()` coalesces native reads per profile/connection/generation,
+reuses fresh data and gates publication on the current lease/generation. Native
+single-flight and lease visibility have separate keys. Memory-only retention and
+retry/freshness bounds live in `settings.py`. Safe observation/cache contracts live
+in `models.py`; canonical provider quota values live in `agents/base/models.py`.
+`ProviderControllers.subscription_limits()` reserves the existing discovery fence
+and releases it after exact native cleanup, preserving disconnect/cancel behavior.
 `ProviderConnections.check_lease()` refuses requests from a browser lease already
 revoked by logout/profile switching, including reads and account-management
 writes. It does not delete saved connections. `ClaudeConnection.details()` accepts

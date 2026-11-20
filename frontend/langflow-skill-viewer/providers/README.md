@@ -51,8 +51,16 @@ in `GraphTraces` under Traces, alongside the existing flow execution view. Prefe
 usage or changing selection never submits a model task.
 
 Subscription allowances are distinct from run tokens and estimated cost. The
-current ACP adapter has no account/rateLimits/read projection: show unavailable,
+Codex ACP adapter provides a bounded account/rateLimits/read projection; unsupported providers show unavailable,
 never infer remaining hourly/weekly/monthly allowances from run activity.
+
+The quota adapter is a draft integration: current saved Codex connections use
+Sign in with ChatGPT token sharing through a custom Responses provider. That
+configuration does not establish the native Codex account authentication required
+by the pinned quota RPC. Renewing the token-sharing login alone does not fix this.
+An explicit authentication-method decision and real account acceptance are still
+required; fixture responses do not establish live quota support. No host login
+import or undocumented backend endpoint is an acceptable fallback.
 
 Graph settings follow GitHub Primer's plain, left-aligned settings sections:
 headings with dividers, bounded form widths and consistent vertical spacing.
@@ -100,3 +108,13 @@ as new connection. A Go save with an uncertain reply clears the key and pauses
 resubmission; Refresh shows the actual saved list without asserting success.
 Typed session/limit failures retain the shared catalogue recovery. Failed
 Disconnect confirmation rereads discard stale permission and return to details.
+## Live allowance (#300)
+
+`SubscriptionLimits.tsx` owns account-bound quota rows and native-window/credit
+presentation. `AccountLimits` performs cache-only mount reads and explicit refresh,
+ignores aborted/superseded responses, and is keyed by graph/account/generation.
+`AllowanceWindow` renders only observed percentages/durations/reset times; stale
+values never imply a replenishment. `api.ts` validates the canonical safe response
+and rejects an unexpected account/generation or nonzero submitted-turn count.
+Provider-specific wire payloads remain outside rendering. PC-09 and P13-P16/Q0-Q5
+in the canonical provider workshop own behavior, including narrow layout.
