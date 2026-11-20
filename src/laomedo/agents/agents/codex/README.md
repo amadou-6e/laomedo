@@ -95,3 +95,43 @@ Absent handler support or advertisement fails before a prompt; no model fallback
 ## Saved account connections
 
 `connection.py` is the provider boundary. CodexConnection owns pending broker login attempts, begin/complete/progress/cancel, staged publication and readback, duplicate identity checks, exact token borrowing and local revision cleanup. PendingLogin belongs to models.py; login failure categories belong to settings.py. The shared Agent connection service owns admission/index fencing; host storage and profile authorization remain separate.
+
+## Zero-turn session lifetime (implementation in progress)
+
+The user selected retaining the actual Codex controller between an initial
+`/status` and the first model message. A status receipt is completed independently
+of native-resource cleanup. It does not claim a persisted model conversation.
+
+- `CodexSessionOwner` in `session.py` owns the dedicated native event-loop thread
+  and its event loop. `run()` executes on that thread; `close()` shuts down
+  the loop after the Agent drains its native resources. `IdleCodexSession` in
+  `models.py` groups the exact runtime, cancellation, lease and ownership values. No provider
+  object is reconstructed from a saved pointer after restart.
+- `CodexAgent` retains only successful zero-model-turn command sessions. The first
+  ordinary message uses the same ACP session and native thread, with the selected
+  model/effort configured in place. After a materialized model turn the normal
+  close-and-resume path applies. Missing live state never creates another thread
+  or submits a replacement prompt.
+- The retained MCP registration keeps the native tool endpoint stable. Host tool
+  authority is removed after status and remains unavailable while idle. Before
+  the next message the assistant binds that endpoint to the newly authorized
+  message context for the exact owner/conversation/account/generation. The frozen
+  manifest cannot expand. After the first normal turn the registration is revoked.
+- `BaseAgent.has_live_session(run_id)` reports actual in-memory ownership; its
+  default is false. `BaseAgent.close()` is the shared teardown entry point. The
+  saved-account manager uses these declared methods for settlement, disconnect
+  inventory, cancellation and shutdown. Durable completed status receipts are
+  not treated as proof that retained resources are absent.
+- Idle resources stay under the same Docker ownership receipt, daemon, profile
+  and native identity. Account revocation, cancellation, idle expiry, process
+  failure and shutdown close that ownership; cleanup uncertainty stays explicit.
+  A fresh credential observation is required before the first model turn. A
+  launch credential that changed while idle is not silently replaced or replayed.
+- Restart reconciles the retained resource receipt and marks that zero-turn
+  session unavailable. It cannot claim the native thread survived: Codex has not
+  written a rollout before its first user turn.
+
+Acceptance requires real `/status` ? first model message ? contextual follow-up
+with one native thread, working Laomedo MCP under the new message context, and
+confirmed idle cleanup on shutdown/disconnect. Unit tests alone do not establish
+that acceptance. This section describes the selected target, not completed work.

@@ -160,6 +160,15 @@ class BaseAgent(ABC):
         """Opt in only when the provider actually implements the mediated lease path."""
         return False
 
+    def has_live_session(self, run_id):
+        """Report actual retained native resources between requests; default is none."""
+        return False
+
+    def close(self):
+        """Request cancellation of active work before the host releases this Agent."""
+        for flag in list(self.cancel_flags.values()):
+            flag.set()
+
     def mcp_access(self, run_id):
         """Return only in-memory admitted external access, never reconstruct a grant."""
         return getattr(self, "_mcp_access", {}).get(run_id)

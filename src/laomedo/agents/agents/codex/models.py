@@ -76,3 +76,39 @@ class PendingLogin(BaseModel):
     progress: LoginProgress = Field(
         description="Safe observation of the attempt lifecycle."
     )
+
+
+class IdleCodexSession(BaseModel):
+    """Process-local native session retained before any model turn materializes it."""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True, extra="forbid")
+    runtime: Any = Field(
+        exclude=True,
+        repr=False,
+        description="Exact live native runtime on its original event loop.",
+    )
+    lease: Any = Field(
+        default=None,
+        exclude=True,
+        repr=False,
+        description="Existing independent resource lease, when configured.",
+    )
+    cancelled: Any = Field(
+        exclude=True,
+        repr=False,
+        description="Original cancellation event also observed by its resource lease.",
+    )
+    ownership: dict = Field(
+        exclude=True,
+        repr=False,
+        description="Exact recorded Docker ownership; never a replacement identity.",
+    )
+    credential_digest: str | None = Field(
+        default=None,
+        exclude=True,
+        repr=False,
+        description="In-memory launch credential equality check; never serialized.",
+    )
+    expires: float = Field(
+        exclude=True, description="Monotonic deadline for an unused live session."
+    )
