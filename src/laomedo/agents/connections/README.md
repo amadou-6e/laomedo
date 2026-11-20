@@ -21,12 +21,12 @@ connections/
   opencode/connection.py   GoConnection: explicit subscription-key custody
 ```
 
-BaseProviderConnection defines common attempt observation, fencing, worker
+BaseProviderConnection defines provider-owned native identity verification, common attempt observation, fencing, worker
 inventory, orphan ownership/reconciliation and exact revision cleanup. Providers
 without asynchronous login have no pending attempts or workers. The service calls
 all adapters when fencing profile/session/connection work. Orphan admission keeps
 Go-marker then Claude-marker then Codex fallback order, failing closed on malformed
-metadata. Provider adapters are constructed lazily and share the service lifecycle
+metadata. Provider adapters are constructed lazily through the existing AgentProviderRegistry composition root and share the service lifecycle
 lock; they never create an independent admission lock.
 
 ProviderConnections.admitted checks the exact owner, lifecycle and generation.
@@ -200,3 +200,8 @@ receiving the native authorization link. Generic progress never exposes that lin
 without making the SDK a base-package import requirement. `recover()` retains
 failed slots on daemon outages so Settings stays available; `stop()` projects
 the same failures to unconfirmed cleanup, preserving custody and Retry cleanup.
+
+Generic progress and cancel routes pass the verified opaque browser lease to
+the adapter, which matches both profile and originating lease before access.
+Trusted internal callers may inspect receipts without a browser lease; the HTTP
+boundary never omits it. Native identity verification stays in its provider adapter.

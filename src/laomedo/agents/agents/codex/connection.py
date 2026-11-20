@@ -271,6 +271,16 @@ class CodexConnection(BaseProviderConnection):
             lifecycle=record.lifecycle,
         )
 
+    def check_attempt(self, profile_id, attempt_id, lease_hash):
+        """Verify the exact owner and opaque originating lease under the service lock."""
+        item = self.attempts.get(attempt_id)
+        if (
+            item is None
+            or item.profile_id != profile_id
+            or item.lease_hash != lease_hash
+        ):
+            raise ProviderConnectionError("provider_login_expired")
+
     def _scrub(self, broker: ChatGPTConnection, client_id: str) -> None:
         """Remove an unadmitted or superseded token file under its refresh lock.
 

@@ -3,7 +3,6 @@
 from laomedo.host.credentials.siwc.connection import ChatGPTConnection
 from laomedo.host.credentials.siwc.errors import AuthError
 from laomedo.agents.connections.errors import ProviderConnectionError
-from laomedo.agents.agents.claude.models import ClaudeAccountIdentity
 from laomedo.agents.errors import RunnerError
 
 
@@ -99,14 +98,10 @@ class SavedClaudeConnection:
         """Match native account/workspace to the saved generation before admission."""
         self.check()
         try:
-            identity = ClaudeAccountIdentity(
-                email=auth.get("email"), organization_id=auth.get("orgId")
-            )
             with self.service._lock:
                 record = self.service.admitted(
                     self.profile_id, self.connection_id, self.generation
                 )
-                if identity.subject_hash() != record.subject_hash:
-                    raise ValueError()
+                self.service.adapter("claude").validate_identity(record, auth)
         except (ValueError, TypeError, AttributeError):
             raise RunnerError("provider_connection_changed") from None

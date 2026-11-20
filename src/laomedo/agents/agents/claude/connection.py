@@ -46,6 +46,14 @@ class ClaudeConnection(BaseProviderConnection):
         self.attempts = {}
         self._resource_locks = {}
 
+    def validate_identity(self, record, auth):
+        """Match the official native account/workspace to its admitted revision."""
+        identity = ClaudeAccountIdentity(
+            email=auth.get("email"), organization_id=auth.get("orgId")
+        )
+        if identity.subject_hash() != record.subject_hash:
+            raise ValueError()
+
     def profile(self, profile_id, record):
         """Require the exact owned volume; absence never selects a host login."""
         if record.provider != "claude":
@@ -301,6 +309,16 @@ class ClaudeConnection(BaseProviderConnection):
     def erase_revision(self, profile_id, record):
         """Erase the exact native profile after its work has settled."""
         self.erase(self.service._profile(profile_id) / str(record.credential_id))
+
+    def check_attempt(self, profile_id, attempt_id, lease_hash):
+        """Verify the exact owner and opaque originating lease under the service lock."""
+        item = self.attempts.get(attempt_id)
+        if (
+            item is None
+            or item.profile_id != profile_id
+            or item.lease_hash != lease_hash
+        ):
+            raise ProviderConnectionError("provider_login_expired")
 
     def _resource_lock(self, root):
         """Serialize one revision without delaying unrelated logout or cancellation."""

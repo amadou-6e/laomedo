@@ -66,3 +66,11 @@ class BaseProviderConnection(ABC):
     def erase_revision(self, profile_id, record):
         """Remove only settled, fenced credentials for this exact connection."""
         raise NotImplementedError
+
+    def validate_identity(self, record, auth):
+        """Refuse native identity validation unless the adapter owns that protocol."""
+        raise ProviderConnectionError("provider_connection_changed")
+
+    def check_attempt(self, profile_id, attempt_id, lease_hash):
+        """Reject attempt access unless a login-capable adapter verifies ownership."""
+        raise ProviderConnectionError("provider_login_expired")

@@ -17,6 +17,7 @@ from laomedo.host.credentials.siwc.utils import (
     _restrict_windows_directory,
     _locked,
 )
+from laomedo.agents.registry import AgentProviderRegistry
 from laomedo.agents.connections.errors import ProviderConnectionError
 from laomedo.agents.connections.models import (
     GraphProviderPreferences,
@@ -44,14 +45,10 @@ class ProviderConnections:
         _restrict_windows_directory(self.root)
         self._lock = threading.RLock()
         self._closing = False
-        from laomedo.agents.agents.codex.connection import CodexConnection
-        from laomedo.agents.agents.claude.connection import ClaudeConnection
-        from laomedo.agents.agents.opencode.connection import GoConnection
-
-        self.go = GoConnection(self)
-        self.claude = ClaudeConnection(self)
-        self.codex = CodexConnection(self)
-        self.adapters = (self.go, self.claude, self.codex)
+        self.adapters = AgentProviderRegistry.create_connections(self)
+        self.go = self.adapter("opencode")
+        self.claude = self.adapter("claude")
+        self.codex = self.adapter("codex")
         self.controllers = None
         self.revoked_leases: set[str] = set()
         owner_path = self.root / "owner.lock"
@@ -326,17 +323,25 @@ class ProviderConnections:
             profile_id, connection_id, generation
         )
 
-    def progress(self, profile_id, attempt_id):
+    def progress(self, profile_id, attempt_id, *, lease_hash=None):
         """Read a receipt from the adapter that owns its opaque attempt ID."""
         for adapter in self.adapters:
             if adapter.has_attempt(attempt_id):
+                if lease_hash is not None:
+                    with self._lock:
+                        self.check_lease(lease_hash)
+                        adapter.check_attempt(profile_id, attempt_id, lease_hash)
                 return adapter.progress(profile_id, attempt_id)
         raise ProviderConnectionError("provider_login_expired")
 
-    def cancel(self, profile_id, attempt_id):
+    def cancel(self, profile_id, attempt_id, *, lease_hash=None):
         """Fence an attempt through its owner, without changing saved credentials."""
         for adapter in self.adapters:
             if adapter.has_attempt(attempt_id):
+                if lease_hash is not None:
+                    with self._lock:
+                        self.check_lease(lease_hash)
+                        adapter.check_attempt(profile_id, attempt_id, lease_hash)
                 return adapter.cancel(profile_id, attempt_id)
         raise ProviderConnectionError("provider_login_expired")
 

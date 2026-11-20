@@ -183,3 +183,60 @@ class ProviderRouteTests(unittest.TestCase):
                 response.headers["location"], "/settings/providers?login=failed"
             )
             complete.assert_not_called()
+
+    def test_generic_attempt_routes_require_the_originating_browser_lease(self):
+        """Same-profile sessions cannot observe or cancel another session's login."""
+        import hashlib
+        import json
+        import threading
+        import time
+        from pydantic import SecretStr
+        from laomedo.agents.agents.codex.models import PendingLogin
+        from laomedo.agents.agents.claude.models import ClaudeLoginAttempt
+        from laomedo.agents.connections.models import LoginProgress
+
+        lease = hashlib.sha256(b"fixture-session").hexdigest()
+        for provider in ("codex", "claude"):
+            with self.subTest(provider=provider):
+                attempt_id = uuid4()
+                progress = LoginProgress(
+                    attempt_id=attempt_id, status="connecting", provider=provider
+                )
+                shared = dict(
+                    profile_id=self.profile,
+                    lease_hash=lease,
+                    candidate_id=uuid4(),
+                    expires_at=time.monotonic() + 60,
+                    progress=progress,
+                )
+                if provider == "codex":
+                    item = PendingLogin(
+                        **shared,
+                        oauth=SecretStr(json.dumps({"state": "fixture-state"})),
+                        stage=self.service.root / "fixture-stage",
+                    )
+                else:
+                    item = ClaudeLoginAttempt(
+                        **shared,
+                        credential_id=uuid4(),
+                        cancelled=threading.Event(),
+                        ready=threading.Event(),
+                    )
+                self.service.adapter(provider).attempts[attempt_id] = item
+                path = "/api/v1/laomedo/provider-connections/attempts/" + str(
+                    attempt_id
+                )
+                self.client.cookies.set("access_token_lf", "another-session")
+                self.assertEqual(self.client.get(path).status_code, 409)
+                self.assertEqual(
+                    self.client.post(
+                        path + "/cancel", headers=self.headers
+                    ).status_code,
+                    409,
+                )
+                self.assertEqual(item.progress.status, "connecting")
+                self.client.cookies.set("access_token_lf", "fixture-session")
+                self.assertEqual(self.client.get(path).status_code, 200)
+                response = self.client.post(path + "/cancel", headers=self.headers)
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.json()["status"], "cancelled")
