@@ -92,3 +92,9 @@ uses one instruction with the provider link and masked completion-code field.
 Screen transitions reset ancestor scrolling; polling does not change scroll.
 The Codex product icon is the unmodified codex-app-ga-logo-3e5209898ca3.png
 shipped in OpenAI VS Code extension26.1007.21434, displayed without distortion.
+
+Different-account reauthentication preserves the committed account and offers Add
+as new connection. A Go save with an uncertain reply clears the key and pauses
+resubmission; Refresh shows the actual saved list without asserting success.
+Typed session/limit failures retain the shared catalogue recovery. Failed
+Disconnect confirmation rereads discard stale permission and return to details.

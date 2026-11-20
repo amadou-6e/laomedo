@@ -442,7 +442,12 @@ class ClaudeConnection:
                     item.progress.code = (
                         "provider_save_unconfirmed"
                         if committed
-                        else "provider_sign_in_failed"
+                        else (
+                            "provider_account_mismatch"
+                            if isinstance(failure, ProviderConnectionError)
+                            and failure.code == "provider_account_mismatch"
+                            else "provider_sign_in_failed"
+                        )
                     )
         finally:
             if (

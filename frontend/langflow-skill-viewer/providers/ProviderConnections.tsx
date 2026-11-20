@@ -32,6 +32,7 @@ export default function ProviderConnections() {
   const [claudeOpened, setClaudeOpened] = useState(false);
   const [goKey, setGoKey] = useState("");
   const [goLabel, setGoLabel] = useState("");
+  const [goSaveUnconfirmed, setGoSaveUnconfirmed] = useState(false);
   const [attempt, setAttempt] = useState<LoginProgress>();
   const [busy, setBusy] = useState(false);
   const [removal, setRemoval] = useState<DisconnectInfo>();
@@ -107,10 +108,13 @@ export default function ProviderConnections() {
           } else if (progress.status === "cancelled") { setAttempt(undefined); sessionStorage.removeItem(reconnectKey); setScreen("list"); }
           else setScreen("failure");
         }
-      } else if (attempt?.code === "provider_save_unconfirmed") setScreen("failure");
-    } catch {
+      } else if (attempt?.code === "provider_save_unconfirmed") {
+        if (goSaveUnconfirmed) { setGoSaveUnconfirmed(false); setAttempt(undefined); setScreen("list"); }
+        else setScreen("failure");
+      }
+    } catch (failure) {
       if (revision === epoch.current) {
-        setError("provider_connections_unavailable");
+        setError(failure instanceof ProviderFailure ? failure.code : "provider_connections_unavailable");
         if (screen === "returning") {
           setAttempt({ attempt_id: new URLSearchParams(window.location.search).get("attempt") || sessionStorage.getItem(pendingKey) || "", status: "failed", connection_id: null, code: "provider_save_unconfirmed" });
           setScreen("failure");
@@ -178,10 +182,16 @@ export default function ProviderConnections() {
     } catch (failure) {
       if (revision === epoch.current) {
         if (failure instanceof ProviderFailure && failure.code === "provider_confirmation_changed") {
-          const currentRemoval = await inspectDisconnect(selected.connection_id);
-          if (revision !== epoch.current) return;
-          setRemoval(currentRemoval);
-          setError("provider_confirmation_changed"); setScreen("disconnect");
+          try {
+            const currentRemoval = await inspectDisconnect(selected.connection_id);
+            if (revision !== epoch.current) return;
+            setRemoval(currentRemoval);
+            setError("provider_confirmation_changed"); setScreen("disconnect");
+          } catch (reloadFailure) {
+            if (revision !== epoch.current) return;
+            setRemoval(undefined); setScreen("details");
+            setError(reloadFailure instanceof ProviderFailure ? reloadFailure.code : "provider_connections_unavailable");
+          }
         } else { setError("provider_cleanup_unconfirmed"); setScreen("removing"); }
       }
     } finally { if (inFlight.current === revision) inFlight.current = null; if (revision === epoch.current) setBusy(false); }
@@ -191,6 +201,7 @@ export default function ProviderConnections() {
     if (inFlight.current) return;
     const revision = ++epoch.current;
     inFlight.current = revision; setBusy(true); setError("");
+    setGoSaveUnconfirmed(false);
     const submitted = goKey; setGoKey("");
     try {
       const result = await saveGoConnection(submitted, goLabel);
@@ -198,7 +209,14 @@ export default function ProviderConnections() {
       setSelected(result.connection); setGoLabel("");
       setRows(current => [...(current ?? []).filter(row => row.connection_id !== result.connection.connection_id), result.connection]);
       setScreen(result.duplicate ? "duplicate" : "details");
-    } catch { if (revision === epoch.current) setError("provider_connections_unavailable"); }
+    } catch (failure) {
+      if (revision === epoch.current) {
+        const code = failure instanceof ProviderFailure && failure.code !== "provider_connections_unavailable" ? failure.code : "provider_save_unconfirmed";
+        if (code === "provider_save_unconfirmed") {
+          setGoSaveUnconfirmed(true); setAttempt({ attempt_id: "", status: "failed", connection_id: null, code }); setScreen("failure");
+        } else setError(code);
+      }
+    }
     finally { if (inFlight.current === revision) inFlight.current = null; if (revision === epoch.current) setBusy(false); }
   }
 
@@ -217,6 +235,7 @@ export default function ProviderConnections() {
       claudeTab.current = window.open("about:blank", "_blank");
       if (claudeTab.current) claudeTab.current.opener = null;
     }
+    setGoSaveUnconfirmed(false);
     setClaudeOpened(false); setNativeCode(""); setNativeUrl(null);
     reconnecting.current = Boolean(selected);
     sessionStorage.setItem(reconnectKey, String(reconnecting.current));
@@ -236,6 +255,7 @@ export default function ProviderConnections() {
       claudeTab.current?.close(); claudeTab.current = null;
       if (revision === epoch.current) {
         if (failure instanceof ProviderFailure && failure.code === "provider_connection_busy") { setError(failure.code); setScreen("details"); }
+        else if (failure instanceof ProviderFailure && ["provider_session_required", "provider_connection_limit", "provider_login_in_progress"].includes(failure.code)) { setError(failure.code); }
         else { setError("provider_sign_in_failed"); setScreen("failure"); }
       }
     } finally { if (inFlight.current === revision) inFlight.current = null; if (revision === epoch.current) setBusy(false); }
@@ -257,6 +277,7 @@ export default function ProviderConnections() {
     ++epoch.current;
     claudeTab.current?.close(); claudeTab.current = null;
     window.history.replaceState(null, "", "/settings/providers");
+    setGoSaveUnconfirmed(false);
     setError(""); setAttempt(undefined); setGoKey(""); setGoLabel(""); setNativeCode(""); setNativeUrl(null); setClaudeOpened(false); sessionStorage.removeItem(reconnectKey);
     setScreen(screen === "disconnect" ? "details" : screen === "method" ? (selected ? "details" : "type") : "list");
   }
@@ -265,7 +286,8 @@ export default function ProviderConnections() {
   const providerName = activeProvider === "opencode" ? "OpenCode Go" : activeProvider === "claude" ? "Claude Code" : "Codex";
   const logo = (type: string) => type === "opencode" ? <><img src={openCodeLogoLight} className="pc-account-logo pc-opencode-light" alt="" /><img src={openCodeLogoDark} className="pc-account-logo pc-opencode-dark" alt="" /></> : type === "claude" ? <IconComponent name="Claude" className="h-6 w-6" /> : codexLogo;
   const unconfirmed = attempt?.code === "provider_save_unconfirmed";
-  const heading = screen === "disconnect" ? `Disconnect ${providerName}?` : screen === "removed" ? "Disconnected" : screen === "removing" ? (selected?.lifecycle === "cleanup_required" ? "Cleanup required" : selected?.lifecycle === "connected" ? "Check connection" : "Disconnecting") : screen === "list" ? "Providers" : screen === "type" ? "Add provider" : screen === "method" ? `Connect ${providerName}` : screen === "pending" ? (unconfirmed ? "Check connection" : "Finish signing in") : screen === "failure" ? (unconfirmed ? "Check connection" : attempt?.status === "expired" ? "Sign-in expired" : "Sign-in failed") : screen === "duplicate" ? "Already connected" : selected?.label ?? "Provider connection";
+  const mismatch = attempt?.code === "provider_account_mismatch";
+  const heading = screen === "disconnect" ? `Disconnect ${providerName}?` : screen === "removed" ? "Disconnected" : screen === "removing" ? (selected?.lifecycle === "cleanup_required" ? "Cleanup required" : selected?.lifecycle === "connected" ? "Check connection" : "Disconnecting") : screen === "list" ? "Providers" : screen === "type" ? "Add provider" : screen === "method" ? `Connect ${providerName}` : screen === "pending" ? (unconfirmed ? "Check connection" : "Finish signing in") : screen === "failure" ? (mismatch ? "Different account selected" : unconfirmed ? "Check connection" : attempt?.status === "expired" ? "Sign-in expired" : "Sign-in failed") : screen === "duplicate" ? "Already connected" : selected?.label ?? "Provider connection";
 
   const status = (row: ProviderConnection) => row.lifecycle === "connected" ? row.method === "opencode_go_key" ? row.auth_state === "revoked" ? "Key unavailable" : "Key saved" : statuses[row.auth_state] : row.lifecycle === "cleanup_required" ? "Cleanup required" : "Disconnecting";
   const emphasizedStatus = (row: ProviderConnection) => row.lifecycle === "connected" && (row.auth_state === "ready" || row.method === "opencode_go_key" && row.auth_state !== "revoked");
@@ -350,8 +372,8 @@ export default function ProviderConnections() {
           <Button ignoreTitleCase onClick={() => { setSelected(undefined); setScreen("list"); }}>Back to providers</Button>
         </>}
         {screen === "failure" && <>
-          {unconfirmed ? <ErrorExplanation failure={describeNodeFailure("provider_save_unconfirmed", undefined)} /> : <p className="gc-muted">{attempt?.status === "expired" ? "Your sign-in expired. Try again." : <>We couldn’t finish signing you in.<br />Your saved connection hasn’t changed.</>}</p>}
-          <Button ignoreTitleCase disabled={busy || unconfirmed} onClick={() => { setAttempt(undefined); sessionStorage.removeItem(pendingKey); window.history.replaceState(null, "", "/settings/providers"); setScreen("method"); }}>Try again</Button>
+          {mismatch ? <p className="gc-muted">{describeNodeFailure("provider_account_mismatch", undefined).description}</p> : unconfirmed ? <ErrorExplanation failure={describeNodeFailure("provider_save_unconfirmed", undefined)} /> : <p className="gc-muted">{attempt?.status === "expired" ? "Your sign-in expired. Try again." : <>We couldn’t finish signing you in.<br />Your saved connection hasn’t changed.</>}</p>}
+          {mismatch ? <Button ignoreTitleCase disabled={busy} onClick={() => { setProvider(selected?.provider ?? attempt?.provider ?? provider); setSelected(undefined); setAttempt(undefined); sessionStorage.removeItem(pendingKey); sessionStorage.removeItem(reconnectKey); reconnecting.current = false; window.history.replaceState(null, "", "/settings/providers"); setScreen("method"); }}>Add as new connection</Button> : <Button ignoreTitleCase disabled={busy || unconfirmed} onClick={() => { setAttempt(undefined); sessionStorage.removeItem(pendingKey); window.history.replaceState(null, "", "/settings/providers"); setScreen("method"); }}>Try again</Button>}
         </>}
         {screen === "duplicate" && <>
           <p className="gc-muted">{selected?.provider === "opencode" ? "This key is already saved." : "This account is already connected."}<br />Your existing connection hasn’t changed.</p>

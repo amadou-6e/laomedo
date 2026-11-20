@@ -24,7 +24,7 @@ const disconnectProgressSchema = z.object({ connection_id: z.string().uuid(), st
 export type DisconnectInfo = z.infer<typeof disconnectInfoSchema>;
 
 export class ProviderFailure extends Error {
-  constructor(public code: string) { super(code); }
+  constructor(public code: string) { super(code); Object.setPrototypeOf(this, new.target.prototype); }
 }
 
 async function request(path = "", method = "GET", body?: unknown) {
@@ -37,7 +37,7 @@ async function request(path = "", method = "GET", body?: unknown) {
   const value = await response.json().catch(() => null);
   if (!response.ok) {
     const code = value?.detail?.code;
-    throw new ProviderFailure(["provider_login_expired", "provider_login_in_progress", "provider_confirmation_changed", "provider_connection_busy"].includes(code) ? code : "provider_connections_unavailable");
+    throw new ProviderFailure(["provider_login_expired", "provider_login_in_progress", "provider_confirmation_changed", "provider_connection_busy", "provider_save_unconfirmed", "provider_session_required", "provider_connection_limit", "provider_account_mismatch", "provider_request_refused"].includes(code) ? code : "provider_connections_unavailable");
   }
   return value;
 }

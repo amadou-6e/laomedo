@@ -1,7 +1,7 @@
 import { StrictMode } from "react";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import ProviderConnections from "./ProviderConnections";
-import { saveGoConnection, beginLogin, cancelLogin, listConnections, readProgress, readClaudeAttempt, inspectDisconnect, disconnect, retryCleanup } from "./api";
+import { saveGoConnection, beginLogin, cancelLogin, listConnections, readProgress, readClaudeAttempt, inspectDisconnect, disconnect, retryCleanup, ProviderFailure } from "./api";
 
 jest.mock("@/components/common/genericIconComponent", () => ({ __esModule: true, default: () => <span /> }));
 jest.mock("@/assets/LangflowLogo.svg?react", () => ({ __esModule: true, default: (props) => <svg {...props} /> }));
@@ -68,7 +68,9 @@ describe("saved provider Settings", () => {
     fireEvent.change(screen.getByLabelText("OpenCode Go key"), { target: { value: "fixture-go-key" } });
     fireEvent.click(screen.getByRole("button", { name: "Save connection" }));
     await waitFor(() => expect(saveGoConnection).toHaveBeenCalledWith("fixture-go-key", "My Go plan"));
-    expect((screen.getByLabelText("OpenCode Go key") as HTMLInputElement).value).toBe("");
+    await screen.findByRole("heading", { name: "Check connection" });
+    expect(screen.queryByLabelText("OpenCode Go key")).toBeNull();
+    expect(screen.getByRole("button", { name: "Try again" })).toBeDisabled();
     expect(sessionStorage.length).toBe(0);
   });
 
@@ -310,6 +312,49 @@ describe("saved provider Settings", () => {
     render(<ProviderConnections />);
     await screen.findByText("No providers connected");
     expect(screen.getByRole("heading", { name: "Providers" })).toBeTruthy();
+  });
+
+  it("offers a fresh connection after an account mismatch without launching sign-in", async () => {
+    sessionStorage.setItem("laomedo.provider-attempt", "fixture");
+    (listConnections as jest.Mock).mockResolvedValue([account]);
+    (readProgress as jest.Mock).mockResolvedValue({ attempt_id: "fixture", provider: "codex", status: "failed", connection_id: account.connection_id, code: "provider_account_mismatch" });
+    render(<ProviderConnections />);
+    await screen.findByRole("heading", { name: "Different account selected" });
+    fireEvent.click(screen.getByRole("button", { name: "Add as new connection" }));
+    await screen.findByRole("heading", { name: "Connect Codex" });
+    expect(beginLogin).not.toHaveBeenCalled();
+    expect(sessionStorage.getItem("laomedo.provider-attempt")).toBeNull();
+  });
+
+  it("reconciles an uncertain Go save through the actual list without resubmitting its key", async () => {
+    (saveGoConnection as jest.Mock).mockRejectedValue(new ProviderFailure("provider_save_unconfirmed"));
+    render(<ProviderConnections />);
+    fireEvent.click(await screen.findByRole("button", { name: /Add provider/ }));
+    fireEvent.click(screen.getByRole("button", { name: "OpenCode" }));
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    fireEvent.change(screen.getByLabelText("Connection name"), { target: { value: "My Go plan" } });
+    fireEvent.change(screen.getByLabelText("OpenCode Go key"), { target: { value: "fixture-go-key" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save connection" }));
+    await screen.findByRole("heading", { name: "Check connection" });
+    expect(screen.getByRole("button", { name: "Try again" })).toBeDisabled();
+    (listConnections as jest.Mock).mockResolvedValue([{ ...account, provider: "opencode", method: "opencode_go_key", auth_state: "unavailable" }]);
+    fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+    await screen.findByRole("heading", { name: "Providers" });
+    expect(saveGoConnection).toHaveBeenCalledTimes(1);
+    expect(beginLogin).not.toHaveBeenCalled();
+  });
+
+  it("reports a failed confirmation reread and discards stale disconnect permission", async () => {
+    (listConnections as jest.Mock).mockResolvedValue([account]);
+    (inspectDisconnect as jest.Mock).mockResolvedValueOnce({ connection_id: account.connection_id, generation: 1, active_runs: 0, inventory_revision: 1 }).mockRejectedValueOnce(new Error("offline"));
+    (disconnect as jest.Mock).mockRejectedValue(new ProviderFailure("provider_confirmation_changed"));
+    render(<ProviderConnections />);
+    fireEvent.click(await screen.findByRole("button", { name: /View connection for/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Disconnect" }));
+    await screen.findByRole("heading", { name: /Disconnect Codex/ });
+    fireEvent.click(screen.getByRole("button", { name: "Disconnect" }));
+    await screen.findByText("Your provider connections could not be checked.");
+    expect(screen.queryByRole("heading", { name: /Disconnect Codex/ })).toBeNull();
   });
 
 });

@@ -1,4 +1,9 @@
 {
+  "provider_account_mismatch": {"title": "Different account selected", "description": "You signed in to a different account. Your saved connection has not changed.", "recovery": "Add this account as a new connection to use it in Laomedo."},
+  "provider_session_required": {"title": "Sign in to continue", "description": "Your local session has ended. Your saved provider connections are kept.", "recovery": "Sign in to your local profile again."},
+  "provider_connection_limit": {"title": "Connection limit reached", "description": "This profile has reached its saved connection limit.", "recovery": "Remove a connection you no longer use before adding another."},
+  "provider_login_expired": {"title": "Sign-in expired", "description": "This sign-in is no longer available.", "recovery": "Start signing in again."},
+  "provider_request_refused": {"title": "Could not complete this request", "description": "The connection request could not be accepted.", "recovery": "Refresh to check the current connection before trying again."},
   "provider_connection_busy": {"title": "Account is in use", "description": "An active run is using this connection.", "recovery": "Wait for it to finish or stop it before signing in again."},
   "provider_connection_required": {"title": "Choose a connection", "description": "This agent needs a saved provider connection.", "recovery": "Choose a connection, or add one in Settings > Providers."},
   "provider_connection_unavailable": {"title": "Connection unavailable", "description": "This connection is not available for this profile.", "recovery": "Choose an available connection or check Settings > Providers."},

@@ -846,7 +846,13 @@ class ProviderConnections:
                         item.progress.code = "provider_save_unconfirmed"
                 elif item.progress.status == "verifying":
                     item.progress.status = "failed"
-                    item.progress.code = "provider_sign_in_failed"
+                    item.progress.code = (
+                        "provider_account_mismatch"
+                        if isinstance(failure, (AuthError, ProviderConnectionError))
+                        and category
+                        in {"auth_account_mismatch", "provider_account_mismatch"}
+                        else "provider_sign_in_failed"
+                    )
                 return item.progress
         finally:
             # Erase the private staging copy even after cancellation or duplicate

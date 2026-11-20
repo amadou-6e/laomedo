@@ -337,6 +337,7 @@ class ClaudeConnectionTests(unittest.TestCase):
             ):
                 connection._run(reconnect)
             self.assertEqual(reconnect.progress.status, "failed")
+            self.assertEqual(reconnect.progress.code, "provider_account_mismatch")
             self.assertEqual(self.service._records(self.profile), admitted)
 
     def test_one_use_code_is_bound_to_profile_and_browser_lease(self):

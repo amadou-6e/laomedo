@@ -232,6 +232,7 @@ class ProviderConnectionsTests(unittest.TestCase):
             email="person@example.invalid",
         )
         self.assertEqual(result.status, "failed")
+        self.assertEqual(result.code, "provider_account_mismatch")
         self.assertEqual(len(self.service.list(self.profile)), 1)
         self.assertEqual(
             self.service.borrow(self.profile, existing.connection_id, 1)[0],
