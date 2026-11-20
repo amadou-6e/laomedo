@@ -21,9 +21,9 @@ Claude reserves its external tab during that click, then navigates it only after
 the native client supplies a validated URL. Blocked popups retain a manual link.
 No mount, Refresh or polling operation creates an authentication tab.
 
-The initial route is app-owned Sign in with ChatGPT for Codex. Other provider
-types are visible but unavailable; no ambient-login or API-billing fallback is
-offered. A pending opaque attempt ID may survive same-tab native navigation;
+Codex uses app-owned Sign in with ChatGPT, Claude uses its native sign-in, and
+OpenCode Go uses an explicit subscription key. No ambient-login or API-billing
+fallback is offered. A pending opaque attempt ID may survive same-tab native navigation;
 OAuth state, URLs and credentials never enter browser storage. Native completion
 returns to the original Settings origin. User-facing errors use the shared
 catalogue. Disconnect and consumer binding require the matching host runtime
@@ -73,15 +73,17 @@ field and a provider Console link. Keys are cleared after submission and Back,
 never restored from browser storage. Saved keys explicitly lack verified upstream
 identity/access. Exact repeated keys reuse the existing row; different keys cannot
 prove different accounts. Per-harness graph preferences preserve other harness
-selections and never route a Go key to a Codex or Claude node. Native Claude
-connection support and real Go integration acceptance remain pending.
+selections and never route a Go key to a Codex or Claude node. Native Claude and
+free-model Go dispatch have been verified through saved connections.
 
 Claude Code uses the official client in an independent native volume. The pending
 view opens its provider-owned link and relays one masked completion code back
 to that same client. URLs and codes remain out of browser storage; code input is
 cleared after submission. A lost submission response remains an uncertain outcome
 and polling reconciles it rather than automatically submitting another code.
-Real Claude sign-in/dispatch and independent final review remain pending.
+Native Claude sign-in and dispatch have been verified. Two-account routing,
+different-account reconnect and native failure/revocation acceptance remain
+separate verification requirements; see the owning PR for current evidence.
 
 The Settings list calls saved rows Accounts, including rows requiring sign-in.
 The GitHub PR257 ConnectionAccounts and ConnectionNavigation layouts remain the

@@ -346,7 +346,7 @@ describe("saved provider Settings", () => {
 
   it("reports a failed confirmation reread and discards stale disconnect permission", async () => {
     (listConnections as jest.Mock).mockResolvedValue([account]);
-    (inspectDisconnect as jest.Mock).mockResolvedValueOnce({ connection_id: account.connection_id, generation: 1, active_runs: 0, inventory_revision: 1 }).mockRejectedValueOnce(new Error("offline"));
+    (inspectDisconnect as jest.Mock).mockResolvedValueOnce({ connection_id: account.connection_id, generation: 1, active_runs: 0, revision: 1 }).mockRejectedValueOnce(new Error("offline"));
     (disconnect as jest.Mock).mockRejectedValue(new ProviderFailure("provider_confirmation_changed"));
     render(<ProviderConnections />);
     fireEvent.click(await screen.findByRole("button", { name: /View connection for/ }));
