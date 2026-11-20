@@ -494,7 +494,7 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
                 self.assertFalse(self.controller.interrupt_acknowledged)
 
     async def test_revocation_and_executor_health_use_shared_prompt_guard(self):
-        self.controller.authorization_probe = lambda: False
+        self.controller.authorization_probe = lambda *, idle=False: False
         with self.assertRaisesRegex(RunnerError, "auth_revoked_during_turn"):
             self.controller.check_health()
         self.controller.authorization_probe = None

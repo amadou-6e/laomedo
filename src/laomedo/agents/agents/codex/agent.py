@@ -7,6 +7,7 @@ from laomedo.docker import DockerRuntime
 from laomedo.container_images.errors import ImageBuildError
 from laomedo.agents.agents.codex.catalog import CodexModelCatalog
 from laomedo.agents.agents.codex.credentials import CodexCredentialProvider
+from laomedo.agents.agents.codex.settings import IDLE_AUTH_REFRESH_SECONDS
 from laomedo.agents.agents.codex.models import ResumeCheckpoint
 from laomedo.agents.agents.codex.models import IdleCodexSession
 from laomedo.agents.agents.codex.session import CodexSessionOwner
@@ -795,7 +796,7 @@ class CodexAgent(BaseAgent):
     async def _close_idle_sessions(self):
         """Drain retained resources on their original native thread."""
         for run_id in list(self._idle_sessions):
-            await self._close_idle_session(run_id)
+            await self._close_idle_session(run_id, reason="shutdown")
         if self._idle_cleanup_lock is not None:
             async with self._idle_cleanup_lock:
                 pass
@@ -803,7 +804,7 @@ class CodexAgent(BaseAgent):
             self._session_watch.cancel()
             self._session_watch = None
 
-    async def _close_idle_session(self, run_id):
+    async def _close_idle_session(self, run_id, *, reason="cancelled"):
         """Close exact runtime ownership without rewriting a completed command result."""
         if self._idle_cleanup_lock is None:
             self._idle_cleanup_lock = asyncio.Lock()
@@ -823,6 +824,7 @@ class CodexAgent(BaseAgent):
                 with self.control_lock:
                     record = self.status(run_id)
                     record["live_session"] = "closed"
+                    record["live_session_close_reason"] = reason
                     record["controller_cleanup"] = (
                         "confirmed" if confirmed else "unverified"
                     )
@@ -843,15 +845,29 @@ class CodexAgent(BaseAgent):
             with self._session_guard:
                 sessions = list(self._idle_sessions.items())
             for run_id, held in sessions:
+                reason = "cancelled" if held.cancelled.is_set() else "expired"
                 failed = held.cancelled.is_set() or time.monotonic() >= held.expires
                 if not failed:
                     try:
-                        held.runtime.check_health()
-                    except Exception:
+                        held.runtime.check_health(idle=True)
+                    except Exception as exc:
+                        reason = (
+                            str(exc)
+                            if str(exc)
+                            in {
+                                "auth_refresh_unknown",
+                                "auth_refresh_timeout",
+                                "auth_revoked",
+                                "auth_account_mismatch",
+                                "auth_generation_changed",
+                                "auth_mode_unavailable",
+                            }
+                            else "health_lost"
+                        )
                         failed = True
                 if failed:
                     try:
-                        await self._close_idle_session(run_id)
+                        await self._close_idle_session(run_id, reason=reason)
                     except Exception:
                         logging.getLogger(__name__).warning(
                             "idle_codex_cleanup_unconfirmed"
@@ -1259,8 +1275,11 @@ class CodexAgent(BaseAgent):
                     "code": "auth_revoked",
                 }
 
-                def still_authorized():
-                    """Recheck the existing host grant/account binding while native work remains active."""
+                refresh_started = None
+
+                def still_authorized(*, idle=False):
+                    """Recheck identity; only idle controllers may await bounded renewal."""
+                    nonlocal refresh_started
                     try:
                         current = self.auth.account(self.auth_client_id)
                         selected = self.auth.summary(current)
@@ -1278,17 +1297,6 @@ class CodexAgent(BaseAgent):
                             outcome="unavailable",
                             code="auth_mode_unavailable",
                         )
-                        return False
-                    if current.get("state") != "active":
-                        if current.get("state") in {
-                            "refresh_unknown",
-                            "refresh_in_flight",
-                        }:
-                            auth_failure.update(
-                                error="auth_refresh_failed_during_turn",
-                                outcome="refresh_unknown",
-                                code="auth_refresh_unknown",
-                            )
                         return False
                     if any(
                         selected.get(key) != auth_summary.get(key)
@@ -1314,8 +1322,29 @@ class CodexAgent(BaseAgent):
                             code="auth_generation_changed",
                         )
                         return False
+                    state = current.get("state")
+                    if state == "refresh_in_flight" and idle:
+                        if refresh_started is None:
+                            refresh_started = time.monotonic()
+                        if (
+                            time.monotonic() - refresh_started
+                            < IDLE_AUTH_REFRESH_SECONDS
+                        ):
+                            return True
+                        auth_failure.update(code="auth_refresh_timeout")
+                        return False
+                    refresh_started = None
+                    if state != "active":
+                        if state in {"refresh_unknown", "refresh_in_flight"}:
+                            auth_failure.update(
+                                error="auth_refresh_failed_during_turn",
+                                outcome="refresh_unknown",
+                                code="auth_refresh_unknown",
+                            )
+                        return False
                     return True
 
+                server.authorization_failure = auth_failure
                 server.authorization_probe = still_authorized
                 if not still_authorized():
                     raise AuthError(auth_failure["code"])

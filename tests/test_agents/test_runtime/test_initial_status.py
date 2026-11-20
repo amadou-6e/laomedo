@@ -5,6 +5,7 @@ import time
 from unittest.mock import AsyncMock, Mock, patch
 from laomedo.agents.agents.base.agent import BaseAgent
 from laomedo.agents.errors import RunnerError
+from laomedo.host.credentials.siwc.errors import AuthError
 from test_agents.test_runtime.utils import prepare_runner
 from test_agents.test_runtime.commands import InitialStatusTransport
 from test_agents.test_runtime.transport import FakeServer
@@ -23,6 +24,85 @@ class InitialStatusTests(unittest.TestCase):
             "effort": "low",
             "initial_native_command": "status",
         }
+
+    def test_idle_refresh_in_flight_survives_watcher_then_resumes(self):
+        result, identity = self._authenticated_status()
+        self.runner.auth.account.return_value = {"state": "refresh_in_flight"}
+        before = self.runner.auth.account.call_count
+        deadline = time.monotonic() + 4
+        while (
+            self.runner.auth.account.call_count < before + 3
+            and time.monotonic() < deadline
+        ):
+            time.sleep(0.02)
+        self.assertGreaterEqual(self.runner.auth.account.call_count, before + 3)
+        self.assertTrue(self.runner.has_live_session(result["run_id"]))
+        self.assertEqual(FakeServer.turn_inputs, [])
+        self.runner.auth.account.return_value = {"state": "active"}
+        self.runner.auth.access_token.return_value = ("fixture-renewed-token", identity)
+        with patch.object(
+            InitialStatusTransport, "refresh_credential", new=AsyncMock(), create=True
+        ) as refresh:
+            following = self.runner.resume(
+                result["run_id"],
+                "After renewal",
+                expected_thread_id=result["thread_id"],
+                expected_post_run_hash=result["post_run_hash"],
+                model="test-model",
+                effort="low",
+            )
+        self.assertEqual(
+            following["status"], "completed", following.get("error_category")
+        )
+        self.assertEqual(following["thread_id"], result["thread_id"])
+        refresh.assert_awaited_once_with("fixture-renewed-token")
+        self.assertEqual(FakeServer.turn_inputs, ["After renewal"])
+
+    def test_idle_refresh_does_not_relax_active_authorization_or_identity(self):
+        result, identity = self._authenticated_status()
+        held = self.runner._idle_sessions[result["run_id"]]
+        self.runner.auth.account.return_value = {"state": "refresh_in_flight"}
+        self.assertTrue(held.runtime.authorization_probe(idle=True))
+        self.assertFalse(held.runtime.authorization_probe())
+        self.runner.auth.summary.return_value = {
+            **identity,
+            "provider_subject_hash": "different",
+        }
+        self.assertFalse(held.runtime.authorization_probe(idle=True))
+        self.runner.auth.summary.return_value = {**identity, "generation": 2}
+        self.assertFalse(held.runtime.authorization_probe(idle=True))
+        self.runner.auth.summary.return_value = identity
+        self.runner.auth.account.side_effect = AuthError("auth_revoked")
+        self.assertFalse(held.runtime.authorization_probe(idle=True))
+
+    def test_idle_unknown_refresh_is_closed_with_sanitized_reason(self):
+        result, _ = self._authenticated_status()
+        self.runner.auth.account.return_value = {"state": "refresh_unknown"}
+        deadline = time.monotonic() + 3
+        while (
+            self.runner.has_live_session(result["run_id"])
+            and time.monotonic() < deadline
+        ):
+            time.sleep(0.02)
+        self.assertFalse(self.runner.has_live_session(result["run_id"]))
+        record = self.runner.status(result["run_id"])
+        self.assertEqual(record["live_session_close_reason"], "auth_refresh_unknown")
+        self.assertEqual(record["controller_cleanup"], "confirmed")
+        self.assertEqual(FakeServer.turn_inputs, [])
+
+    def test_idle_refresh_wait_is_bounded(self):
+        result, _ = self._authenticated_status()
+        held = self.runner._idle_sessions[result["run_id"]]
+        self.runner.auth.account.return_value = {"state": "refresh_in_flight"}
+        with patch(
+            "laomedo.agents.agents.codex.agent.time.monotonic",
+            side_effect=[100, 100, 131],
+        ):
+            self.assertTrue(held.runtime.authorization_probe(idle=True))
+            self.assertFalse(held.runtime.authorization_probe(idle=True))
+        self.assertEqual(
+            held.runtime.authorization_failure["code"], "auth_refresh_timeout"
+        )
 
     def test_rotated_access_token_updates_the_existing_native_session(self):
         result, identity = self._authenticated_status()

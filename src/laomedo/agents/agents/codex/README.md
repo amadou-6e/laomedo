@@ -157,3 +157,14 @@ that acceptance. This section describes the selected target, not completed work.
 (`LAOMEDO_CODEX_IDLE_SESSION_SECONDS`, default 3600). It bounds unused resources;
 it does not reduce the existing model-turn execution budget. Expired or
 lost zero-turn sessions require an explicit new conversation.
+
+## Idle OAuth renewal
+
+`CodexAgentRuntime.check_health(idle=True)` checks the same saved-account identity
+and connection epoch as active execution. Only an idle controller may wait up to
+30 seconds for `refresh_in_flight` (the broker HTTP timeout is 20 seconds). It
+never dispatches inference in that state. Unknown renewal, revoked admission,
+changed identity/epoch or a stuck refresh closes the controller. Resume must
+borrow an active token and confirm its native update before any prompt.
+`live_session_close_reason` retains a fixed sanitized reason for idle cleanup;
+unrecognized health errors become `health_lost`, never arbitrary exception text.

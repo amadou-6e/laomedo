@@ -30,7 +30,13 @@ class InitialStatusTransport(FakeServer):
             return self.active_thread_id
         return await super().open(record, resume=resume)
 
-    def check_health(self):
+    def check_health(self, *, idle=False):
+        if getattr(self, "authorization_probe", None) and not self.authorization_probe(
+            idle=idle
+        ):
+            from laomedo.agents.errors import RunnerError
+
+            raise RunnerError(self.authorization_failure["code"])
         return None
 
     def command_catalog(self):

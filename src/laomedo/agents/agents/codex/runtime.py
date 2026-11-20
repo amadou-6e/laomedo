@@ -65,6 +65,7 @@ class CodexAgentRuntime:
         self.native_completion_status = None
         self.interrupt_acknowledged = False
         self.authorization_probe = None
+        self.authorization_failure = {}
         self.cleanup_confirmed = self.streams_closed = False
         self._closed = False
         self._close_failure = None
@@ -527,12 +528,18 @@ class CodexAgentRuntime:
             status, error = "cancelled", "cancel_native_unconfirmed"
         return CodexTurn(turn_id=turn["id"], status=status, error=error)
 
-    def check_health(self) -> ProcessHealthObservation:
+    def check_health(self, *, idle=False) -> ProcessHealthObservation:
         """Guard host authorization and the separately owned executor."""
         if getattr(self, "mcp_access", None):
             self.mcp_access.check_health()
-        if self.authorization_probe is not None and not self.authorization_probe():
-            raise RunnerError("auth_revoked_during_turn")
+        if self.authorization_probe is not None and not self.authorization_probe(
+            idle=idle
+        ):
+            raise RunnerError(
+                self.authorization_failure.get("code", "auth_revoked")
+                if idle
+                else "auth_revoked_during_turn"
+            )
         if self.executor is not None:
             return self.executor.check_health()
         return ProcessHealthObservation(
