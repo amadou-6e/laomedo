@@ -1039,7 +1039,7 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
               void send();
             }}
           >
-            <div className="mx-auto max-w-4xl rounded-2xl border bg-muted/30 p-2 shadow-sm focus-within:ring-1 focus-within:ring-ring">
+            <div className="relative mx-auto max-w-4xl rounded-2xl border bg-muted/30 p-2 shadow-sm focus-within:ring-1 focus-within:ring-ring">
               {!commandsDismissed && /^\/[^\s]*$/.test(drafts[selected] ?? "") && <NativeCommandMenu conversation={selected} text={drafts[selected] ?? ""} onSelect={text => {
                 setDrafts(value => ({...value, [selected]: text}));
                 document.getElementById("assistant-message")?.focus();

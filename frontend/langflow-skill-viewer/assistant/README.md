@@ -171,6 +171,9 @@ approval cards align to the right; their white Approve button is the primary act
 
 `NativeCommandMenu.tsx` reads the selected session's observed command catalog when
 the user types `/`, filters executable commands, and inserts the chosen command.
+The menu floats above the composer without resizing it. Compact single-line rows
+pair a command icon/name with a muted, ellipsized native description; the full
+description remains available in the button title and accessible content.
 Arrow Down moves from the composer into the menu; arrows navigate, Enter selects,
 and Escape closes it. A session without an observed catalog gets an explanation,
 never an invented list. Slash input uses the human native-command route directly;

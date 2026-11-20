@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { ChevronRight, SquareTerminal } from "lucide-react";
 import { assistantRequest } from "./api";
 import type { NativeCommandCatalog } from "./models";
 
@@ -18,7 +19,7 @@ export default function NativeCommandMenu({ conversation, text, onSelect, onClos
     return () => controller.abort();
   }, [conversation]);
   const commands = (catalog?.commands ?? []).filter(item => item.executable && item.name.toLowerCase().startsWith(text.slice(1).toLowerCase()));
-  return <div id="assistant-native-commands" aria-label="Available commands" className="mb-2 max-h-56 overflow-y-auto rounded-xl border bg-background p-1 text-sm shadow-lg"
+  return <div id="assistant-native-commands" aria-label="Available commands" className="absolute bottom-full left-0 right-0 z-20 mb-2 max-h-56 overflow-y-auto rounded-2xl border border-border/60 bg-muted p-1.5 text-xs shadow-lg"
     onKeyDown={event => {
       if (event.key === "Escape") { event.preventDefault(); onClose(); }
       if (event.key === "ArrowDown" || event.key === "ArrowUp") {
@@ -28,8 +29,11 @@ export default function NativeCommandMenu({ conversation, text, onSelect, onClos
         buttons[(current + (event.key === "ArrowDown" ? 1 : buttons.length - 1)) % buttons.length]?.focus();
       }
     }}>
-    {commands.map(item => <button key={item.name} type="button" className="block w-full rounded-lg px-3 py-2 text-left hover:bg-muted focus:bg-muted focus:outline-none" onClick={() => onSelect(`/${item.name} `)}>
-      <span className="font-medium">/{item.name}</span><span className="ml-3 text-xs text-muted-foreground">{item.description}</span>
+    {commands.length > 0 && <p className="px-2 pb-1 pt-1 text-[10px] text-muted-foreground">Commands</p>}
+    {commands.map(item => <button key={item.name} type="button" title={item.description} className="group flex w-full min-w-0 items-center gap-2 rounded-lg px-2 py-1.5 text-left text-muted-foreground hover:bg-foreground/5 focus:bg-foreground/10 focus:outline-none" onClick={() => onSelect(`/${item.name} `)}>
+      <SquareTerminal size={13} strokeWidth={1.5} aria-hidden="true" className="shrink-0 opacity-70" />
+      <span className="shrink-0 font-medium text-foreground/80">/{item.name}</span><span className="min-w-0 flex-1 truncate text-[11px]">{item.description}</span>
+      <ChevronRight size={12} aria-hidden="true" className="shrink-0 opacity-0 group-hover:opacity-60 group-focus:opacity-60" />
     </button>)}
     {!commands.length && <p className="px-3 py-2 text-xs text-muted-foreground">{!conversation || catalog?.state === "unavailable" ? "Commands become available after the first response in this conversation." : failed ? "Could not load commands. Type / again to retry." : !catalog ? "Loading commands…" : "No matching commands."}</p>}
   </div>;
