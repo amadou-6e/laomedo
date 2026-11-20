@@ -64,6 +64,140 @@ class RunnerObservation:
 
 
 class RuntimeTests(unittest.IsolatedAsyncioTestCase):
+    async def test_logout_database_failures_cannot_preserve_tool_authority(self):
+        """A failed lookup/write still fences the bearer and releases idle endpoints."""
+        import jwt
+        from langflow.services.auth.utils import ACCESS_TOKEN_TYPE
+
+        await self.bind()
+        secret = "assistant-logout-failure-test-signing-key"
+        settings = SimpleNamespace(auth_settings=SimpleNamespace(ALGORITHM="HS256"))
+        token = jwt.encode(
+            {
+                "sub": str(self.owner),
+                "type": ACCESS_TOKEN_TYPE,
+                "exp": time.time() + 1000,
+            },
+            secret,
+            algorithm="HS256",
+        )
+        fingerprint = hashlib.sha256(token.encode()).hexdigest()
+        request = SimpleNamespace(
+            headers={"authorization": "Bearer " + token}, cookies={}
+        )
+        await self.store.admit_session(
+            fingerprint, self.owner, time.time() + 1000, renewal_key="fixture"
+        )
+        self.runtime.session_aliases[fingerprint] = "fixture"
+        context = AuthoringContext(
+            owner_id=self.owner,
+            conversation_id=self.identifier,
+            message_id=self.message_id,
+            attempt_id=self.message["attempt_id"],
+            session_key="fixture",
+        )
+        for method in ("canonical_session_key", "revoke"):
+            with self.subTest(method=method):
+                self.runtime.revoked_sessions.clear()
+                client = SimpleNamespace(disconnect=AsyncMock())
+                registry = Mock()
+                with patch(
+                    "laomedo.integrations.langflow.assistant.runtime.McpRegistry.current",
+                    return_value=registry,
+                ):
+                    await self.runtime._close_tools(
+                        context,
+                        SimpleNamespace(registration_id=uuid4()),
+                        client,
+                        "inactive",
+                        retain=True,
+                    )
+                    self.runtime.contexts[context.message_id] = context
+                    self.runtime.host_tokens["active"] = context
+                    with patch.object(
+                        self.store,
+                        method,
+                        AsyncMock(side_effect=RuntimeError("database unavailable")),
+                    ):
+                        with self.assertRaisesRegex(
+                            RuntimeError, "database unavailable"
+                        ):
+                            await self.runtime.lock_session(fingerprint)
+                    self.assertNotIn(context.message_id, self.runtime.contexts)
+                    self.assertNotIn("active", self.runtime.host_tokens)
+                    self.assertNotIn(self.identifier, self.runtime.idle_tools)
+                    client.disconnect.assert_awaited_once()
+                    registry.release.assert_called_once()
+                    self.assertTrue(
+                        {fingerprint, "fixture"}.issubset(self.runtime.revoked_sessions)
+                    )
+                    with (
+                        patch(
+                            "langflow.services.deps.get_settings_service",
+                            return_value=settings,
+                        ),
+                        patch(
+                            "langflow.services.auth.utils.get_jwt_verification_key",
+                            return_value=secret,
+                        ),
+                    ):
+                        with self.assertRaisesRegex(
+                            AssistantError, "assistant_session_locked"
+                        ):
+                            await self.runtime.session(
+                                request, SimpleNamespace(id=self.owner)
+                            )
+
+    async def test_logout_lookup_timeout_still_revokes_contexts_and_releases_idle_tools(
+        self,
+    ):
+        await self.bind()
+        context = AuthoringContext(
+            owner_id=self.owner,
+            conversation_id=self.identifier,
+            message_id=self.message_id,
+            attempt_id=self.message["attempt_id"],
+            session_key="fixture",
+        )
+        client = SimpleNamespace(disconnect=AsyncMock())
+        registry = Mock()
+        self.lookup_started = asyncio.Event()
+        self.lookup_blocked = asyncio.Event()
+        with patch(
+            "laomedo.integrations.langflow.assistant.runtime.McpRegistry.current",
+            return_value=registry,
+        ):
+            await self.runtime._close_tools(
+                context,
+                SimpleNamespace(registration_id=uuid4()),
+                client,
+                "inactive",
+                retain=True,
+            )
+            self.runtime.contexts[context.message_id] = context
+            self.runtime.host_tokens["active"] = context
+            with patch.object(
+                self.store,
+                "canonical_session_key",
+                new=AsyncMock(side_effect=self._blocked_session_lookup),
+            ):
+                # The boundary's wait_for cancels this same operation on timeout.
+                task = asyncio.create_task(self.runtime.lock_session("fixture"))
+                await self.lookup_started.wait()
+                self.assertNotIn(context.message_id, self.runtime.contexts)
+                self.assertNotIn("active", self.runtime.host_tokens)
+                task.cancel()
+                with self.assertRaises(asyncio.CancelledError):
+                    await task
+            self.assertNotIn(self.identifier, self.runtime.idle_tools)
+            client.disconnect.assert_awaited_once()
+            registry.release.assert_called_once()
+
+    async def _blocked_session_lookup(self, *args, **kwargs):
+        """Supply an event-gated lookup without wall-clock timing assumptions."""
+        self.lookup_started.set()
+        await self.lookup_blocked.wait()
+
     async def test_signed_profile_renewal_preserves_approval_identity_and_logout(self):
         """Use real JWT verification, renewal service and durable revocation rows."""
         import jwt

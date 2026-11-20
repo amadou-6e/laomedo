@@ -8,9 +8,15 @@ same authority; it stores no token. `AssistantStore.admit_session()` returns the
 canonical key and only accepts a new binding from the normal profile boundary's
 verified renewal. `canonical_session_key()` resolves that identity for active
 work; `revoke()` atomically retains even an unseen renewal binding and revokes its
-root before cleanup. Owner mismatches, conflicting bindings and revoked roots
+root before sign-out completes. Runtime admission remembers verified canonical
+keys for active work; logout synchronously fences known keys and removes tool
+contexts before any database await. Cleanup runs even if persistence fails or
+the logout lookup times out. Owner mismatches, conflicting bindings and revoked roots
 refuse. Restart cannot turn a known renewed token into a new approval identity.
 Unrelated logins and pre-fix proposals are not rebound.
+An unobserved renewal lost with the provider's in-memory map during restart
+cannot inherit the original approval identity. That path fails closed and cannot
+identify the earlier root for logout; known persisted aliases remain fenced.
 
 ## Resume recovery (#303)
 

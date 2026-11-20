@@ -54,6 +54,7 @@ class AssistantRuntime:
         self.save_locks, self.uncertain_saves = {}, {}
         self.graph_jobs = {}
         self.revoked_sessions = set()
+        self.session_aliases = {}
         self.closing = False
         self.ready = False
 
@@ -208,12 +209,17 @@ class AssistantRuntime:
             if self.provider_connections is not None
             else fingerprint
         )
+        if fingerprint in self.revoked_sessions or key in self.revoked_sessions:
+            raise AssistantError("assistant_session_locked", 403)
+        renewal_key = key
         key = await self.store.admit_session(
             fingerprint,
             UUID(str(user.id)),
             expires,
             renewal_key=key if key != fingerprint else None,
         )
+        self.session_aliases[fingerprint] = key
+        self.session_aliases[renewal_key] = key
         await self.check_session(UUID(str(user.id)), key)
         return key
 
@@ -411,46 +417,58 @@ class AssistantRuntime:
             if self.provider_connections is not None
             else key
         )
+        keys = {fingerprint, renewal_key}
+        keys.update(self.session_aliases.get(value, value) for value in tuple(keys))
+        affected = self._fence_session_contexts(keys)
         renewal_key = renewal_key if renewal_key != fingerprint else None
-        key = await self.store.canonical_session_key(
-            fingerprint, renewal_key=renewal_key
-        )
-        self.revoked_sessions.add(key)
-        await self.store.revoke(fingerprint, renewal_key=renewal_key)
-        for idle in list(self.idle_tools.values()):
-            if idle.context.session_key == key:
-                await self.release_idle_session(
-                    idle.context.owner_id, idle.context.conversation_id
+        try:
+            key = await self.store.canonical_session_key(
+                fingerprint, renewal_key=renewal_key
+            )
+            keys.add(key)
+            affected.extend(self._fence_session_contexts(keys))
+            await self.store.revoke(fingerprint, renewal_key=renewal_key)
+        finally:
+            for idle in list(self.idle_tools.values()):
+                if idle.context.session_key in keys:
+                    await self.release_idle_session(
+                        idle.context.owner_id, idle.context.conversation_id
+                    )
+            for context in affected:
+                conversation, message = await self.store.message(
+                    context.owner_id, context.conversation_id, context.message_id
                 )
+                runner = self.runners.get(
+                    self._runner_key(
+                        context.owner_id,
+                        conversation.provider,
+                        conversation.connection_id,
+                        conversation.connection_generation,
+                    )
+                )
+                if runner and message.run_id:
+                    try:
+                        await asyncio.to_thread(
+                            runner.request,
+                            "POST",
+                            "/v1/runs/" + message.run_id + "/cancel",
+                            {},
+                        )
+                    except AssistantError:
+                        pass
+
+    def _fence_session_contexts(self, keys):
+        """Remove known browser tool authority synchronously, before storage or cleanup."""
+        self.revoked_sessions.update(keys)
         affected = [
-            context for context in self.contexts.values() if context.session_key == key
+            context for context in self.contexts.values() if context.session_key in keys
         ]
         for context in affected:
             self.contexts.pop(context.message_id, None)
-            for token, binding in list(self.host_tokens.items()):
-                if binding == context:
-                    self.host_tokens.pop(token, None)
-            conversation, message = await self.store.message(
-                context.owner_id, context.conversation_id, context.message_id
-            )
-            runner = self.runners.get(
-                self._runner_key(
-                    context.owner_id,
-                    conversation.provider,
-                    conversation.connection_id,
-                    conversation.connection_generation,
-                )
-            )
-            if runner and message.run_id:
-                try:
-                    await asyncio.to_thread(
-                        runner.request,
-                        "POST",
-                        "/v1/runs/" + message.run_id + "/cancel",
-                        {},
-                    )
-                except AssistantError:
-                    pass
+        for token, binding in list(self.host_tokens.items()):
+            if binding.session_key in keys:
+                self.host_tokens.pop(token, None)
+        return affected
 
     @staticmethod
     def _runner_key(owner, provider, connection_id=None, connection_generation=None):

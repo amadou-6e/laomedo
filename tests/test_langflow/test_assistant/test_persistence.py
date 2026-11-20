@@ -90,6 +90,23 @@ class StartupSchemaTests(unittest.IsolatedAsyncioTestCase):
 
 
 class PersistenceTests(unittest.IsolatedAsyncioTestCase):
+    async def test_parallel_renewal_admission_serializes_the_first_alias_insert(self):
+        keys = await asyncio.gather(
+            *[
+                self.store.admit_session(
+                    "parallel-renewal",
+                    self.owner,
+                    time.time() + 2000,
+                    renewal_key=self.key,
+                )
+                for _ in range(8)
+            ]
+        )
+        self.assertEqual(keys, [self.key] * 8)
+        self.assertEqual(
+            await self.store.canonical_session_key("parallel-renewal"), self.key
+        )
+
     async def test_verified_renewal_keeps_identity_and_survives_restart(self):
         renewed = "renewed-token-hash"
         self.assertEqual(
