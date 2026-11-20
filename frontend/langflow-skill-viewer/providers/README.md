@@ -90,8 +90,8 @@ icon navigation. Connected accounts offer secondary reauthentication; native
 accounts needing sign-in retain a primary recovery action. The Claude handoff
 uses one instruction with the provider link and masked completion-code field.
 Screen transitions reset ancestor scrolling; polling does not change scroll.
-The Codex product icon is the unmodified codex-app-ga-logo-3e5209898ca3.png
-shipped in OpenAI VS Code extension26.1007.21434, displayed without distortion.
+Codex uses the transparent OpenAI knot SVG with theme-aware foreground and
+the same muted avatar circle as the other providers on account rows/details.
 
 Different-account reauthentication preserves the committed account and offers Add
 as new connection. A Go save with an uncertain reply clears the key and pauses
