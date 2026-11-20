@@ -7,7 +7,7 @@ import sys
 
 
 root = Path("C:/CodeWorkspace/laomedo")
-implementation = root / ".tools/worktrees/assistant-recovery-303"
+implementation = root / ".tools/worktrees/assistant-tools-293"
 os.environ["LAOMEDO_ACCEPTANCE_IMPLEMENTATION"] = str(implementation)
 sys.path.insert(0, str(implementation / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "docker-boundary-277"))
