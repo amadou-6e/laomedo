@@ -1,0 +1,230 @@
+version: 1
+title: "2. Tools and credentials"
+header: "Claude | 2. Tools and credentials"
+note: "Credential path across the top; command requests return through host admission to a separate worker. | Provider roles #275. Paths are repository/package-relative as shown."
+matrix:
+  rows: 1
+  columns: 4
+  cells: [["col_0", "col_1", "col_2", "col_3"]]
+  origin: [45, 150]
+  column_gaps: [110, 110, 110]
+nodes:
+  source:
+    label_html: "<b>[A] Host credential source</b><br/>Host-owned credential source<br/><br/>Host signs in/refreshes. Local access-only mirroring is explicitly opt-in."
+    style:
+      width: 285
+      height: 150
+      fill: "#E7F3EC"
+      stroke: "#8193A5"
+      font_size: 14
+      rounded: true
+    source_files: []
+    graph_reference: "A"
+    external_source: "Existing host login/account state, not repository files."
+  docker:
+    label_html: "<b>[B] Docker lifecycle</b><br/>py-docker -&gt; Docker SDK -&gt; Engine<br/><br/>Create/attach owned containers, execute jobs, retain receipts and reconcile cleanup."
+    style:
+      width: 285
+      height: 150
+      fill: "#E7F3EC"
+      stroke: "#8193A5"
+      font_size: 14
+      rounded: true
+    source_files: []
+    graph_reference: "B"
+    external_source: "Separate dependencies: py-docker -> Docker SDK -> Docker Engine."
+  auth:
+    label_html: "<b>[C] Credential provisioning</b><br/>Access-only login mirror<br/>claude/auth/; resources/write_login.py<br/><br/>Copy only the approved access credential to the dedicated volume; host keeps refresh ownership."
+    style:
+      width: 285
+      height: 150
+      fill: "#F0EAF8"
+      stroke: "#8193A5"
+      font_size: 14
+      rounded: true
+    source_files: ["src/laomedo/agents/agents/claude/auth/utils.py", "src/laomedo/agents/agents/claude/auth/models.py", "src/laomedo/agents/agents/claude/auth/resources/write_login.py"]
+    graph_reference: "C"
+  broker:
+    label_html: "<b>[D] Host command gateway</b><br/>ClaudeCommandExecutor + HTTP<br/>claude/policy.py; http/<br/><br/>Receive authenticated /command requests and execute admitted worker jobs; mediate GitHub only with a grant."
+    style:
+      width: 285
+      height: 150
+      fill: "#F0EAF8"
+      stroke: "#8193A5"
+      font_size: 14
+      rounded: true
+    source_files: ["src/laomedo/agents/agents/claude/executor.py", "src/laomedo/agents/agents/claude/http/handler.py", "src/laomedo/agents/agents/claude/http/server.py"]
+    graph_reference: "D"
+  profile:
+    label_html: "<b>[E] Controller credentials and state</b><br/>Mounted access/session volume<br/><br/>Controller reads mirrored access credentials and persists the native session for Resume."
+    style:
+      width: 285
+      height: 150
+      fill: "#E7F3EC"
+      stroke: "#8193A5"
+      font_size: 14
+      rounded: true
+    source_files: []
+    graph_reference: "E"
+    external_source: "Admitted private profile/config/session state. Never tracked as source."
+  bridge:
+    label_html: "<b>[F] Tool-call transport</b><br/>docker/claude/command_mcp.py<br/><br/>Native MCP stdio tool calls become authenticated HTTP requests to the host command service."
+    style:
+      width: 285
+      height: 150
+      fill: "#FFF0DF"
+      stroke: "#8193A5"
+      font_size: 14
+      rounded: true
+    source_files: ["docker/claude/command_mcp.py"]
+    graph_reference: "F"
+  cli:
+    label_html: "<b>[G] Native agent runtime</b><br/>claude executable<br/><br/>Native subscription session and telemetry. Controller shell/file tools are disabled."
+    style:
+      width: 285
+      height: 150
+      fill: "#E7F3EC"
+      stroke: "#8193A5"
+      font_size: 14
+      rounded: true
+    source_files: []
+    graph_reference: "G"
+    external_source: "Upstream native claude runtime installed in its Docker image."
+  worker:
+    label_html: "<b>[H] Command worker</b><br/>Separate Docker container<br/><br/>Admitted draft commands run without network or a credential mount."
+    style:
+      width: 285
+      height: 150
+      fill: "#E7F3EC"
+      stroke: "#8193A5"
+      font_size: 14
+      rounded: true
+    source_files: []
+    graph_reference: "H"
+    external_source: "Runtime command-worker container, not another provider source module."
+groups:
+  col_0:
+    title: "Host source / shared Docker"
+    layout: "column"
+    children: ["source", "docker"]
+    gap: 80
+    style:
+      padding: [60, 20, 25, 20]
+      min_height: 520
+      fill: "#F5F7FA"
+      font_size: 15
+  col_1:
+    title: "Provider host adapters"
+    layout: "column"
+    children: ["auth", "broker"]
+    gap: 80
+    style:
+      padding: [60, 20, 25, 20]
+      min_height: 520
+      fill: "#F5F7FA"
+      font_size: 15
+  col_2:
+    title: "Controller state / tools"
+    layout: "column"
+    children: ["profile", "bridge"]
+    gap: 80
+    style:
+      padding: [60, 20, 25, 20]
+      min_height: 520
+      fill: "#F5F7FA"
+      font_size: 15
+  col_3:
+    title: "Controller / separate worker"
+    layout: "column"
+    children: ["cli", "worker"]
+    gap: 80
+    style:
+      padding: [60, 20, 25, 20]
+      min_height: 520
+      fill: "#F5F7FA"
+      font_size: 15
+edges:
+  edge_0:
+    from: "source"
+    to: "auth"
+    label: "approved access"
+    style:
+      stroke: "#A37537"
+      dashed: true
+      width: 2
+      end_arrow: "classic"
+    from_port: [1, 0.5]
+    to_port: [0, 0.5]
+    waypoints: [[425.0, 285.0], [425.0, 285.0]]
+  edge_1:
+    from: "auth"
+    to: "profile"
+    label: "selected credential"
+    style:
+      stroke: "#A37537"
+      dashed: true
+      width: 2
+      end_arrow: "classic"
+    from_port: [1, 0.5]
+    to_port: [0, 0.5]
+    waypoints: [[860.0, 285.0], [860.0, 285.0]]
+  edge_2:
+    from: "profile"
+    to: "cli"
+    label: "admitted mount"
+    style:
+      stroke: "#A37537"
+      dashed: true
+      width: 2
+      end_arrow: "classic"
+    from_port: [1, 0.5]
+    to_port: [0, 0.5]
+    waypoints: [[1295.0, 285.0], [1295.0, 285.0]]
+  edge_3:
+    from: "cli"
+    to: "bridge"
+    label: "native MCP tool call"
+    style:
+      stroke: "#218168"
+      dashed: false
+      width: 2
+      end_arrow: "classic"
+    from_port: [0.5, 1]
+    to_port: [1, 0.5]
+    waypoints: [[1512.5, 398.0], [1260.0, 398.0], [1260.0, 515.0]]
+  edge_4:
+    from: "bridge"
+    to: "broker"
+    label: "HTTP /command"
+    style:
+      stroke: "#218168"
+      dashed: false
+      width: 2
+      end_arrow: "classic"
+    from_port: [0, 0.5]
+    to_port: [1, 0.5]
+    waypoints: [[860.0, 515.0], [860.0, 515.0]]
+  edge_5:
+    from: "broker"
+    to: "docker"
+    label: "admitted job"
+    style:
+      stroke: "#42699A"
+      dashed: false
+      width: 2
+      end_arrow: "classic"
+    from_port: [0, 0.5]
+    to_port: [1, 0.5]
+    waypoints: [[425.0, 515.0], [425.0, 515.0]]
+  edge_6:
+    from: "docker"
+    to: "worker"
+    label: "execute / cleanup"
+    style:
+      stroke: "#42699A"
+      dashed: false
+      width: 2
+      end_arrow: "classic"
+    from_port: [0.5, 1]
+    to_port: [0.5, 1]
+    waypoints: [[207.5, 750], [1512.5, 750]]

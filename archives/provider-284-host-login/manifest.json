@@ -76,6 +76,22 @@
     {
       "path": "tests/test_agents/test_runtime/test_service.py",
       "sha256": "a6264ab26e9ff6c98d432c629ed6fb237038e157e2d2c1798860cc7622351178"
+    },
+    {
+      "path": "docs/features/agents/assets/provider-interactions/claude-tools-auth.yaml",
+      "sha256": "f4d3185ce8c1d313d1514b2699685e73417665b66f5525fa15a6a1969fa552b7"
+    },
+    {
+      "path": "docs/features/agents/assets/provider-interactions/provider-custom-code.drawio",
+      "sha256": "02b6d9af81e99590c7665c01b4427982225b2818f80547caaa975dde64b412b2"
+    },
+    {
+      "path": "docs/features/agents/assets/provider-interactions/comparison-tools-auth.png",
+      "sha256": "c778b2ecee9e0962328b6059a646d9b085223ced1c3cfe73ffd1249fefeda5b5"
+    },
+    {
+      "path": "docs/features/agents/assets/provider-interactions/README.md",
+      "sha256": "6af7946ef6f19273e998f5b0c767f9083556db59e1f14141c2abad8cf9c6cd3f"
     }
   ]
 }
