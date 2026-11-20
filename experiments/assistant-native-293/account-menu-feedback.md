@@ -1,5 +1,29 @@
 # Account menu and slash input feedback, 2026-11-20
 
+## Completed reviewer correction
+
+After quota restoration, the same Claude reviewer approved the UI corrections
+and specification4f49b1e, but found S1: logout could await a failing database
+before removing tool authority. Correction38253df86..2957a6e3a now fences known
+raw/provider/canonical identities and removes contexts/tokens synchronously,
+then persists revocation with cleanup in finally. Lookup/write failure and
+event-gated timeout cancellation tests pass with actual signed-token refusal.
+Eight concurrent first renewal admissions pass on file-backed SQLite.
+
+Focused reviewer recheck: S1 verified-fixed, S2 settled for SQLite; Implementation
+APPROVE at2957a6e3a, conditional on fullsuite and Black, both now met:94assistant
+tests PASS214.055s, Black956 PASS, all required CI PASS. UI686tests and final
+build remain unchanged frontend evidence. Specification APPROVE4f49b1e. Visual
+INCOMPLETE; no new live logout/provider checks claimed. No source changes after
+review, and no merge performed.
+
+Remaining limits: an unseen renewal lost before persistence cannot recover the
+earlier approval root; failed durable revoke can lose its memory-only fence at
+restart. Per-item native cleanup may still stall or stop on an error; safe alias
+pruning requires expiry accounting. These were disclosed, nonblocking review
+items. The existing integrated preview was left running to preserve the working
+user session; the later logout-only source correction was not loaded into it.
+
 ## Later renewal fix and explicit restart limitation
 
 The earlier UI-only checks below are historical evidence, not the final backend
