@@ -154,7 +154,13 @@ reserve and dispatch without a second confirmation. Other commands keep the
 existing human approval. MCP proposals never enter this bypass. Discovery uses
 the retained session catalog; no session is created or inferred by the picker.
 
-Conversation provider is immutable. AssistantRuntime selects a runner and lock by owner/provider; Codex keeps its existing owner key and private root. New providers use separate provider roots. AssistantRunner composes the registered provider from host-only settings; Claude profile volume and OpenCode private profile path are never browser/model inputs. OpenCodeAgent owns construction of its existing isolated runtime when a host profile is supplied. Existing native approval and Activity interfaces remain the only app boundaries. Missing configuration refuses before any model request. Each provider owns its command catalog policy and terminal receipts; a shared slash syntax does not imply shared command support.
+Conversation provider and saved-account epoch are immutable. `AssistantRuntime`
+keys its clients and locks by owner, provider, account and generation. The shared
+saved-account manager constructs each provider with its admitted private profile;
+chat never receives a credential or host profile path. Each provider owns command
+catalog policy and terminal receipts; shared slash syntax does not imply shared
+command support.
+
 ## Status before the first prompt
 
 `MessageRequest.initial_native_command` distinguishes an explicit first `/status`
@@ -182,7 +188,21 @@ selection is visible before model discovery; existing chats show their binding.
 
 The browser uses its native HttpOnly session cookie without a bearer override;
 saved-connection lease checks remain enforced. Existing unbound chat runs are not
-migrated or silently abandoned: startup refuses the transition while their known
+migrated or silently abandoned: new assistant dispatch is blocked while their known
 runner roots retain active records, unresolved resumes or resource receipts.
 Settled history stays readable and files stay untouched. New chats use saved
 accounts; disconnected conversations remain readable but cannot change accounts.
+
+The transition check never prevents app, Settings or graph startup. Read retained
+history, including unknown in-flight outcomes, without dispatch. To reconcile old
+operational state, use the pre-transition checkout (`872c4064`) and its original
+private runtime and account to observe/cancel the exact old run; do not copy its
+credentials or mark files settled manually. Restart the updated app after that
+runner confirms cleanup. This bounded transition check can retire once all older
+operational state is explicitly reconciled.
+
+`ModelCatalogCacheEntry` retains a canonical catalog under the exact owner,
+provider, connection, generation and runner instance. Cached composer reads never
+open native discovery during an active chat. Every read still checks saved-account
+admission; runner replacement invalidates the observation. Native execution still
+validates the actual model options before prompting.

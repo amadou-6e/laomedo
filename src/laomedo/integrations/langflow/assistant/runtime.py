@@ -20,6 +20,7 @@ from laomedo.agents.mcp.settings import MCP_ERROR_CODES
 from laomedo.integrations.langflow.assistant.catalog import ComponentCatalog
 from laomedo.integrations.langflow.assistant.errors import AssistantError
 from laomedo.integrations.langflow.assistant.models import (
+    ModelCatalogCacheEntry,
     AuthoringContext,
     AssistantSession,
 )
@@ -42,6 +43,8 @@ class AssistantRuntime:
         """Prepare inactive app composition without Docker, inference or credential reads."""
         self.settings = settings
         self.provider_connections = None
+        self.model_catalogs = {}
+        self.migration_blocked = False
         self.store = self.mcp = self.upstream = None
         self.runners, self.runner_locks, self.jobs = {}, {}, {}
         self.contexts, self.host_tokens, self.tool_tasks = {}, {}, {}
@@ -235,13 +238,19 @@ class AssistantRuntime:
         """Refuse migration while an old scratch runner has unsettled work; preserve every file."""
         import sqlite3
 
+        self.migration_blocked = False
         if not self.settings.app_url:
             return
         namespace = hashlib.sha256(self.settings.app_url.encode()).hexdigest()[:16]
         parent = self.settings.state_root / namespace
         if not parent.is_dir():
             return
-        for owner in parent.iterdir():
+        try:
+            owners = list(parent.iterdir())
+        except OSError:
+            self.migration_blocked = True
+            return
+        for owner in owners:
             if not owner.is_dir():
                 continue
             try:
@@ -279,16 +288,18 @@ class AssistantRuntime:
                                 is not None
                             )
                     if active or receipts:
-                        raise AssistantError("assistant_reconciliation_required", 409)
+                        self.migration_blocked = True
+                        return
                 except (OSError, ValueError, sqlite3.Error):
-                    raise AssistantError(
-                        "assistant_reconciliation_required", 409
-                    ) from None
+                    self.migration_blocked = True
+                    return
 
     def check_connection(self, owner, provider, connection_id, generation):
         """Refuse missing, foreign, revoked or changed bindings without an account fallback."""
         from laomedo.agents.connections.errors import ProviderConnectionError
 
+        if self.migration_blocked:
+            raise AssistantError("assistant_reconciliation_required", 409)
         if connection_id is None or generation is None:
             raise AssistantError("assistant_setup_required", 409)
         try:
@@ -399,6 +410,12 @@ class AssistantRuntime:
         runner = await self.runner(
             owner, provider, connection_id, connection_generation
         )
+        cache_key = self._runner_key(
+            owner, provider, connection_id, connection_generation
+        )
+        observed = self.model_catalogs.get(cache_key)
+        if observed is not None and observed.runner_instance_id == runner.instance_id:
+            return observed.to_payload(provider)
         catalog = await asyncio.to_thread(runner.request, "GET", "/v1/models")
         if not catalog.get("models"):
             raise AssistantError(
@@ -409,13 +426,15 @@ class AssistantRuntime:
                 ),
                 503,
             )
-        return {
-            "provider": provider,
-            "models": [
-                {"id": item["id"], "efforts": item.get("efforts", [])}
-                for item in catalog.get("models", [])[:100]
-            ],
-        }
+        from laomedo.agents.agents.base.models import ModelCatalog
+
+        self.check_connection(owner, provider, connection_id, connection_generation)
+        observed = ModelCatalogCacheEntry(
+            runner_instance_id=runner.instance_id,
+            catalog=ModelCatalog.from_payload(catalog),
+        )
+        self.model_catalogs[cache_key] = observed
+        return observed.to_payload(provider)
 
     async def create(self, owner, key, request):
         """Validate a real model choice and persist an empty conversation without inference."""

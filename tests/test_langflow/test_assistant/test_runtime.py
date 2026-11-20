@@ -1,11 +1,15 @@
 """Conversation reconciliation and cancellation controls with real application storage."""
 
 from pathlib import Path
+from contextlib import asynccontextmanager
+from types import SimpleNamespace
+import hashlib
+import json
 from datetime import datetime, timezone
 import tempfile
 import time
 import unittest
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import AsyncMock, Mock, patch
 from uuid import UUID, uuid4
 
 from sqlalchemy.ext.asyncio import create_async_engine
@@ -235,6 +239,95 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
             {"receipt_id": "committed"},
         )
         self.assertNotIn(self.message_id, self.runtime.uncertain_saves)
+
+    @asynccontextmanager
+    async def empty_lifespan(self, app=None):
+        """Keep upstream available while checking assistant-only transition admission."""
+        yield None
+
+    async def test_model_catalog_is_reused_only_for_the_same_admitted_runner(self):
+        self.runner.request = Mock(
+            return_value={
+                "provider": "codex",
+                "models": [{"id": "fixture", "efforts": ["low"]}],
+            }
+        )
+        args = self.owner, "codex", self.connection_id, 1
+        observed = await self.runtime.models(*args)
+        self.runner.request.side_effect = AssistantError("provider_connection_busy")
+        self.assertEqual(await self.runtime.models(*args), observed)
+        request = ConversationRequest(
+            connection_id=self.connection_id,
+            connection_generation=1,
+            model="fixture",
+            effort="low",
+        )
+        first = await self.runtime.create(self.owner, "fixture", request)
+        second = await self.runtime.create(self.owner, "fixture", request)
+        self.assertNotEqual(first["id"], second["id"])
+        self.runner.request.assert_called_once_with("GET", "/v1/models")
+        self.runtime.check_connection.side_effect = AssistantError(
+            "provider_connection_changed"
+        )
+        with self.assertRaisesRegex(AssistantError, "provider_connection_changed"):
+            await self.runtime.models(*args)
+        self.runtime.check_connection.side_effect = None
+        self.runner.instance_id = str(uuid4())
+        with self.assertRaisesRegex(AssistantError, "provider_connection_busy"):
+            await self.runtime.models(*args)
+        self.assertEqual(self.runner.request.call_count, 2)
+
+    async def test_unsettled_transition_keeps_app_available_and_marks_old_messages_unknown(
+        self,
+    ):
+        async with self.store.transaction() as session:
+            conversation = await self.store.conversation(
+                session, self.owner, self.identifier
+            )
+            conversation.connection_id = None
+            conversation.connection_generation = None
+            session.add(conversation)
+        settings = AssistantSettings(
+            app_url="http://127.0.0.1:17881",
+            state_root=Path(self.directory.name) / "retired",
+        )
+        self.runtime.settings = settings
+        namespace = hashlib.sha256(settings.app_url.encode()).hexdigest()[:16]
+        record = (
+            settings.state_root
+            / namespace
+            / str(self.owner)
+            / "runner"
+            / "runs"
+            / self.run_id
+            / "record.json"
+        )
+        record.parent.mkdir(parents=True)
+        record.write_text(json.dumps({"status": "running"}), encoding="utf-8")
+        self.runtime.upstream = self.empty_lifespan
+        self.runtime.mcp = SimpleNamespace(
+            server=SimpleNamespace(
+                session_manager=SimpleNamespace(run=self.empty_lifespan)
+            )
+        )
+        with patch(
+            "langflow.services.deps.get_db_service",
+            return_value=SimpleNamespace(engine=self.engine),
+        ):
+            async with self.runtime.lifespan(SimpleNamespace(state=SimpleNamespace())):
+                self.assertTrue(self.runtime.ready)
+                self.assertTrue(self.runtime.migration_blocked)
+                with self.assertRaisesRegex(
+                    AssistantError, "assistant_reconciliation_required"
+                ):
+                    AssistantRuntime.check_connection(
+                        self.runtime, self.owner, "codex", self.connection_id, 1
+                    )
+                detail = await self.runtime.store.detail(self.owner, self.identifier)
+                self.assertEqual(detail["messages"][0]["state"], "unknown")
+                self.assertNotEqual(detail["conversation"]["state"], "running")
+                self.runtime.runner.assert_not_awaited()
+                self.assertEqual(json.loads(record.read_text()), {"status": "running"})
 
     async def asyncSetUp(self):
         self.directory = tempfile.TemporaryDirectory()

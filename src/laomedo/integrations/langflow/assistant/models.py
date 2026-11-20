@@ -13,7 +13,22 @@ from pydantic import (
 )
 from sqlalchemy import Column, JSON, UniqueConstraint, Text
 from sqlmodel import SQLModel, Field
-from laomedo.agents.agents.base.models import NativeCommandInvocation
+from laomedo.agents.agents.base.models import ModelCatalog, NativeCommandInvocation
+
+
+class ModelCatalogCacheEntry(BaseModel):
+    """An observed native catalog valid only for the same account runner instance."""
+
+    model_config = ConfigDict(frozen=True)
+    runner_instance_id: str
+    catalog: "ModelCatalog"
+
+    def to_payload(self, provider: str) -> dict:
+        """Project the existing bounded composer payload without exposing cache state."""
+        return {
+            "provider": provider,
+            "models": [model.to_payload() for model in self.catalog.models[:100]],
+        }
 
 
 class AuthoringContext(BaseModel):
