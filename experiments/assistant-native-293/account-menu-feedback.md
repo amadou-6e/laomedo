@@ -23,7 +23,10 @@ explicitly preserves runner-restart fail-closed rules. We did not weaken it.
 38253df86 adds the missing human-readable error/recovery and a real shared error
 renderer test. Updated frontend build PASS1m19s; 686 tests across assistant and
 shared error rendering PASS (17 suites; includes 69 assistant UI tests). New
-conversation acceptance is being checked separately. No transparent continuation
+linked conversation returned ACCOUNT-FINAL-SEND-293. The real database read
+confirms completed, no error and exact marker response. The final built error
+copy was visibly verified in the old chat, then the fresh working chat reopened
+in the same integrated CoBrowse tab. No transparent continuation
 after authenticated runner restart claimed. Earlier conversation remains intact.
 
 Claude correction recheck is quota-blocked until18:50 Berlin. Initial UI review
