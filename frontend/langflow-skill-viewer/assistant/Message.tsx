@@ -129,7 +129,7 @@ export default function MessageRow({
   }
   return (
     <section className="space-y-5" aria-label="Message and response">
-      <UserMessage text={message.text} createdAt={message.created_at} command={message.native_action_id ? true : undefined} />
+      <UserMessage text={message.text} createdAt={message.created_at} command={Boolean(message.native_action_id || message.initial_native_command)} />
       {nativeStatus ? <NativeStatus text={message.response!} conversation={conversation} /> : groups.map((group) => {
         const lane = group[0];
         const text = messageText(lane.item ?? {}, provider);

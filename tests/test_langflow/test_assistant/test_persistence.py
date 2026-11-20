@@ -47,6 +47,9 @@ class StartupSchemaTests(unittest.IsolatedAsyncioTestCase):
                     await connection.exec_driver_sql(
                         "INSERT INTO user VALUES ('owned-profile', 'retained')"
                     )
+                    await connection.exec_driver_sql(
+                        "CREATE TABLE laomedo_assistant_message (id TEXT PRIMARY KEY)"
+                    )
                 await store.upgrade_retained()
                 async with engine.begin() as connection:
                     names = await connection.run_sync(
@@ -62,6 +65,7 @@ class StartupSchemaTests(unittest.IsolatedAsyncioTestCase):
                             "laomedo_assistant_session",
                             "laomedo_assistant_graph_action",
                             "laomedo_assistant_graph_permission",
+                            "laomedo_assistant_native_action",
                         },
                     )
                     rows = (
@@ -70,6 +74,15 @@ class StartupSchemaTests(unittest.IsolatedAsyncioTestCase):
                         )
                     ).all()
                     self.assertEqual(rows, [("owned-profile", "retained")])
+                    columns = await connection.run_sync(
+                        lambda conn: {
+                            column["name"]
+                            for column in inspect(conn).get_columns(
+                                "laomedo_assistant_message"
+                            )
+                        }
+                    )
+                    self.assertIn("initial_native_command", columns)
             finally:
                 await engine.dispose()
 
