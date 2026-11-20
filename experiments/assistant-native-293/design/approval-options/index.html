@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Laomedo · Command approval options</title>
+<style>
+:root{color-scheme:dark;font-family:Inter,ui-sans-serif,system-ui,sans-serif;background:#171719;color:#e5e5e8;font-size:14px}*{box-sizing:border-box}body{margin:0;padding:42px 28px 80px}main{max-width:1200px;margin:auto}h1{font-size:22px;font-weight:550;margin:0 0 10px;letter-spacing:-.4px}.intro{color:#93939c;line-height:1.6;margin:0 0 32px}.options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}section{min-width:0}header{display:flex;gap:10px;align-items:baseline;margin-bottom:14px}h2{font-size:14px;font-weight:550;margin:0}.number{color:#85858f;font-size:12px}.description{color:#92929d;line-height:1.6;font-size:12px;min-height:40px;margin:8px 0 16px}.chat{height:360px;border:1px solid #323238;border-radius:16px;background:#19191c;display:flex;flex-direction:column;padding:22px 18px;gap:16px}.message{margin:0;color:#c7c7cf;font-size:13px;line-height:1.6}.command{align-self:flex-end;color:#a4a4af;font-size:13px;font-family:ui-monospace,monospace;margin-top:12px}.request{align-self:flex-end;max-width:100%;font-size:13px;line-height:1.5}.name{color:#dbdbe1;font-weight:450}.hint{color:#91919e;font-size:11px;margin-top:4px}.buttons{display:flex;justify-content:flex-end;gap:7px;margin-top:11px}button{font:inherit;cursor:pointer;border:1px solid #414149;border-radius:7px;padding:6px 10px;font-size:12px;color:#c7c7d0;background:transparent;transition:background .15s}button:hover{background:#303036}button:focus-visible{outline:2px solid #b8a6ed;outline-offset:3px}.approve{background:#f0f0f3;color:#202024;border-color:#f0f0f3}.approve:hover{background:#d5d5df}.outcome{color:#a3a3af;font-size:12px}.outcome::before{content:'✓';padding-right:7px;color:#a0b8ac}.rejected .outcome::before{content:'×';color:#a3a3af}.composer{margin-top:auto;border:1px solid #3b3b43;border-radius:14px;padding:12px;color:#757580;font-size:12px;min-height:60px}.inline .request{border:0;padding:0}.inline .name{font-size:12px;color:#a7a7b2}.inline .buttons{margin-top:9px}.rail .request{border-left:2px solid #45434e;padding:2px 0 3px 13px}.rail .buttons{justify-content:flex-start}.card .request{width:100%;border:1px solid #37373e;border-radius:11px;padding:12px 14px;background:#1d1d21}.card .name{font-size:12px}.card .hint{font-size:11px}.card .buttons{margin-top:13px}.choose{display:block;width:100%;margin-top:14px;padding:10px;border-color:#3a3a43;color:#a6a6b2}.choose[aria-pressed=true]{border-color:#9180bd;color:#e7dfff;background:#292330}.tools{display:flex;align-items:center;gap:16px;margin-top:28px;color:#9797a2;font-size:12px}.tools button{font-size:12px}#selection{min-height:20px;color:#c6b5ed}footer{margin-top:30px;padding-top:18px;border-top:1px solid #303036;color:#7e7e8a;font-size:12px;line-height:1.7}@media(max-width:950px){.options{grid-template-columns:1fr;max-width:600px}.description{min-height:0}.chat{height:310px}body{padding:24px 18px}.tools{flex-wrap:wrap}}@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+<main>
+<h1>Command approval</h1>
+<p class="intro">Three quieter options in the chat context. Try Approve or Reject to see the collapsed outcome.<br>Standalone preview — these controls do not call an agent or change a conversation.</p>
+<div class="options">
+<section class="inline" data-option="A · Inline">
+<header><span class="number">A</span><h2>Inline</h2></header>
+<p class="description">No container. A short explanation and actions follow the command.</p>
+<div class="chat"><p class="message">READY</p><div class="command">/compact</div><div class="request"><div class="name">Summarize this conversation</div><div class="hint">Uses model quota</div><div class="buttons"><button class="approve" data-decision="Approved">Approve</button><button data-decision="Rejected">Reject</button></div></div><div class="composer">Message this assistant…</div></div>
+<button class="choose" aria-pressed="false">Choose A</button>
+</section>
+<section class="rail" data-option="B · Accent line">
+<header><span class="number">B</span><h2>Accent line</h2></header>
+<p class="description">A subtle vertical line groups the request without drawing a box.</p>
+<div class="chat"><p class="message">READY</p><div class="command">/compact</div><div class="request"><div class="name">Summarize this conversation</div><div class="hint">Uses model quota</div><div class="buttons"><button class="approve" data-decision="Approved">Approve</button><button data-decision="Rejected">Reject</button></div></div><div class="composer">Message this assistant…</div></div>
+<button class="choose" aria-pressed="false">Choose B</button>
+</section>
+<section class="card" data-option="C · Quiet panel">
+<header><span class="number">C</span><h2>Quiet panel</h2></header>
+<p class="description">A wider, low-contrast panel avoids the cramped floating-card shape.</p>
+<div class="chat"><p class="message">READY</p><div class="command">/compact</div><div class="request"><div class="name">Summarize this conversation</div><div class="hint">Uses model quota</div><div class="buttons"><button class="approve" data-decision="Approved">Approve</button><button data-decision="Rejected">Reject</button></div></div><div class="composer">Message this assistant…</div></div>
+<button class="choose" aria-pressed="false">Choose C</button>
+</section>
+</div>
+<div class="tools"><button id="reset">Reset previews</button><span id="selection" role="status" aria-live="polite"></span></div>
+<footer>All options keep the command right-aligned, use a white primary action, and collapse the decision in place.<br>“Approved” in this preview means the decision was made; it does not claim the command completed.</footer>
+</main>
+<script>
+const initial = new Map([...document.querySelectorAll('.request')].map(node => [node,node.innerHTML]));
+document.addEventListener('click',event=>{
+ const button=event.target.closest('button');if(!button)return;
+ if(button.dataset.decision){const request=button.closest('.request');request.classList.toggle('rejected',button.dataset.decision==='Rejected');request.innerHTML='<div class="name">Summarize this conversation</div><div class="outcome">'+button.dataset.decision+'</div>';}
+ if(button.classList.contains('choose')){document.querySelectorAll('.choose').forEach(node=>node.setAttribute('aria-pressed',String(node===button)));document.getElementById('selection').textContent='Selected '+button.closest('section').dataset.option+' — tell me this choice in chat.';}
+ if(button.id==='reset'){initial.forEach((html,node)=>{node.innerHTML=html;node.classList.remove('rejected');});}
+});
+</script>
+</html>
