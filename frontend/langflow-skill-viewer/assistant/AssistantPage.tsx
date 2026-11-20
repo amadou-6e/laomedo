@@ -1,3 +1,4 @@
+import { codexCommandPreviews } from "./commandPreviews";
 import ProviderIcon from "./ProviderIcon";
 import AccountSelection from "./AccountSelection";
 import GraphPermissions from "./GraphPermissions";
@@ -445,6 +446,13 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
     });
   }
 
+  function clearCommandInputError() {
+    setError(value => value && [
+      "native_command_not_available", "native_command_not_supported",
+      "native_command_arguments_invalid", "native_command_catalog_changed",
+    ].includes(value) ? undefined : value);
+  }
+
   async function send(retry?: PendingSubmission) {
     if (!retry && !canSend) return;
     const text = retry?.text ?? drafts[selected] ?? "";
@@ -457,8 +465,8 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
     )
       return;
     const epoch = generation.current;
-    const initialStatus = text === "/status" && chosenProvider === "codex" && (!selected || (detail?.conversation.id === selected && !detail.conversation.run_id));
-    const identity: PendingSubmission = retry ?? { id: crypto.randomUUID(), text, model, effort, ...(initialStatus ? { initial_native_command: "status" as const } : {}) };
+    const initialStatus = text.trim() === "/status" && chosenProvider === "codex" && (!selected || (detail?.conversation.id === selected && !detail.conversation.run_id));
+    const identity: PendingSubmission = retry ?? { id: crypto.randomUUID(), text: initialStatus ? "/status" : text, model, effort, ...(initialStatus ? { initial_native_command: "status" as const } : {}) };
     let target = selected;
     let acknowledged = false;
     if (
@@ -476,24 +484,34 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
     pinned.current = true;
     try {
       if (text.startsWith("/") && !identity.initial_native_command) {
-        if (!target) throw new AssistantFailure("native_command_not_available");
         let submission = nativeSubmission.current;
         if (!submission || submission.conversation !== target || submission.text !== text) {
+          submission = undefined;
           const match = /^\/([^\s]+)(?: (.*))?$/.exec(text);
-          const catalog = await assistantRequest<NativeCommandCatalog>(`/conversations/${target}/native-commands`);
-          if (epoch !== generation.current || currentSelection.current !== target) return;
-          const command = catalog.commands?.find(item => item.executable && item.name === match?.[1]);
-          const args = match?.[2] ?? "";
-          if (!match || !command || !catalog.revision || (args && !command.accepts_arguments)) throw new AssistantFailure("native_command_not_available");
-          submission = { conversation: target, text, request: { name: command.name, arguments: args, catalog_revision: catalog.revision, operation_key: crypto.randomUUID() } };
-          nativeSubmission.current = submission;
+          if ((!target || !detail?.conversation.run_id) && chosenProvider === "codex" && codexCommandPreviews.some(item => item.name === match?.[1])) {
+            throw new AssistantFailure("native_command_not_available");
+          }
+          if (target && match) {
+            const catalog = await assistantRequest<NativeCommandCatalog>(`/conversations/${target}/native-commands`);
+            if (epoch !== generation.current || currentSelection.current !== target) return;
+            const command = catalog.commands?.find(item => item.name === match[1]);
+            if (command && !command.executable) throw new AssistantFailure("native_command_not_supported");
+            if (command) {
+              const args = match[2] ?? "";
+              if (!catalog.revision || (args && !command.accepts_arguments)) throw new AssistantFailure("native_command_arguments_invalid");
+              submission = { conversation: target, text, request: { name: command.name, arguments: args, catalog_revision: catalog.revision, operation_key: crypto.randomUUID() } };
+              nativeSubmission.current = submission;
+            }
+          }
         }
-        await assistantRequest(`/conversations/${target}/native-commands`, submission.request);
-        if (epoch !== generation.current || currentSelection.current !== target) return;
-        nativeSubmission.current = undefined;
-        setDrafts(value => ({ ...value, [target]: "" }));
-        await refresh();
-        return;
+        if (submission) {
+          await assistantRequest(`/conversations/${target}/native-commands`, submission.request);
+          if (epoch !== generation.current || currentSelection.current !== target) return;
+          nativeSubmission.current = undefined;
+          setDrafts(value => ({ ...value, [target]: "" }));
+          await refresh();
+          return;
+        }
       }
       if (!target) {
         const created = await create();
@@ -1080,6 +1098,7 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
           >
             <div className="relative mx-auto max-w-4xl rounded-2xl border bg-muted/30 p-2 shadow-sm focus-within:ring-1 focus-within:ring-ring">
               {!commandsDismissed && /^\/[^\s]*$/.test(drafts[selected] ?? "") && <NativeCommandMenu conversation={selected} provider={chosenProvider} text={drafts[selected] ?? ""} onSelect={text => {
+                clearCommandInputError();
                 setDrafts(value => ({...value, [selected]: text}));
                 document.getElementById("assistant-message")?.focus();
               }} onClose={() => {setCommandsDismissed(true); document.getElementById("assistant-message")?.focus();}} />}
@@ -1100,6 +1119,7 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
                   Boolean(selected && (needsAttention || waiting))
                 }
                 onChange={(event) => {
+                  clearCommandInputError();
                   setCommandsDismissed(false);
                   setDrafts((value) => ({
                     ...value,
@@ -1110,7 +1130,7 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
                   if (event.key === "Escape") setCommandsDismissed(true);
                   if (event.key === "ArrowDown" && document.getElementById("assistant-native-commands")) {
                     event.preventDefault();
-                    document.querySelector<HTMLButtonElement>("#assistant-native-commands button")?.focus();
+                    document.querySelector<HTMLButtonElement>("#assistant-native-commands button:not(:disabled)")?.focus();
                     return;
                   }
                   if (

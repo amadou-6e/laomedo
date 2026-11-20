@@ -58,6 +58,51 @@ describe("uncertain assistant submission", () => {
     await waitFor(() => expect(assistantRequest).toHaveBeenCalledWith("/conversations/fresh/messages", expect.objectContaining({text: "Hello"})));
   });
 
+  it("sends an incomplete slash prefix as ordinary chat instead of locking the composer", async () => {
+    const chat = { connection_id: "account", connection_generation: 1, id: "saved", title: "Saved", provider: "codex", run_id: "run", model: "fixture", effort: "low", state: "idle", active_message_id: null };
+    jest.mocked(assistantRequest).mockImplementation(async (path, body) => {
+      if (path === "/connections") return {connections: [{connection_id: "account", generation: 1, provider: "codex", label: "Saved account", lifecycle: "connected", auth_state: "ready"}]};
+      if (path.startsWith("/models?")) return {provider: "codex", models: [{id: "fixture", efforts: ["low"]}]};
+      if (path === "/conversations") return {conversations: [chat], next_cursor: null};
+      if (path.endsWith("/native-commands")) return {state: "available", revision: "a".repeat(64), commands: [{name: "status", executable: true, accepts_arguments: false}]};
+      if (path.endsWith("/messages") && body) return {id: "message", ...body};
+      return {conversation: chat, messages: [], drafts: [], next_cursor: null};
+    });
+    render(<MemoryRouter initialEntries={["/assistant?conversation=saved"]}><AssistantPage /></MemoryRouter>);
+    const composer = screen.getByRole("textbox", {name: "Message this assistant"});
+    fireEvent.change(composer, {target: {value: "/sta"}});
+    await waitFor(() => expect(screen.getByRole("button", {name: "Send"})).not.toBeDisabled());
+    fireEvent.keyDown(composer, {key: "Enter"});
+    await waitFor(() => expect(assistantRequest).toHaveBeenCalledWith("/conversations/saved/messages", expect.objectContaining({text: "/sta"})));
+    expect(jest.mocked(assistantRequest).mock.calls.some(([path, body]) => path.endsWith("/native-commands") && body)).toBe(false);
+  });
+
+  it("recovers from a definite command-input rejection when another command is selected", async () => {
+    const chat = { connection_id: "account", connection_generation: 1, id: "saved", title: "Saved", provider: "codex", run_id: "run", model: "fixture", effort: "low", state: "idle", active_message_id: null };
+    jest.mocked(assistantRequest).mockImplementation(async (path, body) => {
+      if (path === "/connections") return {connections: [{connection_id: "account", generation: 1, provider: "codex", label: "Saved account", lifecycle: "connected", auth_state: "ready"}]};
+      if (path.startsWith("/models?")) return {provider: "codex", models: [{id: "fixture", efforts: ["low"]}]};
+      if (path === "/conversations") return {conversations: [chat], next_cursor: null};
+      if (path.endsWith("/native-commands")) return body ? {id: "action", state: "pending"} : {state: "available", revision: "a".repeat(64), commands: [
+        {name: "status", description: "Session status", executable: true, accepts_arguments: false},
+        {name: "mcp", description: "MCP tools", executable: true, accepts_arguments: false},
+      ]};
+      return {conversation: chat, messages: [], drafts: [], next_cursor: null};
+    });
+    render(<MemoryRouter initialEntries={["/assistant?conversation=saved"]}><AssistantPage /></MemoryRouter>);
+    const composer = screen.getByRole("textbox", {name: "Message this assistant"});
+    fireEvent.change(composer, {target: {value: "/status extra"}});
+    await waitFor(() => expect(screen.getByRole("button", {name: "Send"})).not.toBeDisabled());
+    fireEvent.keyDown(composer, {key: "Enter"});
+    await waitFor(() => expect(screen.getByRole("button", {name: "Send"})).toBeDisabled());
+    fireEvent.change(composer, {target: {value: "/"}});
+    fireEvent.click(await screen.findByRole("button", {name: /mcp.*MCP tools/}));
+    await waitFor(() => expect(screen.getByRole("button", {name: "Send"})).not.toBeDisabled());
+    fireEvent.keyDown(composer, {key: "Enter"});
+    await waitFor(() => expect(assistantRequest).toHaveBeenCalledWith("/conversations/saved/native-commands", expect.objectContaining({name: "mcp", arguments: ""})));
+    expect(jest.mocked(assistantRequest).mock.calls.some(([path]) => path.endsWith("/messages"))).toBe(false);
+  });
+
   it("starts a brand-new Codex chat with explicit native status rather than a hidden prompt", async () => {
     const chat = { connection_id: "account", connection_generation: 1, id: "fresh", title: "/status", provider: "codex", run_id: null, model: "fixture", effort: "low", state: "idle", active_message_id: null };
     jest.mocked(assistantRequest).mockImplementation(async (path, body) => {
@@ -71,7 +116,7 @@ describe("uncertain assistant submission", () => {
     fireEvent.click(await screen.findByRole("button", {name: "Account"}));
     fireEvent.click(await screen.findByRole("menuitemradio", {name: "Saved account"}));
     const composer = screen.getByRole("textbox", {name: "Message this assistant"});
-    fireEvent.change(composer, {target: {value: "/status"}});
+    fireEvent.change(composer, {target: {value: "/status "}});
     await waitFor(() => expect(screen.getByRole("button", {name: "Start chat"})).not.toBeDisabled());
     fireEvent.click(screen.getByRole("button", {name: "Start chat"}));
     await waitFor(() => expect(assistantRequest).toHaveBeenCalledWith("/conversations/fresh/messages", expect.objectContaining({text: "/status", initial_native_command: "status"})));

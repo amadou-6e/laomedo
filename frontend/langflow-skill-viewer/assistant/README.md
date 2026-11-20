@@ -17,7 +17,17 @@ link), account selection required, and model discovery pending/empty. Missing
 account selection disables the model picker as well as Send; drafts remain
 editable. Changing providers never silently switches accounts or dispatches.
 The empty slash menu distinguishes starting a native session from an unavailable
-or filtered catalog; it explains when other commands become discoverable.
+or filtered catalog. `commandPreviews.ts` lists the supported Codex command names
+before startup, with only initial `/status` selectable; the other previews are
+disabled until the actual session advertises them. A preview is never a native
+catalog or an execution grant. Menu-inserted trailing whitespace still dispatches
+initial status as the exact non-model operation.
+
+An incomplete or unmatched slash prefix sends as ordinary chat. An exact observed
+unsupported command or invalid arguments is refused before effects. Editing or
+selecting another command dismisses only definite command-input rejections;
+uncertain dispatch, account, model and observation errors stay fenced. This
+prevents an earlier input error from permanently disabling Send.
 
 ## Graph editor sidebar (issue 296)
 
@@ -196,9 +206,10 @@ The menu floats above the composer without resizing it. Compact single-line rows
 pair a command icon/name with a muted, ellipsized native description; the full
 description remains available in the button title and accessible content.
 Arrow Down moves from the composer into the menu; arrows navigate, Enter selects,
-and Escape closes it. A session without an observed catalog gets an explanation,
-never an invented list. Slash input uses the human native-command route directly;
-it is never sent as a model prompt or retried as ordinary prose after refusal.
+and Escape closes it. A session without an observed catalog gets an explanation
+and, for Codex, the non-authoritative startup previews described above. Exact
+observed commands use the human native-command route; they never fall back to
+ordinary prose after refused or uncertain dispatch. Unmatched slash text is chat.
 Only explicitly typed Codex `/status`, classified as non-model by the actual
 catalog, skips a second approval. Other typed commands retain confirmation.
 
