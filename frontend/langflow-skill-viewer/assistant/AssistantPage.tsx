@@ -1,4 +1,4 @@
-import { codexCommandPreviews } from "./commandPreviews";
+import { providerCommandNames } from "./commandPreviews";
 import ProviderIcon from "./ProviderIcon";
 import AccountSelection from "./AccountSelection";
 import GraphPermissions from "./GraphPermissions";
@@ -488,7 +488,7 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
         if (!submission || submission.conversation !== target || submission.text !== text) {
           submission = undefined;
           const match = /^\/([^\s]+)(?: (.*))?$/.exec(text);
-          if ((!target || !detail?.conversation.run_id) && chosenProvider === "codex" && codexCommandPreviews.some(item => item.name === match?.[1])) {
+          if ((!target || !detail?.conversation.run_id) && (providerCommandNames[chosenProvider] ?? []).includes(match?.[1] ?? "")) {
             throw new AssistantFailure("native_command_not_available");
           }
           if (target && match) {
@@ -496,7 +496,7 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
             if (epoch !== generation.current || currentSelection.current !== target) return;
             const command = catalog.commands?.find(item => item.name === match[1]);
             if ((catalog.state !== "available" && catalog.reason !== "native_session_not_created") ||
-                (!command && chosenProvider === "codex" && codexCommandPreviews.some(item => item.name === match[1]))) {
+                (!command && (providerCommandNames[chosenProvider] ?? []).includes(match[1]))) {
               throw new AssistantFailure("native_command_not_available");
             }
             if (command && !command.executable) throw new AssistantFailure("native_command_not_supported");

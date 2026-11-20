@@ -28,6 +28,11 @@ unsupported command or invalid arguments is refused before effects. Editing or
 selecting another command dismisses only definite command-input rejections;
 uncertain dispatch, account, model and observation errors stay fenced. This
 prevents an earlier input error from permanently disabling Send.
+The reserved names in `providerCommandNames` are the AP-2 candidates: Codex
+status/mcp/skills/review/compact, Claude compact, and OpenCode init/review/compact.
+These names refuse when unadvertised, as do exact observed unsupported entries;
+the list grants no execution capability. Ordinary text stays inside the
+assistant instruction prefix, outside adapters' leading-slash command parsing.
 
 ## Graph editor sidebar (issue 296)
 

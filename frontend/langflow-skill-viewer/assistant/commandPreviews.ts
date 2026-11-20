@@ -6,3 +6,10 @@ export const codexCommandPreviews = [
   { name: "review", description: "Request a review." },
   { name: "compact", description: "Compact the conversation context." },
 ];
+
+/** AP-2 candidate names are reserved for native admission, never chat fallback. */
+export const providerCommandNames: Record<string, readonly string[]> = {
+  codex: codexCommandPreviews.map(item => item.name),
+  claude: ["compact"],
+  opencode: ["init", "review", "compact"],
+};

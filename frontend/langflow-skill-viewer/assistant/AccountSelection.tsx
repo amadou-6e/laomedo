@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Check, ChevronDown, ExternalLink } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import ProviderIcon from "./ProviderIcon";
@@ -10,17 +10,18 @@ export default function AccountSelection({ accounts, provider, selected, generat
   disabled: boolean; onSelect: (account: SavedConnection) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const labelId = useId();
   const current = accounts.find(item => item.connection_id === selected && item.generation === generation);
   const providerName = ({ codex: "Codex", claude: "Claude", opencode: "OpenCode" } as Record<string, string>)[provider] ?? provider;
   const connected = accounts.filter(item => item.lifecycle === "connected");
   return <div className="relative mr-auto min-w-0 text-xs">
     <Popover open={open && !disabled} onOpenChange={setOpen}>
     <PopoverTrigger asChild>
-    <button type="button" aria-label="Account" aria-expanded={open} disabled={disabled}
+    <button type="button" aria-label="Account" aria-describedby={labelId} aria-expanded={open && !disabled} disabled={disabled}
       title={current?.label ?? `${providerName} account`}
       className="flex max-w-52 items-center gap-1.5 rounded-md border border-border/50 bg-foreground/5 px-2 py-1 text-muted-foreground hover:bg-foreground/10 focus-visible:outline focus-visible:outline-2 disabled:opacity-70">
       <ProviderIcon provider={provider} className="h-3.5 w-3.5" />
-      <span className="truncate">{current?.label ?? (selected ? "Account unavailable" : `${providerName} account`)}</span>
+      <span id={labelId} className="truncate">{current?.label ?? (selected ? "Account unavailable" : `${providerName} account`)}</span>
       {!disabled && <ChevronDown size={12} />}
     </button>
     </PopoverTrigger>

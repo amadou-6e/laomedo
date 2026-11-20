@@ -12,6 +12,7 @@ test("selects an exact saved account with keyboard navigation and restores trigg
   const select = jest.fn();
   render(<AccountSelection accounts={accounts} provider="codex" selected="personal" generation={1} disabled={false} onSelect={select} />);
   const trigger = screen.getByRole("button", { name: "Account" });
+  expect(trigger).toHaveAccessibleDescription("Personal");
   fireEvent.click(trigger);
   const personal = await screen.findByRole("menuitemradio", { name: "Personal" });
   expect(personal).toHaveAttribute("aria-checked", "true");
