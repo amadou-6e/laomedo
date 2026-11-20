@@ -476,9 +476,6 @@ class ClaudeComponentTests(unittest.IsolatedAsyncioTestCase):
         import laomedo.agents.interface.langflow.component as common
 
         for code in (
-            "claude_host_login_unavailable",
-            "claude_host_login_expired",
-            "claude_local_login_copy_failed",
             "claude_model_required",
             "claude_native_skill_policy_unsupported",
             "unsupported_claude_effort",

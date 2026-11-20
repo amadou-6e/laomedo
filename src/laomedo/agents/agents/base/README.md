@@ -153,7 +153,7 @@ An architecture regression scans all Agent sources for lifecycle bypasses.
 | `publish(...)` | Delegate to an explicitly configured publication controller; does not own GitHub authorization. |
 
 Protected extension points are `runtime_binding`, `recover_interrupted`,
-`prepare_resume`, `_execute` and `_mirror_host_login`. Constructor recovery can
+`prepare_resume`, `_execute` and `_prepare_credentials`. Constructor recovery can
 run before concrete initialization completes. Keep this ordering explicit.
 Private helpers (`_prepare`, `_materialize`, `_freeze_workspace`, `_run_dir`)
 are not application entrypoints. File-backed records and persisted schemas are

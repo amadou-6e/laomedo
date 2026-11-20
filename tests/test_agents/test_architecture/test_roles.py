@@ -80,10 +80,6 @@ class ProviderRoleTests(unittest.TestCase):
         opencode = OpenCodeCredentialProvider("admitted-profile")
         with (
             patch(
-                "laomedo.agents.agents.claude.credentials.Settings",
-                return_value=SimpleNamespace(mirror_host_login="0"),
-            ),
-            patch(
                 "laomedo.agents.agents.opencode.credentials.check_auth_fresh"
             ) as check_profile,
         ):

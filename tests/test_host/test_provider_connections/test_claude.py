@@ -183,14 +183,12 @@ class ClaudeConnectionTests(unittest.TestCase):
                 closer.join(3)
         self.assertIn("browser", self.service.revoked_leases)
 
-    def test_saved_native_auth_never_mirrors_host_login(self):
-        """Even an operator mirror opt-in cannot replace a saved account's profile."""
+    def test_saved_native_auth_checks_connection_admission(self):
+        """Preparation admits the exact saved connection before native access."""
         guard = Mock()
         agent = SimpleNamespace(auth_connection=guard)
-        with patch("laomedo.agents.agents.claude.credentials.mirror_login") as mirror:
-            result = ClaudeCredentialProvider(agent).prepare(CredentialRequest())
+        result = ClaudeCredentialProvider(agent).prepare(CredentialRequest())
         guard.check.assert_called_once_with()
-        mirror.assert_not_called()
         self.assertEqual(result.credential_mode, "dedicated_volume")
 
     def test_native_login_url_accepts_only_exact_official_endpoints(self):

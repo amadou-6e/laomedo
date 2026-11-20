@@ -1199,21 +1199,6 @@
     "description": "The supplied status is not supported by the activity contract.",
     "recovery": "Inspect the existing run Status and share this technical code with the maintainer."
   },
-  "claude_host_login_unavailable": {
-    "title": "The local Claude login could not be read",
-    "description": "The runner could not read the selected host Claude access credential.",
-    "recovery": "Check that Claude Code is signed in on this machine and that its local credential file is available to the app."
-  },
-  "claude_host_login_expired": {
-    "title": "The copied Claude access credential needs refreshing",
-    "description": "The host credential file contains an access credential that is expired or about to expire.",
-    "recovery": "Use your signed-in host Claude session to refresh its credential, then start the task when it is ready. The runner does not refresh a duplicate login."
-  },
-  "claude_local_login_copy_failed": {
-    "title": "The local Claude login could not be copied",
-    "description": "The app could not update the dedicated local runner profile. No host profile or sessions were copied.",
-    "recovery": "Check local Docker access, the dedicated runner volume and the login-state directory's current-user ownership and private permissions. An earlier incomplete copy or a copy already in progress can also prevent this update. Confirm the earlier copy's state before retrying; do not delete a pending receipt or change an existing directory's permissions while a copy may still be active."
-  },
   "runner_service_configuration_unavailable": {
     "title": "Local backend recovery is unavailable",
     "description": "The host could not load or use its trusted local runner configuration.",

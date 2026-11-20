@@ -20,13 +20,14 @@ A container opens and closes per turn. Output correction resumes the native sess
 | `recover_interrupted(record)` | Reconcile exact recorded resources, without replaying execution. |
 | `_execute(...)` | Protected provider hook implementing execution and finalization. |
 
-Model Refresh, startup catalogue warming and Python preflight can all mirror the
-local login before their native control request. Their stage policies can exceed
-the graph's 75-second catalogue wait or a concurrent request's 65-second wait;
-caller timeout does not cancel discovery. See the authentication adapter's
-[timing and UI constraints](auth/README.md#discovery-preflight-and-startup-timing).
+Model discovery and execution use the explicitly authenticated dedicated profile.
+`ClaudeCredentialProvider.prepare` checks saved-connection admission without
+reading or copying host login files. Native login and refresh belong to that
+connection. `_prepare_credentials` is the shared pre-dispatch admission hook.
+The runtime cleanup reserve remains in `settings.py`; no host-login mirror
+package, flags, writer or error codes are supported.
 
-Native `activity/` and authentication under `auth/` (where implemented) belong
+Native `activity/` and credential admission in `credentials.py` belong
 to this provider. `settings.py` owns protocol pins/configuration; `models.py`
 owns structured values where present. No empty auth/model modules are required
 for symmetry. Provider-independent secure storage, grants and Docker mechanics

@@ -1,4 +1,4 @@
-"""Claude-native login mirroring and zero-turn authentication admission."""
+"""Claude-native profile and zero-turn authentication admission."""
 
 import hashlib
 import json
@@ -7,50 +7,21 @@ from laomedo.agents.agents.base.base import BaseCredentialProvider
 from laomedo.agents.agents.base.models import CredentialBinding
 from laomedo.agents.agents.base.models import CredentialRequest
 from laomedo.agents.agents.base.models import CleanupObservation
-from laomedo.agents.agents.claude.auth.settings import Settings
-from laomedo.agents.agents.claude.auth.errors import LocalClaudeLoginError
-from laomedo.agents.agents.claude.auth.utils import mirror_login
 from laomedo.agents.errors import RunnerError
 
 
 class ClaudeCredentialProvider(BaseCredentialProvider):
-    """Own Claude admission; borrowed host login refresh remains native and opt-in."""
+    """Own admission to the explicitly authenticated native profile."""
 
     def __init__(self, agent):
-        """Bind native control/mirror policy without performing login or model work."""
+        """Bind native control policy without performing login or model work."""
         self.agent = agent
 
     def prepare(self, request: CredentialRequest) -> CredentialBinding:
-        """Mirror access-only state when opted in, preserving original validity limits."""
+        """Check saved-connection admission without reading host login files."""
         saved = getattr(self.agent, "auth_connection", None)
         if saved is not None:
             saved.check()
-            return CredentialBinding(
-                credential_mode="dedicated_volume",
-                credential_ref=None,
-                auth_outcome="prepared",
-            )
-        minimum_validity_seconds, deadline = (
-            request.minimum_validity_seconds,
-            request.deadline,
-        )
-        if Settings().mirror_host_login == "1":
-            try:
-                options = {"deadline": deadline} if deadline is not None else {}
-                mirror_login(
-                    self.agent.container.profile,
-                    self.agent.container.image_id,
-                    minimum_validity_seconds=minimum_validity_seconds
-                    or self.agent.turn_timeout,
-                    **options,
-                )
-            except LocalClaudeLoginError as error:
-                if str(error) == "claude_host_login_unavailable":
-                    raise RunnerError("claude_host_login_unavailable") from None
-                if str(error) == "claude_host_login_expired":
-                    raise RunnerError("claude_host_login_expired") from None
-                raise RunnerError("claude_local_login_copy_failed") from None
-
         return CredentialBinding(
             credential_mode="dedicated_volume",
             credential_ref=None,
@@ -64,7 +35,7 @@ class ClaudeCredentialProvider(BaseCredentialProvider):
             request.deadline,
         )
         timeout = request.timeout_seconds
-        self.agent._mirror_host_login(
+        self.agent._prepare_credentials(
             minimum_validity_seconds=minimum_validity_seconds, deadline=deadline
         )
         options = {}

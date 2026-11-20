@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+CLEANUP_SECONDS = 20.0
+
+
 IMAGE = "laomedo-claude-controller:2.1.310-acp0.98.0"
 
 

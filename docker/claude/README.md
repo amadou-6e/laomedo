@@ -19,14 +19,10 @@ docker volume create --label laomedo.provider=claude laomedo-claude-profile
 docker run --rm -it --mount type=volume,source=laomedo-claude-profile,target=/profile laomedo-claude-controller:2.1.310-acp0.98.0 auth login
 ```
 
-Use a separate subscription login or an explicitly authorized login-only local
-migration. Do not mount a personal profile, copy personal sessions, forward API
-billing keys, or put credentials in source, graphs or logs. Avoid concurrent
-credential refreshes from duplicate logins. For an opted-in single-user local
-runner, managed startup can set `mirror_host_claude_login: true`. The host mirrors
-only its current access credential before authentication checks; the rotating
-refresh credential is never copied. Refresh or sign in on the host when its access
-credential expires. Remote Docker endpoints are refused for this mirror. The volume retains the native
+Use Settings ? Providers for an app-owned connection or sign in explicitly in
+the dedicated standalone volume. Do not mount or copy a personal host profile,
+sessions or credentials, forward API billing keys, or put credentials in source,
+graphs or logs. The volume retains the native
 sessions required for Resume; deleting it invalidates those sessions.
 
 Start an independent `laomedo.host.leases.service_cli` for exact ownership/heartbeat cleanup
