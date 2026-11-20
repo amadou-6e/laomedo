@@ -15,6 +15,9 @@ import {
   History,
 } from "lucide-react";
 import { OpenAiIcon } from "@/icons/OpenAi";
+import IconComponent from "@/components/common/genericIconComponent";
+import openCodeLogoDark from "./assets/opencode-logo-dark.svg";
+import openCodeLogoLight from "./assets/opencode-logo-light.svg";
 import { Button } from "@/components/ui/button";
 import useAuthStore from "@/stores/authStore";
 import { describeNodeFailure } from "@/components/laomedoErrors/nodeErrors";
@@ -73,6 +76,7 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
   const [error, setError] = useState<string>();
   const [locked, setLocked] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [discovering, setDiscovering] = useState(false);
   const [history, setHistory] = useState(!embedded);
   const [renaming, setRenaming] = useState<string>();
   const [titleDraft, setTitleDraft] = useState("");
@@ -347,7 +351,7 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
   const discover = useCallback(async () => {
     if (!providerKnown) return;
     const epoch = generation.current;
-    setBusy(true);
+    setDiscovering(true);
     setModels(undefined);
     setError(undefined);
     try {
@@ -356,7 +360,7 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
     } catch (failure) {
       if (epoch === generation.current && providerRef.current === chosenProvider) fail(failure);
     } finally {
-      if (epoch === generation.current && providerRef.current === chosenProvider) setBusy(false);
+      if (epoch === generation.current && providerRef.current === chosenProvider) setDiscovering(false);
     }
   }, [fail, chosenProvider, providerKnown]);
 
@@ -602,6 +606,7 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
       !active &&
       !waiting &&
       !busy &&
+      !discovering &&
       !detail?.observation_error &&
       !error,
   );
@@ -986,7 +991,7 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
                         {[["codex", "Codex", "OpenAI"], ["claude", "Claude", "Anthropic"], ["opencode", "OpenCode", "Connected models"]].map(([id, name, description]) => (
                           <label key={id} className={`mb-2 flex cursor-pointer items-center gap-4 rounded-2xl border p-4 has-[:focus-visible]:outline has-[:focus-visible]:outline-2 ${provider === id ? "border-primary/40 bg-primary/5" : "border-border"}`}>
                             <input type="radio" name="assistant-provider" aria-label={name} checked={provider === id} disabled={Boolean(pending[""])} onChange={() => { setProvider(id); setModels(undefined); setModel(""); setEffort(""); setError(undefined); }} className="sr-only" />
-                            <span aria-hidden="true" className="text-4xl">{id === "codex" ? <OpenAiIcon /> : <MessageSquare size={32} />}</span>
+                            <span aria-hidden="true" className="text-4xl">{id === "codex" ? <OpenAiIcon /> : id === "claude" ? <IconComponent name="Claude" className="h-8 w-8" /> : <><img src={openCodeLogoLight} className="h-8 w-8 object-contain dark:hidden" alt="" /><img src={openCodeLogoDark} className="hidden h-8 w-8 object-contain dark:block" alt="" /></>}</span>
                             <span className="min-w-0 flex-1"><span className="block text-sm font-medium">{name}</span><span className="mt-1 block text-xs text-muted-foreground">{description}</span></span>
                             {provider === id && <span className="inline-flex items-center gap-1 text-xs text-primary"><Check size={14} />Selected</span>}
                           </label>
@@ -1025,7 +1030,7 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
                 readOnly={
                   busy ||
                   active ||
-                  Boolean(selected && (!detail || needsAttention || waiting))
+                  Boolean(selected && (needsAttention || waiting))
                 }
                 onChange={(event) =>
                   setDrafts((value) => ({
@@ -1050,7 +1055,7 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
                   models={models}
                   model={model}
                   effort={effort}
-                  disabled={busy || active || Boolean(waiting)}
+                  disabled={busy || discovering || active || Boolean(waiting)}
                   onModel={(value) => {
                     const next = models?.models.find(
                       (item) => item.id === value,

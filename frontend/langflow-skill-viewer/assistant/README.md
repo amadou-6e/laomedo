@@ -163,3 +163,8 @@ The chat ID and native thread ID are separately labelled.
 Copy/export continue to preserve the original native response.
 Executed native command messages are plain right-aligned text, without the normal
 user-message bubble. Ordinary user messages retain their existing appearance.
+
+Model discovery has its own loading state: switching conversations never locks
+the draft editor while model discovery or history is loading. Sending still waits
+for the selected conversation, available models and execution admission. Native
+approval cards align to the right; their white Approve button is the primary action.

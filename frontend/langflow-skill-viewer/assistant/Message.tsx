@@ -19,7 +19,7 @@ import type { GraphAction, NativeAction } from "./models";
 export function UserMessage({
   text,
   createdAt,
-  command = false,
+  command = /^\/[a-z][a-z0-9_-]*(?:\s|$)/i.test(text),
 }: {
   text: string;
   createdAt?: number;
@@ -140,7 +140,7 @@ export default function MessageRow({
   }
   return (
     <section className="space-y-5" aria-label="Message and response">
-      <UserMessage text={message.text} createdAt={message.created_at} command={Boolean(message.native_action_id)} />
+      <UserMessage text={message.text} createdAt={message.created_at} command={message.native_action_id ? true : undefined} />
       {nativeStatus ? <NativeStatus text={message.response!} conversation={conversation} /> : groups.map((group) => {
         const lane = group[0];
         const text = messageText(lane.item ?? {}, provider);

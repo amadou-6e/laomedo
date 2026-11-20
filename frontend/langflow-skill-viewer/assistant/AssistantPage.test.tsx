@@ -19,12 +19,33 @@ jest.mock("./Message", () => ({
   UserMessage: ({ text }: { text: string }) => <p>{text}</p>,
 }));
 jest.mock("@/icons/OpenAi", () => ({ OpenAiIcon: () => null }));
+jest.mock("@/components/common/genericIconComponent", () => ({ __esModule: true, default: () => null }));
+jest.mock("./assets/opencode-logo-dark.svg", () => "opencode-dark.svg");
+jest.mock("./assets/opencode-logo-light.svg", () => "opencode-light.svg");
 jest.mock("@/stores/authStore", () => ({
   __esModule: true,
   default: (select: any) => select({ userData: { id: "owner" } }),
 }));
 
 describe("uncertain assistant submission", () => {
+  it("lets a user draft immediately while the selected provider's model discovery is pending", async () => {
+    const chat = { id: "saved", title: "Saved", provider: "codex", model: "fixture", effort: "low", state: "idle", active_message_id: null };
+    let finish!: (value: unknown) => void;
+    jest.mocked(assistantRequest).mockImplementation(async path => {
+      if (path === "/models") return new Promise(resolve => { finish = resolve; });
+      if (path === "/conversations") return { conversations: [chat], next_cursor: null };
+      return { conversation: chat, messages: [], drafts: [], next_cursor: null };
+    });
+    render(<MemoryRouter initialEntries={["/assistant?conversation=saved"]}><AssistantPage /></MemoryRouter>);
+    const composer = await screen.findByRole("textbox", { name: "Message this assistant" });
+    await waitFor(() => expect(finish).toBeDefined());
+    expect(composer).not.toHaveAttribute("readonly");
+    fireEvent.change(composer, { target: { value: "My next question" } });
+    expect(composer).toHaveValue("My next question");
+    expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
+    await act(async () => finish({ provider: "codex", models: [{ id: "fixture", efforts: ["low"] }] }));
+    expect(composer).toHaveValue("My next question");
+  });
   it("puts conversation title and full-window action in one header and keeps the action reachable in history", async()=>{
     const chat={id:"saved",title:"Hello",model:"fixture",effort:"low",state:"idle",active_message_id:null};
     jest.mocked(assistantRequest).mockImplementation(async path=>{
