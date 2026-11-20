@@ -264,6 +264,12 @@ class ProviderControllers:
             else None
         )
 
+    def assistant_live_session(self, profile_id, connection_id, generation, run_id):
+        """Observe actual retained native ownership in this exact assistant scope."""
+        self.assistant_endpoint(profile_id, connection_id, generation, run_id=run_id)
+        slot = self.slots[(profile_id, connection_id, generation, "assistant")]
+        return slot.runner.has_live_session(run_id)
+
     def assistant_settled(self, profile_id, connection_id, generation, run_id):
         """Observe actual lock and MCP cleanup; a terminal record alone is insufficient."""
         self.assistant_endpoint(profile_id, connection_id, generation, run_id=run_id)

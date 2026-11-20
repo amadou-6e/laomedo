@@ -105,6 +105,15 @@ class AssistantRunner:
     def shutdown(self):
         """Leave shared saved-account cleanup and listener ownership with its manager."""
 
+    def has_live_session(self, run_id):
+        """Read the native owner's actual in-memory retention, never a record claim."""
+        try:
+            return self.manager().assistant_live_session(
+                self.owner, self.connection_id, self.connection_generation, run_id
+            )
+        except ProviderConnectionError as error:
+            raise AssistantError(error.code, 409) from None
+
     def is_settled(self, run_id):
         """Read actual owned cleanup facts through the controller boundary."""
         return self.manager().assistant_settled(

@@ -239,3 +239,12 @@ asynchronous request digest; it never silently becomes an ordinary model prompt.
 for reserved, running or uncertain continuations without starting work. Connection
 inventory and cleanup include these reservations even when the retained parent
 run still has a terminal status. Only settled journal entries leave that inventory.
+
+### Retained native session ownership
+
+`BaseAgent.has_live_session(run_id)` reports actual in-memory native resource
+ownership between requests; the default is false. It does not claim an active
+model turn, persisted history or cleanup. `BaseAgent.close()` is the shared
+teardown entry point. Providers retaining resources override it to close those
+resources on their original native thread after requesting active cancellation.
+Completed control commands and cleanup remain separate observations.

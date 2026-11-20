@@ -131,10 +131,10 @@ async def delete_conversation(identifier: UUID, context=Depends(access)):
     """Delete one idle owned chat without touching saved workflows or run history."""
     runtime, owner, key = context
     try:
-        await runtime.release_idle_session(owner, identifier)
         result = await runtime.store.delete_conversation(
             owner, identifier, session_key=key
         )
+        await runtime.release_idle_session(owner, identifier)
         return await release(runtime, owner, key, result)
     except AssistantError as error:
         raise HTTPException(error.status, detail={"code": error.code}) from None

@@ -9,6 +9,8 @@ from datetime import datetime, timezone
 import tempfile
 import time
 import unittest
+import asyncio
+from fastapi import HTTPException
 from unittest.mock import AsyncMock, Mock, patch
 from uuid import UUID, uuid4
 
@@ -43,6 +45,7 @@ class RunnerObservation:
         self.requests = []
         self.dispatch = None
         self.settled = True
+        self.live = False
 
     def request(self, method, path, body=None):
         self.requests.append((method, path))
@@ -51,6 +54,9 @@ class RunnerObservation:
         if "/resume/" in path:
             return self.dispatch
         return self.record
+
+    def has_live_session(self, run_id):
+        return self.live
 
     def is_settled(self, run_id):
         return self.settled
@@ -403,9 +409,126 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
             state="running",
         )
 
+    async def test_completed_zero_turn_control_needs_actual_live_ownership_not_cleanup_claims(
+        self,
+    ):
+        await self.bind()
+        self.record.update(
+            live_session="idle",
+            controller_cleanup="retained",
+            container_ownership={"cleanup_verified": False},
+            turns=[],
+            native_command_receipts=[
+                {
+                    "attempt_id": self.native_id,
+                    "status": "completed",
+                    "request": {"name": "status"},
+                }
+            ],
+        )
+        self.assertFalse(
+            await self.runtime.reconcile(
+                self.owner, self.identifier, defer_settlement=True
+            )
+        )
+        self.runner.live = True
+        self.assertTrue(
+            await self.runtime.reconcile(
+                self.owner, self.identifier, defer_settlement=True
+            )
+        )
+        self.assertTrue(await self.runtime.reconcile(self.owner, self.identifier))
+        detail = await self.store.detail(self.owner, self.identifier)
+        self.assertEqual(detail["messages"][0]["state"], "completed")
+        self.assertEqual(detail["conversation"]["thread_id"], self.record["thread_id"])
+        self.assertEqual(self.record["controller_cleanup"], "retained")
+        self.assertFalse(self.record["container_ownership"]["cleanup_verified"])
+
+    async def test_account_removal_reaps_inactive_tools_and_cancels_the_exact_run(self):
+        await self.bind()
+        context = AuthoringContext(
+            owner_id=self.owner,
+            conversation_id=self.identifier,
+            message_id=self.message_id,
+            attempt_id=self.message["attempt_id"],
+            session_key="fixture",
+        )
+        registration = SimpleNamespace(registration_id=uuid4())
+        client = SimpleNamespace(disconnect=AsyncMock())
+        self.runtime.runners[
+            self.runtime._runner_key(self.owner, "codex", self.connection_id, 1)
+        ] = self.runner
+        registry = Mock()
+        with patch(
+            "laomedo.integrations.langflow.assistant.runtime.McpRegistry.current",
+            return_value=registry,
+        ):
+            await self.runtime._close_tools(
+                context, registration, client, "fixture-inactive-token", retain=True
+            )
+            self.runtime.check_connection.side_effect = AssistantError(
+                "provider_connection_changed", 409
+            )
+            reaper = asyncio.create_task(self.runtime._reap_idle_tools())
+            try:
+                for _ in range(40):
+                    if self.identifier not in self.runtime.idle_tools:
+                        break
+                    await asyncio.sleep(0.1)
+                self.assertNotIn(self.identifier, self.runtime.idle_tools)
+                await asyncio.sleep(0.1)
+                self.assertIn(
+                    ("POST", "/v1/runs/" + self.run_id + "/cancel"),
+                    self.runner.requests,
+                )
+                registry.release.assert_called_once_with(
+                    str(registration.registration_id)
+                )
+                client.disconnect.assert_awaited_once()
+            finally:
+                self.runtime.closing = True
+                reaper.cancel()
+                await asyncio.gather(reaper, return_exceptions=True)
+
+    async def test_refused_delete_does_not_release_idle_native_ownership(self):
+        from laomedo.integrations.langflow.assistant.routes import delete_conversation
+
+        await self.bind()
+        context = AuthoringContext(
+            owner_id=self.owner,
+            conversation_id=self.identifier,
+            message_id=self.message_id,
+            attempt_id=self.message["attempt_id"],
+            session_key="fixture",
+        )
+        registry = Mock()
+        client = SimpleNamespace(disconnect=AsyncMock())
+        with patch(
+            "laomedo.integrations.langflow.assistant.runtime.McpRegistry.current",
+            return_value=registry,
+        ):
+            await self.runtime._close_tools(
+                context,
+                SimpleNamespace(registration_id=uuid4()),
+                client,
+                "fixture-inactive-token",
+                retain=True,
+            )
+            held = self.runtime.idle_tools[self.identifier]
+            with self.assertRaises(HTTPException) as refusal:
+                await delete_conversation(
+                    self.identifier, context=(self.runtime, self.owner, "fixture")
+                )
+            self.assertEqual(refusal.exception.status_code, 409)
+            self.assertIs(self.runtime.idle_tools[self.identifier], held)
+            registry.release.assert_not_called()
+            client.disconnect.assert_not_awaited()
+            self.assertEqual(self.runner.requests, [])
+
     async def test_retained_tools_are_inactive_and_old_cleanup_cannot_revoke_the_next_message(
         self,
     ):
+        await self.bind()
         context = AuthoringContext(
             owner_id=self.owner,
             conversation_id=self.identifier,

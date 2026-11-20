@@ -60,6 +60,16 @@ class IdleAssistantTools(BaseModel):
         repr=False,
         description="Original owner, conversation and browser lease; never tool-call authority while idle.",
     )
+    provider: Literal["codex", "claude", "opencode"] = ModelField(
+        description="Immutable provider selected for this conversation."
+    )
+    connection_id: UUID = ModelField(description="Exact selected saved account.")
+    connection_generation: int = ModelField(
+        description="Original account admission epoch."
+    )
+    run_id: str = ModelField(
+        description="Exact native invocation whose resources remain idle."
+    )
     registration: Any = ModelField(
         exclude=True, repr=False, description="Exact existing frozen MCP registration."
     )

@@ -94,6 +94,7 @@ class AssistantRuntime:
             await self.store.initialize()
             self.check_retired_runners()
             async with self.mcp.server.session_manager.run():
+                idle_reaper = None
                 self.ready = True
                 try:
                     # Reservations remain reconcile-only after app restart. Native
@@ -112,9 +113,13 @@ class AssistantRuntime:
                     )
 
                     await WorkflowActions(self.store, None, self.authorize).reconcile()
+                    idle_reaper = asyncio.create_task(self._reap_idle_tools())
                     yield state
                 finally:
                     self.closing = True
+                    if idle_reaper is not None:
+                        idle_reaper.cancel()
+                        await asyncio.gather(idle_reaper, return_exceptions=True)
                     self.ready = False
                     self.host_tokens.clear()
                     for idle in list(self.idle_tools.values()):
@@ -343,38 +348,33 @@ class AssistantRuntime:
         await self.authorize(context)
         return context
 
-    async def release_idle_session(self, owner, identifier):
+    async def release_idle_session(self, owner, identifier, *, expected=None):
         """Revoke the inactive endpoint and cancel only its exact owned native run."""
         idle = self.idle_tools.get(identifier)
-        if idle is None or idle.context.owner_id != owner:
+        if (
+            idle is None
+            or idle.context.owner_id != owner
+            or (expected is not None and idle is not expected)
+        ):
             return
         self.idle_tools.pop(identifier, None)
         await self._close_tools(
             idle.context, idle.registration, idle.client, idle.token.get_secret_value()
         )
-        try:
-            conversation, message = await self.store.message(
-                owner, identifier, idle.context.message_id
+        runner = self.runners.get(
+            self._runner_key(
+                owner, idle.provider, idle.connection_id, idle.connection_generation
             )
-            runner = self.runners.get(
-                self._runner_key(
-                    owner,
-                    conversation.provider,
-                    conversation.connection_id,
-                    conversation.connection_generation,
-                )
-            )
-            if runner is not None and conversation.run_id:
+        )
+        if runner is not None:
+            try:
                 await asyncio.to_thread(
-                    runner.request,
-                    "POST",
-                    "/v1/runs/" + conversation.run_id + "/cancel",
-                    {},
+                    runner.request, "POST", "/v1/runs/" + idle.run_id + "/cancel", {}
                 )
-        except AssistantError:
-            # Registry access is already revoked; native ownership remains under
-            # its existing independent health/cleanup path when HTTP is lost.
-            pass
+            except AssistantError:
+                # Tool authority is already revoked; exact native ownership stays
+                # under its independent cleanup path if the gateway is lost.
+                pass
 
     async def lock_session(self, key):
         """Revoke tools immediately and persist the fence before sign-out completes."""
@@ -838,14 +838,57 @@ class AssistantRuntime:
             else "assistant_turn_failed"
         )
 
+    async def _reap_idle_tools(self):
+        """Release inactive transports after account removal or native idle cleanup."""
+        while not self.closing:
+            await asyncio.sleep(1)
+            for identifier, idle in list(self.idle_tools.items()):
+                release = False
+                try:
+                    self.check_connection(
+                        idle.context.owner_id,
+                        idle.provider,
+                        idle.connection_id,
+                        idle.connection_generation,
+                    )
+                    runner = self.runners.get(
+                        self._runner_key(
+                            idle.context.owner_id,
+                            idle.provider,
+                            idle.connection_id,
+                            idle.connection_generation,
+                        )
+                    )
+                    release = runner is None or not await asyncio.to_thread(
+                        runner.has_live_session, idle.run_id
+                    )
+                except AssistantError:
+                    release = True
+                if release:
+                    await self.release_idle_session(
+                        idle.context.owner_id, identifier, expected=idle
+                    )
+
     async def _close_tools(self, context, registration, client, token, *, retain=False):
         """Revoke first, then drain actual host tool tasks before permitting another message."""
         self.contexts.pop(context.message_id, None)
         if self.host_tokens.get(token) is context:
             self.host_tokens.pop(token, None)
         if retain and registration is not None:
+            conversation, message = await self.store.message(
+                context.owner_id, context.conversation_id, context.message_id
+            )
+            if not message.run_id:
+                raise AssistantError("assistant_native_identity_mismatch", 409)
             self.idle_tools[context.conversation_id] = IdleAssistantTools(
-                context=context, registration=registration, client=client, token=token
+                provider=conversation.provider,
+                connection_id=conversation.connection_id,
+                connection_generation=conversation.connection_generation,
+                run_id=message.run_id,
+                context=context,
+                registration=registration,
+                client=client,
+                token=token,
             )
         elif registration is not None:
             McpRegistry.current().release(str(registration.registration_id))
@@ -1270,9 +1313,28 @@ class AssistantRuntime:
             and record.get("container_ownership", {}).get("cleanup_detail")
             == "not_launched"
         )
-        if not never_started and (
-            (record.get("controller_cleanup") != "confirmed" and not not_launched)
-            or record.get("container_ownership", {}).get("cleanup_verified") is not True
+        retained_control = (
+            status == "completed"
+            and record.get("live_session") == "idle"
+            and record.get("controller_cleanup") == "retained"
+            and not record.get("turns")
+            and any(
+                receipt.get("attempt_id") == native_attempt
+                and receipt.get("status") == "completed"
+                and (receipt.get("request") or {}).get("name")
+                in {"status", "mcp", "skills"}
+                for receipt in record.get("native_command_receipts", [])
+            )
+            and runner.has_live_session(record["run_id"])
+        )
+        if (
+            not never_started
+            and not retained_control
+            and (
+                (record.get("controller_cleanup") != "confirmed" and not not_launched)
+                or record.get("container_ownership", {}).get("cleanup_verified")
+                is not True
+            )
         ):
             await self.store.observe(
                 owner,
