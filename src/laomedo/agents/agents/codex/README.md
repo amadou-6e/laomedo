@@ -131,7 +131,7 @@ of native-resource cleanup. It does not claim a persisted model conversation.
   and generation changes still refuse before dispatch; no thread is replaced.
 - Managed SIWC uses pinned native command-backed bearer authentication. The fixed
   `/bin/cat /tmp/laomedo-provider-auth/access-token` helper reads a controller-only
-  0600 file inside a 0700 directory, outside persistent profiles and tool mounts.
+  0600 file inside a 0700 noexec tmpfs, outside persistent profiles and tool mounts.
   `LaomedoLaunch.writeProviderCredential` atomically replaces that file; launch
   preparation removes ACCESS_TOKEN from the native child environment. The native
   provider retains https://api.openai.com/v1, Responses and HTTP streaming.
@@ -141,6 +141,9 @@ of native-resource cleanup. It does not claim a persisted model conversation.
   or native RPC methods are supplied by callers. The Python runtime redacts each
   replacement token before sending it. Missing capability or uncertain update
   refuses dispatch and triggers normal owned cleanup.
+  This managed credential path applies to graph and assistant saved-account runs.
+  Both require the registered commands4 adapter capability; an explicit older
+  image override is refused before inference rather than using stale credentials.
 - Restart reconciles the retained resource receipt and marks that zero-turn
   session unavailable. It cannot claim the native thread survived: Codex has not
   written a rollout before its first user turn.

@@ -53,6 +53,7 @@ class CodexAgentRuntime:
         self._session_scope = ExitStack()
         self.session = self.acp = self.executor = self.telemetry = None
         self.native_commands_supported = False
+        self.credential_refresh_supported = False
         self.managed_credential = bool(split is not None and split.managed_credential)
         self._cancelled = None
         self._protocol_ready = False
@@ -129,7 +130,14 @@ class CodexAgentRuntime:
             from pydantic import SecretStr
 
             environment["LAOMEDO_CODEX_ARGS"] = SecretStr(json.dumps(arguments))
-            spec = spec.model_copy(update={"environment": environment})
+            private_tmpfs = dict(spec.tmpfs)
+            if self.managed_credential:
+                private_tmpfs["/tmp/laomedo-provider-auth"] = (
+                    "rw,noexec,nosuid,size=1m,mode=0700,uid=10001,gid=10001"
+                )
+            spec = spec.model_copy(
+                update={"environment": environment, "tmpfs": private_tmpfs}
+            )
             self.raw_log = (evidence / "raw-events.jsonl").open("a", encoding="utf-8")
             self.logs.append(self.raw_log)
             self.activity_log = (evidence / "activity-events.jsonl").open(
@@ -206,7 +214,7 @@ class CodexAgentRuntime:
         self.native_commands_supported = advertised.get("nativeCommands") == 1
         self.credential_refresh_supported = advertised.get("credentialRefresh") == 1
         if self.managed_credential and not self.credential_refresh_supported:
-            raise RunnerError("runner_authentication_required")
+            raise RunnerError("codex_credential_update_unconfirmed")
         if self.executor is not None:
             self.assert_controller_isolated()
             executor = self.executor
@@ -259,13 +267,16 @@ class CodexAgentRuntime:
     async def refresh_credential(self, token):
         """Update only the existing controller's bearer after host account admission."""
         if not self.credential_refresh_supported or self.executor is None:
-            raise RunnerError("runner_authentication_required")
+            raise RunnerError("codex_credential_update_unconfirmed")
         self.secret_redactions += (token,)
-        result = await self.extension(
-            "laomedo/refreshCredential", {"accessToken": token}
-        )
+        try:
+            result = await self.extension(
+                "laomedo/refreshCredential", {"accessToken": token}
+            )
+        except RunnerError:
+            raise RunnerError("codex_credential_update_unconfirmed") from None
         if result != {"updated": True}:
-            raise RunnerError("runner_authentication_required")
+            raise RunnerError("codex_credential_update_unconfirmed")
 
     async def open(self, record, *, resume, reuse=False):
         """Bind the actual native session and confirm advertised model settings."""

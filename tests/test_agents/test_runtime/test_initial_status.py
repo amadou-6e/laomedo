@@ -25,21 +25,10 @@ class InitialStatusTests(unittest.TestCase):
         }
 
     def test_rotated_access_token_updates_the_existing_native_session(self):
-        self.runner.transport = InitialStatusTransport
-        identity = {
-            "credential_ref": "fixture-account",
-            "provider_subject_hash": "fixture-subject",
-            "generation": 1,
-            "auth_outcome": "active",
-        }
-        self.runner.auth = Mock()
-        self.runner.auth.access_token.return_value = ("fixture-initial-token", identity)
-        self.runner.auth.account.return_value = {"state": "active"}
-        self.runner.auth.summary.return_value = identity
+        result, identity = self._authenticated_status()
         with patch.object(
             InitialStatusTransport, "refresh_credential", new=AsyncMock(), create=True
         ) as refresh:
-            result = self.runner.start(self.request())
             self.assertTrue(self.runner.has_live_session(result["run_id"]))
             self.runner.auth.access_token.return_value = (
                 "fixture-renewed-token",
@@ -85,6 +74,57 @@ class InitialStatusTests(unittest.TestCase):
         self.assertEqual(FakeServer.turn_inputs, ["Hello"])
         self.assertFalse(self.runner.has_live_session(result["run_id"]))
         self.assertEqual(following["controller_cleanup"], "confirmed")
+
+    def test_unconfirmed_credential_update_closes_without_a_model_prompt(self):
+        result, identity = self._authenticated_status()
+        held = self.runner._idle_sessions[result["run_id"]]
+        self.runner.auth.access_token.return_value = ("fixture-renewed-token", identity)
+        with patch.object(
+            InitialStatusTransport,
+            "refresh_credential",
+            new=AsyncMock(
+                side_effect=RunnerError("codex_credential_update_unconfirmed")
+            ),
+            create=True,
+        ) as refresh:
+            following = self.runner.resume(
+                result["run_id"],
+                "Must not dispatch",
+                expected_thread_id=result["thread_id"],
+                expected_post_run_hash=result["post_run_hash"],
+                model="test-model",
+                effort="low",
+            )
+        refresh.assert_awaited_once()
+        self.assertEqual(following["status"], "failed")
+        self.assertEqual(
+            following["error_category"], "codex_credential_update_unconfirmed"
+        )
+        self.assertTrue(held.runtime.log.closed)
+        self.assertEqual(following["controller_cleanup"], "confirmed")
+        self.assertFalse(self.runner.has_live_session(result["run_id"]))
+        self.assertEqual(FakeServer.turn_inputs, [])
+
+    def test_changed_account_refuses_before_native_credential_update(self):
+        result, identity = self._authenticated_status()
+        self.runner.auth.access_token.return_value = (
+            "fixture-other-account-token",
+            {**identity, "credential_ref": "other-account"},
+        )
+        with patch.object(
+            InitialStatusTransport, "refresh_credential", new=AsyncMock(), create=True
+        ) as refresh:
+            with self.assertRaisesRegex(RunnerError, "resume_auth_identity_mismatch"):
+                self.runner.resume(
+                    result["run_id"],
+                    "Must not dispatch",
+                    expected_thread_id=result["thread_id"],
+                    expected_post_run_hash=result["post_run_hash"],
+                    model="test-model",
+                    effort="low",
+                )
+        refresh.assert_not_awaited()
+        self.assertEqual(FakeServer.turn_inputs, [])
 
     def test_idle_cancellation_releases_the_controller_without_dispatching_a_turn(self):
         self.runner.transport = InitialStatusTransport
@@ -177,3 +217,17 @@ class InitialStatusTests(unittest.TestCase):
             with self.subTest(change=change), self.assertRaises(RunnerError):
                 self.runner.start({**self.request(), **change})
         self.assertEqual(FakeServer.turn_inputs, [])
+
+    def _authenticated_status(self):
+        self.runner.transport = InitialStatusTransport
+        identity = {
+            "credential_ref": "fixture-account",
+            "provider_subject_hash": "fixture-subject",
+            "generation": 1,
+            "auth_outcome": "active",
+        }
+        self.runner.auth = Mock()
+        self.runner.auth.access_token.return_value = ("fixture-initial-token", identity)
+        self.runner.auth.account.return_value = {"state": "active"}
+        self.runner.auth.summary.return_value = identity
+        return self.runner.start(self.request()), identity

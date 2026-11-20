@@ -834,6 +834,11 @@
     "description": "The controller for this status-only conversation was closed, expired or lost before its first model response.",
     "recovery": "Start a new or linked conversation. This unused native thread has no saved model history to resume; your previous request will not be replayed."
   },
+  "codex_credential_update_unconfirmed": {
+    "title": "The session credential update was not confirmed",
+    "description": "Laomedo could not confirm that this controller accepted the current account credential. No new model prompt was sent.",
+    "recovery": "Start a new or linked conversation after controller cleanup completes. This does not by itself mean your account needs signing in again. The failed request will not be replayed."
+  },
   "empty_token": {
     "title": "The runner credential is empty",
     "description": "The local runner credential file contains no usable token.",

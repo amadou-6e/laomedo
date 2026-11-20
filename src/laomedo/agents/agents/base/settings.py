@@ -201,6 +201,7 @@ RUNNER_FAILURE_CODES = frozenset(
         "run_not_active_in_this_process",
         "run_not_dispatchable",
         "codex_idle_session_unavailable",
+        "codex_credential_update_unconfirmed",
         "run_timeout_not_supported",
         "runner_busy",
         "runner_authentication_required",

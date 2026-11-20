@@ -92,7 +92,8 @@ request. It accepts only `accessToken`, returns `{updated: true}`, and never
 forwards credentials into native event history. `LaomedoLaunch` initializes the
 controller-private file before spawning native Codex. The extension atomically
 replaces it only in managed split mode outside an active prompt. Both initial
-and refreshed credentials remain outside executor mounts and persistent profiles.
+and refreshed credentials remain in a controller-private tmpfs, outside executor
+mounts, the writable image layer and persistent profiles.
 Pinned native 0.159.2 command-backed provider auth reads the file; its 1 ms cache
 is allowed to expire before acknowledgement. This changes no native session IDs.
 The host remains the sole OAuth-refresh owner and checks selected account identity
