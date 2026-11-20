@@ -495,6 +495,10 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
             const catalog = await assistantRequest<NativeCommandCatalog>(`/conversations/${target}/native-commands`);
             if (epoch !== generation.current || currentSelection.current !== target) return;
             const command = catalog.commands?.find(item => item.name === match[1]);
+            if ((catalog.state !== "available" && catalog.reason !== "native_session_not_created") ||
+                (!command && chosenProvider === "codex" && codexCommandPreviews.some(item => item.name === match[1]))) {
+              throw new AssistantFailure("native_command_not_available");
+            }
             if (command && !command.executable) throw new AssistantFailure("native_command_not_supported");
             if (command) {
               const args = match[2] ?? "";

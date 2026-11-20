@@ -70,6 +70,12 @@ describe("uncertain assistant submission", () => {
     });
     render(<MemoryRouter initialEntries={["/assistant?conversation=saved"]}><AssistantPage /></MemoryRouter>);
     const composer = screen.getByRole("textbox", {name: "Message this assistant"});
+    fireEvent.change(composer, {target: {value: "/mcp"}});
+    await waitFor(() => expect(screen.getByRole("button", {name: "Send"})).not.toBeDisabled());
+    fireEvent.keyDown(composer, {key: "Enter"});
+    await waitFor(() => expect(composer).not.toHaveAttribute("readonly"));
+    expect(screen.getByRole("button", {name: "Send"})).toBeDisabled();
+    expect(jest.mocked(assistantRequest).mock.calls.some(([path]) => path.endsWith("/messages"))).toBe(false);
     fireEvent.change(composer, {target: {value: "/sta"}});
     await waitFor(() => expect(screen.getByRole("button", {name: "Send"})).not.toBeDisabled());
     fireEvent.keyDown(composer, {key: "Enter"});
