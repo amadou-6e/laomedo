@@ -65,6 +65,27 @@ class BoundaryTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(self.application.bodies, [b"{}"])
 
+    async def test_delete_requires_the_same_origin_fence(self):
+        """Conversation deletion is a browser mutation, never an origin-free read."""
+        path = "/api/v1/laomedo/assistant/conversations/fixture"
+        self.assertEqual((await self.client.delete(path)).status_code, 403)
+        self.assertEqual(
+            (
+                await self.client.delete(
+                    path, headers={"Origin": "https://attacker.invalid"}
+                )
+            ).status_code,
+            403,
+        )
+        self.assertEqual(
+            (
+                await self.client.delete(
+                    path, headers={"Origin": "http://127.0.0.1:17881"}
+                )
+            ).status_code,
+            200,
+        )
+
     async def test_logout_revokes_before_upstream_response(self):
         response = await self.client.post(
             "/api/v1/logout",

@@ -33,7 +33,7 @@ class WorkflowDrafts:
             ).hexdigest()
         )
 
-    async def _active(self, session, context):
+    async def require_active(self, session, context):
         """Fence tool effects against the current owner, session and exact active attempt."""
         await self.authorize(context)
         await self.store.authorize(session, context.owner_id, context.session_key)
@@ -129,7 +129,7 @@ class WorkflowDrafts:
         ).hexdigest()
         try:
             async with self.store.transaction() as session:
-                await self._active(session, context)
+                await self.require_active(session, context)
                 prior = (
                     await session.exec(
                         select(AssistantDraftReceipt).where(

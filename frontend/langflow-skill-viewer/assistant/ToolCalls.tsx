@@ -1,6 +1,7 @@
 import { ChevronRight, Terminal } from "lucide-react";
 import type { Lane } from "@/modals/graphAgents/models";
 import { duration, time } from "@/modals/graphAgents/utils";
+import { toolCall } from "./toolCall";
 
 export default function ToolCalls({
   lanes,
@@ -12,17 +13,7 @@ export default function ToolCalls({
   return (
     <div className="min-w-0 border-y bg-muted/40" aria-label="Tool calls">
       {lanes.map((lane) => {
-        const item = lane.item ?? {};
-        const candidate = String(item.toolName ?? item.tool ?? item.name ?? "");
-        const name =
-          names[candidate] ??
-          (candidate && !/^external_[a-f0-9]+$/i.test(candidate)
-            ? candidate
-            : item.type === "commandExecution"
-              ? "Command"
-              : "Tool call");
-        const output = item.output ?? item.result ?? item.aggregatedOutput;
-        const input = item.arguments ?? item.input ?? item.command;
+        const { name, input, output } = toolCall(lane, names);
         return (
           <details
             key={`${lane.thread}:${lane.id}`}

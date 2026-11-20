@@ -118,6 +118,9 @@ class McpTransportTests(unittest.IsolatedAsyncioTestCase):
                         "describe_component",
                         "list_skills",
                         "save_draft",
+                        "propose_graph_edit",
+                        "propose_graph_run",
+                        "get_graph_action",
                     },
                 )
                 for tool in tools:

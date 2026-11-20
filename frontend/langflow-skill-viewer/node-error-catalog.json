@@ -2749,6 +2749,11 @@
     "description": "The application authoring service could not complete this operation.",
     "recovery": "Check the existing conversation and its retained status before taking another action. No uncertain operation should be replayed automatically."
   },
+  "assistant_conversation_active": {
+    "title": "The conversation is still active",
+    "description": "The conversation was not deleted because a response or workflow run is active.",
+    "recovery": "Stop or wait for the active work to settle, then delete the conversation again."
+  },
   "assistant_turn_active": {
     "title": "A response is already active or unsettled",
     "description": "This conversation already has an active or unsettled attempt. A second prompt was not dispatched.",
@@ -2778,5 +2783,30 @@
     "title": "The message could not be retained safely",
     "description": "This browser tab cannot retain the original submission identity. No prompt was submitted.",
     "recovery": "Enable session storage for this app before sending. Keep the original text; do not substitute a new submission for an uncertain one."
+  },
+  "assistant_action_conflict": {
+    "title": "This graph proposal changed",
+    "description": "The operation key or approval digest does not match the recorded proposal. No new action was authorized.",
+    "recovery": "Read the current action card or ask for a fresh proposal with a new operation key. Do not reuse a key with changed arguments."
+  },
+  "assistant_action_outcome_unknown": {
+    "title": "Graph action outcome is uncertain",
+    "description": "The application cannot confirm the outcome of an already-admitted graph run. Some component effects may have occurred.",
+    "recovery": "Inspect the recorded run ID and workflow history before proposing another run. The application will not automatically replay it."
+  },
+  "assistant_graph_run_failed": {
+    "title": "The approved graph run failed",
+    "description": "The existing workflow execution service reported a failure. Earlier component effects may already have occurred.",
+    "recovery": "Inspect the recorded run and configured component settings. A new run requires a new explicit approval."
+  },
+  "assistant_action_not_dispatched": {
+    "title": "The graph was not started",
+    "description": "The app could not validate authority or inputs before entering workflow execution.",
+    "recovery": "Check your current session and execution permission, then ask for a fresh proposal if you still want to run the graph."
+  },
+  "assistant_graph_name_conflict": {
+    "title": "Another graph already has that name",
+    "description": "The approved edit conflicted with an existing workflow name. No graph changes were saved.",
+    "recovery": "Choose a different name and ask for a fresh edit proposal."
   }
 }
