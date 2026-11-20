@@ -89,7 +89,7 @@ sign-in in the dedicated standalone profile. Host credential copying is not supp
 Use two terminals with the variables from step 1. The supervisor must outlive the
 runner so it can reconcile owned containers after runner loss.
 
-**Terminal A â€” independent supervisor:**
+**Terminal A — independent supervisor:**
 
 ```powershell
 & $pythonExe -m laomedo.host.leases.service_cli serve --state "$runtimeRoot/lease"

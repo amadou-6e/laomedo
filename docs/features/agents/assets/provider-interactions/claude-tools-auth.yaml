@@ -20,7 +20,7 @@ nodes:
       rounded: true
     source_files: []
     graph_reference: "A"
-    external_source: "Existing host login/account state, not repository files."
+    external_source: "Explicit native sign-in in the dedicated private profile."
   docker:
     label_html: "<b>[B] Docker lifecycle</b><br/>py-docker -&gt; Docker SDK -&gt; Engine<br/><br/>Create/attach owned containers, execute jobs, retain receipts and reconcile cleanup."
     style:

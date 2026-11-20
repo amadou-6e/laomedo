@@ -7,7 +7,7 @@ its relevant file tree beside each provider's graph.
 | Tab | Rendered preview |
 | --- | --- |
 | Run and session | [PNG](comparison-run.png) |
-| Tools and credentials | Updated editable diagram; historical PNG is archived on `exp`. |
+| Tools and credentials | [PNG](comparison-tools-auth.png) |
 | Evidence to Activity | [PNG](comparison-evidence.png) |
 
 Scroll vertically to compare providers within a concern. Card titles name the
