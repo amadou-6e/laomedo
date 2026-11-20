@@ -18,7 +18,7 @@ jest.mock("./Message", () => ({
   default: () => null,
   UserMessage: ({ text }: { text: string }) => <p>{text}</p>,
 }));
-jest.mock("@/icons/OpenAi", () => ({ OpenAiIcon: () => null }));
+jest.mock("./assets/openai-logo.svg", () => "openai-logo.svg");
 jest.mock("@/components/common/genericIconComponent", () => ({ __esModule: true, default: () => null }));
 jest.mock("./assets/opencode-logo-dark.svg", () => "opencode-dark.svg");
 jest.mock("./assets/opencode-logo-light.svg", () => "opencode-light.svg");

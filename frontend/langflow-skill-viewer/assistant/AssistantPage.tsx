@@ -14,7 +14,7 @@ import {
   Download,
   History,
 } from "lucide-react";
-import { OpenAiIcon } from "@/icons/OpenAi";
+import openAiLogo from "./assets/openai-logo.svg";
 import IconComponent from "@/components/common/genericIconComponent";
 import openCodeLogoDark from "./assets/opencode-logo-dark.svg";
 import openCodeLogoLight from "./assets/opencode-logo-light.svg";
@@ -1013,11 +1013,11 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
                         aria-label="Assistant provider"
                       >
                         {[["codex", "Codex", "OpenAI"], ["claude", "Claude", "Anthropic"], ["opencode", "OpenCode", "Connected models"]].map(([id, name, description]) => (
-                          <label key={id} className={`mb-2 flex cursor-pointer items-center gap-4 rounded-2xl border p-4 has-[:focus-visible]:outline has-[:focus-visible]:outline-2 ${provider === id ? "border-primary/40 bg-primary/5" : "border-border"}`}>
+                          <label key={id} className={`relative mb-2 flex cursor-pointer items-center justify-center gap-4 rounded-2xl border p-4 has-[:focus-visible]:outline has-[:focus-visible]:outline-2 ${provider === id ? "border-primary/40 bg-primary/5" : "border-border"}`}>
                             <input type="radio" name="assistant-provider" aria-label={name} checked={provider === id} disabled={Boolean(pending[""])} onChange={() => { setProvider(id); setModels(undefined); setModel(""); setEffort(""); setError(undefined); }} className="sr-only" />
-                            <span aria-hidden="true" className="text-4xl">{id === "codex" ? <OpenAiIcon /> : id === "claude" ? <IconComponent name="Claude" className="h-8 w-8" /> : <><img src={openCodeLogoLight} className="h-8 w-8 object-contain dark:hidden" alt="" /><img src={openCodeLogoDark} className="hidden h-8 w-8 object-contain dark:block" alt="" /></>}</span>
-                            <span className="min-w-0 flex-1"><span className="block text-sm font-medium">{name}</span><span className="mt-1 block text-xs text-muted-foreground">{description}</span></span>
-                            {provider === id && <span className="inline-flex items-center gap-1 text-xs text-primary"><Check size={14} />Selected</span>}
+                            <span aria-hidden="true" className="inline-flex h-8 w-8 shrink-0 items-center justify-center">{id === "codex" ? <img src={openAiLogo} className="h-8 w-8 object-contain invert dark:invert-0" alt="" /> : id === "claude" ? <IconComponent name="Claude" className="h-8 w-8" /> : <><img src={openCodeLogoLight} className="h-8 w-8 object-contain dark:hidden" alt="" /><img src={openCodeLogoDark} className="hidden h-8 w-8 object-contain dark:block" alt="" /></>}</span>
+                            <span className="w-36 min-w-0"><span className="block text-sm font-medium">{name}</span><span className="mt-1 block text-xs text-muted-foreground">{description}</span></span>
+                            {provider === id && <span aria-label="Selected" className="absolute right-4 text-primary"><Check size={14} /></span>}
                           </label>
                         ))}
                       </fieldset>
