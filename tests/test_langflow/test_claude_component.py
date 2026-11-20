@@ -318,9 +318,43 @@ class ClaudeComponentTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(answer.text, "answer")
         self.assertEqual(reference.data["provider"], "claude")
 
+    def test_fresh_dispatch_primes_catalogue_but_status_and_cancel_do_not(self):
+        """Cold saved Claude runners can start while recovery bypasses discovery."""
+        base = LaomedoClaudeAgent.__bases__[0]
+        for operation in ("fresh", "start", "status", "cancel"):
+            with self.subTest(operation=operation):
+                node = self.node(operation=operation)
+                events = []
+                with (
+                    patch.object(
+                        node,
+                        "_model_catalog",
+                        side_effect=lambda config: events.append("catalogue"),
+                    ),
+                    patch.object(
+                        base,
+                        "_http",
+                        side_effect=lambda *args: (
+                            events.append("dispatch") or {"provider": "claude"}
+                        ),
+                    ),
+                ):
+                    node._http("http://localhost:8769/v1/runs", {}, "POST")
+                self.assertEqual(
+                    events,
+                    (
+                        ["catalogue", "dispatch"]
+                        if operation in {"fresh", "start"}
+                        else ["dispatch"]
+                    ),
+                )
+
     def test_runner_provider_mismatch_is_checked_by_subclass(self):
         base = LaomedoClaudeAgent.__bases__[0]
-        with patch.object(base, "_http", return_value={"provider": "codex"}):
+        with (
+            patch.object(base, "_http", return_value={"provider": "codex"}),
+            patch.object(LaomedoClaudeAgent, "_model_catalog", return_value={}),
+        ):
             with self.assertRaisesRegex(RuntimeError, "runner_provider_mismatch"):
                 self.node()._http("http://localhost:8769", {}, "POST")
 
@@ -385,6 +419,7 @@ class ClaudeComponentTests(unittest.IsolatedAsyncioTestCase):
                 io.BytesIO(json.dumps({"error_category": code}).encode()),
             )
             with (
+                patch.object(node, "_model_catalog", return_value={}),
                 patch.object(node, "_token", return_value="internal"),
                 patch.object(common._HTTP, "open", side_effect=error),
             ):

@@ -83,6 +83,8 @@ class LaomedoClaudeAgent(Component):
         return super()._runner_token_file_path()
 
     def _http(self, endpoint, payload, method):
+        if method == "POST" and self.operation in {"fresh", "start"}:
+            self._model_catalog({})
         value = super()._http(endpoint, payload, method)
         if value.get("provider") != "claude":
             raise RuntimeError("runner_provider_mismatch")

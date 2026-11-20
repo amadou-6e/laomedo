@@ -45,3 +45,7 @@ envelope before a new run exists. Submission outputs place it in the existing
 run-reference envelope; exception outputs serialize only this bounded envelope
 after the code. HTTP 5xx without a new run remains `runner_runtime_unknown`,
 with the reported code retained as a separate diagnostic observation.
+
+The Claude adapter refreshes its exact selected runner catalogue before a fresh
+or start dispatch. This zero-turn request primes cold runner state after an app
+restart; it never changes the selected model. Status and Cancel skip discovery.
