@@ -41,6 +41,7 @@ class AssistantRuntime:
     def __init__(self, settings):
         """Prepare inactive app composition without Docker, inference or credential reads."""
         self.settings = settings
+        self.provider_connections = None
         self.store = self.mcp = self.upstream = None
         self.runners, self.runner_locks, self.jobs = {}, {}, {}
         self.contexts, self.host_tokens, self.tool_tasks = {}, {}, {}
@@ -60,7 +61,7 @@ class AssistantRuntime:
         owner = cls(AssistantSettings())
         app.state.laomedo_assistant = owner
         app.include_router(router)
-        if owner.settings.app_url and owner.settings.runner_service_file:
+        if owner.settings.app_url:
             owner.mcp = AuthoringMcp(owner, owner.settings.app_url)
             app.mount("/api/v1/laomedo/assistant/mcp", owner.mcp)
             app.add_middleware(
@@ -81,10 +82,12 @@ class AssistantRuntime:
         # tables remain upstream's responsibility.
         await self.store.upgrade_retained()
         async with self.upstream(app) as state:
+            self.provider_connections = getattr(app.state, "provider_connections", None)
             if self.mcp is None:
                 yield state
                 return
             await self.store.initialize()
+            self.check_retired_runners()
             async with self.mcp.server.session_manager.run():
                 self.ready = True
                 try:
@@ -113,7 +116,10 @@ class AssistantRuntime:
                     for conversation in await self.store.pending():
                         runner = self.runners.get(
                             self._runner_key(
-                                conversation.owner_id, conversation.provider
+                                conversation.owner_id,
+                                conversation.provider,
+                                conversation.connection_id,
+                                conversation.connection_generation,
                             )
                         )
                         if runner is not None and conversation.run_id:
@@ -212,8 +218,105 @@ class AssistantRuntime:
         if self.contexts.get(context.message_id) != context:
             raise AssistantError("assistant_tool_authority_revoked", 403)
         await self.check_session(context.owner_id, context.session_key)
+        async with self.store.sessions() as session:
+            conversation = await self.store.conversation(
+                session, context.owner_id, context.conversation_id
+            )
+        self.check_connection(
+            context.owner_id,
+            conversation.provider,
+            conversation.connection_id,
+            conversation.connection_generation,
+        )
         if self.contexts.get(context.message_id) != context:
             raise AssistantError("assistant_tool_authority_revoked", 403)
+
+    def check_retired_runners(self):
+        """Refuse migration while an old scratch runner has unsettled work; preserve every file."""
+        import sqlite3
+
+        if not self.settings.app_url:
+            return
+        namespace = hashlib.sha256(self.settings.app_url.encode()).hexdigest()[:16]
+        parent = self.settings.state_root / namespace
+        if not parent.is_dir():
+            return
+        for owner in parent.iterdir():
+            if not owner.is_dir():
+                continue
+            try:
+                UUID(owner.name)
+            except ValueError:
+                continue
+            for root in (
+                owner / "runner",
+                owner / "claude" / "runner",
+                owner / "opencode" / "runner",
+            ):
+                if not root.is_dir():
+                    continue
+                try:
+                    active = any(
+                        json.loads(path.read_text(encoding="utf-8")).get("status")
+                        in {"prepared", "running"}
+                        for path in root.glob("runs/*/record.json")
+                    )
+                    receipts = (
+                        any(root.glob("receipts/*.json"))
+                        or any(root.glob("*/*receipt*.json"))
+                        or any(root.glob("runs/*/docker-receipts/*.json"))
+                    )
+                    journal = root / "resume-dispatch.sqlite"
+                    if journal.is_file():
+                        with sqlite3.connect(
+                            journal.as_uri() + "?mode=ro", uri=True
+                        ) as connection:
+                            active = (
+                                active
+                                or connection.execute(
+                                    "SELECT 1 FROM attempts WHERE state IN ('reserved','running','unknown') LIMIT 1"
+                                ).fetchone()
+                                is not None
+                            )
+                    if active or receipts:
+                        raise AssistantError("assistant_reconciliation_required", 409)
+                except (OSError, ValueError, sqlite3.Error):
+                    raise AssistantError(
+                        "assistant_reconciliation_required", 409
+                    ) from None
+
+    def check_connection(self, owner, provider, connection_id, generation):
+        """Refuse missing, foreign, revoked or changed bindings without an account fallback."""
+        from laomedo.agents.connections.errors import ProviderConnectionError
+
+        if connection_id is None or generation is None:
+            raise AssistantError("assistant_setup_required", 409)
+        try:
+            if self.provider_connections is None:
+                raise ProviderConnectionError("provider_runner_unavailable")
+            record = self.provider_connections.admitted(
+                owner, connection_id, generation
+            )
+            if record.provider != provider:
+                raise ProviderConnectionError("provider_connection_unavailable")
+        except ProviderConnectionError as error:
+            raise AssistantError(error.code, 409) from None
+
+    async def connections(self, owner):
+        """List safe account rows for this verified profile without starting a runner."""
+        from laomedo.agents.connections.errors import ProviderConnectionError
+
+        try:
+            if self.provider_connections is None:
+                raise ProviderConnectionError("provider_runner_unavailable")
+            return {
+                "connections": [
+                    row.model_dump(mode="json")
+                    for row in self.provider_connections.list(owner)
+                ]
+            }
+        except ProviderConnectionError as error:
+            raise AssistantError(error.code, 409) from None
 
     async def host_context(self, token):
         """Resolve an exact private host credential; never accept model-selected identities."""
@@ -240,7 +343,12 @@ class AssistantRuntime:
                 context.owner_id, context.conversation_id, context.message_id
             )
             runner = self.runners.get(
-                self._runner_key(context.owner_id, conversation.provider)
+                self._runner_key(
+                    context.owner_id,
+                    conversation.provider,
+                    conversation.connection_id,
+                    conversation.connection_generation,
+                )
             )
             if runner and message.run_id:
                 try:
@@ -255,33 +363,42 @@ class AssistantRuntime:
         await self.store.revoke(key)
 
     @staticmethod
-    def _runner_key(owner, provider):
-        """Preserve existing Codex process identity while isolating additional providers."""
-        return owner if provider == "codex" else (owner, provider)
+    def _runner_key(owner, provider, connection_id=None, connection_generation=None):
+        """Separate every owner, provider, saved account and immutable account epoch."""
+        return (owner, provider, connection_id, connection_generation)
 
-    async def runner(self, owner, provider="codex"):
+    async def runner(
+        self, owner, provider="codex", connection_id=None, connection_generation=None
+    ):
         """Compose only this owner's dedicated scratch runner, off the app event loop."""
-        key = self._runner_key(owner, provider)
+        key = self._runner_key(owner, provider, connection_id, connection_generation)
         lock = self.runner_locks.setdefault(key, asyncio.Lock())
         async with lock:
             value = self.runners.get(key)
             if value is None:
-                value = AssistantRunner(self.settings, owner, provider)
-                from laomedo.agents.errors import RunnerError
-                from laomedo.host.private_state.errors import PrivateStateError
-
-                try:
-                    await asyncio.to_thread(value.start)
-                except (RunnerError, PrivateStateError) as error:
-                    raise AssistantError(error.code, 503) from None
-                except (OSError, ValueError):
-                    raise AssistantError("assistant_setup_required", 503) from None
+                value = AssistantRunner(
+                    self.settings,
+                    owner,
+                    provider,
+                    connection_id,
+                    connection_generation,
+                    controllers=(
+                        self.provider_connections.controllers
+                        if self.provider_connections is not None
+                        else None
+                    ),
+                )
                 self.runners[key] = value
             return value
 
-    async def models(self, owner, provider="codex"):
+    async def models(
+        self, owner, provider="codex", connection_id=None, connection_generation=None
+    ):
         """Discover actual supported models without submitting a prompt."""
-        runner = await self.runner(owner, provider)
+        self.check_connection(owner, provider, connection_id, connection_generation)
+        runner = await self.runner(
+            owner, provider, connection_id, connection_generation
+        )
         catalog = await asyncio.to_thread(runner.request, "GET", "/v1/models")
         if not catalog.get("models"):
             raise AssistantError(
@@ -303,7 +420,12 @@ class AssistantRuntime:
     async def create(self, owner, key, request):
         """Validate a real model choice and persist an empty conversation without inference."""
         await self.check_session(owner, key)
-        catalog = await self.models(owner, request.provider)
+        catalog = await self.models(
+            owner,
+            request.provider,
+            request.connection_id,
+            request.connection_generation,
+        )
         selected = next(
             (item for item in catalog["models"] if item["id"] == request.model), None
         )
@@ -394,13 +516,16 @@ class AssistantRuntime:
         if len(query) > 200 or cursor < 0 or cursor > 10000:
             raise AssistantError("assistant_input_invalid", 400)
         await self.authorize(context)
-        from laomedo.host.runner.service import RunnerService
-
-        config = await asyncio.to_thread(
-            RunnerService(self.settings.runner_service_file).config
-        )
+        if (
+            self.provider_connections is None
+            or self.provider_connections.controllers is None
+        ):
+            raise AssistantError("assistant_setup_required", 503)
         return await asyncio.to_thread(
-            self._skills, Path(config["skill_store"]), query, cursor
+            self._skills,
+            self.provider_connections.controllers.skill_store,
+            query,
+            cursor,
         )
 
     def _skills(self, root, query, cursor):
@@ -472,12 +597,23 @@ class AssistantRuntime:
             conversation = await self.store.conversation(
                 session, owner, conversation_id
             )
+        self.check_connection(
+            owner,
+            conversation.provider,
+            conversation.connection_id,
+            conversation.connection_generation,
+        )
         if request.initial_native_command is not None and (
             conversation.provider != "codex" or conversation.run_id is not None
         ):
             raise AssistantError("native_command_context_invalid", 409)
         if request.model is not None:
-            catalog = await self.models(owner, conversation.provider)
+            catalog = await self.models(
+                owner,
+                conversation.provider,
+                conversation.connection_id,
+                conversation.connection_generation,
+            )
             choice = next(
                 (item for item in catalog["models"] if item["id"] == request.model),
                 None,
@@ -489,7 +625,12 @@ class AssistantRuntime:
             and conversation_id not in self.jobs
         ):
             raise AssistantError("assistant_capacity_busy", 409)
-        runner = await self.runner(owner, conversation.provider)
+        runner = await self.runner(
+            owner,
+            conversation.provider,
+            conversation.connection_id,
+            conversation.connection_generation,
+        )
         async with self.store.sessions() as session:
             conversation = await self.store.conversation(
                 session, owner, conversation_id
@@ -549,7 +690,12 @@ class AssistantRuntime:
                 "reason": "native_session_not_created",
                 "commands": [],
             }
-        runner = await self.runner(owner, conversation.provider)
+        runner = await self.runner(
+            owner,
+            conversation.provider,
+            conversation.connection_id,
+            conversation.connection_generation,
+        )
         record = await asyncio.to_thread(
             runner.request, "GET", "/v1/runs/" + conversation.run_id
         )
@@ -661,7 +807,12 @@ class AssistantRuntime:
             conversation, message = await self.store.message(
                 context.owner_id, context.conversation_id, context.message_id
             )
-            runner = await self.runner(context.owner_id, conversation.provider)
+            runner = await self.runner(
+                context.owner_id,
+                conversation.provider,
+                conversation.connection_id,
+                conversation.connection_generation,
+            )
             self.host_tokens[token] = context
             client = MCPStreamableHttpClient()
             client.set_session_context("assistant:" + str(context.message_id))
@@ -878,7 +1029,12 @@ class AssistantRuntime:
         conversation, message = await self.store.message(
             owner, identifier, conversation.active_message_id
         )
-        runner = await self.runner(owner, conversation.provider)
+        runner = await self.runner(
+            owner,
+            conversation.provider,
+            conversation.connection_id,
+            conversation.connection_generation,
+        )
         if (
             conversation.runner_instance_id
             and conversation.runner_instance_id != runner.instance_id
@@ -1113,7 +1269,12 @@ class AssistantRuntime:
                 "projection": None,
             }
         try:
-            runner = await self.runner(owner, conversation.provider)
+            runner = await self.runner(
+                owner,
+                conversation.provider,
+                conversation.connection_id,
+                conversation.connection_generation,
+            )
             return await asyncio.to_thread(
                 runner.request,
                 "GET",
@@ -1156,7 +1317,12 @@ class AssistantRuntime:
                 if binding == context:
                     self.host_tokens.pop(token, None)
         if message.run_id:
-            runner = await self.runner(owner, conversation.provider)
+            runner = await self.runner(
+                owner,
+                conversation.provider,
+                conversation.connection_id,
+                conversation.connection_generation,
+            )
             await asyncio.to_thread(
                 runner.request, "POST", "/v1/runs/" + message.run_id + "/cancel", {}
             )
@@ -1178,7 +1344,16 @@ class AssistantRuntime:
                         reconciled=True,
                     )
             elif conversation["run_id"] and not conversation["active_message_id"]:
-                runner = await self.runner(owner, conversation["provider"])
+                runner = await self.runner(
+                    owner,
+                    conversation["provider"],
+                    (
+                        UUID(conversation["connection_id"])
+                        if conversation.get("connection_id")
+                        else None
+                    ),
+                    conversation.get("connection_generation"),
+                )
                 if conversation[
                     "runner_instance_id"
                 ] != runner.instance_id and not await self.store.completed_binding(

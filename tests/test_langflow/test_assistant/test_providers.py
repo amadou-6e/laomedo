@@ -1,113 +1,107 @@
-"""Host-owned provider composition and private conversation identity."""
+"""Exact saved-account chat composition; fixtures, not live provider acceptance."""
 
-import hashlib
+import json
 from pathlib import Path
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock
 from uuid import uuid4
 
-from pydantic import ValidationError
+from laomedo.agents.connections.models import ConnectionRecord
+from laomedo.agents.connections.service import ProviderConnections
 from laomedo.integrations.langflow.assistant.errors import AssistantError
-from laomedo.integrations.langflow.assistant.models import ConversationRequest
 from laomedo.integrations.langflow.assistant.runner import AssistantRunner
 from laomedo.integrations.langflow.assistant.runtime import AssistantRuntime
 from laomedo.integrations.langflow.assistant.settings import AssistantSettings
 
 
 class ProviderCompositionTests(unittest.TestCase):
-    """Fixture composition performs no Docker, credential or inference operations."""
+    """Exercise authority and delegation without Docker or model calls."""
 
-    def test_private_provider_bindings_are_not_serialized_or_represented(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            profile = Path(temporary) / "private-auth"
-            settings = AssistantSettings(
-                opencode_profile=profile, claude_profile_volume="laomedo-claude-chat"
-            )
-            self.assertNotIn(str(profile), repr(settings))
-            self.assertNotIn("opencode_profile", settings.model_dump())
-            self.assertNotIn("claude_profile_volume", settings.model_dump())
-        with self.assertRaises(ValidationError):
-            AssistantSettings(opencode_profile="relative/profile")
-        with self.assertRaises(ValidationError):
-            ConversationRequest(provider="other", model="model", effort="default")
-
-    def test_codex_key_stays_stable_and_other_provider_keys_are_distinct(self):
-        owner = uuid4()
-        self.assertEqual(AssistantRuntime._runner_key(owner, "codex"), owner)
-        self.assertNotEqual(AssistantRuntime._runner_key(owner, "claude"), owner)
+    def test_account_and_epoch_are_part_of_runner_identity(self):
+        owner, account, other = uuid4(), uuid4(), uuid4()
+        key = AssistantRuntime._runner_key(owner, "codex", account, 1)
+        self.assertNotEqual(key, AssistantRuntime._runner_key(owner, "codex", other, 1))
         self.assertNotEqual(
-            AssistantRuntime._runner_key(owner, "claude"),
-            AssistantRuntime._runner_key(owner, "opencode"),
+            key, AssistantRuntime._runner_key(owner, "codex", account, 2)
+        )
+        self.assertNotEqual(
+            key, AssistantRuntime._runner_key(owner, "claude", account, 1)
         )
 
-    def test_provider_construction_uses_private_roots_and_only_host_bindings(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            owner = uuid4()
-            settings = AssistantSettings(
-                app_url="http://127.0.0.1:17881",
-                state_root=root,
-                claude_profile_volume="laomedo-claude-chat",
-                opencode_profile=root / "private-profile",
-            )
-            config = {
-                "provider": "codex",
-                "skill_store": str(root / "skills"),
-                "lease_service": str(root / "lease"),
-            }
-            namespace = hashlib.sha256(settings.app_url.encode()).hexdigest()[:16]
-            for provider in ("codex", "claude", "opencode"):
-                expected = root / namespace / str(owner)
-                if provider != "codex":
-                    expected = expected / provider
-                (expected / "source-repository/.git").mkdir(parents=True)
-                with (
-                    patch(
-                        "laomedo.integrations.langflow.assistant.runner.RunnerService.config",
-                        return_value=config,
-                    ),
-                    patch(
-                        "laomedo.integrations.langflow.assistant.runner.prepare_private_directory"
-                    ),
-                    patch(
-                        "laomedo.integrations.langflow.assistant.runner.AgentProviderRegistry.create_agent"
-                    ) as create,
-                    patch(
-                        "laomedo.integrations.langflow.assistant.runner.RunnerServer"
-                    ) as server,
-                ):
-                    server.return_value.server_address = ("127.0.0.1", 12345)
-                    runner = AssistantRunner(settings, owner, provider)
-                    runner.start()
-                    self.assertEqual(
-                        create.call_args.args[:2], (provider, expected / "runner")
-                    )
-                    if provider == "claude":
-                        self.assertEqual(
-                            create.call_args.kwargs["profile_volume"],
-                            "laomedo-claude-chat",
-                        )
-                    if provider == "opencode":
-                        self.assertEqual(
-                            create.call_args.kwargs["profile"],
-                            settings.opencode_profile,
-                        )
-                    runner.shutdown()
+    def test_missing_binding_refuses_without_constructing_an_agent(self):
+        manager = Mock()
+        runner = AssistantRunner(AssistantSettings(), uuid4(), controllers=manager)
+        with self.assertRaises(AssistantError):
+            runner.request("GET", "/v1/models")
+        manager.assistant_endpoint.assert_not_called()
 
-    def test_unconfigured_provider_refuses_before_construction(self):
-        settings = AssistantSettings(app_url="http://127.0.0.1:17881")
-        config = {"provider": "codex"}
-        with (
-            patch(
-                "laomedo.integrations.langflow.assistant.runner.RunnerService.config",
-                return_value=config,
-            ),
-            patch(
-                "laomedo.integrations.langflow.assistant.runner.AgentProviderRegistry.create_agent"
-            ) as create,
-        ):
-            for provider in ("claude", "opencode", "other"):
+    def test_saved_binding_admission_has_no_foreign_epoch_provider_or_account_fallback(
+        self,
+    ):
+        with tempfile.TemporaryDirectory() as temporary:
+            service = ProviderConnections(Path(temporary) / "credentials")
+            try:
+                owner, selected = uuid4(), uuid4()
+                record = ConnectionRecord(
+                    connection_id=selected,
+                    credential_id=uuid4(),
+                    client_id="fixture",
+                    subject_hash="fixture",
+                    generation=1,
+                    label="Saved account",
+                )
+                service._save(owner, [record])
+                runtime = AssistantRuntime(AssistantSettings())
+                runtime.provider_connections = service
+                runtime.check_connection(owner, "codex", selected, 1)
+                for args in (
+                    (owner, "codex", None, None),
+                    (uuid4(), "codex", selected, 1),
+                    (owner, "codex", selected, 2),
+                    (owner, "claude", selected, 1),
+                ):
+                    with self.subTest(args=args), self.assertRaises(AssistantError):
+                        runtime.check_connection(*args)
+                service._save(
+                    owner, [record.model_copy(update={"lifecycle": "disconnecting"})]
+                )
                 with self.assertRaises(AssistantError):
-                    AssistantRunner(settings, uuid4(), provider).start()
-            create.assert_not_called()
+                    runtime.check_connection(owner, "codex", selected, 1)
+            finally:
+                service.close()
+
+    def test_http_adapter_reads_current_gateway_token_and_leaves_shared_manager_running(
+        self,
+    ):
+        with tempfile.TemporaryDirectory() as temporary:
+            token = Path(temporary) / "token"
+            token.write_text("first", encoding="utf-8")
+            manager = Mock()
+            manager.assistant_endpoint.return_value = ("http://127.0.0.1:12345", token)
+            owner, account = uuid4(), uuid4()
+            runner = AssistantRunner(
+                AssistantSettings(), owner, "codex", account, 3, controllers=manager
+            )
+            response = Mock()
+            response.read.return_value = json.dumps({"models": []}).encode()
+            response.__enter__ = Mock(return_value=response)
+            response.__exit__ = Mock(return_value=False)
+            runner.opener = Mock()
+            runner.opener.open.return_value = response
+            runner.request("GET", "/v1/models")
+            self.assertEqual(
+                runner.opener.open.call_args.args[0].get_header("Authorization"),
+                "Bearer first",
+            )
+            token.write_text("second", encoding="utf-8")
+            runner.request("POST", "/v1/runs/async", {"task": "/status"})
+            self.assertEqual(
+                runner.opener.open.call_args.args[0].get_header("Authorization"),
+                "Bearer second",
+            )
+            manager.assistant_endpoint.assert_called_with(
+                owner, account, 3, run_id=None
+            )
+            runner.shutdown()
+            manager.close.assert_not_called()

@@ -59,41 +59,8 @@ class AssistantSettings(BaseSettings):
     )
     state_root: Path = Field(
         default_factory=lambda: Path.home() / ".laomedo-assistant",
-        description="Private owned source and runner state, outside all repositories.",
+        description="Former private runner location inspected only to refuse migration with unsettled work.",
     )
-    runner_service_file: Path | None = Field(
-        default=None,
-        validation_alias="LAOMEDO_RUNNER_SERVICE_FILE",
-        repr=False,
-        exclude=True,
-        description="Existing trusted host configuration; only lease/image/Skill registry bindings are reused.",
-    )
-    claude_profile_volume: str | None = Field(
-        default=None,
-        pattern=r"^laomedo-claude-[a-z0-9-]+$",
-        repr=False,
-        exclude=True,
-        description="Explicit host-owned dedicated Claude profile volume; never a browser input.",
-    )
-    opencode_profile: Path | None = Field(
-        default=None,
-        repr=False,
-        exclude=True,
-        description="Explicit host-owned private OpenCode profile directory; never serialized.",
-    )
-
-    @field_validator("opencode_profile")
-    @classmethod
-    def private_profile_path(cls, value):
-        """Refuse relative, traversal and network paths before provider construction."""
-        if value is not None and (
-            not value.is_absolute()
-            or ".." in value.parts
-            or str(value).startswith("\\\\")
-        ):
-            raise ValueError("assistant_private_state_required")
-        return value
-
     max_active_turns: int = Field(
         default=4,
         ge=1,

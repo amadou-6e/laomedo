@@ -40,6 +40,23 @@ class AssistantStore:
 
     def _upgrade_message_selection(self, connection):
         """Add nullable turn selections without rewriting existing operational history."""
+        if inspect(connection).has_table("laomedo_assistant_conversation"):
+            columns = {
+                column["name"]
+                for column in inspect(connection).get_columns(
+                    "laomedo_assistant_conversation"
+                )
+            }
+            for name in ("connection_id", "connection_generation"):
+                if name not in columns:
+                    kind = AssistantConversation.__table__.c[name].type.compile(
+                        dialect=connection.dialect
+                    )
+                    connection.execute(
+                        text(
+                            f'ALTER TABLE laomedo_assistant_conversation ADD COLUMN "{name}" {kind}'
+                        )
+                    )
         if not inspect(connection).has_table("laomedo_assistant_message"):
             return
         columns = {

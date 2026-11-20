@@ -29,14 +29,17 @@ jest.mock("@/stores/authStore", () => ({
 
 describe("uncertain assistant submission", () => {
   it("starts a brand-new Codex chat with explicit native status rather than a hidden prompt", async () => {
-    const chat = { id: "fresh", title: "/status", provider: "codex", run_id: null, model: "fixture", effort: "low", state: "idle", active_message_id: null };
+    const chat = { connection_id: "account", connection_generation: 1, id: "fresh", title: "/status", provider: "codex", run_id: null, model: "fixture", effort: "low", state: "idle", active_message_id: null };
     jest.mocked(assistantRequest).mockImplementation(async (path, body) => {
-      if (path === "/models") return {provider: "codex", models: [{id: "fixture", efforts: ["low"]}]};
+      if (path === "/connections") return { connections: [{connection_id: "account", generation: 1, provider: "codex", label: "Saved account", lifecycle: "connected", auth_state: "ready"}] };
+      if (path.startsWith("/models?")) return {provider: "codex", models: [{id: "fixture", efforts: ["low"]}]};
       if (path === "/conversations") return body ? chat : {conversations: [], next_cursor: null};
       if (path.endsWith("/messages") && body) return {id: "initial-status", ...body};
       return {conversation: chat, messages: [], drafts: [], next_cursor: null};
     });
     render(<MemoryRouter initialEntries={["/assistant"]}><AssistantPage /></MemoryRouter>);
+    fireEvent.click(await screen.findByRole("button", {name: "Account"}));
+    fireEvent.click(await screen.findByRole("menuitemradio", {name: "Saved account"}));
     const composer = screen.getByRole("textbox", {name: "Message this assistant"});
     fireEvent.change(composer, {target: {value: "/status"}});
     await waitFor(() => expect(screen.getByRole("button", {name: "Start chat"})).not.toBeDisabled());
@@ -45,9 +48,10 @@ describe("uncertain assistant submission", () => {
     expect(jest.mocked(assistantRequest).mock.calls.some(([path]) => path.endsWith("/native-commands"))).toBe(false);
   });
   it("submits a typed command directly and never wraps it in a model message", async () => {
-    const chat = { id: "saved", title: "Saved", provider: "codex", run_id: "run", model: "fixture", effort: "low", state: "idle", active_message_id: null };
+    const chat = { connection_id: "account", connection_generation: 1, id: "saved", title: "Saved", provider: "codex", run_id: "run", model: "fixture", effort: "low", state: "idle", active_message_id: null };
     jest.mocked(assistantRequest).mockImplementation(async (path, body) => {
-      if (path === "/models") return { provider: "codex", models: [{id: "fixture", efforts: ["low"]}] };
+      if (path === "/connections") return { connections: [{connection_id: "account", generation: 1, provider: "codex", label: "Saved account", lifecycle: "connected", auth_state: "ready"}] };
+      if (path.startsWith("/models?")) return { provider: "codex", models: [{id: "fixture", efforts: ["low"]}] };
       if (path === "/conversations") return {conversations: [chat], next_cursor: null};
       if (path.endsWith("/native-commands")) return body ? {id: "action", state: "executing"} : {state: "available", revision: "a".repeat(64), commands: [{name: "status", executable: true, accepts_arguments: false, description: "Session status"}]};
       return {conversation: chat, messages: [], drafts: [], next_cursor: null};
@@ -62,10 +66,11 @@ describe("uncertain assistant submission", () => {
     expect(jest.mocked(assistantRequest).mock.calls.some(([path]) => path.endsWith("/messages"))).toBe(false);
   });
   it("lets a user draft immediately while the selected provider's model discovery is pending", async () => {
-    const chat = { id: "saved", title: "Saved", provider: "codex", model: "fixture", effort: "low", state: "idle", active_message_id: null };
+    const chat = { connection_id: "account", connection_generation: 1, id: "saved", title: "Saved", provider: "codex", model: "fixture", effort: "low", state: "idle", active_message_id: null };
     let finish!: (value: unknown) => void;
     jest.mocked(assistantRequest).mockImplementation(async path => {
-      if (path === "/models") return new Promise(resolve => { finish = resolve; });
+      if (path === "/connections") return { connections: [{connection_id: "account", generation: 1, provider: "codex", label: "Saved account", lifecycle: "connected", auth_state: "ready"}] };
+      if (path.startsWith("/models?")) return new Promise(resolve => { finish = resolve; });
       if (path === "/conversations") return { conversations: [chat], next_cursor: null };
       return { conversation: chat, messages: [], drafts: [], next_cursor: null };
     });
@@ -82,7 +87,8 @@ describe("uncertain assistant submission", () => {
   it("puts conversation title and full-window action in one header and keeps the action reachable in history", async()=>{
     const chat={id:"saved",title:"Hello",model:"fixture",effort:"low",state:"idle",active_message_id:null};
     jest.mocked(assistantRequest).mockImplementation(async path=>{
-      if(path==="/models")return {provider:"codex",models:[{id:"fixture",efforts:["low"]}]};
+      if (path === "/connections") return { connections: [{connection_id: "account", generation: 1, provider: "codex", label: "Saved account", lifecycle: "connected", auth_state: "ready"}] };
+      if(path.startsWith("/models?"))return {provider:"codex",models:[{id:"fixture",efforts:["low"]}]};
       if(path==="/conversations")return {conversations:[chat],next_cursor:null};
       return {conversation:chat,messages:[],drafts:[],next_cursor:null};
     });
@@ -94,10 +100,11 @@ describe("uncertain assistant submission", () => {
     expect(screen.getByRole("heading",{name:"Conversations"})).toBeVisible();
   });
   it("selects saved sidebar conversations without replacing the graph URL", async () => {
-    const first = { id: "first", title: "First saved chat", provider: "codex", model: "fixture", effort: "low", state: "idle", active_message_id: null };
-    const second = { ...first, id: "second", title: "Second saved chat" };
+    const first = { connection_id: "account", connection_generation: 1, id: "first", title: "First saved chat", provider: "codex", model: "fixture", effort: "low", state: "idle", active_message_id: null };
+    const second = { connection_id: "account", connection_generation: 1, ...first, id: "second", title: "Second saved chat" };
     jest.mocked(assistantRequest).mockImplementation(async (path) => {
-      if (path === "/models") return { provider: "codex", models: [{ id: "fixture", efforts: ["low"] }] };
+      if (path === "/connections") return { connections: [{connection_id: "account", generation: 1, provider: "codex", label: "Saved account", lifecycle: "connected", auth_state: "ready"}] };
+      if (path.startsWith("/models?")) return { provider: "codex", models: [{ id: "fixture", efforts: ["low"] }] };
       if (path === "/conversations") return { conversations: [first, second], next_cursor: null };
       return { conversation: path.includes("second") ? second : first, messages: [], drafts: [], next_cursor: null };
     });
@@ -112,10 +119,11 @@ describe("uncertain assistant submission", () => {
   it("abandons an in-flight export when the conversation changes", async () => {
     let finish!: (value: { text: string; filename: string }) => void;
     jest.mocked(conversationTranscript).mockReturnValueOnce(new Promise((resolve) => { finish = resolve; }));
-    const first = { id: "first", title: "First", provider: "codex", model: "fixture", effort: "low", state: "idle", active_message_id: null };
-    const second = { ...first, id: "second", title: "Second" };
+    const first = { connection_id: "account", connection_generation: 1, id: "first", title: "First", provider: "codex", model: "fixture", effort: "low", state: "idle", active_message_id: null };
+    const second = { connection_id: "account", connection_generation: 1, ...first, id: "second", title: "Second" };
     jest.mocked(assistantRequest).mockImplementation(async (path) => {
-      if (path === "/models") return { provider: "codex", models: [{ id: "fixture", efforts: ["low"] }] };
+      if (path === "/connections") return { connections: [{connection_id: "account", generation: 1, provider: "codex", label: "Saved account", lifecycle: "connected", auth_state: "ready"}] };
+      if (path.startsWith("/models?")) return { provider: "codex", models: [{ id: "fixture", efforts: ["low"] }] };
       if (path === "/conversations") return { conversations: [first, second], next_cursor: null };
       return { conversation: path.includes("second") ? second : first, messages: [], drafts: [], next_cursor: null };
     });
@@ -133,7 +141,7 @@ describe("uncertain assistant submission", () => {
     const acknowledgement = new Promise((resolve) => {
       acknowledge = resolve;
     });
-    const conversation = {
+    const conversation = { connection_id: "account", connection_generation: 1,
       id: "conversation",
       title: "Chat",
       model: "fixture",
@@ -144,7 +152,8 @@ describe("uncertain assistant submission", () => {
     let posts = 0;
     let detailReads = 0;
     jest.mocked(assistantRequest).mockImplementation(async (path, body) => {
-      if (path === "/models")
+      if (path === "/connections") return { connections: [{connection_id: "account", generation: 1, provider: "codex", label: "Saved account", lifecycle: "connected", auth_state: "ready"}] };
+      if (path.startsWith("/models?"))
         return {
           provider: "codex",
           models: [{ id: "fixture", efforts: ["low"] }],
@@ -204,7 +213,8 @@ describe("uncertain assistant submission", () => {
       active_message_id: null,
     });
     jest.mocked(assistantRequest).mockImplementation(async (path, body) => {
-      if (path === "/models")
+      if (path === "/connections") return { connections: [{connection_id: "account", generation: 1, provider: "codex", label: "Saved account", lifecycle: "connected", auth_state: "ready"}] };
+      if (path.startsWith("/models?"))
         return {
           provider: "codex",
           models: [{ id: "fixture", efforts: ["low"] }],
@@ -246,7 +256,7 @@ describe("uncertain assistant submission", () => {
     expect(document.activeElement).toBe(composer);
   });
   it("renames the conversation explicitly and Escape cancels without a request", async () => {
-    const conversation = {
+    const conversation = { connection_id: "account", connection_generation: 1,
       id: "conversation",
       title: "Original",
       provider: "codex",
@@ -261,11 +271,12 @@ describe("uncertain assistant submission", () => {
     jest
       .mocked(assistantRequest)
       .mockImplementation(async (path, body: any, _signal, method) => {
+        if (path === "/connections") return {connections: [{connection_id: "account", generation: 1, provider: "codex", label: "Saved account", lifecycle: "connected", auth_state: "ready"}, {connection_id: "claude-account", generation: 1, provider: "claude", label: "Claude account", lifecycle: "connected", auth_state: "ready"}]};
         if (method === "PATCH") {
           mutations.push(body);
           return { ...conversation, title: body.title, updated_at: 2 };
         }
-        if (path === "/models")
+        if (path.startsWith("/models?"))
           return {
             provider: "codex",
             models: [{ id: "fixture", efforts: ["low"] }],
@@ -336,7 +347,7 @@ describe("uncertain assistant submission", () => {
   it("retains its key across reload and explicitly retries only that original submission", async () => {
     const messages: any[] = [];
     const posts: any[] = [];
-    const conversation = {
+    const conversation = { connection_id: "account", connection_generation: 1,
       id: "conversation",
       title: "Draft",
       provider: "codex",
@@ -353,7 +364,8 @@ describe("uncertain assistant submission", () => {
     jest
       .mocked(assistantRequest)
       .mockImplementation(async (path, body: any) => {
-        if (path === "/models")
+        if (path === "/connections") return {connections: [{connection_id: "account", generation: 1, provider: "codex", label: "Saved account", lifecycle: "connected", auth_state: "ready"}, {connection_id: "claude-account", generation: 1, provider: "claude", label: "Claude account", lifecycle: "connected", auth_state: "ready"}]};
+        if (path.startsWith("/models?"))
           return {
             provider: "codex",
             models: [{ id: "fixture", efforts: ["low", "high"] }],
@@ -433,7 +445,7 @@ describe("uncertain assistant submission", () => {
 
   it("starts in a chat composer and creates only on explicit Send, with collapsible history", async () => {
     const calls: any[] = [];
-    const conversation = {
+    const conversation = { connection_id: "account", connection_generation: 1,
       id: "new-chat",
       title: "New conversation",
       model: "fixture",
@@ -444,8 +456,9 @@ describe("uncertain assistant submission", () => {
     jest
       .mocked(assistantRequest)
       .mockImplementation(async (path, body: any) => {
+        if (path === "/connections") return {connections: [{connection_id: "account", generation: 1, provider: "codex", label: "Saved account", lifecycle: "connected", auth_state: "ready"}, {connection_id: "claude-account", generation: 1, provider: "claude", label: "Claude account", lifecycle: "connected", auth_state: "ready"}]};
         calls.push([path, body]);
-        if (path === "/models")
+        if (path.startsWith("/models?"))
           return {
             provider: "codex",
             models: [{ id: "fixture", efforts: ["low", "high"] }],
@@ -476,6 +489,8 @@ describe("uncertain assistant submission", () => {
     expect(
       screen.getByRole("button", { name: "New conversation" }),
     ).toBeTruthy();
+    fireEvent.click(await screen.findByRole("button", {name: "Account"}));
+    fireEvent.click(await screen.findByRole("menuitemradio", {name: "Saved account"}));
     await waitFor(() =>
       expect(
         (
@@ -507,20 +522,30 @@ describe("uncertain assistant submission", () => {
       effort: "low",
     });
   });
-  it("does not replace Claude model choices with a late Codex discovery", async () => {
+  it("does not replace selected-account models with a late discovery from another account", async () => {
     let finish!: (value: unknown) => void;
-    const codex = new Promise((resolve) => { finish = resolve; });
-    jest.mocked(assistantRequest).mockImplementation(async (path) => {
-      if (path === "/models") return codex;
-      if (path === "/models?provider=claude") return { provider: "claude", models: [{ id: "claude-fixture", efforts: ["default"] }] };
-      return { conversations: [], next_cursor: null };
+    const codex = new Promise(resolve => { finish = resolve; });
+    jest.mocked(assistantRequest).mockImplementation(async path => {
+      if (path === "/connections") return { connections: [
+        {connection_id: "account", generation: 1, provider: "codex", label: "Saved account", lifecycle: "connected", auth_state: "ready"},
+        {connection_id: "claude-account", generation: 2, provider: "claude", label: "Claude account", lifecycle: "connected", auth_state: "ready"},
+      ] };
+      if (path.startsWith("/models?provider=claude")) return {provider: "claude", models: [{id: "claude-fixture", efforts: ["default"]}]};
+      if (path.startsWith("/models?")) return codex;
+      return {conversations: [], next_cursor: null};
     });
     render(<MemoryRouter><AssistantPage /></MemoryRouter>);
-    await waitFor(() => expect(assistantRequest).toHaveBeenCalledWith("/models"));
-    fireEvent.click(screen.getByRole("radio", { name: "Claude" }));
-    await waitFor(() => expect(screen.getByRole("button", { name: "Choose model and effort" })).toHaveTextContent("claude-fixture"));
-    await act(async () => { finish({ provider: "codex", models: [{ id: "wrong-provider", efforts: ["low"] }] }); await codex; });
-    expect(screen.getByRole("button", { name: "Choose model and effort" })).toHaveTextContent("claude-fixture");
-    expect(screen.getByRole("radio", { name: "Claude" })).toBeChecked();
+    await waitFor(() => expect(assistantRequest).toHaveBeenCalledWith("/connections"));
+    expect(jest.mocked(assistantRequest).mock.calls.some(([path]) => path.startsWith("/models"))).toBe(false);
+    fireEvent.click(screen.getByRole("button", {name: "Account"}));
+    fireEvent.click(await screen.findByRole("menuitemradio", {name: "Saved account"}));
+    await waitFor(() => expect(assistantRequest).toHaveBeenCalledWith(expect.stringContaining("provider=codex")));
+    fireEvent.click(screen.getByRole("radio", {name: "Claude"}));
+    fireEvent.click(screen.getByRole("button", {name: "Account"}));
+    fireEvent.click(await screen.findByRole("menuitemradio", {name: "Claude account"}));
+    await waitFor(() => expect(screen.getByRole("button", {name: "Choose model and effort"})).toHaveTextContent("claude-fixture"));
+    await act(async () => { finish({provider: "codex", models: [{id: "wrong-provider", efforts: ["low"]}]}); await codex; });
+    expect(screen.getByRole("button", {name: "Choose model and effort"})).toHaveTextContent("claude-fixture");
+    expect(screen.getByRole("radio", {name: "Claude"})).toBeChecked();
   });
 });

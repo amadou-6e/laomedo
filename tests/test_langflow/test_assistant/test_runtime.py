@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 import tempfile
 import time
 import unittest
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 from uuid import UUID, uuid4
 
 from sqlalchemy.ext.asyncio import create_async_engine
@@ -92,7 +92,9 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
         await self.runtime.stop(
             self.owner, self.identifier, UUID(self.message["attempt_id"])
         )
-        self.runtime.runner.assert_awaited_with(self.owner, "claude")
+        self.runtime.runner.assert_awaited_with(
+            self.owner, "claude", self.connection_id, 1
+        )
         self.assertEqual(
             self.runner.requests[-1], ("POST", "/v1/runs/" + self.run_id + "/cancel")
         )
@@ -243,6 +245,7 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
             await connection.run_sync(SQLModel.metadata.create_all)
         self.store = AssistantStore(self.engine)
         self.owner, self.run_id, self.native_id = uuid4(), str(uuid4()), str(uuid4())
+        self.connection_id = uuid4()
         async with self.store.transaction() as session:
             session.add(
                 User(
@@ -255,7 +258,12 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
         await self.store.admit_session("fixture", self.owner, time.time() + 1000)
         conversation = await self.store.create(
             self.owner,
-            ConversationRequest(model="fixture", effort="low"),
+            ConversationRequest(
+                connection_id=self.connection_id,
+                connection_generation=1,
+                model="fixture",
+                effort="low",
+            ),
             session_key="fixture",
         )
         self.identifier = UUID(conversation["id"])
@@ -285,6 +293,7 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
         )
         self.runtime.store, self.runtime.ready = self.store, True
         self.runtime.runner = AsyncMock(return_value=self.runner)
+        self.runtime.check_connection = Mock()
 
     async def asyncTearDown(self):
         await self.engine.dispose()

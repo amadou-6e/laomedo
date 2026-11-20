@@ -120,7 +120,13 @@ class PersistenceTests(unittest.IsolatedAsyncioTestCase):
         for provider in ("claude", "opencode"):
             conversation = await self.store.create(
                 self.owner,
-                ConversationRequest(provider=provider, model="fixture", effort="low"),
+                ConversationRequest(
+                    connection_id=uuid4(),
+                    connection_generation=1,
+                    provider=provider,
+                    model="fixture",
+                    effort="low",
+                ),
                 session_key=self.key,
             )
             with (
@@ -161,7 +167,11 @@ class PersistenceTests(unittest.IsolatedAsyncioTestCase):
         successor = await self.store.create(
             self.owner,
             ConversationRequest(
-                model="fixture", effort="low", linked_conversation_id=self.identifier
+                connection_id=uuid4(),
+                connection_generation=1,
+                model="fixture",
+                effort="low",
+                linked_conversation_id=self.identifier,
             ),
             session_key=self.key,
         )
@@ -406,7 +416,12 @@ class PersistenceTests(unittest.IsolatedAsyncioTestCase):
         await self.store.admit_session(self.key, self.owner, time.time() + 1000)
         self.conversation = await self.store.create(
             self.owner,
-            ConversationRequest(model="fixture", effort="low"),
+            ConversationRequest(
+                connection_id=uuid4(),
+                connection_generation=1,
+                model="fixture",
+                effort="low",
+            ),
             session_key=self.key,
         )
         self.identifier = UUID(self.conversation["id"])
@@ -495,7 +510,12 @@ class PersistenceTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaisesRegex(AssistantError, "assistant_session_locked"):
             await self.store.create(
                 self.owner,
-                ConversationRequest(model="fixture", effort="low"),
+                ConversationRequest(
+                    connection_id=uuid4(),
+                    connection_generation=1,
+                    model="fixture",
+                    effort="low",
+                ),
                 session_key=self.key,
             )
 

@@ -164,3 +164,25 @@ the exact task and mode, without assistant instructions. The existing start,
 observation, cancellation and reconciliation owners handle it. The actual native
 status result renders and exports through the common status path; it creates no
 approval proposal or model turn. Later commands retain observed catalog binding.
+
+## Saved provider account selection
+
+New conversations explicitly select a profile-owned saved connection and its
+observed generation. `ConversationRequest` carries only that opaque selector;
+`AssistantConversation` retains it immutably. Unbound history remains readable,
+but cannot dispatch. A missing, foreign, changed or disconnected account never
+falls back to a service account, host token or another saved account.
+
+`AssistantRunner` uses `ProviderControllers.assistant_endpoint()` and its guarded
+HTTP gateway. The shared manager owns startup, inventory, cancellation,
+disconnection and restart recovery. Each connection generation has a separate
+assistant runner and scratch source, independent of the graph runner/source.
+Closing the chat adapter does not close the shared manager. Provider account
+selection is visible before model discovery; existing chats show their binding.
+
+The browser uses its native HttpOnly session cookie without a bearer override;
+saved-connection lease checks remain enforced. Existing unbound chat runs are not
+migrated or silently abandoned: startup refuses the transition while their known
+runner roots retain active records, unresolved resumes or resource receipts.
+Settled history stays readable and files stay untouched. New chats use saved
+accounts; disconnected conversations remain readable but cannot change accounts.

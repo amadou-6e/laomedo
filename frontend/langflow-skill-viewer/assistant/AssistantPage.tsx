@@ -1,3 +1,4 @@
+import AccountSelection from "./AccountSelection";
 import GraphPermissions from "./GraphPermissions";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
@@ -27,6 +28,7 @@ import MessageRow, { UserMessage } from "./Message";
 import Thinking from "./Thinking";
 import ModelSelection from "./ModelSelection";
 import type {
+  SavedConnection,
   ConversationDetail,
   Conversation,
   ConversationIndex,
@@ -68,6 +70,14 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
   const chosenProvider = selected ? selectedProvider ?? "codex" : provider;
   const providerRef = useRef(chosenProvider);
   providerRef.current = chosenProvider;
+  const [accounts, setAccounts] = useState<SavedConnection[]>([]);
+  const [account, setAccount] = useState<SavedConnection>();
+  const boundAccount = selected ? (detail?.conversation.id === selected ? detail.conversation : index.conversations.find(item => item.id === selected)) : undefined;
+  const connectionId = selected ? boundAccount?.connection_id : account?.provider === chosenProvider ? account.connection_id : undefined;
+  const connectionGeneration = selected ? boundAccount?.connection_generation : account?.provider === chosenProvider ? account.generation : undefined;
+  const binding = `${chosenProvider}:${connectionId ?? ""}:${connectionGeneration ?? ""}`;
+  const bindingRef = useRef(binding);
+  bindingRef.current = binding;
   const [model, setModel] = useState("");
   const [effort, setEffort] = useState("");
   const [drafts, setDrafts] = useState<Record<string, string>>({});
@@ -353,21 +363,35 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
     };
   }, [refresh, selected, owner, locked, fail]);
 
+  useEffect(() => {
+    setAccounts([]);
+    setAccount(undefined);
+    if (locked || !owner) return;
+    let current = true;
+    const load = () => { void assistantRequest<{ connections: SavedConnection[] }>("/connections").then(result => {
+      if (current) { if (!Array.isArray(result.connections)) throw new AssistantFailure("assistant_connection_unavailable"); setAccounts(result.connections); }
+    }).catch(failure => { if (current) fail(failure); }); };
+    load();
+    window.addEventListener("focus", load);
+    return () => { current = false; window.removeEventListener("focus", load); };
+  }, [owner, locked, fail]);
+
   const discover = useCallback(async () => {
-    if (!providerKnown) return;
+    if (!providerKnown || !connectionId || !connectionGeneration) { setModels(undefined); setDiscovering(false); return; }
     const epoch = generation.current;
+    const expectedBinding = binding;
     setDiscovering(true);
     setModels(undefined);
     setError(undefined);
     try {
-      const result = await assistantRequest<Models>(chosenProvider === "codex" ? "/models" : `/models?provider=${encodeURIComponent(chosenProvider)}`);
-      if (epoch === generation.current && providerRef.current === chosenProvider) setModels(result);
+      const result = await assistantRequest<Models>(`/models?provider=${encodeURIComponent(chosenProvider)}&connection_id=${encodeURIComponent(connectionId)}&connection_generation=${connectionGeneration}`);
+      if (epoch === generation.current && bindingRef.current === expectedBinding) setModels(result);
     } catch (failure) {
-      if (epoch === generation.current && providerRef.current === chosenProvider) fail(failure);
+      if (epoch === generation.current && bindingRef.current === expectedBinding) fail(failure);
     } finally {
-      if (epoch === generation.current && providerRef.current === chosenProvider) setDiscovering(false);
+      if (epoch === generation.current && bindingRef.current === expectedBinding) setDiscovering(false);
     }
-  }, [fail, chosenProvider, providerKnown]);
+  }, [fail, chosenProvider, providerKnown, connectionId, connectionGeneration, binding]);
 
   useEffect(() => {
     if (!locked) void discover();
@@ -414,6 +438,8 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
   async function create() {
     return assistantRequest<{ id: string }>("/conversations", {
       provider,
+      connection_id: connectionId,
+      connection_generation: connectionGeneration,
       model,
       effort,
       ...(linked ? { linked_conversation_id: linked } : {}),
@@ -628,6 +654,8 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
   const needsAttention = conversation?.state === "attention";
   const waiting = pending[selected];
   const canSend = Boolean(
+    connectionId && connectionGeneration &&
+    accounts.some(item => item.connection_id === connectionId && item.generation === connectionGeneration && item.lifecycle === "connected") &&
     (!selected || conversation?.state === "idle") &&
       model &&
       effort &&
@@ -1018,7 +1046,7 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
                       >
                         {[["codex", "Codex", "OpenAI"], ["claude", "Claude", "Anthropic"], ["opencode", "OpenCode", "Connected models"]].map(([id, name, description]) => (
                           <label key={id} className={`relative mb-2 flex cursor-pointer items-center justify-center gap-4 rounded-2xl border p-4 has-[:focus-visible]:outline has-[:focus-visible]:outline-2 ${provider === id ? "border-primary/40 bg-primary/5" : "border-border"}`}>
-                            <input type="radio" name="assistant-provider" aria-label={name} checked={provider === id} disabled={Boolean(pending[""])} onChange={() => { setProvider(id); setModels(undefined); setModel(""); setEffort(""); setError(undefined); }} className="sr-only" />
+                            <input type="radio" name="assistant-provider" aria-label={name} checked={provider === id} disabled={Boolean(pending[""])} onChange={() => { setProvider(id); setAccount(undefined); setModels(undefined); setModel(""); setEffort(""); setError(undefined); }} className="sr-only" />
                             <span aria-hidden="true" className="inline-flex h-8 w-8 shrink-0 items-center justify-center">{id === "codex" ? <img src={openAiLogo} className="h-8 w-8 object-contain invert dark:invert-0" alt="" /> : id === "claude" ? <IconComponent name="Claude" className="h-8 w-8" /> : <><img src={openCodeLogoLight} className="h-8 w-8 object-contain dark:hidden" alt="" /><img src={openCodeLogoDark} className="hidden h-8 w-8 object-contain dark:block" alt="" /></>}</span>
                             <span className="w-36 min-w-0"><span className="block text-sm font-medium">{name}</span><span className="mt-1 block text-xs text-muted-foreground">{description}</span></span>
                             {provider === id && <span aria-label="Selected" className="absolute right-4 text-primary"><Check size={14} /></span>}
@@ -1090,6 +1118,9 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
                 className="block w-full resize-none border-0 bg-transparent px-2 py-2 text-sm outline-none placeholder:text-muted-foreground read-only:opacity-60"
               />
               <div className="mt-1 flex items-center justify-end gap-2 px-1">
+                <AccountSelection accounts={accounts.filter(item => item.provider === chosenProvider)} selected={connectionId} generation={connectionGeneration}
+                  disabled={Boolean(selected || busy || active || pending[""])}
+                  onSelect={value => { setAccount(value); setModels(undefined); setModel(""); setEffort(""); setError(undefined); }} />
                 <ModelSelection
                   models={models}
                   model={model}

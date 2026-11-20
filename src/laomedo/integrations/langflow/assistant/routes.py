@@ -26,6 +26,13 @@ async def access(request: Request, user=Depends(get_current_active_user)):
     runtime = request.app.state.laomedo_assistant
     try:
         key = await runtime.session(request, user)
+        service = getattr(request.app.state, "provider_connections", None)
+        if service is not None:
+            from laomedo.integrations.langflow.provider_connections.routes import (
+                session_lease,
+            )
+
+            session_lease(request, service)
         return runtime, UUID(str(user.id)), key
     except AssistantError as error:
         raise HTTPException(error.status, detail={"code": error.code}) from None
@@ -50,14 +57,32 @@ async def status(request: Request, user=Depends(get_current_active_user)):
     )
 
 
+@router.get("/connections")
+async def connections(context=Depends(access)):
+    """Read profile-owned safe account selectors, never native credentials."""
+    runtime, owner, key = context
+    try:
+        return await release(runtime, owner, key, await runtime.connections(owner))
+    except AssistantError as error:
+        raise HTTPException(error.status, detail={"code": error.code}) from None
+
+
 @router.get("/models")
 async def models(
-    provider: Literal["codex", "claude", "opencode"] = "codex", context=Depends(access)
+    provider: Literal["codex", "claude", "opencode"] = "codex",
+    connection_id: UUID | None = None,
+    connection_generation: int | None = Query(default=None, ge=1),
+    context=Depends(access),
 ):
     """Discover actual model choices; inference is never part of model selection."""
     runtime, owner, key = context
     try:
-        return await release(runtime, owner, key, await runtime.models(owner, provider))
+        return await release(
+            runtime,
+            owner,
+            key,
+            await runtime.models(owner, provider, connection_id, connection_generation),
+        )
     except AssistantError as error:
         raise HTTPException(error.status, detail={"code": error.code}) from None
 

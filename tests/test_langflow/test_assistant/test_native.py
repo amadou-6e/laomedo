@@ -41,7 +41,12 @@ class NativeApprovalTests(unittest.IsolatedAsyncioTestCase):
         await self.store.admit_session(self.key, self.owner, time.time() + 1000)
         created = await self.store.create(
             self.owner,
-            ConversationRequest(model="fixture", effort="low"),
+            ConversationRequest(
+                connection_id=uuid4(),
+                connection_generation=1,
+                model="fixture",
+                effort="low",
+            ),
             session_key=self.key,
         )
         self.conversation = UUID(created["id"])

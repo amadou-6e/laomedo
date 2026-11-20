@@ -43,6 +43,12 @@ class ConversationRequest(BaseModel):
         default="codex",
         description="Immutable registered provider for this conversation.",
     )
+    connection_id: UUID = ModelField(
+        description="Explicit profile-owned saved account selector."
+    )
+    connection_generation: int = ModelField(
+        ge=1, description="Observed immutable saved account epoch."
+    )
     model: str = ModelField(
         min_length=1, max_length=256, description="Exact discovered model selection."
     )
@@ -274,6 +280,13 @@ class AssistantConversation(SQLModel, table=True):
         index=True, description="Authenticated owner; never model-selectable."
     )
     provider: str = Field(description="Fixed provider selection.")
+    connection_id: UUID | None = Field(
+        default=None,
+        description="Immutable saved account selector; unbound history is read-only.",
+    )
+    connection_generation: int | None = Field(
+        default=None, description="Immutable account epoch; never silently rebound."
+    )
     model: str = Field(
         description="Latest admitted native model selection; default for the next turn."
     )

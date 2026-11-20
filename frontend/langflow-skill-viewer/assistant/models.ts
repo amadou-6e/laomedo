@@ -1,6 +1,10 @@
 import type { Projection } from "@/modals/graphAgents/models";
 
+export type SavedConnection = { connection_id: string; provider: string; label: string; generation: number; lifecycle: string; auth_state: string };
+
 export type Conversation = {
+  connection_id?: string | null;
+  connection_generation?: number | null;
   id: string;
   title: string;
   provider: string;
