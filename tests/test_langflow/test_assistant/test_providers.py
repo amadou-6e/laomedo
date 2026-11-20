@@ -8,6 +8,7 @@ from unittest.mock import Mock
 from uuid import uuid4
 
 from laomedo.agents.connections.models import ConnectionRecord
+from laomedo.agents.connections.errors import ProviderConnectionError
 from laomedo.agents.connections.service import ProviderConnections
 from laomedo.integrations.langflow.assistant.errors import AssistantError
 from laomedo.integrations.langflow.assistant.runner import AssistantRunner
@@ -17,6 +18,28 @@ from laomedo.integrations.langflow.assistant.settings import AssistantSettings
 
 class ProviderCompositionTests(unittest.TestCase):
     """Exercise authority and delegation without Docker or model calls."""
+
+    def test_live_session_lookup_maps_manager_refusal_without_reconstruction(self):
+        owner, account, run_id = uuid4(), uuid4(), str(uuid4())
+        manager = Mock()
+        manager.assistant_live_session.side_effect = ProviderConnectionError(
+            "provider_connection_unavailable"
+        )
+        runner = AssistantRunner(
+            AssistantSettings(app_url="http://127.0.0.1:17881"),
+            owner,
+            "codex",
+            account,
+            1,
+            controllers=manager,
+        )
+        with self.assertRaises(AssistantError) as refused:
+            runner.has_live_session(run_id)
+        self.assertEqual(refused.exception.code, "provider_connection_unavailable")
+        manager.assistant_live_session.assert_called_once_with(
+            owner, account, 1, run_id
+        )
+        manager.assistant_endpoint.assert_not_called()
 
     def test_account_and_epoch_are_part_of_runner_identity(self):
         owner, account, other = uuid4(), uuid4(), uuid4()

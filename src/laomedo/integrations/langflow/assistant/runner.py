@@ -4,6 +4,7 @@ import json
 from urllib.error import HTTPError, URLError
 from urllib.request import ProxyHandler, Request, build_opener
 from laomedo.host.http import NoRedirect
+from laomedo.agents.connections.errors import ProviderConnectionError
 from laomedo.integrations.langflow.assistant.errors import AssistantError
 
 
@@ -49,7 +50,6 @@ class AssistantRunner:
         """Issue one bounded authenticated local request without proxy, redirect or replay."""
         if not path.startswith("/v1/") or ".." in path or "\r" in path or "\n" in path:
             raise AssistantError("assistant_request_invalid", 400)
-        from laomedo.agents.connections.errors import ProviderConnectionError
         from uuid import UUID
 
         parts = path.split("?", 1)[0].strip("/").split("/")
