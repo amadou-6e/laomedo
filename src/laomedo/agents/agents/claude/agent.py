@@ -168,8 +168,8 @@ class ClaudeAgent(BaseAgent):
     def preflight(self):
         """Check native authentication after constructor image/version validation.
 
-        The existing opt-in login mirror may update the dedicated credential
-        volume. This check sends no model request and makes no permission-probe
+        Authentication uses the explicitly signed-in dedicated native profile.
+        This check sends no model request and makes no permission-probe
         claim. Preserve the public ready payload and its authentication meaning.
         """
         self._check_auth()

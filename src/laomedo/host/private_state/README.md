@@ -1,11 +1,11 @@
 # Private local state
 
 This module owns generic directory admission and permission mechanisms used
-by the local Claude login mirror. Feature-specific paths and credentials remain
+by MCP custody and container-image locks. Feature-specific paths and credentials remain
 with their callers. It does not manage Docker, OAuth, lease policy or profiles.
 
 SIWC retains its legacy permission mechanism and exception translation. The
-stricter Claude path has separate admission and does not tighten SIWC's contract.
+strict private-directory path does not tighten SIWC's contract.
 
 | Name / location | Responsibility and vocabulary |
 | --- | --- |

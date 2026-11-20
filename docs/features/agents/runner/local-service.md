@@ -88,3 +88,7 @@ within the visible viewport when resized, zoomed or shortened by a keyboard.
 Escape inside the card dismisses it and restores prior focus. It never
 auto-dismisses, retries the graph, or cancels work when dismissed. Follow-up
 cards: #186 (error/stack), #187 (notice/success), #188 (other flow status).
+
+Existing trusted runner JSON must remove the retired `mirror_host_claude_login`
+key, including a value of `false`, before startup. Unknown configuration keys
+remain rejected; authenticate through Settings or the dedicated native profile.
