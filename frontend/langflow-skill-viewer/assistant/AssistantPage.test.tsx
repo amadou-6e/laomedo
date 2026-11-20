@@ -40,10 +40,10 @@ describe("uncertain assistant submission", () => {
     const composer = screen.getByRole("textbox", {name: "Message this assistant"});
     fireEvent.change(composer, {target: {value: "Hello"}});
     fireEvent.click(screen.getByRole("radio", {name: "Claude"}));
-    await screen.findByText("Connect a Claude account in Settings ? Providers to chat.");
+    await screen.findByText("Connect a Claude account in Settings → Providers to chat.");
     expect(screen.getByRole("button", {name: "Choose model and effort"})).toBeDisabled();
     expect(screen.getByRole("button", {name: "Start chat"})).toBeDisabled();
-    expect(screen.getByRole("link", {name: "Connect account ?"})).toHaveAttribute("href", "/settings/providers");
+    expect(screen.getByRole("link", {name: "Connect account ↗"})).toHaveAttribute("href", "/settings/providers");
     expect(composer).toHaveValue("Hello");
     fireEvent.keyDown(composer, {key: "Enter"});
     expect(jest.mocked(assistantRequest).mock.calls.some(([path, body]) => path === "/conversations" && body)).toBe(false);

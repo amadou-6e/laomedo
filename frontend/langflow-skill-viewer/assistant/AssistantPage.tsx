@@ -654,10 +654,10 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
   const waiting = pending[selected];
   const providerName = ({ codex: "Codex", claude: "Claude", opencode: "OpenCode" } as Record<string, string>)[chosenProvider] ?? chosenProvider;
   const providerAccounts = accounts.filter(item => item.provider === chosenProvider && item.lifecycle === "connected");
-  const composerStatus = error ? undefined : accountsLoading ? "Loading accounts?"
-    : !providerAccounts.length ? `Connect a ${providerName} account in Settings ? Providers to chat.`
+  const composerStatus = error ? undefined : accountsLoading ? "Loading accounts…"
+    : !providerAccounts.length ? `Connect a ${providerName} account in Settings → Providers to chat.`
     : !connectionId ? `Select a ${providerName} account to load its models.`
-    : discovering ? `Loading ${providerName} models?`
+    : discovering ? `Loading ${providerName} models…`
     : models && !models.models.length ? "No models were returned for this account."
     : undefined;
   const canSend = Boolean(
@@ -1125,7 +1125,7 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
                 className="block w-full resize-none border-0 bg-transparent px-2 py-2 text-sm outline-none placeholder:text-muted-foreground read-only:opacity-60"
               />
               {composerStatus && <p id="assistant-composer-status" role="status" className="px-2 pb-1 text-xs text-muted-foreground">
-                {composerStatus}{!accountsLoading && !providerAccounts.length && <> <a href="/settings/providers" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">Connect account ?</a></>}
+                {composerStatus}{!accountsLoading && !providerAccounts.length && <> <a href="/settings/providers" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">Connect account ↗</a></>}
               </p>}
               <div className="mt-1 flex items-center justify-end gap-2 px-1">
                 <AccountSelection provider={chosenProvider} accounts={accounts.filter(item => item.provider === chosenProvider)} selected={connectionId} generation={connectionGeneration}
