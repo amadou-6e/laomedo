@@ -318,36 +318,110 @@ class ClaudeComponentTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(answer.text, "answer")
         self.assertEqual(reference.data["provider"], "claude")
 
-    def test_fresh_dispatch_primes_catalogue_but_status_and_cancel_do_not(self):
-        """Cold saved Claude runners can start while recovery bypasses discovery."""
+    def test_only_explicit_cold_saved_dispatch_discovers_and_retries_once(self):
+        """Warm/concurrent calls and operator/recovery paths never add discovery."""
+        from laomedo.agents.interface.langflow.errors import RunnerRequestError
+        from laomedo.integrations.langflow.provider_connections.bindings import (
+            ProviderGraphBindings,
+        )
+
         base = LaomedoClaudeAgent.__bases__[0]
-        for operation in ("fresh", "start", "status", "cancel"):
-            with self.subTest(operation=operation):
+        code = "runner_model_catalog_unavailable_check_runner_connection"
+        for operation, managed, failure_code in (
+            ("fresh", True, code),
+            ("start", True, code),
+            ("status", True, code),
+            ("cancel", True, code),
+            ("fresh", False, code),
+            ("fresh", True, "runner_dispatch_refused"),
+        ):
+            with self.subTest(
+                operation=operation, managed=managed, failure_code=failure_code
+            ):
                 node = self.node(operation=operation)
-                events = []
+                node._saved_endpoint = ("http://localhost:8769", Path("pinned-token"))
+                refusal = RunnerRequestError(
+                    failure_code, {"http_status": 400, "runner_code": failure_code}
+                )
+                recovers = (
+                    managed and operation in {"fresh", "start"} and failure_code == code
+                )
                 with (
                     patch.object(
-                        node,
-                        "_model_catalog",
-                        side_effect=lambda config: events.append("catalogue"),
+                        ProviderGraphBindings, "service", object() if managed else None
                     ),
+                    patch.object(node, "_model_catalog", return_value={}) as discovery,
                     patch.object(
-                        base,
-                        "_http",
-                        side_effect=lambda *args: (
-                            events.append("dispatch") or {"provider": "claude"}
-                        ),
-                    ),
+                        base, "_http", side_effect=[refusal, {"provider": "claude"}]
+                    ) as dispatch,
                 ):
-                    node._http("http://localhost:8769/v1/runs", {}, "POST")
-                self.assertEqual(
-                    events,
-                    (
-                        ["catalogue", "dispatch"]
-                        if operation in {"fresh", "start"}
-                        else ["dispatch"]
-                    ),
-                )
+                    if recovers:
+                        self.assertEqual(
+                            node._http("http://localhost:8769/v1/runs", {}, "POST"),
+                            {"provider": "claude"},
+                        )
+                        discovery.assert_called_once_with(
+                            {}, saved_endpoint=node._saved_endpoint
+                        )
+                        self.assertEqual(dispatch.call_count, 2)
+                    else:
+                        with self.assertRaises(RunnerRequestError):
+                            node._http("http://localhost:8769/v1/runs", {}, "POST")
+                        discovery.assert_not_called()
+                        self.assertEqual(dispatch.call_count, 1)
+
+    def test_recovery_catalogue_uses_pinned_endpoint_without_reresolving_account(self):
+        """A concurrent reconnect cannot substitute the URL or token generation."""
+        import laomedo.agents.interface.langflow.component as common
+        from laomedo.integrations.langflow.provider_connections.bindings import (
+            ProviderGraphBindings,
+        )
+
+        node = self.node()
+        pinned = ("http://localhost:8769", Path("original-token"))
+        payload = {
+            "provider": "claude",
+            "models": [{"id": "sonnet", "efforts": ["low"]}],
+        }
+        with (
+            patch.object(ProviderGraphBindings, "service", object()),
+            patch.object(
+                ProviderGraphBindings,
+                "endpoint",
+                side_effect=AssertionError("must not rebind"),
+            ),
+            patch.object(Path, "read_text", return_value="synthetic-token"),
+            patch.object(
+                common._HTTP,
+                "open",
+                return_value=io.BytesIO(json.dumps(payload).encode()),
+            ) as opened,
+        ):
+            catalog = node._model_catalog({}, saved_endpoint=pinned)
+        self.assertEqual(catalog["sonnet"], ["low"])
+        self.assertEqual(node._saved_endpoint, pinned)
+        self.assertEqual(opened.call_args.args[0].full_url, pinned[0] + "/v1/models")
+
+    def test_warm_saved_dispatch_does_not_probe_a_busy_catalogue(self):
+        """A parallel run with an already known model goes straight to dispatch."""
+        from laomedo.integrations.langflow.provider_connections.bindings import (
+            ProviderGraphBindings,
+        )
+
+        node = self.node()
+        base = LaomedoClaudeAgent.__bases__[0]
+        with (
+            patch.object(ProviderGraphBindings, "service", object()),
+            patch.object(
+                node, "_model_catalog", side_effect=AssertionError("catalogue is busy")
+            ) as discovery,
+            patch.object(
+                base, "_http", return_value={"provider": "claude"}
+            ) as dispatch,
+        ):
+            node._http("http://localhost:8769/v1/runs", {}, "POST")
+        discovery.assert_not_called()
+        dispatch.assert_called_once()
 
     def test_runner_provider_mismatch_is_checked_by_subclass(self):
         base = LaomedoClaudeAgent.__bases__[0]

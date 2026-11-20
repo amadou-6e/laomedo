@@ -622,7 +622,7 @@ class AgentComponent(Component):
     def _model_catalog_token_file_path(self):
         return self._runner_token_file_path()
 
-    def _model_catalog(self, build_config):
+    def _model_catalog(self, build_config, *, saved_endpoint=None):
         """Discover through the exact saved connection or the explicit operator runner."""
         self._validate_adapter()
         from laomedo.integrations.langflow.provider_connections.bindings import (
@@ -635,7 +635,9 @@ class AgentComponent(Component):
                 "value", getattr(self, "provider_connection", "")
             )
             try:
-                self._saved_endpoint = ProviderGraphBindings.endpoint(self, selected)
+                self._saved_endpoint = saved_endpoint or ProviderGraphBindings.endpoint(
+                    self, selected
+                )
             except ValueError as refusal:
                 if str(refusal) == "provider_connection_required":
                     return _ModelCatalog()
