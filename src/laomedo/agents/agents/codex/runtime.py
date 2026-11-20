@@ -535,11 +535,10 @@ class CodexAgentRuntime:
         if self.authorization_probe is not None and not self.authorization_probe(
             idle=idle
         ):
-            raise RunnerError(
-                self.authorization_failure.get("code", "auth_revoked")
-                if idle
-                else "auth_revoked_during_turn"
-            )
+            if idle:
+                failure_code = self.authorization_failure.get("code", "auth_revoked")
+                raise RunnerError(failure_code)
+            raise RunnerError("auth_revoked_during_turn")
         if self.executor is not None:
             return self.executor.check_health()
         return ProcessHealthObservation(
