@@ -1,5 +1,17 @@
 # Application assistant
 
+## Browser session identity
+
+`AssistantSession` is the durable browser authority and revocation fence.
+`AssistantSessionAlias` binds a verified renewed access-token fingerprint to that
+same authority; it stores no token. `AssistantStore.admit_session()` returns the
+canonical key and only accepts a new binding from the normal profile boundary's
+verified renewal. `canonical_session_key()` resolves that identity for active
+work; `revoke()` atomically retains even an unseen renewal binding and revokes its
+root before cleanup. Owner mismatches, conflicting bindings and revoked roots
+refuse. Restart cannot turn a known renewed token into a new approval identity.
+Unrelated logins and pre-fix proposals are not rebound.
+
 ## Resume recovery (#303)
 
 `AssistantRuntime.reconcile()` observes a resumed message using the conversation's

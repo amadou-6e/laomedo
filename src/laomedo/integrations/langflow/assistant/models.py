@@ -325,6 +325,14 @@ class AssistantSession(SQLModel, table=True):
     )
 
 
+class AssistantSessionAlias(SQLModel, table=True):
+    """Verified token renewal binding retained across restarts; never stores a bearer."""
+
+    __tablename__ = "laomedo_assistant_session_alias"
+    fingerprint: str = Field(primary_key=True)
+    canonical_key: str = Field(index=True)
+
+
 class AssistantConversation(SQLModel, table=True):
     """Application-owned identity and current native binding, excluding credentials."""
 

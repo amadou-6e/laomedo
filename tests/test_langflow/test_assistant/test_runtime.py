@@ -17,6 +17,7 @@ from uuid import UUID, uuid4
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlmodel import SQLModel
 from langflow.services.database.models.user.model import User
+from laomedo.agents.connections.service import ProviderConnections
 
 from laomedo.agents.activity.models import (
     ActivityPage,
@@ -63,6 +64,90 @@ class RunnerObservation:
 
 
 class RuntimeTests(unittest.IsolatedAsyncioTestCase):
+    async def test_signed_profile_renewal_preserves_approval_identity_and_logout(self):
+        """Use real JWT verification, renewal service and durable revocation rows."""
+        import jwt
+        from langflow.services.auth.utils import ACCESS_TOKEN_TYPE
+
+        secret = "assistant-session-test-signing-key-32-bytes"
+        settings = SimpleNamespace(auth_settings=SimpleNamespace(ALGORITHM="HS256"))
+        tokens = [
+            jwt.encode(
+                {
+                    "sub": str(self.owner),
+                    "type": ACCESS_TOKEN_TYPE,
+                    "exp": time.time() + 1000,
+                    "jti": str(uuid4()),
+                },
+                secret,
+                algorithm="HS256",
+            )
+            for _ in range(4)
+        ]
+        fingerprints = [hashlib.sha256(value.encode()).hexdigest() for value in tokens]
+        requests = [
+            SimpleNamespace(headers={"authorization": "Bearer " + value}, cookies={})
+            for value in tokens
+        ]
+        user = SimpleNamespace(id=self.owner)
+        service = ProviderConnections(Path(self.directory.name) / "connections")
+        self.runtime.provider_connections = service
+        try:
+            with (
+                patch(
+                    "langflow.services.deps.get_settings_service", return_value=settings
+                ),
+                patch(
+                    "langflow.services.auth.utils.get_jwt_verification_key",
+                    return_value=secret,
+                ),
+            ):
+                root = await self.runtime.session(requests[0], user)
+                service.renew_lease(
+                    fingerprints[0], fingerprints[1], time.time() + 1000
+                )
+                self.assertEqual(await self.runtime.session(requests[1], user), root)
+                service.close()
+                service = ProviderConnections(Path(self.directory.name) / "connections")
+                self.runtime.provider_connections = service
+                self.assertEqual(await self.runtime.session(requests[1], user), root)
+                # This renewal has not visited chat before logout.
+                service.renew_lease(
+                    fingerprints[1], fingerprints[2], time.time() + 1000
+                )
+                await self.runtime.lock_session(fingerprints[2])
+                service.close()
+                service = ProviderConnections(Path(self.directory.name) / "connections")
+                self.runtime.provider_connections = service
+                self.runtime.revoked_sessions.clear()
+                with self.assertRaisesRegex(AssistantError, "assistant_session_locked"):
+                    await self.runtime.session(requests[2], user)
+                self.assertEqual(
+                    await self.runtime.session(requests[3], user), fingerprints[3]
+                )
+                bad = SimpleNamespace(
+                    headers={
+                        "authorization": "Bearer "
+                        + jwt.encode(
+                            {
+                                "sub": str(self.owner),
+                                "type": ACCESS_TOKEN_TYPE,
+                                "exp": time.time() + 1000,
+                            },
+                            "different-assistant-session-signing-key",
+                            algorithm="HS256",
+                        )
+                    },
+                    cookies={},
+                )
+                with self.assertRaisesRegex(
+                    AssistantError, "assistant_native_session_required"
+                ):
+                    await self.runtime.session(bad, user)
+        finally:
+            service.close()
+            self.runtime.provider_connections = None
+
     async def test_releasing_claimed_idle_tools_cancels_native_run_once(self):
         await self.bind()
         context = AuthoringContext(

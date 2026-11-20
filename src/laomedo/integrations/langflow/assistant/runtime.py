@@ -195,8 +195,25 @@ class AssistantRuntime:
             expires = float(payload["exp"])
         except (ValueError, KeyError, TypeError, jwt.PyJWTError):
             raise AssistantError("assistant_native_session_required", 403) from None
-        key = hashlib.sha256(token.encode()).hexdigest()
-        await self.store.admit_session(key, UUID(str(user.id)), expires)
+        fingerprint = hashlib.sha256(token.encode()).hexdigest()
+        if self.provider_connections is not None:
+            from laomedo.agents.connections.errors import ProviderConnectionError
+
+            try:
+                self.provider_connections.check_lease(fingerprint)
+            except ProviderConnectionError:
+                raise AssistantError("assistant_session_locked", 403) from None
+        key = (
+            self.provider_connections.resolve_lease(fingerprint)
+            if self.provider_connections is not None
+            else fingerprint
+        )
+        key = await self.store.admit_session(
+            fingerprint,
+            UUID(str(user.id)),
+            expires,
+            renewal_key=key if key != fingerprint else None,
+        )
         await self.check_session(UUID(str(user.id)), key)
         return key
 
@@ -213,6 +230,13 @@ class AssistantRuntime:
 
         if self.closing or key in self.revoked_sessions:
             raise AssistantError("assistant_session_locked", 403)
+        if self.provider_connections is not None:
+            from laomedo.agents.connections.errors import ProviderConnectionError
+
+            try:
+                self.provider_connections.check_lease(key)
+            except ProviderConnectionError:
+                raise AssistantError("assistant_session_locked", 403) from None
         async with self.store.sessions() as session:
             row = await session.get(AssistantSession, key)
             user = await session.get(User, owner)
@@ -381,7 +405,18 @@ class AssistantRuntime:
         """Revoke tools immediately and persist the fence before sign-out completes."""
         if not self.store:
             return
+        fingerprint = key
+        renewal_key = (
+            self.provider_connections.resolve_lease(key)
+            if self.provider_connections is not None
+            else key
+        )
+        renewal_key = renewal_key if renewal_key != fingerprint else None
+        key = await self.store.canonical_session_key(
+            fingerprint, renewal_key=renewal_key
+        )
         self.revoked_sessions.add(key)
+        await self.store.revoke(fingerprint, renewal_key=renewal_key)
         for idle in list(self.idle_tools.values()):
             if idle.context.session_key == key:
                 await self.release_idle_session(
@@ -416,7 +451,6 @@ class AssistantRuntime:
                     )
                 except AssistantError:
                     pass
-        await self.store.revoke(key)
 
     @staticmethod
     def _runner_key(owner, provider, connection_id=None, connection_generation=None):

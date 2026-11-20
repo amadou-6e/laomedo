@@ -20,6 +20,7 @@ from laomedo.integrations.langflow.assistant.models import (
     AssistantDraftReceipt,
     AssistantGraphAction,
     AssistantGraphPermission,
+    AssistantSession,
 )
 from laomedo.integrations.langflow.assistant.persistence import AssistantStore
 
@@ -63,6 +64,7 @@ class StartupSchemaTests(unittest.IsolatedAsyncioTestCase):
                             "laomedo_assistant_message",
                             "laomedo_assistant_draft_receipt",
                             "laomedo_assistant_session",
+                            "laomedo_assistant_session_alias",
                             "laomedo_assistant_graph_action",
                             "laomedo_assistant_graph_permission",
                             "laomedo_assistant_native_action",
@@ -88,6 +90,78 @@ class StartupSchemaTests(unittest.IsolatedAsyncioTestCase):
 
 
 class PersistenceTests(unittest.IsolatedAsyncioTestCase):
+    async def test_verified_renewal_keeps_identity_and_survives_restart(self):
+        renewed = "renewed-token-hash"
+        self.assertEqual(
+            await self.store.admit_session(
+                renewed, self.owner, time.time() + 2000, renewal_key=self.key
+            ),
+            self.key,
+        )
+        reopened = AssistantStore(self.engine)
+        self.assertEqual(
+            await reopened.admit_session(renewed, self.owner, time.time() + 2000),
+            self.key,
+        )
+        self.assertEqual(
+            await reopened.admit_session(
+                "next-renewal", self.owner, time.time() + 3000, renewal_key=renewed
+            ),
+            self.key,
+        )
+        self.assertEqual(await reopened.canonical_session_key("next-renewal"), self.key)
+        self.assertEqual(
+            await reopened.admit_session(
+                "unrelated-login", self.owner, time.time() + 1000
+            ),
+            "unrelated-login",
+        )
+
+    async def test_unseen_renewal_logout_stays_revoked_after_restart(self):
+        await self.store.admit_session(
+            "renewed", self.owner, time.time() + 2000, renewal_key=self.key
+        )
+        self.assertEqual(
+            await self.store.revoke("unseen-renewal", renewal_key="renewed"), self.key
+        )
+        reopened = AssistantStore(self.engine)
+        for fingerprint in (self.key, "renewed", "unseen-renewal"):
+            with self.subTest(fingerprint=fingerprint):
+                with self.assertRaisesRegex(AssistantError, "assistant_session_locked"):
+                    await reopened.admit_session(
+                        fingerprint, self.owner, time.time() + 3000
+                    )
+
+    async def test_renewal_cannot_change_owner_or_rebind_existing_alias(self):
+        await self.store.admit_session(
+            "renewed", self.owner, time.time() + 2000, renewal_key=self.key
+        )
+        with self.assertRaisesRegex(AssistantError, "assistant_session_locked"):
+            await self.store.admit_session("renewed", uuid4(), time.time() + 2000)
+        await self.store.admit_session("other-browser", self.owner, time.time() + 2000)
+        with self.assertRaisesRegex(AssistantError, "assistant_session_locked"):
+            await self.store.admit_session(
+                "renewed", self.owner, time.time() + 2000, renewal_key="other-browser"
+            )
+
+    async def test_only_verified_renewal_extends_expired_root(self):
+        async with self.store.transaction() as session:
+            row = await session.get(AssistantSession, self.key)
+            row.expires_at = time.time() - 10
+            session.add(row)
+        with self.assertRaisesRegex(AssistantError, "assistant_session_locked"):
+            await self.store.admit_session(self.key, self.owner, time.time() + 1000)
+        self.assertEqual(
+            await self.store.admit_session(
+                "renewed", self.owner, time.time() + 1000, renewal_key=self.key
+            ),
+            self.key,
+        )
+        with self.assertRaisesRegex(AssistantError, "assistant_session_locked"):
+            await self.store.admit_session(
+                "expired", self.owner, time.time() - 1, renewal_key=self.key
+            )
+
     async def test_initial_status_is_durable_and_bound_to_message_identity(self):
         """Initial control intent survives history reads and cannot alias ordinary chat."""
         request = MessageRequest(

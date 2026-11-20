@@ -222,3 +222,12 @@ Chat reads the signed-in profile from the application AuthContext, which the
 HttpOnly-cookie session probe updates. It does not read the separate Zustand
 userData slot: normal profile login does not populate that slot. Profile changes
 fence the retained chat state and reload the account list.
+
+Normal profile access-token renewal keeps the provider boundary's verified
+canonical browser lease. Assistant admission, approval cards and logout use that
+same identity rather than treating each renewed access JWT as a different app
+session. Only a verified renewal alias may extend the retained session deadline;
+explicit revocation and owner mismatches always win. Unrelated logins do not
+inherit old pending approvals. Pre-fix cards require a fresh proposal; this does
+not migrate or rebind them. Verified fingerprint aliases are retained with the
+assistant session fence so restart cannot undo a logout. No bearer is stored.

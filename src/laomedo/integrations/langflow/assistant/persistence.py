@@ -14,6 +14,7 @@ from laomedo.integrations.langflow.assistant.models import (
     AssistantMessage,
     AssistantDraftReceipt,
     AssistantSession,
+    AssistantSessionAlias,
     AssistantGraphAction,
     AssistantGraphPermission,
     AssistantNativeAction,
@@ -94,6 +95,7 @@ class AssistantStore:
                 AssistantMessage,
                 AssistantDraftReceipt,
                 AssistantSession,
+                AssistantSessionAlias,
                 AssistantGraphAction,
                 AssistantGraphPermission,
                 AssistantNativeAction,
@@ -133,23 +135,59 @@ class AssistantStore:
             raise AssistantError("assistant_conversation_not_found", 404)
         return value
 
-    async def admit_session(self, key, owner, expires_at):
-        """Retain a validated session; a revoked bearer cannot resurrect itself."""
+    async def _session_key(self, session, fingerprint, renewal_key=None):
+        """Resolve immutable renewal bindings; conflicting roots always refuse."""
+        alias = await session.get(AssistantSessionAlias, fingerprint)
+        key = alias.canonical_key if alias else fingerprint
+        if renewal_key is not None:
+            renewed = await session.get(AssistantSessionAlias, renewal_key)
+            candidate = renewed.canonical_key if renewed else renewal_key
+            if alias is not None and key != candidate:
+                raise AssistantError("assistant_session_locked", 403)
+            key = candidate
+        return key
+
+    async def canonical_session_key(self, fingerprint, *, renewal_key=None):
+        """Read the persisted browser identity before fencing active work."""
+        async with self.sessions() as session:
+            return await self._session_key(session, fingerprint, renewal_key)
+
+    async def admit_session(self, fingerprint, owner, expires_at, *, renewal_key=None):
+        """Admit a signed token; only host-verified renewal binds it to another root.
+
+        Persist the binding with the authority row so logout cannot be bypassed
+        by losing the provider's in-memory renewal map during a restart.
+        """
         async with self.transaction() as session:
+            if expires_at <= time.time():
+                raise AssistantError("assistant_session_locked", 403)
+            key = await self._session_key(session, fingerprint, renewal_key)
+            direct = await session.get(AssistantSession, fingerprint)
+            if direct is not None and (direct.revoked or direct.owner_id != owner):
+                raise AssistantError("assistant_session_locked", 403)
             row = await session.get(AssistantSession, key)
             if row is not None:
                 if (
                     row.revoked
                     or row.owner_id != owner
-                    or row.expires_at <= time.time()
+                    or (row.expires_at <= time.time() and key == fingerprint)
                 ):
                     raise AssistantError("assistant_session_locked", 403)
-                return
-            if expires_at <= time.time():
-                raise AssistantError("assistant_session_locked", 403)
-            session.add(
-                AssistantSession(key=key, owner_id=owner, expires_at=expires_at)
-            )
+                if key != fingerprint:
+                    row.expires_at = max(row.expires_at, expires_at)
+                    session.add(row)
+            else:
+                session.add(
+                    AssistantSession(key=key, owner_id=owner, expires_at=expires_at)
+                )
+            if (
+                key != fingerprint
+                and await session.get(AssistantSessionAlias, fingerprint) is None
+            ):
+                session.add(
+                    AssistantSessionAlias(fingerprint=fingerprint, canonical_key=key)
+                )
+            return key
 
     async def authorize(self, session, owner, key):
         """Lock the revocation fence in the same transaction as a save/reservation."""
@@ -168,13 +206,23 @@ class AssistantStore:
         ):
             raise AssistantError("assistant_session_locked", 403)
 
-    async def revoke(self, key):
-        """Persist lock/sign-out under the same writer discipline as draft saves."""
+    async def revoke(self, fingerprint, *, renewal_key=None):
+        """Fence even an unseen renewed token durably before sign-out completes."""
         async with self.transaction() as session:
-            row = await session.get(AssistantSession, key)
-            if row:
-                row.revoked = True
-                session.add(row)
+            key = await self._session_key(session, fingerprint, renewal_key)
+            for identifier in {key, fingerprint}:
+                row = await session.get(AssistantSession, identifier)
+                if row:
+                    row.revoked = True
+                    session.add(row)
+            if (
+                key != fingerprint
+                and await session.get(AssistantSessionAlias, fingerprint) is None
+            ):
+                session.add(
+                    AssistantSessionAlias(fingerprint=fingerprint, canonical_key=key)
+                )
+            return key
 
     async def create(self, owner, request, *, session_key):
         """Persist model selection and optional owner-visible predecessor without inference."""
