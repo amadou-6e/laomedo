@@ -1,0 +1,81 @@
+{
+  "source_revision": "c31fdacd66247211c554197175dd57917cf22128",
+  "files": [
+    {
+      "path": "src/laomedo/agents/agents/base/agent.py",
+      "sha256": "6a10ed788556bf1dd63b25a013a3167e8200e6bd2aef2b1d670805dbfcf2fc93"
+    },
+    {
+      "path": "src/laomedo/agents/agents/claude/auth/README.md",
+      "sha256": "06334d81e2c5ae091d847ed6710f8999bc62824f3c6c60cc192fe5375056bd5e"
+    },
+    {
+      "path": "src/laomedo/agents/agents/claude/auth/__init__.py",
+      "sha256": "3942f6aba57e1b558dfbff04ef9e7ee3cb53041244f204c55ff18a27817ed0db"
+    },
+    {
+      "path": "src/laomedo/agents/agents/claude/auth/errors.py",
+      "sha256": "196857a85b8dabdeb31bf75bad2b6f5962166194287816eae2f206eb9860793f"
+    },
+    {
+      "path": "src/laomedo/agents/agents/claude/auth/models.py",
+      "sha256": "4d800bce2209b25f3b171aadb4f0b252061a7d81e16ddf26eb9735ee61e8e9c6"
+    },
+    {
+      "path": "src/laomedo/agents/agents/claude/auth/resources/README.md",
+      "sha256": "25490c59528bbc86d377959c64f84c42711478eb42d1b1096a4564fa77b040bc"
+    },
+    {
+      "path": "src/laomedo/agents/agents/claude/auth/resources/__init__.py",
+      "sha256": "63d2245c8f0702d01e91801fec3cebc025049b2e21b68875f260b32c1d3a8063"
+    },
+    {
+      "path": "src/laomedo/agents/agents/claude/auth/resources/write_login.py",
+      "sha256": "8c361ab6e1c59de2ea648872cf156d3f99ca2b0ab9c60959465e2ca610dc6bb7"
+    },
+    {
+      "path": "src/laomedo/agents/agents/claude/auth/settings.py",
+      "sha256": "23d54ccbfe654f1e6c19bd091db6b95066ac7b9a8e0823b92988dd89e48a0f2f"
+    },
+    {
+      "path": "src/laomedo/agents/agents/claude/auth/utils.py",
+      "sha256": "50eaededd7d90e66df1fe7a5839b04d46f4e70c475452f522bee00ae7aba4ed5"
+    },
+    {
+      "path": "src/laomedo/agents/agents/claude/credentials.py",
+      "sha256": "1bb9759c6c574d6f0237504fa659aca335981e40945d7fa44317bec10627bbca"
+    },
+    {
+      "path": "src/laomedo/host/runner/service.py",
+      "sha256": "645b24ec54290030d3e674b860efc5dac48d142dc9e1beb42e42ba109038cedc"
+    },
+    {
+      "path": "tests/test_agents/test_claude/test_access_login_record.py",
+      "sha256": "53d79ad508d8f3b2d3ae0e7e34bac7aabc1f0fbd5d5f8292c46a0e090012e1da"
+    },
+    {
+      "path": "tests/test_agents/test_claude/test_auth/README.md",
+      "sha256": "2b4e802ef53c0e2ae9af6e4bdf70d9d309d2a69904036f1bf3c0ba30d7b38754"
+    },
+    {
+      "path": "tests/test_agents/test_claude/test_auth/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "tests/test_agents/test_claude/test_auth/test_admission.py",
+      "sha256": "3132b22a122be6049955cb59d232fa66ad5b5d7761ccc6523affc21f884af997"
+    },
+    {
+      "path": "tests/test_agents/test_claude/test_auth/test_mirror.py",
+      "sha256": "7bf251e41be98ad44976eeed19e39ab03a1ee0afbcbd9876485fb8ac1ee812d7"
+    },
+    {
+      "path": "tests/test_agents/test_claude/test_auth/test_session.py",
+      "sha256": "143da1ae76e4d60cec7e5cd56b1e66a8f07967f9e49f2e07563e321d0f7969da"
+    },
+    {
+      "path": "tests/test_agents/test_runtime/test_service.py",
+      "sha256": "a6264ab26e9ff6c98d432c629ed6fb237038e157e2d2c1798860cc7622351178"
+    }
+  ]
+}

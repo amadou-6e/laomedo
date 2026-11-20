@@ -1,0 +1,1 @@
+Exact historical source before removal of ambient Claude host-login copying in issue #284. These files document retired behavior; production tests must not import them. Useful current admission/deadline assertions remain in concern-owned tests. No credential or runtime files are included.
