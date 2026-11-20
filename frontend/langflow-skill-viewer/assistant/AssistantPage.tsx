@@ -1053,7 +1053,7 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
                       >
                         {[["codex", "Codex", "OpenAI"], ["claude", "Claude", "Anthropic"], ["opencode", "OpenCode", "Connected models"]].map(([id, name, description]) => (
                           <label key={id} className={`relative mb-2 flex cursor-pointer items-center justify-center gap-4 rounded-2xl border p-4 has-[:focus-visible]:outline has-[:focus-visible]:outline-2 ${provider === id ? "border-primary/40 bg-primary/5" : "border-border"}`}>
-                            <input type="radio" name="assistant-provider" aria-label={name} checked={provider === id} disabled={Boolean(pending[""])} onChange={() => { setProvider(id); setAccount(undefined); setModels(undefined); setModel(""); setEffort(""); setError(undefined); }} className="sr-only" />
+                            <input type="radio" name="assistant-provider" aria-label={name} checked={provider === id} disabled={Boolean(pending[""])} onChange={() => { setProvider(id); setAccount(undefined); setModels(undefined); setModel(""); setEffort(""); setError(undefined); }} className="absolute inset-0 z-10 m-0 h-full w-full cursor-pointer appearance-none rounded-2xl border-0 bg-transparent focus:outline-none" />
                             <ProviderIcon provider={id} className="h-8 w-8" />
                             <span className="w-36 min-w-0"><span className="block text-sm font-medium">{name}</span><span className="mt-1 block text-xs text-muted-foreground">{description}</span></span>
                             {provider === id && <span aria-label="Selected" className="absolute right-4 text-primary"><Check size={14} /></span>}
