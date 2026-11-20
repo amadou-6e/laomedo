@@ -275,9 +275,11 @@ def install_provider_routes(app, service, authenticate, *, origin: str):
         attempt_id: UUID, request: Request, user=Depends(authenticate)
     ):
         """Observe a bounded attempt without replaying authorization."""
-        session_lease(request, service)
+        lease = session_lease(request, service)
         return await respond(
-            lambda: service.progress(user.id, attempt_id).model_dump(mode="json")
+            lambda: service.progress(user.id, attempt_id, lease_hash=lease).model_dump(
+                mode="json"
+            )
         )
 
     @app.post(prefix + "/attempts/{attempt_id}/cancel")
@@ -285,11 +287,13 @@ def install_provider_routes(app, service, authenticate, *, origin: str):
         attempt_id: UUID, request: Request, user=Depends(authenticate)
     ):
         """Fence a native return before navigating back to saved connections."""
-        session_lease(request, service)
+        lease = session_lease(request, service)
         if request.headers.get("origin") != origin:
             raise HTTPException(403, detail={"code": "provider_request_refused"})
         return await respond(
-            lambda: service.cancel(user.id, attempt_id).model_dump(mode="json")
+            lambda: service.cancel(user.id, attempt_id, lease_hash=lease).model_dump(
+                mode="json"
+            )
         )
 
     @app.get("/auth/callback")
