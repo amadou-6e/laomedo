@@ -70,10 +70,11 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
   providerRef.current = chosenProvider;
   const [accounts, setAccounts] = useState<SavedConnection[]>([]);
   const [accountsLoading, setAccountsLoading] = useState(true);
+  const [accountsOwner, setAccountsOwner] = useState<string>();
   const [account, setAccount] = useState<SavedConnection>();
   const boundAccount = selected ? (detail?.conversation.id === selected ? detail.conversation : index.conversations.find(item => item.id === selected)) : undefined;
-  const connectionId = selected ? boundAccount?.connection_id : account?.provider === chosenProvider ? account.connection_id : undefined;
-  const connectionGeneration = selected ? boundAccount?.connection_generation : account?.provider === chosenProvider ? account.generation : undefined;
+  const connectionId = owner && accountsOwner === owner ? selected ? boundAccount?.connection_id : account?.provider === chosenProvider ? account.connection_id : undefined : undefined;
+  const connectionGeneration = owner && accountsOwner === owner ? selected ? boundAccount?.connection_generation : account?.provider === chosenProvider ? account.generation : undefined : undefined;
   const binding = `${chosenProvider}:${connectionId ?? ""}:${connectionGeneration ?? ""}`;
   const bindingRef = useRef(binding);
   bindingRef.current = binding;
@@ -364,17 +365,24 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
 
   useEffect(() => {
     setAccounts([]);
+    setAccountsOwner(undefined);
     setAccount(undefined);
     if (locked || !owner) { setAccountsLoading(false); return; }
     setAccountsLoading(true);
     let current = true;
     const load = () => { void assistantRequest<{ connections: SavedConnection[] }>("/connections").then(result => {
-      if (current) { if (!Array.isArray(result.connections)) throw new AssistantFailure("assistant_connection_unavailable"); setAccounts(result.connections); }
+      if (current) { if (!Array.isArray(result.connections)) throw new AssistantFailure("assistant_connection_unavailable"); setAccounts(result.connections); setAccountsOwner(owner); }
     }).catch(failure => { if (current) fail(failure); }).finally(() => { if (current) setAccountsLoading(false); }); };
     load();
     window.addEventListener("focus", load);
     return () => { current = false; window.removeEventListener("focus", load); };
   }, [owner, locked, fail]);
+
+  useEffect(() => {
+    if (selected || locked || accountsLoading || account || !owner || accountsOwner !== owner) return;
+    const available = accounts.find(item => item.provider === chosenProvider && item.lifecycle === "connected" && item.auth_state === "ready");
+    if (available) setAccount(available);
+  }, [selected, locked, accountsLoading, account, accounts, chosenProvider, owner, accountsOwner]);
 
   const discover = useCallback(async () => {
     if (!providerKnown || !connectionId || !connectionGeneration) { setModels(undefined); setDiscovering(false); return; }
@@ -678,7 +686,7 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
   const providerAccounts = accounts.filter(item => item.provider === chosenProvider && item.lifecycle === "connected");
   const composerStatus = error ? undefined : accountsLoading ? "Loading accounts…"
     : !providerAccounts.length ? `Connect a ${providerName} account in Settings → Providers to chat.`
-    : !connectionId ? `Select a ${providerName} account to load its models.`
+    : !connectionId ? undefined
     : discovering ? `Loading ${providerName} models…`
     : models && !models.models.length ? "No models were returned for this account."
     : undefined;
@@ -1114,7 +1122,7 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
                 maxLength={12000}
                 rows={2}
                 placeholder={
-                  selected ? "Message this assistant…" : "Start chat…"
+                  selected ? "Message this assistant…" : accountsLoading ? "Loading accounts…" : !connectionId ? providerAccounts.length ? "Select an account" : "No account available" : "Start chat…"
                 }
                 value={drafts[selected] ?? ""}
                 readOnly={
@@ -1153,12 +1161,13 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
               </p>}
               <div className="mt-1 flex items-center justify-end gap-2 px-1">
                 <AccountSelection provider={chosenProvider} accounts={accounts.filter(item => item.provider === chosenProvider)} selected={connectionId} generation={connectionGeneration}
+                  loading={accountsLoading}
                   disabled={Boolean(selected || busy || active || pending[""])}
-                  onSelect={value => { setAccount(value); setModels(undefined); setModel(""); setEffort(""); setError(undefined); }} />
+                  onSelect={value => { if (value.connection_id === connectionId && value.generation === connectionGeneration) return; setAccount(value); setModels(undefined); setModel(""); setEffort(""); setError(undefined); }} />
                 <ModelSelection
                   models={models}
-                  model={model}
-                  effort={effort}
+                  model={connectionId ? model : ""}
+                  effort={connectionId ? effort : ""}
                   disabled={!connectionId || !models?.models.length || busy || discovering || active || Boolean(waiting)}
                   onModel={(value) => {
                     const next = models?.models.find(

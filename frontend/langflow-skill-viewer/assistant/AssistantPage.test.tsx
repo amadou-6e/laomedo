@@ -3,6 +3,7 @@ import { MemoryRouter } from "react-router-dom";
 import AssistantPage from "./AssistantPage";
 import { assistantRequest, AssistantFailure } from "./api";
 import { conversationTranscript, downloadTranscript } from "./transcript";
+import type { Context } from "react";
 
 jest.mock("./transcript", () => ({
   conversationTranscript: jest.fn(),
@@ -27,6 +28,56 @@ jest.mock("@/contexts/authContext", () => ({
 }));
 
 describe("uncertain assistant submission", () => {
+  it("defaults only to a ready account for this provider and preserves an explicit choice on refresh", async () => {
+    const ready = {connection_id: "ready", generation: 2, provider: "codex", label: "Ready account", lifecycle: "connected", auth_state: "ready"};
+    const other = {...ready, connection_id: "other", label: "Other account"};
+    const choices = [{...ready, connection_id: "expired", label: "Expired account", auth_state: "expired"}, {...ready, connection_id: "claude", provider: "claude", label: "Claude account"}, ready, other];
+    jest.mocked(assistantRequest).mockImplementation(async path => {
+      if (path === "/connections") return {connections: choices};
+      if (path.startsWith("/models?")) return {provider: "codex", models: [{id: "fixture", efforts: ["low"]}]};
+      return {conversations: [], next_cursor: null};
+    });
+    render(<MemoryRouter><AssistantPage /></MemoryRouter>);
+    const trigger = screen.getByRole("button", {name: "Account"});
+    await waitFor(() => expect(trigger).toHaveAccessibleDescription("Ready account"));
+    await waitFor(() => expect(screen.getByRole("button", {name: "Choose model and effort"})).toHaveTextContent("fixture"));
+    expect(assistantRequest).toHaveBeenCalledWith(expect.stringContaining("connection_id=ready&connection_generation=2"));
+    expect(jest.mocked(assistantRequest).mock.calls.some(([, body]) => Boolean(body))).toBe(false);
+    fireEvent.click(trigger);
+    fireEvent.click(await screen.findByRole("menuitemradio", {name: "Ready account"}));
+    expect(screen.getByRole("button", {name: "Choose model and effort"})).toHaveTextContent("fixture");
+    fireEvent.click(trigger);
+    fireEvent.click(await screen.findByRole("menuitemradio", {name: "Other account"}));
+    await waitFor(() => expect(assistantRequest).toHaveBeenCalledWith(expect.stringContaining("connection_id=other")));
+    fireEvent(window, new Event("focus"));
+    await waitFor(() => expect(jest.mocked(assistantRequest).mock.calls.filter(([path]) => path === "/connections")).toHaveLength(2));
+    expect(trigger).toHaveAccessibleDescription("Other account");
+  });
+
+  it("waits for the new profile's account list before selecting a default", async () => {
+    const {AuthContext} = jest.requireMock("@/contexts/authContext") as {AuthContext: Context<{userData: {id: string}}>};
+    const first = {connection_id: "first-account", generation: 1, provider: "codex", label: "First profile account", lifecycle: "connected", auth_state: "ready"};
+    let complete: (value: {connections: typeof first[]}) => void = () => {};
+    const secondList = new Promise<{connections: typeof first[]}>(resolve => {complete = resolve;});
+    let count = 0;
+    jest.mocked(assistantRequest).mockImplementation(async path => {
+      if (path === "/connections") return ++count === 1 ? {connections: [first]} : secondList;
+      if (path.startsWith("/models?")) return {provider: "codex", models: [{id: "fixture", efforts: ["low"]}]};
+      return {conversations: [], next_cursor: null};
+    });
+    const view = (owner: string) => <AuthContext.Provider value={{userData: {id: owner}}}><MemoryRouter><AssistantPage /></MemoryRouter></AuthContext.Provider>;
+    const rendered = render(view("first-profile"));
+    await waitFor(() => expect(screen.getByRole("button", {name: "Account"})).toHaveAccessibleDescription("First profile account"));
+    await waitFor(() => expect(assistantRequest).toHaveBeenCalledWith(expect.stringContaining("connection_id=first-account")));
+    jest.mocked(assistantRequest).mockClear();
+    rendered.rerender(view("second-profile"));
+    await screen.findByPlaceholderText("Loading accounts…");
+    expect(jest.mocked(assistantRequest).mock.calls.some(([path]) => path.startsWith("/models?"))).toBe(false);
+    await act(async () => {complete({connections: [{...first, connection_id: "second-account", label: "Second profile account"}]}); await secondList;});
+    await waitFor(() => expect(screen.getByRole("button", {name: "Account"})).toHaveAccessibleDescription("Second profile account"));
+    expect(assistantRequest).toHaveBeenCalledWith(expect.stringContaining("connection_id=second-account"));
+  });
+
   it.each([["claude", "compact", ""], ["opencode", "init", "saved"]])(
     "never sends an unadvertised %s /%s native candidate as a model prompt",
     async (provider, command, selected) => {
@@ -57,7 +108,7 @@ describe("uncertain assistant submission", () => {
     },
   );
 
-  it("explains an unconnected provider, preserves the draft, then sends through an explicitly selected connected account", async () => {
+  it("explains an unconnected provider, preserves the draft, then defaults to its connected account", async () => {
     const chat = { connection_id: "account", connection_generation: 1, id: "fresh", title: "Hello", provider: "codex", model: "fixture", effort: "low", state: "idle", active_message_id: null };
     jest.mocked(assistantRequest).mockImplementation(async (path, body) => {
       if (path === "/connections") return { connections: [{connection_id: "account", generation: 1, provider: "codex", label: "Saved account", lifecycle: "connected", auth_state: "ready"}] };
@@ -71,18 +122,19 @@ describe("uncertain assistant submission", () => {
     fireEvent.change(composer, {target: {value: "Hello"}});
     fireEvent.click(screen.getByRole("radio", {name: "Claude"}));
     await screen.findByText("Connect a Claude account in Settings → Providers to chat.");
+    expect(screen.getByPlaceholderText("No account available")).toBe(composer);
+    expect(screen.getByRole("button", {name: "Account"})).toHaveAccessibleDescription("No account available");
     expect(screen.getByRole("button", {name: "Choose model and effort"})).toBeDisabled();
     expect(screen.getByRole("button", {name: "Start chat"})).toBeDisabled();
     expect(screen.getByRole("link", {name: "Connect account ↗"})).toHaveAttribute("href", "/settings/providers");
     expect(composer).toHaveValue("Hello");
     fireEvent.keyDown(composer, {key: "Enter"});
     expect(jest.mocked(assistantRequest).mock.calls.some(([path, body]) => path === "/conversations" && body)).toBe(false);
-    expect(jest.mocked(assistantRequest).mock.calls.some(([path]) => path.startsWith("/models?"))).toBe(false);
+    expect(jest.mocked(assistantRequest).mock.calls.some(([path]) => path.startsWith("/models?provider=claude"))).toBe(false);
     fireEvent.click(screen.getByRole("radio", {name: "Codex"}));
-    await screen.findByText("Select a Codex account to load its models.");
-    fireEvent.click(screen.getByRole("button", {name: "Account"}));
-    fireEvent.click(await screen.findByRole("menuitemradio", {name: "Saved account"}));
     await waitFor(() => expect(screen.getByRole("button", {name: "Start chat"})).not.toBeDisabled());
+    expect(screen.queryByText("Select a Codex account to load its models.")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", {name: "Account"})).toHaveAccessibleDescription("Saved account");
     expect(composer).toHaveValue("Hello");
     fireEvent.keyDown(composer, {key: "Enter"});
     await waitFor(() => expect(assistantRequest).toHaveBeenCalledWith("/conversations/fresh/messages", expect.objectContaining({text: "Hello"})));
@@ -587,7 +639,7 @@ describe("uncertain assistant submission", () => {
     const composer = screen.getByRole("textbox", {
       name: "Message this assistant",
     });
-    expect(composer.getAttribute("placeholder")).toBe("Start chat…");
+    await waitFor(() => expect(composer.getAttribute("placeholder")).toBe("Start chat…"));
     fireEvent.click(
       screen.getByRole("button", { name: "Collapse conversations" }),
     );
@@ -647,7 +699,7 @@ describe("uncertain assistant submission", () => {
     });
     render(<MemoryRouter><AssistantPage /></MemoryRouter>);
     await waitFor(() => expect(assistantRequest).toHaveBeenCalledWith("/connections"));
-    expect(jest.mocked(assistantRequest).mock.calls.some(([path]) => path.startsWith("/models"))).toBe(false);
+    await waitFor(() => expect(assistantRequest).toHaveBeenCalledWith(expect.stringContaining("provider=codex")));
     fireEvent.click(screen.getByRole("button", {name: "Account"}));
     fireEvent.click(await screen.findByRole("menuitemradio", {name: "Saved account"}));
     await waitFor(() => expect(assistantRequest).toHaveBeenCalledWith(expect.stringContaining("provider=codex")));
