@@ -28,6 +28,13 @@ Same Claude session reviewing implementation2957a6e3a..56479f074, specification
 4f49b1e..5bbd464 and three actual images; this delta is fully unreviewed, reviewer
 pending. Earlier approvals do not cover it; nothing merged.
 
+Final same-session review of56479f074 / spec5bbd464: Implementation APPROVE with
+71UItest/build/CI conditions fulfilled; Specification APPROVE. All three actual
+desktop dark images inspected and matched. Visual INCOMPLETE for narrow/light/
+focus states. Optional A1-A3, no blockers. No source changes after review; both
+existing PRs updated, nothing merged. UI left on Codex with its default account
+and discovered models; no test draft or extra model prompt remains.
+
 ## Completed reviewer correction
 
 After quota restoration, the same Claude reviewer approved the UI corrections
