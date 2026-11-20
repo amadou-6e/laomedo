@@ -20,11 +20,13 @@ from laomedo.integrations.langflow.assistant.models import (
     DraftGraph,
     DraftRequest,
     WorkflowSource,
+    GraphActionRequest,
+    GraphChanges,
 )
 
 
 class AuthoringMcp:
-    """Expose six bounded tools; the public app API credential never enters a provider."""
+    """Expose bounded read/draft/proposal tools; the public app API credential never enters a provider."""
 
     def __init__(self, runtime, origin):
         """Build a stateless HTTP app with explicit Host/origin protection and no model work."""
@@ -91,7 +93,24 @@ class AuthoringMcp:
                 raise AssistantError("assistant_tool_authority_revoked", 403)
             self.runtime.tool_tasks.setdefault(context.message_id, set()).add(task)
             await self.runtime.authorize(context)
-            if operation == "list_skills":
+            if operation in {
+                "propose_graph_edit",
+                "propose_graph_run",
+                "get_graph_action",
+            }:
+                actions = await self.runtime.graph_actions(context.owner_id)
+                if operation == "get_graph_action":
+                    result = await actions.read(
+                        context.owner_id,
+                        context.conversation_id,
+                        arguments["action_id"],
+                        session_key=context.session_key,
+                    )
+                else:
+                    result = await self.runtime.propose_graph_action(
+                        context, arguments["request"]
+                    )
+            elif operation == "list_skills":
                 result = await self.runtime.skills(context, **arguments)
             else:
                 workflows = await self.runtime.workflow_tools(context)
@@ -168,3 +187,57 @@ class AuthoringMcp:
         except ValueError:
             raise ToolError("assistant_input_invalid") from None
         return await self._invoke(ctx, "save_draft", request=request)
+
+    async def propose_graph_edit(
+        self,
+        operation_key: str,
+        workflow_id: UUID,
+        expected_revision: str,
+        changes: GraphChanges,
+        ctx: Context,
+        summary: str = "",
+    ) -> dict:
+        """Propose exact saved-graph changes for human approval. Applies only with existing human conversation consent; otherwise waits for approval. Discover existing node IDs and installed schemas first. New node IDs use ComponentName-key; preserve all unmentioned settings. A changed revision requires a fresh proposal/key."""
+        try:
+            request = GraphActionRequest(
+                operation_key=operation_key,
+                workflow_id=workflow_id,
+                expected_revision=expected_revision,
+                kind="edit",
+                changes=changes,
+                summary=summary,
+            )
+        except ValueError:
+            raise ToolError("assistant_input_invalid") from None
+        return await self._invoke(ctx, "propose_graph_edit", request=request)
+
+    async def propose_graph_run(
+        self,
+        operation_key: str,
+        workflow_id: UUID,
+        expected_revision: str,
+        ctx: Context,
+        input_value: str = "",
+        input_type: str = "chat",
+        output_type: str = "any",
+        summary: str = "",
+    ) -> dict:
+        """Propose execution of an exact saved revision/input for human approval. Runs only with existing human conversation consent; otherwise waits for approval. Uses the approving app user's configured credentials/global variables; may consume quota or perform external actions. Never retry unknown effects under a new key."""
+        try:
+            request = GraphActionRequest(
+                operation_key=operation_key,
+                workflow_id=workflow_id,
+                expected_revision=expected_revision,
+                kind="run",
+                input_value=input_value,
+                input_type=input_type,
+                output_type=output_type,
+                summary=summary,
+            )
+        except ValueError:
+            raise ToolError("assistant_input_invalid") from None
+        return await self._invoke(ctx, "propose_graph_run", request=request)
+
+    async def get_graph_action(self, action_id: UUID, ctx: Context) -> dict:
+        """Read this conversation's authoritative proposal/outcome without executing or approving it."""
+        return await self._invoke(ctx, "get_graph_action", action_id=action_id)

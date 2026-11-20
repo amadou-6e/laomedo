@@ -961,6 +961,33 @@
                 "type": "int",
                 "_input_type": "IntInput"
               },
+              "provider_connection": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "options": [],
+                "options_metadata": [],
+                "combobox": false,
+                "dialog_inputs": {},
+                "toggle": false,
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": false,
+                "name": "provider_connection",
+                "value": "",
+                "display_name": "Connection",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": false,
+                "info": "Choose a saved account from Settings > Providers. This local binding is omitted from exports.",
+                "real_time_refresh": true,
+                "refresh_button": true,
+                "title_case": false,
+                "track_in_telemetry": true,
+                "external_options": {},
+                "type": "str",
+                "_input_type": "DropdownInput"
+              },
               "request_id": {
                 "tool_mode": false,
                 "trace_as_metadata": true,
@@ -1179,6 +1206,7 @@
               }
             ],
             "field_order": [
+              "provider_connection",
               "task",
               "operation",
               "request_id",

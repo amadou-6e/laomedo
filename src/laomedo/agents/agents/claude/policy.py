@@ -214,7 +214,7 @@ class ClaudeRuntimePolicy:
         """Collect one bounded binary result only after exact cleanup is confirmed."""
         from py_docker.jobs.models import ContainerJob
         from py_docker.streams.models import StreamLimits
-        from laomedo.agents.agents.claude.auth.settings import CLEANUP_SECONDS
+        from laomedo.agents.agents.claude.settings import CLEANUP_SECONDS
 
         options = {}
         if deadline is not None:

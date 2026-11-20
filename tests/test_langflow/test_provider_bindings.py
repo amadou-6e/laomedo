@@ -13,8 +13,8 @@ from langflow.services.auth.context import (
     get_current_auth_context,
     set_current_auth_context,
 )
-from laomedo.host.provider_connections.models import BrowserProviderSession
-from laomedo.host.provider_connections.errors import ProviderConnectionError
+from laomedo.agents.connections.models import BrowserProviderSession
+from laomedo.agents.connections.errors import ProviderConnectionError
 from laomedo.integrations.langflow.provider_connections.bindings import (
     ProviderGraphBindings,
 )
@@ -94,7 +94,7 @@ class ProviderBindingTests(unittest.IsolatedAsyncioTestCase):
             patch.object(ProviderGraphBindings, "service", service),
             patch.object(ProviderGraphBindings, "owner", return_value=self.profile),
             patch(
-                "laomedo.host.provider_connections.controllers.ProviderControllers.current",
+                "laomedo.agents.connections.controllers.ProviderControllers.current",
                 return_value=controller,
             ),
         ):

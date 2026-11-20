@@ -1,6 +1,11 @@
 {
+  "provider_account_mismatch": {"title": "Different account selected", "description": "You signed in to a different account. Your saved connection has not changed.", "recovery": "Add this account as a new connection to use it in Laomedo."},
+  "provider_session_required": {"title": "Sign in to continue", "description": "Your local session has ended. Your saved provider connections are kept.", "recovery": "Sign in to your local profile again."},
+  "provider_connection_limit": {"title": "Connection limit reached", "description": "This profile has reached its saved connection limit.", "recovery": "Remove a connection you no longer use before adding another."},
+  "provider_login_expired": {"title": "Sign-in expired", "description": "This sign-in is no longer available.", "recovery": "Start signing in again."},
+  "provider_request_refused": {"title": "Could not complete this request", "description": "The connection request could not be accepted.", "recovery": "Refresh to check the current connection before trying again."},
   "provider_connection_busy": {"title": "Account is in use", "description": "An active run is using this connection.", "recovery": "Wait for it to finish or stop it before signing in again."},
-  "provider_connection_required": {"title": "Choose a connection", "description": "This agent needs a saved Codex account.", "recovery": "Choose a connection, or add one in Settings > Providers."},
+  "provider_connection_required": {"title": "Choose a connection", "description": "This agent needs a saved provider connection.", "recovery": "Choose a connection, or add one in Settings > Providers."},
   "provider_connection_unavailable": {"title": "Connection unavailable", "description": "This connection is not available for this profile.", "recovery": "Choose an available connection or check Settings > Providers."},
   "provider_connection_changed": {"title": "Connection changed", "description": "This run belongs to an earlier sign-in.", "recovery": "Start a new run with your current connection."},
   "provider_connection_disconnecting": {"title": "Connection is disconnecting", "description": "New work is blocked while this connection is removed.", "recovery": "Choose another connection or check cleanup in Settings > Providers."},
@@ -1193,21 +1198,6 @@
     "title": "The activity status could not be accepted",
     "description": "The supplied status is not supported by the activity contract.",
     "recovery": "Inspect the existing run Status and share this technical code with the maintainer."
-  },
-  "claude_host_login_unavailable": {
-    "title": "The local Claude login could not be read",
-    "description": "The runner could not read the selected host Claude access credential.",
-    "recovery": "Check that Claude Code is signed in on this machine and that its local credential file is available to the app."
-  },
-  "claude_host_login_expired": {
-    "title": "The copied Claude access credential needs refreshing",
-    "description": "The host credential file contains an access credential that is expired or about to expire.",
-    "recovery": "Use your signed-in host Claude session to refresh its credential, then start the task when it is ready. The runner does not refresh a duplicate login."
-  },
-  "claude_local_login_copy_failed": {
-    "title": "The local Claude login could not be copied",
-    "description": "The app could not update the dedicated local runner profile. No host profile or sessions were copied.",
-    "recovery": "Check local Docker access, the dedicated runner volume and the login-state directory's current-user ownership and private permissions. An earlier incomplete copy or a copy already in progress can also prevent this update. Confirm the earlier copy's state before retrying; do not delete a pending receipt or change an existing directory's permissions while a copy may still be active."
   },
   "runner_service_configuration_unavailable": {
     "title": "Local backend recovery is unavailable",
@@ -2749,6 +2739,11 @@
     "description": "The application authoring service could not complete this operation.",
     "recovery": "Check the existing conversation and its retained status before taking another action. No uncertain operation should be replayed automatically."
   },
+  "assistant_conversation_active": {
+    "title": "The conversation is still active",
+    "description": "The conversation was not deleted because a response or workflow run is active.",
+    "recovery": "Stop or wait for the active work to settle, then delete the conversation again."
+  },
   "assistant_turn_active": {
     "title": "A response is already active or unsettled",
     "description": "This conversation already has an active or unsettled attempt. A second prompt was not dispatched.",
@@ -2778,5 +2773,30 @@
     "title": "The message could not be retained safely",
     "description": "This browser tab cannot retain the original submission identity. No prompt was submitted.",
     "recovery": "Enable session storage for this app before sending. Keep the original text; do not substitute a new submission for an uncertain one."
+  },
+  "assistant_action_conflict": {
+    "title": "This graph proposal changed",
+    "description": "The operation key or approval digest does not match the recorded proposal. No new action was authorized.",
+    "recovery": "Read the current action card or ask for a fresh proposal with a new operation key. Do not reuse a key with changed arguments."
+  },
+  "assistant_action_outcome_unknown": {
+    "title": "Graph action outcome is uncertain",
+    "description": "The application cannot confirm the outcome of an already-admitted graph run. Some component effects may have occurred.",
+    "recovery": "Inspect the recorded run ID and workflow history before proposing another run. The application will not automatically replay it."
+  },
+  "assistant_graph_run_failed": {
+    "title": "The approved graph run failed",
+    "description": "The existing workflow execution service reported a failure. Earlier component effects may already have occurred.",
+    "recovery": "Inspect the recorded run and configured component settings. A new run requires a new explicit approval."
+  },
+  "assistant_action_not_dispatched": {
+    "title": "The graph was not started",
+    "description": "The app could not validate authority or inputs before entering workflow execution.",
+    "recovery": "Check your current session and execution permission, then ask for a fresh proposal if you still want to run the graph."
+  },
+  "assistant_graph_name_conflict": {
+    "title": "Another graph already has that name",
+    "description": "The approved edit conflicted with an existing workflow name. No graph changes were saved.",
+    "recovery": "Choose a different name and ask for a fresh edit proposal."
   }
 }

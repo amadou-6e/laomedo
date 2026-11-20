@@ -4,6 +4,11 @@ import hashlib
 import json
 from pydantic import BaseModel, ConfigDict, Field
 from laomedo.agents.agents.claude.settings import SYSTEM
+from pathlib import Path
+from uuid import UUID
+from typing import Any
+from pydantic import SecretStr
+from laomedo.agents.connections.models import ConnectionRecord, LoginProgress
 
 
 class ClaudePolicy(BaseModel):
@@ -85,3 +90,114 @@ class ClaudePolicy(BaseModel):
                 ).encode()
             ).hexdigest()
         )
+
+
+class ClaudeNativeProfile(BaseModel):
+    """Host-only ownership of a native volume; never a credential projection."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    name: str = Field(
+        pattern=r"^laomedo-claude-connection-[0-9a-f]{32}$",
+        description="Opaque Docker volume name selected by this host.",
+    )
+    labels: dict[str, str] = Field(
+        repr=False,
+        description="Exact SDK ownership labels required before volume mutation.",
+    )
+    docker_endpoint: str = Field(
+        repr=False,
+        description="Original daemon endpoint; never switch daemons during recovery.",
+    )
+    image_id: str = Field(
+        pattern=r"^sha256:[0-9a-f]{64}$",
+        description="Immutable official-client image used for authentication.",
+    )
+
+
+class ClaudeAccountIdentity(BaseModel):
+    """Public account/workspace identity verified by official native auth status."""
+
+    email: str = Field(
+        min_length=1,
+        max_length=100,
+        description="Native client's provider-verified account email.",
+    )
+    organization_id: str = Field(
+        min_length=1, description="Native client's verified workspace identifier."
+    )
+
+    def subject_hash(self) -> str:
+        """Return the stable local account/workspace digest without any token input."""
+        return hashlib.sha256(
+            json.dumps(
+                {"email": self.email.casefold(), "orgId": self.organization_id},
+                sort_keys=True,
+            ).encode()
+        ).hexdigest()
+
+
+class ClaudeLoginAttempt(BaseModel):
+    """Process-local native login; every live handle and URL is excluded."""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    profile_id: UUID = Field(
+        exclude=True, description="Authenticated local profile owning the attempt."
+    )
+    lease_hash: str = Field(
+        exclude=True,
+        repr=False,
+        description="Originating browser lease, fenced on logout.",
+    )
+    candidate_id: UUID = Field(
+        exclude=True, description="New or reconnecting saved connection."
+    )
+    credential_id: UUID = Field(
+        exclude=True, description="Fresh immutable native volume revision."
+    )
+    previous: ConnectionRecord | None = Field(
+        default=None,
+        exclude=True,
+        description="Committed connection preserved until successful replacement.",
+    )
+    expires_at: float = Field(
+        exclude=True, description="Monotonic native attempt expiry."
+    )
+    progress: LoginProgress = Field(description="Safe observable attempt state.")
+    authorization_url: SecretStr | None = Field(
+        default=None,
+        exclude=True,
+        repr=False,
+        description="Official-client URL, only relayed to the owning browser.",
+    )
+    session: Any = Field(
+        default=None,
+        exclude=True,
+        repr=False,
+        description="Live creator-owned native stdin session.",
+    )
+    cancelled: Any = Field(
+        exclude=True,
+        repr=False,
+        description="Cancellation event observed by the native lifecycle.",
+    )
+    ready: Any = Field(
+        exclude=True,
+        repr=False,
+        description="Event announcing a URL or a terminal failure.",
+    )
+    worker: Any = Field(
+        default=None,
+        exclude=True,
+        repr=False,
+        description="Owning worker; joined before final store closure.",
+    )
+    submitted: bool = Field(
+        default=False,
+        exclude=True,
+        description="Whether this attempt consumed its one code submission.",
+    )
+    settled: bool = Field(
+        default=False,
+        exclude=True,
+        description="Whether native session cleanup and publication have settled.",
+    )

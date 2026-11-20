@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import IconComponent from "@/components/common/genericIconComponent";
 import useAuthStore from "@/stores/authStore";
 import { assistantRequest } from "./api";
@@ -35,16 +36,14 @@ export default function AssistantEntry() {
     };
   }, [owner]);
   return (
-    <a
-      href="/assistant"
-      target="_blank"
-      rel="noopener noreferrer"
+    <Link
+      to="/assistant"
       className="relative inline-flex items-center gap-2 rounded-md px-2 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline focus-visible:outline-2"
-      title="Open assistant in a new tab"
+      title="Open full-window assistant"
       aria-label={
         active
           ? "Assistant — activity in another conversation"
-          : "Open assistant in a new tab"
+          : "Open full-window assistant"
       }
     >
       <IconComponent name="MessageSquare" className="h-4 w-4" />
@@ -52,6 +51,6 @@ export default function AssistantEntry() {
       {active && (
         <span aria-hidden="true" className="h-2 w-2 rounded-full bg-primary" />
       )}
-    </a>
+    </Link>
   );
 }

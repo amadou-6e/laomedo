@@ -1,6 +1,7 @@
 """Same-origin authenticated Settings and one-use native return routes."""
 
 import hashlib
+import logging
 from uuid import UUID
 
 from fastapi import Depends, HTTPException, Query, Request
@@ -9,8 +10,8 @@ from urllib.parse import urlsplit
 from starlette.concurrency import run_in_threadpool
 from starlette.responses import JSONResponse, RedirectResponse
 
-from laomedo.host.provider_connections.errors import ProviderConnectionError
-from laomedo.host.provider_connections.models import (
+from laomedo.agents.connections.errors import ProviderConnectionError
+from laomedo.agents.connections.models import (
     GraphProviderPreferences,
     StartProviderLogin,
     DisconnectRequest,
@@ -20,7 +21,7 @@ from laomedo.host.provider_connections.models import (
 )
 
 
-def session_lease(request: Request) -> str:
+def session_lease(request: Request, service) -> str:
     """Require an authenticated browser cookie, without exposing it downstream."""
     cookie = request.cookies.get("access_token_lf")
     if (
@@ -30,7 +31,12 @@ def session_lease(request: Request) -> str:
         or "x-api-key" in request.query_params
     ):
         raise HTTPException(401, detail={"code": "provider_session_required"})
-    return hashlib.sha256(cookie.encode()).hexdigest()
+    lease = service.resolve_lease(hashlib.sha256(cookie.encode()).hexdigest())
+    try:
+        service.check_lease(lease)
+    except ProviderConnectionError:
+        raise HTTPException(401, detail={"code": "provider_session_required"}) from None
+    return lease
 
 
 def install_provider_routes(app, service, authenticate, *, origin: str):
@@ -52,7 +58,7 @@ def install_provider_routes(app, service, authenticate, *, origin: str):
     @app.get(prefix)
     async def list_connections(request: Request, user=Depends(authenticate)):
         """Read only the currently authenticated profile's safe connection rows."""
-        session_lease(request)
+        session_lease(request, service)
 
         def rows():
             """Serialize typed safe projections outside the event loop."""
@@ -86,7 +92,7 @@ def install_provider_routes(app, service, authenticate, *, origin: str):
         flow_id: UUID, request: Request, user=Depends(authenticate)
     ):
         """Read only the current owner's graph-specific preference."""
-        session_lease(request)
+        session_lease(request, service)
         await owned_graph(flow_id, user)
         return await respond(
             lambda: service.graph_preferences(user.id, flow_id).model_dump(mode="json")
@@ -101,7 +107,7 @@ def install_provider_routes(app, service, authenticate, *, origin: str):
         user=Depends(authenticate),
     ):
         """Read only this authenticated graph owner's lease-visible cached account limits."""
-        lease = session_lease(request)
+        lease = session_lease(request, service)
         await owned_graph(flow_id, user)
         return await respond(
             lambda: service.subscriptions.read(
@@ -118,7 +124,7 @@ def install_provider_routes(app, service, authenticate, *, origin: str):
         user=Depends(authenticate),
     ):
         """Explicit same-origin zero-turn refresh, fenced before and after native observation."""
-        lease = session_lease(request)
+        lease = session_lease(request, service)
         if request.headers.get("origin") != origin:
             raise HTTPException(403, detail={"code": "provider_request_refused"})
         await owned_graph(flow_id, user)
@@ -136,7 +142,7 @@ def install_provider_routes(app, service, authenticate, *, origin: str):
         user=Depends(authenticate),
     ):
         """Set a graph preference through an explicit same-origin authenticated write."""
-        session_lease(request)
+        session_lease(request, service)
         if request.headers.get("origin") != origin:
             raise HTTPException(403, detail={"code": "provider_request_refused"})
         await owned_graph(flow_id, user)
@@ -149,7 +155,7 @@ def install_provider_routes(app, service, authenticate, *, origin: str):
     @app.post(prefix + "/attempts")
     async def begin_login(request: Request, user=Depends(authenticate)):
         """Start one explicit Codex plan authorization, never on a read or mount."""
-        lease = session_lease(request)
+        lease = session_lease(request, service)
         if request.headers.get("origin") != origin:
             raise HTTPException(403, detail={"code": "provider_request_refused"})
         try:
@@ -184,7 +190,7 @@ def install_provider_routes(app, service, authenticate, *, origin: str):
     @app.post(prefix + "/opencode-go")
     async def save_go_connection(request: Request, user=Depends(authenticate)):
         """Admit an explicitly submitted Go key without any inference or host import."""
-        lease = session_lease(request)
+        lease = session_lease(request, service)
         if request.headers.get("origin") != origin:
             raise HTTPException(403, detail={"code": "provider_request_refused"})
         try:
@@ -213,15 +219,17 @@ def install_provider_routes(app, service, authenticate, *, origin: str):
         attempt_id: UUID, request: Request, user=Depends(authenticate)
     ):
         """Read only the owner's native receipt and provider-owned sign-in link."""
-        session_lease(request)
-        return await respond(lambda: service.claude.details(user.id, attempt_id))
+        lease = session_lease(request, service)
+        return await respond(
+            lambda: service.claude.details(user.id, attempt_id, lease_hash=lease)
+        )
 
     @app.post(prefix + "/claude/attempts/{attempt_id}/code")
     async def claude_code(
         attempt_id: UUID, request: Request, user=Depends(authenticate)
     ):
         """Relay one explicit code submission into the same official native process."""
-        lease = session_lease(request)
+        lease = session_lease(request, service)
         if request.headers.get("origin") != origin:
             raise HTTPException(403, detail={"code": "provider_request_refused"})
         try:
@@ -246,7 +254,7 @@ def install_provider_routes(app, service, authenticate, *, origin: str):
         connection_id: UUID, request: Request, user=Depends(authenticate)
     ):
         """Inspect affected runs before an explicit connection-removal confirmation."""
-        session_lease(request)
+        session_lease(request, service)
         return await respond(
             lambda: service.disconnect_info(user.id, connection_id).model_dump(
                 mode="json"
@@ -258,7 +266,7 @@ def install_provider_routes(app, service, authenticate, *, origin: str):
         connection_id: UUID, request: Request, user=Depends(authenticate)
     ):
         """Fence only the inspected local connection and reconcile its native cleanup."""
-        session_lease(request)
+        session_lease(request, service)
         if request.headers.get("origin") != origin:
             raise HTTPException(403, detail={"code": "provider_request_refused"})
         data = bytearray()
@@ -283,7 +291,7 @@ def install_provider_routes(app, service, authenticate, *, origin: str):
         connection_id: UUID, request: Request, user=Depends(authenticate)
     ):
         """Retry an already-fenced cleanup; this never reauthorizes a connection."""
-        session_lease(request)
+        session_lease(request, service)
         if request.headers.get("origin") != origin:
             raise HTTPException(403, detail={"code": "provider_request_refused"})
         body = bytearray()
@@ -304,9 +312,11 @@ def install_provider_routes(app, service, authenticate, *, origin: str):
         attempt_id: UUID, request: Request, user=Depends(authenticate)
     ):
         """Observe a bounded attempt without replaying authorization."""
-        session_lease(request)
+        lease = session_lease(request, service)
         return await respond(
-            lambda: service.progress(user.id, attempt_id).model_dump(mode="json")
+            lambda: service.progress(user.id, attempt_id, lease_hash=lease).model_dump(
+                mode="json"
+            )
         )
 
     @app.post(prefix + "/attempts/{attempt_id}/cancel")
@@ -314,11 +324,13 @@ def install_provider_routes(app, service, authenticate, *, origin: str):
         attempt_id: UUID, request: Request, user=Depends(authenticate)
     ):
         """Fence a native return before navigating back to saved connections."""
-        session_lease(request)
+        lease = session_lease(request, service)
         if request.headers.get("origin") != origin:
             raise HTTPException(403, detail={"code": "provider_request_refused"})
         return await respond(
-            lambda: service.cancel(user.id, attempt_id).model_dump(mode="json")
+            lambda: service.cancel(user.id, attempt_id, lease_hash=lease).model_dump(
+                mode="json"
+            )
         )
 
     @app.get("/auth/callback")
@@ -326,11 +338,14 @@ def install_provider_routes(app, service, authenticate, *, origin: str):
         """Validate a native top-level return and remove its query from the UI."""
         if request.headers.get("host") != urlsplit(origin).netloc:
             raise HTTPException(403, detail={"code": "provider_request_refused"})
-        lease = session_lease(request)
+        lease = session_lease(request, service)
         query = request.query_params
         if len(query) > 12 or any(
             len(query.getlist(key)) != 1 or len(query[key]) > 8192 for key in query
         ):
+            logging.getLogger(__name__).warning(
+                "Codex callback refused: phase=query_shape"
+            )
             return RedirectResponse(
                 "/settings/providers?login=failed",
                 status_code=303,
@@ -341,7 +356,16 @@ def install_provider_routes(app, service, authenticate, *, origin: str):
                 service.complete, user.id, dict(query), lease_hash=lease
             )
             target = "/settings/providers?attempt=" + str(result.attempt_id)
-        except ProviderConnectionError:
+        except ProviderConnectionError as failure:
+            logging.getLogger(__name__).warning(
+                "Codex callback refused: phase=boundary category=%s",
+                (
+                    failure.code
+                    if failure.code
+                    in {"provider_login_expired", "provider_connection_busy"}
+                    else "unclassified"
+                ),
+            )
             target = "/settings/providers?login=failed"
         except Exception:
             target = "/settings/providers?login=unconfirmed"

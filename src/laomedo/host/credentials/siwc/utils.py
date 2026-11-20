@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from laomedo.host.credentials.siwc.errors import AuthError
 from laomedo.host.credentials.siwc.settings import AUTH_ORIGIN
+from laomedo.host.credentials.siwc.settings import ID_TOKEN_CLOCK_SKEW_SECONDS
 
 from contextlib import contextmanager
 from pathlib import Path
@@ -21,6 +22,7 @@ from laomedo.host.private_state.utils import restrict_directory
 from laomedo.host.private_state.errors import PrivateStateError
 import json
 import jwt
+import logging
 
 
 import os
@@ -86,6 +88,7 @@ def _https_json(url: str, *, fields: dict | None = None) -> dict:
 
 
 def _verify_id_token(token: str, client_id: str, nonce: str) -> dict:
+    phase = "discovery"
     try:
         discovery = _https_json(AUTH_ORIGIN + "/.well-known/openid-configuration")
         jwks_uri = discovery.get("jwks_uri")
@@ -98,27 +101,43 @@ def _verify_id_token(token: str, client_id: str, nonce: str) -> dict:
             or parts.fragment
         ):
             raise AuthError("auth_jwks_untrusted")
+        phase = "signing_key"
         key = (
             jwt.PyJWKClient(jwks_uri, ssl_context=_tls_context())
             .get_signing_key_from_jwt(token)
             .key
         )
+        phase = "claims"
         claims = jwt.decode(
             token,
             key,
             algorithms=["RS256"],
             audience=client_id,
             issuer=AUTH_ORIGIN,
+            leeway=ID_TOKEN_CLOCK_SKEW_SECONDS,
             options={"require": ["exp", "iss", "aud", "sub"]},
         )
         if not isinstance(claims.get("sub"), str) or not secrets.compare_digest(
             str(claims.get("nonce", "")), nonce
         ):
+            logging.getLogger(__name__).warning(
+                "Identity verification refused: phase=binding reason=%s",
+                (
+                    "subject_missing"
+                    if not isinstance(claims.get("sub"), str)
+                    else "nonce_mismatch"
+                ),
+            )
             raise AuthError("auth_identity_invalid")
         return claims
     except AuthError:
         raise
-    except Exception:
+    except Exception as failure:
+        logging.getLogger(__name__).warning(
+            "Identity verification refused: phase=%s exception_type=%s",
+            phase,
+            type(failure).__name__,
+        )
         raise AuthError("auth_identity_invalid") from None
 
 

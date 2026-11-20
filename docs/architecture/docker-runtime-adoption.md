@@ -34,9 +34,8 @@ observed executor ID; its launch OAuth credential never enters the executor or
 Docker control environment.
 
 Public preflight operations keep their actual side effects: Codex performs its
-permission/model probe; Claude checks authentication and can perform the explicitly
-authorized login-only mirror; OpenCode configuration does not attest authenticated
-readiness. Startup, catalogue and turn checks report their observed scope.
+permission/model probe; Claude checks authentication in its explicitly signed-in
+dedicated profile; OpenCode configuration does not attest authenticated readiness. Startup, catalogue and turn checks report their observed scope.
 
 ## Local installation and recovery
 

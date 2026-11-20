@@ -45,3 +45,8 @@ envelope before a new run exists. Submission outputs place it in the existing
 run-reference envelope; exception outputs serialize only this bounded envelope
 after the code. HTTP 5xx without a new run remains `runner_runtime_unknown`,
 with the reported code retained as a separate diagnostic observation.
+
+The saved-connection Claude adapter recovers only an explicit HTTP400 cold
+catalogue refusal without a run identity: it discovers using the already pinned
+endpoint, then retries that fresh/start dispatch once. Warm or operator-mode
+runs and Status/Cancel skip discovery; unknown transport failures are not retried.

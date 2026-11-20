@@ -55,9 +55,6 @@ class NodeErrorCatalogueTests(unittest.TestCase):
         self.assertIn("may still be active", discovery)
         self.assertIn("avoid repeated Refresh", discovery)
         self.assertIn("no discovery-progress or discovery-cancel control", discovery)
-        copy = catalogue["claude_local_login_copy_failed"]["recovery"]
-        self.assertIn("current-user ownership", copy)
-        self.assertIn("do not delete a pending receipt", copy)
 
     def test_affected_runtime_failures_have_neutral_recovery_and_producer_coverage(
         self,

@@ -2,6 +2,11 @@
 
 from pydantic import JsonValue
 from pydantic import BaseModel, ConfigDict, Field
+from pathlib import Path
+from uuid import UUID
+from typing import Any
+from pydantic import SecretStr
+from laomedo.agents.connections.models import ConnectionRecord, LoginProgress
 
 
 class ResumeCheckpoint(BaseModel):
@@ -132,3 +137,54 @@ class CodexRateLimits(BaseModel):
                 )
             )
         return SubscriptionSnapshot(buckets=buckets)
+
+
+class PendingLogin(BaseModel):
+    """Process-local attempt secret, never serialized to Settings or persisted."""
+
+    model_config = ConfigDict(extra="forbid")
+    exchanging: bool = Field(
+        default=False,
+        exclude=True,
+        description="Native exchange/cleanup is in flight even if its receipt was fenced.",
+    )
+    profile_id: UUID = Field(
+        exclude=True, description="Authenticated profile owning the attempt."
+    )
+    lease_hash: str = Field(
+        exclude=True,
+        repr=False,
+        description="Digest of the originating browser session, fenced on logout.",
+    )
+    candidate_id: UUID = Field(
+        exclude=True, description="Proposed or reconnecting connection."
+    )
+    oauth: SecretStr = Field(
+        exclude=True, description="Serialized private PKCE and nonce state."
+    )
+    stage: Path = Field(
+        exclude=True,
+        repr=False,
+        description="Private unadmitted token staging directory.",
+    )
+    expires_at: float = Field(
+        exclude=True, description="Monotonic expiry for this process only."
+    )
+    previous: ConnectionRecord | None = Field(
+        default=None,
+        exclude=True,
+        description="Exact prior generation for reconnect admission.",
+    )
+    publication: ConnectionRecord | None = Field(
+        default=None,
+        exclude=True,
+        description="Proposed admission pointer retained for uncertain-write reconciliation.",
+    )
+    superseded_scrubbed: bool = Field(
+        default=False,
+        exclude=True,
+        description="Whether this attempt's prior local token copy has been removed.",
+    )
+    progress: LoginProgress = Field(
+        description="Safe observation of the attempt lifecycle."
+    )

@@ -1,7 +1,8 @@
 # Connect Laomedo to your ChatGPT account
 
 The draft Settings > Providers flow saves profile-owned Codex connections. Agent
-node selection and controller-aware disconnect are not yet integrated. The CLI
+node overrides and graph defaults select saved connections; controller-aware
+Disconnect fences new work and retains uncertain cleanup for retry. The CLI
 setup below creates a separate operator-owned store; it is not a way to bypass
 ownership of a Settings-managed connection.
 

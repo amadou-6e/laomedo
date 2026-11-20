@@ -3,8 +3,8 @@
 from uuid import UUID
 from contextvars import ContextVar
 
-from laomedo.host.provider_connections.controllers import ProviderControllers
-from laomedo.host.provider_connections.errors import ProviderConnectionError
+from laomedo.agents.connections.controllers import ProviderControllers
+from laomedo.agents.connections.errors import ProviderConnectionError
 
 
 class ProviderGraphBindings:

@@ -44,6 +44,19 @@ class AgentProviderRegistry:
         )
 
     @classmethod
+    def create_connections(cls, service):
+        """Compose trusted account adapters without importing runtimes at lookup."""
+        from laomedo.agents.agents.codex.connection import CodexConnection
+        from laomedo.agents.agents.claude.connection import ClaudeConnection
+        from laomedo.agents.agents.opencode.connection import GoConnection
+
+        return (
+            GoConnection(service),
+            ClaudeConnection(service),
+            CodexConnection(service),
+        )
+
+    @classmethod
     def provider_ids(cls) -> frozenset[str]:
         """Return registered IDs without loading a concrete provider implementation."""
         return frozenset(item.provider for item in cls.descriptors())

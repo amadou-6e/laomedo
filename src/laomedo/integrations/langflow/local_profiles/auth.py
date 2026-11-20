@@ -1,6 +1,6 @@
 """Refuse the internal startup actor while preserving upstream profile auth."""
 
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import HTTPException
 from langflow.services.auth.exceptions import InvalidCredentialsError
@@ -33,6 +33,10 @@ class LocalProfileAuthService(AuthService):
             return None
         user = await super().authenticate_user(username, password, db, request)
         return user if self._is_profile(user) else None
+
+    def create_token(self, data: dict, expires_delta):
+        """Keep same-profile browsers distinct even within one issuance second."""
+        return super().create_token({**data, "jti": str(uuid4())}, expires_delta)
 
     async def create_user_tokens(
         self, user_id: UUID, db, *, update_last_login: bool = False

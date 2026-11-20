@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
-import Markdown from "react-markdown";
+import {
+  MessageMarkdown,
+  UserMessageBubble,
+} from "@/modals/graphAgents/components";
 import type { Lane } from "@/modals/graphAgents/models";
 import ToolCalls from "./ToolCalls";
 import { messageText } from "@/modals/graphAgents/utils";
@@ -9,6 +12,10 @@ import { describeNodeFailure } from "@/components/laomedoErrors/nodeErrors";
 import type { ActivityPage, DraftReceipt, Message } from "./models";
 import { stateLabel } from "./models";
 import Thinking from "./Thinking";
+import CopyAnswer from "./CopyAnswer";
+import { responseTranscript } from "./responseTranscript";
+import GraphActions from "./GraphActions";
+import type { GraphAction } from "./models";
 
 export function UserMessage({
   text,
@@ -27,25 +34,10 @@ export function UserMessage({
             })
           : "\u00a0"}
       </p>
-      <div className="rounded-xl rounded-tr-sm border bg-muted/50 px-4 py-3">
-        <p className="whitespace-pre-wrap break-words text-sm leading-[1.7142857]">
-          {text}
-        </p>
-      </div>
+      <UserMessageBubble constrainWidth={false}>
+        <p className="whitespace-pre-wrap break-words">{text}</p>
+      </UserMessageBubble>
     </div>
-  );
-}
-
-export function AssistantText({ text }: { text: string }) {
-  return (
-    <Markdown
-      skipHtml
-      disallowedElements={["img", "a"]}
-      unwrapDisallowed
-      className="prose prose-sm max-w-none break-words dark:prose-invert [&_pre]:overflow-x-auto [&_pre]:whitespace-pre-wrap [&_code]:break-words prose-code:before:content-none prose-code:after:content-none"
-    >
-      {text}
-    </Markdown>
   );
 }
 
@@ -56,8 +48,10 @@ export default function MessageRow({
   active,
   onContent,
   onFailure,
+  actions = [],
 }: {
   conversation: string;
+  actions?: GraphAction[];
   message: Message;
   receipts: DraftReceipt[];
   active: boolean;
@@ -124,14 +118,14 @@ export default function MessageRow({
     else groups.push([lane]);
   }
   return (
-    <section className="space-y-5 pb-6" aria-label="Message and response">
+    <section className="space-y-5" aria-label="Message and response">
       <UserMessage text={message.text} createdAt={message.created_at} />
       {groups.map((group) => {
         const lane = group[0];
         const text = messageText(lane.item ?? {}, "codex");
         return text !== null ? (
           <div key={`${lane.thread}:${lane.id}`} className="space-y-2">
-            <AssistantText text={text} />
+            <MessageMarkdown text={text} allowLinks={false} />
           </div>
         ) : (
           <ToolCalls
@@ -143,7 +137,7 @@ export default function MessageRow({
       })}
       {!hasAnswer && message.response && (
         <div className="space-y-2">
-          <AssistantText text={message.response} />
+          <MessageMarkdown text={message.response} allowLinks={false} />
         </div>
       )}
       {active && ["reserved", "starting", "running"].includes(message.state) ? (
@@ -179,6 +173,11 @@ export default function MessageRow({
           partial.
         </p>
       )}
+      <GraphActions
+        conversation={conversation}
+        actions={actions}
+        onFailure={onFailure}
+      />
       {receipts.map((receipt) => (
         <article
           key={receipt.id}
@@ -227,6 +226,15 @@ export default function MessageRow({
           </p>
         </article>
       ))}
+      {(items.length > 0 ||
+        message.response ||
+        receipts.length > 0 ||
+        actions.length > 0) && (
+        <CopyAnswer
+          disabled={!page}
+          text={responseTranscript(page, message, receipts, actions)}
+        />
+      )}
     </section>
   );
 }

@@ -55,7 +55,7 @@ automatic Activity import.
 
 Codex's custom TypeScript hooks preserve native events and host policy missing
 from the standard ACP contract. Claude uses a packaged upstream ACP adapter but
-needs our command bridge, access-only mirror and telemetry receiver. OpenCode
+needs our command bridge, selected-profile admission and telemetry receiver. OpenCode
 supplies ACP natively; our code isolates commands and reconciles native history.
 Its absent maintained Docker recipe/launcher and Codex-worker-image dependency
 remain gaps, not necessary properties of OpenCode.

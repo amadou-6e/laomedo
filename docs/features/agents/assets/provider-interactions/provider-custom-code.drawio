@@ -801,7 +801,7 @@
         <mxCell id="claude__col_0" value="Host source / shared Docker" style="rounded=0;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;resizeChildren=0;align=left;verticalAlign=top;spacingLeft=12;spacingTop=10;fillColor=#F5F7FA;strokeColor=#BDCBD6;fontColor=#20384A;fontSize=15;fontStyle=1;" vertex="1" parent="claude__row">
           <mxGeometry x="45" y="150" width="325" height="520" as="geometry" />
         </mxCell>
-        <mxCell id="claude__source" value="&lt;b&gt;[A] Host credential source&lt;/b&gt;&lt;br/&gt;Host-owned credential source&lt;br/&gt;&lt;br/&gt;Host signs in/refreshes. Local access-only mirroring is explicitly opt-in." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#E7F3EC;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="claude__col_0">
+        <mxCell id="claude__source" value="&lt;b&gt;[A] Dedicated native sign-in&lt;/b&gt;&lt;br/&gt;Connection-owned profile&lt;br/&gt;&lt;br/&gt;Explicit native sign-in and refresh. Ambient host credentials are never imported." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#E7F3EC;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="claude__col_0">
           <mxGeometry x="20" y="60" width="285" height="150" as="geometry" />
         </mxCell>
         <mxCell id="claude__docker" value="&lt;b&gt;[B] Docker lifecycle&lt;/b&gt;&lt;br/&gt;py-docker -&amp;gt; Docker SDK -&amp;gt; Engine&lt;br/&gt;&lt;br/&gt;Create/attach owned containers, execute jobs, retain receipts and reconcile cleanup." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#E7F3EC;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="claude__col_0">
@@ -810,7 +810,7 @@
         <mxCell id="claude__col_1" value="Provider host adapters" style="rounded=0;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;resizeChildren=0;align=left;verticalAlign=top;spacingLeft=12;spacingTop=10;fillColor=#F5F7FA;strokeColor=#BDCBD6;fontColor=#20384A;fontSize=15;fontStyle=1;" vertex="1" parent="claude__row">
           <mxGeometry x="480" y="150" width="325" height="520" as="geometry" />
         </mxCell>
-        <mxCell id="claude__auth" value="&lt;b&gt;[C] Credential provisioning&lt;/b&gt;&lt;br/&gt;Access-only login mirror&lt;br/&gt;claude/auth/; resources/write_login.py&lt;br/&gt;&lt;br/&gt;Copy only the approved access credential to the dedicated volume; host keeps refresh ownership." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#F0EAF8;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="claude__col_1">
+        <mxCell id="claude__auth" value="&lt;b&gt;[C] Credential admission&lt;/b&gt;&lt;br/&gt;ClaudeCredentialProvider&lt;br/&gt;claude/credentials.py&lt;br/&gt;&lt;br/&gt;Check the selected connection and native identity before dispatch. No host credential copying." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#F0EAF8;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="claude__col_1">
           <mxGeometry x="20" y="60" width="285" height="150" as="geometry" />
         </mxCell>
         <mxCell id="claude__broker" value="&lt;b&gt;[D] Host command gateway&lt;/b&gt;&lt;br/&gt;ClaudeCommandExecutor + HTTP&lt;br/&gt;claude/executor.py; http/&lt;br/&gt;&lt;br/&gt;Receive authenticated /command requests and execute admitted worker jobs; mediate GitHub only with a grant." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#F0EAF8;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="claude__col_1">
@@ -819,7 +819,7 @@
         <mxCell id="claude__col_2" value="Controller state / tools" style="rounded=0;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;resizeChildren=0;align=left;verticalAlign=top;spacingLeft=12;spacingTop=10;fillColor=#F5F7FA;strokeColor=#BDCBD6;fontColor=#20384A;fontSize=15;fontStyle=1;" vertex="1" parent="claude__row">
           <mxGeometry x="915" y="150" width="325" height="520" as="geometry" />
         </mxCell>
-        <mxCell id="claude__profile" value="&lt;b&gt;[E] Controller credentials and state&lt;/b&gt;&lt;br/&gt;Mounted access/session volume&lt;br/&gt;&lt;br/&gt;Controller reads mirrored access credentials and persists the native session for Resume." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#E7F3EC;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="claude__col_2">
+        <mxCell id="claude__profile" value="&lt;b&gt;[E] Controller credentials and state&lt;/b&gt;&lt;br/&gt;Dedicated native profile volume&lt;br/&gt;&lt;br/&gt;The native client owns its login and session for Resume. Credentials remain in the selected profile." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#E7F3EC;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="claude__col_2">
           <mxGeometry x="20" y="60" width="285" height="150" as="geometry" />
         </mxCell>
         <mxCell id="claude__bridge" value="&lt;b&gt;[F] Tool-call transport&lt;/b&gt;&lt;br/&gt;docker/claude/command_mcp.py&lt;br/&gt;&lt;br/&gt;Native MCP stdio tool calls become authenticated HTTP requests to the host command service." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#FFF0DF;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="claude__col_2">
@@ -834,7 +834,7 @@
         <mxCell id="claude__worker" value="&lt;b&gt;[H] Command worker&lt;/b&gt;&lt;br/&gt;Separate Docker container&lt;br/&gt;&lt;br/&gt;Admitted draft commands run without network or a credential mount." style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=10;fillColor=#E7F3EC;strokeColor=#8193A5;fontColor=#20384A;fontSize=14;" vertex="1" parent="claude__col_3">
           <mxGeometry x="20" y="290" width="285" height="150" as="geometry" />
         </mxCell>
-        <mxCell id="claude__edge-edge_0" value="approved access" style="edgeStyle=segmentEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;strokeColor=#A37537;strokeWidth=2;endArrow=classic;startArrow=none;dashed=1;fontSize=12;labelBackgroundColor=#FFFFFF;" edge="1" parent="claude__row" source="claude__source" target="claude__auth">
+        <mxCell id="claude__edge-edge_0" value="native sign-in" style="edgeStyle=segmentEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;strokeColor=#A37537;strokeWidth=2;endArrow=classic;startArrow=none;dashed=1;fontSize=12;labelBackgroundColor=#FFFFFF;" edge="1" parent="claude__row" source="claude__source" target="claude__auth">
           <mxGeometry relative="1" as="geometry">
             <Array as="points">
               <mxPoint x="425" y="285" />
@@ -842,7 +842,7 @@
             </Array>
           </mxGeometry>
         </mxCell>
-        <mxCell id="claude__edge-edge_1" value="selected credential" style="edgeStyle=segmentEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;strokeColor=#A37537;strokeWidth=2;endArrow=classic;startArrow=none;dashed=1;fontSize=12;labelBackgroundColor=#FFFFFF;" edge="1" parent="claude__row" source="claude__auth" target="claude__profile">
+        <mxCell id="claude__edge-edge_1" value="selected profile" style="edgeStyle=segmentEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;strokeColor=#A37537;strokeWidth=2;endArrow=classic;startArrow=none;dashed=1;fontSize=12;labelBackgroundColor=#FFFFFF;" edge="1" parent="claude__row" source="claude__auth" target="claude__profile">
           <mxGeometry relative="1" as="geometry">
             <Array as="points">
               <mxPoint x="860" y="285" />
@@ -909,55 +909,37 @@
         <mxCell id="claude__filemap_row_2" parent="claude__row" vertex="1" value="src/laomedo/agents/agents/claude/" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Consolas;fontSize=13;fontColor=#20384A;fontStyle=1;" inventoryKind="directory" filePath="src/laomedo/agents/agents/claude">
           <mxGeometry x="2175.0" y="307" width="465" height="25" as="geometry" />
         </mxCell>
-        <mxCell id="claude__filemap_row_3" parent="claude__row" vertex="1" value="auth/" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Consolas;fontSize=13;fontColor=#20384A;fontStyle=1;" inventoryKind="directory" filePath="src/laomedo/agents/agents/claude/auth">
+        <mxCell id="claude__filemap_row_3" parent="claude__row" vertex="1" value="credentials.py" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Consolas;fontSize=13;fontColor=#20384A;fontStyle=1;" inventoryKind="file" filePath="src/laomedo/agents/agents/claude/credentials.py" ownership="custom" graphReferences="C">
           <mxGeometry x="2195.0" y="333" width="445" height="25" as="geometry" />
         </mxCell>
-        <mxCell id="claude__filemap_row_4" parent="claude__row" vertex="1" value="resources/" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Consolas;fontSize=13;fontColor=#20384A;fontStyle=1;" inventoryKind="directory" filePath="src/laomedo/agents/agents/claude/auth/resources">
-          <mxGeometry x="2215.0" y="359" width="425" height="25" as="geometry" />
-        </mxCell>
-        <mxCell id="claude__filemap_row_5" parent="claude__row" vertex="1" value="write_login.py" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Consolas;fontSize=13;fontColor=#455869;fontStyle=0;" inventoryKind="file" filePath="src/laomedo/agents/agents/claude/auth/resources/write_login.py" ownership="custom" graphReferences="C">
-          <mxGeometry x="2235.0" y="385" width="405" height="25" as="geometry" />
-        </mxCell>
-        <mxCell id="claude__filemap_tag_5" parent="claude__row" vertex="1" value="CUSTOM  [C]" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontColor=#75589C;fontStyle=1;">
-          <mxGeometry x="2650.0" y="385" width="280" height="25" as="geometry" />
-        </mxCell>
-        <mxCell id="claude__filemap_row_6" parent="claude__row" vertex="1" value="models.py" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Consolas;fontSize=13;fontColor=#455869;fontStyle=0;" inventoryKind="file" filePath="src/laomedo/agents/agents/claude/auth/models.py" ownership="custom" graphReferences="C">
-          <mxGeometry x="2215.0" y="411" width="425" height="25" as="geometry" />
-        </mxCell>
-        <mxCell id="claude__filemap_tag_6" parent="claude__row" vertex="1" value="CUSTOM  [C]" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontColor=#75589C;fontStyle=1;">
-          <mxGeometry x="2650.0" y="411" width="280" height="25" as="geometry" />
-        </mxCell>
-        <mxCell id="claude__filemap_row_7" parent="claude__row" vertex="1" value="utils.py" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Consolas;fontSize=13;fontColor=#455869;fontStyle=0;" inventoryKind="file" filePath="src/laomedo/agents/agents/claude/auth/utils.py" ownership="custom" graphReferences="C">
-          <mxGeometry x="2215.0" y="437" width="425" height="25" as="geometry" />
-        </mxCell>
-        <mxCell id="claude__filemap_tag_7" parent="claude__row" vertex="1" value="CUSTOM  [C]" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontColor=#75589C;fontStyle=1;">
-          <mxGeometry x="2650.0" y="437" width="280" height="25" as="geometry" />
+        <mxCell id="claude__filemap_tag_3" parent="claude__row" vertex="1" value="CUSTOM  [C]" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontColor=#75589C;fontStyle=1;">
+          <mxGeometry x="2650.0" y="333" width="280" height="25" as="geometry" />
         </mxCell>
         <mxCell id="claude__filemap_row_8" parent="claude__row" vertex="1" value="http/" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Consolas;fontSize=13;fontColor=#20384A;fontStyle=1;" inventoryKind="directory" filePath="src/laomedo/agents/agents/claude/http">
-          <mxGeometry x="2195.0" y="463" width="445" height="25" as="geometry" />
+          <mxGeometry x="2195.0" y="359" width="445" height="25" as="geometry" />
         </mxCell>
         <mxCell id="claude__filemap_row_9" parent="claude__row" vertex="1" value="handler.py" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Consolas;fontSize=13;fontColor=#455869;fontStyle=0;" inventoryKind="file" filePath="src/laomedo/agents/agents/claude/http/handler.py" ownership="custom" graphReferences="D">
-          <mxGeometry x="2215.0" y="489" width="425" height="25" as="geometry" />
+          <mxGeometry x="2215.0" y="385" width="425" height="25" as="geometry" />
         </mxCell>
         <mxCell id="claude__filemap_tag_9" parent="claude__row" vertex="1" value="CUSTOM  [D]" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontColor=#75589C;fontStyle=1;">
-          <mxGeometry x="2650.0" y="489" width="280" height="25" as="geometry" />
+          <mxGeometry x="2650.0" y="385" width="280" height="25" as="geometry" />
         </mxCell>
         <mxCell id="claude__filemap_row_10" parent="claude__row" vertex="1" value="server.py" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Consolas;fontSize=13;fontColor=#455869;fontStyle=0;" inventoryKind="file" filePath="src/laomedo/agents/agents/claude/http/server.py" ownership="custom" graphReferences="D">
-          <mxGeometry x="2215.0" y="515" width="425" height="25" as="geometry" />
+          <mxGeometry x="2215.0" y="411" width="425" height="25" as="geometry" />
         </mxCell>
         <mxCell id="claude__filemap_tag_10" parent="claude__row" vertex="1" value="CUSTOM  [D]" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontColor=#75589C;fontStyle=1;">
-          <mxGeometry x="2650.0" y="515" width="280" height="25" as="geometry" />
+          <mxGeometry x="2650.0" y="411" width="280" height="25" as="geometry" />
         </mxCell>
         <mxCell id="claude__filemap_row_11" parent="claude__row" vertex="1" value="executor.py" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Consolas;fontSize=13;fontColor=#455869;fontStyle=0;" inventoryKind="file" filePath="src/laomedo/agents/agents/claude/executor.py" ownership="custom" graphReferences="D">
-          <mxGeometry x="2195.0" y="541" width="445" height="25" as="geometry" />
+          <mxGeometry x="2195.0" y="437" width="445" height="25" as="geometry" />
         </mxCell>
         <mxCell id="claude__filemap_tag_11" parent="claude__row" vertex="1" value="CUSTOM  [D]" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontColor=#75589C;fontStyle=1;">
-          <mxGeometry x="2650.0" y="541" width="280" height="25" as="geometry" />
+          <mxGeometry x="2650.0" y="437" width="280" height="25" as="geometry" />
         </mxCell>
         <mxCell id="claude__filemap_external_title" parent="claude__row" vertex="1" value="Graph nodes supplied elsewhere / runtime state" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=15;fontColor=#20384A;fontStyle=1;">
           <mxGeometry x="2175.0" y="585" width="760" height="35" as="geometry" />
         </mxCell>
-        <mxCell id="claude__filemap_external_0" parent="claude__row" vertex="1" value="[A] Existing host login/account state, not repository files." style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontColor=#557E65;fontStyle=0;">
+        <mxCell id="claude__filemap_external_0" parent="claude__row" vertex="1" value="[A] Explicit native sign-in in the dedicated private profile." style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontColor=#557E65;fontStyle=0;">
           <mxGeometry x="2175.0" y="625" width="760" height="53" as="geometry" />
         </mxCell>
         <mxCell id="claude__filemap_external_1" parent="claude__row" vertex="1" value="[B] Separate dependencies: py-docker -&amp;gt; Docker SDK -&amp;gt; Docker Engine." style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=13;fontColor=#557E65;fontStyle=0;">

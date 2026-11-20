@@ -104,9 +104,6 @@ _ROUTABLE_ERRORS = {
     "claude_container_image_missing",
     "claude_container_profile_unavailable",
     "claude_container_unavailable",
-    "claude_host_login_expired",
-    "claude_host_login_unavailable",
-    "claude_local_login_copy_failed",
     "claude_mediation_outcome_unknown",
     "claude_model_required",
     "claude_native_skill_policy_unsupported",
@@ -622,7 +619,7 @@ class AgentComponent(Component):
     def _model_catalog_token_file_path(self):
         return self._runner_token_file_path()
 
-    def _model_catalog(self, build_config):
+    def _model_catalog(self, build_config, *, saved_endpoint=None):
         """Discover through the exact saved connection or the explicit operator runner."""
         self._validate_adapter()
         from laomedo.integrations.langflow.provider_connections.bindings import (
@@ -635,7 +632,9 @@ class AgentComponent(Component):
                 "value", getattr(self, "provider_connection", "")
             )
             try:
-                self._saved_endpoint = ProviderGraphBindings.endpoint(self, selected)
+                self._saved_endpoint = saved_endpoint or ProviderGraphBindings.endpoint(
+                    self, selected
+                )
             except ValueError as refusal:
                 if str(refusal) == "provider_connection_required":
                     return _ModelCatalog()

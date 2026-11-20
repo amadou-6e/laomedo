@@ -2,34 +2,69 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, Plus, RefreshCw } from "lucide-react";
 import IconComponent from "@/components/common/genericIconComponent";
 import { Button } from "@/components/ui/button";
+import LangflowLogo from "@/assets/LangflowLogo.svg?react";
 import ErrorExplanation from "@/components/laomedoErrors/ErrorExplanation";
 import { describeNodeFailure } from "@/components/laomedoErrors/nodeErrors";
 import { readClaudeAttempt, submitClaudeCode, saveGoConnection, beginLogin, cancelLogin, listConnections, readProgress, inspectDisconnect, disconnect, retryCleanup, ProviderFailure, type DisconnectInfo, type LoginProgress, type ProviderConnection } from "./api";
+import openAiLogo from "./assets/openai-logo.svg";
 import openCodeLogoDark from "./assets/opencode-logo-dark.svg";
 import openCodeLogoLight from "./assets/opencode-logo-light.svg";
 import "./connections.css";
 import "./providers.css";
 
-type Screen = "list" | "type" | "method" | "pending" | "details" | "failure" | "duplicate" | "disconnect" | "removing" | "removed";
-const codexLogo = <svg aria-hidden="true" focusable="false" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 12C20 7.58172 16.4183 4 12 4C7.58172 4 4 7.58172 4 12C4 16.4183 7.58172 20 12 20C16.4183 20 20 16.4183 20 12ZM16 13.5C16.5523 13.5 17 13.9477 17 14.5C17 15.0523 16.5523 15.5 16 15.5H13C12.4477 15.5 12 15.0523 12 14.5C12 13.9477 12.4477 13.5 13 13.5H16ZM7.98535 8.64258C8.42937 8.37617 8.99745 8.49427 9.30078 8.90039L9.35742 8.98535L10.8574 11.4854L10.9199 11.6074C11.0269 11.858 11.0269 12.142 10.9199 12.3926L10.8574 12.5146L9.35742 15.0146C9.07324 15.4881 8.45888 15.6415 7.98535 15.3574C7.51188 15.0732 7.35846 14.4589 7.64258 13.9854L8.83301 12L7.64258 10.0146L7.59473 9.92383C7.37931 9.46516 7.54152 8.90898 7.98535 8.64258ZM22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12Z" fill="currentColor"/></svg>;
+type Screen = "list" | "returning" | "complete" | "type" | "method" | "pending" | "details" | "failure" | "duplicate" | "disconnect" | "removing" | "removed";
+const codexLogo = <img src={openAiLogo} className="pc-codex-logo" alt="" />;
 const pendingKey = "laomedo.provider-attempt";
+const reconnectKey = "laomedo.provider-reconnecting";
 const statuses = { ready: "Connected", expired: "Sign in again", reauthorization_required: "Sign in again", revoked: "Sign in again", unavailable: "Unavailable" };
 
 export default function ProviderConnections() {
-  const [screen, setScreen] = useState<Screen>("list");
+  const [screen, setScreen] = useState<Screen>(() => {
+    const query = new URLSearchParams(window.location.search);
+    return query.has("attempt") || sessionStorage.getItem(pendingKey) ? "returning" : ["failed", "unconfirmed"].includes(query.get("login") ?? "") ? "failure" : "list";
+  });
+  const reconnecting = useRef(sessionStorage.getItem(reconnectKey) === "true");
   const [rows, setRows] = useState<ProviderConnection[]>();
   const [selected, setSelected] = useState<ProviderConnection>();
   const [provider, setProvider] = useState("codex");
   const [nativeUrl, setNativeUrl] = useState<string | null>(null);
   const [nativeCode, setNativeCode] = useState("");
+  const [claudeOpened, setClaudeOpened] = useState(false);
   const [goKey, setGoKey] = useState("");
   const [goLabel, setGoLabel] = useState("");
+  const [goSaveUnconfirmed, setGoSaveUnconfirmed] = useState(false);
   const [attempt, setAttempt] = useState<LoginProgress>();
   const [busy, setBusy] = useState(false);
   const [removal, setRemoval] = useState<DisconnectInfo>();
   const [error, setError] = useState("");
+  const surface = useRef<HTMLElement | null>(null);
   const epoch = useRef(0);
   const inFlight = useRef<number | null>(null);
+  const claudeTab = useRef<Window | null>(null);
+
+  useEffect(() => {
+    if (!nativeUrl || !claudeTab.current) return;
+    const tab = claudeTab.current;
+    claudeTab.current = null;
+    if (!tab.closed) { tab.location.replace(nativeUrl); setClaudeOpened(true); }
+  }, [nativeUrl]);
+
+  useEffect(() => () => { claudeTab.current?.close(); }, []);
+  useEffect(() => {
+    if (attempt && !["connecting", "verifying"].includes(attempt.status)) {
+      claudeTab.current?.close(); claudeTab.current = null;
+    }
+  }, [attempt?.status]);
+
+  useEffect(() => {
+    // A new screen starts at the top; read-only polling leaves scroll untouched.
+    let parent = surface.current?.parentElement;
+    while (parent) {
+      if (/auto|scroll/.test(window.getComputedStyle(parent).overflowY)) parent.scrollTop = 0;
+      parent = parent.parentElement;
+    }
+    if (document.scrollingElement) document.scrollingElement.scrollTop = 0;
+  }, [screen]);
 
   async function refresh() {
     if (inFlight.current) return;
@@ -68,17 +103,34 @@ export default function ProviderConnections() {
           if (progress.status === "connected" || progress.status === "duplicate") {
             if (progress.code === "provider_cleanup_unconfirmed") setError(progress.code);
             setSelected(next.find(row => row.connection_id === progress.connection_id));
-            setScreen(progress.status === "duplicate" ? "duplicate" : "details");
-          } else if (progress.status !== "cancelled") setScreen("failure");
+            sessionStorage.removeItem(reconnectKey);
+            setScreen(progress.code === "provider_cleanup_unconfirmed" ? "details" : "complete");
+          } else if (progress.status === "cancelled") { setAttempt(undefined); sessionStorage.removeItem(reconnectKey); setScreen("list"); }
+          else setScreen("failure");
         }
-      } else if (attempt?.code === "provider_save_unconfirmed") setScreen("failure");
-    } catch {
-      if (revision === epoch.current) { setError("provider_connections_unavailable"); if (attempt?.code === "provider_save_unconfirmed") setScreen("failure"); }
+      } else if (attempt?.code === "provider_save_unconfirmed") {
+        if (goSaveUnconfirmed) { setGoSaveUnconfirmed(false); setAttempt(undefined); setScreen("list"); }
+        else setScreen("failure");
+      }
+    } catch (failure) {
+      if (revision === epoch.current) {
+        setError(failure instanceof ProviderFailure ? failure.code : "provider_connections_unavailable");
+        if (screen === "returning") {
+          setAttempt({ attempt_id: new URLSearchParams(window.location.search).get("attempt") || sessionStorage.getItem(pendingKey) || "", status: "failed", connection_id: null, code: "provider_save_unconfirmed" });
+          setScreen("failure");
+        } else if (attempt?.code === "provider_save_unconfirmed") setScreen("failure");
+      }
     } finally {
       if (inFlight.current === revision) inFlight.current = null;
       if (revision === epoch.current) setBusy(false);
     }
   }
+
+  useEffect(() => {
+    if (screen !== "complete") return;
+    const timer = window.setTimeout(() => { setSelected(undefined); setAttempt(undefined); setScreen("list"); }, 2800);
+    return () => window.clearTimeout(timer);
+  }, [screen]);
 
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get("login") === "failed") setScreen("failure");
@@ -130,10 +182,16 @@ export default function ProviderConnections() {
     } catch (failure) {
       if (revision === epoch.current) {
         if (failure instanceof ProviderFailure && failure.code === "provider_confirmation_changed") {
-          const currentRemoval = await inspectDisconnect(selected.connection_id);
-          if (revision !== epoch.current) return;
-          setRemoval(currentRemoval);
-          setError("provider_confirmation_changed"); setScreen("disconnect");
+          try {
+            const currentRemoval = await inspectDisconnect(selected.connection_id);
+            if (revision !== epoch.current) return;
+            setRemoval(currentRemoval);
+            setError("provider_confirmation_changed"); setScreen("disconnect");
+          } catch (reloadFailure) {
+            if (revision !== epoch.current) return;
+            setRemoval(undefined); setScreen("details");
+            setError(reloadFailure instanceof ProviderFailure ? reloadFailure.code : "provider_connections_unavailable");
+          }
         } else { setError("provider_cleanup_unconfirmed"); setScreen("removing"); }
       }
     } finally { if (inFlight.current === revision) inFlight.current = null; if (revision === epoch.current) setBusy(false); }
@@ -143,6 +201,7 @@ export default function ProviderConnections() {
     if (inFlight.current) return;
     const revision = ++epoch.current;
     inFlight.current = revision; setBusy(true); setError("");
+    setGoSaveUnconfirmed(false);
     const submitted = goKey; setGoKey("");
     try {
       const result = await saveGoConnection(submitted, goLabel);
@@ -150,7 +209,14 @@ export default function ProviderConnections() {
       setSelected(result.connection); setGoLabel("");
       setRows(current => [...(current ?? []).filter(row => row.connection_id !== result.connection.connection_id), result.connection]);
       setScreen(result.duplicate ? "duplicate" : "details");
-    } catch { if (revision === epoch.current) setError("provider_connections_unavailable"); }
+    } catch (failure) {
+      if (revision === epoch.current) {
+        const code = failure instanceof ProviderFailure && failure.code !== "provider_connections_unavailable" ? failure.code : "provider_save_unconfirmed";
+        if (code === "provider_save_unconfirmed") {
+          setGoSaveUnconfirmed(true); setAttempt({ attempt_id: "", status: "failed", connection_id: null, code }); setScreen("failure");
+        } else setError(code);
+      }
+    }
     finally { if (inFlight.current === revision) inFlight.current = null; if (revision === epoch.current) setBusy(false); }
   }
 
@@ -165,6 +231,14 @@ export default function ProviderConnections() {
 
   async function signIn() {
     if (inFlight.current) return;
+    if (activeProvider === "claude") {
+      claudeTab.current = window.open("about:blank", "_blank");
+      if (claudeTab.current) claudeTab.current.opener = null;
+    }
+    setGoSaveUnconfirmed(false);
+    setClaudeOpened(false); setNativeCode(""); setNativeUrl(null);
+    reconnecting.current = Boolean(selected);
+    sessionStorage.setItem(reconnectKey, String(reconnecting.current));
     const revision = ++epoch.current;
     inFlight.current = revision; setBusy(true); setError("");
     try {
@@ -178,8 +252,10 @@ export default function ProviderConnections() {
       if (activeProvider === "claude") setNativeUrl(result.authorization_url);
       else if (result.authorization_url) window.location.assign(result.authorization_url);
     } catch (failure) {
+      claudeTab.current?.close(); claudeTab.current = null;
       if (revision === epoch.current) {
         if (failure instanceof ProviderFailure && failure.code === "provider_connection_busy") { setError(failure.code); setScreen("details"); }
+        else if (failure instanceof ProviderFailure && ["provider_session_required", "provider_connection_limit", "provider_login_in_progress"].includes(failure.code)) { setError(failure.code); }
         else { setError("provider_sign_in_failed"); setScreen("failure"); }
       }
     } finally { if (inFlight.current === revision) inFlight.current = null; if (revision === epoch.current) setBusy(false); }
@@ -199,8 +275,10 @@ export default function ProviderConnections() {
       finally { if (inFlight.current === revision) inFlight.current = null; if (revision === epoch.current) setBusy(false); }
     }
     ++epoch.current;
+    claudeTab.current?.close(); claudeTab.current = null;
     window.history.replaceState(null, "", "/settings/providers");
-    setError(""); setAttempt(undefined); setGoKey(""); setGoLabel(""); setNativeCode(""); setNativeUrl(null);
+    setGoSaveUnconfirmed(false);
+    setError(""); setAttempt(undefined); setGoKey(""); setGoLabel(""); setNativeCode(""); setNativeUrl(null); setClaudeOpened(false); sessionStorage.removeItem(reconnectKey);
     setScreen(screen === "disconnect" ? "details" : screen === "method" ? (selected ? "details" : "type") : "list");
   }
 
@@ -208,35 +286,45 @@ export default function ProviderConnections() {
   const providerName = activeProvider === "opencode" ? "OpenCode Go" : activeProvider === "claude" ? "Claude Code" : "Codex";
   const logo = (type: string) => type === "opencode" ? <><img src={openCodeLogoLight} className="pc-account-logo pc-opencode-light" alt="" /><img src={openCodeLogoDark} className="pc-account-logo pc-opencode-dark" alt="" /></> : type === "claude" ? <IconComponent name="Claude" className="h-6 w-6" /> : codexLogo;
   const unconfirmed = attempt?.code === "provider_save_unconfirmed";
-  const heading = screen === "disconnect" ? `Disconnect ${providerName}?` : screen === "removed" ? "Disconnected" : screen === "removing" ? (selected?.lifecycle === "cleanup_required" ? "Cleanup required" : selected?.lifecycle === "connected" ? "Check connection" : "Disconnecting") : screen === "list" ? "Providers" : screen === "type" ? "Add provider" : screen === "method" ? `Connect ${providerName}` : screen === "pending" ? (unconfirmed ? "Check connection" : "Finish signing in") : screen === "failure" ? (unconfirmed ? "Check connection" : attempt?.status === "expired" ? "Sign-in expired" : "Sign-in failed") : screen === "duplicate" ? "Already connected" : selected?.label ?? "Provider connection";
+  const mismatch = attempt?.code === "provider_account_mismatch";
+  const heading = screen === "disconnect" ? `Disconnect ${providerName}?` : screen === "removed" ? "Disconnected" : screen === "removing" ? (selected?.lifecycle === "cleanup_required" ? "Cleanup required" : selected?.lifecycle === "connected" ? "Check connection" : "Disconnecting") : screen === "list" ? "Providers" : screen === "type" ? "Add provider" : screen === "method" ? `Connect ${providerName}` : screen === "pending" ? (unconfirmed ? "Check connection" : "Finish signing in") : screen === "failure" ? (mismatch ? "Different account selected" : unconfirmed ? "Check connection" : attempt?.status === "expired" ? "Sign-in expired" : "Sign-in failed") : screen === "duplicate" ? "Already connected" : selected?.label ?? "Provider connection";
 
   const status = (row: ProviderConnection) => row.lifecycle === "connected" ? row.method === "opencode_go_key" ? row.auth_state === "revoked" ? "Key unavailable" : "Key saved" : statuses[row.auth_state] : row.lifecycle === "cleanup_required" ? "Cleanup required" : "Disconnecting";
+  const emphasizedStatus = (row: ProviderConnection) => row.lifecycle === "connected" && (row.auth_state === "ready" || row.method === "opencode_go_key" && row.auth_state !== "revoked");
   const ready = selected?.lifecycle === "connected" && selected.auth_state === "ready";
+  const needsSignIn = selected?.lifecycle === "connected" && ["expired", "reauthorization_required", "revoked"].includes(selected.auth_state);
 
-  return <section className="github-connections" aria-labelledby="provider-heading">
+  return <section ref={surface} className="github-connections" aria-labelledby="provider-heading">
     {screen === "list" && <header className="gc-heading">
       <div><h1 id="provider-heading">Providers</h1><p className="gc-muted">Manage the provider accounts Laomedo can use.</p></div>
       <Button ignoreTitleCase disabled={busy} onClick={() => { setSelected(undefined); setAttempt(undefined); sessionStorage.removeItem(pendingKey); window.history.replaceState(null, "", "/settings/providers"); setScreen("type"); }}><Plus size={16} aria-hidden="true" />Add provider</Button>
     </header>}
     <div className={screen === "list" ? "pc-list-screen" : screen === "details" ? "gc-screen gc-detail" : "gc-screen"}>
       {error && <div role="alert"><ErrorExplanation failure={describeNodeFailure(error, undefined)} /></div>}
-      <section className={screen === "list" ? "gc-panel gc-accounts" : screen === "details" ? "gc-panel gc-detail-card" : "gc-panel gc-focus"}>
-        {screen !== "list" && screen !== "details" && <h2 id="provider-heading">{heading}</h2>}
+      <section className={["returning", "complete", "failure"].includes(screen) ? "pc-handoff-surface" : screen === "list" ? "gc-panel gc-accounts" : screen === "details" ? "gc-panel gc-detail-card" : "gc-panel gc-focus"}>
+        {!["list", "details", "returning", "complete", "failure"].includes(screen) && <h2 id="provider-heading">{heading}</h2>}
+        {screen === "failure" && <LangflowLogo className="pc-handoff-logo pc-handoff-settled" aria-hidden="true" />}
+        {screen === "failure" && <h2 id="provider-heading">{heading}</h2>}
+        {["returning", "complete"].includes(screen) && <div className="pc-sign-in-result" role="status" aria-live="polite">
+          <LangflowLogo className={`pc-handoff-logo ${screen === "complete" ? "pc-handoff-settled" : ""}`} aria-hidden="true" />
+          <h2 id="provider-heading">{screen === "returning" ? "Finishing sign-in\u2026" : attempt?.status === "duplicate" ? "Already connected" : "Connection saved!"}</h2>
+          {screen === "complete" && <p className="gc-muted">{attempt?.status === "duplicate" ? "You signed in to an account that is already connected. Your existing connection is unchanged." : reconnecting.current ? "You signed in to the same account again." : "Your account is ready to use."}</p>}
+        </div>}
         {screen === "list" && <>
           {rows === undefined ? <p role="status">{error ? "Could not load providers." : "Loading providers…"}</p> : rows.length === 0 ? <div className="gc-empty"><h2>No providers connected</h2><p className="gc-muted">Add a provider account to use it in your flows.</p></div> : <>
-            <h2 className="gc-eyebrow">Connected accounts</h2>
+            <h2 className="gc-eyebrow">Accounts</h2>
             {rows.map(row => <div className="gc-account-row" key={row.connection_id}>
               <span className="gc-avatar" aria-hidden="true">{logo(row.provider)}</span>
               <div className="gc-account-copy"><h3>{row.label}</h3><p className="gc-muted">{row.provider === "opencode" ? "OpenCode Go | Subscription key" : row.provider === "claude" ? "Claude Code | Claude subscription" : "Codex | ChatGPT plan"}</p></div>
-              <span className={`gc-status ${row.lifecycle === "connected" && row.auth_state === "ready" ? "gc-ready" : "gc-attention"}`}>{status(row)}</span>
+              <span className={`gc-status ${emphasizedStatus(row) ? "gc-ready" : "gc-attention"}`}>{status(row)}</span>
               <Button ignoreTitleCase variant="outline" aria-label={`View connection for ${row.label}`} onClick={() => { setSelected(row); setScreen("details"); }}>View connection</Button>
             </div>)}
           </>}
         </>}
         {screen === "type" && <>
           <p className="gc-muted">Choose the provider you want to connect.</p>
-          <div className="pc-types" role="group" aria-label="Provider type">{["codex", "claude", "opencode"].map(type => <button type="button" aria-pressed={provider === type} className="pc-choice" key={type} onClick={() => setProvider(type)}>{type === "opencode" ? "OpenCode" : type[0].toUpperCase() + type.slice(1)}</button>)}</div>
-          <Button ignoreTitleCase onClick={() => setScreen("method")}>Continue</Button>
+          <div className="pc-types" role="group" aria-label="Provider type">{["codex", "claude", "opencode"].map(type => <button type="button" aria-pressed={provider === type} className="pc-choice" key={type} onClick={() => setProvider(type)}><span className="pc-choice-logo" aria-hidden="true">{logo(type)}</span>{type === "opencode" ? "OpenCode" : type[0].toUpperCase() + type.slice(1)}</button>)}</div>
+          <Button ignoreTitleCase disabled={busy} onClick={() => provider === "opencode" ? setScreen("method") : void signIn()}>Continue</Button>
         </>}
         {screen === "method" && <>
           {activeProvider === "opencode" ? <>
@@ -250,19 +338,22 @@ export default function ProviderConnections() {
           <Button ignoreTitleCase disabled={busy} onClick={() => void signIn()}>Continue to sign in</Button></>}
         </>}
         {screen === "pending" && <>
-          {attempt?.provider === "claude" && attempt.status === "connecting" && <>
-            {nativeUrl && <Button ignoreTitleCase asChild><a href={nativeUrl} target="_blank" rel="noopener noreferrer">Continue to Claude</a></Button>}
-            <p className="gc-muted">When Claude shows a sign-in code, paste it below to finish in the official client.</p>
-            <input className="pc-account-select" type="password" aria-label="Claude sign-in code" placeholder="Claude sign-in code" autoComplete="off" value={nativeCode} onChange={event => setNativeCode(event.target.value)} disabled={busy} />
-            <Button ignoreTitleCase disabled={busy || !nativeCode} onClick={() => void finishClaude()}>Finish sign-in</Button>
+          {attempt?.provider === "claude" && attempt.status === "connecting" ? <>
+            {nativeUrl ? <>
+              <p className="gc-muted">{claudeOpened ? "Paste the code from Claude to finish signing in." : "Continue to Claude to sign in, then paste the code it gives you below."}</p>
+              {!claudeOpened && <Button ignoreTitleCase asChild><a href={nativeUrl} target="_blank" rel="noopener noreferrer" onClick={() => setClaudeOpened(true)}>Continue to Claude</a></Button>}
+              {claudeOpened && <><input className="pc-account-select" type="password" aria-label="Claude sign-in code" placeholder="Claude sign-in code" autoComplete="off" value={nativeCode} onChange={event => setNativeCode(event.target.value)} disabled={busy} />
+              <Button ignoreTitleCase disabled={busy || !nativeCode} onClick={() => void finishClaude()}>Finish sign-in</Button></>}
+            </> : <p className="gc-muted" role="status">Preparing Claude sign-in{"\u2026"}</p>}
+          </> : <>
+            {!unconfirmed && attempt?.status !== "verifying" && <p className="gc-muted">Complete sign-in with the provider. This page will update when it finishes.</p>}
+            <p className="gc-notice" role="status">{unconfirmed ? "Checking your saved connection\u2026" : attempt?.status === "verifying" ? "Checking connection\u2026" : "Waiting for sign-in\u2026"}</p>
           </>}
-          <p className="gc-muted">{unconfirmed ? "Checking your saved connection…" : <>Complete sign-in with the provider.<br />We’ll update this page when it finishes.</>}</p>
-          <p className="gc-notice" role="status">{unconfirmed || attempt?.status === "verifying" ? "Checking connection…" : "Waiting for sign-in…"}</p>
         </>}
         {screen === "details" && selected && <>
-          <div className="gc-identity"><span className="gc-avatar" aria-hidden="true">{logo(selected.provider)}</span><h2 id="provider-heading">{selected.label}</h2><span className={`gc-status ${ready ? "gc-ready" : "gc-attention"}`}>{status(selected)}</span></div>
-          <p className="gc-muted">{selected.method === "opencode_go_key" ? "Your Go key is saved locally. Account identity and access have not been verified; the selected model checks access when you run it." : ready ? "Access is maintained automatically when supported." : "Sign in again to restore access for this account."}</p>
-          <div className="gc-footer"><p className="gc-muted">Removing this connection stops Laomedo access.</p><div className="pc-connection-actions">{selected.lifecycle === "connected" && <Button ignoreTitleCase disabled={busy} onClick={() => { if (selected.provider === "opencode") { setProvider("opencode"); setSelected(undefined); } setScreen("method"); }}>{selected.provider === "opencode" ? "Add another Go key" : selected.provider === "claude" ? "Sign in to Claude Code again" : "Sign in to Codex again"}</Button>}<Button ignoreTitleCase variant="outline" disabled={busy} onClick={() => selected.lifecycle === "connected" ? void prepareDisconnect() : setScreen("removing")}>{selected.lifecycle === "connected" ? "Disconnect" : "View cleanup"}</Button></div></div>
+          <div className="gc-identity"><span className="gc-avatar" aria-hidden="true">{logo(selected.provider)}</span><h2 id="provider-heading">{selected.label}</h2><span className={`gc-status ${emphasizedStatus(selected) ? "gc-ready" : "gc-attention"}`}>{status(selected)}</span></div>
+          <p className="gc-muted">{selected.method === "opencode_go_key" ? "Your Go key is saved locally. Account identity and access have not been verified; the selected model checks access when you run it." : ready ? "Laomedo uses this account when you select it in a graph." : needsSignIn ? "Sign in again to restore access for this account." : "We cannot check this connection right now. Refresh to check again."}</p>
+          <div className="gc-footer"><p className="gc-muted">Removing this connection stops Laomedo access.</p><div className="pc-connection-actions">{selected.lifecycle === "connected" && <Button ignoreTitleCase variant={needsSignIn && selected.method !== "opencode_go_key" ? "default" : "outline"} disabled={busy} onClick={() => selected.provider === "opencode" ? setScreen("method") : void signIn()}>{selected.provider === "opencode" ? "Add another Go key" : "Sign in again"}</Button>}<Button ignoreTitleCase variant="outline" disabled={busy} onClick={() => selected.lifecycle === "connected" ? void prepareDisconnect() : setScreen("removing")}>{selected.lifecycle === "connected" ? "Disconnect" : "View cleanup"}</Button></div></div>
         </>}
         {screen === "disconnect" && selected && removal && <>
           <p>{selected.label}</p>
@@ -281,18 +372,18 @@ export default function ProviderConnections() {
           <Button ignoreTitleCase onClick={() => { setSelected(undefined); setScreen("list"); }}>Back to providers</Button>
         </>}
         {screen === "failure" && <>
-          {unconfirmed ? <ErrorExplanation failure={describeNodeFailure("provider_save_unconfirmed", undefined)} /> : <p className="gc-muted">{attempt?.status === "expired" ? "Your sign-in expired. Try again." : <>We couldn’t finish signing you in.<br />Your saved connection hasn’t changed.</>}</p>}
-          <Button ignoreTitleCase disabled={busy || unconfirmed} onClick={() => { setAttempt(undefined); sessionStorage.removeItem(pendingKey); window.history.replaceState(null, "", "/settings/providers"); setScreen("method"); }}>Try again</Button>
+          {mismatch ? <p className="gc-muted">{describeNodeFailure("provider_account_mismatch", undefined).description}</p> : unconfirmed ? <ErrorExplanation failure={describeNodeFailure("provider_save_unconfirmed", undefined)} /> : <p className="gc-muted">{attempt?.status === "expired" ? "Your sign-in expired. Try again." : <>We couldn’t finish signing you in.<br />Your saved connection hasn’t changed.</>}</p>}
+          {mismatch ? <Button ignoreTitleCase disabled={busy} onClick={() => { setProvider(selected?.provider ?? attempt?.provider ?? provider); setSelected(undefined); setAttempt(undefined); sessionStorage.removeItem(pendingKey); sessionStorage.removeItem(reconnectKey); reconnecting.current = false; window.history.replaceState(null, "", "/settings/providers"); setScreen("method"); }}>Add as new connection</Button> : <Button ignoreTitleCase disabled={busy || unconfirmed} onClick={() => { setAttempt(undefined); sessionStorage.removeItem(pendingKey); window.history.replaceState(null, "", "/settings/providers"); setScreen("method"); }}>Try again</Button>}
         </>}
         {screen === "duplicate" && <>
           <p className="gc-muted">{selected?.provider === "opencode" ? "This key is already saved." : "This account is already connected."}<br />Your existing connection hasn’t changed.</p>
           <Button ignoreTitleCase onClick={() => setScreen("details")}>View connection</Button>
         </>}
       </section>
-      <nav className="gc-navigation" aria-label="Connection navigation">
+      {screen !== "complete" && <nav className="gc-navigation" aria-label="Connection navigation">
         {screen !== "list" && <button type="button" className="gc-link gc-icon" disabled={busy} aria-label="Back to connections" title="Back to connections" onClick={() => void back()}><ArrowLeft size={20} aria-hidden="true" /></button>}
         {!["type", "method", "disconnect", "removed"].includes(screen) && <button type="button" className="gc-link gc-icon" disabled={busy} aria-label="Refresh" title="Refresh connections" onClick={() => void refresh()}><RefreshCw size={20} aria-hidden="true" /></button>}
-      </nav>
+      </nav>}
     </div>
   </section>;
 }

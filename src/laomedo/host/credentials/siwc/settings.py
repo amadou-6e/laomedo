@@ -17,3 +17,6 @@ NEEDED = frozenset(
 
 
 MIN_DISPATCH_TTL = 300
+
+# A fixed, small bound for normal issuer/host clock drift during ID-token checks.
+ID_TOKEN_CLOCK_SKEW_SECONDS = 30

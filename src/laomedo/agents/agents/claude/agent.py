@@ -118,7 +118,7 @@ class ClaudeAgent(BaseAgent):
             if extra
             else self.status(run_id).get("turn_timeout", self.turn_timeout)
         )
-        self._mirror_host_login(minimum_validity_seconds=required)
+        self._prepare_credentials(minimum_validity_seconds=required)
         return extra
 
     def runtime_binding(self):
@@ -168,8 +168,8 @@ class ClaudeAgent(BaseAgent):
     def preflight(self):
         """Check native authentication after constructor image/version validation.
 
-        The existing opt-in login mirror may update the dedicated credential
-        volume. This check sends no model request and makes no permission-probe
+        Authentication uses the explicitly signed-in dedicated native profile.
+        This check sends no model request and makes no permission-probe
         claim. Preserve the public ready payload and its authentication meaning.
         """
         self._check_auth()
@@ -346,7 +346,7 @@ class ClaudeAgent(BaseAgent):
         except (OSError, ValueError, TypeError, KeyError, subprocess.SubprocessError):
             raise RunnerError(failure) from None
 
-    def _mirror_host_login(self, *, minimum_validity_seconds=None, deadline=None):
+    def _prepare_credentials(self, *, minimum_validity_seconds=None, deadline=None):
         """Prepare credentials through the provider-owned admission contract."""
         self.credentials.prepare(
             CredentialRequest(

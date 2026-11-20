@@ -78,3 +78,6 @@ as model discovery, with the selected credential provider and exact close receip
 projects native wire fields into canonical `SubscriptionSnapshot` models in
 `agents/base/models.py`; malformed scalar fields stay unknown, malformed shapes
 fail. No model turn, native thread, generic RPC forwarding or ambient login is added.
+## Saved account connections
+
+`connection.py` is the provider boundary. CodexConnection owns pending broker login attempts, begin/complete/progress/cancel, staged publication and readback, duplicate identity checks, exact token borrowing and local revision cleanup. PendingLogin belongs to models.py; login failure categories belong to settings.py. The shared Agent connection service owns admission/index fencing; host storage and profile authorization remain separate.

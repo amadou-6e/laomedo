@@ -72,7 +72,6 @@ class RunnerService:
             "github_authority_store",
             "mediator_state",
             "git_workspace",
-            "mirror_host_claude_login",
             "lease_service",
             "image_id",
         }
@@ -95,9 +94,6 @@ class RunnerService:
                 for provider, path in sources.items()
             )
             or type(value.get("git_workspace", False)) is not bool
-            or type(value.get("mirror_host_claude_login", False)) is not bool
-            or value.get("mirror_host_claude_login", False)
-            and value["provider"] != "claude"
         ):
             raise ValueError("invalid_runner_service_config")
         if ("github_authority_store" in value) != ("mediator_state" in value):
@@ -223,11 +219,6 @@ class RunnerService:
             # The trusted host supplies all paths.
             # Neither browser inputs nor model outputs become process arguments.
             env = service_environment(config["provider"])
-            if (
-                config.get("mirror_host_claude_login") is True
-                and config["provider"] == "claude"
-            ):
-                env["LAOMEDO_CLAUDE_MIRROR_HOST_LOGIN"] = "1"
             self.cancel_requested = False
             self.startup_id = str(uuid.uuid4())
             self.startup_gate_path = (

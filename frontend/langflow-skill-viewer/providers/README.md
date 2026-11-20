@@ -9,17 +9,37 @@ panel, heading, account row, detail and navigation classes are used directly.
 Back and Refresh remain
 icon buttons below the card. Refresh never starts authentication.
 
-The initial route is app-owned Sign in with ChatGPT for Codex. Other provider
-types are visible but unavailable; no ambient-login or API-billing fallback is
-offered. A pending opaque attempt ID may survive same-tab native navigation;
+Returning sign-in attempts start on a stable, centered Langflow handoff rather
+than briefly rendering the account-list header. Confirmed saves and duplicates
+show a short completion message, then return to the providers list after 2.8s.
+Reconnect intent is a non-secret same-tab flag, never a credential. Unconfirmed
+save or cleanup outcomes retain recovery controls and never auto-dismiss. Logo
+motion is subtle and disabled for reduced-motion preferences.
+The handoff and failure states are borderless and retain the same Langflow mark
+and content position. Explicit provider selection starts browser sign-in directly;
+Claude reserves its external tab during that click, then navigates it only after
+the native client supplies a validated URL. Blocked popups retain a manual link.
+No mount, Refresh or polling operation creates an authentication tab.
+
+Codex uses app-owned Sign in with ChatGPT, Claude uses its native sign-in, and
+OpenCode Go uses an explicit subscription key. No ambient-login or API-billing
+fallback is offered. A pending opaque attempt ID may survive same-tab native navigation;
 OAuth state, URLs and credentials never enter browser storage. Native completion
 returns to the original Settings origin. User-facing errors use the shared
 catalogue. Disconnect and consumer binding require the matching host runtime
 integration; do not present unavailable operations as working.
 
-Account rows and details use the Codex mark, matching the installed OpenAI Codex
-extension asset `codex-d905da579253.svg` (26.1007.21434), rendered in the theme
-foreground colour. Details identify reauthentication as Sign in to Codex again;
+Account rows, provider choices and details use Langflow's existing OpenAI knot
+logo for Codex, with white knot strokes and a transparent canvas and avatar
+canvas, inside the same muted circular badge as other providers. The knot stays
+white in dark mode and switches to dark in light mode to retain contrast. Saved Go-key
+status uses normal foreground emphasis without claiming verified access.
+Reauthentication starts directly from Sign in again. Adding another Go key
+retains its originating connection so Back returns to those details. Claude's
+code field appears only after the explicit Continue to Claude action; continuation
+and completion buttons fit their text. Provider choices keep a centered group
+with fixed logo and label columns, so logos align vertically across choices.
+Details identify reauthentication as Sign in again;
 account access and model usage are not inferred from successful authentication.
 
 Connection details group compact reauthentication and Disconnect buttons together,
@@ -61,17 +81,33 @@ field and a provider Console link. Keys are cleared after submission and Back,
 never restored from browser storage. Saved keys explicitly lack verified upstream
 identity/access. Exact repeated keys reuse the existing row; different keys cannot
 prove different accounts. Per-harness graph preferences preserve other harness
-selections and never route a Go key to a Codex or Claude node. Native Claude
-connection support and real Go integration acceptance remain pending.
+selections and never route a Go key to a Codex or Claude node. Native Claude and
+free-model Go dispatch have been verified through saved connections.
 
 Claude Code uses the official client in an independent native volume. The pending
 view opens its provider-owned link and relays one masked completion code back
 to that same client. URLs and codes remain out of browser storage; code input is
 cleared after submission. A lost submission response remains an uncertain outcome
 and polling reconciles it rather than automatically submitting another code.
-Real Claude sign-in/dispatch and independent final review remain pending.
+Native Claude sign-in and dispatch have been verified. Two-account routing,
+different-account reconnect and native failure/revocation acceptance remain
+separate verification requirements; see the owning PR for current evidence.
 
+The Settings list calls saved rows Accounts, including rows requiring sign-in.
+The GitHub PR257 ConnectionAccounts and ConnectionNavigation layouts remain the
+reference: preserve the card, identity/status row, explanatory copy, footer and
+icon navigation. Connected accounts offer secondary reauthentication; native
+accounts needing sign-in retain a primary recovery action. The Claude handoff
+uses one instruction with the provider link and masked completion-code field.
+Screen transitions reset ancestor scrolling; polling does not change scroll.
+Codex uses the transparent OpenAI knot SVG with theme-aware foreground and
+the same muted avatar circle as the other providers on account rows/details.
 
+Different-account reauthentication preserves the committed account and offers Add
+as new connection. A Go save with an uncertain reply clears the key and pauses
+resubmission; Refresh shows the actual saved list without asserting success.
+Typed session/limit failures retain the shared catalogue recovery. Failed
+Disconnect confirmation rereads discard stale permission and return to details.
 ## Live allowance (#300)
 
 `SubscriptionLimits.tsx` owns account-bound quota rows and native-window/credit

@@ -1,6 +1,11 @@
 """Fence outgoing browser-session authorizations before logout is processed."""
 
+from functools import partial
 import hashlib
+import logging
+from http.cookies import SimpleCookie
+
+import jwt
 from urllib.parse import urlsplit
 from uuid import UUID
 
@@ -8,7 +13,8 @@ from starlette.requests import Request
 from laomedo.integrations.langflow.provider_connections.bindings import (
     ProviderGraphBindings,
 )
-from laomedo.host.provider_connections.models import BrowserProviderSession
+from laomedo.agents.connections.models import BrowserProviderSession
+from laomedo.agents.connections.errors import ProviderConnectionError
 
 
 class ProviderSessionBoundary:
@@ -62,9 +68,58 @@ class ProviderSessionBoundary:
                 self.service.cancel_lease(hashlib.sha256(cookie.encode()).hexdigest())
         context = ProviderGraphBindings.session.set(session)
         try:
-            await self.app(scope, receive, send)
+            response_send = send
+            if (
+                session is not None
+                and scope["type"] == "http"
+                and scope["method"] == "POST"
+                and scope["path"].rstrip("/") == "/api/v1/refresh"
+            ):
+                response_send = partial(self._renew_session, session, send)
+            await self.app(scope, receive, response_send)
         finally:
             ProviderGraphBindings.session.reset(context)
+
+    async def _renew_session(self, previous, send, message):
+        """Alias only a successful same-profile server-issued access-cookie renewal."""
+        if message["type"] == "http.response.start" and message["status"] == 200:
+            for name, value in message.get("headers", []):
+                if name.lower() != b"set-cookie":
+                    continue
+                try:
+                    cookies = SimpleCookie()
+                    cookies.load(value.decode("latin-1"))
+                    if "access_token_lf" not in cookies:
+                        continue
+                    await self._admit_renewal(
+                        previous, cookies["access_token_lf"].value
+                    )
+                except Exception as error:
+                    # Renewal evidence is optional: preserve the upstream response,
+                    # but never guess an alias after malformed data or a DB outage.
+                    logging.getLogger(__name__).warning(
+                        "provider_session_renewal_failed category=%s",
+                        type(error).__name__,
+                    )
+        await send(message)
+
+    async def _admit_renewal(self, previous, cookie):
+        """Authenticate both principals before preserving only an opaque lease."""
+        renewed = await self._session(cookie)
+        if renewed is None or renewed.profile_id != previous.profile_id:
+            return
+        # Authentication above verified this token. This second decode
+        # reads expiry solely to bound alias retention, never identity.
+        expires_at = jwt.decode(cookie, options={"verify_signature": False})["exp"]
+        try:
+            self.service.renew_lease(
+                previous.lease_hash,
+                hashlib.sha256(cookie.encode()).hexdigest(),
+                expires_at,
+            )
+        except ProviderConnectionError:
+            # Concurrent logout or conflicting issuance wins; remain fenced.
+            pass
 
     async def _owns_graph(self, profile_id, flow_id):
         """Treat referrer as an untrusted hint; resolve ownership in the app database."""
@@ -93,7 +148,9 @@ class ProviderSessionBoundary:
                 user = await get_auth_service()._authenticate_with_token(cookie, db)
                 return BrowserProviderSession(
                     profile_id=user.id,
-                    lease_hash=hashlib.sha256(cookie.encode()).hexdigest(),
+                    lease_hash=self.service.resolve_lease(
+                        hashlib.sha256(cookie.encode()).hexdigest()
+                    ),
                 )
         except AuthenticationError:
             return None

@@ -5,6 +5,10 @@ import json
 
 from laomedo.integrations.langflow.agent.component import AgentComponent as Component
 from laomedo.agents.agents.claude.settings import EFFORTS
+from laomedo.agents.interface.langflow.errors import RunnerRequestError
+from laomedo.integrations.langflow.provider_connections.bindings import (
+    ProviderGraphBindings,
+)
 from langflow.io import IntInput
 
 
@@ -83,7 +87,23 @@ class LaomedoClaudeAgent(Component):
         return super()._runner_token_file_path()
 
     def _http(self, endpoint, payload, method):
-        value = super()._http(endpoint, payload, method)
+        try:
+            value = super()._http(endpoint, payload, method)
+        except RunnerRequestError as failure:
+            pinned = getattr(self, "_saved_endpoint", None)
+            if not (
+                ProviderGraphBindings.service is not None
+                and pinned is not None
+                and method == "POST"
+                and self.operation in {"fresh", "start"}
+                and failure.code
+                == "runner_model_catalog_unavailable_check_runner_connection"
+                and failure.diagnostics.get("http_status") == 400
+                and failure.diagnostics.get("runner_code") == failure.code
+            ):
+                raise
+            self._model_catalog({}, saved_endpoint=pinned)
+            value = super()._http(endpoint, payload, method)
         if value.get("provider") != "claude":
             raise RuntimeError("runner_provider_mismatch")
         return value

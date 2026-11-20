@@ -211,3 +211,11 @@ Each graph join service is bound to one runner provider. Deploy separate bridge
 instances and private tokens for Codex and Claude; pass `--provider claude` for
 the Claude bridge and point that node at its matching bridge URL. Provider IDs
 are preserved through the journal and cannot be relabelled by a node request.
+
+For native Codex runs, activity receipts and usage can be present while the
+OpenTelemetry section is empty: the local OTLP collector is separately opt-in.
+Set `LAOMEDO_RUNNER_OTEL=1` in the runner process environment before launching a
+new task. Opening Activity or enabling collection after a task has finished does
+not reconstruct telemetry for that earlier task. Native records are retained
+through the existing attribute allowlist; exporter flush completeness remains
+unverified even when records are observed.
