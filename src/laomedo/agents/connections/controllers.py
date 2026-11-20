@@ -270,31 +270,6 @@ class ProviderControllers:
         slot = self.slots[(profile_id, connection_id, generation, "assistant")]
         return not slot.runner.lock.locked() and slot.runner.mcp_access(run_id) is None
 
-    def _assistant_source(self, state):
-        """Prepare only the fixed scratch sibling, never the graph repository."""
-        repository = state.parent / "source"
-        source = repository / "workspace"
-        if not source.is_dir() and any((state / "runs").glob("*/record.json")):
-            raise ProviderConnectionError("provider_cleanup_unconfirmed")
-        source.mkdir(parents=True, exist_ok=True)
-        if not (repository / ".git").is_dir():
-            subprocess.run(
-                ["git", "init", "--quiet", str(repository)],
-                check=True,
-                stdin=subprocess.DEVNULL,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                timeout=20,
-                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-            )
-        readme = source / "README.md"
-        if not readme.exists():
-            readme.write_text(
-                "# Laomedo assistant scratch workspace\nUse scoped Laomedo MCP tools. This is not the user's repository.\n",
-                encoding="utf-8",
-            )
-        return source
-
     def connection_for_run(self, profile_id, run_id, *, scope="graph"):
         """Resolve a retained run from this owner's authoritative inventory, never preferences."""
         run_id = str(UUID(str(run_id)))
@@ -488,6 +463,31 @@ class ProviderControllers:
                 slot.server.server_close()
         if type(self)._current is self:
             type(self)._current = None
+
+    def _assistant_source(self, state):
+        """Prepare only the fixed scratch sibling, never the graph repository."""
+        repository = state.parent / "source"
+        source = repository / "workspace"
+        if not source.is_dir() and any((state / "runs").glob("*/record.json")):
+            raise ProviderConnectionError("provider_cleanup_unconfirmed")
+        source.mkdir(parents=True, exist_ok=True)
+        if not (repository / ".git").is_dir():
+            subprocess.run(
+                ["git", "init", "--quiet", str(repository)],
+                check=True,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=20,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+            )
+        readme = source / "README.md"
+        if not readme.exists():
+            readme.write_text(
+                "# Laomedo assistant scratch workspace\nUse scoped Laomedo MCP tools. This is not the user's repository.\n",
+                encoding="utf-8",
+            )
+        return source
 
     def _finish_cleanup(self, profile_id, connection_id):
         """Poll owned stop state only; no replay, login or model request occurs."""
