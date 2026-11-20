@@ -27,6 +27,37 @@ jest.mock("@/contexts/authContext", () => ({
 }));
 
 describe("uncertain assistant submission", () => {
+  it("explains an unconnected provider, preserves the draft, then sends through an explicitly selected connected account", async () => {
+    const chat = { connection_id: "account", connection_generation: 1, id: "fresh", title: "Hello", provider: "codex", model: "fixture", effort: "low", state: "idle", active_message_id: null };
+    jest.mocked(assistantRequest).mockImplementation(async (path, body) => {
+      if (path === "/connections") return { connections: [{connection_id: "account", generation: 1, provider: "codex", label: "Saved account", lifecycle: "connected", auth_state: "ready"}] };
+      if (path.startsWith("/models?")) return {provider: "codex", models: [{id: "fixture", efforts: ["low"]}]};
+      if (path === "/conversations") return body ? chat : {conversations: [], next_cursor: null};
+      if (path.endsWith("/messages") && body) return {id: "message", ...body};
+      return {conversation: chat, messages: [], drafts: [], next_cursor: null};
+    });
+    render(<MemoryRouter initialEntries={["/assistant"]}><AssistantPage /></MemoryRouter>);
+    const composer = screen.getByRole("textbox", {name: "Message this assistant"});
+    fireEvent.change(composer, {target: {value: "Hello"}});
+    fireEvent.click(screen.getByRole("radio", {name: "Claude"}));
+    await screen.findByText("Connect a Claude account in Settings ? Providers to chat.");
+    expect(screen.getByRole("button", {name: "Choose model and effort"})).toBeDisabled();
+    expect(screen.getByRole("button", {name: "Start chat"})).toBeDisabled();
+    expect(screen.getByRole("link", {name: "Connect account ?"})).toHaveAttribute("href", "/settings/providers");
+    expect(composer).toHaveValue("Hello");
+    fireEvent.keyDown(composer, {key: "Enter"});
+    expect(jest.mocked(assistantRequest).mock.calls.some(([path, body]) => path === "/conversations" && body)).toBe(false);
+    expect(jest.mocked(assistantRequest).mock.calls.some(([path]) => path.startsWith("/models?"))).toBe(false);
+    fireEvent.click(screen.getByRole("radio", {name: "Codex"}));
+    await screen.findByText("Select a Codex account to load its models.");
+    fireEvent.click(screen.getByRole("button", {name: "Account"}));
+    fireEvent.click(await screen.findByRole("menuitemradio", {name: "Saved account"}));
+    await waitFor(() => expect(screen.getByRole("button", {name: "Start chat"})).not.toBeDisabled());
+    expect(composer).toHaveValue("Hello");
+    fireEvent.keyDown(composer, {key: "Enter"});
+    await waitFor(() => expect(assistantRequest).toHaveBeenCalledWith("/conversations/fresh/messages", expect.objectContaining({text: "Hello"})));
+  });
+
   it("starts a brand-new Codex chat with explicit native status rather than a hidden prompt", async () => {
     const chat = { connection_id: "account", connection_generation: 1, id: "fresh", title: "/status", provider: "codex", run_id: null, model: "fixture", effort: "low", state: "idle", active_message_id: null };
     jest.mocked(assistantRequest).mockImplementation(async (path, body) => {

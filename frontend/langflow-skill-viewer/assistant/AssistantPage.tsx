@@ -1,3 +1,4 @@
+import ProviderIcon from "./ProviderIcon";
 import AccountSelection from "./AccountSelection";
 import GraphPermissions from "./GraphPermissions";
 import { useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
@@ -15,10 +16,6 @@ import {
   Download,
   History,
 } from "lucide-react";
-import openAiLogo from "./assets/openai-logo.svg";
-import IconComponent from "@/components/common/genericIconComponent";
-import openCodeLogoDark from "./assets/opencode-logo-dark.svg";
-import openCodeLogoLight from "./assets/opencode-logo-light.svg";
 import { Button } from "@/components/ui/button";
 import { AuthContext } from "@/contexts/authContext";
 import { describeNodeFailure } from "@/components/laomedoErrors/nodeErrors";
@@ -71,6 +68,7 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
   const providerRef = useRef(chosenProvider);
   providerRef.current = chosenProvider;
   const [accounts, setAccounts] = useState<SavedConnection[]>([]);
+  const [accountsLoading, setAccountsLoading] = useState(true);
   const [account, setAccount] = useState<SavedConnection>();
   const boundAccount = selected ? (detail?.conversation.id === selected ? detail.conversation : index.conversations.find(item => item.id === selected)) : undefined;
   const connectionId = selected ? boundAccount?.connection_id : account?.provider === chosenProvider ? account.connection_id : undefined;
@@ -366,11 +364,12 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
   useEffect(() => {
     setAccounts([]);
     setAccount(undefined);
-    if (locked || !owner) return;
+    if (locked || !owner) { setAccountsLoading(false); return; }
+    setAccountsLoading(true);
     let current = true;
     const load = () => { void assistantRequest<{ connections: SavedConnection[] }>("/connections").then(result => {
       if (current) { if (!Array.isArray(result.connections)) throw new AssistantFailure("assistant_connection_unavailable"); setAccounts(result.connections); }
-    }).catch(failure => { if (current) fail(failure); }); };
+    }).catch(failure => { if (current) fail(failure); }).finally(() => { if (current) setAccountsLoading(false); }); };
     load();
     window.addEventListener("focus", load);
     return () => { current = false; window.removeEventListener("focus", load); };
@@ -653,6 +652,14 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
   const active = Boolean(conversation?.active_message_id);
   const needsAttention = conversation?.state === "attention";
   const waiting = pending[selected];
+  const providerName = ({ codex: "Codex", claude: "Claude", opencode: "OpenCode" } as Record<string, string>)[chosenProvider] ?? chosenProvider;
+  const providerAccounts = accounts.filter(item => item.provider === chosenProvider && item.lifecycle === "connected");
+  const composerStatus = error ? undefined : accountsLoading ? "Loading accounts?"
+    : !providerAccounts.length ? `Connect a ${providerName} account in Settings ? Providers to chat.`
+    : !connectionId ? `Select a ${providerName} account to load its models.`
+    : discovering ? `Loading ${providerName} models?`
+    : models && !models.models.length ? "No models were returned for this account."
+    : undefined;
   const canSend = Boolean(
     connectionId && connectionGeneration &&
     accounts.some(item => item.connection_id === connectionId && item.generation === connectionGeneration && item.lifecycle === "connected") &&
@@ -1035,19 +1042,19 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
                     <h2 className="text-xl font-medium">
                       What would you like to build?
                     </h2>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="mx-auto w-full max-w-sm text-sm text-muted-foreground">
                       Describe a workflow or ask me to change one. I can inspect
                       workflows and save a separate editable draft.
                     </p>
                     {!selected && (
                       <fieldset
-                        className="pt-2 text-left"
+                        className="mx-auto w-full max-w-sm pt-2 text-left"
                         aria-label="Assistant provider"
                       >
                         {[["codex", "Codex", "OpenAI"], ["claude", "Claude", "Anthropic"], ["opencode", "OpenCode", "Connected models"]].map(([id, name, description]) => (
                           <label key={id} className={`relative mb-2 flex cursor-pointer items-center justify-center gap-4 rounded-2xl border p-4 has-[:focus-visible]:outline has-[:focus-visible]:outline-2 ${provider === id ? "border-primary/40 bg-primary/5" : "border-border"}`}>
                             <input type="radio" name="assistant-provider" aria-label={name} checked={provider === id} disabled={Boolean(pending[""])} onChange={() => { setProvider(id); setAccount(undefined); setModels(undefined); setModel(""); setEffort(""); setError(undefined); }} className="sr-only" />
-                            <span aria-hidden="true" className="inline-flex h-8 w-8 shrink-0 items-center justify-center">{id === "codex" ? <img src={openAiLogo} className="h-8 w-8 object-contain invert dark:invert-0" alt="" /> : id === "claude" ? <IconComponent name="Claude" className="h-8 w-8" /> : <><img src={openCodeLogoLight} className="h-8 w-8 object-contain dark:hidden" alt="" /><img src={openCodeLogoDark} className="hidden h-8 w-8 object-contain dark:block" alt="" /></>}</span>
+                            <ProviderIcon provider={id} className="h-8 w-8" />
                             <span className="w-36 min-w-0"><span className="block text-sm font-medium">{name}</span><span className="mt-1 block text-xs text-muted-foreground">{description}</span></span>
                             {provider === id && <span aria-label="Selected" className="absolute right-4 text-primary"><Check size={14} /></span>}
                           </label>
@@ -1117,15 +1124,18 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
                 }}
                 className="block w-full resize-none border-0 bg-transparent px-2 py-2 text-sm outline-none placeholder:text-muted-foreground read-only:opacity-60"
               />
+              {composerStatus && <p id="assistant-composer-status" role="status" className="px-2 pb-1 text-xs text-muted-foreground">
+                {composerStatus}{!accountsLoading && !providerAccounts.length && <> <a href="/settings/providers" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">Connect account ?</a></>}
+              </p>}
               <div className="mt-1 flex items-center justify-end gap-2 px-1">
-                <AccountSelection accounts={accounts.filter(item => item.provider === chosenProvider)} selected={connectionId} generation={connectionGeneration}
+                <AccountSelection provider={chosenProvider} accounts={accounts.filter(item => item.provider === chosenProvider)} selected={connectionId} generation={connectionGeneration}
                   disabled={Boolean(selected || busy || active || pending[""])}
                   onSelect={value => { setAccount(value); setModels(undefined); setModel(""); setEffort(""); setError(undefined); }} />
                 <ModelSelection
                   models={models}
                   model={model}
                   effort={effort}
-                  disabled={busy || discovering || active || Boolean(waiting)}
+                  disabled={!connectionId || !models?.models.length || busy || discovering || active || Boolean(waiting)}
                   onModel={(value) => {
                     const next = models?.models.find(
                       (item) => item.id === value,
@@ -1158,7 +1168,8 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
                   <button
                     type="submit"
                     aria-label={selected ? "Send" : "Start chat"}
-                    title={selected ? "Send (Enter)" : "Start chat (Enter)"}
+                    title={composerStatus ?? (selected ? "Send (Enter)" : "Start chat (Enter)")}
+                    aria-describedby={composerStatus ? "assistant-composer-status" : undefined}
                     disabled={!canSend || !(drafts[selected] ?? "").trim()}
                     className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-foreground text-background transition-opacity disabled:opacity-30"
                   >

@@ -1,5 +1,24 @@
 # Application assistant
 
+## Account selection and composer admission
+
+`AccountSelection.tsx` owns the compact composer account menu: provider icon,
+short account label, highlighted selected row and a separated Manage accounts
+link. Its popover handles outside-click/Escape dismissal; arrow keys move among
+account choices. Selection is explicit and never creates a session or sends a
+prompt. The provider's actual saved accounts remain the only choices.
+`ProviderIcon.tsx` shares the existing provider brand assets between that menu
+and the welcome cards. Welcome cards and their explanatory paragraph share one
+width and align their icon/text columns.
+
+`AssistantPage.tsx` explains missing account admission beside the composer:
+loading accounts, no connected account for the selected provider (with a Settings
+link), account selection required, and model discovery pending/empty. Missing
+account selection disables the model picker as well as Send; drafts remain
+editable. Changing providers never silently switches accounts or dispatches.
+The empty slash menu distinguishes starting a native session from an unavailable
+or filtered catalog; it explains when other commands become discoverable.
+
 ## Graph editor sidebar (issue 296)
 
 `AssistantSidebar.tsx` mounts the same `AssistantPage` on the editor's right.

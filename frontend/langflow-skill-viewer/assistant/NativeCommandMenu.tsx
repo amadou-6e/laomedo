@@ -36,6 +36,6 @@ export default function NativeCommandMenu({ conversation, provider = "codex", te
       <span className="shrink-0 font-medium text-foreground/80">/{item.name}</span><span className="min-w-0 flex-1 truncate text-[11px]">{item.description}</span>
       <ChevronRight size={12} aria-hidden="true" className="shrink-0 opacity-0 group-hover:opacity-60 group-focus:opacity-60" />
     </button>)}
-    {!commands.length && <p className="px-3 py-2 text-xs text-muted-foreground">{unstarted ? provider === "codex" ? "Send /status to start a session without using the model." : "Commands become available after the first response in this conversation." : catalog?.state === "unavailable" ? "Native commands are unavailable in this session." : failed ? "Could not load commands. Type / again to retry." : !catalog ? "Loading commands…" : "No matching commands."}</p>}
+    {!commands.length && <p className="px-3 py-2 text-xs text-muted-foreground">{unstarted ? provider === "codex" ? "Send /status to start a session without using the model. Other commands appear once the session is ready." : "Commands become available after the first response in this conversation." : catalog?.state === "unavailable" ? "Native commands are unavailable in this session." : failed ? "Could not load commands. Type / again to retry." : !catalog ? "Loading commands…" : "No matching commands."}</p>}
   </div>;
 }
