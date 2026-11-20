@@ -1,5 +1,33 @@
 # Account menu and slash input feedback, 2026-11-20
 
+## Owner-selected account defaults (feedback19-22)
+
+The owner superseded mandatory explicit selection: new chats should default to
+an available account. Source56479f074 defaults the first connected ready account
+for the current profile/provider and preserves explicit choices and existing chat
+bindings. The removed selection sentence is replaced by placeholder/trigger
+Select an account or No account available. Without a binding, no stale model or
+effort appears. Same-account reselection no longer clears models.
+
+71assistant UI tests PASS, including profile-list fencing (a new test caught stale
+model discovery before the account-owner guard was complete), ready-only defaults,
+explicit override/list refresh and empty state. Build PASS1m17s; CI PASS at source
+head. Specification5bbd464 updates contract and editable AC-293; validator1845
+files/6projects/0errors. No Python changes; prior94backendtests remain historical
+unchanged-backend evidence, not a new run.
+
+Real shared integrated browser: new chat defaulted the actual saved Codex account,
+loaded models, enabled Send for an unsent test draft, and opened the model/effort
+popover. Switching to unconnected Claude showed No account available, disabled
+Send and no stale effort. Returned to Codex; test draft cleared without sending.
+No prompt/native command/graph executed. Actual full-view screenshots are private
+ignored review artifacts, never archive attachments. Existing user conversation
+and saved account preserved; stable preview port and tab reused.
+
+Same Claude session reviewing implementation2957a6e3a..56479f074, specification
+4f49b1e..5bbd464 and three actual images; this delta is fully unreviewed, reviewer
+pending. Earlier approvals do not cover it; nothing merged.
+
 ## Completed reviewer correction
 
 After quota restoration, the same Claude reviewer approved the UI corrections
