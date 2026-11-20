@@ -11,6 +11,7 @@ agents/
     codex/                CodexAgent, controller, split execution and resources
     claude/               ClaudeAgent, authentication, model discovery and Activity
     opencode/             OpenCodeAgent, authentication, history and Activity
+  connections/            Saved accounts, admission and connection-owned runtimes
   interface/
     bridge.py             HttpAgentBridge, the app-side runner client
     models.py             Canonical public Agent request/reference/status values
@@ -27,6 +28,7 @@ agents/
 | Owner | Objects and vocabulary |
 | --- | --- |
 | [Implementations](agents/README.md) | `BaseAgent` defines the common lifecycle; `CodexAgent`, `ClaudeAgent`, `OpenCodeAgent` own provider policy, resources and native interpretation. Concrete providers do not inherit another provider. |
+| [Connections](connections/README.md) | `ProviderConnections` owns admission/lifecycle; concrete sign-in stays in each harness's `connection.py`. Host owns storage and profile authorization. |
 | [Public interface](interface/README.md) | `HttpAgentBridge` dispatches and reconciles admitted requests; `AgentRequest`, `AgentRunReference`, `RunnerStatusRecord` retain public payload identity. |
 | [Workspaces](workspaces/README.md) | `AgentWorkspace` admits/prepares files using shared Git; canonical path/snapshot models own grouped state. |
 | [Coordination](orchestration/README.md) | `AgentHandoffController` coordinates successive requests with explicit bounds; handoff provenance stays a canonical model. |

@@ -705,7 +705,7 @@ class LocalRunnerTests(unittest.TestCase):
 
     def test_missing_app_owned_consent_refuses_before_model_turn(self):
         class MissingAccount:
-            def access_token(self):
+            def access_token(self, client_id):
                 raise AuthError("auth_account_missing")
 
         self.runner.auth = MissingAccount()
@@ -721,7 +721,7 @@ class LocalRunnerTests(unittest.TestCase):
         state = {"active": True}
 
         class ConnectedAccount:
-            def access_token(self):
+            def access_token(self, client_id):
                 return "SYNTHETIC", {
                     "credential_ref": "chatgpt:fixture",
                     "provider_subject_hash": "sha256:fixture",
@@ -729,7 +729,7 @@ class LocalRunnerTests(unittest.TestCase):
                     "auth_outcome": "active",
                 }
 
-            def active(self):
+            def account(self, client_id):
                 return {"state": "active" if state["active"] else "revoked"}
 
             def summary(self, _account):
@@ -775,7 +775,7 @@ class LocalRunnerTests(unittest.TestCase):
             state = {"credential_ref": "chatgpt:fixture", "generation": 1}
 
             class ConnectedAccount:
-                def access_token(self):
+                def access_token(self, client_id):
                     return "SYNTHETIC", {
                         "credential_ref": "chatgpt:fixture",
                         "provider_subject_hash": "sha256:fixture",
@@ -783,7 +783,7 @@ class LocalRunnerTests(unittest.TestCase):
                         "auth_outcome": "active",
                     }
 
-                def active(self):
+                def account(self, client_id):
                     return {"state": "active"}
 
                 def summary(self, _account):
@@ -830,7 +830,7 @@ class LocalRunnerTests(unittest.TestCase):
                 return super().request(method, params, timeout)
 
         class Account:
-            def access_token(self):
+            def access_token(self, client_id):
                 return "SYNTHETIC", {
                     "credential_ref": "chatgpt:fixture",
                     "provider_subject_hash": "sha256:fixture",
@@ -838,7 +838,7 @@ class LocalRunnerTests(unittest.TestCase):
                     "auth_outcome": "active",
                 }
 
-            def active(self):
+            def account(self, client_id):
                 return {"state": "active"}
 
             def summary(self, _account):
@@ -862,7 +862,7 @@ class LocalRunnerTests(unittest.TestCase):
         state = {"value": "active"}
 
         class Account:
-            def access_token(self):
+            def access_token(self, client_id):
                 return "SYNTHETIC", {
                     "credential_ref": "chatgpt:fixture",
                     "provider_subject_hash": "sha256:fixture",
@@ -870,7 +870,7 @@ class LocalRunnerTests(unittest.TestCase):
                     "auth_outcome": "active",
                 }
 
-            def active(self):
+            def account(self, client_id):
                 return {"state": state["value"]}
 
             def summary(self, _account):
@@ -1176,7 +1176,7 @@ class LocalRunnerTests(unittest.TestCase):
         record_path.write_text(json.dumps(record))
 
         class OtherAccount:
-            def access_token(self):
+            def access_token(self, client_id):
                 return "synthetic", {
                     "credential_ref": "chatgpt:second",
                     "provider_subject_hash": "sha256:second",

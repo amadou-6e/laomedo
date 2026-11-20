@@ -111,7 +111,7 @@ Constructor failures still occur before an Agent exists to query.
 
 | Provider | Check performed | Successful result | Blocked result |
 | --- | --- | --- | --- |
-| Claude | Existing native subscription auth check, including the explicitly configured login mirror | True, scope `native_subscription_authentication` | False with the original admission error code |
+| Claude | Native subscription auth check in the explicitly authenticated dedicated profile | True, scope `native_subscription_authentication` | False with the original admission error code |
 | Codex | Existing ACP initialization and sandbox permission probes, followed by native cleanup | None, reason `authentication_not_verified`; these probes do not authenticate a session | False with the original admission/authentication error code |
 | OpenCode | Existing transport configuration inspection; no backend startup | None, reason `opencode_transport_not_verified` | False, reason `opencode_isolated_transport_required` when no factory is configured |
 
@@ -153,7 +153,7 @@ An architecture regression scans all Agent sources for lifecycle bypasses.
 | `publish(...)` | Delegate to an explicitly configured publication controller; does not own GitHub authorization. |
 
 Protected extension points are `runtime_binding`, `recover_interrupted`,
-`prepare_resume`, `_execute` and `_mirror_host_login`. Constructor recovery can
+`prepare_resume`, `_execute` and `_prepare_credentials`. Constructor recovery can
 run before concrete initialization completes. Keep this ordering explicit.
 Private helpers (`_prepare`, `_materialize`, `_freeze_workspace`, `_run_dir`)
 are not application entrypoints. File-backed records and persisted schemas are
@@ -227,3 +227,8 @@ cleanup, and no active MCP access or runner lock. An older completed attempt
 cannot establish that a newer reservation never started. The journal retains
 only semantic request digests and outcome/session/checkpoint metadata, excluding
 prompts, answers and transient MCP registration capabilities.
+
+`BaseAgent.pending_resumes()` projects `ResumeDispatcher.pending()` observations
+for reserved, running or uncertain continuations without starting work. Connection
+inventory and cleanup include these reservations even when the retained parent
+run still has a terminal status. Only settled journal entries leave that inventory.

@@ -1,5 +1,11 @@
 # Connect Laomedo to your ChatGPT account
 
+The draft Settings > Providers flow saves profile-owned Codex connections. Agent
+node overrides and graph defaults select saved connections; controller-aware
+Disconnect fences new work and retains uncertain cleanup for retry. The CLI
+setup below creates a separate operator-owned store; it is not a way to bypass
+ownership of a Settings-managed connection.
+
 Laomedo creates its own private OAuth store during sign-in. You do not need an
 existing store path, a manually registered client ID, or a copied Codex profile.
 This is a separate connection from the desktop app or Codex CLI login.
@@ -11,7 +17,8 @@ outside every Git checkout and agent mount:
 ```powershell
 $chatgptStore = Join-Path $env:LOCALAPPDATA 'Laomedo/chatgpt'
 & $pythonExe -m laomedo.host.credentials.siwc.cli --store $chatgptStore connect
-& $pythonExe -m laomedo.host.credentials.siwc.cli --store $chatgptStore status
+& $pythonExe -m laomedo.host.credentials.siwc.cli --store $chatgptStore list
+& $pythonExe -m laomedo.host.credentials.siwc.cli --store $chatgptStore status oaiapp_YOUR_ACCOUNT
 ```
 
 Complete the browser sign-in and consent while the command is waiting. The CLI
@@ -27,7 +34,9 @@ execution takes place in a separate credential-free container. Keep the store
 separate from runner state and the skill registry. Do not copy a standard Codex
 login into this app-owned store or run two refresh owners against it.
 
-Start the matching Codex runner with `--split-executor --auth-store $chatgptStore`
+Use the exact client ID from List for Status and runner selection. Start the
+matching Codex runner with
+`--split-executor --auth-store $chatgptStore --auth-client-id oaiapp_YOUR_ACCOUNT`
 in addition to its normal `--state`, `--skill-store` and `--source-workspace`
 arguments. Both flags are trusted host startup configuration. There is currently
 no Connect button or credential-path input on the Agent node. App-owned OAuth
@@ -52,3 +61,6 @@ or a node-owned browser sign-in experience.
 See the [official registration and sign-in flow](https://developers.openai.com/siwc/token-sharing-open-source/sign-in)
 for the provider protocol. GitHub uses its own
 [host connection and mediation setup](../../../github/connection.md).
+
+Select the exact account with `--auth-client-id` when starting an app-owned
+runner with `--auth-store`. Accounts are never selected through a global pointer.

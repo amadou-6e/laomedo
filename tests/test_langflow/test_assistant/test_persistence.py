@@ -24,6 +24,56 @@ from laomedo.integrations.langflow.assistant.models import (
 from laomedo.integrations.langflow.assistant.persistence import AssistantStore
 
 
+class StartupSchemaTests(unittest.IsolatedAsyncioTestCase):
+    async def test_existing_app_gets_only_owned_tables_before_shared_schema_check(self):
+        """Optional feature startup preserves auth rows and leaves fresh DBs alone."""
+        from sqlalchemy import inspect
+
+        with tempfile.TemporaryDirectory() as directory:
+            engine = create_async_engine(
+                "sqlite+aiosqlite:///" + str(Path(directory) / "state.db")
+            )
+            try:
+                store = AssistantStore(engine)
+                await store.upgrade_retained()
+                async with engine.begin() as connection:
+                    names = await connection.run_sync(
+                        lambda conn: inspect(conn).get_table_names()
+                    )
+                    self.assertEqual(names, [])
+                    await connection.exec_driver_sql(
+                        'CREATE TABLE "user" (id TEXT PRIMARY KEY, marker TEXT)'
+                    )
+                    await connection.exec_driver_sql(
+                        "INSERT INTO user VALUES ('owned-profile', 'retained')"
+                    )
+                await store.upgrade_retained()
+                async with engine.begin() as connection:
+                    names = await connection.run_sync(
+                        lambda conn: inspect(conn).get_table_names()
+                    )
+                    self.assertEqual(
+                        set(names),
+                        {
+                            "user",
+                            "laomedo_assistant_conversation",
+                            "laomedo_assistant_message",
+                            "laomedo_assistant_draft_receipt",
+                            "laomedo_assistant_session",
+                            "laomedo_assistant_graph_action",
+                            "laomedo_assistant_graph_permission",
+                        },
+                    )
+                    rows = (
+                        await connection.exec_driver_sql(
+                            'SELECT id, marker FROM "user"'
+                        )
+                    ).all()
+                    self.assertEqual(rows, [("owned-profile", "retained")])
+            finally:
+                await engine.dispose()
+
+
 class PersistenceTests(unittest.IsolatedAsyncioTestCase):
     async def test_delete_removes_owned_chat_records_and_clears_successor_link(self):
         """Deleting a settled chat removes its private receipts and remembered grants."""

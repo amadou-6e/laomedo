@@ -151,6 +151,33 @@ class ProfileAdmissionTests(unittest.TestCase):
         self.assertFalse(self.admission.verify_database(self.auth))
         self.assertEqual(self.admission.database.read_bytes(), before)
 
+    def test_optional_assistant_tables_do_not_become_profile_prerequisites(self):
+        """A disabled feature's mapped models do not make owned profile state invalid."""
+        from laomedo.integrations.langflow.assistant.models import (
+            AssistantConversation,
+            AssistantMessage,
+            AssistantDraftReceipt,
+            AssistantSession,
+        )
+        from sqlmodel import create_engine
+
+        self.create_recognized_database()
+        engine = create_engine("sqlite:///" + self.admission.database.as_posix())
+        try:
+            with engine.begin() as connection:
+                for model in (
+                    AssistantDraftReceipt,
+                    AssistantSession,
+                    AssistantMessage,
+                    AssistantConversation,
+                ):
+                    model.__table__.drop(connection, checkfirst=True)
+        finally:
+            engine.dispose()
+        before = self.admission.database.read_bytes()
+        self.assertFalse(self.admission.verify_database(self.auth))
+        self.assertEqual(self.admission.database.read_bytes(), before)
+
     def test_unknown_revision_or_missing_internal_actor_is_refused(self):
         self.create_recognized_database()
         with closing(sqlite3.connect(self.admission.database)) as db:
@@ -159,6 +186,7 @@ class ProfileAdmissionTests(unittest.TestCase):
             db.commit()
         with self.assertRaises(ProfileError):
             self.admission.verify_database(self.auth)
+
         with closing(sqlite3.connect(self.admission.database)) as db:
             db.execute("DELETE FROM alembic_version")
             db.executemany("INSERT INTO alembic_version VALUES (?)", heads)
@@ -169,6 +197,17 @@ class ProfileAdmissionTests(unittest.TestCase):
         # Missing internal actor in populated state is never a fresh setup.
         with self.assertRaises(ProfileError):
             self.admission.verify_database(self.auth)
+
+    def test_upstream_auth_table_not_reexported_by_package_remains_required(self):
+        """Core schema admission must include mapped classes absent from __all__."""
+        self.create_recognized_database()
+        with closing(sqlite3.connect(self.admission.database)) as db:
+            db.execute("DROP TABLE authz_role_assignment_grant")
+            db.commit()
+        before = self.admission.database.read_bytes()
+        with self.assertRaises(ProfileError):
+            self.admission.verify_database(self.auth)
+        self.assertEqual(self.admission.database.read_bytes(), before)
 
     def test_internal_api_key_blocks_startup(self):
         from langflow.services.database.models import ApiKey, User

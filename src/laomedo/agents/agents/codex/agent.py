@@ -91,6 +91,8 @@ class CodexAgent(BaseAgent):
         split_provider_config=(),
         split_access_token=None,
         auth_store: Path | None = None,
+        auth_client_id: str | None = None,
+        auth_connection=None,
         publication_controller=None,
         image_id: str | None = None,
         artifact_sources=None,
@@ -133,6 +135,17 @@ class CodexAgent(BaseAgent):
         self.split_executor = split_executor
         self.split_provider_config = tuple(split_provider_config)
         self.split_access_token = split_access_token
+        self.auth_client_id = auth_client_id
+        if auth_connection is not None and (
+            auth_store is not None
+            or auth_client_id is not None
+            or not split_executor
+            or split_provider_config
+            or split_access_token is not None
+        ):
+            raise RunnerError("conflicting_split_auth_sources")
+        if (auth_store is None) != (auth_client_id is None):
+            raise RunnerError("auth_account_selection_required")
         if auth_store is not None and not split_executor:
             raise RunnerError("app_owned_auth_requires_split_executor")
         if auth_store is not None and (split_provider_config or split_access_token):
@@ -150,7 +163,9 @@ class CodexAgent(BaseAgent):
                 raise RunnerError("auth_store_overlaps_runner_state")
             self.auth = ChatGPTConnection(auth_root)
         else:
-            self.auth = None
+            self.auth = auth_connection
+            if auth_connection is not None:
+                self.auth_client_id = auth_connection.client_id
         if self.auth:
             self.split_provider_config = (
                 'model_provider="openai_chatgpt_plan"',
@@ -976,7 +991,7 @@ class CodexAgent(BaseAgent):
                 def still_authorized():
                     """Recheck the existing host grant/account binding while native work remains active."""
                     try:
-                        current = self.auth.active()
+                        current = self.auth.account(self.auth_client_id)
                         selected = self.auth.summary(current)
                     except AuthError as exc:
                         category, outcome = _auth_record_error(exc)
@@ -1014,7 +1029,14 @@ class CodexAgent(BaseAgent):
                             code="auth_account_mismatch",
                         )
                         return False
-                    if selected.get("generation") != auth_summary.get("generation"):
+                    identity_generation = (
+                        "connection_generation"
+                        if "connection_generation" in auth_summary
+                        else "generation"
+                    )
+                    if selected.get(identity_generation) != auth_summary.get(
+                        identity_generation
+                    ):
                         auth_failure.update(
                             error="auth_generation_changed_during_turn",
                             outcome="generation_changed",

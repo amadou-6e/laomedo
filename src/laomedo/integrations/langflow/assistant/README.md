@@ -4,6 +4,12 @@ Persistence, declarative metadata validation, atomic workflow receipts, MCP
 hosting, direct provider orchestration and chat rendering form one application
 feature. Controlled tests and real provider/editor acceptance are separate gates.
 
+`AssistantStore.upgrade_retained()` prepares only assistant-owned tables when an
+upstream user table already exists, before Langflow checks shared ORM metadata.
+It does not initialize or alter upstream authentication tables. Fresh upstream
+database initialization remains upstream-owned; ordinary `initialize()` completes
+feature setup afterward. Retained assistant columns use the same owned upgrade.
+
 The assistant is ordinary persistent chat around the existing Agent APIs. It has
 no workflow. Langflow remains the owner of workflow records that its tools save.
 See the canonical application-assistant contract in specs PR424.

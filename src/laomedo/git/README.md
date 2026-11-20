@@ -22,7 +22,11 @@ interfaces import defining symbols directly. There is no generic feature registr
 
 WORKSPACE and HOST_TRANSPORT strip inherited Git/GCM and host GitHub overrides,
 isolate HOME/USERPROFILE/XDG_CONFIG_HOME, and remove HOMEDRIVE/HOMEPATH. WORKSPACE
-closes stdin, disables optional locks and skips LFS smudging. HOST_TRANSPORT keeps
+closes stdin, disables optional locks and skips LFS smudging. On Windows its
+command configuration enables `core.longpaths` for owned workspace operations,
+including Git object/index writes beneath profile/connection/run directories.
+This never changes global Git configuration or the HOST_TRANSPORT profile.
+HOST_TRANSPORT keeps
 its established stdin behavior and disables prompting. Selected tokens enter only
 the private child credential environment, never argv or normal model dumps.
 

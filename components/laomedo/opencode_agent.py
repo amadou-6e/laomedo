@@ -2,7 +2,6 @@
 
 from copy import deepcopy
 import json
-import os
 
 from laomedo.integrations.langflow.agent.component import AgentComponent as Component
 from lfx.io import DropdownInput
@@ -17,6 +16,8 @@ class LaomedoOpenCodeAgent(Component):
     name = "LaomedoOpenCodeAgent"
     provider_id = "opencode"
     activity_provider = "opencode"
+    runner_token_env = "LAOMEDO_OPENCODE_RUNNER_TOKEN_FILE"
+    runner_token_default = "/run/secrets/laomedo-opencode-runner-token"
     inputs = [
         deepcopy(item)
         for item in Component.inputs
@@ -73,6 +74,9 @@ class LaomedoOpenCodeAgent(Component):
     )
 
     async def update_build_config(self, build_config, field_value, field_name=None):
+        build_config = await super().update_build_config(
+            build_config, field_value, field_name
+        )
         return await self._update_model_config(build_config, field_value, field_name)
 
     async def update_frontend_node(self, new_frontend_node, current_frontend_node):
@@ -117,10 +121,7 @@ class LaomedoOpenCodeAgent(Component):
         return self._runner_token_file_path()
 
     def _runner_token_file_path(self):
-        return os.environ.get(
-            "LAOMEDO_OPENCODE_RUNNER_TOKEN_FILE",
-            "/run/secrets/laomedo-opencode-runner-token",
-        )
+        return super()._runner_token_file_path()
 
     def _http(self, endpoint, payload, method):
         value = super()._http(endpoint, payload, method)

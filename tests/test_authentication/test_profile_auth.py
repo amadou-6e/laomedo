@@ -31,6 +31,40 @@ class ProfileAuthTests(unittest.IsolatedAsyncioTestCase):
             username=SYSTEM_PROFILE_NAME, is_active=True, is_superuser=True
         )
 
+    def test_same_second_tokens_keep_distinct_verified_issuance_ids(self):
+        """Real upstream signing must not collapse two browser token identities."""
+        from datetime import datetime, timedelta, timezone
+        import jwt
+        from pydantic import SecretStr
+        from lfx.services.settings.auth import JWTAlgorithm
+
+        settings = SimpleNamespace(
+            auth_settings=SimpleNamespace(
+                SECRET_KEY=SecretStr("public-test-key-at-least-thirty-two-bytes"),
+                ALGORITHM=JWTAlgorithm.HS256,
+            )
+        )
+        auth = LocalProfileAuthService(settings)
+        data = {"sub": str(uuid4()), "type": "access"}
+        with patch("langflow.services.auth.service.datetime") as clock:
+            clock.now.return_value = datetime.now(timezone.utc)
+            one = auth.create_token(data, timedelta(minutes=10))
+            two = auth.create_token(data, timedelta(minutes=10))
+        first = jwt.decode(
+            one,
+            settings.auth_settings.SECRET_KEY.get_secret_value(),
+            algorithms=["HS256"],
+        )
+        second = jwt.decode(
+            two,
+            settings.auth_settings.SECRET_KEY.get_secret_value(),
+            algorithms=["HS256"],
+        )
+        self.assertNotEqual(one, two)
+        self.assertNotEqual(first.pop("jti"), second.pop("jti"))
+        self.assertEqual(first, second)
+        self.assertNotIn("jti", data)
+
     async def test_internal_password_never_reaches_upstream_verification(self):
         with patch.object(
             AuthService, "authenticate_user", new_callable=AsyncMock

@@ -76,11 +76,8 @@ class ChatGPTConnection:
             raise AuthError("auth_account_mismatch")
         return account
 
-    def active(self) -> dict:
-        pointer = self.root / "active.json"
-        if not pointer.exists():
-            raise AuthError("auth_account_missing")
-        client_id = json.loads(pointer.read_text())["client_id"]
+    def account(self, client_id: str) -> dict:
+        """Read the explicitly selected private account; never choose a default."""
         return self._account(client_id)
 
     def begin(self, redirect_uri: str, *, client_id: str | None = None) -> dict:
@@ -129,6 +126,7 @@ class ChatGPTConnection:
             "redirect_uri": redirect_uri,
             "client_id": client_id,
             "previous_subject": previous.get("subject") if previous else None,
+            "ext_agent_host_id": self.host_id,
         }
 
     def finish(
@@ -202,7 +200,7 @@ class ChatGPTConnection:
                 "subject": claims["sub"],
                 "issuer": claims["iss"],
                 "email": claims.get("email"),
-                "ext_agent_host_id": self.host_id,
+                "ext_agent_host_id": attempt["ext_agent_host_id"],
                 "id_token": response["id_token"],
                 "access_token": response["access_token"],
                 "refresh_token": response["refresh_token"],
@@ -212,7 +210,6 @@ class ChatGPTConnection:
                 "state": "active",
             }
             _atomic_private(self._path(client_id), account)
-            _atomic_private(self.root / "active.json", {"client_id": client_id})
         return self.summary(account)
 
     @staticmethod
@@ -227,9 +224,10 @@ class ChatGPTConnection:
             "auth_outcome": account["state"],
         }
 
-    def access_token(self, *, refresh=_https_json) -> tuple[str, dict]:
+    def access_token(self, client_id: str, *, refresh=_https_json) -> tuple[str, dict]:
+        """Borrow or rotate only the selected account's controller credential."""
         with _locked(self.lock_path):
-            account = self.active()
+            account = self._account(client_id)
             if account.get("state") != "active":
                 raise AuthError(
                     "auth_refresh_unknown"
@@ -284,22 +282,14 @@ class ChatGPTConnection:
             _atomic_private(self._path(account["client_id"]), account)
             return account["access_token"], self.summary(account)
 
-    def switch(self, client_id: str) -> dict:
+    def sign_out(self, client_id: str, *, revoke=_revoke) -> dict:
+        """Fence and scrub only this account, reporting remote revocation uncertainty."""
         with _locked(self.lock_path):
             account = self._account(client_id)
-            if account.get("state") != "active":
-                raise AuthError("auth_account_unavailable")
-            _atomic_private(self.root / "active.json", {"client_id": client_id})
-            return self.summary(account)
-
-    def sign_out(self, *, revoke=_revoke) -> dict:
-        with _locked(self.lock_path):
-            account = self.active()
             # Stop dispatch and running-controller checks before a potentially
             # slow remote revocation request.
             account["state"] = "revocation_pending"
             _atomic_private(self._path(account["client_id"]), account)
-            (self.root / "active.json").unlink(missing_ok=True)
         confirmed = False
         if revoke is not None:
             try:

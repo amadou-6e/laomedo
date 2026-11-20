@@ -225,7 +225,7 @@ export default function GraphAgents({ flowId }: { flowId?: string }) {
       aria-label="Graph agent activity"
     >
       <header className="flex min-h-12 shrink-0 items-center justify-between gap-3 border-b px-4 py-3">
-        <h1 className="text-sm font-semibold">Agents</h1>
+        <h1 className="text-sm font-semibold">Traces</h1>
         <Button
           variant="ghost"
           size="icon"

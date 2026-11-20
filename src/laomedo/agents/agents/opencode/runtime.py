@@ -280,6 +280,7 @@ class OpenCodeAgentRuntime:
                                 "60",
                                 "opencode",
                                 "models",
+                                "--refresh",
                                 "--verbose",
                             ],
                         }
@@ -471,6 +472,13 @@ class OpenCodeAgentRuntime:
                 (option for option in options if option.category == "model"), None
             )
             if picker is None:
+                raise RunnerError("opencode_model_not_connected")
+            advertised = {
+                getattr(choice, "value", None)
+                for option in picker.options
+                for choice in (getattr(option, "options", None) or [option])
+            }
+            if model not in advertised:
                 raise RunnerError("opencode_model_not_connected")
             configured = await client.configure(picker.id, model)
             observed = next(

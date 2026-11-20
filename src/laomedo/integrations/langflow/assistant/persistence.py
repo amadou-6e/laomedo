@@ -31,19 +31,10 @@ class AssistantStore:
 
     async def initialize(self):
         """Create only this feature's owned tables after upstream migrations."""
-        tables = [
-            model.__table__
-            for model in (
-                AssistantConversation,
-                AssistantMessage,
-                AssistantDraftReceipt,
-                AssistantSession,
-                AssistantGraphAction,
-                AssistantGraphPermission,
-            )
-        ]
         async with self.engine.begin() as connection:
-            await connection.run_sync(SQLModel.metadata.create_all, tables=tables)
+            await connection.run_sync(
+                SQLModel.metadata.create_all, tables=self._owned_tables()
+            )
             await connection.run_sync(self._upgrade_message_selection)
 
     def _upgrade_message_selection(self, connection):
@@ -63,13 +54,30 @@ class AssistantStore:
                 )
 
     async def upgrade_retained(self):
-        """Upgrade existing owned columns before upstream's shared-metadata schema check."""
+        """Prepare owned tables on existing apps before shared-metadata checks."""
         async with self.engine.begin() as connection:
-            await connection.run_sync(
-                SQLModel.metadata.create_all,
-                tables=[AssistantGraphPermission.__table__],
+            await connection.run_sync(self._prepare_existing_schema)
+
+    def _owned_tables(self):
+        """Return this feature's mapped tables, never upstream profile/auth tables."""
+        return [
+            model.__table__
+            for model in (
+                AssistantConversation,
+                AssistantMessage,
+                AssistantDraftReceipt,
+                AssistantSession,
+                AssistantGraphAction,
+                AssistantGraphPermission,
             )
-            await connection.run_sync(self._upgrade_message_selection)
+        ]
+
+    def _prepare_existing_schema(self, connection):
+        """Leave fresh upstream initialization alone; add only missing owned tables."""
+        if not inspect(connection).has_table("user"):
+            return
+        SQLModel.metadata.create_all(connection, tables=self._owned_tables())
+        self._upgrade_message_selection(connection)
 
     @asynccontextmanager
     async def transaction(self):

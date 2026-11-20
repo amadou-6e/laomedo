@@ -34,6 +34,7 @@ class ClaudeRuntimePolicy:
         image=IMAGE,
         profile=PROFILE,
         lease_service=None,
+        receipt_directory=None,
     ):
         """Verify the local image, supervised cleanup and dedicated profile before use."""
         if (
@@ -58,7 +59,11 @@ class ClaudeRuntimePolicy:
             with DockerRuntime(environment=None).connect() as docker:
                 self.docker_endpoint = docker.connection.endpoint
                 self.image_id = DockerRuntime.ensure_image(docker, image)
-                self.receipts = Path(lease_service).parent.joinpath("receipts")
+                self.receipts = (
+                    Path(receipt_directory)
+                    if receipt_directory is not None
+                    else Path(lease_service).parent.joinpath("receipts")
+                )
                 self.receipts.mkdir(mode=0o700, parents=True, exist_ok=True)
                 for receipt in self.receipts.glob("claude-*.json"):
                     DockerRuntime.recover_receipts(docker, [receipt], kind="session")
@@ -209,7 +214,7 @@ class ClaudeRuntimePolicy:
         """Collect one bounded binary result only after exact cleanup is confirmed."""
         from py_docker.jobs.models import ContainerJob
         from py_docker.streams.models import StreamLimits
-        from laomedo.agents.agents.claude.auth.settings import CLEANUP_SECONDS
+        from laomedo.agents.agents.claude.settings import CLEANUP_SECONDS
 
         options = {}
         if deadline is not None:

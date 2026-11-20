@@ -95,6 +95,27 @@ class ResumeDispatcher:
             self._reconcile(connection, run_id)
             return self._lookup(connection, run_id, attempt_id)
 
+    def pending(self):
+        """Reconcile attested cleanup, then observe work without redispatch."""
+        if not self.path.exists() and not self.path.is_symlink():
+            return []
+        with self._connection() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            identities = connection.execute(
+                "SELECT run_id,attempt_id FROM attempts WHERE state IN ('reserved','running','unknown')"
+            ).fetchall()
+            for run_id in dict.fromkeys(run_id for run_id, _attempt in identities):
+                self._reconcile(connection, run_id)
+            observations = [
+                self._lookup(connection, run_id, attempt)
+                for run_id, attempt in identities
+            ]
+            return [
+                item
+                for item in observations
+                if item["status"] in {"reserved", "running", "unknown"}
+            ]
+
     @contextmanager
     def synchronous(self, run_id, attempt_id=None):
         """Share atomic per-run admission with the existing synchronous HTTP path."""

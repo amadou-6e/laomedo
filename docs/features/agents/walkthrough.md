@@ -82,7 +82,7 @@ If the API responds but subscription/model discovery fails, check the dedicated
 runner login. The host's interactive Claude login and a separately authenticated
 Docker volume are distinct. [Runner recovery](runner/local-service.md) and
 [the Docker controller guide](../../../docker/claude/README.md) explain the host
-configuration and supported login mirroring.
+configuration and explicit dedicated-profile sign-in.
 
 ## Finish
 

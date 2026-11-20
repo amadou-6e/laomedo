@@ -37,6 +37,12 @@ from laomedo.agents.interface.utils import terminal_record as _terminal_record
 _STOP_TASKS = set()
 _TERMINAL = {"completed", "cancelled", "failed", "timeout", "interrupted"}
 _ROUTABLE_ERRORS = {
+    "provider_connection_required",
+    "provider_connection_unavailable",
+    "provider_connection_changed",
+    "provider_connection_disconnecting",
+    "provider_runner_unavailable",
+    "provider_method_unavailable",
     "unauthorized",
     "activity_normalization_failed",
     "activity_journal_unavailable",
@@ -98,9 +104,6 @@ _ROUTABLE_ERRORS = {
     "claude_container_image_missing",
     "claude_container_profile_unavailable",
     "claude_container_unavailable",
-    "claude_host_login_expired",
-    "claude_host_login_unavailable",
-    "claude_local_login_copy_failed",
     "claude_mediation_outcome_unknown",
     "claude_model_required",
     "claude_native_skill_policy_unsupported",
@@ -266,6 +269,17 @@ class AgentComponent(Component):
     runner_token_default = ""
 
     inputs = [
+        DropdownInput(
+            name="provider_connection",
+            display_name="Connection",
+            advanced=True,
+            options=[],
+            value="",
+            show=False,
+            real_time_refresh=True,
+            refresh_button=True,
+            info="Choose a saved account from Settings > Providers. This local binding is omitted from exports.",
+        ),
         StrInput(name="task", display_name="Task", input_types=["Message", "Data"]),
         DropdownInput(
             name="operation",
@@ -398,6 +412,35 @@ class AgentComponent(Component):
     ]
 
     async def update_build_config(self, build_config, field_value, field_name=None):
+        from laomedo.integrations.langflow.provider_connections.bindings import (
+            ProviderGraphBindings,
+        )
+
+        if ProviderGraphBindings.service is not None:
+            if self.provider_id not in {"codex", "claude", "opencode"}:
+                return build_config
+            field = build_config.get("provider_connection", {})
+            rows = await asyncio.to_thread(ProviderGraphBindings.choices, self)
+            field.update(
+                show=True,
+                advanced=True,
+                options=[str(row.connection_id) for row in rows],
+                options_metadata=[
+                    {
+                        "id": str(row.connection_id),
+                        "display_name": row.label,
+                        "laomedo_connection": True,
+                    }
+                    for row in rows
+                ],
+            )
+            if field_name == "provider_connection":
+                field["value"] = field_value
+                build_config.get("model", {})["value"] = ""
+                build_config.get("effort", {})["value"] = ""
+            for name in ("runner_url", "bridge_url"):
+                if name in build_config:
+                    build_config[name]["show"] = False
         # OpenCode has a separate provider/model and variant contract.
         if not self.discover_models_on_upgrade:
             return build_config
@@ -516,6 +559,21 @@ class AgentComponent(Component):
         self.status = "Laomedo outcome: " + value["executor_status"]
         return Data(data=value)
 
+    def _update_template(self, frontend_node):
+        from laomedo.integrations.langflow.provider_connections.bindings import (
+            ProviderGraphBindings,
+        )
+
+        frontend_node = super()._update_template(frontend_node)
+        field = frontend_node.get("template", {}).get("provider_connection")
+        if field is not None:
+            field.update(
+                show=self.provider_id in {"codex", "claude", "opencode"}
+                and ProviderGraphBindings.service is not None,
+                advanced=True,
+            )
+        return frontend_node
+
     def _validate_adapter(self):
         """Concrete adapters may reject stale inheritance before routing or discovery."""
 
@@ -561,10 +619,30 @@ class AgentComponent(Component):
     def _model_catalog_token_file_path(self):
         return self._runner_token_file_path()
 
-    def _model_catalog(self, build_config):
+    def _model_catalog(self, build_config, *, saved_endpoint=None):
+        """Discover through the exact saved connection or the explicit operator runner."""
         self._validate_adapter()
+        from laomedo.integrations.langflow.provider_connections.bindings import (
+            ProviderGraphBindings,
+        )
+
+        saved = ProviderGraphBindings.service is not None
+        if saved:
+            selected = build_config.get("provider_connection", {}).get(
+                "value", getattr(self, "provider_connection", "")
+            )
+            try:
+                self._saved_endpoint = saved_endpoint or ProviderGraphBindings.endpoint(
+                    self, selected
+                )
+            except ValueError as refusal:
+                if str(refusal) == "provider_connection_required":
+                    return _ModelCatalog()
+                raise
         base = str(
-            build_config.get("runner_url", {}).get("value") or self.runner_url
+            self._saved_endpoint[0]
+            if saved
+            else build_config.get("runner_url", {}).get("value") or self.runner_url
         ).rstrip("/")
         parsed = urlsplit(base)
         if (
@@ -638,6 +716,26 @@ class AgentComponent(Component):
             if not catalog:
                 raise ValueError("empty_catalog")
             return catalog
+        except error.HTTPError as exc:
+            try:
+                failure = json.loads(exc.read(65537))
+            except (ValueError, TypeError):
+                failure = {}
+            details = (
+                failure.get("runner_diagnostics", {})
+                if isinstance(failure, dict)
+                else {}
+            )
+            diagnostics = RunnerDiagnostics.from_payload(
+                {
+                    **(details if isinstance(details, dict) else {}),
+                    "stage": "runner_http",
+                },
+                http_status=exc.code,
+            ).to_payload()
+            raise RunnerRequestError(
+                "runner_model_catalog_unavailable_check_runner_connection", diagnostics
+            ) from None
         except (OSError, ValueError, KeyError, TypeError):
             raise ValueError(
                 "runner_model_catalog_unavailable_check_runner_connection"
@@ -736,6 +834,27 @@ class AgentComponent(Component):
         return endpoint, payload, method
 
     def _prepare_request(self):
+        from laomedo.integrations.langflow.provider_connections.bindings import (
+            ProviderGraphBindings,
+        )
+
+        if ProviderGraphBindings.service is not None:
+            prior = getattr(self.run_reference, "data", self.run_reference)
+            if prior in (None, "", []) and getattr(self, "run_reference_json", None):
+                try:
+                    prior = json.loads(self.run_reference_json)
+                except (ValueError, TypeError):
+                    raise ValueError("invalid_prior_run_json") from None
+            run_id = (
+                prior.get("run_id")
+                if isinstance(prior, dict)
+                and str(self.operation) in {"resume", "status", "cancel"}
+                else None
+            )
+            self._saved_endpoint = ProviderGraphBindings.endpoint(
+                self, getattr(self, "provider_connection", ""), run_id=run_id
+            )
+            self.runner_url = self._saved_endpoint[0]
         base = str(self.runner_url).rstrip("/")
         parsed = urlsplit(base)
         if (
@@ -880,6 +999,12 @@ class AgentComponent(Component):
         )
 
     def _bridge_base(self):
+        from laomedo.integrations.langflow.provider_connections.bindings import (
+            ProviderGraphBindings,
+        )
+
+        if ProviderGraphBindings.service is not None:
+            return ""
         self._validate_adapter()
         # Provider configuration must not redirect unrelated lifecycle
         # operations. Stop handling during a fresh/start invocation still uses
@@ -949,6 +1074,15 @@ class AgentComponent(Component):
 
     def _runner_token_file_path(self):
         """Activity always polls the runner, even when dispatch uses a bridge."""
+        from laomedo.integrations.langflow.provider_connections.bindings import (
+            ProviderGraphBindings,
+        )
+
+        if ProviderGraphBindings.service is not None:
+            endpoint = getattr(self, "_saved_endpoint", None)
+            if endpoint is None:
+                raise ValueError("provider_connection_required")
+            return endpoint[1]
         return os.environ.get(self.runner_token_env, self.runner_token_default)
 
     def _token(self):
@@ -1280,7 +1414,15 @@ class AgentComponent(Component):
 
     async def _result(self):
         if getattr(self, "_dispatch_task", None) is None:
-            prepared = self._prepare()
+            from laomedo.integrations.langflow.provider_connections.bindings import (
+                ProviderGraphBindings,
+            )
+
+            prepared = (
+                await asyncio.to_thread(self._prepare)
+                if ProviderGraphBindings.service is not None
+                else self._prepare()
+            )
             if self.operation in {"fresh", "start", "resume"}:
                 connected = getattr(self, "mcp_tools", None)
                 if connected:
