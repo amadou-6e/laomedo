@@ -90,6 +90,12 @@ export type NativeAction = {
   can_decide: boolean;
   result_message_id: string | null;
 };
+export type NativeCommandCatalog = {
+  state: "available" | "unavailable";
+  revision?: string;
+  reason?: string;
+  commands: { name: string; description: string; executable: boolean; accepts_arguments: boolean }[];
+};
 export type ActivityPage = {
   tool_names?: Record<string, string>;
   available: boolean;

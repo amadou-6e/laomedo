@@ -15,6 +15,7 @@ from laomedo.integrations.langflow.assistant.models import (
     StopRequest,
     GraphActionDecision,
     NativeActionDecision,
+    NativeCommandRequest,
 )
 
 router = APIRouter(prefix="/api/v1/laomedo/assistant", tags=["Application assistant"])
@@ -229,6 +230,31 @@ async def decide_native_action(
             owner, key, identifier, action, body
         )
         return await release(runtime, owner, key, result)
+    except AssistantError as error:
+        raise HTTPException(error.status, detail={"code": error.code}) from None
+
+
+@router.get("/conversations/{identifier}/native-commands")
+async def native_commands(identifier: UUID, context=Depends(access)):
+    """Expose this owned session's observed commands without inference or approval."""
+    runtime, owner, key = context
+    try:
+        return await release(
+            runtime, owner, key, await runtime.native_catalog(owner, identifier)
+        )
+    except AssistantError as error:
+        raise HTTPException(error.status, detail={"code": error.code}) from None
+
+
+@router.post("/conversations/{identifier}/native-commands")
+async def submit_native_command(
+    identifier: UUID, body: NativeCommandRequest, context=Depends(access)
+):
+    """Submit an explicit human slash command, never model-provided approval."""
+    runtime, owner, key = context
+    try:
+        result = await runtime.submit_native_command(owner, key, identifier, body)
+        return await release(runtime, owner, key, result, status=202)
     except AssistantError as error:
         raise HTTPException(error.status, detail={"code": error.code}) from None
 

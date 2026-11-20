@@ -7,6 +7,7 @@ import time
 import unittest
 from uuid import UUID, uuid4
 from unittest.mock import patch
+from unittest.mock import AsyncMock
 
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlmodel import select
@@ -100,7 +101,12 @@ class NativeApprovalTests(unittest.IsolatedAsyncioTestCase):
             "run_id": self.run_id,
             "thread_id": "thread",
             "commands": [
-                {"name": "status", "executable": True, "accepts_arguments": False}
+                {
+                    "name": "status",
+                    "executable": True,
+                    "accepts_arguments": False,
+                    "may_use_model": False,
+                }
             ],
         }
 
@@ -117,9 +123,92 @@ class NativeApprovalTests(unittest.IsolatedAsyncioTestCase):
             workspace_hash="sha256:" + "b" * 64,
         )
 
+    async def test_typed_status_uses_existing_reservation_once_without_model_proposal(
+        self,
+    ):
+        """Explicit human status reserves once; a duplicate never dispatches again."""
+        await self.settle()
+
+        async def decide(owner, key, conversation, identifier, decision):
+            result, reserved = await self.commands.decide(
+                owner, key, conversation, identifier, decision
+            )
+            self.assertEqual(reserved["text"], "/status")
+            return result
+
+        self.runtime.decide_native_action = AsyncMock(side_effect=decide)
+        result = await self.commands.submit(
+            self.owner, self.key, self.conversation, self.request
+        )
+        self.assertEqual(result["state"], "executing")
+        duplicate = await self.commands.submit(
+            self.owner, self.key, self.conversation, self.request
+        )
+        self.assertEqual(duplicate["result_message_id"], result["result_message_id"])
+        self.runtime.decide_native_action.assert_awaited_once()
+
+    async def test_typed_status_without_explicit_non_model_classification_needs_approval(
+        self,
+    ):
+        """Absent provider classification cannot grant the status shortcut."""
+        await self.settle()
+        catalog = await self.catalog(self.owner, self.conversation)
+        catalog["commands"][0].pop("may_use_model")
+        self.runtime.native_catalog = AsyncMock(return_value=catalog)
+        self.runtime.decide_native_action = AsyncMock()
+        result = await self.commands.submit(
+            self.owner, self.key, self.conversation, self.request
+        )
+        self.assertEqual(result["state"], "pending")
+        self.runtime.decide_native_action.assert_not_awaited()
+
+    async def test_typed_command_refuses_active_turn_and_revoked_session(self):
+        """Human input does not bypass turn serialization or revoked app authority."""
+        with self.assertRaisesRegex(AssistantError, "assistant_turn_active"):
+            await self.commands.submit(
+                self.owner, self.key, self.conversation, self.request
+            )
+        await self.settle()
+        with self.assertRaises(AssistantError):
+            await self.commands.submit(
+                self.owner, "another-session", self.conversation, self.request
+            )
+
     def decision(self, proposal, value="approve"):
         """Bind a human decision to the exact server proposal digest."""
         return NativeActionDecision(decision=value, digest=proposal["digest"])
+
+    async def test_typed_status_retries_pending_admission_without_duplicate_reservation(
+        self,
+    ):
+        """A failure after proposal retention does not strand typed status behind approval."""
+        await self.settle()
+        calls = []
+
+        async def decide(owner, key, conversation, identifier, decision):
+            calls.append(identifier)
+            if len(calls) == 1:
+                raise AssistantError("assistant_capacity_busy", 409)
+            result, reserved = await self.commands.decide(
+                owner, key, conversation, identifier, decision
+            )
+            self.assertIsNotNone(reserved)
+            return result
+
+        self.runtime.decide_native_action = AsyncMock(side_effect=decide)
+        with self.assertRaisesRegex(AssistantError, "assistant_capacity_busy"):
+            await self.commands.submit(
+                self.owner, self.key, self.conversation, self.request
+            )
+        result = await self.commands.submit(
+            self.owner, self.key, self.conversation, self.request
+        )
+        self.assertEqual(result["state"], "executing")
+        duplicate = await self.commands.submit(
+            self.owner, self.key, self.conversation, self.request
+        )
+        self.assertEqual(duplicate["result_message_id"], result["result_message_id"])
+        self.assertEqual(calls, [UUID(result["id"])] * 2)
 
     async def test_approval_waits_for_turn_and_duplicate_decisions_do_not_reserve_again(
         self,

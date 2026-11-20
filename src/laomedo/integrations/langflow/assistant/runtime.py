@@ -579,6 +579,18 @@ class AssistantRuntime:
             }
         return {**result, "run_id": conversation.run_id, "thread_id": thread}
 
+    async def submit_native_command(self, owner, key, conversation_id, request):
+        """Admit explicit human slash input using existing capacity and command dispatch."""
+        from laomedo.integrations.langflow.assistant.native import NativeCommands
+
+        await self.check_session(owner, key)
+        if self.closing or (
+            len(self.jobs) >= self.settings.max_active_turns
+            and conversation_id not in self.jobs
+        ):
+            raise AssistantError("assistant_capacity_busy", 409)
+        return await NativeCommands(self).submit(owner, key, conversation_id, request)
+
     async def decide_native_action(
         self, owner, key, conversation_id, identifier, decision
     ):

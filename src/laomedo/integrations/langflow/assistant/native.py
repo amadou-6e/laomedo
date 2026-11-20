@@ -9,6 +9,7 @@ from laomedo.integrations.langflow.assistant.models import (
     AssistantNativeAction,
     MessageRequest,
     NativeCommandRequest,
+    NativeActionDecision,
 )
 
 
@@ -18,6 +19,97 @@ class NativeCommands:
     def __init__(self, runtime):
         """Bind app-owned persistence, session authority and current native catalog."""
         self.runtime, self.store = runtime, runtime.store
+
+    async def submit(self, owner, key, conversation_id, request):
+        """Retain a human-entered command; only Codex status skips a second approval."""
+        await self.runtime.check_session(owner, key)
+        catalog = await self.runtime.native_catalog(owner, conversation_id)
+        async with self.store.transaction() as session:
+            await self.store.authorize(session, owner, key)
+            conversation = await self.store.conversation(
+                session, owner, conversation_id, lock=True
+            )
+            prior = (
+                await session.exec(
+                    select(AssistantNativeAction).where(
+                        AssistantNativeAction.conversation_id == conversation_id,
+                        AssistantNativeAction.operation_key == request.operation_key,
+                    )
+                )
+            ).first()
+            if prior is not None:
+                if prior.digest != request.digest() or prior.session_key != key:
+                    raise AssistantError("assistant_action_conflict", 409)
+                if prior.state != "pending":
+                    return prior.public(session_key=key)
+            if (
+                conversation.active_message_id is not None
+                or conversation.state != "idle"
+            ):
+                raise AssistantError("assistant_turn_active", 409)
+            if (
+                catalog.get("revision") != request.catalog_revision
+                or catalog.get("run_id") != conversation.run_id
+                or not conversation.thread_id
+                or catalog.get("thread_id") != conversation.thread_id
+            ):
+                raise AssistantError("native_command_catalog_changed", 409)
+            selected = next(
+                (
+                    item
+                    for item in catalog.get("commands", [])
+                    if item["name"] == request.name and item["executable"]
+                ),
+                None,
+            )
+            if selected is None or (
+                request.arguments and not selected["accepts_arguments"]
+            ):
+                raise AssistantError("native_command_not_available", 409)
+            row = prior
+            if row is None:
+                message = (
+                    await session.exec(
+                        select(AssistantMessage)
+                        .where(AssistantMessage.conversation_id == conversation_id)
+                        .order_by(AssistantMessage.created_at.desc())
+                        .limit(1)
+                    )
+                ).first()
+                if message is None:
+                    raise AssistantError("native_command_not_available", 409)
+                row = AssistantNativeAction(
+                    owner_id=owner,
+                    conversation_id=conversation_id,
+                    message_id=message.id,
+                    session_key=key,
+                    operation_key=request.operation_key,
+                    digest=request.digest(),
+                    request=request.model_dump(mode="json"),
+                    run_id=conversation.run_id,
+                    thread_id=conversation.thread_id,
+                    expires_at=time.time() + 900,
+                )
+                session.add(row)
+                await session.flush()
+            result = row.public(session_key=key)
+            immediate = (
+                conversation.provider == "codex"
+                and request.name == "status"
+                and not request.arguments
+                and selected.get("may_use_model") is False
+            )
+        if immediate:
+            # Reuse the same atomic reservation, identity checks and dispatch owner.
+            # The MCP proposal path never calls this human-only method.
+            return await self.runtime.decide_native_action(
+                owner,
+                key,
+                conversation_id,
+                row.id,
+                NativeActionDecision(decision="approve", digest=request.digest()),
+            )
+        return result
 
     async def propose(self, context, request):
         """Retain an exact built-in proposal without native dispatch or approval."""

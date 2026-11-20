@@ -28,6 +28,23 @@ jest.mock("@/stores/authStore", () => ({
 }));
 
 describe("uncertain assistant submission", () => {
+  it("submits a typed command directly and never wraps it in a model message", async () => {
+    const chat = { id: "saved", title: "Saved", provider: "codex", model: "fixture", effort: "low", state: "idle", active_message_id: null };
+    jest.mocked(assistantRequest).mockImplementation(async (path, body) => {
+      if (path === "/models") return { provider: "codex", models: [{id: "fixture", efforts: ["low"]}] };
+      if (path === "/conversations") return {conversations: [chat], next_cursor: null};
+      if (path.endsWith("/native-commands")) return body ? {id: "action", state: "executing"} : {state: "available", revision: "a".repeat(64), commands: [{name: "status", executable: true, accepts_arguments: false, description: "Session status"}]};
+      return {conversation: chat, messages: [], drafts: [], next_cursor: null};
+    });
+    render(<MemoryRouter initialEntries={["/assistant?conversation=saved"]}><AssistantPage /></MemoryRouter>);
+    const composer = screen.getByRole("textbox", {name: "Message this assistant"});
+    fireEvent.change(composer, {target: {value: "/status"}});
+    await waitFor(() => expect(screen.getByRole("button", {name: "Send"})).not.toBeDisabled());
+    fireEvent.keyDown(composer, {key: "Enter"});
+    await waitFor(() => expect(assistantRequest).toHaveBeenCalledWith("/conversations/saved/native-commands", expect.objectContaining({name: "status", arguments: "", catalog_revision: "a".repeat(64)})));
+    await waitFor(() => expect(composer).toHaveValue(""));
+    expect(jest.mocked(assistantRequest).mock.calls.some(([path]) => path.endsWith("/messages"))).toBe(false);
+  });
   it("lets a user draft immediately while the selected provider's model discovery is pending", async () => {
     const chat = { id: "saved", title: "Saved", provider: "codex", model: "fixture", effort: "low", state: "idle", active_message_id: null };
     let finish!: (value: unknown) => void;
@@ -216,6 +233,7 @@ describe("uncertain assistant submission", () => {
     const conversation = {
       id: "conversation",
       title: "Original",
+      provider: "codex",
       updated_at: 1,
       model: "fixture",
       effort: "low",

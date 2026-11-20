@@ -168,3 +168,12 @@ Model discovery has its own loading state: switching conversations never locks
 the draft editor while model discovery or history is loading. Sending still waits
 for the selected conversation, available models and execution admission. Native
 approval cards align to the right; their white Approve button is the primary action.
+
+`NativeCommandMenu.tsx` reads the selected session's observed command catalog when
+the user types `/`, filters executable commands, and inserts the chosen command.
+Arrow Down moves from the composer into the menu; arrows navigate, Enter selects,
+and Escape closes it. A session without an observed catalog gets an explanation,
+never an invented list. Slash input uses the human native-command route directly;
+it is never sent as a model prompt or retried as ordinary prose after refusal.
+Only explicitly typed Codex `/status`, classified as non-model by the actual
+catalog, skips a second approval. Other typed commands retain confirmation.

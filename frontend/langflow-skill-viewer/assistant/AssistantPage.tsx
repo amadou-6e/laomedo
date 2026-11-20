@@ -33,10 +33,12 @@ import type {
   Message,
   Models,
   PendingSubmission,
+  NativeCommandCatalog,
 } from "./models";
 import { stateLabel } from "./models";
 import { conversationTranscript, downloadTranscript } from "./transcript";
 import DeleteConversation from "./DeleteConversation";
+import NativeCommandMenu from "./NativeCommandMenu";
 
 export default function AssistantPage({ embedded = false, selectedConversation, linkedConversation, onSelectConversation, headerActions }: {
   embedded?: boolean;
@@ -77,6 +79,7 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
   const [locked, setLocked] = useState(false);
   const [busy, setBusy] = useState(false);
   const [discovering, setDiscovering] = useState(false);
+  const [commandsDismissed, setCommandsDismissed] = useState(false);
   const [history, setHistory] = useState(!embedded);
   const [renaming, setRenaming] = useState<string>();
   const [titleDraft, setTitleDraft] = useState("");
@@ -90,6 +93,7 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
   const scroll = useRef<HTMLDivElement>(null);
   const pinned = useRef(true);
   const currentSelection = useRef(selected);
+  const nativeSubmission = useRef<{ conversation: string; text: string; request: { name: string; arguments: string; catalog_revision: string; operation_key: string } }>();
   currentSelection.current = selected;
 
   useEffect(() => {
@@ -443,6 +447,26 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
     setError(undefined);
     pinned.current = true;
     try {
+      if (text.startsWith("/")) {
+        if (!target) throw new AssistantFailure("native_command_not_available");
+        let submission = nativeSubmission.current;
+        if (!submission || submission.conversation !== target || submission.text !== text) {
+          const match = /^\/([^\s]+)(?: (.*))?$/.exec(text);
+          const catalog = await assistantRequest<NativeCommandCatalog>(`/conversations/${target}/native-commands`);
+          if (epoch !== generation.current || currentSelection.current !== target) return;
+          const command = catalog.commands?.find(item => item.executable && item.name === match?.[1]);
+          const args = match?.[2] ?? "";
+          if (!match || !command || !catalog.revision || (args && !command.accepts_arguments)) throw new AssistantFailure("native_command_not_available");
+          submission = { conversation: target, text, request: { name: command.name, arguments: args, catalog_revision: catalog.revision, operation_key: crypto.randomUUID() } };
+          nativeSubmission.current = submission;
+        }
+        await assistantRequest(`/conversations/${target}/native-commands`, submission.request);
+        if (epoch !== generation.current || currentSelection.current !== target) return;
+        nativeSubmission.current = undefined;
+        setDrafts(value => ({ ...value, [target]: "" }));
+        await refresh();
+        return;
+      }
       if (!target) {
         const created = await create();
         if (
@@ -644,7 +668,7 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
               >
                 <span className="block truncate font-medium">{item.title}</span>
                 <span className="mt-1 block text-xs text-muted-foreground">
-                  Codex ·{" "}
+                  {({codex: "Codex", claude: "Claude", opencode: "OpenCode"} as Record<string, string>)[item.provider] ?? "Agent"} ·{" "}
                   {item.active_message_id
                     ? stateLabel(item.state)
                     : new Date(item.updated_at * 1000).toLocaleDateString()}
@@ -1016,6 +1040,10 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
             }}
           >
             <div className="mx-auto max-w-4xl rounded-2xl border bg-muted/30 p-2 shadow-sm focus-within:ring-1 focus-within:ring-ring">
+              {!commandsDismissed && /^\/[^\s]*$/.test(drafts[selected] ?? "") && <NativeCommandMenu conversation={selected} text={drafts[selected] ?? ""} onSelect={text => {
+                setDrafts(value => ({...value, [selected]: text}));
+                document.getElementById("assistant-message")?.focus();
+              }} onClose={() => {setCommandsDismissed(true); document.getElementById("assistant-message")?.focus();}} />}
               <label htmlFor="assistant-message" className="sr-only">
                 Message this assistant
               </label>
@@ -1032,13 +1060,20 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
                   active ||
                   Boolean(selected && (needsAttention || waiting))
                 }
-                onChange={(event) =>
+                onChange={(event) => {
+                  setCommandsDismissed(false);
                   setDrafts((value) => ({
                     ...value,
                     [selected]: event.target.value,
-                  }))
-                }
+                  }));
+                }}
                 onKeyDown={(event) => {
+                  if (event.key === "Escape") setCommandsDismissed(true);
+                  if (event.key === "ArrowDown" && document.getElementById("assistant-native-commands")) {
+                    event.preventDefault();
+                    document.querySelector<HTMLButtonElement>("#assistant-native-commands button")?.focus();
+                    return;
+                  }
                   if (
                     event.key === "Enter" &&
                     !event.shiftKey &&

@@ -138,4 +138,14 @@ initialization.
 
 ## Additional provider composition (issue305)
 
+### Human-entered slash commands
+
+`NativeCommands.submit` accepts commands only through authenticated app routes.
+It binds the observed catalog, owned run/thread and stable operation key, retaining
+a proposal under the conversation transaction. A typed Codex `status` with empty
+arguments and explicit `may_use_model=False` reuses `decide_native_action` to
+reserve and dispatch without a second confirmation. Other commands keep the
+existing human approval. MCP proposals never enter this bypass. Discovery uses
+the retained session catalog; no session is created or inferred by the picker.
+
 Conversation provider is immutable. AssistantRuntime selects a runner and lock by owner/provider; Codex keeps its existing owner key and private root. New providers use separate provider roots. AssistantRunner composes the registered provider from host-only settings; Claude profile volume and OpenCode private profile path are never browser/model inputs. OpenCodeAgent owns construction of its existing isolated runtime when a host profile is supplied. Existing native approval and Activity interfaces remain the only app boundaries. Missing configuration refuses before any model request. Each provider owns its command catalog policy and terminal receipts; a shared slash syntax does not imply shared command support.
