@@ -32,5 +32,6 @@ test("names an unavailable provider and links account settings without selecting
   fireEvent.click(screen.getByRole("button", { name: "Account" }));
   expect(await screen.findByText("No connected Claude account.")).toBeVisible();
   expect(screen.getByRole("menuitem", { name: "Manage accounts" })).toHaveAttribute("href", "/settings/providers");
+  expect(screen.getByRole("menuitem", { name: "Manage accounts" })).not.toHaveAttribute("target");
   expect(select).not.toHaveBeenCalled();
 });

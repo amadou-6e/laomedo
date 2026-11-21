@@ -6,7 +6,10 @@
 short account label, highlighted selected row and a separated Manage accounts
 link. Its popover handles outside-click/Escape dismissal; arrow keys move among
 account choices. New chats default to the first connected, ready account returned
-for the current profile and provider. Users can change it before starting chat;
+for the current profile and provider. If none is ready, a connected account whose
+access token expired can be selected for the existing model-discovery and host
+refresh path; revoked, reauthorization-required and unavailable accounts are not
+automatic defaults. Users can change the choice before starting chat;
 selection never creates a session or sends a prompt. Existing conversations keep
 their exact saved account and generation. Other providers are never fallbacks.
 `ProviderIcon.tsx` shares the existing provider brand assets between that menu
@@ -19,6 +22,8 @@ state without an extra selection paragraph. Account/model loading and empty
 model discovery remain explicit. Missing selection disables model selection and
 Send without showing a stale model or effort; drafts remain editable. Switching
 providers preserves the draft and defaults only within the newly chosen provider.
+Connect account and Manage accounts navigate to `/settings/providers` in the
+current tab; they do not depend on popup/new-window handling in VS Code.
 The empty slash menu distinguishes starting a native session from an unavailable
 or filtered catalog. `commandPreviews.ts` lists the supported Codex command names
 before startup, with only initial `/status` selectable; the other previews are

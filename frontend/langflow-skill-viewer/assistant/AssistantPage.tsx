@@ -380,7 +380,8 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
 
   useEffect(() => {
     if (selected || locked || accountsLoading || account || !owner || accountsOwner !== owner) return;
-    const available = accounts.find(item => item.provider === chosenProvider && item.lifecycle === "connected" && item.auth_state === "ready");
+    const connected = accounts.filter(item => item.provider === chosenProvider && item.lifecycle === "connected");
+    const available = connected.find(item => item.auth_state === "ready") ?? connected.find(item => item.auth_state === "expired");
     if (available) setAccount(available);
   }, [selected, locked, accountsLoading, account, accounts, chosenProvider, owner, accountsOwner]);
 
@@ -1157,7 +1158,7 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
                 className="block w-full resize-none border-0 bg-transparent px-2 py-2 text-sm outline-none placeholder:text-muted-foreground read-only:opacity-60"
               />
               {composerStatus && <p id="assistant-composer-status" role="status" className="px-2 pb-1 text-xs text-muted-foreground">
-                {composerStatus}{!accountsLoading && !providerAccounts.length && <> <a href="/settings/providers" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">Connect account ↗</a></>}
+                {composerStatus}{!accountsLoading && !providerAccounts.length && <> <a href="/settings/providers" className="underline underline-offset-2">Connect account</a></>}
               </p>}
               <div className="mt-1 flex items-center justify-end gap-2 px-1">
                 <AccountSelection provider={chosenProvider} accounts={accounts.filter(item => item.provider === chosenProvider)} selected={connectionId} generation={connectionGeneration}
