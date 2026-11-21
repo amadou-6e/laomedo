@@ -41,10 +41,9 @@ unavailable commands with an explicit disabled state; observation never grants
 execution. `commandPreviews.ts` lists the pinned Codex adapter's eleven built-ins
 and initial known Claude/OpenCode entries as documentation previews, never a
 complete native observation. Unavailable native handlers remain unfinished work.
-It lists Codex command names
-before startup, with only initial `/status` selectable; the other previews are
-disabled until the actual session advertises them. A preview is never a native
-catalog or an execution grant. Menu-inserted trailing whitespace still dispatches
+Only initial Codex `/status` is selectable; other previews require both actual
+session advertisement and implemented admission/settlement support. A preview
+is never a native catalog or an execution grant. Menu-inserted trailing whitespace still dispatches
 initial status as the exact non-model operation.
 
 An incomplete or unmatched slash prefix sends as ordinary chat. An exact observed
@@ -53,7 +52,10 @@ selecting another command dismisses only definite command-input rejections;
 uncertain dispatch, account, model and observation errors stay fenced. This
 prevents an earlier input error from permanently disabling Send.
 The reserved names in `providerCommandNames` include all eleven pinned Codex
-built-ins, Claude compact, and OpenCode init/review/compact.
+built-ins, known Claude built-in names, and OpenCode init/review/compact. Reserved
+names do not imply native availability; terminal-only names refuse rather than
+fall through to an ordinary prompt. The advertised catalog is authoritative once
+the session exists.
 These names refuse when unadvertised, as do exact observed unsupported entries;
 the list grants no execution capability. Ordinary text stays inside the
 assistant instruction prefix, outside adapters' leading-slash command parsing.

@@ -21,6 +21,16 @@ class ClaudeCommandResult(BaseModel):
     )
 
 
+class ClaudeControlResult(ClaudeCommandResult):
+    """Native local-command output, without an invented model turn or usage."""
+
+    answer: str = Field(
+        min_length=1,
+        max_length=1048576,
+        description="Actual ACP text produced by the admitted native read-only command.",
+    )
+
+
 class ClaudePolicy(BaseModel):
     """Group native model selection, pinned skills and available tool scope."""
 

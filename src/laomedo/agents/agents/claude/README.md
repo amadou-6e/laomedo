@@ -60,13 +60,20 @@ end-to-end native GitHub mediation readiness.
 ## Native assistant commands
 
 `ClaudeCommands` in `commands.py` owns the observed catalog projection, exact
-handler/image revision and no-argument `/compact` policy. `admit()` refuses
+handler/image revision and no-argument `/compact`, `/usage`, `/context` and `/mcp`
+policies. Read-only control views require actual native advertisement; terminal
+commands omitted by the adapter remain unavailable. `admit()` refuses
 unobserved commands, changed catalogs and contexts with pinned skills/custom
 commands. `result()` requires root-session native compaction completion and a
 terminal ACP response. `ClaudeCommandResult` in `models.py` retains that native
 identity separately from model turns; it never supplies an invented answer or
 usage. `ClaudeAgent` publishes the catalog through the existing run Status and
 routes approved commands through its existing resume, cleanup and snapshot path.
+`control_result()` requires root-session `local_command_output` identity and a
+terminal ACP response, rejects native failures and reported model output, and
+returns `ClaudeControlResult` with the actual ACP view text. It does not infer
+success from prose, produce usage or label a control view as compaction. Live
+provider acceptance is required separately from unit receipt-validation tests.
 
 ## Saved account connections
 

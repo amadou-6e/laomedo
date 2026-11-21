@@ -33,6 +33,7 @@ from laomedo.agents.agents.claude.policy import ClaudeRuntimePolicy
 from laomedo.agents.agents.claude.runtime import ClaudeAgentRuntime
 from laomedo.agents.agents.claude.commands import ClaudeCommands
 from laomedo.agents.agents.claude.models import ClaudeCommandResult
+from laomedo.agents.agents.claude.models import ClaudeControlResult
 from laomedo.agents.agents.base.models import NativeCommandInvocation
 from laomedo.agents.agents.claude.executor import ClaudeCommandExecutor
 from laomedo.agents.agents.claude.utils import activity_usage
@@ -797,6 +798,7 @@ class ClaudeAgent(BaseAgent):
                             "status",
                             "compact_result",
                             "is_error",
+                            "usage",
                         )
                     }
                 )
@@ -930,7 +932,11 @@ class ClaudeAgent(BaseAgent):
                 raise RunnerError("claude_native_turn_failed")
             if record.get("_native_command") is not None:
                 return ClaudeCommands.result(
-                    command_events, record["thread_id"], outcome.stop_reason
+                    command_events,
+                    record["thread_id"],
+                    outcome.stop_reason,
+                    command=command.name,
+                    answer=outcome.answer,
                 )
             if len(results) != 1:
                 raise RunnerError("claude_terminal_receipt_invalid")
@@ -1258,11 +1264,22 @@ class ClaudeAgent(BaseAgent):
                             "result": result.model_dump(mode="json"),
                             "attempt_id": attempt_id,
                             "status": "completed",
-                            "answer": None,
+                            "answer": (
+                                result.answer
+                                if isinstance(result, ClaudeControlResult)
+                                else None
+                            ),
                             "error_category": None,
                         }
                     )
-                    record.update(answer=None, native_answer=None)
+                    record.update(
+                        answer=(
+                            result.answer
+                            if isinstance(result, ClaudeControlResult)
+                            else None
+                        ),
+                        native_answer=None,
+                    )
                     self._event(
                         root,
                         "item/completed",
@@ -1271,7 +1288,11 @@ class ClaudeAgent(BaseAgent):
                             "turnId": host_turn,
                             "item": {
                                 "id": result.native_terminal["event_id"],
-                                "type": "contextCompaction",
+                                "type": (
+                                    "nativeCommandResult"
+                                    if isinstance(result, ClaudeControlResult)
+                                    else "contextCompaction"
+                                ),
                             },
                         },
                     )

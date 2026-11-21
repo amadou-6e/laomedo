@@ -5,11 +5,122 @@ import unittest
 from laomedo.agents.agents.base.acp.models import NativeCommandCatalog
 from laomedo.agents.agents.base.models import NativeCommandInvocation
 from laomedo.agents.agents.claude.commands import ClaudeCommands
+from laomedo.agents.agents.claude.models import ClaudeControlResult
 from laomedo.agents.errors import RunnerError
 
 
 class ClaudeCommandTests(unittest.TestCase):
-    """Exercise the supported contract without a model or synthetic CLI answers."""
+    """Supporting receipt-validation tests, never live native acceptance."""
+
+    def test_read_only_views_require_advertisement_and_no_arguments(self):
+        for name in ("usage", "context", "mcp"):
+            with self.subTest(name=name):
+                catalog = NativeCommandCatalog(
+                    commands=[{"name": name, "description": "Native view"}]
+                )
+                image = "sha256:" + "a" * 64
+                projection = ClaudeCommands.project(
+                    catalog.model_dump(), image, builtins_only=True
+                )
+                self.assertTrue(projection["commands"][0]["executable"])
+                self.assertFalse(projection["commands"][0]["may_use_model"])
+                command = NativeCommandInvocation(
+                    name=name, catalog_revision=projection["revision"]
+                )
+                ClaudeCommands.admit(command, catalog, image, builtins_only=True)
+                with self.assertRaises(RunnerError):
+                    ClaudeCommands.validate(
+                        command.model_copy(update={"arguments": "reconnect all"})
+                    )
+                with self.assertRaises(RunnerError):
+                    ClaudeCommands.admit(
+                        command,
+                        NativeCommandCatalog(commands=[]),
+                        image,
+                        builtins_only=True,
+                    )
+
+    def test_read_only_views_retain_actual_text_and_native_control_identity(self):
+        event = {
+            "type": "system",
+            "subtype": "local_command_output",
+            "session_id": "root",
+            "uuid": "native-receipt",
+        }
+        for name in ("usage", "context", "mcp"):
+            with self.subTest(name=name):
+                result = ClaudeCommands.result(
+                    [event],
+                    "root",
+                    "end_turn",
+                    command=name,
+                    answer="Actual ACP output",
+                )
+                self.assertIsInstance(result, ClaudeControlResult)
+                self.assertEqual(result.command, name)
+                self.assertEqual(result.answer, "Actual ACP output")
+                self.assertEqual(result.native_terminal["kind"], "local_command_output")
+                self.assertNotIn("usage", result.model_dump())
+
+    def test_control_completion_refuses_missing_foreign_failed_or_model_receipts(self):
+        event = {
+            "type": "system",
+            "subtype": "local_command_output",
+            "session_id": "root",
+            "uuid": "native-receipt",
+        }
+        for events, stop, answer in (
+            ([], "end_turn", "Output"),
+            ([{**event, "session_id": "other"}], "end_turn", "Output"),
+            ([{**event, "parent_tool_use_id": "child"}], "end_turn", "Output"),
+            ([{**event, "uuid": None}], "end_turn", "Output"),
+            ([event], "cancelled", "Output"),
+            ([event], "end_turn", ""),
+            ([event], "end_turn", "x" * 1048577),
+            (
+                [
+                    event,
+                    {
+                        "type": "result",
+                        "session_id": "root",
+                        "subtype": "success",
+                        "usage": {"output_tokens": 1},
+                    },
+                ],
+                "end_turn",
+                "Output",
+            ),
+            (
+                [
+                    event,
+                    {
+                        "type": "result",
+                        "session_id": "root",
+                        "subtype": "success",
+                        "usage": [],
+                    },
+                ],
+                "end_turn",
+                "Output",
+            ),
+            (
+                [
+                    event,
+                    {
+                        "type": "result",
+                        "session_id": "root",
+                        "subtype": "error_during_execution",
+                        "is_error": True,
+                    },
+                ],
+                "end_turn",
+                "Output",
+            ),
+        ):
+            with self.subTest(events=events, stop=stop), self.assertRaises(RunnerError):
+                ClaudeCommands.result(
+                    events, "root", stop, command="usage", answer=answer
+                )
 
     def test_admission_binds_catalog_handler_and_builtin_provenance(self):
         catalog = NativeCommandCatalog(

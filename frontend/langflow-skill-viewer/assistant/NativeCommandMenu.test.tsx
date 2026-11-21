@@ -27,6 +27,7 @@ test("shows unavailable observed commands without granting execution", async () 
   const command = await screen.findByRole("button", {name: /logout/});
   expect(command).toBeDisabled();
   expect(command).toHaveAttribute("title", "This command needs a chat handler before it can run here.");
+  expect(command).toHaveAccessibleDescription("This command needs a chat handler before it can run here.");
   fireEvent.click(command);
   expect(select).not.toHaveBeenCalled();
 });

@@ -16,7 +16,12 @@ export const codexCommandPreviews = [
 /** Pinned adapter built-ins only; actual session advertisement still governs admission. */
 export const providerCommandPreviews: Record<string, typeof codexCommandPreviews> = {
   codex: codexCommandPreviews,
-  claude: [{name: "compact", description: "Compact the conversation context."}],
+  claude: [
+    {name: "compact", description: "Compact the conversation context."},
+    {name: "usage", description: "Show native usage and limits."},
+    {name: "context", description: "Show native context usage."},
+    {name: "mcp", description: "Show native MCP connection status."},
+  ],
   opencode: [
     {name: "init", description: "Create workspace agent instructions."},
     {name: "review", description: "Review workspace changes."},
@@ -26,6 +31,6 @@ export const providerCommandPreviews: Record<string, typeof codexCommandPreviews
 /** AP-2 candidate names are reserved for native admission, never chat fallback. */
 export const providerCommandNames: Record<string, readonly string[]> = {
   codex: codexCommandPreviews.map(item => item.name),
-  claude: ["compact"],
+  claude: ["compact", "usage", "context", "mcp", "init", "review", "security-review", "code-review", "status", "help", "plan", "model", "effort", "agents", "permissions", "clear", "rename", "logout", "login", "cost", "doctor", "todos", "resume", "export", "copy", "memory", "debug", "new", "rewind", "config"],
   opencode: ["init", "review", "compact"],
 };

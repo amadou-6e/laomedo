@@ -28,6 +28,24 @@ jest.mock("@/contexts/authContext", () => ({
 }));
 
 describe("uncertain assistant submission", () => {
+  it.each(["/context", "/usage", "/init"])("never sends known Claude built-in %s as an ordinary first prompt", async text => {
+    jest.mocked(assistantRequest).mockImplementation(async path => {
+      if (path === "/connections") return {connections: [{connection_id: "claude-account", generation: 1, provider: "claude", label: "Claude account", lifecycle: "connected", auth_state: "ready"}]};
+      if (path.startsWith("/models?")) return {provider: "claude", models: [{id: "fixture", efforts: ["low"]}]};
+      return {conversations: [], next_cursor: null};
+    });
+    render(<MemoryRouter><AssistantPage /></MemoryRouter>);
+    fireEvent.click(screen.getByRole("radio", {name: "Claude"}));
+    await waitFor(() => expect(screen.getByRole("button", {name: "Choose model and effort"})).not.toBeDisabled());
+    const composer = screen.getByRole("textbox", {name: "Message this assistant"});
+    fireEvent.change(composer, {target: {value: text}});
+    await waitFor(() => expect(screen.getByRole("button", {name: "Start chat"})).not.toBeDisabled());
+    fireEvent.keyDown(composer, {key: "Enter"});
+    await waitFor(() => expect(screen.getByRole("button", {name: "Start chat"})).toBeDisabled());
+    expect(jest.mocked(assistantRequest).mock.calls.some(([, body]) => Boolean(body))).toBe(false);
+    expect(composer).toHaveValue(text);
+  });
+
   it("moves a newer draft into the created conversation without submitting it", async () => {
     let finish!: (value: any) => void;
     const created = new Promise(resolve => {finish = resolve;});

@@ -6,6 +6,7 @@ import json
 from laomedo.agents.agents.base.acp.models import NativeCommandCatalog
 from laomedo.agents.agents.base.models import NativeCommandDiscovery
 from laomedo.agents.agents.claude.models import ClaudeCommandResult
+from laomedo.agents.agents.claude.models import ClaudeControlResult
 from laomedo.agents.agents.claude.settings import CLI_VERSION
 from laomedo.agents.errors import RunnerError
 
@@ -15,8 +16,8 @@ class ClaudeCommands:
 
     @classmethod
     def validate(cls, command):
-        """The initial supported built-in is compaction without arguments."""
-        if command.name != "compact":
+        """Admit compaction and read-only native control views without arguments."""
+        if command.name not in {"compact", "usage", "context", "mcp"}:
             raise RunnerError("native_command_not_supported")
         if command.arguments:
             raise RunnerError("native_command_arguments_invalid")
@@ -50,14 +51,19 @@ class ClaudeCommands:
                     "name": item.name,
                     "description": item.description,
                     "input_hint": item.input.hint if item.input else None,
-                    "executable": builtins_only and item.name == "compact",
+                    "executable": builtins_only
+                    and item.name in {"compact", "usage", "context", "mcp"},
                     "accepts_arguments": False,
                     "may_use_model": (
-                        True if builtins_only and item.name == "compact" else None
+                        item.name == "compact"
+                        if builtins_only
+                        and item.name in {"compact", "usage", "context", "mcp"}
+                        else None
                     ),
                     "reason": (
                         None
-                        if builtins_only and item.name == "compact"
+                        if builtins_only
+                        and item.name in {"compact", "usage", "context", "mcp"}
                         else "outside_assistant_command_policy"
                     ),
                 }
@@ -80,8 +86,12 @@ class ClaudeCommands:
             raise RunnerError("native_command_not_available")
 
     @classmethod
-    def result(cls, events, thread, stop_reason):
-        """Require root-session native compaction evidence, never ordinary model prose."""
+    def result(cls, events, thread, stop_reason, *, command="compact", answer=None):
+        """Require command-specific root native evidence, never ordinary model prose."""
+        if command in {"usage", "context", "mcp"}:
+            return cls.control_result(events, thread, stop_reason, command, answer)
+        if command != "compact":
+            raise RunnerError("native_command_not_supported")
         if stop_reason != "end_turn":
             raise RunnerError("claude_native_turn_failed")
         started = False
@@ -112,3 +122,50 @@ class ClaudeCommands:
         if terminal is None:
             raise RunnerError("claude_terminal_receipt_invalid")
         return ClaudeCommandResult(command="compact", native_terminal=terminal)
+
+    @classmethod
+    def control_result(cls, events, thread, stop_reason, command, answer):
+        """Require a root native local-output receipt and terminal ACP response.
+
+        Missing local evidence, native failure and any reported model output all
+        refuse completion. The ACP text is the actual control view, not a model
+        response or proof that a session setting changed.
+        """
+        if command not in {"usage", "context", "mcp"}:
+            raise RunnerError("native_command_not_supported")
+        if stop_reason != "end_turn":
+            raise RunnerError("claude_native_turn_failed")
+        terminal = None
+        for event in events:
+            if event.get("session_id") != thread or event.get("parent_tool_use_id"):
+                continue
+            if event.get("is_error") or (
+                event.get("type") == "result" and event.get("subtype") != "success"
+            ):
+                raise RunnerError("claude_native_turn_failed")
+            if event.get("type") == "result":
+                usage = event.get("usage")
+                if not isinstance(usage, dict) or usage.get("output_tokens") != 0:
+                    raise RunnerError("claude_terminal_receipt_invalid")
+            if (
+                event.get("type") == "system"
+                and event.get("subtype") == "local_command_output"
+            ):
+                identity = event.get("uuid")
+                if not isinstance(identity, str) or not identity:
+                    raise RunnerError("claude_terminal_receipt_invalid")
+                terminal = {
+                    "kind": "local_command_output",
+                    "event_id": identity,
+                    "session_id": thread,
+                }
+        if (
+            terminal is None
+            or not isinstance(answer, str)
+            or not answer.strip()
+            or len(answer) > 1048576
+        ):
+            raise RunnerError("claude_terminal_receipt_invalid")
+        return ClaudeControlResult(
+            command=command, native_terminal=terminal, answer=answer
+        )
