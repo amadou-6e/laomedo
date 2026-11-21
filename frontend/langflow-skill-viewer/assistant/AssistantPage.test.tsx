@@ -28,6 +28,78 @@ jest.mock("@/contexts/authContext", () => ({
 }));
 
 describe("uncertain assistant submission", () => {
+  it("moves a newer draft into the created conversation without submitting it", async () => {
+    let finish!: (value: any) => void;
+    const created = new Promise(resolve => {finish = resolve;});
+    const conversation = {id: "created", provider: "codex", connection_id: "account", connection_generation: 1, model: "fixture", effort: "low", state: "idle", active_message_id: null};
+    const posts: string[] = [];
+    jest.mocked(assistantRequest).mockImplementation(async (path, body) => {
+      if (path === "/connections") return {connections: [{connection_id: "account", generation: 1, provider: "codex", label: "Account", lifecycle: "connected", auth_state: "ready"}]};
+      if (path.startsWith("/models?")) return {provider: "codex", models: [{id: "fixture", efforts: ["low"]}]};
+      if (path === "/conversations" && body) {posts.push(path); return created;}
+      if (body) {posts.push(path); return {id: "accepted"};}
+      if (path === "/conversations") return {conversations: [], next_cursor: null};
+      return {conversation, messages: [], drafts: [], next_cursor: null};
+    });
+    render(<MemoryRouter><AssistantPage /></MemoryRouter>);
+    const composer = screen.getByRole("textbox", {name: "Message this assistant"});
+    fireEvent.change(composer, {target: {value: "Submitted"}});
+    await waitFor(() => expect(screen.getByRole("button", {name: "Start chat"})).not.toBeDisabled());
+    fireEvent.keyDown(composer, {key: "Enter"});
+    await waitFor(() => expect(posts).toEqual(["/conversations"]));
+    fireEvent.change(composer, {target: {value: "Newer unsent question"}});
+    await act(async () => {finish({id: "created"}); await created;});
+    await waitFor(() => expect(posts).toContain("/conversations/created/messages"));
+    expect(composer).toHaveValue("Newer unsent question");
+    expect(jest.mocked(assistantRequest).mock.calls.find(([path, body]) => path.endsWith("/messages") && body)?.[1]).toEqual(expect.objectContaining({text: "Submitted"}));
+    fireEvent.click(screen.getByRole("button", {name: "New conversation"}));
+    expect(composer).toHaveValue("");
+  });
+
+  it.each(["Newer question", "/compact"])("preserves edited native-command draft %s after acknowledgement", async newer => {
+    let finish!: (value: any) => void;
+    const acknowledgement = new Promise(resolve => {finish = resolve;});
+    const conversation = {id: "conversation", provider: "codex", connection_id: "account", connection_generation: 1, model: "fixture", effort: "low", run_id: "run", state: "idle", active_message_id: null};
+    jest.mocked(assistantRequest).mockImplementation(async (path, body) => {
+      if (path === "/connections") return {connections: [{connection_id: "account", generation: 1, provider: "codex", label: "Account", lifecycle: "connected", auth_state: "ready"}]};
+      if (path.startsWith("/models?")) return {provider: "codex", models: [{id: "fixture", efforts: ["low"]}]};
+      if (path.endsWith("/native-commands")) return body ? acknowledgement : {state: "available", revision: "catalog", commands: [{name: "compact", executable: true, accepts_arguments: false}]};
+      if (path === "/conversations") return {conversations: [conversation], next_cursor: null};
+      return {conversation, messages: [], drafts: [], next_cursor: null};
+    });
+    render(<MemoryRouter initialEntries={["/assistant?conversation=conversation"]}><AssistantPage /></MemoryRouter>);
+    const composer = screen.getByRole("textbox", {name: "Message this assistant"});
+    fireEvent.change(composer, {target: {value: "/compact"}});
+    await waitFor(() => expect(screen.getByRole("button", {name: "Send"})).not.toBeDisabled());
+    fireEvent.keyDown(composer, {key: "Enter"});
+    await waitFor(() => expect(jest.mocked(assistantRequest).mock.calls.some(([path, body]) => path.endsWith("/native-commands") && body)).toBe(true));
+    fireEvent.change(composer, {target: {value: newer}});
+    await act(async () => {finish({state: "pending"}); await acknowledgement;});
+    await waitFor(() => expect(composer).toHaveValue(newer === "/compact" ? "" : newer));
+  });
+
+  it("restores refused text alongside the newer unsent draft", async () => {
+    let refuse!: (error: unknown) => void;
+    const acknowledgement = new Promise((_, reject) => {refuse = reject;});
+    const conversation = {id: "conversation", provider: "codex", connection_id: "account", connection_generation: 1, model: "fixture", effort: "low", state: "idle", active_message_id: null};
+    jest.mocked(assistantRequest).mockImplementation(async (path, body) => {
+      if (path === "/connections") return {connections: [{connection_id: "account", generation: 1, provider: "codex", label: "Account", lifecycle: "connected", auth_state: "ready"}]};
+      if (path.startsWith("/models?")) return {provider: "codex", models: [{id: "fixture", efforts: ["low"]}]};
+      if (body) return acknowledgement;
+      if (path === "/conversations") return {conversations: [conversation], next_cursor: null};
+      return {conversation, messages: [], drafts: [], next_cursor: null};
+    });
+    render(<MemoryRouter initialEntries={["/assistant?conversation=conversation"]}><AssistantPage /></MemoryRouter>);
+    const composer = screen.getByRole("textbox", {name: "Message this assistant"});
+    fireEvent.change(composer, {target: {value: "Submitted"}});
+    await waitFor(() => expect(screen.getByRole("button", {name: "Send"})).not.toBeDisabled());
+    fireEvent.keyDown(composer, {key: "Enter"});
+    await waitFor(() => expect(composer).toHaveValue(""));
+    fireEvent.change(composer, {target: {value: "Newer question"}});
+    await act(async () => {refuse(new AssistantFailure("assistant_runner_unavailable"));});
+    await waitFor(() => expect(composer).toHaveValue("Submitted\n\nNewer question"));
+  });
+
   it("defaults a held OpenCode key without claiming verified authentication", async () => {
     jest.mocked(assistantRequest).mockImplementation(async path => {
       if (path === "/connections") return {connections: [{connection_id: "key-account", generation: 2, provider: "opencode", method: "opencode_go_key", label: "Held key", lifecycle: "connected", auth_state: "unavailable"}]};
