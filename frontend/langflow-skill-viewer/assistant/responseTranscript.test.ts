@@ -1,5 +1,21 @@
-import { responseTranscript } from "./responseTranscript";
+import { responseTranscript, hasNativeControlResult } from "./responseTranscript";
 import type { ActivityPage, GraphAction, Message, NativeAction } from "./models";
+
+it.each(["usage", "context", "mcp"])("copies Claude %s as native output without model activity or partial warnings", name => {
+  const message = {native_action_id: "approved", text: `/${name}`, state: "completed", response: "Native status: unavailable"} as Message;
+  const page = {available: true, complete: false, projection: {items: [
+    {item: {type: "nativeCommandResult", id: "receipt"}},
+    {item: {type: "agentMessage", text: "Earlier model output"}},
+  ]}} as ActivityPage;
+  const action = {name, arguments: "", state: "completed"} as NativeAction;
+  const text = responseTranscript(page, message, [], [], [action], "claude");
+  expect(text).toContain("Native status: unavailable");
+  expect(text).toContain("Outcome: output received");
+  expect(text).not.toMatch(/partial|Earlier model|### Command/);
+  expect(hasNativeControlResult(message, "claude")).toBe(true);
+  expect(hasNativeControlResult({...message, native_action_id: undefined}, "claude")).toBe(false);
+  if (name !== "mcp") expect(hasNativeControlResult(message, "codex")).toBe(false);
+});
 
 it("includes command results, graph outcomes and partial streaming status", () => {
   const page = { available: true, complete: false, projection: { items: [

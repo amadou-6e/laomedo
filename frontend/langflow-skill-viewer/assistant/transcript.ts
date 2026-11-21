@@ -31,7 +31,8 @@ export async function conversationTranscript(
   ];
   for (const message of [...messages.values()].sort((a, b) => a.created_at - b.created_at)) {
     blocks.push("## You", message.text);
-    const activity = hasNativeControlResult(message) ? undefined : await assistantRequest<ActivityPage>(
+    const nativeControl = hasNativeControlResult(message, provider);
+    const activity = nativeControl ? undefined : await assistantRequest<ActivityPage>(
       `/conversations/${encodeURIComponent(conversation)}/activity?attempt=${encodeURIComponent(message.attempt_id)}&after=0`,
       undefined,
       signal,
@@ -41,8 +42,8 @@ export async function conversationTranscript(
       .map((lane) => messageText(lane.item ?? {}, provider))
       .filter((text): text is string => text !== null);
     if (!answers.length && message.response) answers.push(message.response);
-    if (answers.length) blocks.push("## Assistant", answers.join("\n\n"));
-    if (!hasNativeControlResult(message) && (!activity?.available || activity.complete === false))
+    if (answers.length) blocks.push(nativeControl ? "## Native command output" : "## Assistant", answers.join("\n\n"));
+    if (!nativeControl && (!activity?.available || activity.complete === false))
       blocks.push("_Some activity is unavailable or was not retained; this answer may be partial._");
     if (message.state !== "completed")
       blocks.push(`_Response state at export: ${message.state}._`);

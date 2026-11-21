@@ -41,6 +41,20 @@ class ClaudeRunnerTests(unittest.TestCase):
         with self.invoke():
             first = self.runner.start(payload)
 
+        from laomedo.agents.agents.base.utils import _json
+
+        root = self.runner._run_dir(first["run_id"])
+        first["usage"] = {"input_tokens": 11, "output_tokens": 22}
+        _json(root / "record.json", first)
+        self.runner._event(
+            root,
+            "thread/tokenUsage/updated",
+            {
+                "threadId": first["thread_id"],
+                "tokenUsage": {"total": {"inputTokens": 11, "outputTokens": 22}},
+            },
+        )
+
         def control(root, record, prompt, flag, *, resume):
             self._begin_activity(root, record, prompt)
             return ClaudeControlResult(
@@ -85,6 +99,12 @@ class ClaudeRunnerTests(unittest.TestCase):
             any(item.get("type") == "nativeCommandResult" for item in items)
         )
         self.assertFalse(any(item.get("type") == "contextCompaction" for item in items))
+        activity = self.runner.read_activity(
+            result["run_id"], result["activity_attempt_id"]
+        )
+        self.assertTrue(activity.available)
+        self.assertIsNotNone(activity.projection)
+        self.assertIsNone(activity.projection.usage)
 
     def test_resume_prelaunch_failure_cannot_reuse_prior_cleanup_attestation(self):
         from laomedo.agents.agents.base.resume import ResumeDispatcher

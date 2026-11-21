@@ -33,3 +33,9 @@ test("completed, rejected and foreign-session receipts offer no execution contro
   expect(screen.queryByRole("button")).toBeNull();
   expect(assistantRequest).not.toHaveBeenCalled();
 });
+test("labels a received Claude control report neutrally even if it describes a native error", () => {
+  render(<NativeActions conversation="chat" provider="claude" actions={[{...action, name: "usage", arguments: "", may_use_model: false, state: "completed"}]} onFailure={() => {}} />);
+  expect(screen.getByText("Received output from /usage.")).toBeVisible();
+  expect(screen.getByText("Output received")).toBeVisible();
+  expect(screen.queryByText("Completed")).toBeNull();
+});

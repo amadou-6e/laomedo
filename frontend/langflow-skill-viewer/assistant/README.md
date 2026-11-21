@@ -241,6 +241,12 @@ and Escape closes it. A session without an observed catalog gets an explanation
 and, for Codex, the non-authoritative startup previews described above. Exact
 observed commands use the human native-command route; they never fall back to
 ordinary prose after refused or uncertain dispatch. Unmatched slash text is chat.
+Completed native controls are classified by provider and command name. Their
+retained output is rendered and copied directly, without model Activity lanes,
+earlier token usage or a partial-model-reply warning. Claude control outcomes say
+"Output received": the native report can describe an upstream error and does not
+establish that the reported service is healthy.
+
 Only explicitly typed Codex `/status`, classified as non-model by the actual
 catalog, skips a second approval. Other typed commands retain confirmation.
 

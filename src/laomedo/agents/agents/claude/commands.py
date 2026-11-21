@@ -136,6 +136,7 @@ class ClaudeCommands:
         if stop_reason != "end_turn":
             raise RunnerError("claude_native_turn_failed")
         terminal = None
+        result_seen = False
         for event in events:
             if event.get("session_id") != thread or event.get("parent_tool_use_id"):
                 continue
@@ -147,6 +148,7 @@ class ClaudeCommands:
                 usage = event.get("usage")
                 if not isinstance(usage, dict) or usage.get("output_tokens") != 0:
                     raise RunnerError("claude_terminal_receipt_invalid")
+                result_seen = True
             if (
                 event.get("type") == "system"
                 and event.get("subtype") == "local_command_output"
@@ -161,6 +163,7 @@ class ClaudeCommands:
                 }
         if (
             terminal is None
+            or not result_seen
             or not isinstance(answer, str)
             or not answer.strip()
             or len(answer) > 1048576

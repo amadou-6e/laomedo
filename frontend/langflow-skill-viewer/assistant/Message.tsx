@@ -12,7 +12,7 @@ import type { ActivityPage, DraftReceipt, Message } from "./models";
 import { stateLabel } from "./models";
 import Thinking from "./Thinking";
 import CopyAnswer from "./CopyAnswer";
-import { responseTranscript, hasNativeCommandOutcome } from "./responseTranscript";
+import { responseTranscript, hasNativeCommandOutcome, hasNativeControlResult } from "./responseTranscript";
 import GraphActions from "./GraphActions";
 import NativeActions from "./NativeActions";
 import NativeStatus from "./NativeStatus";
@@ -68,7 +68,9 @@ export default function MessageRow({
   onFailure: (error: unknown) => void;
 }) {
   const [page, setPage] = useState<ActivityPage>();
+  const nativeControl = hasNativeControlResult(message, provider);
   useEffect(() => {
+    if (nativeControl) return;
     const controller = new AbortController();
     let busy = false;
     const refresh = async () => {
@@ -108,8 +110,9 @@ export default function MessageRow({
     active,
     onContent,
     onFailure,
+    nativeControl,
   ]);
-  const items = (page?.projection?.items ?? []).filter(
+  const items = (nativeControl ? [] : page?.projection?.items ?? []).filter(
     (lane) => lane.item?.type !== "userMessage",
   );
   const nativeStatus = Boolean(provider === "codex" && (message.native_action_id || message.initial_native_command === "status") && message.text === "/status" && message.state === "completed" && message.response);
@@ -147,7 +150,7 @@ export default function MessageRow({
         );
       })}
       {!nativeStatus && !hasAnswer && message.response && (
-        <div className="space-y-2">
+        <div className="space-y-2" aria-label={nativeControl ? "Native command output" : undefined}>
           <MessageMarkdown text={message.response} allowLinks={false} />
         </div>
       )}
@@ -178,7 +181,7 @@ export default function MessageRow({
           />
         </div>
       )}
-      {page?.complete === false && !hasNativeCommandOutcome(message) && (
+      {page?.complete === false && !hasNativeCommandOutcome(message, provider) && (
         <p className="text-xs text-muted-foreground">
           Some Activity could not be retained. The response above may be
           partial.

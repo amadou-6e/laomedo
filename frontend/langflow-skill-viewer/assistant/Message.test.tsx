@@ -45,6 +45,15 @@ const receipt: DraftReceipt = {
 };
 
 describe("retained assistant conversation", () => {
+  it.each(["usage", "context", "mcp"])("renders Claude %s as native output without a tool row or partial answer", async name => {
+    jest.mocked(assistantRequest).mockClear();
+    render(<MessageRow conversation="conversation" provider="claude" message={{...message, text: `/${name}`, native_action_id: "approved", response: "Native view output"}} receipts={[]} active={false} onContent={onContent} onFailure={onFailure} />);
+    expect(screen.getByLabelText("Native command output")).toHaveTextContent("Native view output");
+    expect(screen.getAllByText("Native view output")).toHaveLength(1);
+    expect(screen.queryByText("Native tool activity")).toBeNull();
+    expect(screen.queryByText(/partial/)).toBeNull();
+    expect(assistantRequest).not.toHaveBeenCalled();
+  });
   it("waits for retained activity before enabling a response copy", async () => {
     let finish!: (value: unknown) => void;
     jest.mocked(assistantRequest).mockReturnValueOnce(new Promise((resolve) => { finish = resolve; }));

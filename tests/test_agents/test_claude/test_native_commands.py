@@ -50,7 +50,15 @@ class ClaudeCommandTests(unittest.TestCase):
         for name in ("usage", "context", "mcp"):
             with self.subTest(name=name):
                 result = ClaudeCommands.result(
-                    [event],
+                    [
+                        event,
+                        {
+                            "type": "result",
+                            "session_id": "root",
+                            "subtype": "success",
+                            "usage": {"output_tokens": 0},
+                        },
+                    ],
                     "root",
                     "end_turn",
                     command=name,
@@ -71,6 +79,7 @@ class ClaudeCommandTests(unittest.TestCase):
         }
         for events, stop, answer in (
             ([], "end_turn", "Output"),
+            ([event], "end_turn", "Output"),
             ([{**event, "session_id": "other"}], "end_turn", "Output"),
             ([{**event, "parent_tool_use_id": "child"}], "end_turn", "Output"),
             ([{**event, "uuid": None}], "end_turn", "Output"),
