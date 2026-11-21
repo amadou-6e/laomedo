@@ -242,7 +242,7 @@ export default function MessageRow({
         </article>
       ))}
       {(items.length > 0 || message.response || receipts.length > 0 || actions.length > 0 || nativeActions.length > 0) && (
-        <CopyAnswer disabled={!page && !hasNativeCommandOutcome(message)} text={responseTranscript(page, message, receipts, actions, nativeActions, provider)} />
+        <CopyAnswer disabled={!page && !hasNativeCommandOutcome(message, provider)} text={responseTranscript(page, message, receipts, actions, nativeActions, provider)} />
       )}
     </section>
   );
