@@ -8,6 +8,16 @@ const accounts = [
   { connection_id: "work", generation: 2, provider: "codex", label: "Work", lifecycle: "connected", auth_state: "ready" },
 ];
 
+test("allows the owner to cancel settings navigation when draft retention fails", () => {
+  const retain = jest.fn(() => false);
+  render(<AccountSelection accounts={accounts} provider="codex" selected="personal" generation={1} disabled={false} onSelect={jest.fn()} onManageAccounts={retain} />);
+  fireEvent.click(screen.getByRole("button", {name: "Account"}));
+  const event = new MouseEvent("click", {bubbles: true, cancelable: true});
+  screen.getByRole("menuitem", {name: "Manage accounts"}).dispatchEvent(event);
+  expect(retain).toHaveBeenCalledTimes(1);
+  expect(event.defaultPrevented).toBe(true);
+});
+
 test("selects an exact saved account with keyboard navigation and restores trigger focus", async () => {
   const select = jest.fn();
   render(<AccountSelection accounts={accounts} provider="codex" selected="personal" generation={1} disabled={false} onSelect={select} />);

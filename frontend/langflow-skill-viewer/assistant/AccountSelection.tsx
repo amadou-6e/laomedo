@@ -4,11 +4,12 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import ProviderIcon from "./ProviderIcon";
 import type { SavedConnection } from "./models";
 
-export default function AccountSelection({ accounts, provider, selected, generation, disabled, loading = false, onSelect }: {
+export default function AccountSelection({ accounts, provider, selected, generation, disabled, loading = false, onSelect, onManageAccounts }: {
   provider: string;
   accounts: SavedConnection[]; selected?: string | null; generation?: number | null;
   disabled: boolean; onSelect: (account: SavedConnection) => void;
   loading?: boolean;
+  onManageAccounts?: () => boolean;
 }) {
   const [open, setOpen] = useState(false);
   const labelId = useId();
@@ -41,7 +42,7 @@ export default function AccountSelection({ accounts, provider, selected, generat
         onClick={() => { onSelect(item); setOpen(false); }}><ProviderIcon provider={provider} className="h-3.5 w-3.5" /><span className="min-w-0 flex-1 truncate">{item.label}</span>{item.connection_id === selected && item.generation === generation && <Check size={12} aria-hidden="true" />}</button>)}
       {!connected.length && <p className="px-2 py-2 text-muted-foreground">{loading ? "Loading accounts…" : `No connected ${providerName} account.`}</p>}
       <div className="mt-1 border-t border-border/60 pt-1">
-        <a role="menuitem" href="/settings/providers" className="flex items-center justify-between rounded px-2 py-1.5 text-muted-foreground hover:bg-foreground/10 focus:bg-foreground/10 focus:outline-none">Manage accounts<ChevronRight size={12} aria-hidden="true" /></a>
+        <a role="menuitem" href="/settings/providers" onClick={event => { if (onManageAccounts?.() === false) event.preventDefault(); }} className="flex items-center justify-between rounded px-2 py-1.5 text-muted-foreground hover:bg-foreground/10 focus:bg-foreground/10 focus:outline-none">Manage accounts<ChevronRight size={12} aria-hidden="true" /></a>
       </div>
     </PopoverContent>
     </Popover>

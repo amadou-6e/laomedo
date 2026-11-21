@@ -28,6 +28,35 @@ jest.mock("@/contexts/authContext", () => ({
 }));
 
 describe("uncertain assistant submission", () => {
+  it("defaults a held OpenCode key without claiming verified authentication", async () => {
+    jest.mocked(assistantRequest).mockImplementation(async path => {
+      if (path === "/connections") return {connections: [{connection_id: "key-account", generation: 2, provider: "opencode", method: "opencode_go_key", label: "Held key", lifecycle: "connected", auth_state: "unavailable"}]};
+      if (path.startsWith("/models?")) return {provider: "opencode", models: []};
+      return {conversations: [], next_cursor: null};
+    });
+    render(<MemoryRouter><AssistantPage /></MemoryRouter>);
+    fireEvent.click(screen.getByRole("radio", {name: "OpenCode"}));
+    await waitFor(() => expect(screen.getByRole("button", {name: "Account"})).toHaveAccessibleDescription("Held key"));
+    expect(assistantRequest).toHaveBeenCalledWith(expect.stringContaining("connection_id=key-account&connection_generation=2"));
+    expect(jest.mocked(assistantRequest).mock.calls.some(([, body]) => Boolean(body))).toBe(false);
+  });
+
+  it("restores the unsent draft and provider after visiting account settings", async () => {
+    jest.mocked(assistantRequest).mockResolvedValue({connections: [], conversations: [], next_cursor: null});
+    const first = render(<MemoryRouter><AssistantPage /></MemoryRouter>);
+    fireEvent.click(screen.getByRole("radio", {name: "OpenCode"}));
+    fireEvent.change(screen.getByRole("textbox", {name: "Message this assistant"}), {target: {value: "Keep this unsent draft"}});
+    const link = await screen.findByRole("link", {name: "Connect account"});
+    link.addEventListener("click", event => event.preventDefault());
+    fireEvent.click(link);
+    expect(JSON.parse(sessionStorage.getItem("laomedo.assistant.settings-drafts.owner")!)).toEqual({drafts: {"": "Keep this unsent draft"}, provider: "opencode"});
+    first.unmount();
+    render(<MemoryRouter><AssistantPage /></MemoryRouter>);
+    await waitFor(() => expect(screen.getByRole("textbox", {name: "Message this assistant"})).toHaveValue("Keep this unsent draft"));
+    expect(screen.getByRole("radio", {name: "OpenCode"})).toBeChecked();
+    expect(sessionStorage.getItem("laomedo.assistant.settings-drafts.owner")).toBeNull();
+  });
+
   it("prefers a ready account for this provider and preserves an explicit choice on refresh", async () => {
     const ready = {connection_id: "ready", generation: 2, provider: "codex", label: "Ready account", lifecycle: "connected", auth_state: "ready"};
     const other = {...ready, connection_id: "other", label: "Other account"};

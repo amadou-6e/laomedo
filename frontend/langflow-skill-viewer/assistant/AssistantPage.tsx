@@ -81,6 +81,15 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
   const [model, setModel] = useState("");
   const [effort, setEffort] = useState("");
   const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const retainSettingsDraft = () => {
+    if (!owner || locked) return false;
+    try {
+      sessionStorage.setItem(`laomedo.assistant.settings-drafts.${owner}`, JSON.stringify({drafts, provider}));
+      return true;
+    } catch {
+      return window.confirm("Your draft could not be saved. Leave chat and discard it?");
+    }
+  };
   const [pending, setPending] = useState<Record<string, PendingSubmission>>({});
   const [retryable, setRetryable] = useState<Record<string, boolean>>({});
   const [pendingOwner, setPendingOwner] = useState<string>();
@@ -160,6 +169,8 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
         try {
           if (owner)
             sessionStorage.removeItem(`laomedo.assistant.pending.${owner}`);
+          if (owner)
+            sessionStorage.removeItem(`laomedo.assistant.settings-drafts.${owner}`);
         } catch {
           /* Rendered private state is already cleared. */
         }
@@ -190,11 +201,24 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
         sessionStorage.removeItem(
           `laomedo.assistant.pending.${previousOwner.current}`,
         );
+      if (previousOwner.current && previousOwner.current !== owner)
+        sessionStorage.removeItem(`laomedo.assistant.settings-drafts.${previousOwner.current}`);
     } catch {
       /* No storage access may block a profile fence. */
     }
     previousOwner.current = owner;
     if (owner) {
+      try {
+        const key = `laomedo.assistant.settings-drafts.${owner}`;
+        const retained = JSON.parse(sessionStorage.getItem(key) ?? "null");
+        sessionStorage.removeItem(key);
+        if (retained && ["codex", "claude", "opencode"].includes(retained.provider) && retained.drafts && typeof retained.drafts === "object" && !Array.isArray(retained.drafts) && Object.entries(retained.drafts).every(([key, text]) => (key === "" || /^[0-9a-f-]{36}$/.test(key)) && typeof text === "string" && text.length <= 12000)) {
+          setDrafts(retained.drafts);
+          setProvider(retained.provider);
+        }
+      } catch {
+        /* Corrupt or unavailable browser storage never changes admission. */
+      }
       try {
         const restored = JSON.parse(
           sessionStorage.getItem(`laomedo.assistant.pending.${owner}`) ?? "{}",
@@ -381,7 +405,7 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
   useEffect(() => {
     if (selected || locked || accountsLoading || account || !owner || accountsOwner !== owner) return;
     const connected = accounts.filter(item => item.provider === chosenProvider && item.lifecycle === "connected");
-    const available = connected.find(item => item.auth_state === "ready") ?? connected.find(item => item.auth_state === "expired");
+    const available = connected.find(item => item.auth_state === "ready") ?? connected.find(item => item.auth_state === "expired") ?? connected.find(item => item.provider === "opencode" && item.method === "opencode_go_key" && item.auth_state === "unavailable");
     if (available) setAccount(available);
   }, [selected, locked, accountsLoading, account, accounts, chosenProvider, owner, accountsOwner]);
 
@@ -1158,10 +1182,10 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
                 className="block w-full resize-none border-0 bg-transparent px-2 py-2 text-sm outline-none placeholder:text-muted-foreground read-only:opacity-60"
               />
               {composerStatus && <p id="assistant-composer-status" role="status" className="px-2 pb-1 text-xs text-muted-foreground">
-                {composerStatus}{!accountsLoading && !providerAccounts.length && <> <a href="/settings/providers" className="underline underline-offset-2">Connect account</a></>}
+                {composerStatus}{!accountsLoading && !providerAccounts.length && <> <a href="/settings/providers" onClick={event => { if (!retainSettingsDraft()) event.preventDefault(); }} className="underline underline-offset-2">Connect account</a></>}
               </p>}
               <div className="mt-1 flex items-center justify-end gap-2 px-1">
-                <AccountSelection provider={chosenProvider} accounts={accounts.filter(item => item.provider === chosenProvider)} selected={connectionId} generation={connectionGeneration}
+                <AccountSelection onManageAccounts={retainSettingsDraft} provider={chosenProvider} accounts={accounts.filter(item => item.provider === chosenProvider)} selected={connectionId} generation={connectionGeneration}
                   loading={accountsLoading}
                   disabled={Boolean(selected || busy || active || pending[""])}
                   onSelect={value => { if (value.connection_id === connectionId && value.generation === connectionGeneration) return; setAccount(value); setModels(undefined); setModel(""); setEffort(""); setError(undefined); }} />
