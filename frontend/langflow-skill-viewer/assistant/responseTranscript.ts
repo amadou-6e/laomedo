@@ -1,6 +1,14 @@
 import { messageText } from "@/modals/graphAgents/utils";
-import type { ActivityPage, DraftReceipt, GraphAction, Message } from "./models";
+import type { ActivityPage, DraftReceipt, GraphAction, Message, NativeAction } from "./models";
 import { toolCall } from "./toolCall";
+
+export function hasNativeControlResult(message: Message): boolean {
+  return Boolean((message.native_action_id || message.initial_native_command === "status") && message.state === "completed" && message.response && ["/status", "/mcp", "/skills"].includes(message.text));
+}
+
+export function hasNativeCommandOutcome(message: Message): boolean {
+  return hasNativeControlResult(message) || Boolean(message.native_action_id && message.state === "completed" && message.text === "/compact");
+}
 
 function fenced(value: unknown): string {
   const text = typeof value === "string" ? value : JSON.stringify(value, null, 2);
@@ -13,12 +21,14 @@ export function responseTranscript(
   message: Message,
   receipts: DraftReceipt[],
   actions: GraphAction[],
+  nativeActions: NativeAction[] = [],
+  provider: string = "codex",
 ): string {
   const blocks: string[] = [];
   let hasAnswer = false;
   for (const lane of page?.projection?.items ?? []) {
     if (lane.item?.type === "userMessage") continue;
-    const text = messageText(lane.item ?? {}, "codex");
+    const text = messageText(lane.item ?? {}, provider);
     if (text !== null) {
       hasAnswer = true;
       blocks.push(text);
@@ -32,6 +42,8 @@ export function responseTranscript(
     }
   }
   if (!hasAnswer && message.response) blocks.push(message.response);
+  if (hasNativeCommandOutcome(message) && message.text === "/compact" && !message.response)
+    blocks.push("Native command: /compact", "Outcome: completed");
   for (const action of actions) {
     const category = action.category ?? action.kind;
     const description = category === "rename"
@@ -45,8 +57,11 @@ export function responseTranscript(
     blocks.push(`### Saved draft: ${receipt.name}`, `Workflow: ${receipt.workflow_id}`,
       ...receipt.diagnostics, "Saved without running or publishing.");
   }
+  for (const action of nativeActions) {
+    blocks.push(`Native command: /${action.name}${action.arguments ? " " + action.arguments : ""}`, `Outcome: ${action.state}`);
+  }
   if (message.error_code) blocks.push(`Response error: ${message.error_code}`);
-  if (!page || !page.available || page.complete === false)
+  if (!hasNativeCommandOutcome(message) && (!page || !page.available || page.complete === false))
     blocks.push("Some activity is unavailable or was not retained; this copy may be partial.");
   if (message.state !== "completed") blocks.push(`Response state: ${message.state}. Copied activity is a snapshot.`);
   return blocks.join("\n\n");

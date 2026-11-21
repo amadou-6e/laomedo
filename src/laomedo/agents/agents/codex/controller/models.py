@@ -22,6 +22,38 @@ if TYPE_CHECKING:
     from py_docker.containers.models import ContainerSpec
 
 
+class CodexCommandResult(BaseModel):
+    """Observed native command completion, distinct from a native model-turn result."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    command: str = Field(
+        description="Admitted native command whose result was observed."
+    )
+    stop_reason: str | None = Field(
+        default=None,
+        description="Actual ACP terminal stop reason when a response was received.",
+    )
+    status: str = Field(
+        description="Completed only with command-specific native and ACP terminal evidence; otherwise unknown."
+    )
+    answer: str | None = Field(
+        default=None,
+        description="Actual bounded ACP command response, without fabricated assistant text.",
+    )
+    native_terminal: dict | None = Field(
+        default=None,
+        description="Actual matched compaction turn/item evidence; never a fabricated model turn.",
+    )
+    turn_id: None = Field(
+        default=None,
+        description="Control commands do not have a native model-turn identity.",
+    )
+    error: str | None = Field(
+        default=None,
+        description="Stable failure category when the control result is uncertain.",
+    )
+
+
 class CodexLaunch(BaseModel):
     """Group run identity, application mounts and mediated execution scope."""
 
@@ -243,6 +275,10 @@ class SplitPolicy(BaseModel):
     """Host-only provider configuration for a credential-free tool executor."""
 
     model_config = ConfigDict(extra="forbid", frozen=True, hide_input_in_errors=True)
+    managed_credential: bool = Field(
+        default=False,
+        description="Use the host-updated controller-private bearer file, never executor credentials.",
+    )
     provider_config: tuple[str, ...] = Field(
         default=(), description="Trusted host native provider configuration overrides."
     )

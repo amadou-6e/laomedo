@@ -2,6 +2,7 @@
 
 import asyncio
 import time
+from pydantic import ValidationError
 
 from acp import RequestError, connect_to_agent
 from acp.schema import (
@@ -13,6 +14,7 @@ from acp.schema import (
 )
 
 from laomedo.agents.agents.base.acp.models import AcpTurn
+from laomedo.agents.agents.base.acp.models import NativeCommandCatalog
 from laomedo.agents.agents.base.acp.transport import DockerTransport
 from laomedo.agents.errors import RunnerError
 from laomedo.docker import DockerRuntime
@@ -45,6 +47,7 @@ class AcpSession:
         self.on_extension = on_extension
         self.on_precheck = on_precheck
         self.updates = []
+        self._commands = None
         self.session_id = None
         self.capabilities = None
         self.cancel_sent = False
@@ -77,6 +80,7 @@ class AcpSession:
         A resume uses loadSession only when the agent advertises support. Failure
         never falls back to creating a fresh session or dispatching another turn.
         """
+        self._commands = None
         arguments = {"cwd": cwd, "mcp_servers": list(mcp_servers), **(metadata or {})}
         if session_id is None:
             reply = await self._request(
@@ -202,7 +206,14 @@ class AcpSession:
             )
         except RunnerError:
             raise
-        except (RequestError, ConnectionError, OSError, ValueError):
+        except RequestError as error:
+            # ACP assigns -32000 to auth_required; never inspect native text/data.
+            if error.code == -32000:
+                raise RunnerError("runner_authentication_required") from None
+            if health_error is not None:
+                raise health_error from None
+            raise RunnerError("runner_transport_failed") from None
+        except (ConnectionError, OSError, ValueError):
             if health_error is not None:
                 raise health_error from None
             raise RunnerError("runner_transport_failed") from None
@@ -222,11 +233,31 @@ class AcpSession:
             return
         try:
             value = update.model_dump(mode="json", by_alias=True, exclude_none=True)
+            if value.get("sessionUpdate") == "available_commands_update":
+                try:
+                    self._commands = NativeCommandCatalog.model_validate(
+                        {"commands": value.get("availableCommands")}
+                    )
+                except ValidationError:
+                    # Optional discovery must not break ordinary agent turns.
+                    # Withdraw the previous catalog instead of retaining stale
+                    # executable choices; preserve the raw activity callback.
+                    self._commands = None
             self.updates.append(value)
             if self.on_update is not None:
                 self.on_update(session_id, value)
         except Exception:
             self.protocol_failed = True
+
+    def command_catalog(self) -> NativeCommandCatalog | None:
+        """Copy observed commands independently of per-turn activity buffers.
+
+        None means no list has been advertised; an empty list means the agent
+        explicitly cleared it. Neither observation admits command execution.
+        """
+        return (
+            self._commands.model_copy(deep=True) if self._commands is not None else None
+        )
 
     async def ext_method(self, method, params):
         """Allow only pure output validation; every execution extension is denied."""
@@ -292,5 +323,10 @@ class AcpSession:
             return result
         except TimeoutError:
             raise RunnerError("request_timeout:" + method) from None
-        except (RequestError, ConnectionError, OSError, ValueError):
+        except RequestError as error:
+            # Use ACP's defined auth_required category, not JSON-RPC error text.
+            if error.code == -32000:
+                raise RunnerError("runner_authentication_required") from None
+            raise RunnerError("runner_transport_failed") from None
+        except (ConnectionError, OSError, ValueError):
             raise RunnerError("runner_transport_failed") from None

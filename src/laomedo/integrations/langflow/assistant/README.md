@@ -1,5 +1,32 @@
 # Application assistant
 
+## Browser session identity
+
+`AssistantSession` is the durable browser authority and revocation fence.
+`AssistantSessionAlias` binds a verified renewed access-token fingerprint to that
+same authority; it stores no token. `AssistantStore.admit_session()` returns the
+canonical key and only accepts a new binding from the normal profile boundary's
+verified renewal. `canonical_session_key()` resolves that identity for active
+work; `revoke()` atomically retains even an unseen renewal binding and revokes its
+root before sign-out completes. Runtime admission remembers verified canonical
+keys for active work; logout synchronously fences known keys and removes tool
+contexts before any database await. Cleanup runs even if persistence fails or
+the logout lookup times out. Owner mismatches, conflicting bindings and revoked roots
+refuse. Restart cannot turn a known renewed token into a new approval identity.
+Unrelated logins and pre-fix proposals are not rebound.
+An unobserved renewal lost with the provider's in-memory map during restart
+cannot inherit the original approval identity. That path fails closed and cannot
+identify the earlier root for logout; known persisted aliases remain fenced.
+
+## Resume recovery (#303)
+
+`AssistantRuntime.reconcile()` observes a resumed message using the conversation's
+existing run and the reserved attempt identity, even if the POST acknowledgement
+was lost. It never resubmits the operation. An unavailable lookup keeps the outcome
+unconfirmed. Activity reads use the runner's supported maximum of 200 records.
+The shared ACP client preserves an explicit authentication-required category;
+provider sign-in failures must not be described as uncertain remote execution.
+
 Persistence, declarative metadata validation, atomic workflow receipts, MCP
 hosting, direct provider orchestration and chat rendering form one application
 feature. Controlled tests and real provider/editor acceptance are separate gates.
@@ -35,7 +62,7 @@ keyboard activation, Enter to save and Escape to cancel.
 | `catalog.py` | `ComponentCatalog` reads already installed metadata, describes safe static fields and compiles declarative nodes/edges. It never loads component code or calls update/build hooks. Missing full metadata refuses. |
 | `persistence.py` | `AssistantStore` owns conversation/message reservations and bounded history in the application database. Every operation is owner-scoped. |
 | `workflows.py` | `WorkflowDrafts` uses Langflow Flow rows, database write/row locking, revision checks and atomic draft-plus-receipt transactions. It cannot run/publish/delete a flow; separate graph actions gate edits/runs on human approval. |
-| `mcp.py` | `AuthoringMcp` exposes nine real FastMCP tools; proposal/read tools cannot approve actions. Host credentials bind owner/conversation/message/attempt; the model cannot select them. |
+| `mcp.py` | `AuthoringMcp` exposes thirteen real FastMCP tools; proposal/read tools cannot approve actions. Host credentials bind owner/conversation/message/attempt; the model cannot select them. |
 | `runner.py` | `AssistantRunner` composes a dedicated existing provider runner with an app-owned source workspace and private state. It supplies no repository/publication authority. |
 | `runtime.py` | `AssistantRuntime` composes lifetimes, dispatch, native MCP connections, revocation, Activity and reconciliation. |
 | `routes.py` | Authenticated application HTTP adapters. Late responses and tool writes recheck profile authority. |
@@ -87,3 +114,113 @@ does not expose deletion. Row locking serializes deletion with Send/approval.
 
 Conversation deletion is from Laomedo history only; native provider thread/session
 records are outside its scope. The confirmation makes no provider-erasure claim.
+
+## Built-in native commands (#293)
+
+`native.py` owns `NativeCommands.propose`, `read`, `list` and `decide`: proposals
+bind the observed native catalog/run/thread and the originating app session;
+`decide` reserves the exact command message and claims its action in one database
+transaction. `AssistantStore.reserve_message` is shared by ordinary Send and native
+approval under the existing conversation lock. Active chat work refuses approval
+without consuming the proposal. There is no native-command Always grant.
+`AssistantNativeAction`, `NativeCommandRequest` and `NativeActionDecision` belong
+to `models.py`; `AssistantMessage.native_action_id` is an internal persisted mode,
+not a browser-supplied MessageRequest field. Revocation, Stop and reconciliation
+use the existing chat attempt lifecycle. Unknown outcomes never dispatch again.
+
+MCP provides list_native_commands, list_native_agents, propose_native_command and
+get_native_action. The model cannot approve or run an arbitrary RPC/shell command.
+Native agents are explicitly unsupported in this Codex-first slice. The current
+admitted built-ins are status, mcp, skills, review and compact. Review operates on
+the assistant scratch workspace, not the user's repository. Review and compact
+can use model quota. Native result messages are sent bare only after approval;
+normal prompts retain the assistant wrapper. Commands may use the same scoped
+MCP tools; any resulting graph/native proposal still needs its own approval.
+
+Native catalogs and their provider-owned availability projection cross through
+normal runner status, with run/thread binding and shared typed wire models. App
+code never reaches into a concrete provider object. A missing or invalid catalog
+is unavailable, not a fabricated empty list. The registered commands4 image
+contains the explicit native-command adapter hook. Existing tool manifests remain
+frozen for a native session. Older retained conversations/runs may require a new
+conversation after this image upgrade; their history remains readable, and no
+failed resume silently starts a fresh thread.
+
+Explicit compact execution can complete on an ordered native contextCompaction
+start/completion pair with the same observed thread, turn and item IDs. It retains
+that evidence separately from a model-turn result, drains briefly for late native
+failure, then uses normal cleanup. No assistant text or usage is manufactured.
+Ordinary prompts and review still require native turn completion.
+
+Native command discovery and dispatch require the adapter handshake flag
+`nativeCommands: 1`. Base-only adapters remain valid for ordinary execution but
+expose no executable command catalog and refuse explicit command requests before
+any prompt. Image tags or advertised slash-command descriptions alone do not
+establish handler support. Unknown capability fields and invalid flag values fail
+initialization.
+
+
+## Additional provider composition (issue305)
+
+### Human-entered slash commands
+
+`NativeCommands.submit` accepts commands only through authenticated app routes.
+It binds the observed catalog, owned run/thread and stable operation key, retaining
+a proposal under the conversation transaction. A typed Codex `status` with empty
+arguments and explicit `may_use_model=False` reuses `decide_native_action` to
+reserve and dispatch without a second confirmation. Other commands keep the
+existing human approval. MCP proposals never enter this bypass. Discovery uses
+the retained session catalog; no session is created or inferred by the picker.
+
+Conversation provider and saved-account epoch are immutable. `AssistantRuntime`
+keys its clients and locks by owner, provider, account and generation. The shared
+saved-account manager constructs each provider with its admitted private profile;
+chat never receives a credential or host profile path. Each provider owns command
+catalog policy and terminal receipts; shared slash syntax does not imply shared
+command support.
+
+## Status before the first prompt
+
+`MessageRequest.initial_native_command` distinguishes an explicit first `/status`
+from a model prompt and is included in message identity. It is admitted only for
+a fresh Codex conversation and persisted on `AssistantMessage`; `_job` forwards
+the exact task and mode, without assistant instructions. The existing start,
+observation, cancellation and reconciliation owners handle it. The actual native
+status result renders and exports through the common status path; it creates no
+approval proposal or model turn. Later commands retain observed catalog binding.
+
+## Saved provider account selection
+
+New conversations explicitly select a profile-owned saved connection and its
+observed generation. `ConversationRequest` carries only that opaque selector;
+`AssistantConversation` retains it immutably. Unbound history remains readable,
+but cannot dispatch. A missing, foreign, changed or disconnected account never
+falls back to a service account, host token or another saved account.
+
+`AssistantRunner` uses `ProviderControllers.assistant_endpoint()` and its guarded
+HTTP gateway. The shared manager owns startup, inventory, cancellation,
+disconnection and restart recovery. Each connection generation has a separate
+assistant runner and scratch source, independent of the graph runner/source.
+Closing the chat adapter does not close the shared manager. Provider account
+selection is visible before model discovery; existing chats show their binding.
+
+The browser uses its native HttpOnly session cookie without a bearer override;
+saved-connection lease checks remain enforced. Existing unbound chat runs are not
+migrated or silently abandoned: new assistant dispatch is blocked while their known
+runner roots retain active records, unresolved resumes or resource receipts.
+Settled history stays readable and files stay untouched. New chats use saved
+accounts; disconnected conversations remain readable but cannot change accounts.
+
+The transition check never prevents app, Settings or graph startup. Read retained
+history, including unknown in-flight outcomes, without dispatch. To reconcile old
+operational state, use the pre-transition checkout (`872c4064`) and its original
+private runtime and account to observe/cancel the exact old run; do not copy its
+credentials or mark files settled manually. Restart the updated app after that
+runner confirms cleanup. This bounded transition check can retire once all older
+operational state is explicitly reconciled.
+
+`ModelCatalogCacheEntry` retains a canonical catalog under the exact owner,
+provider, connection, generation and runner instance. Cached composer reads never
+open native discovery during an active chat. Every read still checks saved-account
+admission; runner replacement invalidates the observation. Native execution still
+validates the actual model options before prompting.

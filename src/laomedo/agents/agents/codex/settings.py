@@ -2,7 +2,7 @@
 
 from laomedo._paths import package_root
 
-IMAGE = "laomedo-codex-acp:0.159.2-2.1.1-mcp2"
+IMAGE = "laomedo-codex-acp:0.159.2-2.1.1-commands4"
 
 
 # Managed image IDs are resolved on the selected daemon before execution.
@@ -17,6 +17,8 @@ GIT_IMAGE_ID = IMAGE_ID
 
 CLI_VERSION = "codex-cli 0.159.2"
 NATIVE_TURN_SECONDS = 180
+# Broker HTTPS timeout is 20 seconds; idle controllers allow a bounded margin.
+IDLE_AUTH_REFRESH_SECONDS = 30
 NATIVE_RECEIPT_FILENAME = "container-receipt.json"
 
 

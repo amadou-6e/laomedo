@@ -6,9 +6,11 @@ import { toolCall } from "./toolCall";
 export default function ToolCalls({
   lanes,
   names,
+  compactionCompleted = false,
 }: {
   lanes: Lane[];
   names: Record<string, string>;
+  compactionCompleted?: boolean;
 }) {
   return (
     <div className="min-w-0 border-y bg-muted/40" aria-label="Tool calls">
@@ -23,6 +25,7 @@ export default function ToolCalls({
               <span className="flex min-w-0 items-center gap-2">
                 <Terminal size={12} className="shrink-0" />
                 <span className="break-words">{name}</span>
+                {lane.item?.type === "contextCompaction" && <span>{compactionCompleted ? "Completed" : lane.status ?? "Outcome unavailable"}</span>}
                 <ChevronRight
                   size={10}
                   className="shrink-0 transition-transform group-open:rotate-90"
@@ -39,6 +42,9 @@ export default function ToolCalls({
               <p role="status" className="mt-2">
                 Conflicting native receipts retained.
               </p>
+            )}
+            {lane.item?.type === "contextCompaction" && (
+              <p className="mt-2 text-muted-foreground">{compactionCompleted ? "Context compaction completed." : `Context compaction: ${lane.status ?? "outcome unavailable"}.`}</p>
             )}
             {input != null && (
               <pre className="mt-2 max-h-56 overflow-auto whitespace-pre-wrap break-words">

@@ -206,3 +206,15 @@ Generic progress and cancel routes pass the verified opaque browser lease to
 the adapter, which matches both profile and originating lease before access.
 Trusted internal callers may inspect receipts without a browser lease; the HTTP
 boundary never omits it. Native identity verification stays in its provider adapter.
+
+## Assistant controllers
+
+`ProviderControllers.assistant_endpoint(profile_id, connection_id, generation)`
+admits the exact saved epoch and returns its host-only gateway URL and token path.
+`ControllerSlot.scope` distinguishes graph and assistant ownership. Assistant
+state is the fixed `assistant/gN/state` tree; its scratch source is the separate
+`assistant/gN/source/workspace` directory. No browser chooses a host path.
+Recovery inventories both scopes before dispatch; disconnect counts and cancels
+both scopes, including uncertain resume reservations. Graph endpoints cannot
+resolve assistant run identities. The assistant sends native operations through
+the existing saved-runner admission fence rather than borrowing credentials.

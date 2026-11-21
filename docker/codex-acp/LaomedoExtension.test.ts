@@ -4,6 +4,9 @@ import type * as acp from "@agentclientprotocol/sdk";
 import type {MessageConnection} from "vscode-jsonrpc/node";
 import type {CodexAppServerClient} from "./CodexAppServerClient";
 import {LaomedoExtension, probeParams, executorParams} from "./LaomedoExtension";
+import {writeProviderCredential} from "./LaomedoLaunch";
+
+vi.mock("./LaomedoLaunch", () => ({writeProviderCredential: vi.fn()}));
 
 function setup() {
     let observe: (event: any) => void = () => {};
@@ -17,6 +20,59 @@ function setup() {
 }
 
 describe("Laomedo ACP policy", () => {
+    it("updates only host-managed split credentials while no native prompt is active", async () => {
+        const {extension, observe, host} = setup();
+        const params = {accessToken: "fixture-renewed-access-token"};
+        await expect(extension.refreshCredential(params)).rejects.toThrow();
+        process.env["LAOMEDO_CODEX_REFRESHABLE_AUTH"] = "1";
+        try {
+            await extension.registerExecutor({environmentId:"e",execServerUrl:"ws://127.0.0.1:39871",authBearerToken:"x".repeat(32),connectTimeoutMs:15000});
+            await expect(extension.refreshCredential(params)).resolves.toEqual({updated:true});
+            expect(writeProviderCredential).toHaveBeenCalledWith(params.accessToken);
+            await extension.prompt("root", async () => {
+                await expect(extension.refreshCredential(params)).rejects.toThrow();
+                observe("turn/completed", {threadId:"root",turn:{id:"t",status:"completed"}});
+            });
+            expect(host.notify).not.toHaveBeenCalledWith(expect.anything(), expect.objectContaining(params));
+        } finally { delete process.env["LAOMEDO_CODEX_REFRESHABLE_AUTH"]; }
+    });
+    it("admits only explicit bound built-ins and preserves ordinary slash prompt handling", async () => {
+        const {extension, request, terminate} = setup();
+        extension.bind(request, "native-session");
+        const ordinary = {sessionId:"native-session",prompt:[{type:"text",text:"/status"}]} as acp.PromptRequest;
+        expect(extension.commandPrompt(ordinary)).toEqual([]);
+        const command = {...ordinary,_meta:{laomedo:{nativeCommand:{name:"status",arguments:""}}}};
+        expect(extension.commandPrompt(command)).toEqual(ordinary.prompt);
+        await expect(extension.prompt("native-session", async () => ({stopReason:"end_turn"}), command)).resolves.toEqual({stopReason:"end_turn"});
+        expect(terminate).not.toHaveBeenCalled();
+        expect(() => extension.commandPrompt({...command,prompt:[{type:"text",text:"/logout"}]})).toThrow();
+        expect(() => extension.commandPrompt({...command,_meta:{laomedo:{nativeCommand:{name:"logout",arguments:""}}}})).toThrow();
+        expect(() => extension.commandPrompt({...command,_meta:{laomedo:{nativeCommand:{name:"review",arguments:"one\ntwo"}}}})).toThrow();
+    });
+    it("accepts matched compaction evidence only for an explicit compact command", async () => {
+        for (const explicit of [false, true]) {
+            const {extension, request, observe, terminate} = setup();
+            extension.bind(request, "root");
+            const command = {sessionId:"root",prompt:[{type:"text",text:"/compact"}],_meta:{laomedo:{nativeCommand:{name:"compact",arguments:""}}}} as acp.PromptRequest;
+            const pending = extension.prompt("root", async () => {
+                observe("turn/started", {threadId:"root",turn:{id:"t"}});
+                observe("item/started", {threadId:"root",turnId:"t",item:{type:"contextCompaction",id:"i"}});
+                observe("item/completed", {threadId:"root",turnId:"t",item:{type:"contextCompaction",id:"i"}});
+                return {stopReason:"end_turn"};
+            }, explicit ? command : undefined);
+            if (explicit) { await expect(pending).resolves.toEqual({stopReason:"end_turn"}); expect(terminate).not.toHaveBeenCalled(); }
+            else { await expect(pending).rejects.toThrow(); expect(terminate).toHaveBeenCalled(); }
+        }
+    });
+    it("refuses compaction items with a mismatched identity", async () => {
+        const {extension, request, observe} = setup(); extension.bind(request,"root");
+        const command = {sessionId:"root",prompt:[{type:"text",text:"/compact"}],_meta:{laomedo:{nativeCommand:{name:"compact",arguments:""}}}} as acp.PromptRequest;
+        await expect(extension.prompt("root",async () => {
+            observe("turn/started",{threadId:"root",turn:{id:"t"}});
+            observe("item/started",{threadId:"root",turnId:"t",item:{type:"contextCompaction",id:"i"}});
+            observe("item/completed",{threadId:"root",turnId:"t",item:{type:"contextCompaction",id:"other"}});
+        },command)).rejects.toThrow();
+    });
     it("admits only scoped external HTTP MCP endpoints with exact tool grants", () => {
         const {extension, request} = setup();
         const external = {
@@ -40,7 +96,7 @@ describe("Laomedo ACP policy", () => {
         expect(() => extension.sessionParameters({...request, mcpServers: [external]})).toThrow();
     });
     it("advertises the versioned raw-event and host-policy contract", () => {
-        expect(LaomedoExtension.capabilities).toEqual({version: 1, rawEvents: true, hostPolicy: true});
+        expect(LaomedoExtension.capabilities).toEqual({version: 1, rawEvents: true, hostPolicy: true, nativeCommands: 1, credentialRefresh: 1});
     });
     it("inherits the normal permission profile without agent-mode overrides", () => {
         const {extension, request} = setup();

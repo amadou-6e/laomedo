@@ -1,5 +1,8 @@
+import { providerCommandNames } from "./commandPreviews";
+import ProviderIcon from "./ProviderIcon";
+import AccountSelection from "./AccountSelection";
 import GraphPermissions from "./GraphPermissions";
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   Plus,
@@ -14,9 +17,8 @@ import {
   Download,
   History,
 } from "lucide-react";
-import { OpenAiIcon } from "@/icons/OpenAi";
 import { Button } from "@/components/ui/button";
-import useAuthStore from "@/stores/authStore";
+import { AuthContext } from "@/contexts/authContext";
 import { describeNodeFailure } from "@/components/laomedoErrors/nodeErrors";
 import ErrorExplanation from "@/components/laomedoErrors/ErrorExplanation";
 import { AssistantFailure, assistantRequest } from "./api";
@@ -24,16 +26,19 @@ import MessageRow, { UserMessage } from "./Message";
 import Thinking from "./Thinking";
 import ModelSelection from "./ModelSelection";
 import type {
+  SavedConnection,
   ConversationDetail,
   Conversation,
   ConversationIndex,
   Message,
   Models,
   PendingSubmission,
+  NativeCommandCatalog,
 } from "./models";
 import { stateLabel } from "./models";
 import { conversationTranscript, downloadTranscript } from "./transcript";
 import DeleteConversation from "./DeleteConversation";
+import NativeCommandMenu from "./NativeCommandMenu";
 
 export default function AssistantPage({ embedded = false, selectedConversation, linkedConversation, onSelectConversation, headerActions }: {
   embedded?: boolean;
@@ -43,7 +48,7 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
   onSelectConversation?: (selection: Record<string, string>) => void;
 } = {}) {
   const RootTag = embedded ? "section" : "main";
-  const owner = useAuthStore((state) => state.userData?.id);
+  const owner = useContext(AuthContext).userData?.id;
   const [params, setRouteParams] = useSearchParams();
   const selected = embedded ? selectedConversation ?? "" : params.get("conversation") ?? "";
   const linked = embedded ? linkedConversation ?? "" : params.get("linked") ?? "";
@@ -57,9 +62,34 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
   });
   const [detail, setDetail] = useState<ConversationDetail>();
   const [models, setModels] = useState<Models>();
+  const [provider, setProvider] = useState("codex");
+  const selectedProvider = detail?.conversation.id === selected ? detail.conversation.provider : index.conversations.find((item) => item.id === selected)?.provider;
+  const providerKnown = !selected || Boolean(selectedProvider);
+  const chosenProvider = selected ? selectedProvider ?? "codex" : provider;
+  const providerRef = useRef(chosenProvider);
+  providerRef.current = chosenProvider;
+  const [accounts, setAccounts] = useState<SavedConnection[]>([]);
+  const [accountsLoading, setAccountsLoading] = useState(true);
+  const [accountsOwner, setAccountsOwner] = useState<string>();
+  const [account, setAccount] = useState<SavedConnection>();
+  const boundAccount = selected ? (detail?.conversation.id === selected ? detail.conversation : index.conversations.find(item => item.id === selected)) : undefined;
+  const connectionId = owner && accountsOwner === owner ? selected ? boundAccount?.connection_id : account?.provider === chosenProvider ? account.connection_id : undefined : undefined;
+  const connectionGeneration = owner && accountsOwner === owner ? selected ? boundAccount?.connection_generation : account?.provider === chosenProvider ? account.generation : undefined : undefined;
+  const binding = `${chosenProvider}:${connectionId ?? ""}:${connectionGeneration ?? ""}`;
+  const bindingRef = useRef(binding);
+  bindingRef.current = binding;
   const [model, setModel] = useState("");
   const [effort, setEffort] = useState("");
   const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const retainSettingsDraft = () => {
+    if (!owner || locked) return false;
+    try {
+      sessionStorage.setItem(`laomedo.assistant.settings-drafts.${owner}`, JSON.stringify({drafts, provider}));
+      return true;
+    } catch {
+      return window.confirm("Your draft could not be saved. Leave chat and discard it?");
+    }
+  };
   const [pending, setPending] = useState<Record<string, PendingSubmission>>({});
   const [retryable, setRetryable] = useState<Record<string, boolean>>({});
   const [pendingOwner, setPendingOwner] = useState<string>();
@@ -67,6 +97,8 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
   const [error, setError] = useState<string>();
   const [locked, setLocked] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [discovering, setDiscovering] = useState(false);
+  const [commandsDismissed, setCommandsDismissed] = useState(false);
   const [history, setHistory] = useState(!embedded);
   const [renaming, setRenaming] = useState<string>();
   const [titleDraft, setTitleDraft] = useState("");
@@ -80,6 +112,7 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
   const scroll = useRef<HTMLDivElement>(null);
   const pinned = useRef(true);
   const currentSelection = useRef(selected);
+  const nativeSubmission = useRef<{ conversation: string; text: string; request: { name: string; arguments: string; catalog_revision: string; operation_key: string } }>();
   currentSelection.current = selected;
 
   useEffect(() => {
@@ -136,6 +169,8 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
         try {
           if (owner)
             sessionStorage.removeItem(`laomedo.assistant.pending.${owner}`);
+          if (owner)
+            sessionStorage.removeItem(`laomedo.assistant.settings-drafts.${owner}`);
         } catch {
           /* Rendered private state is already cleared. */
         }
@@ -166,11 +201,24 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
         sessionStorage.removeItem(
           `laomedo.assistant.pending.${previousOwner.current}`,
         );
+      if (previousOwner.current && previousOwner.current !== owner)
+        sessionStorage.removeItem(`laomedo.assistant.settings-drafts.${previousOwner.current}`);
     } catch {
       /* No storage access may block a profile fence. */
     }
     previousOwner.current = owner;
     if (owner) {
+      try {
+        const key = `laomedo.assistant.settings-drafts.${owner}`;
+        const retained = JSON.parse(sessionStorage.getItem(key) ?? "null");
+        sessionStorage.removeItem(key);
+        if (retained && ["codex", "claude", "opencode"].includes(retained.provider) && retained.drafts && typeof retained.drafts === "object" && !Array.isArray(retained.drafts) && Object.entries(retained.drafts).every(([key, text]) => (key === "" || /^[0-9a-f-]{36}$/.test(key)) && typeof text === "string" && text.length <= 12000)) {
+          setDrafts(retained.drafts);
+          setProvider(retained.provider);
+        }
+      } catch {
+        /* Corrupt or unavailable browser storage never changes admission. */
+      }
       try {
         const restored = JSON.parse(
           sessionStorage.getItem(`laomedo.assistant.pending.${owner}`) ?? "{}",
@@ -185,6 +233,7 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
               /^[0-9a-f-]{36}$/.test(row.id) &&
               typeof row?.text === "string" &&
               row.text.length <= 12000 &&
+              (row.initial_native_command === undefined || (row.initial_native_command === "status" && row.text === "/status")) &&
               ((row.model === undefined && row.effort === undefined) ||
                 (typeof row.model === "string" &&
                   typeof row.effort === "string")),
@@ -338,19 +387,44 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
     };
   }, [refresh, selected, owner, locked, fail]);
 
+  useEffect(() => {
+    setAccounts([]);
+    setAccountsOwner(undefined);
+    setAccount(undefined);
+    if (locked || !owner) { setAccountsLoading(false); return; }
+    setAccountsLoading(true);
+    let current = true;
+    const load = () => { void assistantRequest<{ connections: SavedConnection[] }>("/connections").then(result => {
+      if (current) { if (!Array.isArray(result.connections)) throw new AssistantFailure("assistant_connection_unavailable"); setAccounts(result.connections); setAccountsOwner(owner); }
+    }).catch(failure => { if (current) fail(failure); }).finally(() => { if (current) setAccountsLoading(false); }); };
+    load();
+    window.addEventListener("focus", load);
+    return () => { current = false; window.removeEventListener("focus", load); };
+  }, [owner, locked, fail]);
+
+  useEffect(() => {
+    if (selected || locked || accountsLoading || account || !owner || accountsOwner !== owner) return;
+    const connected = accounts.filter(item => item.provider === chosenProvider && item.lifecycle === "connected");
+    const available = connected.find(item => item.auth_state === "ready") ?? connected.find(item => item.auth_state === "expired") ?? connected.find(item => item.provider === "opencode" && item.method === "opencode_go_key" && item.auth_state === "unavailable");
+    if (available) setAccount(available);
+  }, [selected, locked, accountsLoading, account, accounts, chosenProvider, owner, accountsOwner]);
+
   const discover = useCallback(async () => {
+    if (!providerKnown || !connectionId || !connectionGeneration) { setModels(undefined); setDiscovering(false); return; }
     const epoch = generation.current;
-    setBusy(true);
+    const expectedBinding = binding;
+    setDiscovering(true);
+    setModels(undefined);
     setError(undefined);
     try {
-      const result = await assistantRequest<Models>("/models");
-      if (epoch === generation.current) setModels(result);
+      const result = await assistantRequest<Models>(`/models?provider=${encodeURIComponent(chosenProvider)}&connection_id=${encodeURIComponent(connectionId)}&connection_generation=${connectionGeneration}`);
+      if (epoch === generation.current && bindingRef.current === expectedBinding) setModels(result);
     } catch (failure) {
-      if (epoch === generation.current) fail(failure);
+      if (epoch === generation.current && bindingRef.current === expectedBinding) fail(failure);
     } finally {
-      if (epoch === generation.current) setBusy(false);
+      if (epoch === generation.current && bindingRef.current === expectedBinding) setDiscovering(false);
     }
-  }, [fail]);
+  }, [fail, chosenProvider, providerKnown, connectionId, connectionGeneration, binding]);
 
   useEffect(() => {
     if (!locked) void discover();
@@ -396,11 +470,20 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
 
   async function create() {
     return assistantRequest<{ id: string }>("/conversations", {
-      provider: "codex",
+      provider,
+      connection_id: connectionId,
+      connection_generation: connectionGeneration,
       model,
       effort,
       ...(linked ? { linked_conversation_id: linked } : {}),
     });
+  }
+
+  function clearCommandInputError() {
+    setError(value => value && [
+      "native_command_not_available", "native_command_not_supported",
+      "native_command_arguments_invalid", "native_command_catalog_changed",
+    ].includes(value) ? undefined : value);
   }
 
   async function send(retry?: PendingSubmission) {
@@ -415,7 +498,8 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
     )
       return;
     const epoch = generation.current;
-    const identity = retry ?? { id: crypto.randomUUID(), text, model, effort };
+    const initialStatus = text.trim() === "/status" && chosenProvider === "codex" && (!selected || (detail?.conversation.id === selected && !detail.conversation.run_id));
+    const identity: PendingSubmission = retry ?? { id: crypto.randomUUID(), text: initialStatus ? "/status" : text, model, effort, ...(initialStatus ? { initial_native_command: "status" as const } : {}) };
     let target = selected;
     let acknowledged = false;
     if (
@@ -423,7 +507,8 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
       (pending[selected]?.id !== retry.id ||
         pending[selected]?.text !== retry.text ||
         pending[selected]?.model !== retry.model ||
-        pending[selected]?.effort !== retry.effort)
+        pending[selected]?.effort !== retry.effort ||
+        pending[selected]?.initial_native_command !== retry.initial_native_command)
     )
       return;
     setBusy(true);
@@ -431,6 +516,40 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
     setError(undefined);
     pinned.current = true;
     try {
+      if (text.startsWith("/") && !identity.initial_native_command) {
+        let submission = nativeSubmission.current;
+        if (!submission || submission.conversation !== target || submission.text !== text) {
+          submission = undefined;
+          const match = /^\/([^\s]+)(?: (.*))?$/.exec(text);
+          if ((!target || !detail?.conversation.run_id) && (providerCommandNames[chosenProvider] ?? []).includes(match?.[1] ?? "")) {
+            throw new AssistantFailure("native_command_not_available");
+          }
+          if (target && match) {
+            const catalog = await assistantRequest<NativeCommandCatalog>(`/conversations/${target}/native-commands`);
+            if (epoch !== generation.current || currentSelection.current !== target) return;
+            const command = catalog.commands?.find(item => item.name === match[1]);
+            if ((catalog.state !== "available" && catalog.reason !== "native_session_not_created") ||
+                (!command && (providerCommandNames[chosenProvider] ?? []).includes(match[1]))) {
+              throw new AssistantFailure("native_command_not_available");
+            }
+            if (command && !command.executable) throw new AssistantFailure("native_command_not_supported");
+            if (command) {
+              const args = match[2] ?? "";
+              if (!catalog.revision || (args && !command.accepts_arguments)) throw new AssistantFailure("native_command_arguments_invalid");
+              submission = { conversation: target, text, request: { name: command.name, arguments: args, catalog_revision: catalog.revision, operation_key: crypto.randomUUID() } };
+              nativeSubmission.current = submission;
+            }
+          }
+        }
+        if (submission) {
+          await assistantRequest(`/conversations/${target}/native-commands`, submission.request);
+          if (epoch !== generation.current || currentSelection.current !== target) return;
+          nativeSubmission.current = undefined;
+          setDrafts(value => ({ ...value, [target]: value[target] === text ? "" : value[target] ?? "" }));
+          await refresh();
+          return;
+        }
+      }
       if (!target) {
         const created = await create();
         if (
@@ -449,7 +568,10 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
         throw new AssistantFailure("assistant_client_state_unavailable");
       }
       setPending((value) => ({ ...value, [target]: identity }));
-      setDrafts((value) => ({ ...value, [selected]: "" }));
+      setDrafts(value => {
+        const nextDraft = value[selected] === text ? "" : value[selected] ?? "";
+        return {...value, [selected]: "", [target]: nextDraft};
+      });
       requestAnimationFrame(follow);
       if (!selected) setParams({ conversation: target });
       await assistantRequest<Message>(`/conversations/${target}/messages`, {
@@ -457,6 +579,7 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
         text: identity.text,
         model: identity.model,
         effort: identity.effort,
+        ...(identity.initial_native_command ? { initial_native_command: identity.initial_native_command } : {}),
       });
       acknowledged = true;
       if (epoch !== generation.current) return;
@@ -478,7 +601,7 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
           delete next[target];
           return next;
         });
-        setDrafts((value) => ({ ...value, [target]: identity.text }));
+        setDrafts(value => ({...value, [target]: value[target] && value[target] !== identity.text ? `${identity.text}\n\n${value[target]}` : identity.text}));
       } else {
         setRetryable((value) => ({ ...value, [identity.id]: true }));
       }
@@ -587,13 +710,24 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
   const active = Boolean(conversation?.active_message_id);
   const needsAttention = conversation?.state === "attention";
   const waiting = pending[selected];
+  const providerName = ({ codex: "Codex", claude: "Claude", opencode: "OpenCode" } as Record<string, string>)[chosenProvider] ?? chosenProvider;
+  const providerAccounts = accounts.filter(item => item.provider === chosenProvider && item.lifecycle === "connected");
+  const composerStatus = error ? undefined : accountsLoading ? "Loading accounts…"
+    : !providerAccounts.length ? `Connect a ${providerName} account in Settings → Providers to chat.`
+    : !connectionId ? undefined
+    : discovering ? `Loading ${providerName} models…`
+    : models && !models.models.length ? "No models were returned for this account."
+    : undefined;
   const canSend = Boolean(
+    connectionId && connectionGeneration &&
+    accounts.some(item => item.connection_id === connectionId && item.generation === connectionGeneration && item.lifecycle === "connected") &&
     (!selected || conversation?.state === "idle") &&
       model &&
       effort &&
       !active &&
       !waiting &&
       !busy &&
+      !discovering &&
       !detail?.observation_error &&
       !error,
   );
@@ -631,7 +765,7 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
               >
                 <span className="block truncate font-medium">{item.title}</span>
                 <span className="mt-1 block text-xs text-muted-foreground">
-                  Codex ·{" "}
+                  {({codex: "Codex", claude: "Claude", opencode: "OpenCode"} as Record<string, string>)[item.provider] ?? "Agent"} ·{" "}
                   {item.active_message_id
                     ? stateLabel(item.state)
                     : new Date(item.updated_at * 1000).toLocaleDateString()}
@@ -823,8 +957,8 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
             className="mx-5 mt-4 rounded-lg border bg-muted/30 p-4 text-sm"
           >
             <p className="mb-2 font-medium">
-              {needsAttention
-                ? "Cannot safely continue this session"
+              {needsAttention && failure.diagnostics.code !== "runner_authentication_required"
+                ? "This session needs attention"
                 : failure.title}
             </p>
             <ErrorExplanation failure={failure} />
@@ -895,8 +1029,12 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
                 <MessageRow
                   key={message.id}
                   conversation={selected}
+                  provider={conversation?.provider ?? "codex"}
                   message={message}
                   actions={(detail.actions ?? []).filter(
+                    (action) => action.message_id === message.id,
+                  )}
+                  nativeActions={(detail.native_actions ?? []).filter(
                     (action) => action.message_id === message.id,
                   )}
                   receipts={detail.drafts.filter(
@@ -962,40 +1100,23 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
                     <h2 className="text-xl font-medium">
                       What would you like to build?
                     </h2>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="mx-auto w-full max-w-sm text-sm text-muted-foreground">
                       Describe a workflow or ask me to change one. I can inspect
                       workflows and save a separate editable draft.
                     </p>
                     {!selected && (
                       <fieldset
-                        className="pt-2 text-left"
+                        className="mx-auto w-full max-w-xs pt-2 text-left"
                         aria-label="Assistant provider"
                       >
-                        <label className="flex cursor-default items-center gap-4 rounded-2xl border border-primary/40 bg-primary/5 p-4 has-[:focus-visible]:outline has-[:focus-visible]:outline-2">
-                          <input
-                            type="radio"
-                            name="assistant-provider"
-                            aria-label="Codex"
-                            checked
-                            readOnly
-                            className="sr-only"
-                          />
-                          <span aria-hidden="true" className="text-4xl">
-                            <OpenAiIcon />
-                          </span>
-                          <span className="min-w-0 flex-1">
-                            <span className="block text-sm font-medium">
-                              Codex
-                            </span>
-                            <span className="mt-1 block text-xs text-muted-foreground">
-                              OpenAI · Your workflow-building companion
-                            </span>
-                          </span>
-                          <span className="inline-flex items-center gap-1 text-xs text-primary">
-                            <Check size={14} />
-                            Selected
-                          </span>
-                        </label>
+                        {[["codex", "Codex", "OpenAI"], ["claude", "Claude", "Anthropic"], ["opencode", "OpenCode", "Connected models"]].map(([id, name, description]) => (
+                          <label key={id} className={`relative mb-2 flex cursor-pointer items-center justify-center gap-4 rounded-2xl border p-4 has-[:focus-visible]:outline has-[:focus-visible]:outline-2 ${provider === id ? "border-primary/40 bg-primary/5" : "border-border"}`}>
+                            <input type="radio" name="assistant-provider" aria-label={name} checked={provider === id} disabled={Boolean(pending[""])} onChange={() => { setProvider(id); setAccount(undefined); setModels(undefined); setModel(""); setEffort(""); setError(undefined); }} className="absolute inset-0 z-10 m-0 h-full w-full cursor-pointer appearance-none rounded-2xl border-0 bg-transparent focus:outline-none" />
+                            <ProviderIcon provider={id} className="h-8 w-8" />
+                            <span className="w-36 min-w-0"><span className="block text-sm font-medium">{name}</span><span className="mt-1 block text-xs text-muted-foreground">{description}</span></span>
+                            {provider === id && <span aria-label="Selected" className="absolute right-4 text-primary"><Check size={14} /></span>}
+                          </label>
+                        ))}
                       </fieldset>
                     )}
                     {linked && (
@@ -1015,7 +1136,12 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
               void send();
             }}
           >
-            <div className="mx-auto max-w-4xl rounded-2xl border bg-muted/30 p-2 shadow-sm focus-within:ring-1 focus-within:ring-ring">
+            <div className="relative mx-auto max-w-4xl rounded-2xl border bg-muted/30 p-2 shadow-sm focus-within:ring-1 focus-within:ring-ring">
+              {!commandsDismissed && /^\/[^\s]*$/.test(drafts[selected] ?? "") && <NativeCommandMenu conversation={selected} provider={chosenProvider} text={drafts[selected] ?? ""} onSelect={text => {
+                clearCommandInputError();
+                setDrafts(value => ({...value, [selected]: text}));
+                document.getElementById("assistant-message")?.focus();
+              }} onClose={() => {setCommandsDismissed(true); document.getElementById("assistant-message")?.focus();}} />}
               <label htmlFor="assistant-message" className="sr-only">
                 Message this assistant
               </label>
@@ -1024,21 +1150,27 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
                 maxLength={12000}
                 rows={2}
                 placeholder={
-                  selected ? "Message this assistant…" : "Start chat…"
+                  selected ? "Message this assistant…" : accountsLoading ? "Loading accounts…" : !connectionId ? providerAccounts.length ? "Select an account" : "No account available" : "Start chat…"
                 }
                 value={drafts[selected] ?? ""}
                 readOnly={
-                  busy ||
-                  active ||
-                  Boolean(selected && (!detail || needsAttention || waiting))
+                  locked || Boolean(selected && needsAttention)
                 }
-                onChange={(event) =>
+                onChange={(event) => {
+                  clearCommandInputError();
+                  setCommandsDismissed(false);
                   setDrafts((value) => ({
                     ...value,
                     [selected]: event.target.value,
-                  }))
-                }
+                  }));
+                }}
                 onKeyDown={(event) => {
+                  if (event.key === "Escape") setCommandsDismissed(true);
+                  if (event.key === "ArrowDown" && document.getElementById("assistant-native-commands")) {
+                    event.preventDefault();
+                    document.querySelector<HTMLButtonElement>("#assistant-native-commands button:not(:disabled)")?.focus();
+                    return;
+                  }
                   if (
                     event.key === "Enter" &&
                     !event.shiftKey &&
@@ -1050,12 +1182,19 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
                 }}
                 className="block w-full resize-none border-0 bg-transparent px-2 py-2 text-sm outline-none placeholder:text-muted-foreground read-only:opacity-60"
               />
+              {composerStatus && <p id="assistant-composer-status" role="status" className="px-2 pb-1 text-xs text-muted-foreground">
+                {composerStatus}{!accountsLoading && !providerAccounts.length && <> <a href="/settings/providers" onClick={event => { if (!retainSettingsDraft()) event.preventDefault(); }} className="underline underline-offset-2">Connect account</a></>}
+              </p>}
               <div className="mt-1 flex items-center justify-end gap-2 px-1">
+                <AccountSelection onManageAccounts={retainSettingsDraft} provider={chosenProvider} accounts={accounts.filter(item => item.provider === chosenProvider)} selected={connectionId} generation={connectionGeneration}
+                  loading={accountsLoading}
+                  disabled={Boolean(selected || busy || active || pending[""])}
+                  onSelect={value => { if (value.connection_id === connectionId && value.generation === connectionGeneration) return; setAccount(value); setModels(undefined); setModel(""); setEffort(""); setError(undefined); }} />
                 <ModelSelection
                   models={models}
-                  model={model}
-                  effort={effort}
-                  disabled={busy || active || Boolean(waiting)}
+                  model={connectionId ? model : ""}
+                  effort={connectionId ? effort : ""}
+                  disabled={!connectionId || !models?.models.length || busy || discovering || active || Boolean(waiting)}
                   onModel={(value) => {
                     const next = models?.models.find(
                       (item) => item.id === value,
@@ -1088,7 +1227,8 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
                   <button
                     type="submit"
                     aria-label={selected ? "Send" : "Start chat"}
-                    title={selected ? "Send (Enter)" : "Start chat (Enter)"}
+                    title={composerStatus ?? (selected ? "Send (Enter)" : "Start chat (Enter)")}
+                    aria-describedby={composerStatus ? "assistant-composer-status" : undefined}
                     disabled={!canSend || !(drafts[selected] ?? "").trim()}
                     className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-foreground text-background transition-opacity disabled:opacity-30"
                   >

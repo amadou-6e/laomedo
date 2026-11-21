@@ -1,6 +1,7 @@
 """Authenticated assistant HTTP adapters with owner and response-release fences."""
 
 from uuid import UUID
+from typing import Literal
 
 from fastapi import APIRouter, Depends, Request, Query, HTTPException
 from starlette.responses import JSONResponse
@@ -13,6 +14,8 @@ from laomedo.integrations.langflow.assistant.models import (
     MessageRequest,
     StopRequest,
     GraphActionDecision,
+    NativeActionDecision,
+    NativeCommandRequest,
 )
 
 router = APIRouter(prefix="/api/v1/laomedo/assistant", tags=["Application assistant"])
@@ -23,6 +26,13 @@ async def access(request: Request, user=Depends(get_current_active_user)):
     runtime = request.app.state.laomedo_assistant
     try:
         key = await runtime.session(request, user)
+        service = getattr(request.app.state, "provider_connections", None)
+        if service is not None:
+            from laomedo.integrations.langflow.provider_connections.routes import (
+                session_lease,
+            )
+
+            session_lease(request, service)
         return runtime, UUID(str(user.id)), key
     except AssistantError as error:
         raise HTTPException(error.status, detail={"code": error.code}) from None
@@ -47,12 +57,32 @@ async def status(request: Request, user=Depends(get_current_active_user)):
     )
 
 
+@router.get("/connections")
+async def connections(context=Depends(access)):
+    """Read profile-owned safe account selectors, never native credentials."""
+    runtime, owner, key = context
+    try:
+        return await release(runtime, owner, key, await runtime.connections(owner))
+    except AssistantError as error:
+        raise HTTPException(error.status, detail={"code": error.code}) from None
+
+
 @router.get("/models")
-async def models(context=Depends(access)):
+async def models(
+    provider: Literal["codex", "claude", "opencode"] = "codex",
+    connection_id: UUID | None = None,
+    connection_generation: int | None = Query(default=None, ge=1),
+    context=Depends(access),
+):
     """Discover actual model choices; inference is never part of model selection."""
     runtime, owner, key = context
     try:
-        return await release(runtime, owner, key, await runtime.models(owner))
+        return await release(
+            runtime,
+            owner,
+            key,
+            await runtime.models(owner, provider, connection_id, connection_generation),
+        )
     except AssistantError as error:
         raise HTTPException(error.status, detail={"code": error.code}) from None
 
@@ -104,6 +134,7 @@ async def delete_conversation(identifier: UUID, context=Depends(access)):
         result = await runtime.store.delete_conversation(
             owner, identifier, session_key=key
         )
+        await runtime.release_idle_session(owner, identifier)
         return await release(runtime, owner, key, result)
     except AssistantError as error:
         raise HTTPException(error.status, detail={"code": error.code}) from None
@@ -124,6 +155,11 @@ async def conversation_detail(
         actions = WorkflowActions(runtime.store, None, runtime.authorize)
         result["actions"] = await actions.list(owner, identifier, session_key=key)
         result["permissions"] = await actions.permissions(owner, key, identifier)
+        from laomedo.integrations.langflow.assistant.native import NativeCommands
+
+        result["native_actions"] = await NativeCommands(runtime).list(
+            owner, identifier, session_key=key
+        )
         return await release(runtime, owner, key, result)
     except AssistantError as error:
         raise HTTPException(error.status, detail={"code": error.code}) from None
@@ -205,6 +241,46 @@ async def decide_graph_action(
     try:
         result = await runtime.decide_graph_action(owner, key, identifier, action, body)
         return await release(runtime, owner, key, result)
+    except AssistantError as error:
+        raise HTTPException(error.status, detail={"code": error.code}) from None
+
+
+@router.post("/conversations/{identifier}/native-actions/{action}/decision")
+async def decide_native_action(
+    identifier: UUID, action: UUID, body: NativeActionDecision, context=Depends(access)
+):
+    """Approve or reject the exact native command through human app authority only."""
+    runtime, owner, key = context
+    try:
+        result = await runtime.decide_native_action(
+            owner, key, identifier, action, body
+        )
+        return await release(runtime, owner, key, result)
+    except AssistantError as error:
+        raise HTTPException(error.status, detail={"code": error.code}) from None
+
+
+@router.get("/conversations/{identifier}/native-commands")
+async def native_commands(identifier: UUID, context=Depends(access)):
+    """Expose this owned session's observed commands without inference or approval."""
+    runtime, owner, key = context
+    try:
+        return await release(
+            runtime, owner, key, await runtime.native_catalog(owner, identifier)
+        )
+    except AssistantError as error:
+        raise HTTPException(error.status, detail={"code": error.code}) from None
+
+
+@router.post("/conversations/{identifier}/native-commands")
+async def submit_native_command(
+    identifier: UUID, body: NativeCommandRequest, context=Depends(access)
+):
+    """Submit an explicit human slash command, never model-provided approval."""
+    runtime, owner, key = context
+    try:
+        result = await runtime.submit_native_command(owner, key, identifier, body)
+        return await release(runtime, owner, key, result, status=202)
     except AssistantError as error:
         raise HTTPException(error.status, detail={"code": error.code}) from None
 

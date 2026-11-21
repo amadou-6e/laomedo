@@ -53,7 +53,12 @@ class GraphActionTests(unittest.IsolatedAsyncioTestCase):
         await self.store.admit_session("fixture", self.owner, time.time() + 2000)
         conversation = await self.store.create(
             self.owner,
-            ConversationRequest(model="fixture", effort="low"),
+            ConversationRequest(
+                connection_id=uuid4(),
+                connection_generation=1,
+                model="fixture",
+                effort="low",
+            ),
             session_key="fixture",
         )
         self.conversation = UUID(conversation["id"])
@@ -248,7 +253,12 @@ class GraphActionTests(unittest.IsolatedAsyncioTestCase):
         )
         separate = await self.store.create(
             self.owner,
-            ConversationRequest(model="fixture", effort="low"),
+            ConversationRequest(
+                connection_id=uuid4(),
+                connection_generation=1,
+                model="fixture",
+                effort="low",
+            ),
             session_key="fixture",
         )
         self.assertEqual(

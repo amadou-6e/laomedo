@@ -31,6 +31,9 @@ from laomedo.agents.agents.claude.settings import IMAGE
 from laomedo.agents.agents.claude.settings import PROFILE
 from laomedo.agents.agents.claude.policy import ClaudeRuntimePolicy
 from laomedo.agents.agents.claude.runtime import ClaudeAgentRuntime
+from laomedo.agents.agents.claude.commands import ClaudeCommands
+from laomedo.agents.agents.claude.models import ClaudeCommandResult
+from laomedo.agents.agents.base.models import NativeCommandInvocation
 from laomedo.agents.agents.claude.executor import ClaudeCommandExecutor
 from laomedo.agents.agents.claude.utils import activity_usage
 from laomedo.agents.agents.claude.utils import configuration_hash
@@ -108,15 +111,25 @@ class ClaudeAgent(BaseAgent):
     def prepare_resume(self, run_id, body):
         """Validate provider resume extensions and credential admission before reusing native identity."""
         extra = {}
+        if body.get("native_command") is not None:
+            command = NativeCommandInvocation.model_validate(body["native_command"])
+            ClaudeCommands.validate(command)
+            record = self.status(run_id)
+            if (
+                record.get("output_requirements")
+                or record.get("github_scope")
+                or record.get("skills")
+            ):
+                raise RunnerError("native_command_context_invalid")
+            extra["native_command"] = command
         if "run_timeout_seconds" in body:
             value = body["run_timeout_seconds"]
             if type(value) is not int or not 1 <= value <= 86400:
                 raise RunnerError("claude_turn_timeout_invalid")
             extra["run_timeout_seconds"] = value
-        required = (
-            extra.get("run_timeout_seconds")
-            if extra
-            else self.status(run_id).get("turn_timeout", self.turn_timeout)
+        required = extra.get(
+            "run_timeout_seconds",
+            self.status(run_id).get("turn_timeout", self.turn_timeout),
         )
         self._prepare_credentials(minimum_validity_seconds=required)
         return extra
@@ -194,8 +207,13 @@ class ClaudeAgent(BaseAgent):
         effort: str,
         activity_attempt_id: str | None = None,
         run_timeout_seconds: int | None = None,
+        native_command=None,
     ) -> dict:
         """Admit an existing session/workspace binding before continuing it; failures never create a fresh session."""
+        if native_command is not None:
+            ClaudeCommands.validate(native_command)
+            if task != native_command.text():
+                raise RunnerError("native_command_context_invalid")
         if run_timeout_seconds is not None and (
             type(run_timeout_seconds) is not int
             or not 1 <= run_timeout_seconds <= 86400
@@ -245,6 +263,7 @@ class ClaudeAgent(BaseAgent):
             resume=True,
             activity_attempt_id=activity_attempt_id,
             run_timeout_seconds=run_timeout_seconds,
+            native_command=native_command,
         )
 
     def cancel(self, run_id: str) -> dict:
@@ -746,7 +765,7 @@ class ClaudeAgent(BaseAgent):
         from acp.schema import McpServerStdio
         from laomedo.agents.agents.base.acp.session import AcpSession
 
-        buffered, results = [], []
+        buffered, results, command_events = [], [], []
         bound = False
 
         def native(method, params):
@@ -760,6 +779,27 @@ class ClaudeAgent(BaseAgent):
                 raise RunnerError("claude_session_identity_mismatch")
             event = params.get("message")
             self._native_event(root, record, event)
+            if record.get("_native_command") is not None and event.get("type") in {
+                "system",
+                "result",
+            }:
+                if len(command_events) >= 256:
+                    raise RunnerError("claude_terminal_receipt_invalid")
+                command_events.append(
+                    {
+                        key: event.get(key)
+                        for key in (
+                            "type",
+                            "subtype",
+                            "session_id",
+                            "parent_tool_use_id",
+                            "uuid",
+                            "status",
+                            "compact_result",
+                            "is_error",
+                        )
+                    }
+                )
             if event.get("type") == "result":
                 results.append(event)
 
@@ -799,6 +839,41 @@ class ClaudeAgent(BaseAgent):
                 },
             )
             record["thread_id"] = client.session_id
+            catalog_deadline = time.monotonic() + 2
+            while (
+                client.command_catalog() is None and time.monotonic() < catalog_deadline
+            ):
+                await asyncio.sleep(0.02)
+            catalog = client.command_catalog()
+            builtins_only = not record.get("skills")
+            record["native_commands"] = {
+                "thread_id": client.session_id,
+                "catalog": (
+                    catalog.model_dump(mode="json") if catalog is not None else None
+                ),
+                "projection": (
+                    ClaudeCommands.project(
+                        catalog.model_dump(mode="json"),
+                        self.image_id,
+                        builtins_only=builtins_only,
+                    )
+                    if catalog is not None
+                    else None
+                ),
+            }
+            if record.get("_native_command") is not None:
+                command = NativeCommandInvocation.model_validate(
+                    record["_native_command"]
+                )
+                if (
+                    record.get("output_requirements")
+                    or record.get("github_scope")
+                    or prompt != command.text()
+                ):
+                    raise RunnerError("native_command_context_invalid")
+                ClaudeCommands.admit(
+                    command, catalog, self.image_id, builtins_only=builtins_only
+                )
             telemetry.bind_thread(client.session_id)
             record["communication_protocol"] = "acp.v1"
             _json(root / "record.json", record)
@@ -853,6 +928,10 @@ class ClaudeAgent(BaseAgent):
                 raise RunnerError("claude_cancelled")
             if outcome.stop_reason != "end_turn":
                 raise RunnerError("claude_native_turn_failed")
+            if record.get("_native_command") is not None:
+                return ClaudeCommands.result(
+                    command_events, record["thread_id"], outcome.stop_reason
+                )
             if len(results) != 1:
                 raise RunnerError("claude_terminal_receipt_invalid")
             return terminal_result(json.dumps(results[0]), record["thread_id"])
@@ -1035,6 +1114,7 @@ class ClaudeAgent(BaseAgent):
         resume,
         activity_attempt_id=None,
         run_timeout_seconds=None,
+        native_command=None,
     ):
         """Own one admitted attempt and its cancellation, snapshot, evidence and exact cleanup finalization."""
         if not self.lock.acquire(blocking=False):
@@ -1118,7 +1198,12 @@ class ClaudeAgent(BaseAgent):
             ).to_claude_record()
             _json(folder / (attempt_id + ".json"), attempt)
             record["activity_attempt_id"] = attempt_id
-            prompt = self._prompt(root, record, task)
+            record.pop("_native_command", None)
+            if native_command is not None:
+                record["_native_command"] = native_command.model_dump(mode="json")
+                prompt = native_command.text()
+            else:
+                prompt = self._prompt(root, record, task)
             corrections = 0
             while True:
                 if flag.is_set():
@@ -1166,6 +1251,40 @@ class ClaudeAgent(BaseAgent):
                         },
                     )
                     raise
+                if isinstance(result, ClaudeCommandResult):
+                    record.setdefault("native_command_receipts", []).append(
+                        {
+                            "request": native_command.model_dump(mode="json"),
+                            "result": result.model_dump(mode="json"),
+                            "attempt_id": attempt_id,
+                            "status": "completed",
+                            "answer": None,
+                            "error_category": None,
+                        }
+                    )
+                    record.update(answer=None, native_answer=None)
+                    self._event(
+                        root,
+                        "item/completed",
+                        {
+                            "threadId": record["thread_id"],
+                            "turnId": host_turn,
+                            "item": {
+                                "id": result.native_terminal["event_id"],
+                                "type": "contextCompaction",
+                            },
+                        },
+                    )
+                    self._event(
+                        root,
+                        "turn/completed",
+                        {
+                            "threadId": record["thread_id"],
+                            "turn": {"id": host_turn, "status": "completed"},
+                            "identity_source": "host_attempt",
+                        },
+                    )
+                    break
                 totals = activity_usage(result)
                 # Explicitly invalidate unknown resume baselines instead of charging
                 # the entire session to the latest invocation.
@@ -1342,6 +1461,7 @@ class ClaudeAgent(BaseAgent):
                 )
                 record.pop("_attempt_deadline", None)
                 record.pop("_prompt_dispatched", None)
+                record.pop("_native_command", None)
                 record.update(attempt_finished=True, cancel_requested=flag.is_set())
                 if attempt is not None:
                     attempt.update(

@@ -1,6 +1,7 @@
 import { messageText } from "@/modals/graphAgents/utils";
 import { assistantRequest } from "./api";
 import type { ActivityPage, ConversationDetail, Message } from "./models";
+import { hasNativeControlResult } from "./responseTranscript";
 
 export async function conversationTranscript(
   conversation: string,
@@ -10,6 +11,7 @@ export async function conversationTranscript(
   const visited = new Set<number>();
   let cursor: number | null = 0;
   let title = "Conversation";
+  let provider = "codex";
   while (cursor !== null) {
     if (visited.has(cursor)) throw new Error("Repeated history cursor");
     visited.add(cursor);
@@ -18,7 +20,7 @@ export async function conversationTranscript(
       undefined,
       signal,
     );
-    if (cursor === 0) title = page.conversation.title;
+    if (cursor === 0) { title = page.conversation.title; provider = page.conversation.provider; }
     for (const message of page.messages)
       if (!messages.has(message.id)) messages.set(message.id, message);
     cursor = page.next_cursor;
@@ -29,18 +31,18 @@ export async function conversationTranscript(
   ];
   for (const message of [...messages.values()].sort((a, b) => a.created_at - b.created_at)) {
     blocks.push("## You", message.text);
-    const activity = await assistantRequest<ActivityPage>(
+    const activity = hasNativeControlResult(message) ? undefined : await assistantRequest<ActivityPage>(
       `/conversations/${encodeURIComponent(conversation)}/activity?attempt=${encodeURIComponent(message.attempt_id)}&after=0`,
       undefined,
       signal,
     );
-    const answers = (activity.projection?.items ?? [])
+    const answers = (activity?.projection?.items ?? [])
       .filter((lane) => lane.item?.type !== "userMessage")
-      .map((lane) => messageText(lane.item ?? {}, "codex"))
+      .map((lane) => messageText(lane.item ?? {}, provider))
       .filter((text): text is string => text !== null);
     if (!answers.length && message.response) answers.push(message.response);
     if (answers.length) blocks.push("## Assistant", answers.join("\n\n"));
-    if (!activity.available || activity.complete === false)
+    if (!hasNativeControlResult(message) && (!activity?.available || activity.complete === false))
       blocks.push("_Some activity is unavailable or was not retained; this answer may be partial._");
     if (message.state !== "completed")
       blocks.push(`_Response state at export: ${message.state}._`);

@@ -1,107 +1,80 @@
-"""Dedicated app-owned composition around the existing provider and runner HTTP API."""
+"""Saved-account assistant client around the guarded runner HTTP API."""
 
-import hashlib
 import json
-from pathlib import Path
-import subprocess
-import threading
-import time
 from urllib.error import HTTPError, URLError
 from urllib.request import ProxyHandler, Request, build_opener
-
-from laomedo.agents.registry import AgentProviderRegistry
 from laomedo.host.http import NoRedirect
-from laomedo.host.private_state.models import DirectoryPermissionPolicy
-from laomedo.host.private_state.utils import prepare_private_directory
-from laomedo.host.runner.http.server import RunnerServer
-from laomedo.host.runner.service import RunnerService
+from laomedo.agents.connections.errors import ProviderConnectionError
 from laomedo.integrations.langflow.assistant.errors import AssistantError
 
 
 class AssistantRunner:
-    """Own one profile's isolated runtime; no repository or publication authority is inherited."""
+    """Use one profile's exact saved account; shared controllers own native lifecycle."""
 
-    def __init__(self, settings, owner):
-        """Retain trusted host composition, creating no model work or resources yet."""
-        self.settings, self.owner = settings, owner
-        self.agent = self.server = self.thread = None
-        self.url = None
-        self._token = None
-        self.lock = threading.Lock()
+    def __init__(
+        self,
+        settings,
+        owner,
+        provider="codex",
+        connection_id=None,
+        connection_generation=None,
+        *,
+        controllers=None,
+    ):
+        """Retain an exact saved-account binding; own no listener or credentials."""
+        self.settings, self.owner, self.provider = settings, owner, provider
+        self.controllers = controllers
+        self.connection_id = connection_id
+        self.connection_generation = connection_generation
         self.opener = build_opener(ProxyHandler({}), NoRedirect())
 
-    def start(self):
-        """Prepare a private scratch source and launch the existing local API with Codex policy."""
-        with self.lock:
-            if self.server is not None:
-                return
-            config = RunnerService(self.settings.runner_service_file).config()
-            if not config or config["provider"] != "codex":
-                raise AssistantError("assistant_setup_required", 503)
-            namespace = hashlib.sha256(self.settings.app_url.encode()).hexdigest()[:16]
-            root = self.settings.state_root / namespace / str(self.owner)
-            prepare_private_directory(
-                root,
-                policy=DirectoryPermissionPolicy.from_host(
-                    deadline=time.monotonic() + 20
-                ),
-            )
-            repository = root / "source-repository"
-            repository.mkdir(exist_ok=True)
-            if not (repository / ".git").is_dir():
-                subprocess.run(
-                    ["git", "init", "--quiet", str(repository)],
-                    check=True,
-                    stdin=subprocess.DEVNULL,
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                    timeout=20,
-                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-                )
-            source = repository / "workspace"
-            source.mkdir(exist_ok=True)
-            readme = source / "README.md"
-            if not readme.exists():
-                readme.write_text(
-                    "# Laomedo assistant scratch workspace\nUse the scoped Laomedo MCP tools for workflow authoring. This is not the user's repository.\n",
-                    encoding="utf-8",
-                )
-            agent = AgentProviderRegistry.create_agent(
-                "codex",
-                root / "runner",
-                Path(config["skill_store"]),
-                source,
-                lease_service=Path(config["lease_service"]),
-                image_id=config.get("image_id"),
-                artifact_sources={},
-            )
-            server = RunnerServer(agent, port=0)
-            thread = threading.Thread(target=server.serve_forever, daemon=True)
-            try:
-                thread.start()
-            except BaseException:
-                server.server_close()
-                raise
-            self.agent, self.server, self.thread = agent, server, thread
-            self.url = "http://127.0.0.1:" + str(server.server_address[1])
-            self._token = agent.api_token
+    def manager(self):
+        """Resolve the installed saved-account lifecycle owner without fallback."""
+
+        if (
+            self.controllers is None
+            or self.connection_id is None
+            or self.connection_generation is None
+        ):
+            raise AssistantError("assistant_setup_required", 409)
+        return self.controllers
 
     @property
     def instance_id(self):
-        """Expose the composed Agent's host identity, never its transport credential."""
-        return self.agent.instance_id if self.agent else None
+        """Observe the shared manager's exact assistant runtime identity."""
+        return self.manager().assistant_instance_id(
+            self.owner, self.connection_id, self.connection_generation
+        )
 
     def request(self, method, path, body=None):
         """Issue one bounded authenticated local request without proxy, redirect or replay."""
-        self.start()
         if not path.startswith("/v1/") or ".." in path or "\r" in path or "\n" in path:
             raise AssistantError("assistant_request_invalid", 400)
+        from uuid import UUID
+
+        parts = path.split("?", 1)[0].strip("/").split("/")
+        run_id = None
+        if len(parts) >= 3 and parts[:2] == ["v1", "runs"] and parts[2] != "async":
+            try:
+                run_id = str(UUID(parts[2]))
+            except ValueError:
+                raise AssistantError("assistant_request_invalid", 400) from None
+        try:
+            url, token_path = self.manager().assistant_endpoint(
+                self.owner,
+                self.connection_id,
+                self.connection_generation,
+                run_id=run_id,
+            )
+            token = token_path.read_text(encoding="utf-8").strip()
+        except ProviderConnectionError as error:
+            raise AssistantError(error.code, 409) from None
         request = Request(
-            self.url + path,
+            url + path,
             data=json.dumps(body).encode() if body is not None else None,
             method=method,
             headers={
-                "Authorization": "Bearer " + self._token,
+                "Authorization": "Bearer " + token,
                 "Content-Type": "application/json",
             },
         )
@@ -130,16 +103,19 @@ class AssistantRunner:
             raise AssistantError("assistant_dispatch_unknown", 503) from None
 
     def shutdown(self):
-        """Stop only this owned HTTP listener; unfinished native work retains its recovery identity."""
-        if self.server:
-            self.server.shutdown()
-            self.server.server_close()
-            self.thread.join(5)
+        """Leave shared saved-account cleanup and listener ownership with its manager."""
+
+    def has_live_session(self, run_id):
+        """Read the native owner's actual in-memory retention, never a record claim."""
+        try:
+            return self.manager().assistant_live_session(
+                self.owner, self.connection_id, self.connection_generation, run_id
+            )
+        except ProviderConnectionError as error:
+            raise AssistantError(error.code, 409) from None
 
     def is_settled(self, run_id):
-        """Observe common Agent ownership after native completion, not provider-private methods."""
-        return (
-            self.agent is not None
-            and not self.agent.lock.locked()
-            and self.agent.mcp_access(run_id) is None
+        """Read actual owned cleanup facts through the controller boundary."""
+        return self.manager().assistant_settled(
+            self.owner, self.connection_id, self.connection_generation, run_id
         )

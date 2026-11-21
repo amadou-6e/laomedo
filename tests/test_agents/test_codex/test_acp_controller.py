@@ -15,6 +15,8 @@ from laomedo.agents.interface.output.utils import requirements
 from laomedo.agents.agents.codex.controller.models import CodexLaunch
 from laomedo.agents.agents.codex.runtime import CodexAgentRuntime
 from laomedo.agents.errors import RunnerError
+from laomedo.agents.agents.base.models import NativeCommandInvocation
+from laomedo.agents.agents.base.acp.models import NativeCommandCatalog
 
 
 @unittest.skipUnless(
@@ -53,10 +55,237 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
             initialize=AsyncMock(),
         )
         self.controller.active_thread_id = "native-thread"
+        self.controller.native_commands_supported = True
 
     async def asyncTearDown(self):
         if not self.controller._closed:
             await self.controller.close()
+
+    async def test_compact_uses_matched_native_item_without_inventing_an_answer(self):
+        catalog = NativeCommandCatalog(
+            commands=[{"name": "compact", "description": "Compact"}]
+        )
+        self.controller.acp.command_catalog = Mock(return_value=catalog)
+        events = [
+            {
+                "method": "turn/started",
+                "params": {"threadId": "native-thread", "turn": {"id": "compact-turn"}},
+            },
+            {
+                "method": "item/started",
+                "params": {
+                    "threadId": "native-thread",
+                    "turnId": "compact-turn",
+                    "item": {"type": "contextCompaction", "id": "compact-item"},
+                },
+            },
+            {
+                "method": "item/completed",
+                "params": {
+                    "threadId": "native-thread",
+                    "turnId": "compact-turn",
+                    "item": {"type": "contextCompaction", "id": "compact-item"},
+                },
+            },
+        ]
+
+        async def compact(*args, **kwargs):
+            self.controller.events.extend(events)
+            return SimpleNamespace(stop_reason="end_turn", answer="")
+
+        self.controller.acp.prompt.side_effect = compact
+        self.controller.check_health = Mock()
+        result = await self.controller.prompt(
+            "/compact",
+            skills=[],
+            cancelled=threading.Event(),
+            seconds=5,
+            command=NativeCommandInvocation(
+                name="compact", catalog_revision=catalog.revision()
+            ),
+        )
+        self.assertEqual(result.status, "completed")
+        self.assertIsNone(result.answer)
+        self.assertIsNone(result.turn_id)
+        self.assertEqual(
+            result.native_terminal,
+            {
+                "kind": "contextCompaction",
+                "turn_id": "compact-turn",
+                "item_id": "compact-item",
+                "turn_terminal_observed": False,
+            },
+        )
+        cancelled = threading.Event()
+        cancelled.set()
+        stopped = await self.controller.prompt(
+            "/compact",
+            skills=[],
+            cancelled=cancelled,
+            seconds=5,
+            command=NativeCommandInvocation(
+                name="compact", catalog_revision=catalog.revision()
+            ),
+        )
+        self.assertEqual(stopped.status, "unknown")
+        self.assertIsNone(stopped.answer)
+        for wrong in [
+            events[:-1],
+            [events[0], events[2], events[1]],
+            [
+                *events,
+                {
+                    "method": "turn/completed",
+                    "params": {
+                        "threadId": "native-thread",
+                        "turn": {"id": "compact-turn", "status": "failed"},
+                    },
+                },
+            ],
+            [*events, {"method": "error", "params": {"threadId": "native-thread"}}],
+        ]:
+            self.assertIsNone(self.controller._compaction_terminal(wrong))
+
+    async def test_open_observes_delayed_catalog_before_discovery(self):
+        """A notification queued after the response is retained before publication."""
+        catalog = NativeCommandCatalog(
+            commands=[{"name": "status", "description": "Status"}]
+        )
+        observed = None
+        self.controller.acp.command_catalog = lambda: observed
+        self.controller.acp.configure.side_effect = lambda key, value: SimpleNamespace(
+            config_options=[SimpleNamespace(id=key, current_value=value)]
+        )
+
+        async def advertise():
+            nonlocal observed
+            await asyncio.sleep(0.02)
+            observed = catalog
+
+        pending = asyncio.create_task(advertise())
+        await self.controller.open(
+            {"requested_model": "model", "requested_effort": "low"}, resume=False
+        )
+        await pending
+        self.assertEqual(self.controller.command_catalog(), catalog)
+
+    async def test_explicit_control_command_has_no_fabricated_native_turn(self):
+        """Native control text settles separately from strict ordinary prompts."""
+        catalog = NativeCommandCatalog(
+            commands=[{"name": "status", "description": "Status"}]
+        )
+        self.controller.acp.command_catalog = Mock(return_value=catalog)
+        self.controller.acp.prompt.return_value = SimpleNamespace(
+            stop_reason="end_turn", answer="Actual native status"
+        )
+        request = NativeCommandInvocation(
+            name="status", catalog_revision=catalog.revision()
+        )
+        result = await self.controller.prompt(
+            "/status",
+            skills=[],
+            cancelled=threading.Event(),
+            seconds=1,
+            command=request,
+        )
+        self.assertIsNone(result.turn_id)
+        self.assertEqual(result.answer, "Actual native status")
+        self.assertEqual(result.status, "completed")
+        self.assertNotIn("usage", result.model_dump())
+        with self.assertRaisesRegex(RunnerError, "turn_dispatch_rejected"):
+            await self.controller.prompt(
+                "/status", skills=[], cancelled=threading.Event(), seconds=1
+            )
+
+    async def test_control_command_missing_answer_is_unknown_and_stale_catalog_refuses(
+        self,
+    ):
+        """A terminal response alone is not positive native command completion."""
+        catalog = NativeCommandCatalog(
+            commands=[{"name": "status", "description": "Status"}]
+        )
+        self.controller.acp.command_catalog = Mock(return_value=catalog)
+        self.controller.acp.prompt.return_value = SimpleNamespace(
+            stop_reason="end_turn", answer=""
+        )
+        request = NativeCommandInvocation(
+            name="status", catalog_revision=catalog.revision()
+        )
+        result = await self.controller.prompt(
+            "/status",
+            skills=[],
+            cancelled=threading.Event(),
+            seconds=1,
+            command=request,
+        )
+        self.assertEqual(result.status, "unknown")
+        self.controller.acp.prompt.reset_mock()
+        with self.assertRaisesRegex(RunnerError, "native_command_catalog_changed"):
+            await self.controller.prompt(
+                "/status",
+                skills=[],
+                cancelled=threading.Event(),
+                seconds=1,
+                command=request.model_copy(update={"catalog_revision": "0" * 64}),
+            )
+        self.controller.acp.prompt.assert_not_awaited()
+
+    async def test_command_capability_is_required_without_disabling_ordinary_turns(
+        self,
+    ):
+        base = {"version": 1, "rawEvents": True, "hostPolicy": True}
+        for supported in (False, True):
+            advertised = {**base, **({"nativeCommands": 1} if supported else {})}
+            catalog = NativeCommandCatalog(
+                commands=[{"name": "status", "description": "Status"}]
+            )
+            acp = Mock(
+                initialize=AsyncMock(
+                    return_value=SimpleNamespace(field_meta={"laomedo": advertised})
+                )
+            )
+            acp.close = AsyncMock()
+            acp.command_catalog.return_value = catalog
+
+            async def ordinary(*args, **kwargs):
+                self.controller.events.append(
+                    {
+                        "method": "turn/completed",
+                        "params": {
+                            "threadId": "native-thread",
+                            "turn": {"id": "ordinary", "status": "completed"},
+                        },
+                    }
+                )
+                return SimpleNamespace(stop_reason="end_turn")
+
+            acp.prompt = AsyncMock(side_effect=ordinary)
+            with patch(
+                "laomedo.agents.agents.base.acp.session.AcpSession", return_value=acp
+            ):
+                await self.controller.initialize()
+            self.assertEqual(self.controller.native_commands_supported, supported)
+            self.assertEqual(
+                self.controller.command_catalog(), catalog if supported else None
+            )
+            if not supported:
+                with self.assertRaisesRegex(
+                    RunnerError, "native_command_not_supported"
+                ):
+                    await self.controller.prompt(
+                        "/status",
+                        skills=[],
+                        cancelled=threading.Event(),
+                        seconds=1,
+                        command=NativeCommandInvocation(
+                            name="status", catalog_revision=catalog.revision()
+                        ),
+                    )
+                acp.prompt.assert_not_awaited()
+            result = await self.controller.prompt(
+                "ordinary", skills=[], cancelled=threading.Event(), seconds=1
+            )
+            self.assertEqual(result.status, "completed")
 
     async def test_stock_and_wrong_version_are_refused_before_session_creation(self):
         for value in (
@@ -65,6 +294,30 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
             {"laomedo": {"version": 2, "rawEvents": True, "hostPolicy": True}},
             {"laomedo": {"version": True, "rawEvents": True, "hostPolicy": True}},
             {"laomedo": {"version": 1, "rawEvents": 1, "hostPolicy": True}},
+            {
+                "laomedo": {
+                    "version": 1,
+                    "rawEvents": True,
+                    "hostPolicy": True,
+                    "nativeCommands": True,
+                }
+            },
+            {
+                "laomedo": {
+                    "version": 1,
+                    "rawEvents": True,
+                    "hostPolicy": True,
+                    "nativeCommands": 2,
+                }
+            },
+            {
+                "laomedo": {
+                    "version": 1,
+                    "rawEvents": True,
+                    "hostPolicy": True,
+                    "unknown": 1,
+                }
+            },
         ):
             acp = Mock(
                 initialize=AsyncMock(return_value=SimpleNamespace(field_meta=value))
@@ -241,7 +494,7 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
                 self.assertFalse(self.controller.interrupt_acknowledged)
 
     async def test_revocation_and_executor_health_use_shared_prompt_guard(self):
-        self.controller.authorization_probe = lambda: False
+        self.controller.authorization_probe = lambda *, idle=False: False
         with self.assertRaisesRegex(RunnerError, "auth_revoked_during_turn"):
             self.controller.check_health()
         self.controller.authorization_probe = None

@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import {
   MessageMarkdown,
-  UserMessageBubble,
 } from "@/modals/graphAgents/components";
 import type { Lane } from "@/modals/graphAgents/models";
 import ToolCalls from "./ToolCalls";
@@ -13,16 +12,20 @@ import type { ActivityPage, DraftReceipt, Message } from "./models";
 import { stateLabel } from "./models";
 import Thinking from "./Thinking";
 import CopyAnswer from "./CopyAnswer";
-import { responseTranscript } from "./responseTranscript";
+import { responseTranscript, hasNativeCommandOutcome } from "./responseTranscript";
 import GraphActions from "./GraphActions";
-import type { GraphAction } from "./models";
+import NativeActions from "./NativeActions";
+import NativeStatus from "./NativeStatus";
+import type { GraphAction, NativeAction } from "./models";
 
 export function UserMessage({
   text,
   createdAt,
+  command = /^\/[a-z][a-z0-9_-]*(?:\s|$)/i.test(text),
 }: {
   text: string;
   createdAt?: number;
+  command?: boolean;
 }) {
   return (
     <div className="ml-auto max-w-[90%] space-y-2 md:max-w-[80%]">
@@ -34,24 +37,30 @@ export function UserMessage({
             })
           : "\u00a0"}
       </p>
-      <UserMessageBubble constrainWidth={false}>
-        <p className="whitespace-pre-wrap break-words">{text}</p>
-      </UserMessageBubble>
+      <div className={command ? "text-right text-muted-foreground" : "ml-auto w-fit max-w-full rounded-xl rounded-tr-sm border bg-muted/50 px-4 py-3"}>
+        <p className="whitespace-pre-wrap break-words text-sm leading-[1.7142857]">
+          {text}
+        </p>
+      </div>
     </div>
   );
 }
 
 export default function MessageRow({
   conversation,
+  provider = "codex",
   message,
   receipts,
   active,
   onContent,
   onFailure,
   actions = [],
+  nativeActions = [],
 }: {
   conversation: string;
+  provider?: string;
   actions?: GraphAction[];
+  nativeActions?: NativeAction[];
   message: Message;
   receipts: DraftReceipt[];
   active: boolean;
@@ -103,26 +112,27 @@ export default function MessageRow({
   const items = (page?.projection?.items ?? []).filter(
     (lane) => lane.item?.type !== "userMessage",
   );
+  const nativeStatus = Boolean(provider === "codex" && (message.native_action_id || message.initial_native_command === "status") && message.text === "/status" && message.state === "completed" && message.response);
   const hasAnswer = items.some(
-    (lane) => messageText(lane.item ?? {}, "codex") !== null,
+    (lane) => messageText(lane.item ?? {}, provider) !== null,
   );
   const groups: Lane[][] = [];
   for (const lane of items) {
     const previous = groups[groups.length - 1];
     if (
-      messageText(lane.item ?? {}, "codex") === null &&
+      messageText(lane.item ?? {}, provider) === null &&
       previous &&
-      messageText(previous[0].item ?? {}, "codex") === null
+      messageText(previous[0].item ?? {}, provider) === null
     )
       previous.push(lane);
     else groups.push([lane]);
   }
   return (
     <section className="space-y-5" aria-label="Message and response">
-      <UserMessage text={message.text} createdAt={message.created_at} />
-      {groups.map((group) => {
+      <UserMessage text={message.text} createdAt={message.created_at} command={Boolean(message.native_action_id || message.initial_native_command)} />
+      {nativeStatus ? <NativeStatus text={message.response!} conversation={conversation} /> : groups.map((group) => {
         const lane = group[0];
-        const text = messageText(lane.item ?? {}, "codex");
+        const text = messageText(lane.item ?? {}, provider);
         return text !== null ? (
           <div key={`${lane.thread}:${lane.id}`} className="space-y-2">
             <MessageMarkdown text={text} allowLinks={false} />
@@ -132,10 +142,11 @@ export default function MessageRow({
             key={`${lane.thread}:${lane.id}`}
             lanes={group}
             names={page?.tool_names ?? {}}
+            compactionCompleted={Boolean(message.native_action_id && message.text === "/compact" && message.state === "completed")}
           />
         );
       })}
-      {!hasAnswer && message.response && (
+      {!nativeStatus && !hasAnswer && message.response && (
         <div className="space-y-2">
           <MessageMarkdown text={message.response} allowLinks={false} />
         </div>
@@ -167,7 +178,7 @@ export default function MessageRow({
           />
         </div>
       )}
-      {page?.complete === false && (
+      {page?.complete === false && !hasNativeCommandOutcome(message) && (
         <p className="text-xs text-muted-foreground">
           Some Activity could not be retained. The response above may be
           partial.
@@ -178,6 +189,7 @@ export default function MessageRow({
         actions={actions}
         onFailure={onFailure}
       />
+      <NativeActions conversation={conversation} provider={provider} actions={nativeActions} onFailure={onFailure} />
       {receipts.map((receipt) => (
         <article
           key={receipt.id}
@@ -226,14 +238,8 @@ export default function MessageRow({
           </p>
         </article>
       ))}
-      {(items.length > 0 ||
-        message.response ||
-        receipts.length > 0 ||
-        actions.length > 0) && (
-        <CopyAnswer
-          disabled={!page}
-          text={responseTranscript(page, message, receipts, actions)}
-        />
+      {(items.length > 0 || message.response || receipts.length > 0 || actions.length > 0 || nativeActions.length > 0) && (
+        <CopyAnswer disabled={!page && !hasNativeCommandOutcome(message)} text={responseTranscript(page, message, receipts, actions, nativeActions, provider)} />
       )}
     </section>
   );

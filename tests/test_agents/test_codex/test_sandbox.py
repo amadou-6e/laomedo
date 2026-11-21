@@ -18,6 +18,95 @@ from laomedo.agents.agents.codex.controller.models import CodexLaunch
     "Requires optional Docker runtime",
 )
 class RunnerSandboxPolicyTests(unittest.TestCase):
+    def test_saved_account_uses_fixed_command_auth_without_environment_key(self):
+        from unittest.mock import Mock
+
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "checkout" / ".git").mkdir(parents=True)
+            (root / "checkout" / "source").mkdir()
+            runner = LocalRunner(
+                root / "state",
+                root / "store",
+                root / "checkout" / "source",
+                split_executor=True,
+                auth_connection=Mock(client_id="fixture-client"),
+                check_docker=False,
+            )
+            self.addCleanup(runner.close)
+            configuration = dict(
+                setting.split("=", 1) for setting in runner.split_provider_config
+            )
+            self.assertNotIn(
+                "model_providers.openai_chatgpt_plan.env_key", configuration
+            )
+            self.assertEqual(
+                configuration["model_providers.openai_chatgpt_plan.auth.command"],
+                '"/bin/cat"',
+            )
+            self.assertEqual(
+                configuration[
+                    "model_providers.openai_chatgpt_plan.auth.refresh_interval_ms"
+                ],
+                "1",
+            )
+            self.assertEqual(
+                configuration["model_providers.openai_chatgpt_plan.base_url"],
+                '"https://api.openai.com/v1"',
+            )
+
+    def test_managed_native_auth_refuses_an_image_without_refresh_capability(self):
+        import asyncio
+        from types import SimpleNamespace
+        from unittest.mock import AsyncMock, Mock
+        from laomedo.agents.agents.codex.runtime import CodexAgentRuntime
+
+        runtime = object.__new__(CodexAgentRuntime)
+        runtime.session = Mock()
+        runtime._native_event = Mock()
+        runtime._precheck = Mock()
+        runtime.managed_credential = True
+        with patch("laomedo.agents.agents.base.acp.session.AcpSession") as session:
+            session.return_value.initialize = AsyncMock(
+                return_value=SimpleNamespace(
+                    field_meta={
+                        "laomedo": {
+                            "version": 1,
+                            "rawEvents": True,
+                            "hostPolicy": True,
+                            "nativeCommands": 1,
+                        }
+                    }
+                )
+            )
+            with self.assertRaisesRegex(
+                RunnerError, "codex_credential_update_unconfirmed"
+            ):
+                asyncio.run(runtime.initialize())
+            session.return_value.open.assert_not_called()
+
+    def test_credential_update_requires_capability_and_confirmed_acknowledgement(self):
+        import asyncio
+        from unittest.mock import AsyncMock
+        from laomedo.agents.agents.codex.runtime import CodexAgentRuntime
+
+        runtime = object.__new__(CodexAgentRuntime)
+        runtime.executor = object()
+        runtime.secret_redactions = ()
+        runtime.credential_refresh_supported = False
+        runtime.extension = AsyncMock(return_value={"updated": True})
+        with self.assertRaisesRegex(RunnerError, "codex_credential_update_unconfirmed"):
+            asyncio.run(runtime.refresh_credential("fixture-renewed-token"))
+        runtime.extension.assert_not_awaited()
+        runtime.credential_refresh_supported = True
+        runtime.extension.return_value = {"updated": False}
+        with self.assertRaisesRegex(RunnerError, "codex_credential_update_unconfirmed"):
+            asyncio.run(runtime.refresh_credential("fixture-renewed-token"))
+        self.assertIn("fixture-renewed-token", runtime.secret_redactions)
+        runtime.extension.assert_awaited_once_with(
+            "laomedo/refreshCredential", {"accessToken": "fixture-renewed-token"}
+        )
+
     def test_split_controller_token_is_not_a_control_environment(self):
         from laomedo.agents.agents.codex.split.models import SplitLaunch
         from laomedo.agents.agents.codex.controller.models import SplitPolicy
@@ -42,12 +131,20 @@ class RunnerSandboxPolicyTests(unittest.TestCase):
                 launch,
                 Path(temp),
                 env={"DOCKER_HOST": "unix:///selected.sock"},
-                split=SplitPolicy(access_token="private-test-token"),
+                split=SplitPolicy(
+                    access_token="private-test-token", managed_credential=True
+                ),
             )
             spec = client.return_value.sessions.open.call_args.args[0].spec
             self.assertEqual(
                 spec.environment["ACCESS_TOKEN"].get_secret_value(),
                 "private-test-token",
+            )
+            self.assertIn("noexec", spec.tmpfs["/tmp/laomedo-provider-auth"])
+            self.assertIn("uid=10001", spec.tmpfs["/tmp/laomedo-provider-auth"])
+            self.assertEqual(
+                spec.environment["LAOMEDO_CODEX_REFRESHABLE_AUTH"].get_secret_value(),
+                "1",
             )
             self.assertNotIn("ACCESS_TOKEN", client.call_args.kwargs["environment"])
             self.assertNotIn(

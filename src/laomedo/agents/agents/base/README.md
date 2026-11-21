@@ -227,8 +227,24 @@ cleanup, and no active MCP access or runner lock. An older completed attempt
 cannot establish that a newer reservation never started. The journal retains
 only semantic request digests and outcome/session/checkpoint metadata, excluding
 prompts, answers and transient MCP registration capabilities.
+# Initial native control requests
+
+`BaseAgent.prepare_initial_command(request)` refuses initial native commands by
+default before preparing a run. A provider may override this gate for an explicit
+control-only start. The admitted mode is retained in `PreparedRunRecord` and the
+asynchronous request digest; it never silently becomes an ordinary model prompt.
+
 
 `BaseAgent.pending_resumes()` projects `ResumeDispatcher.pending()` observations
 for reserved, running or uncertain continuations without starting work. Connection
 inventory and cleanup include these reservations even when the retained parent
 run still has a terminal status. Only settled journal entries leave that inventory.
+
+### Retained native session ownership
+
+`BaseAgent.has_live_session(run_id)` reports actual in-memory native resource
+ownership between requests; the default is false. It does not claim an active
+model turn, persisted history or cleanup. `BaseAgent.close()` is the shared
+teardown entry point. Providers retaining resources override it to close those
+resources on their original native thread after requesting active cancellation.
+Completed control commands and cleanup remain separate observations.

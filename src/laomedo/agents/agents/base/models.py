@@ -14,6 +14,97 @@ from laomedo.agents.agents.base.settings import SDK_FAILURE_OPERATIONS
 from laomedo.agents.agents.base.settings import RUNNER_FAILURE_CODES
 
 
+class NativeCommandAvailability(BaseModel):
+    """Safe command discovery at the provider-to-application boundary."""
+
+    model_config = ConfigDict(strict=True, extra="forbid")
+    name: str = Field(
+        min_length=1,
+        max_length=200,
+        description="Exact provider-advertised command name.",
+    )
+    description: str = Field(
+        max_length=4000, description="Untrusted native display description."
+    )
+    input_hint: str | None = Field(
+        default=None, max_length=4000, description="Optional native argument hint."
+    )
+    executable: bool = Field(
+        description="Whether host policy admits this native command."
+    )
+    accepts_arguments: bool = Field(
+        description="Whether this admitted built-in accepts single-line arguments."
+    )
+    may_use_model: bool | None = Field(
+        default=None,
+        description="Model use classification; absent for unsupported commands.",
+    )
+    reason: str | None = Field(
+        default=None,
+        max_length=100,
+        description="Stable reason for an unavailable command.",
+    )
+
+
+class NativeCommandDiscovery(BaseModel):
+    """Bounded native command metadata, distinct from invocation authority."""
+
+    model_config = ConfigDict(strict=True, extra="forbid")
+    state: Literal["available", "unavailable"] = Field(
+        description="Whether a usable native catalog was observed."
+    )
+    revision: str | None = Field(
+        default=None,
+        pattern=r"^[0-9a-f]{64}$",
+        description="Digest of the actual observed native catalog.",
+    )
+    commands: list[NativeCommandAvailability] = Field(
+        default_factory=list,
+        max_length=256,
+        description="Observed commands with provider-owned execution policy.",
+    )
+    reason: str | None = Field(
+        default=None, max_length=100, description="Stable discovery-unavailable reason."
+    )
+
+
+class NativeCommandInvocation(BaseModel):
+    """Exact native command arguments and observed catalog binding, never a grant."""
+
+    model_config = ConfigDict(strict=True, frozen=True, extra="forbid")
+    name: str = Field(
+        min_length=1,
+        max_length=200,
+        description="Exact advertised native command name without slash.",
+    )
+    arguments: str = Field(
+        default="",
+        max_length=4000,
+        description="Exact single-line arguments approved by the human.",
+    )
+    catalog_revision: str = Field(
+        pattern=r"^[0-9a-f]{64}$",
+        description="Digest of the session command catalog observed before approval.",
+    )
+
+    @model_validator(mode="after")
+    def single_line(self):
+        """Refuse control characters and ambiguous command-token boundaries."""
+        if any(c.isspace() or ord(c) < 32 for c in self.name) or self.name.startswith(
+            "/"
+        ):
+            raise ValueError("invalid_native_command")
+        if any(
+            ord(c) < 32 or ord(c) == 127 or c in "\u2028\u2029" for c in self.arguments
+        ):
+            raise ValueError("invalid_native_command_arguments")
+        return self
+
+    def text(self) -> str:
+        """Produce the exact native slash input with no assistant prompt wrapper."""
+        return "/" + self.name + (" " + self.arguments if self.arguments else "")
+
+
 class ResumeDispatchRequest(BaseModel):
     """Bound one explicit resumed attempt without serializing its private grant."""
 
@@ -51,6 +142,10 @@ class ResumeDispatchRequest(BaseModel):
         default=None,
         gt=0,
         description="Optional explicit execution timeout, separate from installation and admission.",
+    )
+    native_command: NativeCommandInvocation | None = Field(
+        default=None,
+        description="Explicit native command mode; absence preserves ordinary prompt behavior.",
     )
     mcp_manifest: dict[str, JsonValue] | None = Field(
         default=None,
@@ -268,8 +363,13 @@ class PreparedRunRecord(BaseModel):
         "cancel_requested",
         "cancel_confirmed",
         "github_scope",
+        "initial_native_command",
     )
     run_id: str = Field(description="New canonical runner run UUID.")
+    initial_native_command: Literal["status"] | None = Field(
+        default=None,
+        description="Explicit admitted control-only first session operation.",
+    )
     workspace: PreparedWorkspaceState = Field(
         description="Related observed working-state bindings."
     )
@@ -322,7 +422,9 @@ class PreparedRunRecord(BaseModel):
 
     def to_record(self) -> dict:
         """Preserve the flat initial JSON schema, defaults, nulls and optional scope."""
-        value = self.model_dump(exclude={"workspace", "runtime", "github_scope"})
+        value = self.model_dump(
+            exclude={"workspace", "runtime", "github_scope", "initial_native_command"}
+        )
         value.update(self.workspace.record_fields())
         value.update(self.runtime.record_fields())
         value.update(
@@ -354,6 +456,10 @@ class PreparedRunRecord(BaseModel):
         expected = set(self.RECORD_KEYS) - (
             {"github_scope"} if self.github_scope is None else set()
         )
+        if self.initial_native_command is None:
+            expected.discard("initial_native_command")
+        else:
+            value["initial_native_command"] = self.initial_native_command
         assert (
             set(value) == expected
         ), "Prepared record keys must explicitly match the persistence contract."

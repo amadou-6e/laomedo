@@ -60,6 +60,14 @@ class AcpSessionTests(unittest.IsolatedAsyncioTestCase):
         ):
             self.assertFalse(hasattr(self.client, method))
 
+    async def test_authentication_refusal_is_not_an_uncertain_transport_failure(self):
+        self.connection.load_session.side_effect = RequestError.auth_required(
+            {"private": "not-for-diagnostics"}
+        )
+        await self.client.initialize()
+        with self.assertRaisesRegex(ValueError, "^runner_authentication_required$"):
+            await self.client.open(session_id="native-session")
+
     async def test_permissions_are_denied_even_if_agent_offers_allow(self):
         response = await self.client.request_permission(
             "native-session", {}, [{"optionId": "allow", "kind": "allow_always"}]

@@ -130,7 +130,7 @@ index a43f9ab..63ac123 100644
              }
  
 -            const commandPromise = this.availableCommands.tryHandleCommand(params.prompt, sessionState, {
-+            const commandPromise = this.availableCommands.tryHandleCommand(this.codexAcpClient.laomedo ? [] : params.prompt, sessionState, {
++            const commandPromise = this.availableCommands.tryHandleCommand(this.codexAcpClient.laomedo ? this.codexAcpClient.laomedo.commandPrompt(params) : params.prompt, sessionState, {
                  onTurnStartPending: () => {
                      sessionState.lastTokenUsage = null;
                      ensurePendingTurnStart();
@@ -166,7 +166,7 @@ index 1975930..defc390 100644
  
  import * as acp from "@agentclientprotocol/sdk";
  import {z} from "zod";
-+import {LaomedoExtension, emptyParams, modelParams, probeParams, executorParams, statusParams} from "./LaomedoExtension";
++import {LaomedoExtension, emptyParams, modelParams, probeParams, executorParams, statusParams, credentialParams} from "./LaomedoExtension";
  import {startCodexConnection} from "./CodexJsonRpcConnection";
  import {CodexAcpServer, type CodexProcessState} from "./CodexAcpServer";
  import {createJsonStream} from "./StdUtils";
@@ -216,11 +216,11 @@ index 1975930..defc390 100644
          .onRequest(acp.methods.agent.providers.set, (ctx) => getAgent().setProvider(ctx.params))
          .onRequest(acp.methods.agent.providers.disable, (ctx) => getAgent().disableProvider(ctx.params))
 -        .onRequest(acp.methods.agent.session.prompt, (ctx) => getAgent().prompt(ctx.params, ctx.signal))
-+        .onRequest(acp.methods.agent.session.prompt, (ctx) => laomedo ? laomedo.prompt(ctx.params.sessionId, () => getAgent().prompt(ctx.params, ctx.signal)) : getAgent().prompt(ctx.params, ctx.signal))
++        .onRequest(acp.methods.agent.session.prompt, (ctx) => laomedo ? laomedo.prompt(ctx.params.sessionId, () => getAgent().prompt(ctx.params, ctx.signal), ctx.params) : getAgent().prompt(ctx.params, ctx.signal))
          .onNotification(acp.methods.agent.session.cancel, (ctx) => getAgent().cancel(ctx.params))
          .onRequest("authentication/status", emptyExtensionParamsParser, (ctx) => getAgent().extMethod("authentication/status", ctx.params))
          .onRequest("authentication/logout", emptyExtensionParamsParser, (ctx) => getAgent().extMethod("authentication/logout", ctx.params))
-@@ -169,5 +184,10 @@ function startAcpServer() {
+@@ -169,5 +184,11 @@ function startAcpServer() {
          .onRequest(SESSION_STEERING_METHOD, sessionSteerParamsParser, (ctx) => getAgent().extMethod(SESSION_STEERING_METHOD, ctx.params))
          .onRequest(ASYNC_TASK_STOP_METHOD, asyncTaskStopParamsParser, (ctx) => getAgent().extMethod(ASYNC_TASK_STOP_METHOD, ctx.params))
          .onRequest(GOAL_CONTROL_METHOD, goalControlParamsParser, (ctx) => getAgent().extMethod(GOAL_CONTROL_METHOD, ctx.params))
@@ -229,5 +229,6 @@ index 1975930..defc390 100644
 +        .onRequest("_laomedo/preflight", probeParams, (ctx) => extension().preflight(ctx.params))
 +        .onRequest("_laomedo/registerExecutor", executorParams, (ctx) => extension().registerExecutor(ctx.params))
 +        .onRequest("_laomedo/executorStatus", statusParams, (ctx) => extension().executorStatus(ctx.params))
++        .onRequest("_laomedo/refreshCredential", credentialParams, (ctx) => extension().refreshCredential(ctx.params))
          .connect(acpJsonStream);
  }

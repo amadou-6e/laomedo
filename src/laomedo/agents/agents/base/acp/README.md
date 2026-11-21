@@ -15,6 +15,16 @@ Resume never falls back to fresh. Permission callbacks deny unsupported access;
 native notifications/extensions retain their original ordering. SDK callback names
 are external contracts, not candidates for cosmetic renaming.
 
+`command_catalog()` returns a detached `NativeCommandCatalog` from the latest
+`available_commands_update`. It survives clearing per-turn activity updates.
+Missing discovery is `None`; a reported empty list replaces previous commands.
+`NativeCommand` retains bounded name, description and argument hints only. Its
+catalog revision hashes observed metadata; discovery does not grant permission
+to invoke a command. Invalid catalog metadata withdraws discovery while retaining
+raw activity and leaving ordinary turns usable. Wrong-session updates still fail
+the protocol closed. Before session creation returns, the existing SDK callback
+cannot yet check the returned native session identity.
+
 ## Current object interface inventory
 
 This inventory names existing methods; the vocabulary above explains their

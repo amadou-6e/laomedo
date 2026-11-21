@@ -20,6 +20,8 @@ from laomedo.agents.mcp.settings import MCP_ERROR_CODES
 from laomedo.integrations.langflow.assistant.catalog import ComponentCatalog
 from laomedo.integrations.langflow.assistant.errors import AssistantError
 from laomedo.integrations.langflow.assistant.models import (
+    ModelCatalogCacheEntry,
+    IdleAssistantTools,
     AuthoringContext,
     AssistantSession,
 )
@@ -41,12 +43,18 @@ class AssistantRuntime:
     def __init__(self, settings):
         """Prepare inactive app composition without Docker, inference or credential reads."""
         self.settings = settings
+        self.provider_connections = None
+        self.idle_tools = {}
+        self.claimed_idle_tools = {}
+        self.model_catalogs = {}
+        self.migration_blocked = False
         self.store = self.mcp = self.upstream = None
         self.runners, self.runner_locks, self.jobs = {}, {}, {}
         self.contexts, self.host_tokens, self.tool_tasks = {}, {}, {}
         self.save_locks, self.uncertain_saves = {}, {}
         self.graph_jobs = {}
         self.revoked_sessions = set()
+        self.session_aliases = {}
         self.closing = False
         self.ready = False
 
@@ -60,7 +68,7 @@ class AssistantRuntime:
         owner = cls(AssistantSettings())
         app.state.laomedo_assistant = owner
         app.include_router(router)
-        if owner.settings.app_url and owner.settings.runner_service_file:
+        if owner.settings.app_url:
             owner.mcp = AuthoringMcp(owner, owner.settings.app_url)
             app.mount("/api/v1/laomedo/assistant/mcp", owner.mcp)
             app.add_middleware(
@@ -81,11 +89,14 @@ class AssistantRuntime:
         # tables remain upstream's responsibility.
         await self.store.upgrade_retained()
         async with self.upstream(app) as state:
+            self.provider_connections = getattr(app.state, "provider_connections", None)
             if self.mcp is None:
                 yield state
                 return
             await self.store.initialize()
+            self.check_retired_runners()
             async with self.mcp.server.session_manager.run():
+                idle_reaper = None
                 self.ready = True
                 try:
                     # Reservations remain reconcile-only after app restart. Native
@@ -104,14 +115,29 @@ class AssistantRuntime:
                     )
 
                     await WorkflowActions(self.store, None, self.authorize).reconcile()
+                    idle_reaper = asyncio.create_task(self._reap_idle_tools())
                     yield state
                 finally:
                     self.closing = True
+                    if idle_reaper is not None:
+                        idle_reaper.cancel()
+                        await asyncio.gather(idle_reaper, return_exceptions=True)
                     self.ready = False
                     self.host_tokens.clear()
+                    for idle in list(self.idle_tools.values()):
+                        await self.release_idle_session(
+                            idle.context.owner_id, idle.context.conversation_id
+                        )
                     cancellations = []
                     for conversation in await self.store.pending():
-                        runner = self.runners.get(conversation.owner_id)
+                        runner = self.runners.get(
+                            self._runner_key(
+                                conversation.owner_id,
+                                conversation.provider,
+                                conversation.connection_id,
+                                conversation.connection_generation,
+                            )
+                        )
                         if runner is not None and conversation.run_id:
                             cancellations.append(
                                 asyncio.to_thread(
@@ -170,8 +196,30 @@ class AssistantRuntime:
             expires = float(payload["exp"])
         except (ValueError, KeyError, TypeError, jwt.PyJWTError):
             raise AssistantError("assistant_native_session_required", 403) from None
-        key = hashlib.sha256(token.encode()).hexdigest()
-        await self.store.admit_session(key, UUID(str(user.id)), expires)
+        fingerprint = hashlib.sha256(token.encode()).hexdigest()
+        if self.provider_connections is not None:
+            from laomedo.agents.connections.errors import ProviderConnectionError
+
+            try:
+                self.provider_connections.check_lease(fingerprint)
+            except ProviderConnectionError:
+                raise AssistantError("assistant_session_locked", 403) from None
+        key = (
+            self.provider_connections.resolve_lease(fingerprint)
+            if self.provider_connections is not None
+            else fingerprint
+        )
+        if fingerprint in self.revoked_sessions or key in self.revoked_sessions:
+            raise AssistantError("assistant_session_locked", 403)
+        renewal_key = key
+        key = await self.store.admit_session(
+            fingerprint,
+            UUID(str(user.id)),
+            expires,
+            renewal_key=key if key != fingerprint else None,
+        )
+        self.session_aliases[fingerprint] = key
+        self.session_aliases[renewal_key] = key
         await self.check_session(UUID(str(user.id)), key)
         return key
 
@@ -188,6 +236,13 @@ class AssistantRuntime:
 
         if self.closing or key in self.revoked_sessions:
             raise AssistantError("assistant_session_locked", 403)
+        if self.provider_connections is not None:
+            from laomedo.agents.connections.errors import ProviderConnectionError
+
+            try:
+                self.provider_connections.check_lease(key)
+            except ProviderConnectionError:
+                raise AssistantError("assistant_session_locked", 403) from None
         async with self.store.sessions() as session:
             row = await session.get(AssistantSession, key)
             user = await session.get(User, owner)
@@ -208,8 +263,113 @@ class AssistantRuntime:
         if self.contexts.get(context.message_id) != context:
             raise AssistantError("assistant_tool_authority_revoked", 403)
         await self.check_session(context.owner_id, context.session_key)
+        async with self.store.sessions() as session:
+            conversation = await self.store.conversation(
+                session, context.owner_id, context.conversation_id
+            )
+        self.check_connection(
+            context.owner_id,
+            conversation.provider,
+            conversation.connection_id,
+            conversation.connection_generation,
+        )
         if self.contexts.get(context.message_id) != context:
             raise AssistantError("assistant_tool_authority_revoked", 403)
+
+    def check_retired_runners(self):
+        """Refuse migration while an old scratch runner has unsettled work; preserve every file."""
+        import sqlite3
+
+        self.migration_blocked = False
+        if not self.settings.app_url:
+            return
+        namespace = hashlib.sha256(self.settings.app_url.encode()).hexdigest()[:16]
+        parent = self.settings.state_root / namespace
+        if not parent.is_dir():
+            return
+        try:
+            owners = list(parent.iterdir())
+        except OSError:
+            self.migration_blocked = True
+            return
+        for owner in owners:
+            if not owner.is_dir():
+                continue
+            try:
+                UUID(owner.name)
+            except ValueError:
+                continue
+            for root in (
+                owner / "runner",
+                owner / "claude" / "runner",
+                owner / "opencode" / "runner",
+            ):
+                if not root.is_dir():
+                    continue
+                try:
+                    active = any(
+                        json.loads(path.read_text(encoding="utf-8")).get("status")
+                        in {"prepared", "running"}
+                        for path in root.glob("runs/*/record.json")
+                    )
+                    receipts = (
+                        any(root.glob("receipts/*.json"))
+                        or any(root.glob("*/*receipt*.json"))
+                        or any(root.glob("runs/*/docker-receipts/*.json"))
+                    )
+                    journal = root / "resume-dispatch.sqlite"
+                    if journal.is_file():
+                        with sqlite3.connect(
+                            journal.as_uri() + "?mode=ro", uri=True
+                        ) as connection:
+                            active = (
+                                active
+                                or connection.execute(
+                                    "SELECT 1 FROM attempts WHERE state IN ('reserved','running','unknown') LIMIT 1"
+                                ).fetchone()
+                                is not None
+                            )
+                    if active or receipts:
+                        self.migration_blocked = True
+                        return
+                except (OSError, ValueError, sqlite3.Error):
+                    self.migration_blocked = True
+                    return
+
+    def check_connection(self, owner, provider, connection_id, generation):
+        """Refuse missing, foreign, revoked or changed bindings without an account fallback."""
+        from laomedo.agents.connections.errors import ProviderConnectionError
+
+        if self.migration_blocked:
+            raise AssistantError("assistant_reconciliation_required", 409)
+        if connection_id is None or generation is None:
+            raise AssistantError("assistant_setup_required", 409)
+        try:
+            if self.provider_connections is None:
+                raise ProviderConnectionError("provider_runner_unavailable")
+            record = self.provider_connections.admitted(
+                owner, connection_id, generation
+            )
+            if record.provider != provider:
+                raise ProviderConnectionError("provider_connection_unavailable")
+        except ProviderConnectionError as error:
+            raise AssistantError(error.code, 409) from None
+
+    async def connections(self, owner):
+        """List safe account rows for this verified profile without starting a runner."""
+        from laomedo.agents.connections.errors import ProviderConnectionError
+
+        try:
+            if self.provider_connections is None:
+                raise ProviderConnectionError("provider_runner_unavailable")
+            return {
+                "connections": [
+                    row.model_dump(mode="json")
+                    for row in self.provider_connections.list(owner)
+                ]
+            }
+        except ProviderConnectionError as error:
+            raise AssistantError(error.code, 409) from None
 
     async def host_context(self, token):
         """Resolve an exact private host credential; never accept model-selected identities."""
@@ -219,57 +379,140 @@ class AssistantRuntime:
         await self.authorize(context)
         return context
 
+    async def release_idle_session(self, owner, identifier, *, expected=None):
+        """Revoke the inactive endpoint and cancel only its exact owned native run."""
+        idle = self.idle_tools.get(identifier)
+        if (
+            idle is None
+            or idle.context.owner_id != owner
+            or (expected is not None and idle is not expected)
+        ):
+            return
+        self.idle_tools.pop(identifier, None)
+        await self._close_tools(
+            idle.context, idle.registration, idle.client, idle.token.get_secret_value()
+        )
+        runner = self.runners.get(
+            self._runner_key(
+                owner, idle.provider, idle.connection_id, idle.connection_generation
+            )
+        )
+        if runner is not None:
+            try:
+                await asyncio.to_thread(
+                    runner.request, "POST", "/v1/runs/" + idle.run_id + "/cancel", {}
+                )
+            except AssistantError:
+                # Tool authority is already revoked; exact native ownership stays
+                # under its independent cleanup path if the gateway is lost.
+                pass
+
     async def lock_session(self, key):
         """Revoke tools immediately and persist the fence before sign-out completes."""
         if not self.store:
             return
-        self.revoked_sessions.add(key)
+        fingerprint = key
+        renewal_key = (
+            self.provider_connections.resolve_lease(key)
+            if self.provider_connections is not None
+            else key
+        )
+        keys = {fingerprint, renewal_key}
+        keys.update(self.session_aliases.get(value, value) for value in tuple(keys))
+        affected = self._fence_session_contexts(keys)
+        renewal_key = renewal_key if renewal_key != fingerprint else None
+        try:
+            key = await self.store.canonical_session_key(
+                fingerprint, renewal_key=renewal_key
+            )
+            keys.add(key)
+            affected.extend(self._fence_session_contexts(keys))
+            await self.store.revoke(fingerprint, renewal_key=renewal_key)
+        finally:
+            for idle in list(self.idle_tools.values()):
+                if idle.context.session_key in keys:
+                    await self.release_idle_session(
+                        idle.context.owner_id, idle.context.conversation_id
+                    )
+            for context in affected:
+                conversation, message = await self.store.message(
+                    context.owner_id, context.conversation_id, context.message_id
+                )
+                runner = self.runners.get(
+                    self._runner_key(
+                        context.owner_id,
+                        conversation.provider,
+                        conversation.connection_id,
+                        conversation.connection_generation,
+                    )
+                )
+                if runner and message.run_id:
+                    try:
+                        await asyncio.to_thread(
+                            runner.request,
+                            "POST",
+                            "/v1/runs/" + message.run_id + "/cancel",
+                            {},
+                        )
+                    except AssistantError:
+                        pass
+
+    def _fence_session_contexts(self, keys):
+        """Remove known browser tool authority synchronously, before storage or cleanup."""
+        self.revoked_sessions.update(keys)
         affected = [
-            context for context in self.contexts.values() if context.session_key == key
+            context for context in self.contexts.values() if context.session_key in keys
         ]
         for context in affected:
             self.contexts.pop(context.message_id, None)
-            for token, binding in list(self.host_tokens.items()):
-                if binding == context:
-                    self.host_tokens.pop(token, None)
-            runner = self.runners.get(context.owner_id)
-            conversation, message = await self.store.message(
-                context.owner_id, context.conversation_id, context.message_id
-            )
-            if runner and message.run_id:
-                try:
-                    await asyncio.to_thread(
-                        runner.request,
-                        "POST",
-                        "/v1/runs/" + message.run_id + "/cancel",
-                        {},
-                    )
-                except AssistantError:
-                    pass
-        await self.store.revoke(key)
+        for token, binding in list(self.host_tokens.items()):
+            if binding.session_key in keys:
+                self.host_tokens.pop(token, None)
+        return affected
 
-    async def runner(self, owner):
+    @staticmethod
+    def _runner_key(owner, provider, connection_id=None, connection_generation=None):
+        """Separate every owner, provider, saved account and immutable account epoch."""
+        return (owner, provider, connection_id, connection_generation)
+
+    async def runner(
+        self, owner, provider="codex", connection_id=None, connection_generation=None
+    ):
         """Compose only this owner's dedicated scratch runner, off the app event loop."""
-        lock = self.runner_locks.setdefault(owner, asyncio.Lock())
+        key = self._runner_key(owner, provider, connection_id, connection_generation)
+        lock = self.runner_locks.setdefault(key, asyncio.Lock())
         async with lock:
-            value = self.runners.get(owner)
+            value = self.runners.get(key)
             if value is None:
-                value = AssistantRunner(self.settings, owner)
-                from laomedo.agents.errors import RunnerError
-                from laomedo.host.private_state.errors import PrivateStateError
-
-                try:
-                    await asyncio.to_thread(value.start)
-                except (RunnerError, PrivateStateError) as error:
-                    raise AssistantError(error.code, 503) from None
-                except (OSError, ValueError):
-                    raise AssistantError("assistant_setup_required", 503) from None
-                self.runners[owner] = value
+                value = AssistantRunner(
+                    self.settings,
+                    owner,
+                    provider,
+                    connection_id,
+                    connection_generation,
+                    controllers=(
+                        self.provider_connections.controllers
+                        if self.provider_connections is not None
+                        else None
+                    ),
+                )
+                self.runners[key] = value
             return value
 
-    async def models(self, owner):
+    async def models(
+        self, owner, provider="codex", connection_id=None, connection_generation=None
+    ):
         """Discover actual supported models without submitting a prompt."""
-        runner = await self.runner(owner)
+        self.check_connection(owner, provider, connection_id, connection_generation)
+        runner = await self.runner(
+            owner, provider, connection_id, connection_generation
+        )
+        cache_key = self._runner_key(
+            owner, provider, connection_id, connection_generation
+        )
+        observed = self.model_catalogs.get(cache_key)
+        if observed is not None and observed.runner_instance_id == runner.instance_id:
+            return observed.to_payload(provider)
         catalog = await asyncio.to_thread(runner.request, "GET", "/v1/models")
         if not catalog.get("models"):
             raise AssistantError(
@@ -280,18 +523,25 @@ class AssistantRuntime:
                 ),
                 503,
             )
-        return {
-            "provider": "codex",
-            "models": [
-                {"id": item["id"], "efforts": item.get("efforts", [])}
-                for item in catalog.get("models", [])[:100]
-            ],
-        }
+        from laomedo.agents.agents.base.models import ModelCatalog
+
+        self.check_connection(owner, provider, connection_id, connection_generation)
+        observed = ModelCatalogCacheEntry(
+            runner_instance_id=runner.instance_id,
+            catalog=ModelCatalog.from_payload(catalog),
+        )
+        self.model_catalogs[cache_key] = observed
+        return observed.to_payload(provider)
 
     async def create(self, owner, key, request):
         """Validate a real model choice and persist an empty conversation without inference."""
         await self.check_session(owner, key)
-        catalog = await self.models(owner)
+        catalog = await self.models(
+            owner,
+            request.provider,
+            request.connection_id,
+            request.connection_generation,
+        )
         selected = next(
             (item for item in catalog["models"] if item["id"] == request.model), None
         )
@@ -382,13 +632,16 @@ class AssistantRuntime:
         if len(query) > 200 or cursor < 0 or cursor > 10000:
             raise AssistantError("assistant_input_invalid", 400)
         await self.authorize(context)
-        from laomedo.host.runner.service import RunnerService
-
-        config = await asyncio.to_thread(
-            RunnerService(self.settings.runner_service_file).config
-        )
+        if (
+            self.provider_connections is None
+            or self.provider_connections.controllers is None
+        ):
+            raise AssistantError("assistant_setup_required", 503)
         return await asyncio.to_thread(
-            self._skills, Path(config["skill_store"]), query, cursor
+            self._skills,
+            self.provider_connections.controllers.skill_store,
+            query,
+            cursor,
         )
 
     def _skills(self, root, query, cursor):
@@ -456,8 +709,27 @@ class AssistantRuntime:
         prior = await self.store.submitted(owner, conversation_id, request)
         if prior is not None:
             return prior
+        async with self.store.sessions() as session:
+            conversation = await self.store.conversation(
+                session, owner, conversation_id
+            )
+        self.check_connection(
+            owner,
+            conversation.provider,
+            conversation.connection_id,
+            conversation.connection_generation,
+        )
+        if request.initial_native_command is not None and (
+            conversation.provider != "codex" or conversation.run_id is not None
+        ):
+            raise AssistantError("native_command_context_invalid", 409)
         if request.model is not None:
-            catalog = await self.models(owner)
+            catalog = await self.models(
+                owner,
+                conversation.provider,
+                conversation.connection_id,
+                conversation.connection_generation,
+            )
             choice = next(
                 (item for item in catalog["models"] if item["id"] == request.model),
                 None,
@@ -469,7 +741,12 @@ class AssistantRuntime:
             and conversation_id not in self.jobs
         ):
             raise AssistantError("assistant_capacity_busy", 409)
-        runner = await self.runner(owner)
+        runner = await self.runner(
+            owner,
+            conversation.provider,
+            conversation.connection_id,
+            conversation.connection_generation,
+        )
         async with self.store.sessions() as session:
             conversation = await self.store.conversation(
                 session, owner, conversation_id
@@ -493,22 +770,111 @@ class AssistantRuntime:
             owner, conversation_id, request, session_key=key
         )
         if created:
-            context = AuthoringContext(
-                owner_id=owner,
-                conversation_id=conversation_id,
-                message_id=message["id"],
-                attempt_id=message["attempt_id"],
-                session_key=key,
-            )
-            self.contexts[context.message_id] = context
-            task = asyncio.create_task(
-                self._job(context), name="laomedo-assistant-" + str(context.message_id)
-            )
-            self.jobs[conversation_id] = task
-            task.add_done_callback(
-                lambda finished: self._job_done(conversation_id, finished)
-            )
+            self.dispatch_reserved(owner, key, conversation_id, message)
         return message
+
+    def dispatch_reserved(self, owner, key, conversation_id, message):
+        """Schedule exactly one already-committed chat or approved-command reservation."""
+        context = AuthoringContext(
+            owner_id=owner,
+            conversation_id=conversation_id,
+            message_id=message["id"],
+            attempt_id=message["attempt_id"],
+            session_key=key,
+        )
+        self.contexts[context.message_id] = context
+        task = asyncio.create_task(
+            self._job(context), name="laomedo-assistant-" + str(context.message_id)
+        )
+        self.jobs[conversation_id] = task
+        task.add_done_callback(
+            lambda finished: self._job_done(conversation_id, finished)
+        )
+
+    async def native_catalog(self, owner, conversation_id):
+        """Project commands only from the current conversation's existing native session."""
+        from laomedo.agents.agents.base.models import NativeCommandDiscovery
+        from pydantic import ValidationError
+
+        async with self.store.sessions() as session:
+            conversation = await self.store.conversation(
+                session, owner, conversation_id
+            )
+        if not conversation.run_id:
+            return {
+                "state": "unavailable",
+                "reason": "native_session_not_created",
+                "commands": [],
+            }
+        runner = await self.runner(
+            owner,
+            conversation.provider,
+            conversation.connection_id,
+            conversation.connection_generation,
+        )
+        record = await asyncio.to_thread(
+            runner.request, "GET", "/v1/runs/" + conversation.run_id
+        )
+        observed = record.get("native_commands") or {}
+        thread = record.get("thread_id")
+        if (
+            not thread
+            or observed.get("thread_id") != thread
+            or (conversation.thread_id and conversation.thread_id != thread)
+        ):
+            return {
+                "state": "unavailable",
+                "reason": "native_session_not_observed",
+                "commands": [],
+            }
+        if observed.get("catalog") is None:
+            return {
+                "state": "unavailable",
+                "reason": "native_catalog_not_observed",
+                "commands": [],
+            }
+        try:
+            result = NativeCommandDiscovery.model_validate(
+                observed.get("projection")
+            ).model_dump(mode="json")
+        except ValidationError:
+            return {
+                "state": "unavailable",
+                "reason": "native_catalog_invalid",
+                "commands": [],
+            }
+        return {**result, "run_id": conversation.run_id, "thread_id": thread}
+
+    async def submit_native_command(self, owner, key, conversation_id, request):
+        """Admit explicit human slash input using existing capacity and command dispatch."""
+        from laomedo.integrations.langflow.assistant.native import NativeCommands
+
+        await self.check_session(owner, key)
+        if self.closing or (
+            len(self.jobs) >= self.settings.max_active_turns
+            and conversation_id not in self.jobs
+        ):
+            raise AssistantError("assistant_capacity_busy", 409)
+        return await NativeCommands(self).submit(owner, key, conversation_id, request)
+
+    async def decide_native_action(
+        self, owner, key, conversation_id, identifier, decision
+    ):
+        """Use human app authority to reserve an exact command, then schedule it once."""
+        from laomedo.integrations.langflow.assistant.native import NativeCommands
+
+        await self.check_session(owner, key)
+        if self.closing or (
+            len(self.jobs) >= self.settings.max_active_turns
+            and conversation_id not in self.jobs
+        ):
+            raise AssistantError("assistant_capacity_busy", 409)
+        result, reserved = await NativeCommands(self).decide(
+            owner, key, conversation_id, identifier, decision
+        )
+        if reserved is not None:
+            self.dispatch_reserved(owner, key, conversation_id, reserved)
+        return result
 
     def _job_done(self, identifier, task):
         """Release this task's slot and consume errors; retained reservations remain reconcile-only."""
@@ -525,11 +891,59 @@ class AssistantRuntime:
             else "assistant_turn_failed"
         )
 
-    async def _close_tools(self, context, registration, client, token):
+    async def _reap_idle_tools(self):
+        """Release inactive transports after account removal or native idle cleanup."""
+        while not self.closing:
+            await asyncio.sleep(1)
+            for identifier, idle in list(self.idle_tools.items()):
+                release = False
+                try:
+                    self.check_connection(
+                        idle.context.owner_id,
+                        idle.provider,
+                        idle.connection_id,
+                        idle.connection_generation,
+                    )
+                    runner = self.runners.get(
+                        self._runner_key(
+                            idle.context.owner_id,
+                            idle.provider,
+                            idle.connection_id,
+                            idle.connection_generation,
+                        )
+                    )
+                    release = runner is None or not await asyncio.to_thread(
+                        runner.has_live_session, idle.run_id
+                    )
+                except AssistantError:
+                    release = True
+                if release:
+                    await self.release_idle_session(
+                        idle.context.owner_id, identifier, expected=idle
+                    )
+
+    async def _close_tools(self, context, registration, client, token, *, retain=False):
         """Revoke first, then drain actual host tool tasks before permitting another message."""
         self.contexts.pop(context.message_id, None)
-        self.host_tokens.pop(token, None)
-        if registration is not None:
+        if self.host_tokens.get(token) is context:
+            self.host_tokens.pop(token, None)
+        if retain and registration is not None:
+            conversation, message = await self.store.message(
+                context.owner_id, context.conversation_id, context.message_id
+            )
+            if not message.run_id:
+                raise AssistantError("assistant_native_identity_mismatch", 409)
+            self.idle_tools[context.conversation_id] = IdleAssistantTools(
+                provider=conversation.provider,
+                connection_id=conversation.connection_id,
+                connection_generation=conversation.connection_generation,
+                run_id=message.run_id,
+                context=context,
+                registration=registration,
+                client=client,
+                token=token,
+            )
+        elif registration is not None:
             McpRegistry.current().release(str(registration.registration_id))
         tasks = list(self.tool_tasks.pop(context.message_id, set()))
         for task in tasks:
@@ -538,12 +952,36 @@ class AssistantRuntime:
             await asyncio.wait_for(
                 asyncio.gather(*tasks, return_exceptions=True), timeout=15
             )
-        if client:
+        if client and not retain:
             try:
                 await asyncio.wait_for(client.disconnect(), timeout=10)
             except Exception:
                 pass  # Authority is already revoked; an idle session is not an agent grant.
         self.save_locks.pop(context.message_id, None)
+        claimed = self.claimed_idle_tools.pop(context.message_id, None)
+        if claimed is not None and not retain:
+            # A stopped or refused first dispatch must not leave a native
+            # controller attached to the endpoint just released above.
+            runner = self.runners.get(
+                self._runner_key(
+                    context.owner_id,
+                    claimed.provider,
+                    claimed.connection_id,
+                    claimed.connection_generation,
+                )
+            )
+            if runner is not None:
+                try:
+                    await asyncio.to_thread(
+                        runner.request,
+                        "POST",
+                        "/v1/runs/" + claimed.run_id + "/cancel",
+                        {},
+                    )
+                except AssistantError:
+                    # Revocation is complete; native cleanup remains uncertain
+                    # and is independently reconciled by the owning runner.
+                    pass
 
     async def _job(self, context):
         """Use existing asynchronous start/resume once, then observe the exact attempt."""
@@ -557,25 +995,71 @@ class AssistantRuntime:
             conversation, message = await self.store.message(
                 context.owner_id, context.conversation_id, context.message_id
             )
-            runner = await self.runner(context.owner_id)
+            runner = await self.runner(
+                context.owner_id,
+                conversation.provider,
+                conversation.connection_id,
+                conversation.connection_generation,
+            )
             self.host_tokens[token] = context
-            client = MCPStreamableHttpClient()
-            client.set_session_context("assistant:" + str(context.message_id))
-            _, tools, _ = await update_tools(
-                AUTHORING_SERVER_NAME,
-                {
-                    "mode": "Streamable_HTTP",
-                    "url": self.settings.app_url + "/api/v1/laomedo/assistant/mcp/",
-                    "headers": {"Authorization": "Bearer " + token},
-                },
-                mcp_streamable_http_client=client,
-                current_user_id=context.owner_id,
-            )
-            if len(tools) != len(AUTHORING_TOOL_NAMES):
-                raise AssistantError("assistant_tool_catalog_changed", 503)
-            registration = await McpRegistry.current().register(
-                [LangflowMcpTool(tool) for tool in tools]
-            )
+            idle = self.idle_tools.pop(context.conversation_id, None)
+            if idle is not None:
+                self.host_tokens.pop(token, None)
+                if not idle.matches(context):
+                    self.idle_tools[context.conversation_id] = idle
+                    await self.release_idle_session(
+                        context.owner_id, context.conversation_id
+                    )
+                    raise AssistantError("assistant_native_identity_mismatch", 409)
+                registration, client, token = (
+                    idle.registration,
+                    idle.client,
+                    idle.token.get_secret_value(),
+                )
+                self.claimed_idle_tools[context.message_id] = idle
+                self.host_tokens[token] = context
+            else:
+                client = MCPStreamableHttpClient()
+                client.set_session_context("assistant:" + str(context.message_id))
+                _, tools, _ = await update_tools(
+                    AUTHORING_SERVER_NAME,
+                    {
+                        "mode": "Streamable_HTTP",
+                        "url": self.settings.app_url + "/api/v1/laomedo/assistant/mcp/",
+                        "headers": {"Authorization": "Bearer " + token},
+                    },
+                    mcp_streamable_http_client=client,
+                    current_user_id=context.owner_id,
+                )
+                if len(tools) != len(AUTHORING_TOOL_NAMES):
+                    raise AssistantError("assistant_tool_catalog_changed", 503)
+                admitted_tools = [LangflowMcpTool(tool) for tool in tools]
+                if conversation.run_id:
+                    from laomedo.agents.mcp.models import McpManifest
+
+                    record = await asyncio.to_thread(
+                        runner.request, "GET", "/v1/runs/" + conversation.run_id
+                    )
+                    if not record.get("mcp_manifest"):
+                        raise AssistantError("assistant_tool_catalog_changed", 409)
+                    frozen = McpManifest.model_validate(record["mcp_manifest"])
+                    selected = {
+                        (item.server, item.upstream_name) for item in frozen.tools
+                    }
+                    admitted_tools = [
+                        tool
+                        for tool in admitted_tools
+                        if (tool.descriptor.server, tool.descriptor.upstream_name)
+                        in selected
+                    ]
+                    if (
+                        McpManifest(
+                            tools=tuple(tool.descriptor for tool in admitted_tools)
+                        )
+                        != frozen
+                    ):
+                        raise AssistantError("assistant_tool_catalog_changed", 409)
+                registration = await McpRegistry.current().register(admitted_tools)
             await self.authorize(context)
             _, current = await self.store.message(
                 context.owner_id, context.conversation_id, context.message_id
@@ -589,6 +1073,45 @@ class AssistantRuntime:
                 "mcp_manifest": registration.manifest.model_dump(mode="json"),
                 "mcp_registration": str(registration.registration_id),
             }
+            if message.initial_native_command is not None:
+                if (
+                    message.initial_native_command != "status"
+                    or message.text != "/status"
+                    or conversation.provider != "codex"
+                    or conversation.run_id is not None
+                    or message.native_action_id is not None
+                ):
+                    raise AssistantError("native_command_context_invalid", 409)
+                payload["task"] = "/status"
+                payload["initial_native_command"] = "status"
+            if message.native_action_id is not None:
+                from laomedo.integrations.langflow.assistant.models import (
+                    AssistantNativeAction,
+                    NativeCommandRequest,
+                )
+
+                async with self.store.sessions() as session:
+                    action = await session.get(
+                        AssistantNativeAction, message.native_action_id
+                    )
+                    if (
+                        action is None
+                        or action.owner_id != context.owner_id
+                        or action.conversation_id != context.conversation_id
+                        or action.session_key != context.session_key
+                        or action.state != "executing"
+                        or action.result_message_id != message.id
+                        or action.run_id != conversation.run_id
+                        or action.thread_id != conversation.thread_id
+                    ):
+                        raise AssistantError("assistant_tool_authority_revoked", 403)
+                    command = NativeCommandRequest.model_validate(action.request)
+                    if command.text() != message.text:
+                        raise AssistantError("assistant_native_identity_mismatch", 409)
+                payload["task"] = command.text()
+                payload["native_command"] = command.model_dump(
+                    mode="json", exclude={"operation_key"}
+                )
             if conversation.run_id:
                 payload.update(
                     activity_attempt_id=str(context.attempt_id),
@@ -635,7 +1158,15 @@ class AssistantRuntime:
                 ):
                     break
                 await asyncio.sleep(0.5)
-            await self._close_tools(context, registration, client, token)
+            observed = await asyncio.to_thread(
+                runner.request, "GET", "/v1/runs/" + run_id
+            )
+            retain = (
+                observed.get("live_session") == "idle"
+                and observed.get("controller_cleanup") == "retained"
+                and not observed.get("turns")
+            )
+            await self._close_tools(context, registration, client, token, retain=retain)
             registration = client = None
             await self.reconcile(context.owner_id, context.conversation_id)
         except asyncio.CancelledError:
@@ -715,7 +1246,12 @@ class AssistantRuntime:
         conversation, message = await self.store.message(
             owner, identifier, conversation.active_message_id
         )
-        runner = await self.runner(owner)
+        runner = await self.runner(
+            owner,
+            conversation.provider,
+            conversation.connection_id,
+            conversation.connection_generation,
+        )
         if (
             conversation.runner_instance_id
             and conversation.runner_instance_id != runner.instance_id
@@ -732,9 +1268,11 @@ class AssistantRuntime:
             )
             return True
         try:
-            if message.run_id:
+            if message.run_id or conversation.run_id:
                 record = await asyncio.to_thread(
-                    runner.request, "GET", "/v1/runs/" + message.run_id
+                    runner.request,
+                    "GET",
+                    "/v1/runs/" + (message.run_id or conversation.run_id),
                 )
             else:
                 record = await asyncio.to_thread(
@@ -742,8 +1280,10 @@ class AssistantRuntime:
                 )
         except AssistantError:
             return False
-        native_attempt = message.native_attempt_id or record.get(
-            "activity_initial_attempt_id"
+        native_attempt = message.native_attempt_id or (
+            str(message.attempt_id)
+            if conversation.run_id and not message.run_id
+            else record.get("activity_initial_attempt_id")
         )
         if not native_attempt:
             return False
@@ -834,7 +1374,7 @@ class AssistantRuntime:
                     + record["run_id"]
                     + "/activity?attempt="
                     + native_attempt
-                    + "&after=0&limit=500",
+                    + "&after=0&limit=200",
                 )
                 await self.store.cache_activity(owner, identifier, message.id, activity)
             except AssistantError:
@@ -851,9 +1391,28 @@ class AssistantRuntime:
             and record.get("container_ownership", {}).get("cleanup_detail")
             == "not_launched"
         )
-        if not never_started and (
-            (record.get("controller_cleanup") != "confirmed" and not not_launched)
-            or record.get("container_ownership", {}).get("cleanup_verified") is not True
+        retained_control = (
+            status == "completed"
+            and record.get("live_session") == "idle"
+            and record.get("controller_cleanup") == "retained"
+            and not record.get("turns")
+            and any(
+                receipt.get("attempt_id") == native_attempt
+                and receipt.get("status") == "completed"
+                and (receipt.get("request") or {}).get("name")
+                in {"status", "mcp", "skills"}
+                for receipt in record.get("native_command_receipts", [])
+            )
+            and runner.has_live_session(record["run_id"])
+        )
+        if (
+            not never_started
+            and not retained_control
+            and (
+                (record.get("controller_cleanup") != "confirmed" and not not_launched)
+                or record.get("container_ownership", {}).get("cleanup_verified")
+                is not True
+            )
         ):
             await self.store.observe(
                 owner,
@@ -946,7 +1505,12 @@ class AssistantRuntime:
                 "projection": None,
             }
         try:
-            runner = await self.runner(owner)
+            runner = await self.runner(
+                owner,
+                conversation.provider,
+                conversation.connection_id,
+                conversation.connection_generation,
+            )
             return await asyncio.to_thread(
                 runner.request,
                 "GET",
@@ -989,7 +1553,12 @@ class AssistantRuntime:
                 if binding == context:
                     self.host_tokens.pop(token, None)
         if message.run_id:
-            runner = await self.runner(owner)
+            runner = await self.runner(
+                owner,
+                conversation.provider,
+                conversation.connection_id,
+                conversation.connection_generation,
+            )
             await asyncio.to_thread(
                 runner.request, "POST", "/v1/runs/" + message.run_id + "/cancel", {}
             )
@@ -1011,7 +1580,16 @@ class AssistantRuntime:
                         reconciled=True,
                     )
             elif conversation["run_id"] and not conversation["active_message_id"]:
-                runner = await self.runner(owner)
+                runner = await self.runner(
+                    owner,
+                    conversation["provider"],
+                    (
+                        UUID(conversation["connection_id"])
+                        if conversation.get("connection_id")
+                        else None
+                    ),
+                    conversation.get("connection_generation"),
+                )
                 if conversation[
                     "runner_instance_id"
                 ] != runner.instance_id and not await self.store.completed_binding(

@@ -1,5 +1,58 @@
 # Application assistant
 
+## Account selection and composer admission
+
+`AccountSelection.tsx` owns the compact composer account menu: provider icon,
+short account label, highlighted selected row and a separated Manage accounts
+link. Its popover handles outside-click/Escape dismissal; arrow keys move among
+account choices. New chats default to the first connected, ready account returned
+for the current profile and provider. If none is ready, a connected account whose
+access token expired can be selected for the existing model-discovery and host
+refresh path; revoked, reauthorization-required and unavailable accounts are not
+automatic defaults except OpenCode's `opencode_go_key` local-custody summary:
+its `unavailable` means upstream authentication has not been verified, not a runner
+outage. It is eligible for default selection, with normal admission unchanged.
+Users can change the choice before starting chat;
+selection never creates a session or sends a prompt. Existing conversations keep
+their exact saved account and generation. Other providers are never fallbacks.
+`ProviderIcon.tsx` shares the existing provider brand assets between that menu
+and the welcome cards. Welcome cards have a 320px maximum width, shrink with the
+sidebar, and align their icon/text columns. The explanatory sentence keeps its
+independent width.
+
+`AssistantPage.tsx` uses the draft placeholder for missing account admission:
+Select an account, or No account available. The account trigger repeats that
+state without an extra selection paragraph. Account/model loading and empty
+model discovery remain explicit. Missing selection disables model selection and
+Send without showing a stale model or effort; drafts remain editable. Switching
+providers preserves the draft and defaults only within the newly chosen provider.
+The composer remains editable during startup, dispatch and active responses.
+Send remains fenced until the current operation settles; typing does not queue
+or submit another operation. Late acknowledgements preserve a newer draft.
+Connect account and Manage accounts navigate to `/settings/providers` in the
+current tab; they do not depend on popup/new-window handling in VS Code.
+Before leaving, retain unsent drafts and the selected provider in profile-scoped
+tab session storage and restore them once on return. Profile changes/locks clear
+retained drafts. Storage failure asks before discarding work. Document navigation
+also preserves the graph editor's existing `beforeunload` unsaved/build guard.
+The empty slash menu distinguishes starting a native session from an unavailable
+or filtered catalog. `commandPreviews.ts` lists the supported Codex command names
+before startup, with only initial `/status` selectable; the other previews are
+disabled until the actual session advertises them. A preview is never a native
+catalog or an execution grant. Menu-inserted trailing whitespace still dispatches
+initial status as the exact non-model operation.
+
+An incomplete or unmatched slash prefix sends as ordinary chat. An exact observed
+unsupported command or invalid arguments is refused before effects. Editing or
+selecting another command dismisses only definite command-input rejections;
+uncertain dispatch, account, model and observation errors stay fenced. This
+prevents an earlier input error from permanently disabling Send.
+The reserved names in `providerCommandNames` are the AP-2 candidates: Codex
+status/mcp/skills/review/compact, Claude compact, and OpenCode init/review/compact.
+These names refuse when unadvertised, as do exact observed unsupported entries;
+the list grants no execution capability. Ordinary text stays inside the
+assistant instruction prefix, outside adapters' leading-slash command parsing.
+
 ## Graph editor sidebar (issue 296)
 
 `AssistantSidebar.tsx` mounts the same `AssistantPage` on the editor's right.
@@ -142,3 +195,58 @@ Opening a different graph resets the sidebar's selected conversation; saved chat
 remain in History. Opening the current graph reloads its saved state, closes the
 sidebar and discards unsent sidebar text. The editor's existing browser leave
 confirmation protects unsaved graph changes and active builds.
+
+`NativeActions.tsx` renders exact built-in command/argument proposals with Approve
+and Reject, followed by compact authoritative outcomes. It uses only human app
+routes and never submits an assistant prompt itself. `NativeAction` wire types
+stay in models.ts. Command messages reuse MessageRow/Copy; responseTranscript
+includes native proposal receipts. No additional conversation surface is created.
+
+
+# Assistant rendering
+
+`Message.tsx` assembles retained activity and responses. `NativeStatus.tsx` renders
+an approved native `/status` response as a compact, dismissible monospaced panel.
+`statusFields.ts` extracts only fields actually reported in that response; absent
+context or quota data remains unavailable, never inferred from a different session.
+The chat ID and native thread ID are separately labelled.
+
+`toolCall.ts` names retained native items, including context compaction.
+`ToolCalls.tsx` displays their observed outcome even when no textual result exists.
+Copy/export continue to preserve the original native response.
+Executed native command messages are plain right-aligned text, without the normal
+user-message bubble. Ordinary user messages retain their existing appearance.
+Ordinary message bubbles hug their text and padding, remain right-aligned, and
+wrap within the existing maximum width for long or multiline content.
+
+Model discovery has its own loading state: switching conversations never locks
+the draft editor while model discovery or history is loading. Sending still waits
+for the selected conversation, available models and execution admission. Native
+approval cards align to the right; their white Approve button is the primary action.
+
+`NativeCommandMenu.tsx` reads the selected session's observed command catalog when
+the user types `/`, filters executable commands, and inserts the chosen command.
+The menu floats above the composer without resizing it. Compact single-line rows
+pair a command icon/name with a muted, ellipsized native description; the full
+description remains available in the button title and accessible content.
+Arrow Down moves from the composer into the menu; arrows navigate, Enter selects,
+and Escape closes it. A session without an observed catalog gets an explanation
+and, for Codex, the non-authoritative startup previews described above. Exact
+observed commands use the human native-command route; they never fall back to
+ordinary prose after refused or uncertain dispatch. Unmatched slash text is chat.
+Only explicitly typed Codex `/status`, classified as non-model by the actual
+catalog, skips a second approval. Other typed commands retain confirmation.
+
+Chat reads the signed-in profile from the application AuthContext, which the
+HttpOnly-cookie session probe updates. It does not read the separate Zustand
+userData slot: normal profile login does not populate that slot. Profile changes
+fence the retained chat state and reload the account list.
+
+Normal profile access-token renewal keeps the provider boundary's verified
+canonical browser lease. Assistant admission, approval cards and logout use that
+same identity rather than treating each renewed access JWT as a different app
+session. Only a verified renewal alias may extend the retained session deadline;
+explicit revocation and owner mismatches always win. Unrelated logins do not
+inherit old pending approvals. Pre-fix cards require a fresh proposal; this does
+not migrate or rebind them. Verified fingerprint aliases are retained with the
+assistant session fence so restart cannot undo a logout. No bearer is stored.

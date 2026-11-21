@@ -138,6 +138,9 @@ class ControllerSlot(BaseModel):
     """Host-only inventory entry; never serialize runner objects or private paths."""
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
+    scope: Literal["graph", "assistant"] = Field(
+        default="graph", description="Fixed host-owned execution workspace boundary."
+    )
     profile_id: UUID = Field(description="Authenticated local owner.")
     connection_id: UUID = Field(description="Selected saved connection.")
     generation: int = Field(

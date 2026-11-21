@@ -3,6 +3,7 @@ import * as acp from "@agentclientprotocol/sdk";
 import {z} from "zod";
 import type {MessageConnection} from "vscode-jsonrpc/node";
 import type {CodexAppServerClient} from "./CodexAppServerClient";
+import {writeProviderCredential} from "./LaomedoLaunch";
 
 const sessionPolicy = z.object({
     policy: z.enum(["normal", "split"]),
@@ -19,6 +20,10 @@ const sessionPolicy = z.object({
 }).strict();
 
 const promptPolicy = z.object({
+    nativeCommand: z.object({
+        name: z.enum(["status", "mcp", "skills", "review", "compact"]),
+        arguments: z.string().max(4000),
+    }).strict().optional(),
     skills: z.array(z.object({
         type: z.literal("skill"),
         name: z.string().regex(/^[A-Za-z0-9_-]+$/),
@@ -38,15 +43,19 @@ export const executorParams = z.object({
     connectTimeoutMs: z.literal(15000),
 }).strict();
 export const statusParams = executorParams.pick({environmentId: true});
+export const credentialParams = z.object({accessToken: z.string().regex(/^[A-Za-z0-9._~+/=-]{16,32768}$/)}).strict();
 
 export class LaomedoExtension {
-    static readonly capabilities = {version: 1, rawEvents: true, hostPolicy: true};
+    static readonly capabilities = {version: 1, rawEvents: true, hostPolicy: true, nativeCommands: 1, credentialRefresh: 1};
     private sessions = new Map<string, z.infer<typeof sessionPolicy>>();
     private rawQueue: Promise<void> = Promise.resolve();
     private rawFailed = false;
     private prompted = false;
+    private prompting = false;
     private executorId?: string;
     private completed = new Map<string, number>();
+    private compactSession: string | undefined;
+    private compactEvents: Array<{method: string; params: any}> = [];
 
     constructor(
         private app: CodexAppServerClient,
@@ -64,6 +73,14 @@ export class LaomedoExtension {
                 || method.startsWith("turn/diff/"))) return;
             this.rawQueue = this.rawQueue.then(async () => {
                 await host.notify("_laomedo/codexEvent", {method, params});
+                if (this.compactSession && (params as {threadId?: string}).threadId === this.compactSession
+                    && ["turn/started", "turn/completed", "item/started", "item/completed", "error"].includes(method)) {
+                    const item = (params as any).item;
+                    if (!method.startsWith("item/") || item?.type === "contextCompaction") {
+                        if (this.compactEvents.length >= 32) throw new Error("Compaction evidence overflow");
+                        this.compactEvents.push({method, params});
+                    }
+                }
                 if (method === "turn/completed") {
                     const threadId = (params as {threadId: string}).threadId;
                     this.completed.set(threadId, (this.completed.get(threadId) ?? 0) + 1);
@@ -82,6 +99,17 @@ export class LaomedoExtension {
             // Host is pure contract validation. No filesystem/terminal delegation.
             return host.request("_laomedo/outputPrecheck", params);
         });
+    }
+
+    async refreshCredential(params: z.infer<typeof credentialParams>) {
+        if (process.env["LAOMEDO_CODEX_REFRESHABLE_AUTH"] !== "1" || !this.executorId || this.prompting) {
+            throw acp.RequestError.invalidParams("Managed provider credential unavailable");
+        }
+        writeProviderCredential(credentialParams.parse(params).accessToken);
+        // Pinned native command-backed auth caches for 1 ms. Wait out that cache
+        // before acknowledging, so the next request resolves the new bearer.
+        await new Promise(resolve => setTimeout(resolve, 2));
+        return {updated: true};
     }
 
     sessionParameters(request: acp.NewSessionRequest | acp.LoadSessionRequest) {
@@ -165,15 +193,60 @@ export class LaomedoExtension {
         }
     }
 
-    async prompt<T>(sessionId: string, run: () => Promise<T>): Promise<T> {
+    commandPrompt(request: acp.PromptRequest): acp.ContentBlock[] {
+        const input = promptPolicy.parse(request._meta?.["laomedo"] ?? {});
+        if (!input.nativeCommand) return [];
+        if (!this.sessions.has(request.sessionId)) throw acp.RequestError.invalidParams("Unbound command session");
+        const command = input.nativeCommand;
+        if (/[\x00-\x1f\x7f\u2028\u2029]/.test(command.arguments)
+            || (command.name !== "review" && command.arguments.length !== 0)) {
+            throw acp.RequestError.invalidParams("Invalid native command arguments");
+        }
+        const text = `/${command.name}${command.arguments ? ` ${command.arguments}` : ""}`;
+        if (request.prompt.length !== 1 || request.prompt[0]?.type !== "text" || request.prompt[0].text !== text) {
+            throw acp.RequestError.invalidParams("Native command text mismatch");
+        }
+        return request.prompt;
+    }
+
+    private compactCompleted(): boolean {
+        const events = this.compactEvents;
+        const turns = events.filter(e => e.method === "turn/started");
+        if (turns.length !== 1 || typeof turns[0]!.params.turn?.id !== "string") return false;
+        const turn = turns[0]!.params.turn.id;
+        const starts = events.filter(e => e.method === "item/started" && e.params.turnId === turn);
+        const ends = events.filter(e => e.method === "item/completed" && e.params.turnId === turn);
+        if (starts.length !== 1 || ends.length !== 1 || typeof starts[0]!.params.item.id !== "string") return false;
+        const end = ends[0]!;
+        return starts[0]!.params.item.id === end.params.item.id
+            && events.indexOf(turns[0]!) < events.indexOf(starts[0]!)
+            && events.indexOf(starts[0]!) < events.indexOf(end)
+            && (end.params.item.status == null || end.params.item.status === "completed")
+            && end.params.item.error == null
+            && !events.some(e => e.method === "error" || (e.method === "turn/completed"
+                && (e.params.turn.id !== turn || e.params.turn.status !== "completed")));
+    }
+
+    async prompt<T>(sessionId: string, run: () => Promise<T>, request?: acp.PromptRequest): Promise<T> {
         this.prompted = true;
+        const admitted = request ? this.commandPrompt(request) : [];
+        const policy = request ? promptPolicy.parse(request._meta?.["laomedo"] ?? {}) : undefined;
+        const control = admitted.length > 0 && ["status", "mcp", "skills"].includes(policy!.nativeCommand!.name);
+        const compact = admitted.length > 0 && policy!.nativeCommand!.name === "compact";
+        this.compactSession = compact ? sessionId : undefined;
+        this.compactEvents = [];
         const before = this.completed.get(sessionId) ?? 0;
+        this.prompting = true;
         try {
             return await run();
         } finally {
+            this.prompting = false;
             // The response cannot overtake native terminal evidence on stdio.
             await this.rawQueue;
-            if (this.rawFailed || (this.completed.get(sessionId) ?? 0) === before) {
+            const after = this.completed.get(sessionId) ?? 0;
+            const compactCompleted = compact && this.compactCompleted();
+            this.compactSession = undefined;
+            if (this.rawFailed || (control ? after !== before : after === before && !compactCompleted)) {
                 this.terminate();
                 throw acp.RequestError.internalError("Native completion evidence unavailable");
             }

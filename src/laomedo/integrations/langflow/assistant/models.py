@@ -1,7 +1,7 @@
 """Assistant requests, declarative graphs and app-database-owned retained rows."""
 
 import time
-from typing import Literal
+from typing import Any, Literal
 from uuid import UUID, uuid4
 
 from pydantic import (
@@ -9,10 +9,27 @@ from pydantic import (
     ConfigDict,
     Field as ModelField,
     JsonValue,
+    SecretStr,
     model_validator,
 )
 from sqlalchemy import Column, JSON, UniqueConstraint, Text
 from sqlmodel import SQLModel, Field
+from laomedo.agents.agents.base.models import ModelCatalog, NativeCommandInvocation
+
+
+class ModelCatalogCacheEntry(BaseModel):
+    """An observed native catalog valid only for the same account runner instance."""
+
+    model_config = ConfigDict(frozen=True)
+    runner_instance_id: str
+    catalog: "ModelCatalog"
+
+    def to_payload(self, provider: str) -> dict:
+        """Project the existing bounded composer payload without exposing cache state."""
+        return {
+            "provider": provider,
+            "models": [model.to_payload() for model in self.catalog.models[:100]],
+        }
 
 
 class AuthoringContext(BaseModel):
@@ -34,12 +51,61 @@ class AuthoringContext(BaseModel):
     )
 
 
+class IdleAssistantTools(BaseModel):
+    """Inactive tool transport retained only for one exact zero-turn conversation."""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True, extra="forbid")
+    context: AuthoringContext = ModelField(
+        exclude=True,
+        repr=False,
+        description="Original owner, conversation and browser lease; never tool-call authority while idle.",
+    )
+    provider: Literal["codex", "claude", "opencode"] = ModelField(
+        description="Immutable provider selected for this conversation."
+    )
+    connection_id: UUID = ModelField(description="Exact selected saved account.")
+    connection_generation: int = ModelField(
+        description="Original account admission epoch."
+    )
+    run_id: str = ModelField(
+        description="Exact native invocation whose resources remain idle."
+    )
+    registration: Any = ModelField(
+        exclude=True, repr=False, description="Exact existing frozen MCP registration."
+    )
+    client: Any = ModelField(
+        exclude=True,
+        repr=False,
+        description="Existing upstream client whose endpoint the native session knows.",
+    )
+    token: SecretStr = ModelField(
+        exclude=True,
+        repr=False,
+        description="Inactive host endpoint secret, reactivated only for a newly authorized matching message.",
+    )
+
+    def matches(self, context: AuthoringContext):
+        """Require the same owner, conversation and browser lease before reuse."""
+        return (
+            self.context.owner_id == context.owner_id
+            and self.context.conversation_id == context.conversation_id
+            and self.context.session_key == context.session_key
+        )
+
+
 class ConversationRequest(BaseModel):
     """Choose initial defaults; creation never submits a prompt."""
 
     model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
-    provider: Literal["codex"] = ModelField(
-        default="codex", description="Initial accepted chat provider."
+    provider: Literal["codex", "claude", "opencode"] = ModelField(
+        default="codex",
+        description="Immutable registered provider for this conversation.",
+    )
+    connection_id: UUID = ModelField(
+        description="Explicit profile-owned saved account selector."
+    )
+    connection_generation: int = ModelField(
+        ge=1, description="Observed immutable saved account epoch."
     )
     model: str = ModelField(
         min_length=1, max_length=256, description="Exact discovered model selection."
@@ -69,6 +135,10 @@ class ConversationRenameRequest(BaseModel):
 
 class MessageRequest(BaseModel):
     """One stable client key denotes exactly one user message and its attempt."""
+
+    initial_native_command: Literal["status"] | None = ModelField(
+        default=None, description="Explicit control-only first Codex session operation."
+    )
 
     model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
     client_message_id: UUID = ModelField(
@@ -100,6 +170,8 @@ class MessageRequest(BaseModel):
             raise ValueError("assistant_message_empty")
         if (self.model is None) != (self.effort is None):
             raise ValueError("assistant_selection_incomplete")
+        if self.initial_native_command is not None and self.text != "/status":
+            raise ValueError("native_command_context_invalid")
         return self
 
     def digest(self):
@@ -116,6 +188,10 @@ class MessageRequest(BaseModel):
                 separators=(",", ":"),
             )
         )
+        if self.initial_native_command is not None:
+            payload = json.dumps(
+                [payload, self.initial_native_command], separators=(",", ":")
+            )
         return hashlib.sha256(payload.encode()).hexdigest()
 
 
@@ -249,6 +325,14 @@ class AssistantSession(SQLModel, table=True):
     )
 
 
+class AssistantSessionAlias(SQLModel, table=True):
+    """Verified token renewal binding retained across restarts; never stores a bearer."""
+
+    __tablename__ = "laomedo_assistant_session_alias"
+    fingerprint: str = Field(primary_key=True)
+    canonical_key: str = Field(index=True)
+
+
 class AssistantConversation(SQLModel, table=True):
     """Application-owned identity and current native binding, excluding credentials."""
 
@@ -262,6 +346,13 @@ class AssistantConversation(SQLModel, table=True):
         index=True, description="Authenticated owner; never model-selectable."
     )
     provider: str = Field(description="Fixed provider selection.")
+    connection_id: UUID | None = Field(
+        default=None,
+        description="Immutable saved account selector; unbound history is read-only.",
+    )
+    connection_generation: int | None = Field(
+        default=None, description="Immutable account epoch; never silently rebound."
+    )
     model: str = Field(
         description="Latest admitted native model selection; default for the next turn."
     )
@@ -314,7 +405,16 @@ class AssistantConversation(SQLModel, table=True):
 class AssistantMessage(SQLModel, table=True):
     """A durable prompt, dispatch reservation and final safe display outcome."""
 
+    initial_native_command: str | None = Field(
+        default=None,
+        description="Admitted initial native control mode, never a model prompt.",
+    )
+
     __tablename__ = "laomedo_assistant_message"
+    native_action_id: UUID | None = Field(
+        default=None,
+        description="Approved native command receipt, absent for ordinary user prompts.",
+    )
     __table_args__ = (UniqueConstraint("conversation_id", "client_message_id"),)
     id: UUID = Field(
         default_factory=uuid4,
@@ -569,6 +669,109 @@ class AssistantGraphAction(SQLModel, table=True):
                 self.session_key == session_key and result["state"] == "pending"
             )
         return result
+
+
+class NativeCommandRequest(NativeCommandInvocation):
+    """Idempotent proposal for one exact built-in native command."""
+
+    operation_key: str = ModelField(
+        min_length=1,
+        max_length=80,
+        pattern=r"^[a-zA-Z0-9_-]+$",
+        description="Stable proposal key reused after uncertain acknowledgements.",
+    )
+
+    def digest(self):
+        """Bind the exact command, arguments, catalog and operation key."""
+        import hashlib
+        import json
+
+        return hashlib.sha256(
+            json.dumps(
+                self.model_dump(mode="json"), sort_keys=True, separators=(",", ":")
+            ).encode()
+        ).hexdigest()
+
+
+class NativeActionDecision(BaseModel):
+    """Human-only explicit native command decision; no persistent grant."""
+
+    model_config = ConfigDict(extra="forbid")
+    decision: Literal["approve", "reject"] = ModelField(
+        description="Human approval or rejection of the exact displayed native command."
+    )
+    digest: str = ModelField(
+        pattern=r"^[0-9a-f]{64}$",
+        description="Exact proposal digest bound to this human decision.",
+    )
+
+
+class AssistantNativeAction(SQLModel, table=True):
+    """Owner-scoped command proposal atomically linked to its reserved message."""
+
+    __tablename__ = "laomedo_assistant_native_action"
+    __table_args__ = (UniqueConstraint("conversation_id", "operation_key"),)
+    id: UUID = Field(
+        default_factory=uuid4,
+        primary_key=True,
+        description="Host-generated proposal identity.",
+    )
+    owner_id: UUID = Field(index=True, description="Authenticated app owner.")
+    conversation_id: UUID = Field(
+        index=True, description="Conversation to which this permission is confined."
+    )
+    message_id: UUID = Field(
+        description="Assistant response that originated the proposal."
+    )
+    session_key: str = Field(
+        repr=False, description="Originating human app session binding."
+    )
+    operation_key: str = Field(
+        description="Conversation-scoped proposal idempotency key."
+    )
+    digest: str = Field(description="Exact proposed operation digest.")
+    request: dict = Field(
+        sa_column=Column(JSON),
+        repr=False,
+        description="Validated native command proposal, containing no credentials.",
+    )
+    run_id: str = Field(
+        repr=False, description="Existing owned runner execution binding."
+    )
+    thread_id: str = Field(repr=False, description="Existing native session binding.")
+    state: str = Field(
+        default="pending",
+        description="Pending, executing or retained terminal/unknown outcome.",
+    )
+    result_message_id: UUID | None = Field(
+        default=None, description="Atomically reserved command message identity."
+    )
+    created_at: float = Field(
+        default_factory=time.time, description="Creation timestamp in Unix seconds."
+    )
+    expires_at: float = Field(description="Human approval deadline in Unix seconds.")
+
+    def public(self, *, session_key=None):
+        """Return a compact safe approval receipt, never native dispatch authority."""
+        request = NativeCommandRequest.model_validate(self.request)
+        state = (
+            "expired"
+            if self.state == "pending" and self.expires_at <= time.time()
+            else self.state
+        )
+        return {
+            "id": str(self.id),
+            "message_id": str(self.message_id),
+            "name": request.name,
+            "arguments": request.arguments,
+            "digest": self.digest,
+            "state": state,
+            "may_use_model": request.name in {"review", "compact"},
+            "can_decide": session_key == self.session_key and state == "pending",
+            "result_message_id": (
+                str(self.result_message_id) if self.result_message_id else None
+            ),
+        }
 
 
 class AssistantGraphPermission(SQLModel, table=True):

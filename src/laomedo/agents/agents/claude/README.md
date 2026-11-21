@@ -57,6 +57,17 @@ transport interruptions leave mediation unconfirmed and stop further commands;
 the service never resends an operation. This transport policy does not establish
 end-to-end native GitHub mediation readiness.
 
+## Native assistant commands
+
+`ClaudeCommands` in `commands.py` owns the observed catalog projection, exact
+handler/image revision and no-argument `/compact` policy. `admit()` refuses
+unobserved commands, changed catalogs and contexts with pinned skills/custom
+commands. `result()` requires root-session native compaction completion and a
+terminal ACP response. `ClaudeCommandResult` in `models.py` retains that native
+identity separately from model turns; it never supplies an invented answer or
+usage. `ClaudeAgent` publishes the catalog through the existing run Status and
+routes approved commands through its existing resume, cleanup and snapshot path.
+
 ## Saved account connections
 
 `connection.py` is the provider boundary. ClaudeConnection owns official-client begin/details/submit/cancel, native identity verification, exact labelled profile custody, orphan reconciliation and cleanup. ClaudeNativeProfile, ClaudeAccountIdentity and ClaudeLoginAttempt belong to models.py; its native cleanup budget belongs to settings.py. The shared Agent connection service owns admission/index fencing; host storage and profile authorization remain separate.

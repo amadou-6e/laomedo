@@ -24,6 +24,7 @@ from laomedo.docker import DockerRuntime
 from laomedo.container_images.errors import ImageBuildError
 from laomedo.agents.agents.opencode.settings import IMAGE
 from laomedo.agents.agents.opencode.credentials import OpenCodeCredentialProvider
+from laomedo.agents.agents.opencode.commands import OpenCodeCommands
 from laomedo.agents.agents.base.models import CredentialRequest
 from laomedo.agents.agents.base.utils import _json
 from laomedo.agents.agents.base.utils import _private
@@ -104,6 +105,10 @@ class OpenCodeAgentRuntime:
             raise RunnerError("opencode_container_configuration_invalid") from None
         except DockerOperationError:
             raise RunnerError("opencode_controller_startup_failed") from None
+        self.native_commands = None
+        self._builtins_only = configure_agents is None and not any(
+            (workspace / ".agents/skills").iterdir()
+        )
         self.identity = OpenCodeRuntimeIdentity(
             runtime_version=CLI_VERSION,
             image=image,
@@ -323,7 +328,17 @@ class OpenCodeAgentRuntime:
             self.evidence,
         )
 
-    def run(self, task, *, model, session_id, cancelled, capture, on_session):
+    def run(
+        self,
+        task,
+        *,
+        model,
+        session_id,
+        cancelled,
+        capture,
+        on_session,
+        native_command=None,
+    ):
         """Execute over shared ACP; no published port, password or SSE reader."""
         from py_docker.sessions.models import ContainerSession
         from py_docker.streams.models import StreamLimits
@@ -347,7 +362,15 @@ class OpenCodeAgentRuntime:
         self._cancelled = cancelled
         try:
             return asyncio.run(
-                self._run_acp(task, model, session_id, cancelled, capture, on_session)
+                self._run_acp(
+                    task,
+                    model,
+                    session_id,
+                    cancelled,
+                    capture,
+                    on_session,
+                    native_command,
+                )
             )
         finally:
             self._cancelled = None
@@ -455,7 +478,16 @@ class OpenCodeAgentRuntime:
         _json(self.root / "config.json", config)
         self.mcp_access = access
 
-    async def _run_acp(self, task, model, session_id, cancelled, capture, on_session):
+    async def _run_acp(
+        self,
+        task,
+        model,
+        session_id,
+        cancelled,
+        capture,
+        on_session,
+        native_command=None,
+    ):
         """Validate agent identity, load the same native session and await its prompt."""
         from laomedo.agents.agents.base.acp.session import AcpSession
 
@@ -494,6 +526,35 @@ class OpenCodeAgentRuntime:
             if cancelled.is_set():
                 raise RunnerError("opencode_cancelled_before_dispatch")
             self._native_session = client.session_id
+            deadline = asyncio.get_running_loop().time() + 2
+            while (
+                client.command_catalog() is None
+                and asyncio.get_running_loop().time() < deadline
+            ):
+                await asyncio.sleep(0.02)
+            catalog = client.command_catalog()
+            image_id = self.identity.image_id
+            self.native_commands = {
+                "thread_id": client.session_id,
+                "catalog": (
+                    catalog.model_dump(mode="json") if catalog is not None else None
+                ),
+                "projection": (
+                    OpenCodeCommands.project(
+                        catalog.model_dump(mode="json"),
+                        image_id,
+                        builtins_only=self._builtins_only,
+                    )
+                    if catalog is not None
+                    else None
+                ),
+            }
+            if native_command is not None:
+                if task != native_command.text():
+                    raise RunnerError("native_command_context_invalid")
+                OpenCodeCommands.admit(
+                    native_command, catalog, image_id, builtins_only=self._builtins_only
+                )
             on_session(client.session_id)
             capture.begin(client.session_id, task)
             client.on_update = capture.update
