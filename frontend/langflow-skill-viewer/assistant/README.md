@@ -16,8 +16,9 @@ Users can change the choice before starting chat;
 selection never creates a session or sends a prompt. Existing conversations keep
 their exact saved account and generation. Other providers are never fallbacks.
 `ProviderIcon.tsx` shares the existing provider brand assets between that menu
-and the welcome cards. Welcome cards and their explanatory paragraph share one
-width and align their icon/text columns.
+and the welcome cards. Welcome cards have a 320px maximum width, shrink with the
+sidebar, and align their icon/text columns. The explanatory sentence keeps its
+independent width.
 
 `AssistantPage.tsx` uses the draft placeholder for missing account admission:
 Select an account, or No account available. The account trigger repeats that
@@ -25,6 +26,9 @@ state without an extra selection paragraph. Account/model loading and empty
 model discovery remain explicit. Missing selection disables model selection and
 Send without showing a stale model or effort; drafts remain editable. Switching
 providers preserves the draft and defaults only within the newly chosen provider.
+The composer remains editable during startup, dispatch and active responses.
+Send remains fenced until the current operation settles; typing does not queue
+or submit another operation. Late acknowledgements preserve a newer draft.
 Connect account and Manage accounts navigate to `/settings/providers` in the
 current tab; they do not depend on popup/new-window handling in VS Code.
 Before leaving, retain unsent drafts and the selected provider in profile-scoped

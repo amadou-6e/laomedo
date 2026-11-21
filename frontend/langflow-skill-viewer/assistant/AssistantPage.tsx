@@ -545,7 +545,7 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
           await assistantRequest(`/conversations/${target}/native-commands`, submission.request);
           if (epoch !== generation.current || currentSelection.current !== target) return;
           nativeSubmission.current = undefined;
-          setDrafts(value => ({ ...value, [target]: "" }));
+          setDrafts(value => ({ ...value, [target]: value[target] === text ? "" : value[target] ?? "" }));
           await refresh();
           return;
         }
@@ -568,7 +568,10 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
         throw new AssistantFailure("assistant_client_state_unavailable");
       }
       setPending((value) => ({ ...value, [target]: identity }));
-      setDrafts((value) => ({ ...value, [selected]: "" }));
+      setDrafts(value => {
+        const nextDraft = value[selected] === text ? "" : value[selected] ?? "";
+        return {...value, [selected]: "", [target]: nextDraft};
+      });
       requestAnimationFrame(follow);
       if (!selected) setParams({ conversation: target });
       await assistantRequest<Message>(`/conversations/${target}/messages`, {
@@ -598,7 +601,7 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
           delete next[target];
           return next;
         });
-        setDrafts((value) => ({ ...value, [target]: identity.text }));
+        setDrafts(value => ({...value, [target]: value[target] && value[target] !== identity.text ? `${identity.text}\n\n${value[target]}` : identity.text}));
       } else {
         setRetryable((value) => ({ ...value, [identity.id]: true }));
       }
@@ -1103,7 +1106,7 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
                     </p>
                     {!selected && (
                       <fieldset
-                        className="mx-auto w-full max-w-sm pt-2 text-left"
+                        className="mx-auto w-full max-w-xs pt-2 text-left"
                         aria-label="Assistant provider"
                       >
                         {[["codex", "Codex", "OpenAI"], ["claude", "Claude", "Anthropic"], ["opencode", "OpenCode", "Connected models"]].map(([id, name, description]) => (
@@ -1151,9 +1154,7 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
                 }
                 value={drafts[selected] ?? ""}
                 readOnly={
-                  busy ||
-                  active ||
-                  Boolean(selected && (needsAttention || waiting))
+                  locked || Boolean(selected && needsAttention)
                 }
                 onChange={(event) => {
                   clearCommandInputError();

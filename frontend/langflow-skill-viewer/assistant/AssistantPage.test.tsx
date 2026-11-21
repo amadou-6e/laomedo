@@ -404,11 +404,14 @@ describe("uncertain assistant submission", () => {
     fireEvent.keyDown(composer, { key: "Enter" });
     await screen.findByRole("status", { name: "Thinking" });
     expect(document.activeElement).toBe(composer);
-    expect((composer as HTMLTextAreaElement).readOnly).toBe(true);
+    expect((composer as HTMLTextAreaElement).readOnly).toBe(false);
     expect(
       screen.queryByRole("button", { name: "Retry same submission" }),
     ).toBeNull();
     expect((composer as HTMLTextAreaElement).value).toBe("");
+    fireEvent.change(composer, {target: {value: "Draft my next question"}});
+    fireEvent.keyDown(composer, {key: "Enter"});
+    expect(posts).toBe(1);
     const beforeAcknowledgement = detailReads;
     acknowledge({ id: "accepted" });
     await waitFor(() =>
@@ -417,6 +420,7 @@ describe("uncertain assistant submission", () => {
     expect(screen.queryByText(/Reuses its original message ID/)).toBeNull();
     expect(screen.getByRole("status", { name: "Thinking" })).toBeTruthy();
     expect(posts).toBe(1);
+    expect(composer).toHaveValue("Draft my next question");
   });
   it("does not send a retained draft with Enter after attention arrives", async () => {
     let state = "idle";
