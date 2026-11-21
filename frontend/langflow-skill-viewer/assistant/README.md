@@ -36,7 +36,12 @@ tab session storage and restore them once on return. Profile changes/locks clear
 retained drafts. Storage failure asks before discarding work. Document navigation
 also preserves the graph editor's existing `beforeunload` unsaved/build guard.
 The empty slash menu distinguishes starting a native session from an unavailable
-or filtered catalog. `commandPreviews.ts` lists the supported Codex command names
+or filtered catalog. The menu displays the complete observed catalog, including
+unavailable commands with an explicit disabled state; observation never grants
+execution. `commandPreviews.ts` lists the pinned Codex adapter's eleven built-ins
+and initial known Claude/OpenCode entries as documentation previews, never a
+complete native observation. Unavailable native handlers remain unfinished work.
+It lists Codex command names
 before startup, with only initial `/status` selectable; the other previews are
 disabled until the actual session advertises them. A preview is never a native
 catalog or an execution grant. Menu-inserted trailing whitespace still dispatches
@@ -47,8 +52,8 @@ unsupported command or invalid arguments is refused before effects. Editing or
 selecting another command dismisses only definite command-input rejections;
 uncertain dispatch, account, model and observation errors stay fenced. This
 prevents an earlier input error from permanently disabling Send.
-The reserved names in `providerCommandNames` are the AP-2 candidates: Codex
-status/mcp/skills/review/compact, Claude compact, and OpenCode init/review/compact.
+The reserved names in `providerCommandNames` include all eleven pinned Codex
+built-ins, Claude compact, and OpenCode init/review/compact.
 These names refuse when unadvertised, as do exact observed unsupported entries;
 the list grants no execution capability. Ordinary text stays inside the
 assistant instruction prefix, outside adapters' leading-slash command parsing.
