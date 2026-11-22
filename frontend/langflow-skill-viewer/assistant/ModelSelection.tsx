@@ -58,7 +58,7 @@ export default function ModelSelection({
             {models?.models.map((item) => (
               <label
                 key={item.id}
-                className={`flex cursor-pointer items-center justify-between gap-2 rounded-md px-2 py-2 text-xs hover:bg-muted has-[:focus-visible]:outline has-[:focus-visible]:outline-2 ${model === item.id ? "bg-muted" : ""}`}
+                className={`relative flex cursor-pointer items-center justify-between gap-2 rounded-md px-2 py-2 text-xs hover:bg-muted has-[:focus-visible]:outline has-[:focus-visible]:outline-2 ${model === item.id ? "bg-muted" : ""}`}
               >
                 <input
                   type="radio"
@@ -67,7 +67,7 @@ export default function ModelSelection({
                   value={item.id}
                   checked={model === item.id}
                   onChange={() => onModel(item.id)}
-                  className="sr-only"
+                  className="absolute inset-0 m-0 h-full w-full cursor-pointer opacity-0"
                 />
                 <span className="truncate">{item.id}</span>
                 {model === item.id && <Check size={12} className="shrink-0" />}

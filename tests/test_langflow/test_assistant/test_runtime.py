@@ -664,6 +664,20 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
             state="running",
         )
 
+    async def test_opencode_terminal_cleanup_settles_without_single_container_receipt(
+        self,
+    ):
+        await self.bind()
+        self.record.update(provider="opencode")
+        self.record.pop("container_ownership")
+        self.record["controller_cleanup"] = "unverified"
+        self.assertFalse(await self.runtime.reconcile(self.owner, self.identifier))
+        self.record["controller_cleanup"] = "confirmed"
+        self.assertTrue(await self.runtime.reconcile(self.owner, self.identifier))
+        detail = await self.store.detail(self.owner, self.identifier)
+        self.assertEqual(detail["messages"][0]["state"], "completed")
+        self.assertEqual(detail["messages"][0]["response"], "Done")
+
     async def test_completed_zero_turn_control_needs_actual_live_ownership_not_cleanup_claims(
         self,
     ):

@@ -1405,13 +1405,20 @@ class AssistantRuntime:
             )
             and runner.has_live_session(record["run_id"])
         )
+        # OpenCode confirms its entire owned controller/worker cleanup in this
+        # terminal field. Unlike Codex/Claude it has no single-controller
+        # container_ownership receipt; requiring that absent receipt strands
+        # even a successfully completed and fully cleaned-up invocation.
+        cleanup_verified = (
+            record.get("provider") == "opencode"
+            and record.get("controller_cleanup") == "confirmed"
+        ) or record.get("container_ownership", {}).get("cleanup_verified") is True
         if (
             not never_started
             and not retained_control
             and (
                 (record.get("controller_cleanup") != "confirmed" and not not_launched)
-                or record.get("container_ownership", {}).get("cleanup_verified")
-                is not True
+                or not cleanup_verified
             )
         ):
             await self.store.observe(

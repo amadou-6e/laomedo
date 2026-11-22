@@ -20,6 +20,12 @@ identify the earlier root for logout; known persisted aliases remain fenced.
 
 ## Resume recovery (#303)
 
+Terminal OpenCode records confirm all controller and worker resource cleanup
+through `controller_cleanup="confirmed"`. Reconciliation consumes that provider
+guarantee, not Codex/Claude's separate single-controller `container_ownership`
+receipt. Unverified OpenCode cleanup still fences sending; observing a terminal
+record never replays its prompt.
+
 `AssistantRuntime.reconcile()` observes a resumed message using the conversation's
 existing run and the reserved attempt identity, even if the POST acknowledgement
 was lost. It never resubmits the operation. An unavailable lookup keeps the outcome

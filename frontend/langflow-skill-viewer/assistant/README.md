@@ -1,5 +1,9 @@
 # Application assistant
 
+`ModelSelection.tsx` keeps native model radio controls over their full visible
+rows with transparent styling. Pointer automation and keyboard selection use
+the same control without changing the row's appearance or dispatching a turn.
+
 ## App-owned commands
 
 `commandPreviews.ts` distinguishes application actions from native commands.
