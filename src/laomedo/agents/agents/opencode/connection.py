@@ -14,6 +14,7 @@ from laomedo.agents.connections.base import BaseProviderConnection
 from laomedo.agents.connections.errors import ProviderConnectionError
 from laomedo.agents.connections.models import ConnectionRecord
 from laomedo.agents.connections.models import ConnectionSummary
+from laomedo.agents.agents.opencode.utils import remove_controller_directory
 
 
 class GoConnection(BaseProviderConnection):
@@ -145,6 +146,9 @@ class GoConnection(BaseProviderConnection):
     @staticmethod
     def erase(root: Path) -> None:
         """Remove fixed credential files only after the caller confirms native stop."""
+        for child in root.glob("controller-*"):
+            if re.fullmatch(r"controller-[0-9a-f]{32}", child.name):
+                remove_controller_directory(child, root)
         for name in (
             "auth.json",
             "auth-validity.json",

@@ -20,6 +20,7 @@ from laomedo.agents.agents.opencode.settings import WORKER_IMAGE
 from laomedo.agents.agents.opencode.settings import WORKER_IMAGE_ID
 from laomedo.agents.agents.opencode.utils import _credential_binding
 from laomedo.agents.agents.opencode.utils import model_metadata
+from laomedo.agents.agents.opencode.utils import remove_controller_directory
 from laomedo.agents.errors import RunnerError
 from laomedo.docker import DockerRuntime
 from laomedo.container_images.errors import ImageBuildError
@@ -127,14 +128,14 @@ class OpenCodeAgentRuntime:
         if os.name == "nt":
             self._controller_staging = root
         view = root / "view"
-        view.mkdir()
-        # No user project configs/custom tools are ever mounted in the controller.
-        shutil.copytree(workspace / ".agents", view / ".agents")
         self.broker = None
         self.name = None
         self.session = self.docker = None
         self.closing = False
         try:
+            view.mkdir()
+            # No user project configs/custom tools are mounted in the controller.
+            shutil.copytree(workspace / ".agents", view / ".agents")
             self.broker = OpenCodeCommandExecutor(
                 workspace,
                 evidence / "canonical",
@@ -466,13 +467,8 @@ class OpenCodeAgentRuntime:
                 "opencode_container_cleanup_unverified", observation=observation
             ) from None
         if self._controller_staging is not None:
-            root = self._controller_staging
-            if root.is_symlink() or root.resolve().parent != self.profile.resolve():
-                raise RunnerError("opencode_container_cleanup_unverified")
             try:
-                shutil.rmtree(root)
-            except FileNotFoundError:
-                pass
+                remove_controller_directory(self._controller_staging, self.profile)
             except OSError:
                 raise RunnerError("opencode_container_cleanup_unverified") from None
             self._controller_staging = None
