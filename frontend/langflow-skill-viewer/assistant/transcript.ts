@@ -1,7 +1,7 @@
 import { messageText } from "@/modals/graphAgents/utils";
 import { assistantRequest } from "./api";
 import type { ActivityPage, ConversationDetail, Message } from "./models";
-import { hasNativeControlResult } from "./responseTranscript";
+import { hasNativeControlResult, nativeResponseText } from "./responseTranscript";
 
 export async function conversationTranscript(
   conversation: string,
@@ -41,7 +41,7 @@ export async function conversationTranscript(
       .filter((lane) => lane.item?.type !== "userMessage")
       .map((lane) => messageText(lane.item ?? {}, provider))
       .filter((text): text is string => text !== null);
-    if (!answers.length && message.response) answers.push(message.response);
+    if (!answers.length && message.response) answers.push(nativeResponseText(message, provider)!);
     if (answers.length) blocks.push(nativeControl ? "## Native command output" : "## Assistant", answers.join("\n\n"));
     if (!nativeControl && (!activity?.available || activity.complete === false))
       blocks.push("_Some activity is unavailable or was not retained; this answer may be partial._");

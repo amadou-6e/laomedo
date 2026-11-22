@@ -1,5 +1,10 @@
 # Application assistant
 
+Explicit human-entered Claude `/usage`, without arguments and advertised as
+non-model work, uses the existing atomic decision/dispatch path immediately.
+Assistant-proposed usage still requires human approval; other commands retain
+their current policy, including Codex's existing direct status behavior.
+
 ## Browser session identity
 
 `AssistantSession` is the durable browser authority and revocation fence.

@@ -14,6 +14,17 @@ export function hasNativeCommandOutcome(message: Message, provider = "codex"): b
   return hasNativeControlResult(message, provider) || Boolean(message.native_action_id && message.state === "completed" && message.text === "/compact");
 }
 
+export function nativeResponseText(message: Message, provider: string): string | null {
+  const text = message.response;
+  if (!text || provider !== "claude" || message.text !== "/usage" || !hasNativeControlResult(message, provider)) return text;
+  const lines = text.split(/\r?\n/);
+  const start = lines.findIndex(line => /^#{1,6}\s+Limits\s*$/i.test(line.trim()));
+  if (start < 0) return "Limits are unavailable in this native response.";
+  const depth = lines[start].trim().match(/^#+/)![0].length;
+  const end = lines.findIndex((line, index) => index > start && new RegExp(`^#{1,${depth}}\\s+`).test(line.trim()));
+  return lines.slice(start, end < 0 ? undefined : end).join("\n").trim();
+}
+
 function fenced(value: unknown): string {
   const text = typeof value === "string" ? value : JSON.stringify(value, null, 2);
   const fence = "`".repeat(Math.max(3, ...Array.from(text.matchAll(/`+/g), (match) => match[0].length + 1)));
@@ -45,7 +56,7 @@ export function responseTranscript(
       if (lane.conflicting_receipts) blocks.push("Conflicting native receipts retained.");
     }
   }
-  if (!hasAnswer && message.response) blocks.push(message.response);
+  if (!hasAnswer && message.response) blocks.push(nativeResponseText(message, provider)!);
   if (hasNativeCommandOutcome(message, provider) && message.text === "/compact" && !message.response)
     blocks.push("Native command: /compact", "Outcome: completed");
   for (const action of actions) {

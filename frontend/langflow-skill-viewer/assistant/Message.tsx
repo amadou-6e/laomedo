@@ -12,7 +12,7 @@ import type { ActivityPage, DraftReceipt, Message } from "./models";
 import { stateLabel } from "./models";
 import Thinking from "./Thinking";
 import CopyAnswer from "./CopyAnswer";
-import { responseTranscript, hasNativeCommandOutcome, hasNativeControlResult } from "./responseTranscript";
+import { responseTranscript, hasNativeCommandOutcome, hasNativeControlResult, nativeResponseText } from "./responseTranscript";
 import GraphActions from "./GraphActions";
 import NativeActions from "./NativeActions";
 import NativeStatus from "./NativeStatus";
@@ -153,7 +153,7 @@ export default function MessageRow({
       })}
       {!nativeStatus && !hasAnswer && message.response && (
         <div className="space-y-2" aria-label={nativeControl ? "Native command output" : undefined}>
-          <MessageMarkdown text={message.response} allowLinks={false} />
+          <MessageMarkdown text={nativeResponseText(message, provider)!} allowLinks={false} />
         </div>
       )}
       {active && ["reserved", "starting", "running"].includes(message.state) ? (

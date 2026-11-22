@@ -41,9 +41,10 @@ it("refuses repeated pagination cursors and propagates read failures without a d
 });
 it.each(["usage", "context", "mcp"])("exports Claude %s output without fetching or inventing model activity", async name => {
   jest.mocked(assistantRequest).mockReset();
-  jest.mocked(assistantRequest).mockResolvedValueOnce({conversation: {title: "Chat", provider: "claude"}, messages: [{...row("control", 1), native_action_id: "approved", text: `/${name}`, response: "Native view output"}], next_cursor: null});
+  const response = name === "usage" ? "### Limits\nNative view output" : "Native view output";
+  jest.mocked(assistantRequest).mockResolvedValueOnce({conversation: {title: "Chat", provider: "claude"}, messages: [{...row("control", 1), native_action_id: "approved", text: `/${name}`, response}], next_cursor: null});
   const result = await conversationTranscript("chat", new AbortController().signal);
-  expect(result.text).toContain("## Native command output\n\nNative view output");
+  expect(result.text).toContain(`## Native command output\n\n${response}`);
   expect(result.text).not.toMatch(/## Assistant|partial/);
   expect(assistantRequest).toHaveBeenCalledTimes(1);
 });

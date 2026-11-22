@@ -1,5 +1,9 @@
 # Application assistant
 
+Claude `/usage` renders, copies and exports only the native Limits section,
+including its reported percentages, reset times and bars. Missing limits show
+an unavailable message; the full native receipt stays retained by the runner.
+
 `NativeCommandMenu` refreshes the observed catalog when its provider, run,
 thread or active-turn state changes. Aborted older reads cannot replace the
 current result. Fetch errors expose Retry even when app-owned commands exist;

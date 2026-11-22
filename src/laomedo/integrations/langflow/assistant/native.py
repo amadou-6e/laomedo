@@ -21,7 +21,7 @@ class NativeCommands:
         self.runtime, self.store = runtime, runtime.store
 
     async def submit(self, owner, key, conversation_id, request):
-        """Retain a human-entered command; only Codex status skips a second approval."""
+        """Retain human commands; explicit Codex status/Claude usage need no second approval."""
         await self.runtime.check_session(owner, key)
         catalog = await self.runtime.native_catalog(owner, conversation_id)
         async with self.store.transaction() as session:
@@ -94,8 +94,8 @@ class NativeCommands:
                 await session.flush()
             result = row.public(session_key=key)
             immediate = (
-                conversation.provider == "codex"
-                and request.name == "status"
+                (conversation.provider, request.name)
+                in {("codex", "status"), ("claude", "usage")}
                 and not request.arguments
                 and selected.get("may_use_model") is False
             )

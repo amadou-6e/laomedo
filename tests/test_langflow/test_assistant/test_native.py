@@ -167,6 +167,51 @@ class NativeApprovalTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["state"], "pending")
         self.runtime.decide_native_action.assert_not_awaited()
 
+    async def test_explicit_claude_usage_reserves_once_without_second_approval(self):
+        await self.settle()
+        async with self.store.transaction() as session:
+            conversation = await self.store.conversation(
+                session, self.owner, self.conversation, lock=True
+            )
+            conversation.provider = "claude"
+            session.add(conversation)
+        catalog = await self.catalog(self.owner, self.conversation)
+        catalog["commands"][0]["name"] = "usage"
+        self.runtime.native_catalog = AsyncMock(return_value=catalog)
+        request = self.request.model_copy(
+            update={"name": "usage", "operation_key": "usage"}
+        )
+
+        async def decide(owner, key, conversation, identifier, decision):
+            result, reserved = await self.commands.decide(
+                owner, key, conversation, identifier, decision
+            )
+            self.assertEqual(reserved["text"], "/usage")
+            return result
+
+        self.runtime.decide_native_action = AsyncMock(side_effect=decide)
+        result = await self.commands.submit(
+            self.owner, self.key, self.conversation, request
+        )
+        self.assertEqual(result["state"], "executing")
+        duplicate = await self.commands.submit(
+            self.owner, self.key, self.conversation, request
+        )
+        self.assertEqual(duplicate["result_message_id"], result["result_message_id"])
+        self.runtime.decide_native_action.assert_awaited_once()
+
+    async def test_assistant_proposed_usage_still_waits_for_human_approval(self):
+        catalog = await self.catalog(self.owner, self.conversation)
+        catalog["commands"][0]["name"] = "usage"
+        self.runtime.native_catalog = AsyncMock(return_value=catalog)
+        self.runtime.decide_native_action = AsyncMock()
+        request = self.request.model_copy(
+            update={"name": "usage", "operation_key": "usage-proposal"}
+        )
+        result = await self.commands.propose(self.context, request)
+        self.assertEqual(result["state"], "pending")
+        self.runtime.decide_native_action.assert_not_awaited()
+
     async def test_typed_command_refuses_active_turn_and_revoked_session(self):
         """Human input does not bypass turn serialization or revoked app authority."""
         with self.assertRaisesRegex(AssistantError, "assistant_turn_active"):

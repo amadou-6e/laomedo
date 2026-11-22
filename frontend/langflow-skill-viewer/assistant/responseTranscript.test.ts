@@ -1,8 +1,8 @@
-import { responseTranscript, hasNativeControlResult } from "./responseTranscript";
+import { responseTranscript, hasNativeControlResult, nativeResponseText } from "./responseTranscript";
 import type { ActivityPage, GraphAction, Message, NativeAction } from "./models";
 
 it.each(["usage", "context", "mcp"])("copies Claude %s as native output without model activity or partial warnings", name => {
-  const message = {native_action_id: "approved", text: `/${name}`, state: "completed", response: "Native status: unavailable"} as Message;
+  const message = {native_action_id: "approved", text: `/${name}`, state: "completed", response: name === "usage" ? "### Limits\nNative status: unavailable" : "Native status: unavailable"} as Message;
   const page = {available: true, complete: false, projection: {items: [
     {item: {type: "nativeCommandResult", id: "receipt"}},
     {item: {type: "agentMessage", text: "Earlier model output"}},
@@ -15,6 +15,14 @@ it.each(["usage", "context", "mcp"])("copies Claude %s as native output without 
   expect(hasNativeControlResult(message, "claude")).toBe(true);
   expect(hasNativeControlResult({...message, native_action_id: undefined}, "claude")).toBe(false);
   if (name !== "mcp") expect(hasNativeControlResult(message, "codex")).toBe(false);
+});
+
+it("shows only reported Claude limits, retaining reset times and bars without session details", () => {
+  const limits = "### Limits\n**5-hour limit** — **1%** · Resets Nov 22, 4:00 PM UTC\n`█░░░░`\n**Weekly · all models** — **26%** · Resets Nov 26, 7:00 AM UTC";
+  const message = {native_action_id: "usage", text: "/usage", state: "completed", response: `## Usage\nAccount details\n${limits}\n### This session\nToken table\n### What's using your limits?\nMore details`} as Message;
+  expect(nativeResponseText(message, "claude")).toBe(limits);
+  expect(nativeResponseText({...message, response: "Unrecognized native output"}, "claude")).toBe("Limits are unavailable in this native response.");
+  expect(nativeResponseText(message, "codex")).toBe(message.response);
 });
 
 it("includes command results, graph outcomes and partial streaming status", () => {

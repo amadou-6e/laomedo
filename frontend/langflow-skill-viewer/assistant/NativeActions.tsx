@@ -23,6 +23,7 @@ export default function NativeActions({ conversation, provider = "codex", action
   if (!actions.length) return null;
   return <div className="space-y-3">{actions.map(proposal => {
     const action = proposal.state === "pending" ? observed[proposal.id] ?? proposal : proposal;
+    if (provider === "claude" && action.name === "usage" && action.state === "completed") return null;
     const outcome = ({ completed: "Completed", rejected: "Rejected", expired: "Expired", stale: "Commands changed", executing: "Running", failed: "Failed", cancelled: "Stopped", interrupted: "Interrupted", unknown: "Outcome unknown" } as Record<string, string>)[action.state];
     const nativeOutput = provider === "claude" && isNativeControlCommand(provider, action.name) && action.state === "completed";
     return <article key={action.id} aria-label={`Native command: /${action.name}`}
