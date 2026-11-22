@@ -75,29 +75,6 @@ class DockerRuntime:
             options["settings"] = self._settings
         return Client(**options)
 
-    @staticmethod
-    def bind_source(path: str | Path) -> str:
-        """Use an existing verified Windows alias for a long local bind source.
-
-        Docker Desktop can expose an I/O error for host paths over MAX_PATH.
-        Only the wire path changes; host state, permissions and recovery paths
-        stay unchanged. An unavailable or different-file alias is never used.
-        """
-        source = str(path)
-        if os.name != "nt" or len(source) < 260:
-            return source
-        try:
-            from win32api import GetShortPathName
-
-            alias = GetShortPathName(source)
-            if len(alias) < 260 and os.path.samefile(source, alias):
-                return alias
-        except Exception:
-            # pywintypes.error is not an OSError. Alias lookup is optional;
-            # native Docker admission still decides the original bind source.
-            pass
-        return source
-
     @classmethod
     def ensure_image(cls, client, reference, *, expected_id=None, cancelled=None):
         """Reuse or build a trusted registered image on this exact daemon.

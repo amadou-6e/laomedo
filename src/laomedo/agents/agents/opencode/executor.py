@@ -174,7 +174,7 @@ class OpenCodeCommandExecutor(BaseInterruptibleCommandExecutor):
                             mounts=[
                                 Mount(
                                     type="bind",
-                                    source=DockerRuntime.bind_source(source),
+                                    source=str(source),
                                     target=target,
                                     read_only=readonly,
                                 )
