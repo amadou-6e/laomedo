@@ -7,6 +7,7 @@ from contextlib import ExitStack
 from pathlib import Path
 from uuid import uuid4
 import json
+import os
 import secrets
 import shutil
 import threading
@@ -57,6 +58,7 @@ class OpenCodeAgentRuntime:
         self.receipts = None
         self.allocated_receipts = set()
         self.closing = False
+        self._controller_staging = None
         selected_worker_id = worker_image_id or WORKER_IMAGE_ID
         self.profile = _private(Path(profile))
         if not (self.profile / "auth.json").is_file():
@@ -118,8 +120,12 @@ class OpenCodeAgentRuntime:
             worker_image_id=selected_worker_id,
             credential_binding=_credential_binding(self.profile),
         )
-        root = evidence / ("controller-" + uuid4().hex)
+        root = (self.profile if os.name == "nt" else evidence) / (
+            "controller-" + uuid4().hex
+        )
         root.mkdir()
+        if os.name == "nt":
+            self._controller_staging = root
         view = root / "view"
         view.mkdir()
         # No user project configs/custom tools are ever mounted in the controller.
@@ -459,6 +465,17 @@ class OpenCodeAgentRuntime:
             raise RunnerError(
                 "opencode_container_cleanup_unverified", observation=observation
             ) from None
+        if self._controller_staging is not None:
+            root = self._controller_staging
+            if root.is_symlink() or root.resolve().parent != self.profile.resolve():
+                raise RunnerError("opencode_container_cleanup_unverified")
+            try:
+                shutil.rmtree(root)
+            except FileNotFoundError:
+                pass
+            except OSError:
+                raise RunnerError("opencode_container_cleanup_unverified") from None
+            self._controller_staging = None
         self.termination_verified = True
 
     def check_auth_fresh(self):

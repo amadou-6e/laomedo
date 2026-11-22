@@ -99,4 +99,10 @@ they never import or construct the provider's private runtime.
 
 ## Saved account connections
 
+On Windows, disposable controller configuration and its read-only skill view
+are staged in a unique child of the admitted private profile, alongside the
+already readable native session store. No credentials are copied. Evidence and
+Docker receipts remain in the run/catalogue root. Confirmed runtime closure
+removes its staging child; uncertain cleanup retains it for diagnosis.
+
 `connection.py` is the provider boundary. GoConnection owns save/profile/summary/erase for explicit Go subscription keys. It reports custody rather than verified identity and has no asynchronous browser login workers. Exact repeated keys reuse the existing connection. The shared Agent connection service owns admission/index fencing; host storage and profile authorization remain separate.

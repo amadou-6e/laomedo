@@ -7,6 +7,7 @@ from importlib.util import find_spec
 from pathlib import Path
 import hashlib
 import json
+import os
 import tempfile
 import time
 import unittest
@@ -268,6 +269,11 @@ class BoundaryTests(unittest.TestCase):
                 self.assertFalse(profile.joinpath("sessions/auth.json").exists())
                 self.assertNotIn("OPENCODE_SERVER_PASSWORD", spec.model_dump_json())
                 client.return_value.sessions.open.assert_not_called()
+                staging = backend.root
+                backend.close()
+                if os.name == "nt":
+                    self.assertFalse(staging.exists())
+                self.assertTrue(profile.joinpath("auth.json").is_file())
 
     @unittest.skipUnless(
         find_spec("py_docker"),
@@ -310,7 +316,13 @@ class BoundaryTests(unittest.TestCase):
                 )
                 self.addCleanup(backend.close)
                 config = json.loads(
-                    next(evidence.glob("controller-*/config.json")).read_text()
+                    Path(
+                        next(
+                            m.source
+                            for m in backend.spec.mounts
+                            if m.target == "/controller-config.json"
+                        )
+                    ).read_text()
                 )
                 self.assertTrue(config["tools"]["task"])
                 spec = backend.spec
