@@ -16,6 +16,7 @@ import { responseTranscript, hasNativeCommandOutcome, hasNativeControlResult, na
 import GraphActions from "./GraphActions";
 import NativeActions from "./NativeActions";
 import NativeStatus from "./NativeStatus";
+import NativeUsage from "./NativeUsage";
 import type { GraphAction, NativeAction } from "./models";
 
 export function UserMessage({
@@ -153,7 +154,9 @@ export default function MessageRow({
       })}
       {!nativeStatus && !hasAnswer && message.response && (
         <div className="space-y-2" aria-label={nativeControl ? "Native command output" : undefined}>
-          <MessageMarkdown text={nativeResponseText(message, provider)!} allowLinks={false} />
+          {provider === "claude" && message.text === "/usage" && nativeControl && message.state === "completed"
+            ? <NativeUsage text={nativeResponseText(message, provider)!} />
+            : <MessageMarkdown text={nativeResponseText(message, provider)!} allowLinks={false} />}
         </div>
       )}
       {active && ["reserved", "starting", "running"].includes(message.state) ? (
