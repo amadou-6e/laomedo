@@ -783,6 +783,7 @@ class ClaudeAgent(BaseAgent):
             if record.get("_native_command") is not None and event.get("type") in {
                 "system",
                 "result",
+                "assistant",
             }:
                 if len(command_events) >= 256:
                     raise RunnerError("claude_terminal_receipt_invalid")
@@ -799,6 +800,8 @@ class ClaudeAgent(BaseAgent):
                             "compact_result",
                             "is_error",
                             "usage",
+                            "local_command",
+                            "local_command_run",
                         )
                     }
                 )

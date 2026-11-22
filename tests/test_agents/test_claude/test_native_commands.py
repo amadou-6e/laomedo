@@ -70,6 +70,55 @@ class ClaudeCommandTests(unittest.TestCase):
                 self.assertEqual(result.native_terminal["kind"], "local_command_output")
                 self.assertNotIn("usage", result.model_dump())
 
+    def test_native_local_run_requires_matching_command_and_zero_output_result(self):
+        local = {
+            "type": "assistant",
+            "session_id": "root",
+            "uuid": "native-local-output",
+            "local_command_run": {"command": "usage", "args": ""},
+        }
+        result = {
+            "type": "result",
+            "session_id": "root",
+            "subtype": "success",
+            "usage": {"output_tokens": 0},
+            "local_command": "usage",
+        }
+        value = ClaudeCommands.result(
+            [local, result],
+            "root",
+            "end_turn",
+            command="usage",
+            answer="Native usage view",
+        )
+        self.assertEqual(value.native_terminal["kind"], "local_command_run")
+        for events in (
+            [local],
+            [result],
+            [
+                {**local, "local_command_run": {"command": "context", "args": ""}},
+                result,
+            ],
+            [
+                {
+                    **local,
+                    "local_command_run": {"command": "usage", "args": "unexpected"},
+                },
+                result,
+            ],
+            [local, {**result, "local_command": "context"}],
+            [local, {**result, "usage": {"output_tokens": 1}}],
+            [{**local, "parent_tool_use_id": "child"}, result],
+        ):
+            with self.subTest(events=events), self.assertRaises(RunnerError):
+                ClaudeCommands.result(
+                    events,
+                    "root",
+                    "end_turn",
+                    command="usage",
+                    answer="Native usage view",
+                )
+
     def test_control_completion_refuses_missing_foreign_failed_or_model_receipts(self):
         event = {
             "type": "system",

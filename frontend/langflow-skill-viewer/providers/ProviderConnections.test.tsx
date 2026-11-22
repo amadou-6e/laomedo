@@ -47,9 +47,11 @@ describe("saved provider Settings", () => {
       (listConnections as jest.Mock).mockReturnValueOnce(new Promise(resolve => {complete = resolve;}));
       act(() => poll());
       expect(code).not.toBeDisabled();
+      expect(screen.getByRole("button", {name: "Finish sign-in"})).toBeDisabled();
       expect(code).toHaveFocus();
       expect(code.selectionEnd).toBe(7);
       await act(async () => complete([]));
+      expect(screen.getByRole("button", {name: "Finish sign-in"})).not.toBeDisabled();
       expect(code).toHaveFocus();
       expect(code.selectionEnd).toBe(7);
     } finally { interval.mockRestore(); }

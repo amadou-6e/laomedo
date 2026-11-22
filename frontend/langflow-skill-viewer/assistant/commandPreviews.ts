@@ -38,5 +38,5 @@ export const providerCommandPreviews: Record<string, typeof codexCommandPreviews
 export const providerCommandNames: Record<string, readonly string[]> = {
   codex: codexCommandPreviews.map(item => item.name),
   claude: ["compact", "usage", "context", "mcp", "init", "review", "security-review", "code-review", "status", "help", "plan", "model", "effort", "agents", "permissions", "clear", "rename", "logout", "login", "cost", "doctor", "todos", "resume", "export", "copy", "memory", "debug", "new", "rewind", "config"],
-  opencode: ["init", "review", "compact"],
+  opencode: ["init", "review", "compact", "connect"],
 };
