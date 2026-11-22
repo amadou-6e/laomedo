@@ -292,6 +292,7 @@ class OpenCodeAgentRuntime:
                                 "60",
                                 "opencode",
                                 "models",
+                                "opencode-go",
                                 "--refresh",
                                 "--verbose",
                             ],

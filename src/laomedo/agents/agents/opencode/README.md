@@ -1,5 +1,10 @@
 # Opencode Agent
 
+Model discovery is scoped to `opencode-go`, the provider admitted by the dedicated
+Go credential profile. The native CLI's global catalogue also includes free
+models that the authenticated ACP session does not advertise; they must not be
+offered as runnable selections for this connection.
+
 ## Assistant native commands
 
 `OpenCodeCommands` in `commands.py` validates no-argument built-ins, projects
