@@ -1155,7 +1155,7 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
             }}
           >
             <div className="relative mx-auto max-w-4xl rounded-2xl border bg-muted/30 p-2 shadow-sm focus-within:ring-1 focus-within:ring-ring">
-              {!commandsDismissed && /^\/[^\s]*$/.test(drafts[selected] ?? "") && <NativeCommandMenu conversation={selected} provider={chosenProvider} text={drafts[selected] ?? ""} onSelect={text => {
+              {!commandsDismissed && /^\/[^\s]*$/.test(drafts[selected] ?? "") && <NativeCommandMenu conversation={selected} provider={chosenProvider} runId={conversation?.run_id} threadId={conversation?.thread_id} active={active} text={drafts[selected] ?? ""} onSelect={text => {
                 clearCommandInputError();
                 setDrafts(value => ({...value, [selected]: text}));
                 document.getElementById("assistant-message")?.focus();

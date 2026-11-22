@@ -1,5 +1,10 @@
 # Application assistant
 
+`NativeCommandMenu` refreshes the observed catalog when its provider, run,
+thread or active-turn state changes. Aborted older reads cannot replace the
+current result. Fetch errors expose Retry even when app-owned commands exist;
+catalog reads never invoke a command or a model.
+
 `ModelSelection.tsx` keeps native model radio controls over their full visible
 rows with transparent styling. Pointer automation and keyboard selection use
 the same control without changing the row's appearance or dispatching a turn.

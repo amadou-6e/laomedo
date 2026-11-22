@@ -4,11 +4,12 @@ import { assistantRequest } from "./api";
 import type { NativeCommandCatalog } from "./models";
 import { applicationCommands, providerCommandPreviews } from "./commandPreviews";
 
-export default function NativeCommandMenu({ conversation, provider = "codex", text, onSelect, onClose }: {
-  conversation: string; provider?: string; text: string; onSelect: (value: string) => void; onClose: () => void;
+export default function NativeCommandMenu({ conversation, provider = "codex", runId, threadId, active = false, text, onSelect, onClose }: {
+  conversation: string; provider?: string; runId?: string | null; threadId?: string | null; active?: boolean; text: string; onSelect: (value: string) => void; onClose: () => void;
 }) {
   const [catalog, setCatalog] = useState<NativeCommandCatalog>();
   const [failed, setFailed] = useState(false);
+  const [retry, setRetry] = useState(0);
   const reasonId = useId();
   useEffect(() => {
     if (!conversation) return;
@@ -19,7 +20,7 @@ export default function NativeCommandMenu({ conversation, provider = "codex", te
       .then(value => { if (!controller.signal.aborted) setCatalog(value); })
       .catch(() => { if (!controller.signal.aborted) setFailed(true); });
     return () => controller.abort();
-  }, [conversation]);
+  }, [conversation, provider, runId, threadId, active, retry]);
   const unstarted = !conversation || catalog?.reason === "native_session_not_created";
   const appCommands = applicationCommands[provider] ?? [];
   const nativeCommands = (unstarted
@@ -45,6 +46,8 @@ export default function NativeCommandMenu({ conversation, provider = "codex", te
         buttons[(current + (event.key === "ArrowDown" ? 1 : buttons.length - 1)) % buttons.length]?.focus();
       }
     }}>
+    {conversation && failed && <button type="button" className="w-full px-2 py-1.5 text-left text-xs text-muted-foreground underline" onClick={() => setRetry(value => value + 1)}>Could not load native commands. Retry</button>}
+    {conversation && !failed && !catalog && <p role="status" className="px-2 py-1.5 text-xs text-muted-foreground">Loading native commands…</p>}
     {commands.length > 0 && <p className="px-2 pb-1 pt-1 text-[10px] text-muted-foreground">Commands</p>}
     {commands.map((item, index) => <button key={item.name} type="button" disabled={!item.executable} aria-describedby={!item.executable ? `${reasonId}-${index}` : undefined} title={item.executable ? item.description : unavailable(item.reason)} className="group flex w-full min-w-0 items-center gap-2 rounded-lg px-2 py-1.5 text-left text-muted-foreground hover:bg-foreground/5 focus:bg-foreground/10 focus:outline-none disabled:opacity-50" onClick={() => onSelect(`/${item.name} `)}>
       <SquareTerminal size={13} strokeWidth={1.5} aria-hidden="true" className="shrink-0 opacity-70" />

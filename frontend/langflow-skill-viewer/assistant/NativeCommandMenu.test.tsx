@@ -2,6 +2,28 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import NativeCommandMenu from "./NativeCommandMenu";
 import { assistantRequest } from "./api";
 jest.mock("./api", () => ({ assistantRequest: jest.fn() }));
+beforeEach(() => jest.mocked(assistantRequest).mockReset());
+
+test("refreshes Claude commands after the native thread settles while the menu stays open", async () => {
+  jest.mocked(assistantRequest).mockResolvedValueOnce({state: "unavailable", reason: "native_session_not_observed", commands: []});
+  const props = {conversation: "chat", provider: "claude", runId: "run", text: "/usa", onSelect: jest.fn(), onClose: jest.fn()};
+  const view = render(<NativeCommandMenu {...props} active />);
+  await screen.findByText("Native commands are unavailable in this session.");
+  jest.mocked(assistantRequest).mockResolvedValueOnce({state: "available", commands: [{name: "usage", description: "Show native usage", executable: true}]});
+  view.rerender(<NativeCommandMenu {...props} active={false} threadId="thread" />);
+  expect(await screen.findByRole("button", {name: /usage/})).not.toBeDisabled();
+  expect(props.onSelect).not.toHaveBeenCalled();
+});
+
+test("offers retry after failed discovery even when application commands are present", async () => {
+  jest.mocked(assistantRequest).mockRejectedValueOnce(new Error("unavailable"));
+  render(<NativeCommandMenu conversation="chat" provider="claude" text="/" onSelect={jest.fn()} onClose={() => {}} />);
+  const retry = await screen.findByRole("button", {name: "Could not load native commands. Retry"});
+  expect(screen.getByRole("button", {name: /\/login/})).toBeVisible();
+  jest.mocked(assistantRequest).mockResolvedValueOnce({state: "available", commands: [{name: "usage", description: "Show usage", executable: true}]});
+  fireEvent.click(retry);
+  expect(await screen.findByRole("button", {name: /usage/})).not.toBeDisabled();
+});
 
 test("offers matching commands from the selected session and selects without dispatch", async () => {
   jest.mocked(assistantRequest).mockResolvedValue({ state: "available", commands: [
