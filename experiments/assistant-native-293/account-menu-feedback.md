@@ -148,6 +148,44 @@ OpenCodediscoveryinitiallyrefusedstale workerrecipe. Controllerfingerprintmatche
 
 ## Corrected Windows mount diagnosis and staging (2026-11-22)
 
+### Follow-up: chat admission and terminal outcomes
+
+Owner-reported first-step errors exposed two independent defects. The host
+required a Codex/Claude single-container ownership receipt even after OpenCode
+confirmed cleanup of all its owned resources. Production `1cfd103b3` consumes
+OpenCode's actual terminal cleanup guarantee; unverified cleanup still fences.
+The transparent native model radio now covers the visible row, preserving its
+appearance and keyboard semantics. CoBrowse selected `opencode-go/gpt-6-luna`
+normally. Real fresh and resumed paid Go prompts both returned the requested
+markers and settled with no error banner. Twenty-four reconciliation tests and
+129 then 130 UI tests passed. Same Claude reviewer approved `1cfd103b3` and
+duplicate-error display `4247ec0a3`.
+
+Native `/init` was actually approved and run in the isolated scratch target. It
+returned a terminal explanation that no repository was present; one admitted
+worker tool returned Git exit 128. It did not establish an AGENTS.md write and
+is not successful acceptance. `e89618a5b` distinguishes this known failure from
+unconfirmed execution without relaxing successful-command evidence. Rechecking
+the immutable real export with `check_retained_native_outcome.py` and its admitted
+manifest produces `opencode_native_command_failed`; this is retained-evidence
+verification, not a fresh model run. Original history is unchanged. Spec
+`08776b2d` explicitly preserves the error-free success requirement. Claude
+approved both revisions. `/review` remains untested.
+
+CI exposed a current fixture missing `_controller_staging` and an undocumented
+internal cleanup error string. Fixture initialized and existing documented
+cleanup category reused (`29a458a65`, Claude approved). Seventeen native and
+finalization tests, six catalogue/config tests, 761 UI/provider/error tests and
+Black's 956-file check passed. No unrelated Codex test modification staged.
+
+New-conversation discovery still defaulted to global `opencode/*` free models
+that the Go-authenticated ACP session did not advertise. Pinned CLI help verified
+the supported `models [provider]` syntax without credentials/network/model calls.
+Production `3820a571a` scopes discovery to `opencode-go`, the admitted credential
+provider. Fourteen affected checks pass; final real default-selection acceptance
+and focused reviewer recheck pending at this evidence checkpoint. No merge or
+all-native-completion claim.
+
 Earlier MAX_PATH diagnosis DISPROVED: public300-character original paths work through bothDockerCLIandSDK, and same-file8.3aliases didnotfixactualcatalog. Helpercheckpoint5a7ef2d3c removedbyd808b23ca; resultingtreeEXACTsameasreviewed1ca39502e (gitdiffempty), no obsoletehelper/testsretained. File-levelACL/strictowner-onlydummyprobesdidnotreproducecauseeither. Actualprivatecatalogparentdummyfile221charsreadable, freshcatalogUUID/controllerUUID/config284chars+viewfailEIO; compact252charcasealsofails. Actualconfighostexistsandnativeconfig/authsameowner; authreadable. RootDockerDesktopparent-treecreationissueunresolved, donotclaimexactcauseestablished. Publicdummycontrollerfilesinprivateprofilechild227charsreadable. Probeharnessopencode_bind_probe.py reproducesdirectorycaseswithoutreadingmountingcredentials; onlynewpublicfilesarecreated/removed.
 
 Production1a4e75db7Windowsstagesonlydisposablecontrollerconfig/viewinprofilechild; authnotcopied, originalreadonlycredentialmountunchanged. RealOpenCodeGo modelcatalogNOWPASS, includingGo-backedmodels. UsermodelselectionneededbecauseCoBrowseclicksonsr-onlyradiosreturnelement_obscured; no inference/keyvalidationclaimyet. SameClaude reviewImplementationINCOMPLETE S1crashleftovers/S2readonly. Corrections9565ee98e: exactownedstagingchildrenpurgedonexistingconfirmed-disconnectboundary; nostartupsweepofliveprofile; copyfailureinsidecleanupscope; canonicalhelperonlyremovesverifiedownedchildandclearsreadonlybitoncontainedcopyafterreproducedWindowsPermissionError, neveronsourceorcredentials.85then86OpenCodetestsPASS17.184s;59connectionsPASS34.804s andtargetGo3PASS1.425s;Black956exactPASS. Newcleanupfocusedrecheckpending. PrivateClaudeimagesreviewedwithoutblockingvisibledefectbutVisualINCOMPLETE. No secrets/privateimagespublished; no merge/all-commandcompletionclaim.
