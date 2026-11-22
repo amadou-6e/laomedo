@@ -214,7 +214,7 @@ class OpenCodeAgentRuntime:
             mounts=[
                 Mount(
                     type="bind",
-                    source=str(source),
+                    source=DockerRuntime.bind_source(source),
                     target=target,
                     read_only=readonly,
                 )

@@ -13,6 +13,40 @@ from laomedo.docker import DockerRuntime
 class DockerMechanismTests(unittest.TestCase):
     """Protect pinned connections, ownership and fail-closed native outcomes."""
 
+    def test_long_windows_bind_uses_only_a_verified_existing_alias(self):
+        source = "C:\\" + "a" * 270
+        alias = "C:\\SHORT\\source"
+        with (
+            patch("laomedo.docker.os.name", "nt"),
+            patch.dict(
+                "sys.modules",
+                {"win32api": Mock(GetShortPathName=Mock(return_value=alias))},
+            ),
+            patch("laomedo.docker.os.path.samefile", return_value=True),
+        ):
+            self.assertEqual(DockerRuntime.bind_source(source), alias)
+        with (
+            patch("laomedo.docker.os.name", "nt"),
+            patch.dict(
+                "sys.modules",
+                {"win32api": Mock(GetShortPathName=Mock(return_value=alias))},
+            ),
+            patch("laomedo.docker.os.path.samefile", return_value=False),
+        ):
+            self.assertEqual(DockerRuntime.bind_source(source), source)
+
+    def test_short_bind_and_unavailable_alias_keep_the_original_source(self):
+        source = "C:\\" + "a" * 270
+        with (
+            patch("laomedo.docker.os.name", "nt"),
+            patch.dict(
+                "sys.modules",
+                {"win32api": Mock(GetShortPathName=Mock(side_effect=OSError))},
+            ),
+        ):
+            self.assertEqual(DockerRuntime.bind_source(source), source)
+            self.assertEqual(DockerRuntime.bind_source("C:\\short"), "C:\\short")
+
     def test_borrowed_job_client_is_not_replaced_or_closed(self):
         client = Mock()
         job = Mock()
