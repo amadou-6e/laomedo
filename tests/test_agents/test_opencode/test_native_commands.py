@@ -151,3 +151,46 @@ class OpenCodeCommandTests(unittest.TestCase):
                 history,
                 baseline,
             )
+
+    def test_known_tool_failure_is_distinct_from_unfinished_or_unadmitted_work(self):
+        baseline = NativeHistory(
+            root_id="ses_root",
+            sessions={
+                "ses_root": NativeExport(info={"id": "ses_root"}, messages=[]),
+            },
+        )
+        part = {
+            "type": "tool",
+            "tool": "laomedo_exec",
+            "callID": "worker",
+            "state": {"status": "error"},
+        }
+        history = NativeHistory(
+            root_id="ses_root",
+            sessions={
+                "ses_root": NativeExport(
+                    info={"id": "ses_root"},
+                    messages=[
+                        {
+                            "info": {
+                                "id": "answer",
+                                "role": "assistant",
+                                "time": {"completed": 300},
+                            },
+                            "parts": [part],
+                        }
+                    ],
+                ),
+            },
+        )
+        command = NativeCommandInvocation(name="init", catalog_revision="a" * 64)
+        with self.assertRaisesRegex(RunnerError, "opencode_native_command_failed"):
+            OpenCodeCommands.result(command, history, baseline)
+        actual = history.sessions["ses_root"].messages[0]["parts"][0]
+        actual["state"]["status"] = "running"
+        with self.assertRaisesRegex(RunnerError, "opencode_response_not_terminal"):
+            OpenCodeCommands.result(command, history, baseline)
+        actual["state"]["status"] = "error"
+        actual["tool"] = "bash"
+        with self.assertRaisesRegex(RunnerError, "opencode_response_not_terminal"):
+            OpenCodeCommands.result(command, history, baseline)

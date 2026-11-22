@@ -389,6 +389,11 @@
     "description": "The application could not confirm whether the remote work finished. It may still be active.",
     "recovery": "Inspect the existing run or request status using the available identifiers before starting another run. Do not repeat the operation until its outcome is confirmed."
   },
+  "opencode_native_command_failed": {
+    "title": "The native command failed",
+    "description": "The command finished, but one or more of its steps failed. Its actual response is retained below.",
+    "recovery": "Read the response for the reason. No successful file change or repository review is claimed."
+  },
   "opencode_response_not_terminal": {
     "title": "The remote outcome is not confirmed",
     "description": "The application could not confirm whether the remote work finished. It may still be active.",

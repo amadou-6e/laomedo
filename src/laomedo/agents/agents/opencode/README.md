@@ -7,6 +7,9 @@ the observed catalog, admits its exact image-bound revision, and verifies
 native root/child terminal history. `result()` returns `OpenCodeCommandResult`
 with session/message identities and the actual target. It does not invent
 an answer, usage, repository review or a file write.
+Terminal admitted tool/assistant errors produce `opencode_native_command_failed`,
+not an uncertain-running outcome. Incomplete or unadmitted native work still
+produces `opencode_response_not_terminal`; neither gets a success receipt.
 
 Native `init` and `review` target the isolated controller view containing
 agent configuration, not the worker workspace or a user repository. The

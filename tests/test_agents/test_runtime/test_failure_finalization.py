@@ -42,6 +42,7 @@ class OpenCodeReceiptTests(unittest.TestCase):
         backend.broker = backend.session = None
         backend.closing = backend.termination_verified = False
         backend.cleanup_observed = None
+        backend._controller_staging = None
         return backend
 
     def test_catalogue_cleanup_failure_keeps_primary_and_registers_before_dispatch(
