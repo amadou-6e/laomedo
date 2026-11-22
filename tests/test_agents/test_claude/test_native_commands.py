@@ -12,6 +12,72 @@ from laomedo.agents.errors import RunnerError
 class ClaudeCommandTests(unittest.TestCase):
     """Supporting receipt-validation tests, never live native acceptance."""
 
+    def test_bundled_guidance_requires_both_builtin_marker_and_native_skill_list(self):
+        catalog = NativeCommandCatalog.model_validate(
+            {
+                "commands": [
+                    {
+                        "name": "claude-api",
+                        "description": "Use Claude API",
+                        "_meta": {"laomedo": {"builtin": True}},
+                    }
+                ]
+            }
+        )
+        names = ("claude-api",)
+        projection = ClaudeCommands.project(
+            catalog.model_dump(), "image", builtins_only=True, builtin_skills=names
+        )
+        self.assertTrue(projection["commands"][0]["executable"])
+        self.assertTrue(projection["commands"][0]["may_use_model"])
+        command = NativeCommandInvocation(
+            name="claude-api",
+            arguments="Explain Messages",
+            catalog_revision=projection["revision"],
+        )
+        ClaudeCommands.admit(
+            command, catalog, "image", builtins_only=True, builtin_skills=names
+        )
+        for marked in (False, None):
+            other = NativeCommandCatalog(
+                commands=[
+                    {
+                        "name": "claude-api",
+                        "description": "Untrusted",
+                        "_meta": {"laomedo": {"builtin": marked}},
+                    }
+                ]
+            )
+            row = ClaudeCommands.project(
+                other.model_dump(), "image", builtins_only=True, builtin_skills=names
+            )["commands"][0]
+            self.assertFalse(row["executable"])
+        self.assertIsNone(
+            ClaudeCommands.expansion_receipt(
+                {
+                    "type": "user",
+                    "session_id": "thread",
+                    "uuid": "u",
+                    "message": {"content": command.text()},
+                },
+                command,
+                "thread",
+            )
+        )
+        receipt = ClaudeCommands.expansion_receipt(
+            {
+                "type": "user",
+                "session_id": "thread",
+                "uuid": "u",
+                "message": {
+                    "content": "<command-message>claude-api</command-message>\n<command-name>/claude-api</command-name>"
+                },
+            },
+            command,
+            "thread",
+        )
+        self.assertEqual(receipt["skill"], "claude-api")
+
     def test_skill_category_uses_session_bound_native_initialization(self):
         event = {
             "sessionId": "thread",

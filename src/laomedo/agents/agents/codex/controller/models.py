@@ -263,7 +263,7 @@ class CodexLaunch(BaseModel):
             read_only=False,
             stdin_open=True,
             tmpfs={
-                "/home/runner/.codex/skills": "ro,mode=0555",
+                "/home/runner/.codex/skills": "rw,noexec,nosuid,nodev,size=32m,uid=10001,gid=10001,mode=0700",
                 "/home/runner/.codex/plugins": "ro,mode=0555",
                 "/home/runner/.agents": "ro,mode=0555",
             },

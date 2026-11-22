@@ -106,7 +106,8 @@ class NativeCommandInvocation(BaseModel):
 
     def text(self) -> str:
         """Produce the exact native slash input with no assistant prompt wrapper."""
-        return "/" + self.name + (" " + self.arguments if self.arguments else "")
+        prefix = "" if self.name.startswith("$") else "/"
+        return prefix + self.name + (" " + self.arguments if self.arguments else "")
 
 
 class ResumeDispatchRequest(BaseModel):

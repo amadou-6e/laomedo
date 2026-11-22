@@ -371,21 +371,24 @@ describe("uncertain assistant submission", () => {
     await waitFor(() => expect(assistantRequest).toHaveBeenCalledWith("/conversations/fresh/messages", expect.objectContaining({text: "/status", initial_native_command: "status"})));
     expect(jest.mocked(assistantRequest).mock.calls.some(([path]) => path.endsWith("/native-commands"))).toBe(false);
   });
-  it("submits a typed command directly and never wraps it in a model message", async () => {
+  it.each([
+    ["/status", "status", ""],
+    ["$skill-creator Explain", "$skill-creator", "Explain"],
+  ])("submits %s through native admission without an ordinary message", async (text, name, args) => {
     const chat = { connection_id: "account", connection_generation: 1, id: "saved", title: "Saved", provider: "codex", run_id: "run", model: "fixture", effort: "low", state: "idle", active_message_id: null };
     jest.mocked(assistantRequest).mockImplementation(async (path, body) => {
       if (path === "/connections") return { connections: [{connection_id: "account", generation: 1, provider: "codex", label: "Saved account", lifecycle: "connected", auth_state: "ready"}] };
       if (path.startsWith("/models?")) return { provider: "codex", models: [{id: "fixture", efforts: ["low"]}] };
       if (path === "/conversations") return {conversations: [chat], next_cursor: null};
-      if (path.endsWith("/native-commands")) return body ? {id: "action", state: "executing"} : {state: "available", revision: "a".repeat(64), commands: [{name: "status", executable: true, accepts_arguments: false, description: "Session status"}]};
+      if (path.endsWith("/native-commands")) return body ? {id: "action", state: "pending"} : {state: "available", revision: "a".repeat(64), commands: [{name, executable: true, accepts_arguments: name.startsWith("$"), description: "Native operation"}]};
       return {conversation: chat, messages: [], drafts: [], next_cursor: null};
     });
     render(<MemoryRouter initialEntries={["/assistant?conversation=saved"]}><AssistantPage /></MemoryRouter>);
     const composer = screen.getByRole("textbox", {name: "Message this assistant"});
-    fireEvent.change(composer, {target: {value: "/status"}});
+    fireEvent.change(composer, {target: {value: text}});
     await waitFor(() => expect(screen.getByRole("button", {name: "Send"})).not.toBeDisabled());
     fireEvent.keyDown(composer, {key: "Enter"});
-    await waitFor(() => expect(assistantRequest).toHaveBeenCalledWith("/conversations/saved/native-commands", expect.objectContaining({name: "status", arguments: "", catalog_revision: "a".repeat(64)})));
+    await waitFor(() => expect(assistantRequest).toHaveBeenCalledWith("/conversations/saved/native-commands", expect.objectContaining({name, arguments: args, catalog_revision: "a".repeat(64)})));
     await waitFor(() => expect(composer).toHaveValue(""));
     expect(jest.mocked(assistantRequest).mock.calls.some(([path]) => path.endsWith("/messages"))).toBe(false);
   });

@@ -1,6 +1,7 @@
 import { messageText } from "@/modals/graphAgents/utils";
 import type { ActivityPage, DraftReceipt, GraphAction, Message, NativeAction } from "./models";
 import { toolCall } from "./toolCall";
+import { nativeCommandText } from "./commandPreviews";
 
 export function isNativeControlCommand(provider: string, name: string): boolean {
   return (provider === "codex" ? ["status", "mcp", "skills"] : provider === "claude" ? ["usage", "context", "mcp"] : []).includes(name);
@@ -73,7 +74,7 @@ export function responseTranscript(
       ...receipt.diagnostics, "Saved without running or publishing.");
   }
   for (const action of nativeActions) {
-    blocks.push(`Native command: /${action.name}${action.arguments ? " " + action.arguments : ""}`, `Outcome: ${provider === "claude" && isNativeControlCommand(provider, action.name) && action.state === "completed" ? "output received" : action.state}`);
+    blocks.push(`Native command: ${nativeCommandText(action.name, action.arguments)}`, `Outcome: ${provider === "claude" && isNativeControlCommand(provider, action.name) && action.state === "completed" ? "output received" : action.state}`);
   }
   if (message.error_code) blocks.push(`Response error: ${message.error_code}`);
   if (!hasNativeCommandOutcome(message, provider) && (!page || !page.available || page.complete === false))

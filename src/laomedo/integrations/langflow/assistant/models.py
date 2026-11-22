@@ -766,7 +766,8 @@ class AssistantNativeAction(SQLModel, table=True):
             "arguments": request.arguments,
             "digest": self.digest,
             "state": state,
-            "may_use_model": request.name in {"review", "compact"},
+            "may_use_model": request.name
+            not in {"status", "mcp", "skills", "usage", "context"},
             "can_decide": session_key == self.session_key and state == "pending",
             "result_message_id": (
                 str(self.result_message_id) if self.result_message_id else None

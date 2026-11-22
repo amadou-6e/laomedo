@@ -82,6 +82,8 @@ class ClaudePolicy(BaseModel):
                 "disableAllHooks": True,
                 "enabledPlugins": {},
                 "autoMemoryEnabled": False,
+                "syncClaudeAiSkills": False,
+                "syncClaudeAiPlugins": False,
             },
             "allowDangerouslySkipPermissions": False,
             "promptSuggestions": False,

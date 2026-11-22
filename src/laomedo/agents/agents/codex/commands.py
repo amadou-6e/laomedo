@@ -4,6 +4,7 @@ from laomedo.agents.agents.base.models import NativeCommandInvocation
 from laomedo.agents.agents.base.models import NativeCommandDiscovery
 from laomedo.agents.agents.base.acp.models import NativeCommandCatalog
 from laomedo.agents.errors import RunnerError
+from laomedo.agents.agents.codex.settings import BUNDLED_SKILL_REQUIREMENTS
 
 
 class CodexCommands:
@@ -14,11 +15,11 @@ class CodexCommands:
         """Return completion class after checking exact supported argument grammar."""
         if request.name in {"status", "mcp", "skills"}:
             kind = "control"
-        elif request.name in {"review", "compact"}:
+        elif request.name in {"review", "compact", "$skill-creator"}:
             kind = "turn"
         else:
             raise RunnerError("native_command_not_supported")
-        if request.name != "review" and request.arguments:
+        if request.name not in {"review", "$skill-creator"} and request.arguments:
             raise RunnerError("native_command_arguments_invalid")
         return kind
 
@@ -30,7 +31,29 @@ class CodexCommands:
             raise RunnerError("native_command_catalog_changed")
         if not any(item.name == request.name for item in catalog.commands):
             raise RunnerError("native_command_not_available")
+        if request.name.startswith("$"):
+            item = next(item for item in catalog.commands if item.name == request.name)
+            if cls.skill_reason(item, catalog) is not None:
+                raise RunnerError("native_command_not_available")
         return kind
+
+    @classmethod
+    def skill_reason(cls, item, catalog):
+        """Require unambiguous native system scope/path and a supported capability."""
+        source = item.metadata.laomedo.skill if item.metadata else None
+        if (
+            source is None
+            or source.scope != "system"
+            or not source.enabled
+            or item.name != "$" + source.name
+            or source.path
+            != "/home/runner/.codex/skills/.system/" + source.name + "/SKILL.md"
+            or sum(entry.name == item.name for entry in catalog.commands) != 1
+        ):
+            return "native_skill_source_unverified"
+        return BUNDLED_SKILL_REQUIREMENTS.get(
+            item.name, "native_skill_requirements_unverified"
+        )
 
     @classmethod
     def project(cls, value):
@@ -38,18 +61,31 @@ class CodexCommands:
         catalog = NativeCommandCatalog.model_validate(value)
         commands = []
         for item in catalog.commands:
-            supported = item.name in {"status", "mcp", "skills", "review", "compact"}
+            skill = item.name.startswith("$")
+            reason = (
+                cls.skill_reason(item, catalog)
+                if skill
+                else "outside_assistant_command_policy"
+            )
+            supported = (
+                reason is None
+                if skill
+                else item.name in {"status", "mcp", "skills", "review", "compact"}
+            )
             commands.append(
                 {
                     "name": item.name,
+                    "kind": "skill" if skill else "command",
                     "description": item.description,
                     "input_hint": item.input.hint if item.input else None,
                     "executable": supported,
-                    "accepts_arguments": supported and item.name == "review",
+                    "accepts_arguments": supported and (item.name == "review" or skill),
                     "may_use_model": (
-                        item.name in {"review", "compact"} if supported else None
+                        item.name in {"review", "compact"} or skill
+                        if supported
+                        else None
                     ),
-                    "reason": None if supported else "outside_assistant_command_policy",
+                    "reason": None if supported else reason,
                 }
             )
         return NativeCommandDiscovery(

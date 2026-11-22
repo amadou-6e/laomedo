@@ -25,11 +25,19 @@ class NativeSkillSource(BaseModel):
     enabled: bool
 
 
+class NativeCommandProvenance(BaseModel):
+    """Native built-in marker or system-skill source, never a host grant."""
+
+    model_config = ConfigDict(extra="ignore", strict=True, frozen=True)
+    builtin: bool | None = None
+    skill: NativeSkillSource | None = None
+
+
 class NativeCommandMetadata(BaseModel):
     """Provider metadata is observation, never permission to execute a skill."""
 
     model_config = ConfigDict(extra="ignore", strict=True, frozen=True)
-    laomedo: dict[str, NativeSkillSource] = Field(default_factory=dict, max_length=1)
+    laomedo: NativeCommandProvenance = Field(default_factory=NativeCommandProvenance)
 
 
 class NativeCommand(BaseModel):

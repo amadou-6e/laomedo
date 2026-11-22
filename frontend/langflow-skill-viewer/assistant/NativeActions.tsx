@@ -2,6 +2,7 @@ import { useState } from "react";
 import { assistantRequest } from "./api";
 import type { NativeAction } from "./models";
 import { isNativeControlCommand } from "./responseTranscript";
+import { nativeCommandText } from "./commandPreviews";
 
 export default function NativeActions({ conversation, provider = "codex", actions, onFailure }: {
   conversation: string; provider?: string; actions: NativeAction[]; onFailure: (error: unknown) => void;
@@ -26,10 +27,10 @@ export default function NativeActions({ conversation, provider = "codex", action
     if (provider === "claude" && action.name === "usage" && action.state === "completed") return null;
     const outcome = ({ completed: "Completed", rejected: "Rejected", expired: "Expired", stale: "Commands changed", executing: "Running", failed: "Failed", cancelled: "Stopped", interrupted: "Interrupted", unknown: "Outcome unknown" } as Record<string, string>)[action.state];
     const nativeOutput = provider === "claude" && isNativeControlCommand(provider, action.name) && action.state === "completed";
-    return <article key={action.id} aria-label={`Native command: /${action.name}`}
+    return <article key={action.id} aria-label={`Native command: ${nativeCommandText(action.name)}`}
       className={`ml-auto w-fit max-w-full rounded-lg border border-border/60 bg-transparent px-3 text-sm ${action.state === "pending" ? "py-3" : "py-2"}`}>
       <p className="whitespace-pre-wrap break-words text-xs font-normal text-muted-foreground">
-        {nativeOutput ? "Received output from" : action.state === "completed" ? "Ran" : "Run"} /{action.name}{action.arguments ? ` with arguments ${JSON.stringify(action.arguments)}` : ""}.
+        {nativeOutput ? "Received output from" : action.state === "completed" ? "Ran" : "Run"} {nativeCommandText(action.name)}{action.arguments ? ` with arguments ${JSON.stringify(action.arguments)}` : ""}.
       </p>
       {outcome && <span role="status" className="mt-1 block text-left text-xs text-muted-foreground">{nativeOutput ? "Output received" : outcome}</span>}
       {action.state === "pending" && action.may_use_model && <p className="my-2 text-xs text-muted-foreground">May use model quota.</p>}

@@ -2,11 +2,19 @@
 
 from laomedo._paths import package_root
 
-IMAGE = "laomedo-codex-acp:0.159.2-2.1.1-commands4"
+IMAGE = "laomedo-codex-acp:0.159.2-2.1.1-skills2"
 
 
 # Managed image IDs are resolved on the selected daemon before execution.
 IMAGE_ID = None
+
+BUNDLED_SKILL_REQUIREMENTS = {
+    "$skill-creator": None,
+    "$skill-installer": "native_skill_requires_provider_configuration",
+    "$imagegen": "native_skill_requires_external_services",
+    "$openai-docs": "native_skill_requires_external_services",
+    "$review-agent": "scratch_workspace",
+}
 
 
 GIT_IMAGE = IMAGE

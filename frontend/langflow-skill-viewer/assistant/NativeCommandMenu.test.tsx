@@ -4,6 +4,18 @@ import { assistantRequest } from "./api";
 jest.mock("./api", () => ({ assistantRequest: jest.fn() }));
 beforeEach(() => jest.mocked(assistantRequest).mockReset());
 
+test("selects a discovered Codex system skill using its native dollar syntax", async () => {
+  jest.mocked(assistantRequest).mockResolvedValue({state: "available", commands: [
+    {name: "$skill-creator", kind: "skill", description: "Create a skill", executable: true, accepts_arguments: true},
+  ]});
+  const select = jest.fn();
+  render(<NativeCommandMenu conversation="chat" text="/skill-c" onSelect={select} onClose={() => {}} />);
+  fireEvent.click(await screen.findByRole("button", {name: /\$skill-creator/}));
+  expect(select).toHaveBeenCalledWith("$skill-creator ");
+  expect(screen.getByText("Skills")).toBeVisible();
+  expect(screen.queryByText("Commands")).toBeNull();
+});
+
 test("groups native skills separately and explains unsupported provider configuration", async () => {
   jest.mocked(assistantRequest).mockResolvedValue({state: "available", commands: [
     {name: "customize-opencode", kind: "skill", description: "Configure OpenCode", executable: false, reason: "native_skill_requires_provider_configuration"},

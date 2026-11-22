@@ -232,3 +232,22 @@ index 1975930..defc390 100644
 +        .onRequest("_laomedo/refreshCredential", credentialParams, (ctx) => extension().refreshCredential(ctx.params))
          .connect(acpJsonStream);
  }
+diff --git a/src/CodexCommands.ts b/src/CodexCommands.ts
+--- a/src/CodexCommands.ts
++++ b/src/CodexCommands.ts
+@@ -106,5 +106,15 @@
+                     name,
+                     description,
+                     input: null,
++                    _meta: {
++                        laomedo: {
++                            skill: {
++                                name: skill.name,
++                                path: skill.path,
++                                scope: skill.scope,
++                                enabled: skill.enabled && skillsEntries.flatMap(entry => entry.skills).filter(item => item.name === skill.name).length === 1,
++                            },
++                        },
++                    },
+                 });
+             }

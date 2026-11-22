@@ -1,4 +1,8 @@
 /** Documentation previews, not a native capability catalog or execution grant. */
+export function nativeCommandText(name: string, args = ""): string {
+  return `${name.startsWith("$") ? "" : "/"}${name}${args ? " " + args : ""}`;
+}
+
 export const applicationCommands: Record<string, {name: string; description: string; action: "accounts" | "rename"}[]> = {
   codex: [{name: "logout", description: "Manage sign-in in Settings → Providers.", action: "accounts"}, {name: "rename", description: "Rename this Laomedo conversation.", action: "rename"}],
   claude: [{name: "login", description: "Manage sign-in in Settings → Providers.", action: "accounts"}, {name: "logout", description: "Manage sign-in in Settings → Providers.", action: "accounts"}, {name: "rename", description: "Rename this Laomedo conversation.", action: "rename"}],

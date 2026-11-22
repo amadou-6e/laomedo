@@ -528,11 +528,13 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
     setError(undefined);
     pinned.current = true;
     try {
-      if (text.startsWith("/") && !identity.initial_native_command) {
+      if ((text.startsWith("/") || chosenProvider === "codex" && text.startsWith("$")) && !identity.initial_native_command) {
         let submission = nativeSubmission.current;
         if (!submission || submission.conversation !== target || submission.text !== text) {
           submission = undefined;
-          const match = /^\/([^\s]+)(?: (.*))?$/.exec(text);
+          const parsed = /^([/$])([^\s]+)(?: (.*))?$/.exec(text);
+          const match = parsed ? [parsed[0], (parsed[1] === "$" ? "$" : "") + parsed[2], parsed[3]] : null;
+          if (text.startsWith("$") && (!target || !detail?.conversation.run_id)) throw new AssistantFailure("native_command_not_available");
           if ((!target || !detail?.conversation.run_id) && (providerCommandNames[chosenProvider] ?? []).includes(match?.[1] ?? "")) {
             throw new AssistantFailure("native_command_not_available");
           }
@@ -1155,7 +1157,7 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
             }}
           >
             <div className="relative mx-auto max-w-4xl rounded-2xl border bg-muted/30 p-2 shadow-sm focus-within:ring-1 focus-within:ring-ring">
-              {!commandsDismissed && /^\/[^\s]*$/.test(drafts[selected] ?? "") && <NativeCommandMenu conversation={selected} provider={chosenProvider} runId={conversation?.run_id} threadId={conversation?.thread_id} active={active} text={drafts[selected] ?? ""} onSelect={text => {
+              {!commandsDismissed && (chosenProvider === "codex" ? /^[/$][^\s]*$/ : /^\/[^\s]*$/).test(drafts[selected] ?? "") && <NativeCommandMenu conversation={selected} provider={chosenProvider} runId={conversation?.run_id} threadId={conversation?.thread_id} active={active} text={drafts[selected] ?? ""} onSelect={text => {
                 clearCommandInputError();
                 setDrafts(value => ({...value, [selected]: text}));
                 document.getElementById("assistant-message")?.focus();

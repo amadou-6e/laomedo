@@ -168,3 +168,5 @@ changed identity/epoch or a stuck refresh closes the controller. Resume must
 borrow an active token and confirm its native update before any prompt.
 `live_session_close_reason` retains a fixed sanitized reason for idle cleanup;
 unrecognized health errors become `health_lost`, never arbitrary exception text.
+
+Bundled system skills are distinct native command rows. CodexCommands.skill_reason checks native system scope, exact path, enabled state and uniqueness before the pinned capability policy admits a skill. The adapter rechecks native skills/list and the image manifest immediately before injecting the structured skill input. System extraction uses a bounded disposable controller tmpfs; public bundled helper files also ship read-only in the credential-free worker image. No host or personal skills are mounted. Skill-creator uses the existing approved model-turn path; other bundled requirements remain explicit.

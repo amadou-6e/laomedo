@@ -11,12 +11,13 @@ COPY LaomedoExtension.ts src/LaomedoExtension.ts
 COPY LaomedoExtension.test.ts src/LaomedoExtension.test.ts
 COPY LaomedoLaunch.ts src/LaomedoLaunch.ts
 COPY LaomedoLaunch.test.ts src/LaomedoLaunch.test.ts
+COPY LaomedoSkills.test.ts src/LaomedoSkills.test.ts
 RUN git apply /tmp/native-events.patch && npm run typecheck \
-    && npx vitest run src/LaomedoExtension.test.ts src/LaomedoLaunch.test.ts --no-file-parallelism && npm run build \
+    && npx vitest run src/LaomedoExtension.test.ts src/LaomedoLaunch.test.ts src/LaomedoSkills.test.ts --no-file-parallelism && npm run build \
     && sha256sum /tmp/native-events.patch src/LaomedoExtension.ts src/LaomedoLaunch.ts dist/index.js > /tmp/adapter-checksums.txt
 
 FROM node:22-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates git python3 ripgrep \
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates git python3 python3-yaml ripgrep \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --gid 10001 runner && useradd --uid 10001 --gid 10001 --create-home runner \
     && mkdir /draft /opt/acp && chown runner:runner /draft
@@ -30,6 +31,13 @@ COPY --from=adapter /tmp/adapter-checksums.txt /opt/acp/adapter-checksums.txt
 LABEL org.opencontainers.image.source="https://github.com/agentclientprotocol/codex-acp" \
     org.opencontainers.image.revision="68d7d2d5ddfc0ed5746f9f6130892dda685e65dd" \
     org.opencontainers.image.licenses="Apache-2.0"
+COPY seed_system_skills.py /opt/acp/seed_system_skills.py
+RUN mkdir -p /tmp/skill-seed-home \
+    && HOME=/tmp/skill-seed-home python3 /opt/acp/seed_system_skills.py /opt/acp/system-skills.json \
+    && mkdir -p /home/runner/.codex/skills \
+    && cp -a /tmp/skill-seed-home/.codex/skills/.system /home/runner/.codex/skills/ \
+    && chmod -R a-w /home/runner/.codex/skills \
+    && rm -rf /tmp/skill-seed-home
 USER runner
 ENV HOME=/home/runner CODEX_PATH=/usr/local/bin/codex LAOMEDO_CODEX_NATIVE_EVENTS=1
 WORKDIR /draft

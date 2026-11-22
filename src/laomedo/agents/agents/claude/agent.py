@@ -793,11 +793,28 @@ class ClaudeAgent(BaseAgent):
                 )
                 record["native_builtin_skill_thread"] = record["thread_id"]
             self._native_event(root, record, event)
-            if record.get("_native_command") is not None and event.get("type") in {
-                "system",
-                "result",
-                "assistant",
-            }:
+            command_data = record.get("_native_command")
+            skill_command = command_data is not None and ClaudeCommands.is_skill(
+                command_data["name"]
+            )
+            if skill_command:
+                receipt = ClaudeCommands.expansion_receipt(
+                    event,
+                    NativeCommandInvocation.model_validate(command_data),
+                    record["thread_id"],
+                )
+                if receipt is not None:
+                    record["_native_skill_expansion"] = receipt
+            if (
+                command_data is not None
+                and not skill_command
+                and event.get("type")
+                in {
+                    "system",
+                    "result",
+                    "assistant",
+                }
+            ):
                 if len(command_events) >= 256:
                     raise RunnerError("claude_terminal_receipt_invalid")
                 command_events.append(
@@ -980,7 +997,9 @@ class ClaudeAgent(BaseAgent):
                         ),
                     ),
                 }
-            if record.get("_native_command") is not None:
+            if record.get(
+                "_native_command"
+            ) is not None and not ClaudeCommands.is_skill(command.name):
                 return ClaudeCommands.result(
                     command_events,
                     record["thread_id"],
@@ -989,6 +1008,12 @@ class ClaudeAgent(BaseAgent):
                     answer=outcome.answer,
                 )
             if len(results) != 1:
+                raise RunnerError("claude_terminal_receipt_invalid")
+            if (
+                record.get("_native_command") is not None
+                and ClaudeCommands.is_skill(command.name)
+                and not record.get("_native_skill_expansion")
+            ):
                 raise RunnerError("claude_terminal_receipt_invalid")
             return terminal_result(json.dumps(results[0]), record["thread_id"])
         finally:
@@ -1255,6 +1280,7 @@ class ClaudeAgent(BaseAgent):
             _json(folder / (attempt_id + ".json"), attempt)
             record["activity_attempt_id"] = attempt_id
             record.pop("_native_command", None)
+            record.pop("_native_skill_expansion", None)
             if native_command is not None:
                 record["_native_command"] = native_command.model_dump(mode="json")
                 prompt = native_command.text()
@@ -1441,6 +1467,21 @@ class ClaudeAgent(BaseAgent):
                     output_correction_count=corrections,
                     precheck={"installed": False, "call_count": 0},
                 )
+                if native_command is not None and ClaudeCommands.is_skill(
+                    native_command.name
+                ):
+                    record.setdefault("native_command_receipts", []).append(
+                        {
+                            "request": native_command.model_dump(mode="json"),
+                            "result": {
+                                "native_terminal": record["_native_skill_expansion"]
+                            },
+                            "attempt_id": attempt_id,
+                            "status": "completed",
+                            "answer": answer,
+                            "error_category": None,
+                        }
+                    )
                 models = result.get("modelUsage")
                 record["effective_model"] = (
                     next(iter(models))
