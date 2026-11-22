@@ -35,7 +35,7 @@ function setup(name = "skill-creator") {
         complete: () => observe({eventType: "notification", method: "turn/completed", params: {threadId: "thread", turn: {id: "t", status: "completed"}}})};
 }
 
-it.each(["skill-creator", "openai-docs"])("injects verified %s only into its explicitly admitted turn", async name => {
+it.each(["skill-creator"])("injects verified %s only into its explicitly admitted turn", async name => {
     const {extension, host, request, start, complete} = setup(name);
     expect(() => extension.turnParameters(request)).toThrow();
     await extension.prompt("thread", async () => {
@@ -45,6 +45,13 @@ it.each(["skill-creator", "openai-docs"])("injects verified %s only into its exp
     }, request);
     expect(host.notify).toHaveBeenCalledWith("_laomedo/codexEvent", expect.objectContaining({method: "laomedo/skillInput", params: expect.objectContaining({threadId: "thread", turnId: "t", invocationId: "00000000-0000-4000-8000-000000000001", origin: "laomedo_adapter"})}));
     expect(() => extension.turnParameters(request)).toThrow();
+});
+
+it("refuses a bundled skill whose native search requirement is unavailable", async () => {
+    const {extension, request} = setup("openai-docs");
+    const run = vi.fn();
+    await expect(extension.prompt("thread", run, request)).rejects.toThrow();
+    expect(run).not.toHaveBeenCalled();
 });
 
 it("refuses a changed bundled body before running the native turn", async () => {

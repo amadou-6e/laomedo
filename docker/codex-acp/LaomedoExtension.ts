@@ -24,7 +24,7 @@ const sessionPolicy = z.object({
 
 const promptPolicy = z.object({
     nativeCommand: z.object({
-        name: z.enum(["status", "mcp", "skills", "review", "compact", "$skill-creator", "$openai-docs"]),
+        name: z.enum(["status", "mcp", "skills", "review", "compact", "$skill-creator"]),
         arguments: z.string().max(4000),
         invocationId: z.string().uuid().optional(),
     }).strict().optional(),
@@ -238,7 +238,7 @@ export class LaomedoExtension {
         if (!this.sessions.has(request.sessionId)) throw acp.RequestError.invalidParams("Unbound command session");
         const command = input.nativeCommand;
         if (/[\x00-\x1f\x7f\u2028\u2029]/.test(command.arguments)
-            || (!["review", "$skill-creator", "$openai-docs"].includes(command.name) && command.arguments.length !== 0)) {
+            || (!["review", "$skill-creator"].includes(command.name) && command.arguments.length !== 0)) {
             throw acp.RequestError.invalidParams("Invalid native command arguments");
         }
         const text = `${command.name.startsWith("$") ? "" : "/"}${command.name}${command.arguments ? ` ${command.arguments}` : ""}`;
@@ -249,7 +249,7 @@ export class LaomedoExtension {
     }
 
     private async admitSystemSkill(name: string) {
-        if (!["skill-creator", "openai-docs"].includes(name)) throw acp.RequestError.invalidParams("Unsupported bundled skill");
+        if (!["skill-creator"].includes(name)) throw acp.RequestError.invalidParams("Unsupported bundled skill");
         const source = await this.app.listSkills({cwds: ["/draft"], forceReload: true});
         const matches = source.data.flatMap(entry => entry.skills).filter(skill => skill.name === name);
         const path = `/home/runner/.codex/skills/.system/${name}/SKILL.md`;

@@ -173,7 +173,10 @@ Bundled system skills are distinct native command rows. CodexCommands.skill_reas
 
 CodexCommands.validate_skill_mentions mirrors the pinned native ASCII dollar-token and linked-path rules: an ordinary message cannot implicitly invoke a bundled skill, and approved arguments cannot invoke another one. Currency-like dollar text stays ordinary chat. CodexSkillReceipt binds verified structured input to a unique invocation and the native root turn; skill_receipt requires it between that turn's start and completion. The adapter receipt is labelled separately from original native events and retained in the command outcome.
 
-OpenAI Docs is admitted through the same verified system-skill route. The pinned native configuration already defaults to cached web search; this does not add a host MCP service or relax workspace networking. Real search/open behavior must be verified separately from instruction injection.
+OpenAI Docs remains visible but unavailable: live acceptance confirmed that the
+runner does not expose the native search/open capability required by its bundled
+instructions. The CLI's cached-search default alone does not establish tool
+availability. Skill discovery never adds a host MCP service or relaxes networking.
 
 The worker's temporary home deliberately contains no credentials. Before starting
 its native exec server, it links the canonical system-skill path to the image's

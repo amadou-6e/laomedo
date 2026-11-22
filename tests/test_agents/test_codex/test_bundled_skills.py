@@ -142,17 +142,18 @@ class BundledSkillTests(unittest.TestCase):
         self.assertEqual(command.text(), "$skill-creator Explain the workflow")
         self.assertEqual(CodexCommands.admit(command, catalog), "turn")
 
-    def test_docs_skill_uses_the_same_verified_model_turn_admission(self):
+    def test_docs_skill_requires_an_available_native_search_service(self):
         catalog = self.catalog("openai-docs")
         row = CodexCommands.project(catalog.model_dump())["commands"][0]
-        self.assertTrue(row["executable"])
-        self.assertTrue(row["may_use_model"])
+        self.assertFalse(row["executable"])
+        self.assertEqual(row["reason"], "native_skill_requires_external_services")
         command = NativeCommandInvocation(
             name="$openai-docs",
             arguments="Explain Responses API",
             catalog_revision=catalog.revision(),
         )
-        self.assertEqual(CodexCommands.admit(command, catalog), "turn")
+        with self.assertRaises(RunnerError):
+            CodexCommands.admit(command, catalog)
 
     def test_user_disabled_changed_or_ambiguous_sources_are_refused(self):
         for source in (
