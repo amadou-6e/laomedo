@@ -56,11 +56,13 @@ export default function MessageRow({
   onFailure,
   actions = [],
   nativeActions = [],
+  errorShownAbove = false,
 }: {
   conversation: string;
   provider?: string;
   actions?: GraphAction[];
   nativeActions?: NativeAction[];
+  errorShownAbove?: boolean;
   message: Message;
   receipts: DraftReceipt[];
   active: boolean;
@@ -174,7 +176,7 @@ export default function MessageRow({
             preserved.
           </p>
         )}
-      {message.error_code && (
+      {message.error_code && !errorShownAbove && (
         <div className="rounded-lg border p-3 text-sm">
           <ErrorExplanation
             failure={describeNodeFailure(message.error_code, undefined)}

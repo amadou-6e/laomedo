@@ -1055,6 +1055,7 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
                     (receipt) => receipt.message_id === message.id,
                   )}
                   active={conversation?.active_message_id === message.id}
+                  errorShownAbove={Boolean(failure && message.error_code === explanation)}
                   onContent={follow}
                   onFailure={fail}
                 />

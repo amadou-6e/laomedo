@@ -3,6 +3,8 @@
 `ModelSelection.tsx` keeps native model radio controls over their full visible
 rows with transparent styling. Pointer automation and keyboard selection use
 the same control without changing the row's appearance or dispatching a turn.
+`MessageRow.errorShownAbove` suppresses only an identical explanation already
+shown in the conversation recovery banner; distinct historical errors remain.
 
 ## App-owned commands
 

@@ -45,6 +45,15 @@ const receipt: DraftReceipt = {
 };
 
 describe("retained assistant conversation", () => {
+  it("shows a retained error once unless its recovery banner already shows it", async () => {
+    jest.mocked(assistantRequest).mockResolvedValue({available: true, complete: true, projection: {items: []}});
+    const failed = {...message, state: "unknown", error_code: "assistant_cleanup_unverified"};
+    const view = render(<MessageRow conversation="conversation" message={failed} receipts={[]} active={false} onContent={onContent} onFailure={onFailure} />);
+    expect(screen.getByText(/earlier attempt has not established cleanup/)).toBeVisible();
+    view.rerender(<MemoryRouter><MessageRow conversation="conversation" message={failed} receipts={[]} active={false} errorShownAbove onContent={onContent} onFailure={onFailure} /></MemoryRouter>);
+    expect(screen.queryByText(/earlier attempt has not established cleanup/)).toBeNull();
+    await waitFor(() => expect(screen.getByRole("button", {name: "Copy answer"})).not.toBeDisabled());
+  });
   it.each(["usage", "context", "mcp"])("renders Claude %s as native output without a tool row or partial answer", async name => {
     jest.mocked(assistantRequest).mockClear();
     const writeText = jest.fn().mockResolvedValue(undefined);
