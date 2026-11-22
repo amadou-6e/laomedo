@@ -34,9 +34,8 @@ LABEL org.opencontainers.image.source="https://github.com/agentclientprotocol/co
 COPY seed_system_skills.py /opt/acp/seed_system_skills.py
 RUN mkdir -p /tmp/skill-seed-home \
     && HOME=/tmp/skill-seed-home python3 /opt/acp/seed_system_skills.py /opt/acp/system-skills.json \
-    && mkdir -p /home/runner/.codex/skills \
-    && cp -a /tmp/skill-seed-home/.codex/skills/.system /home/runner/.codex/skills/ \
-    && chmod -R a-w /home/runner/.codex/skills \
+    && cp -a /tmp/skill-seed-home/.codex/skills/.system /opt/acp/system-skills \
+    && chmod -R a-w /opt/acp/system-skills \
     && rm -rf /tmp/skill-seed-home
 USER runner
 ENV HOME=/home/runner CODEX_PATH=/usr/local/bin/codex LAOMEDO_CODEX_NATIVE_EVENTS=1
