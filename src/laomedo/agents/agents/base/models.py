@@ -105,7 +105,7 @@ class NativeCommandInvocation(BaseModel):
         return self
 
     def text(self) -> str:
-        """Produce the exact native slash input with no assistant prompt wrapper."""
+        """Produce the exact native invocation with no assistant prompt wrapper."""
         prefix = "" if self.name.startswith("$") else "/"
         return prefix + self.name + (" " + self.arguments if self.arguments else "")
 

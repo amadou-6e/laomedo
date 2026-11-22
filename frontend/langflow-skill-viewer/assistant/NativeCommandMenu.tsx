@@ -42,6 +42,7 @@ export default function NativeCommandMenu({ conversation, provider = "codex", ru
     : reason === "native_skill_requires_subagents" ? "This skill requires native subagents, which are not available in this chat."
     : reason === "native_skill_requires_scheduling" ? "This skill requires scheduling or persistent execution, which is not available in this chat."
     : reason === "native_skill_requires_external_services" ? "This skill requires external services that are not connected to this chat."
+    : reason === "native_skill_requires_repository" ? "This skill requires a repository; chat currently uses an isolated scratch workspace."
     : "This command is unavailable in this session.";
   return <div id="assistant-native-commands" aria-label="Available commands" className="absolute bottom-full left-0 right-0 z-20 mb-2 max-h-56 overflow-y-auto rounded-2xl border border-border/60 bg-muted p-1.5 text-xs shadow-lg"
     onKeyDown={event => {

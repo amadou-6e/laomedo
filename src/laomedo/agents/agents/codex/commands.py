@@ -92,11 +92,14 @@ class CodexCommands:
         """Return completion class after checking exact supported argument grammar."""
         if request.name in {"status", "mcp", "skills"}:
             kind = "control"
-        elif request.name in {"review", "compact", "$skill-creator"}:
+        elif request.name in {"review", "compact", "$skill-creator", "$openai-docs"}:
             kind = "turn"
         else:
             raise RunnerError("native_command_not_supported")
-        if request.name not in {"review", "$skill-creator"} and request.arguments:
+        if (
+            request.name not in {"review", "$skill-creator", "$openai-docs"}
+            and request.arguments
+        ):
             raise RunnerError("native_command_arguments_invalid")
         return kind
 

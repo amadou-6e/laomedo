@@ -2,7 +2,7 @@
 
 from laomedo._paths import package_root
 
-IMAGE = "laomedo-codex-acp:0.159.2-2.1.1-skills3"
+IMAGE = "laomedo-codex-acp:0.159.2-2.1.1-skills5"
 
 
 # Managed image IDs are resolved on the selected daemon before execution.
@@ -12,7 +12,7 @@ BUNDLED_SKILL_REQUIREMENTS = {
     "$skill-creator": None,
     "$skill-installer": "native_skill_requires_provider_configuration",
     "$imagegen": "native_skill_requires_external_services",
-    "$openai-docs": "native_skill_requires_external_services",
+    "$openai-docs": None,
     "$review-agent": "scratch_workspace",
 }
 

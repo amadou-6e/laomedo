@@ -103,20 +103,22 @@ class BundledSkillTests(unittest.TestCase):
                 invocation_id="00000000-0000-4000-8000-000000000002",
             )
 
-    def catalog(self, **source):
+    def catalog(self, skill_name="skill-creator", **source):
         return NativeCommandCatalog.model_validate(
             {
                 "commands": [
                     {
-                        "name": "$skill-creator",
+                        "name": "$" + skill_name,
                         "description": "Create a skill",
                         "_meta": {
                             "laomedo": {
                                 "skill": {
-                                    "name": "skill-creator",
+                                    "name": skill_name,
                                     "scope": "system",
                                     "enabled": True,
-                                    "path": "/home/runner/.codex/skills/.system/skill-creator/SKILL.md",
+                                    "path": "/home/runner/.codex/skills/.system/"
+                                    + skill_name
+                                    + "/SKILL.md",
                                     **source,
                                 }
                             }
@@ -138,6 +140,18 @@ class BundledSkillTests(unittest.TestCase):
             catalog_revision=catalog.revision(),
         )
         self.assertEqual(command.text(), "$skill-creator Explain the workflow")
+        self.assertEqual(CodexCommands.admit(command, catalog), "turn")
+
+    def test_docs_skill_uses_the_same_verified_model_turn_admission(self):
+        catalog = self.catalog("openai-docs")
+        row = CodexCommands.project(catalog.model_dump())["commands"][0]
+        self.assertTrue(row["executable"])
+        self.assertTrue(row["may_use_model"])
+        command = NativeCommandInvocation(
+            name="$openai-docs",
+            arguments="Explain Responses API",
+            catalog_revision=catalog.revision(),
+        )
         self.assertEqual(CodexCommands.admit(command, catalog), "turn")
 
     def test_user_disabled_changed_or_ambiguous_sources_are_refused(self):

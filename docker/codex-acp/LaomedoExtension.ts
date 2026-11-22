@@ -24,7 +24,7 @@ const sessionPolicy = z.object({
 
 const promptPolicy = z.object({
     nativeCommand: z.object({
-        name: z.enum(["status", "mcp", "skills", "review", "compact", "$skill-creator"]),
+        name: z.enum(["status", "mcp", "skills", "review", "compact", "$skill-creator", "$openai-docs"]),
         arguments: z.string().max(4000),
         invocationId: z.string().uuid().optional(),
     }).strict().optional(),
@@ -197,8 +197,8 @@ export class LaomedoExtension {
         if (input.skills.some(skill => skill.path !== `/draft/.agents/skills/${skill.name}/SKILL.md`)) {
             throw acp.RequestError.invalidParams("Pinned skill path mismatch");
         }
-        const systemSkill = input.nativeCommand?.name === "$skill-creator";
-        if (systemSkill && this.admittedSkill?.name !== "skill-creator") throw acp.RequestError.invalidParams("Bundled skill was not admitted");
+        const systemSkill = Boolean(input.nativeCommand?.name.startsWith("$"));
+        if (systemSkill && this.admittedSkill?.name !== input.nativeCommand!.name.slice(1)) throw acp.RequestError.invalidParams("Bundled skill was not admitted");
         if (systemSkill && !input.nativeCommand?.invocationId) throw acp.RequestError.invalidParams("Missing skill invocation identity");
         if (systemSkill) this.skillInputPrepared = {
             sessionId: request.sessionId, invocationId: input.nativeCommand!.invocationId!,
@@ -224,7 +224,7 @@ export class LaomedoExtension {
     commandPrompt(request: acp.PromptRequest): acp.ContentBlock[] {
         const input = promptPolicy.parse(request._meta?.["laomedo"] ?? {});
         const systemNames = ["imagegen", "openai-docs", "review-agent", "skill-creator", "skill-installer"];
-        const allowed = input.nativeCommand?.name === "$skill-creator" ? "skill-creator" : undefined;
+        const allowed = input.nativeCommand?.name.startsWith("$") ? input.nativeCommand.name.slice(1) : undefined;
         for (const block of request.prompt) {
             if (block.type !== "text") continue;
             const mentioned = new Set(Array.from(block.text.matchAll(/\$([A-Za-z0-9_:-]+)/g), match => match[1]));
@@ -238,7 +238,7 @@ export class LaomedoExtension {
         if (!this.sessions.has(request.sessionId)) throw acp.RequestError.invalidParams("Unbound command session");
         const command = input.nativeCommand;
         if (/[\x00-\x1f\x7f\u2028\u2029]/.test(command.arguments)
-            || (!["review", "$skill-creator"].includes(command.name) && command.arguments.length !== 0)) {
+            || (!["review", "$skill-creator", "$openai-docs"].includes(command.name) && command.arguments.length !== 0)) {
             throw acp.RequestError.invalidParams("Invalid native command arguments");
         }
         const text = `${command.name.startsWith("$") ? "" : "/"}${command.name}${command.arguments ? ` ${command.arguments}` : ""}`;
@@ -249,7 +249,7 @@ export class LaomedoExtension {
     }
 
     private async admitSystemSkill(name: string) {
-        if (name !== "skill-creator") throw acp.RequestError.invalidParams("Unsupported bundled skill");
+        if (!["skill-creator", "openai-docs"].includes(name)) throw acp.RequestError.invalidParams("Unsupported bundled skill");
         const source = await this.app.listSkills({cwds: ["/draft"], forceReload: true});
         const matches = source.data.flatMap(entry => entry.skills).filter(skill => skill.name === name);
         const path = `/home/runner/.codex/skills/.system/${name}/SKILL.md`;
@@ -304,8 +304,8 @@ export class LaomedoExtension {
         this.prompted = true;
         const admitted = request ? this.commandPrompt(request) : [];
         const policy = request ? promptPolicy.parse(request._meta?.["laomedo"] ?? {}) : undefined;
-        this.admittedSkill = policy?.nativeCommand?.name === "$skill-creator"
-            ? await this.admitSystemSkill("skill-creator") : undefined;
+        this.admittedSkill = policy?.nativeCommand?.name.startsWith("$")
+            ? await this.admitSystemSkill(policy.nativeCommand.name.slice(1)) : undefined;
         const control = admitted.length > 0 && ["status", "mcp", "skills"].includes(policy!.nativeCommand!.name);
         const compact = admitted.length > 0 && policy!.nativeCommand!.name === "compact";
         this.compactSession = compact ? sessionId : undefined;

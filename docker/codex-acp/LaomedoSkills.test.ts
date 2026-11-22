@@ -15,31 +15,31 @@ beforeEach(() => {
     vi.mocked(readdirSync).mockReset();
 });
 
-function setup() {
+function setup(name = "skill-creator") {
     const body = "Bundled instructions";
     const hash = createHash("sha256").update(body).digest("hex");
     vi.mocked(readFileSync).mockImplementation((path: any) => (String(path).endsWith("system-skills.json")
-        ? JSON.stringify({"skill-creator": {"SKILL.md": hash}}) : Buffer.from(body)) as any);
+        ? JSON.stringify({[name]: {"SKILL.md": hash}}) : Buffer.from(body)) as any);
     vi.mocked(readdirSync).mockReturnValue(["SKILL.md"] as any);
     vi.mocked(lstatSync).mockImplementation((path: any) => ({isSymbolicLink: () => false,
         isDirectory: () => !String(path).endsWith("SKILL.md"), isFile: () => String(path).endsWith("SKILL.md")}) as any);
     let observe: (event: any) => void = () => {};
-    const skill = {name: "skill-creator", scope: "system", enabled: true, path: "/home/runner/.codex/skills/.system/skill-creator/SKILL.md"};
+    const skill = {name, scope: "system", enabled: true, path: `/home/runner/.codex/skills/.system/${name}/SKILL.md`};
     const app = {listSkills: vi.fn().mockResolvedValue({data: [{cwd: "/draft", skills: [skill], errors: []}]}), onClientTransportEvent: (fn: any) => {observe = fn;}};
     const host = {notify: vi.fn().mockResolvedValue(undefined)};
     const extension = new LaomedoExtension(app as unknown as CodexAppServerClient, {onRequest: vi.fn()} as unknown as MessageConnection, host as unknown as acp.AgentContext, vi.fn());
     extension.bind({cwd: "/draft", mcpServers: [], _meta: {laomedo: {policy: "normal", model: "m", effort: "low"}}} as acp.NewSessionRequest, "thread");
-    const request = {sessionId: "thread", prompt: [{type: "text", text: "$skill-creator Explain"}], _meta: {laomedo: {nativeCommand: {name: "$skill-creator", arguments: "Explain", invocationId: "00000000-0000-4000-8000-000000000001"}}}} as acp.PromptRequest;
+    const request = {sessionId: "thread", prompt: [{type: "text", text: `$${name} Explain`}], _meta: {laomedo: {nativeCommand: {name: `$${name}`, arguments: "Explain", invocationId: "00000000-0000-4000-8000-000000000001"}}}} as acp.PromptRequest;
     return {extension, app, host, request, skill,
         start: () => observe({eventType: "notification", method: "turn/started", params: {threadId: "thread", turn: {id: "t"}}}),
         complete: () => observe({eventType: "notification", method: "turn/completed", params: {threadId: "thread", turn: {id: "t", status: "completed"}}})};
 }
 
-it("injects the verified native system skill only into its explicitly admitted turn", async () => {
-    const {extension, host, request, start, complete} = setup();
+it.each(["skill-creator", "openai-docs"])("injects verified %s only into its explicitly admitted turn", async name => {
+    const {extension, host, request, start, complete} = setup(name);
     expect(() => extension.turnParameters(request)).toThrow();
     await extension.prompt("thread", async () => {
-        expect(extension.turnParameters(request).input).toEqual([{type: "skill", name: "skill-creator", path: "/home/runner/.codex/skills/.system/skill-creator/SKILL.md"}]);
+        expect(extension.turnParameters(request).input).toEqual([{type: "skill", name, path: `/home/runner/.codex/skills/.system/${name}/SKILL.md`}]);
         expect(extension.turnParameters({...request, _meta: {laomedo: {}}}).input).toEqual([]);
         start(); complete();
     }, request);
