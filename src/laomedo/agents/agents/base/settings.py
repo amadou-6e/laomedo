@@ -129,6 +129,7 @@ SDK_FAILURE_OPERATIONS = frozenset(
 
 RUNNER_FAILURE_CODES = frozenset(
     (
+        "native_skill_approval_required",
         "activity_attempt_already_exists",
         "activity_journal_unavailable",
         "activity_normalization_failed",

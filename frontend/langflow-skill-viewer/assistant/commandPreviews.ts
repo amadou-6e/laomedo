@@ -3,6 +3,18 @@ export function nativeCommandText(name: string, args = ""): string {
   return `${name.startsWith("$") ? "" : "/"}${name}${args ? " " + args : ""}`;
 }
 
+// Refusal identifiers for an unstarted CLI, not discovered/selectable entries.
+export const codexBundledSkillNames = ["$imagegen", "$openai-docs", "$review-agent", "$skill-creator", "$skill-installer"];
+
+export function codexSkillMentions(text: string): string[] {
+  const names = new Set(Array.from(text.matchAll(/\$([A-Za-z0-9_:-]+)/g), match => "$" + match[1]));
+  for (const match of text.matchAll(/\[\$[A-Za-z0-9_:-]+\][\t\n\v\f\r ]*\(([^)]*)\)/g)) {
+    const path = match[1].trim().replace(/^skill:\/\//, "").replace(/\\/g, "/");
+    for (const name of codexBundledSkillNames) if (path === `/home/runner/.codex/skills/.system/${name.slice(1)}/SKILL.md`) names.add(name);
+  }
+  return codexBundledSkillNames.filter(name => names.has(name));
+}
+
 export const applicationCommands: Record<string, {name: string; description: string; action: "accounts" | "rename"}[]> = {
   codex: [{name: "logout", description: "Manage sign-in in Settings → Providers.", action: "accounts"}, {name: "rename", description: "Rename this Laomedo conversation.", action: "rename"}],
   claude: [{name: "login", description: "Manage sign-in in Settings → Providers.", action: "accounts"}, {name: "logout", description: "Manage sign-in in Settings → Providers.", action: "accounts"}, {name: "rename", description: "Rename this Laomedo conversation.", action: "rename"}],

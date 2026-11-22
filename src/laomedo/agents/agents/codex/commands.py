@@ -5,10 +5,87 @@ from laomedo.agents.agents.base.models import NativeCommandDiscovery
 from laomedo.agents.agents.base.acp.models import NativeCommandCatalog
 from laomedo.agents.errors import RunnerError
 from laomedo.agents.agents.codex.settings import BUNDLED_SKILL_REQUIREMENTS
+from laomedo.agents.agents.codex.controller.models import CodexSkillReceipt
+from pydantic import ValidationError
+import re
 
 
 class CodexCommands:
     """Intersect observed native commands with the supported assistant policy."""
+
+    @classmethod
+    def skill_mentions(cls, text):
+        """Mirror the pinned native ASCII token and linked-path selection rules."""
+        names = {"$" + name for name in re.findall(r"\$([A-Za-z0-9_:-]+)", text)}
+        for path in re.findall(r"\[\$[A-Za-z0-9_:-]+\][\t\n\v\f\r ]*\(([^)]*)\)", text):
+            path = path.strip().removeprefix("skill://").replace("\\", "/")
+            for name in BUNDLED_SKILL_REQUIREMENTS:
+                if (
+                    path
+                    == "/home/runner/.codex/skills/.system/" + name[1:] + "/SKILL.md"
+                ):
+                    names.add(name)
+        return names.intersection(BUNDLED_SKILL_REQUIREMENTS)
+
+    @classmethod
+    def validate_skill_mentions(cls, text, command=None):
+        """Refuse native text-triggered injection outside the approved skill."""
+        allowed = (
+            {command.name}
+            if command is not None and command.name.startswith("$")
+            else set()
+        )
+        if cls.skill_mentions(text) - allowed:
+            raise RunnerError("native_skill_approval_required")
+
+    @classmethod
+    def skill_receipt(cls, events, command, *, session_id, turn_id, invocation_id):
+        """Require ordered adapter input proof inside this exact native root turn."""
+        markers = [
+            (index, event.get("params", {}))
+            for index, event in enumerate(events)
+            if event.get("method") == "laomedo/skillInput"
+        ]
+        starts = [
+            index
+            for index, event in enumerate(events)
+            if event.get("method") == "turn/started"
+            and event.get("params", {}).get("threadId") == session_id
+            and event.get("params", {}).get("turn", {}).get("id") == turn_id
+        ]
+        ends = [
+            index
+            for index, event in enumerate(events)
+            if event.get("method") == "turn/completed"
+            and event.get("params", {}).get("threadId") == session_id
+            and event.get("params", {}).get("turn", {}).get("id") == turn_id
+        ]
+        if len(markers) != 1 or len(starts) != 1 or len(ends) != 1:
+            raise RunnerError("native_command_outcome_unknown")
+        index, value = markers[0]
+        if (
+            not starts[0] < index < ends[0]
+            or value.get("origin") != "laomedo_adapter"
+            or value.get("phase") != "native_turn_accepted"
+            or value.get("threadId") != session_id
+            or value.get("turnId") != turn_id
+            or value.get("invocationId") != invocation_id
+            or "$" + str(value.get("name")) != command.name
+            or value.get("path")
+            != "/home/runner/.codex/skills/.system/" + command.name[1:] + "/SKILL.md"
+        ):
+            raise RunnerError("native_command_outcome_unknown")
+        try:
+            return CodexSkillReceipt(
+                invocation_id=invocation_id,
+                session_id=session_id,
+                turn_id=turn_id,
+                name=value["name"],
+                path=value["path"],
+                manifest_sha256=value.get("manifestSha256"),
+            )
+        except ValidationError:
+            raise RunnerError("native_command_outcome_unknown") from None
 
     @classmethod
     def validate(cls, request: NativeCommandInvocation) -> str:

@@ -26,6 +26,7 @@ const promptPolicy = z.object({
     nativeCommand: z.object({
         name: z.enum(["status", "mcp", "skills", "review", "compact", "$skill-creator"]),
         arguments: z.string().max(4000),
+        invocationId: z.string().uuid().optional(),
     }).strict().optional(),
     skills: z.array(z.object({
         type: z.literal("skill"),
@@ -49,13 +50,14 @@ export const statusParams = executorParams.pick({environmentId: true});
 export const credentialParams = z.object({accessToken: z.string().regex(/^[A-Za-z0-9._~+/=-]{16,32768}$/)}).strict();
 
 export class LaomedoExtension {
-    static readonly capabilities = {version: 1, rawEvents: true, hostPolicy: true, nativeCommands: 1, credentialRefresh: 1};
+    static readonly capabilities = {version: 1, rawEvents: true, hostPolicy: true, nativeCommands: 1, credentialRefresh: 1, bundledSkills: 1};
     private sessions = new Map<string, z.infer<typeof sessionPolicy>>();
     private rawQueue: Promise<void> = Promise.resolve();
     private rawFailed = false;
     private prompted = false;
     private prompting = false;
-    private admittedSkill: {type: "skill"; name: string; path: string} | undefined;
+    private admittedSkill: {type: "skill"; name: string; path: string; manifestSha256: string} | undefined;
+    private skillInputPrepared: {sessionId: string; invocationId: string; name: string; path: string; manifestSha256: string} | undefined;
     private executorId?: string;
     private completed = new Map<string, number>();
     private compactSession: string | undefined;
@@ -77,6 +79,20 @@ export class LaomedoExtension {
                 || method.startsWith("turn/diff/"))) return;
             this.rawQueue = this.rawQueue.then(async () => {
                 await host.notify("_laomedo/codexEvent", {method, params});
+                if (method === "turn/started" && this.skillInputPrepared) {
+                    const turn = params as {threadId?: string; turn?: {id?: string}};
+                    const prepared = this.skillInputPrepared;
+                    if (turn.threadId === prepared.sessionId && typeof turn.turn?.id === "string") {
+                        this.skillInputPrepared = undefined;
+                        await host.notify("_laomedo/codexEvent", {
+                            method: "laomedo/skillInput",
+                            params: {threadId: prepared.sessionId, turnId: turn.turn.id,
+                                invocationId: prepared.invocationId, name: prepared.name,
+                                path: prepared.path, manifestSha256: prepared.manifestSha256,
+                                origin: "laomedo_adapter", phase: "native_turn_accepted"},
+                        });
+                    }
+                }
                 if (this.compactSession && (params as {threadId?: string}).threadId === this.compactSession
                     && ["turn/started", "turn/completed", "item/started", "item/completed", "error"].includes(method)) {
                     const item = (params as any).item;
@@ -183,8 +199,14 @@ export class LaomedoExtension {
         }
         const systemSkill = input.nativeCommand?.name === "$skill-creator";
         if (systemSkill && this.admittedSkill?.name !== "skill-creator") throw acp.RequestError.invalidParams("Bundled skill was not admitted");
+        if (systemSkill && !input.nativeCommand?.invocationId) throw acp.RequestError.invalidParams("Missing skill invocation identity");
+        if (systemSkill) this.skillInputPrepared = {
+            sessionId: request.sessionId, invocationId: input.nativeCommand!.invocationId!,
+            name: this.admittedSkill!.name, path: this.admittedSkill!.path,
+            manifestSha256: this.admittedSkill!.manifestSha256,
+        };
         return {
-            input: [...input.skills, ...(systemSkill ? [this.admittedSkill!] : [])],
+            input: [...input.skills, ...(systemSkill ? [{type: "skill" as const, name: this.admittedSkill!.name, path: this.admittedSkill!.path}] : [])],
             ...(policy.policy === "split" ? {
                 sandboxPolicy: {type: "externalSandbox" as const, networkAccess: "restricted" as const},
                 environments: [{environmentId: policy.environmentId, cwd: "/draft", runtimeWorkspaceRoots: ["/draft"]}],
@@ -201,6 +223,17 @@ export class LaomedoExtension {
 
     commandPrompt(request: acp.PromptRequest): acp.ContentBlock[] {
         const input = promptPolicy.parse(request._meta?.["laomedo"] ?? {});
+        const systemNames = ["imagegen", "openai-docs", "review-agent", "skill-creator", "skill-installer"];
+        const allowed = input.nativeCommand?.name === "$skill-creator" ? "skill-creator" : undefined;
+        for (const block of request.prompt) {
+            if (block.type !== "text") continue;
+            const mentioned = new Set(Array.from(block.text.matchAll(/\$([A-Za-z0-9_:-]+)/g), match => match[1]));
+            for (const match of block.text.matchAll(/\[\$[A-Za-z0-9_:-]+\][\t\n\v\f\r ]*\(([^)]*)\)/g)) {
+                const path = match[1]!.trim().replace(/^skill:\/\//, "").replace(/\\/g, "/");
+                for (const name of systemNames) if (path === `/home/runner/.codex/skills/.system/${name}/SKILL.md`) mentioned.add(name);
+            }
+            if (systemNames.some(name => mentioned.has(name) && name !== allowed)) throw acp.RequestError.invalidParams("native_skill_approval_required");
+        }
         if (!input.nativeCommand) return [];
         if (!this.sessions.has(request.sessionId)) throw acp.RequestError.invalidParams("Unbound command session");
         const command = input.nativeCommand;
@@ -223,7 +256,8 @@ export class LaomedoExtension {
         if (matches.length !== 1 || matches[0]!.scope !== "system" || !matches[0]!.enabled || matches[0]!.path !== path) {
             throw acp.RequestError.invalidParams("Bundled skill source changed");
         }
-        const manifest = JSON.parse(readFileSync("/opt/acp/system-skills.json", "utf8")) as Record<string, Record<string, string>>;
+        const manifestText = readFileSync("/opt/acp/system-skills.json", "utf8");
+        const manifest = JSON.parse(manifestText) as Record<string, Record<string, string>>;
         const expected = manifest[name];
         if (!expected || !expected["SKILL.md"]) throw acp.RequestError.invalidParams("Missing bundled skill manifest");
         const root = `/home/runner/.codex/skills/.system/${name}`;
@@ -245,7 +279,7 @@ export class LaomedoExtension {
         if (Object.keys(found).length !== Object.keys(expected).length || Object.entries(expected).some(([key, hash]) => found[key] !== hash)) {
             throw acp.RequestError.invalidParams("Bundled skill content changed");
         }
-        return {type: "skill" as const, name, path};
+        return {type: "skill" as const, name, path, manifestSha256: createHash("sha256").update(manifestText).digest("hex")};
     }
 
     private compactCompleted(): boolean {
@@ -281,10 +315,11 @@ export class LaomedoExtension {
         try {
             return await run();
         } finally {
-            this.prompting = false;
-            this.admittedSkill = undefined;
             // The response cannot overtake native terminal evidence on stdio.
             await this.rawQueue;
+            this.prompting = false;
+            this.admittedSkill = undefined;
+            this.skillInputPrepared = undefined;
             const after = this.completed.get(sessionId) ?? 0;
             const compactCompleted = compact && this.compactCompleted();
             this.compactSession = undefined;

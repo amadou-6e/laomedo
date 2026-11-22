@@ -4,6 +4,7 @@ import asyncio
 from contextlib import ExitStack
 import json
 import time
+from uuid import uuid4
 
 from laomedo.agents.interface.output.utils import dynamic_tool
 from laomedo.agents.interface.output.utils import precheck_response
@@ -54,6 +55,7 @@ class CodexAgentRuntime:
         self.session = self.acp = self.executor = self.telemetry = None
         self.native_commands_supported = False
         self.credential_refresh_supported = False
+        self.bundled_skills_supported = False
         self.managed_credential = bool(split is not None and split.managed_credential)
         self._cancelled = None
         self._protocol_ready = False
@@ -198,6 +200,12 @@ class CodexAgentRuntime:
                 base,
                 {**base, "nativeCommands": 1},
                 {**base, "nativeCommands": 1, "credentialRefresh": 1},
+                {
+                    **base,
+                    "nativeCommands": 1,
+                    "credentialRefresh": 1,
+                    "bundledSkills": 1,
+                },
             )
             or type(advertised["version"]) is not int
             or type(advertised["rawEvents"]) is not bool
@@ -210,10 +218,18 @@ class CodexAgentRuntime:
                 "credentialRefresh" in advertised
                 and type(advertised["credentialRefresh"]) is not int
             )
+            or (
+                "bundledSkills" in advertised
+                and type(advertised["bundledSkills"]) is not int
+            )
         ):
             raise RunnerError("initialize_rejected")
         self.native_commands_supported = advertised.get("nativeCommands") == 1
         self.credential_refresh_supported = advertised.get("credentialRefresh") == 1
+        self.bundled_skills_supported = (
+            type(advertised.get("bundledSkills")) is int
+            and advertised.get("bundledSkills") == 1
+        )
         if self.managed_credential and not self.credential_refresh_supported:
             raise RunnerError("codex_credential_update_unconfirmed")
         if self.executor is not None:
@@ -351,6 +367,14 @@ class CodexAgentRuntime:
 
     async def prompt(self, text, *, skills, cancelled, seconds, command=None):
         """Use the common health/cancel loop and require raw native completion."""
+        CodexCommands.validate_skill_mentions(text, command)
+        skill_invocation = (
+            str(uuid4())
+            if command is not None and command.name.startswith("$")
+            else None
+        )
+        if skill_invocation and not self.bundled_skills_supported:
+            raise RunnerError("native_command_not_supported")
         command_kind = None
         if command is not None:
             if not self.native_commands_supported:
@@ -374,6 +398,11 @@ class CodexAgentRuntime:
                                 "nativeCommand": {
                                     "name": command.name,
                                     "arguments": command.arguments,
+                                    **(
+                                        {"invocationId": skill_invocation}
+                                        if skill_invocation
+                                        else {}
+                                    ),
                                 }
                             }
                             if command is not None
@@ -526,7 +555,18 @@ class CodexAgentRuntime:
             status, error = "cancelled", "cancelled_by_user"
         elif cancelled.is_set() and status != "completed":
             status, error = "cancelled", "cancel_native_unconfirmed"
-        return CodexTurn(turn_id=turn["id"], status=status, error=error)
+        native_skill = None
+        if status == "completed" and skill_invocation:
+            native_skill = CodexCommands.skill_receipt(
+                self.events[offset:],
+                command,
+                session_id=self.active_thread_id,
+                turn_id=turn["id"],
+                invocation_id=skill_invocation,
+            )
+        return CodexTurn(
+            turn_id=turn["id"], status=status, error=error, native_skill=native_skill
+        )
 
     def check_health(self, *, idle=False) -> ProcessHealthObservation:
         """Guard host authorization and the separately owned executor."""
@@ -655,7 +695,7 @@ class CodexAgentRuntime:
         raise RunnerError("model_list_page_limit")
 
     def _native_event(self, method, event):
-        """Retain redacted original native events before ACP prompt returns."""
+        """Retain native events and labelled adapter input receipts before return."""
         if method != "laomedo/codexEvent":
             return
         from laomedo.agents.activity.redaction.utils import sanitized

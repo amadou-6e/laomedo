@@ -1515,6 +1515,23 @@ class CodexAgent(BaseAgent):
             )
             if native_command is not None and status == "completed":
                 record["answer"] = getattr(native, "answer", None) or record["answer"]
+                if native_command.name.startswith("$"):
+                    if native.native_skill is None:
+                        raise RunnerError("native_command_outcome_unknown")
+                    record.setdefault("native_command_receipts", []).append(
+                        {
+                            "request": native_command.model_dump(mode="json"),
+                            "result": {
+                                "native_skill": native.native_skill.model_dump(
+                                    mode="json"
+                                )
+                            },
+                            "attempt_id": record.get("activity_attempt_id"),
+                            "status": "completed",
+                            "answer": record["answer"],
+                            "error_category": None,
+                        }
+                    )
             catalog = server.command_catalog()
             record["native_commands"] = {
                 "thread_id": native_id,

@@ -290,6 +290,21 @@ class SplitPolicy(BaseModel):
     )
 
 
+class CodexSkillReceipt(BaseModel):
+    """Verified structured skill input bound to an accepted native turn.
+
+    This is an adapter admission receipt, not evidence of file or external effects.
+    """
+
+    model_config = ConfigDict(extra="forbid", strict=True, frozen=True)
+    invocation_id: str = Field(pattern=r"^[a-f0-9-]{36}$")
+    session_id: str = Field(min_length=1, max_length=200)
+    turn_id: str = Field(min_length=1, max_length=200)
+    name: str = Field(min_length=1, max_length=200)
+    path: str = Field(min_length=1, max_length=1000)
+    manifest_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+
+
 class CodexTurn(BaseModel):
     """Native terminal identity retained across the common ACP lifecycle."""
 
@@ -303,4 +318,8 @@ class CodexTurn(BaseModel):
     error: str | None = Field(
         default=None,
         description="Safe stable failure code when completion is not successful.",
+    )
+    native_skill: CodexSkillReceipt | None = Field(
+        default=None,
+        description="Attempt-bound skill input proof; absent for ordinary turns.",
     )

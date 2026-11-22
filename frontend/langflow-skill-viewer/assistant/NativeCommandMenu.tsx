@@ -28,7 +28,7 @@ export default function NativeCommandMenu({ conversation, provider = "codex", ru
     : (catalog?.commands ?? [])
   ).filter(item => !appCommands.some(app => app.name === item.name)).map(item => ({...item, reason: ["plan", "goal"].includes(item.name) ? "deferred" : ["review-branch", "review-commit"].includes(item.name) ? "scratch_workspace" : item.reason}));
   const commands: NativeCommandCatalog["commands"] = [...nativeCommands, ...appCommands.map(item => ({...item, executable: item.action !== "rename" || Boolean(conversation), reason: "conversation_required"}))]
-    .filter(item => item.name.replace(/^\$/, "").toLowerCase().startsWith(text.slice(1).toLowerCase()))
+    .filter(item => (!text.startsWith("$") || item.name.startsWith("$")) && item.name.replace(/^\$/, "").toLowerCase().startsWith(text.slice(1).toLowerCase()))
     .sort((left, right) => Number(("kind" in left && left.kind) === "skill") - Number(("kind" in right && right.kind) === "skill"));
   const unavailable = (reason?: string | null) => reason === "native_session_not_created"
     ? provider === "codex" ? "Start with /status; this command also needs native session support." : "Available after the first response, if supported by the native session."
@@ -57,9 +57,9 @@ export default function NativeCommandMenu({ conversation, provider = "codex", ru
     {conversation && !failed && !catalog && <p role="status" className="px-2 py-1.5 text-xs text-muted-foreground">Loading native commands…</p>}
     {commands.map((item, index) => <Fragment key={item.name}>
       {(index === 0 || (item.kind === "skill") !== (commands[index - 1].kind === "skill")) && <p className="px-2 pb-1 pt-1 text-[10px] text-muted-foreground">{item.kind === "skill" ? "Skills" : "Commands"}</p>}
-      <button type="button" disabled={!item.executable} aria-describedby={!item.executable ? `${reasonId}-${index}` : undefined} title={item.executable ? item.description : unavailable(item.reason)} className="group flex w-full min-w-0 items-center gap-2 rounded-lg px-2 py-1.5 text-left text-muted-foreground hover:bg-foreground/5 focus:bg-foreground/10 focus:outline-none disabled:opacity-50" onClick={() => onSelect(nativeCommandText(item.name) + " ")}>
+      <button type="button" disabled={!item.executable} aria-describedby={!item.executable ? `${reasonId}-${index}` : undefined} title={item.executable ? item.description + (item.input_hint ? ` · Arguments: ${item.input_hint}` : "") : unavailable(item.reason)} className="group flex w-full min-w-0 items-center gap-2 rounded-lg px-2 py-1.5 text-left text-muted-foreground hover:bg-foreground/5 focus:bg-foreground/10 focus:outline-none disabled:opacity-50" onClick={() => onSelect(nativeCommandText(item.name) + " ")}>
       {item.kind === "skill" ? <BookOpen size={13} strokeWidth={1.5} aria-hidden="true" className="shrink-0 opacity-70" /> : <SquareTerminal size={13} strokeWidth={1.5} aria-hidden="true" className="shrink-0 opacity-70" />}
-      <span className="shrink-0 font-medium text-foreground/80">{nativeCommandText(item.name)}</span><span className="min-w-0 flex-1 truncate text-[11px]">{item.description}</span>
+      <span className="shrink-0 font-medium text-foreground/80">{nativeCommandText(item.name)}</span><span className="min-w-0 flex-1 truncate text-[11px]">{item.description}{item.input_hint ? ` · ${item.input_hint}` : ""}</span>
       {!item.executable && <span className="shrink-0 text-[10px]">{unstarted ? "Start session" : "Unavailable"}</span>}
       {!item.executable && <span id={`${reasonId}-${index}`} className="sr-only">{unavailable(item.reason)}</span>}
       <ChevronRight size={12} aria-hidden="true" className="shrink-0 opacity-0 group-hover:opacity-60 group-focus:opacity-60" />

@@ -28,6 +28,23 @@ jest.mock("@/contexts/authContext", () => ({
 }));
 
 describe("uncertain assistant submission", () => {
+  it("sends ordinary dollar-prefixed text in a new chat without native admission", async () => {
+    const chat = {id: "new", title: "New", provider: "codex", connection_id: "account", connection_generation: 1, model: "fixture", effort: "low", state: "idle", active_message_id: null};
+    jest.mocked(assistantRequest).mockImplementation(async (path, body) => {
+      if (path === "/connections") return {connections: [{connection_id: "account", generation: 1, provider: "codex", label: "Account", lifecycle: "connected", auth_state: "ready"}]};
+      if (path.startsWith("/models?")) return {provider: "codex", models: [{id: "fixture", efforts: ["low"]}]};
+      if (path === "/conversations") return body ? {id: "new"} : {conversations: [], next_cursor: null};
+      if (path.endsWith("/messages") && body) return {id: "message"};
+      return {conversation: chat, messages: [], drafts: [], next_cursor: null};
+    });
+    render(<MemoryRouter><AssistantPage /></MemoryRouter>);
+    const composer = screen.getByRole("textbox", {name: "Message this assistant"});
+    fireEvent.change(composer, {target: {value: "$20 a month — is that the price?"}});
+    await waitFor(() => expect(screen.getByRole("button", {name: "Start chat"})).not.toBeDisabled());
+    fireEvent.keyDown(composer, {key: "Enter"});
+    await waitFor(() => expect(assistantRequest).toHaveBeenCalledWith("/conversations/new/messages", expect.objectContaining({text: "$20 a month — is that the price?"})));
+    expect(jest.mocked(assistantRequest).mock.calls.some(([path]) => path.endsWith("/native-commands"))).toBe(false);
+  });
   it.each(["codex", "claude"])("opens app rename for %s without a native command or model request", async provider => {
     const conversation = {id: "conversation", title: "Original", provider, state: "idle", active_message_id: null};
     jest.mocked(assistantRequest).mockImplementation(async path => {

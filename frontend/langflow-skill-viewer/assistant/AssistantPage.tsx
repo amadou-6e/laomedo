@@ -1,4 +1,4 @@
-import { applicationCommands, providerCommandNames } from "./commandPreviews";
+import { applicationCommands, providerCommandNames, codexBundledSkillNames, codexSkillMentions } from "./commandPreviews";
 import ProviderIcon from "./ProviderIcon";
 import AccountSelection from "./AccountSelection";
 import GraphPermissions from "./GraphPermissions";
@@ -483,6 +483,7 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
     setError(value => value && [
       "native_command_not_available", "native_command_not_supported",
       "native_command_arguments_invalid", "native_command_catalog_changed",
+      "native_skill_approval_required",
     ].includes(value) ? undefined : value);
   }
 
@@ -534,7 +535,8 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
           submission = undefined;
           const parsed = /^([/$])([^\s]+)(?: (.*))?$/.exec(text);
           const match = parsed ? [parsed[0], (parsed[1] === "$" ? "$" : "") + parsed[2], parsed[3]] : null;
-          if (text.startsWith("$") && (!target || !detail?.conversation.run_id)) throw new AssistantFailure("native_command_not_available");
+          if (chosenProvider === "codex" && codexSkillMentions(text).some(name => name !== match?.[1])) throw new AssistantFailure("native_skill_approval_required");
+          if (text.startsWith("$") && codexBundledSkillNames.includes(match?.[1] ?? "") && (!target || !detail?.conversation.run_id)) throw new AssistantFailure("native_command_not_available");
           if ((!target || !detail?.conversation.run_id) && (providerCommandNames[chosenProvider] ?? []).includes(match?.[1] ?? "")) {
             throw new AssistantFailure("native_command_not_available");
           }
@@ -564,6 +566,7 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
           return;
         }
       }
+      if (chosenProvider === "codex" && codexSkillMentions(text).length) throw new AssistantFailure("native_skill_approval_required");
       if (!target) {
         const created = await create();
         if (

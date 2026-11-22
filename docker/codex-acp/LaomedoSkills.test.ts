@@ -29,18 +29,21 @@ function setup() {
     const host = {notify: vi.fn().mockResolvedValue(undefined)};
     const extension = new LaomedoExtension(app as unknown as CodexAppServerClient, {onRequest: vi.fn()} as unknown as MessageConnection, host as unknown as acp.AgentContext, vi.fn());
     extension.bind({cwd: "/draft", mcpServers: [], _meta: {laomedo: {policy: "normal", model: "m", effort: "low"}}} as acp.NewSessionRequest, "thread");
-    const request = {sessionId: "thread", prompt: [{type: "text", text: "$skill-creator Explain"}], _meta: {laomedo: {nativeCommand: {name: "$skill-creator", arguments: "Explain"}}}} as acp.PromptRequest;
-    return {extension, app, request, skill, complete: () => observe({eventType: "notification", method: "turn/completed", params: {threadId: "thread", turn: {id: "t", status: "completed"}}})};
+    const request = {sessionId: "thread", prompt: [{type: "text", text: "$skill-creator Explain"}], _meta: {laomedo: {nativeCommand: {name: "$skill-creator", arguments: "Explain", invocationId: "00000000-0000-4000-8000-000000000001"}}}} as acp.PromptRequest;
+    return {extension, app, host, request, skill,
+        start: () => observe({eventType: "notification", method: "turn/started", params: {threadId: "thread", turn: {id: "t"}}}),
+        complete: () => observe({eventType: "notification", method: "turn/completed", params: {threadId: "thread", turn: {id: "t", status: "completed"}}})};
 }
 
 it("injects the verified native system skill only into its explicitly admitted turn", async () => {
-    const {extension, request, complete} = setup();
+    const {extension, host, request, start, complete} = setup();
     expect(() => extension.turnParameters(request)).toThrow();
     await extension.prompt("thread", async () => {
         expect(extension.turnParameters(request).input).toEqual([{type: "skill", name: "skill-creator", path: "/home/runner/.codex/skills/.system/skill-creator/SKILL.md"}]);
         expect(extension.turnParameters({...request, _meta: {laomedo: {}}}).input).toEqual([]);
-        complete();
+        start(); complete();
     }, request);
+    expect(host.notify).toHaveBeenCalledWith("_laomedo/codexEvent", expect.objectContaining({method: "laomedo/skillInput", params: expect.objectContaining({threadId: "thread", turnId: "t", invocationId: "00000000-0000-4000-8000-000000000001", origin: "laomedo_adapter"})}));
     expect(() => extension.turnParameters(request)).toThrow();
 });
 
@@ -60,4 +63,13 @@ it.each(["user", "duplicate"])("refuses %s provenance before reading or dispatch
     await expect(extension.prompt("thread", run, request)).rejects.toMatchObject({data: "Bundled skill source changed"});
     expect(readFileSync).not.toHaveBeenCalled();
     expect(run).not.toHaveBeenCalled();
+});
+
+it("refuses native text and linked skill mentions outside an explicitly admitted skill", () => {
+    const {extension, request} = setup();
+    for (const text of ["Explain $skill-creator", "Use $imagegen", "[$other](skill:///home/runner/.codex/skills/.system/skill-installer/SKILL.md)"]) {
+        expect(() => extension.commandPrompt({...request, prompt: [{type: "text", text}], _meta: {laomedo: {}}})).toThrow();
+    }
+    expect(extension.commandPrompt({...request, prompt: [{type: "text", text: "$20 a month"}], _meta: {laomedo: {}}})).toEqual([]);
+    expect(() => extension.commandPrompt({...request, prompt: [{type: "text", text: "$skill-creator Use $imagegen"}], _meta: {laomedo: {nativeCommand: {name: "$skill-creator", arguments: "Use $imagegen"}}}})).toThrow();
 });

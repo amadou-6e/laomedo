@@ -2844,6 +2844,11 @@
     "description": "The current native command catalog no longer matches the approved proposal.",
     "recovery": "Inspect the retained result and request a fresh proposal when the session is settled. Do not blindly replay an uncertain command."
   },
+  "native_skill_approval_required": {
+    "title": "Use the native skill menu",
+    "description": "Codex treats this skill mention as an invocation, even inside ordinary text.",
+    "recovery": "Choose the skill from the / menu and approve that request. To discuss it without invoking it, write its name without the dollar prefix or native skill link."
+  },
   "native_command_not_available": {
     "title": "The native command is unavailable",
     "description": "The current native session did not advertise this command.",
