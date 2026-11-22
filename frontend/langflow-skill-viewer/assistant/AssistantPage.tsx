@@ -1,4 +1,4 @@
-import { providerCommandNames } from "./commandPreviews";
+import { applicationCommands, providerCommandNames } from "./commandPreviews";
 import ProviderIcon from "./ProviderIcon";
 import AccountSelection from "./AccountSelection";
 import GraphPermissions from "./GraphPermissions";
@@ -81,10 +81,10 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
   const [model, setModel] = useState("");
   const [effort, setEffort] = useState("");
   const [drafts, setDrafts] = useState<Record<string, string>>({});
-  const retainSettingsDraft = () => {
+  const retainSettingsDraft = (nextDrafts = drafts) => {
     if (!owner || locked) return false;
     try {
-      sessionStorage.setItem(`laomedo.assistant.settings-drafts.${owner}`, JSON.stringify({drafts, provider}));
+      sessionStorage.setItem(`laomedo.assistant.settings-drafts.${owner}`, JSON.stringify({drafts: nextDrafts, provider}));
       return true;
     } catch {
       return window.confirm("Your draft could not be saved. Leave chat and discard it?");
@@ -487,6 +487,18 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
   }
 
   async function send(retry?: PendingSubmission) {
+    if (!retry && appCommand && canUseAppCommand) {
+      const nextDrafts = {...drafts, [selected]: ""};
+      if (appCommand.action === "accounts") {
+        if (retainSettingsDraft(nextDrafts)) window.location.assign("/settings/providers");
+      } else if (conversation) {
+        setTitleDraft(conversation.title);
+        setRenaming(conversation.id);
+        setDrafts(nextDrafts);
+        setCommandsDismissed(true);
+      }
+      return;
+    }
     if (!retry && !canSend) return;
     const text = retry?.text ?? drafts[selected] ?? "";
     if (
@@ -731,6 +743,8 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
       !detail?.observation_error &&
       !error,
   );
+  const appCommand = (applicationCommands[chosenProvider] ?? []).find(item => `/${item.name}` === (drafts[selected] ?? "").trim());
+  const canUseAppCommand = Boolean(appCommand && owner && !locked && !busy && !active && !waiting && !needsAttention && (appCommand.action !== "rename" || conversation));
   const explanation =
     error || detail?.observation_error || conversation?.error_code;
   const failure = explanation
@@ -1229,7 +1243,7 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
                     aria-label={selected ? "Send" : "Start chat"}
                     title={composerStatus ?? (selected ? "Send (Enter)" : "Start chat (Enter)")}
                     aria-describedby={composerStatus ? "assistant-composer-status" : undefined}
-                    disabled={!canSend || !(drafts[selected] ?? "").trim()}
+                    disabled={(!canSend && !canUseAppCommand) || !(drafts[selected] ?? "").trim()}
                     className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-foreground text-background transition-opacity disabled:opacity-30"
                   >
                     <ArrowUp size={17} />

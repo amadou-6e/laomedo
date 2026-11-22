@@ -26,6 +26,35 @@ describe("saved provider Settings", () => {
     jest.spyOn(window, "open").mockReturnValue(null);
   });
 
+  it("keeps the Claude code field focused and selected during background polling", async () => {
+    let poll: () => void = () => {};
+    const interval = jest.spyOn(window, "setInterval").mockImplementation(callback => { poll = callback as () => void; return 1; });
+    try {
+      const progress = {attempt_id: "fixture", provider: "claude", status: "connecting", connection_id: null, code: null};
+      const authorization_url = "https://claude.com/cai/oauth/authorize?state=fixture";
+      (listConnections as jest.Mock).mockResolvedValue([{...account, provider: "claude", method: "claude_native"}]);
+      (beginLogin as jest.Mock).mockResolvedValue({progress, authorization_url});
+      (readProgress as jest.Mock).mockResolvedValue(progress);
+      (readClaudeAttempt as jest.Mock).mockResolvedValue({progress, authorization_url});
+      render(<ProviderConnections />);
+      fireEvent.click(await screen.findByRole("button", {name: /View connection for/}));
+      fireEvent.click(screen.getByRole("button", {name: "Sign in again"}));
+      fireEvent.click(await screen.findByRole("link", {name: "Continue to Claude"}));
+      const code = screen.getByLabelText("Claude sign-in code") as HTMLInputElement;
+      fireEvent.change(code, {target: {value: "fixture-code"}});
+      code.focus(); code.setSelectionRange(0, 7);
+      let complete!: (value: unknown) => void;
+      (listConnections as jest.Mock).mockReturnValueOnce(new Promise(resolve => {complete = resolve;}));
+      act(() => poll());
+      expect(code).not.toBeDisabled();
+      expect(code).toHaveFocus();
+      expect(code.selectionEnd).toBe(7);
+      await act(async () => complete([]));
+      expect(code).toHaveFocus();
+      expect(code.selectionEnd).toBe(7);
+    } finally { interval.mockRestore(); }
+  });
+
   it("returns from adding a Go key to its connection and emphasizes saved custody", async () => {
     (listConnections as jest.Mock).mockResolvedValue([{ ...account, provider: "opencode", method: "opencode_go_key", auth_state: "unavailable" }]);
     render(<ProviderConnections />);

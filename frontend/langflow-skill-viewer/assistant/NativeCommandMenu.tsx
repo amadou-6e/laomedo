@@ -2,7 +2,7 @@ import { useEffect, useId, useState } from "react";
 import { ChevronRight, SquareTerminal } from "lucide-react";
 import { assistantRequest } from "./api";
 import type { NativeCommandCatalog } from "./models";
-import { providerCommandPreviews } from "./commandPreviews";
+import { applicationCommands, providerCommandPreviews } from "./commandPreviews";
 
 export default function NativeCommandMenu({ conversation, provider = "codex", text, onSelect, onClose }: {
   conversation: string; provider?: string; text: string; onSelect: (value: string) => void; onClose: () => void;
@@ -21,12 +21,18 @@ export default function NativeCommandMenu({ conversation, provider = "codex", te
     return () => controller.abort();
   }, [conversation]);
   const unstarted = !conversation || catalog?.reason === "native_session_not_created";
-  const commands = (unstarted
+  const appCommands = applicationCommands[provider] ?? [];
+  const nativeCommands = (unstarted
     ? (providerCommandPreviews[provider] ?? []).map(item => ({ ...item, executable: provider === "codex" && item.name === "status", reason: "native_session_not_created" }))
     : (catalog?.commands ?? [])
-  ).filter(item => item.name.toLowerCase().startsWith(text.slice(1).toLowerCase()));
+  ).filter(item => !appCommands.some(app => app.name === item.name)).map(item => ({...item, reason: ["plan", "goal"].includes(item.name) ? "deferred" : ["review-branch", "review-commit"].includes(item.name) ? "scratch_workspace" : item.reason}));
+  const commands = [...nativeCommands, ...appCommands.map(item => ({...item, executable: item.action !== "rename" || Boolean(conversation), reason: "conversation_required"}))]
+    .filter(item => item.name.toLowerCase().startsWith(text.slice(1).toLowerCase()));
   const unavailable = (reason?: string | null) => reason === "native_session_not_created"
     ? provider === "codex" ? "Start with /status; this command also needs native session support." : "Available after the first response, if supported by the native session."
+    : reason === "conversation_required" ? "Create a conversation before renaming it."
+    : reason === "deferred" ? "Plan mode and autonomous goals are deferred."
+    : reason === "scratch_workspace" ? "Repository reviews are unavailable in this scratch workspace."
     : reason === "outside_assistant_command_policy" ? "This command needs a chat handler before it can run here."
     : "This command is unavailable in this session.";
   return <div id="assistant-native-commands" aria-label="Available commands" className="absolute bottom-full left-0 right-0 z-20 mb-2 max-h-56 overflow-y-auto rounded-2xl border border-border/60 bg-muted p-1.5 text-xs shadow-lg"

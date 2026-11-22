@@ -28,6 +28,23 @@ jest.mock("@/contexts/authContext", () => ({
 }));
 
 describe("uncertain assistant submission", () => {
+  it.each(["codex", "claude"])("opens app rename for %s without a native command or model request", async provider => {
+    const conversation = {id: "conversation", title: "Original", provider, state: "idle", active_message_id: null};
+    jest.mocked(assistantRequest).mockImplementation(async path => {
+      if (path === "/connections") return {connections: []};
+      if (path === "/conversations") return {conversations: [conversation], next_cursor: null};
+      return {conversation, messages: [], drafts: [], next_cursor: null};
+    });
+    render(<MemoryRouter initialEntries={["/assistant?conversation=conversation"]}><AssistantPage /></MemoryRouter>);
+    await screen.findByRole("heading", {name: "Original"});
+    const composer = screen.getByRole("textbox", {name: "Message this assistant"});
+    fireEvent.change(composer, {target: {value: "/rename"}});
+    fireEvent.keyDown(composer, {key: "Enter"});
+    expect(await screen.findByRole("textbox", {name: "Conversation title"})).toHaveValue("Original");
+    expect(jest.mocked(assistantRequest).mock.calls.some(([, body]) => Boolean(body))).toBe(false);
+    fireEvent.keyDown(screen.getByRole("textbox", {name: "Conversation title"}), {key: "Escape"});
+    expect(screen.queryByRole("textbox", {name: "Conversation title"})).toBeNull();
+  });
   it.each(["/context", "/usage", "/init"])("never sends known Claude built-in %s as an ordinary first prompt", async text => {
     jest.mocked(assistantRequest).mockImplementation(async path => {
       if (path === "/connections") return {connections: [{connection_id: "claude-account", generation: 1, provider: "claude", label: "Claude account", lifecycle: "connected", auth_state: "ready"}]};

@@ -66,11 +66,11 @@ export default function ProviderConnections() {
     if (document.scrollingElement) document.scrollingElement.scrollTop = 0;
   }, [screen]);
 
-  async function refresh() {
+  async function refresh(background = false) {
     if (inFlight.current) return;
     const revision = ++epoch.current;
     inFlight.current = revision;
-    setBusy(true); setError("");
+    if (!background) setBusy(true); setError("");
     if (attempt?.code === "provider_save_unconfirmed") setScreen("pending");
     try {
       const next = await listConnections();
@@ -122,7 +122,7 @@ export default function ProviderConnections() {
       }
     } finally {
       if (inFlight.current === revision) inFlight.current = null;
-      if (revision === epoch.current) setBusy(false);
+      if (!background && revision === epoch.current) setBusy(false);
     }
   }
 
@@ -144,13 +144,13 @@ export default function ProviderConnections() {
 
   useEffect(() => {
     if (screen !== "pending") return;
-    const timer = window.setInterval(() => { void refresh(); }, 1500);
+    const timer = window.setInterval(() => { void refresh(true); }, 1500);
     return () => window.clearInterval(timer);
   }, [screen, attempt?.attempt_id]);
 
   useEffect(() => {
     if (screen !== "removing" || selected?.lifecycle !== "disconnecting") return;
-    const timer = window.setInterval(() => { void refresh(); }, 1500);
+    const timer = window.setInterval(() => { void refresh(true); }, 1500);
     return () => window.clearInterval(timer);
   }, [screen, selected?.connection_id, selected?.lifecycle]);
 

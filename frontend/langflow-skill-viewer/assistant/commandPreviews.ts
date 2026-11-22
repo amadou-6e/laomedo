@@ -1,4 +1,10 @@
 /** Documentation previews, not a native capability catalog or execution grant. */
+export const applicationCommands: Record<string, {name: string; description: string; action: "accounts" | "rename"}[]> = {
+  codex: [{name: "logout", description: "Manage sign-in in Settings → Providers.", action: "accounts"}, {name: "rename", description: "Rename this Laomedo conversation.", action: "rename"}],
+  claude: [{name: "login", description: "Manage sign-in in Settings → Providers.", action: "accounts"}, {name: "logout", description: "Manage sign-in in Settings → Providers.", action: "accounts"}, {name: "rename", description: "Rename this Laomedo conversation.", action: "rename"}],
+  opencode: [{name: "connect", description: "Connect an account in Settings → Providers.", action: "accounts"}],
+};
+
 export const codexCommandPreviews = [
   { name: "plan", description: "Toggle native plan mode." },
   { name: "status", description: "Start a session without using the model." },

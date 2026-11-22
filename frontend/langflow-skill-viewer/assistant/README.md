@@ -1,5 +1,15 @@
 # Application assistant
 
+## App-owned commands
+
+`commandPreviews.ts` distinguishes application actions from native commands.
+Codex `/logout`, Claude `/login` and `/logout`, and OpenCode `/connect` open
+Settings → Providers without disconnecting an account. Codex and Claude `/rename`
+open the existing conversation title form; Save/Enter uses the existing PATCH
+route, and Escape cancels. These actions never invoke a native tool or model.
+Plan mode and goals remain deferred; repository reviews remain unavailable in
+the scratch workspace. Their menu entries stay disabled with explicit reasons.
+
 ## Account selection and composer admission
 
 `AccountSelection.tsx` owns the compact composer account menu: provider icon,

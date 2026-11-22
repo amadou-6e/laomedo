@@ -20,11 +20,11 @@ test("offers matching commands from the selected session and selects without dis
 
 test("shows unavailable observed commands without granting execution", async () => {
   jest.mocked(assistantRequest).mockResolvedValue({state: "available", commands: [
-    {name: "logout", description: "Sign out", executable: false, reason: "outside_assistant_command_policy"},
+    {name: "other", description: "Unsupported native command", executable: false, reason: "outside_assistant_command_policy"},
   ]});
   const select = jest.fn();
   render(<NativeCommandMenu conversation="chat" text="/" onSelect={select} onClose={() => {}} />);
-  const command = await screen.findByRole("button", {name: /logout/});
+  const command = await screen.findByRole("button", {name: /other/});
   expect(command).toBeDisabled();
   expect(command).toHaveAttribute("title", "This command needs a chat handler before it can run here.");
   expect(command).toHaveAccessibleDescription("This command needs a chat handler before it can run here.");
@@ -36,7 +36,8 @@ test.each(["claude", "opencode"])("previews %s native entry points without start
   jest.clearAllMocks();
   render(<NativeCommandMenu conversation="" provider={provider} text="/" onSelect={() => {}} onClose={() => {}} />);
   expect(screen.getByText(/Start a chat to discover/)).toBeVisible();
-  for (const command of screen.getAllByRole("button")) expect(command).toBeDisabled();
+  expect(screen.getByRole("button", {name: provider === "claude" ? /compact/ : /init/})).toBeDisabled();
+  expect(screen.getByRole("button", {name: provider === "claude" ? /login/ : /connect/})).not.toBeDisabled();
   expect(assistantRequest).not.toHaveBeenCalled();
 });
 
@@ -48,6 +49,6 @@ test("previews supported Codex commands before a session without granting execut
   expect(screen.getByRole("button", {name: /mcp.*Show configured/})).toBeDisabled();
   expect(screen.getByRole("button", {name: /compact.*Compact/})).toBeDisabled();
   expect(screen.getByRole("button", {name: /review-branch/})).toBeDisabled();
-  expect(screen.getByRole("button", {name: /logout/})).toBeDisabled();
+  expect(screen.getByRole("button", {name: /logout/})).not.toBeDisabled();
   expect(assistantRequest).not.toHaveBeenCalled();
 });
