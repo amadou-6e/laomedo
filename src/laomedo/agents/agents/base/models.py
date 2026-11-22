@@ -18,6 +18,10 @@ class NativeCommandAvailability(BaseModel):
     """Safe command discovery at the provider-to-application boundary."""
 
     model_config = ConfigDict(strict=True, extra="forbid")
+    kind: Literal["command", "skill"] = Field(
+        default="command",
+        description="Native operation category, not execution authority.",
+    )
     name: str = Field(
         min_length=1,
         max_length=200,

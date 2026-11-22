@@ -4,6 +4,19 @@ import { assistantRequest } from "./api";
 jest.mock("./api", () => ({ assistantRequest: jest.fn() }));
 beforeEach(() => jest.mocked(assistantRequest).mockReset());
 
+test("groups native skills separately and explains unsupported provider configuration", async () => {
+  jest.mocked(assistantRequest).mockResolvedValue({state: "available", commands: [
+    {name: "customize-opencode", kind: "skill", description: "Configure OpenCode", executable: false, reason: "native_skill_requires_provider_configuration"},
+    {name: "init", kind: "command", description: "Initialize", executable: true},
+  ]});
+  render(<NativeCommandMenu conversation="chat" provider="opencode" text="/" onSelect={jest.fn()} onClose={() => {}} />);
+  expect(await screen.findByText("Skills")).toBeVisible();
+  const skill = screen.getByRole("button", {name: /customize-opencode/});
+  expect(skill).toBeDisabled();
+  expect(skill).toHaveAccessibleDescription("This skill edits provider configuration, which is managed by Laomedo.");
+  expect(screen.getByText("Commands")).toBeVisible();
+});
+
 test("refreshes Claude commands after the native thread settles while the menu stays open", async () => {
   jest.mocked(assistantRequest).mockResolvedValueOnce({state: "unavailable", reason: "native_session_not_observed", commands: []});
   const props = {conversation: "chat", provider: "claude", runId: "run", text: "/usa", onSelect: jest.fn(), onClose: jest.fn()};

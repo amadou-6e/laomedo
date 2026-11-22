@@ -1,5 +1,5 @@
-import { useEffect, useId, useState } from "react";
-import { ChevronRight, SquareTerminal } from "lucide-react";
+import { Fragment, useEffect, useId, useState } from "react";
+import { BookOpen, ChevronRight, SquareTerminal } from "lucide-react";
 import { assistantRequest } from "./api";
 import type { NativeCommandCatalog } from "./models";
 import { applicationCommands, providerCommandPreviews } from "./commandPreviews";
@@ -27,14 +27,17 @@ export default function NativeCommandMenu({ conversation, provider = "codex", ru
     ? (providerCommandPreviews[provider] ?? []).map(item => ({ ...item, executable: provider === "codex" && item.name === "status", reason: "native_session_not_created" }))
     : (catalog?.commands ?? [])
   ).filter(item => !appCommands.some(app => app.name === item.name)).map(item => ({...item, reason: ["plan", "goal"].includes(item.name) ? "deferred" : ["review-branch", "review-commit"].includes(item.name) ? "scratch_workspace" : item.reason}));
-  const commands = [...nativeCommands, ...appCommands.map(item => ({...item, executable: item.action !== "rename" || Boolean(conversation), reason: "conversation_required"}))]
-    .filter(item => item.name.toLowerCase().startsWith(text.slice(1).toLowerCase()));
+  const commands: NativeCommandCatalog["commands"] = [...nativeCommands, ...appCommands.map(item => ({...item, executable: item.action !== "rename" || Boolean(conversation), reason: "conversation_required"}))]
+    .filter(item => item.name.replace(/^\$/, "").toLowerCase().startsWith(text.slice(1).toLowerCase()))
+    .sort((left, right) => Number(("kind" in left && left.kind) === "skill") - Number(("kind" in right && right.kind) === "skill"));
   const unavailable = (reason?: string | null) => reason === "native_session_not_created"
     ? provider === "codex" ? "Start with /status; this command also needs native session support." : "Available after the first response, if supported by the native session."
     : reason === "conversation_required" ? "Create a conversation before renaming it."
     : reason === "deferred" ? "Plan mode and autonomous goals are deferred."
     : reason === "scratch_workspace" ? "Repository reviews are unavailable in this scratch workspace."
     : reason === "outside_assistant_command_policy" ? "This command needs a chat handler before it can run here."
+    : reason === "native_skill_requires_provider_configuration" ? "This skill edits provider configuration, which is managed by Laomedo."
+    : reason === "native_skill_requirements_unverified" ? "This bundled skill's required capabilities have not been verified for chat."
     : "This command is unavailable in this session.";
   return <div id="assistant-native-commands" aria-label="Available commands" className="absolute bottom-full left-0 right-0 z-20 mb-2 max-h-56 overflow-y-auto rounded-2xl border border-border/60 bg-muted p-1.5 text-xs shadow-lg"
     onKeyDown={event => {
@@ -48,14 +51,15 @@ export default function NativeCommandMenu({ conversation, provider = "codex", ru
     }}>
     {conversation && failed && <button type="button" className="w-full px-2 py-1.5 text-left text-xs text-muted-foreground underline" onClick={() => setRetry(value => value + 1)}>Could not load native commands. Retry</button>}
     {conversation && !failed && !catalog && <p role="status" className="px-2 py-1.5 text-xs text-muted-foreground">Loading native commands…</p>}
-    {commands.length > 0 && <p className="px-2 pb-1 pt-1 text-[10px] text-muted-foreground">Commands</p>}
-    {commands.map((item, index) => <button key={item.name} type="button" disabled={!item.executable} aria-describedby={!item.executable ? `${reasonId}-${index}` : undefined} title={item.executable ? item.description : unavailable(item.reason)} className="group flex w-full min-w-0 items-center gap-2 rounded-lg px-2 py-1.5 text-left text-muted-foreground hover:bg-foreground/5 focus:bg-foreground/10 focus:outline-none disabled:opacity-50" onClick={() => onSelect(`/${item.name} `)}>
-      <SquareTerminal size={13} strokeWidth={1.5} aria-hidden="true" className="shrink-0 opacity-70" />
+    {commands.map((item, index) => <Fragment key={item.name}>
+      {(index === 0 || (item.kind === "skill") !== (commands[index - 1].kind === "skill")) && <p className="px-2 pb-1 pt-1 text-[10px] text-muted-foreground">{item.kind === "skill" ? "Skills" : "Commands"}</p>}
+      <button type="button" disabled={!item.executable} aria-describedby={!item.executable ? `${reasonId}-${index}` : undefined} title={item.executable ? item.description : unavailable(item.reason)} className="group flex w-full min-w-0 items-center gap-2 rounded-lg px-2 py-1.5 text-left text-muted-foreground hover:bg-foreground/5 focus:bg-foreground/10 focus:outline-none disabled:opacity-50" onClick={() => onSelect(`/${item.name} `)}>
+      {item.kind === "skill" ? <BookOpen size={13} strokeWidth={1.5} aria-hidden="true" className="shrink-0 opacity-70" /> : <SquareTerminal size={13} strokeWidth={1.5} aria-hidden="true" className="shrink-0 opacity-70" />}
       <span className="shrink-0 font-medium text-foreground/80">/{item.name}</span><span className="min-w-0 flex-1 truncate text-[11px]">{item.description}</span>
       {!item.executable && <span className="shrink-0 text-[10px]">{unstarted ? "Start session" : "Unavailable"}</span>}
       {!item.executable && <span id={`${reasonId}-${index}`} className="sr-only">{unavailable(item.reason)}</span>}
       <ChevronRight size={12} aria-hidden="true" className="shrink-0 opacity-0 group-hover:opacity-60 group-focus:opacity-60" />
-    </button>)}
+    </button></Fragment>)}
     {commands.length === 1 && !commands[0].executable && <p className="px-2 py-1.5 text-[10px] text-muted-foreground">{unavailable(commands[0].reason)}</p>}
     {unstarted && provider === "codex" && commands.length > 0 && <p className="px-2 py-1.5 text-[10px] text-muted-foreground">Send /status to start a session without using the model. The session determines which other commands can run.</p>}
     {unstarted && provider !== "codex" && commands.length > 0 && <p className="px-2 py-1.5 text-[10px] text-muted-foreground">Start a chat to discover this session’s native commands.</p>}

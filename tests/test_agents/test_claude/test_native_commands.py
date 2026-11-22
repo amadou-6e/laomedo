@@ -12,6 +12,40 @@ from laomedo.agents.errors import RunnerError
 class ClaudeCommandTests(unittest.TestCase):
     """Supporting receipt-validation tests, never live native acceptance."""
 
+    def test_skill_category_uses_session_bound_native_initialization(self):
+        event = {
+            "sessionId": "thread",
+            "message": {
+                "type": "system",
+                "subtype": "init",
+                "session_id": "thread",
+                "skills": ["debug", "claude-api"],
+            },
+        }
+        names = ClaudeCommands.builtin_skills([("claude/sdkMessage", event)], "thread")
+        self.assertEqual(names, ("claude-api", "debug"))
+        self.assertEqual(
+            ClaudeCommands.builtin_skills([("claude/sdkMessage", event)], "other"), ()
+        )
+        self.assertEqual(
+            ClaudeCommands.builtin_skills([("claude/sdkMessage", event)] * 2, "thread"),
+            (),
+        )
+        catalog = NativeCommandCatalog(
+            commands=[{"name": "debug", "description": "Debug"}]
+        )
+        projection = ClaudeCommands.project(
+            catalog.model_dump(), "image", builtins_only=True, builtin_skills=names
+        )
+        self.assertEqual(projection["commands"][0]["kind"], "skill")
+        self.assertFalse(projection["commands"][0]["executable"])
+        self.assertNotEqual(
+            projection["revision"],
+            ClaudeCommands.project(catalog.model_dump(), "image", builtins_only=True)[
+                "revision"
+            ],
+        )
+
     def test_read_only_views_require_advertisement_and_no_arguments(self):
         for name in ("usage", "context", "mcp"):
             with self.subTest(name=name):

@@ -15,10 +15,30 @@ class NativeCommandInput(BaseModel):
     )
 
 
+class NativeSkillSource(BaseModel):
+    """Native skill provenance reported by the pinned provider adapter."""
+
+    model_config = ConfigDict(extra="ignore", strict=True, frozen=True)
+    name: str = Field(min_length=1, max_length=200)
+    path: str = Field(min_length=1, max_length=1000)
+    scope: str = Field(min_length=1, max_length=100)
+    enabled: bool
+
+
+class NativeCommandMetadata(BaseModel):
+    """Provider metadata is observation, never permission to execute a skill."""
+
+    model_config = ConfigDict(extra="ignore", strict=True, frozen=True)
+    laomedo: dict[str, NativeSkillSource] = Field(default_factory=dict, max_length=1)
+
+
 class NativeCommand(BaseModel):
     """A provider-advertised command, without granting execution permission."""
 
-    model_config = ConfigDict(extra="ignore", strict=True, frozen=True)
+    model_config = ConfigDict(
+        extra="ignore", strict=True, frozen=True, populate_by_name=True
+    )
+    metadata: NativeCommandMetadata | None = Field(default=None, alias="_meta")
     name: str = Field(
         min_length=1,
         max_length=200,

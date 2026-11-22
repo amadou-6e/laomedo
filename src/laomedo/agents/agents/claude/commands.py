@@ -15,6 +15,34 @@ class ClaudeCommands:
     """Admit only observed built-ins with a supported isolated completion path."""
 
     @classmethod
+    def builtin_skills(cls, buffered, session_id):
+        """Read the actual SDK initialization skill list for this isolated session."""
+        observed = []
+        for _, params in buffered:
+            event = params.get("message")
+            if (
+                params.get("sessionId") != session_id
+                or not isinstance(event, dict)
+                or event.get("type") != "system"
+                or event.get("subtype") != "init"
+                or event.get("session_id") != session_id
+            ):
+                continue
+            names = event.get("skills")
+            if (
+                not isinstance(names, list)
+                or len(names) > 256
+                or any(
+                    not isinstance(name, str) or not 0 < len(name) <= 200
+                    for name in names
+                )
+                or len(set(names)) != len(names)
+            ):
+                return ()
+            observed.append(tuple(sorted(names)))
+        return observed[0] if len(observed) == 1 else ()
+
+    @classmethod
     def validate(cls, command):
         """Admit compaction and read-only native control views without arguments."""
         if command.name not in {"compact", "usage", "context", "mcp"}:
@@ -23,7 +51,7 @@ class ClaudeCommands:
             raise RunnerError("native_command_arguments_invalid")
 
     @classmethod
-    def revision(cls, catalog, image_id):
+    def revision(cls, catalog, image_id, *, builtin_skills=()):
         """Bind observed entries to the actual provider, pinned handler and image."""
         return hashlib.sha256(
             json.dumps(
@@ -33,6 +61,7 @@ class ClaudeCommands:
                     "adapter": "0.98.0",
                     "image_id": image_id,
                     "catalog": catalog.model_dump(mode="json"),
+                    "builtin_skills": sorted(builtin_skills),
                 },
                 sort_keys=True,
                 separators=(",", ":"),
@@ -40,15 +69,16 @@ class ClaudeCommands:
         ).hexdigest()
 
     @classmethod
-    def project(cls, value, image_id, *, builtins_only):
+    def project(cls, value, image_id, *, builtins_only, builtin_skills=()):
         """Untrusted catalog names alone do not establish built-in provenance."""
         catalog = NativeCommandCatalog.model_validate(value)
         return NativeCommandDiscovery(
             state="available",
-            revision=cls.revision(catalog, image_id),
+            revision=cls.revision(catalog, image_id, builtin_skills=builtin_skills),
             commands=[
                 {
                     "name": item.name,
+                    "kind": "skill" if item.name in builtin_skills else "command",
                     "description": item.description,
                     "input_hint": item.input.hint if item.input else None,
                     "executable": builtins_only
@@ -64,7 +94,11 @@ class ClaudeCommands:
                         None
                         if builtins_only
                         and item.name in {"compact", "usage", "context", "mcp"}
-                        else "outside_assistant_command_policy"
+                        else (
+                            "native_skill_requirements_unverified"
+                            if item.name in builtin_skills
+                            else "outside_assistant_command_policy"
+                        )
                     ),
                 }
                 for item in catalog.commands
@@ -72,14 +106,15 @@ class ClaudeCommands:
         ).model_dump(mode="json")
 
     @classmethod
-    def admit(cls, command, catalog, image_id, *, builtins_only):
+    def admit(cls, command, catalog, image_id, *, builtins_only, builtin_skills=()):
         """Check provenance, live advertisement and exact handler-bound revision."""
         cls.validate(command)
         if not builtins_only:
             raise RunnerError("native_command_context_invalid")
         if (
             catalog is None
-            or cls.revision(catalog, image_id) != command.catalog_revision
+            or cls.revision(catalog, image_id, builtin_skills=builtin_skills)
+            != command.catalog_revision
         ):
             raise RunnerError("native_command_catalog_changed")
         if not any(item.name == command.name for item in catalog.commands):

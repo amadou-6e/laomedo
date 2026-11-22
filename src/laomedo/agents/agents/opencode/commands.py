@@ -52,6 +52,7 @@ class OpenCodeCommands:
             commands=[
                 {
                     "name": item.name,
+                    "kind": "skill" if item.name == "customize-opencode" else "command",
                     "description": item.description,
                     "input_hint": item.input.hint if item.input else None,
                     "executable": builtins_only and item.name in {"init", "review"},
@@ -64,7 +65,11 @@ class OpenCodeCommands:
                     "reason": (
                         None
                         if builtins_only and item.name in {"init", "review"}
-                        else "outside_assistant_command_policy"
+                        else (
+                            "native_skill_requires_provider_configuration"
+                            if item.name == "customize-opencode"
+                            else "outside_assistant_command_policy"
+                        )
                     ),
                 }
                 for item in catalog.commands

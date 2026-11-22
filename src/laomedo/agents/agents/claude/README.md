@@ -78,3 +78,5 @@ provider acceptance is required separately from unit receipt-validation tests.
 ## Saved account connections
 
 `connection.py` is the provider boundary. ClaudeConnection owns official-client begin/details/submit/cancel, native identity verification, exact labelled profile custody, orphan reconciliation and cleanup. ClaudeNativeProfile, ClaudeAccountIdentity and ClaudeLoginAttempt belong to models.py; its native cleanup budget belongs to settings.py. The shared Agent connection service owns admission/index fencing; host storage and profile authorization remain separate.
+
+ClaudeCommands.builtin_skills reads the root native SDK init skills list in isolated built-in-only sessions. Discovery retains this session binding and includes the observed skill set in the catalog revision; absent evidence never creates a skill.

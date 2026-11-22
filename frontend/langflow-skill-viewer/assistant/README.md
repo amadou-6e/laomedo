@@ -290,3 +290,5 @@ not migrate or rebind them. Verified fingerprint aliases are retained with the
 assistant session fence so restart cannot undo a logout. No bearer is stored.
 
 NativeUsage renders verified Claude limits in the same muted, rounded card chrome as NativeStatus, with Close/Show limits controls. It does not alter retained output or approval policy.
+
+NativeCommandMenu groups provider-reported skill rows under Skills, independently of Laomedo registry skills. Unsupported skills display capability-specific reasons without granting invocation.

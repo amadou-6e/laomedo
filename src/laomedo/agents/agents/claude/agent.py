@@ -779,6 +779,19 @@ class ClaudeAgent(BaseAgent):
             if params.get("sessionId") != record["thread_id"]:
                 raise RunnerError("claude_session_identity_mismatch")
             event = params.get("message")
+            if (
+                not record.get("skills")
+                and isinstance(event, dict)
+                and event.get("type") == "system"
+                and event.get("subtype") == "init"
+                and event.get("session_id") == record["thread_id"]
+            ):
+                record["native_builtin_skills"] = list(
+                    ClaudeCommands.builtin_skills(
+                        [(method, params)], record["thread_id"]
+                    )
+                )
+                record["native_builtin_skill_thread"] = record["thread_id"]
             self._native_event(root, record, event)
             if record.get("_native_command") is not None and event.get("type") in {
                 "system",
@@ -851,6 +864,17 @@ class ClaudeAgent(BaseAgent):
                 await asyncio.sleep(0.02)
             catalog = client.command_catalog()
             builtins_only = not record.get("skills")
+            builtin_skills = (
+                ClaudeCommands.builtin_skills(buffered, client.session_id)
+                if builtins_only
+                else ()
+            )
+            if (
+                not builtin_skills
+                and builtins_only
+                and record.get("native_builtin_skill_thread") == client.session_id
+            ):
+                builtin_skills = tuple(record.get("native_builtin_skills", ()))
             record["native_commands"] = {
                 "thread_id": client.session_id,
                 "catalog": (
@@ -861,6 +885,7 @@ class ClaudeAgent(BaseAgent):
                         catalog.model_dump(mode="json"),
                         self.image_id,
                         builtins_only=builtins_only,
+                        builtin_skills=builtin_skills,
                     )
                     if catalog is not None
                     else None
@@ -877,7 +902,11 @@ class ClaudeAgent(BaseAgent):
                 ):
                     raise RunnerError("native_command_context_invalid")
                 ClaudeCommands.admit(
-                    command, catalog, self.image_id, builtins_only=builtins_only
+                    command,
+                    catalog,
+                    self.image_id,
+                    builtins_only=builtins_only,
+                    builtin_skills=builtin_skills,
                 )
             telemetry.bind_thread(client.session_id)
             record["communication_protocol"] = "acp.v1"
@@ -933,6 +962,24 @@ class ClaudeAgent(BaseAgent):
                 raise RunnerError("claude_cancelled")
             if outcome.stop_reason != "end_turn":
                 raise RunnerError("claude_native_turn_failed")
+            catalog = client.command_catalog()
+            if catalog is not None:
+                record["native_commands"] = {
+                    "thread_id": client.session_id,
+                    "catalog": catalog.model_dump(mode="json"),
+                    "projection": ClaudeCommands.project(
+                        catalog.model_dump(mode="json"),
+                        self.image_id,
+                        builtins_only=builtins_only,
+                        builtin_skills=(
+                            tuple(record.get("native_builtin_skills", ()))
+                            if builtins_only
+                            and record.get("native_builtin_skill_thread")
+                            == client.session_id
+                            else builtin_skills
+                        ),
+                    ),
+                }
             if record.get("_native_command") is not None:
                 return ClaudeCommands.result(
                     command_events,
