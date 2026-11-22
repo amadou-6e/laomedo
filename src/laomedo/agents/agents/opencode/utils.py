@@ -24,13 +24,13 @@ def remove_controller_directory(root: Path, profile: Path) -> None:
         or root.is_symlink()
         or root.resolve().parent != profile.resolve()
     ):
-        raise OSError("controller_directory_unverified")
+        raise OSError("opencode_container_cleanup_unverified")
     try:
         observed = root.lstat()
         if getattr(observed, "st_file_attributes", 0) & getattr(
             stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400
         ):
-            raise OSError("controller_directory_unverified")
+            raise OSError("opencode_container_cleanup_unverified")
         shutil.rmtree(root, onerror=partial(_remove_readonly_controller_file, root))
     except FileNotFoundError:
         if os.path.lexists(root):
