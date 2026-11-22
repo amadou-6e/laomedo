@@ -612,7 +612,7 @@ class ProviderControllers:
                     source,
                     **options,
                     profile_volume=native.name,
-                    image=native.image_id,
+                    **({"image": native.image_id} if scope == "graph" else {}),
                     lease_service=self.root.parent / "provider-leases",
                     auth_connection=auth,
                 )

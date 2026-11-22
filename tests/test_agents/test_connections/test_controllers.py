@@ -9,7 +9,8 @@ from pathlib import Path
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 from uuid import uuid4
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
+from types import SimpleNamespace
 
 from laomedo.agents.connections.controllers import ProviderControllers
 from laomedo.agents.connections.errors import ProviderConnectionError
@@ -154,6 +155,30 @@ class ProviderControllerTests(unittest.TestCase):
         self.assertTrue(
             (slot.state.parent / "source" / "workspace" / "README.md").is_file()
         )
+
+    def test_claude_assistant_does_not_pin_execution_to_the_login_image(self):
+        self.records[0] = self.records[0].model_copy(update={"provider": "claude"})
+        self.service._save(self.profile, self.records)
+        self.manager.factory = None
+        native = SimpleNamespace(name="laomedo-claude-fixture", image_id="sha256:login")
+        with (
+            patch.object(self.service.claude, "profile", return_value=native),
+            patch(
+                "laomedo.agents.connections.controllers.AgentProviderRegistry.create_agent"
+            ) as create,
+        ):
+            create.side_effect = lambda provider, *args, **kwargs: FakeNativeAgent(
+                *args, **kwargs
+            )
+            self.manager._create(
+                self.profile, self.one, 1, recovery=True, scope="assistant"
+            )
+            self.assertNotIn("image", create.call_args.kwargs)
+            self.assertEqual(create.call_args.kwargs["profile_volume"], native.name)
+            self.manager._create(
+                self.profile, self.one, 1, recovery=True, scope="graph"
+            )
+            self.assertEqual(create.call_args.kwargs["image"], native.image_id)
 
     def test_shutdown_closes_remaining_accounts_after_one_runner_fails(self):
         self.manager.assistant_endpoint(self.profile, self.one, 1)

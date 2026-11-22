@@ -218,3 +218,9 @@ Recovery inventories both scopes before dispatch; disconnect counts and cancels
 both scopes, including uncertain resume reservations. Graph endpoints cannot
 resolve assistant run identities. The assistant sends native operations through
 the existing saved-runner admission fence rather than borrowing credentials.
+
+New Claude assistant controllers use the current registered execution image and
+the saved account's exact profile volume. The login-custody image remains pinned
+for authentication operations; it must not silently freeze chat's adapter version.
+Graph controllers retain their existing image selection. Existing run image and
+thread identity checks still refuse incompatible resume; no history is replayed.
