@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 from pathlib import Path, PurePosixPath
+from laomedo.agents.workspaces.utils import is_link
 import tempfile
 import threading
 from uuid import UUID, uuid4
@@ -94,7 +95,7 @@ class ProjectStorage:
         path = root
         for part in parts:
             path = path / part
-            if path.is_symlink() or path.is_junction():
+            if is_link(path):
                 raise AssistantError("assistant_storage_path_invalid", 422)
         if not path.resolve().is_relative_to(root.resolve()):
             raise AssistantError("assistant_storage_path_invalid", 422)
@@ -110,7 +111,7 @@ class ProjectStorage:
         if not path.is_dir() or not (path / ".git").exists():
             raise AssistantError("assistant_storage_repository_unavailable", 409)
         # Recheck ancestors when using retained registrations, including junctions.
-        if any(p.is_symlink() or p.is_junction() for p in (path, *path.parents)):
+        if any(is_link(p) for p in (path, *path.parents)):
             raise AssistantError("assistant_storage_path_invalid", 422)
         return path
 
@@ -119,7 +120,7 @@ class ProjectStorage:
             path = Path(request.path)
             if not path.is_absolute() or str(path).startswith("\\\\"):
                 raise AssistantError("assistant_storage_path_invalid", 422)
-            if any(p.is_symlink() or p.is_junction() for p in (path, *path.parents)):
+            if any(is_link(p) for p in (path, *path.parents)):
                 raise AssistantError("assistant_storage_path_invalid", 422)
             path = path.resolve()
             if not path.is_dir() or not (path / ".git").exists():
@@ -239,11 +240,7 @@ class ProjectStorage:
                             scanned += 1
                             if scanned > 1000:
                                 break
-                            if (
-                                self.unsafe(item.name)
-                                or item.is_symlink()
-                                or item.is_junction()
-                            ):
+                            if self.unsafe(item.name) or is_link(item):
                                 continue
                             if item.is_dir():
                                 pending.append(item)

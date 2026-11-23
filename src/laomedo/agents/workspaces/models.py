@@ -1,6 +1,7 @@
 """Canonical private working-state inputs and preparation results."""
 
 from pathlib import Path, PurePosixPath
+from laomedo.agents.workspaces.utils import is_link
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
@@ -38,7 +39,7 @@ class WorkspaceFiles(BaseModel):
         """Create files once; refuse collisions and links in the prepared workspace."""
         for relative, content in self.files.items():
             path = workspace.joinpath(*relative.split("/"))
-            if any(p.is_symlink() or p.is_junction() for p in (path, *path.parents)):
+            if any(is_link(p) for p in (path, *path.parents)):
                 raise ValueError("workspace_file_path_invalid")
             path.parent.mkdir(parents=True, exist_ok=True)
             with path.open("x", encoding="utf-8", newline="") as output:
@@ -48,6 +49,8 @@ class WorkspaceFiles(BaseModel):
     def from_workspace(cls, workspace: Path):
         """Read regular project text only, refusing links, binary and oversized files."""
         root = workspace / "project"
+        if is_link(root):
+            raise ValueError("workspace_file_path_invalid")
         if not root.exists():
             return cls()
         pending = [root]
@@ -55,11 +58,11 @@ class WorkspaceFiles(BaseModel):
         scanned = 0
         while pending:
             directory = pending.pop()
-            if directory.is_symlink() or directory.is_junction():
+            if is_link(directory):
                 raise ValueError("workspace_file_path_invalid")
             for path in directory.iterdir():
                 scanned += 1
-                if scanned > 512 or path.is_symlink() or path.is_junction():
+                if scanned > 512 or is_link(path):
                     raise ValueError("workspace_files_invalid")
                 if path.is_dir():
                     pending.append(path)

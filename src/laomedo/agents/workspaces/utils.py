@@ -12,6 +12,18 @@ from .settings import (
 )
 
 
+def is_link(path: Path) -> bool:
+    """Detect symbolic links and Windows reparse points on supported Python versions."""
+    try:
+        metadata = path.lstat()
+    except (FileNotFoundError, NotADirectoryError):
+        return False
+    return stat.S_ISLNK(metadata.st_mode) or bool(
+        getattr(metadata, "st_file_attributes", 0)
+        & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
+    )
+
+
 def _hash_tree(path: Path, *, exclude_root_git: bool = False) -> str:
     """Hash regular files and directories, including empty directories."""
     if not path.is_dir() or path.is_symlink():

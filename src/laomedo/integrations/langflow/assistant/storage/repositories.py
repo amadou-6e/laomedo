@@ -4,6 +4,7 @@ import os
 import shutil
 import subprocess
 from uuid import UUID, uuid4
+from laomedo.agents.workspaces.utils import is_link
 
 from laomedo.git.command import GitCommandRunner
 from laomedo.git.models import GitCommand, GitCredential, GitExecutionContext
@@ -26,9 +27,7 @@ class ProjectRepositories:
             self.storage.root / "checkouts" / str(UUID(str(owner))) / str(uuid4())
         )
         # Check every existing ancestor before creating any owned directories.
-        if any(
-            p.is_symlink() or p.is_junction() for p in (directory, *directory.parents)
-        ):
+        if any(is_link(p) for p in (directory, *directory.parents)):
             raise AssistantError("assistant_storage_path_invalid", 422)
         configuration = [
             ("credential.helper", ""),
