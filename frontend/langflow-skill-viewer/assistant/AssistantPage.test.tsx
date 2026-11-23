@@ -52,13 +52,13 @@ describe("uncertain assistant submission", () => {
     await act(async()=>{finish({conversations:[{...current,id:"older",title:"Earlier"}],next_cursor:null});await earlier;});
     expect(await screen.findByRole("button",{name:/Earlier/})).toBeVisible();
   });
-  it("does not strand an idle conversation after an overlapping native request was refused", async () => {
+  it.each([["assistant_turn_active",true],["assistant_dispatch_unknown",false],["assistant_connection_unavailable",false]])("recovers definite refusal but fences uncertain native submission %s", async (code, canContinue) => {
     const chat = {id:"saved", title:"Saved", provider:"codex", connection_id:"account", connection_generation:1, run_id:"run", model:"fixture", effort:"low", state:"idle", active_message_id:null};
     jest.mocked(assistantRequest).mockImplementation(async (path, body) => {
       if(path==="/connections") return {connections:[{connection_id:"account",generation:1,provider:"codex",label:"Account",lifecycle:"connected",auth_state:"ready"}]};
       if(path.startsWith("/models?")) return {provider:"codex",models:[{id:"fixture",efforts:["low"]}]};
       if(path==="/conversations") return {conversations:[chat],next_cursor:null};
-      if(path.endsWith("/native-commands")) { if(body) throw new AssistantFailure("assistant_conversation_busy"); return {state:"available",revision:"a".repeat(64),commands:[{name:"status",description:"Status",executable:true,accepts_arguments:false}]}; }
+      if(path.endsWith("/native-commands")) { if(body) throw new AssistantFailure(code as string); return {state:"available",revision:"a".repeat(64),commands:[{name:"status",description:"Status",executable:true,accepts_arguments:false}]}; }
       if(path.endsWith("/messages")&&body) return {id:"accepted",...body};
       return {conversation:chat,messages:[],drafts:[],next_cursor:null};
     });
@@ -70,6 +70,7 @@ describe("uncertain assistant submission", () => {
     fireEvent.click(send);
     await waitFor(()=>expect(jest.mocked(assistantRequest).mock.calls.some(([path,body])=>path.endsWith("/native-commands")&&body)).toBe(true));
     fireEvent.change(box,{target:{value:"Next question"}});
+    if(!canContinue) { await waitFor(()=>expect(send).toBeDisabled()); expect(jest.mocked(assistantRequest).mock.calls.some(([path])=>path.endsWith("/messages"))).toBe(false); return; }
     await waitFor(()=>expect(send).not.toBeDisabled());
     fireEvent.click(send);
     await waitFor(()=>expect(assistantRequest).toHaveBeenCalledWith("/conversations/saved/messages",expect.objectContaining({text:"Next question"})));

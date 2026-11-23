@@ -753,7 +753,8 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
       !waiting &&
       !busy &&
       !discovering &&
-      !detail?.observation_error,
+      !detail?.observation_error &&
+      !["assistant_dispatch_unknown", "assistant_connection_unavailable"].includes(error ?? ""),
   );
   const appCommand = (applicationCommands[chosenProvider] ?? []).find(item => `/${item.name}` === (drafts[selected] ?? "").trim());
   const canUseAppCommand = Boolean(appCommand && owner && !locked && !busy && !active && !waiting && !needsAttention && (appCommand.action !== "rename" || conversation));
