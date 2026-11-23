@@ -21,9 +21,21 @@ def main():
     source = root / ".tools/worktrees/repository-storage-309"
     base = "http://127.0.0.1:55753"
     process = psutil.Process(arguments.pid)
-    if "assistant-saved-293-01a1ba85" not in process.cwd():
-        raise SystemExit("wrong_preview_process")
     environment = process.environ()
+    expected = (
+        Path(os.environ["LOCALAPPDATA"])
+        / "Laomedo/acceptance/assistant-saved-293-01a1ba85/langflow"
+    )
+    if (
+        Path(environment.get("LANGFLOW_CONFIG_DIR", "")).resolve() != expected.resolve()
+        or environment.get("LAOMEDO_ASSISTANT_APP_URL") != base
+    ):
+        raise SystemExit("wrong_preview_process")
+    if not any(
+        connection.status == psutil.CONN_LISTEN and connection.laddr.port == 55753
+        for connection in process.net_connections(kind="tcp")
+    ):
+        raise SystemExit("preview_listener_not_owned")
     private = Path(environment["LANGFLOW_CONFIG_DIR"]).parent
     opener = build_opener(HTTPCookieProcessor(CookieJar()))
     opener.addheaders = [("Origin", base)]
