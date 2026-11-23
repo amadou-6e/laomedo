@@ -795,7 +795,7 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
           aria-label="Conversations"
         >
           <div className="mb-4 flex items-center gap-2"><h2 className="flex-1 text-sm font-semibold">Conversations</h2>{embedded && <>{historyControl}{headerActions}</>}</div>
-          <nav ref={historyList} aria-label="Conversation history" className="min-h-0 flex-1 space-y-1 overflow-y-auto"
+          <nav ref={historyList} aria-label="Conversation history" className="min-h-0 flex-1 divide-y divide-border/20 overflow-y-auto"
             onScroll={event => { const list = event.currentTarget; if (list.scrollHeight - list.scrollTop - list.clientHeight < 100) void olderConversations(); }}>
             {index.conversations.map((item) => (
               <button
@@ -812,7 +812,7 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
                 <span className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
                   <span className="sr-only">{({codex: "Codex", claude: "Claude", opencode: "OpenCode"} as Record<string, string>)[item.provider] ?? "Agent"}</span>
                   <ProviderIcon provider={item.provider} monochrome className="h-3 w-3 opacity-70" />
-                  <span className="border-l border-border/20 pl-2">
+                  <span>
                   {item.active_message_id
                     ? stateLabel(item.state)
                     : new Date(item.updated_at * 1000).toLocaleDateString()}

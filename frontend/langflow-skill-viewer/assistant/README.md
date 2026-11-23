@@ -305,7 +305,8 @@ command picker selects its first usable match; a subsequent Enter sends after
 selection, while Shift Enter inserts a newline.
 
 Conversation history replaces its provider text markers with monochrome SVG
-marks in the metadata row, with subtle vertical separators and loading
+marks in the metadata row. Faint rules separate vertically stacked conversation
+rows; metadata does not have an extra internal divider. History uses loading
 on scroll instead of a pagination button. Active conversations have a spinner;
 background work replaces the static switching tip. The assistant sidebar shares
 one arrow rail for drag resizing and click collapse, with drag movement suppressing
