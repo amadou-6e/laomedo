@@ -1,5 +1,6 @@
 """Bounded live selected-file checks through the preview's normal profile login."""
 
+import argparse
 from http.cookiejar import CookieJar
 import json
 import os
@@ -67,7 +68,7 @@ class StorageAcceptance:
             )
         return result
 
-    def run(self):
+    def run(self, providers=("codex", "claude", "opencode")):
         self.login()
         prefix = "/api/v1/laomedo/assistant"
         state = self.request(prefix + "/storage")
@@ -109,7 +110,7 @@ class StorageAcceptance:
             )
         connections = self.request(prefix + "/connections")["connections"]
         results = []
-        for provider in ("codex", "claude", "opencode"):
+        for provider in providers:
             try:
                 connection = next(
                     row
@@ -191,4 +192,9 @@ class StorageAcceptance:
 
 
 if __name__ == "__main__":
-    StorageAcceptance().run()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--provider", choices=("codex", "claude", "opencode"))
+    arguments = parser.parse_args()
+    StorageAcceptance().run(
+        (arguments.provider,) if arguments.provider else ("codex", "claude", "opencode")
+    )
