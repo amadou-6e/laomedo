@@ -75,3 +75,11 @@ it("clones the selected remote and clears the one-use credential", async () => {
   expect(screen.getByLabelText("Read token (optional for private repositories)")).toHaveValue("");
   expect(screen.getByLabelText("Agent repository")).toHaveValue("repo");
 });
+
+it("opens on the graph being edited with its own persisted file location", async () => {
+  render(<ProjectStorage activeGraphId="first" onFailure={jest.fn()} />);
+  fireEvent.click(screen.getByRole("button", {name: "Project storage"}));
+  await waitFor(() => expect(screen.getByLabelText("Graph")).toHaveValue("first"));
+  expect(screen.getByLabelText("Graph JSON file")).toHaveValue("graphs/first.json");
+  expect(screen.getByLabelText("Graph repository")).toHaveValue("repo");
+});

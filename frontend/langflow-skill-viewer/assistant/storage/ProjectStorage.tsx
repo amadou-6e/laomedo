@@ -5,7 +5,7 @@ import { AssistantFailure, assistantRequest } from "../api";
 import type { ProjectStorageState } from "./models";
 import { describeNodeFailure } from "@/components/laomedoErrors/nodeErrors";
 
-export default function ProjectStorage({ onFailure }: { onFailure: (error: unknown) => void }) {
+export default function ProjectStorage({ activeGraphId, onFailure }: { activeGraphId?: string; onFailure: (error: unknown) => void }) {
   const [open, setOpen] = useState(false);
   const [state, setState] = useState<ProjectStorageState>();
   const [name, setName] = useState("");
@@ -56,10 +56,10 @@ export default function ProjectStorage({ onFailure }: { onFailure: (error: unkno
     }
   }
 
-  function chooseGraph(id: string) {
+  function chooseGraph(id: string, storage = state) {
     setGraph(id);
-    const binding = state?.graphs[id];
-    setGraphRepo(binding?.location.repository_id ?? state?.repositories[0]?.id ?? "");
+    const binding = storage?.graphs[id];
+    setGraphRepo(binding?.location.repository_id ?? storage?.repositories[0]?.id ?? "");
     setGraphPath(binding?.location.path ?? `graphs/${id}.json`);
   }
 
@@ -90,6 +90,7 @@ export default function ProjectStorage({ onFailure }: { onFailure: (error: unkno
       const result = await refresh();
       setAgentRepo(result.agent_files?.repository_id ?? result.repositories[0]?.id ?? "");
       setAgentPath(result.agent_files?.path ?? "agent-files");
+      if (activeGraphId && result.workflows.some(row => row.id === activeGraphId)) chooseGraph(activeGraphId, result);
       return "";
     });
   }}>

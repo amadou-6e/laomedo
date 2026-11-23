@@ -23,7 +23,7 @@ import {
   type ReactNode,
   type FormEvent,
 } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useLocation, useSearchParams } from "react-router-dom";
 import { Download, History } from "lucide-react";
 import { AuthContext } from "@/contexts/authContext";
 import { describeNodeFailure } from "@/components/laomedoErrors/nodeErrors";
@@ -53,6 +53,7 @@ export default function AssistantPage({
   onSelectConversation?: (selection: Record<string, string>) => void;
 } = {}) {
   const RootTag = embedded ? "section" : "main";
+  const activeGraphId = useLocation().pathname.match(/^\/flow\/([^/]+)\/?$/)?.[1];
   const owner = useContext(AuthContext).userData?.id;
   const [params, setRouteParams] = useSearchParams();
   const selected = embedded
@@ -941,7 +942,7 @@ export default function AssistantPage({
           </div>
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             {historyControl}
-            {!locked && <ProjectStorage key={owner} onFailure={fail} />}
+            {!locked && <ProjectStorage key={owner} activeGraphId={activeGraphId} onFailure={fail} />}
             {conversation && !locked && (
               <>
                 <span role="status" aria-live="polite">
