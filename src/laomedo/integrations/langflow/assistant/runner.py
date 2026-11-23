@@ -72,7 +72,11 @@ class AssistantRunner:
             raise AssistantError(error.code, 409) from None
         request = Request(
             url + path,
-            data=json.dumps(body).encode() if body is not None else None,
+            data=(
+                json.dumps(body, ensure_ascii=False).encode("utf-8")
+                if body is not None
+                else None
+            ),
             method=method,
             headers={
                 "Authorization": "Bearer " + token,

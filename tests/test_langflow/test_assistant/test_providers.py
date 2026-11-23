@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, MagicMock
 from uuid import uuid4
 
 from laomedo.agents.connections.models import ConnectionRecord
@@ -18,6 +18,37 @@ from laomedo.integrations.langflow.assistant.settings import AssistantSettings
 
 class ProviderCompositionTests(unittest.TestCase):
     """Exercise authority and delegation without Docker or model calls."""
+
+    def test_unicode_project_bundle_keeps_its_declared_transport_size(self):
+        from laomedo.agents.agents.base.settings import MAX_BODY
+        from laomedo.agents.workspaces.models import WorkspaceFiles
+
+        files = WorkspaceFiles(
+            files={"project/agent-files/notes.md": "\U0001f4dd" * 50000}
+        )
+        body = {"workspace_files": files.model_dump(), "task": "Read project notes"}
+        with tempfile.TemporaryDirectory() as temporary:
+            token = Path(temporary) / "token"
+            token.write_text("fixture-token", encoding="utf-8")
+            manager = Mock()
+            manager.assistant_endpoint.return_value = ("http://127.0.0.1:17881", token)
+            runner = AssistantRunner(
+                AssistantSettings(),
+                uuid4(),
+                connection_id=uuid4(),
+                connection_generation=1,
+                controllers=manager,
+            )
+            response = MagicMock()
+            response.__enter__.return_value.read.return_value = b'{"run_id":"fixture"}'
+            runner.opener = Mock()
+            runner.opener.open.return_value = response
+            self.assertEqual(
+                runner.request("POST", "/v1/runs/async", body), {"run_id": "fixture"}
+            )
+            sent = runner.opener.open.call_args.args[0].data
+            self.assertLess(len(sent), MAX_BODY)
+            self.assertEqual(json.loads(sent), body)
 
     def test_live_session_lookup_maps_manager_refusal_without_reconstruction(self):
         owner, account, run_id = uuid4(), uuid4(), str(uuid4())
