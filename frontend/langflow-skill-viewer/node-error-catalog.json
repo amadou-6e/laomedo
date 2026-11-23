@@ -2847,7 +2847,12 @@
   "native_skill_approval_required": {
     "title": "Use the native skill menu",
     "description": "Codex treats this skill mention as an invocation, even inside ordinary text.",
-    "recovery": "Choose the skill from the / menu and approve that request. To discuss it without invoking it, write its name without the dollar prefix or native skill link."
+    "recovery": "Choose the skill from the / menu and send that request. To discuss it without invoking it, write its name without the dollar prefix or native skill link."
+  },
+  "native_skill_requires_provider_configuration": {
+    "title": "This skill changes provider configuration",
+    "description": "This skill needs to change configuration that Laomedo manages for the provider.",
+    "recovery": "Choose another supported skill. Sending this skill cannot override the provider configuration boundary."
   },
   "native_command_not_available": {
     "title": "The native command is unavailable",
