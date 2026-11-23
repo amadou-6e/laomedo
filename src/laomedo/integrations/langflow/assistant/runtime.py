@@ -1088,6 +1088,12 @@ class AssistantRuntime:
                 "mcp_manifest": registration.manifest.model_dump(mode="json"),
                 "mcp_registration": str(registration.registration_id),
             }
+            await asyncio.to_thread(
+                ProjectChatWorkspace(self.project_storage).bind_session,
+                context.owner_id,
+                context.conversation_id,
+                context.session_key,
+            )
             if message.initial_native_command is not None:
                 if (
                     message.initial_native_command != "status"
@@ -1141,6 +1147,7 @@ class AssistantRuntime:
                         ProjectChatWorkspace(self.project_storage).prepare,
                         context.owner_id,
                         context.conversation_id,
+                        context.session_key,
                     )
                 ).model_dump()
                 path = "/v1/runs/async"
@@ -1474,10 +1481,15 @@ class AssistantRuntime:
         if status == "completed" and digest:
             try:
                 project = ProjectChatWorkspace(self.project_storage)
-                if project.read(owner, identifier) is not None:
+                binding = project.read(owner, identifier)
+                if binding is not None:
+                    if binding.session_key is None:
+                        raise AssistantError("assistant_tool_authority_revoked", 403)
+                    await self.check_session(owner, binding.session_key)
                     files = await asyncio.to_thread(
                         runner.project_files, record["run_id"], digest
                     )
+                    await self.check_session(owner, binding.session_key)
                     await asyncio.to_thread(project.persist, owner, identifier, files)
             except AssistantError as error:
                 storage_error = error.code

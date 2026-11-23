@@ -77,7 +77,7 @@ class ProjectRepositoryTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stderr)
 
-    def test_clone_registers_only_completed_checkout_without_remote_or_credentials(
+    def test_clone_registers_completed_checkout_without_storing_credentials(
         self,
     ):
         request = RepositoryClone(
@@ -91,7 +91,8 @@ class ProjectRepositoryTests(unittest.TestCase):
             (Path(repository.path) / "notes.md").read_text(), "Project notes"
         )
         config = (Path(repository.path) / ".git" / "config").read_text()
-        self.assertNotIn("remote", config)
+        self.assertIn('[remote "origin"]', config)
+        self.assertNotIn("credential", config)
         self.assertNotIn("not-a-real-token", config)
         self.assertNotIn("not-a-real-token", request.model_dump_json())
         self.assertNotIn(

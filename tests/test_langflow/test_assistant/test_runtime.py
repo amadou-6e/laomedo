@@ -686,11 +686,33 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
         with patch(
             "laomedo.integrations.langflow.assistant.runtime.ProjectChatWorkspace"
         ) as project:
-            project.return_value.read.return_value = object()
+            project.return_value.read.return_value = SimpleNamespace(
+                session_key="fixture"
+            )
             project.return_value.persist.side_effect = AssistantError(
                 "assistant_storage_file_changed", 409
             )
             self.assertTrue(await self.runtime.reconcile(self.owner, self.identifier))
+        detail = await self.store.detail(self.owner, self.identifier)
+        self.assertEqual(detail["messages"][0]["state"], "completed")
+        self.assertEqual(detail["messages"][0]["response"], "Done")
+        self.assertIsNone(detail["conversation"]["active_message_id"])
+
+    async def test_revoked_browser_session_cannot_export_completed_shell_files(self):
+        await self.bind()
+        self.runner.project_files = Mock()
+        self.runtime.check_session = AsyncMock(
+            side_effect=AssistantError("assistant_tool_authority_revoked", 403)
+        )
+        with patch(
+            "laomedo.integrations.langflow.assistant.runtime.ProjectChatWorkspace"
+        ) as project:
+            project.return_value.read.return_value = SimpleNamespace(
+                session_key="revoked"
+            )
+            self.assertTrue(await self.runtime.reconcile(self.owner, self.identifier))
+            project.return_value.persist.assert_not_called()
+        self.runner.project_files.assert_not_called()
         detail = await self.store.detail(self.owner, self.identifier)
         self.assertEqual(detail["messages"][0]["state"], "completed")
         self.assertEqual(detail["messages"][0]["response"], "Done")

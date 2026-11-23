@@ -26,7 +26,9 @@ retarget an existing chat. The initial bundle is retained for idempotent retries
 
 `persist(owner, conversation, files)` reads the runner's verified completed
 snapshot and writes changed files back only when each host file still matches its
-observed hash. New agent files and deletions are included. Unknown graph paths,
+observed hash and the dispatching browser session is still authorized. The host-only
+session fingerprint is refreshed for each admitted turn and never enters native
+files or model payloads. New agent files and deletions are included. Unknown graph paths,
 secret filenames, links, binary files and oversized bundles are refused. Graph
 file edits do not change app graphs until explicit Load. Conflicts retain the
 native snapshot and show an error while unlocking Send; external edits are never

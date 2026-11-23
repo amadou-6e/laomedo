@@ -48,7 +48,17 @@ class ProjectChatWorkspace:
             return self.storage.graph_path(owner, binding.graphs[relative])
         raise AssistantError("assistant_storage_path_invalid", 422)
 
-    def prepare(self, owner, conversation):
+    def bind_session(self, owner, conversation, session_key):
+        """Refresh only an existing shell binding for this explicitly admitted turn."""
+        with self.storage.lock:
+            binding = self.read(owner, conversation)
+            if binding is not None:
+                binding.session_key = session_key
+                self.storage.replace(
+                    self.path(owner, conversation), binding.model_dump_json().encode()
+                )
+
+    def prepare(self, owner, conversation, session_key=None):
         """Persist one bounded initial file set for idempotent fresh dispatch retries."""
         with self.storage.lock:
             prior = self.read(owner, conversation)
@@ -57,7 +67,9 @@ class ProjectChatWorkspace:
             document = self.storage.document(owner)
             if document.agent_files is None and not document.graphs:
                 return WorkspaceFiles()
-            binding = ChatWorkspaceBinding(agent_files=document.agent_files)
+            binding = ChatWorkspaceBinding(
+                agent_files=document.agent_files, session_key=session_key
+            )
             content = {}
             listing = self.storage.list_files(owner)
             if listing.get("truncated"):

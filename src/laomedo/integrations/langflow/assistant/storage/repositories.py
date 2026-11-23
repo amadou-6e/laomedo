@@ -82,8 +82,8 @@ class ProjectRepositories:
                     ["checkout", "--quiet", "--detach", "HEAD"],
                     directory=directory,
                 )
-                # Do not retain even an unauthenticated remote in provider workspaces.
-                self.run(command, ["remote", "remove", "origin"], directory=directory)
+                # Origin retains only the selected credential-free repository URL.
+                # Native providers receive selected files, never this .git directory.
             result = self.storage.register(
                 owner, RepositoryRegistration(name=request.name, path=str(directory))
             )

@@ -71,6 +71,7 @@ class ChatWorkspaceBinding(BaseModel):
     """Frozen selected locations and observed hashes for one conversation's shell."""
 
     model_config = ConfigDict(extra="forbid")
+    session_key: str | None = Field(default=None, repr=False)
     agent_files: RepositoryLocation | None = None
     graphs: dict[str, RepositoryLocation] = Field(default_factory=dict)
     initial_files: WorkspaceFiles = Field(default_factory=WorkspaceFiles, repr=False)
