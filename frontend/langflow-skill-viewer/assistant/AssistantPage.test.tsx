@@ -28,6 +28,50 @@ jest.mock("@/contexts/authContext", () => ({
 }));
 
 describe("uncertain assistant submission", () => {
+  it("does not strand an idle conversation after an overlapping native request was refused", async () => {
+    const chat = {id:"saved", title:"Saved", provider:"codex", connection_id:"account", connection_generation:1, run_id:"run", model:"fixture", effort:"low", state:"idle", active_message_id:null};
+    jest.mocked(assistantRequest).mockImplementation(async (path, body) => {
+      if(path==="/connections") return {connections:[{connection_id:"account",generation:1,provider:"codex",label:"Account",lifecycle:"connected",auth_state:"ready"}]};
+      if(path.startsWith("/models?")) return {provider:"codex",models:[{id:"fixture",efforts:["low"]}]};
+      if(path==="/conversations") return {conversations:[chat],next_cursor:null};
+      if(path.endsWith("/native-commands")) { if(body) throw new AssistantFailure("assistant_conversation_busy"); return {state:"available",revision:"a".repeat(64),commands:[{name:"status",description:"Status",executable:true,accepts_arguments:false}]}; }
+      if(path.endsWith("/messages")&&body) return {id:"accepted",...body};
+      return {conversation:chat,messages:[],drafts:[],next_cursor:null};
+    });
+    render(<MemoryRouter initialEntries={["/assistant?conversation=saved"]}><AssistantPage /></MemoryRouter>);
+    const box=screen.getByRole("textbox",{name:"Message this assistant"});
+    fireEvent.change(box,{target:{value:"/status "}});
+    const send=screen.getByRole("button",{name:"Send"});
+    await waitFor(()=>expect(send).not.toBeDisabled());
+    fireEvent.click(send);
+    await waitFor(()=>expect(jest.mocked(assistantRequest).mock.calls.some(([path,body])=>path.endsWith("/native-commands")&&body)).toBe(true));
+    fireEvent.change(box,{target:{value:"Next question"}});
+    await waitFor(()=>expect(send).not.toBeDisabled());
+    fireEvent.click(send);
+    await waitFor(()=>expect(assistantRequest).toHaveBeenCalledWith("/conversations/saved/messages",expect.objectContaining({text:"Next question"})));
+  });
+
+  it("Enter chooses the first matching skill without dispatching and Shift Enter retains a newline", async () => {
+    const chat={id:"saved",provider:"claude",connection_id:"account",connection_generation:1,run_id:"run",model:"fixture",effort:"low",state:"idle",active_message_id:null};
+    jest.mocked(assistantRequest).mockImplementation(async path=>{
+      if(path==="/connections")return {connections:[{connection_id:"account",generation:1,provider:"claude",label:"Account",lifecycle:"connected",auth_state:"ready"}]};
+      if(path.startsWith("/models?"))return {provider:"claude",models:[{id:"fixture",efforts:["low"]}]};
+      if(path==="/conversations")return {conversations:[chat],next_cursor:null};
+      if(path.endsWith("/native-commands"))return {state:"available",revision:"a".repeat(64),commands:[{name:"claude-api",kind:"skill",description:"API reference",executable:true,accepts_arguments:true}]};
+      return {conversation:chat,messages:[],drafts:[],next_cursor:null};
+    });
+    render(<MemoryRouter initialEntries={["/assistant?conversation=saved"]}><AssistantPage /></MemoryRouter>);
+    const box=screen.getByRole("textbox",{name:"Message this assistant"});
+    fireEvent.change(box,{target:{value:"/cla"}});
+    await screen.findByRole("button",{name:/claude-api/});
+    box.focus();
+    fireEvent.keyDown(box,{key:"Enter"});
+    expect(box).toHaveValue("/claude-api ");
+    expect(document.activeElement).toBe(box);
+    expect(jest.mocked(assistantRequest).mock.calls.some(([,body])=>body)).toBe(false);
+    fireEvent.keyDown(box,{key:"Enter",shiftKey:true});
+    expect(jest.mocked(assistantRequest).mock.calls.some(([,body])=>body)).toBe(false);
+  });
   it("sends ordinary dollar-prefixed text in a new chat without native admission", async () => {
     const chat = {id: "new", title: "New", provider: "codex", connection_id: "account", connection_generation: 1, model: "fixture", effort: "low", state: "idle", active_message_id: null};
     jest.mocked(assistantRequest).mockImplementation(async (path, body) => {
@@ -56,7 +100,7 @@ describe("uncertain assistant submission", () => {
     await screen.findByRole("heading", {name: "Original"});
     const composer = screen.getByRole("textbox", {name: "Message this assistant"});
     fireEvent.change(composer, {target: {value: "/rename"}});
-    fireEvent.keyDown(composer, {key: "Enter"});
+    fireEvent.click(screen.getByRole("button", {name:"Send"}));
     expect(await screen.findByRole("textbox", {name: "Conversation title"})).toHaveValue("Original");
     expect(jest.mocked(assistantRequest).mock.calls.some(([, body]) => Boolean(body))).toBe(false);
     fireEvent.keyDown(screen.getByRole("textbox", {name: "Conversation title"}), {key: "Escape"});
@@ -74,8 +118,8 @@ describe("uncertain assistant submission", () => {
     const composer = screen.getByRole("textbox", {name: "Message this assistant"});
     fireEvent.change(composer, {target: {value: text}});
     await waitFor(() => expect(screen.getByRole("button", {name: "Start chat"})).not.toBeDisabled());
-    fireEvent.keyDown(composer, {key: "Enter"});
-    await waitFor(() => expect(screen.getByRole("button", {name: "Start chat"})).toBeDisabled());
+    fireEvent.click(screen.getByRole("button", {name:"Start chat"}));
+    await waitFor(() => expect(screen.getByRole("button", {name: "Start chat"})).not.toBeDisabled());
     expect(jest.mocked(assistantRequest).mock.calls.some(([, body]) => Boolean(body))).toBe(false);
     expect(composer).toHaveValue(text);
   });
@@ -123,7 +167,7 @@ describe("uncertain assistant submission", () => {
     const composer = screen.getByRole("textbox", {name: "Message this assistant"});
     fireEvent.change(composer, {target: {value: "/compact"}});
     await waitFor(() => expect(screen.getByRole("button", {name: "Send"})).not.toBeDisabled());
-    fireEvent.keyDown(composer, {key: "Enter"});
+    fireEvent.click(screen.getByRole("button", {name:"Send"}));
     await waitFor(() => expect(jest.mocked(assistantRequest).mock.calls.some(([path, body]) => path.endsWith("/native-commands") && body)).toBe(true));
     fireEvent.change(composer, {target: {value: newer}});
     await act(async () => {finish({state: "pending"}); await acknowledgement;});
@@ -278,7 +322,7 @@ describe("uncertain assistant submission", () => {
       await waitFor(() => expect(send()).not.toBeDisabled());
       fireEvent.keyDown(composer, {key: "Enter"});
       await waitFor(() => expect(composer).not.toHaveAttribute("readonly"));
-      expect(send()).toBeDisabled();
+      expect(send()).not.toBeDisabled();
       expect(jest.mocked(assistantRequest).mock.calls.some(([path, body]) => path.endsWith("/messages") || (path === "/conversations" && body))).toBe(false);
       fireEvent.change(composer, {target: {value: "Hello"}});
       await waitFor(() => expect(send()).not.toBeDisabled());
@@ -334,11 +378,11 @@ describe("uncertain assistant submission", () => {
     await waitFor(() => expect(screen.getByRole("button", {name: "Send"})).not.toBeDisabled());
     fireEvent.keyDown(composer, {key: "Enter"});
     await waitFor(() => expect(composer).not.toHaveAttribute("readonly"));
-    expect(screen.getByRole("button", {name: "Send"})).toBeDisabled();
+    expect(screen.getByRole("button", {name: "Send"})).not.toBeDisabled();
     expect(jest.mocked(assistantRequest).mock.calls.some(([path]) => path.endsWith("/messages"))).toBe(false);
     fireEvent.change(composer, {target: {value: "/sta"}});
     await waitFor(() => expect(screen.getByRole("button", {name: "Send"})).not.toBeDisabled());
-    fireEvent.keyDown(composer, {key: "Enter"});
+    fireEvent.click(screen.getByRole("button", {name:"Send"}));
     await waitFor(() => expect(assistantRequest).toHaveBeenCalledWith("/conversations/saved/messages", expect.objectContaining({text: "/sta"})));
     expect(jest.mocked(assistantRequest).mock.calls.some(([path, body]) => path.endsWith("/native-commands") && body)).toBe(false);
   });
@@ -360,7 +404,7 @@ describe("uncertain assistant submission", () => {
     fireEvent.change(composer, {target: {value: "/status extra"}});
     await waitFor(() => expect(screen.getByRole("button", {name: "Send"})).not.toBeDisabled());
     fireEvent.keyDown(composer, {key: "Enter"});
-    await waitFor(() => expect(screen.getByRole("button", {name: "Send"})).toBeDisabled());
+    await waitFor(() => expect(screen.getByRole("button", {name: "Send"})).not.toBeDisabled());
     fireEvent.change(composer, {target: {value: "/"}});
     fireEvent.click(await screen.findByRole("button", {name: /mcp.*MCP tools/}));
     await waitFor(() => expect(screen.getByRole("button", {name: "Send"})).not.toBeDisabled());
@@ -404,7 +448,7 @@ describe("uncertain assistant submission", () => {
     const composer = screen.getByRole("textbox", {name: "Message this assistant"});
     fireEvent.change(composer, {target: {value: text}});
     await waitFor(() => expect(screen.getByRole("button", {name: "Send"})).not.toBeDisabled());
-    fireEvent.keyDown(composer, {key: "Enter"});
+    fireEvent.click(screen.getByRole("button", {name:"Send"}));
     await waitFor(() => expect(assistantRequest).toHaveBeenCalledWith("/conversations/saved/native-commands", expect.objectContaining({name, arguments: args, catalog_revision: "a".repeat(64)})));
     await waitFor(() => expect(composer).toHaveValue(""));
     expect(jest.mocked(assistantRequest).mock.calls.some(([path]) => path.endsWith("/messages"))).toBe(false);

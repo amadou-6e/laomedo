@@ -16,6 +16,7 @@ import {
   Sparkles,
   Download,
   History,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AuthContext } from "@/contexts/authContext";
@@ -61,6 +62,8 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
     next_cursor: null,
   });
   const [detail, setDetail] = useState<ConversationDetail>();
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const historyLoading = useRef(false);
   const [models, setModels] = useState<Models>();
   const [provider, setProvider] = useState("codex");
   const selectedProvider = detail?.conversation.id === selected ? detail.conversation.provider : index.conversations.find((item) => item.id === selected)?.provider;
@@ -677,7 +680,9 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
   }
 
   async function olderConversations() {
-    if (index.next_cursor === null) return;
+    if (index.next_cursor === null || historyLoading.current) return;
+    historyLoading.current = true;
+    setLoadingHistory(true);
     const epoch = generation.current;
     try {
       const page = await assistantRequest<ConversationIndex>(
@@ -696,6 +701,9 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
       }));
     } catch (failure) {
       if (epoch === generation.current) fail(failure);
+    } finally {
+      historyLoading.current = false;
+      if (epoch === generation.current) setLoadingHistory(false);
     }
   }
 
@@ -745,8 +753,7 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
       !waiting &&
       !busy &&
       !discovering &&
-      !detail?.observation_error &&
-      !error,
+      !detail?.observation_error,
   );
   const appCommand = (applicationCommands[chosenProvider] ?? []).find(item => `/${item.name}` === (drafts[selected] ?? "").trim());
   const canUseAppCommand = Boolean(appCommand && owner && !locked && !busy && !active && !waiting && !needsAttention && (appCommand.action !== "rename" || conversation));
@@ -770,7 +777,8 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
           aria-label="Conversations"
         >
           <div className="mb-4 flex items-center gap-2"><h2 className="flex-1 text-sm font-semibold">Conversations</h2>{embedded && <>{historyControl}{headerActions}</>}</div>
-          <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto">
+          <nav aria-label="Conversation history" className="min-h-0 flex-1 divide-y divide-border/20 overflow-y-auto"
+            onScroll={event => { const list = event.currentTarget; if (list.scrollHeight - list.scrollTop - list.clientHeight < 100) void olderConversations(); }}>
             {index.conversations.map((item) => (
               <button
                 key={item.id}
@@ -782,7 +790,7 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
                   if (embedded) setHistory(false);
                 }}
               >
-                <span className="block truncate font-medium">{item.title}</span>
+                <span className="flex items-center gap-2"><ProviderIcon provider={item.provider} className="h-3.5 w-3.5 opacity-60" /><span className="min-w-0 flex-1 truncate font-medium">{item.title}</span>{item.active_message_id && <Loader2 size={12} className="shrink-0 animate-spin text-muted-foreground" aria-label="Conversation working" />}</span>
                 <span className="mt-1 block text-xs text-muted-foreground">
                   {({codex: "Codex", claude: "Claude", opencode: "OpenCode"} as Record<string, string>)[item.provider] ?? "Agent"} ·{" "}
                   {item.active_message_id
@@ -791,19 +799,9 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
                 </span>
               </button>
             ))}
+            {loadingHistory && <p role="status" className="flex justify-center py-3 text-muted-foreground"><Loader2 size={14} className="animate-spin" aria-hidden="true" /><span className="sr-only">Loading earlier conversations</span></p>}
           </nav>
-          {index.next_cursor !== null && (
-            <button
-              type="button"
-              className="mt-3 text-left text-sm underline"
-              onClick={() => void olderConversations()}
-            >
-              Load earlier conversations
-            </button>
-          )}
-          <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
-            Switching conversations does not stop active work.
-          </p>
+          {index.conversations.some(item => item.id !== selected && item.active_message_id) && <p role="status" className="mt-3 flex items-center gap-2 text-xs text-muted-foreground"><Loader2 size={12} className="animate-spin" aria-hidden="true" />Working in background</p>}
           <Button
             className="mt-4 w-full justify-start"
             variant="ghost"
@@ -1200,6 +1198,8 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
                     !event.nativeEvent.isComposing
                   ) {
                     event.preventDefault();
+                    const first = document.querySelector<HTMLButtonElement>("#assistant-native-commands button:not(:disabled):not([data-command-retry])");
+                    if (first) { first.click(); return; }
                     void send();
                   }
                 }}

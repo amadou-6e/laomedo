@@ -11,3 +11,12 @@ test("selects a model through its native radio without changing effort or dispat
   expect(select).toHaveBeenCalledWith("second");
   expect(effort).not.toHaveBeenCalled();
 });
+
+test("hides OpenCode Go display prefixes while preserving the exact model identity", () => {
+  const select=jest.fn();
+  render(<ModelSelection models={{provider:"opencode",models:[{id:"opencode-go/gpt-6-luna",efforts:["default"]}]}} model="opencode-go/gpt-6-luna" effort="default" disabled={false} onModel={select} onEffort={jest.fn()} />);
+  expect(screen.getByText("gpt-6-luna")).toBeVisible();
+  fireEvent.click(screen.getByRole("button",{name:"Choose model and effort"}));
+  fireEvent.click(screen.getByRole("radio",{name:"opencode-go/gpt-6-luna"}));
+  expect(screen.getByRole("radio",{name:"opencode-go/gpt-6-luna"})).toBeChecked();
+});

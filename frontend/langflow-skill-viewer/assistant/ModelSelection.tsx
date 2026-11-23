@@ -37,7 +37,7 @@ export default function ModelSelection({
           className="inline-flex min-w-0 items-center gap-1.5 rounded-full px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline focus-visible:outline-2 disabled:opacity-50"
         >
           <span className="max-w-48 truncate text-foreground">
-            {model || "Choose model"}
+            {model.replace(/^opencode-go\//, "") || "Choose model"}
           </span>
           {effort && <span className="capitalize">{effort}</span>}
           <ChevronDown size={12} className="shrink-0" />
@@ -69,7 +69,7 @@ export default function ModelSelection({
                   onChange={() => onModel(item.id)}
                   className="absolute inset-0 m-0 h-full w-full cursor-pointer opacity-0"
                 />
-                <span className="truncate">{item.id}</span>
+                <span className="truncate">{item.id.replace(/^opencode-go\//, "")}</span>
                 {model === item.id && <Check size={12} className="shrink-0" />}
               </label>
             ))}

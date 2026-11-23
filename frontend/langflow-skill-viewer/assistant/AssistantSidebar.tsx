@@ -14,6 +14,7 @@ export default function AssistantSidebar() {
   const [maximum, setMaximum] = useState(720);
   const [overlay, setOverlay] = useState(false);
   const container = useRef<HTMLElement>(null);
+  const drag = useRef({ start: 0, moved: false });
   const previousOwner = useRef(owner);
   useEffect(() => { if (open) setMounted(true); }, [open]);
   useEffect(() => {
@@ -43,16 +44,17 @@ export default function AssistantSidebar() {
   const fullChat = selection.conversation ? `/assistant?conversation=${encodeURIComponent(selection.conversation)}` : "/assistant";
   return <aside id="laomedo-assistant-sidebar" ref={container} hidden={!open} aria-label="Assistant sidebar" className={`${open ? "flex" : "hidden"} ${overlay ? "absolute right-0 z-50 shadow-xl" : "relative z-30"} h-full min-h-0 shrink-0 flex-col border-l bg-background pl-2`} style={{ width, maxWidth: "100%" }}>
     <div role="separator" aria-label="Resize assistant" aria-orientation="vertical" aria-valuemin={280} aria-valuemax={maximum} aria-valuenow={width} tabIndex={0}
-      className="absolute inset-y-0 -left-2 z-10 w-2 cursor-col-resize touch-none hover:bg-primary/20 focus-visible:bg-primary/20 focus-visible:outline focus-visible:outline-2"
-      onPointerDown={(event) => { event.preventDefault(); event.currentTarget.focus(); event.currentTarget.setPointerCapture(event.pointerId); }}
-      onPointerMove={(event) => { if (event.currentTarget.hasPointerCapture(event.pointerId)) resize((container.current?.getBoundingClientRect().right ?? event.clientX) - event.clientX); }}
+      className="absolute inset-y-0 left-0 z-10 w-2 cursor-col-resize touch-none border-r text-muted-foreground hover:bg-muted focus-visible:bg-primary/20 focus-visible:outline focus-visible:outline-2"
+      onPointerDown={(event) => { drag.current = { start: event.clientX, moved: false }; event.preventDefault(); event.currentTarget.focus(); event.currentTarget.setPointerCapture(event.pointerId); }}
+      onPointerMove={(event) => { if (event.currentTarget.hasPointerCapture(event.pointerId)) { if (Math.abs(event.clientX - drag.current.start) > 3) drag.current.moved = true; resize((container.current?.getBoundingClientRect().right ?? event.clientX) - event.clientX); } }}
       onPointerUp={(event) => { if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId); }}
       onKeyDown={(event) => {
         if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
         event.preventDefault();
         resize(event.key === "Home" ? 280 : event.key === "End" ? maximum : width + (event.key === "ArrowLeft" ? 24 : -24));
-      }} />
-      <button type="button" aria-label="Collapse assistant sidebar" title="Collapse assistant sidebar" className="absolute inset-y-0 left-0 flex w-2 items-center justify-center border-r text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline focus-visible:outline-2" onClick={() => {setOpen(false);window.requestAnimationFrame(() => { const opener = document.getElementById("laomedo-assistant-opener"); if (opener && !opener.closest('[aria-hidden="true"], [hidden], [inert]')) opener.focus(); });}}><ChevronRight size={8} aria-hidden="true" /></button>
+      }}>
+      <button type="button" aria-label="Collapse assistant sidebar" title="Drag to resize; click to collapse" className="flex h-full w-full cursor-col-resize items-center justify-center hover:text-foreground focus-visible:outline focus-visible:outline-2" onClick={(event) => {if (event.detail !== 0 && drag.current.moved) { drag.current.moved = false; return; } setOpen(false);window.requestAnimationFrame(() => { const opener = document.getElementById("laomedo-assistant-opener"); if (opener && !opener.closest('[aria-hidden="true"], [hidden], [inert]')) opener.focus(); });}}><ChevronRight size={8} aria-hidden="true" /></button>
+    </div>
     <div className="min-h-0 flex-1">{mounted && <AssistantPage headerActions={<Link to={fullChat} aria-label="Open full-window assistant" title="Open full-window assistant" className="rounded p-1 text-muted-foreground hover:text-foreground focus-visible:outline"><ExternalLink size={16} /></Link>} embedded selectedConversation={selection.conversation} linkedConversation={selection.linked} onSelectConversation={setSelection} />}</div>
   </aside>;
 }

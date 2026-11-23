@@ -67,7 +67,7 @@ export default function NativeCommandMenu({ conversation, provider = "codex", ru
         buttons[(current + (event.key === "ArrowDown" ? 1 : buttons.length - 1)) % buttons.length]?.focus();
       }
     }}>
-    {conversation && failed && <button type="button" className="w-full px-2 py-1.5 text-left text-xs text-muted-foreground underline" onClick={() => setRetry(value => value + 1)}>Could not load native commands. Retry</button>}
+    {conversation && failed && <button type="button" data-command-retry className="w-full px-2 py-1.5 text-left text-xs text-muted-foreground underline" onClick={() => setRetry(value => value + 1)}>Could not load native commands. Retry</button>}
     {conversation && !failed && !catalog && <p role="status" className="px-2 py-1.5 text-xs text-muted-foreground">Loading native commands…</p>}
     {commands.map((item, index) => <Fragment key={item.name}>
       {hasBothGroups && (index === 0 || (item.kind === "skill") !== (commands[index - 1].kind === "skill")) && <p className={`px-2 pb-1 pt-1 text-[10px] text-muted-foreground ${index > 0 ? "mt-1 border-t border-border/60 pt-2" : ""}`}>{item.kind === "skill" ? "Skills" : "Commands"}</p>}

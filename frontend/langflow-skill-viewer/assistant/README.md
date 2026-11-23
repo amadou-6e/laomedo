@@ -296,3 +296,17 @@ assistant session fence so restart cannot undo a logout. No bearer is stored.
 NativeUsage renders verified Claude limits in the same muted, rounded card chrome as NativeStatus, with Close/Show limits controls. It does not alter retained output or approval policy.
 
 NativeCommandMenu groups provider-reported skill rows under Skills, independently of Laomedo registry skills. Unsupported skills display capability-specific reasons without granting invocation.
+
+An idle, observed conversation remains sendable after a definite request refusal;
+displaying a previous request error does not itself block the next message. Active
+attempts, uncertain pending submissions, observation errors, connection identity
+and attention states retain their existing admission fences. Enter in an open
+command picker selects its first usable match; a subsequent Enter sends after
+selection, while Shift Enter inserts a newline.
+
+Conversation history uses provider mini logos, subtle row separators and loading
+on scroll instead of a pagination button. Active conversations have a spinner;
+background work replaces the static switching tip. The assistant sidebar shares
+one arrow rail for drag resizing and click collapse, with drag movement suppressing
+collapse. Model labels omit the OpenCode Go prefix while retaining exact IDs at
+the selection, accessibility and provider boundaries.

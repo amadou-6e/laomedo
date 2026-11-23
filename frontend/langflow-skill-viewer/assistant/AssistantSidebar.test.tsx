@@ -34,6 +34,7 @@ test("keyboard resizing is bounded and exposes the current width", () => {
   useAssistantSidebarStore.setState({ open: true });
   render(<MemoryRouter><AssistantSidebar /></MemoryRouter>);
   const divider = screen.getByRole("separator", { name: "Resize assistant" });
+  expect(divider).toContainElement(screen.getByRole("button", { name: "Collapse assistant sidebar" }));
   fireEvent.keyDown(divider, { key: "Home" });
   expect(divider).toHaveAttribute("aria-valuenow", "280");
   fireEvent.keyDown(divider, { key: "ArrowRight" });
