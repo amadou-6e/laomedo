@@ -12,6 +12,7 @@ Repository authorization and protected-file policy stay with their callers.
 | Working-state preparation | `workspace.py` | `AgentWorkspace`: `prepare`, `prepare_git`; compose generic Git mechanics |
 | Source and run directory | `models.py` | `WorkspacePaths`; one admitted source/directory concept |
 | Preparation evidence | `models.py` | `WorkspaceSnapshot`; source hash and optional observed Git baseline |
+| Initial project text | `models.py` | `WorkspaceFiles`: validate a bounded project/ file bundle and materialize it once in a fresh run; resumptions use their existing workspace |
 | Independent directory-mode baseline | `baseline.py` | `initialize(workspace)`; create private Git metadata with deterministic initial identity |
 | Owned failed-run removal | `cleanup.py` | `remove_owned_tree(path, state)`; refuse paths outside owned run state |
 | Run-local skill exclusion and integrity | `skills/utils.py` | `_exclude`, `install`, `verify`; existing signatures and record shapes |

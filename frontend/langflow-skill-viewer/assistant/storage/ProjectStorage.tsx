@@ -10,6 +10,7 @@ export default function ProjectStorage({ onFailure }: { onFailure: (error: unkno
   const [state, setState] = useState<ProjectStorageState>();
   const [name, setName] = useState("");
   const [path, setPath] = useState("");
+  const [token, setToken] = useState("");
   const [agentRepo, setAgentRepo] = useState("");
   const [agentPath, setAgentPath] = useState("agent-files");
   const [graph, setGraph] = useState("");
@@ -91,21 +92,25 @@ export default function ProjectStorage({ onFailure }: { onFailure: (error: unkno
   }}>
     <DialogTrigger asChild><button type="button" aria-label="Project storage" title="Project storage" className="rounded p-1.5 hover:bg-muted"><FolderGit2 size={16} /></button></DialogTrigger>
     <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
-      <DialogHeader><DialogTitle>Project storage</DialogTitle><DialogDescription>Local Git checkouts. Graph files save and load explicitly; editor autosave stays in Laomedo. No automatic commits or pushes.</DialogDescription></DialogHeader>
+      <DialogHeader><DialogTitle>Project storage</DialogTitle><DialogDescription>Clone a selected repository. Graph files save and load explicitly; editor autosave stays in Laomedo. No automatic commits or pushes.</DialogDescription></DialogHeader>
       <fieldset disabled={busy} className="min-w-0 space-y-5 disabled:opacity-60">
         <section className="space-y-2">
-          <h3 className="text-sm font-medium">Connect a checkout</h3>
+          <h3 className="text-sm font-medium">Clone a repository</h3>
           {state?.repositories.map(repo => <p key={repo.id} className="break-all text-xs text-muted-foreground">{repo.name} · {repo.path}</p>)}
           <label className="block text-xs">Repository name<input className={input} value={name} onChange={event => setName(event.target.value)} /></label>
-          <label className="block text-xs">Local checkout path<input className={input} value={path} placeholder="C:\projects\my-project" onChange={event => setPath(event.target.value)} /></label>
+          <label className="block text-xs">GitHub repository<input className={input} value={path} placeholder="owner/repository" onChange={event => setPath(event.target.value)} /></label>
+          <label className="block text-xs">Read token (optional for private repositories)<input type="password" autoComplete="off" className={input} value={token} onChange={event => setToken(event.target.value)} /></label>
+          <p className="text-xs text-muted-foreground">The token is used for this clone only and is not saved or shared with chat.</p>
           <button className={button} type="button" disabled={!name.trim() || !path.trim()} onClick={() => void perform(async () => {
-            await assistantRequest("/storage/repositories", {name: name.trim(), path: path.trim()}, controller.current?.signal);
-            setName(""); setPath(""); return "Checkout connected.";
-          })}>Connect checkout</button>
+            const credential = token;
+            setToken("");
+            await assistantRequest("/storage/repositories/clone", {name: name.trim(), repository: path.trim(), ...(credential ? { token: credential } : {})}, controller.current?.signal, undefined, 120000);
+            setName(""); setPath(""); return "Repository cloned.";
+          })}>Clone repository</button>
         </section>
         <section className="space-y-2 border-t pt-4">
           <h3 className="text-sm font-medium">Agent files</h3>
-          <p className="text-xs text-muted-foreground">Persistent files available to chat through Laomedo tools.</p>
+          <p className="text-xs text-muted-foreground">New conversations receive these files in their normal shell workspace. Completed turns save changes back; external changes are protected.</p>
           {state?.agent_files && <p className="break-all text-xs text-muted-foreground">Current: {state.repositories.find(repo => repo.id === state.agent_files?.repository_id)?.name} / {state.agent_files.path}</p>}
           <label className="block text-xs">Agent repository<select className={input} value={agentRepo} onChange={event => setAgentRepo(event.target.value)}>{choices}</select></label>
           <label className="block text-xs">Agent folder (relative to repository)<input className={input} value={agentPath} onChange={event => setAgentPath(event.target.value)} /></label>

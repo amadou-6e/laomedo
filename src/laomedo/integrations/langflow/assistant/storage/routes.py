@@ -1,13 +1,18 @@
 """Authenticated project storage selection; model tools cannot select host roots."""
 
+import asyncio
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 
 from laomedo.integrations.langflow.assistant.errors import AssistantError
 from laomedo.integrations.langflow.assistant.routes import access, release
 from laomedo.integrations.langflow.assistant.storage.graphs import ProjectGraphs
+from laomedo.integrations.langflow.assistant.storage.repositories import (
+    ProjectRepositories,
+)
 from laomedo.integrations.langflow.assistant.storage.models import (
     RepositoryRegistration,
+    RepositoryClone,
     RepositoryLocation,
     GraphFileRequest,
 )
@@ -15,6 +20,19 @@ from laomedo.integrations.langflow.assistant.storage.models import (
 storage_router = APIRouter(
     prefix="/api/v1/laomedo/assistant/storage", tags=["Project storage"]
 )
+
+
+@storage_router.post("/repositories/clone")
+async def clone_repository(body: RepositoryClone, context=Depends(access)):
+    runtime, owner, key = context
+    try:
+        await runtime.check_session(owner, key)
+        result = await asyncio.to_thread(
+            ProjectRepositories(runtime.project_storage).clone, owner, body
+        )
+        return await release(runtime, owner, key, result)
+    except AssistantError as error:
+        raise HTTPException(error.status, detail={"code": error.code}) from None
 
 
 @storage_router.get("")

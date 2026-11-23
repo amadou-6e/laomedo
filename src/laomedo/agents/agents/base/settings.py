@@ -1,6 +1,6 @@
 """Shared HTTP limits, snapshot bounds and runner startup configuration."""
 
-MAX_BODY = 64 * 1024
+MAX_BODY = 512 * 1024
 
 
 from pydantic import Field

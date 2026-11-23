@@ -1235,6 +1235,44 @@ class LocalRunnerTests(unittest.TestCase):
             with self.subTest(supplied=supplied), self.assertRaises(RunnerError):
                 self.runner._prepare(request)
 
+    def test_selected_project_files_use_normal_workspace_and_survive_resume(self):
+        request = self.request()
+        request["workspace_files"] = {
+            "files": {"project/agent-files/notes.md": "Selected project notes"}
+        }
+        completed = self.runner.start(request)
+        self.assertEqual(completed["status"], "completed")
+        files = self.runner.project_files(
+            completed["run_id"], completed["post_run_hash"]
+        )
+        self.assertEqual(
+            files.files["project/agent-files/notes.md"], "Selected project notes"
+        )
+        resumed = self.runner.resume(
+            completed["run_id"],
+            "continue",
+            expected_post_run_hash=completed["post_run_hash"],
+            expected_thread_id=completed["thread_id"],
+            model="test-model",
+            effort="low",
+        )
+        self.assertEqual(resumed["status"], "completed")
+        self.assertEqual(
+            self.runner.project_files(
+                resumed["run_id"], resumed["post_run_hash"]
+            ).files,
+            files.files,
+        )
+        with self.assertRaisesRegex(RunnerError, "artifact_snapshot_mismatch"):
+            self.runner.project_files(resumed["run_id"], "sha256:" + "0" * 64)
+
+    def test_initial_project_files_cannot_escape_owned_workspace(self):
+        request = self.request()
+        request["workspace_files"] = {"files": {"project/../../outside": "text"}}
+        with self.assertRaisesRegex(RunnerError, "workspace_files_invalid"):
+            self.runner._prepare(request)
+        self.assertEqual(list((self.runner.state / "runs").iterdir()), [])
+
     def test_zero_skills_refuses_unselected_source_skills_and_invalid_paths_before_dispatch(
         self,
     ):

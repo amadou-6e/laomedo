@@ -2,8 +2,9 @@
 
 from uuid import UUID
 from typing import Literal
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator
 from laomedo.integrations.langflow.assistant.models import DraftGraph, DraftNode
+from laomedo.agents.workspaces.models import WorkspaceFiles
 
 
 class RepositoryRegistration(BaseModel):
@@ -12,6 +13,29 @@ class RepositoryRegistration(BaseModel):
     model_config = ConfigDict(extra="forbid")
     name: str = Field(min_length=1, max_length=100)
     path: str = Field(min_length=1, max_length=2000)
+
+
+class RepositoryClone(BaseModel):
+    """Explicit GitHub repository selection and optional one-use read credential."""
+
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
+    name: str = Field(min_length=1, max_length=100)
+    repository: str = Field(min_length=3, max_length=201)
+    token: SecretStr | None = Field(default=None, exclude=True, repr=False)
+
+    @field_validator("repository")
+    @classmethod
+    def repository_name(cls, value):
+        """Accept only owner/name, never a URL carrying credentials or Git options."""
+        import re
+
+        if not re.fullmatch(
+            r"[A-Za-z0-9][A-Za-z0-9-]{0,38}/[A-Za-z0-9][A-Za-z0-9_.-]{0,99}", value
+        ):
+            raise ValueError("invalid_repository")
+        if value.endswith(".git"):
+            value = value[:-4]
+        return value
 
 
 class RepositoryConnection(RepositoryRegistration):
@@ -41,6 +65,17 @@ class StorageDocument(BaseModel):
     repositories: list[RepositoryConnection] = Field(default_factory=list)
     agent_files: RepositoryLocation | None = None
     graphs: dict[str, GraphFileBinding] = Field(default_factory=dict)
+
+
+class ChatWorkspaceBinding(BaseModel):
+    """Frozen selected locations and observed hashes for one conversation's shell."""
+
+    model_config = ConfigDict(extra="forbid")
+    agent_files: RepositoryLocation | None = None
+    graphs: dict[str, RepositoryLocation] = Field(default_factory=dict)
+    initial_files: WorkspaceFiles = Field(default_factory=WorkspaceFiles, repr=False)
+    workspace_hashes: dict[str, str] = Field(default_factory=dict)
+    target_hashes: dict[str, str | None] = Field(default_factory=dict)
 
 
 class GraphFileRequest(BaseModel):

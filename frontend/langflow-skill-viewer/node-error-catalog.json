@@ -2148,7 +2148,7 @@
   "issue_state_invalid": {
     "title": "The Issue state filter is invalid",
     "description": "The saved state value is not one of the supported filters.",
-    "recovery": "Choose Open, Closed or All in the nodeâ€™s State control and refresh discovery."
+    "recovery": "Choose Open, Closed or All in the node’s State control and refresh discovery."
   },
   "issue_write_unknown": {
     "title": "The Issue update outcome is not confirmed",
@@ -2208,7 +2208,7 @@
   "pr_state_invalid": {
     "title": "The PR state filter is invalid",
     "description": "The saved state value is not one of the supported filters.",
-    "recovery": "Choose Open, Closed or All in the nodeâ€™s State control and refresh discovery."
+    "recovery": "Choose Open, Closed or All in the node’s State control and refresh discovery."
   },
   "pr_write_unknown": {
     "title": "The PR update outcome is not confirmed",
@@ -2944,5 +2944,20 @@
     "title": "File write not confirmed",
     "description": "The requested project file operation could not be confirmed.",
     "recovery": "Check directory availability and write permissions, then refresh before retrying."
+  },
+  "assistant_storage_clone_failed": {
+    "title": "Repository clone failed",
+    "description": "Repository clone failed.",
+    "recovery": "Check the repository name and read access, then try again. No checkout was connected."
+  },
+  "assistant_storage_repository_unsupported": {
+    "title": "Repository layout is unsupported",
+    "description": "Repository layout is unsupported.",
+    "recovery": "The pilot accepts regular files only, with at most 10,000 files. Submodules and symbolic links are not supported."
+  },
+  "workspace_files_invalid": {
+    "title": "Project files could not be prepared",
+    "description": "Project files could not be prepared.",
+    "recovery": "Check that selected files are bounded UTF-8 text without symbolic links, then retry."
   }
 }

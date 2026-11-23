@@ -11,6 +11,7 @@ export async function assistantRequest<T>(
   body?: unknown,
   signal?: AbortSignal,
   method?: "PATCH" | "DELETE",
+  timeoutMs = 20000,
 ): Promise<T> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -20,7 +21,7 @@ export async function assistantRequest<T>(
   const abort = () => controller.abort();
   signal?.addEventListener("abort", abort, { once: true });
   if (signal?.aborted) controller.abort();
-  const timer = window.setTimeout(abort, 20000);
+  const timer = window.setTimeout(abort, timeoutMs);
   let response: Response;
   let payload: any;
   try {
