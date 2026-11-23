@@ -201,3 +201,50 @@ Owner left /usa in a completed Claude conversation but the menu showed native co
 Production4568d9adb shows only the actual native Limits section for verifiedcompletedClaudeusage, including reportedpercentages/reset/bars; unknownformatshowsunavailable,nofabrication. Display/copy/exportagree;rawreceiptretained. Completedusageactioncardomitted; pendingassistantproposalsretainapproval. Explicithuman noargumentusage withactualnonmodeladvertisement reusestatusatomicdecision/dispatch withoutsecondapproval.10backendnativeapprovaltestsPASS14.177s and134UI/providerPASS22.595s. Black956unchanged,VitefinalPASS1m25s,allrequiredCIpass. SameClaude reviewerimplementationAPPROVE3c1bb60ec..4568d9adb; specd3aec411APPROVE, tableconsistency874a4e21focusedrecheckpending. Actualretainednativeusagehas###Limits heading, confirmsparserpremise. LivepreviewbackendrestartawaitsexplicitownerdecisionbecauseexistingliveCodexstatus-onlysessionwouldend; no restart,newcommandorinferenceperformed. No liveacceptanceclaim.
 
 Live acceptance after owner-authorized preview restart: fresh Claude prompt returned READY; explicit /usage submitted once ran immediately without approval and settled with only Limits, native percentages/reset times/bars, no redundant completed card or error. Same Claude reviewer inspected the actual private screenshot and returned Visual APPROVE for desktop dark embedded sidebar at implementation4568d9adb and spec874a4e21. Copy/export covered by automated tests, not screenshot. Broader narrow/light/focus/polling/standalone coverage remains incomplete; no all-command completion or merge-readiness claim. No source changes after reviewed heads. Screenshot remains ignored/private.
+
+## Bundled native skills, November 22–23
+
+Owner authorized bundled/preinstalled skills in the same chat workstream, without
+personal/project/marketplace import or wider tools. Pinned offline discovery found
+five native Codex system skills, Claude SDK initialization skill names plus native
+builtin provenance, and OpenCode's built-in customize-opencode. Supported initial
+routes are Codex skill-creator and Claude claude-api; configuration-changing,
+subagent, scheduling, repository and external-service requirements remain explicit
+disabled reasons. Actual invocation uses each provider's native mechanism.
+
+Initial Claude review of 010bf8112..11b5552fe requested corrections for ordinary
+dollar text and durable Codex input proof. Those were fixed at bb7325fc4. Approved
+skill inputs carry a unique invocation and retained adapter receipt bound to the
+native root turn, clearly distinct from original native events and file effects.
+Known native dollar mentions in ordinary text and extra mentions in approved
+arguments refuse before dispatch. Actual currency chat returned SKILL-READY.
+
+Live testing found and corrected defects that fixtures did not expose:
+
+- Worker home tmpfs hid bundled helper files. The immutable public helper tree
+  now lives under /opt/acp/system-skills and is linked into the disposable worker
+  home before exec-server. A credential-free final-image smoke check confirms the
+  validator is readable, skill files immutable and YAML installed.
+- A native Docs turn had an input receipt but reported search unavailable. It
+  performed no search/open; this is failed capability acceptance. Docs is now
+  disabled in menu and both backend/adapter dispatch policy. No new network or
+  MCP permission was added merely to make it pass.
+- Saved Claude login custody pinned assistant execution to the old adapter.
+  New assistant controllers retain the exact saved profile but use the current
+  registered execution image; login and graph image selection remain unchanged.
+- Claude adds color, doctor, focus and reload-plugins and reorders commands on
+  resume. Approval now binds canonically sorted executable native contracts,
+  provenance, observed skill set and image; display-only changes cannot invalidate
+  an unchanged executable contract. Changed executable source/image still refuse.
+
+At implementation 1a3ad1fb2 / spec3e58377, real resumed Claude claude-api completed
+after explicit approval. Retained proof is native skill_expansion in the same
+session with actual native event UUID. Streaming and the completed answer were
+visible in the shared integrated sidebar. No tools/file/workflow changes requested.
+Screenshots and private record extracts stay ignored, outside exp.
+
+Source review approved through 1a3ad1fb2, with initial spec through c90fa90 approved;
+the latest six-line catalog paragraph and final visual/live packet still await
+review. Current-image fixtures were updated at d81977777: 63 affected runtime
+tests and13subtests pass. CI rerun and final Codex helper-backed skill acceptance
+are in progress. No merge-readiness or all-skills availability claim.
