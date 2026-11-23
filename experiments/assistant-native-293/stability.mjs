@@ -27,9 +27,9 @@ async function api(endpoint,body) {
 }
 let page = await context.newPage();
 if(process.env.UI_ONLY==='1') {
- const checks=[];
+ const checks=[],evidence={};
  const index=await api('/conversations');
- const claude=index.conversations.find(c=>c.provider==='claude'&&c.run_id&&c.state==='idle');
+ const claude=index.conversations.find(c=>c.provider==='claude'&&c.run_id&&c.state==='idle'&&(!process.env.UI_CONVERSATION||c.id===process.env.UI_CONVERSATION));
  if(!claude)throw Error('settled_claude_catalog_absent');
  await page.goto(base+'/assistant?conversation='+claude.id);
  const box=page.getByRole('textbox',{name:'Message this assistant',exact:true});
@@ -50,14 +50,22 @@ if(process.env.UI_ONLY==='1') {
  while(await history.getByRole('button').count()<=before&&Date.now()<until)await page.waitForTimeout(100);
  if(await history.getByRole('button').count()<=before)throw Error('history_scroll_did_not_load');
  checks.push('history_scroll_loads_earlier');
+ await page.setViewportSize({width:1280,height:4000});
+ await page.reload();
+ await page.waitForFunction(()=>document.querySelectorAll('nav[aria-label="Conversation history"] button').length>30,{},{timeout:15000});
+ checks.push('visible_sentinel_loads_without_scrolling');
+ await page.setViewportSize({width:1280,height:960});
+ await history.evaluate(node=>{node.scrollTop=0;});
  await page.evaluate(()=>document.documentElement.classList.add('dark'));
  await page.waitForTimeout(600);
+ evidence.darkNewConversation=await page.getByRole('button',{name:'New conversation',exact:true}).evaluate(node=>({color:getComputedStyle(node).color,opacity:getComputedStyle(node).opacity,disabled:node.disabled}));
  await page.screenshot({path:path.join(directory,'history-dark.png')});
  await page.setViewportSize({width:700,height:900});
  await page.screenshot({path:path.join(directory,'history-narrow.png')});
  await page.setViewportSize({width:1280,height:960});
  await page.evaluate(()=>document.documentElement.classList.remove('dark'));
  await page.waitForTimeout(600);
+ evidence.lightNewConversation=await page.getByRole('button',{name:'New conversation',exact:true}).evaluate(node=>({color:getComputedStyle(node).color,opacity:getComputedStyle(node).opacity,disabled:node.disabled}));
  await page.screenshot({path:path.join(directory,'history-light.png')});
  const opencode=index.conversations.find(c=>c.provider==='opencode'&&c.state==='idle');
  await page.goto(base+'/assistant?conversation='+opencode.id);
@@ -66,6 +74,7 @@ if(process.env.UI_ONLY==='1') {
  await page.waitForFunction(()=>{const button=document.querySelector('[aria-label="Choose model and effort"]');return button&&!button.disabled&&!button.textContent.includes('Choose model');});
  await page.waitForTimeout(600);
  if((await picker.innerText()).includes('opencode-go/'))throw Error('model_prefix_visible');
+ evidence.opencodeModelLabel=await picker.innerText();
  await page.screenshot({path:path.join(directory,'opencode-model.png')});checks.push('opencode_prefix_hidden');
  await page.goto(base+'/flow/d6e24c04-1cb3-4f05-b9a6-bb0732dd0b73');
  await page.getByRole('button',{name:'Open assistant sidebar',exact:true}).click();
@@ -81,7 +90,7 @@ if(process.env.UI_ONLY==='1') {
  await page.getByRole('button',{name:'Open assistant sidebar',exact:true}).waitFor({timeout:5000});
  if(await rail.isVisible())throw Error('rail_click_did_not_collapse');
  checks.push('same_rail_drag_resizes_without_collapsing','rail_click_collapses');
- fs.writeFileSync(path.join(directory,'ui-report.json'),JSON.stringify({checks,state:'passed',revision:process.env.TEST_REVISION??'unknown'},null,2));
+ fs.writeFileSync(path.join(directory,'ui-report.json'),JSON.stringify({checks,evidence,state:'passed',revision:process.env.TEST_REVISION??'unknown'},null,2));
  console.log(JSON.stringify({checks,state:'passed'}));await browser.close();process.exit(0);
 }
 if(process.env.INSPECT_ONLY==='1') {
