@@ -13,7 +13,7 @@ export default function DeleteConversation({ conversation, title, onDeleted, onF
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const alive = useRef(false);
-  const controller = useRef<AbortController>();
+  const controller = useRef<AbortController | undefined>(undefined);
   const cancel = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     alive.current = true;

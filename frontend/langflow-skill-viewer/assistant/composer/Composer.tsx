@@ -152,7 +152,7 @@ export default function Composer({
                 <a
                   href="/settings/providers"
                   onClick={(event) => {
-                    if (!accountSelection.onManageAccounts())
+                    if (!accountSelection.onManageAccounts?.())
                       event.preventDefault();
                   }}
                   className="underline underline-offset-2"

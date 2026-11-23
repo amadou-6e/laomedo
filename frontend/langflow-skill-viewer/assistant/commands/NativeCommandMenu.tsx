@@ -24,10 +24,10 @@ export default function NativeCommandMenu({ conversation, provider = "codex", ru
   const unstarted = !conversation || catalog?.reason === "native_session_not_created";
   const appCommands = applicationCommands[provider] ?? [];
   const nativeCommands = (unstarted
-    ? (providerCommandPreviews[provider] ?? []).map(item => ({ ...item, executable: provider === "codex" && item.name === "status", reason: "native_session_not_created" }))
+    ? (providerCommandPreviews[provider] ?? []).map(item => ({ ...item, accepts_arguments: false, executable: provider === "codex" && item.name === "status", reason: "native_session_not_created" }))
     : (catalog?.commands ?? [])
   ).filter(item => !appCommands.some(app => app.name === item.name)).map(item => ({...item, reason: ["plan", "goal"].includes(item.name) ? "deferred" : ["review-branch", "review-commit"].includes(item.name) ? "scratch_workspace" : item.reason}));
-  const commands: NativeCommandCatalog["commands"] = [...nativeCommands, ...appCommands.map(item => ({...item, executable: item.action !== "rename" || Boolean(conversation), reason: "conversation_required"}))]
+  const commands: NativeCommandCatalog["commands"] = [...nativeCommands, ...appCommands.map(item => ({...item, accepts_arguments: false, executable: item.action !== "rename" || Boolean(conversation), reason: "conversation_required"}))]
     .filter(item => (!text.startsWith("$") || item.name.startsWith("$")) && item.name.replace(/^\$/, "").toLowerCase().startsWith(text.slice(1).toLowerCase()))
     .sort((left, right) => Number(("kind" in left && left.kind) === "skill") - Number(("kind" in right && right.kind) === "skill") || Number(right.executable) - Number(left.executable));
   const hasBothGroups = commands.some(item => item.kind === "skill") && commands.some(item => item.kind !== "skill");
@@ -62,7 +62,7 @@ export default function NativeCommandMenu({ conversation, provider = "codex", ru
       if (event.key === "Escape") { event.preventDefault(); onClose(); }
       if (event.key === "ArrowDown" || event.key === "ArrowUp") {
         event.preventDefault();
-        const buttons = Array.from(event.currentTarget.querySelectorAll("button:not(:disabled)"));
+        const buttons = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>("button:not(:disabled)"));
         const current = buttons.indexOf(document.activeElement as HTMLButtonElement);
         buttons[(current + (event.key === "ArrowDown" ? 1 : buttons.length - 1)) % buttons.length]?.focus();
       }

@@ -19,7 +19,7 @@ export default function useConversationExport({
 }) {
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState(false);
-  const exportController = useRef<AbortController>();
+  const exportController = useRef<AbortController | undefined>(undefined);
   useEffect(() => {
     setExporting(false);
     setExportError(false);

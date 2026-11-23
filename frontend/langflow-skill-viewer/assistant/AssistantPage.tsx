@@ -120,7 +120,7 @@ export default function AssistantPage({
       catalog_revision: string;
       operation_key: string;
     };
-  }>();
+  } | undefined>(undefined);
   currentSelection.current = selected;
 
   useEffect(() => {

@@ -25,7 +25,7 @@ export default function useHistoryPagination({
   fail: (error: unknown) => void;
 }) {
   const [loadingHistory, setLoadingHistory] = useState(false);
-  const historyLoading = useRef<symbol>();
+  const historyLoading = useRef<symbol | undefined>(undefined);
   const historyList = useRef<HTMLElement>(null);
   const historySentinel = useRef<HTMLDivElement>(null);
   useEffect(() => {
