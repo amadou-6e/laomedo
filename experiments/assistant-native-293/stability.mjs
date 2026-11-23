@@ -94,6 +94,22 @@ if(process.env.UI_ONLY==='1') {
  console.log(JSON.stringify({checks,state:'passed'}));await browser.close();process.exit(0);
 }
 if(process.env.INSPECT_ONLY==='1') {
+ if(process.env.AUDIT_CAMPAIGN){
+  const reportPath=path.resolve(root,'.tools',process.env.AUDIT_CAMPAIGN,'report.json');
+  if(!reportPath.startsWith(path.resolve(root,'.tools')+path.sep))throw Error('audit_path_outside_workspace');
+  const report=JSON.parse(fs.readFileSync(reportPath,'utf8'));
+  if(report.state!=='passed'||report.cases.length!==20||new Set(report.cases.map(item=>item.id)).size!==20)throw Error('twenty_unique_passed_conversations_required');
+  const cases=[];
+  for(const item of report.cases){
+   const detail=await api('/conversations/'+item.id),messages=detail.messages.slice(0,4);
+   const runIds=new Set(messages.map(message=>message.run_id).filter(Boolean));
+   const native=messages.filter(message=>message.native_action_id);
+   if(messages.length!==4||messages.some(message=>message.state!=='completed')||runIds.size!==1||native.length!==1||!detail.native_actions.some(action=>action.id===native[0].native_action_id&&action.state==='completed'))throw Error('retained_evidence_mismatch_case_'+item.number);
+   cases.push({number:item.number,provider:item.provider,model:item.model,state:'passed',operations:item.steps.map(step=>step.operation),retained_completed_messages:4,completed_native_receipts:1,stable_run_binding:true,send_ready_checks:4});
+  }
+  const evidence={campaign:report.campaign,revision:report.revision,seed:report.seed,concurrency:report.concurrency,started:report.started,finished:report.finished,private_report_sha256:crypto.createHash('sha256').update(fs.readFileSync(reportPath)).digest('hex'),providers:Object.fromEntries(['codex','claude','opencode'].map(provider=>[provider,cases.filter(item=>item.provider===provider).length])),state:'passed',cases:cases.sort((a,b)=>a.number-b.number)};
+  fs.writeFileSync(path.join(directory,'audit.json'),JSON.stringify(evidence,null,2));console.log(JSON.stringify({state:'passed',conversations:20,completed_messages:80,native_receipts:20,send_ready_checks:80,providers:evidence.providers}));await browser.close();process.exit(0);
+ }
  if(process.env.INSPECT_ACTIVITY){const detail=await api('/conversations/'+process.env.INSPECT_ACTIVITY);const last=detail.messages.at(-1);const activity=await api('/conversations/'+process.env.INSPECT_ACTIVITY+'/activity?attempt='+last.attempt_id+'&after=0');fs.writeFileSync(path.join(directory,'activity-private.json'),JSON.stringify(activity,null,2));console.log(JSON.stringify({activityKeys:Object.keys(activity),projectionKeys:Object.keys(activity.projection??{}),lastError:last.error_code}));}
  if(process.env.NAVIGATE_TO){await page.goto(base+'/assistant?conversation='+process.env.NAVIGATE_TO);await page.waitForTimeout(4000);console.log(JSON.stringify({url:page.url(),send:await page.getByRole('button',{name:'Send',exact:true}).count(),start:await page.getByRole('button',{name:'Start chat',exact:true}).count()}));}
  const index = await api('/conversations');

@@ -1,0 +1,26 @@
+{
+  "checks": [
+    "native_enter_selects_without_dispatch",
+    "shift_enter_newline",
+    "history_scroll_loads_earlier",
+    "visible_sentinel_loads_without_scrolling",
+    "opencode_prefix_hidden",
+    "same_rail_drag_resizes_without_collapsing",
+    "rail_click_collapses"
+  ],
+  "evidence": {
+    "darkNewConversation": {
+      "color": "rgb(255, 255, 255)",
+      "opacity": "1",
+      "disabled": false
+    },
+    "lightNewConversation": {
+      "color": "rgb(0, 0, 0)",
+      "opacity": "1",
+      "disabled": false
+    },
+    "opencodeModelLabel": "gpt-6-luna\nDefault"
+  },
+  "state": "passed",
+  "revision": "3f10cb584"
+}

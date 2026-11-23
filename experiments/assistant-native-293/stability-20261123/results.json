@@ -1,0 +1,342 @@
+{
+  "campaign": "assistant-stability-20-20261123-f",
+  "revision": "8325a10c6",
+  "seed": 333244545,
+  "concurrency": 3,
+  "started": "2026-11-23T14:28:39.430Z",
+  "finished": "2026-11-23T14:40:28.526Z",
+  "private_report_sha256": "929cda06a304b4b55b723312ffaaa806771bf838ba65c386228d8c004fec7872",
+  "providers": {
+    "codex": 7,
+    "claude": 7,
+    "opencode": 6
+  },
+  "state": "passed",
+  "cases": [
+    {
+      "number": 1,
+      "provider": "codex",
+      "model": "gpt-6.1-sol",
+      "state": "passed",
+      "operations": [
+        "initial",
+        "review",
+        "followup",
+        "reload_followup"
+      ],
+      "retained_completed_messages": 4,
+      "completed_native_receipts": 1,
+      "stable_run_binding": true,
+      "send_ready_checks": 4
+    },
+    {
+      "number": 2,
+      "provider": "claude",
+      "model": "sonnet",
+      "state": "passed",
+      "operations": [
+        "initial",
+        "mcp",
+        "followup",
+        "reload_followup"
+      ],
+      "retained_completed_messages": 4,
+      "completed_native_receipts": 1,
+      "stable_run_binding": true,
+      "send_ready_checks": 4
+    },
+    {
+      "number": 3,
+      "provider": "opencode",
+      "model": "opencode-go/gpt-6-luna",
+      "state": "passed",
+      "operations": [
+        "initial",
+        "init",
+        "followup",
+        "reload_followup"
+      ],
+      "retained_completed_messages": 4,
+      "completed_native_receipts": 1,
+      "stable_run_binding": true,
+      "send_ready_checks": 4
+    },
+    {
+      "number": 4,
+      "provider": "codex",
+      "model": "gpt-6.1-sol",
+      "state": "passed",
+      "operations": [
+        "initial",
+        "status",
+        "followup",
+        "reload_followup"
+      ],
+      "retained_completed_messages": 4,
+      "completed_native_receipts": 1,
+      "stable_run_binding": true,
+      "send_ready_checks": 4
+    },
+    {
+      "number": 5,
+      "provider": "claude",
+      "model": "sonnet",
+      "state": "passed",
+      "operations": [
+        "initial",
+        "context",
+        "followup",
+        "reload_followup"
+      ],
+      "retained_completed_messages": 4,
+      "completed_native_receipts": 1,
+      "stable_run_binding": true,
+      "send_ready_checks": 4
+    },
+    {
+      "number": 6,
+      "provider": "opencode",
+      "model": "opencode-go/gpt-6-luna",
+      "state": "passed",
+      "operations": [
+        "initial",
+        "review",
+        "followup",
+        "reload_followup"
+      ],
+      "retained_completed_messages": 4,
+      "completed_native_receipts": 1,
+      "stable_run_binding": true,
+      "send_ready_checks": 4
+    },
+    {
+      "number": 7,
+      "provider": "codex",
+      "model": "gpt-6.1-sol",
+      "state": "passed",
+      "operations": [
+        "initial",
+        "mcp",
+        "followup",
+        "reload_followup"
+      ],
+      "retained_completed_messages": 4,
+      "completed_native_receipts": 1,
+      "stable_run_binding": true,
+      "send_ready_checks": 4
+    },
+    {
+      "number": 8,
+      "provider": "claude",
+      "model": "sonnet",
+      "state": "passed",
+      "operations": [
+        "initial",
+        "claude-api",
+        "followup",
+        "reload_followup"
+      ],
+      "retained_completed_messages": 4,
+      "completed_native_receipts": 1,
+      "stable_run_binding": true,
+      "send_ready_checks": 4
+    },
+    {
+      "number": 9,
+      "provider": "opencode",
+      "model": "opencode-go/gpt-6-luna",
+      "state": "passed",
+      "operations": [
+        "initial",
+        "review",
+        "followup",
+        "reload_followup"
+      ],
+      "retained_completed_messages": 4,
+      "completed_native_receipts": 1,
+      "stable_run_binding": true,
+      "send_ready_checks": 4
+    },
+    {
+      "number": 10,
+      "provider": "codex",
+      "model": "gpt-6.1-sol",
+      "state": "passed",
+      "operations": [
+        "initial",
+        "$skill-creator",
+        "followup",
+        "reload_followup"
+      ],
+      "retained_completed_messages": 4,
+      "completed_native_receipts": 1,
+      "stable_run_binding": true,
+      "send_ready_checks": 4
+    },
+    {
+      "number": 11,
+      "provider": "claude",
+      "model": "sonnet",
+      "state": "passed",
+      "operations": [
+        "initial",
+        "mcp",
+        "followup",
+        "reload_followup"
+      ],
+      "retained_completed_messages": 4,
+      "completed_native_receipts": 1,
+      "stable_run_binding": true,
+      "send_ready_checks": 4
+    },
+    {
+      "number": 12,
+      "provider": "opencode",
+      "model": "opencode-go/gpt-6-luna",
+      "state": "passed",
+      "operations": [
+        "initial",
+        "review",
+        "followup",
+        "reload_followup"
+      ],
+      "retained_completed_messages": 4,
+      "completed_native_receipts": 1,
+      "stable_run_binding": true,
+      "send_ready_checks": 4
+    },
+    {
+      "number": 13,
+      "provider": "codex",
+      "model": "gpt-6.1-sol",
+      "state": "passed",
+      "operations": [
+        "initial",
+        "review",
+        "followup",
+        "reload_followup"
+      ],
+      "retained_completed_messages": 4,
+      "completed_native_receipts": 1,
+      "stable_run_binding": true,
+      "send_ready_checks": 4
+    },
+    {
+      "number": 14,
+      "provider": "claude",
+      "model": "sonnet",
+      "state": "passed",
+      "operations": [
+        "initial",
+        "usage",
+        "followup",
+        "reload_followup"
+      ],
+      "retained_completed_messages": 4,
+      "completed_native_receipts": 1,
+      "stable_run_binding": true,
+      "send_ready_checks": 4
+    },
+    {
+      "number": 15,
+      "provider": "opencode",
+      "model": "opencode-go/gpt-6-luna",
+      "state": "passed",
+      "operations": [
+        "initial",
+        "init",
+        "followup",
+        "reload_followup"
+      ],
+      "retained_completed_messages": 4,
+      "completed_native_receipts": 1,
+      "stable_run_binding": true,
+      "send_ready_checks": 4
+    },
+    {
+      "number": 16,
+      "provider": "codex",
+      "model": "gpt-6.1-sol",
+      "state": "passed",
+      "operations": [
+        "initial",
+        "mcp",
+        "followup",
+        "reload_followup"
+      ],
+      "retained_completed_messages": 4,
+      "completed_native_receipts": 1,
+      "stable_run_binding": true,
+      "send_ready_checks": 4
+    },
+    {
+      "number": 17,
+      "provider": "claude",
+      "model": "sonnet",
+      "state": "passed",
+      "operations": [
+        "initial",
+        "usage",
+        "followup",
+        "reload_followup"
+      ],
+      "retained_completed_messages": 4,
+      "completed_native_receipts": 1,
+      "stable_run_binding": true,
+      "send_ready_checks": 4
+    },
+    {
+      "number": 18,
+      "provider": "opencode",
+      "model": "opencode-go/gpt-6-luna",
+      "state": "passed",
+      "operations": [
+        "initial",
+        "review",
+        "followup",
+        "reload_followup"
+      ],
+      "retained_completed_messages": 4,
+      "completed_native_receipts": 1,
+      "stable_run_binding": true,
+      "send_ready_checks": 4
+    },
+    {
+      "number": 19,
+      "provider": "codex",
+      "model": "gpt-6.1-sol",
+      "state": "passed",
+      "operations": [
+        "initial",
+        "review",
+        "followup",
+        "reload_followup"
+      ],
+      "retained_completed_messages": 4,
+      "completed_native_receipts": 1,
+      "stable_run_binding": true,
+      "send_ready_checks": 4
+    },
+    {
+      "number": 20,
+      "provider": "claude",
+      "model": "sonnet",
+      "state": "passed",
+      "operations": [
+        "initial",
+        "context",
+        "followup",
+        "reload_followup"
+      ],
+      "retained_completed_messages": 4,
+      "completed_native_receipts": 1,
+      "stable_run_binding": true,
+      "send_ready_checks": 4
+    }
+  ],
+  "final_layout_revision": "3f10cb5842e43b417dd015bd549ccc54218a3a2a",
+  "harness_revision": "5e1d9ec",
+  "functional_revision": "8325a10c6d9a468ea1daa3f5dfbc39b327a92076",
+  "scope": "Real saved-profile browser chats in isolated scratch workspaces; one random executable native command per conversation. Account/logout/rename app navigation excluded.",
+  "final_layout_difference": "Only row-divider CSS and documentation changed after the uninterrupted functional run; no dispatch, lifecycle or interface changes."
+}
