@@ -27,6 +27,8 @@ export default function ProjectStorage({ onFailure }: { onFailure: (error: unkno
   async function refresh(signal?: AbortSignal) {
     const result = await assistantRequest<ProjectStorageState>("/storage", undefined, signal);
     setState(result);
+    setAgentRepo(current => current || result.agent_files?.repository_id || result.repositories[0]?.id || "");
+    setGraphRepo(current => current || result.repositories[0]?.id || "");
     return result;
   }
 
@@ -83,6 +85,7 @@ export default function ProjectStorage({ onFailure }: { onFailure: (error: unkno
   return <Dialog open={open} onOpenChange={value => {
     if (busy) return;
     setOpen(value); setError(""); setNotice("");
+    if (!value) setToken("");
     if (value) void perform(async () => {
       const result = await refresh();
       setAgentRepo(result.agent_files?.repository_id ?? result.repositories[0]?.id ?? "");

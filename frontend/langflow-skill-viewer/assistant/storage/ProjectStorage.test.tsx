@@ -60,3 +60,18 @@ it("does not load when the replacement confirmation is cancelled", async () => {
   expect(jest.mocked(assistantRequest).mock.calls.some(call => call[0].endsWith("/load"))).toBe(false);
   confirmation.mockRestore();
 });
+
+it("clones the selected remote and clears the one-use credential", async () => {
+  render(<ProjectStorage onFailure={jest.fn()} />);
+  fireEvent.click(screen.getByRole("button", {name: "Project storage"}));
+  await screen.findByText("Current: Project / agent-files");
+  await waitFor(() => expect(screen.getByLabelText("Repository name")).not.toBeDisabled());
+  fireEvent.change(screen.getByLabelText("Repository name"), {target: {value: "New project"}});
+  fireEvent.change(screen.getByLabelText("GitHub repository"), {target: {value: "example/project"}});
+  fireEvent.change(screen.getByLabelText("Read token (optional for private repositories)"), {target: {value: "one-use-test-token"}});
+  fireEvent.click(screen.getByRole("button", {name: "Clone repository"}));
+  await screen.findByText("Repository cloned.");
+  expect(assistantRequest).toHaveBeenCalledWith("/storage/repositories/clone", {name: "New project", repository: "example/project", token: "one-use-test-token"}, expect.any(AbortSignal), undefined, 120000);
+  expect(screen.getByLabelText("Read token (optional for private repositories)")).toHaveValue("");
+  expect(screen.getByLabelText("Agent repository")).toHaveValue("repo");
+});
