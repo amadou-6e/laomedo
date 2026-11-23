@@ -25,8 +25,68 @@ async function api(endpoint,body) {
  if(!response.ok()) throw Error(`${endpoint}:${response.status()}:${value.detail?.code??value.code??'request_failed'}`);
  return value;
 }
-const page = await context.newPage();
+let page = await context.newPage();
+if(process.env.UI_ONLY==='1') {
+ const checks=[];
+ const index=await api('/conversations');
+ const claude=index.conversations.find(c=>c.provider==='claude'&&c.run_id&&c.state==='idle');
+ if(!claude)throw Error('settled_claude_catalog_absent');
+ await page.goto(base+'/assistant?conversation='+claude.id);
+ const box=page.getByRole('textbox',{name:'Message this assistant',exact:true});
+ await page.getByRole('button',{name:'Send',exact:true}).waitFor();
+ let posts=0;page.on('request',request=>{if(request.method()==='POST'&&/\/assistant\/conversations\/.+\/(messages|native-commands)$/.test(request.url()))posts++;});
+ await box.fill('/cla');
+ await page.getByRole('button',{name:/\/claude-api/}).waitFor();
+ await box.press('Enter');
+ if(await box.inputValue()!=='/claude-api '||posts)throw Error('enter_selection_dispatched_or_wrong');
+ await box.press('Shift+Enter');
+ if(!(await box.inputValue()).includes('\n')||posts)throw Error('shift_enter_not_newline');
+ checks.push('native_enter_selects_without_dispatch','shift_enter_newline');
+ await box.fill('');
+ const history=page.getByRole('navigation',{name:'Conversation history'});
+ const before=await history.getByRole('button').count();
+ await history.evaluate(node=>{node.scrollTop=node.scrollHeight;});
+ const until=Date.now()+10000;
+ while(await history.getByRole('button').count()<=before&&Date.now()<until)await page.waitForTimeout(100);
+ if(await history.getByRole('button').count()<=before)throw Error('history_scroll_did_not_load');
+ checks.push('history_scroll_loads_earlier');
+ await page.evaluate(()=>document.documentElement.classList.add('dark'));
+ await page.waitForTimeout(600);
+ await page.screenshot({path:path.join(directory,'history-dark.png')});
+ await page.setViewportSize({width:700,height:900});
+ await page.screenshot({path:path.join(directory,'history-narrow.png')});
+ await page.setViewportSize({width:1280,height:960});
+ await page.evaluate(()=>document.documentElement.classList.remove('dark'));
+ await page.waitForTimeout(600);
+ await page.screenshot({path:path.join(directory,'history-light.png')});
+ const opencode=index.conversations.find(c=>c.provider==='opencode'&&c.state==='idle');
+ await page.goto(base+'/assistant?conversation='+opencode.id);
+ const picker=page.getByRole('button',{name:'Choose model and effort'});
+ await picker.waitFor();
+ await page.waitForFunction(()=>{const button=document.querySelector('[aria-label="Choose model and effort"]');return button&&!button.disabled&&!button.textContent.includes('Choose model');});
+ await page.waitForTimeout(600);
+ if((await picker.innerText()).includes('opencode-go/'))throw Error('model_prefix_visible');
+ await page.screenshot({path:path.join(directory,'opencode-model.png')});checks.push('opencode_prefix_hidden');
+ await page.goto(base+'/flow/d6e24c04-1cb3-4f05-b9a6-bb0732dd0b73');
+ await page.getByRole('button',{name:'Open assistant sidebar',exact:true}).click();
+ const rail=page.getByRole('separator',{name:'Resize assistant'});
+ const initial=Number(await rail.getAttribute('aria-valuenow'));
+ const rect=await rail.boundingBox();
+ await page.mouse.move(rect.x+rect.width/2,rect.y+rect.height/2);
+ await page.mouse.down();await page.mouse.move(rect.x-70,rect.y+rect.height/2,{steps:10});await page.mouse.up();
+ if(!(await rail.isVisible())||Number(await rail.getAttribute('aria-valuenow'))<=initial)throw Error('rail_drag_collapsed_or_no_resize');
+ await page.waitForTimeout(1500);
+ await page.screenshot({path:path.join(directory,'sidebar-rail.png')});
+ await page.getByRole('button',{name:'Collapse assistant sidebar',exact:true}).click();
+ await page.getByRole('button',{name:'Open assistant sidebar',exact:true}).waitFor({timeout:5000});
+ if(await rail.isVisible())throw Error('rail_click_did_not_collapse');
+ checks.push('same_rail_drag_resizes_without_collapsing','rail_click_collapses');
+ fs.writeFileSync(path.join(directory,'ui-report.json'),JSON.stringify({checks,state:'passed',revision:process.env.TEST_REVISION??'unknown'},null,2));
+ console.log(JSON.stringify({checks,state:'passed'}));await browser.close();process.exit(0);
+}
 if(process.env.INSPECT_ONLY==='1') {
+ if(process.env.INSPECT_ACTIVITY){const detail=await api('/conversations/'+process.env.INSPECT_ACTIVITY);const last=detail.messages.at(-1);const activity=await api('/conversations/'+process.env.INSPECT_ACTIVITY+'/activity?attempt='+last.attempt_id+'&after=0');fs.writeFileSync(path.join(directory,'activity-private.json'),JSON.stringify(activity,null,2));console.log(JSON.stringify({activityKeys:Object.keys(activity),projectionKeys:Object.keys(activity.projection??{}),lastError:last.error_code}));}
+ if(process.env.NAVIGATE_TO){await page.goto(base+'/assistant?conversation='+process.env.NAVIGATE_TO);await page.waitForTimeout(4000);console.log(JSON.stringify({url:page.url(),send:await page.getByRole('button',{name:'Send',exact:true}).count(),start:await page.getByRole('button',{name:'Start chat',exact:true}).count()}));}
  const index = await api('/conversations');
  for(const row of index.conversations.filter(item=>item.updated_at>Date.now()/1000-4000)) {
   const detail=await api('/conversations/'+row.id);
@@ -38,12 +98,15 @@ const seed=crypto.randomBytes(4).readUInt32LE();let random=seed;
 function choose(items){random=(Math.imul(random,1664525)+1013904223)>>>0;return items[random%items.length];}
 const report={campaign,seed,revision:process.env.TEST_REVISION??'unknown',started:new Date().toISOString(),cases:[]};
 function save(){fs.writeFileSync(path.join(directory,'report.json'),JSON.stringify(report,null,2));}
-async function settled(id,previousCount) {
+async function settled(page,id,previousCount) {
  const deadline=Date.now()+240000;
  while(Date.now()<deadline) {
   const detail=await api('/conversations/'+id);
   if(detail.messages.length>previousCount&&!detail.conversation.active_message_id&&!['starting','running','stopping'].includes(detail.conversation.state)) {
    const last=detail.messages.at(-1);
+   // Separate reads may briefly pair an earlier idle conversation with a newly
+   // reserved message. Observe that same attempt; never replay it as a failure.
+   if(['reserved','starting','running','stopping'].includes(last.state)) { await page.waitForTimeout(250); continue; }
    if(detail.conversation.state!=='idle'||last.state!=='completed') throw Error(`terminal:${detail.conversation.state}:${last.state}:${last.error_code??detail.conversation.error_code??''}`);
    return detail;
   }
@@ -51,7 +114,7 @@ async function settled(id,previousCount) {
  }
  throw Error('turn_deadline_no_automatic_replay');
 }
-async function send(id,text,command=false) {
+async function send(page,id,text,command=false) {
  const before=await api('/conversations/'+id);
  const box=page.getByRole('textbox',{name:'Message this assistant',exact:true});
  await box.fill(text);
@@ -61,7 +124,8 @@ async function send(id,text,command=false) {
  while(await send.isDisabled()&&Date.now()<deadline) await page.waitForTimeout(200);
  if(await send.isDisabled()) throw Error('send_stuck_disabled_before_dispatch');
  await send.click();
- const detail=await settled(id,before.messages.length);
+ const detail=await settled(page,id,before.messages.length);
+ if(command) { const last=detail.messages.at(-1);if(!last.native_action_id||!detail.native_actions?.some(action=>action.id===last.native_action_id&&action.state==='completed'))throw Error('native_command_receipt_missing'); }
  await box.fill('NEXT-DRAFT-NOT-SENT');
  const recovery=Date.now()+10000;
  while(await send.isDisabled()&&Date.now()<recovery) await page.waitForTimeout(200);
@@ -72,7 +136,10 @@ async function send(id,text,command=false) {
 try {
  const connections=(await api('/connections')).connections;
  const providers=['codex','claude','opencode'];
- for(let index=0;index<Number(process.env.CASE_COUNT??20);index++) {
+ const cases=Number(process.env.CASE_COUNT??20),parallel=Number(process.env.PARALLEL??1);report.concurrency=parallel;
+ for(let start=0;start<cases;start+=parallel) {
+  const outcomes=await Promise.allSettled(Array.from({length:Math.min(parallel,cases-start)},(_,offset)=>start+offset).map(async index=>{
+  const page=await context.newPage();
   const provider=providers[index%3];
   const item={number:index+1,provider,steps:[],state:'running'};report.cases.push(item);save();
   try {
@@ -85,31 +152,35 @@ try {
    const conversation=await api('/conversations',{provider,connection_id:account.connection_id,connection_generation:account.generation,model:model.id,effort});
    item.id=conversation.id;item.model=model.id;save();
    await page.goto(base+'/assistant?conversation='+conversation.id);
+   await page.getByRole('button',{name:'Send',exact:true}).waitFor({timeout:30000});
    const marker=`STABILITY-${index+1}-${campaign.slice(-6)}`;
-   const initial=await send(conversation.id,`Remember marker ${marker}. Reply only with this marker. Do not use tools.`);
+   const initial=await send(page,conversation.id,`Remember marker ${marker}. Reply only with this marker. Do not use tools.`);
    if(!initial.reply?.includes(marker))throw Error('initial_marker_missing');
    item.steps.push({operation:'initial',state:initial.state});save();
    const catalog=await api('/conversations/'+conversation.id+'/native-commands');
    const options=catalog.commands.filter(c=>c.executable&&!['login','logout','connect','rename'].includes(c.name));
+   item.available=options.map(command=>command.name);save();
    if(!options.length)throw Error('no_executable_native_commands');
    const count=Number(process.env.COMMAND_COUNT??1);
    for(let turn=0;turn<count;turn++) {
     const entry=choose(options);
     const prefix=entry.name.startsWith('$')?'':'/';
     const args=entry.kind==='skill'&&entry.accepts_arguments?' Explain the purpose of this skill in one sentence. Do not create files or use tools.':'';
-    const result=await send(conversation.id,prefix+entry.name+args,true);
+    const result=await send(page,conversation.id,prefix+entry.name+args,true);
     item.steps.push({operation:entry.name,state:result.state});save();
-    const follow=await send(conversation.id,`Reply only with the original validation marker. Do not use tools.`);
+    const follow=await send(page,conversation.id,`Reply only with the original validation marker. Do not use tools.`);
     if(!follow.reply?.includes(marker))throw Error('resume_marker_missing');
     item.steps.push({operation:'followup',state:follow.state});save();
    }
    // Reload and ensure a real next user turn remains possible after history rebind.
    await page.reload();
-   const final=await send(conversation.id,`Reply exactly DONE-${marker}. Do not use tools.`);
+   const final=await send(page,conversation.id,`Reply exactly DONE-${marker}. Do not use tools.`);
    if(!final.reply?.includes('DONE-'+marker))throw Error('reload_followup_marker_missing');
    item.steps.push({operation:'reload_followup',state:final.state});item.state='passed';save();
    console.log(JSON.stringify({case:index+1,provider,state:item.state,commands:item.steps.filter(s=>!['initial','followup','reload_followup'].includes(s.operation)).map(s=>s.operation)}));
-  }catch(error){item.state='failed';item.error=error.message;save();await page.screenshot({path:path.join(directory,`failure-${index+1}.png`)});console.log(JSON.stringify({case:index+1,provider,state:'failed',error:error.message}));throw error;}
+  }catch(error){item.state='failed';item.error=error.message;item.url=page.url();save();await page.screenshot({path:path.join(directory,`failure-${index+1}.png`)});console.log(JSON.stringify({case:index+1,provider,state:'failed',error:error.message,url:page.url()}));throw error;}finally{await page.close();}
+  }));
+  const failed=outcomes.find(result=>result.status==='rejected');if(failed)throw failed.reason;
  }
  report.state='passed';
 }catch(error){report.state='failed';report.error=error.message;process.exitCode=1;}
